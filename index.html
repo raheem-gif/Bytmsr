@@ -478,14 +478,26 @@ button { font-family: inherit; }
   border-color: var(--void); background: rgba(255,0,60,0.08);
   animation: voidshake 0.5s;
 }
+.prayer.late {
+  border-color: var(--cyan); background: rgba(0,240,255,0.07);
+  box-shadow: 0 0 10px rgba(0,240,255,0.2);
+}
 @keyframes voidshake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .prayer-name { font-family: var(--font-display); font-size: 20px; letter-spacing: 0.1em; }
 .prayer-time { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.2em; margin-top: 2px; }
 .prayer.done .prayer-name { color: var(--amber); text-shadow: 0 0 6px var(--amber); }
 .prayer.missed .prayer-name { color: var(--void); text-shadow: 0 0 6px var(--void); }
+.prayer.late .prayer-name { color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
 .prayer-check { position: absolute; top: 10px; right: 10px; font-size: 14px; opacity: 0; transition: opacity 0.2s; }
 .prayer.done .prayer-check { opacity: 1; color: var(--amber); }
 .prayer.missed .prayer-check { opacity: 1; color: var(--void); }
+.prayer.late .prayer-check { opacity: 1; color: var(--cyan); }
+.prayer-late-tag {
+  position: absolute; bottom: 8px; right: 10px;
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.2em;
+  color: var(--cyan); opacity: 0; text-transform: uppercase;
+}
+.prayer.late .prayer-late-tag { opacity: 0.9; }
 
 /* exam blocks */
 .exam-block {
@@ -1996,20 +2008,23 @@ function countDuePrayers() {
 }
 
 function checkPrayerDeadlines() {
-  if (S.deen.voidReason) return;
-  if (isSleepDay()) return; // no judgment on recovery days
+  if (isSleepDay()) { S.deen.voidReason = null; S.deen.quoteIdx = null; return; }
   const now = new Date();
   const hm = now.getHours() * 60 + now.getMinutes();
+  // A prayer is "missed" only if its deadline passed AND it has no logged status.
+  // status can be: false (nothing), true (prayed on time), 'late' (prayed, logged late).
+  // both true and 'late' are truthy, so they never count as missed.
+  let firstMissed = null;
   for (const [name, deadline] of Object.entries(S.deen.deadlines)) {
     const [h, m] = deadline.split(':').map(Number);
     const dl = h * 60 + m;
-    if (hm > dl && !S.deen.prayers[name]) {
-      S.deen.voidReason = name;
-      if (S.deen.quoteIdx == null) {
-        S.deen.quoteIdx = Math.floor(Math.random() * VOID_QUOTES.length);
-      }
-      return;
-    }
+    if (hm > dl && !S.deen.prayers[name]) { firstMissed = name; break; }
+  }
+  S.deen.voidReason = firstMissed;
+  if (firstMissed) {
+    if (S.deen.quoteIdx == null) S.deen.quoteIdx = Math.floor(Math.random() * VOID_QUOTES.length);
+  } else {
+    S.deen.quoteIdx = null; // no longer void — clear the quote
   }
 }
 
@@ -2470,26 +2485,33 @@ function renderDeen(c) {
 
   let html = `<div class="section">
     <div class="section-title" style="--accent:#ffb627">FIVE PILLARS · TODAY</div>
-    ${S.deen.voidReason ? `<div style="padding:12px 16px;border:1px solid var(--void);background:rgba(255,0,60,0.08);border-radius:3px;margin-bottom:14px;color:var(--void);font-size:13px;letter-spacing:0.2em">
-      ⚠ ${S.deen.voidReason.toUpperCase()} DEADLINE PASSED. INSANOMETER VOIDED. RECOVER TOMORROW.
+    ${S.deen.voidReason ? `<div style="padding:12px 16px;border:1px solid var(--void);background:rgba(255,0,60,0.08);border-radius:3px;margin-bottom:14px;color:var(--void);font-size:13px;letter-spacing:0.15em;line-height:1.5">
+      ⚠ ${S.deen.voidReason.toUpperCase()} DEADLINE PASSED · INSANOMETER VOIDED.<br>
+      <span style="color:var(--cyan)">Prayed it but forgot to log? Tap ${S.deen.voidReason.toUpperCase()} twice to mark it "logged late" — that clears the void.</span>
     </div>` : ''}
     <div class="prayer-grid">
       ${prayers.map(p => {
-        const done = S.deen.prayers[p.id];
+        const st = S.deen.prayers[p.id]; // false | true | 'late'
         const missed = S.deen.voidReason === p.id;
+        const isLate = st === 'late';
+        const isDone = st === true;
         const adhan = (S.deen.times && S.deen.times[p.id]) || '—';
-        return `<div class="prayer ${done ? 'done' : ''} ${missed ? 'missed' : ''}" data-prayer="${p.id}">
-          <div class="prayer-check">${missed ? '✕' : '✓'}</div>
+        const cls = isLate ? 'late' : isDone ? 'done' : missed ? 'missed' : '';
+        const icon = isLate ? '⟲' : isDone ? '✓' : missed ? '✕' : '✓';
+        return `<div class="prayer ${cls}" data-prayer="${p.id}">
+          <div class="prayer-check">${icon}</div>
           <div class="prayer-name">${p.label}</div>
           <div class="prayer-time">adhan ${adhan} · cut-off ${S.deen.deadlines[p.id]}</div>
+          <div class="prayer-late-tag">logged late</div>
         </div>`;
       }).join('')}
     </div>
     <div class="row" style="margin-top:16px;gap:8px">
       <button class="btn ghost" id="prayer-reset-all">RESET TODAY'S PRAYERS</button>
-      <button class="btn ghost" id="prayer-undo-void" ${S.deen.voidReason ? '' : 'style="display:none"'}>UNDO VOID · MISCLICK</button>
     </div>
-    <div style="font-size:11px;color:var(--ink-faint);letter-spacing:0.1em;margin-top:8px">click a prayer to toggle · reset clears all of today · undo void rescues a misclicked void</div>
+    <div style="font-size:11px;color:var(--ink-faint);letter-spacing:0.1em;margin-top:8px;line-height:1.6">
+      tap once = <span style="color:var(--amber)">prayed</span> · tap twice = <span style="color:var(--cyan)">prayed but logged late (forgot to tap it in)</span> · tap a third time to clear · "logged late" still counts and never voids the day
+    </div>
   </div>`;
 
   html += `<div class="section">
@@ -2531,17 +2553,10 @@ function renderDeen(c) {
 
   c.innerHTML = html;
 
-  // wire reset buttons
+  // wire reset button
   document.getElementById('prayer-reset-all').addEventListener('click', async () => {
-    if (!confirm('Reset all of today\'s prayer checkboxes? (Does not undo a void state — use the other button for that.)')) return;
+    if (!confirm('Reset all of today\'s prayer logging back to blank?')) return;
     S.deen.prayers = { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false };
-    await saveState();
-    renderDeen(c);
-    renderInsanometer();
-  });
-  const undoBtn = document.getElementById('prayer-undo-void');
-  if (undoBtn) undoBtn.addEventListener('click', async () => {
-    if (!confirm('Undo the void state? Use only if you actually prayed but the deadline triggered as a misclick.')) return;
     S.deen.voidReason = null;
     S.deen.quoteIdx = null;
     await saveState();
@@ -2558,13 +2573,20 @@ function renderDeen(c) {
     if (ok) { renderDeen(c); renderInsanometer(); }
   });
 
-  // wire prayer toggles
+  // wire prayer toggles — three-state cycle: blank -> prayed -> logged-late -> blank
   c.querySelectorAll('[data-prayer]').forEach(el => {
     if (el.tagName === 'DIV') {
       el.addEventListener('click', async () => {
         const p = el.dataset.prayer;
-        if (S.deen.voidReason === p) return; // can't toggle a missed one
-        S.deen.prayers[p] = !S.deen.prayers[p];
+        const cur = S.deen.prayers[p];
+        let next;
+        if (cur === false || cur === undefined) next = true;      // 1st tap: prayed (on time)
+        else if (cur === true) next = 'late';                     // 2nd tap: prayed, logged late
+        else next = false;                                        // 3rd tap: clear
+        S.deen.prayers[p] = next;
+        // recompute void immediately (clears it if nothing is missed now)
+        S.deen.voidReason = null;
+        checkPrayerDeadlines();
         await saveState();
         renderDeen(c);
         renderInsanometer();
