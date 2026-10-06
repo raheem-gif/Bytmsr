@@ -4,7 +4,7 @@ import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { startTestApp, freezeClock, resetClock } from './helpers.js';
-import { ok, createLawyer } from './lane-b-kit.test.js';
+import { ok, createLawyer, newCase } from './lane-b-kit.test.js';
 import { base32Encode, base32Decode, hotp, totp, verifyTotp, otpauthUri, normalizeRecoveryCode, hashRecoveryCode, verifyRecoveryCode, newRecoveryCode } from '../src/totp.js';
 import { passwordProblem, describeUserAgent } from '../src/auth.js';
 import { encodeQr, formatBits, versionBits } from '../public/assets/js/app/components/qr.js';
@@ -300,6 +300,11 @@ describe('accounts: invites', () => {
     assert.equal((await t.client().post('/api/auth/login', { username: 'nour', password: '' })).status, 401);
     const sugg = ok(await admin.get('/api/admin/lawyers/suggest?area=FAM'));
     assert.ok(!sugg.some((l) => l.id === created.id), 'invite-pending lawyers are not suggested for assignments');
+    // ولا يُسند إليه يدويًا: لا يستطيع الدخول ليرى الإسناد وتسري مدته
+    const kase = await newCase(admin, { legal_area: 'FAM' });
+    const blockedAssign = await admin.post(`/api/admin/cases/${kase.id}/assignments`, { lawyer_id: created.id, role: 'lead' });
+    assert.equal(blockedAssign.status, 409);
+    assert.match(blockedAssign.body.error, /لم يفعّل هذا المحامي حسابه/);
     const list = ok(await admin.get('/api/admin/lawyers'));
     assert.equal((list.items || list).find((l) => l.id === created.id).invite_pending, true);
 
@@ -327,6 +332,7 @@ describe('accounts: invites', () => {
     assert.equal(accepted.user.name, 'نور الهدى سامي');
     assert.equal(ok(await anon.get('/api/auth/me')).user.role, 'lawyer', 'accepting signs the user in');
     assert.equal((await anon.get('/api/lawyer/dashboard')).status, 200);
+    ok(await admin.post(`/api/admin/cases/${kase.id}/assignments`, { lawyer_id: created.id, role: 'lead' }), 201, 'assignable once activated');
 
     // استخدام واحد فقط
     const again = await t.client().post('/api/auth/invite/accept', { token, name: 'x x x', password: STRONG, password_confirm: STRONG, pledge: true });

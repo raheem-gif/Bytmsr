@@ -464,6 +464,8 @@ export function createCases(app) {
       );
       if (!lawyer) throw badRequest('المحامي المختار غير موجود');
       if (!lawyer.active) throw badRequest('حساب هذا المحامي موقوف');
+      // (v9 accounts) حساب أُنشئ بدعوة لم تُقبل: لا يستطيع الدخول ولا الاطلاع على الإسناد، فتسري المدة دون أن يعلم
+      if (lawyer.invite_pending) throw conflict('لم يفعّل هذا المحامي حسابه من رابط الدعوة بعد، فلا يمكنه الاطلاع على الإسناد. أعد إرسال الدعوة إليه أو اختر محاميًا آخر.');
       const role = v.oneOf(body.role, ENUMS.assignment_role, 'الدور', { required: true });
       const feeMode = v.oneOf(body.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب') || 'agreement';
       const feeMinor = feeMode === 'custom' ? v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true }) : null;

@@ -634,11 +634,11 @@ export default async function render(ctx) {
     const stats = h(
       'div.stats-grid',
       statCard({ label: 'متوسط رضا العملاء', value: ratingText(t.avg_rating), hint: t.responses ? `من ${count(t.responses, RATINGS_UNIT)}` : 'لا تقييمات بعد', icon: 'star', tone: 'accent' }),
-      statCard({ label: 'نسبة الاستجابة', value: t.response_rate == null ? '—' : percent(t.response_rate), hint: `أُرسل ${count(t.surveys_sent || 0, ['استبيان واحد', 'استبيانان', 'استبيانات', 'استبيانًا'])}`, icon: 'message', tone: 'info' }),
+      statCard({ label: 'نسبة الاستجابة', value: t.response_rate == null ? '—' : percent(t.response_rate), hint: `${t.surveys_sent ? `أُرسل ${count(t.surveys_sent, ['استبيان واحد', 'استبيانان', 'استبيانات', 'استبيانًا'])}` : 'لم يُرسل أي استبيان'}${t.undelivered ? ` — وتعذر إرسال ${count(t.undelivered, ['استبيان واحد', 'استبيانين', 'استبيانات', 'استبيانًا'])}` : ''}`, icon: 'message', tone: 'info' }),
       statCard({ label: 'تقييمات منخفضة', value: num(t.low_ratings || 0), hint: `${num(s.threshold)} من 5 فأقل — يُنبَّه مدير الحالة فورًا`, icon: 'alert', tone: t.low_ratings ? 'danger' : 'success' }),
       statCard({ label: 'بانتظار التقييم', value: num(t.awaiting || 0), hint: 'استبيانات سارية لم يرد عليها العميل', icon: 'clock', tone: 'neutral' }),
     );
-    if (!t.surveys_sent && !t.responses) {
+    if (!t.surveys_sent && !t.responses && !t.undelivered) {
       return h(
         'div.stack',
         stats,

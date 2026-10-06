@@ -1016,9 +1016,11 @@ export function createMessaging(app) {
       const f = db.get('SELECT * FROM case_feedback WHERE case_id = ? ORDER BY id DESC LIMIT 1', caseId);
       const expired = s && s.status === 'sent' && s.expires_at <= nowIso();
       const status = expired ? 'expired' : s?.status || null;
+      const failed = !f && s?.message_id ? db.value('SELECT status FROM messages WHERE id = ?', s.message_id) === 'failed' : false;
       let text;
       if (f) text = `${f.rating} من 5 — ${LABELS.satisfaction_rating[f.rating]}`;
       else if (!s) text = 'لم يُرسل استبيان الرضا بعد';
+      else if (failed) text = 'تعذر إرسال الاستبيان للعميل (راجع صندوق الصادر)';
       else if (status === 'expired') text = 'انتهت مدة الاستبيان دون تقييم';
       else text = 'أُرسل الاستبيان — بانتظار تقييم العميل';
       return {
@@ -1067,14 +1069,24 @@ export function createMessaging(app) {
       const sWhere = ['1=1'];
       const sParams = [];
       if (fromIso) {
-        sWhere.push('sent_at >= ?');
+        sWhere.push('s.sent_at >= ?');
         sParams.push(fromIso);
       }
       if (toIso) {
-        sWhere.push('sent_at < ?');
+        sWhere.push('s.sent_at < ?');
         sParams.push(toIso);
       }
-      const surveys = db.all(`SELECT status, sent_at FROM case_surveys WHERE ${sWhere.join(' AND ')}`, ...sParams);
+      // استبيان فشل إرساله (مثل غياب قالب معتمد خارج نافذة الـ 24 ساعة) لا يُحسب «مُرسلًا» في نسبة الاستجابة ما لم يرد العميل
+      const nowT = nowIso();
+      const surveys = db
+        .all(
+          `SELECT s.status, s.sent_at, s.expires_at, m.status AS message_status FROM case_surveys s LEFT JOIN messages m ON m.id = s.message_id
+           WHERE ${sWhere.join(' AND ')}`,
+          ...sParams,
+        )
+        .map((x) => ({ ...x, undelivered: x.message_status === 'failed' && (x.status === 'sent' || x.status === 'expired') }));
+      const undelivered = surveys.filter((x) => x.undelivered).length;
+      const delivered = surveys.filter((x) => !x.undelivered);
       const threshold = lowThreshold();
       const avg = (list) => (list.length ? Math.round((list.reduce((s, x) => s + x.rating, 0) / list.length) * 100) / 100 : null);
       const group = (keyFn) => {
@@ -1089,7 +1101,7 @@ export function createMessaging(app) {
       };
       const distribution = Object.fromEntries([1, 2, 3, 4, 5].map((n) => [n, rows.filter((r) => r.rating === n).length]));
       const sentByMonth = new Map();
-      for (const s of surveys) sentByMonth.set(periodOf(s.sent_at), (sentByMonth.get(periodOf(s.sent_at)) || 0) + 1);
+      for (const s of delivered) sentByMonth.set(periodOf(s.sent_at), (sentByMonth.get(periodOf(s.sent_at)) || 0) + 1);
       const byMonthMap = group((r) => periodOf(r.created_at));
       const months = [...new Set([...byMonthMap.keys(), ...sentByMonth.keys()])].sort();
       const lawyerNames = new Map(
@@ -1098,10 +1110,11 @@ export function createMessaging(app) {
       return {
         threshold,
         totals: {
-          surveys_sent: surveys.length,
+          surveys_sent: delivered.length,
+          undelivered,
           responses: rows.length,
-          awaiting: surveys.filter((s) => s.status === 'sent').length,
-          response_rate: surveys.length ? Math.round((rows.length / surveys.length) * 1000) / 1000 : null,
+          awaiting: delivered.filter((s) => s.status === 'sent' && s.expires_at > nowT).length,
+          response_rate: delivered.length ? Math.min(1, Math.round((rows.length / delivered.length) * 1000) / 1000) : null,
           avg_rating: avg(rows),
           low_ratings: rows.filter((r) => r.rating <= threshold).length,
           promoters: rows.filter((r) => r.rating >= 4).length,

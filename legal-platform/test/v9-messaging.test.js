@@ -847,6 +847,31 @@ describe('Review fixes (messaging)', () => {
     }
   });
 
+  test('a survey that could not be delivered is not counted as sent; the case shows why', async () => {
+    freezeClock(T0);
+    const g = mockGraph((c) => (c.json?.type === 'template' ? { status: 404, body: { error: { message: 'Template name does not exist in the translation', code: 132001 } } } : null));
+    const t = await startTestApp({ seed: 'none', config: { ...LIVE_WA, sessionTtlHours: 24 * 30 } });
+    try {
+      let admin = await t.login('admin');
+      const lawyer = await createLawyer(admin, { specialties: ['FAM'] });
+      const { kase } = await answeredCase(t, admin, { phone: '201088800044', lawyer, post: (p) => signedPost(t, p) });
+      freezeClock(plusHours(T0, 26));
+      admin = await t.login('admin');
+      assert.equal((await runAutomations(admin)).satisfaction_survey, 1);
+      const survey = t.app.db.get('SELECT * FROM case_surveys WHERE case_id = ?', kase.id);
+      assert.ok(await until(() => t.app.db.value('SELECT status FROM messages WHERE id = ?', survey.message_id) === 'failed'), 'outside the window without a valid template the survey fails');
+      const sum = ok(await admin.get('/api/admin/surveys/summary'));
+      assert.equal(sum.totals.surveys_sent, 0);
+      assert.equal(sum.totals.undelivered, 1);
+      assert.equal(sum.totals.awaiting, 0);
+      assert.equal(sum.totals.response_rate, null);
+      assert.match(ok(await admin.get(`/api/admin/cases/${kase.id}`)).satisfaction.text, /تعذر إرسال الاستبيان/);
+    } finally {
+      g.restore();
+      await t.close();
+    }
+  });
+
   test('low-rating threshold from settings is clamped to 1–4; Arabic agreement in sync audit and mapping errors', async () => {
     freezeClock(T0);
     const g = mockGraph((c) => {
