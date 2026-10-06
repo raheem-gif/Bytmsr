@@ -12,6 +12,7 @@ const DROPDOWN_LIMIT = 8;
 /** عناصر القائمة حسب الدور. */
 export function navGroups(user, meta) {
   const notifications = { href: '/notifications', label: 'الإشعارات', icon: 'bell', notif: true };
+  const account = { href: '/account', label: 'حسابي والأمان', icon: 'shield' };
   if (user.role === 'lawyer') {
     return [
       {
@@ -19,10 +20,11 @@ export function navGroups(user, meta) {
         items: [
           { href: '/my', label: 'ملفاتي', icon: 'briefcase' },
           { href: '/my/matters', label: 'الملفات المستمرة', icon: 'gavel' },
+          { href: '/my/calendar', label: 'تقويمي', icon: 'calendar' },
           { href: '/my/statement', label: 'كشف حسابي', icon: 'wallet' },
         ],
       },
-      { title: 'عام', items: [notifications] },
+      { title: 'عام', items: [notifications, account] },
     ];
   }
   const isAdmin = user.role === 'admin';
@@ -35,20 +37,25 @@ export function navGroups(user, meta) {
         { href: '/queue', label: 'بانتظار قرار الإدارة', icon: 'queue' },
         { href: '/cases', label: 'ملفات الاستشارات', icon: 'briefcase' },
         { href: '/matters', label: 'الملفات المستمرة', icon: 'gavel' },
-        { href: '/clients', label: 'العملاء', icon: 'users' },
+        { href: '/clients', label: 'العملاء والمستفيدون', icon: 'users' },
+        { href: '/calendar', label: 'التقويم', icon: 'calendar' },
       ],
     },
     {
-      title: 'الشبكة والمالية',
+      title: 'الشبكة والمالية والبرامج',
       items: [
         { href: '/lawyers', label: 'شبكة المحامين', icon: 'scale' },
         isAdmin && { href: '/accounting', label: 'المحاسبة', icon: 'wallet' },
+        { href: '/programs', label: 'البرامج والتمويل', icon: 'book' },
+        { href: '/conflicts', label: 'فحص تعارض المصالح', icon: 'shieldCheck' },
       ],
     },
     {
-      title: 'الأتمتة والمعرفة والنمو',
+      title: 'الأثر والمعرفة والتواصل',
       items: [
+        { href: '/impact', label: 'تقرير الأثر', icon: 'star' },
         { href: '/automations', label: 'الأتمتة والرسائل', icon: 'zap' },
+        { href: '/quick-replies', label: 'الردود الجاهزة والقوالب', icon: 'message' },
         { href: '/knowledge', label: 'المعرفة المؤسسية والذكاء الاصطناعي', icon: 'sparkle' },
         { href: '/analytics', label: 'التسويق والتحليلات', icon: 'chart' },
       ],
@@ -58,6 +65,11 @@ export function navGroups(user, meta) {
       items: [
         meta && meta.demo && { href: '/simulator', label: 'محاكي واتساب', icon: 'whatsapp' },
         isAdmin && { href: '/settings', label: 'الإعدادات والمستخدمون', icon: 'settings' },
+        isAdmin && { href: '/integrations', label: 'التكاملات', icon: 'link' },
+        isAdmin && { href: '/system', label: 'صحة النظام والنسخ الاحتياطي', icon: 'refresh' },
+        isAdmin && { href: '/audit', label: 'سجل الأمان', icon: 'lock' },
+        isAdmin && { href: '/data', label: 'استيراد وتصدير البيانات', icon: 'download' },
+        account,
         notifications,
       ],
     },

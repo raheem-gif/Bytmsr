@@ -50,6 +50,7 @@ export function loadConfig(overrides = {}) {
     whatsapp: {
       token: env.WHATSAPP_TOKEN || '',
       phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID || '',
+      wabaId: env.WHATSAPP_WABA_ID || '',
       verifyToken: env.WHATSAPP_VERIFY_TOKEN || '',
       appSecret: env.WHATSAPP_APP_SECRET || '',
       apiVersion: env.WHATSAPP_API_VERSION || 'v21.0',
@@ -74,6 +75,7 @@ function defaultsOf(group, env) {
     return {
       token: env.WHATSAPP_TOKEN || '',
       phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID || '',
+      wabaId: env.WHATSAPP_WABA_ID || '',
       verifyToken: env.WHATSAPP_VERIFY_TOKEN || '',
       appSecret: env.WHATSAPP_APP_SECRET || '',
       apiVersion: env.WHATSAPP_API_VERSION || 'v21.0',

@@ -262,6 +262,14 @@ export const LABELS = {
     system: 'النظام',
     ai: 'الذكاء الاصطناعي',
   },
+  // ── الإصدار 9: كل وحدة تضيف مجموعات تسمياتها تحت علامتها فقط (تعديلات موضعية) ──
+  // <labels:platform>
+  // <labels:accounts>
+  // <labels:messaging>
+  // <labels:practice>
+  // <labels:ai>
+  // <labels:site>
+  // <labels:programs>
 };
 
 // القيم المسموح بها لكل حقل (تُستخدم في التحقق من المدخلات)
@@ -334,6 +342,14 @@ export const DEFAULT_SETTINGS = {
   similarity_threshold: 0.15,
   privacy_notice:
     'تُستخدم بياناتك فقط لتقديم الخدمة القانونية المطلوبة، ولا يطّلع عليها إلا المختصون في المؤسسة والمحامون بالقدر الضروري لأداء المهمة.',
+  // ── الإصدار 9: كل وحدة تضيف إعداداتها تحت علامتها فقط (تعديلات موضعية) ──
+  // <settings:platform>
+  // <settings:accounts>
+  // <settings:messaging>
+  // <settings:practice>
+  // <settings:ai>
+  // <settings:site>
+  // <settings:programs>
 };
 
 export const CODE_PREFIX = {

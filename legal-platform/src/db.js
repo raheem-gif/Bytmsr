@@ -11,7 +11,23 @@ const MIGRATIONS = [
   ['matter_events', 'client_text_approved', 'INTEGER NOT NULL DEFAULT 1'],
 ];
 
-const SCHEMA = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.sql'), 'utf8');
+const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SCHEMA = fs.readFileSync(path.join(SRC_DIR, 'schema.sql'), 'utf8');
+
+/**
+ * امتدادات المخطط: كل وحدة تضيف جداولها في src/schema.d/<name>.sql (تُنفذ بترتيب الاسم بعد المخطط الأساسي)،
+ * وأعمدتها الجديدة على جداول قائمة في src/schema.d/<name>.columns.json بصيغة [["table","column","DDL"], ...].
+ */
+function schemaExtensions() {
+  const dir = path.join(SRC_DIR, 'schema.d');
+  if (!fs.existsSync(dir)) return { sql: [], columns: [] };
+  const files = fs.readdirSync(dir).sort();
+  return {
+    sql: files.filter((f) => f.endsWith('.sql')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')),
+    columns: files.filter((f) => f.endsWith('.columns.json')).flatMap((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))),
+  };
+}
+const EXT = schemaExtensions();
 
 function clean(params) {
   return params.map((p) => {
@@ -30,11 +46,12 @@ export class Db {
     this.raw.exec('PRAGMA busy_timeout = 5000;');
     if (file !== ':memory:') this.raw.exec('PRAGMA journal_mode = WAL;');
     this.raw.exec(SCHEMA);
-    // ترحيلات بسيطة لقواعد بيانات أُنشئت بإصدار سابق من المخطط
-    for (const [table, column, ddl] of MIGRATIONS) {
+    // ترحيلات بسيطة لقواعد بيانات أُنشئت بإصدار سابق من المخطط (الأعمدة أولًا ثم جداول الامتدادات وفهارسها)
+    for (const [table, column, ddl] of [...MIGRATIONS, ...EXT.columns]) {
       const cols = this.raw.prepare(`PRAGMA table_info(${table})`).all().map((r) => r.name);
       if (!cols.includes(column)) this.raw.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
     }
+    for (const sql of EXT.sql) this.raw.exec(sql);
     this.cache = new Map();
     this.depth = 0;
   }

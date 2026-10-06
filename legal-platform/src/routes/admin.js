@@ -315,10 +315,24 @@ export function registerAdminRoutes(router, app) {
     }
     if (b.default_assignment_days !== undefined) out.default_assignment_days = v.int(b.default_assignment_days, 'المدة الافتراضية للرد', { required: true, min: 1, max: 60 });
     if (b.similarity_threshold !== undefined) out.similarity_threshold = v.num(b.similarity_threshold, 'حد التشابه', { required: true, min: 0.05, max: 0.9 });
+    // بقية الإعدادات المعرفة في DEFAULT_SETTINGS (التي تضيفها وحدات الإصدار 9) تُتحقق حسب نوع قيمتها الافتراضية
+    for (const [k, val] of Object.entries(b)) {
+      if (k in out || !(k in DEFAULT_SETTINGS)) continue;
+      const def = DEFAULT_SETTINGS[k];
+      if (typeof def === 'number') out[k] = v.num(val, k, { required: true, min: -1e9, max: 1e9 });
+      else if (typeof def === 'boolean') out[k] = v.bool(val);
+      else if (typeof def === 'string') out[k] = v.str(val, k, { max: 5000 }) ?? '';
+      else if (Array.isArray(def) || (def && typeof def === 'object')) {
+        if (typeof val !== 'object' || val === null) throw badRequest(`قيمة غير صالحة للإعداد ${k}`);
+        if (JSON.stringify(val).length > 20000) throw badRequest(`قيمة الإعداد ${k} أطول من المسموح`);
+        out[k] = val;
+      }
+    }
     for (const [k, val] of Object.entries(out)) {
       if (!(k in DEFAULT_SETTINGS)) continue;
       app.settings.set(k, val);
     }
+    if (Object.keys(out).length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${Object.keys(out).join('، ')}` });
     return app.settings.all();
   }));
 }

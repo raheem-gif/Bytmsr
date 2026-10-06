@@ -23,7 +23,7 @@ export function registerPublicRoutes(router, app) {
     return config.whatsapp.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
   }
 
-  router.get('/api/meta', () => {
+  router.get('/api/meta', (ctx) => {
     const s = app.settings.all();
     return {
       constants: { LEGAL_AREAS, GOVERNORATES, LABELS, ENUMS },
@@ -37,6 +37,9 @@ export function registerPublicRoutes(router, app) {
       },
       demo: !!config.demo,
       demo_accounts: config.demo ? DEMO_ACCOUNTS : undefined,
+      version: app.version,
+      // حقول تضيفها وحدات الإصدار 9
+      ...Object.assign({}, ...app.metaProviders.map((fn) => fn(ctx) || {})),
     };
   });
 
