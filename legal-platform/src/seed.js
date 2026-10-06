@@ -754,6 +754,14 @@ export async function seedDemo(app) {
       app.analytics.saveSpend({ period, source, campaign, amount }, admin);
     }
 
+    // ================= بيانات تجريبية لوحدات الإصدار 9 (كل وحدة تضيف كتلتها تحت علامتها فقط) =================
+    // <seed:platform>
+    // <seed:accounts>
+    // <seed:messaging>
+    // <seed:practice>
+    // <seed:ai>
+    // <seed:programs>
+
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;
     tick();
