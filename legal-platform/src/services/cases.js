@@ -299,6 +299,8 @@ export function createCases(app) {
         client_answers: clientAnswers,
         matter,
         knowledge,
+        // (الإصدار 9 — وحدة messaging) تقييم العميل للخدمة من استبيان الرضا
+        satisfaction: app.messaging?.caseSatisfaction ? app.messaging.caseSatisfaction(c.id) : null,
         cost: app.accounting.caseCost(c.id),
         activity: app.activity.forCase(c.id, c.intake_id),
         ai: {
@@ -462,6 +464,8 @@ export function createCases(app) {
       );
       if (!lawyer) throw badRequest('المحامي المختار غير موجود');
       if (!lawyer.active) throw badRequest('حساب هذا المحامي موقوف');
+      // (v9 accounts) حساب أُنشئ بدعوة لم تُقبل: لا يستطيع الدخول ولا الاطلاع على الإسناد، فتسري المدة دون أن يعلم
+      if (lawyer.invite_pending) throw conflict('لم يفعّل هذا المحامي حسابه من رابط الدعوة بعد، فلا يمكنه الاطلاع على الإسناد. أعد إرسال الدعوة إليه أو اختر محاميًا آخر.');
       const role = v.oneOf(body.role, ENUMS.assignment_role, 'الدور', { required: true });
       const feeMode = v.oneOf(body.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب') || 'agreement';
       const feeMinor = feeMode === 'custom' ? v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true }) : null;
@@ -674,6 +678,8 @@ export function createCases(app) {
       const c = svc.requireOpen(caseId);
       const outcome = v.oneOf(body.outcome, ENUMS.case_outcome, 'نتيجة الملف', { required: true });
       const note = v.str(body.note, 'ملاحظة الإغلاق', { max: 3000 });
+      // v9 practice: قيمة الأثر المتحقق (اختيارية) تُتحقق قبل أي تعديل
+      const outcomeValue = app.practice?.outcome.parse(body.outcome_value) ?? null;
       const pendingOps = db.all("SELECT o.id FROM opinions o WHERE o.case_id = ? AND o.status = 'submitted'", c.id);
       if (pendingOps.length && !body.force) {
         throw conflict('توجد آراء مقدمة بانتظار مراجعة الإدارة. اعتمدها أو أعدها قبل إغلاق الملف.', { pending_opinions: pendingOps.map((o) => o.id) });
@@ -699,6 +705,7 @@ export function createCases(app) {
         );
         for (const a of dropped) db.run("DELETE FROM assignment_grants WHERE resource = 'opinion' AND resource_id = ?", a.id);
         db.update('cases', c.id, { status: 'closed', outcome, closure_note: note, closed_at: t, closed_by: actor.id, updated_at: t });
+        if (outcomeValue) app.practice.outcome.save('case', c.id, outcomeValue, actor);
         app.activity.log({ case_id: c.id, actor, type: 'case.closed', summary: `أغلقت الإدارة الملف — ${LABELS.case_outcome[outcome]}`, data: { outcome } });
         // المحاسبة (وقائع الاستحقاق عند الإغلاق) وقاعدة المعرفة
         app.events.emit('case.closed', { caseId: c.id, actor });

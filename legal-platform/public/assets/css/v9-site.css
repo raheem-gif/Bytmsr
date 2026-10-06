@@ -1,0 +1,108 @@
+/* ==========================================================================
+   الإصدار 9 — وحدة الموقع (داخل المنصة): شريط «تثبيت التطبيق على هاتفك» وتنبيه الإصدار الأحدث.
+   أنماط الموقع العام نفسه في public-site.css (لا تُحمّل داخل المنصة).
+   ========================================================================== */
+
+.pwa-banner {
+  position: fixed;
+  z-index: 900;
+  inset-inline: 12px;
+  inset-block-end: calc(12px + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 8px;
+  border-radius: var(--radius-lg, 14px);
+  background: var(--surface, #fff);
+  color: var(--text, #16202a);
+  border: 1px solid var(--border, #dfe5ea);
+  border-inline-start: 4px solid var(--accent-500, #b8862e);
+  box-shadow: var(--shadow-lg, 0 12px 40px rgba(8, 42, 51, 0.18));
+  animation: pwa-banner-in 0.25s ease-out;
+}
+
+.pwa-banner-update {
+  border-inline-start-color: var(--primary-600, #145d6f);
+}
+
+.pwa-banner-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--primary-50, #eef6f7);
+  color: var(--primary-700, #0f4c5c);
+}
+
+.pwa-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.pwa-banner-text strong {
+  font-size: 14.5px;
+}
+
+.pwa-banner-text span {
+  color: var(--text-muted, #4f5d6b);
+}
+
+.pwa-banner-actions {
+  flex-shrink: 0;
+}
+
+.pwa-banner-close {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+@media (max-width: 480px) {
+  .pwa-banner {
+    flex-wrap: wrap;
+  }
+
+  .pwa-banner-text {
+    flex-basis: calc(100% - 100px);
+  }
+
+  .pwa-banner-actions {
+    order: 4;
+    width: 100%;
+  }
+
+  .pwa-banner-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@keyframes pwa-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwa-banner {
+    animation: none;
+  }
+}
+
+@media print {
+  .pwa-banner {
+    display: none !important;
+  }
+}

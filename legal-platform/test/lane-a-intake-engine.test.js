@@ -62,7 +62,7 @@ describe('Req 1 — two doors, one Intake Engine, one inbox', () => {
       assert.ok(m, `reference ${res.reference} must look like REQ-YYYY-NNNNN`);
       assert.equal(Number(m[1]), cairoYear());
       assert.match(res.portal_url, /\/p\/[A-Za-z0-9_-]{20,100}$/);
-      assert.ok(res.whatsapp_url.startsWith('https://wa.me/201000000000?text='), res.whatsapp_url);
+      assert.ok(res.whatsapp_url.startsWith('https://wa.me/201000000001?text='), res.whatsapp_url);
       assert.ok(decodeURIComponent(res.whatsapp_url.split('text=')[1]).includes(res.reference), 'prefilled WhatsApp text must carry the reference');
 
       const admin = await t.login('admin');

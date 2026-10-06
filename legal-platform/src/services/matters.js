@@ -17,10 +17,17 @@ export function createMatters(app) {
     const n = db.nextCounter(`invoice:${y}`, 1);
     return `${CODE_PREFIX.invoice}-${y}-${String(n).padStart(5, '0')}`;
   }
-  function requireLawyerUser(id) {
-    const u = db.get("SELECT id, active FROM users WHERE id = ? AND role = 'lawyer'", id);
+  /**
+   * responsible: المحامي المسؤول عن الملف المستمر يجب أن يكون حسابه نشطًا ومفعّلًا؛ حساب أُنشئ بدعوة لم تُقبل بعد
+   * (users.invite_pending من وحدة الحسابات) لا يستطيع الدخول ولا الاطلاع على الملف ولا إشعاراته (مثل الإسناد في cases.assign).
+   */
+  function requireLawyerUser(id, { responsible = false } = {}) {
+    const u = db.get("SELECT id, active, invite_pending FROM users WHERE id = ? AND role = 'lawyer'", id);
     if (!u) throw badRequest('المحامي المختار غير موجود');
     if (!u.active) throw badRequest('حساب هذا المحامي موقوف');
+    if (responsible && u.invite_pending) {
+      throw conflict('لم يفعّل هذا المحامي حسابه من رابط الدعوة بعد، فلا يمكنه الاطلاع على الملف المستمر. أعد إرسال الدعوة إليه أو اختر محاميًا آخر.');
+    }
     return u;
   }
 
@@ -48,7 +55,7 @@ export function createMatters(app) {
       if (c.matter_id) throw conflict('هذا الملف مرتبط بالفعل بملف عمل مستمر', { matter_id: c.matter_id });
       const kind = v.oneOf(body.kind, ENUMS.matter_kind, 'نوع الملف', { required: true });
       const lawyerId = v.int(body.responsible_lawyer_id, 'المحامي المسؤول', { min: 1 });
-      if (lawyerId) requireLawyerUser(lawyerId);
+      if (lawyerId) requireLawyerUser(lawyerId, { responsible: true });
       const t = nowIso();
       const id = db.tx(() => {
         const mid = db.insert('matters', {
@@ -71,6 +78,7 @@ export function createMatters(app) {
           updated_at: t,
         });
         db.update('cases', c.id, { matter_id: mid, updated_at: t });
+        app.practice?.syncMatterOpponent(mid, actor); // v9 practice: فحص تعارض المصالح للخصم
         app.activity.log({
           case_id: c.id,
           matter_id: mid,
@@ -231,7 +239,8 @@ export function createMatters(app) {
       if (body.agreed_fee !== undefined) patch.agreed_fee_minor = v.money(body.agreed_fee, 'الأتعاب المتفق عليها');
       if (body.responsible_lawyer_id !== undefined) {
         const lid = v.int(body.responsible_lawyer_id, 'المحامي المسؤول', { min: 1 });
-        if (lid) requireLawyerUser(lid);
+        // التحقق عند التغيير فقط: حفظ تعديل آخر في ملف محاميه الحالي أُوقف لاحقًا لا يُرفض بسبب المحامي
+        if (lid && lid !== m.responsible_lawyer_id) requireLawyerUser(lid, { responsible: true });
         patch.responsible_lawyer_id = lid;
         if (lid && lid !== m.responsible_lawyer_id) {
           app.notifications.notify(lid, { type: 'matter.assigned', title: `أُسند إليك الملف المستمر ${m.code} بصفة المحامي المسؤول`, link: `#/my/matters/${m.id}` });
@@ -239,6 +248,7 @@ export function createMatters(app) {
       }
       db.tx(() => {
         db.update('matters', m.id, patch);
+        if (patch.opponent !== undefined && patch.opponent !== m.opponent) app.practice?.syncMatterOpponent(m.id, actor); // v9 practice
         // المهام المفتوحة للمحامي السابق تنتقل للمحامي الجديد (ولا تبقى إشعاراتها عند من لم يعد له وصول للملف)
         if (patch.responsible_lawyer_id !== undefined && m.responsible_lawyer_id && patch.responsible_lawyer_id !== m.responsible_lawyer_id) {
           db.run(
@@ -423,6 +433,8 @@ export function createMatters(app) {
           paid_at: v.iso(body.paid_at, 'تاريخ الدفع') || t,
           method: v.str(body.method, 'طريقة الدفع', { max: 60 }),
           reference: v.str(body.reference, 'المرجع', { max: 120 }),
+          // رقم إيصال الاستلام RCPT-YYYY-NNNNN يُمنح عند التسجيل ويبقى ثابتًا (وحدة programs)
+          receipt_number: app.programs?.nextReceiptNumber ? app.programs.nextReceiptNumber(t) : null,
           recorded_by: actor.id,
           created_at: t,
         });

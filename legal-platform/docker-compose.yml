@@ -1,0 +1,73 @@
+# تشغيل منصة الدعم القانوني على خادم VPS بـ Docker Compose (راجع DEPLOY.md).
+#
+#   cp .env.example .env        ثم عدّل القيم (NODE_ENV=production، DEMO=0، PUBLIC_BASE_URL، APP_SECRET، TRUST_PROXY=1)
+#   docker compose up -d --build                    المنصة وحدها على 127.0.0.1:3000 (خلف وكيل موجود مثل Nginx)
+#   docker compose --profile https up -d --build    المنصة + Caddy بشهادة HTTPS تلقائية (يتطلب ملف Caddyfile — انظر DEPLOY.md)
+#   docker compose logs -f app                      سجل التشغيل (ومنه رابط الإعداد الأول)
+#   docker compose exec app npm run admin -- --username director      استرداد حساب مدير النظام
+#   docker compose exec app npm run backup                              نسخة احتياطية فورية
+name: beyoot-legal
+
+services:
+  app:
+    build: .
+    image: beyoot-legal:9.0
+    restart: unless-stopped
+    # tini كعملية PID 1: تمرير الإشارات وجمع العمليات المنتهية
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATA_DIR: /app/data
+    ports:
+      # مكشوف على الجهاز المحلي فقط؛ الوصول العام عبر Caddy أو وكيل عكسي بـ HTTPS
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - app-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # وكيل HTTPS تلقائي (Let's Encrypt). يعمل فقط مع: docker compose --profile https up -d
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  # قاعدة البيانات + المرفقات + النسخ الاحتياطية + مفتاح التشفير. لا تحذفه أبدًا (docker compose down -v يحذفه!)
+  app-data:
+  caddy-data:
+  caddy-config:

@@ -25,7 +25,8 @@ export function loadConfig(overrides = {}) {
   const env = process.env;
   const production = env.NODE_ENV === 'production';
   const dataDir = path.resolve(ROOT, env.DATA_DIR || 'data');
-  const publicBaseUrl = (env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  // على Render: الرابط العام للخدمة (https://<name>.onrender.com) إن لم يُضبط PUBLIC_BASE_URL صراحةً
+  const publicBaseUrl = (env.PUBLIC_BASE_URL || env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
   const cfg = {
     root: ROOT,
     production,
@@ -41,6 +42,8 @@ export function loadConfig(overrides = {}) {
     cookieSecure: bool(env.COOKIE_SECURE, publicBaseUrl.startsWith('https://')),
     sessionTtlHours: Number(env.SESSION_TTL_HOURS || 12),
     portalTokenDays: Number(env.PORTAL_TOKEN_DAYS || 180),
+    // رابط البوابة الصادر بعد الدخول برمز واتساب: أقصر عمرًا (يمكن الدخول برمز جديد في أي وقت)
+    portalOtpTokenDays: Number(env.PORTAL_OTP_TOKEN_DAYS || 30),
     adminUsername: env.ADMIN_USERNAME || '',
     adminPassword: env.ADMIN_PASSWORD || '',
     maxUploadMb: Number(env.MAX_UPLOAD_MB || 8),
@@ -50,6 +53,7 @@ export function loadConfig(overrides = {}) {
     whatsapp: {
       token: env.WHATSAPP_TOKEN || '',
       phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID || '',
+      wabaId: env.WHATSAPP_WABA_ID || '',
       verifyToken: env.WHATSAPP_VERIFY_TOKEN || '',
       appSecret: env.WHATSAPP_APP_SECRET || '',
       apiVersion: env.WHATSAPP_API_VERSION || 'v21.0',
@@ -74,6 +78,7 @@ function defaultsOf(group, env) {
     return {
       token: env.WHATSAPP_TOKEN || '',
       phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID || '',
+      wabaId: env.WHATSAPP_WABA_ID || '',
       verifyToken: env.WHATSAPP_VERIFY_TOKEN || '',
       appSecret: env.WHATSAPP_APP_SECRET || '',
       apiVersion: env.WHATSAPP_API_VERSION || 'v21.0',

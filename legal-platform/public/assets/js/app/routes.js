@@ -17,8 +17,8 @@ export const routes = [
   { path: '/cases/:id', load: () => import('./pages/admin/case-detail.js'), roles: STAFF, title: 'ملف استشارة' },
   { path: '/matters', load: () => import('./pages/admin/matters.js'), roles: STAFF, title: 'الملفات المستمرة' },
   { path: '/matters/:id', load: () => import('./pages/admin/matter-detail.js'), roles: STAFF, title: 'ملف مستمر' },
-  { path: '/clients', load: () => import('./pages/admin/clients.js'), roles: STAFF, title: 'العملاء' },
-  { path: '/clients/:id', load: () => import('./pages/admin/client-detail.js'), roles: STAFF, title: 'ملف العميل' },
+  { path: '/clients', load: () => import('./pages/admin/clients.js'), roles: STAFF, title: 'المستفيدون' },
+  { path: '/clients/:id', load: () => import('./pages/admin/client-detail.js'), roles: STAFF, title: 'ملف المستفيد/ة' },
   { path: '/lawyers', load: () => import('./pages/admin/lawyers.js'), roles: STAFF, title: 'شبكة المحامين' },
   { path: '/lawyers/:id', load: () => import('./pages/admin/lawyer-detail.js'), roles: STAFF, title: 'ملف المحامي' },
   { path: '/accounting', load: () => import('./pages/admin/accounting.js'), roles: ADMIN, title: 'المحاسبة' },
@@ -34,17 +34,41 @@ export const routes = [
     guard: (ctx) => Boolean(ctx.meta && ctx.meta.demo),
   },
   { path: '/settings', load: () => import('./pages/admin/settings.js'), roles: ADMIN, title: 'الإعدادات والمستخدمون' },
+  // ── الإصدار 9 ──
+  { path: '/calendar', load: () => import('./pages/admin/calendar.js'), roles: STAFF, title: 'التقويم' },
+  { path: '/impact', load: () => import('./pages/admin/impact.js'), roles: STAFF, title: 'تقرير الأثر' },
+  { path: '/conflicts', load: () => import('./pages/admin/conflicts.js'), roles: STAFF, title: 'فحص تعارض المصالح' },
+  { path: '/programs', load: () => import('./pages/admin/programs.js'), roles: STAFF, title: 'البرامج والتمويل' },
+  { path: '/programs/:id', load: () => import('./pages/admin/programs.js'), roles: STAFF, title: 'برنامج تمويل' },
+  { path: '/quick-replies', load: () => import('./pages/admin/quick-replies.js'), roles: STAFF, title: 'الردود الجاهزة وقوالب واتساب' },
+  { path: '/integrations', load: () => import('./pages/admin/integrations.js'), roles: ADMIN, title: 'التكاملات' },
+  { path: '/system', load: () => import('./pages/admin/system.js'), roles: ADMIN, title: 'صحة النظام والنسخ الاحتياطي' },
+  { path: '/audit', load: () => import('./pages/admin/audit.js'), roles: ADMIN, title: 'سجل الأمان' },
+  { path: '/data', load: () => import('./pages/admin/data.js'), roles: ADMIN, title: 'استيراد وتصدير البيانات' },
 
   // ── بوابة المحامي ──
-  { path: '/my', load: () => import('./pages/lawyer/home.js'), roles: LAWYER, title: 'ملفاتي' },
+  // «الإسناد» ما تكلّف به الإدارة المحامي؛ «الملف» ملف المؤسسة نفسه
+  { path: '/my', load: () => import('./pages/lawyer/home.js'), roles: LAWYER, title: 'إسناداتي' },
   { path: '/my/assignments/:id', load: () => import('./pages/lawyer/assignment.js'), roles: LAWYER, title: 'تفاصيل الإسناد' },
   { path: '/my/matters', load: () => import('./pages/lawyer/matters.js'), roles: LAWYER, title: 'الملفات المستمرة' },
   { path: '/my/matters/:id', load: () => import('./pages/lawyer/matter.js'), roles: LAWYER, title: 'ملف مستمر' },
   { path: '/my/statement', load: () => import('./pages/lawyer/statement.js'), roles: LAWYER, title: 'كشف حسابي' },
+  { path: '/my/calendar', load: () => import('./pages/lawyer/calendar.js'), roles: LAWYER, title: 'تقويمي' },
 
   // ── مشترك ──
   { path: '/notifications', load: () => import('./pages/notifications.js'), roles: EVERYONE, title: 'الإشعارات' },
+  { path: '/account', load: () => import('./pages/account.js'), roles: EVERYONE, title: 'حسابي والأمان' },
+  { path: '/print/:kind/:id', load: () => import('./pages/print.js'), roles: EVERYONE, title: 'طباعة' },
 ];
+
+/**
+ * عنوان صفحة المسار — المصدر الوحيد لاسم الصفحة: يظهر في الشريط العلوي وعنوان المتصفح وعنصر القائمة الجانبية.
+ * @param {string} path مسار ثابت مثل '/quick-replies'
+ */
+export function routeTitle(path) {
+  const r = routes.find((x) => x.path === path);
+  return (r && r.title) || '';
+}
 
 /** الصفحة الافتراضية حسب الدور. */
 export function defaultPath(user) {

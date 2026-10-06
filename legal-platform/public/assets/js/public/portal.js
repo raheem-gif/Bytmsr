@@ -1,8 +1,8 @@
-// بوابة العميل /p/<token>: طلبات بانتظار الرد، الردود، المواعيد، الفواتير، المحادثة، والملفات.
+// صفحة متابعة المستفيد/ة /p/<token>: طلبات بانتظار الرد، الردود، المواعيد، الفواتير، المحادثة، والملفات.
 
 import { h, mount } from '../lib/h.js';
 import { api, filesToUploads, ApiError } from '../lib/api.js';
-import { setMeta, date, dateTime, time, relative, money, calendarParts, label } from '../lib/fmt.js';
+import { setMeta, date, dateTime, time, relative, money, calendarParts, label, count } from '../lib/fmt.js';
 import {
   card,
   emptyState,
@@ -24,7 +24,7 @@ import {
   dueBadge,
   richText,
 } from '../lib/ui.js';
-import { bindSettings, whatsappUrl, hydrateIcons, setYear } from './common.js';
+import { bindSettings, whatsappUrl, hydrateIcons, setYear, initSiteChrome } from './common.js';
 
 const MAX_FILES = 5;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -40,8 +40,16 @@ const token = (() => {
 })();
 const base = `/portal/${encodeURIComponent(token)}`;
 let settings = {};
+let site = {};
+let messaging = {};
 
 const orgName = () => settings.org_name || 'بيوت مصر';
+
+/** زر الاتصال الهاتفي بالمؤسسة (بديل واتساب حين لا يكون للمؤسسة رقم واتساب مضبوط) */
+function phoneButton(variant = 'secondary') {
+  if (!site.org_phone) return null;
+  return button(`اتصل بنا: ${site.org_phone}`, { variant, icon: 'phone', href: `tel:${site.org_phone_e164 || site.org_phone}` });
+}
 
 function sectionCard(id, opts) {
   const c = card(opts);
@@ -153,6 +161,35 @@ function answersSection(answers) {
   });
 }
 
+// ───────────── المستندات التي أرسلتها المؤسسة ─────────────
+
+const docHref = (id) => `/api${base}/documents/${encodeURIComponent(id)}`;
+
+function sentDocumentsSection(messages) {
+  const docs = [];
+  for (const m of messages) {
+    if (m.direction !== 'out') continue;
+    for (const d of m.documents || []) if (!docs.some((x) => x.id === d.id)) docs.push({ ...d, at: m.created_at });
+  }
+  if (!docs.length) return null;
+  docs.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return sectionCard('documents', {
+    title: `مستندات من ${orgName()}`,
+    subtitle: 'مستندات ونماذج أرسلها لك فريقنا. اضغط على اسم المستند لتنزيله.',
+    icon: 'paperclip',
+    body: h(
+      'ul.list-plain.stack-sm',
+      docs.map((d) =>
+        h(
+          'li.row-between',
+          h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('download', { size: 14 }), h('span', { dir: 'auto' }, d.filename)),
+          h('time.small.muted', { datetime: d.at, title: dateTime(d.at) }, date(d.at)),
+        ),
+      ),
+    ),
+  });
+}
+
 function eventsSection(events) {
   const sorted = [...events].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   return sectionCard('events', {
@@ -164,6 +201,9 @@ function eventsSection(events) {
           'ul.list-plain',
           sorted.map((e) => {
             const p = calendarParts(e.starts_at);
+            // عنوان الموعد قبل اعتماد نصه (أو الافتراضي) هو اسم نوعه: لا نكرره في الشارة («جلسة» / «جلسة»)
+            const kindLabel = e.kind ? label('event_kind', e.kind) : '';
+            const title = String(e.title || '').trim() || kindLabel;
             return h(
               'li.event-item',
               { class: e.client_attendance_required ? 'is-required' : null },
@@ -172,8 +212,8 @@ function eventsSection(events) {
                 'div.event-info',
                 h(
                   'div.row',
-                  h('span.event-title', e.title || label('event_kind', e.kind)),
-                  e.kind && badge(label('event_kind', e.kind), statusTone('event_kind', e.kind)),
+                  h('span.event-title', title),
+                  kindLabel && title !== kindLabel ? badge(kindLabel, statusTone('event_kind', e.kind)) : null,
                   // client_attendance_required رقم (0/1) من قاعدة البيانات: الشرط الثلاثي يمنع ظهور «0»
                   e.client_attendance_required ? badge('يلزم حضورك', 'warning', { icon: 'alert' }) : null,
                 ),
@@ -226,7 +266,8 @@ function invoicesSection(invoices) {
 function chatSection(messages) {
   const thread = chatThread(messages, {
     mine: 'in',
-    docHref: null,
+    // المستندات المرفقة بالمحادثة (ما رفعته أنت وما أرسلناه لك) تُنزَّل عبر رابط صفحتك فقط
+    docHref,
     inLabel: 'أنت',
     outLabel: orgName(),
     emptyText: 'لا توجد رسائل بعد. اكتب لنا أول رسالة من هنا.',
@@ -305,12 +346,22 @@ function filesSection(cases, intakes) {
 
 // ───────────── الصفحة ─────────────
 
-function summaryLink(href, iconName, num, text) {
+/**
+ * بطاقة ملخص: العدد مع معدوده بصيغة عربية سليمة («طلب واحد»، «طلبان»، «3 طلبات»، «11 طلبًا») ثم سياقه («بانتظار ردك»)،
+ * والصفر «لا توجد» مع اسم الجمع («لا توجد / طلبات بانتظار ردك») بدل «0 طلبات» أو «1 طلبات».
+ * @param {string[]} forms [مفرد بـ«واحد»، مثنى، جمع، تمييز] كما في count()
+ */
+function summaryParts(n, forms, context, zeroText) {
+  const v = Math.max(0, Math.round(Number(n) || 0));
+  return v === 0 ? ['لا توجد', zeroText] : [count(v, forms), context];
+}
+
+function summaryLink(href, iconName, [big, small]) {
   return h(
     'a',
     { href },
     h('span.sum-icon', icon(iconName, { size: 20 })),
-    h('span', h('span.sum-num', String(num)), h('span.sum-label', text)),
+    h('span', h('span.sum-num', big), h('span.sum-label', small)),
   );
 }
 
@@ -333,6 +384,10 @@ function renderPortal(data) {
       a.hidden = false;
     }
   });
+  // التواصل خارج الصفحة: واتساب إن كان للمؤسسة رقم مضبوط، وإلا الهاتف
+  const contact = wa
+    ? button('راسلنا على واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' })
+    : phoneButton('secondary');
 
   mount(
     root,
@@ -342,22 +397,24 @@ function renderPortal(data) {
         'div.container',
         h('h1', firstName ? `مرحبًا ${firstName}` : 'مرحبًا بك'),
         h('p', `هذه صفحتك الخاصة لمتابعة طلباتك وملفاتك لدى ${orgName()}: ترد على طلباتنا، وترفع مستنداتك، وتراسلنا من مكان واحد.`),
-        client.code ? h('p.row', h('span', 'رقم العميل:'), codeTag(client.code)) : null,
+        client.code ? h('p.row', h('span', 'رقمك لدى المؤسسة:'), codeTag(client.code)) : null,
         !client.code && client.reference ? h('p.row', h('span', 'رقم طلبك:'), codeTag(client.reference), h('span.small', 'احتفظ به للمتابعة')) : null,
         h(
           'nav.portal-summary',
           { 'aria-label': 'ملخص ملفك' },
-          summaryLink('#requests', 'message', requests.filter((r) => r.can_reply).length, 'طلبات بانتظار ردك'),
-          summaryLink('#answers', 'fileText', answers.length, `ردود ${orgName()}`),
-          summaryLink('#events', 'calendar', events.length, 'مواعيد قادمة'),
-          invoices.length ? summaryLink('#invoices', 'wallet', unpaid.length, 'فواتير غير مسددة') : null,
+          summaryLink('#requests', 'message', summaryParts(requests.filter((r) => r.can_reply).length, ['طلب واحد', 'طلبان', 'طلبات', 'طلبًا'], 'بانتظار ردك', 'طلبات بانتظار ردك')),
+          summaryLink('#answers', 'fileText', summaryParts(answers.length, ['ردّ واحد', 'ردّان', 'ردود', 'ردًّا'], `من ${orgName()}`, `ردود من ${orgName()} بعد`)),
+          summaryLink('#events', 'calendar', summaryParts(events.length, ['موعد واحد', 'موعدان', 'مواعيد', 'موعدًا'], 'في الأيام القادمة', 'مواعيد قادمة')),
+          invoices.length ? summaryLink('#invoices', 'wallet', summaryParts(unpaid.length, ['فاتورة واحدة', 'فاتورتان', 'فواتير', 'فاتورة'], 'بانتظار السداد', 'فواتير غير مسددة')) : null,
         ),
+        contact ? h('div.cta-row.portal-contact', contact) : null,
       ),
     ),
     h(
       'div.container.portal-body',
       requestsSection(requests),
       answersSection(answers),
+      sentDocumentsSection(data.messages || []),
       eventsSection(events),
       invoices.length ? invoicesSection(invoices) : null,
       chatSection(data.messages || []),
@@ -381,7 +438,9 @@ function renderInvalid(err) {
         h('p.muted', 'تأكد من فتح الرابط كاملًا كما وصلك، أو تواصل معنا وسنرسل لك رابطًا جديدًا.'),
         h(
           'div.cta-row',
-          wa && button('تواصل معنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }),
+          wa ? button('تواصل معنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }) : phoneButton('primary'),
+          // الدخول برمز يصل على واتساب متاح فقط إن كان مفعّلًا ويمكن أن يصل الرمز فعلًا
+          messaging.portal_otp_enabled ? button('الدخول برقم الموبايل', { variant: 'secondary', icon: 'lock', href: '/portal' }) : null,
           button('تقديم طلب جديد', { variant: 'secondary', icon: 'plus', href: '/intake' }),
         ),
       ),
@@ -390,7 +449,8 @@ function renderInvalid(err) {
 }
 
 async function load({ keepScroll = false } = {}) {
-  if (!token) {
+  // رابط مقطوع (عند نسخه من واتساب مثلًا) أو مشوّه: لا حاجة لسؤال الخادم، فالرموز الصحيحة 20–100 خانة لاتينية
+  if (!token || token.length < 20 || token.length > 100 || !/^[A-Za-z0-9_-]+$/.test(token)) {
     renderInvalid(new ApiError('الرابط غير مكتمل؛ تأكد من نسخه كاملًا.', { status: 404, code: 'invalid_token' }));
     return;
   }
@@ -407,11 +467,19 @@ async function load({ keepScroll = false } = {}) {
 }
 
 async function init() {
+  try {
+    // قائمة رأس الموقع على الهاتف (الرأس والتذييل يولّدهما الخادم كبقية صفحات الموقع العام)
+    initSiteChrome();
+  } catch {
+    /* رأس الموقع اختياري */
+  }
   hydrateIcons();
   setYear();
   try {
     const meta = setMeta(await api.get('/meta'));
     settings = meta.settings || {};
+    site = meta.site || {};
+    messaging = meta.messaging || {};
     bindSettings(settings);
   } catch {
     /* البوابة تعمل بالمسميات الافتراضية إن تعذر تحميل الإعدادات */

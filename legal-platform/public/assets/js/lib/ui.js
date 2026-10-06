@@ -1264,7 +1264,44 @@ export function form(fields, opts = {}) {
  * جدول متجاوب داخل غلاف يمرَّر أفقيًا.
  * columns: [{ key, label, render(row), width, align: 'start'|'center'|'end', className }]
  */
-export function table({ columns = [], rows = [], onRowClick, empty = 'لا توجد بيانات لعرضها', rowClass, caption, className } = {}) {
+/**
+ * إشارة التمرير الأفقي: حين يتجاوز المحتوى عرض الحاوية تتلاشى الحافة التي يختفي خلفها جزء من المحتوى
+ * (الصنفان more-start / more-end حسب اتجاه النص)، فيعرف المستخدم أن هناك أعمدة أو أشهرًا أخرى.
+ * startAtEnd: يبدأ العرض من نهاية السطر (يسار الصفحة العربية) — لمخططات تكون أحدث قيمها في النهاية.
+ * @param {HTMLElement} el حاوية بها overflow-x: auto
+ * @returns {HTMLElement}
+ */
+export function overflowCue(el, { startAtEnd = false } = {}) {
+  if (!el || typeof window === 'undefined' || typeof window.ResizeObserver === 'undefined') return el;
+  let raf = 0;
+  let positioned = !startAtEnd;
+  const update = () => {
+    raf = 0;
+    if (!el.isConnected) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const rtl = window.getComputedStyle(el).direction === 'rtl';
+    if (!positioned && max > 1) {
+      positioned = true;
+      // في RTL تكون scrollLeft صفرًا عند البداية (اليمين) وسالبة نحو اليسار
+      el.scrollLeft = rtl ? -max : max;
+    }
+    const pos = Math.abs(el.scrollLeft); // المسافة الممررة من بداية السطر
+    const over = max > 1;
+    el.classList.toggle('has-overflow', over);
+    el.classList.toggle('more-start', over && pos > 1);
+    el.classList.toggle('more-end', over && pos < max - 1);
+  };
+  const schedule = () => {
+    if (!raf) raf = window.requestAnimationFrame(update);
+  };
+  el.addEventListener('scroll', schedule, { passive: true });
+  const ro = new window.ResizeObserver(schedule);
+  ro.observe(el);
+  if (el.firstElementChild) ro.observe(el.firstElementChild);
+  return el;
+}
+
+export function table({ columns = [], rows = [], onRowClick, empty = 'لا توجد بيانات لعرضها', rowClass, caption, className, stack = false } = {}) {
   const thead = h(
     'thead',
     h(
@@ -1302,7 +1339,8 @@ export function table({ columns = [], rows = [], onRowClick, empty = 'لا تو�
     }
     tbody.append(tr);
   }
-  return h('div.table-wrap', { class: className }, h('table.table', caption && h('caption.sr-only', caption), thead, tbody));
+  // stack: على الهاتف تتحول الصفوف إلى بطاقات مكدسة (التسمية من data-label) بدل التمرير الأفقي
+  return overflowCue(h('div.table-wrap', { class: [className, stack && 'table-stack'] }, h('table.table', caption && h('caption.sr-only', caption), thead, tbody)));
 }
 
 // ───────────────────────── التبويبات ─────────────────────────
@@ -1576,7 +1614,8 @@ export function errorState(err, retry) {
     h('span.empty-icon.is-danger', icon(status === 403 ? 'lock' : 'alert', { size: 28 })),
     h('h3.empty-title', title),
     h('p.empty-text', errorMessage(err)),
-    retry && h('div.empty-action', button('إعادة المحاولة', { icon: 'refresh', onClick: retry })),
+    // إعادة المحاولة لا تغيّر نتيجة «غير مصرح» أو «غير موجود»: يظهر الزر لأخطاء الشبكة والخادم فقط
+    retry && ![401, 403, 404, 410].includes(status) && h('div.empty-action', button('إعادة المحاولة', { icon: 'refresh', onClick: retry })),
   );
 }
 
@@ -1591,7 +1630,11 @@ export function alertBox(message, tone = 'info', { title, icon: iconName } = {})
 }
 
 /** ترويسة الصفحة مع مسار التنقل والإجراءات. breadcrumbs: [{ label, href }] */
-export function pageHeader({ title, subtitle, actions, breadcrumbs, meta } = {}) {
+/**
+ * رأس الصفحة. titleMedia (اختياري): صورة رمزية أو أيقونة تُعرض بجوار العنوان خارج <h1>،
+ * فيبقى نص العنوان نظيفًا لقارئات الشاشة وللنسخ («أ. أحمد عبد العظيم» لا «أأ. أحمد…»).
+ */
+export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleMedia } = {}) {
   const crumbs =
     breadcrumbs && breadcrumbs.length
       ? h(
@@ -1615,7 +1658,12 @@ export function pageHeader({ title, subtitle, actions, breadcrumbs, meta } = {})
     crumbs,
     h(
       'div.page-header-row',
-      h('div.page-header-text', h('h1.page-title', title), subtitle && h('p.page-subtitle', subtitle), meta && h('div.page-meta', meta)),
+      h(
+        'div.page-header-text',
+        titleMedia ? h('div.page-title-row', titleMedia, h('h1.page-title', title)) : h('h1.page-title', title),
+        subtitle && h('p.page-subtitle', subtitle),
+        meta && h('div.page-meta', meta),
+      ),
       actions && h('div.page-actions', actions),
     ),
   );

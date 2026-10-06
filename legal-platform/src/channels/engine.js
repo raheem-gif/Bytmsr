@@ -1,11 +1,34 @@
 // محرك الاستقبال الموحد (Intake Engine) والإرسال الموحد.
 // الموقع وواتساب (وأي قناة مستقبلية) مجرد «أبواب» تصل إلى نفس المكان:
 // كل رسالة واردة تُوحَّد، يُحدَّد عميلها، ثم تُلحق بالطلب أو الملف المفتوح بدل إنشاء قصة منفصلة.
+import fs from 'node:fs';
+import path from 'node:path';
 import { nowIso, addHours, parseJson, badRequest, notFound, cairoYear, truncate } from '../util.js';
 import { CODE_PREFIX, LABELS } from '../constants.js';
 import { parseWebhook, sourceFromReferral } from './whatsapp.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
+
+/**
+ * طلب لا يُثبت أن مقدّمه صاحب رقم الهاتف، فلا يظهر في رابط البوابة الكامل لصاحب الرقم
+ * (رمز الدخول عبر واتساب أو رابط ترسله الإدارة) حتى تؤكد الإدارة الهوية من صفحة الطلب:
+ *  - طلب من نموذج الموقع طابق رقمه عميلًا مسجلًا (phone_match_unverified)، أو
+ *  - أي طلب بدأ من نموذج الموقع (الرقم فيه مجرد إدخال؛ قد يكون خطأً في الكتابة أو رقم قريب أو رقم الخصم)،
+ *    ما لم يُرسله صاحب رابط بوابة كامل (sender_verified) أو تؤكد الإدارة هويته (identity_confirmed_at).
+ * يعمل كذلك على الطلبات القديمة التي أُنشئت قبل هذه العلامات (first_channel = 'website').
+ * alias: اسم جدول intakes في الاستعلام (اختياري).
+ */
+export function portalUnverifiedSql(alias = '') {
+  const c = (col) => (alias ? `${alias}.${col}` : col);
+  return `(COALESCE(json_extract(${c('source_detail')}, '$.phone_match_unverified'), 0) = 1 OR (${c('first_channel')} = 'website' AND json_extract(${c('source_detail')}, '$.identity_confirmed_at') IS NULL AND COALESCE(json_extract(${c('source_detail')}, '$.sender_verified'), 0) = 0))`;
+}
+/** نفس الشرط لصف طلب محمّل */
+export function isPortalUnverifiedIntake(i) {
+  if (!i) return false;
+  const sd = parseJson(i.source_detail, {});
+  if (sd.phone_match_unverified) return true;
+  return i.first_channel === 'website' && !sd.identity_confirmed_at && !sd.sender_verified;
+}
 
 /** استنتاج مصدر العميل من بيانات الموقع (UTM / Referrer / رمز جهة الإحالة) */
 export function sourceFromWebAttribution(attr = {}) {
@@ -31,6 +54,8 @@ export function sourceFromWebAttribution(attr = {}) {
 
 export function createEngine(app) {
   const { db, config } = app;
+  // قيم سرية للإرسال الفعلي فقط (مثل رمز الدخول) لا تُحفظ في قاعدة البيانات: معرف الرسالة ← { text, vars }
+  const secrets = new Map();
 
   function nextIntakeCode(iso) {
     const y = cairoYear(iso);
@@ -55,7 +80,7 @@ export function createEngine(app) {
    * هذا المرسل لا تُوجَّه رسائله تلقائيًا إلى طلب غير موثّق أنشأه شخص آخر من الموقع بنفس الرقم،
    * وإلا وصلت رسائل صاحب الرقم إلى رابط بوابة ذلك الشخص.
    */
-  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender }) {
+  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender, portalSender = false }) {
     if (intakeId) {
       // رسالة من رابط بوابة خاص بطلب بعينه
       const i = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);
@@ -73,15 +98,18 @@ export function createEngine(app) {
     if (forceNew) return { intake: null, caseRow: null };
     if (refIntake) return { intake: refIntake, caseRow: refIntake.case_id ? db.get('SELECT * FROM cases WHERE id = ?', refIntake.case_id) : null };
     const skipUnverified = verifiedSender ? 1 : 0;
+    // صاحب رابط البوابة الكامل (رمز واتساب أو رابط من الإدارة) لا يرى الطلبات غير الموثّقة في صفحته،
+    // فلا تُوجَّه رسالته إليها أيضًا (وإلا وصلت لرابط مقدّم طلب الموقع الذي ربما أخطأ في كتابة رقمه)
+    const skipSql = portalSender ? portalUnverifiedSql() : UNVERIFIED_SQL;
     const openIntake = db.get(
       `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
-         AND NOT (? = 1 AND ${UNVERIFIED_SQL})
+         AND NOT (? = 1 AND ${skipSql})
        ORDER BY id DESC LIMIT 1`,
       client.id,
       skipUnverified,
     );
     if (openIntake) return { intake: openIntake, caseRow: null };
-    const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${UNVERIFIED_SQL})`;
+    const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${skipSql})`;
     const openCase = db.get(
       `SELECT * FROM cases WHERE client_id = ? AND status != 'closed' AND NOT (? = 1 AND id IN (${unverifiedCaseIds})) ORDER BY id DESC LIMIT 1`,
       client.id,
@@ -107,6 +135,8 @@ export function createEngine(app) {
 
   const engine = {
     lastInbound,
+    /** وضع المعاينة: الرسائل تُسجَّل فقط (داخل معاملة سيُتراجع عنها) ولا تُرسل لواتساب */
+    dryRun: false,
 
     /**
      * استقبال رسالة واردة موحدة من أي قناة.
@@ -148,6 +178,41 @@ export function createEngine(app) {
         // أما نموذج الموقع ورابط البوابة الخاص بطلب واحد فبياناتهما مجرد مُدخلات غير مثبتة.
         const verifiedSender = msg.channel !== 'website' || (!!msg.portal_client_id && !msg.target_intake_id);
 
+        // 1-ب) رد على استبيان الرضا (زر أو رقم من 1 إلى 5 أو تعليق بعد تقييم منخفض):
+        // يُسجَّل تقييمًا في ملفه بدل أن يفتح طلبًا جديدًا أو يُنبّه الإدارة برسالة «جديدة»
+        const surveyMatch = app.messaging?.matchSurveyReply?.(client, msg, text, { verifiedSender });
+        if (surveyMatch) {
+          const sc = surveyMatch.caseRow;
+          const smeta = { survey_id: surveyMatch.survey.id, survey_reply: surveyMatch.kind };
+          if (msg.timestamp) smeta.provider_timestamp = msg.timestamp;
+          if (msg.context_id) smeta.reply_to = msg.context_id;
+          const surveyMessageId = db.insert('messages', {
+            client_id: client.id,
+            intake_id: sc.intake_id ?? null,
+            case_id: sc.id,
+            matter_id: sc.matter_id ?? null,
+            direction: 'in',
+            channel: msg.channel,
+            external_id: msg.external_id || null,
+            body: text,
+            status: 'received',
+            meta: JSON.stringify(smeta),
+            created_at: t,
+          });
+          const outcome = app.messaging.recordSurveyReply(surveyMatch, { messageId: surveyMessageId, channel: msg.channel, text });
+          return {
+            duplicate: false,
+            client,
+            created_client: createdClient,
+            intake: null,
+            caseRow: sc,
+            message_id: surveyMessageId,
+            created_intake: false,
+            document_ids: [],
+            survey: outcome,
+          };
+        }
+
         // 2) رقم طلب مذكور في الرسالة (الانتقال من الموقع إلى واتساب)
         // لا نتبع رقم الطلب لمرسل غير موثّق: من يعرف رقم هاتف عميل ورقم طلبه لا يصل بذلك إلى ملفه
         let refIntake = null;
@@ -186,6 +251,7 @@ export function createEngine(app) {
           caseId: msg.target_case_id,
           intakeId: msg.target_intake_id,
           verifiedSender,
+          portalSender: !!msg.portal_client_id && !msg.target_intake_id,
         });
         let intake = target.intake;
         let caseRow = target.caseRow;
@@ -198,6 +264,10 @@ export function createEngine(app) {
           if (msg.channel === 'website' && !createdClient && !msg.portal_client_id) {
             // طلب من الموقع برقم عميل موجود: الرقم غير موثّق، فننبه الإدارة قبل الاعتماد على هذا الربط
             attribution = { ...(attribution || {}), detail: { ...((attribution && attribution.detail) || {}), phone_match_unverified: true } };
+          }
+          if (msg.channel === 'website' && verifiedSender) {
+            // طلب جديد كتبه صاحب رابط بوابة كامل (أثبت ملكية الرقم): يظهر في بوابته رغم أن قناته «الموقع»
+            attribution = { ...(attribution || {}), detail: { ...((attribution && attribution.detail) || {}), sender_verified: true } };
           }
           if (!attribution || !attribution.source || attribution.source === 'unknown') {
             attribution = { ...(attribution || {}), source: previous > 0 ? 'returning' : attribution?.source || 'unknown' };
@@ -358,6 +428,15 @@ export function createEngine(app) {
         };
       });
 
+      if (result.survey) {
+        // شكر العميل على تقييمه (وطلب تعليقه إن كان التقييم منخفضًا) بعد حفظ التقييم
+        try {
+          app.messaging.afterSurveyReply(result.survey);
+        } catch (e) {
+          app.log('survey follow-up failed', e);
+        }
+        return result;
+      }
       if (!result.duplicate) {
         // تحليل الذكاء الاصطناعي للطلبات التي لم تتحول بعد إلى ملفات (مؤجل قليلًا لتجميع الرسائل المتتابعة)
         if (result.intake && !result.caseRow && result.intake.status !== 'converted') {
@@ -454,11 +533,23 @@ export function createEngine(app) {
       return 'website';
     },
 
+    /** هل نحن داخل نافذة الـ 24 ساعة منذ آخر رسالة واتساب من العميل؟ */
+    inWindow(clientId) {
+      const lastIn = db.get(
+        "SELECT created_at FROM messages WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' ORDER BY id DESC LIMIT 1",
+        clientId,
+      );
+      return !!lastIn && addHours(lastIn.created_at, 24) > nowIso();
+    },
+
     /**
      * إرسال رسالة للعميل عبر قناة المؤسسة.
+     * meta.wa (اختياري) يحدد شكل رسالة واتساب: { type: 'document', document_id, caption } | { type: 'buttons', text, buttons, footer }
+     *   | { type: 'otp' } | { purpose, force_template }؛ وmeta.vars قيم متغيرات القالب المربوط عند الإرسال خارج النافذة.
+     * attachments: معرفات مستندات تُرفق بالرسالة (تظهر للعميل في البوابة وللإدارة في المحادثة).
      * @returns {object} صف الرسالة
      */
-    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {} }) {
+    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [] }) {
       if (!body || !String(body).trim()) throw badRequest('نص الرسالة فارغ');
       const client = app.clients.require(client_id);
       // الرسائل الآلية (تذكير بجلسة/فاتورة/مستند) تُرسل عبر واتساب متى توفر رقم، لأن البوابة لا تُنبّه العميل
@@ -466,30 +557,55 @@ export function createEngine(app) {
         automated && (!channel || channel === 'auto') && app.clients.primaryPhone(client.id)
           ? 'whatsapp'
           : engine.pickChannel(client.id, channel, { intakeId: intake_id, caseId: case_id });
-      const t = nowIso();
       const to = ch === 'whatsapp' ? app.clients.primaryPhone(client.id) : null;
+      const row = engine.record({ client_id: client.id, intake_id, case_id, matter_id, channel: ch, to, body, author, automated, rule, meta, attachments });
+      if (intake_id) db.update('intakes', intake_id, { last_message_at: row.created_at, unread_count: 0, updated_at: row.created_at });
+      return row;
+    },
+
+    /**
+     * تسجيل رسالة صادرة ثم إرسالها (واتساب) أو إتاحتها في البوابة (الموقع).
+     * secret: قيم لا تُحفظ في قاعدة البيانات أبدًا (مثل رمز الدخول) وتُستخدم عند الإرسال الفعلي فقط: { text, vars }.
+     */
+    record({ client_id, intake_id = null, case_id = null, matter_id = null, channel, to = null, body, author = null, automated = false, rule = null, meta = {}, attachments = [], secret = null }) {
+      const t = nowIso();
+      const docIds = [...new Set((attachments || []).map(Number).filter((x) => Number.isInteger(x) && x > 0))];
+      const fullMeta = { ...meta };
+      if (docIds.length) {
+        fullMeta.sent_documents = docIds
+          .map((id) => app.documents.get(id))
+          .filter(Boolean)
+          .map((d) => ({ id: d.id, title: d.title, filename: d.filename, mime: d.mime, size: d.size }));
+      }
       const id = db.insert('messages', {
-        client_id: client.id,
+        client_id,
         intake_id,
         case_id,
         matter_id,
         direction: 'out',
-        channel: ch,
-        to_address: to,
+        channel,
+        to_address: channel === 'whatsapp' ? to : null,
         body: String(body).slice(0, 4096),
         author_user_id: author?.id ?? null,
         automated: automated ? 1 : 0,
         automation_rule: rule,
-        status: ch === 'website' ? 'sent' : 'queued',
-        meta: JSON.stringify(meta),
-        sent_at: ch === 'website' ? t : null,
+        status: channel === 'website' ? 'sent' : 'queued',
+        meta: JSON.stringify(fullMeta),
+        sent_at: channel === 'website' ? t : null,
         created_at: t,
       });
-      if (intake_id) db.update('intakes', intake_id, { last_message_at: t, unread_count: 0, updated_at: t });
-      if (ch === 'whatsapp') {
-        if (!app.whatsapp.configured) {
+      for (const docId of docIds) {
+        db.run('INSERT OR IGNORE INTO message_attachments (message_id, document_id, created_at) VALUES (?, ?, ?)', id, docId, t);
+      }
+      if (channel === 'whatsapp') {
+        if (!to) {
+          db.update('messages', id, { status: 'failed', error: 'لا يوجد رقم هاتف مسجل لهذا العميل للإرسال عبر واتساب' });
+        } else if (!app.whatsapp.configured) {
           db.update('messages', id, { status: 'simulated', sent_at: t });
+        } else if (engine.dryRun) {
+          // معاينة (مثل «كم رسالة ستُرسل لو شُغلت القواعد الآن؟»): تُسجَّل داخل معاملة تُلغى، ولا تُرسل أبدًا
         } else {
+          if (secret) secrets.set(id, secret);
           // الإرسال الفعلي غير متزامن؛ الحالة تُحدَّث عند النجاح/الفشل ومن Webhook الحالات
           engine.dispatch(id).catch((e) => app.log('dispatch', e));
         }
@@ -497,40 +613,79 @@ export function createEngine(app) {
       return db.get('SELECT * FROM messages WHERE id = ?', id);
     },
 
-    /** إرسال رسالة واتساب مسجلة بالفعل (مع مراعاة نافذة الـ 24 ساعة) */
+    /** إرسال رسالة واتساب مسجلة بالفعل (مع مراعاة نافذة الـ 24 ساعة والقوالب المربوطة) */
     async dispatch(messageId) {
       const msg = db.get('SELECT * FROM messages WHERE id = ?', messageId);
+      const secret = secrets.get(messageId) || null;
+      secrets.delete(messageId);
       if (!msg || msg.status !== 'queued' || msg.channel !== 'whatsapp') return;
-      const settings = app.settings.all();
-      const lastIn = db.get(
-        "SELECT created_at FROM messages WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' ORDER BY id DESC LIMIT 1",
-        msg.client_id,
-      );
-      const inWindow = lastIn && addHours(lastIn.created_at, 24) > nowIso();
+      const meta = parseJson(msg.meta, {});
+      const wa = meta.wa || {};
+      const inWindow = engine.inWindow(msg.client_id);
       try {
         let wamid;
-        if (inWindow) {
-          wamid = await app.whatsapp.sendText(msg.to_address, msg.body);
-        } else {
-          if (!settings.whatsapp_template_name) {
-            throw new Error('خارج نافذة الـ 24 ساعة ولا يوجد قالب رسائل معتمد في الإعدادات');
+        let via;
+        let templateName = null;
+        if (wa.type === 'otp' && !secret) {
+          // الرمز لا يُحفظ في قاعدة البيانات؛ رسالة عالقة بعد إعادة تشغيل الخادم لم تعد صالحة
+          throw Object.assign(new Error('otp expired'), { arabic: 'انتهت صلاحية رمز الدخول قبل إرساله (أُعيد تشغيل الخادم). يطلب العميل رمزًا جديدًا.' });
+        }
+        if (wa.type === 'document') {
+          if (!inWindow) {
+            throw Object.assign(new Error('outside 24h window'), {
+              arabic: 'لا يرسل واتساب المستندات إلا خلال 24 ساعة من آخر رسالة من العميل.',
+            });
           }
-          wamid = await app.whatsapp.sendTemplate(msg.to_address, settings.whatsapp_template_name, settings.whatsapp_template_language, msg.body);
+          const doc = app.documents.get(wa.document_id);
+          if (!doc) throw Object.assign(new Error('document missing'), { arabic: 'المستند المطلوب إرساله لم يعد موجودًا' });
+          const abs = path.join(config.uploadsDir, doc.storage_key);
+          if (!abs.startsWith(config.uploadsDir + path.sep) || !fs.existsSync(abs)) {
+            throw Object.assign(new Error('document file missing'), { arabic: 'ملف المستند غير موجود على الخادم' });
+          }
+          const mediaId = await app.whatsapp.uploadMedia({ buffer: fs.readFileSync(abs), mime: doc.mime, filename: doc.filename });
+          wamid = await app.whatsapp.sendDocument(msg.to_address, { mediaId, filename: doc.filename, caption: wa.caption || null });
+          via = 'document';
+        } else if (wa.type === 'buttons' && inWindow && Array.isArray(wa.buttons) && wa.buttons.length) {
+          wamid = await app.whatsapp.sendButtons(msg.to_address, wa.text || msg.body, wa.buttons, { footer: wa.footer });
+          via = 'interactive';
+        } else if (inWindow && !wa.force_template) {
+          wamid = await app.whatsapp.sendText(msg.to_address, secret?.text || msg.body);
+          via = 'session';
+        } else {
+          const plan = app.messaging?.templatePlan ? app.messaging.templatePlan(msg, meta, secret?.vars || {}) : legacyPlan(msg);
+          if (!plan) {
+            throw Object.assign(new Error('no template'), {
+              arabic: 'خارج نافذة الـ 24 ساعة ولا يوجد قالب رسائل معتمد مربوط بهذا الغرض. اربط قالبًا من صفحة «الردود الجاهزة والقوالب».',
+            });
+          }
+          wamid = await app.whatsapp.sendTemplate(msg.to_address, plan.name, plan.language, plan.params, { buttons: plan.buttons || [] });
+          via = 'template';
+          templateName = plan.name;
         }
         db.update('messages', msg.id, {
           status: 'sent',
           external_id: wamid,
           sent_at: nowIso(),
-          meta: JSON.stringify({ ...parseJson(msg.meta, {}), via: inWindow ? 'session' : 'template' }),
+          error: null,
+          meta: JSON.stringify({ ...meta, via, ...(templateName ? { template: templateName } : {}) }),
         });
       } catch (e) {
-        db.update('messages', msg.id, { status: 'failed', error: String(e.message || e).slice(0, 500) });
-        app.notifications.notifyStaff({
-          type: 'message.failed',
-          title: 'تعذر إرسال رسالة واتساب',
-          body: String(e.message || e).slice(0, 200),
-          link: msg.case_id ? `#/cases/${msg.case_id}` : msg.intake_id ? `#/inbox/${msg.intake_id}` : '#/automations',
-        });
+        let reason = String(e.arabic || e.message || e);
+        // مستند تعذر إرساله عبر واتساب (خارج النافذة أو رفضته ميتا) لا يضيع على العميل: يُتاح له في بوابة العملاء برسالة مستقلة
+        if (wa.type === 'document') {
+          const fallback = portalFallback(msg, wa);
+          if (fallback) reason = `${reason.replace(/[.،\s]+$/, '')}. أُتيح المستند للعميل في بوابة العملاء بدلًا من ذلك.`;
+        }
+        db.update('messages', msg.id, { status: 'failed', error: reason.slice(0, 500) });
+        // فشل رمز الدخول يظهر في صندوق الصادر وسجل الأمان دون إغراق الإدارة بإشعار لكل طلب من الموقع العام
+        if (wa.type !== 'otp') {
+          app.notifications.notifyStaff({
+            type: 'message.failed',
+            title: wa.type === 'document' ? 'تعذر إرسال المستند عبر واتساب' : 'تعذر إرسال رسالة واتساب',
+            body: reason.slice(0, 200),
+            link: msg.case_id ? `#/cases/${msg.case_id}` : msg.intake_id ? `#/inbox/${msg.intake_id}` : '#/automations',
+          });
+        }
       }
     },
 
@@ -539,6 +694,7 @@ export function createEngine(app) {
       const msg = db.get('SELECT * FROM messages WHERE id = ?', messageId);
       if (!msg || msg.direction !== 'out') throw notFound('الرسالة غير موجودة');
       if (msg.status !== 'failed') throw badRequest('يمكن إعادة إرسال الرسائل الفاشلة فقط');
+      if (parseJson(msg.meta, {}).wa?.type === 'otp') throw badRequest('لا يُعاد إرسال رموز الدخول؛ يطلب العميل رمزًا جديدًا من صفحة البوابة');
       db.update('messages', msg.id, { status: 'queued', error: null });
       if (!app.whatsapp.configured) db.update('messages', msg.id, { status: 'simulated', sent_at: nowIso() });
       else engine.dispatch(msg.id).catch((e) => app.log('dispatch', e));
@@ -553,11 +709,54 @@ export function createEngine(app) {
       return rows.length;
     },
   };
+
+  /**
+   * إتاحة مستند فشل إرساله عبر واتساب في بوابة العملاء (رسالة «الموقع» مرفق بها المستند).
+   * مرة واحدة لكل رسالة فاشلة حتى لا تتكرر عند إعادة المحاولة. يعيد رسالة البوابة أو null.
+   */
+  function portalFallback(msg, wa) {
+    try {
+      const existing = db.get("SELECT * FROM messages WHERE client_id = ? AND json_extract(meta, '$.portal_fallback_for') = ?", msg.client_id, msg.id);
+      if (existing) return existing;
+      const doc = wa.document_id ? app.documents.get(wa.document_id) : null;
+      if (!doc) return null;
+      const org = app.settings.get('org_name') || 'بيوت مصر';
+      const ref = msg.case_id ? db.value('SELECT code FROM cases WHERE id = ?', msg.case_id) : msg.matter_id ? db.value('SELECT code FROM matters WHERE id = ?', msg.matter_id) : null;
+      return engine.record({
+        client_id: msg.client_id,
+        intake_id: msg.intake_id,
+        case_id: msg.case_id,
+        matter_id: msg.matter_id,
+        channel: 'website',
+        body: `أتحنا لكم المستند «${doc.title || doc.filename}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحة متابعة طلبكم. — ${org}`,
+        author: msg.author_user_id ? { id: msg.author_user_id } : null,
+        automated: !!msg.automated,
+        meta: { portal_fallback_for: msg.id },
+        attachments: [doc.id],
+      });
+    } catch (err) {
+      app.log('document portal fallback failed', err);
+      return null;
+    }
+  }
+
+  /** القالب الافتراضي القديم من الإعدادات: متغير واحد يحمل نص الرسالة */
+  function legacyPlan(msg) {
+    const s = app.settings.all();
+    if (!s.whatsapp_template_name) return null;
+    return { name: s.whatsapp_template_name, language: s.whatsapp_template_language || 'ar', params: [msg.body] };
+  }
+
   return engine;
 }
 
 /** تجهيز رسائل المحادثة للعرض (للإدارة) */
 export function mapMessage(r, docsByMessage = new Map()) {
+  const meta = parseJson(r.meta, {});
+  // المستندات المرسلة للعميل مع رسالة صادرة (إرسال مستند للعميل) تظهر مرفقة بها
+  const sent = Array.isArray(meta.sent_documents) ? meta.sent_documents.map((d) => ({ id: d.id, title: d.title, filename: d.filename, mime: d.mime, size: d.size })) : [];
+  const own = docsByMessage.get(r.id) || [];
+  const ownIds = new Set(own.map((d) => d.id));
   return {
     id: r.id,
     direction: r.direction,
@@ -571,8 +770,8 @@ export function mapMessage(r, docsByMessage = new Map()) {
     intake_id: r.intake_id,
     case_id: r.case_id,
     matter_id: r.matter_id,
-    meta: parseJson(r.meta, {}),
+    meta,
     created_at: r.created_at,
-    documents: docsByMessage.get(r.id) || [],
+    documents: [...own, ...sent.filter((d) => !ownIds.has(d.id))],
   };
 }

@@ -3,6 +3,7 @@ import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
+import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
 
@@ -22,8 +23,11 @@ export function registerAdminRoutes(router, app) {
     ctx.status = 201;
     return app.intakes.createManual(ctx.body, u);
   }));
-  router.get('/api/admin/intakes/:id', S((ctx, u) => {
-    app.intakes.markSeen(id(ctx), u);
+  router.get('/api/admin/intakes/:id', S((ctx) => {
+    // فتح الطلب يصفّر غير المقروء فقط؛ «قيد الفرز» والإسناد يبدآن مع أول إجراء فرز (رد، تعديل، قرار)
+    app.intakes.markRead(id(ctx));
+    // (v9 messaging) إعلام العميل على واتساب بقراءة رسالته (أفضل جهد، غير متزامن)
+    app.messaging?.markConversationRead?.({ intakeId: id(ctx) });
     return app.intakes.detail(id(ctx));
   }));
   router.patch('/api/admin/intakes/:id', S((ctx, u) => app.intakes.update(id(ctx), ctx.body, u)));
@@ -33,7 +37,11 @@ export function registerAdminRoutes(router, app) {
   router.post('/api/admin/intakes/:id/archive', S((ctx, u) => app.intakes.archive(id(ctx), ctx.body, u)));
   router.post('/api/admin/intakes/:id/reopen', S((ctx, u) => app.intakes.reopen(id(ctx), u)));
   router.post('/api/admin/intakes/:id/confirm-identity', S((ctx, u) => app.intakes.confirmIdentity(id(ctx), u)));
-  router.post('/api/admin/intakes/:id/revoke-portal', S((ctx, u) => app.intakes.revokePortal(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/revoke-portal', S((ctx, u) => {
+    const r = app.intakes.revokePortal(id(ctx), u);
+    app.audit.log({ actor: u, ctx, type: 'portal.revoked', severity: 'warning', summary: `إلغاء روابط بوابة العميل الخاصة بالطلب الوارد رقم ${id(ctx)}`, data: { intake_id: id(ctx) } });
+    return r;
+  }));
   router.post('/api/admin/intakes/:id/convert', S((ctx, u) => {
     ctx.status = 201;
     return { case: app.intakes.convert(id(ctx), ctx.body, u) };
@@ -90,6 +98,7 @@ export function registerAdminRoutes(router, app) {
     const c = app.clients.require(id(ctx));
     const revoked = app.clients.revokePortalTokens(c.id);
     if (revoked) app.activity.log({ client_id: c.id, actor: u, type: 'portal.revoked', summary: `ألغت الإدارة كل روابط البوابة السارية للعميل (${revoked})` });
+    app.audit.log({ actor: u, ctx, type: 'portal.revoked', severity: 'warning', summary: `إلغاء روابط بوابة العميل ${c.code || c.id} (عدد الروابط الملغاة: ${revoked})`, data: { client_id: c.id, revoked } });
     return { revoked };
   }));
   router.post('/api/admin/clients/:id/portal-link', S((ctx, u) => {
@@ -107,6 +116,7 @@ export function registerAdminRoutes(router, app) {
       });
     }
     app.activity.log({ client_id: c.id, actor: u, type: 'client.portal_link', summary: ctx.body.send ? 'أُرسل للعميل رابط البوابة الخاص به' : 'أُنشئ رابط بوابة جديد للعميل' });
+    app.audit.log({ actor: u, ctx, type: 'portal.link_issued', summary: `إصدار رابط بوابة جديد للعميل ${c.code || c.id}${ctx.body.send ? ' وإرساله عبر واتساب' : ''}`, data: { client_id: c.id, sent: !!ctx.body.send } });
     return { url, message_id: message?.id ?? null };
   }));
 
@@ -114,6 +124,8 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/cases', S((ctx) => app.cases.list(ctx.query)));
   router.get('/api/admin/cases/:id', S((ctx) => {
     app.cases.markRead(id(ctx));
+    // (v9 messaging) إعلام العميل على واتساب بقراءة رسالته (أفضل جهد، غير متزامن)
+    app.messaging?.markConversationRead?.({ caseId: id(ctx) });
     return app.cases.detail(id(ctx));
   }));
   router.patch('/api/admin/cases/:id', S((ctx, u) => app.cases.update(id(ctx), ctx.body, u)));
@@ -231,12 +243,19 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/lawyers', S((ctx) => app.lawyers.list(ctx.query)));
   router.post('/api/admin/lawyers', A((ctx, u) => {
     ctx.status = 201;
-    return app.lawyers.create(ctx.body, u);
+    // بدون كلمة مرور: يُنشأ الحساب برابط دعوة للاستخدام مرة واحدة (وحدة الحسابات)
+    if (!ctx.body.password) return app.accounts.createInvitedUser('lawyer', ctx.body, u, ctx);
+    const created = app.lawyers.create(ctx.body, u);
+    app.accounts.onUserCreated(created.id, u, ctx, { temporary: ctx.body.temporary_password === true });
+    return created;
   }));
   router.get('/api/admin/lawyers/suggest', S((ctx) => app.lawyers.suggest({ area: ctx.query.area, case_id: ctx.query.case_id })));
   router.get('/api/admin/lawyers/:id', S((ctx) => app.lawyers.detail(id(ctx), ctx.query.period)));
-  router.patch('/api/admin/lawyers/:id', A((ctx, u) => app.lawyers.update(id(ctx), ctx.body, u)));
-  router.post('/api/admin/lawyers/:id/password', A((ctx, u) => app.lawyers.setPassword(id(ctx), ctx.body.password, u)));
+  // app.accounts.audited: يسجل التفعيل/الإيقاف وتغيير البيانات في سجل الأمان، وكلمة المرور التي تعيّنها الإدارة تصبح مؤقتة
+  router.patch('/api/admin/lawyers/:id', A((ctx, u) => app.accounts.audited(id(ctx), u, ctx, () => app.lawyers.update(id(ctx), ctx.body, u))));
+  router.post('/api/admin/lawyers/:id/password', A((ctx, u) =>
+    app.accounts.audited(id(ctx), u, ctx, () => app.lawyers.setPassword(id(ctx), ctx.body.password, u), { temporaryPassword: ctx.body.temporary_password !== false }),
+  ));
   router.post('/api/admin/lawyers/:id/package', A((ctx, u) => {
     app.accounting.addPackage(id(ctx), ctx.body, u);
     return app.lawyers.detail(id(ctx)).lawyer;
@@ -255,6 +274,8 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/automations', S(() => ({ rules: app.automations.list(), whatsapp_configured: app.whatsapp.configured })));
   router.patch('/api/admin/automations/:key', A((ctx, u) => app.automations.update(ctx.params.key, ctx.body, u)));
   router.post('/api/admin/automations/run', S(() => app.automations.runAll()));
+  // معاينة قبل التشغيل اليدوي: كم رسالة ستُرسل للمستفيدين الآن (لا يُنفَّذ ولا يُرسل شيء)
+  router.get('/api/admin/automations/preview', S(() => app.automations.preview()));
   router.get('/api/admin/outbox', S((ctx) => app.automations.outbox(ctx.query)));
 
   // ===== المعرفة المؤسسية والذكاء الاصطناعي =====
@@ -281,17 +302,26 @@ export function registerAdminRoutes(router, app) {
 
   // ===== المستخدمون والإعدادات (مدير النظام) =====
   router.get('/api/admin/users', A(() => app.lawyers.staffList()));
-  router.post('/api/admin/users', A((ctx) => {
+  router.post('/api/admin/users', A((ctx, u) => {
     ctx.status = 201;
-    return app.lawyers.createStaff(ctx.body);
+    // بدون كلمة مرور: دعوة للاستخدام مرة واحدة (وحدة الحسابات)
+    if (!ctx.body.password) return app.accounts.createInvitedUser('staff', ctx.body, u, ctx);
+    const created = app.lawyers.createStaff(ctx.body);
+    app.accounts.onUserCreated(created.id, u, ctx, { temporary: ctx.body.temporary_password === true });
+    return created;
   }));
-  router.patch('/api/admin/users/:id', A((ctx, u) => app.lawyers.updateStaff(id(ctx), ctx.body, u)));
+  router.patch('/api/admin/users/:id', A((ctx, u) =>
+    app.accounts.audited(id(ctx), u, ctx, () => app.lawyers.updateStaff(id(ctx), ctx.body, u), { temporaryPassword: ctx.body.temporary_password !== false }),
+  ));
   router.get('/api/admin/settings', A((ctx) => ({
     settings: app.settings.all(),
     integrations: {
       whatsapp_configured: app.whatsapp.configured,
-      whatsapp_verify_token_set: !!app.config.whatsapp.verifyToken,
-      whatsapp_app_secret_set: !!app.config.whatsapp.appSecret,
+      // حالة الاتصال الفعلية (بعد «اختبار الاتصال»): simulation | untested | failed | connected
+      whatsapp_status: app.system?.whatsappStatus ? app.system.whatsappStatus() : null,
+      // القيم الفعلية (البيئة أولًا ثم المحفوظ من صفحة التكاملات)
+      whatsapp_verify_token_set: !!app.whatsapp.effective().verifyToken,
+      whatsapp_app_secret_set: !!app.whatsapp.effective().appSecret,
       webhook_path: '/webhooks/whatsapp',
       ai: app.ai.status(),
       demo: !!app.config.demo,
@@ -308,17 +338,42 @@ export function registerAdminRoutes(router, app) {
     str('privacy_notice', 'سياسة الخصوصية', 2000, true);
     str('whatsapp_template_name', 'اسم قالب واتساب', 100);
     str('whatsapp_template_language', 'لغة القالب', 10);
+    // (v9 site) الموقع العام وبيانات التواصل: روابط https من فيسبوك/إنستجرام فقط، بريد وهاتف صالحان، أطوال محددة
+    if (app.site?.validateSettings) Object.assign(out, app.site.validateSettings(b));
     if (b.whatsapp_display_number !== undefined) {
-      const p = normalizePhone(b.whatsapp_display_number);
-      if (!p) throw badRequest('رقم واتساب غير صالح');
-      out.whatsapp_display_number = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
+      // فارغ = لا رقم واتساب للمؤسسة بعد (تختفي أزرار واتساب من الموقع ويظهر الهاتف بديلًا)
+      const s = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
+      if (s !== null) {
+        if (!normalizePhone(s)) throw badRequest('رقم واتساب غير صالح');
+        if (isPlaceholderWhatsApp(s)) throw badRequest('هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي أو اترك الحقل فارغًا');
+      }
+      out.whatsapp_display_number = s ?? '';
     }
     if (b.default_assignment_days !== undefined) out.default_assignment_days = v.int(b.default_assignment_days, 'المدة الافتراضية للرد', { required: true, min: 1, max: 60 });
     if (b.similarity_threshold !== undefined) out.similarity_threshold = v.num(b.similarity_threshold, 'حد التشابه', { required: true, min: 0.05, max: 0.9 });
+    // بقية الإعدادات المعرفة في DEFAULT_SETTINGS (التي تضيفها وحدات الإصدار 9) تُتحقق حسب نوع قيمتها الافتراضية
+    // (v9 accounts) مفاتيح سياسة الأمان لا تُحفظ من هنا مباشرة بل عبر app.accounts.updatePolicy
+    // (نطاقاتها، شرط تفعيل التحقق بخطوتين لمن يُلزم به الآخرين، وتسجيلها كحدث «تعديل سياسة الأمان»)
+    const policyKeys = app.accounts?.POLICY_KEYS || [];
+    for (const [k, val] of Object.entries(b)) {
+      if (k in out || !(k in DEFAULT_SETTINGS) || policyKeys.includes(k)) continue;
+      const def = DEFAULT_SETTINGS[k];
+      if (typeof def === 'number') out[k] = v.num(val, k, { required: true, min: -1e9, max: 1e9 });
+      else if (typeof def === 'boolean') out[k] = v.bool(val);
+      else if (typeof def === 'string') out[k] = v.str(val, k, { max: 5000 }) ?? '';
+      else if (Array.isArray(def) || (def && typeof def === 'object')) {
+        if (typeof val !== 'object' || val === null) throw badRequest(`قيمة غير صالحة للإعداد ${k}`);
+        if (JSON.stringify(val).length > 20000) throw badRequest(`قيمة الإعداد ${k} أطول من المسموح`);
+        out[k] = val;
+      }
+    }
+    const policyPatch = Object.fromEntries(Object.entries(b).filter(([k]) => policyKeys.includes(k)));
+    if (Object.keys(policyPatch).length) app.accounts.updatePolicy(policyPatch, ctx.user, ctx);
     for (const [k, val] of Object.entries(out)) {
       if (!(k in DEFAULT_SETTINGS)) continue;
       app.settings.set(k, val);
     }
+    if (Object.keys(out).length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${Object.keys(out).join('، ')}` });
     return app.settings.all();
   }));
 }

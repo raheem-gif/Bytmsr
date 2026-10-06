@@ -1,0 +1,260 @@
+/* إصلاحات ما قبل الإطلاق (الواجهة): إشارات التمرير، الجداول على الشاشات المتوسطة والهاتف، والقائمة الجانبية. */
+
+/* ───────────── إشارة التمرير الأفقي (overflowCue في ui.js) ─────────────
+   تتلاشى الحافة التي يختفي خلفها جزء من المحتوى. في الصفحة العربية «البداية» يمين و«النهاية» يسار. */
+.has-overflow.more-end:not(.more-start) {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px);
+  mask-image: linear-gradient(to right, transparent 0, #000 40px);
+}
+.has-overflow.more-start:not(.more-end) {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 40px);
+  mask-image: linear-gradient(to left, transparent 0, #000 40px);
+}
+.has-overflow.more-start.more-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+}
+[dir='ltr'] .has-overflow.more-end:not(.more-start),
+.has-overflow[dir='ltr'].more-end:not(.more-start) {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 40px);
+  mask-image: linear-gradient(to left, transparent 0, #000 40px);
+}
+[dir='ltr'] .has-overflow.more-start:not(.more-end),
+.has-overflow[dir='ltr'].more-start:not(.more-end) {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px);
+  mask-image: linear-gradient(to right, transparent 0, #000 40px);
+}
+
+/* ───────────── القائمة الجانبية: مجموعات قابلة للطي وإشارة التمرير ───────────── */
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.nav-group-toggle:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05);
+}
+.nav-group-toggle:focus-visible {
+  outline: 2px solid var(--accent-300);
+  outline-offset: -2px;
+}
+.nav-group-chev {
+  flex-shrink: 0;
+  opacity: 0.75;
+  transition: transform 0.15s;
+}
+.nav-group.is-collapsed .nav-group-chev {
+  transform: rotate(90deg);
+}
+.nav-group.is-collapsed + .nav-group {
+  margin-block-start: 4px;
+}
+/* حافة سفلية/علوية متلاشية حين يكون في القائمة المزيد خارج منطقة العرض */
+.nav.more-below:not(.more-above) {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+}
+.nav.more-above:not(.more-below) {
+  -webkit-mask-image: linear-gradient(to top, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to top, #000 calc(100% - 28px), transparent);
+}
+.nav.more-above.more-below {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 44px), transparent);
+}
+/* الشاشات القصيرة: عناصر أكثف قليلًا */
+@media (max-height: 860px) {
+  .nav-link {
+    padding-block: 6px;
+  }
+  .nav-group + .nav-group {
+    margin-block-start: 8px;
+  }
+  .brand {
+    padding-block: 14px 12px;
+  }
+  .sidebar-footer {
+    padding-block: 10px;
+  }
+}
+
+/* ───────────── الجداول ───────────── */
+
+/* الأكواد اللاتينية (CRM-2026-00001) لا تنكسر عند الشرطة داخل الخلايا */
+.table .nowrap-code,
+.table .code-tag {
+  white-space: nowrap;
+}
+
+/* أعمدة قليلة الأهمية تختفي تحت 1440px بدل أن تدفع الجدول إلى التمرير */
+@media (max-width: 1439px) {
+  .table .col-hide-lg {
+    display: none;
+  }
+}
+
+/* عمود الملف: عرض أقصى معقول، والعنوان يلتف بدل أن يمدّ العمود */
+.table .col-case {
+  min-width: 200px;
+  max-width: 300px;
+}
+.table .col-case .cell-title {
+  overflow-wrap: anywhere;
+}
+.fx-code-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fx-court-cell {
+  min-width: 140px;
+  max-width: 220px;
+}
+
+/* على الهاتف: الصفوف بطاقات مكدسة (table({ stack: true })) */
+@media (max-width: 640px) {
+  .table-wrap.table-stack {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .table-stack table,
+  .table-stack tbody,
+  .table-stack tr,
+  .table-stack td {
+    display: block;
+    width: 100%;
+  }
+  .table-stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .table-stack tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    margin-block-end: 10px;
+    background: var(--surface);
+  }
+  .card-body-flush > .table-stack {
+    padding: 12px;
+  }
+  .table-stack .table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border: 0;
+    text-align: start;
+    min-width: 0;
+    max-width: none;
+  }
+  .table-stack .table td + td {
+    border-block-start: 1px dashed var(--border);
+  }
+  .table-stack td[data-label]:not([data-label=''])::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding-block-start: 2px;
+  }
+  .table-stack td > * {
+    min-width: 0;
+    text-align: end;
+  }
+  /* الخلية الأولى (الكود والعنوان) رأس البطاقة: بلا تسمية وبعرض كامل */
+  .table-stack td:first-child {
+    display: block;
+  }
+  .table-stack td:first-child::before {
+    content: none !important;
+  }
+  .table-stack td:first-child > * {
+    text-align: start;
+  }
+  .table-stack .pb-case-cell,
+  .table-stack .col-case {
+    min-width: 0;
+    max-width: none;
+  }
+  .table-stack .table-empty td::before {
+    content: none;
+  }
+  .table-stack .table tr.is-clickable:hover td {
+    background: transparent;
+  }
+}
+
+/* استيراد البيانات على الهاتف: قائمة نوع البيانات بعرض البطاقة */
+@media (max-width: 640px) {
+  .v9p-import-sel {
+    align-self: stretch;
+    min-width: 0;
+    width: 100%;
+  }
+  .v9p-import-sel .select-wrap,
+  .v9p-import-sel select {
+    width: 100%;
+  }
+}
+
+/* الإعدادات: شارة «غير مضبوط» قبل شرح حقل رقم واتساب */
+.field-hint .st-unset-badge {
+  margin-inline-end: 6px;
+}
+
+/* شارة نصها جملة: تلتف بدل أن تُقص بثلاث نقاط فلا يمكن قراءتها */
+.badge.badge-wrap {
+  white-space: normal;
+  border-radius: 12px;
+  text-align: start;
+}
+.badge.badge-wrap > span {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* ───────────── رأس الصفحة مع صورة رمزية خارج <h1> (pageHeader({ titleMedia })) ───────────── */
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.page-title-row > .page-title {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .page-title-row > .avatar {
+    display: none;
+  }
+}
+
+@media print {
+  .has-overflow {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+}

@@ -25,24 +25,54 @@ import { createAnalytics, createPortal } from './services/analytics.js';
 import { registerPublicRoutes } from './routes/public.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerLawyerRoutes } from './routes/lawyer.js';
+// ── الإصدار 9 ──
+import fs from 'node:fs';
+import { createIntegrations } from './services/integrations.js';
+import { createAudit, createJobs } from './services/platform.js';
+import { createSystem } from './services/system.js';
+import { createAccounts } from './services/accounts.js';
+import { createMessaging } from './services/messaging.js';
+import { createPractice } from './services/practice.js';
+import { createPrograms } from './services/programs.js';
+import { createDownloads } from './services/downloads.js';
+import { registerSystemRoutes } from './routes/system.js';
+import { registerAccountsRoutes } from './routes/accounts.js';
+import { registerMessagingRoutes } from './routes/messaging.js';
+import { registerPracticeRoutes } from './routes/practice.js';
+import { registerAiRoutes } from './routes/ai.js';
+import { registerProgramsRoutes } from './routes/programs.js';
+import { registerSite } from './site.js';
+import { secureDataDir } from './secure-fs.js';
+
+const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const DEFAULT_LIMIT = 1024 * 1024; // 1MB لطلبات JSON العادية
 
 export function createApp(config, { logger = console } = {}) {
-  const app = { config };
+  const app = { config, version: PKG.version };
   app.log = (msg, err) => {
     if (config.silent) return;
     logger.error(`[${new Date().toISOString()}] ${msg}`, err && err.stack ? err.stack : err ?? '');
   };
+  // مجلد البيانات (قاعدة البيانات، المرفقات، النسخ الاحتياطية، مفتاح التشفير) لمالك العملية فقط: 0700
+  if (config.dbPath !== ':memory:') secureDataDir(config.dataDir || path.dirname(config.dbPath));
   app.db = new Db(config.dbPath);
   app.events = createEvents(app.log);
   app.settings = createSettings(app);
+  // ── البنية المشتركة (الإصدار 9) ──
+  app.audit = createAudit(app);
+  app.jobs = createJobs(app);
+  app.integrations = createIntegrations(app);
+  // كل وحدة تضيف حقولها إلى /api/meta: app.metaProviders.push(() => ({ ... }))
+  app.metaProviders = [];
+  // صفحات عامة ديناميكية: app.pageHandlers.set('/sitemap.xml', (req, res, url) => true)
+  app.pageHandlers = new Map();
   app.activity = createActivity(app);
   app.notifications = createNotifications(app);
   app.auth = createAuth(app);
   app.documents = createDocuments(app);
   app.clients = createClients(app);
-  app.whatsapp = createWhatsApp(config, app.log);
+  app.whatsapp = createWhatsApp(config, app.log, app);
   app.engine = createEngine(app);
   app.ai = createAi(app);
   app.visibility = createVisibility(app);
@@ -57,6 +87,11 @@ export function createApp(config, { logger = console } = {}) {
   app.knowledge = createKnowledge(app);
   app.analytics = createAnalytics(app);
   app.portal = createPortal(app);
+  app.system = createSystem(app);
+  app.accounts = createAccounts(app);
+  app.messaging = createMessaging(app);
+  app.practice = createPractice(app);
+  app.programs = createPrograms(app);
   app.limiters = {
     publicIntake: new RateLimiter({ windowMs: 60 * 60 * 1000, max: config.publicIntakePerHour || 20 }),
     // حد لكل رقم هاتف أيًا كان عنوان IP: يمنع إغراق رقم عميل بطلبات (وتكلفة التحليل الآلي لها)
@@ -72,9 +107,19 @@ export function createApp(config, { logger = console } = {}) {
   app.automations.ensureRules();
 
   const router = new Router();
+  // روابط تنزيل لمرة واحدة للملفات الحساسة (POST يصدر الرابط، GET /api/download يرسل الملف)
+  app.downloads = createDownloads(app);
+  app.downloads.mount(router);
   registerPublicRoutes(router, app);
   registerAdminRoutes(router, app);
   registerLawyerRoutes(router, app);
+  registerSystemRoutes(router, app);
+  registerAccountsRoutes(router, app);
+  registerMessagingRoutes(router, app);
+  registerPracticeRoutes(router, app);
+  registerAiRoutes(router, app);
+  registerProgramsRoutes(router, app);
+  registerSite(app);
   app.router = router;
 
   const pub = config.publicDir;
@@ -82,6 +127,13 @@ export function createApp(config, { logger = console } = {}) {
     '/': path.join(pub, 'index.html'),
     '/intake': path.join(pub, 'intake.html'),
     '/app': path.join(pub, 'app.html'),
+    // صفحات الإصدار 9 العامة (تُنشئها وحداتها)
+    '/privacy': path.join(pub, 'privacy.html'),
+    '/terms': path.join(pub, 'terms.html'),
+    '/data-deletion': path.join(pub, 'data-deletion.html'),
+    '/about': path.join(pub, 'about.html'),
+    '/portal': path.join(pub, 'portal-login.html'),
+    '/setup': path.join(pub, 'setup.html'),
   };
 
   function clientIp(req) {
@@ -179,11 +231,23 @@ export function createApp(config, { logger = console } = {}) {
       return sendJson(res, 400, { error: 'رابط غير صالح', code: 'bad_request' });
     }
     const pathname = url.pathname;
+    // وضع الإعداد الأول (وحدة platform): 503 لكل /api عدا مسارات الإعداد و/api/meta، وتحويل /app إلى /setup
+    if (app.system?.gate?.(req, res, url)) return;
     if (pathname.startsWith('/api/') || pathname.startsWith('/webhooks/')) return handleApi(req, res, url);
     if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { error: 'الطريقة غير مسموح بها', code: 'method_not_allowed' });
+    if (app.pageHandlers.has(pathname)) {
+      const handled = await app.pageHandlers.get(pathname)(req, res, url);
+      if (handled !== false) return;
+    }
     if (pages[pathname]) return sendFile(req, res, pages[pathname]) || notFoundPage(res);
-    if (/^\/p\/[A-Za-z0-9_-]{20,100}\/?$/.test(pathname)) {
+    // كل روابط /p/… (حتى المقطوعة عند نسخها من واتساب) تفتح صفحة المتابعة، وهي تعرض «تعذر فتح صفحة المتابعة»
+    // مع رقم المؤسسة و«الدخول برقم الموبايل» بدل صفحة 404 عامة
+    if (/^\/p\/[^/]{0,200}\/?$/.test(pathname)) {
+      // الرمز في الرابط سر: لا يُرسل في Referer لأي موقع آخر، ولا تُفهرس الصفحة ولا تُخزَّن
       res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      // (v9 site) نفس رأس الموقع العام وتذييله إن استخدمهما القالب؛ المسار الظاهر في الوسوم /portal بلا الرمز
+      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true })) return;
       return sendFile(req, res, path.join(pub, 'portal.html')) || notFoundPage(res);
     }
     if (pathname === '/healthz') return sendJson(res, 200, { ok: true });
@@ -196,6 +260,21 @@ export function createApp(config, { logger = console } = {}) {
   }
 
   function notFoundPage(res) {
+    // صفحة 404 بهوية الموقع العام (الرأس والتذييل ورقم المؤسسة وروابط «متابعة طلبك» و«قدّم طلبًا») من القالب public/404.html
+    const req = res.req;
+    if (app.site?.renderPage && req) {
+      try {
+        const html = app.site.renderPage('404.html', req, '/404', { noindex: true });
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Length', Buffer.byteLength(html));
+        res.end(req.method === 'HEAD' ? undefined : html);
+        return true;
+      } catch (e) {
+        if (e?.code !== 'ENOENT') app.log('404 page render failed', e);
+      }
+    }
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
@@ -205,6 +284,9 @@ export function createApp(config, { logger = console } = {}) {
     );
     return true;
   }
+
+  // صفحة 404 الموحدة (تستخدمها الوحدات الأخرى، مثل /setup بعد انتهاء الإعداد)
+  app.notFoundPage = notFoundPage;
 
   app.server = http.createServer((req, res) => {
     handle(req, res).catch((e) => {
@@ -222,6 +304,7 @@ export function createApp(config, { logger = console } = {}) {
         app.automations.runAll();
         app.auth.purgeExpired();
         await app.engine.flushQueue();
+        await app.jobs.runDue();
       } catch (e) {
         app.log('scheduler', e);
       }

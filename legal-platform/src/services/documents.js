@@ -111,7 +111,7 @@ export function createDocuments(app) {
       const d = new Date();
       const rel = path.join(String(d.getUTCFullYear()), String(d.getUTCMonth() + 1).padStart(2, '0'), randomToken(18) + (ALLOWED[realMime] || ''));
       const abs = path.join(config.uploadsDir, rel);
-      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.mkdirSync(path.dirname(abs), { recursive: true, mode: 0o700 });
       fs.writeFileSync(abs, buf, { mode: 0o600 });
       const id = db.insert('documents', {
         client_id: links.client_id ?? null,

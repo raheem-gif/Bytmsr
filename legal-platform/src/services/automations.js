@@ -82,7 +82,7 @@ export function createAutomations(app) {
           continue;
         }
         const did = once('hearing_reminder', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
-          const body = fill(r.params.template, {
+          const vars = {
             event_kind: LABELS.event_kind[e.kind],
             matter_code: e.matter_code,
             date: arabicDate(e.starts_at),
@@ -90,7 +90,8 @@ export function createAutomations(app) {
             location: e.location || 'المحكمة المختصة',
             title: e.title,
             org_name: orgName(),
-          });
+          };
+          const body = fill(r.params.template, vars);
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
             intake_id: e.intake_id,
@@ -99,6 +100,8 @@ export function createAutomations(app) {
             body,
             automated: true,
             rule: 'hearing_reminder',
+            // متغيرات القالب المربوط بالقاعدة عند الإرسال خارج نافذة الـ 24 ساعة
+            meta: { vars },
           });
           app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد (${LABELS.event_kind[e.kind]} — ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)})` });
           return { message_id: msg.id };
@@ -123,13 +126,14 @@ export function createAutomations(app) {
         if (i.last_reminder_at && addDays(i.last_reminder_at, every) > t) continue;
         const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id));
         const did = once('invoice_reminder', `invoice:${i.id}:${i.reminder_count + 1}`, 'invoice', i.id, () => {
-          const body = fill(r.params.template, {
+          const vars = {
             invoice_number: i.number,
             amount: fromMinor(i.amount_minor - paid).toLocaleString('en-US'),
             due_date: arabicDate(i.due_at, { weekday: false }),
             org_name: orgName(),
-          });
-          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder' });
+          };
+          const body = fill(r.params.template, vars);
+          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars } });
           db.update('invoices', i.id, { reminder_count: i.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ matter_id: i.matter_id, case_id: i.case_id, actor: { kind: 'system' }, type: 'automation.invoice_reminder', summary: `أُرسل تذكير آلي بالفاتورة ${i.number}` });
           return { message_id: msg.id };
@@ -159,8 +163,9 @@ export function createAutomations(app) {
       for (const ir of list) {
         if (ir.last_reminder_at && addDays(ir.last_reminder_at, every) > t) continue;
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
-          const body = fill(r.params.template, { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() });
-          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id } });
+          const vars = { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() };
+          const body = fill(r.params.template, vars);
+          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars } });
           db.update('info_requests', ir.id, { reminder_count: ir.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل ب${LABELS.info_request_kind[ir.kind]} لم يرد عليه بعد` });
           return { message_id: msg.id };
@@ -228,6 +233,12 @@ export function createAutomations(app) {
       }
       return n;
     },
+
+    // (الإصدار 9 — وحدة messaging) استبيان رضا العميل بعد إرسال الرد النهائي؛ التفاصيل في app.messaging.runSurveys
+    satisfaction_survey(r) {
+      app.messaging.expireSurveys();
+      return app.messaging.runSurveys(r.params, { once });
+    },
   };
 
   /** وصف مقروء لمصدر كل تشغيل آلي مع روابط الملف */
@@ -235,24 +246,28 @@ export function createAutomations(app) {
     let ref = null;
     switch (run.entity_type) {
       case 'matter_event':
-        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id FROM matter_events e JOIN matters m ON m.id = e.matter_id WHERE e.id = ?', run.entity_id);
+        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id, cl.name AS client_name FROM matter_events e JOIN matters m ON m.id = e.matter_id LEFT JOIN clients cl ON cl.id = m.client_id WHERE e.id = ?', run.entity_id);
         break;
       case 'matter_task':
-        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id FROM matter_tasks k JOIN matters m ON m.id = k.matter_id WHERE k.id = ?', run.entity_id);
+        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id, cl.name AS client_name FROM matter_tasks k JOIN matters m ON m.id = k.matter_id LEFT JOIN clients cl ON cl.id = m.client_id WHERE k.id = ?', run.entity_id);
         break;
       case 'invoice':
-        ref = db.get('SELECT i.number AS entity_code, i.matter_id, i.case_id FROM invoices i WHERE i.id = ?', run.entity_id);
+        ref = db.get('SELECT i.number AS entity_code, i.matter_id, i.case_id, cl.name AS client_name FROM invoices i LEFT JOIN clients cl ON cl.id = i.client_id WHERE i.id = ?', run.entity_id);
         break;
       case 'info_request':
-        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id FROM info_requests r JOIN cases c ON c.id = r.case_id WHERE r.id = ?', run.entity_id);
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id, cl.name AS client_name FROM info_requests r JOIN cases c ON c.id = r.case_id LEFT JOIN clients cl ON cl.id = c.client_id WHERE r.id = ?', run.entity_id);
         break;
       case 'assignment':
-        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', run.entity_id);
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id, cl.name AS client_name FROM assignments a JOIN cases c ON c.id = a.case_id LEFT JOIN clients cl ON cl.id = c.client_id WHERE a.id = ?', run.entity_id);
+        break;
+      case 'case':
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, c.matter_id, cl.name AS client_name FROM cases c LEFT JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', run.entity_id);
         break;
       default:
         break;
     }
-    return { ...run, entity_code: ref?.entity_code ?? null, case_id: ref?.case_id ?? null, matter_id: ref?.matter_id ?? null };
+    // client_name: اسم المستفيد/ة لعرض «الفاتورة INV-2026-00001 — نهى سمير» في سجل التنفيذ (صفحة الإدارة فقط)
+    return { ...run, entity_code: ref?.entity_code ?? null, case_id: ref?.case_id ?? null, matter_id: ref?.matter_id ?? null, client_name: ref?.client_name ?? null };
   }
 
   const svc = {
@@ -314,6 +329,44 @@ export function createAutomations(app) {
       } finally {
         running = false;
       }
+    },
+
+    /**
+     * معاينة «تشغيل القواعد الآن» دون تنفيذ: تُشغَّل القواعد داخل معاملة يُتراجع عنها بالكامل ولا يُرسل شيء،
+     * ويُعاد عدد الرسائل التي كانت ستُرسل للمستفيدين (وعدد تنبيهات الفريق) لعرضه في نافذة التأكيد.
+     */
+    preview() {
+      if (running) return { skipped: true };
+      const ROLLBACK = new Error('automation preview rollback');
+      const beforeMsg = Number(db.value('SELECT COALESCE(MAX(id), 0) FROM messages'));
+      const beforeNote = Number(db.value('SELECT COALESCE(MAX(id), 0) FROM notifications'));
+      let out = null;
+      app.engine.dryRun = true;
+      try {
+        db.tx(() => {
+          const summary = svc.runAll();
+          const rows = db.all("SELECT channel, automation_rule FROM messages WHERE id > ? AND direction = 'out'", beforeMsg);
+          const byRule = {};
+          for (const r of rows) {
+            const k = r.automation_rule || 'other';
+            byRule[k] = (byRule[k] || 0) + 1;
+          }
+          out = {
+            summary,
+            messages: rows.length,
+            whatsapp: rows.filter((r) => r.channel === 'whatsapp').length,
+            portal: rows.filter((r) => r.channel === 'website').length,
+            by_rule: byRule,
+            staff_notifications: Number(db.value('SELECT COUNT(*) FROM notifications WHERE id > ?', beforeNote)),
+          };
+          throw ROLLBACK;
+        });
+      } catch (e) {
+        if (e !== ROLLBACK) throw e;
+      } finally {
+        app.engine.dryRun = false;
+      }
+      return { ...out, live: !!app.whatsapp.configured };
     },
 
     outbox({ status, limit = 200 } = {}) {

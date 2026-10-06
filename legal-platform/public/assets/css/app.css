@@ -744,6 +744,19 @@ html[dir="rtl"] .icon-dir {
   color: var(--primary-700);
 }
 
+/* الإشعارات المهمة (أمان، تجاوز ميزانية، تقييم منخفض، تجاوز مهلة الرد…) — src: notifTone() في app/notif.js */
+.notif-icon.is-danger,
+.notif-item.is-unread .notif-icon.is-danger {
+  background: var(--danger-100);
+  color: var(--danger-700);
+}
+
+.notif-icon.is-warning,
+.notif-item.is-unread .notif-icon.is-warning {
+  background: var(--warning-100);
+  color: var(--warning-700);
+}
+
 .notif-text {
   flex: 1 1 auto;
   min-width: 0;
@@ -3641,6 +3654,12 @@ a.doc-chip:hover {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow);
   padding: 24px;
+}
+
+/* «الموقع قيد التجهيز» (وضع الإعداد الأول): الرسالة ثم وسائل التواصل */
+.intake-preparing {
+  display: grid;
+  gap: 16px;
 }
 
 .intake-card .tabs-pills .tablist {

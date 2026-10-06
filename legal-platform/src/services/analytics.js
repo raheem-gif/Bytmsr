@@ -1,7 +1,8 @@
 // التحليلات: مصدر العميل ≠ قناة التواصل. نعرف ليس فقط عدد الرسائل التي أنتجها كل إعلان،
 // بل ماذا حدث لها فعليًا: كم تحول لاستشارة، كم احتاج محاميًا، كم صار قضية، كم كلّف، وما النتائج.
-import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, conflict, v } from '../util.js';
+import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, conflict, v, normalizePhone } from '../util.js';
 import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
+import { portalUnverifiedSql, isPortalUnverifiedIntake } from '../channels/engine.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -246,6 +247,8 @@ export function createAnalytics(app) {
            WHERE a.type = 'ai.similar_alert' AND i.status IN ('new','in_review','awaiting_client') ORDER BY a.id DESC LIMIT 5`,
         ),
         knowledge_pending: q("SELECT COUNT(*) FROM knowledge_records WHERE status = 'pending_review'"),
+        // v9 practice: زمن أول رد ومستوى الخدمة
+        sla: app.practice ? app.practice.slaSummary() : null,
         capacity: (() => {
           const l = app.lawyers.list({ period });
           return { ...l.totals, top_loaded: l.items.filter((x) => x.active).sort((a, b) => (b.utilization || 0) - (a.utilization || 0)).slice(0, 5).map((x) => ({ id: x.id, name: x.display_name, open: x.metrics.open_assignments, capacity: x.capacity, overdue: x.metrics.overdue })) };
@@ -260,6 +263,8 @@ export function createAnalytics(app) {
         weekly: svc.weeklyVolume(),
         ai: app.ai.status(),
         whatsapp_configured: app.whatsapp.configured,
+        // «متصل» فقط بعد اختبار اتصال ناجح؛ وإلا «مضبوط (لم يُختبر)» أو «فشل آخر اختبار» أو «وضع المحاكاة»
+        whatsapp: app.system?.whatsappStatus ? app.system.whatsappStatus() : null,
         user: { name: user.name, role: user.role },
       };
     },
@@ -274,72 +279,112 @@ export function createAnalytics(app) {
  */
 export function createPortal(app) {
   const { db } = app;
+  const samePhone = (a, b) => !!a && !!b && (normalizePhone(a) || a) === (normalizePhone(b) || b);
 
-  /** نطاق الوصول: قوائم المعرفات المسموح بها */
-  function scopeOf(client, intakeId) {
+  /**
+   * نطاق الوصول: قوائم المعرفات المسموح بها.
+   * phone: رابط صدر بعد الدخول برمز واتساب على هذا الرقم — يقتصر على ما أتى من هذا الرقم نفسه
+   * (طلبات رقم التواصل فيها هو نفس الرقم وما تفرع عنها)، فلا يكشف دمج العميل مع ملف آخر ملفات ذلك الملف لصاحب الرقم.
+   */
+  function scopeOf(client, intakeId, { phone = null } = {}) {
     if (!intakeId) {
-      // طلب أنشأه الموقع برقم العميل ولم تؤكد الإدارة أن مقدّمه هو صاحب الرقم لا يظهر في بوابة صاحب الرقم:
-      // قد يكون شخصًا آخر أخطأ في كتابة رقمه، فلا تُكشف بياناته لصاحب الرقم
+      // طلب من نموذج الموقع لم تؤكد الإدارة أن مقدّمه هو صاحب الرقم لا يظهر في بوابة صاحب الرقم
+      // (رمز الدخول عبر واتساب أو رابط الإدارة): قد يكون شخصًا آخر أخطأ في كتابة رقمه أو استخدم رقم قريب،
+      // فلا تُكشف رسائله ومستنداته وملفه لصاحب الرقم. يتابعه مقدّمه برابط الطلب الذي وصله عند الإرسال.
       const unverified = new Set(
-        db
-          .all(
-            "SELECT id FROM intakes WHERE client_id = ? AND COALESCE(json_extract(source_detail, '$.phone_match_unverified'), 0) = 1",
-            client.id,
-          )
-          .map((r) => r.id),
+        db.all(`SELECT id FROM intakes WHERE client_id = ? AND ${portalUnverifiedSql()}`, client.id).map((r) => r.id),
       );
+      let intakes = db.all('SELECT id, contact_phone, contact_name FROM intakes WHERE client_id = ? ORDER BY id', client.id).filter((r) => !unverified.has(r.id));
+      if (phone) intakes = intakes.filter((r) => samePhone(r.contact_phone, phone));
+      const allowed = new Set(intakes.map((r) => r.id));
+      // رابط الإدارة الكامل يشمل الملفات التي لا طلب لها؛ رابط رمز واتساب يقتصر على ما تفرع عن طلبات الرقم
+      const caseAllowed = (intakeRef) => (phone ? allowed.has(intakeRef) : !unverified.has(intakeRef));
       return {
         full: true,
-        intakeIds: db.all('SELECT id FROM intakes WHERE client_id = ?', client.id).map((r) => r.id).filter((x) => !unverified.has(x)),
+        phone: phone || null,
+        intakeIds: [...allowed],
         caseIds: db
           .all('SELECT id, intake_id FROM cases WHERE client_id = ?', client.id)
-          .filter((r) => !unverified.has(r.intake_id))
+          .filter((r) => caseAllowed(r.intake_id))
           .map((r) => r.id),
         matterIds: db
           .all('SELECT m.id, c.intake_id FROM matters m JOIN cases c ON c.id = m.case_id WHERE m.client_id = ?', client.id)
-          .filter((r) => !unverified.has(r.intake_id))
+          .filter((r) => caseAllowed(r.intake_id))
           .map((r) => r.id),
+        latestName: intakes.length ? intakes[intakes.length - 1].contact_name || null : null,
       };
     }
     const intake = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);
     if (!intake) return { full: false, intakeIds: [], caseIds: [], matterIds: [], intake: null };
     const caseIds = intake.case_id ? [intake.case_id] : [];
     const matterIds = caseIds.length ? db.all('SELECT id FROM matters WHERE case_id = ?', caseIds[0]).map((r) => r.id) : [];
-    return { full: false, intakeIds: [intake.id], caseIds, matterIds, intake };
+    // رابط طلب من الموقع لم تُؤكد هوية مقدّمه: يعرض جانب الموقع والبوابة من المحادثة فقط، لا رسائل واتساب صاحب الرقم
+    // (قد يكون صاحب الرقم شخصًا آخر أخطأ مقدّم الطلب في كتابة رقمه؛ رسائله وردود الإدارة عليه لا تخص صاحب الرابط)
+    return { full: false, intakeIds: [intake.id], caseIds, matterIds, intake, websiteOnly: isPortalUnverifiedIntake(intake) };
   }
   const inList = (ids) => (ids.length ? ids.join(',') : '-1'); // معرفات رقمية من قاعدة البيانات فقط
 
+  /**
+   * الرسائل التي لا تخص طلبًا أو ملفًا (مثل رسالة رابط البوابة): تظهر في الرابط الكامل فقط،
+   * ولرابط رمز واتساب ما أُرسل إلى هذا الرقم نفسه فقط.
+   */
+  function orphanSql(sc, alias = '') {
+    const c = (x) => (alias ? `${alias}.${x}` : x);
+    if (!sc.full) return { sql: '', params: [] };
+    const base = `${c('intake_id')} IS NULL AND ${c('case_id')} IS NULL AND ${c('matter_id')} IS NULL`;
+    if (!sc.phone) return { sql: ` OR (${base})`, params: [] };
+    return { sql: ` OR (${base} AND ${c('direction')} = 'out' AND ${c('to_address')} = ?)`, params: [sc.phone] };
+  }
+
   const svc = {
     scopeOf,
+    orphanSql,
 
     /** هل يقع هذا الطلب ضمن نطاق الرابط؟ */
-    allowsInfoRequest(client, intakeId, requestId) {
-      const sc = scopeOf(client, intakeId);
+    allowsInfoRequest(client, intakeId, requestId, opts = {}) {
+      const sc = scopeOf(client, intakeId, opts);
       const r = db.get('SELECT case_id FROM info_requests WHERE id = ?', requestId);
       return !!r && sc.caseIds.includes(r.case_id);
     },
 
     /** الوجهة الافتراضية لرسالة جديدة من البوابة */
-    targetFor(client, intakeId) {
-      if (!intakeId) return {};
-      return { target_intake_id: intakeId };
+    targetFor(client, intakeId, { phone = null } = {}) {
+      if (intakeId) return { target_intake_id: intakeId };
+      if (!phone) return {};
+      // رابط رمز واتساب: الرسالة تذهب لأحدث طلب أو ملف مفتوح ضمن نطاق الرقم، وإلا تفتح طلبًا جديدًا برقمه
+      // (لا يختار المحرك تلقائيًا طلبًا لا يراه صاحب الرابط)
+      const sc = scopeOf(client, null, { phone });
+      const I = inList(sc.intakeIds);
+      const C = inList(sc.caseIds);
+      const M = inList(sc.matterIds);
+      const open = db.get(`SELECT id FROM intakes WHERE id IN (${I}) AND status IN ('new','in_review','awaiting_client') ORDER BY id DESC LIMIT 1`);
+      if (open) return { target_intake_id: open.id };
+      const kase = db.get(`SELECT id FROM cases WHERE id IN (${C}) AND status != 'closed' ORDER BY id DESC LIMIT 1`);
+      if (kase) return { target_case_id: kase.id };
+      const matter = db.get(`SELECT case_id FROM matters WHERE id IN (${M}) AND status != 'closed' ORDER BY id DESC LIMIT 1`);
+      if (matter?.case_id) return { target_case_id: matter.case_id };
+      return { force_new_intake: true, from_phone: phone };
     },
 
-    view(client, intakeId = null) {
-      const sc = scopeOf(client, intakeId);
+    view(client, intakeId = null, { phone = null } = {}) {
+      const sc = scopeOf(client, intakeId, { phone });
       const clientStatus = (s) =>
         ({ new: 'قيد المراجعة', assigned: 'قيد الدراسة', in_progress: 'قيد الدراسة', under_review: 'قيد المراجعة النهائية', approved: 'جارٍ إعداد الرد', answered: 'تم الرد', closed: 'مغلق' })[s] || 'قيد المتابعة';
       const I = inList(sc.intakeIds);
       const C = inList(sc.caseIds);
       const M = inList(sc.matterIds);
       const cases = db.all(`SELECT id, code, title, status FROM cases WHERE id IN (${C}) ORDER BY id DESC`);
+      const orphan = orphanSql(sc);
       const msgs = db
         .all(
           `SELECT id, direction, channel, body, created_at FROM messages
-           WHERE client_id = ? AND (intake_id IN (${I}) OR case_id IN (${C}) OR matter_id IN (${M})${sc.full ? ' OR (intake_id IS NULL AND case_id IS NULL AND matter_id IS NULL)' : ''})
+           WHERE client_id = ? AND (intake_id IN (${I}) OR case_id IN (${C}) OR matter_id IN (${M})${orphan.sql})
+             ${sc.websiteOnly ? "AND channel = 'website'" : ''}
              AND (direction = 'in' OR status IN ('sent','delivered','read','simulated'))
+             AND COALESCE(automation_rule, '') != 'portal_otp'
            ORDER BY id DESC LIMIT 100`,
           client.id,
+          ...orphan.params,
         )
         .reverse();
       const byMsg = new Map();
@@ -349,12 +394,20 @@ export function createPortal(app) {
           if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
           byMsg.get(d.message_id).push({ id: d.id, filename: d.filename });
         }
+        // (v9 messaging) المستندات التي أرسلتها الإدارة للعميل مع رسالة صادرة (تُنزَّل من /api/portal/<token>/documents/<id>)
+        for (const d of db.all(`SELECT d.id, ma.message_id, d.filename FROM message_attachments ma JOIN documents d ON d.id = ma.document_id WHERE ma.message_id IN (${ids})`)) {
+          if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
+          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename, sent: true });
+        }
       }
       return {
         scope: sc.full ? 'client' : 'request',
-        client: sc.full
-          ? { code: client.code, name: client.name }
-          : { code: null, name: sc.intake?.contact_name || null, reference: sc.intake?.code || null },
+        client: !sc.full
+          ? { code: null, name: sc.intake?.contact_name || null, reference: sc.intake?.code || null }
+          : sc.phone && Number(db.value("SELECT COUNT(*) FROM client_identities WHERE client_id = ? AND kind = 'phone'", client.id)) > 1
+            ? // ملف عميل بأكثر من رقم (قد يكون دمجًا لملفين): لا نعرض اسم الملف وكوده لصاحب هذا الرقم، بل الاسم الذي كتبه هو
+              { code: null, name: sc.latestName || null }
+            : { code: client.code, name: client.name },
         cases: cases.map((c) => ({ code: c.code, title: c.title, status: c.status, status_label: clientStatus(c.status) })),
         intakes: db
           .all(`SELECT code, status, created_at FROM intakes WHERE id IN (${I}) AND status IN ('new','in_review','awaiting_client') ORDER BY id DESC`)

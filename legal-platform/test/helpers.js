@@ -24,7 +24,8 @@ export async function startTestApp({ seed = 'none', config = {} } = {}) {
     adminPassword: 'Admin@2026',
     schedulerIntervalSeconds: 0,
     silent: true,
-    whatsapp: { token: '', phoneNumberId: '', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000000' },
+    // رقم اختبار صريح (الرقم التوضيحي 201000000000 يُعامل كـ«غير مضبوط» ولا يُنتج رابط wa.me)
+    whatsapp: { token: '', phoneNumberId: '', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000001' },
     ai: { provider: 'heuristic', anthropicApiKey: '' },
     ...config,
   });
@@ -81,6 +82,17 @@ export class Client {
     else if (ct.startsWith('text/')) data = await res.text();
     else data = Buffer.from(await res.arrayBuffer());
     return { status: res.status, body: data, headers: res.headers };
+  }
+  /**
+   * تنزيل حساس (تصدير CSV، نسخة احتياطية، تصدير كامل): POST يصدر رابطًا لمرة واحدة ثم GET له
+   * (src/services/downloads.js). يعيد رد POST كما هو إن لم يكن 200 (403/404/409…).
+   */
+  async download(url, body = {}) {
+    const ticket = await this.post(url, body);
+    if (ticket.status !== 200 || !ticket.body?.url) return ticket;
+    const r = await this.get(ticket.body.url);
+    r.ticket = ticket.body;
+    return r;
   }
   get(url, headers) { return this.request('GET', url, undefined, headers); }
   post(url, body, headers) { return this.request('POST', url, body, headers); }

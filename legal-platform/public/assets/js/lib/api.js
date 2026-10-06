@@ -60,7 +60,7 @@ const AUTH_QUIET_PATHS = ['/auth/login', '/auth/me', '/auth/session'];
  * @param {string} path مسار نسبي إلى /api
  * @param {{query?:object, body?:any, signal?:AbortSignal}} [opts]
  */
-export async function request(method, path, { query, body, signal } = {}) {
+export async function request(method, path, { query, body, signal, background = false } = {}) {
   const m = method.toUpperCase();
   const init = {
     method: m,
@@ -68,6 +68,8 @@ export async function request(method, path, { query, body, signal } = {}) {
     headers: { Accept: 'application/json' },
     signal,
   };
+  // طلبات الخلفية (مثل تحديث الإشعارات الدوري) لا يحتسبها الخادم نشاطًا يمدّد مهلة عدم النشاط للجلسة
+  if (background) init.headers['X-Background-Request'] = '1';
   if (m !== 'GET' && m !== 'HEAD') {
     // الخادم يرفض الطلبات المعدِّلة بغير JSON (حماية CSRF)
     init.headers['Content-Type'] = 'application/json';
@@ -87,7 +89,10 @@ export async function request(method, path, { query, body, signal } = {}) {
   if (res.status !== 204) {
     try {
       data = type.includes('json') ? await res.json() : await res.text();
-    } catch {
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw err;
+      // رد ناجح انقطع أو تلف أثناء القراءة: خطأ شبكة واضح بدل null تنهار عليه الصفحة
+      if (res.ok) throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
       data = null;
     }
   }
@@ -102,6 +107,10 @@ export async function request(method, path, { query, body, signal } = {}) {
     const bare = String(path).split('?')[0];
     if (res.status === 401 && !AUTH_QUIET_PATHS.includes(bare)) {
       window.dispatchEvent(new CustomEvent('auth:expired'));
+    }
+    // قيد فُرض على الحساب أثناء الجلسة (إلزام بالتحقق بخطوتين أو كلمة مرور مؤقتة): main.js يعرض شاشة الإلزام
+    if (res.status === 403 && (err.code === 'two_factor_enrollment_required' || err.code === 'password_change_required')) {
+      window.dispatchEvent(new CustomEvent('auth:restricted', { detail: { code: err.code } }));
     }
     throw err;
   }
@@ -164,6 +173,73 @@ export function fileToUpload(file, { maxBytes = 8 * 1024 * 1024 } = {}) {
 /** يحوّل قائمة ملفات دفعة واحدة. */
 export function filesToUploads(files, opts) {
   return Promise.all(Array.from(files || []).map((f) => fileToUpload(f, opts)));
+}
+
+function saveAs(href, filename) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename || '';
+  a.hidden = true;
+  document.body.append(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+}
+
+/**
+ * تنزيل ملف حساس (تصدير بيانات المستفيدين، نسخة احتياطية، التصدير الكامل، سجل الأمان، تقرير الأثر).
+ * الخادم لا يرسل هذه الملفات لطلب GET بالكعكة وحدها (يستطيع أي موقع آخر فتح الرابط في متصفحك): نطلب أولًا
+ * رابط تنزيل بـ POST، صالحًا لمرة واحدة خلال دقيقة ولهذه الجلسة فقط، ثم نبدأ التنزيل منه.
+ *   mode 'blob' (الافتراضي، لملفات CSV): يُجلب الملف أولًا فتظهر رسالة الخطأ بالعربية إن فشل.
+ *   mode 'navigate' (الملفات الكبيرة: قاعدة البيانات والتصدير الكامل): يحفظه المتصفح مباشرة دون تحميله في الذاكرة.
+ * @param {string} path مسار نسبي إلى /api (مسار POST الذي يصدر رابط التنزيل)
+ * @param {object} [body] معاملات التصدير (الفلاتر وغيرها)
+ * @returns {Promise<{filename:string}>}
+ */
+export async function downloadFile(path, body, { mode = 'blob', fallbackName = 'download' } = {}) {
+  const ticket = await request('POST', path, { body: body || {} });
+  if (!ticket || typeof ticket.url !== 'string' || !ticket.url.startsWith('/api/')) {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'bad_download_ticket' });
+  }
+  if (mode === 'navigate') {
+    const name = ticket.filename || fallbackName;
+    saveAs(ticket.url, name);
+    return { filename: name };
+  }
+  let res;
+  try {
+    res = await fetch(ticket.url, { credentials: 'same-origin' });
+  } catch {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+  }
+  if (!res.ok) {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    throw new ApiError((data && data.error) || 'تعذر تنزيل الملف', { status: res.status, code: (data && data.code) || `http_${res.status}` });
+  }
+  const cd = res.headers.get('content-disposition') || '';
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/i.exec(cd);
+  let name = ticket.filename || fallbackName;
+  if (m) {
+    try {
+      name = decodeURIComponent(m[1]);
+    } catch {
+      name = m[1];
+    }
+  }
+  let blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+  }
+  const href = URL.createObjectURL(blob);
+  saveAs(href, name);
+  setTimeout(() => URL.revokeObjectURL(href), 1500);
+  return { filename: name };
 }
 
 /** رابط تنزيل مستند محفوظ. */

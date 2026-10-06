@@ -26,6 +26,11 @@ import {
   progressBar,
 } from '../../../lib/ui.js';
 import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
+import { docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js'; // v9 ai: تحليل المستندات
+import { printButton } from '../../components/print-button.js';
+import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
+import { partiesCard } from '../../components/parties.js'; // v9 practice
+import { outcomeCard } from '../../components/outcome.js'; // v9 practice
 
 const TAB_KEYS = ['events', 'tasks', 'invoices', 'expenses', 'fees', 'documents', 'messages', 'activity'];
 
@@ -75,7 +80,8 @@ export default async function render(ctx) {
   }
   async function activeLawyers() {
     const res = await api.get('/admin/lawyers', { active: 'true' });
-    return ((res && res.items) || []).map((l) => ({ value: l.id, label: l.display_name || l.name }));
+    // من لم يفعّل حسابه من رابط الدعوة بعد لا يصلح محاميًا مسؤولًا (يرفضه الخادم كذلك)
+    return ((res && res.items) || []).filter((l) => !l.invite_pending).map((l) => ({ value: l.id, label: l.display_name || l.name }));
   }
 
   // ───────────────────────── الترويسة والملخص ─────────────────────────
@@ -86,7 +92,7 @@ export default async function render(ctx) {
     meta: [codeTag(m.code, { className: 'pb-code-lg' }), statusBadge('matter_status', m.status), statusBadge('matter_kind', m.kind)],
     actions: [
       d.case && button('الاستشارة الأصلية', { icon: 'briefcase', href: `#/cases/${d.case.id}` }),
-      button('رسالة للعميل', { icon: 'message', onClick: () => goTab('messages') }),
+      button('رسالة للمستفيد/ة', { icon: 'message', onClick: () => goTab('messages') }),
       asyncButton(
         'تعديل بيانات الملف',
         async () => {
@@ -125,7 +131,7 @@ export default async function render(ctx) {
       onClick: () => goTab('tasks'),
     }),
     statCard({
-      label: 'المتبقي على العميل',
+      label: 'المتبقي على المستفيد/ة',
       value: money(balance),
       hint: `فُوتر ${money(totals.invoiced)} · حُصّل ${money(totals.paid)}`,
       icon: 'wallet',
@@ -150,7 +156,7 @@ export default async function render(ctx) {
           ['الدائرة', m.circuit],
           ['الدعوى', lawsuit],
           ['الخصم', m.opponent],
-          ['الأتعاب المتفق عليها مع العميل', m.agreed_fee != null ? money(m.agreed_fee) : null],
+          ['الأتعاب المتفق عليها مع المستفيد/ة', m.agreed_fee != null ? money(m.agreed_fee) : null],
           ['تاريخ الفتح', date(m.opened_at)],
           m.closed_at && ['تاريخ الإغلاق', date(m.closed_at)],
         ]),
@@ -158,12 +164,12 @@ export default async function render(ctx) {
       ),
     }),
     card({
-      title: 'العميل والمحامي المسؤول',
+      title: 'المستفيد/ة والمحامي المسؤول',
       icon: 'users',
       body: h(
         'div.stack',
         kv([
-          ['العميل', d.client ? inline(h('a', { href: `#/clients/${d.client.id}` }, d.client.name || 'عميل بدون اسم'), codeTag(d.client.code)) : null],
+          ['المستفيد/ة', d.client ? inline(h('a', { href: `#/clients/${d.client.id}` }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
           ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(d.client.phone), copyButton(d.client.phone, '')) : null],
           ['المحامي المسؤول', d.responsible_lawyer ? h('a', { href: `#/lawyers/${d.responsible_lawyer.id}` }, d.responsible_lawyer.name) : h('span.muted', 'لم يُحدَّد بعد')],
           [
@@ -173,7 +179,7 @@ export default async function render(ctx) {
               : null,
           ],
         ]),
-        h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل العميل أو الفواتير.')),
+        h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل المستفيد/ة أو الفواتير.')),
       ),
     }),
   );
@@ -189,8 +195,8 @@ export default async function render(ctx) {
     {
       name: 'client_attendance_required',
       type: 'checkbox',
-      text: 'يلزم حضور العميل شخصيًا',
-      hint: 'سيرسل النظام تذكيرًا آليًا للعميل عبر واتساب قبل الموعد.',
+      text: 'يلزم حضور المستفيد/ة شخصيًا',
+      hint: 'سيرسل النظام تذكيرًا آليًا للمستفيد/ة عبر واتساب قبل الموعد.',
       full: true,
     },
     forEdit && { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 3, maxLength: 5000 },
@@ -214,14 +220,14 @@ export default async function render(ctx) {
           notes: v.notes || null,
         }),
     });
-    if (res) await refresh(res.client_attendance_required ? 'أُضيف الموعد، وسيُذكَّر العميل آليًا قبله' : 'أُضيف الموعد', { tab: 'events' });
+    if (res) await refresh(res.client_attendance_required ? 'أُضيف الموعد، وسيُذكَّر المستفيد/ة آليًا قبله' : 'أُضيف الموعد', { tab: 'events' });
   }
 
   async function openEditEvent(e) {
     const res = await formModal({
       title: `تعديل ${label('event_kind', e.kind)}`,
       intro: e.reminder_pending_approval
-        ? 'أضاف المحامي هذا الموعد أو عدّله ولم يُعتمد تذكير العميل بعد. حفظ التعديل يعتمد التذكير، فراجع العنوان والمكان كما سيصلان للعميل.'
+        ? 'أضاف المحامي هذا الموعد أو عدّله ولم يُعتمد تذكير المستفيد/ة بعد. حفظ التعديل يعتمد التذكير، فراجع العنوان والمكان كما سيصلان للمستفيد/ة.'
         : null,
       fields: eventFields(true),
       values: { ...e, client_attendance_required: Boolean(e.client_attendance_required) },
@@ -242,7 +248,7 @@ export default async function render(ctx) {
   async function openRecordOutcome(e) {
     const res = await formModal({
       title: `تسجيل ما تم — ${e.title}`,
-      intro: 'سجّل نتيجة الموعد. إن تأجلت الجلسة أضف موعدها التالي ليُجدول تلقائيًا بنفس المكان وإعداد حضور العميل.',
+      intro: 'سجّل نتيجة الموعد. إن تأجلت الجلسة أضف موعدها التالي ليُجدول تلقائيًا بنفس المكان وإعداد حضور المستفيد/ة.',
       fields: [
         { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status').filter((o) => o.value !== 'scheduled') },
         { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime' },
@@ -271,14 +277,14 @@ export default async function render(ctx) {
   // نص المحامي لا يصل للعميل قبل مراجعة الإدارة: تذكير الموعد ينتظر الاعتماد
   async function approveReminder(e) {
     const ok = await confirmAction({
-      title: 'اعتماد تذكير العميل',
-      message: `سيُرسل للعميل تذكير آلي قبل الموعد يتضمن: «${e.title}» يوم ${weekday(e.starts_at)} ${date(e.starts_at)}، ${time(e.starts_at)}${e.location ? ` في «${e.location}»` : ''}. إن احتاج النص تعديلًا فاستخدم «تعديل» بدلًا من ذلك (حفظ التعديل يعتمد التذكير أيضًا).`,
+      title: 'اعتماد تذكير المستفيد/ة',
+      message: `سيُرسل للمستفيد/ة تذكير آلي قبل الموعد يتضمن: «${e.title}» يوم ${weekday(e.starts_at)} ${date(e.starts_at)}، ${time(e.starts_at)}${e.location ? ` في «${e.location}»` : ''}. إن احتاج النص تعديلًا فاستخدم «تعديل» بدلًا من ذلك (حفظ التعديل يعتمد التذكير أيضًا).`,
       confirmLabel: 'اعتماد التذكير',
       danger: false,
     });
     if (!ok) return;
     await api.post(`/admin/matter-events/${e.id}/approve-reminder`);
-    await refresh('اعتُمد تذكير العميل بهذا الموعد', { tab: 'events' });
+    await refresh('اعتُمد تذكير المستفيد/ة بهذا الموعد', { tab: 'events' });
   }
 
   function eventItem(e) {
@@ -288,7 +294,7 @@ export default async function render(ctx) {
     const acts = !closed
       ? h(
           'div.btn-group.mt-2',
-          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير العميل', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle' }),
+          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير المستفيد/ة', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle' }),
           e.status === 'scheduled' && button('تسجيل ما تم', { size: 'sm', variant: past ? 'primary' : 'secondary', icon: 'check', onClick: () => openRecordOutcome(e) }),
           button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditEvent(e) }),
         )
@@ -311,13 +317,13 @@ export default async function render(ctx) {
           statusBadge('event_status', e.status),
           e.client_attendance_required
             ? pendingReminder
-              ? badge('يلزم حضور العميل', 'accent', { icon: 'user' })
-              : badge('يلزم حضور العميل — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' })
+              ? badge('يلزم حضور المستفيد/ة', 'accent', { icon: 'user' })
+              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' })
             : null,
           pendingReminder
-            ? badge('تذكير العميل بانتظار الاعتماد', 'warning', {
+            ? badge('تذكير المستفيد/ة بانتظار الاعتماد', 'warning', {
                 icon: 'clock',
-                title: 'أضاف المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير للعميل قبل أن تعتمده الإدارة',
+                title: 'أضاف المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير للمستفيد/ة قبل أن تعتمده الإدارة',
               })
             : null,
           e.status === 'scheduled' && past && badge('مضى موعده ولم تُسجَّل نتيجته', 'warning', { icon: 'alert' }),
@@ -335,9 +341,9 @@ export default async function render(ctx) {
     const pendingReminders = events.filter((e) => e.reminder_pending_approval && e.status === 'scheduled').length;
     return h(
       'div.stack',
-      alertBox('المواعيد التي يلزم فيها حضور العميل يُرسَل له بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
+      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل له بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
       pendingReminders > 0 &&
-        alertBox('أضاف المحامي مواعيد يلزم فيها حضور العميل أو عدّلها، ولن يُرسل تذكيرها للعميل قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير العميل».', 'warning', {
+        alertBox('أضاف المحامي مواعيد يلزم فيها حضور المستفيد/ة أو عدّلها، ولن يُرسل تذكيرها للمستفيد/ة قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير المستفيد/ة».', 'warning', {
           title: 'تذكيرات بانتظار الاعتماد',
           icon: 'alert',
         }),
@@ -485,8 +491,8 @@ export default async function render(ctx) {
 
   async function openAddInvoice() {
     const res = await formModal({
-      title: 'إصدار فاتورة للعميل',
-      intro: 'إن تأخر السداد بعد تاريخ الاستحقاق يُرسل النظام تذكيرًا آليًا للعميل.',
+      title: 'إصدار فاتورة للمستفيد/ة',
+      intro: 'إن تأخر السداد بعد تاريخ الاستحقاق يُرسل النظام تذكيرًا آليًا للمستفيد/ة.',
       fields: [
         { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true },
         { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01 },
@@ -565,6 +571,7 @@ export default async function render(ctx) {
             'div.btn-group.pb-table-actions',
             ['unpaid', 'partially_paid'].includes(i.status) && button('تسجيل دفعة', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => openPayment(i) }),
             i.status === 'unpaid' && !(i.paid_amount > 0) && asyncButton('إلغاء', () => cancelInvoice(i), { size: 'sm', variant: 'ghost', icon: 'x' }),
+            printButton({ kind: 'invoice', id: i.id, label: 'طباعة', variant: 'ghost', title: `طباعة الفاتورة ${i.number}` }),
           ),
       },
     ];
@@ -595,11 +602,13 @@ export default async function render(ctx) {
         flush: true,
         body: table({
           columns: [
+            { key: 'receipt', label: 'رقم الإيصال', render: (p) => (p.receipt_number ? codeTag(p.receipt_number) : null) },
             { key: 'invoice', label: 'الفاتورة', render: (p) => codeTag(p.invoice_number) },
             { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => h('strong.nowrap', money(p.amount)) },
             { key: 'paid_at', label: 'تاريخ الدفع', render: (p) => h('span.small.nowrap', date(p.paid_at)) },
             { key: 'method', label: 'الطريقة', render: (p) => p.method },
             { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null) },
+            { key: 'print', label: '', render: (p) => printButton({ kind: 'receipt', id: p.id, label: 'إيصال', variant: 'ghost', title: `طباعة إيصال الاستلام${p.receipt_number ? ` ${p.receipt_number}` : ''}` }) },
           ],
           rows: payments,
           caption: 'المدفوعات المسجلة',
@@ -745,6 +754,8 @@ export default async function render(ctx) {
   // ───────────────────────── المستندات والرسائل والسجل ─────────────────────────
 
   function renderDocuments() {
+    // (v9 ai) آخر تحليل لكل مستند: مستندات الملف المستمر، وما حُلل منها ضمن الاستشارة الأصلية
+    const analyses = docAnalysisStore([{ matter_id: m.id }, d.case && d.case.id && { case_id: d.case.id }]);
     return h(
       'div.stack',
       card({
@@ -758,15 +769,29 @@ export default async function render(ctx) {
               key: 'title',
               label: 'المستند',
               className: 'col-wide',
-              render: (x) => h('div', h('div.cell-title', { dir: 'auto' }, x.title), x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename)),
+              render: (x) =>
+                h(
+                  'div',
+                  h('div.cell-title', { dir: 'auto' }, x.title),
+                  x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename),
+                  docAiBadge(analyses, x.id),
+                ),
             },
             { key: 'by', label: 'أضافه', render: (x) => statusBadge('actor_kind', x.uploaded_by_kind) },
             { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', dateTime(x.created_at)) },
             { key: 'size', label: 'الحجم', render: (x) => h('span.small.nowrap', formatBytes(x.size)) },
             {
               key: 'dl',
-              label: 'تنزيل',
-              render: (x) => button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
+              label: 'إجراءات',
+              render: (x) =>
+                h(
+                  'div.btn-group',
+                  button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
+                  // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
+                  sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }) }),
+                  // (v9 ai) تحليل المستند؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
+                  docAiAction(analyses, x),
+                ),
             },
           ],
           rows: documents,
@@ -774,6 +799,7 @@ export default async function render(ctx) {
           empty: 'لا توجد مستندات في هذا الملف بعد',
         }),
       }),
+      docAiResultsCard(analyses, documents),
       card({
         title: 'رفع مستندات',
         icon: 'upload',
@@ -827,10 +853,10 @@ export default async function render(ctx) {
   function renderMessages() {
     return h(
       'div.stack',
-      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات العميل لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message' }),
+      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات المستفيد/ة لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message' }),
       attachmentShareControls(
         messageThread(messages, {
-          inLabel: d.client ? d.client.name : 'العميل',
+          inLabel: d.client ? d.client.name : 'المستفيد/ة',
           outLabel: 'المؤسسة',
           onRetry: async (msg) => {
             await api.post(`/admin/messages/${msg.id}/retry`);
@@ -840,9 +866,17 @@ export default async function render(ctx) {
       ),
       messageComposer({
         hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».',
+        // (v9) ردود جاهزة بمتغيرات الملف (كود الاستشارة الأصلية إن وُجدت)، واقتراح رد بالذكاء الاصطناعي
+        quickReplies: {
+          client_name: d.client?.name || undefined,
+          case_code: d.case?.code || m.code,
+          case_id: d.case?.id || undefined,
+          client_id: d.client?.id || undefined,
+        },
+        aiTarget: { matterId: m.id },
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/matters/${id}/messages`, { body, channel });
-          await refresh('أُرسلت الرسالة للعميل', { tab: 'messages' });
+          await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'messages' });
         },
       }),
     );
@@ -854,7 +888,7 @@ export default async function render(ctx) {
     // محامٍ مسؤول موقوف لا يظهر بين المحامين النشطين: نُبقيه خيارًا حتى لا يُمسح بحفظ تعديل آخر
     const lawyerOptions = [...(activeOptions || [])];
     if (m.responsible_lawyer_id && !lawyerOptions.some((o) => o.value === m.responsible_lawyer_id)) {
-      lawyerOptions.unshift({ value: m.responsible_lawyer_id, label: `${d.responsible_lawyer?.name || 'المحامي الحالي'} (حساب موقوف)` });
+      lawyerOptions.unshift({ value: m.responsible_lawyer_id, label: `${d.responsible_lawyer?.name || 'المحامي الحالي'} (حساب غير نشط)` });
     }
     const res = await formModal({
       title: 'تعديل بيانات الملف المستمر',
@@ -864,7 +898,7 @@ export default async function render(ctx) {
         { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind') },
         { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('matter_status'), hint: 'إغلاق الملف المستمر يوقف إضافة المواعيد والمهام الجديدة.' },
         { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يُبلَّغ المحامي الجديد ويرى الملف من بوابته.' },
-        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع العميل', type: 'money', min: 0 },
+        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0 },
         { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150 },
         { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100 },
         { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true },
@@ -923,6 +957,8 @@ export default async function render(ctx) {
     closed && alertBox(`الملف المستمر مغلق منذ ${date(m.closed_at)}. يمكنك إعادة فتحه بتعديل الحالة.`, 'info', { icon: 'lock' }),
     stats,
     summary,
+    // v9 practice: أطراف الدعوى وتعارض المصالح، والأثر المتحقق للمستفيد
+    h('div.grid-2.v9p-grid', partiesCard({ matterId: m.id }), outcomeCard({ kind: 'matter', id: m.id })),
     tabsEl,
   );
 }

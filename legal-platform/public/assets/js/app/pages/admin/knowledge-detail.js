@@ -33,7 +33,7 @@ const REDACTION_CATEGORIES = {
   national_ids: 'أرقام قومية',
   emails: 'بريد إلكتروني',
   addresses: 'عناوين',
-  codes: 'أكواد ملفات وعملاء',
+  codes: 'أكواد ملفات ومستفيدين',
   links: 'روابط',
 };
 const METHOD_LABELS = { heuristic: 'إخفاء آلي بقواعد لغوية عربية', ai: 'إخفاء بمساعدة الذكاء الاصطناعي', manual: 'إخفاء يدوي' };
@@ -48,7 +48,7 @@ function residualPii(rec) {
   add('رقم هاتف', /(?:\+?20|0)1[0125][\d\s-]{7,10}\d/g);
   add('رقم قومي', /\b[23]\d{13}\b/g);
   add('بريد إلكتروني', /[\w.+-]+@[\w-]+\.[\w.-]+/g);
-  add('كود ملف أو عميل', /\b[A-Z]{2,3}-\d{4}-\d{5}\b|\bCL-\d{5}\b/g);
+  add('كود ملف أو مستفيد/ة', /\b[A-Z]{2,3}-\d{4}-\d{5}\b|\bCL-\d{5}\b/g);
   const seen = new Set();
   return found.filter((f) => (seen.has(f.value) ? false : seen.add(f.value)));
 }
@@ -111,7 +111,7 @@ export default async function render(ctx) {
           name: 'confirm',
           type: 'checkbox',
           required: true,
-          text: 'راجعتُ إخفاء البيانات الشخصية، وأؤكد أن النص لا يكشف هوية العميل أو أطراف الملف',
+          text: 'راجعتُ إخفاء البيانات الشخصية، وأؤكد أن النص لا يكشف هوية المستفيد/ة أو أطراف الملف',
           full: true,
         },
         { name: 'note', label: 'ملاحظة المراجعة (اختياري)', type: 'textarea', rows: 3, maxLength: 2000 },
@@ -238,7 +238,7 @@ export default async function render(ctx) {
       textBlock('الوقائع', rec.facts, { empty: 'لا توجد وقائع مسجلة' }),
       listBlock('المسائل القانونية', rec.issues, 'لم تُسجل مسائل'),
       textBlock('الإجابة المعتمدة (رأي المحامين بعد مراجعة الإدارة)', rec.final_answer, { empty: 'لا توجد إجابة معتمدة' }),
-      textBlock('نسخة الرد التي أُرسلت للعميل', rec.client_answer, { empty: 'لم يُرسل رد للعميل', collapsible: true }),
+      textBlock('نسخة الرد التي أُرسلت للمستفيد/ة', rec.client_answer, { empty: 'لم يُرسل رد للمستفيد/ة', collapsible: true }),
       h('section.pd-kn-block', h('h3', 'الوسوم'), rec.tags && rec.tags.length ? chips(rec.tags) : h('p.muted', 'لا توجد وسوم')),
     );
   }
@@ -261,7 +261,7 @@ export default async function render(ctx) {
         { name: 'facts', label: 'الوقائع (مجهّلة)', type: 'textarea', rows: 6, required: true, minLength: 20, maxLength: 20000 },
         { name: 'issues', label: 'المسائل القانونية', type: 'textarea', rows: 4, hint: 'اكتب كل مسألة في سطر مستقل' },
         { name: 'final_answer', label: 'الإجابة المعتمدة', type: 'textarea', rows: 10, maxLength: 60000 },
-        { name: 'client_answer', label: 'نسخة الرد للعميل', type: 'textarea', rows: 6, maxLength: 10000 },
+        { name: 'client_answer', label: 'نسخة الرد للمستفيد/ة', type: 'textarea', rows: 6, maxLength: 10000 },
       ],
       { footer: false, values: original },
     );
@@ -354,7 +354,7 @@ export default async function render(ctx) {
   });
 
   const requestsCard = card({
-    title: 'ما طُلب من العميل أثناء الدراسة',
+    title: 'ما طُلب من المستفيد/ة أثناء الدراسة',
     icon: 'message',
     body: h(
       'div.stack',

@@ -1,0 +1,43 @@
+{
+  "id": "/app",
+  "name": "منصة الدعم القانوني — مؤسسة بيوت مصر",
+  "short_name": "بيوت مصر",
+  "description": "منصة فريق العمل والمحامين في برنامج الدعم القانوني بمؤسسة بيوت مصر لدعم الأرامل والأيتام.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/app",
+  "scope": "/app",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#0f4c5c",
+  "background_color": "#f3f5f7",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/img/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "صندوق الوارد الموحد",
+      "short_name": "الوارد",
+      "url": "/app#/inbox",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "ملفاتي (للمحامين)",
+      "short_name": "ملفاتي",
+      "url": "/app#/my",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "الإشعارات",
+      "short_name": "الإشعارات",
+      "url": "/app#/notifications",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

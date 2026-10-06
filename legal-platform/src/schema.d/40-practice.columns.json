@@ -1,0 +1,13 @@
+[
+  ["cases", "outcome_kind", "TEXT"],
+  ["cases", "recovered_one_time_minor", "INTEGER"],
+  ["cases", "recovered_monthly_minor", "INTEGER"],
+  ["cases", "outcome_value_notes", "TEXT"],
+  ["cases", "outcome_value_at", "TEXT"],
+  ["matters", "outcome_kind", "TEXT"],
+  ["matters", "recovered_one_time_minor", "INTEGER"],
+  ["matters", "recovered_monthly_minor", "INTEGER"],
+  ["matters", "outcome_value_notes", "TEXT"],
+  ["matters", "outcome_value_at", "TEXT"],
+  ["intakes", "sla_alerted_at", "TEXT"]
+]

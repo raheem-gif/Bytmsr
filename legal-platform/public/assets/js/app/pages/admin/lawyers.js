@@ -3,6 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
+import { showLinkDialog } from '../../components/account-admin.js';
 import { label, areaLabel, areaOptions, options, num, count, money, percent, cairoToday, hours as fmtHours } from '../../../lib/fmt.js';
 import {
   pageHeader,
@@ -336,8 +337,25 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
         autocomplete: 'off',
         hint: 'حروف لاتينية وأرقام فقط، مثل: m.salem',
       },
-      isNew && { name: 'password', label: 'كلمة المرور المبدئية', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل، تُسلَّم للمحامي بشكل آمن' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للعملاء' },
+      // وحدة الحسابات: الدعوة برابط للاستخدام مرة واحدة هي الافتراض؛ أو كلمة مرور مؤقتة يلزم تغييرها عند أول دخول
+      isNew && {
+        name: 'activation',
+        label: 'طريقة تفعيل الحساب',
+        type: 'select',
+        required: true,
+        placeholder: false,
+        options: [
+          { value: 'invite', label: 'رابط دعوة يختار به المحامي كلمة المرور (موصى به)' },
+          { value: 'password', label: 'كلمة مرور مؤقتة أسلّمها له بنفسي' },
+        ],
+        hint: 'رابط الدعوة صالح 72 ساعة ويمكن إرساله عبر واتساب إلى رقم المحامي',
+        onChange: (val, f) => {
+          const c = f.control('password');
+          if (c && c.wrap) c.wrap.hidden = val !== 'password';
+        },
+      },
+      isNew && { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام، ويُطلب من المحامي تغييرها عند أول دخول' },
+      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للمستفيدين' },
       { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
       { name: 'bar_number', label: 'رقم القيد بالنقابة', ltr: true, maxLength: 40 },
       { name: 'bar_level', label: 'درجة القيد', type: 'select', placeholder: '— غير محدد —', options: levels.map((x) => ({ value: x, label: x })) },
@@ -371,9 +389,13 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
             specialties: lawyer.specialties,
             notes: lawyer.notes,
           }
-        : { title: 'أ.', capacity: 10 },
+        : { title: 'أ.', capacity: 10, activation: 'invite' },
     },
   );
+  if (isNew) {
+    const pw = profile.control('password');
+    if (pw && pw.wrap) pw.wrap.hidden = true;
+  }
 
   const editor = agreementEditor(lawyer ? lawyer.agreement : { type: 'per_case' }, {
     originalType: lawyer ? lawyer.agreement?.type : null,
@@ -424,7 +446,14 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
           };
           if (isNew) {
             payload.username = v.username;
-            payload.password = v.password;
+            if (v.activation === 'password') {
+              if (!v.password || v.password.length < 8 || !/\p{L}/u.test(v.password) || !/\p{N}/u.test(v.password)) {
+                profile.setErrors({ password: 'كلمة المرور المؤقتة يجب ألا تقل عن 8 أحرف وتجمع بين الحروف والأرقام' });
+                return false;
+              }
+              payload.password = v.password;
+              payload.temporary_password = true;
+            }
           }
           try {
             const saved = isNew ? await api.post('/admin/lawyers', payload) : await api.patch(`/admin/lawyers/${encodeURIComponent(lawyer.id)}`, payload);
@@ -476,7 +505,7 @@ function nameCell(l) {
       h('a.cell-title', { href: `#/lawyers/${l.id}` }, l.display_name),
       h('div.cell-sub', l.firm || (l.bar_level ? `قيد ${l.bar_level}` : 'محامٍ مستقل')),
       chips(l.specialties_labels || l.specialties.map(areaLabel), { className: 'pd-spec-chips' }),
-      h('div.pd-person-badges', activeBadge(l.active)),
+      h('div.pd-person-badges', activeBadge(l.active), l.invite_pending ? badge('بانتظار قبول الدعوة', 'info', { dot: true }) : null),
     ),
   );
 }
@@ -715,7 +744,9 @@ export default async function render(ctx) {
     openLawyerDialog({
       onSaved: (l) => {
         toast(`تمت إضافة ${l.display_name || l.name} إلى شبكة المحامين`, 'success');
-        ctx.navigate(`/lawyers/${l.id}`);
+        // حساب بدعوة: نعرض رابط الدعوة (نسخ / إرسال عبر واتساب) ثم ننتقل إلى ملف المحامي
+        if (l.invite) showLinkDialog(l.invite, { onClose: () => ctx.navigate(`/lawyers/${l.id}`) });
+        else ctx.navigate(`/lawyers/${l.id}`);
       },
     });
   }

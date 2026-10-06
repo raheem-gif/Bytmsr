@@ -1,13 +1,13 @@
 // صفحة تقديم الطلب من الموقع: نموذج منظم أو محادثة خطوة بخطوة، والطريقتان تكتبان في نفس المسودة.
+// المجالات القانونية والمحافظات تأتي من /api/meta (لا تُكتب هنا)، وبيانات الأسرة اختيارية لترتيب الأولويات.
 
 import { h, mount } from '../lib/h.js';
 import { api, filesToUploads } from '../lib/api.js';
-import { setMeta, areaOptions, areaLabel, governorateOptions, normalizeEgPhone, toLatinDigits, count } from '../lib/fmt.js';
+import { setMeta, getMeta, areaOptions, areaLabel, governorateOptions, normalizeEgPhone, toLatinDigits, count, money, ltr } from '../lib/fmt.js';
 import {
   form,
   tabs,
   button,
-  asyncButton,
   icon,
   codeTag,
   copyButton,
@@ -20,18 +20,60 @@ import {
   loading,
   setBusy,
 } from '../lib/ui.js';
-import { captureAttribution, getAttribution, bindSettings, whatsappUrl, hydrateIcons, setYear } from './common.js';
+import { captureAttribution, getAttribution, whatsappUrl, initSiteChrome } from './common.js';
 
 const UNSURE = 'unsure';
 const MIN_DESC = 20;
 const MAX_DESC = 5000;
 const MAX_FILES = 5;
 const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_FILE_NO = 40;
 const QUICK_GOVS = ['القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية'];
 const PHONE_ERROR = 'أدخل رقم موبايل مصري صحيح مثل 01012345678';
 
+// ───────────── بيانات الأسرة (اختيارية) — نفس قيم واجهة الخادم ─────────────
+// المسميات من /api/meta (LABELS) إن وُجدت حتى يتطابق المصطلح مع واجهة الإدارة، وهذه القوائم ترتيبها واحتياطيها
+const RELATIONS_FALLBACK = [
+  { value: 'widow', label: 'أرملة' },
+  { value: 'orphan_guardian', label: 'ولي أمر أو وصي على أيتام' },
+  { value: 'divorced', label: 'مطلقة' },
+  { value: 'wife', label: 'زوجة' },
+  { value: 'other', label: 'غير ذلك' },
+];
+const INCOME_FALLBACK = [
+  { value: 'none', label: 'لا يوجد دخل ثابت' },
+  { value: 'lt_2000', label: `أقل من ${money(2000)} شهريًا` },
+  { value: '2000_4000', label: `من ${money(2000)} إلى ${money(4000)}` },
+  { value: '4000_7000', label: `من ${money(4000)} إلى ${money(7000)}` },
+  { value: 'gt_7000', label: `أكثر من ${money(7000)}` },
+];
+const HOUSING_FALLBACK = [
+  { value: 'owned', label: 'سكن تمليك' },
+  { value: 'rented_old', label: 'إيجار قديم' },
+  { value: 'rented_new', label: 'إيجار جديد' },
+  { value: 'family', label: 'أقيم مع الأهل أو الأقارب' },
+  { value: 'none', label: 'لا يوجد سكن مستقر' },
+];
+const CHILD_FORMS = ['طفل واحد', 'طفلان', 'أطفال', 'طفلًا'];
+const CHILDREN = [{ value: 0, label: 'لا يوجد أطفال' }, ...Array.from({ length: 20 }, (_, i) => ({ value: i + 1, label: count(i + 1, CHILD_FORMS) }))];
+const FILE_NO_RE = /^[\p{L}\p{N}][\p{L}\p{N} /._-]*$/u;
+const FILE_NO_ERROR = 'رقم الملف يقبل الحروف والأرقام والشرطة والشرطة المائلة فقط';
+
+function withMetaLabels(group, fallback) {
+  const g = getMeta().constants?.LABELS?.[group] || {};
+  return fallback.map((o) => ({ value: o.value, label: g[o.value] || o.label }));
+}
+const RELATIONS = () => withMetaLabels('beneficiary_relation', RELATIONS_FALLBACK);
+const INCOME_BANDS = () => withMetaLabels('income_band', INCOME_FALLBACK);
+const HOUSING = () => withMetaLabels('housing', HOUSING_FALLBACK);
+
+const BENEF_NOTE = 'تساعدنا هذه البيانات على ترتيب الأولويات وتحديد الاستحقاق، ويطّلع عليها فريق المؤسسة المختص فقط. كل الحقول اختيارية.';
+
+const optLabel = (list, v) => (list.find((o) => String(o.value) === String(v)) || {}).label || '';
+
 const root = document.getElementById('intake-root');
 let settings = {};
+let site = {};
 
 // مسودة مشتركة بين الطريقتين حتى لا تضيع البيانات عند التبديل
 const draft = {
@@ -42,6 +84,7 @@ const draft = {
   legal_area: null,
   description: '',
   documents: [],
+  beneficiary: {},
   consent: false,
 };
 
@@ -49,8 +92,14 @@ const draft = {
 const honeypotInput = h('input', { type: 'text', id: 'hp-website', name: 'website', tabindex: '-1', autocomplete: 'off' });
 const honeypot = h('div.honeypot', { 'aria-hidden': 'true' }, h('label', { htmlFor: 'hp-website' }, 'الموقع الإلكتروني'), honeypotInput);
 
-const orgName = () => settings.org_name || 'بيوت مصر';
-const firstName = (name) => String(name || '').trim().split(/\s+/)[0] || '';
+const orgName = () => settings.org_name || 'مؤسسة بيوت مصر';
+// الاسم الذي نخاطب به: الكلمة الأولى، أو الكنية كاملة («أم يوسف»، «أبو أحمد»)
+const KUNYA = new Set(['أم', 'ام', 'أبو', 'ابو']);
+const firstName = (name) => {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return '';
+  return KUNYA.has(w[0]) && w[1] ? `${w[0]} ${w[1]}` : w[0];
+};
 
 function areaText(v) {
   if (!v) return 'لم يُحدد';
@@ -64,6 +113,65 @@ function filesText(files) {
   if (n === 1) return `أرفقت ملفًا واحدًا: ${names}`;
   if (n === 2) return `أرفقت ملفين: ${names}`;
   return `أرفقت ${count(n, 'file')}: ${names}`;
+}
+
+/** بيانات الأسرة بصيغة واجهة الخادم، أو null إن لم يُملأ شيء. */
+function beneficiaryPayload(b = {}) {
+  const out = {};
+  if (RELATIONS_FALLBACK.some((o) => o.value === b.relation)) out.relation = b.relation;
+  const kids = b.children_count === '' || b.children_count == null ? null : Number(b.children_count);
+  if (Number.isInteger(kids) && kids >= 0 && kids <= 20) out.children_count = kids;
+  const fileNo = toLatinDigits(String(b.foundation_file_number || '')).trim().slice(0, MAX_FILE_NO);
+  if (fileNo) out.foundation_file_number = fileNo;
+  if (INCOME_FALLBACK.some((o) => o.value === b.monthly_income_band)) out.monthly_income_band = b.monthly_income_band;
+  if (HOUSING_FALLBACK.some((o) => o.value === b.housing)) out.housing = b.housing;
+  return Object.keys(out).length ? out : null;
+}
+
+function beneficiaryText(b) {
+  const p = beneficiaryPayload(b);
+  if (!p) return '';
+  return [
+    p.relation && optLabel(RELATIONS(), p.relation),
+    p.children_count != null && optLabel(CHILDREN, p.children_count),
+    p.housing && optLabel(HOUSING(), p.housing),
+    p.monthly_income_band && `الدخل: ${optLabel(INCOME_BANDS(), p.monthly_income_band)}`,
+    p.foundation_file_number && `رقم الملف بالمؤسسة: ${p.foundation_file_number}`,
+  ]
+    .filter(Boolean)
+    .join('، ');
+}
+
+/** حقول بيانات الأسرة بمواصفات form() — prefix يميزها داخل النموذج الكامل */
+function beneficiaryFields(prefix = 'b_') {
+  return [
+    { name: `${prefix}relation`, label: 'صفة مقدّم الطلب', type: 'select', options: RELATIONS(), placeholder: '— اختر —' },
+    { name: `${prefix}children_count`, label: 'عدد الأطفال المعالين', type: 'select', options: CHILDREN, placeholder: '— اختر —' },
+    { name: `${prefix}housing`, label: 'السكن الحالي', type: 'select', options: HOUSING(), placeholder: '— اختر —' },
+    { name: `${prefix}monthly_income_band`, label: 'دخل الأسرة الشهري تقريبًا', type: 'select', options: INCOME_BANDS(), placeholder: '— اختر —' },
+    {
+      name: `${prefix}foundation_file_number`,
+      label: 'رقم ملفك لدى المؤسسة',
+      maxLength: MAX_FILE_NO,
+      ltr: true,
+      placeholder: 'إن كنت من مستفيدي برامج المؤسسة',
+      hint: 'اختياري — تجده في بطاقة المستفيد أو لدى الباحثة الاجتماعية',
+    },
+  ];
+}
+
+const B_KEYS = ['relation', 'children_count', 'housing', 'monthly_income_band', 'foundation_file_number'];
+
+function beneficiaryFromValues(values, prefix = 'b_') {
+  const b = {};
+  for (const k of B_KEYS) b[k] = values[`${prefix}${k}`] ?? null;
+  return b;
+}
+
+function beneficiaryToValues(b = {}, prefix = 'b_') {
+  const out = {};
+  for (const k of B_KEYS) out[`${prefix}${k}`] = b[k] ?? null;
+  return out;
 }
 
 // ───────────── الإرسال ─────────────
@@ -86,13 +194,27 @@ async function submitIntake(values, mode) {
   };
   const email = String(values.email || '').trim();
   if (email) payload.email = email;
+  const beneficiary = beneficiaryPayload(values.beneficiary);
+  if (beneficiary) payload.beneficiary = beneficiary;
   const res = await api.post('/public/intake', payload);
   showSuccess(res, payload.name);
 }
 
+function successStep(n, title, text, done = false) {
+  return h(
+    'li',
+    { class: done && 'is-done' },
+    h('span.success-step-num', { 'aria-hidden': 'true' }, done ? icon('check', { size: 18 }) : String(n)),
+    h('div', h('strong', title), h('span', text)),
+  );
+}
+
 function showSuccess(res, name) {
   const ref = res && res.reference;
-  const heading = h('h2#success-title', { tabindex: '-1' }, 'تم استلام طلبك بنجاح');
+  // عنوان الصفحة الرئيسي بعد الإرسال (يحل محل عنوان النموذج، فتبقى للصفحة h1 واحدة)
+  const heading = h('h1#success-title.success-title', { tabindex: '-1' }, 'تم استلام طلبك بنجاح');
+  const portal = res && res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
+  document.title = `تم استلام طلبك — ${orgName()}`;
   mount(
     root,
     h(
@@ -100,7 +222,10 @@ function showSuccess(res, name) {
       { 'aria-labelledby': 'success-title' },
       h('span.success-icon', icon('check', { size: 36 })),
       heading,
-      h('p.muted', `شكرًا لك${firstName(name) ? ` يا ${firstName(name)}` : ''}. سيراجع فريق ${orgName()} طلبك ويتواصل معك قريبًا.`),
+      h(
+        'p.muted',
+        `شكرًا لك${firstName(name) ? ` يا ${firstName(name)}` : ''}. سيراجع فريق ${orgName()} طلبك ويتواصل معك عبر واتساب أو الهاتف بعد المراجعة.`,
+      ),
       ref &&
         h(
           'div.ref-box',
@@ -108,22 +233,38 @@ function showSuccess(res, name) {
           codeTag(ref, { className: 'code-lg' }),
           copyButton(ref, 'نسخ الرقم', { variant: 'secondary' }),
         ),
-      h('p', h('strong', 'احتفظ برقم طلبك؛ '), 'ستحتاجه عند المتابعة معنا عبر الموقع أو واتساب.'),
+      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), res && res.whatsapp_url ? 'ستحتاج إليه عند التواصل معنا عبر واتساب أو الهاتف.' : 'ستحتاج إليه عند التواصل معنا عبر الهاتف.'),
+      (portal || (res && res.whatsapp_url)) &&
+        h(
+          'div.success-portal',
+          portal && h('strong', 'تابع طلبك وأرسل مستنداتك من رابطك الخاص'),
+          portal && h('div.success-portal-link', h('code', { title: portal }, portal), copyButton(portal, 'نسخ الرابط', { variant: 'secondary' })),
+          h(
+            'div.cta-row',
+            portal && button('فتح صفحة المتابعة', { variant: 'primary', size: 'lg', icon: 'upload', href: portal }),
+            res && res.whatsapp_url && button('أكمل عبر واتساب', { variant: 'whatsapp', size: 'lg', icon: 'whatsapp', href: res.whatsapp_url, target: '_blank' }),
+          ),
+          portal &&
+            h(
+              'p.success-warning',
+              icon('lock', { size: 16 }),
+              // لا وعد بالمتابعة «برقم الطلب» من /portal: الصفحة لا تقبل رقم الطلب، ولا يصل رمز واتساب لرقم جاء من الموقع فقط
+              // قبل أن يتحقق الفريق منه. طريق استعادة الرابط الوحيد هو التواصل مع المؤسسة بذكر رقم الطلب.
+              h(
+                'span',
+                `هذا الرابط خاص بك وحدك؛ احفظه ولا تشاركه مع أحد. إن فقدته فراسلنا أو اتصل بنا واذكر رقم طلبك${ref ? ` ${ltr(ref)}` : ''} لنرسل لك رابطًا جديدًا.`,
+              ),
+            ),
+        ),
+      h('h3', 'ماذا يحدث الآن؟'),
       h(
-        'div.cta-row',
-        res && res.portal_url && button('متابعة طلبك ورفع المستندات', { variant: 'primary', size: 'lg', icon: 'upload', href: res.portal_url }),
-        res &&
-          res.whatsapp_url &&
-          button('أكمل عبر واتساب', { variant: 'whatsapp', size: 'lg', icon: 'whatsapp', href: res.whatsapp_url, target: '_blank' }),
+        'ol.success-steps',
+        successStep(1, 'استلمنا طلبك', ref ? `سُجّل طلبك برقم ${ref}.` : 'سُجّل طلبك لدينا.', true),
+        successStep(2, 'يراجع فريقنا طلبك', 'نحدد نوع المسألة وأولويتها، وقد نطلب منك معلومة أو مستندًا ناقصًا.'),
+        successStep(3, 'محامٍ مختص يدرس حالتك', 'يطّلع المحامي على ما يلزم فقط، ولا يرى رقم هاتفك.'),
+        successStep(4, 'يصلك الرد من المؤسسة', `يُراجَع الرد ويُعتمد من ${orgName()} قبل إرساله إليك.`),
       ),
-      h(
-        'ul.next-steps',
-        [
-          'رابط المتابعة خاص بك وحدك؛ احفظه لتعود إليه وترفع أي مستندات إضافية في أي وقت.',
-          'قد نطلب منك معلومة أو مستندًا ناقصًا قبل إسناد طلبك إلى المحامي المختص.',
-          `يصلك الرد بعد مراجعته واعتماده من إدارة ${orgName()}.`,
-        ].map((t) => h('li', icon('checkCircle', { size: 18 }), h('span', t))),
-      ),
+      h('div.cta-row', button('العودة إلى الصفحة الرئيسية', { variant: 'ghost', icon: 'home', href: '/' })),
     ),
   );
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -131,6 +272,10 @@ function showSuccess(res, name) {
 }
 
 // ───────────── النموذج المنظم ─────────────
+
+function areaChoices() {
+  return [...areaOptions(), { value: UNSURE, label: 'لست متأكدًا' }];
+}
 
 function buildForm() {
   const f = form(
@@ -143,7 +288,7 @@ function buildForm() {
         name: 'legal_area',
         label: 'نوع المسألة القانونية',
         type: 'select',
-        options: [...areaOptions(), { value: UNSURE, label: 'لست متأكدًا' }],
+        options: areaChoices(),
         placeholder: '— اختر نوع المسألة —',
         hint: 'إن لم تكن متأكدًا اختر «لست متأكدًا» وسنصنفها نحن',
         full: true,
@@ -156,7 +301,7 @@ function buildForm() {
         rows: 7,
         minLength: MIN_DESC,
         maxLength: MAX_DESC,
-        placeholder: 'ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟',
+        placeholder: 'ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟ وهل هناك موعد جلسة أو إنذار قريب؟',
         hint: 'كلما كانت التفاصيل أوضح، كان الرد أدق وأسرع.',
       },
       {
@@ -166,28 +311,62 @@ function buildForm() {
         multiple: true,
         maxFiles: MAX_FILES,
         maxBytes: MAX_BYTES,
-        hint: 'اختياري: صور العقود أو الإيصالات أو الأحكام أو أي مستند متعلق بالمسألة.',
+        hint: 'اختياري: صور العقود أو الإيصالات أو الأحكام أو شهادات الوفاة أو أي مستند متعلق بالمسألة.',
       },
+      ...beneficiaryFields(),
       {
         name: 'consent',
         type: 'checkbox',
         required: true,
-        label: 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة',
+        label: 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة وفق سياسة الخصوصية',
         hint: settings.privacy_notice,
       },
     ],
     {
-      values: draft,
+      values: { ...draft, ...beneficiaryToValues(draft.beneficiary) },
       submitLabel: 'إرسال الطلب',
       submitIcon: 'send',
       onSubmit: async (values) => {
-        Object.assign(draft, values);
-        await submitIntake(values, 'form');
+        const fileNo = toLatinDigits(String(values.b_foundation_file_number || '')).trim();
+        if (fileNo && !FILE_NO_RE.test(fileNo)) {
+          f.el.querySelector('.benef-section')?.setAttribute('open', '');
+          const e = new Error(FILE_NO_ERROR);
+          e.details = { fields: { b_foundation_file_number: FILE_NO_ERROR } };
+          throw e;
+        }
+        syncFromForm(values);
+        await submitIntake(draft, 'form');
       },
     },
   );
   f.el.querySelector('button[type=submit]')?.classList.add('btn-lg');
+
+  // بيانات الأسرة في قسم قابل للطي قبل الموافقة
+  const wraps = B_KEYS.map((k) => f.control(`b_${k}`)?.wrap).filter(Boolean);
+  const consentWrap = f.control('consent')?.wrap;
+  const filled = Boolean(beneficiaryPayload(draft.beneficiary));
+  const section = h(
+    'details.benef-section',
+    { open: filled },
+    h(
+      'summary',
+      h('span.benef-icon', { 'aria-hidden': 'true' }, icon('users', { size: 22 })),
+      h('span.benef-summary-text', h('strong', 'بيانات الأسرة (اختيارية)'), h('span', 'للأرامل وأولياء أمور الأيتام ومستفيدي برامج المؤسسة')),
+      h('span.benef-chevron', { 'aria-hidden': 'true' }, icon('chevronDown', { size: 20 })),
+    ),
+    h('div.benef-body', h('p.benef-note', icon('info', { size: 16 }), h('span', BENEF_NOTE)), h('div.form-grid', wraps)),
+  );
+  if (consentWrap) consentWrap.before(section);
+  else f.el.querySelector('.form-grid')?.append(section);
+
+  // رابط سياسة الخصوصية بجوار الموافقة
+  consentWrap?.querySelector('.field-hint')?.append(' ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'اقرأ سياسة الخصوصية'));
   return f;
+}
+
+function syncFromForm(values) {
+  for (const [k, v] of Object.entries(values)) if (!k.startsWith('b_')) draft[k] = v;
+  draft.beneficiary = beneficiaryFromValues(values);
 }
 
 // ───────────── المحادثة خطوة بخطوة ─────────────
@@ -335,11 +514,10 @@ function createWizard() {
       ask: () => 'ما نوع المسألة القانونية؟ اختر الأقرب لمشكلتك، وإن لم تكن متأكدًا فلا بأس.',
       answer: () => areaText(draft.legal_area),
       composer: () => {
-        const opts = [...areaOptions(), { value: UNSURE, label: 'لست متأكدًا' }];
         const group = h(
           'div.chip-select',
           { role: 'group', 'aria-label': 'نوع المسألة القانونية' },
-          opts.map((o) =>
+          areaChoices().map((o) =>
             h(
               'button.chip-toggle',
               {
@@ -361,7 +539,7 @@ function createWizard() {
     },
     {
       key: 'description',
-      ask: () => 'احكِ لنا المشكلة بالتفصيل: ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟',
+      ask: () => 'احكِ لنا المشكلة بالتفصيل: ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟ وهل هناك موعد جلسة أو إنذار قريب؟',
       answer: () => draft.description,
       composer: () => {
         const ta = h('textarea.input', { id: 'wz-desc', rows: 6, maxlength: MAX_DESC, value: draft.description || '', placeholder: 'اكتب التفاصيل هنا…' });
@@ -391,7 +569,7 @@ function createWizard() {
     },
     {
       key: 'documents',
-      ask: () => 'هل لديك مستندات تريد إرفاقها؟ مثل عقد أو إيصال أو حكم. هذه الخطوة اختيارية ويمكنك إرسالها لاحقًا.',
+      ask: () => 'هل لديك مستندات تريد إرفاقها؟ مثل عقد أو إيصال أو حكم أو شهادة وفاة. هذه الخطوة اختيارية ويمكنك إرسالها لاحقًا.',
       answer: () => filesText(draft.documents || []),
       composer: () => {
         let nav = null;
@@ -415,6 +593,36 @@ function createWizard() {
       },
     },
     {
+      key: 'beneficiary',
+      ask: () => 'سؤال اختياري: هل تحب أن تخبرنا ببعض البيانات عن أسرتك؟ تساعدنا على ترتيب الأولويات وتحديد الاستحقاق، ويمكنك تخطي هذه الخطوة.',
+      answer: () => beneficiaryText(draft.beneficiary) || 'تخطّيت هذه الخطوة',
+      composer: () => {
+        const mini = form(beneficiaryFields('w_'), { values: beneficiaryToValues(draft.beneficiary, 'w_'), footer: false, className: 'benef-body' });
+        const save = () => {
+          draft.beneficiary = beneficiaryFromValues(mini.getValues(), 'w_');
+        };
+        const { row } = navButtons({
+          onNext: () => {
+            const fileNo = toLatinDigits(String(mini.getValues().w_foundation_file_number || '')).trim();
+            if (fileNo && !FILE_NO_RE.test(fileNo)) {
+              mini.setErrors({ w_foundation_file_number: FILE_NO_ERROR });
+              return;
+            }
+            save();
+            advance();
+          },
+          skip: {
+            label: 'تخطَّ',
+            onClick: () => {
+              draft.beneficiary = {};
+              advance();
+            },
+          },
+        });
+        return { node: [h('p.benef-note', icon('info', { size: 16 }), h('span', BENEF_NOTE)), mini.el, row], focus: mini.el.querySelector('select') };
+      },
+    },
+    {
       key: 'consent',
       ask: () => `قبل الإرسال، نطمئنك: ${settings.privacy_notice || 'بياناتك تُستخدم فقط لتقديم الخدمة القانونية المطلوبة.'}`,
       answer: () => 'أوافق على استخدام بياناتي لتقديم الخدمة',
@@ -434,7 +642,12 @@ function createWizard() {
         });
         cb.addEventListener('change', () => (draft.consent = cb.checked));
         return {
-          node: [h('label.check.check-single', { htmlFor: 'wz-consent' }, cb, h('span', 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة')), err, row],
+          node: [
+            h('label.check.check-single', { htmlFor: 'wz-consent' }, cb, h('span', 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة وفق سياسة الخصوصية')),
+            h('p.field-hint', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'اقرأ سياسة الخصوصية')),
+            err,
+            row,
+          ],
           focus: cb,
         };
       },
@@ -446,6 +659,7 @@ function createWizard() {
       composer: () => {
         const alertHost = h('div');
         const docs = draft.documents || [];
+        const family = beneficiaryText(draft.beneficiary);
         const summary = kv(
           [
             ['الاسم', draft.name],
@@ -453,6 +667,7 @@ function createWizard() {
             ['المحافظة', draft.governorate || '—'],
             ['نوع المسألة', areaText(draft.legal_area)],
             ['المستندات', docs.length ? filesText(docs) : 'لا توجد'],
+            ['بيانات الأسرة', family || 'لم تُذكر'],
             ['التفاصيل', h('span.pre', draft.description)],
           ],
           { className: 'review-list' },
@@ -519,6 +734,10 @@ function createWizard() {
 function renderIntake() {
   const params = new URLSearchParams(window.location.search);
   const initial = params.get('mode') === 'guided' ? 'guided' : 'form';
+  // ?area=INH من بطاقات المجالات في الصفحة الرئيسية (يُقبل فقط إن كان مجالًا معرّفًا)
+  const area = String(params.get('area') || '').toUpperCase();
+  if (area && !draft.legal_area && areaOptions().some((o) => o.value === area)) draft.legal_area = area;
+
   const formApi = buildForm();
   const wizard = createWizard();
 
@@ -539,8 +758,12 @@ function renderIntake() {
       active: initial,
       className: 'tabs-pills',
       onChange: (key, prev) => {
-        if (prev === 'form') Object.assign(draft, formApi.getValues());
-        if (key === 'form') formApi.setValues(draft);
+        if (prev === 'form') syncFromForm(formApi.getValues());
+        if (key === 'form') {
+          formApi.setValues({ ...draft, ...beneficiaryToValues(draft.beneficiary) });
+          const sec = formApi.el.querySelector('.benef-section');
+          if (sec && beneficiaryPayload(draft.beneficiary)) sec.open = true;
+        }
         if (key === 'guided') wizard.render(true);
       },
     },
@@ -551,10 +774,16 @@ function renderIntake() {
     root,
     h(
       'div.intake-head',
-      h('h1', 'ابدأ استشارتك القانونية'),
+      h('h1', 'قدّم طلب دعم قانوني'),
       h(
         'p',
-        `اكتب لنا مشكلتك بالطريقة التي تناسبك، وسيراجعها فريق ${orgName()} ثم يحيلها إلى محامٍ متخصص. يمكنك المتابعة لاحقًا من الموقع أو من واتساب على نفس الملف.`,
+        `اكتب لنا مشكلتك بالطريقة التي تناسبك، وسيراجعها فريق ${orgName()} ثم يحيلها إلى محامٍ مختص. ويمكنك المتابعة لاحقًا ${wa ? 'من الموقع أو من واتساب' : 'من الموقع برابط المتابعة الخاص بك'} على نفس الطلب.`,
+      ),
+      h(
+        'ul.intake-trust',
+        h('li', icon('checkCircle', { size: 16 }), 'دون مقابل للمستحقين'),
+        h('li', icon('lock', { size: 16 }), 'المحامي لا يرى رقم هاتفك'),
+        h('li', icon('link', { size: 16 }), 'رقم طلب ورابط متابعة فور الإرسال'),
       ),
       wa &&
         h(
@@ -563,23 +792,63 @@ function renderIntake() {
           h('span', 'تفضّل واتساب؟'),
           h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'راسلنا مباشرة'),
         ),
+      // بلا رقم واتساب مضبوط: الهاتف بديلًا (لا يظهر أي رابط واتساب)
+      !wa &&
+        site.org_phone &&
+        h(
+          'p.wa-alt',
+          icon('phone', { size: 18 }),
+          h('span', 'تفضّل الاتصال الهاتفي؟'),
+          h('a', { href: `tel:${site.org_phone_e164 || site.org_phone}`, dir: 'ltr' }, site.org_phone),
+        ),
     ),
     h('section.intake-card', { 'aria-label': 'نموذج الطلب' }, t, honeypot),
   );
 }
 
+/**
+ * «الموقع قيد التجهيز»: المنصة في وضع الإعداد الأول (لم يُنشأ حساب مدير النظام بعد) فلا تستقبل الطلبات.
+ * نعرض للمستفيد/ة رسالة واضحة ووسيلة تواصل بدل نموذج طويل ينتهي برسالة تقنية موجهة لمدير الخادم.
+ */
+function preparingView() {
+  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أود الحصول على استشارة قانونية.`);
+  const phone = site.org_phone;
+  mount(
+    root,
+    h('div.intake-head', h('h1', 'الموقع قيد التجهيز'), h('p', `نستعد لاستقبال طلبات الدعم القانوني عبر موقع ${orgName()} قريبًا.`)),
+    h(
+      'section.intake-card.intake-preparing',
+      { role: 'status' },
+      alertBox(
+        wa || phone ? 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا، أو تواصل معنا الآن وسيساعدك فريقنا.' : 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا.',
+        'info',
+        { title: 'الخدمة قيد التجهيز', icon: 'clock' },
+      ),
+      h(
+        'div.row',
+        wa && button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }),
+        phone && button(`اتصل بنا: ${phone}`, { variant: wa ? 'secondary' : 'primary', icon: 'phone', href: `tel:${site.org_phone_e164 || phone}` }),
+      ),
+    ),
+  );
+}
+
 async function init() {
   captureAttribution();
-  hydrateIcons();
-  setYear();
-  mount(root, loading());
+  initSiteChrome();
+  mount(root, loading('جارٍ تحميل النموذج…'));
+  let meta;
   try {
-    const meta = setMeta(await api.get('/meta'));
+    meta = setMeta(await api.get('/meta'));
     settings = meta.settings || {};
-    bindSettings(settings);
-    if (settings.org_name) document.title = `ابدأ استشارتك — ${settings.org_name}`;
+    site = meta.site || {};
+    if (site.site_name) document.title = `قدّم طلب دعم قانوني — ${site.site_name}`;
   } catch (err) {
     mount(root, errorState(err, init));
+    return;
+  }
+  if (meta.setup_required) {
+    preparingView();
     return;
   }
   renderIntake();

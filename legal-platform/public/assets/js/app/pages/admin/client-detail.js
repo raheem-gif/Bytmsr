@@ -29,6 +29,8 @@ import {
 } from '../../../lib/ui.js';
 import { channelIcons, fieldError, reloadAndFocus } from './inbox.js';
 import { pickClient } from './clients.js';
+import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
+import { MERGE_LABEL } from '../../labels.js';
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
 
@@ -42,7 +44,7 @@ export default async function render(ctx) {
   const matters = d.matters || [];
   const invoices = d.invoices || [];
   const hasPhone = identities.some((x) => x.kind === 'phone');
-  ctx.setTitle(`العميل ${c.code}`);
+  ctx.setTitle(`ملف المستفيد/ة ${c.code}`);
 
   // إذا فُتح رابط عميل دُمج في آخر، يعيد الخادم العميل الأساسي: نصحح الرابط
   if (String(c.id) !== String(ctx.params.id)) {
@@ -60,7 +62,7 @@ export default async function render(ctx) {
   // ───────────── الإجراءات ─────────────
   async function editProfile() {
     const res = await formDialog({
-      title: 'تعديل بيانات العميل',
+      title: 'تعديل بيانات المستفيد/ة',
       size: 'lg',
       values: { name: c.name, national_id: c.national_id, governorate: c.governorate, email: c.email, notes: c.notes },
       fields: [
@@ -68,7 +70,7 @@ export default async function render(ctx) {
         { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3' },
         { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
         { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 5000, hint: 'لا تظهر للعميل ولا للمحامين' },
+        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 5000, hint: 'لا تظهر للمستفيد/ة ولا للمحامين' },
       ],
       onSubmit: async (v) => {
         const nid = toLatinDigits(v.national_id || '').replace(/\s/g, '');
@@ -83,7 +85,7 @@ export default async function render(ctx) {
       },
     });
     if (res) {
-      toast('تم حفظ بيانات العميل', 'success');
+      toast('تم حفظ بيانات المستفيد/ة', 'success');
       await reloadAndFocus(ctx, '#pa-profile');
     }
   }
@@ -91,7 +93,7 @@ export default async function render(ctx) {
   async function addIdentity() {
     const res = await formDialog({
       title: 'إضافة وسيلة تواصل',
-      intro: 'أي رسالة تصل لاحقًا من هذا الرقم أو البريد — عبر واتساب أو الموقع أو غيرهما — ستُربط تلقائيًا بهذا العميل.',
+      intro: 'أي رسالة تصل لاحقًا من هذا الرقم أو البريد — عبر واتساب أو الموقع أو غيرهما — ستُربط تلقائيًا بهذا الملف.',
       values: { kind: 'phone' },
       fields: [
         {
@@ -121,36 +123,36 @@ export default async function render(ctx) {
       },
     });
     if (res) {
-      toast('أُضيفت وسيلة التواصل للعميل', 'success');
+      toast('أُضيفت وسيلة التواصل للمستفيد/ة', 'success');
       await reloadAndFocus(ctx, '#pa-identities');
     }
   }
 
   async function mergeDuplicate() {
     const other = await pickClient({
-      title: 'دمج عميل مكرر في هذا العميل',
-      intro: 'اختر العميل المكرر (نفس الشخص مسجّل برقم أو بريد آخر). ستنتقل كل بياناته إلى هذا العميل.',
+      title: MERGE_LABEL,
+      intro: 'اختر الملف المكرر (نفس الشخص مسجّل برقم أو بريد آخر). ستنتقل كل بياناته إلى هذا الملف.',
       excludeId: c.id,
     });
     if (!other) return;
     const ok = await confirmDanger({
       title: 'تأكيد الدمج',
       message: [
-        'سيُنقل كل ما يخص العميل ',
+        'سيُنقل كل ما في الملف ',
         codeTag(other.code),
         other.name ? ` (${other.name})` : '',
-        ' — أرقامه وطلباته وملفاته ورسائله وفواتيره — إلى هذا العميل ',
+        ' — الأرقام والطلبات والملفات والرسائل والفواتير — إلى هذا الملف ',
         codeTag(c.code),
         '، ويتوقف استخدام الرقم ',
         codeTag(other.code),
         '. لا يمكن التراجع عن الدمج.',
       ],
-      confirmLabel: 'نعم، ادمج في هذا العميل',
+      confirmLabel: 'نعم، ادمج في هذا الملف',
     });
     if (!ok) return;
     await run(async () => {
       await api.post(`${base}/merge`, { other_client_id: other.id });
-      toast(`تم دمج العميل ${other.code} في ${c.code}`, 'success');
+      toast(`تم دمج الملف ${other.code} في ${c.code}`, 'success');
       await reloadAndFocus(ctx, '#main');
     });
   }
@@ -163,13 +165,13 @@ export default async function render(ctx) {
       portalHost,
       h(
         'div.stack-sm',
-        h('label.field-label', { htmlFor: 'pa-portal-url' }, 'الرابط الخاص بالعميل'),
+        h('label.field-label', { htmlFor: 'pa-portal-url' }, 'الرابط الخاص بالمستفيد/ة'),
         h(
           'div.pa-url-row',
           h('input.input#pa-portal-url', { type: 'text', readonly: true, dir: 'ltr', value: absolute, onFocus: (e) => e.target.select() }),
           copyButton(absolute, 'نسخ', { variant: 'secondary' }),
         ),
-        h('p.field-hint', 'شارك الرابط مع العميل فقط؛ من يملكه يستطيع الاطلاع على ملفاته والرد على الطلبات.'),
+        h('p.field-hint', 'شارك الرابط مع المستفيد/ة فقط؛ من يملكه يستطيع الاطلاع على ملفاته والرد على الطلبات.'),
       ),
     );
   }
@@ -186,31 +188,31 @@ export default async function render(ctx) {
     'إرسال عبر واتساب',
     async () => {
       const ok = await confirmDialog({
-        title: 'إرسال رابط البوابة للعميل',
-        message: `سيُنشأ رابط جديد ويُرسل للعميل ${c.name || c.code} عبر واتساب من رقم المؤسسة.`,
+        title: 'إرسال رابط البوابة للمستفيد/ة',
+        message: `سيُنشأ رابط جديد ويُرسل للمستفيد/ة ${c.name || c.code} عبر واتساب من رقم المؤسسة.`,
         confirmLabel: 'إرسال الرابط',
       });
       if (!ok) return;
       const res = await api.post(`${base}/portal-link`, { send: true });
       showPortalUrl(res.url);
-      toast(res.message_id ? 'أُرسل الرابط للعميل (يظهر كإرسال تجريبي إن لم تُضبط بيانات واتساب)' : 'أُنشئ الرابط', 'success');
+      toast(res.message_id ? 'أُرسل الرابط للمستفيد/ة (يظهر كإرسال تجريبي إن لم تُضبط بيانات واتساب)' : 'أُنشئ الرابط', 'success');
     },
-    { size: 'sm', variant: 'whatsapp', icon: 'whatsapp', disabled: !hasPhone, title: hasPhone ? null : 'لا يوجد رقم هاتف مسجل لهذا العميل' },
+    { size: 'sm', variant: 'whatsapp', icon: 'whatsapp', disabled: !hasPhone, title: hasPhone ? null : 'لا يوجد رقم هاتف مسجل لهذا المستفيد/ة' },
   );
 
   // ───────────── الأقسام ─────────────
   function profileCard() {
     return card({
-      title: 'بيانات العميل',
+      title: 'بيانات المستفيد/ة',
       icon: 'user',
       actions: button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: editProfile }),
       body: kv([
-        ['رقم العميل', codeTag(c.code)],
+        ['كود المستفيد/ة', codeTag(c.code)],
         ['الاسم', c.name],
         ['الرقم القومي', c.national_id ? ltr(c.national_id) : null],
         ['المحافظة', c.governorate],
         ['البريد', c.email ? ltr(c.email) : null],
-        ['عميل منذ', date(c.created_at)],
+        ['مسجَّل لدينا منذ', date(c.created_at)],
         ['ملاحظات داخلية', c.notes ? h('span.pre', c.notes) : null],
       ]),
     });
@@ -219,7 +221,7 @@ export default async function render(ctx) {
   function identitiesCard() {
     return card({
       title: 'وسائل التواصل',
-      subtitle: 'كل ما يصل من هذه الأرقام والعناوين يُربط بهذا العميل',
+      subtitle: 'كل ما يصل من هذه الأرقام والعناوين يُربط بهذا الملف',
       icon: 'link',
       actions: button('إضافة', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: addIdentity }),
       body: identities.length
@@ -242,7 +244,7 @@ export default async function render(ctx) {
   async function revokePortal() {
     const ok = await confirmDanger({
       title: 'إلغاء روابط البوابة',
-      message: `ستتوقف كل روابط البوابة السارية للعميل ${c.name || c.code} فورًا، بما فيها روابط الطلبات المرسلة من الموقع، ولن يستطيع من يملكها الاطلاع على ملفاته. يمكن إنشاء رابط جديد بعد ذلك.`,
+      message: `ستتوقف كل روابط البوابة السارية للمستفيد/ة ${c.name || c.code} فورًا، بما فيها روابط الطلبات المرسلة من الموقع، ولن يستطيع من يملكها الاطلاع على ملفاته. يمكن إنشاء رابط جديد بعد ذلك.`,
       confirmLabel: 'نعم، إلغاء الروابط',
     });
     if (!ok) return;
@@ -254,8 +256,8 @@ export default async function render(ctx) {
 
   function portalCard() {
     return card({
-      title: 'بوابة العميل',
-      subtitle: 'رابط آمن يتابع منه العميل ملفاته ويرد على الطلبات ويرفع المستندات دون كلمة مرور',
+      title: 'صفحة المتابعة',
+      subtitle: 'رابط آمن يتابع منه المستفيد/ة ملفاته ويرد على الطلبات ويرفع المستندات دون كلمة مرور',
       icon: 'globe',
       body: h(
         'div.stack-sm',
@@ -273,12 +275,12 @@ export default async function render(ctx) {
 
   function mergeCard() {
     return card({
-      title: 'عميل مكرر؟',
+      title: 'ملف مكرر؟',
       icon: 'users',
       body: h(
         'div.stack-sm',
-        h('p.small.muted', 'إذا كان نفس الشخص مسجلًا برقم عميل آخر (مثلًا تواصل من رقم هاتف مختلف)، ادمج ذلك الرقم في هذا العميل ليصبح له تاريخ واحد.'),
-        button('دمج عميل مكرر في هذا العميل', { size: 'sm', icon: 'users', onClick: mergeDuplicate }),
+        h('p.small.muted', 'إذا كان نفس الشخص مسجلًا بكود مستفيد/ة آخر (مثلًا تواصل من رقم هاتف مختلف)، ادمج ذلك الملف في هذا الملف ليصبح له تاريخ واحد.'),
+        button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: mergeDuplicate }),
       ),
     });
   }
@@ -340,7 +342,7 @@ export default async function render(ctx) {
       icon: 'clock',
       body: timeline(
         items.map((x) => ({ time: x.at, title: x.title, body: x.body, icon: x.icon, tone: x.tone })),
-        { empty: 'لا توجد طلبات أو ملفات لهذا العميل بعد' },
+        { empty: 'لا توجد طلبات أو ملفات لهذا المستفيد/ة بعد' },
       ),
     });
   }
@@ -355,7 +357,7 @@ export default async function render(ctx) {
       flush: invoices.length > 0,
       body: invoices.length
         ? table({
-            caption: 'فواتير العميل',
+            caption: 'فواتير المستفيد/ة',
             columns: [
               { key: 'number', label: 'رقم الفاتورة', render: (r) => codeTag(r.number) },
               { key: 'description', label: 'البيان', className: 'col-wide' },
@@ -370,7 +372,7 @@ export default async function render(ctx) {
             ],
             rows: invoices,
           })
-        : emptyState('لا توجد فواتير لهذا العميل', null, { compact: true, icon: 'wallet' }),
+        : emptyState('لا توجد فواتير لهذا المستفيد/ة', null, { compact: true, icon: 'wallet' }),
     });
   }
 
@@ -407,17 +409,17 @@ export default async function render(ctx) {
 
   const phone = identities.find((x) => x.kind === 'phone');
   const header = pageHeader({
-    title: c.name || 'عميل بدون اسم',
-    breadcrumbs: [{ label: 'العملاء', href: '#/clients' }, { label: c.code }],
+    title: c.name || 'بدون اسم',
+    breadcrumbs: [{ label: 'المستفيدون', href: '#/clients' }, { label: c.code }],
     meta: [
       codeTag(c.code),
       phone && h('span.pa-chan-line', icon('phone', { size: 14 }), ltr(phone.value)),
       c.governorate && h('span.pa-chan-line', icon('mapPin', { size: 14 }), c.governorate),
-      h('span.small.muted', { title: dateTime(c.created_at) }, `عميل منذ ${date(c.created_at)}`),
+      h('span.small.muted', { title: dateTime(c.created_at) }, `مسجَّل لدينا منذ ${date(c.created_at)}`),
     ],
     actions: [
       button('تعديل البيانات', { icon: 'edit', onClick: editProfile }),
-      button('دمج عميل مكرر', { variant: 'ghost', icon: 'users', onClick: mergeDuplicate }),
+      button(MERGE_LABEL, { variant: 'ghost', icon: 'users', onClick: mergeDuplicate }),
     ],
   });
 
@@ -428,7 +430,7 @@ export default async function render(ctx) {
     h(
       'div.detail-layout',
       h('div.detail-main', historyCard(), invoicesCard(), activityCard()),
-      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(identitiesCard(), 'pa-identities'), withId(portalCard(), 'pa-portal'), mergeCard()),
+      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(beneficiaryCard({ clientId: c.id, editable: true }), 'v9p-beneficiary'), withId(identitiesCard(), 'pa-identities'), withId(portalCard(), 'pa-portal'), mergeCard()),
     ),
   );
 }

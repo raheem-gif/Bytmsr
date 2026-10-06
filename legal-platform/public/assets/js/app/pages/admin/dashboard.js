@@ -2,24 +2,36 @@
 
 import { h } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
+import { statDuration, count as v9pCount } from '../../../lib/fmt.js'; // v9 practice
 import { label, money, num, relative, dateTime, time, calendarParts, cairoParts, percent } from '../../../lib/fmt.js';
 import { pageHeader, card, button, badge, statusBadge, icon, codeTag, statCard, progressBar, emptyState, avatar, richText } from '../../../lib/ui.js';
+import { QUEUE_LABELS } from '../../labels.js';
 
 const CASE_ORDER = ['new', 'assigned', 'in_progress', 'under_review', 'approved', 'answered', 'closed'];
 const CASE_TONES = { new: 'info', assigned: 'primary', in_progress: 'accent', under_review: 'warning', approved: 'success', answered: 'success', closed: 'muted' };
 
+// المسميات من QUEUE_LABELS: نفس اسم القسم هنا وفي صفحة «بانتظار قرار الإدارة»
 const DECISIONS = [
-  { key: 'info_requests', label: 'طلبات معلومات من المحامين', icon: 'info' },
-  { key: 'client_replies', label: 'ردود عملاء بانتظار المراجعة', icon: 'message' },
-  { key: 'counsel_requests', label: 'طلبات مساعدة محامٍ', icon: 'users' },
-  { key: 'opinions', label: 'آراء مقدمة بانتظار المراجعة', icon: 'fileText' },
-  { key: 'proposed_issues', label: 'مسائل اقترحها المحامون', icon: 'flag' },
-  { key: 'approved_unanswered', label: 'ملفات معتمدة لم يُرسل ردها للعميل', icon: 'send' },
-  { key: 'identity_conflicts', label: 'رسائل تحتاج تحققًا من الهوية', icon: 'shield' },
-];
+  { key: 'info_requests', icon: 'info' },
+  { key: 'client_replies', icon: 'message' },
+  { key: 'counsel_requests', icon: 'users' },
+  { key: 'opinions', icon: 'fileText' },
+  { key: 'proposed_issues', icon: 'flag' },
+  { key: 'approved_unanswered', icon: 'send' },
+  { key: 'identity_conflicts', icon: 'shield' },
+].map((d) => ({ ...d, label: QUEUE_LABELS[d.key] }));
 
 const MONTHS = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const SHORT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/** شارة واتساب: «متصل» فقط بعد اختبار اتصال ناجح لبيانات الاعتماد الحالية (الحالة يحسبها الخادم) */
+function whatsappBadge(d) {
+  const wa = d.whatsapp || { state: d.whatsapp_configured ? 'untested' : 'simulation' };
+  if (wa.state === 'connected') return badge('واتساب: متصل', 'success', { icon: 'whatsapp' });
+  if (wa.state === 'failed') return badge('واتساب: فشل آخر اختبار للاتصال', 'danger', { icon: 'whatsapp', title: 'راجع بيانات الاعتماد في صفحة التكاملات ثم أعد «اختبار الاتصال»' });
+  if (wa.state === 'untested') return badge('واتساب: مضبوط (لم يُختبر)', 'warning', { icon: 'whatsapp', title: 'اضغط «اختبار الاتصال» في صفحة التكاملات للتأكد من صلاحية بيانات الاعتماد' });
+  return badge('واتساب: وضع المحاكاة', 'warning', { icon: 'whatsapp', title: 'لم تُضبط بيانات واتساب للأعمال؛ الرسائل الصادرة تُسجل كإرسال تجريبي (محاكاة)' });
+}
 
 function greeting() {
   const hr = cairoParts(new Date()).hour;
@@ -108,9 +120,7 @@ export default async function render(ctx) {
     subtitle: 'هذه نظرة اليوم على ما يصل إلى المؤسسة وما ينتظر قرارك.',
     meta: [
       badge(`الذكاء الاصطناعي: ${ai.label || '—'}`, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
-      d.whatsapp_configured
-        ? badge('واتساب: متصل', 'success', { icon: 'whatsapp' })
-        : badge('واتساب: وضع المحاكاة', 'warning', { icon: 'whatsapp', title: 'لم تُضبط بيانات واتساب للأعمال؛ الرسائل الصادرة تُسجل كإرسال تجريبي (محاكاة)' }),
+      whatsappBadge(d),
     ],
     actions: [
       button('بانتظار قرارك', { icon: 'queue', href: '#/queue' }),
@@ -154,6 +164,26 @@ export default async function render(ctx) {
       tone: d.overdue_assignments ? 'danger' : 'neutral',
       href: '#/queue?section=overdue_assignments',
     }),
+    // v9 practice: زمن أول رد ومستوى الخدمة (طلبات واتساب والموقع، آخر 30 يومًا)
+    d.sla &&
+      statCard({
+        label: 'متوسط زمن أول رد',
+        value: d.sla.avg_minutes != null ? statDuration(d.sla.avg_minutes * 60000) : '—',
+        // الفترة صريحة في التلميح: تقرير الأثر يحسب المؤشر نفسه لفترة يختارها المستخدم فلا تُقارن القيمتان دون انتباه
+        hint: d.sla.within_sla_rate != null ? `آخر 30 يومًا — ضمن مهلة ${v9pCount(d.sla.hours, 'hour')}: ${percent(d.sla.within_sla_rate)}` : 'لا ردود خلال آخر 30 يومًا',
+        icon: 'message',
+        tone: 'info',
+        href: '#/impact',
+      }),
+    d.sla &&
+      statCard({
+        label: 'متأخرة عن مستوى الخدمة',
+        value: num(d.sla.overdue_now),
+        hint: d.sla.overdue_now ? `طلبات بلا رد منذ أكثر من ${v9pCount(d.sla.hours, 'hour')}` : `لا توجد طلبات تجاوزت مهلة ${v9pCount(d.sla.hours, 'hour')} دون رد`,
+        icon: 'clock',
+        tone: d.sla.overdue_now ? 'danger' : 'success',
+        href: d.sla.overdue_now && d.sla.overdue[0] ? `#/inbox/${d.sla.overdue[0].id}` : '#/inbox',
+      }),
     statCard({
       label: 'فواتير متأخرة',
       value: num(d.overdue_invoices),
@@ -183,7 +213,7 @@ export default async function render(ctx) {
   // ───────────── بانتظار قرارك ─────────────
   const decisionsCard = card({
     title: 'بانتظار قرارك',
-    subtitle: 'لا يصل شيء للعميل أو للمحامي قبل قرار الإدارة',
+    subtitle: 'لا يصل شيء للمستفيد/ة أو للمحامي قبل قرار الإدارة',
     icon: 'queue',
     actions: badge(String(pendingTotal), pendingTotal ? 'warning' : 'success'),
     body: h(
@@ -285,7 +315,7 @@ export default async function render(ctx) {
   const events = d.upcoming_events || [];
   const eventsCard = card({
     title: 'مواعيد الأيام السبعة القادمة',
-    subtitle: 'تذكير العميل آليًا قبل 3 أيام من أي موعد يلزم حضوره',
+    subtitle: 'تذكير المستفيد/ة آليًا قبل 3 أيام من أي موعد يلزم حضوره',
     icon: 'calendar',
     body: events.length
       ? h(
@@ -307,7 +337,7 @@ export default async function render(ctx) {
                     codeTag(e.matter_code),
                     h('time.small.muted', { datetime: e.starts_at, title: dateTime(e.starts_at) }, `${p.weekday} ${time(e.starts_at)} · ${relative(e.starts_at)}`),
                   ),
-                  e.client_attendance_required ? badge('يلزم حضور العميل', 'warning', { icon: 'user' }) : null,
+                  e.client_attendance_required ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' }) : null,
                 ),
               ),
             );

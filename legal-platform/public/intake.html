@@ -3,44 +3,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ابدأ استشارتك — بيوت مصر</title>
-    <meta name="description" content="أرسل مشكلتك القانونية إلى بيوت مصر عبر نموذج منظم أو محادثة خطوة بخطوة، مع إمكانية رفع المستندات." />
-    <meta name="theme-color" content="#0f4c5c" />
-    <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />
+    <title>قدّم طلب دعم قانوني — {{site_name}}</title>
+    <meta name="description" content="قدّم طلب دعم قانوني إلى {{org_legal_name}} عبر نموذج منظم أو محادثة خطوة بخطوة، مع إمكانية رفع المستندات، واحصل فورًا على رقم طلب ورابط متابعة خاص بك." />
+    <!--site:head-->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
     <link rel="stylesheet" href="/assets/css/app.css" />
+    <link rel="stylesheet" href="/assets/css/public-site.css" />
     <script type="module" src="/assets/js/public/intake.js"></script>
   </head>
-  <body class="site">
+  <body class="site pub">
     <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
-
-    <header class="site-header">
-      <div class="site-header-inner">
-        <a class="site-brand" href="/">
-          <span class="brand-mark" data-icon="scale" aria-hidden="true"></span>
-          <span class="site-brand-name" data-bind="org_name">بيوت مصر</span>
-        </a>
-        <nav class="site-nav" aria-label="روابط سريعة">
-          <a class="btn btn-ghost btn-sm" href="/"><span data-icon="home"></span><span class="btn-label">الصفحة الرئيسية</span></a>
-        </nav>
-      </div>
-    </header>
+    {{{header}}}
 
     <main id="main" class="site-main intake-page" tabindex="-1">
       <div class="intake-wrap" id="intake-root">
-        <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span><span>جارٍ التحميل…</span></div>
+        <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span><span>جارٍ تحميل النموذج…</span></div>
+        <noscript>
+          <div class="intake-card">
+            <h1>قدّم طلبك</h1>
+            <p>يحتاج نموذج الطلب إلى تفعيل JavaScript في المتصفح. ويمكنك بدلًا من ذلك التواصل معنا مباشرة:</p>
+            {{{contact_list}}}
+          </div>
+        </noscript>
       </div>
     </main>
 
-    <footer class="site-footer">
-      <div class="container site-footer-inner">
-        <span>© <span data-slot="year">2026</span> <span data-bind="org_name">بيوت مصر</span></span>
-        <div class="footer-links">
-          <a href="/app">دخول فريق العمل والمحامين</a>
-        </div>
-      </div>
-    </footer>
+    {{{footer}}}
   </body>
 </html>

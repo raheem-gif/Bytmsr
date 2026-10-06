@@ -23,11 +23,12 @@ import {
   richText,
 } from '../../../lib/ui.js';
 import { replaceQuery, reloadAndFocus } from './inbox.js';
+import { QUEUE_LABELS } from '../../labels.js';
 
 const SEND_CHANNELS = [
-  { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها العميل)' },
+  { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها المستفيد/ة)' },
   { value: 'whatsapp', label: 'واتساب' },
-  { value: 'website', label: 'الموقع (بوابة العميل)' },
+  { value: 'website', label: 'الموقع (صفحة المتابعة)' },
 ];
 
 function when(iso, prefix = '') {
@@ -60,20 +61,20 @@ export default async function render(ctx) {
   // ───────────── طلبات المعلومات ─────────────
   async function approveInfo(r) {
     const res = await formDialog({
-      title: 'موافقة وإرسال للعميل',
-      intro: 'صِغ الطلب بلغة واضحة للعميل. يُرسل من قناة المؤسسة مع رقم الملف، ولا يظهر للعميل اسم المحامي أو بياناته.',
+      title: 'موافقة وإرسال للمستفيد/ة',
+      intro: 'صِغ الطلب بلغة واضحة للمستفيد/ة. يُرسل من قناة المؤسسة مع رقم الملف، ولا يظهر للمستفيد/ة اسم المحامي أو بياناته.',
       size: 'lg',
-      submitLabel: 'إرسال للعميل',
+      submitLabel: 'إرسال للمستفيد/ة',
       values: { client_message: r.question, channel: 'auto' },
       fields: [
         { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true },
-        { name: 'client_message', label: 'نص الرسالة للعميل', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+        { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
         { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: SEND_CHANNELS },
       ],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message, channel: v.channel }),
     });
     if (res) {
-      toast(`أُرسل الطلب للعميل${res.sent_channel ? ` عبر ${label('channel', res.sent_channel)}` : ''}`, 'success');
+      toast(`أُرسل الطلب للمستفيد/ة${res.sent_channel ? ` عبر ${label('channel', res.sent_channel)}` : ''}`, 'success');
       await reloadAndFocus(ctx, '#pa-q-info_requests');
     }
   }
@@ -81,7 +82,7 @@ export default async function render(ctx) {
   async function rejectInfo(r) {
     const res = await formDialog({
       title: 'رفض طلب المعلومات',
-      intro: 'لن يُرسل شيء للعميل، وسيصل سبب الرفض للمحامي.',
+      intro: 'لن يُرسل شيء للمستفيد/ة، وسيصل سبب الرفض للمحامي.',
       submitLabel: 'رفض الطلب',
       fields: [{ name: 'note', label: 'سبب الرفض (يراه المحامي)', type: 'textarea', required: true, maxLength: 2000, rows: 3, hint: 'مثال: المعلومة متاحة بالفعل في ملخص الوقائع.' }],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/reject`, { note: v.note }),
@@ -97,7 +98,7 @@ export default async function render(ctx) {
     const docs = Array.isArray(r.documents) ? r.documents : [];
     let sharedDocs = 0;
     const res = await formDialog({
-      title: 'إتاحة رد العميل للمحامي',
+      title: 'إتاحة رد المستفيد/ة للمحامي',
       intro: `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
       size: 'lg',
       submitLabel: 'إتاحة للمحامي',
@@ -106,11 +107,11 @@ export default async function render(ctx) {
         document_ids: Array.isArray(r.document_ids) ? r.document_ids : docs.map((d) => d.id),
       },
       fields: [
-        { type: 'static', label: 'المطلوب من العميل', value: r.client_message || r.question, full: true },
+        { type: 'static', label: 'المطلوب من المستفيد/ة', value: r.client_message || r.question, full: true },
         { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 6 },
         docs.length > 0 && {
           name: 'document_ids',
-          label: 'مرفقات العميل التي تُتاح مع الرد',
+          label: 'مرفقات المستفيد/ة التي تُتاح مع الرد',
           type: 'checkboxes',
           options: docs.map((d) => ({ value: d.id, label: d.title || d.filename || `مستند #${d.id}` })),
           hint: 'ألغِ اختيار أي مرفق لا يحتاجه المحامي. لإتاحة مستندات أخرى أو إتاحة الرد لأعضاء آخرين في الفريق افتح الملف.',
@@ -157,9 +158,9 @@ export default async function render(ctx) {
   const SECTIONS = [
     {
       key: 'info_requests',
-      title: 'طلبات معلومات من المحامين',
+      title: QUEUE_LABELS.info_requests,
       icon: 'info',
-      hint: 'المحامي لا يتواصل مع العميل مباشرة: راجع السؤال وصِغه للعميل ثم أرسله من قناة المؤسسة.',
+      hint: 'المحامي لا يتواصل مع المستفيد/ة مباشرة: راجع السؤال وصِغه للمستفيد/ة ثم أرسله من قناة المؤسسة.',
       empty: 'لا توجد طلبات معلومات بانتظار الموافقة',
       render: (rows) =>
         list(rows, (r) =>
@@ -176,10 +177,10 @@ export default async function render(ctx) {
     },
     {
       key: 'client_replies',
-      title: 'ردود العملاء بانتظار المراجعة',
+      title: QUEUE_LABELS.client_replies,
       icon: 'message',
-      hint: 'لا يصل رد العميل للمحامي إلا بعد مراجعة الإدارة. تُتاح مرفقات العميل مع الرد، أما الطلبات التي أنشأتها الإدارة فتُتاح من الملف بعد اختيار أعضاء الفريق.',
-      empty: 'لا توجد ردود عملاء تنتظر المراجعة',
+      hint: 'لا يصل رد المستفيد/ة للمحامي إلا بعد مراجعة الإدارة. تُتاح مرفقات المستفيد/ة مع الرد، أما الطلبات التي أنشأتها الإدارة فتُتاح من الملف بعد اختيار أعضاء الفريق.',
+      empty: 'لا توجد ردود مستفيدين تنتظر المراجعة',
       render: (rows) =>
         list(rows, (r) =>
           item({
@@ -187,7 +188,7 @@ export default async function render(ctx) {
             body: h(
               'div.stack-sm',
               h('p.small.muted', 'المطلوب: ', r.client_message || r.question),
-              r.client_reply ? quote(r.client_reply, 'is-client') : h('p.small.muted', 'أرسل العميل مستندًا دون نص.'),
+              r.client_reply ? quote(r.client_reply, 'is-client') : h('p.small.muted', 'أرسل المستفيد/ة مستندًا دون نص.'),
               Array.isArray(r.documents) && r.documents.length > 0
                 ? h(
                     'div.pb-doc-chips',
@@ -208,7 +209,7 @@ export default async function render(ctx) {
                 icon('user', { size: 14 }),
                 r.assignment_id ? `طلبه: ${r.requested_by_name || 'محامٍ'}` : `أنشأته الإدارة${r.requested_by_name ? ` (${r.requested_by_name})` : ''}`,
               ),
-              when(r.replied_at, 'رد العميل '),
+              when(r.replied_at, 'رد المستفيد/ة '),
             ],
             actions: r.assignment_id
               ? [
@@ -224,7 +225,7 @@ export default async function render(ctx) {
     },
     {
       key: 'counsel_requests',
-      title: 'طلبات مساعدة محامٍ',
+      title: QUEUE_LABELS.counsel_requests,
       icon: 'users',
       hint: 'المحامي لا يفتح الملف لزميل بنفسه: تختار الإدارة المحامي المساعد وتحدد بدقة ما يراه.',
       empty: 'لا توجد طلبات مساعدة بانتظار الإدارة',
@@ -257,9 +258,9 @@ export default async function render(ctx) {
     },
     {
       key: 'opinions',
-      title: 'آراء بانتظار المراجعة',
+      title: QUEUE_LABELS.opinions,
       icon: 'fileText',
-      hint: '«تقديم» المحامي يصل للإدارة أولًا: اعتمد الرأي أو أعده للتعديل قبل إعداد النسخة الموجهة للعميل.',
+      hint: '«تقديم» المحامي يصل للإدارة أولًا: اعتمد الرأي أو أعده للتعديل قبل إعداد النسخة الموجهة للمستفيد/ة.',
       empty: 'لا توجد آراء مقدمة تنتظر المراجعة',
       flush: true,
       render: (rows) =>
@@ -278,7 +279,7 @@ export default async function render(ctx) {
     },
     {
       key: 'proposed_issues',
-      title: 'مسائل اقترحها المحامون',
+      title: QUEUE_LABELS.proposed_issues,
       icon: 'flag',
       hint: 'المسألة المعتمدة تُتاح تلقائيًا للمحامي الذي اقترحها، والمستبعدة لا تظهر لأحد.',
       empty: 'لا توجد مسائل مقترحة بانتظار الاعتماد',
@@ -313,22 +314,22 @@ export default async function render(ctx) {
     },
     {
       key: 'approved_unanswered',
-      title: 'ملفات معتمدة لم يُرسل الرد للعميل',
+      title: QUEUE_LABELS.approved_unanswered,
       icon: 'send',
-      hint: 'بعد اعتماد الرأي تعد الإدارة نسخة مبسطة موجهة للعميل وترسلها من قناة المؤسسة.',
-      empty: 'لا توجد ملفات معتمدة تنتظر الرد على العميل',
+      hint: 'بعد اعتماد الرأي تعد الإدارة نسخة مبسطة موجهة للمستفيد/ة وترسلها من قناة المؤسسة.',
+      empty: 'لا توجد ملفات معتمدة تنتظر الرد على المستفيد/ة',
       render: (rows) =>
         list(rows, (r) =>
           item({
             head: [caseLink(r, 'opinions'), statusBadge('case_status', 'approved')],
             foot: [when(r.updated_at, 'آخر تحديث ')],
-            actions: [button('إعداد الرد للعميل', { variant: 'primary', size: 'sm', icon: 'edit', href: `#/cases/${r.case_id}?tab=opinions` })],
+            actions: [button('إعداد الرد للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'edit', href: `#/cases/${r.case_id}?tab=opinions` })],
           }),
         ),
     },
     {
       key: 'overdue_assignments',
-      title: 'إسنادات متأخرة',
+      title: QUEUE_LABELS.overdue_assignments,
       icon: 'clock',
       hint: 'محامون تجاوزوا الموعد المحدد للرد. تواصل معهم أو أعد إسناد الملف.',
       empty: 'لا توجد إسنادات متأخرة',
@@ -349,9 +350,9 @@ export default async function render(ctx) {
     },
     {
       key: 'identity_conflicts',
-      title: 'رسائل من أرقام تذكر طلبات لعملاء آخرين',
+      title: QUEUE_LABELS.identity_conflicts,
       icon: 'shield',
-      hint: 'لا يدمج النظام العميلين تلقائيًا حماية للخصوصية: تحقق من هوية المرسل قبل أي دمج أو رد بتفاصيل.',
+      hint: 'رسائل من أرقام تذكر طلبات مستفيدين آخرين. لا يدمج النظام الملفين تلقائيًا حماية للخصوصية: تحقق من هوية المرسل قبل أي دمج أو رد بتفاصيل.',
       empty: 'لا توجد رسائل تحتاج تحققًا من الهوية',
       render: (rows) =>
         list(rows, (r) =>
@@ -366,10 +367,10 @@ export default async function render(ctx) {
     },
     {
       key: 'awaiting_client',
-      title: 'بانتظار رد العميل',
+      title: QUEUE_LABELS.awaiting_client,
       icon: 'message',
-      hint: 'طلبات أُرسلت للعميل ولم يرد بعد — للاطلاع فقط؛ التذكير الآلي يعمل حسب قواعد الأتمتة.',
-      empty: 'لا توجد طلبات بانتظار رد العملاء',
+      hint: 'طلبات أُرسلت للمستفيد/ة ولم يرد بعد — للاطلاع فقط؛ التذكير الآلي يعمل حسب قواعد الأتمتة.',
+      empty: 'لا توجد طلبات بانتظار رد المستفيدين',
       readonly: true,
       render: (rows) =>
         list(rows, (r) =>
@@ -445,12 +446,12 @@ export default async function render(ctx) {
     'div.pa-page.pa-page-queue',
     pageHeader({
       title: 'بانتظار قرار الإدارة',
-      subtitle: 'كل ما يحتاج قرارًا من الإدارة قبل أن يصل إلى العميل أو المحامي',
+      subtitle: 'كل ما يحتاج قرارًا من الإدارة قبل أن يصل إلى المستفيد/ة أو المحامي',
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'بانتظار قرار الإدارة' }],
       meta: [badge(total ? `بانتظار قرارك: ${total}` : 'لا توجد قرارات معلقة', total ? 'warning' : 'success', { icon: total ? 'clock' : 'checkCircle' })],
       actions: button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => ctx.reload() }),
     }),
-    total === 0 && alertBox('لا يوجد ما ينتظر قرارك الآن. ستظهر هنا طلبات المحامين وردود العملاء والآراء المقدمة فور وصولها.', 'success', { title: 'كل شيء محدَّث' }),
+    total === 0 && alertBox('لا يوجد ما ينتظر قرارك الآن. ستظهر هنا طلبات المحامين وردود المستفيدين والآراء المقدمة فور وصولها.', 'success', { title: 'كل شيء محدَّث' }),
     nav,
     h('div.pa-qgrid', cards),
   );

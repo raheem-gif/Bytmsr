@@ -24,7 +24,8 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
       className: 'login-form',
       onSubmit: async (values) => {
         const res = await api.post('/auth/login', { username: values.username, password: values.password });
-        onLogin(res.user);
+        // res قد يطلب خطوة التحقق الثانية (two_factor_required) — يعالجها main.js
+        onLogin(res.user, res);
       },
     },
   );
@@ -52,7 +53,7 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
                 'دخول',
                 async () => {
                   const res = await api.post('/auth/login', { username: acc.username, password: acc.password });
-                  onLogin(res.user);
+                  onLogin(res.user, res);
                 },
                 { variant: 'primary', size: 'sm', ariaLabel: `دخول بحساب ${acc.name}` },
               ),
@@ -76,14 +77,14 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
         h('h2', 'كل طلب قانوني، من أول رسالة حتى الرد المعتمد، في مكان واحد'),
         h(
           'p',
-          'منصة داخلية لفريق الإدارة وشبكة المحامين: استقبال الطلبات من الموقع وواتساب، وإسناد الملفات، ومراجعة الآراء القانونية قبل وصولها إلى العميل.',
+          'منصة داخلية لفريق الإدارة وشبكة المحامين: استقبال الطلبات من الموقع وواتساب، وإسناد الملفات، ومراجعة الآراء القانونية قبل وصولها إلى المستفيد/ة.',
         ),
         h(
           'ul.login-points',
           [
             ['inbox', 'صندوق وارد موحد لطلبات الموقع وواتساب'],
             ['shield', 'صلاحيات دقيقة لكل محامٍ على كل ملف'],
-            ['checkCircle', 'لا يصل أي رد للعميل قبل اعتماد الإدارة'],
+            ['checkCircle', 'لا يصل أي رد للمستفيد/ة قبل اعتماد الإدارة'],
           ].map(([ic, text]) => h('li', h('span.pt-icon', icon(ic, { size: 18 })), h('span', text))),
         ),
       ),
@@ -97,6 +98,7 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
         h('p.login-sub', 'لفريق الإدارة والمحامين المعتمدين لدى المؤسسة'),
         expired && h('div.mb-3', alertBox('انتهت جلستك، يرجى تسجيل الدخول مرة أخرى للمتابعة.', 'warning')),
         loginForm.el,
+        h('p.login-forgot', 'نسيت كلمة المرور؟ تواصل مع إدارة المؤسسة لإرسال رابط إعادة تعيين إليك.'),
       ),
       demoPanel,
       h('a.login-back', { href: '/' }, `العودة إلى موقع ${org}`),

@@ -4,7 +4,7 @@ import { requireUser } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, forbidden } from '../util.js';
 import { sourceFromWebAttribution } from '../channels/engine.js';
-import { verifySignature } from '../channels/whatsapp.js';
+import { verifySignature, publicWhatsAppDigits, isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const DEMO_ACCOUNTS = [
   { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
@@ -19,32 +19,37 @@ export function registerPublicRoutes(router, app) {
   const { config } = app;
 
   function waDigits() {
-    const s = app.settings.all();
-    return config.whatsapp.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
+    // الرقم الفعلي من إعدادات التكاملات (البيئة أولًا) ثم الرقم الظاهر في الإعدادات العامة؛
+    // '' إن لم يُضبط رقم حقيقي (الرقم التوضيحي +20 100 000 0000 لا يُنتج رابط wa.me أبدًا)
+    if (app.whatsapp.publicDigits) return app.whatsapp.publicDigits();
+    return publicWhatsAppDigits(config.whatsapp?.numberDigits) || publicWhatsAppDigits(app.settings.get('whatsapp_display_number'));
   }
 
-  router.get('/api/meta', () => {
+  router.get('/api/meta', (ctx) => {
     const s = app.settings.all();
+    const digits = waDigits();
     return {
       constants: { LEGAL_AREAS, GOVERNORATES, LABELS, ENUMS },
       settings: {
         org_name: s.org_name,
         org_tagline: s.org_tagline,
-        whatsapp_display_number: s.whatsapp_display_number,
-        whatsapp_number_digits: waDigits(),
+        // الرقم الظاهر كما كتبته الإدارة، ويُخفى ما دام لا يوجد رقم واتساب فعلي (فارغ أو توضيحي)
+        whatsapp_display_number: digits && !isPlaceholderWhatsApp(s.whatsapp_display_number) ? s.whatsapp_display_number || '' : '',
+        whatsapp_number_digits: digits,
         privacy_notice: s.privacy_notice,
         default_assignment_days: s.default_assignment_days,
       },
       demo: !!config.demo,
       demo_accounts: config.demo ? DEMO_ACCOUNTS : undefined,
+      version: app.version,
+      // حقول تضيفها وحدات الإصدار 9
+      ...Object.assign({}, ...app.metaProviders.map((fn) => fn(ctx) || {})),
     };
   });
 
   // ===== الدخول =====
-  router.post('/api/auth/login', (ctx) => {
-    const user = app.auth.login(ctx, ctx.body.username, ctx.body.password);
-    return { user };
-  });
+  // يعيد { user } أو { two_factor_required, challenge } لحسابات التحقق بخطوتين (الخطوة الثانية: POST /api/auth/login/2fa)
+  router.post('/api/auth/login', (ctx) => app.auth.loginStep(ctx, ctx.body.username, ctx.body.password));
   router.post('/api/auth/logout', (ctx) => {
     app.auth.logout(ctx);
     return { ok: true };
@@ -93,6 +98,8 @@ export function registerPublicRoutes(router, app) {
       const area = b.legal_area ? v.oneOf(b.legal_area, LEGAL_AREAS.map((a) => a.code), 'نوع المشكلة') : null;
       const description = v.str(b.description, 'وصف المشكلة', { required: true, min: 20, max: 10000 });
       const mode = b.mode === 'guided' ? 'guided' : 'form';
+      // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء
+      const beneficiary = app.practice ? app.practice.beneficiary.validatePublic(b.beneficiary) : null;
       const attribution = sourceFromWebAttribution(b.attribution || {});
       attribution.detail = { ...attribution.detail, intake_mode: mode };
       const r = app.engine.receive({
@@ -111,6 +118,7 @@ export function registerPublicRoutes(router, app) {
       // الرابط مقصور على هذا الطلب الجديد وحده: رقم الهاتف في نموذج الموقع غير موثّق،
       // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
       if (r.duplicate || !r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
+      if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
       const token = app.clients.issuePortalToken(r.client.id, { intakeId: r.intake.id });
       const s = app.settings.all();
       const digits = waDigits();
@@ -132,18 +140,18 @@ export function registerPublicRoutes(router, app) {
     return access;
   }
   router.get('/api/portal/:token', (ctx) => {
-    const { client, intakeId } = portalAccess(ctx);
-    return app.portal.view(client, intakeId);
+    const { client, intakeId, phone } = portalAccess(ctx);
+    return app.portal.view(client, intakeId, { phone });
   });
   router.post(
     '/api/portal/:token/messages',
     (ctx) => {
-      const { client, intakeId } = portalAccess(ctx);
+      const { client, intakeId, phone } = portalAccess(ctx);
       app.limiters.portal.hit(`portal:${client.id}`);
       const body = v.str(ctx.body.body, 'الرسالة', { max: 5000 }) || '';
       const docs = Array.isArray(ctx.body.documents) ? ctx.body.documents.slice(0, 5) : [];
       if (!body && !docs.length) throw badRequest('اكتب رسالتك أو أرفق ملفًا');
-      app.engine.receive({ channel: 'website', portal_client_id: client.id, text: body || '[مرفقات]', attachments: docs, ...app.portal.targetFor(client, intakeId) });
+      app.engine.receive({ channel: 'website', portal_client_id: client.id, text: body || '[مرفقات]', attachments: docs, ...app.portal.targetFor(client, intakeId, { phone }) });
       return { ok: true };
     },
     { limit: 60 * 1024 * 1024 },
@@ -151,9 +159,9 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/api/portal/:token/requests/:id/reply',
     (ctx) => {
-      const { client, intakeId } = portalAccess(ctx);
+      const { client, intakeId, phone } = portalAccess(ctx);
       app.limiters.portal.hit(`portal:${client.id}`);
-      if (!app.portal.allowsInfoRequest(client, intakeId, idParam(ctx.params))) throw notFound('الطلب غير موجود');
+      if (!app.portal.allowsInfoRequest(client, intakeId, idParam(ctx.params), { phone })) throw notFound('الطلب غير موجود');
       return app.requests.clientReplyFromPortal(idParam(ctx.params), client, {
         body: ctx.body.body,
         documents: Array.isArray(ctx.body.documents) ? ctx.body.documents.slice(0, 5) : [],
@@ -165,7 +173,9 @@ export function registerPublicRoutes(router, app) {
   // ===== Webhook واتساب (WhatsApp Business Platform) =====
   router.get('/webhooks/whatsapp', (ctx) => {
     const q = ctx.query;
-    if (q['hub.mode'] === 'subscribe' && config.whatsapp.verifyToken && q['hub.verify_token'] === config.whatsapp.verifyToken) {
+    // رمز التحقق الفعلي: البيئة أولًا ثم ما حُفظ من صفحة التكاملات
+    const verifyToken = app.whatsapp.effective().verifyToken;
+    if (q['hub.mode'] === 'subscribe' && verifyToken && q['hub.verify_token'] === verifyToken) {
       ctx.text = q['hub.challenge'] || '';
       return;
     }
@@ -174,10 +184,12 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/webhooks/whatsapp',
     (ctx) => {
-      if (!config.whatsapp.appSecret) {
+      // سر التطبيق الفعلي: البيئة أولًا ثم ما حُفظ (مشفرًا) من صفحة التكاملات
+      const appSecret = app.whatsapp.effective().appSecret;
+      if (!appSecret) {
         // بدون سر التطبيق لا يمكن التحقق من أن الرسالة من ميتا: نقبلها فقط في وضع المحاكاة خارج الإنتاج
-        if (config.production || app.whatsapp.configured) throw forbidden('Webhook واتساب معطل: يجب ضبط WHATSAPP_APP_SECRET');
-      } else if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], config.whatsapp.appSecret)) {
+        if (config.production || app.whatsapp.configured) throw forbidden('Webhook واتساب معطل: يجب ضبط سر التطبيق (WHATSAPP_APP_SECRET) من صفحة التكاملات أو متغيرات البيئة');
+      } else if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], appSecret)) {
         throw forbidden('توقيع غير صالح');
       }
       let payload;

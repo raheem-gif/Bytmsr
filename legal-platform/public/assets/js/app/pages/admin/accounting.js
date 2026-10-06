@@ -32,6 +32,7 @@ import {
   richText,
 } from '../../../lib/ui.js';
 import { isPeriod, currentPeriod, shiftPeriod, periodLabel, periodSelect, recentPeriods, replaceQuery } from './lawyers.js';
+import { printButton } from '../../components/print-button.js';
 
 const TABS = ['summary', 'ledger', 'costs'];
 const PAY_METHODS = ['تحويل بنكي', 'إنستاباي (InstaPay)', 'محفظة إلكترونية', 'نقدًا', 'شيك'];
@@ -211,13 +212,17 @@ export default async function render(ctx) {
             key: 'actions',
             label: '',
             render: (l) =>
-              button('القيود', {
-                size: 'sm',
-                variant: 'ghost',
-                icon: 'fileText',
-                title: `عرض قيود ${l.name} في دفتر المستحقات`,
-                onClick: () => openLedgerFor(l.lawyer_id),
-              }),
+              h(
+                'div.btn-group',
+                button('القيود', {
+                  size: 'sm',
+                  variant: 'ghost',
+                  icon: 'fileText',
+                  title: `عرض قيود ${l.name} في دفتر المستحقات`,
+                  onClick: () => openLedgerFor(l.lawyer_id),
+                }),
+                printButton({ kind: 'statement', id: l.lawyer_id, label: 'كشف', variant: 'ghost', query: { from: summary.period || period, to: summary.period || period }, title: `طباعة كشف حساب ${l.name} عن ${pl}` }),
+              ),
           },
         ],
       }),

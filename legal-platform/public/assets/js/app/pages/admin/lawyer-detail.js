@@ -40,6 +40,7 @@ import {
   describeAgreement,
   PAID_TYPES,
 } from './lawyers.js';
+import { accountSecurityCard } from '../../components/account-admin.js';
 
 const ACTIVE_ASSIGNMENT = ['assigned', 'in_progress', 'returned'];
 
@@ -113,15 +114,15 @@ export default async function render(ctx) {
       );
     }
     actions.push(
-      button('إعادة تعيين كلمة المرور', {
+      button('كلمة مرور مؤقتة', {
         icon: 'lock',
         onClick: async () => {
           const res = await formDialog({
-            title: 'إعادة تعيين كلمة المرور',
-            intro: `ستُغلق كل جلسات ${l.display_name} الحالية، ويلزمه الدخول بكلمة المرور الجديدة. سلّمها له بشكل آمن.`,
-            submitLabel: 'تعيين كلمة المرور',
+            title: 'تعيين كلمة مرور مؤقتة',
+            intro: `ستُغلق كل جلسات ${l.display_name} الحالية، ويُطلب منه تغيير هذه الكلمة فور دخوله. الأفضل إرسال «رابط إعادة التعيين» من بطاقة «الحساب والأمان» حتى يختار كلمة مروره بنفسه.`,
+            submitLabel: 'تعيين كلمة المرور المؤقتة',
             fields: [
-              { name: 'password', label: 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل' },
+              { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام' },
               { name: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
             ],
             onSubmit: async (v) => {
@@ -134,7 +135,10 @@ export default async function render(ctx) {
               return true;
             },
           });
-          if (res) toast('تم تعيين كلمة المرور الجديدة وإنهاء الجلسات السابقة', 'success');
+          if (res) {
+            toast('عُيّنت كلمة المرور المؤقتة وأُنهيت الجلسات السابقة', 'success');
+            ctx.reload();
+          }
         },
       }),
     );
@@ -186,6 +190,9 @@ export default async function render(ctx) {
     statCard({ label: 'إسنادات معتمدة', value: num(m.completed_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.completed_total)}`, icon: 'checkCircle', tone: 'success' }),
     statCard({ label: 'نسبة الإعادة للتعديل', value: percent(m.returned_rate), hint: 'من الآراء التي راجعتها الإدارة', icon: 'refresh', tone: m.returned_rate >= 0.3 ? 'warning' : 'neutral' }),
     statCard({ label: 'متوسط الجودة', value: qualityText(m.avg_quality), hint: 'تقييم الإدارة عند الاعتماد', icon: 'star', tone: 'accent' }),
+    // (v9 messaging) رضا العملاء من استبيان ما بعد الرد في الملفات التي اعتُمد فيها رأيه
+    m.avg_client_satisfaction !== undefined &&
+      statCard({ label: 'رضا المستفيدين', value: qualityText(m.avg_client_satisfaction), hint: m.client_ratings ? `من ${count(m.client_ratings, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])} للملفات التي اعتُمد فيها رأيه` : 'لا تقييمات من المستفيدين بعد', icon: 'star', tone: m.avg_client_satisfaction != null && m.avg_client_satisfaction < 3 ? 'warning' : 'success' }),
     statCard({ label: 'استشارات تطوعية', value: num(m.pro_bono_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.pro_bono_total)}`, icon: 'shieldCheck', tone: 'success' }),
   ];
   if (isAdmin) {
@@ -467,15 +474,20 @@ export default async function render(ctx) {
   const specialtiesText = (l.specialties_labels || (l.specialties || []).map(areaLabel)).join('، ');
   return frag(
     pageHeader({
-      title: h('span.pd-title-with-avatar', avatar(l.display_name, { size: 'lg' }), h('span', l.display_name)),
+      // الصورة الرمزية خارج <h1>: نص العنوان هو اسم المحامي فقط
+      title: l.display_name,
+      titleMedia: avatar(l.display_name, { size: 'lg' }),
       subtitle: specialtiesText ? `التخصصات: ${specialtiesText}` : null,
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'شبكة المحامين', href: '#/lawyers' }, { label: l.display_name }],
       meta: [activeBadge(l.active), statusBadge('agreement_type', ag.type, { dot: false }), m.overdue ? badge(`إسنادات متأخرة: ${num(m.overdue)}`, 'danger', { icon: 'clock' }) : null],
       actions: actions.length ? actions : null,
     }),
     !l.active && alertBox('هذا الحساب موقوف: لا يستطيع المحامي الدخول، ولا يظهر ضمن المقترحين عند إسناد الملفات.', 'warning', { title: 'الحساب موقوف' }),
+    l.active && l.invite_pending && alertBox('لم يفعّل المحامي حسابه بعد من رابط الدعوة، ولن يظهر ضمن المقترحين عند الإسناد حتى يفعّله. يمكنك إعادة إرسال الدعوة من بطاقة «الحساب والأمان».', 'info', { title: 'بانتظار قبول الدعوة' }),
     metricsCard,
     h('div.pd-detail-top', profileCard, agreementCard),
+    // وحدة الحسابات: حالة الدخول والدعوة والتحقق بخطوتين والجلسات (لمدير النظام)
+    isAdmin ? accountSecurityCard({ userId: l.id, me: ctx.user }) : null,
     card({ body: tabsEl, className: 'pd-tabs-card' }),
   );
 }
