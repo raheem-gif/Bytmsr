@@ -89,7 +89,10 @@ export async function request(method, path, { query, body, signal, background = 
   if (res.status !== 204) {
     try {
       data = type.includes('json') ? await res.json() : await res.text();
-    } catch {
+    } catch (err) {
+      if (err && err.name === 'AbortError') throw err;
+      // رد ناجح انقطع أو تلف أثناء القراءة: خطأ شبكة واضح بدل null تنهار عليه الصفحة
+      if (res.ok) throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
       data = null;
     }
   }
