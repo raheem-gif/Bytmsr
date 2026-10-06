@@ -1,0 +1,21 @@
+{
+  "name": "bayout-masr-legal-platform",
+  "version": "1.0.0",
+  "description": "منصة بيوت مصر لتشغيل وإدارة إنتاج الخدمة القانونية — Intake Engine موحد، شبكة محامين، صلاحيات دقيقة، محاسبة، أتمتة، ومعرفة مؤسسية.",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/reset-demo.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
+  },
+  "license": "UNLICENSED",
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  }
+}
