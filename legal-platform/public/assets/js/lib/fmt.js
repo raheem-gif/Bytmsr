@@ -24,6 +24,11 @@ export function settings() {
   return META.settings || {};
 }
 
+/** اسم المؤسسة كما في الإعدادات (يُستخدم بدل كتابة الاسم نصًا ثابتًا في الواجهة). */
+export function orgName() {
+  return META.settings?.org_name || 'بيوت مصر';
+}
+
 /** المسمى العربي من LABELS[group][key]، وإلا المفتاح نفسه أو «—». */
 export function label(group, key) {
   if (key == null || key === '') return '—';
@@ -70,11 +75,23 @@ export function money(n) {
   return `${NUM.format(Number(n))} ج.م`;
 }
 
-/** نسبة مئوية من كسر: 0.734 → «73%». */
+// عزل الاتجاه (LRI … PDI): بدونه تنقلب علامة % بعد نص عربي فتظهر «%73» في موضع و«73%» في آخر.
+const LRI = '⁦';
+const PDI = '⁩';
+
+/** نص لاتيني الاتجاه معزول داخل جملة عربية (أرقام بعلامات، رموز). */
+export function ltr(s) {
+  return `${LRI}${s}${PDI}`;
+}
+
+/**
+ * نسبة مئوية من كسر: 0.734 → «73%» معزولة الاتجاه، فتظهر دائمًا «73%» أيًا كان النص المحيط بها.
+ * استخدمها لكل نسبة معروضة بدل بناء `${n}%` يدويًا.
+ */
 export function percent(ratio, digits = 0) {
   if (ratio == null || Number.isNaN(Number(ratio))) return '—';
   const v = Number(ratio) * 100;
-  return `${digits ? v.toFixed(digits) : Math.round(v)}%`;
+  return ltr(`${digits ? v.toFixed(digits) : Math.round(v)}%`);
 }
 
 /** يحوّل الأرقام العربية الهندية (٠-٩ و ۰-۹) إلى لاتينية. */
@@ -114,11 +131,25 @@ const UNIT_FORMS = {
   month: ['شهر', 'شهرين', 'أشهر', 'شهرًا'],
   year: ['سنة', 'سنتين', 'سنوات', 'سنة'],
   char: ['حرف', 'حرفين', 'أحرف', 'حرفًا'],
+  word: ['كلمة', 'كلمتين', 'كلمات', 'كلمة'],
   file: ['ملف', 'ملفين', 'ملفات', 'ملفًا'],
   item: ['عنصر', 'عنصرين', 'عناصر', 'عنصرًا'],
   case: ['ملف', 'ملفين', 'ملفات', 'ملفًا'],
   request: ['طلب', 'طلبين', 'طلبات', 'طلبًا'],
   notification: ['إشعار', 'إشعارين', 'إشعارات', 'إشعارًا'],
+  // الإسناد: ما تكلّف به الإدارة محاميًا في ملف (وحدة العمل في شبكة المحامين)
+  assignment: ['إسناد', 'إسنادين', 'إسنادات', 'إسنادًا'],
+  // المهمة: مهام الملفات المستمرة (matter tasks) فقط
+  task: ['مهمة', 'مهمتين', 'مهام', 'مهمة'],
+  // وحدة المحاسبة في الاتفاقات: الاستشارة المعتمدة
+  consultation: ['استشارة', 'استشارتين', 'استشارات', 'استشارة'],
+  message: ['رسالة', 'رسالتين', 'رسائل', 'رسالة'],
+  document: ['مستند', 'مستندين', 'مستندات', 'مستندًا'],
+  correction: ['تصحيح', 'تصحيحين', 'تصحيحات', 'تصحيحًا'],
+  review: ['مراجعة', 'مراجعتين', 'مراجعات', 'مراجعة'],
+  event: ['واقعة', 'واقعتين', 'وقائع', 'واقعة'],
+  entry: ['قيد', 'قيدين', 'قيود', 'قيدًا'],
+  similar: ['حالة', 'حالتين', 'حالات', 'حالة'],
 };
 
 /**
@@ -130,14 +161,26 @@ const UNIT_FORMS = {
 export function count(n, unit) {
   const forms = Array.isArray(unit) ? unit : UNIT_FORMS[unit];
   const v = Math.abs(Math.round(Number(n) || 0));
-  if (!forms) return `${v} ${unit}`;
+  const shown = NUM.format(v); // بفواصل الآلاف مثل num()
+  if (!forms) return `${shown} ${unit}`;
   const [one, two, few, many] = forms;
   if (v === 1) return one;
   if (v === 2) return two;
   const r = v % 100;
-  if (r >= 3 && r <= 10) return `${v} ${few}`;
-  if (r >= 11 && r <= 99) return `${v} ${many}`;
-  return `${v} ${one}`;
+  if (r >= 3 && r <= 10) return `${shown} ${few}`;
+  if (r >= 11 && r <= 99) return `${shown} ${many}`;
+  // 0 و100 فأكثر: الرقم ثم المفرد («0 ملف»، «100 ملف»)؛ تُحذف «واحد/واحدة» إن مُرّرت في صيغة المفرد
+  return `${shown} ${String(one).replace(/\s+واحد[ةه]?$/, '')}`;
+}
+
+/**
+ * عدد ساعات قد يكون كسريًا: الأعداد الصحيحة بصيغة العدد العربية («3 ساعات»، «ساعتين»)،
+ * والكسرية بالمفرد بعد الرقم («2.5 ساعة»). لا تمرّر الكسور إلى count() لأنه يقرّبها.
+ */
+export function hours(h) {
+  if (h == null || h === '' || Number.isNaN(Number(h))) return '—';
+  const n = Number(h);
+  return Number.isInteger(n) ? count(n, 'hour') : `${num(n)} ساعة`;
 }
 
 // ───────────── التواريخ بتوقيت القاهرة ─────────────

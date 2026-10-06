@@ -32,6 +32,8 @@ export function registerAdminRoutes(router, app) {
   router.post('/api/admin/intakes/:id/handle-internally', S((ctx, u) => app.intakes.handleInternally(id(ctx), ctx.body, u)));
   router.post('/api/admin/intakes/:id/archive', S((ctx, u) => app.intakes.archive(id(ctx), ctx.body, u)));
   router.post('/api/admin/intakes/:id/reopen', S((ctx, u) => app.intakes.reopen(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/confirm-identity', S((ctx, u) => app.intakes.confirmIdentity(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/revoke-portal', S((ctx, u) => app.intakes.revokePortal(id(ctx), u)));
   router.post('/api/admin/intakes/:id/convert', S((ctx, u) => {
     ctx.status = 201;
     return { case: app.intakes.convert(id(ctx), ctx.body, u) };
@@ -52,7 +54,7 @@ export function registerAdminRoutes(router, app) {
         source_url: platform === 'instagram' ? 'https://www.instagram.com/p/sim' : 'https://fb.me/sim-ad',
         source_type: 'ad',
         source_id: v.str(b.ad.ad_id, 'رقم الإعلان', { max: 60 }) || `ad-${platform}-${randomToken(4)}`,
-        headline: v.str(b.ad.headline, 'عنوان الإعلان', { max: 150 }) || 'استشارة قانونية مجانية من بيوت مصر',
+        headline: v.str(b.ad.headline, 'عنوان الإعلان', { max: 150 }) || `استشارة قانونية مجانية من ${app.settings.get('org_name') || DEFAULT_SETTINGS.org_name}`,
         ctwa_clid: randomToken(10),
       };
     }
@@ -84,6 +86,12 @@ export function registerAdminRoutes(router, app) {
     return app.clients.identities(c.id);
   }));
   router.post('/api/admin/clients/:id/merge', S((ctx, u) => app.clients.merge(id(ctx), v.int(ctx.body.other_client_id, 'العميل المكرر', { required: true, min: 1 }), u)));
+  router.post('/api/admin/clients/:id/revoke-portal', S((ctx, u) => {
+    const c = app.clients.require(id(ctx));
+    const revoked = app.clients.revokePortalTokens(c.id);
+    if (revoked) app.activity.log({ client_id: c.id, actor: u, type: 'portal.revoked', summary: `ألغت الإدارة كل روابط البوابة السارية للعميل (${revoked})` });
+    return { revoked };
+  }));
   router.post('/api/admin/clients/:id/portal-link', S((ctx, u) => {
     const c = app.clients.require(id(ctx));
     const token = app.clients.issuePortalToken(c.id);
@@ -116,7 +124,30 @@ export function registerAdminRoutes(router, app) {
   router.patch('/api/admin/documents/:id', S((ctx, u) => {
     const d = app.documents.get(id(ctx));
     if (!d) throw notFound('المستند غير موجود');
-    app.db.update('documents', d.id, { title: v.str(ctx.body.title, 'عنوان المستند', { required: true, max: 200 }) });
+    const patch = {};
+    if (ctx.body.title !== undefined) patch.title = v.str(ctx.body.title, 'عنوان المستند', { required: true, max: 200 });
+    if (ctx.body.matter_id !== undefined) {
+      // إتاحة مستند (مثل مرفق من العميل) للمحامي المسؤول عن الملف المستمر، أو سحبه منه
+      const mid = ctx.body.matter_id === null ? null : v.int(ctx.body.matter_id, 'الملف المستمر', { min: 1 });
+      if (mid) {
+        const m = app.matters.require(mid);
+        if (m.client_id !== d.client_id) throw badRequest('المستند لا يخص عميل هذا الملف المستمر');
+      }
+      patch.matter_id = mid;
+    }
+    if (!Object.keys(patch).length) throw badRequest('لا توجد تعديلات');
+    app.db.update('documents', d.id, patch);
+    if (patch.matter_id !== undefined) {
+      const mid = patch.matter_id || d.matter_id;
+      const m = mid ? app.matters.require(mid) : null;
+      app.activity.log({
+        matter_id: m?.id,
+        case_id: m?.case_id ?? d.case_id,
+        actor: u,
+        type: patch.matter_id ? 'document.shared_matter' : 'document.unshared_matter',
+        summary: patch.matter_id ? `أُتيح المستند «${d.title || d.filename}» للمحامي المسؤول عن الملف المستمر` : `سُحب المستند «${d.title || d.filename}» من الملف المستمر`,
+      });
+    }
     return app.documents.publicView(app.documents.get(d.id));
   }));
   router.get('/api/admin/cases/:id/suggest-lawyers', S((ctx) => {
@@ -142,6 +173,7 @@ export function registerAdminRoutes(router, app) {
   }));
   router.patch('/api/admin/assignments/:id', S((ctx, u) => app.cases.updateAssignment(id(ctx), ctx.body, u)));
   router.put('/api/admin/assignments/:id/grants', S((ctx, u) => app.cases.setGrants(id(ctx), ctx.body, u)));
+  router.post('/api/admin/assignments/:id/reengage', S((ctx, u) => app.cases.reengage(id(ctx), u, ctx.body)));
   router.post('/api/admin/assignments/:id/withdraw', S((ctx, u) => {
     app.cases.withdraw(id(ctx), u, { note: v.str(ctx.body.note, 'السبب', { max: 500 }) });
     return { ok: true };
@@ -176,6 +208,7 @@ export function registerAdminRoutes(router, app) {
   router.patch('/api/admin/matters/:id', S((ctx, u) => app.matters.update(id(ctx), ctx.body, u)));
   router.post('/api/admin/matters/:id/events', S((ctx, u) => app.matters.addEvent(id(ctx), ctx.body, u)));
   router.patch('/api/admin/matter-events/:id', S((ctx, u) => app.matters.updateEvent(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matter-events/:id/approve-reminder', S((ctx, u) => app.matters.approveEventText(id(ctx), u)));
   router.post('/api/admin/matters/:id/tasks', S((ctx, u) => app.matters.addTask(id(ctx), ctx.body, u)));
   router.patch('/api/admin/matter-tasks/:id', S((ctx, u) => app.matters.updateTask(id(ctx), ctx.body, u)));
   router.post('/api/admin/matters/:id/invoices', S((ctx, u) => app.matters.addInvoice(id(ctx), ctx.body, u)));
@@ -186,7 +219,7 @@ export function registerAdminRoutes(router, app) {
   router.post('/api/admin/matters/:id/documents', S((ctx, u) => {
     const m = app.matters.require(id(ctx));
     const ids = app.documents.saveMany(ctx.body.files, { client_id: m.client_id, matter_id: m.id, case_id: m.case_id, title: ctx.body.title }, u, { max: 10 });
-    app.activity.log({ matter_id: m.id, case_id: m.case_id, actor: u, type: 'documents.added', summary: `أُضيف ${ids.length} مستند للملف المستمر` });
+    app.activity.log({ matter_id: m.id, case_id: m.case_id, actor: u, type: 'documents.added', summary: `أُضيفت مستندات إلى الملف المستمر (العدد: ${ids.length})` });
     return ids.map((x) => app.documents.publicView(app.documents.get(x)));
   }), UPLOAD);
   router.post('/api/admin/matters/:id/lawyer-fees', A((ctx, u) => {
@@ -243,6 +276,7 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/analytics/areas', S(() => ({ items: app.analytics.byArea(), weekly: app.analytics.weeklyVolume() })));
   router.get('/api/admin/analytics/spend', S((ctx) => app.analytics.listSpend(ctx.query)));
   router.post('/api/admin/analytics/spend', A((ctx, u) => app.analytics.saveSpend(ctx.body, u)));
+  router.patch('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.updateSpend(id(ctx), ctx.body)));
   router.delete('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.deleteSpend(id(ctx))));
 
   // ===== المستخدمون والإعدادات (مدير النظام) =====

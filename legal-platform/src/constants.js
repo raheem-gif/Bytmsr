@@ -23,9 +23,10 @@ export const GOVERNORATES = [
 ];
 
 export const LABELS = {
+  // مسميات محايدة لا تفترض جنس صاحب الحساب (لا يوجد حقل للجنس)
   user_role: {
-    admin: 'مدير النظام',
-    case_manager: 'مدير حالات',
+    admin: 'إدارة النظام',
+    case_manager: 'إدارة الحالات',
     lawyer: 'محامٍ',
   },
   channel: {
@@ -66,8 +67,8 @@ export const LABELS = {
     urgent: 'عاجلة',
   },
   case_status: {
-    new: 'جديد — بانتظار الإحالة',
-    assigned: 'محال إلى محامٍ',
+    new: 'جديد — بانتظار الإسناد',
+    assigned: 'مُسند إلى محامٍ',
     in_progress: 'قيد الدراسة',
     under_review: 'قيد مراجعة الإدارة',
     approved: 'معتمد — بانتظار الرد على العميل',
@@ -82,15 +83,16 @@ export const LABELS = {
     not_eligible: 'خارج نطاق الخدمة',
     duplicate: 'ملف مكرر',
   },
+  // الإسناد = ما تكلّف به الإدارة محاميًا في ملف؛ تُستخدم الكلمة نفسها في واجهة الإدارة وبوابة المحامي.
   assignment_role: {
-    lead: 'المحامي الأساسي (Lead Counsel)',
+    lead: 'المحامي الأساسي',
     specialist: 'محامٍ متخصص مساعد',
     second_opinion: 'رأي ثانٍ',
-    reviewer: 'مراجع أول (Senior Reviewer)',
+    reviewer: 'مراجعة نهائية',
     co_counsel: 'محامٍ مشارك',
   },
   assignment_status: {
-    assigned: 'محال — لم يُفتح بعد',
+    assigned: 'مُسند — لم يُفتح بعد',
     in_progress: 'قيد العمل',
     submitted: 'مقدَّم للإدارة',
     returned: 'معاد للتعديل',
@@ -99,8 +101,8 @@ export const LABELS = {
   },
   fee_mode: {
     agreement: 'حسب اتفاق المحامي',
-    custom: 'مبلغ محدد لهذه المهمة',
-    pro_bono: 'تطوعي (Pro Bono)',
+    custom: 'مبلغ محدد لهذا الإسناد',
+    pro_bono: 'تطوعي دون مقابل',
   },
   info_request_kind: {
     information: 'طلب معلومات',
@@ -112,11 +114,11 @@ export const LABELS = {
     sent_to_client: 'أُرسل للعميل — بانتظار الرد',
     client_replied: 'رد العميل — بانتظار مراجعة الإدارة',
     shared: 'متاح للمحامي',
-    cancelled: 'ملغي',
+    cancelled: 'ملغى',
   },
   counsel_kind: {
-    second_opinion: 'رأي ثانٍ (Second Opinion)',
-    specialist_input: 'رأي متخصص (Specialist Input)',
+    second_opinion: 'رأي ثانٍ',
+    specialist_input: 'رأي متخصص',
     document_review: 'مراجعة مستند',
     co_counsel: 'مشاركة محامٍ في دراسة المسألة',
   },
@@ -125,7 +127,7 @@ export const LABELS = {
     assigned: 'تم الإسناد لمحامٍ',
     completed: 'قُدِّم الرأي',
     rejected: 'رفضته الإدارة',
-    cancelled: 'ملغي',
+    cancelled: 'ملغى',
   },
   opinion_status: {
     draft: 'مسودة',
@@ -141,10 +143,10 @@ export const LABELS = {
   agreement_type: {
     per_case: 'بالقطعة — مبلغ لكل استشارة معتمدة',
     monthly: 'مبلغ شهري ثابت',
-    monthly_quota: 'شهري يشمل عددًا محددًا + سعر للزيادة',
-    package: 'باقة حالات مدفوعة مسبقًا',
-    pro_bono: 'تطوعي بالكامل (100% Pro Bono)',
-    csr: 'برنامج مسؤولية مجتمعية لمكتب محاماة (CSR)',
+    monthly_quota: 'شهري يشمل عددًا محددًا من الاستشارات + سعر للزيادة',
+    package: 'باقة استشارات مدفوعة مسبقًا',
+    pro_bono: 'تطوعي بالكامل دون مقابل',
+    csr: 'برنامج مسؤولية مجتمعية لمكتب محاماة',
   },
   billable_trigger: {
     on_approval: 'عند اعتماد الإدارة للرأي',
@@ -158,7 +160,7 @@ export const LABELS = {
     package_credit: 'مخصوم من الباقة',
     package_overage: 'بعد نفاد الباقة',
     pro_bono: 'مساهمة تطوعية',
-    csr: 'ضمن برنامج CSR',
+    csr: 'ضمن برنامج المسؤولية المجتمعية',
   },
   ledger_kind: {
     fee: 'أتعاب استشارة',
@@ -172,7 +174,7 @@ export const LABELS = {
   ledger_status: {
     accrued: 'مستحق — لم يُصرف',
     paid: 'تم الصرف',
-    void: 'ملغي',
+    void: 'ملغى',
   },
   matter_kind: {
     litigation: 'تمثيل أمام القضاء',
@@ -188,13 +190,13 @@ export const LABELS = {
     meeting: 'اجتماع',
     expert: 'جلسة خبير',
     appointment: 'موعد إجرائي',
-    other: 'أخرى',
+    other: 'موعد آخر',
   },
   event_status: {
     scheduled: 'مجدول',
     done: 'تم',
     postponed: 'مؤجل',
-    cancelled: 'ملغي',
+    cancelled: 'ملغى',
   },
   task_status: {
     open: 'مفتوحة',
@@ -267,13 +269,15 @@ export const ENUMS = Object.fromEntries(
   Object.entries(LABELS).map(([k, v]) => [k, Object.keys(v)]),
 );
 
+// قوالب رسائل العميل: {org_name} يُملأ من إعداد «اسم المؤسسة»، و{event_kind} يأتي بعد «نوع الموعد:»
+// حتى لا يتعارض تذكير الصفة مع تأنيث نوع الموعد أو تذكيره (جلسة / اجتماع / موعد آخر).
 export const DEFAULT_AUTOMATION_RULES = {
   hearing_reminder: {
     enabled: true,
     params: {
       days_before: 3,
       template:
-        'نذكّر حضرتكم بأن لديكم {event_kind} في ملفكم رقم {matter_code} يوم {date} الساعة {time} في {location}، ويلزم حضور حضرتكم شخصيًا. للاستفسار يمكنكم الرد على هذه الرسالة. — بيوت مصر',
+        'نذكّر حضرتكم بموعد في ملفكم رقم {matter_code} يلزم حضوركم فيه شخصيًا:\nنوع الموعد: {event_kind}\nالتاريخ: {date} الساعة {time}\nالمكان: {location}\nللاستفسار يمكنكم الرد على هذه الرسالة. — {org_name}',
     },
   },
   invoice_reminder: {
@@ -282,7 +286,7 @@ export const DEFAULT_AUTOMATION_RULES = {
       repeat_every_days: 7,
       max_reminders: 3,
       template:
-        'تحية طيبة، نود تذكير حضرتكم بأن الفاتورة رقم {invoice_number} بمبلغ {amount} جنيه استحقت بتاريخ {due_date} ولم تُسدَّد بعد. شكرًا لحضرتكم. — بيوت مصر',
+        'تحية طيبة، نود تذكير حضرتكم بأن الفاتورة رقم {invoice_number} بمبلغ {amount} ج.م استحقت بتاريخ {due_date} ولم تُسدَّد بعد. شكرًا لحضرتكم. — {org_name}',
     },
   },
   document_reminder: {
@@ -292,7 +296,7 @@ export const DEFAULT_AUTOMATION_RULES = {
       repeat_every_days: 3,
       max_reminders: 2,
       template:
-        'تحية طيبة، ما زلنا بانتظار ردكم على طلبنا الخاص بملفكم رقم {case_code}: «{request}». يمكنكم الرد على هذه الرسالة أو من خلال الرابط الخاص بكم. — بيوت مصر',
+        'تحية طيبة، ما زلنا بانتظار ردكم على طلبنا الخاص بملفكم رقم {case_code}: «{request}». يمكنكم الرد على هذه الرسالة أو من خلال الرابط الخاص بكم. — {org_name}',
     },
   },
   procedural_deadline: {
@@ -303,6 +307,20 @@ export const DEFAULT_AUTOMATION_RULES = {
     enabled: true,
     params: {},
   },
+};
+
+// القوالب الافتراضية السابقة كما خُزّنت في قواعد البيانات القائمة: إن بقيت دون تعديل من الإدارة
+// تُستبدل تلقائيًا بالقالب الافتراضي الحالي (لتصحيح الصياغة واسم المؤسسة الثابت).
+export const LEGACY_AUTOMATION_TEMPLATES = {
+  hearing_reminder: [
+    'نذكّر حضرتكم بأن لديكم {event_kind} في ملفكم رقم {matter_code} يوم {date} الساعة {time} في {location}، ويلزم حضور حضرتكم شخصيًا. للاستفسار يمكنكم الرد على هذه الرسالة. — بيوت مصر',
+  ],
+  invoice_reminder: [
+    'تحية طيبة، نود تذكير حضرتكم بأن الفاتورة رقم {invoice_number} بمبلغ {amount} جنيه استحقت بتاريخ {due_date} ولم تُسدَّد بعد. شكرًا لحضرتكم. — بيوت مصر',
+  ],
+  document_reminder: [
+    'تحية طيبة، ما زلنا بانتظار ردكم على طلبنا الخاص بملفكم رقم {case_code}: «{request}». يمكنكم الرد على هذه الرسالة أو من خلال الرابط الخاص بكم. — بيوت مصر',
+  ],
 };
 
 export const DEFAULT_SETTINGS = {

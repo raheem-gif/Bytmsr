@@ -1,7 +1,7 @@
 // الأتمتة المرتبطة بما يحدث داخل الملف (وليست رسائل تسويقية عامة):
 // تذكير العميل بالجلسات، بالفواتير المتأخرة، بالمستندات الناقصة، وتنبيه الإدارة/المحامي بالمواعيد الإجرائية والتأخير.
 import { nowIso, addDays, parseJson, badRequest, notFound, v, arabicDate, arabicTime, fromMinor, truncate } from '../util.js';
-import { LABELS, DEFAULT_AUTOMATION_RULES } from '../constants.js';
+import { LABELS, DEFAULT_AUTOMATION_RULES, LEGACY_AUTOMATION_TEMPLATES } from '../constants.js';
 
 function fill(template, values) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined && values[k] !== null ? String(values[k]) : m));
@@ -27,8 +27,14 @@ export function createAutomations(app) {
   function rule(key) {
     const r = db.get('SELECT * FROM automation_rules WHERE key = ?', key);
     if (!r) return null;
-    return { key, enabled: !!r.enabled, params: { ...DEFAULT_AUTOMATION_RULES[key].params, ...parseJson(r.params, {}) } };
+    const params = { ...DEFAULT_AUTOMATION_RULES[key].params, ...parseJson(r.params, {}) };
+    // قالب افتراضي قديم لم تعدّله الإدارة ← القالب الافتراضي الحالي
+    if (params.template && (LEGACY_AUTOMATION_TEMPLATES[key] || []).includes(params.template)) params.template = DEFAULT_AUTOMATION_RULES[key].params.template;
+    return { key, enabled: !!r.enabled, params };
   }
+
+  /** اسم المؤسسة لتوقيع رسائل العميل الآلية ({org_name}) */
+  const orgName = () => app.settings.get('org_name') || 'بيوت مصر';
 
   /** تنفيذ مرة واحدة لكل مفتاح (يمنع تكرار التذكير لنفس الحدث) */
   function once(ruleKey, dedupeKey, entityType, entityId, fn) {
@@ -54,7 +60,7 @@ export function createAutomations(app) {
       const t = nowIso();
       const until = addDays(t, Number(r.params.days_before) || 3);
       const events = db.all(
-        `SELECT e.*, m.code AS matter_code, m.client_id, m.case_id, c.intake_id FROM matter_events e
+        `SELECT e.*, m.code AS matter_code, m.court AS matter_court, m.client_id, m.case_id, c.intake_id FROM matter_events e
          JOIN matters m ON m.id = e.matter_id JOIN cases c ON c.id = m.case_id
          WHERE e.status = 'scheduled' AND e.client_attendance_required = 1 AND e.starts_at > ? AND e.starts_at <= ? AND m.status != 'closed'`,
         t,
@@ -62,6 +68,19 @@ export function createAutomations(app) {
       );
       let n = 0;
       for (const e of events) {
+        if (!e.client_text_approved) {
+          // موعد سجله المحامي أو عدّله: لا يصل للعميل نص من المحامي قبل اعتماد الإدارة، فننبه الإدارة مرة واحدة
+          once('hearing_reminder_held', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
+            app.notifications.notifyStaff({
+              type: 'event.reminder_held',
+              title: `تذكير العميل بموعد في الملف ${e.matter_code} بانتظار اعتمادك`,
+              body: 'سجّل المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير للعميل قبل اعتماد بياناته من صفحة الملف المستمر.',
+              link: `#/matters/${e.matter_id}`,
+            });
+            return 'held';
+          });
+          continue;
+        }
         const did = once('hearing_reminder', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
           const body = fill(r.params.template, {
             event_kind: LABELS.event_kind[e.kind],
@@ -70,6 +89,7 @@ export function createAutomations(app) {
             time: arabicTime(e.starts_at),
             location: e.location || 'المحكمة المختصة',
             title: e.title,
+            org_name: orgName(),
           });
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
@@ -80,7 +100,7 @@ export function createAutomations(app) {
             automated: true,
             rule: 'hearing_reminder',
           });
-          app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد ${LABELS.event_kind[e.kind]} (${arabicDate(e.starts_at)})` });
+          app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد (${LABELS.event_kind[e.kind]} — ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)})` });
           return { message_id: msg.id };
         });
         if (did) n++;
@@ -107,6 +127,7 @@ export function createAutomations(app) {
             invoice_number: i.number,
             amount: fromMinor(i.amount_minor - paid).toLocaleString('en-US'),
             due_date: arabicDate(i.due_at, { weekday: false }),
+            org_name: orgName(),
           });
           const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder' });
           db.update('invoices', i.id, { reminder_count: i.reminder_count + 1, last_reminder_at: t });
@@ -138,10 +159,10 @@ export function createAutomations(app) {
       for (const ir of list) {
         if (ir.last_reminder_at && addDays(ir.last_reminder_at, every) > t) continue;
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
-          const body = fill(r.params.template, { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200) });
+          const body = fill(r.params.template, { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() });
           const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id } });
           db.update('info_requests', ir.id, { reminder_count: ir.reminder_count + 1, last_reminder_at: t });
-          app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل بطلب ${LABELS.info_request_kind[ir.kind]} معلق` });
+          app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل ب${LABELS.info_request_kind[ir.kind]} لم يرد عليه بعد` });
           return { message_id: msg.id };
         });
         if (did) n++;
@@ -166,7 +187,9 @@ export function createAutomations(app) {
           const body = `الملف ${k.matter_code} — الموعد: ${arabicDate(k.due_at)}`;
           const lawyerIds = [k.assignee_user_id, k.responsible_lawyer_id].filter(Boolean);
           for (const uid of new Set(lawyerIds)) {
-            const u = db.get('SELECT role FROM users WHERE id = ?', uid);
+            const u = db.get('SELECT role, active FROM users WHERE id = ?', uid);
+            // لا نرسل تفاصيل الملف لحساب موقوف أو لمحامٍ لم يعد مسؤولًا عن الملف
+            if (!u?.active || (u.role === 'lawyer' && uid !== k.responsible_lawyer_id)) continue;
             app.notifications.notify(uid, { type: 'deadline', title, body, link: u?.role === 'lawyer' ? `#/my/matters/${k.matter_id}` : `#/matters/${k.matter_id}` });
           }
           app.notifications.notifyStaff({ type: 'deadline', title, body, link: `#/matters/${k.matter_id}` });
@@ -255,7 +278,11 @@ export function createAutomations(app) {
         for (const [k, val] of Object.entries(body.params)) {
           if (!(k in def)) continue;
           if (k === 'template') params[k] = v.str(val, 'نص الرسالة', { required: true, max: 1000 });
-          else params[k] = v.int(val, 'القيمة', { required: true, min: 0, max: 365 });
+          else {
+            // الصفر كان يعود صامتًا للقيمة الافتراضية؛ إيقاف القاعدة يكون بمفتاح التفعيل
+            if (Number(val) === 0) throw badRequest('القيمة يجب أن تكون ١ على الأقل. لإيقاف هذه التذكيرات أوقف القاعدة من مفتاح التفعيل');
+            params[k] = v.int(val, 'القيمة', { required: true, min: 1, max: 365 });
+          }
         }
       }
       const enabled = body.enabled !== undefined ? (v.bool(body.enabled) ? 1 : 0) : current.enabled ? 1 : 0;

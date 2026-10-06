@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   isoToCairoInput, cairoInputToIso, isoToCairoDate, cairoDateToIso, cairoOffsetMs,
-  relative, dueInfo, count, money, percent, date, dateTime, normalizeEgPhone,
+  relative, dueInfo, count, hours, money, percent, date, dateTime, normalizeEgPhone,
 } from '../public/assets/js/lib/fmt.js';
 
 // شتاء (UTC+2) وصيف (UTC+3 — أُعيد العمل بالتوقيت الصيفي في مصر منذ 2023)
@@ -38,7 +38,15 @@ assert.equal(dueInfo(new Date(now - 2 * 86400e3).toISOString(), now).text, 'مت
 assert.equal(dueInfo(new Date(now + 5 * 3600e3).toISOString(), now).tone, 'warning');
 assert.equal(count(11, 'char'), '11 حرفًا');
 assert.equal(money(1500), '1,500 ج.م');
-assert.equal(percent(0.734), '73%');
+assert.equal(percent(0.734), '⁦73%⁩'); // معزولة الاتجاه لتظهر «73%» دائمًا بعد النص العربي
+assert.equal(count(1, 'assignment'), 'إسناد');
+assert.equal(count(15, 'task'), '15 مهمة');
+assert.equal(count(6, 'request'), '6 طلبات');
+assert.equal(count(1, ['رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة']), 'رسالة واحدة');
+assert.equal(count(0, ['رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة']), '0 رسالة');
+assert.equal(count(1500, 'char'), '1,500 حرف');
+assert.equal(hours(5), '5 ساعات');
+assert.equal(hours(2.5), '2.5 ساعة');
 assert.equal(date('2026-11-15T08:30:00Z'), '15 نوفمبر 2026');
 assert.equal(dateTime('2026-11-15T08:30:00Z'), '15 نوفمبر 2026، 10:30 ص');
 assert.equal(normalizeEgPhone('+20 101 234 5678'), '01012345678');

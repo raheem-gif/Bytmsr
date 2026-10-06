@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, num, percent, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, num, count, money, percent, cairoToday, hours as fmtHours } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -85,9 +85,9 @@ export function qualityText(q) {
   return q == null ? '—' : `${num(q)} من 5`;
 }
 
-/** «31.3 ساعة» */
+/** «31.3 ساعة» أو «5 ساعات» (الأعداد الصحيحة بصيغة العدد العربية) */
 export function hoursText(hrs) {
-  return hrs == null ? '—' : `${num(hrs)} ساعة`;
+  return fmtHours(hrs);
 }
 
 // ───────────── اتفاق المحاسبة ─────────────
@@ -108,7 +108,8 @@ const AGREEMENT_KEYS = [
   'billable_event',
 ];
 
-const egp = (x) => `${num(Number(x) || 0)} جنيه`;
+const egp = (x) => money(Number(x) || 0);
+const consultations = (n) => count(Number(n) || 0, 'consultation');
 
 /** وصف عربي للاتفاق (يطابق وصف الخادم) مع موعد الاستحقاق. */
 export function describeAgreement(a, { withTrigger = false } = {}) {
@@ -122,17 +123,17 @@ export function describeAgreement(a, { withTrigger = false } = {}) {
       text = `${egp(a.monthly_fee)} شهريًا مهما كان عدد الاستشارات`;
       break;
     case 'monthly_quota':
-      text = `${egp(a.monthly_fee)} شهريًا تشمل ${num(a.quota || 0)} حالة، والزيادة ${egp(a.overage_rate)} للحالة`;
+      text = `${egp(a.monthly_fee)} شهريًا تشمل ${consultations(a.quota)}، والزيادة ${egp(a.overage_rate)} للاستشارة`;
       break;
     case 'package':
-      text = `باقة ${num(a.package_size || 0)} حالة بقيمة ${egp(a.package_price)}${Number(a.overage_rate) ? `، وبعد نفادها ${egp(a.overage_rate)} للحالة` : ''}`;
+      text = `باقة ${consultations(a.package_size)} بقيمة ${egp(a.package_price)}${Number(a.overage_rate) ? `، وبعد نفادها ${egp(a.overage_rate)} للاستشارة` : ''}`;
       break;
     case 'pro_bono':
-      text = `تطوعي بالكامل (Pro Bono)${Number(a.notional_value) ? ` — القيمة التقديرية ${egp(a.notional_value)} للاستشارة` : ''}`;
+      text = `تطوعي بالكامل دون مقابل${Number(a.notional_value) ? ` — القيمة التقديرية ${egp(a.notional_value)} للاستشارة` : ''}`;
       break;
     case 'csr': {
-      const parts = [a.csr_cases_commitment ? `${num(a.csr_cases_commitment)} قضية` : null, a.csr_hours_commitment ? `${num(a.csr_hours_commitment)} ساعة` : null].filter(Boolean);
-      text = `برنامج CSR — ${a.csr_firm || 'مكتب المحاماة'}: ${parts.length ? parts.join(' و') : 'لم يُحدد الالتزام بعد'} ${a.csr_period === 'month' ? 'شهريًا' : 'سنويًا'}`;
+      const parts = [a.csr_cases_commitment ? consultations(a.csr_cases_commitment) : null, a.csr_hours_commitment ? fmtHours(a.csr_hours_commitment) : null].filter(Boolean);
+      text = `برنامج مسؤولية مجتمعية — ${a.csr_firm || 'مكتب المحاماة'}: ${parts.length ? parts.join(' و') : 'لم يُحدد الالتزام بعد'} ${a.csr_period === 'month' ? 'شهريًا' : 'سنويًا'}`;
       break;
     }
     default:
@@ -158,21 +159,21 @@ function agreementFields(type) {
   };
   switch (type) {
     case 'per_case':
-      return [moneyF('rate', 'أجر الاستشارة المعتمدة', { hint: 'يُستحق مرة واحدة لكل مهمة تعتمدها الإدارة' }), trigger];
+      return [moneyF('rate', 'أجر الاستشارة المعتمدة', { hint: 'يُستحق مرة واحدة لكل استشارة تعتمدها الإدارة' }), trigger];
     case 'monthly':
       return [moneyF('monthly_fee', 'المبلغ الشهري الثابت', { hint: 'يُصدر شهريًا من صفحة المحاسبة' }), trigger];
     case 'monthly_quota':
       return [
         moneyF('monthly_fee', 'المبلغ الشهري'),
-        intF('quota', 'عدد الحالات المشمولة شهريًا', { suffix: 'حالة' }),
-        moneyF('overage_rate', 'سعر الحالة الزائدة عن الحصة'),
+        intF('quota', 'عدد الاستشارات المشمولة شهريًا', { suffix: 'استشارة' }),
+        moneyF('overage_rate', 'سعر الاستشارة الزائدة على الحصة'),
         trigger,
       ];
     case 'package':
       return [
-        intF('package_size', 'عدد حالات الباقة', { suffix: 'حالة' }),
+        intF('package_size', 'عدد استشارات الباقة', { suffix: 'استشارة' }),
         moneyF('package_price', 'قيمة الباقة'),
-        moneyF('overage_rate', 'سعر الحالة بعد نفاد الباقة', { required: false, hint: 'اتركه فارغًا إن لم يُتفق على سعر بعد نفاد الباقة' }),
+        moneyF('overage_rate', 'سعر الاستشارة بعد نفاد الباقة', { required: false, hint: 'اتركه فارغًا إن لم يُتفق على سعر بعد نفاد الباقة' }),
         trigger,
       ];
     case 'pro_bono':
@@ -191,7 +192,7 @@ function agreementFields(type) {
             { value: 'month', label: 'شهريًا' },
           ],
         },
-        intF('csr_cases_commitment', 'عدد القضايا الملتزم بها', { required: false, min: 0, suffix: 'قضية' }),
+        intF('csr_cases_commitment', 'عدد الاستشارات الملتزم بها', { required: false, min: 0, suffix: 'استشارة' }),
         { name: 'csr_hours_commitment', label: 'عدد الساعات الملتزم بها', type: 'number', min: 0, max: 100000, suffix: 'ساعة' },
         moneyF('notional_value', 'القيمة التقديرية للاستشارة', { required: false, hint: 'لقياس قيمة مساهمة المكتب فقط' }),
       ];
@@ -264,9 +265,9 @@ export function agreementEditor(initial = {}, { originalType = null, packageRema
         ? 'عند الحفظ يُضاف رصيد الباقة للمحامي وتُسجَّل قيمتها كمستحق له في دفتر المحاسبة.'
         : 'عند الحفظ يتحول الاتفاق إلى باقة: يُضاف رصيدها وتُسجَّل قيمتها كمستحق للمحامي.';
     } else if (type === 'package' && originalType === 'package') {
-      msg = 'تعديل بيانات الباقة هنا لا يضيف رصيدًا جديدًا؛ استخدم «تجديد الباقة» لإضافة حالات.';
+      msg = 'تعديل بيانات الباقة هنا لا يضيف رصيدًا جديدًا؛ استخدم «تجديد الباقة» لإضافة استشارات.';
     } else if (originalType === 'package' && type !== 'package') {
-      msg = `تغيير نوع الاتفاق يلغي رصيد الباقة المتبقي${packageRemaining ? ` (${num(packageRemaining)} حالة)` : ''}.`;
+      msg = `تغيير نوع الاتفاق يلغي رصيد الباقة المتبقي${packageRemaining ? ` (${consultations(packageRemaining)})` : ''}.`;
       tone = 'warning';
     } else if (type === 'pro_bono' || type === 'csr') {
       msg = 'لا تُسجَّل مستحقات مالية لهذا الاتفاق؛ تُحتسب كل استشارة معتمدة مساهمةً تطوعية وتظهر قيمتها في تقارير المحاسبة.';
@@ -295,7 +296,7 @@ export function agreementEditor(initial = {}, { originalType = null, packageRema
       if (type === 'csr') {
         const v = sub.getValues();
         if (!v.csr_cases_commitment && !v.csr_hours_commitment) {
-          sub.setErrors({ csr_cases_commitment: 'حدد عدد القضايا أو عدد الساعات التي يلتزم بها المكتب' });
+          sub.setErrors({ csr_cases_commitment: 'حدد عدد الاستشارات أو عدد الساعات التي يلتزم بها المكتب' });
           return false;
         }
       }
@@ -349,8 +350,8 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
         required: true,
         min: 1,
         max: 1000,
-        suffix: 'ملف',
-        hint: 'أقصى عدد من المهام المفتوحة في الوقت نفسه',
+        suffix: 'إسناد',
+        hint: 'أقصى عدد من الإسنادات المفتوحة في الوقت نفسه',
       },
       { name: 'specialties', label: 'التخصصات', type: 'checkboxes', required: true, options: areaOptions() },
       { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 3000 },
@@ -485,7 +486,7 @@ function agreementCell(l) {
     'div.pd-agreement-cell',
     h('div', l.agreement_text || '—'),
     l.package_remaining != null &&
-      badge(`المتبقي في الباقة: ${num(l.package_remaining)}`, l.package_remaining > 0 ? 'primary' : 'danger', { title: 'عدد الحالات المتبقية في الباقة المدفوعة' }),
+      badge(`المتبقي في الباقة: ${num(l.package_remaining)}`, l.package_remaining > 0 ? 'primary' : 'danger', { title: 'عدد الاستشارات المتبقية في الباقة المدفوعة' }),
   );
 }
 
@@ -555,21 +556,21 @@ export default async function render(ctx) {
       statsHost,
       statCard({ label: 'المحامون النشطون', value: num(t.active), hint: `من إجمالي ${num(t.lawyers)} في الشبكة`, icon: 'users', tone: 'primary' }),
       statCard({
-        label: 'المهام المفتوحة مقابل الطاقة',
+        label: 'الإسنادات المفتوحة مقابل الطاقة',
         value: h('span.nowrap', `${num(t.open_assignments)} من ${num(t.capacity)}`),
         hint: progressBar(t.open_assignments, t.capacity || 1, loadRatio > 0.85 ? 'warning' : 'primary', { label: 'نسبة استخدام الطاقة الإجمالية', visibleLabel: false }),
         icon: 'briefcase',
         tone: 'info',
       }),
       statCard({
-        label: 'مهام متأخرة',
+        label: 'إسنادات متأخرة',
         value: num(t.overdue),
-        hint: t.overdue ? 'تجاوزت الموعد المطلوب للرد' : 'لا توجد مهام متأخرة',
+        hint: t.overdue ? 'تجاوزت الموعد المطلوب للرد' : 'لا توجد إسنادات متأخرة',
         icon: 'clock',
         tone: t.overdue ? 'danger' : 'success',
       }),
-      statCard({ label: 'مهام مُنجزة ومعتمدة', value: num(t.completed_in_period), hint: `خلال ${pl}`, icon: 'checkCircle', tone: 'success' }),
-      statCard({ label: h('span', 'استشارات تطوعية ', h('bdi.nowrap', '(Pro Bono)')), value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent' }),
+      statCard({ label: 'إسنادات مُنجزة ومعتمدة', value: num(t.completed_in_period), hint: `خلال ${pl}`, icon: 'checkCircle', tone: 'success' }),
+      statCard({ label: 'استشارات تطوعية', value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent' }),
     );
   }
 

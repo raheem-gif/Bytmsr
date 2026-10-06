@@ -1,9 +1,23 @@
 // التحليلات: مصدر العميل ≠ قناة التواصل. نعرف ليس فقط عدد الرسائل التي أنتجها كل إعلان،
 // بل ماذا حدث لها فعليًا: كم تحول لاستشارة، كم احتاج محاميًا، كم صار قضية، كم كلّف، وما النتائج.
-import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, v } from '../util.js';
+import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, conflict, v } from '../util.js';
 import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
+
+const SPEND_DUP = 'يوجد سجل إنفاق لنفس الشهر والمصدر والحملة. عدّل السجل القائم بدل إضافة سجل جديد';
+
+function spendFields(body) {
+  const period = v.str(body.period, 'الشهر', { required: true, max: 7 });
+  if (!isValidPeriod(period)) throw badRequest('الشهر يجب أن يكون بصيغة YYYY-MM');
+  return {
+    period,
+    source: v.oneOf(body.source, ENUMS.source, 'المصدر', { required: true }),
+    campaign: v.str(body.campaign, 'الحملة', { max: 150 }) || '',
+    amount_minor: v.money(body.amount, 'المبلغ', { required: true, min: 0 }),
+    note: v.str(body.note, 'ملاحظة', { max: 300 }),
+  };
+}
 
 export function createAnalytics(app) {
   const { db } = app;
@@ -139,19 +153,22 @@ export function createAnalytics(app) {
       };
     },
     saveSpend(body, actor) {
-      const period = v.str(body.period, 'الشهر', { required: true, max: 7 });
-      if (!isValidPeriod(period)) throw badRequest('الشهر يجب أن يكون بصيغة YYYY-MM');
-      const source = v.oneOf(body.source, ENUMS.source, 'المصدر', { required: true });
-      const campaign = v.str(body.campaign, 'الحملة', { max: 150 }) || '';
-      const amount = v.money(body.amount, 'المبلغ', { required: true, min: 0 });
-      const note = v.str(body.note, 'ملاحظة', { max: 300 });
+      const f = spendFields(body);
+      // لا نستبدل سجلًا قائمًا بصمت: التعديل يكون من «تعديل» على السجل نفسه
+      if (db.get('SELECT 1 FROM ad_spend WHERE period = ? AND source = ? AND campaign = ?', f.period, f.source, f.campaign)) throw conflict(SPEND_DUP);
       const t = nowIso();
-      db.run(
-        `INSERT INTO ad_spend (period, source, campaign, amount_minor, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(period, source, campaign) DO UPDATE SET amount_minor = excluded.amount_minor, note = excluded.note, updated_at = excluded.updated_at`,
-        period, source, campaign, amount, note, actor.id, t, t,
-      );
-      const r = db.get('SELECT * FROM ad_spend WHERE period = ? AND source = ? AND campaign = ?', period, source, campaign);
+      const id = db.insert('ad_spend', { ...f, created_by: actor.id, created_at: t, updated_at: t });
+      const r = db.get('SELECT * FROM ad_spend WHERE id = ?', id);
+      return { ...r, amount: fromMinor(r.amount_minor) };
+    },
+    /** تعديل سجل إنفاق بعينه (بما في ذلك الشهر والمصدر والحملة) دون إنشاء سجل ثانٍ */
+    updateSpend(id, body) {
+      const row = db.get('SELECT * FROM ad_spend WHERE id = ?', id);
+      if (!row) throw notFound('السجل غير موجود');
+      const f = spendFields({ period: row.period, source: row.source, campaign: row.campaign, amount: fromMinor(row.amount_minor), note: row.note, ...body });
+      if (db.get('SELECT 1 FROM ad_spend WHERE period = ? AND source = ? AND campaign = ? AND id != ?', f.period, f.source, f.campaign, id)) throw conflict(SPEND_DUP);
+      db.update('ad_spend', id, { ...f, updated_at: nowIso() });
+      const r = db.get('SELECT * FROM ad_spend WHERE id = ?', id);
       return { ...r, amount: fromMinor(r.amount_minor) };
     },
     deleteSpend(id) {
@@ -202,7 +219,7 @@ export function createAnalytics(app) {
           in_review: q("SELECT COUNT(*) FROM intakes WHERE status = 'in_review'"),
           awaiting_client: q("SELECT COUNT(*) FROM intakes WHERE status = 'awaiting_client'"),
           today: q('SELECT COUNT(*) FROM intakes WHERE created_at >= ?', addDays(t, -1)),
-          urgent: q("SELECT COUNT(*) FROM intakes WHERE status IN ('new','in_review') AND priority IN ('high','urgent')"),
+          urgent: q("SELECT COUNT(*) FROM intakes WHERE status IN ('new','in_review','awaiting_client') AND priority IN ('high','urgent')"),
         },
         cases: Object.fromEntries(db.all('SELECT status, COUNT(*) AS n FROM cases GROUP BY status').map((r) => [r.status, Number(r.n)])),
         open_cases: q("SELECT COUNT(*) FROM cases WHERE status != 'closed'"),
@@ -331,17 +348,22 @@ export function createPortal(app) {
             `SELECT r.id, r.kind, r.client_message, r.status, r.sent_at, c.code AS case_code FROM info_requests r JOIN cases c ON c.id = r.case_id
              WHERE r.case_id IN (${C}) AND r.status IN ('sent_to_client','client_replied') ORDER BY r.id DESC`,
           )
-          .map((r) => ({ id: r.id, kind: r.kind, case_code: r.case_code, message: r.client_message, status: r.status, created_at: r.sent_at, can_reply: true })),
+          .map((r) => ({ id: r.id, kind: r.kind, case_code: r.case_code, message: r.client_message, status: r.status, created_at: r.sent_at, can_reply: r.status === 'sent_to_client' })),
         messages: msgs.map((m) => ({ ...m, documents: byMsg.get(m.id) || [] })),
         answers: db.all(
           `SELECT a.id, a.body, a.sent_at, c.code AS case_code FROM client_answers a JOIN cases c ON c.id = a.case_id
            WHERE a.case_id IN (${C}) AND a.status = 'sent' ORDER BY a.id DESC`,
         ),
-        events: db.all(
-          `SELECT e.id, e.kind, e.title, e.starts_at, e.location, e.client_attendance_required, m.code AS matter_code
-           FROM matter_events e JOIN matters m ON m.id = e.matter_id WHERE m.id IN (${M}) AND e.status = 'scheduled' AND e.starts_at >= ? ORDER BY e.starts_at`,
-          nowIso(),
-        ),
+        // نص الموعد الذي كتبه المحامي لا يظهر للعميل قبل اعتماد الإدارة: نعرض نوع الموعد والمحكمة فقط
+        events: db
+          .all(
+            `SELECT e.id, e.kind, e.title, e.starts_at, e.location, e.client_attendance_required, e.client_text_approved, m.code AS matter_code, m.court
+             FROM matter_events e JOIN matters m ON m.id = e.matter_id WHERE m.id IN (${M}) AND e.status = 'scheduled' AND e.starts_at >= ? ORDER BY e.starts_at`,
+            nowIso(),
+          )
+          .map(({ client_text_approved, court, ...e }) =>
+            client_text_approved ? e : { ...e, title: LABELS.event_kind[e.kind] || e.title, location: court || null },
+          ),
         invoices: db
           .all(`SELECT id, number, description, amount_minor, due_at, status FROM invoices WHERE (matter_id IN (${M}) OR case_id IN (${C})) AND status != 'cancelled' ORDER BY id DESC`)
           .map((i) => ({

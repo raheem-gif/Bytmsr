@@ -362,6 +362,9 @@ export default async function render(ctx) {
         h('div.pd-toolbar-actions', button('قيد يدوي / تسوية', { icon: 'plus', onClick: openAdjustment }), payBtn),
       ),
       !single && alertBox('لصرف مستحقات، اختر محاميًا من القائمة أولًا ثم حدد القيود المستحقة؛ تُصرف قيود محامٍ واحد في كل عملية صرف.', 'info'),
+      !single && !ledger.period && ledgerRows.length >= 500
+        ? alertBox('تُعرض أحدث ٥٠٠ قيد فقط، فالإجمالي أعلاه جزئي. اختر محاميًا أو فترة لعرض كل القيود.', 'warning')
+        : null,
       single && selCount
         ? h(
             'div.pd-selection',

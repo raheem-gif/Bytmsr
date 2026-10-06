@@ -1,10 +1,14 @@
 // المحاسبة داخل نفس المنظومة: اتفاق كل محامٍ يحدد ما يحدث ماليًا عند تحقق واقعة الاستحقاق.
 // بالقطعة → مستحق، شهري → ضمن التقرير الشهري، حصة شهرية → ضمنها ثم سعر الزيادة، باقة → خصم من الرصيد،
-// تطوعي → مساهمة مجانية بلا التزام مالي، CSR → استهلاك من التزام مكتب المحاماة.
-import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, toMinor, fromMinor } from '../util.js';
+// تطوعي → مساهمة مجانية بلا التزام مالي، مسؤولية مجتمعية (CSR) → استهلاك من التزام مكتب المحاماة.
+// وحدة المحاسبة في كل الاتفاقات هي «الاستشارة المعتمدة»، والعملة تُكتب «ج.م» كما في الواجهة.
+import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, toMinor, fromMinor, arabicCount, arabicPeriod, formatEgp, AR_UNITS } from '../util.js';
 import { LABELS, ENUMS } from '../constants.js';
 
 const INCLUDED = ['included_monthly', 'included_quota', 'package_credit'];
+
+/** حساب موقوف قبل بداية الفترة (الحسابات القديمة بلا تاريخ إيقاف تُعامل كموقوفة من قبل) */
+const endedBefore = (lw, start) => !lw.active && (!lw.deactivated_at || lw.deactivated_at < start);
 
 /** التحقق من اتفاق المحامي وتوحيده (المبالغ بالجنيه) */
 export function validateAgreement(input) {
@@ -20,31 +24,31 @@ export function validateAgreement(input) {
   };
   switch (type) {
     case 'per_case':
-      a.rate = money('rate', 'أجر الاستشارة', true);
+      a.rate = money('rate', 'أجر الاستشارة المعتمدة', true);
       break;
     case 'monthly':
       a.monthly_fee = money('monthly_fee', 'المبلغ الشهري', true);
       break;
     case 'monthly_quota':
       a.monthly_fee = money('monthly_fee', 'المبلغ الشهري', true);
-      a.quota = v.int(input.quota, 'عدد الحالات المشمولة شهريًا', { required: true, min: 1, max: 10000 });
-      a.overage_rate = money('overage_rate', 'سعر الحالة الزائدة', true);
+      a.quota = v.int(input.quota, 'عدد الاستشارات المشمولة شهريًا', { required: true, min: 1, max: 10000 });
+      a.overage_rate = money('overage_rate', 'سعر الاستشارة الزائدة على الحصة', true);
       break;
     case 'package':
-      a.package_size = v.int(input.package_size, 'عدد حالات الباقة', { required: true, min: 1, max: 100000 });
+      a.package_size = v.int(input.package_size, 'عدد استشارات الباقة', { required: true, min: 1, max: 100000 });
       a.package_price = money('package_price', 'قيمة الباقة', true);
-      a.overage_rate = money('overage_rate', 'سعر الحالة بعد نفاد الباقة', false) ?? 0;
+      a.overage_rate = money('overage_rate', 'سعر الاستشارة بعد نفاد الباقة', false) ?? 0;
       break;
     case 'pro_bono':
       a.notional_value = money('notional_value', 'القيمة التقديرية للاستشارة', false) ?? 0;
       break;
     case 'csr':
       a.csr_firm = v.str(input.csr_firm, 'اسم مكتب المحاماة', { required: true, max: 150 });
-      a.csr_cases_commitment = v.int(input.csr_cases_commitment, 'عدد القضايا الملتزم بها', { min: 0, max: 100000 });
+      a.csr_cases_commitment = v.int(input.csr_cases_commitment, 'عدد الاستشارات الملتزم بها', { min: 0, max: 100000 });
       a.csr_hours_commitment = v.num(input.csr_hours_commitment, 'عدد الساعات الملتزم بها', { min: 0, max: 100000 });
       a.csr_period = v.oneOf(input.csr_period, ['month', 'year'], 'فترة الالتزام') || 'year';
       a.notional_value = money('notional_value', 'القيمة التقديرية للاستشارة', false) ?? 0;
-      if (!a.csr_cases_commitment && !a.csr_hours_commitment) throw badRequest('حدد عدد القضايا أو الساعات التي يلتزم بها المكتب');
+      if (!a.csr_cases_commitment && !a.csr_hours_commitment) throw badRequest('حدد عدد الاستشارات أو الساعات التي يلتزم بها المكتب');
       break;
   }
   return a;
@@ -52,14 +56,16 @@ export function validateAgreement(input) {
 
 export function describeAgreement(a) {
   if (!a) return '—';
-  const m = (x) => `${Number(x || 0).toLocaleString('en-US')} جنيه`;
+  const m = (x) => `${Number(x || 0).toLocaleString('en-US')} ج.م`;
+  const consultations = (n) => arabicCount(n, AR_UNITS.consultation);
+  const hours = (h) => (Number.isInteger(Number(h)) ? arabicCount(Number(h), AR_UNITS.hour) : `${h} ساعة`);
   switch (a.type) {
     case 'per_case': return `${m(a.rate)} لكل استشارة معتمدة`;
     case 'monthly': return `${m(a.monthly_fee)} شهريًا`;
-    case 'monthly_quota': return `${m(a.monthly_fee)} شهريًا تشمل ${a.quota} حالة، والزيادة ${m(a.overage_rate)} للحالة`;
-    case 'package': return `باقة ${a.package_size} حالة بقيمة ${m(a.package_price)}${a.overage_rate ? `، وبعد نفادها ${m(a.overage_rate)} للحالة` : ''}`;
-    case 'pro_bono': return 'تطوعي بالكامل (Pro Bono)';
-    case 'csr': return `برنامج CSR — ${a.csr_firm}: ${[a.csr_cases_commitment ? `${a.csr_cases_commitment} قضية` : null, a.csr_hours_commitment ? `${a.csr_hours_commitment} ساعة` : null].filter(Boolean).join(' و')} ${a.csr_period === 'month' ? 'شهريًا' : 'سنويًا'}`;
+    case 'monthly_quota': return `${m(a.monthly_fee)} شهريًا تشمل ${consultations(a.quota)}، والزيادة ${m(a.overage_rate)} للاستشارة`;
+    case 'package': return `باقة ${consultations(a.package_size)} بقيمة ${m(a.package_price)}${a.overage_rate ? `، وبعد نفادها ${m(a.overage_rate)} للاستشارة` : ''}`;
+    case 'pro_bono': return 'تطوعي بالكامل دون مقابل';
+    case 'csr': return `برنامج مسؤولية مجتمعية — ${a.csr_firm}: ${[a.csr_cases_commitment ? consultations(a.csr_cases_commitment) : null, a.csr_hours_commitment ? hours(a.csr_hours_commitment) : null].filter(Boolean).join(' و')} ${a.csr_period === 'month' ? 'شهريًا' : 'سنويًا'}`;
     default: return LABELS.agreement_type[a.type] || a.type;
   }
 }
@@ -153,7 +159,7 @@ export function createAccounting(app) {
                   app.notifications.notifyStaff({
                     type: 'package.exhausted',
                     title: `نفدت باقة المحامي ${lw.name}`,
-                    body: ag.overage_rate ? `الحالات التالية تُحاسب بسعر ${ag.overage_rate} جنيه حتى تجديد الباقة.` : 'يُنصح بتجديد الباقة.',
+                    body: ag.overage_rate ? `الاستشارات التالية تُحاسب بسعر ${Number(ag.overage_rate).toLocaleString('en-US')} ج.م حتى تجديد الباقة.` : 'يُنصح بتجديد الباقة.',
                     link: `#/lawyers/${lw.user_id}`,
                   });
                 }
@@ -196,7 +202,7 @@ export function createAccounting(app) {
             case_id: a.case_id,
             billable_event_id: beId,
             period,
-            description: `${LABELS.ledger_kind[ledgerKind]} — الملف ${c.code} (${LABELS.assignment_role[a.role]})`,
+            description: `${LABELS.ledger_kind[ledgerKind]} — الملف ${c.code} — ${LABELS.assignment_role[a.role]}`,
             dedupe_key: `be:${beId}`,
           });
         }
@@ -204,7 +210,7 @@ export function createAccounting(app) {
           case_id: a.case_id,
           actor: { kind: 'system' },
           type: 'billing.event',
-          summary: `سُجلت واقعة استحقاق لـ ${lw.name}: ${LABELS.treatment[treatment]}${amount ? ` (${fromMinor(amount)} جنيه)` : ''}`,
+          summary: `سُجلت واقعة استحقاق لـ ${lw.name}: ${LABELS.treatment[treatment]}${amount ? ` (${formatEgp(amount)})` : ''}`,
           data: { billable_event_id: beId, treatment, amount: fromMinor(amount) },
         });
         return db.get('SELECT * FROM billable_events WHERE id = ?', beId);
@@ -218,12 +224,37 @@ export function createAccounting(app) {
       if ((ag.billable_event || 'on_approval') === 'on_approval') svc.recordBillableEvent(a.id, 'on_approval');
     },
 
+    // عند الإغلاق يُسجَّل كل عمل معتمد لم يُسجَّل بعد، أيًا كان الاتفاق الحالي للمحامي:
+    // من كان اتفاقه «عند الإغلاق» ثم تغير لا يفقد أتعاب عمله، والتسجيل مرة واحدة لكل إسناد
     onCaseClosed({ caseId }) {
-      const list = db.all("SELECT a.* FROM assignments a WHERE a.case_id = ? AND a.status = 'approved'", caseId);
-      for (const a of list) {
-        const ag = lawyerRow(a.lawyer_id).agreement;
-        if (ag.billable_event === 'on_close') svc.recordBillableEvent(a.id, 'on_close');
-      }
+      const list = db.all(
+        "SELECT a.* FROM assignments a WHERE a.case_id = ? AND a.status = 'approved' AND NOT EXISTS (SELECT 1 FROM billable_events b WHERE b.assignment_id = a.id)",
+        caseId,
+      );
+      for (const a of list) svc.recordBillableEvent(a.id, 'on_close');
+    },
+
+    /** مبلغ شهري جزئي عن الفترة الجارية عند ترك الاتفاق الشهري (لا يتكرر مع إصدار الشهر) */
+    settlePartialMonth(lawyerId, oldAgreement, actor) {
+      const t = nowIso();
+      const period = periodOf(t);
+      const key = `monthly:${lawyerId}:${period}`;
+      if (db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', key)) return null;
+      const { start, end } = periodRange(period);
+      const u = db.get('SELECT created_at FROM users WHERE id = ?', lawyerId);
+      const from = u && u.created_at > start ? u.created_at : start;
+      const share = Math.max(0, Math.min(1, (Date.parse(t) - Date.parse(from)) / (Date.parse(end) - Date.parse(start))));
+      const amount = Math.round((toMinor(oldAgreement.monthly_fee) || 0) * share);
+      if (amount <= 0) return null;
+      return insertLedger({
+        lawyer_id: lawyerId,
+        kind: 'monthly_fee',
+        amount_minor: amount,
+        period,
+        description: `المبلغ الشهري الجزئي عن ${period} حتى تغيير الاتفاق (${Math.round(share * 100)}% من الشهر)`,
+        dedupe_key: key,
+        created_by: actor?.id,
+      });
     },
 
     /** شراء/تجديد باقة: يضيف رصيدًا ويسجل قيمة الباقة كمستحق */
@@ -240,7 +271,7 @@ export function createAccounting(app) {
             kind: 'package_purchase',
             amount_minor: p,
             period: periodOf(nowIso()),
-            description: `قيمة باقة ${n} حالة`,
+            description: `قيمة باقة ${arabicCount(n, AR_UNITS.consultation)}`,
             created_by: actor?.id,
           });
         }
@@ -253,12 +284,15 @@ export function createAccounting(app) {
       if (!isValidPeriod(period)) throw badRequest('الفترة يجب أن تكون بصيغة YYYY-MM');
       if (period > periodOf(nowIso())) throw badRequest('لا يمكن إصدار مستحقات فترة مستقبلية');
       const created = [];
-      const lawyers = db.all("SELECT u.id, u.name, u.created_at, l.agreement FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer'");
-      const { end } = periodRange(period);
+      const lawyers = db.all(
+        "SELECT u.id, u.name, u.created_at, u.active, u.deactivated_at, l.agreement FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer'",
+      );
+      const { start, end } = periodRange(period);
       for (const lw of lawyers) {
         const ag = parseJson(lw.agreement, {});
         if (!['monthly', 'monthly_quota'].includes(ag.type)) continue;
         if (lw.created_at >= end) continue; // لم يكن متعاقدًا في هذه الفترة
+        if (endedBefore(lw, start)) continue; // أُوقف الحساب قبل بداية الفترة
         const key = `monthly:${lw.id}:${period}`;
         if (db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', key)) continue;
         const events = Number(db.value('SELECT COUNT(*) FROM billable_events WHERE lawyer_id = ? AND period = ?', lw.id, period));
@@ -267,7 +301,7 @@ export function createAccounting(app) {
           kind: 'monthly_fee',
           amount_minor: toMinor(ag.monthly_fee) || 0,
           period,
-          description: `المبلغ الشهري عن ${period} (${events} استشارة معتمدة خلال الشهر)`,
+          description: `المبلغ الشهري عن ${arabicPeriod(period)} (الاستشارات المعتمدة خلال الشهر: ${events})`,
           dedupe_key: key,
           created_by: actor?.id,
         });
@@ -302,7 +336,7 @@ export function createAccounting(app) {
         created_by: actor.id,
       });
       if (resolvedCase) {
-        app.activity.log({ case_id: resolvedCase, matter_id: matterId, actor, type: 'billing.manual', summary: `قيد يدوي للمحامي ${lawyerRow(lawyerId).name}: ${fromMinor(amount)} جنيه` });
+        app.activity.log({ case_id: resolvedCase, matter_id: matterId, actor, type: 'billing.manual', summary: `قيد يدوي للمحامي ${lawyerRow(lawyerId).name}: ${formatEgp(amount)}` });
       }
       return db.get('SELECT * FROM ledger_entries WHERE id = ?', id);
     },
@@ -327,7 +361,7 @@ export function createAccounting(app) {
       const e = db.get('SELECT * FROM ledger_entries WHERE id = ?', entryId);
       if (!e) throw notFound('القيد غير موجود');
       if (e.status !== 'accrued') throw conflict('يمكن إلغاء القيود غير المصروفة فقط');
-      db.update('ledger_entries', e.id, { status: 'void', description: `${e.description} — ملغي${note ? `: ${note}` : ''}` });
+      db.update('ledger_entries', e.id, { status: 'void', description: `${e.description} — ملغى${note ? `: ${note}` : ''}` });
       return db.get('SELECT * FROM ledger_entries WHERE id = ?', e.id);
     },
 
@@ -342,7 +376,7 @@ export function createAccounting(app) {
         for (const id of ids) {
           const e = db.get('SELECT * FROM ledger_entries WHERE id = ?', id);
           if (!e || e.lawyer_id !== lw.user_id) throw badRequest(`القيد ${id} لا يخص هذا المحامي`);
-          if (e.status !== 'accrued') throw conflict(`القيد ${id} مصروف أو ملغي بالفعل`);
+          if (e.status !== 'accrued') throw conflict(`القيد ${id} مصروف أو ملغى بالفعل`);
           total += e.amount_minor;
         }
         if (total <= 0) throw badRequest('إجمالي المبلغ المختار يجب أن يكون أكبر من صفر');
@@ -360,19 +394,23 @@ export function createAccounting(app) {
         for (const id of ids) db.update('ledger_entries', id, { status: 'paid', payout_id: pid });
         app.notifications.notify(lw.user_id, {
           type: 'payout',
-          title: `تم صرف ${fromMinor(total).toLocaleString('en-US')} جنيه من مستحقاتك`,
+          title: `تم صرف ${formatEgp(total)} من مستحقاتك`,
           link: '#/my/statement',
         });
         return { ...db.get('SELECT * FROM payouts WHERE id = ?', pid), amount: fromMinor(total) };
       });
     },
 
-    ledger({ lawyer_id, status, period, limit = 300 } = {}) {
+    ledger({ lawyer_id, matter_id, status, period, limit } = {}) {
       const where = ['1=1'];
       const params = [];
       if (lawyer_id) {
         where.push('e.lawyer_id = ?');
         params.push(Number(lawyer_id));
+      }
+      if (matter_id) {
+        where.push('e.matter_id = ?');
+        params.push(Number(matter_id));
       }
       if (status && ENUMS.ledger_status.includes(status)) {
         where.push('e.status = ?');
@@ -388,7 +426,8 @@ export function createAccounting(app) {
            JOIN users u ON u.id = e.lawyer_id LEFT JOIN cases c ON c.id = e.case_id LEFT JOIN matters m ON m.id = e.matter_id
            WHERE ${where.join(' AND ')} ORDER BY e.id DESC LIMIT ?`,
           ...params,
-          Math.min(Number(limit) || 300, 2000),
+          // دفتر محامٍ واحد أو ملف واحد يُعرض كاملًا (للصرف والمطابقة)؛ العرض العام محدود بأحدث القيود
+          Math.min(Number(limit) || (lawyer_id || matter_id || period ? 10000 : 500), 10000),
         )
         .map((e) => ({ ...e, amount: fromMinor(e.amount_minor) }));
     },
@@ -461,8 +500,9 @@ export function createAccounting(app) {
     summary(period) {
       const p = isValidPeriod(period) ? period : periodOf(nowIso());
       const lawyers = db.all(
-        "SELECT u.id, u.name, u.active, l.title, l.agreement, l.package_remaining FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer' ORDER BY u.name",
+        "SELECT u.id, u.name, u.active, u.deactivated_at, l.title, l.agreement, l.package_remaining FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer' ORDER BY u.name",
       );
+      const pStart = periodRange(p).start;
       const rows = lawyers.map((lw) => {
         const ag = parseJson(lw.agreement, {});
         const ev = db.all('SELECT treatment, COUNT(*) AS n, SUM(amount_minor) AS amt, SUM(notional_minor) AS nv FROM billable_events WHERE lawyer_id = ? AND period = ? GROUP BY treatment', lw.id, p);
@@ -471,7 +511,8 @@ export function createAccounting(app) {
         const periodAmount = Number(db.value("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE lawyer_id = ? AND period = ? AND status != 'void'", lw.id, p));
         const unpaid = Number(db.value("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE lawyer_id = ? AND status = 'accrued'", lw.id));
         const notional = ev.reduce((s, r) => s + Number(r.nv || 0), 0);
-        const needsClosing = ['monthly', 'monthly_quota'].includes(ag.type) && !db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', `monthly:${lw.id}:${p}`);
+        const needsClosing =
+          ['monthly', 'monthly_quota'].includes(ag.type) && !endedBefore(lw, pStart) && !db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', `monthly:${lw.id}:${p}`);
         let csr = null;
         if (ag.type === 'csr') {
           const range = ag.csr_period === 'month' ? [p, p] : [`${p.slice(0, 4)}-01`, `${p.slice(0, 4)}-12`];

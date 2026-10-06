@@ -219,6 +219,7 @@ export function createClients(app) {
       return {
         client: c,
         identities: svc.identities(c.id),
+        active_portal_links: svc.activePortalLinks(c.id),
         intakes: db.all(
           'SELECT id, code, status, first_channel, source, title, legal_area, case_id, created_at FROM intakes WHERE client_id = ? ORDER BY id DESC',
           c.id,
@@ -273,8 +274,20 @@ export function createClients(app) {
       db.run('UPDATE portal_tokens SET last_used_at = ? WHERE token_hash = ?', nowIso(), row.token_hash);
       return { client, intakeId: row.intake_id ?? null };
     },
-    revokePortalTokens(clientId) {
-      db.run('UPDATE portal_tokens SET revoked = 1 WHERE client_id = ?', clientId);
+    /** إلغاء روابط البوابة: كل روابط العميل، أو روابط طلب واحد فقط. يعيد عدد الروابط الملغاة */
+    revokePortalTokens(clientId, { intakeId = null } = {}) {
+      const r = intakeId
+        ? db.run('UPDATE portal_tokens SET revoked = 1 WHERE intake_id = ? AND revoked = 0', intakeId)
+        : db.run('UPDATE portal_tokens SET revoked = 1 WHERE client_id = ? AND revoked = 0', clientId);
+      return Number(r.changes || 0);
+    },
+    /** عدد روابط البوابة السارية (غير الملغاة وغير المنتهية) */
+    activePortalLinks(clientId, { intakeId = null } = {}) {
+      return Number(
+        intakeId
+          ? db.value('SELECT COUNT(*) FROM portal_tokens WHERE intake_id = ? AND revoked = 0 AND expires_at > ?', intakeId, nowIso())
+          : db.value('SELECT COUNT(*) FROM portal_tokens WHERE client_id = ? AND revoked = 0 AND expires_at > ?', clientId, nowIso()),
+      );
     },
 
     searchNormalized(q) {

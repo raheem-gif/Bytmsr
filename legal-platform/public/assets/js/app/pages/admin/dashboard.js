@@ -127,7 +127,7 @@ export default async function render(ctx) {
       hint: `خلال آخر 24 ساعة: ${num(intakes.today)} · قيد الفرز: ${num(intakes.in_review)}`,
       icon: 'inbox',
       tone: 'info',
-      href: '#/inbox',
+      href: '#/inbox?status=new',
     }),
     statCard({
       label: 'عاجلة أو عالية الأولوية',
@@ -135,7 +135,7 @@ export default async function render(ctx) {
       hint: 'طلبات مفتوحة لم يُبت فيها',
       icon: 'flag',
       tone: intakes.urgent ? 'danger' : 'neutral',
-      href: '#/inbox',
+      href: '#/inbox?priority=high_or_urgent',
     }),
     statCard({ label: 'ملفات مفتوحة', value: num(d.open_cases), hint: 'ملفات استشارة لم تُغلق', icon: 'briefcase', tone: 'primary', href: '#/cases' }),
     statCard({
@@ -160,7 +160,7 @@ export default async function render(ctx) {
       hint: 'مستحقة ولم تُسدد',
       icon: 'wallet',
       tone: d.overdue_invoices ? 'warning' : 'neutral',
-      href: '#/matters',
+      // لا توجد قائمة فواتير مفلترة بالمتأخر بعد، فالبطاقة للعرض فقط بدل رابط لا يعرض ما تعدّه
     }),
     statCard({
       label: 'رسائل فشل إرسالها',
@@ -168,7 +168,7 @@ export default async function render(ctx) {
       hint: d.failed_messages ? 'تحتاج إعادة محاولة' : 'كل الرسائل وصلت أو سُجلت',
       icon: 'alert',
       tone: d.failed_messages ? 'danger' : 'neutral',
-      href: '#/automations',
+      href: '#/automations?tab=outbox&status=failed',
     }),
     statCard({
       label: 'مواد معرفة بانتظار المراجعة',
@@ -176,7 +176,7 @@ export default async function render(ctx) {
       hint: 'سجلات مجهّلة من ملفات مغلقة',
       icon: 'book',
       tone: d.knowledge_pending ? 'accent' : 'neutral',
-      href: '#/knowledge',
+      href: '#/knowledge?status=pending_review',
     }),
   );
 

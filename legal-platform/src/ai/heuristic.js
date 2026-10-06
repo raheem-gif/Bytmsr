@@ -333,7 +333,7 @@ export function draftOpinion({ title, area, facts, brief, issues, missing, simil
 }
 
 /** نسخة موجهة للعميل بلغة مبسطة */
-export function clientVersion({ clientName, caseCode, opinion }) {
+export function clientVersion({ clientName, caseCode, opinion, orgName }) {
   const body = String(opinion || '')
     .split('\n')
     .filter((l) => !/^مسودة أولية|^\[يُستكمل/.test(l.trim()))
@@ -350,6 +350,6 @@ export function clientVersion({ clientName, caseCode, opinion }) {
     'للاستفسار أو إرسال أي مستندات إضافية يمكنكم الرد على هذه الرسالة.',
     '',
     'مع خالص التحية،',
-    'فريق بيوت مصر للخدمات القانونية',
+    `فريق ${orgName || 'بيوت مصر'} للخدمات القانونية`,
   ].join('\n');
 }

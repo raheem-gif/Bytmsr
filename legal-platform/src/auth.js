@@ -62,6 +62,8 @@ export class RateLimiter {
 export function createAuth(app) {
   const { db, config } = app;
   const loginLimiter = new RateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+  // حد ثانٍ لكل حساب أيًا كان عنوان IP، حتى لا يُخمَّن كلمة مرور حساب واحد بتدوير العناوين
+  const accountLimiter = new RateLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
 
   function cookieHeader(token, maxAgeSeconds) {
     const parts = [`${SESSION_COOKIE}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAgeSeconds}`];
@@ -78,14 +80,17 @@ export function createAuth(app) {
     publicUser,
 
     login(ctx, username, password) {
-      const key = `${ctx.ip}|${String(username || '').toLowerCase()}`;
+      const account = String(username || '').trim().toLowerCase();
+      const key = `${ctx.ip}|${account}`;
       loginLimiter.hit(key);
+      accountLimiter.hit(account);
       const user = db.get('SELECT * FROM users WHERE username = ?', String(username || '').trim());
       // نتحقق دائمًا من كلمة المرور حتى لو لم يوجد المستخدم لتقليل تسريب المعلومات عبر التوقيت
       const ok = verifyPassword(password || '', user ? user.password_hash : DUMMY_HASH);
       if (!user || !ok) throw unauthorized('اسم المستخدم أو كلمة المرور غير صحيحة');
       if (!user.active) throw forbidden('هذا الحساب موقوف، يرجى التواصل مع الإدارة');
       loginLimiter.reset(key);
+      accountLimiter.reset(account);
       const token = randomToken(32);
       const created = nowIso();
       db.insert('sessions', {

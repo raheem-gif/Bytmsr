@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   password_hash TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
+  -- تاريخ إيقاف الحساب (لا تُصدر مبالغ شهرية عن فترات تبدأ بعده)
+  deactivated_at TEXT,
   created_at TEXT NOT NULL,
   last_login_at TEXT
 );
@@ -374,6 +376,8 @@ CREATE TABLE IF NOT EXISTS matter_events (
   status TEXT NOT NULL DEFAULT 'scheduled',
   notes TEXT,
   outcome TEXT,
+  -- نص الموعد (العنوان والمكان) معتمد من الإدارة ويجوز أن يصل للعميل؛ ما يكتبه المحامي يبقى 0 حتى تعتمده الإدارة
+  client_text_approved INTEGER NOT NULL DEFAULT 1,
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

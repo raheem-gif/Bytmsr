@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { badRequest, notFound, forbidden, nowIso, randomToken, v } from '../util.js';
+import { badRequest, notFound, forbidden, nowIso, randomToken, v, arabicCount, AR_UNITS } from '../util.js';
 
 // أنواع الملفات المسموح بها (المستندات والصور والرسائل الصوتية الشائعة في واتساب)
 const ALLOWED = {
@@ -24,6 +24,43 @@ const ALLOWED = {
 const EXT_TO_MIME = Object.fromEntries(Object.entries(ALLOWED).map(([m, e]) => [e, m]));
 EXT_TO_MIME['.jpeg'] = 'image/jpeg';
 
+/** فحص البصمة الأولى للملف (magic bytes) حتى لا يُقبل ملف تنفيذي أو HTML على أنه PDF أو صورة */
+function contentMatches(mime, buf) {
+  const at = (i, ...bytes) => bytes.every((b, k) => buf[i + k] === b);
+  const ascii = (i, str) => buf.length >= i + str.length && buf.toString('latin1', i, i + str.length) === str;
+  const zip = () => at(0, 0x50, 0x4b, 0x03, 0x04);
+  const ole = () => at(0, 0xd0, 0xcf, 0x11, 0xe0);
+  const ftyp = () => ascii(4, 'ftyp');
+  switch (mime) {
+    case 'application/pdf':
+      return buf.subarray(0, 1024).includes('%PDF');
+    case 'image/png':
+      return at(0, 0x89, 0x50, 0x4e, 0x47);
+    case 'image/jpeg':
+      return at(0, 0xff, 0xd8, 0xff);
+    case 'image/webp':
+      return ascii(0, 'RIFF') && ascii(8, 'WEBP');
+    case 'image/heic':
+    case 'video/mp4':
+    case 'audio/mp4':
+      return ftyp();
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+      return zip();
+    case 'application/msword':
+    case 'application/vnd.ms-excel':
+      return ole();
+    case 'audio/ogg':
+      return ascii(0, 'OggS');
+    case 'audio/mpeg':
+      return ascii(0, 'ID3') || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0);
+    case 'text/plain':
+      return !buf.subarray(0, 8192).includes(0) && !ascii(0, 'MZ');
+    default:
+      return false;
+  }
+}
+
 function sanitizeFilename(name) {
   const base = String(name || 'ملف').split(/[\\/]/).pop();
   // إزالة محارف التحكم وما قد يكسر ترويسة Content-Disposition
@@ -35,11 +72,20 @@ export function createDocuments(app) {
   const { db, config } = app;
   const maxBytes = config.maxUploadMb * 1024 * 1024;
 
+  // الامتداد المعروف أولى من النوع الذي يعلنه المتصفح أو المرسل؛ ثم يُتحقق من المحتوى نفسه
   function resolveMime(filename, mime) {
     const ext = path.extname(filename).toLowerCase();
-    if (mime && ALLOWED[mime]) return mime;
     if (EXT_TO_MIME[ext]) return EXT_TO_MIME[ext];
+    const declared = String(mime || '').split(';')[0].trim().toLowerCase();
+    if (declared && ALLOWED[declared]) return declared;
     return null;
+  }
+
+  /** اسم ملف امتداده يطابق النوع الفعلي دائمًا (scan.pdf.exe المعلن صورة يصبح scan.pdf.png) */
+  function safeFilename(name, realMime) {
+    const ext = path.extname(name).toLowerCase();
+    if (EXT_TO_MIME[ext] === realMime) return name;
+    return (name.replace(/\.[^.]*$/, '') || 'ملف') + ALLOWED[realMime];
   }
 
   const svc = {
@@ -49,9 +95,10 @@ export function createDocuments(app) {
      * links: { client_id, intake_id, case_id, matter_id, message_id, info_request_id, title }
      */
     save({ filename, mime, data_base64, buffer }, links, uploader) {
-      const name = sanitizeFilename(filename);
-      const realMime = resolveMime(name, mime);
-      if (!realMime) throw badRequest(`نوع الملف «${name}» غير مدعوم. الأنواع المسموح بها: PDF، الصور، Word، Excel، النصوص، والرسائل الصوتية`);
+      const original = sanitizeFilename(filename);
+      const realMime = resolveMime(original, mime);
+      if (!realMime) throw badRequest(`نوع الملف «${original}» غير مدعوم. الأنواع المسموح بها: PDF، الصور، Word، Excel، النصوص، والرسائل الصوتية`);
+      const name = safeFilename(original, realMime);
       let buf = buffer;
       if (!buf) {
         if (typeof data_base64 !== 'string' || !data_base64) throw badRequest(`الملف «${name}» فارغ`);
@@ -60,6 +107,7 @@ export function createDocuments(app) {
       }
       if (!buf.length) throw badRequest(`الملف «${name}» فارغ`);
       if (buf.length > maxBytes) throw badRequest(`الملف «${name}» أكبر من الحد المسموح (${config.maxUploadMb} ميجابايت)`);
+      if (!contentMatches(realMime, buf)) throw badRequest(`محتوى الملف «${original}» لا يطابق نوعه. ارفع الملف الأصلي دون تغيير امتداده`);
       const d = new Date();
       const rel = path.join(String(d.getUTCFullYear()), String(d.getUTCMonth() + 1).padStart(2, '0'), randomToken(18) + (ALLOWED[realMime] || ''));
       const abs = path.join(config.uploadsDir, rel);
@@ -89,7 +137,7 @@ export function createDocuments(app) {
     saveMany(files, links, uploader, { max = 5 } = {}) {
       if (files === undefined || files === null) return [];
       if (!Array.isArray(files)) throw badRequest('صيغة المرفقات غير صالحة');
-      if (files.length > max) throw badRequest(`الحد الأقصى ${max} ملفات في المرة الواحدة`);
+      if (files.length > max) throw badRequest(`الحد الأقصى ${arabicCount(max, AR_UNITS.file)} في المرة الواحدة`);
       return files.map((f) => svc.save(f || {}, links, uploader));
     },
 
@@ -146,7 +194,8 @@ export function createDocuments(app) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader(
         'Content-Disposition',
-        `${safeInline ? 'inline' : 'attachment'}; filename="document${path.extname(doc.filename) || ''}"; filename*=UTF-8''${encodeURIComponent(doc.filename)}`,
+        // الامتداد يُشتق من النوع المتحقق منه، لا من الاسم الأصلي
+        `${safeInline ? 'inline' : 'attachment'}; filename="document${ALLOWED[doc.mime] || ''}"; filename*=UTF-8''${encodeURIComponent((doc.filename.replace(/\.[^.]*$/, '') || 'document') + (ALLOWED[doc.mime] || ''))}`,
       );
       fs.createReadStream(abs).pipe(res);
     },

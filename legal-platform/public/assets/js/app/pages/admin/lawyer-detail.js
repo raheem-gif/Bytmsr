@@ -2,7 +2,7 @@
 
 import { h, frag } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, num, percent, money, date, relative, dateTime } from '../../../lib/fmt.js';
+import { label, areaLabel, num, count, percent, money, date, relative, dateTime } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -95,17 +95,17 @@ export default async function render(ctx) {
           onClick: async () => {
             const res = await formDialog({
               title: 'تجديد باقة المحامي',
-              intro: `يُضاف عدد الحالات إلى الرصيد الحالي (المتبقي الآن ${num(l.package_remaining || 0)} حالة)، وتُسجَّل قيمة الباقة كمستحق للمحامي في دفتر المحاسبة.`,
+              intro: `يُضاف عدد الاستشارات إلى الرصيد الحالي (المتبقي الآن ${count(l.package_remaining || 0, 'consultation')})، وتُسجَّل قيمة الباقة كمستحق للمحامي في دفتر المحاسبة.`,
               submitLabel: 'تجديد الباقة',
               fields: [
-                { name: 'size', label: 'عدد حالات الباقة الجديدة', type: 'number', integer: true, required: true, min: 1, max: 100000, suffix: 'حالة' },
+                { name: 'size', label: 'عدد استشارات الباقة الجديدة', type: 'number', integer: true, required: true, min: 1, max: 100000, suffix: 'استشارة' },
                 { name: 'price', label: 'قيمة الباقة', type: 'money', required: true, min: 0 },
               ],
               values: { size: ag.package_size, price: ag.package_price },
               onSubmit: (v) => api.post(`/admin/lawyers/${encodeURIComponent(l.id)}/package`, { size: v.size, price: v.price }),
             });
             if (res) {
-              toast(`تم تجديد الباقة؛ الرصيد الآن ${num(res.package_remaining ?? 0)} حالة`, 'success');
+              toast(`تم تجديد الباقة؛ الرصيد الآن ${count(res.package_remaining ?? 0, 'consultation')}`, 'success');
               ctx.reload();
             }
           },
@@ -146,7 +146,7 @@ export default async function render(ctx) {
             l.active
               ? {
                   title: 'إيقاف حساب المحامي',
-                  message: `لن يتمكن ${l.display_name} من الدخول إلى المنصة، وستُغلق جلساته الحالية فورًا. لا تُسحب الملفات المسندة إليه تلقائيًا${m.open_assignments ? ` — لديه ${num(m.open_assignments)} مهام مفتوحة يُنصح بإعادة إسنادها` : ''}.`,
+                  message: `لن يتمكن ${l.display_name} من الدخول إلى المنصة، وستُغلق جلساته الحالية فورًا. لا تُسحب الملفات المسندة إليه تلقائيًا${m.open_assignments ? ` — الإسنادات المفتوحة لديه: ${num(m.open_assignments)}، ويُنصح بإعادة إسنادها` : ''}.`,
                   confirmLabel: 'نعم، إيقاف الحساب',
                   danger: true,
                 }
@@ -170,7 +170,7 @@ export default async function render(ctx) {
   const capRatio = l.capacity ? m.open_assignments / l.capacity : 0;
   const metrics = [
     statCard({
-      label: 'المهام المفتوحة',
+      label: 'الإسنادات المفتوحة',
       value: h('span.nowrap', `${num(m.open_assignments)} من ${num(l.capacity)}`),
       hint: h(
         'div.pd-cell-stack',
@@ -180,10 +180,10 @@ export default async function render(ctx) {
       icon: 'briefcase',
       tone: capRatio > 1 ? 'danger' : capRatio >= 0.8 ? 'warning' : 'info',
     }),
-    statCard({ label: 'متأخرة الآن', value: num(m.overdue), hint: m.overdue ? 'تجاوزت الموعد المطلوب' : 'لا توجد مهام متأخرة', icon: 'clock', tone: m.overdue ? 'danger' : 'success' }),
+    statCard({ label: 'متأخرة الآن', value: num(m.overdue), hint: m.overdue ? 'إسنادات تجاوزت الموعد المطلوب' : 'لا توجد إسنادات متأخرة', icon: 'clock', tone: m.overdue ? 'danger' : 'success' }),
     statCard({ label: 'تقديمات بعد الموعد', value: num(m.late_submissions), hint: 'إجمالي ما قُدّم بعد الموعد المطلوب', icon: 'alert', tone: m.late_submissions ? 'warning' : 'neutral' }),
     statCard({ label: 'متوسط زمن أول تقديم', value: hoursText(m.avg_response_hours), hint: 'من الإسناد حتى تقديم الرأي', icon: 'zap', tone: 'primary' }),
-    statCard({ label: 'مهام معتمدة', value: num(m.completed_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.completed_total)}`, icon: 'checkCircle', tone: 'success' }),
+    statCard({ label: 'إسنادات معتمدة', value: num(m.completed_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.completed_total)}`, icon: 'checkCircle', tone: 'success' }),
     statCard({ label: 'نسبة الإعادة للتعديل', value: percent(m.returned_rate), hint: 'من الآراء التي راجعتها الإدارة', icon: 'refresh', tone: m.returned_rate >= 0.3 ? 'warning' : 'neutral' }),
     statCard({ label: 'متوسط الجودة', value: qualityText(m.avg_quality), hint: 'تقييم الإدارة عند الاعتماد', icon: 'star', tone: 'accent' }),
     statCard({ label: 'استشارات تطوعية', value: num(m.pro_bono_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.pro_bono_total)}`, icon: 'shieldCheck', tone: 'success' }),
@@ -228,9 +228,9 @@ export default async function render(ctx) {
     const rows = assignments.filter((a) => (filter === 'open' ? isOpen(a) : filter === 'done' ? !isOpen(a) : true));
     assignHost.replaceChildren(
       table({
-        caption: 'المهام المسندة إلى المحامي',
+        caption: 'إسنادات المحامي',
         rows,
-        empty: filter === 'all' ? 'لم يُسند أي ملف لهذا المحامي بعد' : 'لا توجد مهام في هذا التصنيف',
+        empty: filter === 'all' ? 'لم يُسند أي ملف لهذا المحامي بعد' : 'لا توجد إسنادات في هذا التصنيف',
         onRowClick: (a) => ctx.navigate(`/cases/${a.case_id}`),
         rowClass: (a) => a.status === 'withdrawn' && 'is-muted',
         columns: [
@@ -247,7 +247,7 @@ export default async function render(ctx) {
             render: (a) =>
               h(
                 'div.pd-cell-stack',
-                h('span.pd-inline-k', h('span.cell-sub', 'المهمة: '), statusBadge('assignment_status', a.status)),
+                h('span.pd-inline-k', h('span.cell-sub', 'الإسناد: '), statusBadge('assignment_status', a.status)),
                 h('span.pd-inline-k', h('span.cell-sub', 'الملف: '), statusBadge('case_status', a.case_status)),
               ),
           },
@@ -281,7 +281,7 @@ export default async function render(ctx) {
     const labels = { all: 'الكل', open: 'المفتوحة', done: 'المنتهية' };
     const seg = h(
       'div.segmented',
-      { role: 'group', 'aria-label': 'تصفية المهام' },
+      { role: 'group', 'aria-label': 'تصفية الإسنادات' },
       Object.keys(labels).map((k) => {
         segBtns[k] = h(
           'button.seg',
@@ -328,7 +328,7 @@ export default async function render(ctx) {
         statCard({ label: 'رصيد غير مصروف', value: moneyValue(st.unpaid_balance), icon: 'wallet', tone: st.unpaid_balance > 0 ? 'warning' : 'neutral' }),
         statCard({ label: 'إجمالي ما صُرف', value: moneyValue(st.paid_total), icon: 'checkCircle', tone: 'success' }),
         statCard({ label: 'مساهمات تطوعية', value: num(st.pro_bono_count), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
-        st.package_remaining != null && statCard({ label: 'المتبقي في الباقة', value: `${num(st.package_remaining)} حالة`, icon: 'briefcase', tone: st.package_remaining > 0 ? 'primary' : 'danger' }),
+        st.package_remaining != null && statCard({ label: 'المتبقي في الباقة', value: count(st.package_remaining, 'consultation'), icon: 'briefcase', tone: st.package_remaining > 0 ? 'primary' : 'danger' }),
       ),
       h(
         'section.section',
@@ -363,7 +363,7 @@ export default async function render(ctx) {
       h(
         'section.section',
         h('h2.section-title', 'وقائع الاستحقاق'),
-        h('p.pd-section-hint', 'كل مهمة معتمدة تُسجَّل مرة واحدة كواقعة استحقاق، ويحدد اتفاق المحامي معالجتها المالية تلقائيًا.'),
+        h('p.pd-section-hint', 'كل استشارة معتمدة تُسجَّل مرة واحدة كواقعة استحقاق، ويحدد اتفاق المحامي معالجتها المالية تلقائيًا.'),
         table({
           caption: 'وقائع الاستحقاق',
           rows: events,
@@ -424,7 +424,7 @@ export default async function render(ctx) {
         ['رقم القيد', l.bar_number ? ltr(l.bar_number) : null],
         ['درجة القيد', l.bar_level],
         ['مكتب المحاماة', l.firm || 'محامٍ مستقل'],
-        ['الطاقة الاستيعابية', `${num(l.capacity)} مهام مفتوحة كحد أقصى`],
+        ['الطاقة الاستيعابية', `${count(l.capacity, ['إسناد مفتوح', 'إسنادان مفتوحان', 'إسنادات مفتوحة', 'إسنادًا مفتوحًا'])} كحد أقصى`],
         ['التخصصات', chips(l.specialties_labels || (l.specialties || []).map(areaLabel))],
         ['آخر دخول', l.last_login_at ? h('time', { datetime: l.last_login_at, title: dateTime(l.last_login_at) }, relative(l.last_login_at)) : h('span.muted', 'لم يسجل الدخول بعد')],
         ['تاريخ الانضمام', date(l.created_at)],
@@ -440,7 +440,7 @@ export default async function render(ctx) {
     h('p.pd-agreement-text', describeAgreement(ag)),
     kv([
       PAID_TYPES.includes(ag.type) && ['واقعة الاستحقاق', label('billable_trigger', ag.billable_event || 'on_approval')],
-      ag.type === 'monthly_quota' && ['الحصة الشهرية', `${num(ag.quota)} حالة`],
+      ag.type === 'monthly_quota' && ['الحصة الشهرية', count(ag.quota, 'consultation')],
       ag.type === 'monthly_quota' && ['سعر الزيادة', money(ag.overage_rate)],
       ag.type === 'package' && ['سعر بعد نفاد الباقة', ag.overage_rate ? money(ag.overage_rate) : 'غير محدد'],
       (ag.type === 'pro_bono' || ag.type === 'csr') && ['القيمة التقديرية للاستشارة', ag.notional_value ? money(ag.notional_value) : 'غير محددة'],
@@ -456,9 +456,9 @@ export default async function render(ctx) {
       h(
         'div.pd-package',
         progressBar(Math.min(remaining, size), size, remaining === 0 ? 'danger' : remaining <= size * 0.2 ? 'warning' : 'primary', {
-          label: remaining > size ? `المتبقي في الباقة: ${num(remaining)} حالة (أكثر من حجم الباقة الأساسية ${num(size)} بعد التجديد)` : `المتبقي في الباقة: ${num(remaining)} من ${num(size)} حالة`,
+          label: remaining > size ? `المتبقي في الباقة: ${count(remaining, 'consultation')} (أكثر من حجم الباقة الأساسية ${num(size)} بعد التجديد)` : `المتبقي في الباقة: ${num(remaining)} من ${count(size, 'consultation')}`,
         }),
-        remaining === 0 && h('p.pd-text-danger.small', ag.overage_rate ? `نفدت الباقة؛ تُحاسب الحالات الجديدة بسعر ${money(ag.overage_rate)} حتى التجديد.` : 'نفدت الباقة؛ يُنصح بتجديدها.'),
+        remaining === 0 && h('p.pd-text-danger.small', ag.overage_rate ? `نفدت الباقة؛ تُحاسب الاستشارات الجديدة بسعر ${money(ag.overage_rate)} حتى التجديد.` : 'نفدت الباقة؛ يُنصح بتجديدها.'),
       ),
     );
   }
@@ -470,7 +470,7 @@ export default async function render(ctx) {
       title: h('span.pd-title-with-avatar', avatar(l.display_name, { size: 'lg' }), h('span', l.display_name)),
       subtitle: specialtiesText ? `التخصصات: ${specialtiesText}` : null,
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'شبكة المحامين', href: '#/lawyers' }, { label: l.display_name }],
-      meta: [activeBadge(l.active), statusBadge('agreement_type', ag.type, { dot: false }), m.overdue ? badge(`${num(m.overdue)} مهام متأخرة`, 'danger', { icon: 'clock' }) : null],
+      meta: [activeBadge(l.active), statusBadge('agreement_type', ag.type, { dot: false }), m.overdue ? badge(`إسنادات متأخرة: ${num(m.overdue)}`, 'danger', { icon: 'clock' }) : null],
       actions: actions.length ? actions : null,
     }),
     !l.active && alertBox('هذا الحساب موقوف: لا يستطيع المحامي الدخول، ولا يظهر ضمن المقترحين عند إسناد الملفات.', 'warning', { title: 'الحساب موقوف' }),

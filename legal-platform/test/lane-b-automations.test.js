@@ -54,6 +54,12 @@ test('hearing with client attendance → exactly one WhatsApp reminder within th
     assert.equal((await forMatter()).length, 0, '3.5 days before — still outside the 3-day window');
 
     freezeClock(plusDays(T0, 2.5));
+    // the lawyer typed this event: nothing reaches the client before staff approve its text; staff are told once
+    assert.equal((await runAutomations(admin)).hearing_reminder, 0);
+    await runAutomations(admin);
+    const held = (await admin.get('/api/notifications')).body.items.filter((n) => n.type === 'event.reminder_held');
+    assert.equal(held.length, 1, 'staff get exactly one "reminder held" notice');
+    ok(await admin.post(`/api/admin/matter-events/${ev.id}/approve-reminder`, {}));
     const r = await runAutomations(admin);
     assert.equal(r.hearing_reminder, 1);
     let rem = await forMatter();
@@ -94,7 +100,8 @@ test('days_before is configurable by admin only (case manager 403) and drives th
     const upd = ok(await admin.patch('/api/admin/automations/hearing_reminder', { params: { days_before: 7 } }));
     assert.equal(upd.params.days_before, 7);
     const { cM, matter } = await matterFixture(admin, t);
-    ok(await cM.post(`/api/lawyer/matters/${matter.id}/events`, { kind: 'hearing', starts_at: plusDays(T0, 6), client_attendance_required: true }));
+    const ev6 = ok(await cM.post(`/api/lawyer/matters/${matter.id}/events`, { kind: 'hearing', starts_at: plusDays(T0, 6), client_attendance_required: true }));
+    ok(await manager.post(`/api/admin/matter-events/${ev6.id}/approve-reminder`, {}));
     const r = await runAutomations(admin);
     assert.equal(r.hearing_reminder, 1, '6 days ahead is inside a 7-day window');
     // the manager may trigger a run (staff) but nothing new is sent

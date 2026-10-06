@@ -83,7 +83,8 @@ export function createKnowledge(app) {
           ai_value: R(String(f.ai_value ?? '')).slice(0, 1500),
           final_value: R(String(f.final_value ?? '')).slice(0, 1500),
           by: f.actor_role === 'lawyer' ? 'المحامي' : 'الإدارة',
-          note: f.note,
+          // ملاحظات الموظفين نص حر قد يذكر اسم العميل أو رقمه: تمر بنفس الإخفاء
+          note: f.note ? R(String(f.note)).slice(0, 1000) : null,
         }));
       // رحلة الحالة: من الرسالة غير المنظمة حتى الإجابة المعتمدة
       const journey = app.activity
@@ -113,6 +114,15 @@ export function createKnowledge(app) {
       if (existing) {
         db.update('knowledge_records', existing.id, row);
         id = existing.id;
+        if (existing.reviewed_by) {
+          // سجل سبق اعتماده ثم أعيد فتح ملفه: يحتاج مراجعة جديدة بعد إعادة البناء
+          app.notifications.notifyStaff({
+            type: 'knowledge.pending',
+            title: `حالة أعيد إغلاقها بانتظار إعادة مراجعة المعرفة (${c.code})`,
+            body: 'أعيد بناء السجل من الملف بعد إعادة فتحه وإغلاقه. راجع الإخفاء والمحتوى قبل اعتماده مرة أخرى.',
+            link: `#/knowledge/${id}`,
+          });
+        }
       } else {
         id = db.insert('knowledge_records', { case_id: caseId, ...row, status: 'pending_review', usage: 'none', created_at: t });
         app.notifications.notifyStaff({

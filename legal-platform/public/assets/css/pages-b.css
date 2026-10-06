@@ -1208,6 +1208,32 @@ html[dir="rtl"] .pb-step-pill {
   font-weight: 600;
 }
 
+/* إتاحة مرفقات العميل للمحامي المسؤول من رسائل الملف المستمر */
+.pb-msg-shares {
+  flex-direction: column;
+  align-items: stretch;
+  padding-block-start: 6px;
+  border-block-start: 1px dashed var(--border-strong);
+}
+
+.pb-msg-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.pb-msg-share-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 140px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+}
+
 .pb-composer .select-wrap.pb-channel {
   flex: 0 1 280px;
   min-width: 0;

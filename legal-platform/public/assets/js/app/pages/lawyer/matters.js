@@ -3,14 +3,15 @@
 
 import { h, frag } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { calendarParts, dateTime, relative, time, dayLabel, num } from '../../../lib/fmt.js';
+import { calendarParts, dateTime, relative, time, dayLabel, num, orgName } from '../../../lib/fmt.js';
 import { pageHeader, card, table, statusBadge, badge, codeTag, ltr, emptyState, errorState, alertBox, icon } from '../../../lib/ui.js';
 
 // ───────────── أدوات مشتركة لصفحات المحامي ─────────────
 
 /**
- * نص عربي يحتوي مصطلحًا إنجليزيًا بين قوسين مثل «المحامي الأساسي (Lead Counsel)»:
- * يُعزل الجزء الإنجليزي باتجاه LTR ولا يُكسر بين سطرين حتى لا تنقلب الأقواس.
+ * نص عربي قد يحتوي مصطلحًا لاتينيًا بين قوسين (مثل اسم مكتب محاماة بالإنجليزية):
+ * يُعزل الجزء اللاتيني باتجاه LTR ولا يُكسر بين سطرين حتى لا تنقلب الأقواس.
+ * المسميات الثابتة في LABELS عربية خالصة، فهذه الدالة احتياط للنصوص الحرة فقط.
  */
 export function bidiText(text) {
   const s = String(text ?? '');
@@ -94,7 +95,7 @@ export default async function render(ctx) {
   });
 
   const note = alertBox(
-    'سجّل الجلسات والمواعيد والمهام الإجرائية أولًا بأول. تتولى بيوت مصر التواصل مع العميل، ويرسل النظام له تذكيرًا آليًا قبل أي موعد يلزم حضوره فيه.',
+    `سجّل الجلسات والمواعيد والمهام الإجرائية أولًا بأول. تتولى ${orgName()} التواصل مع العميل، ويرسل النظام له تذكيرًا آليًا قبل أي موعد يلزم حضوره فيه.`,
     'info',
     { icon: 'zap' },
   );
@@ -105,7 +106,7 @@ export default async function render(ctx) {
       note,
       card({
         body: emptyState(
-          'عندما تتحول استشارة إلى تمثيل أمام القضاء أو عمل قانوني مستمر وتسندك الإدارة إليه، سيظهر الملف هنا.',
+          'عندما تتحول استشارة إلى تمثيل أمام القضاء أو عمل قانوني مستمر وتسنده الإدارة إليك، سيظهر الملف هنا.',
           null,
           { icon: 'gavel', title: 'لا توجد ملفات مستمرة مسندة إليك' },
         ),

@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const MIGRATIONS = [
   ['portal_tokens', 'intake_id', 'INTEGER REFERENCES intakes(id)'],
   ['assignments', 'last_viewed_at', 'TEXT'],
+  ['users', 'deactivated_at', 'TEXT'],
+  ['matter_events', 'client_text_approved', 'INTEGER NOT NULL DEFAULT 1'],
 ];
 
 const SCHEMA = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.sql'), 'utf8');

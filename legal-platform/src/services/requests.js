@@ -1,6 +1,6 @@
 // طلبات المعلومات/المستندات وطلبات مساعدة محامٍ آخر.
 // المحامي لا يتواصل مع العميل ولا يفتح الملف لزميل بنفسه: كل طلب يمر بالإدارة أولًا.
-import { nowIso, parseJson, badRequest, notFound, conflict, v, truncate } from '../util.js';
+import { nowIso, parseJson, badRequest, notFound, conflict, v, truncate, arabicCount, AR_UNITS } from '../util.js';
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
@@ -48,7 +48,7 @@ export function createRequests(app) {
         case_id: c.id,
         actor: lawyer,
         type: 'info_request.created',
-        summary: `طلب ${lawyer.name} ${LABELS.info_request_kind[kind]}: «${truncate(question, 120)}»`,
+        summary: `قدّم ${lawyer.name} ${LABELS.info_request_kind[kind]}: «${truncate(question, 120)}»`,
         data: { info_request_id: id },
       });
       app.notifications.notifyStaff(
@@ -113,7 +113,7 @@ export function createRequests(app) {
         app.notifications.notify(r.requested_by, {
           type: 'info_request.sent',
           title: `أُرسل طلبك للعميل في الملف ${c.code}`,
-          body: 'ستصلك إشارة عند إتاحة الرد لك.',
+          body: 'سيصلك إشعار عند إتاحة الرد لك.',
           link: `#/my/assignments/${r.assignment_id}`,
         });
       }
@@ -209,11 +209,23 @@ export function createRequests(app) {
         db.run('UPDATE documents SET info_request_id = COALESCE(info_request_id, ?) WHERE id = ?', r.id, did);
       }
       const extra = v.ids(body.share_with_assignment_ids, 'أعضاء الفريق');
+      const targets = new Set(extra);
+      // صاحب الطلب يُضاف تلقائيًا ما دام في الفريق؛ إن سُحب إسناده يختار الموظف من يتسلم الرد بدلًا منه
+      const requester = r.assignment_id ? db.get('SELECT status FROM assignments WHERE id = ?', r.assignment_id) : null;
+      if (requester && requester.status !== 'withdrawn') targets.add(r.assignment_id);
+      if (!targets.size) {
+        const team = Number(db.value("SELECT COUNT(*) FROM assignments WHERE case_id = ? AND status != 'withdrawn'", c.id));
+        if (team) {
+          throw badRequest(
+            r.assignment_id
+              ? 'المحامي صاحب الطلب لم يعد في الفريق؛ اختر عضوًا آخر لإتاحة الرد له'
+              : 'اختر عضوًا واحدًا على الأقل من الفريق لإتاحة الرد له',
+          );
+        }
+      }
       const t = nowIso();
       db.tx(() => {
         db.update('info_requests', r.id, { status: 'shared', response_text: response, shared_at: t, shared_by: actor.id, updated_at: t, decided_by: r.decided_by ?? actor.id, decided_at: r.decided_at ?? t });
-        const targets = new Set(extra);
-        if (r.assignment_id) targets.add(r.assignment_id);
         for (const aid of targets) {
           const a = db.get("SELECT * FROM assignments WHERE id = ? AND case_id = ? AND status != 'withdrawn'", aid, c.id);
           if (!a) throw badRequest('عضو الفريق المختار غير صالح');
@@ -227,7 +239,7 @@ export function createRequests(app) {
           });
         }
       });
-      app.activity.log({ case_id: c.id, actor, type: 'info_request.shared', summary: `راجعت الإدارة الرد وأتاحته للمحامي${docIds.length ? ` مع ${docIds.length} مستند` : ''}` });
+      app.activity.log({ case_id: c.id, actor, type: 'info_request.shared', summary: `راجعت الإدارة الرد وأتاحته للمحامي${docIds.length ? ` مع ${arabicCount(docIds.length, AR_UNITS.document)}` : ''}` });
       return requireIr(r.id);
     },
 
@@ -274,7 +286,7 @@ export function createRequests(app) {
         case_id: c.id,
         actor: lawyer,
         type: 'counsel_request.created',
-        summary: `طلب ${lawyer.name} ${LABELS.counsel_kind[kind]}${specialty ? ` — ${AREA[specialty]}` : ''}`,
+        summary: `قدّم ${lawyer.name} طلب ${LABELS.counsel_kind[kind]}${specialty ? ` — ${AREA[specialty]}` : ''}`,
         data: { counsel_request_id: id },
       });
       app.notifications.notifyStaff(
@@ -316,7 +328,8 @@ export function createRequests(app) {
             fee_amount: body.fee_amount,
             grants,
             counsel_request_id: r.id,
-            specialty: r.specialty,
+            // الإدارة قد تحدد تخصصًا غير ما طلبه المحامي
+            specialty: v.oneOf(body.specialty, AREA_CODES, 'التخصص المطلوب') || r.specialty,
           },
           actor,
         );
@@ -373,10 +386,16 @@ export function createRequests(app) {
           `SELECT r.*, ${caseCols}, u.name AS requested_by_name FROM info_requests r JOIN cases c ON c.id = r.case_id
            LEFT JOIN users u ON u.id = r.requested_by WHERE r.status = 'pending_admin' ORDER BY r.id`,
         ),
-        client_replies: db.all(
-          `SELECT r.*, ${caseCols}, u.name AS requested_by_name FROM info_requests r JOIN cases c ON c.id = r.case_id
-           LEFT JOIN users u ON u.id = r.requested_by WHERE r.status = 'client_replied' ORDER BY r.replied_at`,
-        ),
+        client_replies: db
+          .all(
+            `SELECT r.*, ${caseCols}, u.name AS requested_by_name FROM info_requests r JOIN cases c ON c.id = r.case_id
+             LEFT JOIN users u ON u.id = r.requested_by WHERE r.status = 'client_replied' ORDER BY r.replied_at`,
+          )
+          .map((r) => {
+            // مرفقات رد العميل حتى تُتاح مع الرد ولا تسقط عند الإتاحة السريعة
+            const documents = db.all('SELECT id, filename, title FROM documents WHERE info_request_id = ? ORDER BY id', r.id);
+            return { ...r, documents, document_ids: documents.map((d) => d.id) };
+          }),
         awaiting_client: db.all(
           `SELECT r.*, ${caseCols} FROM info_requests r JOIN cases c ON c.id = r.case_id WHERE r.status = 'sent_to_client' ORDER BY r.sent_at`,
         ),

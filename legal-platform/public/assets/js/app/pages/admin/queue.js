@@ -2,7 +2,7 @@
 // المحامي لا يتواصل مع العميل، ولا يضم زميلًا بنفسه، ولا يصل رأيه للعميل إلا بعد اعتماد الإدارة.
 
 import { h } from '../../../lib/h.js';
-import { api } from '../../../lib/api.js';
+import { api, downloadUrl } from '../../../lib/api.js';
 import { label, areaLabel, relative, dateTime, count } from '../../../lib/fmt.js';
 import {
   pageHeader,
@@ -92,21 +92,38 @@ export default async function render(ctx) {
     }
   }
 
+  // اختصار الإتاحة لطلبات المحامين فقط: طلب أنشأته الإدارة لا محامي طالبًا له، فتُختار الجهة من الملف
   async function shareReply(r) {
+    const docs = Array.isArray(r.documents) ? r.documents : [];
+    let sharedDocs = 0;
     const res = await formDialog({
       title: 'إتاحة رد العميل للمحامي',
-      intro: 'راجع الرد قبل إتاحته: المحامي يرى النص الذي تكتبه هنا فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.',
+      intro: `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
       size: 'lg',
       submitLabel: 'إتاحة للمحامي',
-      values: { response_text: r.client_reply || '' },
+      values: {
+        response_text: r.client_reply || '',
+        document_ids: Array.isArray(r.document_ids) ? r.document_ids : docs.map((d) => d.id),
+      },
       fields: [
         { type: 'static', label: 'المطلوب من العميل', value: r.client_message || r.question, full: true },
         { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 6 },
+        docs.length > 0 && {
+          name: 'document_ids',
+          label: 'مرفقات العميل التي تُتاح مع الرد',
+          type: 'checkboxes',
+          options: docs.map((d) => ({ value: d.id, label: d.title || d.filename || `مستند #${d.id}` })),
+          hint: 'ألغِ اختيار أي مرفق لا يحتاجه المحامي. لإتاحة مستندات أخرى أو إتاحة الرد لأعضاء آخرين في الفريق افتح الملف.',
+        },
       ],
-      onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text }),
+      onSubmit: (v) => {
+        const ids = v.document_ids || [];
+        sharedDocs = ids.length;
+        return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids });
+      },
     });
     if (res) {
-      toast('أصبح الرد متاحًا للمحامي', 'success');
+      toast(sharedDocs ? 'أُتيح الرد ومرفقاته للمحامي' : 'أصبح الرد متاحًا للمحامي', 'success');
       await reloadAndFocus(ctx, '#pa-q-client_replies');
     }
   }
@@ -161,7 +178,7 @@ export default async function render(ctx) {
       key: 'client_replies',
       title: 'ردود العملاء بانتظار المراجعة',
       icon: 'message',
-      hint: 'لا يصل رد العميل للمحامي إلا بعد مراجعة الإدارة. لإتاحة مستند أرسله العميل افتح الملف.',
+      hint: 'لا يصل رد العميل للمحامي إلا بعد مراجعة الإدارة. تُتاح مرفقات العميل مع الرد، أما الطلبات التي أنشأتها الإدارة فتُتاح من الملف بعد اختيار أعضاء الفريق.',
       empty: 'لا توجد ردود عملاء تنتظر المراجعة',
       render: (rows) =>
         list(rows, (r) =>
@@ -171,12 +188,37 @@ export default async function render(ctx) {
               'div.stack-sm',
               h('p.small.muted', 'المطلوب: ', r.client_message || r.question),
               r.client_reply ? quote(r.client_reply, 'is-client') : h('p.small.muted', 'أرسل العميل مستندًا دون نص.'),
+              Array.isArray(r.documents) && r.documents.length > 0
+                ? h(
+                    'div.pb-doc-chips',
+                    r.documents.map((d) =>
+                      h(
+                        'a.doc-chip',
+                        { href: downloadUrl(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename || ''}` },
+                        icon('paperclip', { size: 14 }),
+                        h('span', { dir: 'auto' }, d.title || d.filename || `مستند #${d.id}`),
+                      ),
+                    ),
+                  )
+                : null,
             ),
-            foot: [h('span', icon('user', { size: 14 }), `طلبه: ${r.requested_by_name || 'الإدارة'}`), when(r.replied_at, 'رد العميل ')],
-            actions: [
-              button('إتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'eye', onClick: () => shareReply(r) }),
-              button('فتح الملف لإرفاق المستندات', { variant: 'ghost', size: 'sm', icon: 'paperclip', href: `#/cases/${r.case_id}?tab=requests` }),
+            foot: [
+              h(
+                'span',
+                icon('user', { size: 14 }),
+                r.assignment_id ? `طلبه: ${r.requested_by_name || 'محامٍ'}` : `أنشأته الإدارة${r.requested_by_name ? ` (${r.requested_by_name})` : ''}`,
+              ),
+              when(r.replied_at, 'رد العميل '),
             ],
+            actions: r.assignment_id
+              ? [
+                  button('إتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'eye', onClick: () => shareReply(r) }),
+                  button('فتح الملف لإرفاق المستندات', { variant: 'ghost', size: 'sm', icon: 'paperclip', href: `#/cases/${r.case_id}?tab=requests` }),
+                ]
+              : [
+                  // طلب أنشأته الإدارة: لا يوجد محامٍ طالب، فيُختار أعضاء الفريق والمستندات من الملف
+                  button('مراجعة وإتاحة من الملف', { variant: 'primary', size: 'sm', icon: 'shieldCheck', href: `#/cases/${r.case_id}?tab=requests` }),
+                ],
           }),
         ),
     },

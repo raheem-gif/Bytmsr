@@ -1,6 +1,6 @@
 // خدمة الذكاء الاصطناعي: تحليل الطلبات، اقتراح المسائل، المسودات، النسخة الموجهة للعميل،
-// البحث عن الحالات المشابهة، وتسجيل التصحيحات (Feedback) لقياس الأداء وتحسينه.
-import { nowIso, parseJson, notFound, truncate } from '../util.js';
+// البحث عن الحالات المشابهة، وتسجيل التصحيحات (التغذية الراجعة) لقياس الأداء وتحسينه.
+import { nowIso, parseJson, notFound, truncate, arabicCount, AR_UNITS } from '../util.js';
 import { LABELS, LEGAL_AREAS } from '../constants.js';
 import * as H from './heuristic.js';
 import { createAnthropicProvider, AiUnavailable } from './anthropic.js';
@@ -11,7 +11,7 @@ export function createAi(app) {
   const wantAnthropic =
     config.ai.provider === 'anthropic' || (config.ai.provider === 'auto' && !!config.ai.anthropicApiKey);
   const anthropic = wantAnthropic && config.ai.anthropicApiKey
-    ? createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: config.ai.model, effort: config.ai.effort, log: app.log })
+    ? createAnthropicProvider({ apiKey: config.ai.anthropicApiKey, model: config.ai.model, effort: config.ai.effort, log: app.log, orgName: () => app.settings?.get('org_name') })
     : null;
   const timers = new Map();
   const indexCache = new Map();
@@ -181,12 +181,12 @@ export function createAi(app) {
             intake_id: intakeId,
             actor: { kind: 'ai' },
             type: 'ai.similar_alert',
-            summary: `هذا الطلب يشبه ${similarCount} حالات تعاملت معها المؤسسة من قبل`,
+            summary: `هذا الطلب يشبه ${arabicCount(similarCount, AR_UNITS.similar)} تعاملت معها المؤسسة من قبل`,
             data: { count: similarCount },
           });
           app.notifications.notifyStaff({
             type: 'ai.similar',
-            title: `طلب ${intake.code} يشبه ${similarCount} حالات سابقة`,
+            title: `الطلب ${intake.code} يشبه ${arabicCount(similarCount, ['حالة سابقة', 'حالتين سابقتين', 'حالات سابقة', 'حالة سابقة'])}`,
             body: 'يمكن الاستفادة من الحالات السابقة في التصنيف واختيار المحامي.',
             link: `#/inbox/${intakeId}`,
           });
@@ -243,19 +243,18 @@ export function createAi(app) {
       const op = db.get('SELECT * FROM opinions WHERE id = ? AND case_id = ?', opinionId, caseId);
       if (!op) throw notFound('الرأي غير موجود');
       const client = app.clients.get(c.client_id);
-      const args = { clientName: client?.name, caseCode: c.code, opinion: op.body };
+      const args = { clientName: client?.name, caseCode: c.code, opinion: op.body, orgName: app.settings.get('org_name') };
       const result = await run('clientVersion', args, () => ({ text: H.clientVersion(args) }));
       return store('case', caseId, 'client_version', result, actor);
     },
 
     // ===== التصحيحات والتغذية الراجعة =====
-    recordFeedback({ suggestion_id = null, entity_type, entity_id, case_id = null, field, verdict, ai_value = null, final_value = null, actor = null, note = null }) {
-      db.insert('ai_feedback', {
-        suggestion_id,
-        entity_type,
-        entity_id,
-        case_id,
-        field,
+    /**
+     * replace: القرارات الآلية (تحويل، تعامل داخلي، تقديم مسودة) تستبدل التقييم السابق لنفس الاقتراح والحقل
+     * بدل أن تتكرر فتُضخّم المؤشرات؛ أما ملاحظات الموظفين الصريحة فتُضاف دائمًا.
+     */
+    recordFeedback({ suggestion_id = null, entity_type, entity_id, case_id = null, field, verdict, ai_value = null, final_value = null, actor = null, note = null, replace = false }) {
+      const row = {
         verdict,
         ai_value: ai_value === null || ai_value === undefined ? null : typeof ai_value === 'string' ? ai_value : JSON.stringify(ai_value),
         final_value: final_value === null || final_value === undefined ? null : typeof final_value === 'string' ? final_value : JSON.stringify(final_value),
@@ -263,7 +262,21 @@ export function createAi(app) {
         actor_role: actor?.role ?? actor?.kind ?? null,
         note,
         created_at: nowIso(),
-      });
+      };
+      if (replace && suggestion_id) {
+        const prev = db.get(
+          'SELECT id, case_id FROM ai_feedback WHERE suggestion_id = ? AND field = ? AND entity_type = ? AND entity_id = ? ORDER BY id DESC LIMIT 1',
+          suggestion_id,
+          field,
+          entity_type,
+          entity_id,
+        );
+        if (prev) {
+          db.update('ai_feedback', prev.id, { ...row, case_id: case_id ?? prev.case_id });
+          return;
+        }
+      }
+      db.insert('ai_feedback', { suggestion_id, entity_type, entity_id, case_id, field, ...row });
     },
 
     /** مقارنة قرار الإدارة النهائي باقتراح الذكاء الاصطناعي عند تحويل الطلب إلى ملف */
@@ -273,14 +286,14 @@ export function createAi(app) {
       const o = sug.output;
       svc.recordFeedback({
         suggestion_id: sug.id, entity_type: 'intake', entity_id: intakeId, case_id: caseId, field: 'legal_area',
-        verdict: o.legal_area === legal_area ? 'accepted' : 'corrected', ai_value: o.legal_area, final_value: legal_area, actor,
+        verdict: o.legal_area === legal_area ? 'accepted' : 'corrected', ai_value: o.legal_area, final_value: legal_area, actor, replace: true,
       });
       if (o.title) {
         const same = o.title.trim() === String(title).trim();
         svc.recordFeedback({
           suggestion_id: sug.id, entity_type: 'intake', entity_id: intakeId, case_id: caseId, field: 'title',
           verdict: same ? 'accepted' : similarityRatio(o.title, title) >= 0.5 ? 'accepted' : 'corrected',
-          ai_value: o.title, final_value: title, actor,
+          ai_value: o.title, final_value: title, actor, replace: true,
         });
       }
     },
@@ -324,7 +337,9 @@ export function createAi(app) {
         suggestion_id: sug.id, entity_type: 'assignment', entity_id: opinion.assignment_id, case_id: opinion.case_id, field: 'draft',
         verdict: ratio >= 0.85 ? 'accepted' : ratio >= 0.2 ? 'corrected' : 'rejected',
         ai_value: truncate(sug.output.text, 2000), final_value: truncate(opinion.body, 2000), actor,
-        note: `نسبة التشابه بين المسودة والنسخة المقدمة: ${Math.round(ratio * 100)}%`,
+        // النسبة معزولة الاتجاه (LRI…PDI) كما في percent() بالواجهة حتى تظهر «36%» لا «%36»
+        note: `نسبة التشابه بين المسودة والنسخة المقدمة: ⁦${Math.round(ratio * 100)}%⁩`,
+        replace: true,
       });
     },
 

@@ -91,6 +91,11 @@ export function isValidPeriod(p) {
 
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+/** فترة محاسبية 'YYYY-MM' بالعربية: «سبتمبر 2026» */
+export function arabicPeriod(period) {
+  const m = String(period || '').match(/^(\d{4})-(\d{2})$/);
+  return m ? `${AR_MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(period ?? '');
+}
 /** تاريخ عربي للرسائل: «الأحد 15 نوفمبر 2026» */
 export function arabicDate(iso, { weekday = true } = {}) {
   const p = cairoParts(iso);
@@ -118,7 +123,7 @@ export function fromMinor(minor) {
 }
 export function formatEgp(minor) {
   const v = fromMinor(minor) ?? 0;
-  return `${v.toLocaleString('en-US', { maximumFractionDigits: 2 })} جنيه`;
+  return `${v.toLocaleString('en-US', { maximumFractionDigits: 2 })} ج.م`;
 }
 
 // ===== الأرقام والهواتف =====
@@ -232,15 +237,32 @@ export const conflict = (msg, details) => new ApiError(409, msg, 'conflict', det
 export const tooMany = (msg = 'محاولات كثيرة، يرجى الانتظار قليلًا ثم المحاولة مرة أخرى') =>
   new ApiError(429, msg, 'rate_limited');
 
-/** تمييز العدد بالعربية: arabicCount(2, ['حرف','حرفان','أحرف','حرفًا']) ← «حرفان» */
+/**
+ * العدد مع معدوده بصيغة عربية سليمة (مطابقة لـ count() في الواجهة):
+ * arabicCount(1, F) ← «ملف»، arabicCount(2, F) ← «ملفين»، arabicCount(5, F) ← «5 ملفات»، arabicCount(15, F) ← «15 ملفًا»
+ * حيث F = ['ملف', 'ملفين', 'ملفات', 'ملفًا'] (مفرد، مثنى، جمع 3–10، تمييز 11–99).
+ * صيغة المفرد تُعاد كما هي، فمرّر «استشارة واحدة» أو «ملف واحد» إن أردت ذكر العدد صراحة مع مراعاة التذكير والتأنيث.
+ */
 export function arabicCount(n, [one, two, few, many]) {
-  const r = n % 100;
-  if (n === 1) return `${one} واحد`;
-  if (n === 2) return two;
-  if (r === 0 || r === 1 || r === 2) return `${n} ${one}`;
-  if (r >= 3 && r <= 10) return `${n} ${few}`;
-  return `${n} ${many}`;
+  const k = Math.abs(Math.round(Number(n) || 0));
+  if (k === 1) return one;
+  if (k === 2) return two;
+  const r = k % 100;
+  if (r >= 3 && r <= 10) return `${k} ${few}`;
+  if (r >= 11 && r <= 99) return `${k} ${many}`;
+  return `${k} ${String(one).replace(/\s+واحد[ةه]?$/, '')}`;
 }
+
+/** صيغ عدّ شائعة في نصوص الخادم (للاستخدام مع arabicCount) */
+export const AR_UNITS = {
+  file: ['ملف', 'ملفين', 'ملفات', 'ملفًا'],
+  assignment: ['إسناد', 'إسنادين', 'إسنادات', 'إسنادًا'],
+  consultation: ['استشارة', 'استشارتين', 'استشارات', 'استشارة'],
+  document: ['مستند', 'مستندين', 'مستندات', 'مستندًا'],
+  request: ['طلب', 'طلبين', 'طلبات', 'طلبًا'],
+  hour: ['ساعة', 'ساعتين', 'ساعات', 'ساعة'],
+  similar: ['حالة', 'حالتين', 'حالات', 'حالة'],
+};
 const LETTERS = ['حرف', 'حرفين', 'أحرف', 'حرفًا'];
 
 // ===== التحقق من المدخلات =====
@@ -290,7 +312,7 @@ export const v = {
   money(value, label, { required = false, min = 0, max = 100000000 } = {}) {
     const n = v.num(value, label, { required, min, max });
     if (n === null) return null;
-    if (Math.round(n * 100) !== Math.round(n * 100 * 1000) / 1000) throw badRequest(`«${label}» يقبل قرشين كحد أقصى بعد العلامة العشرية`);
+    if (Math.round(n * 100) !== Math.round(n * 100 * 1000) / 1000) throw badRequest(`«${label}» يقبل منزلتين عشريتين على الأكثر`);
     return Math.round(n * 100);
   },
   bool(value) {

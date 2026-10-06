@@ -441,7 +441,9 @@ export default async function render(ctx) {
     const known = campaigns.map((c) => c.campaign).filter(Boolean);
     const vals = await formDialog({
       title: row ? 'تعديل الإنفاق' : 'تسجيل إنفاق على حملة',
-      intro: 'سجّل ما أُنفق على كل حملة شهريًا. اكتب اسم الحملة كما يظهر في الطلبات الواردة (عنوان الإعلان أو utm_campaign) حتى تُربط بنتائجها.',
+      intro: row
+        ? 'يُعدَّل هذا السجل نفسه ولا يُنشأ سجل جديد، فتصحيح اسم الحملة أو الشهر أو المصدر لا يضاعف الإنفاق.'
+        : 'سجّل ما أُنفق على كل حملة شهريًا. اكتب اسم الحملة كما يظهر في الطلبات الواردة (عنوان الإعلان أو utm_campaign) حتى تُربط بنتائجها. إن كان للشهر والمصدر والحملة سجل بالفعل فعدّله من الجدول.',
       fields: [
         { name: 'period', label: 'الشهر', type: 'select', required: true, options: monthOptions() },
         { name: 'source', label: 'المصدر', type: 'select', required: true, options: options('source').filter((o) => !['unknown', 'returning', 'direct'].includes(o.value)) },
@@ -451,10 +453,11 @@ export default async function render(ctx) {
       ],
       values: row ? { period: row.period, source: row.source, campaign: row.campaign, amount: row.amount, note: row.note } : { period: today.slice(0, 7), source: 'facebook_ad' },
       submitLabel: 'حفظ',
-      onSubmit: (v) => api.post('/admin/analytics/spend', v),
+      // التعديل يحدّث نفس السجل (PATCH)؛ والخادم يرفض بـ 409 أي تكرار لنفس الشهر والمصدر والحملة وتظهر رسالته في النموذج
+      onSubmit: (v) => (row ? api.patch(`/admin/analytics/spend/${row.id}`, v) : api.post('/admin/analytics/spend', v)),
     });
     if (vals) {
-      toast('تم حفظ الإنفاق', 'success');
+      toast(row ? 'تم تحديث سجل الإنفاق' : 'تم حفظ الإنفاق', 'success');
       await loadSpend();
       refetch();
     }

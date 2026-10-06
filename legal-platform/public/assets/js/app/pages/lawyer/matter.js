@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, options, date, shortDate, dateTime, time, weekday, relative, num } from '../../../lib/fmt.js';
+import { label, options, date, shortDate, dateTime, time, weekday, relative, num, orgName } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -424,7 +424,7 @@ export default async function render(ctx) {
     hosts.header,
     isClosed()
       ? alertBox('هذا الملف المستمر مغلق — العرض للقراءة فقط.', 'warning', { icon: 'lock' })
-      : alertBox('سجّل كل جلسة وما تم فيها أولًا بأول. تتولى بيوت مصر التواصل مع العميل وتذكيره آليًا بالمواعيد التي يلزم حضوره فيها.', 'info', { icon: 'shield' }),
+      : alertBox(`سجّل كل جلسة وما تم فيها أولًا بأول. تتولى ${orgName()} التواصل مع العميل وتذكيره آليًا بالمواعيد التي يلزم حضوره فيها.`, 'info', { icon: 'shield' }),
     hosts.stats,
     h('div.detail-layout', h('div.detail-main', hosts.events, hosts.tasks), h('div.detail-side', infoCard(), docsCard(), automationCard())),
   );

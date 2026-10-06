@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, options, num, count, dateTime, relative } from '../../../lib/fmt.js';
+import { label, options, num, count, dateTime, relative, orgName } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -42,6 +42,7 @@ const RULES = {
       time: 'ساعة الموعد',
       location: 'المكان',
       title: 'عنوان الموعد',
+      org_name: 'اسم المؤسسة (من الإعدادات)',
     },
     sample: { event_kind: 'جلسة', matter_code: 'MTR-2026-00001', date: 'الخميس 8 أكتوبر 2026', time: '10:00 صباحًا', location: 'محكمة الأسرة ببنها', title: 'جلسة نظر دعوى النفقة' },
   },
@@ -49,14 +50,14 @@ const RULES = {
     icon: 'wallet',
     audience: 'client',
     desc: 'يُذكّر العميل بفاتورة تجاوزت تاريخ استحقاقها ولم تُسدَّد، بتكرار محدود حتى لا يصبح إزعاجًا.',
-    placeholders: { invoice_number: 'رقم الفاتورة', amount: 'المبلغ المتبقي', due_date: 'تاريخ الاستحقاق' },
+    placeholders: { invoice_number: 'رقم الفاتورة', amount: 'المبلغ المتبقي (رقم فقط)', due_date: 'تاريخ الاستحقاق', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { invoice_number: 'INV-2026-00001', amount: '300', due_date: '27 سبتمبر 2026' },
   },
   document_reminder: {
     icon: 'fileText',
     audience: 'client',
     desc: 'يُذكّر العميل بمعلومة أو مستند طلبناه منه ولم يصل بعد، فلا يتوقف الملف بسبب نقص بسيط.',
-    placeholders: { case_code: 'كود الملف', request: 'نص الطلب الموجه للعميل' },
+    placeholders: { case_code: 'كود الملف', request: 'نص الطلب الموجه للعميل', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { case_code: 'INH-2026-00482', request: 'برجاء إرسال صورة إعلام الوراثة' },
   },
   procedural_deadline: {
@@ -67,7 +68,7 @@ const RULES = {
   assignment_overdue: {
     icon: 'alert',
     audience: 'internal',
-    desc: 'ينبّه المحامي والإدارة عندما تتجاوز مهمة المحامي الموعد المطلوب دون تقديم الرأي.',
+    desc: 'ينبّه المحامي والإدارة عندما يتجاوز إسناد الموعد المطلوب دون تقديم الرأي.',
   },
 };
 
@@ -102,7 +103,7 @@ const ENTITY_LABELS = {
   invoice: 'فاتورة',
   info_request: 'طلب معلومات',
   matter_task: 'مهمة إجرائية',
-  assignment: 'مهمة محامٍ',
+  assignment: 'إسناد لمحامٍ',
 };
 
 function runText(run) {
@@ -305,7 +306,7 @@ export default async function render(ctx) {
     let legend = null;
     if (hasTemplate) {
       const ta = f.control('template').input;
-      const updatePreview = () => mount(preview, richText(fillTemplate(ta.value, meta.sample || {})));
+      const updatePreview = () => mount(preview, richText(fillTemplate(ta.value, { org_name: orgName(), ...(meta.sample || {}) })));
       ta.addEventListener('input', updatePreview);
       updatePreview();
       legend = h(
@@ -432,7 +433,7 @@ export default async function render(ctx) {
       rows.length && !outboxState.status
         ? h(
             'div.pd-badges.pd-outbox-summary',
-            h('span.cell-sub', `آخر ${num(rows.length)} رسالة: `),
+            h('span.cell-sub', `آخر ${count(rows.length, 'message')}: `),
             Object.entries(counts).map(([k, n]) => badge(`${label('message_status', k)}: ${num(n)}`, statusTone('message_status', k), { dot: true })),
           )
         : null,

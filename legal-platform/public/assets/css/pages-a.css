@@ -76,6 +76,13 @@
   color: var(--info-700);
 }
 
+.pa-note.is-warning {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--warning-100);
+  color: var(--warning-700);
+}
+
 .pa-mini-h {
   font-size: 13px;
   font-weight: 700;

@@ -87,7 +87,11 @@ export function createCases(app) {
       const c = svc.require(caseId);
       if (c.status === 'closed') return 'closed';
       const assignments = db.all("SELECT * FROM assignments WHERE case_id = ? AND status != 'withdrawn' ORDER BY id", caseId);
-      const primary = assignments.filter((a) => a.role === 'lead').pop() || assignments[0] || null;
+      // المحامي الأساسي يحدد الحالة. إن سُحب ولم يُعيَّن بديل فالملف يحتاج محاميًا أساسيًا جديدًا،
+      // ولا تُستنتج حالته من اعتماد رأي متخصص فرعي
+      const lead = assignments.filter((a) => a.role === 'lead').pop();
+      const hadLead = !lead && !!db.get("SELECT 1 FROM assignments WHERE case_id = ? AND role = 'lead'", caseId);
+      const primary = lead || (hadLead ? null : assignments[0]) || null;
       const answered = db.get("SELECT 1 FROM client_answers WHERE case_id = ? AND status = 'sent'", caseId);
       let status;
       if (!primary) status = answered ? 'answered' : 'new';
@@ -95,8 +99,11 @@ export function createCases(app) {
       else if (primary.status === 'submitted') status = 'under_review';
       else if (assignments.some((a) => a.first_opened_at)) status = 'in_progress';
       else status = 'assigned';
-      // ملف تم الرد فيه على العميل ثم استمر العمل عليه يبقى «قيد الدراسة» حتى تكتمل الدورة
-      if (answered && primary && ['in_progress', 'returned', 'assigned'].includes(primary.status)) status = 'in_progress';
+      // ملف تم الرد فيه على العميل ثم استمر العمل عليه (من أي عضو في الفريق) لا يبقى «تم الرد» حتى تكتمل الدورة
+      if (answered) {
+        if (assignments.some((a) => a.status === 'submitted')) status = 'under_review';
+        else if (assignments.some((a) => ['assigned', 'in_progress', 'returned'].includes(a.status))) status = 'in_progress';
+      }
       if (status !== c.status) db.update('cases', caseId, { status, updated_at: nowIso() });
       return status;
     },
@@ -436,8 +443,8 @@ export function createCases(app) {
     // ===== المستندات =====
     addDocuments(caseId, files, actor, { title } = {}) {
       const c = svc.require(caseId);
-      const ids = app.documents.saveMany(files, { client_id: c.client_id, case_id: c.id, intake_id: c.intake_id, matter_id: c.matter_id, title }, actor, { max: 10 });
-      app.activity.log({ case_id: c.id, actor, type: 'documents.added', summary: `أضافت الإدارة ${ids.length} مستند/مستندات إلى الملف` });
+      const ids = app.documents.saveMany(files, { client_id: c.client_id, case_id: c.id, intake_id: c.intake_id, title }, actor, { max: 10 });
+      app.activity.log({ case_id: c.id, actor, type: 'documents.added', summary: `أضافت الإدارة مستندات إلى الملف (العدد: ${ids.length})` });
       return ids.map((id) => app.documents.publicView(app.documents.get(id)));
     },
 
@@ -463,7 +470,7 @@ export function createCases(app) {
       const brief = v.str(body.brief, 'السؤال المطلوب تحديدًا', { max: 5000 });
       if (role === 'lead') {
         const lead = db.get("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead' AND status != 'withdrawn'", c.id);
-        if (lead) throw conflict('يوجد محامٍ أساسي بالفعل لهذا الملف. اسحب الإسناد الحالي أولًا أو اختر دورًا آخر.');
+        if (lead) throw conflict('يوجد محامٍ أساسي بالفعل لهذا الملف. اسحب الإسناد الحالي أو أعد فتح مهمته، أو اختر دورًا آخر.');
       }
       const existing = db.get('SELECT * FROM assignments WHERE case_id = ? AND lawyer_id = ?', c.id, lawyerId);
       if (existing && existing.status !== 'withdrawn') throw conflict('هذا المحامي عضو بالفعل في فريق الملف');
@@ -476,7 +483,7 @@ export function createCases(app) {
           lawyerId,
         ),
       );
-      if (open >= lawyer.capacity) warnings.push(`تنبيه: لدى المحامي ${open} ملفات مفتوحة وهو ما يتجاوز طاقته المحددة (${lawyer.capacity}).`);
+      if (open >= lawyer.capacity) warnings.push(`تنبيه: الإسنادات المفتوحة لدى هذا المحامي (${open}) بلغت طاقته المحددة (${lawyer.capacity}) أو تجاوزتها.`);
       const specs = parseJson(lawyer.specialties, []);
       const neededArea = body.specialty || c.legal_area;
       if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات المحامي المسجلة لا تشمل «${AREA[neededArea]}».`);
@@ -519,12 +526,12 @@ export function createCases(app) {
         case_id: c.id,
         actor,
         type: 'assignment.created',
-        summary: `أُسند الملف إلى ${lawyerName(lawyerId)} بصفته «${LABELS.assignment_role[role]}»`,
+        summary: `أُسند الملف إلى ${lawyerName(lawyerId)} — الدور: «${LABELS.assignment_role[role]}»`,
         data: { assignment_id: assignmentId, lawyer_id: lawyerId, role },
       });
       app.notifications.notify(lawyerId, {
         type: 'assignment.new',
-        title: `أُحيل إليك الملف ${c.code}`,
+        title: `أُسند إليك الملف ${c.code}`,
         body: brief ? truncate(brief, 160) : truncate(c.title, 160),
         link: `#/my/assignments/${assignmentId}`,
       });
@@ -599,8 +606,49 @@ export function createCases(app) {
       });
       const c = svc.require(a.case_id);
       app.activity.log({ case_id: a.case_id, actor, type: 'assignment.withdrawn', summary: `سُحب الإسناد من ${lawyerName(a.lawyer_id)}${note ? `: ${note}` : ''}` });
-      app.notifications.notify(a.lawyer_id, { type: 'assignment.withdrawn', title: `لم يعد الملف ${c.code} محالًا إليك`, body: note || null });
+      app.notifications.notify(a.lawyer_id, { type: 'assignment.withdrawn', title: `لم يعد الملف ${c.code} مسندًا إليك`, body: note || null });
       svc.refreshStatus(a.case_id);
+    },
+
+    /**
+     * إعادة فتح إسناد محامٍ اعتُمد رأيه (مثل متابعة بعد إعادة فتح الملف): يعود الإسناد إليه بنسخة عمل جديدة
+     * تبدأ من آخر رأي معتمد. لا تُسجَّل أتعاب جديدة تلقائيًا (الاستحقاق مرة واحدة لكل إسناد؛ أي أتعاب إضافية تُضاف كقيد يدوي).
+     */
+    reengage(assignmentId, actor, body = {}) {
+      const a = db.get('SELECT * FROM assignments WHERE id = ?', assignmentId);
+      if (!a) throw notFound('الإسناد غير موجود');
+      const c = svc.requireOpen(a.case_id);
+      if (a.status !== 'approved') throw conflict('يمكن إعادة فتح الإسنادات المعتمدة فقط');
+      const lawyer = db.get('SELECT active FROM users WHERE id = ?', a.lawyer_id);
+      if (!lawyer?.active) throw conflict('حساب هذا المحامي موقوف');
+      const settings = app.settings.all();
+      const brief = body.brief !== undefined ? v.str(body.brief, 'المطلوب في المتابعة', { max: 5000 }) : a.brief;
+      const dueAt = v.iso(body.due_at, 'موعد التسليم') || addDays(nowIso(), Number(settings.default_assignment_days) || 3);
+      const t = nowIso();
+      db.tx(() => {
+        db.update('assignments', a.id, { status: 'returned', brief, due_at: dueAt, last_activity_at: t });
+        const last = db.get("SELECT * FROM opinions WHERE assignment_id = ? AND status = 'approved' ORDER BY version DESC LIMIT 1", a.id);
+        const version = Number(db.value('SELECT COALESCE(MAX(version), 0) FROM opinions WHERE assignment_id = ?', a.id)) + 1;
+        db.insert('opinions', {
+          case_id: a.case_id,
+          assignment_id: a.id,
+          version,
+          body: last?.body || '',
+          status: 'draft',
+          ai_suggestion_id: last?.ai_suggestion_id ?? null,
+          created_at: t,
+          updated_at: t,
+        });
+      });
+      app.activity.log({ case_id: c.id, actor, type: 'assignment.reengaged', summary: `أعادت الإدارة فتح إسناد ${lawyerName(a.lawyer_id)} للمتابعة` });
+      app.notifications.notify(a.lawyer_id, {
+        type: 'assignment.reengaged',
+        title: `أعادت الإدارة فتح إسنادك في الملف ${c.code} للمتابعة`,
+        body: brief ? truncate(brief, 160) : null,
+        link: `#/my/assignments/${a.id}`,
+      });
+      svc.refreshStatus(c.id);
+      return { ok: true };
     },
 
     // ===== المحادثة مع العميل =====
@@ -631,6 +679,8 @@ export function createCases(app) {
         throw conflict('توجد آراء مقدمة بانتظار مراجعة الإدارة. اعتمدها أو أعدها قبل إغلاق الملف.', { pending_opinions: pendingOps.map((o) => o.id) });
       }
       const t = nowIso();
+      // أعضاء ما زالوا يعملون سيُسحب إسنادهم: نبلغهم بدل أن تختفي المهمة دون إشعار
+      const dropped = db.all("SELECT id, lawyer_id FROM assignments WHERE case_id = ? AND status IN ('assigned','in_progress','returned','submitted')", c.id);
       db.tx(() => {
         db.run("UPDATE info_requests SET status = 'cancelled', updated_at = ? WHERE case_id = ? AND status IN ('pending_admin','sent_to_client','client_replied')", t, c.id);
         db.run("UPDATE counsel_requests SET status = 'cancelled', updated_at = ? WHERE case_id = ? AND status = 'pending_admin'", t, c.id);
@@ -640,6 +690,14 @@ export function createCases(app) {
           t,
           c.id,
         );
+        // طلبات المساعدة التي كان يخدمها عضو سُحب إسناده لم تكتمل: تُلغى ولا تبقى «تم الإسناد» للأبد
+        db.run(
+          "UPDATE counsel_requests SET status = 'cancelled', updated_at = ? WHERE case_id = ? AND status = 'assigned' AND assigned_assignment_id IN (SELECT id FROM assignments WHERE case_id = ? AND status = 'withdrawn')",
+          t,
+          c.id,
+          c.id,
+        );
+        for (const a of dropped) db.run("DELETE FROM assignment_grants WHERE resource = 'opinion' AND resource_id = ?", a.id);
         db.update('cases', c.id, { status: 'closed', outcome, closure_note: note, closed_at: t, closed_by: actor.id, updated_at: t });
         app.activity.log({ case_id: c.id, actor, type: 'case.closed', summary: `أغلقت الإدارة الملف — ${LABELS.case_outcome[outcome]}`, data: { outcome } });
         // المحاسبة (وقائع الاستحقاق عند الإغلاق) وقاعدة المعرفة
@@ -649,14 +707,23 @@ export function createCases(app) {
       for (const a of team) {
         app.notifications.notify(a.lawyer_id, { type: 'case.closed', title: `أغلقت الإدارة الملف ${c.code}`, body: 'شكرًا لمساهمتك.', link: `#/my/assignments/${a.id}` });
       }
+      for (const a of dropped) {
+        app.notifications.notify(a.lawyer_id, { type: 'assignment.withdrawn', title: `أغلقت الإدارة الملف ${c.code} ولم يعد مسندًا إليك`, body: note ? truncate(note, 160) : null });
+      }
       return svc.require(c.id);
     },
 
     reopen(caseId, body, actor) {
       const c = svc.require(caseId);
       if (c.status !== 'closed') throw conflict('الملف ليس مغلقًا');
-      db.update('cases', c.id, { status: 'new', outcome: null, closed_at: null, closed_by: null, updated_at: nowIso() });
-      app.activity.log({ case_id: c.id, actor, type: 'case.reopened', summary: `أعادت الإدارة فتح الملف${body?.note ? `: ${body.note}` : ''}` });
+      const t = nowIso();
+      db.tx(() => {
+        db.update('cases', c.id, { status: 'new', outcome: null, closed_at: null, closed_by: null, updated_at: t });
+        app.activity.log({ case_id: c.id, actor, type: 'case.reopened', summary: `أعادت الإدارة فتح الملف${body?.note ? `: ${body.note}` : ''}` });
+        // سجل المعرفة المعتمد يخرج من الاسترجاع والتصدير حتى يُعاد بناؤه ومراجعته بعد الإغلاق التالي
+        const k = db.run("UPDATE knowledge_records SET status = 'pending_review', usage = 'none', updated_at = ? WHERE case_id = ? AND status = 'approved'", t, c.id);
+        if (k.changes) app.activity.log({ case_id: c.id, actor, type: 'knowledge.reopened', summary: 'أُعيد سجل المعرفة للمراجعة لإعادة فتح الملف' });
+      });
       svc.refreshStatus(c.id);
       return svc.require(c.id);
     },

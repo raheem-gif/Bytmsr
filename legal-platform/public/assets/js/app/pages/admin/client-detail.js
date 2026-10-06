@@ -3,7 +3,7 @@
 
 import { h, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, governorateOptions, relative, dateTime, date, money, num, normalizeEgPhone, toLatinDigits } from '../../../lib/fmt.js';
+import { label, areaLabel, governorateOptions, relative, dateTime, date, money, num, count, normalizeEgPhone, toLatinDigits } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -238,12 +238,36 @@ export default async function render(ctx) {
     });
   }
 
+  const activeLinks = Number(d.active_portal_links ?? c.active_portal_links) || 0;
+  async function revokePortal() {
+    const ok = await confirmDanger({
+      title: 'إلغاء روابط البوابة',
+      message: `ستتوقف كل روابط البوابة السارية للعميل ${c.name || c.code} فورًا، بما فيها روابط الطلبات المرسلة من الموقع، ولن يستطيع من يملكها الاطلاع على ملفاته. يمكن إنشاء رابط جديد بعد ذلك.`,
+      confirmLabel: 'نعم، إلغاء الروابط',
+    });
+    if (!ok) return;
+    const res = await api.post(`${base}/revoke-portal`);
+    const n = Number(res && res.revoked) || 0;
+    toast(n ? `أُلغي ${count(n, ['رابط واحد', 'رابطان', 'روابط', 'رابطًا'])} للبوابة` : 'لا توجد روابط سارية لإلغائها', n ? 'success' : 'info');
+    await reloadAndFocus(ctx, '#pa-portal');
+  }
+
   function portalCard() {
     return card({
       title: 'بوابة العميل',
       subtitle: 'رابط آمن يتابع منه العميل ملفاته ويرد على الطلبات ويرفع المستندات دون كلمة مرور',
       icon: 'globe',
-      body: h('div.stack-sm', h('div.btn-group', genBtn, sendBtn), portalHost),
+      body: h(
+        'div.stack-sm',
+        h('div.btn-group', genBtn, sendBtn),
+        portalHost,
+        activeLinks > 0 &&
+          h(
+            'div.stack-sm',
+            h('p.small.muted', `الروابط السارية الآن: ${count(activeLinks, ['رابط واحد', 'رابطان', 'روابط', 'رابطًا'])}. ألغِها إن وصل رابط لغير صاحب الملف أو شككت في ذلك.`),
+            asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x' }),
+          ),
+      ),
     });
   }
 
@@ -404,7 +428,7 @@ export default async function render(ctx) {
     h(
       'div.detail-layout',
       h('div.detail-main', historyCard(), invoicesCard(), activityCard()),
-      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(identitiesCard(), 'pa-identities'), portalCard(), mergeCard()),
+      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(identitiesCard(), 'pa-identities'), withId(portalCard(), 'pa-portal'), mergeCard()),
     ),
   );
 }

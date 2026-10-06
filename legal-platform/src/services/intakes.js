@@ -4,6 +4,7 @@ import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
+const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
 
 export function createIntakes(app) {
   const { db } = app;
@@ -15,7 +16,7 @@ export function createIntakes(app) {
       return i;
     },
 
-    list({ status, channel, source, q, area, scope = 'open', limit = 100, offset = 0 } = {}) {
+    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0 } = {}) {
       const where = ['1=1'];
       const params = [];
       // شروط الفلاتر غير الحالة (تُستخدم أيضًا لحساب عدد كل حالة ضمن نفس الفلاتر)
@@ -38,6 +39,11 @@ export function createIntakes(app) {
       if (area && AREA_CODES.includes(area)) {
         fWhere.push('i.legal_area = ?');
         fParams.push(area);
+      }
+      if (priority === 'high_or_urgent') fWhere.push("i.priority IN ('high','urgent')");
+      else if (priority && ENUMS.priority.includes(priority)) {
+        fWhere.push('i.priority = ?');
+        fParams.push(priority);
       }
       if (q) {
         const like = `%${String(q).trim()}%`;
@@ -146,8 +152,19 @@ export function createIntakes(app) {
         )
         .map((m) => mapMessage(m, docsByMessage));
       const ai = app.ai.latest('intake', i.id, 'intake_analysis');
+      const sd = parseJson(i.source_detail, {});
       return {
-        intake: { ...i, channels: parseJson(i.channels, []), source_detail: parseJson(i.source_detail, {}) },
+        intake: {
+          ...i,
+          channels: parseJson(i.channels, []),
+          source_detail: sd,
+          identity: {
+            phone_match_unverified: !!sd.phone_match_unverified,
+            confirmed_at: sd.identity_confirmed_at || null,
+            confirmed_by_name: sd.identity_confirmed_by_name || null,
+          },
+          active_portal_links: i.client_id ? app.clients.activePortalLinks(i.client_id, { intakeId: i.id }) : 0,
+        },
         client: client
           ? {
               ...client,
@@ -190,7 +207,8 @@ export function createIntakes(app) {
       }
       if (body.status !== undefined) {
         const st = v.oneOf(body.status, ['in_review', 'awaiting_client'], 'الحالة', { required: true });
-        if (['converted'].includes(i.status)) throw conflict('لا يمكن تغيير حالة طلب تحول إلى ملف');
+        // الحالات المنتهية لا تُعكس بتعديل عادي؛ إعادة الفتح إجراء مستقل يُسجَّل في السجل
+        if (!OPEN_STATUSES.includes(i.status)) throw conflict(i.status === 'converted' ? 'لا يمكن تغيير حالة طلب تحول إلى ملف' : 'أعد فتح الطلب أولًا');
         patch.status = st;
       }
       db.update('intakes', i.id, patch);
@@ -237,7 +255,7 @@ export function createIntakes(app) {
       if (sug && area) {
         app.ai.recordFeedback({
           suggestion_id: sug.id, entity_type: 'intake', entity_id: i.id, field: 'legal_area',
-          verdict: sug.output.legal_area === area ? 'accepted' : 'corrected', ai_value: sug.output.legal_area, final_value: area, actor,
+          verdict: sug.output.legal_area === area ? 'accepted' : 'corrected', ai_value: sug.output.legal_area, final_value: area, actor, replace: true,
         });
       }
       app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.handled_internally', summary: 'تعاملت الإدارة مع الطلب داخليًا دون إحالة لمحامٍ', data: { note } });
@@ -247,10 +265,40 @@ export function createIntakes(app) {
     archive(id, body, actor) {
       const i = svc.require(id);
       if (i.status === 'converted') throw conflict('لا يمكن أرشفة طلب تحول إلى ملف');
+      if (!OPEN_STATUSES.includes(i.status)) throw conflict('تم البت في هذا الطلب بالفعل');
       const reason = v.str(body.reason, 'سبب الأرشفة', { required: true, max: 500 });
-      db.update('intakes', i.id, { status: 'archived', resolution_note: reason, unread_count: 0, updated_at: nowIso() });
-      app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.archived', summary: `أُرشف الطلب: ${reason}` });
+      db.tx(() => {
+        db.update('intakes', i.id, { status: 'archived', resolution_note: reason, unread_count: 0, updated_at: nowIso() });
+        app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.archived', summary: `أُرشف الطلب: ${reason}` });
+        // طلب من الموقع برقم غير موثّق: نلغي رابط بوابته عند أرشفته حتى لا يبقى منفذًا لبيانات صاحب الرقم
+        if (i.client_id && parseJson(i.source_detail, {}).phone_match_unverified) {
+          const n = app.clients.revokePortalTokens(i.client_id, { intakeId: i.id });
+          if (n) app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'portal.revoked', summary: 'أُلغي رابط البوابة الخاص بالطلب تلقائيًا عند الأرشفة (رقم غير موثّق)' });
+        }
+      });
       return svc.require(i.id);
+    },
+
+    /** تأكيد أن مقدم الطلب من الموقع هو صاحب رقم الهاتف المسجل (بعد تحقق الإدارة) */
+    confirmIdentity(id, actor) {
+      const i = svc.require(id);
+      const sd = parseJson(i.source_detail, {});
+      if (!sd.phone_match_unverified) throw conflict('لا يحتاج هذا الطلب إلى تأكيد هوية، أو تم تأكيدها بالفعل');
+      delete sd.phone_match_unverified;
+      sd.identity_confirmed_at = nowIso();
+      sd.identity_confirmed_by = actor.id;
+      sd.identity_confirmed_by_name = actor.name;
+      db.update('intakes', i.id, { source_detail: JSON.stringify(sd), updated_at: nowIso() });
+      app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'identity.confirmed', summary: 'أكّدت الإدارة أن مقدم الطلب هو صاحب رقم الهاتف المسجل' });
+      return { ok: true };
+    },
+
+    /** إلغاء كل روابط البوابة الخاصة بهذا الطلب */
+    revokePortal(id, actor) {
+      const i = svc.require(id);
+      const revoked = i.client_id ? app.clients.revokePortalTokens(i.client_id, { intakeId: i.id }) : 0;
+      if (revoked) app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'portal.revoked', summary: 'ألغت الإدارة رابط البوابة الخاص بالطلب' });
+      return { revoked };
     },
 
     reopen(id, actor) {
@@ -269,6 +317,7 @@ export function createIntakes(app) {
     convert(id, body, actor) {
       const i = svc.require(id);
       if (i.status === 'converted') throw conflict('هذا الطلب تحول بالفعل إلى ملف', { case_id: i.case_id });
+      if (!OPEN_STATUSES.includes(i.status)) throw conflict('أعد فتح الطلب أولًا قبل تحويله إلى ملف');
       if (!i.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
       const caseRow = db.tx(() => {
         if (body.client) app.clients.update(i.client_id, body.client, actor);
@@ -302,7 +351,7 @@ export function createIntakes(app) {
             app.ai.recordFeedback({
               suggestion_id: sug.id, entity_type: 'intake', entity_id: i.id, case_id: c.id, field: 'issues',
               verdict: accepted === aiTitles.length && chosen.length === aiTitles.length ? 'accepted' : accepted > 0 ? 'corrected' : 'rejected',
-              ai_value: aiTitles, final_value: chosen, actor,
+              ai_value: aiTitles, final_value: chosen, actor, replace: true,
             });
           }
         }

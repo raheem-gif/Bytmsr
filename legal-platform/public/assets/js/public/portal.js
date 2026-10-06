@@ -166,7 +166,7 @@ function eventsSection(events) {
             const p = calendarParts(e.starts_at);
             return h(
               'li.event-item',
-              { class: e.client_attendance_required && 'is-required' },
+              { class: e.client_attendance_required ? 'is-required' : null },
               h('div.event-date', { 'aria-hidden': 'true' }, h('span.d', p.day), h('span.m', p.month)),
               h(
                 'div.event-info',
@@ -174,7 +174,8 @@ function eventsSection(events) {
                   'div.row',
                   h('span.event-title', e.title || label('event_kind', e.kind)),
                   e.kind && badge(label('event_kind', e.kind), statusTone('event_kind', e.kind)),
-                  e.client_attendance_required && badge('يلزم حضورك', 'warning', { icon: 'alert' }),
+                  // client_attendance_required رقم (0/1) من قاعدة البيانات: الشرط الثلاثي يمنع ظهور «0»
+                  e.client_attendance_required ? badge('يلزم حضورك', 'warning', { icon: 'alert' }) : null,
                 ),
                 h(
                   'div.event-meta',
@@ -283,7 +284,7 @@ function filesSection(cases, intakes) {
   const intakeRows = intakes.map((i) =>
     h(
       'li.case-row',
-      h('div.case-row-main', codeTag(i.code), h('span.case-row-title', 'طلب وارد'), h('span.small.muted', date(i.created_at))),
+      h('div.case-row-main', codeTag(i.code), h('span.case-row-title', 'طلب استشارة'), h('span.small.muted', `قُدِّم في ${date(i.created_at)}`)),
       badge(i.status_label || label('intake_status', i.status), statusTone('intake_status', i.status), { dot: true }),
     ),
   );
@@ -295,8 +296,8 @@ function filesSection(cases, intakes) {
       caseRows.length || intakeRows.length
         ? h(
             'div.stack',
-            caseRows.length && h('div.stack-sm', h('h3.small.muted', 'ملفات الاستشارات'), h('ul.list-plain', caseRows)),
-            intakeRows.length && h('div.stack-sm', h('h3.small.muted', 'طلباتك المقدَّمة'), h('ul.list-plain', intakeRows)),
+            caseRows.length > 0 ? h('div.stack-sm', h('h3.small.muted', 'ملفات الاستشارات'), h('ul.list-plain', caseRows)) : null,
+            intakeRows.length > 0 ? h('div.stack-sm', h('h3.small.muted', 'طلباتك المقدَّمة'), h('ul.list-plain', intakeRows)) : null,
           )
         : emptyState('لا توجد ملفات بعد', null, { compact: true, icon: 'briefcase' }),
   });
@@ -323,7 +324,9 @@ function renderPortal(data) {
   const firstName = String(client.name || '').trim().split(/\s+/)[0];
 
   document.title = `متابعة ملفك — ${orgName()}`;
-  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أتابع ملفي${client.code ? ` رقم ${client.code}` : ''}.`);
+  // رابط الموقع مقصور على طلب واحد: نرسل رقم الطلب في رسالة واتساب حتى تربطها الإدارة به
+  const ref = client.code ? ` رقم ${client.code}` : client.reference ? `، رقم طلبي ${client.reference}` : '';
+  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أتابع ملفي${ref}.`);
   document.querySelectorAll('a[data-cta="whatsapp"]').forEach((a) => {
     if (wa) {
       a.href = wa;
@@ -339,7 +342,8 @@ function renderPortal(data) {
         'div.container',
         h('h1', firstName ? `مرحبًا ${firstName}` : 'مرحبًا بك'),
         h('p', `هذه صفحتك الخاصة لمتابعة طلباتك وملفاتك لدى ${orgName()}: ترد على طلباتنا، وترفع مستنداتك، وتراسلنا من مكان واحد.`),
-        client.code && h('p.row', h('span', 'رقم العميل:'), codeTag(client.code)),
+        client.code ? h('p.row', h('span', 'رقم العميل:'), codeTag(client.code)) : null,
+        !client.code && client.reference ? h('p.row', h('span', 'رقم طلبك:'), codeTag(client.reference), h('span.small.muted', 'احتفظ به للمتابعة')) : null,
         h(
           'nav.portal-summary',
           { 'aria-label': 'ملخص ملفك' },

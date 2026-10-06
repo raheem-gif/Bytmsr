@@ -2,7 +2,7 @@
 
 import { h, frag } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, money, num, date } from '../../../lib/fmt.js';
+import { label, money, num, date, count, orgName } from '../../../lib/fmt.js';
 import { bidiText } from './matters.js';
 import { pageHeader, card, table, tabs, statCard, statusBadge, codeTag, emptyState, errorState, alertBox, kv, progressBar, ltr } from '../../../lib/ui.js';
 
@@ -18,10 +18,10 @@ function periodLabel(p) {
 }
 
 const TREATMENT_NOTES = {
-  per_case: 'كل مهمة تعتمدها الإدارة تُسجَّل واقعة استحقاق بالمبلغ المتفق عليه.',
-  monthly: 'تُسجَّل المهام المعتمدة ضمن المبلغ الشهري الثابت، ويُستحق المبلغ الشهري عن كل شهر.',
-  monthly_quota: 'المهام ضمن الحصة الشهرية مشمولة في المبلغ الشهري، وما يزيد عليها يُحسب بسعر الزيادة.',
-  package: 'كل مهمة معتمدة تُخصم من رصيد الباقة، وبعد نفادها تُحسب بسعر ما بعد الباقة.',
+  per_case: 'كل استشارة معتمدة من الإدارة تُسجَّل واقعة استحقاق بالمبلغ المتفق عليه.',
+  monthly: 'تُسجَّل الاستشارات المعتمدة ضمن المبلغ الشهري الثابت، ويُستحق المبلغ الشهري عن كل شهر.',
+  monthly_quota: 'الاستشارات المعتمدة ضمن الحصة الشهرية مشمولة في المبلغ الشهري، وما يزيد عليها يُحسب بسعر الزيادة.',
+  package: 'كل استشارة معتمدة تُخصم من رصيد الباقة، وبعد نفادها تُحسب بسعر ما بعد الباقة.',
   pro_bono: 'مساهماتك تطوعية بالكامل، وتُسجَّل قيمتها التقديرية لقياس الأثر فقط ولا تُصرف.',
   csr: 'مساهمات مكتبك ضمن برنامج المسؤولية المجتمعية تُسجَّل بقيمتها التقديرية لقياس الأثر فقط.',
 };
@@ -70,7 +70,7 @@ export default async function render(ctx) {
 
   const header = pageHeader({
     title: 'كشف حسابي',
-    subtitle: 'اتفاقك مع بيوت مصر، وما استُحق لك وما صُرف، ومساهماتك التطوعية.',
+    subtitle: `اتفاقك مع ${orgName()}، وما استُحق لك وما صُرف، ومساهماتك التطوعية.`,
     breadcrumbs: CRUMBS,
   });
 
@@ -84,7 +84,7 @@ export default async function render(ctx) {
         [
           ['نوع الاتفاق', ag.type ? statusBadge('agreement_type', ag.type, { dot: false }) : null],
           ['متى يُسجَّل الاستحقاق', ag.billable_event ? label('billable_trigger', ag.billable_event) : null],
-          ag.type === 'package' && ['حجم الباقة', `${num(ag.package_size)} حالة`],
+          ag.type === 'package' && ['حجم الباقة', count(ag.package_size, ['استشارة واحدة', 'استشارتان', 'استشارات', 'استشارة'])],
           volunteer && ag.notional_value != null && ['القيمة التقديرية للمساهمة', h('span', money(ag.notional_value), h('span.muted.small', ' — لقياس الأثر فقط'))],
         ],
         { columns: 1 },
@@ -183,7 +183,7 @@ export default async function render(ctx) {
     alertBox(
           volunteer
             ? 'شكرًا لمساهمتك. تُستخدم القيمة التقديرية لقياس أثر العمل التطوعي في تقارير المؤسسة فقط.'
-            : 'للاستفسار عن أي قيد أو دفعة تواصل مع إدارة بيوت مصر. الأرقام هنا للاطلاع ولا تُعدَّل من بوابتك.',
+            : `للاستفسار عن أي قيد أو دفعة تواصل مع إدارة ${orgName()}. الأرقام هنا للاطلاع ولا تُعدَّل من بوابتك.`,
           'info',
           { icon: volunteer ? 'star' : 'info' },
     ),

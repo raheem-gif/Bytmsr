@@ -24,6 +24,9 @@ app.server.listen(config.port, config.host, () => {
   console.log(`  • واتساب: ${app.whatsapp.configured ? 'متصل بـ WhatsApp Business Platform' : 'وضع المحاكاة (لم تُضبط بيانات الاعتماد)'}`);
   console.log(`  • الذكاء الاصطناعي: ${app.ai.status().label}`);
   if (config.demo) console.log('  • الوضع التجريبي مفعّل: حسابات الدخول التجريبية تظهر في صفحة الدخول.');
+  if (!config.whatsapp.appSecret && (config.production || app.whatsapp.configured)) {
+    console.warn('  ⚠ WHATSAPP_APP_SECRET غير مضبوط: سيرفض النظام كل رسائل Webhook واتساب حتى يُضبط سر التطبيق.');
+  }
   console.log('');
   app.startScheduler();
 });

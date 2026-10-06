@@ -1,9 +1,10 @@
 // بوابة المحامي — «ملفاتي»: مساحة العمل اليومية للمحامي.
-// الملفات المحالة إليه فقط، والمطلوب منه في كل منها، دون أي بيانات اتصال بالعميل.
+// الملفات المسندة إليه فقط، والمطلوب منه في كل منها، دون أي بيانات اتصال بالعميل.
+// المصطلح الموحد: «الإسناد» هو ما تكلّف به الإدارة المحاميَ في ملف؛ و«المهام» للملفات المستمرة فقط.
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, date, num, money, count, weekday, cairoToday, dayLabel, time } from '../../../lib/fmt.js';
+import { label, areaLabel, date, num, money, count, weekday, cairoToday, dayLabel, time, percent, orgName, hours as hoursText } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -34,7 +35,7 @@ const FILTERS = {
 };
 
 
-/** شارات التنبيه لكل مهمة. */
+/** شارات التنبيه لكل إسناد. */
 function flags(a, { history = false } = {}) {
   const out = [];
   if (!history) {
@@ -60,7 +61,7 @@ function flags(a, { history = false } = {}) {
 
 const assignmentHref = (a) => `#/my/assignments/${encodeURIComponent(a.id)}`;
 
-/** بطاقة مهمة للجوال. */
+/** بطاقة إسناد للجوال. */
 function assignmentCard(a, opts) {
   const f = flags(a, opts);
   return h(
@@ -79,7 +80,7 @@ function assignmentCard(a, opts) {
   );
 }
 
-/** قائمة المهام: جدول على الشاشات الواسعة وبطاقات على الجوال. */
+/** قائمة الإسنادات: جدول على الشاشات الواسعة وبطاقات على الجوال. */
 function assignmentList(rows, ctx, { history = false, emptyText, emptyTitle } = {}) {
   if (!rows.length) {
     return h('div.card-body', emptyState(emptyText, null, { icon: history ? 'clock' : 'briefcase', title: emptyTitle, compact: history }));
@@ -95,7 +96,7 @@ function assignmentList(rows, ctx, { history = false, emptyText, emptyTitle } = 
     { key: 'role', label: 'دوري', render: (a) => h('span.pc-role', bidiText(a.role_label || label('assignment_role', a.role))) },
     { key: 'status', label: 'الحالة', render: (a) => statusBadge('assignment_status', a.status) },
     history
-      ? { key: 'assigned', label: 'تاريخ الإحالة', render: (a) => h('span.nowrap', date(a.assigned_at)) }
+      ? { key: 'assigned', label: 'تاريخ الإسناد', render: (a) => h('span.nowrap', date(a.assigned_at)) }
       : { key: 'due', label: 'الموعد المطلوب', render: (a) => (a.due_at ? dueBadge(a.due_at) : h('span.muted', 'بدون موعد')) },
     {
       key: 'flags',
@@ -114,7 +115,7 @@ function assignmentList(rows, ctx, { history = false, emptyText, emptyTitle } = 
         rows,
         onRowClick: (a) => ctx.navigate(`/my/assignments/${a.id}`),
         rowClass: (a) => (a.overdue ? 'pc-row-overdue' : a.status === 'assigned' ? 'pc-row-new' : null),
-        caption: history ? 'سجل الملفات السابقة' : 'الملفات المحالة إليك',
+        caption: history ? 'سجل الملفات السابقة' : 'الملفات المسندة إليك',
       }),
     ),
     h('ul.pc-card-list.pc-only-mobile', rows.map((a) => h('li', assignmentCard(a, { history })))),
@@ -128,12 +129,12 @@ function metricsCard(m) {
     subtitle: 'تُحسب من سجل عملك على المنصة',
     icon: 'chart',
     body: kv([
-      ['متوسط زمن تقديم الرأي', hours == null ? h('span.muted', 'لا توجد بيانات بعد') : `${num(hours)} ساعة من الإحالة`],
-      ['معتمدة هذا الشهر', num(m.completed_in_period)],
-      ['إجمالي المهام المعتمدة', num(m.completed_total)],
+      ['متوسط زمن تقديم الرأي', hours == null ? h('span.muted', 'لا توجد بيانات بعد') : `${hoursText(hours)} من الإسناد`],
+      ['إسنادات معتمدة هذا الشهر', num(m.completed_in_period)],
+      ['إجمالي الإسنادات المعتمدة', num(m.completed_total)],
       m.avg_quality != null && ['متوسط تقييم الجودة', `${num(m.avg_quality)} من 5`],
-      m.returned_rate != null && ['نسبة الإعادة للتعديل', `${Math.round(m.returned_rate * 100)}%`],
-      [bidiText('مساهمات تطوعية (Pro Bono)'), `${num(m.pro_bono_in_period)} هذا الشهر — ${num(m.pro_bono_total)} إجمالًا`],
+      m.returned_rate != null && ['نسبة الإعادة للتعديل', percent(m.returned_rate)],
+      ['مساهمات تطوعية', `${num(m.pro_bono_in_period)} هذا الشهر — ${num(m.pro_bono_total)} إجمالًا`],
       Number(m.unpaid_balance) > 0 && ['مستحقات لم تُصرف بعد', h('a', { href: '#/my/statement' }, money(m.unpaid_balance))],
     ]),
   });
@@ -199,7 +200,7 @@ export default async function render(ctx) {
   const today = cairoToday();
   const header = pageHeader({
     title: firstName ? `مرحبًا، ${firstName}` : 'مرحبًا بك',
-    subtitle: 'هذه مساحة عملك: الملفات التي أحالتها إليك بيوت مصر، والمطلوب منك في كل منها.',
+    subtitle: `هذه مساحة عملك: الملفات التي أسندتها إليك ${orgName()}، والمطلوب منك في كل منها.`,
     breadcrumbs: CRUMBS,
     meta: h('span.pc-today', icon('calendar', { size: 15 }), h('time', { datetime: today }, `${weekday(new Date())}، ${date(new Date())}`)),
   });
@@ -228,7 +229,7 @@ export default async function render(ctx) {
   });
   const stats = h('div.stats-grid.pc-stats', { role: 'group', 'aria-label': 'ملخص الملفات — اضغط على أي بطاقة لتصفية القائمة' }, statButtons);
 
-  // ── قائمة المهام النشطة ──
+  // ── قائمة الإسنادات النشطة ──
   const activeHost = h('div');
   const filterNote = h('div.pc-filter-note', { hidden: true, role: 'status' });
 
@@ -247,10 +248,10 @@ export default async function render(ctx) {
     mount(
       activeHost,
       assignmentList(rows, ctx, {
-        emptyTitle: filter ? 'لا توجد ملفات مطابقة' : 'لا توجد ملفات محالة إليك حاليًا',
+        emptyTitle: filter ? 'لا توجد ملفات مطابقة' : 'لا توجد ملفات مسندة إليك حاليًا',
         emptyText: filter
           ? 'لا توجد ملفات في هذه الفئة الآن.'
-          : 'ستصلك إشارة عند إحالة ملف جديد إليك من الإدارة، وسيظهر هنا مع المطلوب منك تحديدًا.',
+          : 'سيصلك إشعار عند إسناد ملف جديد إليك من الإدارة، وسيظهر هنا مع المطلوب منك تحديدًا.',
       }),
     );
   }
@@ -279,7 +280,7 @@ export default async function render(ctx) {
           listTabs.setCount('history', list.length);
           return assignmentList(list, ctx, {
             history: true,
-            emptyText: 'لا توجد ملفات سابقة في سجلك بعد. تظهر هنا المهام التي اعتمدتها الإدارة أو أغلقت ملفاتها.',
+            emptyText: 'لا توجد ملفات سابقة في سجلك بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أو أغلقت ملفاتها.',
           });
         },
       },
@@ -288,7 +289,7 @@ export default async function render(ctx) {
   );
 
   const mainCard = card({
-    title: 'الملفات المحالة إليك',
+    title: 'الملفات المسندة إليك',
     subtitle: 'اضغط على أي ملف لفتح مساحة العمل الخاصة به',
     icon: 'briefcase',
     flush: true,
@@ -313,7 +314,7 @@ export default async function render(ctx) {
   if (counts.overdue > 0) {
     urgent.push(
       alertBox(
-        `تجاوزت ${count(counts.overdue, ['مهمة واحدة', 'مهمتان', 'مهام', 'مهمة'])} الموعد المطلوب. إن احتجت مهلة إضافية أو معلومات ناقصة فاطلبها من داخل الملف.`,
+        `لديك ${count(counts.overdue, ['ملف متأخر', 'ملفان متأخران', 'ملفات متأخرة', 'ملفًا متأخرًا'])} عن الموعد المطلوب. إن احتجت مهلة إضافية أو معلومات ناقصة فاطلبها من داخل الملف.`,
         'warning',
         { icon: 'clock' },
       ),

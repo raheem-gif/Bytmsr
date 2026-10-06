@@ -454,10 +454,17 @@ describe('Req 13 — duplicate deliveries and delivery-status webhooks', () => {
       }
       return realFetch(url, init);
     };
-    const t = await startTestApp({ seed: 'none', config: { whatsapp: { token: 'test-token', phoneNumberId: '1234567890', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000000' } } });
+    const t = await startTestApp({ seed: 'none', config: { whatsapp: { token: 'test-token', phoneNumberId: '1234567890', verifyToken: 'verify-me', appSecret: 's3cret', numberDigits: '201000000000' } } });
+    // with a real token configured, unsigned deliveries are refused, so every webhook here is signed
+    const signedPost = (payload) => {
+      const body = JSON.stringify(payload);
+      return raw(t, 'POST', '/webhooks/whatsapp', { body, headers: { 'content-type': 'application/json', 'x-hub-signature-256': sign(body) } });
+    };
     try {
       const admin = await t.login('admin');
-      await t.client().post('/webhooks/whatsapp', waPayload({ from: '201022200003', text: 'محتاج مساعدة في قضية نفقة' }));
+      const unsigned = await t.client().post('/webhooks/whatsapp', waPayload({ from: '201022200009', text: 'بدون توقيع' }));
+      assert.equal(unsigned.status, 403, 'configured WhatsApp without a valid signature must be refused');
+      await signedPost(waPayload({ from: '201022200003', text: 'محتاج مساعدة في قضية نفقة' }));
       const it = (await admin.get('/api/admin/intakes')).body.items[0];
       assert.equal((await admin.get('/api/admin/automations')).body.whatsapp_configured, true);
 
@@ -485,16 +492,16 @@ describe('Req 13 — duplicate deliveries and delivery-status webhooks', () => {
         object: 'whatsapp_business_account',
         entry: [{ id: 'WABA', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { phone_number_id: '1234567890' }, statuses: [{ id: wamid, status: s, timestamp: String(Math.floor(Date.now() / 1000)), recipient_id: '201022200003', ...extra }] } }] }],
       });
-      assert.equal((await t.client().post('/webhooks/whatsapp', status('delivered'))).status, 200);
+      assert.equal((await signedPost(status('delivered'))).status, 200);
       assert.equal((await outRow()).status, 'delivered');
-      await t.client().post('/webhooks/whatsapp', status('read'));
+      await signedPost(status('read'));
       assert.equal((await outRow()).status, 'read');
-      await t.client().post('/webhooks/whatsapp', status('delivered'));
+      await signedPost(status('delivered'));
       assert.equal((await outRow()).status, 'read', 'a late "delivered" must not move a read message backwards');
       // unknown message id is ignored gracefully
       const unknown = status('read');
       unknown.entry[0].changes[0].value.statuses[0].id = 'wamid.UNKNOWN';
-      assert.equal((await t.client().post('/webhooks/whatsapp', unknown)).status, 200);
+      assert.equal((await signedPost(unknown)).status, 200);
 
       // a failed send is recorded and staff are alerted; retry re-sends
       nextResponse = () => ({ status: 400, body: { error: { message: 'Recipient phone number not in allowed list', code: 131030 } } });
@@ -523,7 +530,7 @@ describe('Req 13 — duplicate deliveries and delivery-status webhooks', () => {
       // failed status from Meta after sending
       const failStatus = status('failed', { errors: [{ code: 131047, title: 'Re-engagement message' }] });
       failStatus.entry[0].changes[0].value.statuses[0].id = 'wamid.RETRY.1';
-      await t.client().post('/webhooks/whatsapp', failStatus);
+      await signedPost(failStatus);
       frow = (await admin.get('/api/admin/outbox')).body.find((m) => m.id === failing.body.id);
       assert.equal(frow.status, 'failed');
       assert.match(frow.error, /131047/);

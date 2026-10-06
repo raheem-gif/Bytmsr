@@ -59,6 +59,8 @@ export function createApp(config, { logger = console } = {}) {
   app.portal = createPortal(app);
   app.limiters = {
     publicIntake: new RateLimiter({ windowMs: 60 * 60 * 1000, max: config.publicIntakePerHour || 20 }),
+    // حد لكل رقم هاتف أيًا كان عنوان IP: يمنع إغراق رقم عميل بطلبات (وتكلفة التحليل الآلي لها)
+    publicIntakePhone: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 10 }),
     portal: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 }),
   };
 
@@ -83,9 +85,13 @@ export function createApp(config, { logger = console } = {}) {
   };
 
   function clientIp(req) {
-    // خلف وكيل عكسي موثوق يمكن ضبط TRUST_PROXY لاستخدام X-Forwarded-For
+    // خلف وكيل عكسي موثوق يمكن ضبط TRUST_PROXY لاستخدام X-Forwarded-For.
+    // نأخذ العنوان الذي أضافه وكيلنا (من اليمين) لا أول عنوان، فالعميل يستطيع كتابة ما يشاء في بداية الترويسة.
+    // TRUST_PROXY_HOPS = عدد الوكلاء الموثوقين المتتابعين (مثل CDN ثم nginx = 2).
     if (process.env.TRUST_PROXY === '1') {
-      const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+      const parts = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+      const hops = Math.max(1, Number(process.env.TRUST_PROXY_HOPS) || 1);
+      const xf = parts.length >= hops ? parts[parts.length - hops] : '';
       if (xf) return xf;
     }
     return req.socket.remoteAddress || 'unknown';

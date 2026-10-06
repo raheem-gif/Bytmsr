@@ -79,6 +79,10 @@ export function fieldError(name, message) {
 // ───────────── الصفحة ─────────────
 
 const PAGE = 50;
+const PRIORITY_FILTERS = [
+  { value: 'high_or_urgent', label: 'عاجلة أو عالية' },
+  ...['urgent', 'high', 'normal', 'low'].map((v) => ({ value: v, label: label('priority', v) })),
+];
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
 const CLOSED_STATUSES = ['handled_internally', 'converted', 'archived'];
 
@@ -89,7 +93,7 @@ const TABS = [
 ];
 
 function apiQuery(state, offset = 0) {
-  const q = { channel: state.channel, source: state.source, area: state.area, q: state.q, limit: PAGE, offset };
+  const q = { channel: state.channel, source: state.source, area: state.area, priority: state.priority, q: state.q, limit: PAGE, offset };
   if (state.tab === 'all') q.scope = 'all';
   else if (state.tab === 'open') q.scope = 'open';
   else q.status = state.tab;
@@ -103,6 +107,7 @@ export default async function render(ctx) {
     channel: ctx.query.channel || '',
     source: ctx.query.source || '',
     area: ctx.query.area || '',
+    priority: PRIORITY_FILTERS.some((p) => p.value === ctx.query.priority) ? ctx.query.priority : '',
   };
   let data = await api.get('/admin/intakes', apiQuery(state));
   let items = data.items || [];
@@ -114,11 +119,11 @@ export default async function render(ctx) {
   const moreHost = h('div.pa-more');
 
   function syncUrl() {
-    replaceQuery('/inbox', { status: state.tab === 'open' ? '' : state.tab, q: state.q, channel: state.channel, source: state.source, area: state.area });
+    replaceQuery('/inbox', { status: state.tab === 'open' ? '' : state.tab, q: state.q, channel: state.channel, source: state.source, area: state.area, priority: state.priority });
   }
 
   function hasFilters() {
-    return Boolean(state.q || state.channel || state.source || state.area);
+    return Boolean(state.q || state.channel || state.source || state.area || state.priority);
   }
 
   function drawTabs() {
@@ -249,7 +254,7 @@ export default async function render(ctx) {
         ? button('مسح الفلاتر', {
             icon: 'x',
             onClick: () => {
-              Object.assign(state, { q: '', channel: '', source: '', area: '' });
+              Object.assign(state, { q: '', channel: '', source: '', area: '', priority: '' });
               mount(filtersHost, buildFilters());
               load();
             },
@@ -314,6 +319,16 @@ export default async function render(ctx) {
         value: state.area,
         onChange: (v) => {
           state.area = v;
+          load();
+        },
+      }),
+      selectInput({
+        label: 'الأولوية',
+        allLabel: 'كل الأولويات',
+        options: PRIORITY_FILTERS,
+        value: state.priority,
+        onChange: (v) => {
+          state.priority = v;
           load();
         },
       }),

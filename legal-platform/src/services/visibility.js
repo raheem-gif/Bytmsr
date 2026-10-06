@@ -14,7 +14,7 @@ export function createVisibility(app) {
     /** الإسناد الخاص بهذا المحامي فقط (404 لأي إسناد آخر حتى لا نكشف وجوده) */
     requireAssignment(assignmentId, lawyer) {
       const a = db.get('SELECT * FROM assignments WHERE id = ? AND lawyer_id = ?', assignmentId, lawyer.id);
-      if (!a || a.status === 'withdrawn') throw notFound('الملف غير موجود أو لم يعد محالًا إليك');
+      if (!a || a.status === 'withdrawn') throw notFound('الملف غير موجود أو لم يعد مسندًا إليك');
       return a;
     },
 
@@ -147,7 +147,7 @@ export function createVisibility(app) {
       const closed = c.status === 'closed';
       const editable = !closed && ['assigned', 'in_progress', 'returned'].includes(a.status);
 
-      let clientLabel = 'العميل (بيانات الهوية غير متاحة)';
+      let clientLabel = 'بيانات الهوية غير متاحة'; // تُعرض بعد «العميل:» في بوابة المحامي
       if (g.client_name) {
         const cl = app.clients.get(c.client_id);
         if (cl?.name) clientLabel = cl.name;

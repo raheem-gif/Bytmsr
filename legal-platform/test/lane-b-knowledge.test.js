@@ -149,13 +149,23 @@ test('editing an approved record sends it back to review and removes it from law
   const exp = ok(await admin.get('/api/admin/knowledge/export'));
   assert.deepEqual(exp.records.map((r) => r.id), [rec.id]);
   for (const v of PII) assert.equal(JSON.stringify(exp).includes(v), false);
-  // reopening and re-closing the source case does not overwrite approved knowledge
+  // reopening the source case pulls the approved record out of retrieval and export until it is re-reviewed
   ok(await admin.post(`/api/admin/cases/${k1.id}/reopen`, {}));
+  const reopened = ok(await admin.get(`/api/admin/knowledge/${rec.id}`));
+  assert.equal(reopened.status, 'pending_review');
+  assert.equal(reopened.usage, 'none');
+  assert.equal((await lawyerSimilar()).items.some((x) => x.id === rec.id), false);
+  assert.deepEqual(ok(await admin.get('/api/admin/knowledge/export')).records, []);
   ok(await admin.patch(`/api/admin/cases/${k1.id}`, { facts_shared: `${FACTS} وقائع جديدة لم تُراجع بعد NEWUNREVIEWED` }));
   ok(await admin.post(`/api/admin/cases/${k1.id}/close`, { outcome: 'answered' }));
+  // re-closing rebuilds it from the corrected case, still unapproved, and asks staff to re-review
   const again = ok(await admin.get(`/api/admin/knowledge/${rec.id}`));
-  assert.equal(again.status, 'approved');
-  assert.equal(again.facts.includes('NEWUNREVIEWED'), false);
+  assert.equal(again.status, 'pending_review');
+  assert.equal(again.facts.includes('NEWUNREVIEWED'), true);
+  assert.equal((await lawyerSimilar()).items.some((x) => x.id === rec.id), false);
+  assert.deepEqual(ok(await admin.get('/api/admin/knowledge/export')).records, []);
+  const notes = ok(await admin.get('/api/notifications')).items;
+  assert.ok(notes.some((n) => n.type === 'knowledge.pending' && n.title.includes('إعادة مراجعة')));
 });
 
 test('excluded records are never used for lawyer retrieval or training export', async () => {
@@ -191,4 +201,20 @@ test('redaction keeps ordinary legal wording: a word ending in «د.» or «م.�
   for (const w of ['وبالتالي يجوز', 'ويستحق الورثة']) {
     assert.ok(r.final_answer.includes(w), `non-personal legal text «${w}» was destroyed by redaction: ${r.final_answer}`);
   }
+});
+
+test('redaction keeps legal kinship wording and Cairo place names, but still hides names after kin words and titles', async () => {
+  const { redact } = await import('../src/ai/redact.js');
+  const keep = [
+    'استحقاق ابني الابن المتوفى قبل أبيه للوصية الواجبة',
+    'أحفاد الابن المتوفى قبل أبيه',
+    'ترك المتوفى أبناءً ذكورًا وإناثًا',
+    'معاش زوجها المتوفى وكيفية صرفه',
+    'ومحل في السيدة زينب. نحن ثلاثة إخوة',
+    'شقة في السيدة نفيسة وشقة أخرى',
+  ];
+  for (const s of keep) assert.equal(redact(s).text, s, `legal wording was mangled by redaction: ${redact(s).text}`);
+  assert.equal(redact('المرحوم محمود عبد الحميد ترك شقة').text, 'المرحوم [اسم] ترك شقة');
+  assert.equal(redact('أخويا محمود رافض القسمة').text, 'أخويا [اسم] رافض القسمة');
+  assert.equal(redact('السيدة زينب محمد تطلب').text.includes('محمد'), false, 'a person named after a saint place is still redacted');
 });

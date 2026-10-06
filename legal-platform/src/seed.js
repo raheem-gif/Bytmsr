@@ -90,7 +90,7 @@ export async function seedDemo(app) {
     const L = (o) => app.lawyers.create({ password: 'Lawyer@2026', title: 'أ.', ...o }, admin);
     L({ username: 'ahmed', name: 'أحمد عبد العظيم', specialties: ['INH', 'FAM', 'PRP'], capacity: 15, bar_level: 'استئناف', bar_number: '48213', agreement: { type: 'per_case', rate: 500, billable_event: 'on_approval' } });
     L({ username: 'mohamed', name: 'محمد فؤاد', specialties: ['TAX', 'COM'], capacity: 10, bar_level: 'نقض', bar_number: '30117', agreement: { type: 'per_case', rate: 500, billable_event: 'on_approval' } });
-    L({ username: 'salwa', title: 'د.', name: 'سلوى الشريف', specialties: ['INH', 'FAM', 'CIV'], capacity: 8, bar_level: 'نقض', agreement: { type: 'pro_bono', notional_value: 600 }, notes: 'تتطوع بالمراجعة النهائية (Senior Reviewer) لملفات الأسرة والمواريث.' });
+    L({ username: 'salwa', title: 'د.', name: 'سلوى الشريف', specialties: ['INH', 'FAM', 'CIV'], capacity: 8, bar_level: 'نقض', agreement: { type: 'pro_bono', notional_value: 600 }, notes: 'تتطوع بالمراجعة النهائية لملفات الأسرة والمواريث.' });
     L({ username: 'hany', name: 'هاني رمزي', specialties: ['CRM', 'CIV'], capacity: 20, bar_level: 'استئناف', agreement: { type: 'monthly', monthly_fee: 8000, billable_event: 'on_approval' } });
     L({ username: 'yasmine', name: 'ياسمين خليل', specialties: ['LAB', 'ADM'], capacity: 15, agreement: { type: 'monthly_quota', monthly_fee: 6000, quota: 12, overage_rate: 400, billable_event: 'on_approval' } });
     L({ username: 'tarek', name: 'طارق النجار', specialties: ['COM', 'CIV', 'PRP'], capacity: 6, firm: 'مكتب النجار وشركاه للمحاماة', agreement: { type: 'csr', csr_firm: 'مكتب النجار وشركاه للمحاماة', csr_cases_commitment: 24, csr_hours_commitment: 120, csr_period: 'year', notional_value: 800 } });
@@ -541,7 +541,7 @@ export async function seedDemo(app) {
       specialty: 'TAX',
       issue_ids: [issue3.id],
       document_ids: [deathDoc.id, flatDoc.id],
-      description: 'أطلب رأي متخصص في الأثر الضريبي المتعلق بانتقال الأصل محل التركة، وبالأخص المسألة رقم 3.',
+      description: 'أطلب رأيًا متخصصًا في الأثر الضريبي المتعلق بانتقال الأصل محل التركة، وبالأخص المسألة رقم 3.',
     });
     adv(14);
     app.requests.approveInfo(ir2.id, manager, { client_message: 'برجاء إرسال صورة إعلام الوراثة إن كان قد صدر، وإن لم يصدر بعد نرجو إفادتنا بذلك.' });
@@ -703,7 +703,7 @@ export async function seedDemo(app) {
     await app.ai.analyzeIntake(i5.intake.id);
     adv(1);
     app.intakes.markSeen(i5.intake.id, manager);
-    app.intakes.handleInternally(i5.intake.id, { resolution_note: 'استفسار عام عن الخدمة وتمت الإجابة عليه.', legal_area: 'GEN', reply: 'أهلًا بحضرتك، الاستشارة الأولى مجانية، ويمكنك إرسال تفاصيل مشكلتك هنا في أي وقت وسيتواصل معك فريقنا.' }, manager);
+    app.intakes.handleInternally(i5.intake.id, { resolution_note: 'استفسار عام عن الخدمة وتمت الإجابة عنه.', legal_area: 'GEN', reply: 'أهلًا بحضرتك، الاستشارة الأولى مجانية، ويمكنك إرسال تفاصيل مشكلتك هنا في أي وقت وسيتواصل معك فريقنا.' }, manager);
 
     // رسالة غير ذات صلة ← أرشفة
     at(3, 2);
@@ -718,7 +718,10 @@ export async function seedDemo(app) {
     const nowIsoStr = new Date(T).toISOString();
     const p = cairoParts(new Date(realNow));
     const in2 = cairoParts(new Date(realNow + 2 * 24 * HOUR));
-    app.matters.addEvent(m1.id, { kind: 'hearing', title: 'الجلسة الأولى لدعوى النفقة', starts_at: cairoLocalToIso(in2.year, in2.month, in2.day, 10, 0), location: 'محكمة الأسرة ببنها — الدائرة الثالثة', client_attendance_required: true }, U.rania);
+    const e1 = app.matters.addEvent(m1.id, { kind: 'hearing', title: 'الجلسة الأولى لدعوى النفقة', starts_at: cairoLocalToIso(in2.year, in2.month, in2.day, 10, 0), location: 'محكمة الأسرة ببنها — الدائرة الثالثة', client_attendance_required: true }, U.rania);
+    // ما يسجله المحامي لا يصل للعميل قبل اعتماد الإدارة: اعتمدت مديرة الحالات بيانات الجلسة الأولى،
+    // بينما تبقى جلسة الملف الثاني بانتظار الاعتماد (لعرض المسارين)
+    app.matters.approveEventText(e1.id, manager);
     // جلسة يوم 15 من الشهر القادم (كما في المثال: «جلسة يوم 15 نوفمبر وحضور العميل مطلوب»)
     const nm = p.month === 12 ? 1 : p.month + 1;
     const ny = p.month === 12 ? p.year + 1 : p.year;

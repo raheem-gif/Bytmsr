@@ -7,11 +7,11 @@ import { sourceFromWebAttribution } from '../channels/engine.js';
 import { verifySignature } from '../channels/whatsapp.js';
 
 const DEMO_ACCOUNTS = [
-  { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — مدير النظام' },
-  { username: 'manager', password: 'Manager@2026', role: 'case_manager', name: 'منى السيد — مديرة الحالات' },
+  { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
+  { username: 'manager', password: 'Manager@2026', role: 'case_manager', name: 'منى السيد — إدارة الحالات' },
   { username: 'ahmed', password: 'Lawyer@2026', role: 'lawyer', name: 'أ. أحمد عبد العظيم — مواريث (المحامي الأساسي)' },
-  { username: 'mohamed', password: 'Lawyer@2026', role: 'lawyer', name: 'أ. محمد فؤاد — ضرائب (متخصص مساعد)' },
-  { username: 'salwa', password: 'Lawyer@2026', role: 'lawyer', name: 'د. سلوى الشريف — مراجع أول (Pro Bono)' },
+  { username: 'mohamed', password: 'Lawyer@2026', role: 'lawyer', name: 'أ. محمد فؤاد — ضرائب (محامٍ متخصص مساعد)' },
+  { username: 'salwa', password: 'Lawyer@2026', role: 'lawyer', name: 'د. سلوى الشريف — مراجعة نهائية (تطوعي)' },
 ];
 export { DEMO_ACCOUNTS };
 
@@ -87,6 +87,7 @@ export function registerPublicRoutes(router, app) {
       if (b.consent !== true) throw badRequest('يجب الموافقة على سياسة الخصوصية لإرسال الطلب');
       const name = v.str(b.name, 'الاسم', { required: true, min: 2, max: 120 });
       const phone = v.phone(b.phone, 'رقم الموبايل', { required: true, egyptianMobile: true });
+      app.limiters.publicIntakePhone.hit(`phone:${phone}`);
       const email = v.email(b.email, 'البريد الإلكتروني');
       const governorate = b.governorate ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
       const area = b.legal_area ? v.oneOf(b.legal_area, LEGAL_AREAS.map((a) => a.code), 'نوع المشكلة') : null;
@@ -107,7 +108,9 @@ export function registerPublicRoutes(router, app) {
         force_new_intake: true,
         intake_kind: 'consultation',
       });
-      // الرابط مقصور على هذا الطلب: رقم الهاتف في نموذج الموقع غير موثّق
+      // الرابط مقصور على هذا الطلب الجديد وحده: رقم الهاتف في نموذج الموقع غير موثّق،
+      // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
+      if (r.duplicate || !r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
       const token = app.clients.issuePortalToken(r.client.id, { intakeId: r.intake.id });
       const s = app.settings.all();
       const digits = waDigits();
@@ -171,7 +174,10 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/webhooks/whatsapp',
     (ctx) => {
-      if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], config.whatsapp.appSecret)) {
+      if (!config.whatsapp.appSecret) {
+        // بدون سر التطبيق لا يمكن التحقق من أن الرسالة من ميتا: نقبلها فقط في وضع المحاكاة خارج الإنتاج
+        if (config.production || app.whatsapp.configured) throw forbidden('Webhook واتساب معطل: يجب ضبط WHATSAPP_APP_SECRET');
+      } else if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], config.whatsapp.appSecret)) {
         throw forbidden('توقيع غير صالح');
       }
       let payload;

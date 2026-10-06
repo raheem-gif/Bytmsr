@@ -251,6 +251,13 @@ test('the responsible lawyer sees the matter (court data, no client contact data
   // a hearing without required attendance must not trigger a client reminder
   ok(await cM.post(`/api/lawyer/matters/${matter.id}/events`, { kind: 'hearing', title: 'جلسة إدارية', starts_at: plusDays(new Date().toISOString(), 1) }));
 
+  // the lawyer's event text needs staff approval before any client reminder; the admin view flags it
+  assert.equal((await runAutomations(admin)).hearing_reminder, 0);
+  const md = ok(await admin.get(`/api/admin/matters/${matter.id}`));
+  assert.equal(md.events.find((x) => x.id === ev.id).reminder_pending_approval, true);
+  // the client portal never shows lawyer-typed text before approval
+  ok(await admin.post(`/api/admin/matter-events/${ev.id}/approve-reminder`, {}));
+  assert.equal(ok(await admin.get(`/api/admin/matters/${matter.id}`)).events.find((x) => x.id === ev.id).reminder_pending_approval, false);
   const run1 = await runAutomations(admin);
   assert.equal(run1.hearing_reminder, 1);
   const run2 = await runAutomations(admin);

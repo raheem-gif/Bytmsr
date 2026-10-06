@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, date, dateTime, time, relative, money, num, isoToCairoDate, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, date, dateTime, time, relative, money, num, count, percent, orgName, hours as hoursText, isoToCairoDate, cairoToday } from '../../../lib/fmt.js';
 import { bidiText } from './matters.js';
 import {
   pageHeader,
@@ -138,7 +138,7 @@ export default async function render(ctx) {
       justOpened = true;
     }
   } catch (err) {
-    return frag(pageHeader({ title: 'تفاصيل المهمة', breadcrumbs: crumbs() }), card({ body: errorState(err, () => ctx.reload()) }));
+    return frag(pageHeader({ title: 'تفاصيل الإسناد', breadcrumbs: crumbs() }), card({ body: errorState(err, () => ctx.reload()) }));
   }
 
   ctx.setTitle(`ملف ${view.case.code}`);
@@ -251,7 +251,7 @@ export default async function render(ctx) {
     }
     out.push(
       alertBox(
-        'هذا الملف مُحال إليك من بيوت مصر. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من خلال المنصة وستتولى الإدارة التواصل.',
+        `هذا الملف مُسند إليك من ${orgName()}. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من خلال المنصة وستتولى الإدارة التواصل.`,
         'info',
         { icon: 'shield' },
       ),
@@ -281,7 +281,7 @@ export default async function render(ctx) {
       body: frag(
         a.brief
           ? h('p.pc-brief.pre', richText(a.brief))
-          : h('p.muted', 'لم تحدد الإدارة تكليفًا تفصيليًا لهذه المهمة؛ ادرس المسائل المتاحة لك أدناه وأبدِ رأيك فيها.'),
+          : h('p.muted', 'لم تحدد الإدارة تكليفًا تفصيليًا لهذا الإسناد؛ ادرس المسائل المتاحة لك أدناه وأبدِ رأيك فيها.'),
         rb &&
           h(
             'div.pc-requested-by',
@@ -419,7 +419,7 @@ export default async function render(ctx) {
                       ),
                       collapsibleText(t.opinion.body, { limit: 600 }),
                     )
-                  : h('p.muted.small', 'لم يُقدَّم رأيه بعد. ستصلك إشارة عند تقديمه.'),
+                  : h('p.muted.small', 'لم يُقدَّم رأيه بعد. سيصلك إشعار عند تقديمه.'),
               ),
             ),
           )
@@ -435,7 +435,7 @@ export default async function render(ctx) {
     const latest = shownOpinion(v);
     let note;
     if (closed) note = alertBox('أغلقت الإدارة هذا الملف، ولم يعد تعديل الرأي متاحًا.', 'warning', { icon: 'lock' });
-    else if (a.status === 'submitted') note = alertBox('لن يصل رأيك للعميل مباشرة؛ ستصلك إشارة عند اعتماده أو إعادته إليك بملاحظات. يمكنك خلال المراجعة طلب معلومات أو مستندات إضافية.', 'info', { icon: 'clock', title: 'قُدّم رأيك وهو قيد مراجعة الإدارة' });
+    else if (a.status === 'submitted') note = alertBox('لن يصل رأيك للعميل مباشرة؛ سيصلك إشعار عند اعتماده أو إعادته إليك بملاحظات. يمكنك خلال المراجعة طلب معلومات أو مستندات إضافية.', 'info', { icon: 'clock', title: 'قُدّم رأيك وهو قيد مراجعة الإدارة' });
     else if (a.status === 'approved') note = alertBox('تتولى الإدارة إعداد النسخة الموجهة للعميل وإرسالها من خلال قنوات المؤسسة. شكرًا لك.', 'success', { icon: 'checkCircle', title: 'اعتمدت الإدارة رأيك' });
     else note = alertBox('تعديل الرأي غير متاح في هذه المرحلة.', 'info');
     return card({
@@ -505,7 +505,7 @@ export default async function render(ctx) {
 
     function updateCounters() {
       const words = ta.value.trim() ? ta.value.trim().split(/\s+/).length : 0;
-      wordCount.textContent = `${num(words)} كلمة · ${num(ta.value.length)} حرف`;
+      wordCount.textContent = `${count(words, ['كلمة', 'كلمتان', 'كلمات', 'كلمة'])} · ${count(ta.value.length, ['حرف', 'حرفان', 'أحرف', 'حرفًا'])}`;
       placeholderWarn.hidden = !AI_PLACEHOLDER_RE.test(ta.value);
     }
 
@@ -654,7 +654,7 @@ export default async function render(ctx) {
     async function onSubmit() {
       const body = ta.value;
       if (body.trim().length < MIN_SUBMIT_CHARS) {
-        showFieldError(`اكتب رأيك (${num(MIN_SUBMIT_CHARS)} حرفًا على الأقل) قبل التقديم.`);
+        showFieldError(`اكتب رأيك (${count(MIN_SUBMIT_CHARS, 'char')} على الأقل) قبل التقديم.`);
         return;
       }
       if (AI_PLACEHOLDER_RE.test(body)) {
@@ -821,17 +821,17 @@ export default async function render(ctx) {
     let fee = a.fee_mode_label || label('fee_mode', a.fee_mode);
     if (a.fee_mode === 'custom' && a.fee_amount != null) fee = `${fee}: ${money(a.fee_amount)}`;
     return card({
-      title: 'ملخص المهمة',
+      title: 'ملخص الإسناد',
       icon: 'briefcase',
       body: kv([
         ['دوري في الفريق', h('span', bidiText(a.role_label || label('assignment_role', a.role)))],
-        ['حالة المهمة', statusBadge('assignment_status', a.status)],
-        ['تاريخ الإحالة', a.assigned_at && dateTime(a.assigned_at)],
+        ['حالة الإسناد', statusBadge('assignment_status', a.status)],
+        ['تاريخ الإسناد', a.assigned_at && dateTime(a.assigned_at)],
         ['أول فتح للملف', a.first_opened_at && dateTime(a.first_opened_at)],
         ['الموعد المطلوب', a.due_at ? h('div.stack-sm', h('span', dateTime(a.due_at)), ACTIVE_STATUSES.includes(a.status) && v.case.state !== 'closed' ? h('span', dueBadge(a.due_at)) : null) : 'بدون موعد محدد'],
         a.submitted_at && ['تاريخ التقديم', dateTime(a.submitted_at)],
         a.approved_at && ['تاريخ الاعتماد', dateTime(a.approved_at)],
-        a.hours_spent != null && ['الساعات المسجلة', `${num(a.hours_spent)} ساعة`],
+        a.hours_spent != null && ['الساعات المسجلة', hoursText(a.hours_spent)],
         ['معاملة الأتعاب', a.fee_mode === 'pro_bono' ? badge(fee, 'accent', { icon: 'star' }) : h('span', bidiText(fee))],
         ['حالة الملف', v.case.state === 'closed' ? badge('مغلق', 'muted', { icon: 'lock' }) : badge('مفتوح', 'success', { dot: true })],
       ]),
@@ -876,7 +876,7 @@ export default async function render(ctx) {
                 items.map((s) =>
                   h(
                     'li.pc-similar-item',
-                    h('div.pc-similar-head', h('strong', richText(s.title)), s.score != null && badge(`تشابه ${Math.round(s.score * 100)}%`, 'info')),
+                    h('div.pc-similar-head', h('strong', richText(s.title)), s.score != null && badge(`تشابه ${percent(s.score)}`, 'info')),
                     h('div.row', badge(areaLabel(s.legal_area), 'neutral', { icon: 'book' })),
                     s.key_points && collapsibleText(s.key_points, { limit: 220, className: 'pc-similar-points' }),
                     Array.isArray(s.issues) && s.issues.length ? h('ul.pc-similar-issues', s.issues.map((x) => h('li', x))) : null,
@@ -1042,7 +1042,7 @@ export default async function render(ctx) {
       onSubmit: (vals) => api.post(`${base}/info-requests`, { kind, question: vals.question }),
     });
     if (!res) return;
-    toast('أُرسل طلبك للإدارة. ستصلك إشارة عند إرساله للعميل أو إتاحة الرد لك.', 'success', 5000);
+    toast('أُرسل طلبك للإدارة. سيصلك إشعار عند إرساله للعميل أو إتاحة الرد لك.', 'success', 5000);
     await refresh();
   }
 
@@ -1056,7 +1056,7 @@ export default async function render(ctx) {
     return card({
       title: 'طلب مساعدة محامٍ آخر',
       icon: 'users',
-      subtitle: 'Request Counsel Assistance',
+      subtitle: 'رأي ثانٍ أو رأي متخصص أو مراجعة مستند أو مشاركة محامٍ',
       body: frag(
         h('p.pc-note', icon('lock', { size: 15 }), h('span', 'لن يُفتح الملف لأي محامٍ تلقائيًا؛ تختار الإدارة المحامي وتحدد ما يراه.')),
         can && button('طلب مساعدة محامٍ', { variant: 'secondary', icon: 'userPlus', block: true, onClick: openCounselDialog }),
@@ -1144,7 +1144,7 @@ export default async function render(ctx) {
     const desc = h('textarea.input', {
       rows: 5,
       maxlength: 3000,
-      placeholder: 'مثال: أطلب رأي متخصص في الأثر الضريبي لانتقال الشقة بالميراث ثم بيعها، وبالأخص المسألة رقم 3.',
+      placeholder: 'مثال: أطلب رأيًا متخصصًا في الأثر الضريبي لانتقال الشقة بالميراث ثم بيعها، وبالأخص المسألة رقم 3.',
     });
     const descField = field('وصف المطلوب', desc, { required: true, full: true, hint: 'وضّح السؤال المحدد الذي تحتاج فيه رأي الزميل (10 أحرف على الأقل).' });
 
@@ -1211,7 +1211,7 @@ export default async function render(ctx) {
               formAlert.hidden = false;
               return false;
             }
-            toast('أُرسل طلب المساعدة للإدارة. ستصلك إشارة عند البت فيه.', 'success', 5000);
+            toast('أُرسل طلب المساعدة للإدارة. سيصلك إشعار عند البت فيه.', 'success', 5000);
             refresh().catch((err) => toast(errorMessage(err), 'danger'));
             return undefined;
           },

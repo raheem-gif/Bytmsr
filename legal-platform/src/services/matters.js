@@ -1,6 +1,6 @@
 // ملفات العمل القانوني المستمر (Matter): تمثيل قضائي أو عمل مستمر مرتبط بنفس العميل والاستشارة الأصلية.
 // محكمة، رقم دعوى، جلسات، مهام ومواعيد إجرائية، أتعاب ومدفوعات ومصروفات.
-import { nowIso, cairoYear, badRequest, notFound, conflict, v, fromMinor, truncate } from '../util.js';
+import { nowIso, cairoYear, badRequest, notFound, conflict, v, fromMinor, truncate, arabicDate, arabicTime, formatEgp } from '../util.js';
 import { LABELS, ENUMS, CODE_PREFIX } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
 
@@ -88,7 +88,7 @@ export function createMatters(app) {
       if (lawyerId) {
         app.notifications.notify(lawyerId, {
           type: 'matter.assigned',
-          title: `أصبحت المحامي المسؤول عن الملف ${m.code}`,
+          title: `أُسند إليك الملف المستمر ${m.code} بصفة المحامي المسؤول`,
           body: truncate(m.title, 140),
           link: `#/my/matters/${m.id}`,
         });
@@ -139,7 +139,9 @@ export function createMatters(app) {
         client: client ? { id: client.id, code: client.code, name: client.name, phone: app.clients.primaryPhone(client.id) } : null,
         case: db.get('SELECT id, code, title, status, legal_area FROM cases WHERE id = ?', m.case_id),
         responsible_lawyer: m.responsible_lawyer_id ? { id: m.responsible_lawyer_id, name: app.cases.lawyerName(m.responsible_lawyer_id) } : null,
-        events: db.all('SELECT * FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id),
+        events: db
+          .all('SELECT * FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id)
+          .map((e) => ({ ...e, reminder_pending_approval: !!e.client_attendance_required && !e.client_text_approved && e.status === 'scheduled' })),
         tasks: db.all(
           'SELECT k.*, u.name AS assignee_name FROM matter_tasks k LEFT JOIN users u ON u.id = k.assignee_user_id WHERE k.matter_id = ? ORDER BY k.status, k.due_at',
           m.id,
@@ -147,7 +149,7 @@ export function createMatters(app) {
         invoices,
         payments: db.all('SELECT p.*, i.number AS invoice_number FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE i.matter_id = ? ORDER BY p.id', m.id).map((p) => ({ ...p, amount: fromMinor(p.amount_minor) })),
         expenses: db.all('SELECT x.*, u.name AS lawyer_name FROM expenses x LEFT JOIN users u ON u.id = x.lawyer_id WHERE x.matter_id = ? ORDER BY x.id', m.id).map((x) => ({ ...x, amount: fromMinor(x.amount_minor) })),
-        lawyer_fees: app.accounting.ledger({}).filter((e) => e.matter_id === m.id),
+        lawyer_fees: app.accounting.ledger({ matter_id: m.id }),
         documents: db.all('SELECT * FROM documents WHERE matter_id = ? ORDER BY id', m.id).map((d) => app.documents.publicView(d)),
         messages: (() => {
           const rows = db.all(
@@ -159,7 +161,8 @@ export function createMatters(app) {
           if (rows.length) {
             for (const d of db.all(`SELECT * FROM documents WHERE message_id IN (${rows.map((r) => r.id).join(',')})`)) {
               if (!docs.has(d.message_id)) docs.set(d.message_id, []);
-              docs.get(d.message_id).push(app.documents.publicView(d));
+              // مرفقات المحادثة لا يراها المحامي المسؤول إلا إذا أتاحتها الإدارة للملف المستمر
+              docs.get(d.message_id).push({ ...app.documents.publicView(d), shared_with_matter: d.matter_id === m.id });
             }
           }
           return rows.map((r) => mapMessage(r, docs));
@@ -202,7 +205,7 @@ export function createMatters(app) {
     listForLawyer(lawyer) {
       const t = nowIso();
       return db.all(
-        `SELECT m.id, m.code, m.title, m.kind, m.status, m.court, m.lawsuit_number,
+        `SELECT m.id, m.code, m.title, m.kind, m.status, m.court, m.circuit, m.lawsuit_number, m.lawsuit_year,
            (SELECT MIN(starts_at) FROM matter_events e WHERE e.matter_id = m.id AND e.status = 'scheduled' AND e.starts_at >= ?) AS next_event_at,
            (SELECT COUNT(*) FROM matter_tasks k WHERE k.matter_id = m.id AND k.status = 'open') AS open_tasks
          FROM matters m WHERE m.responsible_lawyer_id = ? ORDER BY CASE m.status WHEN 'closed' THEN 1 ELSE 0 END, m.id DESC`,
@@ -231,10 +234,22 @@ export function createMatters(app) {
         if (lid) requireLawyerUser(lid);
         patch.responsible_lawyer_id = lid;
         if (lid && lid !== m.responsible_lawyer_id) {
-          app.notifications.notify(lid, { type: 'matter.assigned', title: `أصبحت المحامي المسؤول عن الملف ${m.code}`, link: `#/my/matters/${m.id}` });
+          app.notifications.notify(lid, { type: 'matter.assigned', title: `أُسند إليك الملف المستمر ${m.code} بصفة المحامي المسؤول`, link: `#/my/matters/${m.id}` });
         }
       }
-      db.update('matters', m.id, patch);
+      db.tx(() => {
+        db.update('matters', m.id, patch);
+        // المهام المفتوحة للمحامي السابق تنتقل للمحامي الجديد (ولا تبقى إشعاراتها عند من لم يعد له وصول للملف)
+        if (patch.responsible_lawyer_id !== undefined && m.responsible_lawyer_id && patch.responsible_lawyer_id !== m.responsible_lawyer_id) {
+          db.run(
+            "UPDATE matter_tasks SET assignee_user_id = ?, updated_at = ? WHERE matter_id = ? AND status = 'open' AND assignee_user_id = ?",
+            patch.responsible_lawyer_id ?? null,
+            nowIso(),
+            m.id,
+            m.responsible_lawyer_id,
+          );
+        }
+      });
       app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'matter.updated', summary: patch.status ? `تغيرت حالة الملف المستمر إلى «${LABELS.matter_status[patch.status]}»` : 'تم تحديث بيانات الملف المستمر' });
       return svc.require(m.id);
     },
@@ -254,6 +269,8 @@ export function createMatters(app) {
         client_attendance_required: v.bool(body.client_attendance_required) ? 1 : 0,
         status: 'scheduled',
         notes: v.str(body.notes, 'ملاحظات', { max: 3000 }),
+        // ما يكتبه المحامي لا يصل للعميل (تذكيرًا أو في البوابة) قبل اعتماد الإدارة
+        client_text_approved: actor.role === 'lawyer' ? 0 : 1,
         created_by: actor.id,
         created_at: t,
         updated_at: t,
@@ -264,10 +281,15 @@ export function createMatters(app) {
         case_id: m.case_id,
         actor,
         type: 'event.added',
-        summary: `سُجل ${LABELS.event_kind[kind]} بتاريخ ${e.starts_at.slice(0, 10)}${e.client_attendance_required ? ' (يلزم حضور العميل — سيُرسل تذكير آلي)' : ''}`,
+        summary: `سُجّل موعد (${LABELS.event_kind[kind]}) بتاريخ ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)}${e.client_attendance_required ? ' (يلزم حضور العميل — سيُرسل تذكير آلي)' : ''}`,
       });
       if (actor.role === 'lawyer') {
-        app.notifications.notifyStaff({ type: 'event.added', title: `سجل المحامي ${LABELS.event_kind[kind]} في الملف ${m.code}`, link: `#/matters/${m.id}` });
+        app.notifications.notifyStaff({
+          type: 'event.added',
+          title: `سجّل المحامي موعدًا (${LABELS.event_kind[kind]}) في الملف ${m.code}`,
+          body: e.client_attendance_required ? 'يلزم حضور العميل: راجع بيانات الموعد واعتمد تذكير العميل.' : null,
+          link: `#/matters/${m.id}`,
+        });
       }
       return e;
     },
@@ -285,9 +307,30 @@ export function createMatters(app) {
       if (body.status !== undefined) patch.status = v.oneOf(body.status, ENUMS.event_status, 'الحالة', { required: true });
       if (body.notes !== undefined) patch.notes = v.str(body.notes, 'ملاحظات', { max: 3000 });
       if (body.outcome !== undefined) patch.outcome = v.str(body.outcome, 'ما تم في الجلسة', { max: 5000 });
+      const clientFacing = ['kind', 'title', 'starts_at', 'location', 'client_attendance_required'].some((k) => patch[k] !== undefined && patch[k] !== e[k]);
+      if (actor.role !== 'lawyer') patch.client_text_approved = 1; // تعديل الإدارة اعتماد للنص
+      else if (clientFacing) patch.client_text_approved = 0;
       db.update('matter_events', e.id, patch);
-      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'event.updated', summary: `تم تحديث ${LABELS.event_kind[e.kind]}${patch.outcome ? ': ' + truncate(patch.outcome, 100) : ''}` });
+      if (actor.role === 'lawyer' && clientFacing && (patch.client_attendance_required ?? e.client_attendance_required)) {
+        app.notifications.notifyStaff({
+          type: 'event.updated',
+          title: `عدّل المحامي موعدًا في الملف ${m.code}: يحتاج تذكير العميل إلى اعتماد`,
+          link: `#/matters/${m.id}`,
+        });
+      }
+      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'event.updated', summary: `تم تحديث موعد (${LABELS.event_kind[e.kind]})${patch.outcome ? ': ' + truncate(patch.outcome, 100) : ''}` });
       return db.get('SELECT * FROM matter_events WHERE id = ?', e.id);
+    },
+
+    /** اعتماد الإدارة لنص موعد سجله المحامي حتى يُستخدم في تذكير العميل وبوابته */
+    approveEventText(eventId, actor) {
+      const e = db.get('SELECT * FROM matter_events WHERE id = ?', eventId);
+      if (!e) throw notFound('الموعد غير موجود');
+      const m = svc.require(e.matter_id);
+      if (e.client_text_approved) return { ok: true };
+      db.update('matter_events', e.id, { client_text_approved: 1, updated_at: nowIso() });
+      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'event.approved', summary: `اعتمدت الإدارة بيانات الموعد «${truncate(e.title, 80)}» لتذكير العميل` });
+      return { ok: true };
     },
 
     // ===== المهام والمواعيد الإجرائية =====
@@ -296,7 +339,9 @@ export function createMatters(app) {
       if (m.status === 'closed') throw conflict('الملف المستمر مغلق');
       let assignee = v.int(body.assignee_user_id, 'المسؤول عن المهمة', { min: 1 });
       if (actor.role === 'lawyer') assignee = actor.id;
-      if (assignee && !db.get('SELECT 1 FROM users WHERE id = ? AND active = 1', assignee)) throw badRequest('المسؤول عن المهمة غير صالح');
+      const au = assignee ? db.get('SELECT id, role FROM users WHERE id = ? AND active = 1', assignee) : null;
+      if (assignee && !au) throw badRequest('المسؤول عن المهمة غير صالح');
+      if (au && au.role === 'lawyer' && au.id !== m.responsible_lawyer_id) throw badRequest('لا يمكن إسناد المهمة لمحامٍ غير المسؤول عن الملف');
       const t = nowIso();
       const id = db.insert('matter_tasks', {
         matter_id: m.id,
@@ -325,7 +370,10 @@ export function createMatters(app) {
       if (body.procedural !== undefined) patch.procedural = v.bool(body.procedural) ? 1 : 0;
       if (body.assignee_user_id !== undefined && actor.role !== 'lawyer') {
         const aid = v.int(body.assignee_user_id, 'المسؤول عن المهمة', { min: 1 });
-        if (aid && !db.get('SELECT 1 FROM users WHERE id = ? AND active = 1', aid)) throw badRequest('المسؤول عن المهمة غير صالح');
+        const au = aid ? db.get('SELECT id, role FROM users WHERE id = ? AND active = 1', aid) : null;
+        if (aid && !au) throw badRequest('المسؤول عن المهمة غير صالح');
+        // من المحامين لا يُسند إلا للمحامي المسؤول عن الملف؛ غيره لا يملك الوصول إليه
+        if (au && au.role === 'lawyer' && au.id !== m.responsible_lawyer_id) throw badRequest('لا يمكن إسناد المهمة لمحامٍ غير المسؤول عن الملف');
         patch.assignee_user_id = aid;
       }
       if (body.status !== undefined) {
@@ -356,7 +404,7 @@ export function createMatters(app) {
         updated_at: t,
       });
       const inv = db.get('SELECT * FROM invoices WHERE id = ?', id);
-      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'invoice.created', summary: `أُصدرت الفاتورة ${inv.number} بمبلغ ${fromMinor(inv.amount_minor)} جنيه` });
+      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'invoice.created', summary: `أُصدرت الفاتورة ${inv.number} بمبلغ ${formatEgp(inv.amount_minor)}` });
       return invoiceView(inv);
     },
 
@@ -366,7 +414,7 @@ export function createMatters(app) {
       if (inv.status === 'cancelled' || inv.status === 'paid') throw conflict('الفاتورة مسددة أو ملغاة');
       const amount = v.money(body.amount, 'المبلغ المدفوع', { required: true, min: 0.01 });
       const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', inv.id));
-      if (paid + amount > inv.amount_minor) throw badRequest(`المبلغ يتجاوز المتبقي من الفاتورة (${fromMinor(inv.amount_minor - paid)} جنيه)`);
+      if (paid + amount > inv.amount_minor) throw badRequest(`المبلغ يتجاوز المتبقي من الفاتورة (${formatEgp(inv.amount_minor - paid)})`);
       const t = nowIso();
       db.tx(() => {
         db.insert('payments', {
@@ -380,7 +428,7 @@ export function createMatters(app) {
         });
         db.update('invoices', inv.id, { status: paid + amount >= inv.amount_minor ? 'paid' : 'partially_paid', updated_at: t });
       });
-      app.activity.log({ matter_id: inv.matter_id, case_id: inv.case_id, actor, type: 'payment.recorded', summary: `سُجلت دفعة ${fromMinor(amount)} جنيه على الفاتورة ${inv.number}` });
+      app.activity.log({ matter_id: inv.matter_id, case_id: inv.case_id, actor, type: 'payment.recorded', summary: `سُجلت دفعة ${formatEgp(amount)} على الفاتورة ${inv.number}` });
       return invoiceView(db.get('SELECT * FROM invoices WHERE id = ?', inv.id));
     },
 
@@ -415,7 +463,7 @@ export function createMatters(app) {
         return xid;
       });
       const x = db.get('SELECT * FROM expenses WHERE id = ?', id);
-      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'expense.added', summary: `سُجلت مصروفات ${fromMinor(x.amount_minor)} جنيه (${LABELS.expense_paid_by[paidBy]})` });
+      app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'expense.added', summary: `سُجلت مصروفات ${formatEgp(x.amount_minor)} (${LABELS.expense_paid_by[paidBy]})` });
       return { ...x, amount: fromMinor(x.amount_minor) };
     },
 

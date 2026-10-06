@@ -219,6 +219,9 @@ export default async function render(ctx) {
   async function openEditEvent(e) {
     const res = await formModal({
       title: `تعديل ${label('event_kind', e.kind)}`,
+      intro: e.reminder_pending_approval
+        ? 'أضاف المحامي هذا الموعد أو عدّله ولم يُعتمد تذكير العميل بعد. حفظ التعديل يعتمد التذكير، فراجع العنوان والمكان كما سيصلان للعميل.'
+        : null,
       fields: eventFields(true),
       values: { ...e, client_attendance_required: Boolean(e.client_attendance_required) },
       onSubmit: (v) =>
@@ -264,12 +267,27 @@ export default async function render(ctx) {
     if (res) await refresh(res.scheduledNext ? 'سُجل ما تم وجُدول الموعد التالي' : 'سُجل ما تم في الموعد', { tab: 'events' });
   }
 
+  // نص المحامي لا يصل للعميل قبل مراجعة الإدارة: تذكير الموعد ينتظر الاعتماد
+  async function approveReminder(e) {
+    const ok = await confirmAction({
+      title: 'اعتماد تذكير العميل',
+      message: `سيُرسل للعميل تذكير آلي قبل الموعد يتضمن: «${e.title}» يوم ${weekday(e.starts_at)} ${date(e.starts_at)}، ${time(e.starts_at)}${e.location ? ` في «${e.location}»` : ''}. إن احتاج النص تعديلًا فاستخدم «تعديل» بدلًا من ذلك (حفظ التعديل يعتمد التذكير أيضًا).`,
+      confirmLabel: 'اعتماد التذكير',
+      danger: false,
+    });
+    if (!ok) return;
+    await api.post(`/admin/matter-events/${e.id}/approve-reminder`);
+    await refresh('اعتُمد تذكير العميل بهذا الموعد', { tab: 'events' });
+  }
+
   function eventItem(e) {
     const p = calendarParts(e.starts_at);
     const past = new Date(e.starts_at).getTime() < now;
+    const pendingReminder = Boolean(e.reminder_pending_approval);
     const acts = !closed
       ? h(
           'div.btn-group.mt-2',
+          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير العميل', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle' }),
           e.status === 'scheduled' && button('تسجيل ما تم', { size: 'sm', variant: past ? 'primary' : 'secondary', icon: 'check', onClick: () => openRecordOutcome(e) }),
           button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditEvent(e) }),
         )
@@ -290,7 +308,17 @@ export default async function render(ctx) {
           'div.row.mt-2',
           statusBadge('event_kind', e.kind),
           statusBadge('event_status', e.status),
-          e.client_attendance_required ? badge('يلزم حضور العميل — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' }) : null,
+          e.client_attendance_required
+            ? pendingReminder
+              ? badge('يلزم حضور العميل', 'accent', { icon: 'user' })
+              : badge('يلزم حضور العميل — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' })
+            : null,
+          pendingReminder
+            ? badge('تذكير العميل بانتظار الاعتماد', 'warning', {
+                icon: 'clock',
+                title: 'أضاف المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير للعميل قبل أن تعتمده الإدارة',
+              })
+            : null,
           e.status === 'scheduled' && past && badge('مضى موعده ولم تُسجَّل نتيجته', 'warning', { icon: 'alert' }),
         ),
         e.outcome && h('div.mt-2', textBlock('ما تم', e.outcome, { iconName: 'checkCircle' })),
@@ -303,9 +331,15 @@ export default async function render(ctx) {
   function renderEvents() {
     const upcoming = events.filter((e) => e.status === 'scheduled' && new Date(e.starts_at).getTime() >= now).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
     const rest = events.filter((e) => !upcoming.includes(e)).sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+    const pendingReminders = events.filter((e) => e.reminder_pending_approval && e.status === 'scheduled').length;
     return h(
       'div.stack',
       alertBox('المواعيد التي يلزم فيها حضور العميل يُرسَل له بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
+      pendingReminders > 0 &&
+        alertBox('أضاف المحامي مواعيد يلزم فيها حضور العميل أو عدّلها، ولن يُرسل تذكيرها للعميل قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير العميل».', 'warning', {
+          title: 'تذكيرات بانتظار الاعتماد',
+          icon: 'alert',
+        }),
       card({
         title: 'المواعيد القادمة',
         icon: 'calendar',
@@ -752,18 +786,57 @@ export default async function render(ctx) {
     );
   }
 
+  // مرفقات العميل لا تصل للمحامي المسؤول تلقائيًا: تتيحها الإدارة (أو تسحبها) مرفقًا مرفقًا
+  function attachmentShareControls(thread) {
+    const bubbles = thread.querySelectorAll('.msg');
+    messages.forEach((msg, i) => {
+      const docs = msg.direction === 'in' ? msg.documents || [] : [];
+      const bubble = docs.length && bubbles[i] ? bubbles[i].querySelector('.msg-bubble') : null;
+      if (!bubble) return;
+      bubble.append(
+        h(
+          'div.pb-msg-extra.pb-msg-shares',
+          docs.map((doc) => {
+            const shared = Boolean(doc.shared_with_matter);
+            return h(
+              'div.pb-msg-share',
+              h('span.pb-msg-share-name', { dir: 'auto' }, icon('paperclip', { size: 13 }), doc.filename || doc.title || `مستند #${doc.id}`),
+              shared ? badge('متاح للمحامي', 'success', { icon: 'eye' }) : null,
+              asyncButton(
+                shared ? 'سحب من المحامي' : 'إتاحة للمحامي المسؤول',
+                async () => {
+                  await api.patch(`/admin/documents/${doc.id}`, { matter_id: shared ? null : m.id });
+                  await refresh(shared ? 'سُحب المرفق من المحامي المسؤول' : 'أصبح المرفق متاحًا للمحامي المسؤول', { tab: 'messages' });
+                },
+                {
+                  size: 'sm',
+                  variant: shared ? 'ghost' : 'secondary',
+                  icon: shared ? 'eyeOff' : 'eye',
+                  title: !shared && !d.responsible_lawyer ? 'لم يُحدَّد محامٍ مسؤول بعد؛ سيراه المحامي عند تحديده' : null,
+                },
+              ),
+            );
+          }),
+        ),
+      );
+    });
+    return thread;
+  }
+
   function renderMessages() {
     return h(
       'div.stack',
-      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة).', 'info', { icon: 'message' }),
-      messageThread(messages, {
-        inLabel: d.client ? d.client.name : 'العميل',
-        outLabel: 'المؤسسة',
-        onRetry: async (msg) => {
-          await api.post(`/admin/messages/${msg.id}/retry`);
-          await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'messages' });
-        },
-      }),
+      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات العميل لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message' }),
+      attachmentShareControls(
+        messageThread(messages, {
+          inLabel: d.client ? d.client.name : 'العميل',
+          outLabel: 'المؤسسة',
+          onRetry: async (msg) => {
+            await api.post(`/admin/messages/${msg.id}/retry`);
+            await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'messages' });
+          },
+        }),
+      ),
       messageComposer({
         hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».',
         onSend: async ({ body, channel }) => {
@@ -776,7 +849,12 @@ export default async function render(ctx) {
 
   // ───────────────────────── تعديل بيانات الملف ─────────────────────────
 
-  async function openEditDialog(lawyerOptions) {
+  async function openEditDialog(activeOptions) {
+    // محامٍ مسؤول موقوف لا يظهر بين المحامين النشطين: نُبقيه خيارًا حتى لا يُمسح بحفظ تعديل آخر
+    const lawyerOptions = [...(activeOptions || [])];
+    if (m.responsible_lawyer_id && !lawyerOptions.some((o) => o.value === m.responsible_lawyer_id)) {
+      lawyerOptions.unshift({ value: m.responsible_lawyer_id, label: `${d.responsible_lawyer?.name || 'المحامي الحالي'} (حساب موقوف)` });
+    }
     const res = await formModal({
       title: 'تعديل بيانات الملف المستمر',
       size: 'lg',
@@ -803,11 +881,13 @@ export default async function render(ctx) {
           });
           if (!ok) throw new Error('لم يُحفظ التعديل: اختر حالة أخرى أو أكّد الإغلاق.');
         }
+        // يُرسل المحامي المسؤول فقط إن تغيّر: الخادم يرفض إعادة إرسال حساب موقوف
+        const lid = v.responsible_lawyer_id || null;
         return api.patch(`/admin/matters/${id}`, {
           title: v.title,
           kind: v.kind,
           status: v.status,
-          responsible_lawyer_id: v.responsible_lawyer_id || null,
+          responsible_lawyer_id: lid !== (m.responsible_lawyer_id || null) ? lid : undefined,
           agreed_fee: v.agreed_fee ?? null,
           court: v.court || null,
           circuit: v.circuit || null,

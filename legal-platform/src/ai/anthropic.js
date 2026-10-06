@@ -12,7 +12,8 @@ function loadSdk() {
   return sdkPromise;
 }
 
-const SYSTEM_BASE = `أنت مساعد قانوني داخلي لدى مؤسسة «بيوت مصر» التي تقدم خدمات قانونية للمواطنين في مصر.
+// اسم المؤسسة يُملأ من الإعدادات عند كل طلب ({ORG})
+const SYSTEM_BASE = `أنت مساعد قانوني داخلي لدى مؤسسة «{ORG}» التي تقدم خدمات قانونية للمواطنين في مصر.
 تعمل لصالح الإدارة والمحامين فقط، ولا تخاطب العملاء مباشرة إلا عند طلب صياغة نسخة موجهة للعميل.
 اكتب بالعربية الفصحى الواضحة. لا تخترع وقائع غير موجودة في النص، ولا تذكر أرقام مواد أو قوانين إلا إذا كنت متأكدًا تمامًا منها؛
 وعند عدم التأكد اكتب «يحدد المحامي النص القانوني الحاكم». القرار النهائي دائمًا للإدارة والمحامي.`;
@@ -73,8 +74,9 @@ const TEXT_SCHEMA = {
   additionalProperties: false,
 };
 
-export function createAnthropicProvider({ apiKey, model, effort = 'medium', log }) {
+export function createAnthropicProvider({ apiKey, model, effort = 'medium', log, orgName = () => 'بيوت مصر' }) {
   let client = null;
+  const org = () => orgName() || 'بيوت مصر';
 
   async function getClient() {
     if (client) return client;
@@ -95,7 +97,7 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log 
         // عند رفض الطلب من مصنفات الأمان يُعاد تشغيله تلقائيًا على النموذج البديل الموصى به
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
-        system: `${SYSTEM_BASE}\n\n${system}`,
+        system: `${SYSTEM_BASE.replace('{ORG}', org())}\n\n${system}`,
         messages: [{ role: 'user', content: prompt }],
         output_config: { effort, format: { type: 'json_schema', schema } },
       });
@@ -156,7 +158,7 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log 
 
     async clientVersion({ clientName, caseCode, opinion }) {
       const { data, model: m } = await structured({
-        system: `أعد صياغة الرأي القانوني المعتمد في رسالة موجهة للعميل باسم «بيوت مصر»: لغة بسيطة ومهذبة، خطوات عملية واضحة،
+        system: `أعد صياغة الرأي القانوني المعتمد في رسالة موجهة للعميل باسم «${org()}»: لغة بسيطة ومهذبة، خطوات عملية واضحة،
 بدون مصطلحات معقدة، وبدون أي ملاحظات داخلية أو أسماء المحامين. اختم بأن الإفادة مبنية على المعلومات المقدمة وبدعوة للتواصل.`,
         prompt: `اسم العميل: ${clientName || 'غير متاح'}\nرقم الملف: ${caseCode}\n\nالرأي المعتمد:\n"""\n${opinion}\n"""`,
         schema: TEXT_SCHEMA,

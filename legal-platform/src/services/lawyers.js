@@ -1,5 +1,5 @@
 // شبكة المحامين ومستخدمو الإدارة: إنشاء الحسابات، التخصصات، الطاقة الاستيعابية، الاتفاقات، ومؤشرات الأداء.
-import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, fromMinor } from '../util.js';
+import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, fromMinor, arabicCount, AR_UNITS } from '../util.js';
 import { LABELS, LEGAL_AREAS, AREA_CODES } from '../constants.js';
 import { hashPassword, passwordProblem } from '../auth.js';
 import { validateAgreement, describeAgreement } from './accounting.js';
@@ -196,7 +196,10 @@ export function createLawyers(app) {
       if (body.name !== undefined) userPatch.name = v.str(body.name, 'اسم المحامي', { required: true, max: 120 });
       if (body.email !== undefined) userPatch.email = v.email(body.email, 'البريد الإلكتروني');
       if (body.phone !== undefined) userPatch.phone = v.phone(body.phone, 'رقم الهاتف');
-      if (body.active !== undefined) userPatch.active = v.bool(body.active) ? 1 : 0;
+      if (body.active !== undefined) {
+        userPatch.active = v.bool(body.active) ? 1 : 0;
+        if (userPatch.active !== r.active) userPatch.deactivated_at = userPatch.active ? null : nowIso();
+      }
       if (body.title !== undefined) lawyerPatch.title = v.str(body.title, 'اللقب', { max: 20 }) || 'أ.';
       if (body.specialties !== undefined) lawyerPatch.specialties = JSON.stringify(specialtiesOf(body.specialties));
       if (body.bar_number !== undefined) lawyerPatch.bar_number = v.str(body.bar_number, 'رقم القيد', { max: 40 });
@@ -205,14 +208,18 @@ export function createLawyers(app) {
       if (body.capacity !== undefined) lawyerPatch.capacity = v.int(body.capacity, 'الطاقة الاستيعابية', { required: true, min: 1, max: 1000 });
       if (body.notes !== undefined) lawyerPatch.notes = v.str(body.notes, 'ملاحظات', { max: 3000 });
       let newPackage = null;
+      let leavingMonthly = null;
       if (body.agreement !== undefined) {
         const ag = validateAgreement(body.agreement);
         const old = parseJson(r.agreement, {});
         lawyerPatch.agreement = JSON.stringify(ag);
+        if (['monthly', 'monthly_quota'].includes(old.type) && ag.type !== old.type) leavingMonthly = old;
         if (ag.type === 'package' && old.type !== 'package') newPackage = ag;
         if (ag.type !== 'package') lawyerPatch.package_remaining = null;
       }
       db.tx(() => {
+        // الانتقال من اتفاق شهري: يُصدر المبلغ الشهري للفترة الجارية بنسبة الأيام المنقضية قبل تغيير الاتفاق
+        if (leavingMonthly) app.accounting.settlePartialMonth(id, leavingMonthly, actor);
         db.update('users', id, userPatch);
         db.update('lawyers', id, lawyerPatch, 'user_id');
         if (newPackage) {
@@ -247,10 +254,14 @@ export function createLawyers(app) {
         const speed = l.metrics.avg_response_hours ? Math.max(0, 1 - l.metrics.avg_response_hours / 120) : 0.5;
         const score = specialty * 3 + (1 - Math.min(load, 1.5)) * 2 + quality + speed - l.metrics.overdue * 0.3;
         const reasons = [];
-        if (specialty) reasons.push(`متخصص في ${AREA[area]}`);
-        reasons.push(`${l.metrics.open_assignments} من ${l.capacity} ملفات مفتوحة`);
-        if (l.metrics.avg_response_hours !== null) reasons.push(`متوسط زمن الرد ${l.metrics.avg_response_hours} ساعة`);
-        if (l.metrics.overdue) reasons.push(`${l.metrics.overdue} متأخرة`);
+        // صيغة «البيان: العدد» محايدة جنسًا وعددًا («التخصص:» بدل «متخصص في»)
+        if (specialty) reasons.push(`التخصص: ${AREA[area]}`);
+        reasons.push(`الإسنادات المفتوحة: ${l.metrics.open_assignments} من ${l.capacity}`);
+        if (l.metrics.avg_response_hours !== null) {
+          const h = Number(l.metrics.avg_response_hours);
+          reasons.push(`متوسط زمن الرد: ${Number.isInteger(h) ? arabicCount(h, AR_UNITS.hour) : `${h} ساعة`}`);
+        }
+        if (l.metrics.overdue) reasons.push(`إسنادات متأخرة: ${l.metrics.overdue}`);
         return { ...l, score: Math.round(score * 100) / 100, specialty_match: !!specialty, over_capacity: load >= 1, reasons };
       });
       scored.sort((a, b) => b.score - a.score);

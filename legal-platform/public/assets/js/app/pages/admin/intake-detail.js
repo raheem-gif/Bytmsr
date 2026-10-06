@@ -58,8 +58,12 @@ const SOURCE_DETAIL_LABELS = {
   ad_body: 'نص الإعلان',
   ctwa_clid: 'معرّف النقرة (ctwa_clid)',
   entered_by: 'سجّله يدويًا',
+  intake_mode: 'طريقة تعبئة النموذج',
 };
 const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
+const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة' };
+// مفاتيح داخلية في source_detail (التحقق من الهوية) تُعرض بتنبيه مخصص لا كصفوف خام
+const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k.startsWith('identity_');
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
 
@@ -86,6 +90,14 @@ export default async function render(ctx) {
   ctx.setTitle(`الطلب ${it.code}`);
 
   const base = `/admin/intakes/${it.id}`;
+  // رقم من نموذج الموقع يطابق عميلًا مسجلًا دون إثبات أن المرسل صاحبه
+  const identity = it.identity || {
+    phone_match_unverified: Boolean(it.source_detail && it.source_detail.phone_match_unverified === true),
+    confirmed_at: null,
+    confirmed_by_name: null,
+  };
+  const unverified = Boolean(identity.phone_match_unverified) && !identity.confirmed_at;
+  const portalLinks = Number(it.active_portal_links) || 0;
 
   // ───────────── أدوات ─────────────
   async function run(fn) {
@@ -94,6 +106,60 @@ export default async function render(ctx) {
     } catch (err) {
       toast(errorMessage(err), 'danger');
     }
+  }
+
+  // ───────────── التحقق من هوية المرسل ─────────────
+  async function confirmIdentity() {
+    const ok = await confirmDialog({
+      title: 'تأكيد هوية المرسل',
+      message: 'أكّد فقط بعد التحقق من أن مقدم الطلب هو صاحب رقم الهاتف المسجل (مثلًا بمكالمة على الرقم أو برسالة منه عبر واتساب). بعد التأكيد يُعامل الطلب كطلب من العميل نفسه.',
+      confirmLabel: 'تأكيد الهوية',
+    });
+    if (!ok) return;
+    await api.post(`${base}/confirm-identity`);
+    toast('تم تأكيد هوية المرسل', 'success');
+    await reloadAndFocus(ctx, '#pa-identity');
+  }
+
+  async function revokePortal() {
+    const ok = await confirmDanger({
+      title: 'إلغاء روابط البوابة',
+      message: 'ستتوقف روابط البوابة الخاصة بهذا الطلب فورًا، ولن يستطيع من يملكها متابعة الطلب أو الاطلاع على رسائله. يمكن إنشاء رابط جديد لاحقًا من ملف العميل بعد التحقق.',
+      confirmLabel: 'نعم، إلغاء الروابط',
+    });
+    if (!ok) return;
+    const res = await api.post(`${base}/revoke-portal`);
+    const n = Number(res && res.revoked) || 0;
+    toast(n ? `أُلغي ${count(n, ['رابط واحد', 'رابطان', 'روابط', 'رابطًا'])} للبوابة` : 'لا توجد روابط سارية لإلغائها', n ? 'success' : 'info');
+    await reloadAndFocus(ctx, '#pa-identity');
+  }
+
+  function identityBlock() {
+    if (unverified) {
+      return alertBox(
+        h(
+          'div.stack-sm',
+          h('p', 'رقم الهاتف أُدخل من نموذج الموقع ويطابق عميلًا مسجلًا، ولم يُثبت أن المرسل هو صاحب الرقم. لا تُرسل معلومات عن ملفات العميل الأخرى قبل التحقق.'),
+          portalLinks > 0 &&
+            h('p.small', `لهذا الطلب ${count(portalLinks, ['رابط بوابة ساري', 'رابطا بوابة ساريان', 'روابط بوابة سارية', 'رابط بوابة ساريًا'])}؛ من يملكه يتابع الطلب ويرى رسائله.`),
+          h(
+            'div.btn-group',
+            asyncButton('تأكيد هوية المرسل', confirmIdentity, { size: 'sm', variant: 'primary', icon: 'shieldCheck' }),
+            portalLinks > 0 && asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x' }),
+          ),
+        ),
+        'warning',
+        { title: 'تنبيه: هوية المرسل غير مؤكدة', icon: 'shield' },
+      );
+    }
+    if (identity.confirmed_at) {
+      return h(
+        'p.pa-note.small.muted',
+        icon('shieldCheck', { size: 15 }),
+        h('span', `تم التحقق من الهوية${identity.confirmed_by_name ? ` بواسطة ${identity.confirmed_by_name}` : ''} في ${dateTime(identity.confirmed_at)}.`),
+      );
+    }
+    return null;
   }
 
   // ───────────── القرار ─────────────
@@ -562,6 +628,12 @@ export default async function render(ctx) {
     });
     return h(
       'div.composer.pa-composer',
+      unverified &&
+        h(
+          'p.pa-note.is-warning',
+          icon('alert', { size: 15 }),
+          h('span', 'الهوية غير مؤكدة: الرد عبر واتساب يصل إلى صاحب الرقم المسجل، والرد عبر الموقع يصل إلى من أرسل النموذج — فلا تذكر تفاصيل من ملفات العميل الأخرى.'),
+        ),
       wrap,
       h(
         'div.composer-actions',
@@ -922,7 +994,13 @@ export default async function render(ctx) {
           cl.email && ['البريد', ltr(cl.email)],
           ['المحافظة', cl.governorate || it.governorate],
         ]),
-        allChannels.length
+        unverified
+          ? h(
+              'p.pa-note.is-warning',
+              icon('alert', { size: 15 }),
+              h('span', 'رُبط الطلب بهذا العميل لتطابق رقم الهاتف فقط، والهوية غير مؤكدة: لا تعتمد على تاريخ العميل أدناه في الرد قبل التحقق.'),
+            )
+          : allChannels.length
           ? h(
               'p.pa-note.is-info',
               icon('link', { size: 15 }),
@@ -981,8 +1059,15 @@ export default async function render(ctx) {
   function sourceCard() {
     const detail = it.source_detail && typeof it.source_detail === 'object' ? it.source_detail : {};
     const detailRows = Object.entries(detail)
-      .filter(([, v]) => v != null && v !== '')
-      .map(([k, v]) => [SOURCE_DETAIL_LABELS[k] || k, k === 'source_type' ? SOURCE_TYPE_LABELS[v] || String(v) : h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v))]);
+      .filter(([k, v]) => !isInternalSourceKey(k) && v != null && v !== '')
+      .map(([k, v]) => [
+        SOURCE_DETAIL_LABELS[k] || k,
+        k === 'source_type'
+          ? SOURCE_TYPE_LABELS[v] || String(v)
+          : k === 'intake_mode'
+            ? INTAKE_MODE_LABELS[v] || String(v)
+            : h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v)),
+      ]);
     const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
     return card({
       title: 'المصدر والقناة',
@@ -1023,6 +1108,7 @@ export default async function render(ctx) {
     return el;
   }
 
+  const identityEl = identityBlock();
   const headerTitle = it.title || (it.contact_name ? `طلب ${it.contact_name}` : `الطلب ${it.code}`);
   const header = pageHeader({
     title: headerTitle,
@@ -1050,7 +1136,14 @@ export default async function render(ctx) {
     header,
     h(
       'div.detail-layout',
-      h('div.detail-main', withId(decisionCard(), 'pa-decision'), withId(conversationCard(), 'pa-conversation'), withId(triageCard(), 'pa-triage'), activityCard()),
+      h(
+        'div.detail-main',
+        identityEl && withId(identityEl, 'pa-identity'),
+        withId(decisionCard(), 'pa-decision'),
+        withId(conversationCard(), 'pa-conversation'),
+        withId(triageCard(), 'pa-triage'),
+        activityCard(),
+      ),
       h('div.detail-side', withId(aiCard(), 'pa-ai'), withId(clientCard(), 'pa-client'), sourceCard()),
     ),
   );

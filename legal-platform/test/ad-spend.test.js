@@ -22,8 +22,18 @@ test('ad spend is recorded per period/source/campaign and drives acquisition cos
     assert.equal(bad.status, 400);
     const saved = await admin.post('/api/admin/analytics/spend', { period, source: 'facebook_ad', campaign: 'حملة المواريث', amount: 3000 });
     assert.equal(saved.status, 200);
-    // نفس الشهر والمصدر والحملة: تحديث لا تكرار
-    await admin.post('/api/admin/analytics/spend', { period, source: 'facebook_ad', campaign: 'حملة المواريث', amount: 4000 });
+    // نفس الشهر والمصدر والحملة: لا يُستبدل السجل بصمت من «تسجيل إنفاق»
+    const dup = await admin.post('/api/admin/analytics/spend', { period, source: 'facebook_ad', campaign: 'حملة المواريث', amount: 4000 });
+    assert.equal(dup.status, 409);
+    // التعديل يكون على السجل نفسه
+    const upd = await admin.patch(`/api/admin/analytics/spend/${saved.body.id}`, { amount: 4000 });
+    assert.equal(upd.status, 200, JSON.stringify(upd.body));
+    // تغيير اسم الحملة في التعديل لا ينشئ سجلًا ثانيًا ثم يعاد
+    assert.equal((await admin.patch(`/api/admin/analytics/spend/${saved.body.id}`, { campaign: 'حملة مواريث (خطأ)' })).body.campaign, 'حملة مواريث (خطأ)');
+    await admin.patch(`/api/admin/analytics/spend/${saved.body.id}`, { campaign: 'حملة المواريث' });
+    const other = await admin.post('/api/admin/analytics/spend', { period, source: 'google', campaign: 'بحث', amount: 0 });
+    assert.equal((await admin.patch(`/api/admin/analytics/spend/${other.body.id}`, { source: 'facebook_ad', campaign: 'حملة المواريث' })).status, 409);
+    await admin.del(`/api/admin/analytics/spend/${other.body.id}`);
     const list = await admin.get('/api/admin/analytics/spend');
     assert.equal(list.body.items.length, 1);
     assert.equal(list.body.items[0].amount, 4000);

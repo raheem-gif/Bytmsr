@@ -7,7 +7,7 @@ const GRAPH = 'https://graph.facebook.com';
 
 /** التحقق من توقيع Meta (X-Hub-Signature-256) على الجسم الخام */
 export function verifySignature(rawBody, header, appSecret) {
-  if (!appSecret) return true; // التحقق اختياري إذا لم يُضبط سر التطبيق (يُنصح بضبطه في الإنتاج)
+  if (!appSecret) return false; // بدون سر لا يمكن التحقق؛ قرار قبول الرسائل غير الموقعة (المحاكاة فقط) يتخذه المسار صراحة
   if (typeof header !== 'string' || !header.startsWith('sha256=')) return false;
   const got = header.slice(7);
   if (!/^[0-9a-f]{64}$/i.test(got)) return false;

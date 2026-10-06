@@ -4,7 +4,7 @@
 
 import { h, frag, mount, clear } from '../../../lib/h.js';
 import { api, ApiError, filesToUploads, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, money, percent, count, date, dateTime, relative } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, money, percent, count, date, dateTime, relative, isoToCairoInput } from '../../../lib/fmt.js';
 import {
   icon,
   button,
@@ -1129,6 +1129,7 @@ export default async function render(ctx) {
           'div.btn-group.pb-member-actions',
           button('تعديل الصلاحيات', { size: 'sm', variant: 'primary', icon: 'shield', onClick: () => openGrantsDialog(a) }),
           button('تعديل الإسناد', { size: 'sm', icon: 'edit', onClick: () => openEditAssignmentDialog(a) }),
+          a.status === 'approved' && button('إعادة فتح المهمة للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReengageDialog(a) }),
           a.status !== 'approved' && button('سحب الإسناد', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openWithdrawDialog(a) }),
         )
       : null;
@@ -1408,6 +1409,8 @@ export default async function render(ctx) {
             const payload = {
               lawyer_id: selected,
               role: v.role,
+              // التخصص المختار في «ترتيب المحامين حسب الملاءمة» حتى يقارن الخادم به لا بمجال الملف
+              specialty: area || undefined,
               brief: v.brief,
               due_at: v.due_at || undefined,
               fee_mode: v.fee_mode,
@@ -1490,7 +1493,10 @@ export default async function render(ctx) {
         f.control('fee_amount').wrap.hidden = a.fee_mode !== 'custom';
       },
       onSubmit: async (v, fapi) => {
-        const body = { brief: v.brief || null, due_at: v.due_at || null };
+        // تُرسل الحقول المتغيرة فقط: الحفظ دون تعديل لا يُبلغ المحامي ولا يقتطع ثواني الموعد المحفوظ
+        const body = {};
+        if ((v.brief || '') !== String(a.brief || '').trim()) body.brief = v.brief || null;
+        if (isoToCairoInput(v.due_at) !== isoToCairoInput(a.due_at)) body.due_at = v.due_at || null;
         if (!locked) {
           if (v.fee_mode === 'custom' && !(Number(v.fee_amount) > 0)) {
             fapi.setErrors({ fee_amount: 'أدخل مبلغ الأتعاب المحدد لهذه المهمة' });
@@ -1501,10 +1507,43 @@ export default async function render(ctx) {
             if (v.fee_mode === 'custom') body.fee_amount = v.fee_amount;
           }
         }
+        if (!Object.keys(body).length) return { unchanged: true };
         return api.patch(`/admin/assignments/${a.id}`, body);
       },
     });
-    if (res) await refresh('تم تحديث بيانات الإسناد', { tab: 'team' });
+    if (res && res.unchanged) toast('لم تتغير بيانات الإسناد، فلم يُرسل شيء للمحامي', 'info');
+    else if (res) await refresh('تم تحديث بيانات الإسناد', { tab: 'team' });
+  }
+
+  async function openReengageDialog(a) {
+    const days = ctx.meta?.settings?.default_assignment_days;
+    const res = await formModal({
+      title: `إعادة فتح مهمة ${a.lawyer_name}`,
+      intro: 'اعتُمد رأي هذا المحامي من قبل. إعادة فتح المهمة تتيح له استكمال العمل على الملف (مثل متابعة طلب جديد من العميل): تبدأ له مسودة جديدة من رأيه المعتمد ويُبلَّغ بالمهمة، ويبقى الرأي المعتمد السابق محفوظًا في سجل الآراء.',
+      fields: [
+        {
+          name: 'brief',
+          label: 'السؤال المطلوب تحديدًا',
+          type: 'textarea',
+          required: true,
+          maxLength: 5000,
+          rows: 4,
+          hint: 'حدّث السؤال بما يحتاجه الملف الآن حتى يعرف المحامي المطلوب منه بدقة.',
+        },
+        {
+          name: 'due_at',
+          label: 'موعد التسليم',
+          type: 'date',
+          endOfDay: true,
+          hint: days ? `إن تُرك فارغًا يكون بعد ${count(days, 'day')} من اليوم (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.',
+        },
+      ],
+      values: { brief: a.brief || '' },
+      submitLabel: 'إعادة فتح المهمة',
+      submitIcon: 'refresh',
+      onSubmit: (v) => api.post(`/admin/assignments/${a.id}/reengage`, { brief: v.brief || undefined, due_at: v.due_at || undefined }),
+    });
+    if (res) await refresh('أُعيد فتح المهمة للمحامي وأُبلغ بها', { tab: 'team' });
   }
 
   async function openWithdrawDialog(a) {
@@ -1735,6 +1774,9 @@ export default async function render(ctx) {
       before: frag(
         textBlock(r.assignment_id ? 'صياغة المحامي' : 'المطلوب', r.question, { iconName: 'fileText' }),
         textBlock('رد العميل كما ورد', r.client_reply, { iconName: 'message', tone: 'client' }),
+        !requester && !others.length
+          ? alertBox('لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبويب «الفريق والصلاحيات»، أو ألغِ الطلب إن لم يعد مطلوبًا.', 'warning')
+          : null,
       ),
       fields: [
         {
@@ -1756,6 +1798,8 @@ export default async function render(ctx) {
           name: 'share_with_assignment_ids',
           label: requester ? `إتاحة الرد أيضًا لأعضاء آخرين في الفريق (إضافة إلى ${requester.lawyer_name})` : 'إتاحة الرد لأعضاء الفريق',
           type: 'checkboxes',
+          required: !requester,
+          hint: requester ? null : 'أنشأت الإدارة هذا الطلب، فلا يصل الرد لأي محامٍ إلا من تختاره هنا.',
           options: others.map((a) => ({ value: a.id, label: `${a.lawyer_name} — ${label('assignment_role', a.role)}` })),
         },
       ],
@@ -2281,6 +2325,10 @@ export default async function render(ctx) {
 
   async function openEditCaseDialog() {
     const staffOptions = (staff || []).map((s) => ({ value: s.id, label: `${s.name} (${label('user_role', s.role)})` }));
+    // مدير حالة موقوف لا يظهر في قائمة الموظفين النشطين: نُبقيه خيارًا حتى لا يُمسح بحفظ تعديل آخر
+    if (c.case_manager_id && !staffOptions.some((o) => o.value === c.case_manager_id)) {
+      staffOptions.unshift({ value: c.case_manager_id, label: `${c.case_manager_name || 'مدير الحالة الحالي'} (حساب موقوف)` });
+    }
     const res = await formModal({
       title: 'تعديل بيانات الملف',
       fields: [
@@ -2293,7 +2341,9 @@ export default async function render(ctx) {
       values: { title: c.title, legal_area: c.legal_area, priority: c.priority, due_at: c.due_at, case_manager_id: c.case_manager_id },
       onSubmit: (v) => {
         const body = { title: v.title, legal_area: v.legal_area, priority: v.priority, due_at: v.due_at || null };
-        if (staffOptions.length) body.case_manager_id = v.case_manager_id || null;
+        // يُرسل مدير الحالة فقط إن تغيّر: الخادم يرفض إعادة إرسال حساب موقوف
+        const cm = v.case_manager_id || null;
+        if (staffOptions.length && cm !== (c.case_manager_id || null)) body.case_manager_id = cm;
         return api.patch(`/admin/cases/${id}`, body);
       },
     });
@@ -2337,7 +2387,7 @@ export default async function render(ctx) {
   async function openReopenDialog() {
     const res = await formModal({
       title: 'إعادة فتح الملف',
-      intro: 'سيعود الملف إلى العمل ويمكنك إسناده من جديد. الإسنادات المسحوبة عند الإغلاق لا تعود تلقائيًا.',
+      intro: 'سيعود الملف إلى العمل ويمكنك إسناده من جديد. الإسنادات المسحوبة عند الإغلاق لا تعود تلقائيًا. أما أعضاء الفريق الذين اعتُمدت آراؤهم فيمكن إعادة فتح المهمة لهم من تبويب «الفريق والصلاحيات» بزر «إعادة فتح المهمة للمحامي».',
       fields: [{ name: 'note', label: 'سبب إعادة الفتح (اختياري)', type: 'textarea', rows: 3, maxLength: 1000 }],
       submitLabel: 'إعادة فتح الملف',
       submitIcon: 'refresh',

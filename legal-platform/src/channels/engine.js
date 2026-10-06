@@ -46,7 +46,16 @@ export function createEngine(app) {
     );
   }
 
-  function findTarget(client, { refIntake, forceNew, caseId, intakeId }) {
+  // طلب أنشأه نموذج الموقع برقم عميل مسجل ولم تتحقق الإدارة بعد من أن المرسل صاحب الرقم
+  const UNVERIFIED_SQL = "COALESCE(json_extract(source_detail, '$.phone_match_unverified'), 0) = 1";
+  const isUnverifiedIntake = (i) => !!i && !!parseJson(i.source_detail, {}).phone_match_unverified;
+
+  /**
+   * verifiedSender: المرسل أثبت ملكية الرقم (واتساب) أو دخل برابط بوابة العميل الكامل.
+   * هذا المرسل لا تُوجَّه رسائله تلقائيًا إلى طلب غير موثّق أنشأه شخص آخر من الموقع بنفس الرقم،
+   * وإلا وصلت رسائل صاحب الرقم إلى رابط بوابة ذلك الشخص.
+   */
+  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender }) {
     if (intakeId) {
       // رسالة من رابط بوابة خاص بطلب بعينه
       const i = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);
@@ -60,19 +69,35 @@ export function createEngine(app) {
       const c = db.get('SELECT * FROM cases WHERE id = ? AND client_id = ?', caseId, client.id);
       if (c) return { intake: c.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null, caseRow: c };
     }
-    if (refIntake) return { intake: refIntake, caseRow: refIntake.case_id ? db.get('SELECT * FROM cases WHERE id = ?', refIntake.case_id) : null };
+    // طلب «جديد» صريح (نموذج الموقع) يتقدم على أي رقم طلب مذكور في النص
     if (forceNew) return { intake: null, caseRow: null };
+    if (refIntake) return { intake: refIntake, caseRow: refIntake.case_id ? db.get('SELECT * FROM cases WHERE id = ?', refIntake.case_id) : null };
+    const skipUnverified = verifiedSender ? 1 : 0;
     const openIntake = db.get(
-      `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client') ORDER BY id DESC LIMIT 1`,
+      `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
+         AND NOT (? = 1 AND ${UNVERIFIED_SQL})
+       ORDER BY id DESC LIMIT 1`,
       client.id,
+      skipUnverified,
     );
     if (openIntake) return { intake: openIntake, caseRow: null };
-    const openCase = db.get(`SELECT * FROM cases WHERE client_id = ? AND status != 'closed' ORDER BY id DESC LIMIT 1`, client.id);
+    const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${UNVERIFIED_SQL})`;
+    const openCase = db.get(
+      `SELECT * FROM cases WHERE client_id = ? AND status != 'closed' AND NOT (? = 1 AND id IN (${unverifiedCaseIds})) ORDER BY id DESC LIMIT 1`,
+      client.id,
+      skipUnverified,
+    );
     if (openCase) {
       return { intake: openCase.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', openCase.intake_id) : null, caseRow: openCase };
     }
     // ملف عمل مستمر مفتوح (قضية أمام المحكمة) بعد إغلاق الاستشارة
-    const openMatter = db.get(`SELECT * FROM matters WHERE client_id = ? AND status != 'closed' ORDER BY id DESC LIMIT 1`, client.id);
+    const openMatter = db.get(
+      `SELECT * FROM matters WHERE client_id = ? AND status != 'closed'
+         AND NOT (? = 1 AND case_id IN (${unverifiedCaseIds}))
+       ORDER BY id DESC LIMIT 1`,
+      client.id,
+      skipUnverified,
+    );
     if (openMatter) {
       const c = db.get('SELECT * FROM cases WHERE id = ?', openMatter.case_id);
       return { intake: c?.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null, caseRow: c, matter: openMatter };
@@ -119,11 +144,19 @@ export function createEngine(app) {
           createdClient = r.created;
         }
 
+        // المرسل موثّق: واتساب يثبت ملكية الرقم، ورابط البوابة الكامل يصدره الموظفون للعميل نفسه.
+        // أما نموذج الموقع ورابط البوابة الخاص بطلب واحد فبياناتهما مجرد مُدخلات غير مثبتة.
+        const verifiedSender = msg.channel !== 'website' || (!!msg.portal_client_id && !msg.target_intake_id);
+
         // 2) رقم طلب مذكور في الرسالة (الانتقال من الموقع إلى واتساب)
+        // لا نتبع رقم الطلب لمرسل غير موثّق: من يعرف رقم هاتف عميل ورقم طلبه لا يصل بذلك إلى ملفه
         let refIntake = null;
         let identityConflict = null;
+        let mentionedRef = null;
+        let refToUnverified = null;
         const m = REF_RE.exec(text);
-        if (m) {
+        if (m && !verifiedSender) mentionedRef = `REQ-${m[1]}-${m[2]}`;
+        if (m && verifiedSender) {
           const ref = db.get('SELECT * FROM intakes WHERE code = ?', `REQ-${m[1]}-${m[2]}`);
           if (ref) {
             const refClient = ref.client_id ? app.clients.get(ref.client_id) : null;
@@ -137,6 +170,8 @@ export function createEngine(app) {
                 db.update('intakes', ref.id, { status: 'in_review', updated_at: nowIso() });
                 refIntake = db.get('SELECT * FROM intakes WHERE id = ?', ref.id);
               }
+              // صاحب الرقم يذكر رقم طلب أُنشئ من الموقع برقمه: غالبًا هو نفسه يستكمل عبر واتساب، لكن التأكيد للإدارة
+              if (refIntake && isUnverifiedIntake(refIntake)) refToUnverified = refIntake;
             } else if (refClient) {
               // رقم مختلف يذكر رقم طلب لعميل آخر: لا ندمج تلقائيًا حماية للخصوصية، ونطلب تحقق الإدارة
               identityConflict = { intake_id: ref.id, intake_code: ref.code, client_code: refClient.code };
@@ -145,7 +180,13 @@ export function createEngine(app) {
         }
 
         // 3) تحديد الطلب/الملف المستهدف
-        const target = findTarget(client, { refIntake, forceNew: !!msg.force_new_intake, caseId: msg.target_case_id, intakeId: msg.target_intake_id });
+        const target = findTarget(client, {
+          refIntake,
+          forceNew: !!msg.force_new_intake,
+          caseId: msg.target_case_id,
+          intakeId: msg.target_intake_id,
+          verifiedSender,
+        });
         let intake = target.intake;
         let caseRow = target.caseRow;
         const matter = target.matter || (caseRow?.matter_id ? db.get('SELECT * FROM matters WHERE id = ?', caseRow.matter_id) : null);
@@ -195,6 +236,7 @@ export function createEngine(app) {
         const meta = {};
         if (msg.referral) meta.referral = msg.referral;
         if (identityConflict) meta.identity_conflict = identityConflict;
+        if (mentionedRef) meta.mentioned_ref = mentionedRef; // للمراجعة اليدوية فقط، دون ربط تلقائي
         if (msg.context_id) meta.reply_to = msg.context_id;
         if (msg.info_request_id) meta.info_request_id = msg.info_request_id;
         // نعتمد وقت الاستلام في الخادم للترتيب، ونحفظ توقيت المزوّد للرجوع إليه
@@ -222,7 +264,7 @@ export function createEngine(app) {
                 client_id: client.id,
                 intake_id: intake?.id,
                 case_id: caseRow?.id,
-                matter_id: matter?.id,
+                // لا نربط المرفق بالملف المستمر: المحامي المسؤول لا يرى مرفقات العميل إلا إذا أتاحتها الإدارة
                 message_id: messageId,
                 info_request_id: msg.info_request_id,
               }, { kind: 'client' }),
@@ -240,8 +282,10 @@ export function createEngine(app) {
             last_channel: msg.channel,
             channels: JSON.stringify(chans),
             unread_count: (intake.unread_count || 0) + 1,
+            // رسالة البوابة تعيد طلبًا منتهيًا للفرز، إلا إذا كان طلبًا غير موثّق الهوية فيبقى كما أغلقته الإدارة
             status:
-              intake.status === 'awaiting_client' || (msg.target_intake_id && ['handled_internally', 'archived'].includes(intake.status))
+              intake.status === 'awaiting_client' ||
+              (msg.target_intake_id && ['handled_internally', 'archived'].includes(intake.status) && !isUnverifiedIntake(intake))
                 ? 'in_review'
                 : intake.status,
             updated_at: t,
@@ -272,6 +316,14 @@ export function createEngine(app) {
             link: `#/inbox/${intake.id}`,
           });
         }
+        if (refToUnverified) {
+          app.notifications.notifyStaff({
+            type: 'identity.ref_from_owner',
+            title: `صاحب الرقم ذكر الطلب ${refToUnverified.code} عبر ${LABELS.channel[msg.channel]}`,
+            body: 'الطلب أُنشئ من الموقع برقم غير موثّق. راجع المحادثة وأكّد هوية المرسل من صفحة الطلب إن كان هو مقدّم الطلب.',
+            link: `#/inbox/${refToUnverified.id}`,
+          });
+        }
         if (createdIntake) {
           app.notifications.notifyStaff({
             type: 'intake.new',
@@ -287,7 +339,7 @@ export function createEngine(app) {
             {
               type: 'case.client_message',
               title: `رسالة جديدة من العميل في الملف ${caseRow.code}`,
-              body: pending ? `قد تكون ردًا على ${pending} طلب معلومات معلق. ${truncate(text, 100)}` : truncate(text, 140),
+              body: pending ? `قد تكون ردًا على طلب معلق للعميل (الطلبات المعلقة: ${pending}). ${truncate(text, 100)}` : truncate(text, 140),
               link: `#/cases/${caseRow.id}`,
             },
             { caseManagerId: caseRow.case_manager_id },
@@ -337,7 +389,6 @@ export function createEngine(app) {
               client_id: result.client.id,
               intake_id: result.intake?.id,
               case_id: result.caseRow?.id,
-              matter_id: result.caseRow?.matter_id,
               message_id: result.message_id,
             },
             { kind: 'client' },
