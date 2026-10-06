@@ -97,7 +97,7 @@ export default async function render(ctx) {
   const statItems = [
     statCard({ label: 'مستحق لم يُصرف بعد', value: money(s.unpaid_balance), icon: 'wallet', tone: Number(s.unpaid_balance) > 0 ? 'warning' : 'neutral', hint: 'قيود بحالة «مستحق»' }),
     statCard({ label: 'إجمالي ما صُرف لك', value: money(s.paid_total), icon: 'checkCircle', tone: 'success', hint: payouts.length ? `عدد الدفعات: ${num(payouts.length)}` : 'لا توجد دفعات بعد' }),
-    statCard({ label: 'مساهمات تطوعية', value: num(s.pro_bono_count), icon: 'star', tone: 'accent', hint: 'Pro Bono / CSR — شكرًا لك' }),
+    statCard({ label: 'مساهمات تطوعية', value: num(s.pro_bono_count), icon: 'star', tone: 'accent', hint: Number(s.pro_bono_count) > 0 ? 'تطوعية أو ضمن مسؤولية مجتمعية — شكرًا لك' : 'تطوعية أو ضمن مسؤولية مجتمعية' }),
   ];
   if (s.package_remaining != null) {
     const size = Number(ag.package_size) || 0;
@@ -109,7 +109,7 @@ export default async function render(ctx) {
       ),
     );
   }
-  const stats = h('div.stats-grid', statItems);
+  const stats = h('div.stats-grid.pc-money-stats', statItems);
 
   // ── الجداول ──
   const eventsTable = () =>

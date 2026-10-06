@@ -1322,3 +1322,30 @@ html[dir="ltr"] .pc-brief-card {
 .pc-bar-value {
   text-align: end;
 }
+
+/* الشاشات الضيقة: أرقام مالية لا تنكسر، وتبويبات مختصرة */
+@media (max-width: 640px) {
+  .pc-money-stats .stat-value {
+    font-size: 20px;
+    white-space: nowrap;
+  }
+
+  .pc-money-stats .stat-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .pc-money-stats .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pc-list-tabs .tab {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .pc-list-tabs .tab > .icon {
+    display: none;
+  }
+}

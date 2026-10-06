@@ -428,8 +428,7 @@ export default async function render(ctx) {
   function readOnlyOpinion(v) {
     const a = v.assignment;
     const closed = v.case.state === 'closed';
-    const ops = v.my_opinions || [];
-    const latest = [...ops].reverse().find((o) => o.status !== 'draft' && o.status !== 'superseded') || ops[ops.length - 1] || null;
+    const latest = shownOpinion(v);
     let note;
     if (closed) note = alertBox('أغلقت الإدارة هذا الملف، ولم يعد تعديل الرأي متاحًا.', 'warning', { icon: 'lock' });
     else if (a.status === 'submitted') note = alertBox('لن يصل رأيك للعميل مباشرة؛ ستصلك إشارة عند اعتماده أو إعادته إليك بملاحظات. يمكنك خلال المراجعة طلب معلومات أو مستندات إضافية.', 'info', { icon: 'clock', title: 'قُدّم رأيك وهو قيد مراجعة الإدارة' });
@@ -764,13 +763,20 @@ export default async function render(ctx) {
     };
   }
 
+  /** الإصدار المعروض في بطاقة «رأيي» (نسخة العمل أثناء التحرير، أو آخر إصدار مقدَّم في وضع القراءة). */
+  function shownOpinion(v) {
+    const ops = v.my_opinions || [];
+    if (v.permissions.can_edit) return v.current_draft || null;
+    return [...ops].reverse().find((o) => o.status !== 'draft' && o.status !== 'superseded') || ops[ops.length - 1] || null;
+  }
+
   function versionsCard(v) {
-    // نسخة العمل الحالية تظهر في المحرر، فلا تُكرر في السجل أثناء التحرير
-    const working = v.permissions.can_edit && v.current_draft ? v.current_draft.id : null;
-    const ops = [...(v.my_opinions || [])].filter((o) => o.id !== working).reverse();
+    // الإصدار المعروض أعلاه لا يُكرر في السجل؛ يظهر السجل فقط عند وجود إصدارات سابقة
+    const shown = shownOpinion(v);
+    const ops = [...(v.my_opinions || [])].filter((o) => !shown || o.id !== shown.id).reverse();
     if (!ops.length) return null;
     return card({
-      title: 'سجل إصدارات رأيي',
+      title: 'الإصدارات السابقة من رأيي',
       icon: 'clock',
       subtitle: `عدد الإصدارات: ${num(ops.length)}`,
       body: h(
@@ -927,6 +933,7 @@ export default async function render(ctx) {
   function infoCard(v) {
     const can = v.permissions.can_request;
     const list = v.info_requests || [];
+    if (!can && !list.length) return null;
     const own = list.filter((r) => r.own);
     const shared = list.filter((r) => !r.own);
     const item = (r) => {
@@ -1036,6 +1043,7 @@ export default async function render(ctx) {
   function counselCard(v) {
     const can = v.permissions.can_request;
     const list = v.counsel_requests || [];
+    if (!can && !list.length) return null;
     const issueNo = new Map((v.issues || []).map((i) => [i.id, i.number]));
     return card({
       title: 'طلب مساعدة محامٍ آخر',
@@ -1098,7 +1106,7 @@ export default async function render(ctx) {
       return {
         value: o.value,
         input,
-        el: h('label.check.pc-radio', input, h('span.pc-radio-text', h('strong', o.label), KIND_HINTS[o.value] && h('span.pc-radio-hint', KIND_HINTS[o.value]))),
+        el: h('label.check.pc-radio', input, h('span.pc-radio-text', h('strong', bidiText(o.label)), KIND_HINTS[o.value] && h('span.pc-radio-hint', KIND_HINTS[o.value]))),
       };
     });
     const kindField = field('نوع المساعدة المطلوبة', h('div.pc-radio-list', radios.map((r) => r.el)), { required: true, group: true, full: true });

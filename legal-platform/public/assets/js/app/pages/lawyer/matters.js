@@ -31,10 +31,10 @@ export function eventDateBox(iso, { muted = false } = {}) {
   );
 }
 
-/** «رقم الدعوى 1874 لسنة 2026» مع عزل الأرقام. */
-export function lawsuitRef(m) {
+/** «رقم 1874 لسنة 2026» مع عزل الأرقام (prefix=false يحذف كلمة «رقم»). */
+export function lawsuitRef(m, { prefix = true } = {}) {
   if (!m || !m.lawsuit_number) return null;
-  return h('span.pc-lawsuit', 'رقم ', ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null);
+  return h('span.pc-lawsuit', prefix ? 'رقم ' : null, ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null);
 }
 
 /** الموعد القادم بصيغة مختصرة: «اليوم، 10:00 ص — بعد 3 ساعات». */

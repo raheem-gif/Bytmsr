@@ -351,7 +351,7 @@ export default async function render(ctx) {
             ['نوع الملف', label('matter_kind', m.kind)],
             ['المحكمة', m.court],
             ['الدائرة', m.circuit],
-            ['رقم الدعوى', lawsuitRef(m)],
+            ['رقم الدعوى', lawsuitRef(m, { prefix: false })],
             ['الخصم', m.opponent],
             ['تاريخ فتح الملف', m.opened_at && date(m.opened_at)],
           ],
