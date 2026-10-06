@@ -2,8 +2,8 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, num, money, percent, cairoToday, cairoDateToIso, shortDate, date } from '../../../lib/fmt.js';
-import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge } from '../../../lib/ui.js';
+import { label, areaLabel, num, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
+import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge, formDialog, confirmDanger, toast } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
 
 const GROUPS = {
@@ -189,6 +189,15 @@ export default async function render(ctx) {
         statCard({ label: 'ملفات عمل مستمرة', value: num(t.matters), hint: 'تمثيل قضائي أو عمل مستمر', icon: 'gavel', tone: 'warning' }),
         statCard({ label: 'ملفات أُغلقت', value: num(t.closed), hint: 'من ملفات هذه الفترة', icon: 'flag', tone: 'neutral' }),
         statCard({ label: 'تكلفة الملفات', value: moneyValue(t.cost), hint: t.cases ? `متوسط ${money(Math.round(t.cost / t.cases))} للملف` : 'أتعاب ومصروفات', icon: 'wallet', tone: 'primary' }),
+        t.ad_spend
+          ? statCard({
+              label: 'الإنفاق الإعلاني',
+              value: moneyValue(t.ad_spend),
+              hint: t.cases ? `تكلفة اكتساب الملف: ${money(Math.round(t.ad_spend / t.cases))}` : 'لا ملفات في الفترة',
+              icon: 'zap',
+              tone: 'warning',
+            })
+          : null,
       ),
       card({
         title: 'ماذا حدث للطلبات الواردة؟',
@@ -270,6 +279,20 @@ export default async function render(ctx) {
                   percent(x.conversion_rate),
                 ),
             },
+            state.group !== 'channel' && {
+              key: 'ad',
+              label: 'الإنفاق الإعلاني',
+              align: 'end',
+              render: (x) =>
+                x.ad_spend
+                  ? h(
+                      'div.pd-cell-stack.pd-align-end',
+                      h('strong.nowrap', money(x.ad_spend)),
+                      h('span.cell-sub.nowrap', x.ad_cost_per_case == null ? 'لم يتحول طلب إلى ملف' : `${money(Math.round(x.ad_cost_per_case))} لاكتساب الملف`),
+                      x.ad_cost_per_intake == null ? null : h('span.cell-sub.nowrap', `${money(Math.round(x.ad_cost_per_intake))} للطلب`),
+                    )
+                  : h('span.cell-sub', '—'),
+            },
             {
               key: 'cost',
               label: 'التكلفة',
@@ -281,12 +304,12 @@ export default async function render(ctx) {
                   h('span.cell-sub.nowrap', x.cost_per_case == null ? 'لا ملفات' : `${money(Math.round(x.cost_per_case))} للملف`),
                 ),
             },
-          ],
+          ].filter(Boolean),
         }),
       }),
       h(
         'p.pd-footnote',
-        'التكلفة هنا تكلفة خدمة الملفات الناتجة (أتعاب المحامين المباشرة والحصص التقديرية من الاتفاقات الشهرية والباقات ومصروفات المؤسسة)، وليست تكلفة الإعلان نفسه.',
+        'التكلفة هنا تكلفة خدمة الملفات الناتجة (أتعاب المحامين المباشرة والحصص التقديرية من الاتفاقات الشهرية والباقات ومصروفات المؤسسة). أما الإنفاق الإعلاني فيُسجَّل شهريًا لكل حملة في قسم «الإنفاق على الإعلانات» أدناه، ويُحتسب للأشهر التي تتقاطع مع الفترة المختارة.',
       ),
     );
   }
@@ -392,6 +415,106 @@ export default async function render(ctx) {
     body: weekly.length ? weeklyChart(weekly) : emptyState('لا توجد بيانات أسبوعية بعد', null, { icon: 'chart', compact: true }),
   });
 
+  // ── الإنفاق على الإعلانات ──
+  const isAdmin = ctx.user && ctx.user.role === 'admin';
+  const spendHost = h('div');
+  async function loadSpend() {
+    mount(spendHost, loading());
+    try {
+      const d = await api.get('/admin/analytics/spend');
+      drawSpend(d);
+    } catch (err) {
+      mount(spendHost, errorState(err, loadSpend));
+    }
+  }
+  function monthOptions() {
+    const out = [];
+    const [y, m] = today.split('-').map(Number);
+    for (let i = 0; i < 18; i++) {
+      const d = new Date(Date.UTC(y, m - 1 - i, 1));
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      out.push({ value: key, label: periodLabel(key) });
+    }
+    return out;
+  }
+  async function editSpend(row, campaigns) {
+    const known = campaigns.map((c) => c.campaign).filter(Boolean);
+    const vals = await formDialog({
+      title: row ? 'تعديل الإنفاق' : 'تسجيل إنفاق على حملة',
+      intro: 'سجّل ما أُنفق على كل حملة شهريًا. اكتب اسم الحملة كما يظهر في الطلبات الواردة (عنوان الإعلان أو utm_campaign) حتى تُربط بنتائجها.',
+      fields: [
+        { name: 'period', label: 'الشهر', type: 'select', required: true, options: monthOptions() },
+        { name: 'source', label: 'المصدر', type: 'select', required: true, options: options('source').filter((o) => !['unknown', 'returning', 'direct'].includes(o.value)) },
+        { name: 'campaign', label: 'الحملة', type: 'text', hint: known.length ? `حملات معروفة: ${known.slice(0, 4).join('، ')}` : 'اختياري' },
+        { name: 'amount', label: 'المبلغ المنفق (ج.م)', type: 'money', required: true, min: 0 },
+        { name: 'note', label: 'ملاحظة', type: 'text' },
+      ],
+      values: row ? { period: row.period, source: row.source, campaign: row.campaign, amount: row.amount, note: row.note } : { period: today.slice(0, 7), source: 'facebook_ad' },
+      submitLabel: 'حفظ',
+      onSubmit: (v) => api.post('/admin/analytics/spend', v),
+    });
+    if (vals) {
+      toast('تم حفظ الإنفاق', 'success');
+      await loadSpend();
+      refetch();
+    }
+  }
+  function drawSpend(d) {
+    const items = Array.isArray(d.items) ? d.items : [];
+    const campaigns = Array.isArray(d.campaigns) ? d.campaigns : [];
+    const total = items.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    mount(
+      spendHost,
+      card({
+        title: 'الإنفاق على الإعلانات',
+        subtitle: 'لمعرفة تكلفة اكتساب الطلب والملف لكل مصدر وحملة قبل زيادة الميزانية',
+        icon: 'zap',
+        actions: isAdmin ? button('تسجيل إنفاق', { icon: 'plus', variant: 'secondary', onClick: () => editSpend(null, campaigns) }) : null,
+        flush: true,
+        body: table({
+          className: 'pd-table-tight',
+          caption: 'سجلات الإنفاق الإعلاني',
+          rows: items,
+          empty: isAdmin ? 'لم يُسجل أي إنفاق بعد — سجّل إنفاق حملاتك لتظهر تكلفة الاكتساب في الجدول أعلاه' : 'لم يُسجل أي إنفاق بعد',
+          columns: [
+            { key: 'period', label: 'الشهر', render: (r) => h('span.nowrap', periodLabel(r.period)) },
+            { key: 'source', label: 'المصدر', render: (r) => r.source_label || label('source', r.source) },
+            { key: 'campaign', label: 'الحملة', render: (r) => h('span', { dir: 'auto' }, r.campaign || '—') },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => h('strong.nowrap', money(r.amount)) },
+            isAdmin && {
+              key: 'actions',
+              label: '',
+              align: 'end',
+              render: (r) =>
+                h(
+                  'div.row-actions',
+                  button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => editSpend(r, campaigns) }),
+                  button('حذف', {
+                    size: 'sm',
+                    variant: 'ghost',
+                    icon: 'trash',
+                    onClick: async () => {
+                      if (!(await confirmDanger({ title: 'حذف سجل الإنفاق', message: `سيُحذف إنفاق ${money(r.amount)} لشهر ${periodLabel(r.period)}.` }))) return;
+                      try {
+                        await api.del(`/admin/analytics/spend/${r.id}`);
+                        toast('تم الحذف', 'success');
+                        await loadSpend();
+                        refetch();
+                      } catch (err) {
+                        toast(err.message, 'danger');
+                      }
+                    },
+                  }),
+                ),
+            },
+          ].filter(Boolean),
+        }),
+        footer: items.length ? h('p.cell-sub', 'إجمالي المسجل: ', h('strong', money(total))) : null,
+      }),
+    );
+  }
+  loadSpend();
+
   return frag(
     pageHeader({
       title: 'التسويق والتحليلات',
@@ -400,7 +523,15 @@ export default async function render(ctx) {
     }),
     controls,
     funnelHost,
+    spendHost,
     weeklyCard,
     areasCard,
   );
+}
+
+const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+/** «2026-10» ← «أكتوبر 2026» */
+function periodLabel(p) {
+  const [y, m] = String(p || '').split('-').map(Number);
+  return y && m ? `${AR_MONTHS[m - 1]} ${y}` : p || '—';
 }

@@ -241,6 +241,9 @@ export function registerAdminRoutes(router, app) {
     return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group });
   }));
   router.get('/api/admin/analytics/areas', S(() => ({ items: app.analytics.byArea(), weekly: app.analytics.weeklyVolume() })));
+  router.get('/api/admin/analytics/spend', S((ctx) => app.analytics.listSpend(ctx.query)));
+  router.post('/api/admin/analytics/spend', A((ctx, u) => app.analytics.saveSpend(ctx.body, u)));
+  router.delete('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.deleteSpend(id(ctx))));
 
   // ===== المستخدمون والإعدادات (مدير النظام) =====
   router.get('/api/admin/users', A(() => app.lawyers.staffList()));

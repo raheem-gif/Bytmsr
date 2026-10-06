@@ -733,6 +733,19 @@ export async function seedDemo(app) {
     const ahmedPaid = db.all("SELECT id FROM ledger_entries WHERE lawyer_id = ? AND status = 'accrued' AND period < ?", U.ahmed.id, `${p.year}-${String(p.month).padStart(2, '0')}`).map((x) => x.id);
     if (ahmedPaid.length) app.accounting.payout({ lawyer_id: U.ahmed.id, entry_ids: ahmedPaid, method: 'تحويل بنكي', reference: 'TRX-2041' }, admin);
 
+    // ================= الإنفاق الإعلاني (لحساب تكلفة اكتساب الملف) =================
+    const curPeriod = `${p.year}-${String(p.month).padStart(2, '0')}`;
+    for (const [period, source, campaign, amount] of [
+      [prev, 'facebook_ad', 'هل لك حق في ميراث؟ استشارة قانونية من بيوت مصر', 4200],
+      [prev, 'facebook_ad', 'نفقة الأطفال حق — اسأل محامي مجانًا', 2600],
+      [prev, 'instagram_ad', 'حقك في ميراث جدك — اعرف إزاي', 1800],
+      [prev, 'google', 'egypt-legal-search', 2400],
+      [curPeriod, 'facebook_ad', 'هل لك حق في ميراث؟ استشارة قانونية من بيوت مصر', 1500],
+      [curPeriod, 'instagram_ad', 'نفقة الأطفال حق — اسألي محامية مجانًا', 900],
+    ]) {
+      app.analytics.saveSpend({ period, source, campaign, amount }, admin);
+    }
+
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;
     tick();

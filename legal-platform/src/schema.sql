@@ -591,3 +591,17 @@ CREATE TABLE IF NOT EXISTS automation_runs (
   created_at TEXT NOT NULL,
   PRIMARY KEY (rule_key, dedupe_key)
 );
+
+-- الإنفاق على الإعلانات والحملات (لحساب تكلفة اكتساب الطلب والملف لكل مصدر/حملة)
+CREATE TABLE IF NOT EXISTS ad_spend (
+  id INTEGER PRIMARY KEY,
+  period TEXT NOT NULL,
+  source TEXT NOT NULL,
+  campaign TEXT NOT NULL DEFAULT '',
+  amount_minor INTEGER NOT NULL,
+  note TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(period, source, campaign)
+);

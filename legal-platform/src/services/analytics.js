@@ -1,7 +1,7 @@
 // التحليلات: مصدر العميل ≠ قناة التواصل. نعرف ليس فقط عدد الرسائل التي أنتجها كل إعلان،
 // بل ماذا حدث لها فعليًا: كم تحول لاستشارة، كم احتاج محاميًا، كم صار قضية، كم كلّف، وما النتائج.
-import { nowIso, addDays, periodOf, fromMinor } from '../util.js';
-import { LABELS, LEGAL_AREAS } from '../constants.js';
+import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, v } from '../util.js';
+import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -62,14 +62,40 @@ export function createAnalytics(app) {
         }
         groups.set(r.k, g);
       }
+      // الإنفاق الإعلاني للأشهر التي تتقاطع مع الفترة (بالمصدر أو الحملة)
+      const spendBy = new Map();
+      if (group !== 'channel') {
+        const p1 = periodOf(start);
+        const p2 = periodOf(end);
+        for (const r of db.all('SELECT source, campaign, SUM(amount_minor) AS amt FROM ad_spend WHERE period >= ? AND period <= ? GROUP BY source, campaign', p1, p2)) {
+          const key = group === 'source' ? r.source : r.campaign || '—';
+          spendBy.set(key, (spendBy.get(key) || 0) + Number(r.amt));
+        }
+        for (const key of spendBy.keys()) {
+          if (!groups.has(key)) {
+            groups.set(key, {
+              key,
+              label: group === 'source' ? LABELS.source[key] || key : key,
+              messages: 0, intakes: 0, consultations: 0, handled_internally: 0, archived: 0, cases: 0,
+              needed_lawyer: 0, multi_lawyer: 0, matters: 0, answered: 0, closed: 0, cost_minor: 0,
+            });
+          }
+        }
+      }
       const items = [...groups.values()]
-        .map((g) => ({
-          ...g,
-          cost: fromMinor(g.cost_minor),
-          cost_per_case: g.cases ? fromMinor(Math.round(g.cost_minor / g.cases)) : null,
-          conversion_rate: g.intakes ? Math.round((g.cases / g.intakes) * 1000) / 1000 : 0,
-          cost_minor: undefined,
-        }))
+        .map((g) => {
+          const spend = spendBy.get(g.key) || 0;
+          return {
+            ...g,
+            cost: fromMinor(g.cost_minor),
+            cost_per_case: g.cases ? fromMinor(Math.round(g.cost_minor / g.cases)) : null,
+            conversion_rate: g.intakes ? Math.round((g.cases / g.intakes) * 1000) / 1000 : 0,
+            ad_spend: group === 'channel' ? null : fromMinor(spend),
+            ad_cost_per_intake: spend && g.intakes ? fromMinor(Math.round(spend / g.intakes)) : null,
+            ad_cost_per_case: spend && g.cases ? fromMinor(Math.round(spend / g.cases)) : null,
+            cost_minor: undefined,
+          };
+        })
         .sort((a, b) => b.intakes - a.intakes);
       const sum = (k) => items.reduce((s, x) => s + (x[k] || 0), 0);
       return {
@@ -88,8 +114,51 @@ export function createAnalytics(app) {
           matters: sum('matters'),
           closed: sum('closed'),
           cost: Math.round(sum('cost') * 100) / 100,
+          ad_spend: group === 'channel' ? null : Math.round(sum('ad_spend') * 100) / 100,
         },
       };
+    },
+
+    // ===== الإنفاق الإعلاني =====
+    listSpend({ from_period, to_period } = {}) {
+      const p1 = isValidPeriod(from_period) ? from_period : '0000-01';
+      const p2 = isValidPeriod(to_period) ? to_period : '9999-12';
+      return {
+        items: db
+          .all(
+            `SELECT s.*, u.name AS created_by_name FROM ad_spend s LEFT JOIN users u ON u.id = s.created_by
+             WHERE s.period >= ? AND s.period <= ? ORDER BY s.period DESC, s.source, s.campaign`,
+            p1,
+            p2,
+          )
+          .map((r) => ({ ...r, amount: fromMinor(r.amount_minor), source_label: LABELS.source[r.source] || r.source })),
+        // الحملات المعروفة من الطلبات الواردة (لتطابق أسماء الحملات عند الإدخال)
+        campaigns: db.all(
+          "SELECT source, campaign, COUNT(*) AS intakes FROM intakes WHERE campaign IS NOT NULL AND campaign != '' GROUP BY source, campaign ORDER BY intakes DESC LIMIT 100",
+        ),
+      };
+    },
+    saveSpend(body, actor) {
+      const period = v.str(body.period, 'الشهر', { required: true, max: 7 });
+      if (!isValidPeriod(period)) throw badRequest('الشهر يجب أن يكون بصيغة YYYY-MM');
+      const source = v.oneOf(body.source, ENUMS.source, 'المصدر', { required: true });
+      const campaign = v.str(body.campaign, 'الحملة', { max: 150 }) || '';
+      const amount = v.money(body.amount, 'المبلغ', { required: true, min: 0 });
+      const note = v.str(body.note, 'ملاحظة', { max: 300 });
+      const t = nowIso();
+      db.run(
+        `INSERT INTO ad_spend (period, source, campaign, amount_minor, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(period, source, campaign) DO UPDATE SET amount_minor = excluded.amount_minor, note = excluded.note, updated_at = excluded.updated_at`,
+        period, source, campaign, amount, note, actor.id, t, t,
+      );
+      const r = db.get('SELECT * FROM ad_spend WHERE period = ? AND source = ? AND campaign = ?', period, source, campaign);
+      return { ...r, amount: fromMinor(r.amount_minor) };
+    },
+    deleteSpend(id) {
+      const r = db.get('SELECT id FROM ad_spend WHERE id = ?', id);
+      if (!r) throw notFound('السجل غير موجود');
+      db.run('DELETE FROM ad_spend WHERE id = ?', id);
+      return { ok: true };
     },
 
     /** توزيع الملفات حسب المجال وحاجتها لأكثر من تخصص */
