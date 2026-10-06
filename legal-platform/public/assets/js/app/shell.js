@@ -4,7 +4,7 @@ import { h, mount } from '../lib/h.js';
 import { api } from '../lib/api.js';
 import { label, relative, dateTime } from '../lib/fmt.js';
 import { icon, avatar, button, brandMark, loading, emptyState, richText } from '../lib/ui.js';
-import { notifIcon, markRead, followLink } from './notif.js';
+import { notifIcon, notifTone, markRead, followLink } from './notif.js';
 import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
 
 const POLL_MS = 30000;
@@ -255,7 +255,7 @@ export function createShell({ user, meta, onLogout }) {
             h(
               'button.notif-item',
               { type: 'button', class: !n.read_at && 'is-unread', onClick: () => openItem(n) },
-              h('span.notif-icon', icon(notifIcon(n.type), { size: 18 })),
+              h('span.notif-icon', { class: notifTone(n.type) }, icon(notifIcon(n.type), { size: 18 })),
               h(
                 'span.notif-text',
                 h('span.notif-title', richText(n.title)),

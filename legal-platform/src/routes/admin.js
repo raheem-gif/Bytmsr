@@ -3,6 +3,7 @@ import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
+import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
 
@@ -335,9 +336,13 @@ export function registerAdminRoutes(router, app) {
     // (v9 site) الموقع العام وبيانات التواصل: روابط https من فيسبوك/إنستجرام فقط، بريد وهاتف صالحان، أطوال محددة
     if (app.site?.validateSettings) Object.assign(out, app.site.validateSettings(b));
     if (b.whatsapp_display_number !== undefined) {
-      const p = normalizePhone(b.whatsapp_display_number);
-      if (!p) throw badRequest('رقم واتساب غير صالح');
-      out.whatsapp_display_number = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
+      // فارغ = لا رقم واتساب للمؤسسة بعد (تختفي أزرار واتساب من الموقع ويظهر الهاتف بديلًا)
+      const s = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
+      if (s !== null) {
+        if (!normalizePhone(s)) throw badRequest('رقم واتساب غير صالح');
+        if (isPlaceholderWhatsApp(s)) throw badRequest('هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي أو اترك الحقل فارغًا');
+      }
+      out.whatsapp_display_number = s ?? '';
     }
     if (b.default_assignment_days !== undefined) out.default_assignment_days = v.int(b.default_assignment_days, 'المدة الافتراضية للرد', { required: true, min: 1, max: 60 });
     if (b.similarity_threshold !== undefined) out.similarity_threshold = v.num(b.similarity_threshold, 'حد التشابه', { required: true, min: 0.05, max: 0.9 });

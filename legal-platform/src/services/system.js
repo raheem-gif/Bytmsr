@@ -17,6 +17,7 @@ import { hashPassword, passwordProblem, RateLimiter } from '../auth.js';
 import { sendJson } from '../http.js';
 import { INTEGRATION_SPEC } from './integrations.js';
 import { tarChunks } from './system-tar.js';
+import { isPlaceholderWhatsApp, publicWhatsAppDigits } from '../channels/whatsapp.js';
 import {
   ApiError,
   badRequest,
@@ -211,7 +212,12 @@ const INTEGRATION_RULES = {
     waba_id: (s) => (/^\d{5,30}$/.test(s) ? null : 'معرّف حساب واتساب للأعمال (WABA ID) أرقام فقط'),
     app_secret: (s) => (/^[A-Za-z0-9]{16,128}$/.test(s) ? null : 'سر التطبيق (App Secret) حروف لاتينية وأرقام فقط (32 خانة عادة)'),
     verify_token: (s) => (/^[\x21-\x7e]{8,200}$/.test(s) ? null : 'رمز التحقق 8 خانات على الأقل من الحروف اللاتينية والأرقام والرموز بدون مسافات'),
-    number: (s) => (/^\d{8,15}$/.test(s) ? null : 'رقم واتساب غير صالح، اكتبه بالصيغة الدولية مثل 201211114662'),
+    number: (s) =>
+      !/^\d{8,15}$/.test(s)
+        ? 'رقم واتساب غير صالح، اكتبه بالصيغة الدولية مثل 201211114662'
+        : isPlaceholderWhatsApp(s)
+          ? 'هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي مثل 201211114662'
+          : null,
     api_version: (s) => (/^v\d{1,2}\.\d$/.test(s) ? null : 'إصدار Graph API يُكتب بالصيغة v21.0'),
   },
   anthropic: {
@@ -336,6 +342,7 @@ export function createSystem(app) {
         }
         if (key === 'org_phone' || key === 'whatsapp_display_number') {
           if (!normalizePhone(s)) throw badRequest(`رقم «${label}» غير صالح`);
+          if (key === 'whatsapp_display_number' && isPlaceholderWhatsApp(s)) throw badRequest('هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي أو اترك الحقل فارغًا');
         }
         if (key === 'org_facebook_url') {
           let u;
@@ -662,6 +669,11 @@ export function createSystem(app) {
           throw e;
         }
       }
+      // رقم واتساب المؤسسة مصدره واحد هو «التكاملات»: إن كُتب في ملف المؤسسة فقط يُحفظ رقمًا للتكامل،
+      // وإن كُتب في خطوة التكاملات فقط يظهر كذلك في الإعدادات العامة (بصيغة دولية)
+      const orgWa = publicWhatsAppDigits(settings.whatsapp_display_number);
+      if (orgWa && !patches.whatsapp?.number) patches.whatsapp = { ...(patches.whatsapp || {}), number: orgWa };
+      else if (!orgWa && patches.whatsapp?.number) settings.whatsapp_display_number = `+${patches.whatsapp.number}`;
 
       let userId;
       db.tx(() => {

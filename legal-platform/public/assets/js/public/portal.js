@@ -24,7 +24,7 @@ import {
   dueBadge,
   richText,
 } from '../lib/ui.js';
-import { bindSettings, whatsappUrl, hydrateIcons, setYear } from './common.js';
+import { bindSettings, whatsappUrl, hydrateIcons, setYear, initSiteChrome } from './common.js';
 
 const MAX_FILES = 5;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -40,8 +40,16 @@ const token = (() => {
 })();
 const base = `/portal/${encodeURIComponent(token)}`;
 let settings = {};
+let site = {};
+let messaging = {};
 
 const orgName = () => settings.org_name || 'بيوت مصر';
+
+/** زر الاتصال الهاتفي بالمؤسسة (بديل واتساب حين لا يكون للمؤسسة رقم واتساب مضبوط) */
+function phoneButton(variant = 'secondary') {
+  if (!site.org_phone) return null;
+  return button(`اتصل بنا: ${site.org_phone}`, { variant, icon: 'phone', href: `tel:${site.org_phone_e164 || site.org_phone}` });
+}
 
 function sectionCard(id, opts) {
   const c = card(opts);
@@ -363,6 +371,10 @@ function renderPortal(data) {
       a.hidden = false;
     }
   });
+  // التواصل خارج الصفحة: واتساب إن كان للمؤسسة رقم مضبوط، وإلا الهاتف
+  const contact = wa
+    ? button('راسلنا على واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' })
+    : phoneButton('secondary');
 
   mount(
     root,
@@ -382,6 +394,7 @@ function renderPortal(data) {
           summaryLink('#events', 'calendar', events.length, 'مواعيد قادمة'),
           invoices.length ? summaryLink('#invoices', 'wallet', unpaid.length, 'فواتير غير مسددة') : null,
         ),
+        contact ? h('div.cta-row.portal-contact', contact) : null,
       ),
     ),
     h(
@@ -412,7 +425,9 @@ function renderInvalid(err) {
         h('p.muted', 'تأكد من فتح الرابط كاملًا كما وصلك، أو تواصل معنا وسنرسل لك رابطًا جديدًا.'),
         h(
           'div.cta-row',
-          wa && button('تواصل معنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }),
+          wa ? button('تواصل معنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }) : phoneButton('primary'),
+          // الدخول برمز يصل على واتساب متاح فقط إن كان مفعّلًا ويمكن أن يصل الرمز فعلًا
+          messaging.portal_otp_enabled ? button('الدخول برقم الموبايل', { variant: 'secondary', icon: 'lock', href: '/portal' }) : null,
           button('تقديم طلب جديد', { variant: 'secondary', icon: 'plus', href: '/intake' }),
         ),
       ),
@@ -438,11 +453,19 @@ async function load({ keepScroll = false } = {}) {
 }
 
 async function init() {
+  try {
+    // قائمة رأس الموقع على الهاتف (الرأس والتذييل يولّدهما الخادم كبقية صفحات الموقع العام)
+    initSiteChrome();
+  } catch {
+    /* رأس الموقع اختياري */
+  }
   hydrateIcons();
   setYear();
   try {
     const meta = setMeta(await api.get('/meta'));
     settings = meta.settings || {};
+    site = meta.site || {};
+    messaging = meta.messaging || {};
     bindSettings(settings);
   } catch {
     /* البوابة تعمل بالمسميات الافتراضية إن تعذر تحميل الإعدادات */

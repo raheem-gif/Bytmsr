@@ -286,6 +286,22 @@ export const LABELS = {
     file: 'ملف data/.secret-key',
     ephemeral: 'مفتاح مؤقت (يضيع عند إعادة التشغيل)',
   },
+  // أحداث سجل الأمان لوحدة المنصة (الإعداد الأول، النسخ الاحتياطي، التصدير، المهام، التكاملات، سطر الأوامر)
+  // تُدمج في security_event أسفل هذا الملف مع بقية مجموعات *_security_event
+  platform_security_event: {
+    'system.setup_completed': 'اكتمال الإعداد الأول للمنصة',
+    'system.setup_token_failed': 'محاولة إعداد أول برمز غير صحيح',
+    'system.admin_cli_created': 'إنشاء حساب «إدارة النظام» من سطر أوامر الخادم',
+    'system.admin_cli_reset': 'إعادة تعيين حساب «إدارة النظام» من سطر أوامر الخادم',
+    'system.restore': 'استعادة قاعدة البيانات من نسخة احتياطية',
+    'system.export': 'تصدير كامل لبيانات المنصة',
+    'system.job_run': 'تشغيل مهمة دورية يدويًا',
+    'backup.created': 'إنشاء نسخة احتياطية',
+    'backup.settings_changed': 'تعديل إعدادات النسخ الاحتياطي',
+    'backup.downloaded': 'تنزيل نسخة احتياطية',
+    'backup.deleted': 'حذف نسخة احتياطية',
+    'integration.tested': 'اختبار اتصال تكامل',
+  },
   // <labels:accounts>
   security_event: {
     'auth.login': 'تسجيل دخول ناجح',
@@ -641,6 +657,14 @@ export const LABELS = {
   },
 };
 
+// مسميات أحداث سجل الأمان التي تعرّفها كل وحدة في مجموعتها (platform_security_event، messaging_security_event، …)
+// تُدمج هنا في security_event فتتوفر لصفحة «سجل الأمان» وتصدير CSV أيًا كانت الخدمات المحمّلة
+// (التسمية الموجودة في security_event تتقدم). test/v9-integration.test.js يتحقق أن لكل نوع يُسجَّل تسمية.
+for (const [group, labels] of Object.entries(LABELS)) {
+  if (group === 'security_event' || !group.endsWith('_security_event')) continue;
+  for (const [k, val] of Object.entries(labels)) if (!LABELS.security_event[k]) LABELS.security_event[k] = val;
+}
+
 // القيم المسموح بها لكل حقل (تُستخدم في التحقق من المدخلات)
 export const ENUMS = Object.fromEntries(
   Object.entries(LABELS).map(([k, v]) => [k, Object.keys(v)]),
@@ -714,7 +738,9 @@ export const LEGACY_AUTOMATION_TEMPLATES = {
 export const DEFAULT_SETTINGS = {
   org_name: 'مؤسسة بيوت مصر',
   org_tagline: 'دعم قانوني يصون حقوق الأرامل والأيتام وأسرهم',
-  whatsapp_display_number: '+20 100 000 0000',
+  // رقم واتساب المؤسسة كما يظهر للمستفيدين. فارغ حتى تضبطه الإدارة (معالج الإعداد أو «التكاملات» أو الإعدادات)؛
+  // ما دام فارغًا لا تظهر أزرار واتساب ولا روابط wa.me في الموقع والبوابة، ويظهر الهاتف بديلًا.
+  whatsapp_display_number: '',
   // نافذة الـ 24 ساعة في واتساب: خارجها لا تُرسل إلا رسائل القوالب المعتمدة من ميتا
   whatsapp_template_name: 'case_update',
   whatsapp_template_language: 'ar',

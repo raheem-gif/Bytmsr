@@ -24,7 +24,8 @@ export async function startTestApp({ seed = 'none', config = {} } = {}) {
     adminPassword: 'Admin@2026',
     schedulerIntervalSeconds: 0,
     silent: true,
-    whatsapp: { token: '', phoneNumberId: '', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000000' },
+    // رقم اختبار صريح (الرقم التوضيحي 201000000000 يُعامل كـ«غير مضبوط» ولا يُنتج رابط wa.me)
+    whatsapp: { token: '', phoneNumberId: '', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000001' },
     ai: { provider: 'heuristic', anthropicApiKey: '' },
     ...config,
   });

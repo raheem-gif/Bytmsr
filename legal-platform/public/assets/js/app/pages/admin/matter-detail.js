@@ -26,6 +26,7 @@ import {
   progressBar,
 } from '../../../lib/ui.js';
 import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
+import { docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js'; // v9 ai: تحليل المستندات
 import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
 import { partiesCard } from '../../components/parties.js'; // v9 practice
@@ -79,7 +80,8 @@ export default async function render(ctx) {
   }
   async function activeLawyers() {
     const res = await api.get('/admin/lawyers', { active: 'true' });
-    return ((res && res.items) || []).map((l) => ({ value: l.id, label: l.display_name || l.name }));
+    // من لم يفعّل حسابه من رابط الدعوة بعد لا يصلح محاميًا مسؤولًا (يرفضه الخادم كذلك)
+    return ((res && res.items) || []).filter((l) => !l.invite_pending).map((l) => ({ value: l.id, label: l.display_name || l.name }));
   }
 
   // ───────────────────────── الترويسة والملخص ─────────────────────────
@@ -752,6 +754,8 @@ export default async function render(ctx) {
   // ───────────────────────── المستندات والرسائل والسجل ─────────────────────────
 
   function renderDocuments() {
+    // (v9 ai) آخر تحليل لكل مستند: مستندات الملف المستمر، وما حُلل منها ضمن الاستشارة الأصلية
+    const analyses = docAnalysisStore([{ matter_id: m.id }, d.case && d.case.id && { case_id: d.case.id }]);
     return h(
       'div.stack',
       card({
@@ -765,7 +769,13 @@ export default async function render(ctx) {
               key: 'title',
               label: 'المستند',
               className: 'col-wide',
-              render: (x) => h('div', h('div.cell-title', { dir: 'auto' }, x.title), x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename)),
+              render: (x) =>
+                h(
+                  'div',
+                  h('div.cell-title', { dir: 'auto' }, x.title),
+                  x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename),
+                  docAiBadge(analyses, x.id),
+                ),
             },
             { key: 'by', label: 'أضافه', render: (x) => statusBadge('actor_kind', x.uploaded_by_kind) },
             { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', dateTime(x.created_at)) },
@@ -779,6 +789,8 @@ export default async function render(ctx) {
                   button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
                   // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
                   sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }) }),
+                  // (v9 ai) تحليل المستند؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
+                  docAiAction(analyses, x),
                 ),
             },
           ],
@@ -787,6 +799,7 @@ export default async function render(ctx) {
           empty: 'لا توجد مستندات في هذا الملف بعد',
         }),
       }),
+      docAiResultsCard(analyses, documents),
       card({
         title: 'رفع مستندات',
         icon: 'upload',
@@ -853,6 +866,14 @@ export default async function render(ctx) {
       ),
       messageComposer({
         hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».',
+        // (v9) ردود جاهزة بمتغيرات الملف (كود الاستشارة الأصلية إن وُجدت)، واقتراح رد بالذكاء الاصطناعي
+        quickReplies: {
+          client_name: d.client?.name || undefined,
+          case_code: d.case?.code || m.code,
+          case_id: d.case?.id || undefined,
+          client_id: d.client?.id || undefined,
+        },
+        aiTarget: { matterId: m.id },
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/matters/${id}/messages`, { body, channel });
           await refresh('أُرسلت الرسالة للعميل', { tab: 'messages' });
@@ -867,7 +888,7 @@ export default async function render(ctx) {
     // محامٍ مسؤول موقوف لا يظهر بين المحامين النشطين: نُبقيه خيارًا حتى لا يُمسح بحفظ تعديل آخر
     const lawyerOptions = [...(activeOptions || [])];
     if (m.responsible_lawyer_id && !lawyerOptions.some((o) => o.value === m.responsible_lawyer_id)) {
-      lawyerOptions.unshift({ value: m.responsible_lawyer_id, label: `${d.responsible_lawyer?.name || 'المحامي الحالي'} (حساب موقوف)` });
+      lawyerOptions.unshift({ value: m.responsible_lawyer_id, label: `${d.responsible_lawyer?.name || 'المحامي الحالي'} (حساب غير نشط)` });
     }
     const res = await formModal({
       title: 'تعديل بيانات الملف المستمر',

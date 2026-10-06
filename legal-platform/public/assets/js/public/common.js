@@ -70,10 +70,13 @@ export function getAttribution() {
   return out;
 }
 
-/** رابط واتساب مع رسالة جاهزة. */
+// الرقم التوضيحي (+20 100 000 0000) ليس رقم المؤسسة: لا يُبنى منه رابط أبدًا (يرفضه الخادم كذلك)
+const PLACEHOLDER_WA = '201000000000';
+
+/** رابط واتساب مع رسالة جاهزة، أو null إن لم يكن للمؤسسة رقم واتساب مضبوط. */
 export function whatsappUrl(digits, text) {
   const d = String(digits || '').replace(/\D/g, '');
-  if (!d) return null;
+  if (d.length < 8 || d.length > 15 || d === PLACEHOLDER_WA) return null;
   return `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 }
 

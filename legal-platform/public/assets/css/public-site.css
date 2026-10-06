@@ -1470,6 +1470,54 @@ body.pub .pub-doc h3 {
   margin-block-start: 28px;
 }
 
+/* ───────────── بوابة العميل /p/<رمز> (تكمل أنماط app.css؛ الرأس والتذييل المشتركان من src/site.js) ───────────── */
+
+body.pub .portal-page {
+  background: var(--pub-cream);
+  padding-block-end: 24px;
+}
+
+/* نفس عرض حاوية الرأس والتذييل */
+body.pub .portal-page .container {
+  max-width: var(--pub-container);
+  padding-inline: var(--pub-gutter);
+}
+
+body.pub .portal-hero h1 {
+  color: #fff;
+  font-size: clamp(24px, 3.6vw, 32px);
+}
+
+body.pub .portal-hero p {
+  color: rgba(255, 255, 255, 0.85);
+  margin-block-start: 6px;
+}
+
+/* روابط ملخص الملف داخل البطل الداكن تحتفظ بلونها الأبيض (قاعدة روابط الموقع العامة لا تنطبق عليها) */
+body.pub .portal-summary a,
+body.pub .portal-summary a:hover {
+  color: #fff;
+}
+
+body.pub .portal-contact {
+  margin-block-start: 18px;
+}
+
+body.pub .portal-section {
+  scroll-margin-top: 96px;
+}
+
+body.pub .portal-private-note {
+  font-size: 14px;
+  color: var(--pub-ink-soft);
+  text-align: center;
+  padding-block: 8px 0;
+}
+
+body.pub .portal-noscript {
+  padding-block: 32px;
+}
+
 /* ───────────── صفحة الطلب (تكمل أنماط app.css) ───────────── */
 
 body.pub .intake-page {

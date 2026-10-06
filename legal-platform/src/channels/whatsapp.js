@@ -8,6 +8,31 @@ import { normalizePhone } from '../util.js';
 const GRAPH = 'https://graph.facebook.com';
 const DEFAULT_API_VERSION = 'v21.0';
 
+// الرقم التوضيحي «+20 100 000 0000» (القيمة الافتراضية القديمة لإعداد whatsapp_display_number وأمثلة الواجهات)
+// ليس رقم المؤسسة: يُعامل مثل الفراغ تمامًا فلا يظهر في الموقع ولا يُبنى منه رابط wa.me.
+export const WA_PLACEHOLDER_DIGITS = '201000000000';
+
+/**
+ * أرقام واتساب صالحة للعرض العام (بصيغة دولية بلا +) أو '' إن كان الرقم فارغًا أو توضيحيًا أو غير صالح.
+ * يقبل الصيغ المحلية المصرية (01xxxxxxxxx) والدولية بمسافات أو بدونها.
+ */
+export function publicWhatsAppDigits(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  const e164 = normalizePhone(s);
+  const digits = e164 ? e164.replace(/^\+/, '') : s.replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) return '';
+  return digits === WA_PLACEHOLDER_DIGITS ? '' : digits;
+}
+
+/** هل القيمة هي الرقم التوضيحي (بأي صيغة كُتب)؟ */
+export function isPlaceholderWhatsApp(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return false;
+  const e164 = normalizePhone(s);
+  return (e164 ? e164.replace(/^\+/, '') : s.replace(/\D/g, '')) === WA_PLACEHOLDER_DIGITS;
+}
+
 /** التحقق من توقيع Meta (X-Hub-Signature-256) على الجسم الخام */
 export function verifySignature(rawBody, header, appSecret) {
   if (!appSecret) return false; // بدون سر لا يمكن التحقق؛ قرار قبول الرسائل غير الموقعة (المحاكاة فقط) يتخذه المسار صراحة
@@ -276,6 +301,23 @@ export function createWhatsApp(config, log, app = null) {
     /** القيم الفعلية المستخدمة الآن (للخادم فقط؛ لا تُعاد للواجهة لأنها تتضمن أسرارًا) */
     effective() {
       return { ...wa };
+    },
+
+    /**
+     * رقم واتساب المؤسسة للعرض العام وروابط wa.me (أرقام بصيغة دولية) أو '' إن لم يُضبط بعد.
+     * المصدر المعتمد: رقم «التكاملات» (متغير البيئة WHATSAPP_NUMBER أولًا ثم ما حُفظ من معالج الإعداد أو صفحة التكاملات)،
+     * ثم «رقم واتساب الظاهر» في الإعدادات العامة. الرقم التوضيحي +20 100 000 0000 والقيم غير الصالحة تُعامل كأنها غير مضبوطة.
+     */
+    publicDigits() {
+      const fromIntegrations = publicWhatsAppDigits(wa.numberDigits);
+      if (fromIntegrations) return fromIntegrations;
+      let display = '';
+      try {
+        display = app?.settings?.get('whatsapp_display_number') ?? '';
+      } catch {
+        display = '';
+      }
+      return publicWhatsAppDigits(display);
     },
 
     /** إعادة قراءة الإعدادات من مخزن التكاملات/البيئة */

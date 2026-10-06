@@ -28,7 +28,7 @@ const ENV_VARS = [
   { name: 'WHATSAPP_PHONE_NUMBER_ID', desc: 'معرّف رقم الهاتف في WhatsApp Business (Phone number ID)', group: 'wa' },
   { name: 'WHATSAPP_VERIFY_TOKEN', desc: 'نص سري تختاره أنت وتكتبه في Meta عند تسجيل الـ Webhook', group: 'verify' },
   { name: 'WHATSAPP_APP_SECRET', desc: 'المفتاح السري للتطبيق (App Secret) للتحقق من توقيع كل رسالة واردة', group: 'secret' },
-  { name: 'WHATSAPP_NUMBER', desc: 'رقم واتساب الظاهر للعملاء بصيغة دولية أرقامًا فقط، مثل 201000000000 (لروابط wa.me)', group: 'number' },
+  { name: 'WHATSAPP_NUMBER', desc: 'رقم واتساب الظاهر للعملاء بصيغة دولية أرقامًا فقط، مثل 201211114662 (لروابط wa.me)', group: 'number' },
   { name: 'ANTHROPIC_API_KEY', desc: 'مفتاح Claude لتفعيل التحليل المتقدم (اختياري — بدونه يعمل المحلل المحلي)', group: 'ai' },
   { name: 'AI_MODEL', desc: 'اسم نموذج Claude المستخدم (اختياري)', group: 'ai_model' },
   { name: 'PUBLIC_BASE_URL', desc: 'الرابط العام للمنصة بصيغة https://… لروابط بوابة العملاء والـ Webhook', group: 'url' },
@@ -63,7 +63,14 @@ export default async function render(ctx) {
         counter: true,
         hint: 'يظهر في نموذج الطلب على الموقع وفي بوابة العميل',
       },
-      { name: 'whatsapp_display_number', label: 'رقم واتساب الظاهر للعملاء', ltr: true, required: true, maxLength: 30, placeholder: '+20 100 000 0000' },
+      {
+        name: 'whatsapp_display_number',
+        label: 'رقم واتساب الظاهر للعملاء',
+        ltr: true,
+        maxLength: 30,
+        placeholder: '+20 12 1111 4662',
+        hint: 'يُستخدم في أزرار وروابط واتساب على الموقع وبوابة العملاء، والأولوية لرقم صفحة «التكاملات» إن ضُبط. اتركه فارغًا إن لم يكن للمؤسسة رقم واتساب بعد، فيظهر الهاتف بديلًا.',
+      },
       {
         name: 'whatsapp_template_name',
         label: 'اسم قالب واتساب المعتمد',
@@ -94,18 +101,20 @@ export default async function render(ctx) {
       },
     ],
     {
-      values: settings,
+      // الرقم التوضيحي القديم (+20 100 000 0000) يُعرض فارغًا: ليس رقم المؤسسة ولا يقبله الخادم
+      values: /^\+?20\s*100\s*000\s*0000$/.test(String(settings.whatsapp_display_number || '').trim()) ? { ...settings, whatsapp_display_number: '' } : settings,
       submitLabel: 'حفظ الإعدادات',
       submitIcon: 'check',
       onSubmit: async (v, f) => {
-        const digits = toLatinDigits(v.whatsapp_display_number).replace(/\D/g, '');
-        if (digits.length < 8 || digits.length > 15) throw fieldError('whatsapp_display_number', 'أدخل رقمًا صحيحًا بصيغة دولية مثل +20 100 000 0000');
+        const digits = toLatinDigits(v.whatsapp_display_number || '').replace(/\D/g, '');
+        if (digits && (digits.length < 8 || digits.length > 15)) throw fieldError('whatsapp_display_number', 'أدخل رقمًا صحيحًا بصيغة دولية مثل +20 12 1111 4662');
+        if (digits === '201000000000' || digits === '01000000000') throw fieldError('whatsapp_display_number', 'هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي أو اترك الحقل فارغًا');
         if (v.whatsapp_template_language && !/^[a-zA-Z_]{2,10}$/.test(v.whatsapp_template_language)) throw fieldError('whatsapp_template_language', 'كود اللغة حروف لاتينية فقط، مثل ar أو en_US');
         const saved = await api.patch('/admin/settings', {
           org_name: v.org_name,
           org_tagline: v.org_tagline || '',
           privacy_notice: v.privacy_notice,
-          whatsapp_display_number: v.whatsapp_display_number,
+          whatsapp_display_number: v.whatsapp_display_number || '',
           whatsapp_template_name: v.whatsapp_template_name || '',
           whatsapp_template_language: v.whatsapp_template_language || '',
           default_assignment_days: v.default_assignment_days,

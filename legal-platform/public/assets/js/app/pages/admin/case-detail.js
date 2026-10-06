@@ -45,6 +45,9 @@ import { sendDocumentButton } from '../../components/send-document.js'; // v9 me
 import { caseProgramField } from '../../components/program-picker.js';
 import { outcomeFields, outcomePayload, outcomeCard } from '../../components/outcome.js'; // v9 practice
 import { partiesCard } from '../../components/parties.js'; // v9 practice
+import { quickReplyPicker, bindQuickReplyShortcuts, insertAtCursor } from '../../components/quick-replies.js'; // v9 messaging
+import { aiReplyButton } from '../../components/ai-reply.js'; // v9 ai
+import { docAiButton, docAiPanel } from '../../components/doc-ai.js'; // v9 ai
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
 
@@ -170,10 +173,60 @@ export function messageThread(messages = [], { onRetry, inLabel = 'العميل'
   return wrap;
 }
 
-/** صندوق كتابة رسالة للعميل مع اختيار القناة. */
-export function messageComposer({ onSend, placeholder = 'اكتب رسالة للعميل…', hint } = {}) {
+/**
+ * أدوات كتابة الرد (v9): «ردود جاهزة» (مع اختصارات «/وثائق» داخل الحقل) و«اقتراح رد» بالذكاء الاصطناعي.
+ * تُستخدم في كل محررات رسائل الإدارة (الطلب الوارد، المحادثة في الملف، الملف المستمر).
+ * @param {HTMLTextAreaElement} ta حقل الرسالة
+ * @param {{context?:object|null, ai?:{intakeId?:number, caseId?:number, matterId?:number}|null}} opts
+ *   context: سياق متغيرات الردود الجاهزة {client_name, case_code, request_code, case_id, intake_id, client_id}
+ * @returns {{el:HTMLElement|null, sent:(text:string)=>void}} sent(): تُستدعى بعد الإرسال الفعلي لتسجيل النص النهائي للرد المقترح
+ */
+export function composerTools(ta, { context = null, ai = null } = {}) {
+  let aiMeta = null;
+  const btns = [];
+  if (context) {
+    btns.push(quickReplyPicker({ context, onPick: (text) => insertAtCursor(ta, text) }));
+    bindQuickReplyShortcuts(ta, { context });
+  }
+  if (ai) {
+    btns.push(
+      aiReplyButton({
+        ...ai,
+        onText: (text, meta) => {
+          ta.value = text;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          aiMeta = meta || null;
+          // تُغلق النافذة بعد onText وتعيد التركيز إلى زرها، فيُنقل التركيز إلى الحقل بعدها مباشرة
+          setTimeout(() => {
+            if (!ta.isConnected) return;
+            ta.focus();
+            ta.setSelectionRange(ta.value.length, ta.value.length);
+          }, 0);
+        },
+      }),
+    );
+  }
+  // إن أُفرغ الحقل فقد تُرك الرد المقترح، فلا يُنسب إليه ما يُكتب بعد ذلك
+  ta.addEventListener('input', () => {
+    if (!ta.value.trim()) aiMeta = null;
+  });
+  return {
+    el: btns.length ? h('div.btn-group.composer-tools', { role: 'group', 'aria-label': 'أدوات كتابة الرسالة' }, btns) : null,
+    sent(text) {
+      if (aiMeta && typeof aiMeta.reportFinal === 'function') aiMeta.reportFinal(text);
+      aiMeta = null;
+    },
+  };
+}
+
+/**
+ * صندوق كتابة رسالة للعميل مع اختيار القناة.
+ * (v9) quickReplies: سياق الردود الجاهزة، وaiTarget: {caseId} أو {matterId} لزر «اقتراح رد» (انظر composerTools).
+ */
+export function messageComposer({ onSend, placeholder = 'اكتب رسالة للعميل…', hint, quickReplies = null, aiTarget = null } = {}) {
   const taId = uid('composer');
   const ta = h('textarea.input', { id: taId, rows: 3, placeholder, maxlength: 4000 });
+  const tools = composerTools(ta, { context: quickReplies, ai: aiTarget });
   const sel = h(
     'select.input',
     { 'aria-label': 'قناة الإرسال' },
@@ -192,6 +245,7 @@ export function messageComposer({ onSend, placeholder = 'اكتب رسالة ل�
       }
       err.hidden = true;
       await onSend({ body, channel: sel.value });
+      tools.sent(body);
       ta.value = '';
     },
     { variant: 'primary', icon: 'send' },
@@ -207,8 +261,122 @@ export function messageComposer({ onSend, placeholder = 'اكتب رسالة ل�
     h('label.field-label', { htmlFor: taId }, 'رسالة جديدة للعميل'),
     ta,
     err,
-    h('div.composer-actions', h('div.select-wrap.pb-channel', sel), hint && h('span.small.muted.pb-composer-hint', hint), send),
+    h('div.composer-actions', tools.el, h('div.select-wrap.pb-channel', sel), hint && h('span.small.muted.pb-composer-hint', hint), send),
   );
+}
+
+// ───────────── تحليل المستندات بالذكاء الاصطناعي (v9 ai) — تستخدمه صفحات الطلب والملف والملف المستمر ─────────────
+
+/**
+ * آخر تحليل محفوظ لكل مستند، من GET /admin/ai/documents?case_id=|intake_id=|matter_id=.
+ * تُدمج عدة استعلامات (مثل مستندات طلب حُللت قبل تحويله إلى ملف) ويُحتفظ بالأحدث لكل مستند،
+ * ويتحدث المخزن فور اكتمال تحليل جديد فتتحدث الشارات ولوحة النتائج دون إعادة تحميل الصفحة.
+ * @param {Array<{case_id?:number, intake_id?:number, matter_id?:number}|null|false>} queries
+ */
+export function docAnalysisStore(queries = []) {
+  const map = new Map();
+  const subs = new Set();
+  const put = (a) => {
+    if (!a || !a.document_id) return;
+    const prev = map.get(a.document_id);
+    if (!prev || Number(a.id) > Number(prev.id)) map.set(a.document_id, a);
+  };
+  const notify = () => subs.forEach((fn) => fn());
+  const list = queries.filter((q) => q && Object.values(q).some(Boolean));
+  Promise.all(
+    list.map((q) =>
+      api
+        .get('/admin/ai/documents', { ...q, limit: 200 })
+        .then((r) => (r && Array.isArray(r.items) ? r.items : []).forEach(put))
+        .catch(() => null),
+    ),
+  ).then(notify);
+  return {
+    of: (docId) => map.get(docId) || null,
+    set(a) {
+      put(a);
+      notify();
+    },
+    subscribe(fn) {
+      subs.add(fn);
+      return () => subs.delete(fn);
+    },
+  };
+}
+
+/** شارة نوع المستند حسب آخر تحليل له (فارغة إن لم يُحلَّل بعد). */
+export function docAiBadge(store, docId) {
+  const host = h('span.doc-ai-badge');
+  const draw = () => {
+    const a = store.of(docId);
+    mount(
+      host,
+      a
+        ? badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'accent', {
+            icon: 'sparkle',
+            title: a.stale ? 'استُبدل ملف المستند بعد آخر تحليل' : 'نوع المستند حسب آخر تحليل',
+          })
+        : null,
+    );
+  };
+  store.subscribe(draw);
+  draw();
+  return host;
+}
+
+/** زر «تحليل المستند» لصف مستند في صفحات الإدارة (يحدّث المخزن عند اكتمال التحليل). */
+export function docAiAction(store, doc) {
+  return docAiButton({ documentId: doc.id, onDone: (a) => store.set(a) });
+}
+
+/**
+ * بطاقة «نتائج تحليل المستندات»: آخر تحليل محفوظ لكل مستند في الصفحة (تختفي إن لم يُحلَّل شيء بعد).
+ * @param {ReturnType<typeof docAnalysisStore>} store
+ * @param {Array<{id:number, title?:string, filename?:string}>} docs
+ */
+export function docAiResultsCard(store, docs = []) {
+  const host = h('div.doc-ai-results-host');
+  const opened = new Set();
+  let autoOpened = false;
+  const draw = () => {
+    const items = docs.map((d) => [d, store.of(d.id)]).filter(([, a]) => a);
+    if (!items.length) {
+      clear(host);
+      return;
+    }
+    // نتيجة وحيدة تُعرض مفتوحة أول مرة؛ بعدها يُحترم ما فتحه المستخدم أو طواه
+    if (!autoOpened && items.length === 1) opened.add(items[0][0].id);
+    autoOpened = true;
+    mount(
+      host,
+      card({
+        title: 'نتائج تحليل المستندات',
+        subtitle: `عدد المستندات المحللة: ${items.length} من ${docs.length} — نتيجة آلية مساعدة تُراجع مع أصل المستند`,
+        icon: 'sparkle',
+        body: h(
+          'div.doc-ai-results',
+          items.map(([d, a]) => {
+            const det = h(
+              'details.doc-ai-result',
+              { open: opened.has(d.id) },
+              h(
+                'summary',
+                h('span.doc-ai-result-name', { dir: 'auto' }, d.title || d.filename || 'مستند'),
+                badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'accent', { icon: 'sparkle' }),
+                a.created_at ? h('time.cell-sub', { datetime: a.created_at, title: dateTime(a.created_at) }, relative(a.created_at)) : null,
+              ),
+              docAiPanel(a, { compact: true }),
+            );
+            det.addEventListener('toggle', () => (det.open ? opened.add(d.id) : opened.delete(d.id)));
+            return det;
+          }),
+        ),
+      }),
+    );
+  };
+  store.subscribe(draw);
+  draw();
+  return host;
 }
 
 const ACT_ICONS = [
@@ -2172,6 +2340,8 @@ export default async function render(ctx) {
   function renderDocuments() {
     const viewersOf = (did) => activeTeam.filter((a) => (a.grants.document_ids || []).includes(did));
     const irById = new Map(data.info_requests.map((r) => [r.id, r]));
+    // (v9 ai) آخر تحليل لكل مستند: مستندات الملف، وما حُلل منها وهي في الطلب الوارد قبل التحويل
+    const analyses = docAnalysisStore([{ case_id: c.id }, data.intake && data.intake.id && { intake_id: data.intake.id }]);
     const columns = [
       {
         key: 'title',
@@ -2183,6 +2353,7 @@ export default async function render(ctx) {
             h('div.cell-title', { dir: 'auto' }, d.title),
             d.filename !== d.title && h('div.cell-sub', { dir: 'auto' }, d.filename),
             d.info_request_id && irById.has(d.info_request_id) && h('div.cell-sub', `مرفق بطلب: ${truncate(irById.get(d.info_request_id).question, 60)}`),
+            docAiBadge(analyses, d.id),
           ),
       },
       { key: 'by', label: 'أضافه', render: (d) => statusBadge('actor_kind', d.uploaded_by_kind) },
@@ -2207,6 +2378,8 @@ export default async function render(ctx) {
             // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
             // (يعرض المكوّن نفسه رسالة النجاح والقناة المستخدمة، فلا تُكرر هنا)
             sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }) }),
+            // (v9 ai) تحليل نوع المستند ووقائعه وما يثبته؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
+            docAiAction(analyses, d),
           ),
       },
     ];
@@ -2219,6 +2392,7 @@ export default async function render(ctx) {
         flush: true,
         body: table({ columns, rows: data.documents, empty: 'لا توجد مستندات في هذا الملف بعد', caption: 'مستندات الملف' }),
       }),
+      docAiResultsCard(analyses, data.documents),
       card({
         title: 'رفع مستندات جديدة',
         icon: 'upload',
@@ -2261,6 +2435,15 @@ export default async function render(ctx) {
       }),
       messageComposer({
         hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)». للإرسال السريع: Ctrl+Enter',
+        // (v9) ردود جاهزة بمتغيرات الملف، واقتراح رد بالذكاء الاصطناعي
+        quickReplies: {
+          client_name: data.client?.name || undefined,
+          case_code: c.code,
+          request_code: data.intake?.code || undefined,
+          case_id: c.id,
+          client_id: data.client?.id || c.client_id || undefined,
+        },
+        aiTarget: { caseId: c.id },
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/cases/${id}/messages`, { body, channel });
           await refresh('أُرسلت الرسالة للعميل', { tab: 'conversation' });
@@ -2416,7 +2599,8 @@ export default async function render(ctx) {
   }
 
   async function openMatterDialog(lawyers) {
-    const lawyerOptions = (lawyers || []).map((l) => ({ value: l.id, label: l.display_name || l.name }));
+    // المحامي المسؤول يجب أن يكون حسابه مفعّلًا (لا دعوة معلّقة) — يرفضه الخادم كذلك
+    const lawyerOptions = (lawyers || []).filter((l) => !l.invite_pending).map((l) => ({ value: l.id, label: l.display_name || l.name }));
     const res = await formModal({
       title: 'تحويل الاستشارة إلى ملف عمل مستمر',
       size: 'lg',

@@ -81,7 +81,6 @@ export async function seedDemo(app) {
   try {
     // ================= المستخدمون =================
     at(150);
-    app.settings.set('whatsapp_display_number', '+20 100 000 0000');
     db.setCounter('client', 860);
     const adminU = app.lawyers.createStaff({ role: 'admin', username: 'admin', name: 'كريم منصور', password: 'Admin@2026', email: 'admin@example.org' });
     const managerU = app.lawyers.createStaff({ role: 'case_manager', username: 'manager', name: 'منى السيد', password: 'Manager@2026' });

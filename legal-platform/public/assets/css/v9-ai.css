@@ -229,3 +229,53 @@
   .ai-usage .pd-table-tight .table th,
   .ai-usage .pd-table-tight .table td { padding-inline: 8px; }
 }
+
+/* ───────────── الدمج في صفحات التفاصيل: أدوات محرر الرسائل وتحليل المستندات ───────────── */
+/* «ردود جاهزة» و«اقتراح رد» في صف إجراءات المحرر؛ على الجوال يتقاسمان سطرًا مستقلًا */
+.composer-tools { gap: 6px; flex: 0 0 auto; min-width: 0; }
+@media (max-width: 640px) {
+  .composer-tools { flex: 1 1 100%; }
+  .composer-tools > .btn { flex: 1 1 0; min-width: 0; }
+}
+
+/* شارة نوع المستند بعد تحليله (في جدول المستندات وقوائمها) */
+.doc-ai-badge:empty { display: none; }
+.doc-ai-badge { display: block; margin-block-start: 4px; }
+.doc-ai-badge .badge { max-width: 100%; white-space: normal; }
+
+/* قوائم المستندات ذات زر التحليل: تلتف الأزرار تحت الاسم على الشاشات الضيقة */
+.doc-ai-docs .pc-doc { flex-wrap: wrap; }
+.doc-ai-docs .pc-doc-text { flex: 1 1 180px; }
+.pc-doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-inline-start: auto; }
+
+/* نتائج التحليل المحفوظة: عنصر قابل للطي لكل مستند */
+.doc-ai-results-host:empty { display: none; }
+.doc-ai-results { display: grid; gap: 8px; min-width: 0; }
+.doc-ai-result { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.doc-ai-result > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
+}
+.doc-ai-result > summary::-webkit-details-marker { display: none; }
+.doc-ai-result > summary::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  /* سهم من ضلعين: للأسفل عند الفتح، ونحو اتجاه القراءة (اليسار) عند الطي */
+  border-bottom: 2px solid var(--text-muted);
+  border-right: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+.doc-ai-result:not([open]) > summary::before { transform: rotate(135deg); }
+.doc-ai-result > summary:hover { background: var(--primary-50); }
+.doc-ai-result > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.doc-ai-result-name { flex: 1 1 160px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.doc-ai-result > .doc-ai { padding: 4px 12px 12px; }

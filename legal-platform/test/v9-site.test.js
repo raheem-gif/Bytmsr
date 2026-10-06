@@ -123,7 +123,7 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.match(html, /01211114662/);
     assert.match(html, /href="tel:\+201211114662"/);
     assert.match(html, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=44%20/);
-    assert.match(html, /https:\/\/wa\.me\/201000000000\?text=/);
+    assert.match(html, /https:\/\/wa\.me\/201000000001\?text=/);
     for (const p of ['نجاح', 'المائدة', 'سلامة', 'الكسوة', 'أفراح', 'صك الإيواء', 'نماء']) assert.ok(html.includes(`«${p}»`), p);
     // لا محتوى مختلق: لا شهادات ولا إحصاءات
     assert.ok(!/شهادات المستفيدين|testimonial/i.test(html));
@@ -139,7 +139,7 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.match(terms, /لا ضمان للنتائج/);
     assert.match(terms, /حدود العلاقة مع المحامي/);
     const del = (await t.client().get('/data-deletion')).body;
-    assert.match(del, /https:\/\/wa\.me\/201000000000\?text=/);
+    assert.match(del, /https:\/\/wa\.me\/201000000001\?text=/);
     assert.match(del, /href="tel:\+201211114662"/);
     assert.match(del, /ثلاثين يومًا/);
     // البريد غير مضبوط افتراضيًا فلا يظهر سطره

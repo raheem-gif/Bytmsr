@@ -4,7 +4,7 @@ import { h, frag, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { relative, dateTime } from '../../lib/fmt.js';
 import { pageHeader, card, emptyState, asyncButton, icon, toast, richText } from '../../lib/ui.js';
-import { notifIcon, markRead, followLink } from '../notif.js';
+import { notifIcon, notifTone, markRead, followLink } from '../notif.js';
 
 export default async function render(ctx) {
   const data = await api.get('/notifications');
@@ -59,7 +59,7 @@ export default async function render(ctx) {
       h(
         'button.notif-item',
         { type: 'button', class: unread && 'is-unread', onClick: () => open(n) },
-        h('span.notif-icon', icon(notifIcon(n.type), { size: 18 })),
+        h('span.notif-icon', { class: notifTone(n.type) }, icon(notifIcon(n.type), { size: 18 })),
         h(
           'span.notif-text',
           h('span.notif-title', richText(n.title)),

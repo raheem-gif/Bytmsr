@@ -29,6 +29,13 @@ function phoneValue(raw) {
   return null;
 }
 
+/** رابط الاتصال الهاتفي بالمؤسسة (بديل واتساب حين لا يكون للمؤسسة رقم واتساب مضبوط)، أو null */
+function phoneLink() {
+  const p = meta.site?.org_phone;
+  if (!p) return null;
+  return h('a', { href: `tel:${meta.site.org_phone_e164 || p}`, dir: 'ltr' }, p);
+}
+
 function maskPhone(p) {
   const d = String(p || '').replace(/\D/g, '');
   return d.length > 4 ? `••• ${d.slice(-4)}` : p;
@@ -46,7 +53,11 @@ function notes() {
       h(
         'span',
         'لم يصلك الرمز؟ تأكد أنك كتبت الرقم المسجل لدينا والمرتبط بواتساب',
-        wa ? [' أو ', h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'راسلنا عبر واتساب'), ' لنرسل لك رابط صفحتك.'] : '.',
+        wa
+          ? [' أو ', h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'راسلنا عبر واتساب'), ' لنرسل لك رابط صفحتك.']
+          : phoneLink()
+            ? [' أو اتصل بنا على ', phoneLink(), ' لنرسل لك رابط صفحتك.']
+            : '.',
       ),
     ),
     h('li', icon('send', { size: 16 }), h('span', 'ليس لديك طلب بعد؟ ', h('a', { href: '/intake' }, 'قدّم طلبك من الموقع'))),
@@ -257,8 +268,13 @@ function disabledView() {
     root,
     h('span.pl-icon', { 'aria-hidden': 'true' }, icon('info', { size: 26 })),
     h('h2#pl-title', 'الدخول برمز واتساب غير متاح حاليًا'),
-    h('p.pl-lead', 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، أو مراسلتنا لنرسل لك رابطًا جديدًا.'),
-    wa ? button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank', block: true }) : null,
+    h('p.pl-lead', wa ? 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، أو مراسلتنا لنرسل لك رابطًا جديدًا.' : 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، أو الاتصال بنا لنرسل لك رابطًا جديدًا.'),
+    wa
+      ? button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank', block: true })
+      : meta.site?.org_phone
+        ? button(`اتصل بنا: ${meta.site.org_phone}`, { variant: 'primary', icon: 'phone', href: `tel:${meta.site.org_phone_e164 || meta.site.org_phone}`, block: true })
+        : null,
+    h('p.pl-lead', 'ليس لديك طلب بعد؟ ', h('a', { href: '/intake' }, 'قدّم طلبك من الموقع')),
   );
 }
 

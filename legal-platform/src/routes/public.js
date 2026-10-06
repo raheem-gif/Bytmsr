@@ -4,7 +4,7 @@ import { requireUser } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, forbidden } from '../util.js';
 import { sourceFromWebAttribution } from '../channels/engine.js';
-import { verifySignature } from '../channels/whatsapp.js';
+import { verifySignature, publicWhatsAppDigits, isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const DEMO_ACCOUNTS = [
   { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
@@ -19,21 +19,23 @@ export function registerPublicRoutes(router, app) {
   const { config } = app;
 
   function waDigits() {
-    const s = app.settings.all();
-    // الرقم الفعلي من إعدادات التكاملات (البيئة أولًا) ثم الرقم الظاهر في الإعدادات العامة
-    const eff = app.whatsapp.effective ? app.whatsapp.effective() : config.whatsapp;
-    return eff.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
+    // الرقم الفعلي من إعدادات التكاملات (البيئة أولًا) ثم الرقم الظاهر في الإعدادات العامة؛
+    // '' إن لم يُضبط رقم حقيقي (الرقم التوضيحي +20 100 000 0000 لا يُنتج رابط wa.me أبدًا)
+    if (app.whatsapp.publicDigits) return app.whatsapp.publicDigits();
+    return publicWhatsAppDigits(config.whatsapp?.numberDigits) || publicWhatsAppDigits(app.settings.get('whatsapp_display_number'));
   }
 
   router.get('/api/meta', (ctx) => {
     const s = app.settings.all();
+    const digits = waDigits();
     return {
       constants: { LEGAL_AREAS, GOVERNORATES, LABELS, ENUMS },
       settings: {
         org_name: s.org_name,
         org_tagline: s.org_tagline,
-        whatsapp_display_number: s.whatsapp_display_number,
-        whatsapp_number_digits: waDigits(),
+        // الرقم الظاهر كما كتبته الإدارة، ويُخفى ما دام لا يوجد رقم واتساب فعلي (فارغ أو توضيحي)
+        whatsapp_display_number: digits && !isPlaceholderWhatsApp(s.whatsapp_display_number) ? s.whatsapp_display_number || '' : '',
+        whatsapp_number_digits: digits,
         privacy_notice: s.privacy_notice,
         default_assignment_days: s.default_assignment_days,
       },

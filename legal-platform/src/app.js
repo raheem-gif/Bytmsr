@@ -234,7 +234,11 @@ export function createApp(config, { logger = console } = {}) {
     }
     if (pages[pathname]) return sendFile(req, res, pages[pathname]) || notFoundPage(res);
     if (/^\/p\/[A-Za-z0-9_-]{20,100}\/?$/.test(pathname)) {
+      // الرمز في الرابط سر: لا يُرسل في Referer لأي موقع آخر، ولا تُفهرس الصفحة ولا تُخزَّن
       res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      // (v9 site) نفس رأس الموقع العام وتذييله إن استخدمهما القالب؛ المسار الظاهر في الوسوم /portal بلا الرمز
+      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true })) return;
       return sendFile(req, res, path.join(pub, 'portal.html')) || notFoundPage(res);
     }
     if (pathname === '/healthz') return sendJson(res, 200, { ok: true });

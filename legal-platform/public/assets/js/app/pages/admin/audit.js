@@ -33,6 +33,16 @@ const GROUP_LABELS = {
   security: 'سياسة الأمان',
   integration: 'التكاملات',
   audit: 'سجل الأمان',
+  system: 'إعداد المنصة وصيانتها',
+  backup: 'النسخ الاحتياطي',
+  whatsapp: 'قوالب واتساب',
+  document: 'المستندات المرسلة',
+  data: 'استيراد البيانات وتصديرها',
+  impact: 'تقرير الأثر',
+  calendar: 'اشتراك التقويم',
+  ai: 'الذكاء الاصطناعي',
+  program: 'البرامج والتمويل',
+  print: 'الطباعة',
 };
 const FILTER_KEYS = ['q', 'type', 'severity', 'user_id', 'from', 'to'];
 

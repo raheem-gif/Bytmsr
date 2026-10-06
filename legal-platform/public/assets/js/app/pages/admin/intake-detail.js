@@ -2,7 +2,7 @@
 // ثم قرار الإدارة: تحويل إلى ملف قانوني له كود مستقل، أو تعامل داخلي دون محامٍ، أو أرشفة.
 
 import { h, frag, mount } from '../../../lib/h.js';
-import { api, downloadUrl } from '../../../lib/api.js';
+import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday } from '../../../lib/fmt.js';
 import {
   pageHeader,
@@ -36,6 +36,8 @@ import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus } from './inbo
 import { pickClient } from './clients.js';
 import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 import { programSelect } from '../../components/program-picker.js';
+// v9: ردود جاهزة واقتراح رد بالذكاء الاصطناعي في محرر الرد، وتحليل المستندات (أدوات مشتركة مع صفحة الملف)
+import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
 const REPLY_CHANNELS = [
@@ -572,27 +574,53 @@ export default async function render(ctx) {
       );
     });
 
-    const loose = (d.documents || []).filter((doc) => !msgs.some((m) => (m.documents || []).some((x) => x.id === doc.id)));
-    const docs = loose.length
-      ? h(
-          'div.pa-docs',
-          h('span.pa-docs-title', icon('paperclip', { size: 15 }), `مستندات أخرى مرفقة بالطلب (${loose.length})`),
-          h(
-            'div.msg-docs',
-            loose.map((doc) =>
-              h('a.doc-chip', { href: downloadUrl(doc.id), target: '_blank', rel: 'noopener noreferrer' }, icon('file', { size: 14 }), h('span', { dir: 'auto' }, doc.filename || doc.title || 'مستند')),
-            ),
-          ),
-        )
-      : null;
-
+    // كل مستندات الطلب (المرفقة بالرسائل وغيرها) تُعرض مع تحليلها في بطاقة «مستندات الطلب» أسفل المحادثة
     const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
     return card({
       title: 'المحادثة',
       subtitle: `${count(msgs.length, ['رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة'])} عبر ${chans.map((c) => label('channel', c)).join(' و')}`,
       icon: 'message',
       actions: channelIcons(chans, { withLabels: true }),
-      body: frag(banners.length ? h('div.stack-sm.mb-3', banners) : null, scroller, docs, composer()),
+      body: frag(banners.length ? h('div.stack-sm.mb-3', banners) : null, scroller, composer()),
+    });
+  }
+
+  // ───────────── المستندات وتحليلها (v9 ai) ─────────────
+  const allDocs = d.documents || [];
+  // آخر تحليل لكل مستند: ما حُلل ضمن الطلب، وما حُلل بعد تحويله إلى ملف
+  const analyses = allDocs.length ? docAnalysisStore([{ intake_id: it.id }, d.case && d.case.id && { case_id: d.case.id }]) : null;
+
+  function documentsCard() {
+    const inMessages = new Set();
+    for (const m of d.messages || []) for (const x of m.documents || []) inMessages.add(x.id);
+    return card({
+      title: 'مستندات الطلب',
+      subtitle: `عدد المستندات: ${allDocs.length} — حلّل المستند لمعرفة نوعه ووقائعه وما يثبته`,
+      icon: 'paperclip',
+      body: h(
+        'ul.pc-docs.doc-ai-docs',
+        allDocs.map((doc) => {
+          const name = doc.title || doc.filename || 'مستند';
+          return h(
+            'li.pc-doc',
+            h('span.pc-doc-icon', icon('fileText', { size: 18 })),
+            h(
+              'div.pc-doc-text',
+              h('span.pc-doc-name', { dir: 'auto', title: name }, name),
+              h(
+                'span.pc-doc-meta',
+                [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
+              ),
+              docAiBadge(analyses, doc.id),
+            ),
+            h(
+              'div.pc-doc-actions',
+              button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(doc.id), target: '_blank', ariaLabel: `تنزيل ${name}` }),
+              docAiAction(analyses, doc),
+            ),
+          );
+        }),
+      ),
     });
   }
 
@@ -606,6 +634,16 @@ export default async function render(ctx) {
     }
     const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: 'اكتب ردك على العميل…' });
     const wrap = field('الرد على العميل', ta, { hint: 'يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.' });
+    // (v9) ردود جاهزة واقتراح رد. الهوية غير المؤكدة: الاسم كما كتبه المرسل فقط، دون ربط بملف العميل المسجل
+    const tools = composerTools(ta, {
+      context: {
+        client_name: (unverified ? it.contact_name : (cl && cl.name) || it.contact_name) || undefined,
+        request_code: it.code,
+        intake_id: it.id,
+        client_id: !unverified && it.client_id ? it.client_id : undefined,
+      },
+      ai: { intakeId: it.id },
+    });
     const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, REPLY_CHANNELS.map((o) => h('option', { value: o.value }, o.label)));
     const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status) });
     const sendBtn = asyncButton(
@@ -619,6 +657,7 @@ export default async function render(ctx) {
         }
         wrap.setError('');
         const msg = await api.post(`${base}/reply`, { body, channel: chan.value, await_client: awaitCb.checked });
+        tools.sent(body);
         toast(
           msg && msg.status === 'simulated'
             ? 'سُجّل الرد كإرسال تجريبي (محاكاة) لعدم ضبط بيانات واتساب'
@@ -646,6 +685,7 @@ export default async function render(ctx) {
       wrap,
       h(
         'div.composer-actions',
+        tools.el,
         h(
           'div.pa-composer-opts',
           h('div.select-wrap', chan),
@@ -1150,6 +1190,8 @@ export default async function render(ctx) {
         identityEl && withId(identityEl, 'pa-identity'),
         withId(decisionCard(), 'pa-decision'),
         withId(conversationCard(), 'pa-conversation'),
+        allDocs.length ? withId(documentsCard(), 'pa-documents') : null,
+        analyses && docAiResultsCard(analyses, allDocs),
         withId(triageCard(), 'pa-triage'),
         it.client_id && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
         activityCard(),

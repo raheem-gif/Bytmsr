@@ -11,6 +11,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { LEGAL_AREAS, DEFAULT_SETTINGS, GOVERNORATES } from './constants.js';
 import { normalizePhone, v, badRequest } from './util.js';
+import { publicWhatsAppDigits, isPlaceholderWhatsApp } from './channels/whatsapp.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -356,9 +357,10 @@ export function registerSite(app) {
   }
 
   function waDigits(s) {
-    // (v9 messaging) الرقم الفعلي من التكاملات (البيئة أولًا ثم المحفوظ من لوحة الإدارة)
-    const eff = app.whatsapp?.effective ? app.whatsapp.effective() : config.whatsapp;
-    return eff?.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
+    // (v9 messaging) الرقم الفعلي من التكاملات (البيئة أولًا ثم المحفوظ من معالج الإعداد أو صفحة التكاملات) ثم الإعدادات العامة.
+    // الرقم التوضيحي +20 100 000 0000 أو الفارغ = «واتساب غير مضبوط»: لا أزرار ولا روابط wa.me في الموقع
+    if (app.whatsapp?.publicDigits) return app.whatsapp.publicDigits();
+    return publicWhatsAppDigits(config.whatsapp?.numberDigits) || publicWhatsAppDigits(s.whatsapp_display_number);
   }
 
   /** إعدادات الموقع العامة (آمنة للعرض) — تُستخدم في القوالب و/api/meta */
@@ -390,7 +392,7 @@ export function registerSite(app) {
       office_hours: pick('office_hours'),
       map_url: address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '',
       whatsapp_digits: digits,
-      whatsapp_display_number: typeof s.whatsapp_display_number === 'string' ? s.whatsapp_display_number : '',
+      whatsapp_display_number: digits && typeof s.whatsapp_display_number === 'string' && !isPlaceholderWhatsApp(s.whatsapp_display_number) ? s.whatsapp_display_number : '',
       privacy_notice: pick('privacy_notice'),
     };
   }
@@ -662,6 +664,8 @@ export function registerSite(app) {
       base_url: base,
       year: String(new Date().getFullYear()),
       whatsapp_url: wa,
+      // للنصوص البديلة في القوالب (<!--#if no_whatsapp-->) حين لا يوجد رقم واتساب فعلي بعد
+      no_whatsapp: wa ? '' : '1',
       whatsapp_deletion_url: waLink(ps.whatsapp_digits, `مرحبًا ${ps.org_name}، أطلب حذف بياناتي الشخصية المسجلة لديكم.`),
       org_phone_href: ps.org_phone_e164 || ps.org_phone,
       header: headerHtml(ps, pagePath),
@@ -683,11 +687,12 @@ export function registerSite(app) {
     return html.replace('<!--site:head-->', () => head);
   }
 
-  function sendHtml(req, res, html) {
+  function sendHtml(req, res, html, { noStore = false } = {}) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    // لا بيانات شخصية في هذه الصفحات؛ إعادة التحقق في كل زيارة حتى تظهر تعديلات الإعدادات فورًا
-    res.setHeader('Cache-Control', 'no-cache');
+    // لا بيانات شخصية في هذه الصفحات؛ إعادة التحقق في كل زيارة حتى تظهر تعديلات الإعدادات فورًا.
+    // صفحات الروابط الخاصة (noStore) لا تُحفظ في ذاكرة المتصفح أو الوسطاء إطلاقًا.
+    res.setHeader('Cache-Control', noStore ? 'no-store' : 'no-cache');
     res.setHeader('Content-Length', Buffer.byteLength(html));
     if (req.method === 'HEAD') return res.end();
     res.end(html);
@@ -698,18 +703,25 @@ export function registerSite(app) {
    * optIn: لا تُعالج الصفحة إلا إذا احتوى ملفها على {{{header}}} (لصفحات الوحدات الأخرى مثل /portal).
    */
   function registerPage(pagePath, file, { optIn = false, noindex = false } = {}) {
-    app.pageHandlers.set(pagePath, (req, res) => {
-      let html;
-      try {
-        if (optIn && !readTemplate(file).includes('{{{header}}}')) return false;
-        html = renderPage(file, req, pagePath, { noindex });
-      } catch (e) {
-        if (e && e.code === 'ENOENT') return false; // يعود للمعالجة الافتراضية (404)
-        throw e;
-      }
-      sendHtml(req, res, html);
-      return true;
-    });
+    app.pageHandlers.set(pagePath, (req, res) => servePage(req, res, file, pagePath, { optIn, noindex }));
+  }
+
+  /**
+   * يخدم قالب صفحة بالرأس والتذييل المشتركين. يعيد false (ليتولى المسار المعالجة الافتراضية) إن لم يوجد الملف،
+   * أو إن كان optIn ولم يحتوِ القالب على {{{header}}}. pagePath هو المسار الظاهر في canonical والقائمة،
+   * ولصفحات الروابط الخاصة (/p/<رمز>) يُمرَّر مسار عام بلا الرمز حتى لا يُكتب الرمز في وسوم الصفحة.
+   */
+  function servePage(req, res, file, pagePath, { optIn = false, noindex = false, noStore = false } = {}) {
+    let html;
+    try {
+      if (optIn && !readTemplate(file).includes('{{{header}}}')) return false;
+      html = renderPage(file, req, pagePath, { noindex });
+    } catch (e) {
+      if (e && e.code === 'ENOENT') return false; // يعود للمعالجة الافتراضية (404)
+      throw e;
+    }
+    sendHtml(req, res, html, { noStore });
+    return true;
   }
 
   for (const page of SITE_PAGES) registerPage(page.path, page.file);
@@ -847,6 +859,6 @@ export function registerSite(app) {
     };
   });
 
-  app.site = { baseUrl, publicSettings, renderPage, registerPage, validateSettings: validateSiteSettings, SERVICES, FAQ, PROGRAMS };
+  app.site = { baseUrl, publicSettings, renderPage, registerPage, servePage, validateSettings: validateSiteSettings, SERVICES, FAQ, PROGRAMS };
   return app.site;
 }

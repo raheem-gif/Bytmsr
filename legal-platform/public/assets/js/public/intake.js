@@ -233,7 +233,7 @@ function showSuccess(res, name) {
           codeTag(ref, { className: 'code-lg' }),
           copyButton(ref, 'نسخ الرقم', { variant: 'secondary' }),
         ),
-      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), 'ستحتاج إليه عند المتابعة معنا عبر الموقع أو واتساب.'),
+      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), res && res.whatsapp_url ? 'ستحتاج إليه عند المتابعة معنا عبر الموقع أو واتساب.' : 'ستحتاج إليه عند المتابعة معنا عبر الموقع أو الهاتف.'),
       (portal || (res && res.whatsapp_url)) &&
         h(
           'div.success-portal',
@@ -772,7 +772,7 @@ function renderIntake() {
       h('h1', 'قدّم طلب دعم قانوني'),
       h(
         'p',
-        `اكتب لنا مشكلتك بالطريقة التي تناسبك، وسيراجعها فريق ${orgName()} ثم يحيلها إلى محامٍ مختص. ويمكنك المتابعة لاحقًا من الموقع أو من واتساب على نفس الطلب.`,
+        `اكتب لنا مشكلتك بالطريقة التي تناسبك، وسيراجعها فريق ${orgName()} ثم يحيلها إلى محامٍ مختص. ويمكنك المتابعة لاحقًا ${wa ? 'من الموقع أو من واتساب' : 'من الموقع برابط المتابعة الخاص بك'} على نفس الطلب.`,
       ),
       h(
         'ul.intake-trust',
@@ -786,6 +786,15 @@ function renderIntake() {
           icon('whatsapp', { size: 18 }),
           h('span', 'تفضّل واتساب؟'),
           h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'راسلنا مباشرة'),
+        ),
+      // بلا رقم واتساب مضبوط: الهاتف بديلًا (لا يظهر أي رابط واتساب)
+      !wa &&
+        site.org_phone &&
+        h(
+          'p.wa-alt',
+          icon('phone', { size: 18 }),
+          h('span', 'تفضّل الاتصال الهاتفي؟'),
+          h('a', { href: `tel:${site.org_phone_e164 || site.org_phone}`, dir: 'ltr' }, site.org_phone),
         ),
     ),
     h('section.intake-card', { 'aria-label': 'نموذج الطلب' }, t, honeypot),

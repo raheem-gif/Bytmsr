@@ -29,6 +29,7 @@ import {
   uid,
   errorMessage,
 } from '../../../lib/ui.js';
+import { docAiButton } from '../../components/doc-ai.js'; // v9 ai: تحليل المستندات المتاحة للمحامي فقط
 
 const ACTIVE_STATUSES = ['assigned', 'in_progress', 'returned'];
 const AUTOSAVE_MS = 2500;
@@ -84,8 +85,11 @@ const KIND_HINTS = {
 
 const UPLOADER = { client: 'أرسله العميل', staff: 'أضافته الإدارة', lawyer: 'أضفته أنت', system: 'من النظام' };
 
-/** عنصر مستند مع رابط تنزيل. */
-function docItem(d) {
+/**
+ * عنصر مستند مع رابط تنزيل.
+ * ai: زر «تحليل المستند» (v9) — يُمرَّر فقط للمستندات التي أتاحتها الإدارة للمحامي (والخادم يرفض غيرها بـ 404).
+ */
+function docItem(d, { ai = false } = {}) {
   const name = d.title || d.filename;
   const link = button('تنزيل', { variant: 'ghost', size: 'sm', icon: 'download', href: downloadUrl(d.id), ariaLabel: `تنزيل ${name}` });
   link.setAttribute('download', d.filename || '');
@@ -97,7 +101,7 @@ function docItem(d) {
       h('span.pc-doc-name', { dir: 'auto', title: name }, name),
       h('span.pc-doc-meta', [formatBytes(d.size), UPLOADER[d.uploaded_by_kind], d.created_at && date(d.created_at)].filter(Boolean).join(' · ')),
     ),
-    link,
+    ai ? h('div.pc-doc-actions', link, docAiButton({ documentId: d.id, scope: 'lawyer' })) : link,
   );
 }
 
@@ -375,7 +379,8 @@ export default async function render(ctx) {
       icon: 'paperclip',
       subtitle: docs.length ? `عدد المستندات: ${num(docs.length)}` : null,
       body: docs.length
-        ? h('ul.pc-docs', docs.map(docItem))
+        ? // (v9 ai) التحليل للمستندات التي أتاحتها الإدارة فقط، لا لما رفعه المحامي نفسه
+          h('ul.pc-docs.doc-ai-docs', docs.map((d) => docItem(d, { ai: d.granted === true })))
         : emptyState(
             v.permissions.can_request
               ? 'لم تُتح لك الإدارة أي مستندات في هذا الملف بعد. إن احتجت مستندًا فاضغط «طلب مستند».'
@@ -972,7 +977,7 @@ export default async function render(ctx) {
             'div.pc-req-answer',
             h('div.pc-req-answer-title', icon('checkCircle', { size: 16 }), h('span', 'ما أتاحته لك الإدارة'), r.shared_at && h('time.muted', { datetime: r.shared_at }, relative(r.shared_at))),
             r.response_text && h('p.pre', richText(r.response_text)),
-            docs.length ? h('ul.pc-docs.pc-docs-tight', docs.map(docItem)) : null,
+            docs.length ? h('ul.pc-docs.pc-docs-tight', docs.map((x) => docItem(x))) : null,
           ),
         r.own &&
           r.status === 'pending_admin' &&
