@@ -16,6 +16,9 @@ import { Db } from '../src/db.js';
 import { hashPassword } from '../src/auth.js';
 import { strongPasswordProblem, usernameProblem, PASSWORD_POLICY } from '../src/services/system.js';
 import { nowIso } from '../src/util.js';
+import { restrictUmask } from '../src/secure-fs.js';
+
+restrictUmask();
 
 const ROLE_AR = { admin: 'إدارة النظام', case_manager: 'إدارة الحالات', lawyer: 'محامٍ' };
 
@@ -202,4 +205,9 @@ if (outcome.action === 'create') {
   if (outcome.linksRevoked) console.log(`أُلغيت روابط إعادة التعيين أو الدعوة المعلقة لهذا الحساب (عددها: ${outcome.linksRevoked}).`);
   if (args['reset-2fa']) console.log(outcome.twoFactorReset ? 'أُلغي التحقق بخطوتين؛ فعّله من جديد من «حسابي والأمان» بعد الدخول.' : 'لم يكن التحقق بخطوتين مفعلًا لهذا الحساب.');
 }
-console.log(`ادخل من: ${config.publicBaseUrl || `http://localhost:${config.port}`}/app`);
+if (config.publicBaseUrl) console.log(`ادخل من: ${config.publicBaseUrl}/app`);
+else {
+  // لا نعرف هنا المنفذ أو العنوان الذي يعمل عليه الخادم فعلًا (قد يختلف PORT بين الخادم وهذا الأمر)
+  console.log('ادخل من المسار /app على عنوان المنصة الذي تفتحها منه في المتصفح، مثل https://legal.example.org/app.');
+  console.log('(لم يُضبط PUBLIC_BASE_URL؛ اضبطه ليظهر هنا الرابط الكامل، كما يطلب DEPLOY.md.)');
+}

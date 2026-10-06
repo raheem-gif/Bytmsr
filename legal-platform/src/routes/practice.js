@@ -17,6 +17,16 @@ function sendDownload(ctx, { filename, body, type = 'text/csv; charset=utf-8' })
   ctx.streamed = true;
 }
 
+/** قيم نصية فقط من جسم الطلب للمفاتيح المسموحة (فلاتر التصدير) */
+function stringFilters(body, keys) {
+  const out = {};
+  for (const k of keys) {
+    const val = body?.[k];
+    if (typeof val === 'string' && val.trim()) out[k] = val.trim().slice(0, 100);
+  }
+  return out;
+}
+
 export function registerPracticeRoutes(router, app) {
   const S = (fn) => (ctx) => fn(ctx, requireStaff(ctx));
   const A = (fn) => (ctx) => fn(ctx, requireAdmin(ctx));
@@ -42,11 +52,20 @@ export function registerPracticeRoutes(router, app) {
 
   // ===== تقرير الأثر وزمن الاستجابة =====
   router.get('/api/admin/impact', S((ctx) => P().impact.report(ctx.query)));
-  router.get('/api/admin/impact/export', S((ctx, u) => {
-    const r = P().impact.csv(ctx.query);
-    app.audit.log({ actor: u, ctx, type: 'impact.exported', summary: 'تصدير تقرير الأثر بصيغة CSV (بيانات مجمعة دون بيانات شخصية)', data: { from: r.report.from, to: r.report.to, ...r.report.filters } });
-    sendDownload(ctx, { filename: r.filename, body: r.csv });
-  }));
+  // التصدير: POST بالفلاتر يصدر رابط تنزيل لمرة واحدة ← GET /api/download?token=… (src/services/downloads.js)
+  app.downloads.route(router, '/api/admin/impact/export', {
+    guard: requireStaff,
+    prepare: (ctx) => {
+      const filters = stringFilters(ctx.body, ['from', 'to', 'area', 'governorate']);
+      P().impact.range(filters); // 400 للفترة أو المجال غير الصالح قبل إصدار الرابط
+      return { params: { filters }, filename: 'impact.csv' };
+    },
+    send: (ctx, u, p) => {
+      const r = P().impact.csv(p.filters);
+      app.audit.log({ actor: u, ctx, type: 'impact.exported', summary: 'تصدير تقرير الأثر بصيغة CSV (بيانات مجمعة دون بيانات شخصية)', data: { from: r.report.from, to: r.report.to, ...r.report.filters } });
+      sendDownload(ctx, { filename: r.filename, body: r.csv });
+    },
+  });
   router.get('/api/admin/sla', S(() => P().sla.summary()));
 
   // ===== 3) أطراف الملفات وتعارض المصالح =====
@@ -97,10 +116,19 @@ export function registerPracticeRoutes(router, app) {
 
   // ===== 6) الاستيراد والتصدير (مدير النظام فقط) =====
   router.get('/api/admin/data/summary', A(() => ({ ...P().data.summary(), entities: P().data.entities, importable: P().data.importable })));
-  router.get('/api/admin/data/export/:entity', A((ctx, u) => {
-    const r = P().data.export(ctx.params.entity, u, ctx);
-    sendDownload(ctx, { filename: r.filename, body: r.csv });
-  }));
+  // تصدير بيانات المستفيدين والملفات: POST يصدر رابط تنزيل لمرة واحدة ← GET /api/download?token=…
+  app.downloads.route(router, '/api/admin/data/export/:entity', {
+    guard: requireAdmin,
+    prepare: (ctx) => {
+      const entity = String(ctx.params.entity || '');
+      if (!P().data.entities.includes(entity)) throw notFound('نوع التصدير غير مدعوم');
+      return { params: { entity }, filename: `${entity}.csv` };
+    },
+    send: (ctx, u, p) => {
+      const r = P().data.export(p.entity, u, ctx);
+      sendDownload(ctx, { filename: r.filename, body: r.csv });
+    },
+  });
   router.get('/api/admin/data/template/:entity', A((ctx) => {
     const r = P().data.template(ctx.params.entity);
     sendDownload(ctx, { filename: r.filename, body: r.csv });

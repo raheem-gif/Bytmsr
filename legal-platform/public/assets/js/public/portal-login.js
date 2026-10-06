@@ -313,6 +313,20 @@ function disabledView() {
   );
 }
 
+/** «الموقع قيد التجهيز»: المنصة في وضع الإعداد الأول ولا تستقبل الطلبات أو الدخول بعد */
+function preparingView() {
+  const wa = whatsappUrl(meta.settings?.whatsapp_number_digits, `مرحبًا ${orgName()}، أود الاستفسار عن طلبي.`);
+  const phone = meta.site?.org_phone;
+  mount(
+    root,
+    h('span.pl-icon', { 'aria-hidden': 'true' }, icon('clock', { size: 26 })),
+    h('h2#pl-title', 'الموقع قيد التجهيز'),
+    h('p.pl-lead', { role: 'status' }, wa || phone ? 'لا تتوفر متابعة الطلبات عبر الموقع بعد. للاستفسار عن طلبك تواصل معنا مباشرة.' : 'لا تتوفر متابعة الطلبات عبر الموقع بعد. حاول مرة أخرى لاحقًا.'),
+    wa ? button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank', block: true }) : null,
+    phone ? button(`اتصل بنا: ${phone}`, { variant: wa ? 'secondary' : 'primary', icon: 'phone', href: `tel:${meta.site.org_phone_e164 || phone}`, block: true }) : null,
+  );
+}
+
 async function init() {
   try {
     initSiteChrome();
@@ -323,6 +337,10 @@ async function init() {
     meta = setMeta(await api.get('/meta'));
   } catch {
     /* تعمل الصفحة بالقيم الافتراضية إن تعذر تحميل الإعدادات */
+  }
+  if (meta.setup_required) {
+    preparingView();
+    return;
   }
   if (meta.messaging && meta.messaging.portal_otp_enabled === false) {
     disabledView();

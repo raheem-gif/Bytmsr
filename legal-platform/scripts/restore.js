@@ -17,6 +17,10 @@ import { loadConfig } from '../src/config.js';
 import { parseTar } from '../src/services/system-tar.js';
 import { quickCheck, fileStamp } from '../src/services/system.js';
 import { arabicCount } from '../src/util.js';
+import { restrictUmask, chmodQuiet, secureDataDir } from '../src/secure-fs.js';
+
+// الملفات المستعادة ونسخة «قبل الاستعادة» لمالك العملية فقط (0600)
+restrictUmask();
 
 const HELP = `استعادة المنصة — Restore
 
@@ -222,19 +226,18 @@ if (fs.existsSync(config.dbPath)) {
   } finally {
     cur.close();
   }
+  // كبقية النسخ الاحتياطية (system.js): بيانات المستفيدين لمالك العملية فقط
+  chmodQuiet(path.join(backupsDir, file), 0o600);
   preRestore = { file, size: fs.statSync(path.join(backupsDir, file)).size, integrity: quickCheck(path.join(backupsDir, file)) };
   console.log(`حُفظت نسخة من البيانات الحالية قبل الاستعادة: ${path.join(backupsDir, file)}`);
 }
 
 // ── 3) الاستبدال ──
 for (const f of [config.dbPath, `${config.dbPath}-wal`, `${config.dbPath}-shm`]) fs.rmSync(f, { force: true });
-fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
+secureDataDir(dataDir);
+fs.mkdirSync(path.dirname(config.dbPath), { recursive: true, mode: 0o700 });
 fs.copyFileSync(restoreDb, config.dbPath);
-try {
-  fs.chmodSync(config.dbPath, 0o600);
-} catch {
-  // نظام ملفات بلا صلاحيات
-}
+chmodQuiet(config.dbPath, 0o600);
 
 let uploadsMoved = null;
 let keyMoved = null;

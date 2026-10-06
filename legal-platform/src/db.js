@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { secureDbFiles } from './secure-fs.js';
 
 const MIGRATIONS = [
   ['portal_tokens', 'intake_id', 'INTEGER REFERENCES intakes(id)'],
@@ -40,8 +41,10 @@ function clean(params) {
 
 export class Db {
   constructor(file) {
-    if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     this.raw = new DatabaseSync(file);
+    // 0600 فور الفتح وقبل إنشاء ملفي WAL/SHM (يرثهما SQLite من صلاحيات ملف قاعدة البيانات)، ولملفات قديمة أُنشئت 0644
+    secureDbFiles(file);
     this.raw.exec('PRAGMA foreign_keys = ON;');
     this.raw.exec('PRAGMA busy_timeout = 5000;');
     if (file !== ':memory:') this.raw.exec('PRAGMA journal_mode = WAL;');

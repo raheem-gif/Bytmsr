@@ -1042,7 +1042,13 @@ export function createPractice(app) {
       const events = items.map((it) => {
         const code = it.ref?.code ? ` (${it.ref.code})` : '';
         let summary;
-        if (it.type === 'event') summary = `${LABELS.event_kind[it.kind] || 'موعد'}: ${it.title}${code}`;
+        if (it.type === 'event') {
+          // عنوان الموعد الافتراضي هو اسم نوعه («جلسة»)، وكثير من العناوين تبدأ به («جلسة نظر الدعوى»): لا نكرره («جلسة: جلسة…»)
+          const kindLabel = LABELS.event_kind[it.kind] || 'موعد';
+          const title = String(it.title || '').trim();
+          const startsWithKind = title === kindLabel || title.startsWith(`${kindLabel} `);
+          summary = !title ? `${kindLabel}${code}` : startsWithKind ? `${title}${code}` : `${kindLabel}: ${title}${code}`;
+        }
         else if (it.type === 'task') summary = `${it.kind === 'procedural' ? 'موعد إجرائي' : 'مهمة'}: ${it.title}${code}`;
         else if (it.type === 'assignment') summary = `${it.title}${code}`;
         else summary = it.title;

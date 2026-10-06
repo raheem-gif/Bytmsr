@@ -578,6 +578,20 @@ export function createSystem(app) {
     return { ok, message: String(message).slice(0, 500), details };
   }
 
+  /** يسجل نسخة تلقائية أُنشئت خارج المجدول تشغيلًا ناجحًا لمهمة النسخ اليومي (فلا يكررها المجدول فورًا) */
+  function recordBackupJob(b) {
+    const t = nowIso();
+    db.run(
+      `INSERT INTO job_runs (name, last_started_at, last_finished_at, last_ok_at, last_error, last_result, runs) VALUES ('backup', ?, ?, ?, NULL, ?, 1)
+       ON CONFLICT(name) DO UPDATE SET last_started_at = excluded.last_started_at, last_finished_at = excluded.last_finished_at,
+         last_ok_at = excluded.last_ok_at, last_error = NULL, last_result = excluded.last_result, runs = runs + 1`,
+      t,
+      t,
+      t,
+      JSON.stringify({ file: b.file, size_bytes: b.size_bytes, pruned: b.pruned.length }),
+    );
+  }
+
   // ───────── الواجهة العامة للخدمة ─────────
 
   const svc = {
@@ -762,6 +776,8 @@ export function createSystem(app) {
         data: { username, integrations: Object.keys(patches), org_fields: Object.keys(settings) },
       });
       app.events?.emit('system.setup_completed', { userId });
+      // أول نسخة احتياطية الآن (المنصة جديدة لكن الإعدادات ومفاتيح التكاملات تستحق النسخ)
+      svc.initialBackup();
       let user = null;
       try {
         user = app.auth.login(ctx, username, password);
@@ -830,17 +846,24 @@ export function createSystem(app) {
     demoBackup() {
       if (memoryDb) return null;
       const b = svc.backupNow({ kind: 'auto' });
-      const t = nowIso();
-      db.run(
-        `INSERT INTO job_runs (name, last_started_at, last_finished_at, last_ok_at, last_error, last_result, runs) VALUES ('backup', ?, ?, ?, NULL, ?, 1)
-         ON CONFLICT(name) DO UPDATE SET last_started_at = excluded.last_started_at, last_finished_at = excluded.last_finished_at,
-           last_ok_at = excluded.last_ok_at, last_error = NULL, last_result = excluded.last_result, runs = runs + 1`,
-        t,
-        t,
-        t,
-        JSON.stringify({ file: b.file, size_bytes: b.size_bytes, pruned: b.pruned.length }),
-      );
+      recordBackupJob(b);
       return b;
+    },
+
+    /**
+     * أول نسخة احتياطية فور اكتمال الإعداد الأول (من المعالج): لا ننتظر دورة المهمة اليومية (24 ساعة) لأول نسخة.
+     * تُسجل تشغيلًا ناجحًا لمهمة «backup» فتبدأ الدورة اليومية من الآن. لا تُفشل الإعداد إن تعذرت (تعيد المجدول المحاولة).
+     */
+    initialBackup() {
+      if (memoryDb || !app.settings.get('backup_enabled')) return null;
+      try {
+        const b = svc.backupNow({ kind: 'auto' });
+        recordBackupJob(b);
+        return b;
+      } catch (e) {
+        app.log('initial backup after setup failed', e);
+        return null;
+      }
     },
 
     listBackups() {
@@ -896,6 +919,19 @@ export function createSystem(app) {
         data: out,
       });
       return svc.backupsOverview();
+    },
+
+    /** يتحقق من اسم ملف نسخة احتياطية ووجوده (404 إن لم يوجد) ويعيد الاسم — قبل إصدار رابط التنزيل */
+    checkBackupFile(file) {
+      backupPath(file);
+      return file;
+    },
+
+    /** هل يمكن بدء تصدير كامل الآن؟ (يرمي 409 إن كان تصدير آخر يعمل أو كانت قاعدة البيانات في الذاكرة) */
+    checkExportAvailable() {
+      if (exportRunning) throw conflict('يجري تصدير آخر الآن، انتظر حتى ينتهي');
+      if (memoryDb) throw conflict('قاعدة البيانات تعمل في الذاكرة ولا يمكن تصديرها');
+      return true;
     },
 
     /** إرسال ملف نسخة احتياطية للتنزيل (متدفق) مع تسجيله في سجل الأمان */
@@ -1341,6 +1377,9 @@ export function createSystem(app) {
   app.jobs.register('backup', {
     everyMinutes: 24 * 60,
     label: 'النسخ الاحتياطي اليومي لقاعدة البيانات',
+    // التخطي في وضع الإعداد ليس تشغيلًا: تبقى المهمة مستحقة وتُنفذ في أول دورة بعد إنشاء مدير النظام
+    // (من المعالج أو من سطر الأوامر) بدل الانتظار 24 ساعة من وقت الإقلاع
+    deferred: (r) => r?.skipped === 'setup',
     run: async () => {
       if (svc.isSetupMode()) return { skipped: 'setup' };
       if (memoryDb) return { skipped: 'memory' };

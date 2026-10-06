@@ -175,6 +175,73 @@ export function filesToUploads(files, opts) {
   return Promise.all(Array.from(files || []).map((f) => fileToUpload(f, opts)));
 }
 
+function saveAs(href, filename) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename || '';
+  a.hidden = true;
+  document.body.append(a);
+  a.click();
+  setTimeout(() => a.remove(), 1000);
+}
+
+/**
+ * تنزيل ملف حساس (تصدير بيانات المستفيدين، نسخة احتياطية، التصدير الكامل، سجل الأمان، تقرير الأثر).
+ * الخادم لا يرسل هذه الملفات لطلب GET بالكعكة وحدها (يستطيع أي موقع آخر فتح الرابط في متصفحك): نطلب أولًا
+ * رابط تنزيل بـ POST، صالحًا لمرة واحدة خلال دقيقة ولهذه الجلسة فقط، ثم نبدأ التنزيل منه.
+ *   mode 'blob' (الافتراضي، لملفات CSV): يُجلب الملف أولًا فتظهر رسالة الخطأ بالعربية إن فشل.
+ *   mode 'navigate' (الملفات الكبيرة: قاعدة البيانات والتصدير الكامل): يحفظه المتصفح مباشرة دون تحميله في الذاكرة.
+ * @param {string} path مسار نسبي إلى /api (مسار POST الذي يصدر رابط التنزيل)
+ * @param {object} [body] معاملات التصدير (الفلاتر وغيرها)
+ * @returns {Promise<{filename:string}>}
+ */
+export async function downloadFile(path, body, { mode = 'blob', fallbackName = 'download' } = {}) {
+  const ticket = await request('POST', path, { body: body || {} });
+  if (!ticket || typeof ticket.url !== 'string' || !ticket.url.startsWith('/api/')) {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'bad_download_ticket' });
+  }
+  if (mode === 'navigate') {
+    const name = ticket.filename || fallbackName;
+    saveAs(ticket.url, name);
+    return { filename: name };
+  }
+  let res;
+  try {
+    res = await fetch(ticket.url, { credentials: 'same-origin' });
+  } catch {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+  }
+  if (!res.ok) {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    throw new ApiError((data && data.error) || 'تعذر تنزيل الملف', { status: res.status, code: (data && data.code) || `http_${res.status}` });
+  }
+  const cd = res.headers.get('content-disposition') || '';
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) || /filename="([^"]+)"/i.exec(cd);
+  let name = ticket.filename || fallbackName;
+  if (m) {
+    try {
+      name = decodeURIComponent(m[1]);
+    } catch {
+      name = m[1];
+    }
+  }
+  let blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+  }
+  const href = URL.createObjectURL(blob);
+  saveAs(href, name);
+  setTimeout(() => URL.revokeObjectURL(href), 1500);
+  return { filename: name };
+}
+
 /** رابط تنزيل مستند محفوظ. */
 export function downloadUrl(documentId) {
   return `/api/documents/${encodeURIComponent(documentId)}/download`;

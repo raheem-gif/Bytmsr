@@ -34,6 +34,7 @@ import { createAccounts } from './services/accounts.js';
 import { createMessaging } from './services/messaging.js';
 import { createPractice } from './services/practice.js';
 import { createPrograms } from './services/programs.js';
+import { createDownloads } from './services/downloads.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerAccountsRoutes } from './routes/accounts.js';
 import { registerMessagingRoutes } from './routes/messaging.js';
@@ -41,6 +42,7 @@ import { registerPracticeRoutes } from './routes/practice.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerProgramsRoutes } from './routes/programs.js';
 import { registerSite } from './site.js';
+import { secureDataDir } from './secure-fs.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -52,6 +54,8 @@ export function createApp(config, { logger = console } = {}) {
     if (config.silent) return;
     logger.error(`[${new Date().toISOString()}] ${msg}`, err && err.stack ? err.stack : err ?? '');
   };
+  // مجلد البيانات (قاعدة البيانات، المرفقات، النسخ الاحتياطية، مفتاح التشفير) لمالك العملية فقط: 0700
+  if (config.dbPath !== ':memory:') secureDataDir(config.dataDir || path.dirname(config.dbPath));
   app.db = new Db(config.dbPath);
   app.events = createEvents(app.log);
   app.settings = createSettings(app);
@@ -103,6 +107,9 @@ export function createApp(config, { logger = console } = {}) {
   app.automations.ensureRules();
 
   const router = new Router();
+  // روابط تنزيل لمرة واحدة للملفات الحساسة (POST يصدر الرابط، GET /api/download يرسل الملف)
+  app.downloads = createDownloads(app);
+  app.downloads.mount(router);
   registerPublicRoutes(router, app);
   registerAdminRoutes(router, app);
   registerLawyerRoutes(router, app);

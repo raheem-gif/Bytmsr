@@ -3,7 +3,7 @@
 // النسخ الاحتياطي اليومي (VACUUM INTO) مع التنزيل، والتصدير الكامل .tar.gz لنقل المنصة إلى خادم جديد.
 
 import { h, frag, mount } from '../../../lib/h.js';
-import { api } from '../../../lib/api.js';
+import { api, downloadFile } from '../../../lib/api.js';
 import { label, num, count, dateTime, relative } from '../../../lib/fmt.js';
 import {
   pageHeader,
@@ -72,7 +72,13 @@ const ENV_LABEL = { demo: 'تجريبية', production: 'إنتاج', developmen
 const SKIP_REASON = {
   disabled: 'النسخ الاحتياطي التلقائي متوقف من الإعدادات؛ استخدم «نسخ احتياطي الآن» لنسخة يدوية',
   memory: 'قاعدة البيانات تعمل في الذاكرة',
-  setup: 'المنصة في وضع الإعداد الأول',
+  setup: 'المنصة في وضع الإعداد الأول؛ تُنفذ المهمة فور اكتمال الإعداد',
+};
+// الوصف المختصر في شارة الحالة: «تُخطّي (وضع الإعداد)»
+const SKIP_SHORT = {
+  disabled: 'النسخ التلقائي متوقف',
+  memory: 'قاعدة بيانات في الذاكرة',
+  setup: 'وضع الإعداد',
 };
 const ENV_TONE = { demo: 'warning', production: 'success', development: 'info' };
 const CHECK_STYLE = {
@@ -82,12 +88,21 @@ const CHECK_STYLE = {
   danger: { tone: 'danger', icon: 'alert', text: 'عاجل' },
 };
 
-function jobStatus(j) {
-  if (!j.last_started_at) return badge('لم تُشغَّل بعد', 'muted');
+/** حالة آخر تشغيل لمهمة دورية: { text, tone, icon, title } */
+export function jobStatusInfo(j) {
   const failed = j.last_error && (!j.last_ok_at || (j.last_finished_at && j.last_finished_at > j.last_ok_at));
-  if (failed) return badge('فشل آخر تشغيل', 'danger', { icon: 'alert', title: j.last_error });
-  if (!j.last_finished_at || j.last_finished_at < j.last_started_at) return badge('قيد التشغيل', 'info', { icon: 'clock' });
-  return badge('ناجح', 'success', { icon: 'check' });
+  if (failed) return { text: 'فشل آخر تشغيل', tone: 'danger', icon: 'alert', title: j.last_error };
+  if (j.last_started_at && (!j.last_finished_at || j.last_finished_at < j.last_started_at)) return { text: 'قيد التشغيل', tone: 'info', icon: 'clock' };
+  // مهمة لم تعمل فعلًا (وضع الإعداد، النسخ التلقائي متوقف…): ليست «ناجحة»
+  const skipped = j.last_finished_at && j.last_result && typeof j.last_result === 'object' ? j.last_result.skipped : null;
+  if (skipped) return { text: `تُخطّي (${SKIP_SHORT[skipped] || 'لم تُنفذ'})`, tone: 'warning', icon: 'info', title: SKIP_REASON[skipped] || '' };
+  if (!j.last_started_at) return { text: 'لم تُشغَّل بعد', tone: 'muted' };
+  return { text: 'ناجح', tone: 'success', icon: 'check' };
+}
+
+function jobStatus(j) {
+  const st = jobStatusInfo(j);
+  return badge(st.text, st.tone, { icon: st.icon, title: st.title || undefined });
 }
 
 // ───────── الأقسام ─────────
@@ -299,12 +314,16 @@ async function editBackupSettings(b, reload) {
 }
 
 function backupsCard(b, reload) {
-  const download = (file) => {
-    const a = button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: `/api/admin/system/backups/${encodeURIComponent(file)}/download` });
-    a.setAttribute('download', file);
-    a.addEventListener('click', () => toast('بدأ التنزيل. احفظ الملف في مكان آمن ومشفر؛ فهو يحتوي على بيانات المستفيدين.', 'info', 5000));
-    return a;
-  };
+  // رابط تنزيل لمرة واحدة بطلب POST (صالح دقيقة لهذه الجلسة)، ثم يحفظ المتصفح الملف مباشرة
+  const download = (file) =>
+    asyncButton(
+      'تنزيل',
+      async () => {
+        await downloadFile(`/admin/system/backups/${encodeURIComponent(file)}/download`, {}, { mode: 'navigate', fallbackName: file });
+        toast('بدأ التنزيل. احفظ الملف في مكان آمن ومشفر؛ فهو يحتوي على بيانات المستفيدين.', 'info', 5000);
+      },
+      { size: 'sm', variant: 'ghost', icon: 'download', ariaLabel: `تنزيل ${file}` },
+    );
   const del = (file) =>
     button('', {
       size: 'sm',
@@ -399,11 +418,12 @@ function exportCard(keySource, keyFile) {
       confirmLabel: 'بدء التنزيل',
     });
     if (!ok) return;
-    const a = h('a', { href: `/api/admin/system/export${includeKey ? '?include_key=1' : ''}`, download: '' });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    toast('بدأ تجهيز الأرشيف وتنزيله؛ قد يستغرق ذلك دقيقة مع كثرة المرفقات.', 'info', 6000);
+    try {
+      await downloadFile('/admin/system/export', { include_key: includeKey }, { mode: 'navigate', fallbackName: 'beyoot-legal-export.tar.gz' });
+      toast('بدأ تجهيز الأرشيف وتنزيله؛ قد يستغرق ذلك دقيقة مع كثرة المرفقات.', 'info', 6000);
+    } catch (err) {
+      toast(err.message, 'danger', 6000);
+    }
   };
   return card({
     title: 'التصدير الكامل ونقل الخادم',

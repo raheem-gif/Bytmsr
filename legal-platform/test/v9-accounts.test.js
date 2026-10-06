@@ -788,12 +788,16 @@ describe('accounts: security audit log', () => {
   after(async () => t.close());
 
   test('admin-only: anonymous 401, lawyers and case managers 403 on every audit/accounts route', async () => {
-    const urls = ['/api/admin/audit', '/api/admin/audit/summary', '/api/admin/audit/facets', '/api/admin/audit/export.csv', '/api/admin/accounts', '/api/admin/accounts/invites', '/api/admin/accounts/1', '/api/admin/security/policy'];
+    const urls = ['/api/admin/audit', '/api/admin/audit/summary', '/api/admin/audit/facets', '/api/admin/accounts', '/api/admin/accounts/invites', '/api/admin/accounts/1', '/api/admin/security/policy'];
     for (const u of urls) {
       assert.equal((await t.client().get(u)).status, 401, `anon ${u}`);
       assert.equal((await lawyer.get(u)).status, 403, `lawyer ${u}`);
       assert.equal((await manager.get(u)).status, 403, `manager ${u}`);
     }
+    // تصدير سجل الأمان: رابط التنزيل يُطلب بـ POST (src/services/downloads.js)
+    assert.equal((await t.client().post('/api/admin/audit/export.csv')).status, 401, 'anon export');
+    assert.equal((await lawyer.post('/api/admin/audit/export.csv')).status, 403, 'lawyer export');
+    assert.equal((await manager.post('/api/admin/audit/export.csv')).status, 403, 'manager export');
     for (const u of ['/api/admin/accounts/1/reset-link', '/api/admin/accounts/1/unlock', '/api/admin/accounts/1/temp-password', '/api/admin/accounts/1/2fa/reset', '/api/admin/accounts/1/sessions/revoke']) {
       assert.equal((await lawyer.post(u, { password: 'Hacked#2026' })).status, 403, `lawyer POST ${u}`);
       assert.equal((await manager.post(u, { password: 'Hacked#2026' })).status, 403, `manager POST ${u}`);
@@ -854,7 +858,8 @@ describe('accounts: security audit log', () => {
 
   test('CSV export: UTF-8 BOM, Arabic headers, formula-injection safe, and itself audited', async () => {
     await t.client().post('/api/auth/login', { username: '=cmd|calc', password: 'x' });
-    const r = await fetch(`${t.base}/api/admin/audit/export.csv?type=auth`, { headers: { cookie: admin.cookie } });
+    const ticket = ok(await admin.post('/api/admin/audit/export.csv', { type: 'auth' }));
+    const r = await fetch(`${t.base}${ticket.url}`, { headers: { cookie: admin.cookie } });
     assert.equal(r.status, 200);
     assert.match(r.headers.get('content-type'), /^text\/csv; charset=utf-8/);
     assert.match(r.headers.get('content-disposition'), /attachment; filename="security-audit-\d{4}-\d{2}-\d{2}\.csv"/);
@@ -869,7 +874,7 @@ describe('accounts: security audit log', () => {
     assert.ok(!/,=cmd/.test(text), 'cells starting with = are neutralised');
     const ev = ok(await admin.get('/api/admin/audit?type=audit.exported'));
     assert.equal(ev.items[0].data.filters.type, 'auth');
-    assert.equal((await lawyer.get('/api/admin/audit/export.csv')).status, 403);
+    assert.equal((await lawyer.post('/api/admin/audit/export.csv')).status, 403);
   });
 
   test('my account activity shows only my own events', async () => {

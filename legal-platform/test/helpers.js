@@ -83,6 +83,17 @@ export class Client {
     else data = Buffer.from(await res.arrayBuffer());
     return { status: res.status, body: data, headers: res.headers };
   }
+  /**
+   * تنزيل حساس (تصدير CSV، نسخة احتياطية، تصدير كامل): POST يصدر رابطًا لمرة واحدة ثم GET له
+   * (src/services/downloads.js). يعيد رد POST كما هو إن لم يكن 200 (403/404/409…).
+   */
+  async download(url, body = {}) {
+    const ticket = await this.post(url, body);
+    if (ticket.status !== 200 || !ticket.body?.url) return ticket;
+    const r = await this.get(ticket.body.url);
+    r.ticket = ticket.body;
+    return r;
+  }
   get(url, headers) { return this.request('GET', url, undefined, headers); }
   post(url, body, headers) { return this.request('POST', url, body, headers); }
   put(url, body, headers) { return this.request('PUT', url, body, headers); }

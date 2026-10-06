@@ -116,7 +116,9 @@ export class RateLimiter {
 export function describeUserAgent(ua) {
   const s = String(ua || '');
   if (!s) return { label: 'جهاز غير معروف', browser: null, os: null, mobile: false };
-  let browser = 'متصفح';
+  // أوامر الخادم (npm run admin / backup / restore) تسجل «cli (اسم مستخدم النظام)»
+  if (/^cli\b/i.test(s)) return { label: 'سطر أوامر الخادم', browser: null, os: null, mobile: false };
+  let browser = null;
   if (/Edg\//.test(s)) browser = 'Edge';
   else if (/OPR\/|Opera/.test(s)) browser = 'Opera';
   else if (/SamsungBrowser/.test(s)) browser = 'Samsung Internet';
@@ -133,7 +135,9 @@ export function describeUserAgent(ua) {
   else if (/CrOS/.test(s)) os = 'ChromeOS';
   else if (/Linux/.test(s)) os = 'Linux';
   const mobile = /Mobile|iPhone|Android/.test(s);
-  return { label: os ? `${browser} على ${os}` : browser, browser, os: os || null, mobile };
+  // برنامج لا نتعرف عليه: لا نسميه «متصفحًا»
+  const label = browser ? (os ? `${browser} على ${os}` : browser) : os ? `جهاز ${os}` : 'غير معروف';
+  return { label, browser, os: os || null, mobile };
 }
 
 const MINUTE_FORMS = ['دقيقة', 'دقيقتين', 'دقائق', 'دقيقة'];

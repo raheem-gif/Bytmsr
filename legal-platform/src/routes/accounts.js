@@ -7,6 +7,7 @@
 //    إلغاء التحقق بخطوتين، إنهاء الجلسات، سياسة الأمان، وسجل الأمان مع التصدير.
 import { requireUser, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
+import { cairoDayKey, nowIso } from '../util.js';
 
 export function registerAccountsRoutes(router, app) {
   const A = (fn) => (ctx) => fn(ctx, requireAdmin(ctx));
@@ -58,15 +59,20 @@ export function registerAccountsRoutes(router, app) {
   router.get('/api/admin/audit', A((ctx) => acc.auditList(ctx.query)));
   router.get('/api/admin/audit/facets', A(() => acc.auditFacets()));
   router.get('/api/admin/audit/summary', A(() => acc.auditSummary()));
-  router.get('/api/admin/audit/export.csv', A((ctx, u) => {
-    const { csv } = acc.auditCsv(ctx.query, u, ctx);
-    const stamp = new Date().toISOString().slice(0, 10);
-    const res = ctx.res;
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="security-audit-${stamp}.csv"`);
-    res.setHeader('Cache-Control', 'no-store');
-    res.end(csv);
-    ctx.streamed = true;
-  }));
+  // التصدير: POST بالفلاتر يصدر رابط تنزيل لمرة واحدة ← GET /api/download?token=… (src/services/downloads.js)
+  app.downloads.route(router, '/api/admin/audit/export.csv', {
+    guard: requireAdmin,
+    prepare: (ctx) => ({ params: { filters: acc.auditExportFilters(ctx.body) }, filename: 'security-audit.csv' }),
+    send: (ctx, u, p) => {
+      const { csv } = acc.auditCsv(p.filters, u, ctx);
+      // التاريخ بتوقيت القاهرة كبقية ملفات التصدير
+      const stamp = cairoDayKey(nowIso());
+      const res = ctx.res;
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="security-audit-${stamp}.csv"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(csv);
+    },
+  });
 }

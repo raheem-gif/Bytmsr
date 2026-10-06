@@ -253,6 +253,26 @@ export function arabicCount(n, [one, two, few, many]) {
   return `${k} ${String(one).replace(/\s+واحد[ةه]?(?=\s|$)/, '')}`;
 }
 
+/**
+ * حجم ملف بوحدة مناسبة (لمخرجات سطر الأوامر والسجلات): «512 بايت»، «41 كيلوبايت»، «3.2 ميجابايت»، «1.5 جيجابايت».
+ * أسماء الوحدات تمييز بعد الرقم فتبقى بصيغة المفرد.
+ */
+export function arabicBytes(bytes) {
+  const n = Math.max(0, Number(bytes) || 0);
+  if (n < 1024) return `${Math.round(n)} بايت`;
+  for (const [size, unit] of [
+    [1024 ** 3, 'جيجابايت'],
+    [1024 ** 2, 'ميجابايت'],
+    [1024, 'كيلوبايت'],
+  ]) {
+    if (n >= size) {
+      const x = n / size;
+      return `${x >= 100 ? Math.round(x) : x.toFixed(1).replace(/\.0$/, '')} ${unit}`;
+    }
+  }
+  return `${n} بايت`;
+}
+
 /** نسبة مئوية معزولة الاتجاه (LRI…PDI) مثل percent() في الواجهة: تظهر «36%» لا «%36» بعد النص العربي */
 export function arabicPercent(ratio) {
   return `${String.fromCharCode(0x2066)}${Math.round(Number(ratio) * 100)}%${String.fromCharCode(0x2069)}`;

@@ -3656,6 +3656,12 @@ a.doc-chip:hover {
   padding: 24px;
 }
 
+/* «الموقع قيد التجهيز» (وضع الإعداد الأول): الرسالة ثم وسائل التواصل */
+.intake-preparing {
+  display: grid;
+  gap: 16px;
+}
+
 .intake-card .tabs-pills .tablist {
   margin-inline: auto;
 }

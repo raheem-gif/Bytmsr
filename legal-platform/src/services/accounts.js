@@ -53,7 +53,7 @@ function loadMasterKey(config) {
   const file = path.join(dir, '.secret-key');
   try {
     if (fs.existsSync(file)) return Buffer.from(fs.readFileSync(file, 'utf8').trim(), 'hex');
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     const k = crypto.randomBytes(32);
     fs.writeFileSync(file, k.toString('hex'), { mode: 0o600 });
     return k;
@@ -956,6 +956,19 @@ export function createAccounts(app) {
     },
 
     /** تصدير CSV (UTF-8 مع BOM ليفتح بالعربية في Excel) */
+    /** فلاتر تصدير سجل الأمان من جسم طلب POST: المفاتيح المعروفة فقط، مع التحقق منها (400) قبل إصدار رابط التنزيل */
+    auditExportFilters(body = {}) {
+      const out = {};
+      for (const k of ['type', 'severity', 'user_id', 'q', 'from', 'to']) {
+        const val = body?.[k];
+        if (val === undefined || val === null || val === '') continue;
+        if (typeof val !== 'string' && typeof val !== 'number') throw badRequest('فلاتر التصدير غير صالحة');
+        out[k] = String(val).slice(0, 200);
+      }
+      auditWhere(out);
+      return out;
+    },
+
     auditCsv(f = {}, actor, ctx) {
       const { sql, params } = auditWhere(f);
       const rows = db.all(`SELECT e.*, u.name AS user_name, u.role AS user_role, u.username AS user_username ${sql} ORDER BY e.created_at DESC, e.id DESC LIMIT 50000`, ...params).map(mapEvent);

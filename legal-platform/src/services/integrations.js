@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { nowIso, badRequest, notFound, parseJson } from '../util.js';
 import { LABELS } from '../constants.js';
+import { chmodQuiet } from '../secure-fs.js';
 
 /**
  * تعريف كل تكامل: الحقول، أيها سري (لا يُعاد للواجهة أبدًا)، ومصدره من الإعدادات المحمّلة من البيئة.
@@ -44,8 +45,12 @@ function loadKey(config) {
   const dir = config.dataDir || path.dirname(config.dbPath || '.');
   const file = path.join(dir, '.secret-key');
   try {
-    if (fs.existsSync(file)) return { key: Buffer.from(fs.readFileSync(file, 'utf8').trim(), 'hex'), source: 'file', file };
-    fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(file)) {
+      // ملف أُنشئ بإصدار أقدم أو نُسخ يدويًا بصلاحيات أوسع: لمالك العملية فقط
+      chmodQuiet(file, 0o600);
+      return { key: Buffer.from(fs.readFileSync(file, 'utf8').trim(), 'hex'), source: 'file', file };
+    }
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     const k = crypto.randomBytes(32);
     fs.writeFileSync(file, k.toString('hex'), { mode: 0o600 });
     return { key: k, source: 'file', file };

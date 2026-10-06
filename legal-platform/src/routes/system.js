@@ -11,9 +11,11 @@
 //   GET  /api/admin/system/backups                النسخ الاحتياطية وإعداداتها
 //   POST /api/admin/system/backups                نسخة احتياطية الآن
 //   PUT  /api/admin/system/backup-settings        { enabled, retention }
-//   GET  /api/admin/system/backups/:file/download تنزيل نسخة (متدفق، مسجل في سجل الأمان)
+//   POST /api/admin/system/backups/:file/download رابط تنزيل نسخة لمرة واحدة ← GET /api/download?token=… (متدفق، مسجل في سجل الأمان)
 //   DELETE /api/admin/system/backups/:file        حذف نسخة
-//   GET  /api/admin/system/export[?include_key=1] تصدير كامل .tar.gz (قاعدة البيانات + المرفقات + manifest.json)
+//   POST /api/admin/system/export { include_key } رابط تنزيل لمرة واحدة ← GET /api/download?token=…
+//                                                 تصدير كامل .tar.gz (قاعدة البيانات + المرفقات + manifest.json)
+//   (التنزيلات الحساسة لا تُرسل لطلب GET بالكعكة وحدها — انظر src/services/downloads.js)
 //   GET  /api/admin/integrations                  حالة التكاملات (الأسرار لا تُعاد أبدًا)
 //   PUT  /api/admin/integrations/:name            { values: {...} } حفظ (القيمة "" تحذف المحفوظ)
 //   POST /api/admin/integrations/:name/test       اختبار الاتصال (501 إن لم يتوفر بعد)
@@ -44,15 +46,22 @@ export function registerSystemRoutes(router, app) {
     return out;
   }));
   router.put('/api/admin/system/backup-settings', A((ctx, u) => sys().saveBackupSettings(ctx.body, u, ctx)));
-  router.get('/api/admin/system/backups/:file/download', A((ctx, u) => {
-    sys().sendBackup(ctx, ctx.params.file, u);
-    ctx.streamed = true;
-  }));
+  app.downloads.route(router, '/api/admin/system/backups/:file/download', {
+    guard: requireAdmin,
+    // التحقق من الاسم ووجود الملف قبل إصدار الرابط (404 هنا لا عند التنزيل)
+    prepare: (ctx) => ({ params: { file: sys().checkBackupFile(ctx.params.file) }, filename: ctx.params.file }),
+    send: (ctx, u, p) => sys().sendBackup(ctx, p.file, u),
+  });
   router.delete('/api/admin/system/backups/:file', A((ctx, u) => sys().deleteBackup(ctx.params.file, u, ctx)));
-  router.get('/api/admin/system/export', A(async (ctx, u) => {
-    ctx.streamed = true;
-    await sys().exportArchive(ctx, u, { includeKey: ctx.query.include_key === '1' });
-  }));
+  app.downloads.route(router, '/api/admin/system/export', {
+    guard: requireAdmin,
+    prepare: (ctx) => {
+      sys().checkExportAvailable();
+      const includeKey = ctx.body.include_key === true || ctx.body.include_key === 1 || ctx.body.include_key === '1';
+      return { params: { includeKey }, filename: 'beyoot-legal-export.tar.gz' };
+    },
+    send: (ctx, u, p) => sys().exportArchive(ctx, u, { includeKey: p.includeKey }),
+  });
 
   // ===== التكاملات =====
   router.get('/api/admin/integrations', A((ctx) => sys().integrationsOverview(ctx)));

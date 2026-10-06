@@ -2,7 +2,7 @@
 // تصدير CSV (UTF-8 مع BOM ليفتحه Excel بالعربية) لكل البيانات الأساسية، واستيراد المحامين والعملاء/المستفيدين
 // بخطوة معاينة: يُتحقق من كل صف وتظهر أخطاؤه، ثم تُضاف الصفوف السليمة فقط في معاملة واحدة. كل تصدير واستيراد يُسجل في سجل الأمان.
 import { h, mount } from '../../../lib/h.js';
-import { api } from '../../../lib/api.js';
+import { api, downloadFile } from '../../../lib/api.js';
 import { label, num, count, relative, dateTime } from '../../../lib/fmt.js';
 import {
   pageHeader, card, button, asyncButton, badge, icon, emptyState, loading, errorState, alertBox, tabs, table, toast, confirmDialog, selectInput, uid, errorMessage, kv,
@@ -33,7 +33,7 @@ const IMPORT_GUIDE = {
   ],
 };
 
-/** تنزيل ملف من مسار GET مع عرض أخطاء الخادم بالعربية */
+/** تنزيل قالب استيراد (أعمدة ومثال بلا بيانات شخصية) من مسار GET مع عرض أخطاء الخادم بالعربية */
 async function download(path, fallbackName) {
   const res = await fetch(`/api${path}`, { credentials: 'same-origin' });
   if (!res.ok) {
@@ -86,7 +86,8 @@ export default async function render(ctx) {
             h('div.v9p-export-head', h('span.card-icon', icon(info.icon, { size: 18 })), h('h3', label('data_entity', key)), info.sensitive && badge('بيانات حساسة', 'warning')),
             h('p.small.muted', info.text),
             h('div.row-between', h('span.small', count(n, ['صف واحد', 'صفان', 'صفوف', 'صفًا'])), asyncButton('تنزيل CSV', async () => {
-              await download(`/admin/data/export/${key}`, `${key}.csv`);
+              // ملف ببيانات شخصية: رابط تنزيل لمرة واحدة يصدره الخادم بطلب POST (لا يُفتح بطلب GET من موقع آخر)
+              await downloadFile(`/admin/data/export/${key}`, {}, { fallbackName: `${key}.csv` });
               toast(`نُزّل ملف «${label('data_entity', key)}»`, 'success');
               loadHistory();
             }, { size: 'sm', icon: 'download', variant: n ? 'primary' : 'secondary', disabled: !n })),

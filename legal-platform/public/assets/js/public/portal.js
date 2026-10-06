@@ -201,6 +201,9 @@ function eventsSection(events) {
           'ul.list-plain',
           sorted.map((e) => {
             const p = calendarParts(e.starts_at);
+            // عنوان الموعد قبل اعتماد نصه (أو الافتراضي) هو اسم نوعه: لا نكرره في الشارة («جلسة» / «جلسة»)
+            const kindLabel = e.kind ? label('event_kind', e.kind) : '';
+            const title = String(e.title || '').trim() || kindLabel;
             return h(
               'li.event-item',
               { class: e.client_attendance_required ? 'is-required' : null },
@@ -209,8 +212,8 @@ function eventsSection(events) {
                 'div.event-info',
                 h(
                   'div.row',
-                  h('span.event-title', e.title || label('event_kind', e.kind)),
-                  e.kind && badge(label('event_kind', e.kind), statusTone('event_kind', e.kind)),
+                  h('span.event-title', title),
+                  kindLabel && title !== kindLabel ? badge(kindLabel, statusTone('event_kind', e.kind)) : null,
                   // client_attendance_required رقم (0/1) من قاعدة البيانات: الشرط الثلاثي يمنع ظهور «0»
                   e.client_attendance_required ? badge('يلزم حضورك', 'warning', { icon: 'alert' }) : null,
                 ),

@@ -8,6 +8,11 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadConfig } from '../src/config.js';
 import { createApp } from '../src/app.js';
+import { restrictUmask } from '../src/secure-fs.js';
+import { arabicBytes } from '../src/util.js';
+
+// النسخ والتصدير ملفات ببيانات شخصية: 0600 والمجلدات 0700
+restrictUmask();
 
 let args;
 try {
@@ -43,11 +48,11 @@ try {
     out.setHeader = () => {};
     out.statusCode = 200;
     await app.system.exportArchive({ res: out, ip: null, req: { headers: { 'user-agent': 'cli' } } }, actor, { includeKey: args['include-key'] });
-    console.log(`تم إنشاء التصدير الكامل: ${target} (${(fs.statSync(target).size / 1024 / 1024).toFixed(1)} ميجابايت)`);
+    console.log(`تم إنشاء التصدير الكامل: ${target} (${arabicBytes(fs.statSync(target).size)})`);
     console.log('تحذير: الملف يحتوي على بيانات المستفيدين. احفظه مشفرًا خارج الخادم.');
   } else {
     const b = app.system.backupNow({ kind: 'manual', actor: null });
-    console.log(`تم إنشاء النسخة الاحتياطية: ${path.join(app.system.backupsDir, b.file)} (${(b.size_bytes / 1024 / 1024).toFixed(2)} ميجابايت، فحص السلامة: ${b.integrity})`);
+    console.log(`تم إنشاء النسخة الاحتياطية: ${path.join(app.system.backupsDir, b.file)} (${arabicBytes(b.size_bytes)}، فحص السلامة: ${b.integrity === 'ok' ? 'سليمة' : b.integrity})`);
     if (b.pruned.length) console.log(`حُذفت نسخ أقدم حسب سياسة الاحتفاظ: ${b.pruned.join('، ')}`);
   }
 } catch (e) {

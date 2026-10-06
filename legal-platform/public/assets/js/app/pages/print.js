@@ -163,6 +163,17 @@ function renderReceipt(doc) {
 const hasGreeting = (text) => /تحية طيبة|السلام عليكم|تحية وتقدير/.test(String(text || '').slice(0, 200));
 const hasClosing = (text) => /(مع خالص التحية|وتفضلوا بقبول|مع أطيب التمنيات|مع تمنياتنا|وتفضلوا بقبول فائق)/.test(String(text || '').slice(-260));
 
+/**
+ * موضوع خطاب الإفادة: «إفادة قانونية بشأن نفقة الأبناء»، أما العنوان الذي يتضمن «بشأن» أو «بخصوص» أو يبدأ بـ«حول/عن»
+ * (كثير من العناوين المقترحة آليًا مثل «نزاع بشأن تركة…») فيُفصل بشرطة حتى لا تتكرر «بشأن».
+ */
+export function answerSubject(title) {
+  const t = String(title || '').trim();
+  if (!t) return 'إفادة قانونية';
+  if (/(^|\s)(بشأن|بخصوص|شأن)(\s|$)/.test(t) || /^(حول|عن)\s/.test(t)) return `إفادة قانونية — ${t}`;
+  return `إفادة قانونية بشأن ${t}`;
+}
+
 function renderAnswer(doc, data) {
   const lh = data.letterhead;
   return [
@@ -172,7 +183,7 @@ function renderAnswer(doc, data) {
       ['المجال', doc.case.legal_area_label],
     ]),
     h('div.pr-letter', h('p.pr-to', 'إلى: ', h('strong', doc.recipient?.name || 'صاحب الشأن')), doc.recipient && h('p.pr-to-sub', 'كود المستفيد: ', code(doc.recipient.code))),
-    h('p.pr-subject', h('strong', 'الموضوع: '), `إفادة قانونية بشأن ${doc.case.title}`),
+    h('p.pr-subject', h('strong', 'الموضوع: '), answerSubject(doc.case.title)),
     // نص الرد قد يتضمن تحيته وختامه (صيغ لإرساله عبر واتساب)؛ لا نكررهما في الخطاب
     !hasGreeting(doc.body) && h('p.pr-greeting', 'تحية طيبة وبعد،'),
     h('div.pr-letter-body', paragraphs(doc.body)),
@@ -617,5 +628,5 @@ export default async function render(ctx) {
     }, 350));
   }
 
-  return h('div.print-root', toolbar(ctx, { canPrint: true, kind, id, data }), sheet, mount(h('div.sr-only', { role: 'status' }), `${data.kind_label} جاهز للطباعة`));
+  return h('div.print-root', toolbar(ctx, { canPrint: true, kind, id, data }), sheet, mount(h('div.sr-only', { role: 'status' }), `المستند جاهز للطباعة: ${data.kind_label}`));
 }

@@ -66,8 +66,12 @@ export function createJobs(app) {
   const jobs = new Map();
   let running = false;
   return {
-    register(name, { everyMinutes, run, label }) {
-      jobs.set(name, { name, everyMinutes: Math.max(1, Number(everyMinutes) || 60), run, label: label || name });
+    /**
+     * deferred(result) → true: نتيجة «تخطٍّ مؤقت» (مثل وضع الإعداد الأول) لا تُحتسب تشغيلًا للجدولة:
+     * لا يتقدم موعد التشغيل التالي ولا عدد مرات التشغيل ولا «آخر نجاح»، فتُعاد المحاولة في الدورة التالية للمجدول.
+     */
+    register(name, { everyMinutes, run, label, deferred = null }) {
+      jobs.set(name, { name, everyMinutes: Math.max(1, Number(everyMinutes) || 60), run, label: label || name, deferred });
     },
     list() {
       const state = Object.fromEntries(db.all('SELECT * FROM job_runs').map((r) => [r.name, r]));
@@ -93,7 +97,21 @@ export function createJobs(app) {
           );
           try {
             const result = await j.run();
-            db.run('UPDATE job_runs SET last_finished_at = ?, last_ok_at = ?, last_error = NULL, last_result = ? WHERE name = ?', nowIso(), nowIso(), result === undefined ? null : JSON.stringify(result).slice(0, 2000), j.name);
+            const stored = result === undefined ? null : JSON.stringify(result).slice(0, 2000);
+            if (typeof j.deferred === 'function' && j.deferred(result)) {
+              // تخطٍّ مؤقت: نعيد موعد آخر تشغيل فعلي وعدد المرات كما كانا، ونحفظ النتيجة لعرض «تُخطّي» في صحة النظام
+              db.run(
+                'UPDATE job_runs SET last_started_at = ?, runs = ?, last_finished_at = ?, last_error = NULL, last_result = ? WHERE name = ?',
+                st?.last_started_at ?? null,
+                Number(st?.runs || 0),
+                nowIso(),
+                stored,
+                j.name,
+              );
+              out.push({ name: j.name, ok: true, result, deferred: true });
+              continue;
+            }
+            db.run('UPDATE job_runs SET last_finished_at = ?, last_ok_at = ?, last_error = NULL, last_result = ? WHERE name = ?', nowIso(), nowIso(), stored, j.name);
             out.push({ name: j.name, ok: true, result });
           } catch (e) {
             app.log(`job ${j.name} failed`, e);

@@ -5,6 +5,9 @@ import path from 'node:path';
 import { loadConfig } from '../src/config.js';
 import { createApp } from '../src/app.js';
 import { bootstrap } from '../src/bootstrap.js';
+import { restrictUmask } from '../src/secure-fs.js';
+
+restrictUmask();
 
 const config = loadConfig();
 if (config.production && !process.argv.includes('--force')) {

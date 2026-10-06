@@ -2,7 +2,7 @@
 // للمجلس والجهات المانحة ووزارة التضامن: الأسر المخدومة، الأرامل والأبناء، نتائج الملفات، قيمة الحقوق المستردة،
 // التوزيع حسب المجال والمحافظة والشهر، قيمة العمل التطوعي، زمن الاستجابة، ورضا المستفيدين. قابل للطباعة والتصدير CSV.
 import { h, svg, mount } from '../../../lib/h.js';
-import { api } from '../../../lib/api.js';
+import { api, downloadFile } from '../../../lib/api.js';
 import { num, money, percent, count, hours, date, dateTime, statDuration, rating, areaOptions, governorateOptions, cairoToday, cairoDateToIso, isoToCairoDate, relative } from '../../../lib/fmt.js';
 import {
   pageHeader, card, button, statCard, emptyState, loading, errorState, alertBox, form, selectInput, toast, formDialog, badge, codeTag, errorMessage, overflowCue,
@@ -87,10 +87,14 @@ function monthBars({ caption, months, key, format = num }) {
   );
 }
 
-/** عدد أيام قد يكون كسريًا: الصحيح بصيغة العدد العربية («3 أيام»، «يومان»)، والكسري بالمفرد («1.7 يوم») */
-function days(n) {
-  if (n == null || Number.isNaN(Number(n))) return '—';
+/**
+ * عدد أيام قد يكون كسريًا: الصحيح بصيغة العدد العربية («3 أيام»، «يومان»)، والكسري بالمفرد («1.7 يوم»).
+ * أقل من يوم (إجابة خلال ساعات) «في اليوم نفسه» بدل «0 يوم» أو «0.3 يوم».
+ */
+export function days(n) {
+  if (n == null || n === '' || Number.isNaN(Number(n))) return '—';
   const x = Number(n);
+  if (x < 1) return 'في اليوم نفسه';
   return Number.isInteger(x) ? count(x, ['يوم واحد', 'يومان', 'أيام', 'يومًا']) : `${num(x)} يوم`;
 }
 
@@ -166,25 +170,9 @@ export default async function render(ctx) {
   async function exportCsv(btn) {
     btn.disabled = true;
     try {
-      const qs = new URLSearchParams(Object.entries(params()).filter(([, v]) => v));
-      const res = await fetch(`/api/admin/impact/export?${qs}`, { credentials: 'same-origin' });
-      if (!res.ok) {
-        let msg = 'تعذر تصدير التقرير';
-        try {
-          msg = (await res.json()).error || msg;
-        } catch {
-          /* لا شيء */
-        }
-        throw new Error(msg);
-      }
-      const blob = await res.blob();
-      const a = h('a', { href: URL.createObjectURL(blob), download: `impact-${state.from}_${state.to}.csv` });
-      document.body.append(a);
-      a.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(a.href);
-        a.remove();
-      }, 1000);
+      // رابط تنزيل لمرة واحدة بطلب POST (الفلاتر في جسم الطلب)، ثم يُجلب الملف منه
+      const filters = Object.fromEntries(Object.entries(params()).filter(([, v]) => v));
+      await downloadFile('/admin/impact/export', filters, { fallbackName: `impact-${state.from}_${state.to}.csv` });
       toast('نُزّل ملف التقرير (CSV)', 'success');
     } catch (err) {
       toast(errorMessage(err), 'danger');

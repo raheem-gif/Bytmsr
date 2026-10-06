@@ -118,7 +118,13 @@ export default async function render(ctx) {
       eventDateBox(e.starts_at, { muted: e.status === 'cancelled' }),
       h(
         'div.event-info',
-        h('div.pc-event-head', h('span.event-title', e.title || label('event_kind', e.kind)), statusBadge('event_kind', e.kind, { dot: false }), statusBadge('event_status', e.status)),
+        h(
+          'div.pc-event-head',
+          h('span.event-title', e.title || label('event_kind', e.kind)),
+          // العنوان الافتراضي هو اسم النوع: لا نكرره في الشارة
+          e.title && e.title.trim() !== label('event_kind', e.kind) ? statusBadge('event_kind', e.kind, { dot: false }) : null,
+          statusBadge('event_status', e.status),
+        ),
         h(
           'div.event-meta',
           h('span', icon('clock', { size: 14 }), h('time', { datetime: e.starts_at, title: relative(e.starts_at) }, `${weekday(e.starts_at)}، ${date(e.starts_at)} — ${time(e.starts_at)}`)),

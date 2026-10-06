@@ -2,7 +2,7 @@
 // من فعل ماذا ومتى ومن أين: الدخول والمحاولات الفاشلة والإيقاف المؤقت، الدعوات وكلمات المرور والتحقق بخطوتين،
 // تغيير الأدوار والإعدادات، روابط بوابة العملاء، والتصدير. مع تصفية وتقسيم صفحات وتصدير CSV.
 import { h, frag, mount } from '../../../lib/h.js';
-import { api, buildUrl } from '../../../lib/api.js';
+import { api, downloadFile } from '../../../lib/api.js';
 import { label, dateTime, relative, num, count, cairoDateToIso } from '../../../lib/fmt.js';
 import {
   pageHeader,
@@ -12,6 +12,8 @@ import {
   badge,
   statCard,
   button,
+  asyncButton,
+  toast,
   modal,
   filterBar,
   searchInput,
@@ -194,8 +196,15 @@ export default async function render(ctx) {
   const fromInput = dateInput('from', 'من تاريخ');
   const toInput = dateInput('to', 'إلى تاريخ');
   const clearBtn = button('مسح الفلاتر', { variant: 'ghost', size: 'sm', icon: 'x', onClick: clearAll });
-  const exportBtn = button('تصدير CSV', { variant: 'secondary', icon: 'download', href: '#' });
-  exportBtn.setAttribute('download', '');
+  // سجل الأمان ببيانات المستخدمين وعناوين IP: رابط تنزيل لمرة واحدة بطلب POST بالفلاتر الحالية
+  const exportBtn = asyncButton(
+    'تصدير CSV',
+    async () => {
+      await downloadFile('/admin/audit/export.csv', filters(), { fallbackName: 'security-audit.csv' });
+      toast('نُزّل ملف سجل الأمان (CSV)', 'success');
+    },
+    { variant: 'secondary', icon: 'download' },
+  );
 
   function applyQuick(patch) {
     Object.assign(state, patch, { page: 1 });
@@ -222,7 +231,6 @@ export default async function render(ctx) {
     const my = ++seq;
     syncUrl();
     const f = filters();
-    exportBtn.href = buildUrl('/admin/audit/export.csv', f);
     clearBtn.hidden = !FILTER_KEYS.some((k) => state[k]);
     try {
       const res = await api.get('/admin/audit', { ...f, page: state.page, page_size: window.matchMedia('(max-width: 640px)').matches ? 20 : 50 });

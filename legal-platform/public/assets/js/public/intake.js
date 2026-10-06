@@ -806,17 +806,49 @@ function renderIntake() {
   );
 }
 
+/**
+ * «الموقع قيد التجهيز»: المنصة في وضع الإعداد الأول (لم يُنشأ حساب مدير النظام بعد) فلا تستقبل الطلبات.
+ * نعرض للمستفيد/ة رسالة واضحة ووسيلة تواصل بدل نموذج طويل ينتهي برسالة تقنية موجهة لمدير الخادم.
+ */
+function preparingView() {
+  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أود الحصول على استشارة قانونية.`);
+  const phone = site.org_phone;
+  mount(
+    root,
+    h('div.intake-head', h('h1', 'الموقع قيد التجهيز'), h('p', `نستعد لاستقبال طلبات الدعم القانوني عبر موقع ${orgName()} قريبًا.`)),
+    h(
+      'section.intake-card.intake-preparing',
+      { role: 'status' },
+      alertBox(
+        wa || phone ? 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا، أو تواصل معنا الآن وسيساعدك فريقنا.' : 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا.',
+        'info',
+        { title: 'الخدمة قيد التجهيز', icon: 'clock' },
+      ),
+      h(
+        'div.row',
+        wa && button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }),
+        phone && button(`اتصل بنا: ${phone}`, { variant: wa ? 'secondary' : 'primary', icon: 'phone', href: `tel:${site.org_phone_e164 || phone}` }),
+      ),
+    ),
+  );
+}
+
 async function init() {
   captureAttribution();
   initSiteChrome();
   mount(root, loading('جارٍ تحميل النموذج…'));
+  let meta;
   try {
-    const meta = setMeta(await api.get('/meta'));
+    meta = setMeta(await api.get('/meta'));
     settings = meta.settings || {};
     site = meta.site || {};
     if (site.site_name) document.title = `قدّم طلب دعم قانوني — ${site.site_name}`;
   } catch (err) {
     mount(root, errorState(err, init));
+    return;
+  }
+  if (meta.setup_required) {
+    preparingView();
     return;
   }
   renderIntake();

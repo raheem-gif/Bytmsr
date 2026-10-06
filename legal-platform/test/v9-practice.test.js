@@ -21,8 +21,11 @@ function qs(path, params = {}) {
 }
 
 /** الاستجابة الخام (بايتات) للتحقق من BOM — fetch().text() يحذف BOM تلقائيًا */
-async function rawBytes(t, client, url) {
-  const res = await fetch(t.base + url, { headers: client.cookie ? { cookie: client.cookie } : {} });
+/** تنزيل خام (بايتات) عبر رابط لمرة واحدة: POST يصدر الرابط ثم GET له (src/services/downloads.js) */
+async function rawBytes(t, client, url, body = {}) {
+  const ticket = await client.post(url, body);
+  if (ticket.status !== 200) return { status: ticket.status, headers: ticket.headers, bytes: Buffer.alloc(0) };
+  const res = await fetch(t.base + ticket.body.url, { headers: client.cookie ? { cookie: client.cookie } : {} });
   return { status: res.status, headers: res.headers, bytes: Buffer.from(await res.arrayBuffer()) };
 }
 const hasBom = (buf) => buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf;
@@ -262,7 +265,7 @@ describe('practice lane (HTTP)', () => {
       assert.equal((await admin.get('/api/admin/impact?area=XXX')).status, 400);
       assert.equal((await admin.get('/api/admin/impact?from=2026-05-01&to=2026-01-01')).status, 400);
 
-      const csv = await manager.get('/api/admin/impact/export');
+      const csv = await manager.download('/api/admin/impact/export');
       assert.equal(csv.status, 200);
       assert.match(csv.headers.get('content-type'), /text\/csv/);
       assert.ok(hasBom((await rawBytes(t, manager, '/api/admin/impact/export')).bytes), 'UTF-8 BOM');
@@ -439,16 +442,16 @@ describe('practice lane (HTTP)', () => {
         assert.match(r.headers.get('content-disposition'), /attachment/);
         assert.ok(hasBom(r.bytes), `${entity} BOM`);
       }
-      const clients = await admin.get('/api/admin/data/export/clients');
+      const clients = await admin.download('/api/admin/data/export/clients');
       assert.ok(clients.body.split('\r\n')[0].includes('صفة المستفيد'));
       const ev = t.app.db.get("SELECT * FROM security_events WHERE type = 'data.exported' ORDER BY id DESC");
       assert.equal(ev.severity, 'warning');
-      assert.equal((await manager.get('/api/admin/data/export/clients')).status, 403);
+      assert.equal((await manager.download('/api/admin/data/export/clients')).status, 403);
       const lawyer = await createLawyer(admin);
       const lc = await t.login(lawyer.username, LAWYER_PASSWORD);
-      assert.equal((await lc.get('/api/admin/data/export/clients')).status, 403);
-      assert.equal((await t.client().get('/api/admin/data/export/clients')).status, 401);
-      assert.equal((await admin.get('/api/admin/data/export/passwords')).status, 404);
+      assert.equal((await lc.download('/api/admin/data/export/clients')).status, 403);
+      assert.equal((await t.client().download('/api/admin/data/export/clients')).status, 401);
+      assert.equal((await admin.download('/api/admin/data/export/passwords')).status, 404);
       const tpl = await admin.get('/api/admin/data/template/lawyers');
       assert.equal(tpl.status, 200);
       assert.ok(tpl.body.includes('اسم المستخدم'));
@@ -742,7 +745,7 @@ describe('practice lane (HTTP)', () => {
       const v = ok(await admin.post(`/api/admin/clients/${primary.clientId}/beneficiary/verify`), 200, 'verify after merge');
       assert.equal(v.profile.verified, true);
       assert.equal(v.profile.children_count, 3);
-      const csv = await admin.get('/api/admin/data/export/clients');
+      const csv = await admin.download('/api/admin/data/export/clients');
       const line = csv.body.split('\r\n').find((l) => l.includes(primary.detail.client.code));
       assert.ok(line && line.includes('أرملة'), 'export shows the carried-over card');
     });

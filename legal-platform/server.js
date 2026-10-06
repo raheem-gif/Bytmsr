@@ -5,6 +5,10 @@
 import { loadConfig } from './src/config.js';
 import { createApp } from './src/app.js';
 import { bootstrap } from './src/bootstrap.js';
+import { restrictUmask } from './src/secure-fs.js';
+
+// الملفات التي تنشئها المنصة (قاعدة البيانات وWAL، المرفقات، النسخ الاحتياطية، مفتاح التشفير) لمالك العملية فقط
+restrictUmask();
 
 const config = loadConfig();
 const app = createApp(config);

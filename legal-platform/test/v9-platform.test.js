@@ -411,17 +411,17 @@ test('platform: backups — manual, job, retention, download permissions and aud
     assert.equal(list.stale, false);
 
     // التنزيل: مدير النظام فقط، متدفق، ومسجل بدرجة «تحذير»
-    assert.equal((await manager.get(`/api/admin/system/backups/${b.file}/download`)).status, 403);
-    let r = await admin.get(`/api/admin/system/backups/${b.file}/download`);
+    assert.equal((await manager.download(`/api/admin/system/backups/${b.file}/download`)).status, 403);
+    let r = await admin.download(`/api/admin/system/backups/${b.file}/download`);
     assert.equal(r.status, 200);
     assert.equal(r.headers.get('content-type'), 'application/vnd.sqlite3');
     assert.match(r.headers.get('content-disposition'), /attachment/);
     assert.equal(r.body.subarray(0, 15).toString('latin1'), 'SQLite format 3');
     const ev = app.db.get("SELECT * FROM security_events WHERE type = 'backup.downloaded' ORDER BY id DESC LIMIT 1");
     assert.equal(ev.severity, 'warning');
-    r = await admin.get('/api/admin/system/backups/..%2Ftest.db/download');
+    r = await admin.download('/api/admin/system/backups/..%2Ftest.db/download');
     assert.equal(r.status, 404);
-    r = await admin.get('/api/admin/system/backups/platform-20990101-0000.db/download');
+    r = await admin.download('/api/admin/system/backups/platform-20990101-0000.db/download');
     assert.equal(r.status, 404);
 
     // المهمة الدورية
@@ -471,10 +471,10 @@ test('platform: full .tar.gz export is valid (parse back, sha256 manifest, DB sn
     fs.writeFileSync(path.join(uploads, '2026', '10', 'a1.pdf'), f1);
     fs.writeFileSync(path.join(uploads, '2026', '10', longName), f2);
 
-    const lawyerless = await t.client().get('/api/admin/system/export');
+    const lawyerless = await t.client().download('/api/admin/system/export');
     assert.equal(lawyerless.status, 401);
 
-    let r = await admin.get('/api/admin/system/export');
+    let r = await admin.download('/api/admin/system/export');
     assert.equal(r.status, 200);
     assert.equal(r.headers.get('content-type'), 'application/gzip');
     assert.match(r.headers.get('content-disposition'), /beyoot-legal-export-\d{8}-\d{4}\.tar\.gz/);
@@ -514,7 +514,7 @@ test('platform: full .tar.gz export is valid (parse back, sha256 manifest, DB sn
 
     // مع مفتاح التشفير
     if (app.integrations.keySource === 'file') {
-      r = await admin.get('/api/admin/system/export?include_key=1');
+      r = await admin.download('/api/admin/system/export', { include_key: true });
       const withKey = await readTarBuffer(zlib.gunzipSync(r.body));
       assert.ok(withKey.some((e) => e.name.endsWith('/data/.secret-key')));
       assert.ok(app.db.get("SELECT 1 FROM security_events WHERE type = 'system.export' AND severity = 'critical'"));
