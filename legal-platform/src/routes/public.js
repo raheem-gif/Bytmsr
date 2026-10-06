@@ -33,6 +33,7 @@ export function registerPublicRoutes(router, app) {
         whatsapp_display_number: s.whatsapp_display_number,
         whatsapp_number_digits: waDigits(),
         privacy_notice: s.privacy_notice,
+        default_assignment_days: s.default_assignment_days,
       },
       demo: !!config.demo,
       demo_accounts: config.demo ? DEMO_ACCOUNTS : undefined,

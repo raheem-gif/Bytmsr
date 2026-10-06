@@ -145,13 +145,8 @@ export default async function render(ctx) {
 
   // مفاتيح التخزين المحلي
   const backupKey = `pc-draft-backup-${id}`;
-  const seenKey = `pc-seen-ir-${id}`;
-  const seenBefore = new Set((readJson('localStorage', seenKey) || {}).ids || []);
-  const markSeen = (v) => {
-    const shared = v.info_requests.filter((r) => r.status === 'shared');
-    writeJson('localStorage', seenKey, { ids: shared.map((r) => r.id), own: shared.filter((r) => r.own).length });
-  };
-  markSeen(view);
+  // «جديد» يحدده الخادم (is_new) من آخر اطلاع للمحامي على الملف
+  const newIrIds = new Set(view.info_requests.filter((r) => r.is_new).map((r) => r.id));
 
   // ── حاويات الأقسام (تُعاد رسمها بعد كل تحديث دون المساس بمحرر الرأي) ──
   const hosts = {
@@ -175,7 +170,7 @@ export default async function render(ctx) {
 
   async function refresh({ rebuildEditor = false } = {}) {
     view = await api.get(base);
-    markSeen(view);
+    view.info_requests.filter((r) => r.is_new).forEach((r) => newIrIds.add(r.id));
     drawAll({ rebuildEditor });
   }
 
@@ -950,7 +945,7 @@ export default async function render(ctx) {
     const own = list.filter((r) => r.own);
     const shared = list.filter((r) => !r.own);
     const item = (r) => {
-      const isNew = r.status === 'shared' && !seenBefore.has(r.id);
+      const isNew = r.status === 'shared' && newIrIds.has(r.id);
       const docs = r.documents || [];
       const hint =
         r.status === 'sent_to_client'
@@ -1136,7 +1131,8 @@ export default async function render(ctx) {
       ? field('المسائل التي يتعلق بها الطلب', h('div.pc-check-col', issueBoxes.map((x) => x.el)), { group: true, full: true, hint: 'يمكنك الإشارة فقط إلى المسائل المتاحة لك.' })
       : null;
 
-    const docs = (v.documents || []).filter((d) => d.uploaded_by_kind !== 'lawyer');
+    // يمكن الإشارة فقط إلى المستندات التي أتاحتها الإدارة
+    const docs = (v.documents || []).filter((d) => d.granted !== false);
     const docBoxes = docs.map((d) => {
       const cb = h('input', { type: 'checkbox', value: String(d.id) });
       return { id: d.id, cb, el: h('label.check', cb, h('span', { dir: 'auto' }, d.title || d.filename)) };

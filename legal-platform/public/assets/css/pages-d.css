@@ -653,7 +653,7 @@ html[dir="rtl"] .pd-hbar-fill {
 
 .pd-rule-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
 
@@ -1501,6 +1501,9 @@ html[dir="rtl"] .pd-hbar-fill {
 }
 
 .pd-funnel-val {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1718,7 +1721,49 @@ html[dir="rtl"] .pd-hbar-fill {
 }
 
 .pd-unit {
+  margin-inline-start: 4px;
   font-size: 0.6em;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/* ───────────── الإعدادات ───────────── */
+
+.pd-copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.pd-url {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+}
+
+.pd-subhead {
+  font-size: 15px;
+  color: var(--primary-800);
+}
+
+.pd-steps-list {
+  margin: 0;
+  padding-inline-start: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.pd-steps-list code {
+  font-family: var(--font-mono);
+  font-size: 13px;
 }

@@ -33,7 +33,12 @@ export function registerLawyerRoutes(router, app) {
     };
   }));
   router.get('/api/lawyer/assignments', L((ctx, u) => app.visibility.listForLawyer(u, { scope: ctx.query.scope === 'history' ? 'history' : 'active' })));
-  router.get('/api/lawyer/assignments/:id', L((ctx, u) => app.visibility.assignmentView(id(ctx), u)));
+  router.get('/api/lawyer/assignments/:id', L((ctx, u) => {
+    // نبني العرض أولًا (حتى تظهر علامة «جديد» على ما أُتيح منذ آخر اطلاع) ثم نسجل الاطلاع
+    const view = app.visibility.assignmentView(id(ctx), u);
+    app.visibility.markViewed(id(ctx), u);
+    return view;
+  }));
   router.post('/api/lawyer/assignments/:id/open', L((ctx, u) => app.visibility.markOpened(id(ctx), u)));
   router.put('/api/lawyer/assignments/:id/draft', L((ctx, u) => {
     const o = app.opinions.saveDraft(id(ctx), u, ctx.body);

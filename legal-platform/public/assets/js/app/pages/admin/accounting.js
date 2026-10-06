@@ -599,7 +599,7 @@ export default async function render(ctx) {
       intro,
       h(
         'div.pd-insights',
-        insight('wallet', 'إجمالي تكلفة الملفات المغلقة', money(totalCost), `${num(closed.length)} ملفات — متوسط ${money(totalCost / closed.length)} للملف`, 'primary'),
+        insight('wallet', 'إجمالي تكلفة الملفات المغلقة', money(totalCost), `${num(closed.length)} ملفات — متوسط ${money(Math.round(totalCost / closed.length))} للملف`, 'primary'),
         topCost && insight('alert', 'الأعلى تكلفة في المتوسط', areaLabel(topCost.legal_area), `${money(topCost.average)} للملف الواحد`, 'warning'),
         topMulti
           ? insight('users', 'الأكثر احتياجًا لتعدد التخصصات', areaLabel(topMulti.legal_area), `${num(multiCount)} من ${num(closed.length)} ملفات مغلقة احتاجت فريقًا متعدد التخصصات`, 'accent')

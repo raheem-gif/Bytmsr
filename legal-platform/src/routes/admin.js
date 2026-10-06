@@ -2,7 +2,7 @@
 import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
-import { ENUMS, AREA_CODES, DEFAULT_SETTINGS } from '../constants.js';
+import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
 
@@ -62,7 +62,13 @@ export function registerAdminRoutes(router, app) {
     };
     const result = app.engine.handleWhatsAppWebhook(payload);
     const row = app.db.get('SELECT intake_id, case_id FROM messages WHERE channel = ? AND external_id = ?', 'whatsapp', msg.id);
-    return { ...result, intake_id: row?.intake_id ?? null, case_id: row?.case_id ?? null };
+    return {
+      ...result,
+      intake_id: row?.intake_id ?? null,
+      case_id: row?.case_id ?? null,
+      intake_code: row?.intake_id ? app.db.value('SELECT code FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
+      case_code: row?.case_id ? app.db.value('SELECT code FROM cases WHERE id = ?', row.case_id) ?? null : null,
+    };
   }));
 
   // ===== العملاء =====
@@ -116,7 +122,14 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/cases/:id/suggest-lawyers', S((ctx) => {
     const c = app.cases.require(id(ctx));
     const area = ctx.query.area && AREA_CODES.includes(ctx.query.area) ? ctx.query.area : c.legal_area;
-    return { area, items: app.lawyers.suggest({ area, case_id: c.id }).slice(0, 15) };
+    const excluded = app.db
+      .all(
+        `SELECT a.lawyer_id AS id, u.name, a.role FROM assignments a JOIN users u ON u.id = a.lawyer_id
+         WHERE a.case_id = ? AND a.status != 'withdrawn'`,
+        c.id,
+      )
+      .map((x) => ({ id: x.id, name: x.name, reason: `عضو بالفعل في فريق الملف (${LABELS.assignment_role[x.role]})` }));
+    return { area, items: app.lawyers.suggest({ area, case_id: c.id }).slice(0, 15), excluded };
   }));
   router.get('/api/admin/cases/:id/default-grants', S((ctx) => {
     const c = app.cases.require(id(ctx));

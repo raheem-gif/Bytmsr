@@ -14,7 +14,6 @@ import {
   searchInput,
   chips,
   badge,
-  statusBadge,
   progressBar,
   button,
   emptyState,

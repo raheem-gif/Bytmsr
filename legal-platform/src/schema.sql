@@ -240,6 +240,7 @@ CREATE TABLE IF NOT EXISTS assignments (
   approved_at TEXT,
   withdrawn_at TEXT,
   last_activity_at TEXT,
+  last_viewed_at TEXT,
   UNIQUE(case_id, lawyer_id)
 );
 CREATE INDEX IF NOT EXISTS idx_assignments_lawyer ON assignments(lawyer_id, status);

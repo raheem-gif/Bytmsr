@@ -229,9 +229,11 @@ export function createClients(app) {
         ),
         matters: db.all('SELECT id, code, title, kind, status, opened_at, closed_at FROM matters WHERE client_id = ? ORDER BY id DESC', c.id),
         invoices: db.all(
-          'SELECT id, number, description, amount_minor, due_at, status FROM invoices WHERE client_id = ? ORDER BY id DESC',
+          `SELECT i.id, i.number, i.description, i.amount_minor, i.due_at, i.status, i.matter_id,
+             (SELECT COALESCE(SUM(p.amount_minor), 0) FROM payments p WHERE p.invoice_id = i.id) AS paid_minor
+           FROM invoices i WHERE i.client_id = ? ORDER BY i.id DESC`,
           c.id,
-        ).map((i) => ({ ...i, amount: i.amount_minor / 100 })),
+        ).map((i) => ({ ...i, amount: i.amount_minor / 100, paid_amount: Number(i.paid_minor) / 100, balance: (i.amount_minor - Number(i.paid_minor)) / 100 })),
         activity: db
           .all(
             `SELECT a.id, a.type, a.summary, a.actor_kind, a.created_at, u.name AS actor_name FROM activity a

@@ -1227,7 +1227,7 @@ html[dir="rtl"] .pb-step-pill {
 
 .pb-bar-row {
   display: grid;
-  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr) auto;
+  grid-template-columns: 200px minmax(0, 1fr) 120px;
   align-items: center;
   gap: 12px;
 }
@@ -1247,12 +1247,12 @@ html[dir="rtl"] .pb-step-pill {
 .pb-bar-fill {
   display: block;
   height: 100%;
-  min-width: 2px;
   border-radius: 999px;
   background: var(--tone-fg, var(--primary-600));
 }
 
 .pb-bar-value {
+  text-align: end;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1327,4 +1327,9 @@ html[dir="rtl"] .pb-step-pill {
   .pb-composer .select-wrap.pb-channel {
     flex: 1 1 100%;
   }
+}
+
+/* كتل نصية أعلى نماذج النوافذ (صياغة المحامي، رد العميل…) */
+.modal-body > .pb-block {
+  margin-block-end: 12px;
 }

@@ -549,6 +549,7 @@ export function createAccounting(app) {
         )
         .map((b) => ({
           id: b.id,
+          case_id: b.case_id,
           case_code: b.case_code,
           role: b.role,
           role_label: LABELS.assignment_role[b.role],
@@ -559,7 +560,14 @@ export function createAccounting(app) {
           period: b.period,
           created_at: b.created_at,
         }));
-      const payouts = db.all('SELECT id, amount_minor, paid_at, method, reference FROM payouts WHERE lawyer_id = ? ORDER BY id DESC', lw.user_id).map((p) => ({ ...p, amount: fromMinor(p.amount_minor) }));
+      const payouts = db
+        .all(
+          `SELECT p.id, p.amount_minor, p.paid_at, p.method, p.reference, p.note,
+             (SELECT COUNT(*) FROM ledger_entries e WHERE e.payout_id = p.id) AS entries_count
+           FROM payouts p WHERE p.lawyer_id = ? ORDER BY p.id DESC`,
+          lw.user_id,
+        )
+        .map((p) => ({ ...p, amount: fromMinor(p.amount_minor), entries_count: Number(p.entries_count) }));
       return {
         agreement: lw.agreement,
         agreement_text: describeAgreement(lw.agreement),

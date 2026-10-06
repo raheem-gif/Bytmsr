@@ -119,6 +119,11 @@ export function createVisibility(app) {
       };
     },
 
+    /** تسجيل آخر اطلاع للمحامي على الملف (لتمييز المعلومات الجديدة) */
+    markViewed(assignmentId, lawyer) {
+      db.run('UPDATE assignments SET last_viewed_at = ? WHERE id = ? AND lawyer_id = ?', nowIso(), assignmentId, lawyer.id);
+    },
+
     markOpened(assignmentId, lawyer) {
       const a = svc.requireAssignment(assignmentId, lawyer);
       const t = nowIso();
@@ -156,7 +161,8 @@ export function createVisibility(app) {
       const documents = db
         .all('SELECT * FROM documents WHERE case_id = ? ORDER BY id', c.id)
         .filter((d) => g.document.has(d.id) || d.uploaded_by_user_id === lawyer.id)
-        .map((d) => app.documents.publicView(d));
+        // granted: أتاحته الإدارة (يمكن الإشارة إليه في طلب مساعدة)، وإلا فهو مما رفعه المحامي نفسه
+        .map((d) => ({ ...app.documents.publicView(d), granted: g.document.has(d.id) }));
 
       const myOpinions = db
         .all('SELECT * FROM opinions WHERE assignment_id = ? ORDER BY version', a.id)
@@ -242,6 +248,8 @@ export function createVisibility(app) {
         documents: r.status === 'shared' ? irDocs(r.id) : [],
         created_at: r.created_at,
         shared_at: r.shared_at,
+        // جديد منذ آخر مرة فتح فيها المحامي الملف
+        is_new: r.status === 'shared' && !!r.shared_at && (!a.last_viewed_at || r.shared_at > a.last_viewed_at),
       });
       const infoRequests = [
         ...db.all('SELECT * FROM info_requests WHERE assignment_id = ? ORDER BY id', a.id).map((r) => mapIr(r, true)),
@@ -331,6 +339,9 @@ export function createVisibility(app) {
           `SELECT a.*, c.code AS case_code, c.title AS case_title, c.legal_area, c.priority, c.status AS case_status,
              (SELECT COUNT(*) FROM info_requests ir WHERE ir.assignment_id = a.id AND ir.status IN ('pending_admin','sent_to_client','client_replied')) AS open_info_requests,
              (SELECT COUNT(*) FROM info_requests ir WHERE ir.assignment_id = a.id AND ir.status = 'shared') AS shared_info_requests,
+             (SELECT COUNT(*) FROM info_requests ir WHERE ir.case_id = a.case_id AND ir.status = 'shared'
+                AND (ir.shared_at > COALESCE(a.last_viewed_at, '')) AND (ir.assignment_id = a.id OR EXISTS (
+                  SELECT 1 FROM assignment_grants g WHERE g.assignment_id = a.id AND g.resource = 'info_request' AND g.resource_id = ir.id))) AS unseen_shared_info_requests,
              (SELECT COUNT(*) FROM counsel_requests cr WHERE cr.requester_assignment_id = a.id AND cr.status IN ('pending_admin','assigned')) AS open_counsel_requests
            FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.lawyer_id = ? AND ${where}
            ORDER BY CASE WHEN a.due_at IS NULL THEN 1 ELSE 0 END, a.due_at, a.id DESC`,
@@ -354,6 +365,7 @@ export function createVisibility(app) {
           overdue: !!(r.due_at && r.due_at < t && ['assigned', 'in_progress', 'returned'].includes(r.status)),
           open_info_requests: Number(r.open_info_requests),
           shared_info_requests: Number(r.shared_info_requests),
+          unseen_shared_info_requests: Number(r.unseen_shared_info_requests),
           open_counsel_requests: Number(r.open_counsel_requests),
         }));
     },

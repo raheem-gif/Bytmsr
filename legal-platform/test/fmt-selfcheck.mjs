@@ -34,7 +34,7 @@ const now = Date.parse('2026-10-06T12:00:00Z');
 assert.equal(relative(new Date(now - 3 * 3600e3).toISOString(), now), 'منذ 3 ساعات');
 assert.equal(relative(new Date(now + 2 * 86400e3).toISOString(), now), 'بعد يومين');
 assert.equal(relative(new Date(now - 15 * 86400e3).toISOString(), now), 'منذ 15 يومًا');
-assert.equal(dueInfo(new Date(now - 2 * 86400e3).toISOString(), now).text, 'متأخر يومين');
+assert.equal(dueInfo(new Date(now - 2 * 86400e3).toISOString(), now).text, 'متأخر منذ يومين');
 assert.equal(dueInfo(new Date(now + 5 * 3600e3).toISOString(), now).tone, 'warning');
 assert.equal(count(11, 'char'), '11 حرفًا');
 assert.equal(money(1500), '1,500 ج.م');

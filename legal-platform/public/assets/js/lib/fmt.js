@@ -266,7 +266,7 @@ export function dueInfo(iso, now = Date.now()) {
   const d = toDate(iso);
   if (!d) return { text: 'بدون موعد', tone: 'muted', overdue: false };
   const diff = d.getTime() - now;
-  if (diff < 0) return { text: `متأخر ${duration(diff)}`, tone: 'danger', overdue: true };
+  if (diff < 0) return { text: `متأخر منذ ${duration(diff)}`, tone: 'danger', overdue: true };
   if (diff <= 24 * 3600 * 1000) return { text: `خلال ${duration(diff)}`, tone: 'warning', overdue: false };
   return { text: `بعد ${duration(diff)}`, tone: 'neutral', overdue: false };
 }

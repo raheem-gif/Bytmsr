@@ -126,7 +126,9 @@ export function createLawyers(app) {
         lawyers: list.length,
         active: list.filter((l) => l.active).length,
         capacity: list.filter((l) => l.active).reduce((s, l) => s + l.capacity, 0),
-        open_assignments: list.reduce((s, l) => s + l.metrics.open_assignments, 0),
+        // الطاقة والحمل يُحسبان على نفس المجموعة (المحامون النشطون) حتى تكون المقارنة صحيحة
+        open_assignments: list.filter((l) => l.active).reduce((s, l) => s + l.metrics.open_assignments, 0),
+        open_assignments_all: list.reduce((s, l) => s + l.metrics.open_assignments, 0),
         overdue: list.reduce((s, l) => s + l.metrics.overdue, 0),
         completed_in_period: list.reduce((s, l) => s + l.metrics.completed_in_period, 0),
         pro_bono_in_period: list.reduce((s, l) => s + l.metrics.pro_bono_in_period, 0),

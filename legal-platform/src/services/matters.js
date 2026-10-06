@@ -2,6 +2,7 @@
 // محكمة، رقم دعوى، جلسات، مهام ومواعيد إجرائية، أتعاب ومدفوعات ومصروفات.
 import { nowIso, cairoYear, badRequest, notFound, conflict, v, fromMinor, truncate } from '../util.js';
 import { LABELS, ENUMS, CODE_PREFIX } from '../constants.js';
+import { mapMessage } from '../channels/engine.js';
 
 export function createMatters(app) {
   const { db } = app;
@@ -148,7 +149,21 @@ export function createMatters(app) {
         expenses: db.all('SELECT x.*, u.name AS lawyer_name FROM expenses x LEFT JOIN users u ON u.id = x.lawyer_id WHERE x.matter_id = ? ORDER BY x.id', m.id).map((x) => ({ ...x, amount: fromMinor(x.amount_minor) })),
         lawyer_fees: app.accounting.ledger({}).filter((e) => e.matter_id === m.id),
         documents: db.all('SELECT * FROM documents WHERE matter_id = ? ORDER BY id', m.id).map((d) => app.documents.publicView(d)),
-        messages: db.all("SELECT id, direction, channel, body, status, automated, automation_rule, created_at FROM messages WHERE matter_id = ? ORDER BY id DESC LIMIT 50", m.id),
+        messages: (() => {
+          const rows = db.all(
+            `SELECT * FROM (SELECT m.*, u.name AS author_name FROM messages m LEFT JOIN users u ON u.id = m.author_user_id
+             WHERE m.matter_id = ? ORDER BY m.id DESC LIMIT 200) ORDER BY id`,
+            m.id,
+          );
+          const docs = new Map();
+          if (rows.length) {
+            for (const d of db.all(`SELECT * FROM documents WHERE message_id IN (${rows.map((r) => r.id).join(',')})`)) {
+              if (!docs.has(d.message_id)) docs.set(d.message_id, []);
+              docs.get(d.message_id).push(app.documents.publicView(d));
+            }
+          }
+          return rows.map((r) => mapMessage(r, docs));
+        })(),
         activity: app.activity.forMatter(m.id),
         totals: {
           invoiced: invoices.filter((i) => i.status !== 'cancelled').reduce((s, i) => s + i.amount, 0),
@@ -262,6 +277,7 @@ export function createMatters(app) {
       if (!e) throw notFound('الموعد غير موجود');
       const m = actor.role === 'lawyer' ? svc.requireForLawyer(e.matter_id, actor) : svc.require(e.matter_id);
       const patch = { updated_at: nowIso() };
+      if (body.kind !== undefined) patch.kind = v.oneOf(body.kind, ENUMS.event_kind, 'نوع الموعد', { required: true });
       if (body.title !== undefined) patch.title = v.str(body.title, 'العنوان', { required: true, max: 200 });
       if (body.starts_at !== undefined) patch.starts_at = v.iso(body.starts_at, 'التاريخ والوقت', { required: true });
       if (body.location !== undefined) patch.location = v.str(body.location, 'المكان', { max: 200 });
@@ -307,6 +323,11 @@ export function createMatters(app) {
       if (body.details !== undefined) patch.details = v.str(body.details, 'التفاصيل', { max: 3000 });
       if (body.due_at !== undefined) patch.due_at = v.iso(body.due_at, 'الموعد');
       if (body.procedural !== undefined) patch.procedural = v.bool(body.procedural) ? 1 : 0;
+      if (body.assignee_user_id !== undefined && actor.role !== 'lawyer') {
+        const aid = v.int(body.assignee_user_id, 'المسؤول عن المهمة', { min: 1 });
+        if (aid && !db.get('SELECT 1 FROM users WHERE id = ? AND active = 1', aid)) throw badRequest('المسؤول عن المهمة غير صالح');
+        patch.assignee_user_id = aid;
+      }
       if (body.status !== undefined) {
         patch.status = v.oneOf(body.status, ENUMS.task_status, 'الحالة', { required: true });
         patch.done_at = patch.status === 'done' ? nowIso() : null;

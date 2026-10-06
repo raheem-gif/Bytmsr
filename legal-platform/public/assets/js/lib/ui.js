@@ -26,7 +26,7 @@ export function uid(prefix = 'ui') {
 }
 
 // أكواد الملفات (INH-2026-00482) وأرقام الهواتف المكتوبة بمسافات (+20 100 000 0000)
-const LTR_TOKEN_RE = /([A-Z]{2,5}-\d{4}-\d{2,6}|\+?\d[\d ]{7,}\d)/g;
+const LTR_TOKEN_RE = /([A-Z]{2,5}-\d{4}-\d{2,6}|[A-Z]{2,5}-\d{5}|\+?\d[\d ]{7,}\d)/g;
 
 /**
  * نص عادي مع عزل الأكواد وأرقام الهواتف باتجاه LTR ومنع كسرها بين سطرين.
@@ -582,8 +582,9 @@ export function confirmDialog({ title = 'تأكيد الإجراء', message, co
       size: 'sm',
       body: h('p.confirm-message', message || 'هل أنت متأكد من تنفيذ هذا الإجراء؟'),
       actions: [
-        { label: cancelLabel, variant: 'ghost', onClick: () => (result = false) },
-        { label: confirmLabel, variant: danger ? 'danger' : 'primary', onClick: () => (result = true) },
+        // لا نُرجع false هنا: modal() يعتبر false «أبقِ النافذة مفتوحة»
+        { label: cancelLabel, variant: 'ghost', onClick: () => { result = false; } },
+        { label: confirmLabel, variant: danger ? 'danger' : 'primary', onClick: () => { result = true; } },
       ],
       onClose: () => resolve(result),
     });
@@ -597,9 +598,10 @@ export function confirmDanger(opts = {}) {
 
 /**
  * نموذج داخل نافذة. يعيد Promise بالقيم أو null عند الإلغاء.
- * onSubmit(values) اختياري: يُنفَّذ قبل الإغلاق، وأي خطأ منه يظهر داخل النموذج.
+ * onSubmit(values, formApi) اختياري: يُنفَّذ قبل الإغلاق، وأي خطأ منه يظهر داخل النموذج.
+ * setup(formApi) اختياري: يُستدعى بعد إنشاء النموذج (مثلًا لإظهار حقل حسب قيمة حقل آخر).
  */
-export function formDialog({ title, fields, values, submitLabel = 'حفظ', cancelLabel = 'إلغاء', size = 'md', onSubmit, intro } = {}) {
+export function formDialog({ title, fields, values, submitLabel = 'حفظ', cancelLabel = 'إلغاء', size = 'md', onSubmit, intro, setup } = {}) {
   return new Promise((resolve) => {
     let result = null;
     let m = null;
@@ -608,7 +610,7 @@ export function formDialog({ title, fields, values, submitLabel = 'حفظ', canc
       footer: false,
       onSubmit: async (vals) => {
         if (onSubmit) {
-          const r = await onSubmit(vals);
+          const r = await onSubmit(vals, f);
           result = r === undefined ? vals : r;
         } else result = vals;
       },
@@ -624,6 +626,8 @@ export function formDialog({ title, fields, values, submitLabel = 'حفظ', canc
       ],
       onClose: (reason) => resolve(reason === 'submit' || reason === 'action' ? result : null),
     });
+    // setup(formApi): لإظهار/إخفاء حقول حسب قيم أخرى أو ضبط أخطاء مخصصة
+    if (setup) setup(f);
   });
 }
 

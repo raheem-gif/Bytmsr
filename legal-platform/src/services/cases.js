@@ -273,7 +273,11 @@ export function createCases(app) {
       const similarText = [c.title, c.facts_shared, c.facts_internal].filter(Boolean).join('\n');
 
       return {
-        case: { ...c, legal_area_label: AREA[c.legal_area] },
+        case: {
+          ...c,
+          legal_area_label: AREA[c.legal_area],
+          case_manager_name: c.case_manager_id ? db.value('SELECT name FROM users WHERE id = ?', c.case_manager_id) ?? null : null,
+        },
         client: client ? { ...client, phone: app.clients.primaryPhone(client.id), identities: app.clients.identities(client.id) } : null,
         intake: intake
           ? { id: intake.id, code: intake.code, source: intake.source, campaign: intake.campaign, first_channel: intake.first_channel, channels: parseJson(intake.channels, []), source_detail: parseJson(intake.source_detail, {}), created_at: intake.created_at }

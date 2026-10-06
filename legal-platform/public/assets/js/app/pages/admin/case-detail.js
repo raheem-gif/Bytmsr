@@ -15,7 +15,6 @@ import {
   dueBadge,
   toast,
   modal,
-  confirmDanger,
   form,
   field,
   fileInput,
@@ -80,6 +79,32 @@ export function formModal({ title, intro, before, after, fields, values, submitL
       onClose: (reason) => resolve(reason === 'submit' ? result : null),
     });
     if (setup) setup(f, m);
+  });
+}
+
+/**
+ * نافذة تأكيد لإجراء خطِر تعيد Promise<boolean>.
+ * (بديل محلي لـ confirmDanger: زر «إلغاء» فيها يعيد false فتبقى النافذة مفتوحة.)
+ */
+export function confirmAction({ title = 'تأكيد الإجراء', message, confirmLabel = 'نعم، متابعة', danger = true } = {}) {
+  return new Promise((resolve) => {
+    let ok = false;
+    modal({
+      title,
+      size: 'sm',
+      body: h('p.confirm-message', message || 'هل أنت متأكد من تنفيذ هذا الإجراء؟'),
+      actions: [
+        { label: 'إلغاء', variant: 'ghost' },
+        {
+          label: confirmLabel,
+          variant: danger ? 'danger' : 'primary',
+          onClick: () => {
+            ok = true;
+          },
+        },
+      ],
+      onClose: () => resolve(ok),
+    });
   });
 }
 
@@ -368,6 +393,7 @@ export default async function render(ctx) {
   const staffById = new Map((staff || []).map((s) => [s.id, s]));
   const activeTeam = data.assignments.filter((a) => a.status !== 'withdrawn');
   const lead = activeTeam.find((a) => a.role === 'lead') || null;
+  const aiStatus = data.ai ? data.ai.status : null;
 
   let tabsEl = null;
 
@@ -443,9 +469,9 @@ export default async function render(ctx) {
     if (closed) {
       return alertBox(
         frag(
-          h('span', `أُغلق الملف ${date(c.closed_at)} — ${label('case_outcome', c.outcome)}.`),
-          c.closure_note && h('span', ` ملاحظة الإغلاق: ${c.closure_note}`),
-          h('span', ' لا يمكن تعديل الفريق أو الطلبات إلا بعد إعادة فتح الملف.'),
+          h('div', `أُغلق الملف في ${date(c.closed_at)} — النتيجة: ${label('case_outcome', c.outcome)}.`),
+          c.closure_note && h('div', `ملاحظة الإغلاق: ${c.closure_note}`),
+          h('div', 'لا يمكن تعديل الفريق أو الطلبات إلا بعد إعادة فتح الملف.'),
         ),
         'info',
         { title: 'الملف مغلق', icon: 'lock' },
@@ -508,7 +534,7 @@ export default async function render(ctx) {
         ['قناة الوصول', label('channel', intake?.first_channel || c.channel)],
         ['الطلب الأصلي', intake ? inline(h('a.pb-code-link', { href: `#/inbox/${intake.id}`, 'aria-label': `فتح الطلب الوارد ${intake.code}` }, codeTag(intake.code)), h('span.small.muted', dateTime(intake.created_at))) : null],
       ]),
-      footer: h('p.small.muted', 'المصدر هو ما جاء بالعميل (مثل إعلان ممول)، والقناة هي الباب الذي تواصل منه (واتساب أو الموقع)؛ وكلاهما يصل إلى محرك الاستقبال نفسه.'),
+      footer: h('p.small.muted', 'المصدر هو ما جاء بالعميل (مثل إعلان ممول)، والقناة هي الباب الذي تواصل منه (واتساب أو الموقع)؛ وكل الأبواب تصل إلى محرك الاستقبال نفسه.'),
     });
 
     const manager = staffById.get(c.case_manager_id);
@@ -517,7 +543,7 @@ export default async function render(ctx) {
       icon: 'briefcase',
       actions: !closed && button('تعديل البيانات', { size: 'sm', icon: 'edit', onClick: openEditCaseDialog }),
       body: kv([
-        ['مدير الحالة', manager ? manager.name : c.case_manager_id ? `مستخدم #${c.case_manager_id}` : null],
+        ['مدير الحالة', manager ? manager.name : c.case_manager_name || null],
         ['الموعد المستهدف', c.due_at ? inline(h('span', date(c.due_at)), !closed && dueBadge(c.due_at)) : h('span.muted', 'بدون موعد محدد')],
         ['فريق العمل', activeTeam.length ? h('span', `${activeTeam.length} — المحامي الأساسي: ${lead ? lead.lawyer_name : 'لم يُحدَّد'}`) : h('span.muted', 'لم يُسند لأي محامٍ بعد')],
         ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}` }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
@@ -629,7 +655,7 @@ export default async function render(ctx) {
           asyncButton(
             i.status === 'proposed' ? 'عدم الاعتماد' : 'استبعاد',
             async () => {
-              const ok = await confirmDanger({
+              const ok = await confirmAction({
                 title: `استبعاد المسألة رقم ${i.number}`,
                 message: 'ستُستبعد المسألة من الملف وتُسحب إتاحتها من كل أعضاء الفريق. يمكنك إعادة تفعيلها لاحقًا.',
                 confirmLabel: 'نعم، استبعاد',
@@ -688,7 +714,7 @@ export default async function render(ctx) {
         'div.pb-ai-head',
         icon('sparkle', { size: 16 }),
         h('strong', 'مسائل يقترحها الذكاء الاصطناعي'),
-        h('span.small.muted', `${providerLabel(sug, data.ai.status)} · ${relative(sug.created_at)}`),
+        h('span.small.muted', `${providerLabel(sug, aiStatus)} · ${relative(sug.created_at)}`),
       ),
       h('p.small.muted', 'اقتراحات مساعدة فقط؛ إضافتك لأي منها تُسجَّل كتغذية راجعة لقياس دقة الذكاء الاصطناعي وتحسينه.'),
       h(
@@ -735,7 +761,7 @@ export default async function render(ctx) {
         'اقتراح مسائل بالذكاء الاصطناعي',
         async () => {
           await api.post(`/admin/cases/${id}/ai/issues`);
-          await refresh('جاهزة: راجع المسائل المقترحة وأضف ما يناسب منها');
+          await refresh('وصلت اقتراحات الذكاء الاصطناعي — راجع المسائل المقترحة وأضف ما يناسب منها');
         },
         { size: 'sm', icon: 'sparkle' },
       ),
@@ -768,7 +794,7 @@ export default async function render(ctx) {
     const missing = (o.missing_info || []).map((m) => (typeof m === 'string' ? { item: m, kind: 'information' } : m)).filter((m) => m && m.item);
     return card({
       title: 'تحليل الذكاء الاصطناعي للطلب',
-      subtitle: `${providerLabel(s, data.ai.status)} · ${relative(s.created_at)}`,
+      subtitle: `${providerLabel(s, aiStatus)} · ${relative(s.created_at)}`,
       icon: 'sparkle',
       body: h(
         'div.stack',
@@ -1030,7 +1056,7 @@ export default async function render(ctx) {
       if (v.opinion_assignment_ids.length) parts.push(`آراء أعضاء الفريق (${v.opinion_assignment_ids.length})`);
       if (v.info_request_ids.length) parts.push(`طلبات معلومات متاحة (${v.info_request_ids.length})`);
       summary.textContent = parts.length
-        ? `ما سيراه المحامي: ${parts.join('، ')}، إضافة إلى السؤال المطلوب منه.`
+        ? `ما سيراه المحامي: ${parts.join('، ')}، بالإضافة إلى السؤال المطلوب منه.`
         : 'لن يرى المحامي سوى السؤال المطلوب منه.';
     }
 
@@ -1276,7 +1302,7 @@ export default async function render(ctx) {
             loadDefaults(true);
           },
         },
-        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.' },
+        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: ctx.meta?.settings?.default_assignment_days ? `إن تُرك فارغًا يكون بعد ${ctx.meta.settings.default_assignment_days} أيام من الإسناد (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.' },
         {
           name: 'fee_mode',
           label: 'معاملة الأتعاب لهذه المهمة',
@@ -1796,7 +1822,7 @@ export default async function render(ctx) {
   }
 
   async function cancelIr(r) {
-    const ok = await confirmDanger({
+    const ok = await confirmAction({
       title: 'إلغاء طلب المعلومات',
       message: 'سيُلغى الطلب ولن تتابعه المؤسسة مع العميل، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟',
       confirmLabel: 'نعم، إلغاء الطلب',
@@ -2028,7 +2054,7 @@ export default async function render(ctx) {
         }
         fref.control('body').set(text);
         autoText = text;
-        aiNote.textContent = `صياغة آلية (${providerLabel(sug, data.ai.status)}). راجعها وعدّلها قبل الحفظ — المسؤولية على الإدارة.`;
+        aiNote.textContent = `صياغة آلية (${providerLabel(sug, aiStatus)}). راجعها وعدّلها قبل الحفظ — المسؤولية على الإدارة.`;
       },
       { size: 'sm', icon: 'sparkle' },
     );
@@ -2200,7 +2226,7 @@ export default async function render(ctx) {
           'div.pb-bar-row',
           { role: 'listitem' },
           h('span.pb-bar-label', p.label),
-          h('span.pb-bar-track', { 'aria-hidden': 'true' }, h('span.pb-bar-fill', { class: `tone-${p.tone}`, style: { width: `${Math.round(((Number(p.value) || 0) / max) * 100)}%` } })),
+          h('span.pb-bar-track', { 'aria-hidden': 'true' }, h('span.pb-bar-fill', { class: `tone-${p.tone}`, style: { width: `${Number(p.value) > 0 ? Math.max(1, Math.round((Number(p.value) / max) * 100)) : 0}%` } })),
           h('span.pb-bar-value', money(p.value || 0)),
         ),
       ),
@@ -2281,7 +2307,7 @@ export default async function render(ctx) {
     } catch (err) {
       const pending = err instanceof ApiError && err.status === 409 && err.details && err.details.pending_opinions;
       if (!pending || !pending.length) throw err;
-      const ok = await confirmDanger({
+      const ok = await confirmAction({
         title: 'توجد آراء مقدَّمة لم تُراجع بعد',
         message: `في الملف ${pending.length === 1 ? 'رأي مقدَّم' : `${pending.length} آراء مقدَّمة`} بانتظار مراجعة الإدارة. الإغلاق الآن سيحوّلها إلى «نسخة سابقة» ويسحب الإسنادات المفتوحة دون اعتماد. هل تريد الإغلاق مع تجاوز الآراء المعلقة؟`,
         confirmLabel: 'إغلاق مع تجاوز الآراء المعلقة',

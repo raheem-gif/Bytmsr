@@ -384,7 +384,17 @@ export function createRequests(app) {
           `SELECT r.*, ${caseCols}, u.name AS requester_name FROM counsel_requests r JOIN cases c ON c.id = r.case_id
            JOIN assignments ra ON ra.id = r.requester_assignment_id JOIN users u ON u.id = ra.lawyer_id
            WHERE r.status = 'pending_admin' ORDER BY r.id`,
-        ).map((r) => ({ ...r, issue_ids: parseJson(r.issue_ids, []), document_ids: parseJson(r.document_ids, []) })),
+        ).map((r) => {
+          const issueIds = parseJson(r.issue_ids, []);
+          const docIds = parseJson(r.document_ids, []);
+          return {
+            ...r,
+            issue_ids: issueIds,
+            document_ids: docIds,
+            issues: issueIds.map((iid) => db.get('SELECT id, number, title FROM case_issues WHERE id = ?', iid)).filter(Boolean),
+            documents: docIds.map((did) => db.get('SELECT id, title, filename FROM documents WHERE id = ?', did)).filter(Boolean),
+          };
+        }),
         opinions: db.all(
           `SELECT o.id, o.version, o.submitted_at, o.assignment_id, a.role, u.name AS lawyer_name, ${caseCols}
            FROM opinions o JOIN assignments a ON a.id = o.assignment_id JOIN users u ON u.id = a.lawyer_id JOIN cases c ON c.id = o.case_id
@@ -404,7 +414,10 @@ export function createRequests(app) {
           t,
         ),
         identity_conflicts: db.all(
-          `SELECT m.id, m.intake_id, m.body, m.created_at, json_extract(m.meta, '$.identity_conflict.intake_code') AS referenced_code
+          `SELECT m.id, m.intake_id, m.body, m.created_at, json_extract(m.meta, '$.identity_conflict.intake_code') AS referenced_code,
+             json_extract(m.meta, '$.identity_conflict.intake_id') AS referenced_intake_id,
+             json_extract(m.meta, '$.identity_conflict.client_code') AS referenced_client_code,
+             (SELECT code FROM intakes WHERE id = m.intake_id) AS intake_code
            FROM messages m WHERE json_extract(m.meta, '$.identity_conflict') IS NOT NULL
              AND EXISTS (SELECT 1 FROM intakes i WHERE i.id = m.intake_id AND i.status IN ('new','in_review','awaiting_client'))
            ORDER BY m.id DESC LIMIT 20`,

@@ -33,16 +33,6 @@ const FILTERS = {
   awaiting_review: { label: 'بانتظار مراجعة الإدارة', test: (a) => a.status === 'submitted' },
 };
 
-/** عدد الردود التي اطلع عليها المحامي من قبل (يُحفظ محليًا من صفحة المهمة). */
-function seenSharedCount(assignmentId) {
-  try {
-    const raw = window.localStorage.getItem(`pc-seen-ir-${assignmentId}`);
-    const v = raw ? JSON.parse(raw) : null;
-    return v && Number.isFinite(v.own) ? v.own : 0;
-  } catch {
-    return 0;
-  }
-}
 
 /** شارات التنبيه لكل مهمة. */
 function flags(a, { history = false } = {}) {
@@ -52,7 +42,8 @@ function flags(a, { history = false } = {}) {
     if (a.status === 'returned') out.push(badge('أعادتها الإدارة بملاحظات', 'danger', { icon: 'refresh' }));
     const shared = Number(a.shared_info_requests) || 0;
     if (shared > 0) {
-      const fresh = shared - seenSharedCount(a.id);
+      // يحسبها الخادم من آخر اطلاع للمحامي على الملف (تعمل على أي جهاز)
+      const fresh = Number(a.unseen_shared_info_requests) || 0;
       out.push(
         fresh > 0
           ? badge(shared > 1 ? `معلومات جديدة متاحة (${num(fresh)})` : 'معلومات جديدة متاحة', 'success', { icon: 'checkCircle' })

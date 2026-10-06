@@ -129,13 +129,22 @@ export default async function render(ctx) {
   async function mergeDuplicate() {
     const other = await pickClient({
       title: 'دمج عميل مكرر في هذا العميل',
-      intro: `اختر العميل المكرر (نفس الشخص مسجّل برقم أو بريد آخر). ستنتقل كل بياناته إلى ${c.code}.`,
+      intro: 'اختر العميل المكرر (نفس الشخص مسجّل برقم أو بريد آخر). ستنتقل كل بياناته إلى هذا العميل.',
       excludeId: c.id,
     });
     if (!other) return;
     const ok = await confirmDanger({
       title: 'تأكيد الدمج',
-      message: `سيُنقل كل ما يخص العميل ${other.code}${other.name ? ` (${other.name})` : ''} — أرقامه وطلباته وملفاته ورسائله وفواتيره — إلى هذا العميل ${c.code}، ويتوقف استخدام الرقم ${other.code}. لا يمكن التراجع عن الدمج.`,
+      message: [
+        'سيُنقل كل ما يخص العميل ',
+        codeTag(other.code),
+        other.name ? ` (${other.name})` : '',
+        ' — أرقامه وطلباته وملفاته ورسائله وفواتيره — إلى هذا العميل ',
+        codeTag(c.code),
+        '، ويتوقف استخدام الرقم ',
+        codeTag(other.code),
+        '. لا يمكن التراجع عن الدمج.',
+      ],
       confirmLabel: 'نعم، ادمج في هذا العميل',
     });
     if (!ok) return;

@@ -12,7 +12,6 @@ import {
   statusBadge,
   dueBadge,
   toast,
-  confirmDanger,
   table,
   tabs,
   card,
@@ -26,7 +25,7 @@ import {
   statCard,
   progressBar,
 } from '../../../lib/ui.js';
-import { formModal, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
+import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
 
 const TAB_KEYS = ['events', 'tasks', 'invoices', 'expenses', 'fees', 'documents', 'messages', 'activity'];
 
@@ -422,7 +421,7 @@ export default async function render(ctx) {
                   asyncButton(
                     'إلغاء',
                     async () => {
-                      const ok = await confirmDanger({ title: 'إلغاء المهمة', message: `سيتم إلغاء المهمة «${t.title}» ولن تصدر بشأنها تنبيهات. هل تريد المتابعة؟`, confirmLabel: 'نعم، إلغاء المهمة' });
+                      const ok = await confirmAction({ title: 'إلغاء المهمة', message: `سيتم إلغاء المهمة «${t.title}» ولن تصدر بشأنها تنبيهات. هل تريد المتابعة؟`, confirmLabel: 'نعم، إلغاء المهمة' });
                       if (ok) await setTaskStatus(t, 'cancelled', 'أُلغيت المهمة');
                     },
                     { size: 'sm', variant: 'ghost', icon: 'x' },
@@ -486,7 +485,7 @@ export default async function render(ctx) {
   }
 
   async function cancelInvoice(inv) {
-    const ok = await confirmDanger({
+    const ok = await confirmAction({
       title: `إلغاء الفاتورة ${inv.number}`,
       message: 'ستُلغى الفاتورة وتتوقف التذكيرات الآلية بشأنها. لا يمكن التراجع عن هذا الإجراء.',
       confirmLabel: 'نعم، إلغاء الفاتورة',
@@ -797,7 +796,7 @@ export default async function render(ctx) {
       values: { ...m },
       onSubmit: async (v) => {
         if (v.status === 'closed' && m.status !== 'closed') {
-          const ok = await confirmDanger({
+          const ok = await confirmAction({
             title: 'إغلاق الملف المستمر',
             message: 'بعد الإغلاق لن تُضاف مواعيد أو مهام جديدة لهذا الملف. هل تريد المتابعة؟',
             confirmLabel: 'نعم، إغلاق الملف',

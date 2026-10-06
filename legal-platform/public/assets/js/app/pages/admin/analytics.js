@@ -57,7 +57,7 @@ function funnelBars(stages, base, { compact = false } = {}) {
         h(
           'span.pd-funnel-val',
           h('strong', num(s.value)),
-          !compact && base ? h('bdi.cell-sub', { dir: 'ltr' }, ` ${percent(s.value / base)}`) : null,
+          !compact && base ? h('bdi.cell-sub', { dir: 'ltr' }, percent(s.value / base)) : null,
         ),
       ),
     ),
@@ -188,7 +188,7 @@ export default async function render(ctx) {
         statCard({ label: 'فريق متعدد التخصصات', value: num(t.multi_lawyer), hint: 'أكثر من محامٍ في الملف', icon: 'users', tone: 'accent' }),
         statCard({ label: 'ملفات عمل مستمرة', value: num(t.matters), hint: 'تمثيل قضائي أو عمل مستمر', icon: 'gavel', tone: 'warning' }),
         statCard({ label: 'ملفات أُغلقت', value: num(t.closed), hint: 'من ملفات هذه الفترة', icon: 'flag', tone: 'neutral' }),
-        statCard({ label: 'تكلفة الملفات', value: moneyValue(t.cost), hint: t.cases ? `متوسط ${money(t.cost / t.cases)} للملف` : 'أتعاب ومصروفات', icon: 'wallet', tone: 'primary' }),
+        statCard({ label: 'تكلفة الملفات', value: moneyValue(t.cost), hint: t.cases ? `متوسط ${money(Math.round(t.cost / t.cases))} للملف` : 'أتعاب ومصروفات', icon: 'wallet', tone: 'primary' }),
       ),
       card({
         title: 'ماذا حدث للطلبات الواردة؟',
@@ -278,7 +278,7 @@ export default async function render(ctx) {
                 h(
                   'div.pd-cell-stack.pd-align-end',
                   h('strong.nowrap', money(x.cost)),
-                  h('span.cell-sub.nowrap', x.cost_per_case == null ? 'لا ملفات' : `${money(x.cost_per_case)} للملف`),
+                  h('span.cell-sub.nowrap', x.cost_per_case == null ? 'لا ملفات' : `${money(Math.round(x.cost_per_case))} للملف`),
                 ),
             },
           ],

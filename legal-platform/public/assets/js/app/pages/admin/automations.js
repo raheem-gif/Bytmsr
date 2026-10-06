@@ -239,15 +239,12 @@ export default async function render(ctx) {
       h(
         'header.pd-rule-head',
         h('span.pd-rule-icon', { class: meta.audience === 'client' ? 'tone-success' : 'tone-info' }, icon(meta.icon, { size: 20 })),
-        h(
-          'div.pd-rule-title',
-          h('h3', r.label),
-          h(
-            'div.pd-badges',
-            meta.audience === 'client' ? badge('رسالة للعميل عبر واتساب', 'success', { icon: 'whatsapp' }) : badge('تنبيه داخلي للمحامي والإدارة', 'info', { icon: 'bell' }),
-          ),
-        ),
+        h('div.pd-rule-title', h('h3', r.label)),
         h('div.pd-rule-toggle', toggle),
+      ),
+      h(
+        'div.pd-badges',
+        meta.audience === 'client' ? badge('رسالة للعميل عبر واتساب', 'success', { icon: 'whatsapp' }) : badge('تنبيه داخلي للمحامي والإدارة', 'info', { icon: 'bell' }),
       ),
       h('p.pd-rule-desc', meta.desc),
       paramKeys.length ? h('ul.pd-rule-params', paramKeys.map((k) => h('li', icon('check', { size: 14 }), paramSentence(k, params[k])))) : null,

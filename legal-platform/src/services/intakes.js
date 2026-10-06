@@ -18,6 +18,9 @@ export function createIntakes(app) {
     list({ status, channel, source, q, area, scope = 'open', limit = 100, offset = 0 } = {}) {
       const where = ['1=1'];
       const params = [];
+      // شروط الفلاتر غير الحالة (تُستخدم أيضًا لحساب عدد كل حالة ضمن نفس الفلاتر)
+      const fWhere = ['1=1'];
+      const fParams = [];
       if (status && ENUMS.intake_status.includes(status)) {
         where.push('i.status = ?');
         params.push(status);
@@ -25,24 +28,26 @@ export function createIntakes(app) {
         where.push("i.status IN ('new','in_review','awaiting_client')");
       }
       if (channel && ENUMS.channel.includes(channel)) {
-        where.push('(i.first_channel = ? OR i.channels LIKE ?)');
-        params.push(channel, `%"${channel}"%`);
+        fWhere.push('(i.first_channel = ? OR i.channels LIKE ?)');
+        fParams.push(channel, `%"${channel}"%`);
       }
       if (source && ENUMS.source.includes(source)) {
-        where.push('i.source = ?');
-        params.push(source);
+        fWhere.push('i.source = ?');
+        fParams.push(source);
       }
       if (area && AREA_CODES.includes(area)) {
-        where.push('i.legal_area = ?');
-        params.push(area);
+        fWhere.push('i.legal_area = ?');
+        fParams.push(area);
       }
       if (q) {
         const like = `%${String(q).trim()}%`;
-        where.push(
+        fWhere.push(
           '(i.code LIKE ? OR i.title LIKE ? OR i.contact_name LIKE ? OR i.contact_phone LIKE ? OR cl.code LIKE ? OR EXISTS (SELECT 1 FROM messages m WHERE m.intake_id = i.id AND m.body LIKE ?))',
         );
-        params.push(like, like, like, like, like, like);
+        fParams.push(like, like, like, like, like, like);
       }
+      where.push(...fWhere.slice(1));
+      params.push(...fParams);
       const base = `FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id WHERE ${where.join(' AND ')}`;
       const rows = db.all(
         `SELECT i.*, cl.code AS client_code, cl.name AS client_name,
@@ -61,8 +66,11 @@ export function createIntakes(app) {
         Number(offset) || 0,
       );
       const total = Number(db.value(`SELECT COUNT(*) ${base}`, ...params));
+      // أعداد الحالات ضمن نفس الفلاتر (القناة/المصدر/المجال/البحث) حتى تطابق التبويبات القائمة المعروضة
       const counts = Object.fromEntries(
-        db.all('SELECT status, COUNT(*) AS n FROM intakes GROUP BY status').map((r) => [r.status, Number(r.n)]),
+        db
+          .all(`SELECT i.status, COUNT(*) AS n FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id WHERE ${fWhere.join(' AND ')} GROUP BY i.status`, ...fParams)
+          .map((r) => [r.status, Number(r.n)]),
       );
       return {
         total,

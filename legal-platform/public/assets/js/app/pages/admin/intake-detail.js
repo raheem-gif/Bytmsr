@@ -351,7 +351,7 @@ export default async function render(ctx) {
       body: frag(
         h(
           'p.modal-intro',
-          'سيصدر للملف كود مستقل حسب المجال (مثل INH-2026-00482)، وتنتقل إليه المحادثة والمستندات. بعدها تختار الإدارة فريق المحامين وتحدد ما يراه كل منهم.',
+          richText('سيصدر للملف كود مستقل حسب المجال مثل INH-2026-00482، وتنتقل إليه المحادثة والمستندات. بعدها تختار الإدارة فريق المحامين وتحدد ما يراه كل منهم.'),
         ),
         main.el,
         h(
@@ -880,7 +880,17 @@ export default async function render(ctx) {
     if (!target) return;
     const ok = await confirmDanger({
       title: 'تأكيد دمج العميلين',
-      message: `سيُدمج العميل ${cl.code}${cl.name ? ` (${cl.name})` : ''} في العميل ${target.code}${target.name ? ` (${target.name})` : ''}: تنتقل إليه كل أرقام التواصل والطلبات والملفات والرسائل، ويتوقف استخدام الرقم ${cl.code}. لا يمكن التراجع عن الدمج.`,
+      message: [
+        'سيُدمج العميل ',
+        codeTag(cl.code),
+        cl.name ? ` (${cl.name})` : '',
+        ' في العميل ',
+        codeTag(target.code),
+        target.name ? ` (${target.name})` : '',
+        ': تنتقل إليه كل أرقام التواصل والطلبات والملفات والرسائل، ويتوقف استخدام الرقم ',
+        codeTag(cl.code),
+        '. لا يمكن التراجع عن الدمج.',
+      ],
       confirmLabel: 'نعم، ادمج العميلين',
     });
     if (!ok) return;

@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const MIGRATIONS = [['portal_tokens', 'intake_id', 'INTEGER REFERENCES intakes(id)']];
+const MIGRATIONS = [
+  ['portal_tokens', 'intake_id', 'INTEGER REFERENCES intakes(id)'],
+  ['assignments', 'last_viewed_at', 'TEXT'],
+];
 
 const SCHEMA = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'schema.sql'), 'utf8');
 

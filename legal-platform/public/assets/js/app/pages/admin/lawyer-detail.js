@@ -455,8 +455,8 @@ export default async function render(ctx) {
     agreementBody.push(
       h(
         'div.pd-package',
-        progressBar(remaining, Math.max(size, remaining), remaining === 0 ? 'danger' : remaining <= size * 0.2 ? 'warning' : 'primary', {
-          label: `المتبقي في الباقة: ${num(remaining)} من ${num(Math.max(size, remaining))} حالة`,
+        progressBar(Math.min(remaining, size), size, remaining === 0 ? 'danger' : remaining <= size * 0.2 ? 'warning' : 'primary', {
+          label: remaining > size ? `المتبقي في الباقة: ${num(remaining)} حالة (أكثر من حجم الباقة الأساسية ${num(size)} بعد التجديد)` : `المتبقي في الباقة: ${num(remaining)} من ${num(size)} حالة`,
         }),
         remaining === 0 && h('p.pd-text-danger.small', ag.overage_rate ? `نفدت الباقة؛ تُحاسب الحالات الجديدة بسعر ${money(ag.overage_rate)} حتى التجديد.` : 'نفدت الباقة؛ يُنصح بتجديدها.'),
       ),

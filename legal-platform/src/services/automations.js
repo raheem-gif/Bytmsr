@@ -207,6 +207,31 @@ export function createAutomations(app) {
     },
   };
 
+  /** وصف مقروء لمصدر كل تشغيل آلي مع روابط الملف */
+  function describeRun(run) {
+    let ref = null;
+    switch (run.entity_type) {
+      case 'matter_event':
+        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id FROM matter_events e JOIN matters m ON m.id = e.matter_id WHERE e.id = ?', run.entity_id);
+        break;
+      case 'matter_task':
+        ref = db.get('SELECT m.id AS matter_id, m.code AS entity_code, m.case_id FROM matter_tasks k JOIN matters m ON m.id = k.matter_id WHERE k.id = ?', run.entity_id);
+        break;
+      case 'invoice':
+        ref = db.get('SELECT i.number AS entity_code, i.matter_id, i.case_id FROM invoices i WHERE i.id = ?', run.entity_id);
+        break;
+      case 'info_request':
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id FROM info_requests r JOIN cases c ON c.id = r.case_id WHERE r.id = ?', run.entity_id);
+        break;
+      case 'assignment':
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', run.entity_id);
+        break;
+      default:
+        break;
+    }
+    return { ...run, entity_code: ref?.entity_code ?? null, case_id: ref?.case_id ?? null, matter_id: ref?.matter_id ?? null };
+  }
+
   const svc = {
     ensureRules,
 
@@ -214,7 +239,7 @@ export function createAutomations(app) {
       ensureRules();
       return Object.keys(DEFAULT_AUTOMATION_RULES).map((key) => {
         const r = rule(key);
-        const runs = db.all('SELECT * FROM automation_runs WHERE rule_key = ? ORDER BY created_at DESC LIMIT 10', key);
+        const runs = db.all('SELECT * FROM automation_runs WHERE rule_key = ? ORDER BY created_at DESC LIMIT 10', key).map(describeRun);
         const count = Number(db.value('SELECT COUNT(*) FROM automation_runs WHERE rule_key = ?', key));
         return { ...r, label: LABELS.automation_rule[key], total_runs: count, recent_runs: runs };
       });
