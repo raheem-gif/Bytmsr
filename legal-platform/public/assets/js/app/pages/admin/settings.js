@@ -207,7 +207,7 @@ export default async function render(ctx) {
   function openAddUser() {
     formDialog({
       title: 'إضافة مستخدم للإدارة',
-      intro: 'مدير النظام يملك كل الصلاحيات بما فيها المحاسبة والإعدادات؛ مدير الحالات يدير الوارد والملفات والمحامين دون المحاسبة والإعدادات.',
+      intro: 'دور «إدارة النظام» يملك كل الصلاحيات بما فيها المحاسبة والإعدادات؛ ودور «إدارة الحالات» يدير الوارد والملفات والمحامين دون المحاسبة والإعدادات.',
       submitLabel: 'إضافة المستخدم',
       fields: [
         {
@@ -242,7 +242,7 @@ export default async function render(ctx) {
     const self = u.id === me.id;
     formDialog({
       title: `تعديل حساب ${u.name}`,
-      intro: self ? 'هذا حسابك: لا يمكنك إيقافه أو خفض صلاحياتك بنفسك، حتى لا تبقى المنصة بلا مدير نظام.' : null,
+      intro: self ? 'هذا حسابك: لا يمكنك إيقافه أو خفض صلاحياتك بنفسك، حتى لا تبقى المنصة بلا حساب بدور «إدارة النظام».' : null,
       submitLabel: 'حفظ التعديلات',
       fields: [
         { name: 'name', label: 'الاسم', required: true, maxLength: 120 },
@@ -331,7 +331,7 @@ export default async function render(ctx) {
 
   const usersCard = card({
     title: 'المستخدمون',
-    subtitle: 'حسابات الإدارة ومديري الحالات',
+    subtitle: 'حسابات فريق الإدارة (إدارة النظام وإدارة الحالات)',
     icon: 'users',
     actions: button('إضافة مستخدم', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: openAddUser }),
     body: h(

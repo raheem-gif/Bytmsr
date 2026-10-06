@@ -269,7 +269,7 @@ export default async function render(ctx) {
             { key: 'case', label: 'الملف', className: 'col-wide', render: (r) => caseLink(r, 'opinions') },
             { key: 'lawyer_name', label: 'المحامي' },
             { key: 'role', label: 'الدور في الفريق', render: (r) => statusBadge('assignment_role', r.role, { dot: false }) },
-            { key: 'version', label: 'النسخة', align: 'center', render: (r) => h('span.ltr', `v${r.version}`) },
+            { key: 'version', label: 'النسخة', align: 'center', render: (r) => (r.version != null ? String(r.version) : '—') },
             { key: 'submitted_at', label: 'قُدِّم', render: (r) => when(r.submitted_at) },
             { key: 'go', label: '', render: (r) => button('مراجعة الرأي', { size: 'sm', icon: 'eye', href: `#/cases/${r.case_id}?tab=opinions` }) },
           ],
@@ -330,7 +330,7 @@ export default async function render(ctx) {
       key: 'overdue_assignments',
       title: 'إسنادات متأخرة',
       icon: 'clock',
-      hint: 'محامون تجاوزوا الموعد المحدد للرد. تواصل معهم أو أعد توزيع المهمة.',
+      hint: 'محامون تجاوزوا الموعد المحدد للرد. تواصل معهم أو أعد إسناد الملف.',
       empty: 'لا توجد إسنادات متأخرة',
       flush: true,
       render: (rows) =>
@@ -378,7 +378,7 @@ export default async function render(ctx) {
             body: h('p.pa-qitem-text', { dir: 'auto' }, r.client_message || r.question),
             foot: [
               r.sent_at && h('span', { title: dateTime(r.sent_at) }, `أُرسل ${relative(r.sent_at)}${r.sent_channel ? ` عبر ${label('channel', r.sent_channel)}` : ''}`),
-              r.reminder_count > 0 && badge(r.reminder_count === 1 ? 'أُرسل تذكير واحد' : `أُرسلت ${r.reminder_count} تذكيرات`, 'neutral', { icon: 'bell' }),
+              r.reminder_count > 0 && badge(`التذكيرات المرسلة: ${r.reminder_count}`, 'neutral', { icon: 'bell' }),
             ],
           }),
         ),

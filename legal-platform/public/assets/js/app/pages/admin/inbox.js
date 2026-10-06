@@ -237,7 +237,7 @@ export default async function render(ctx) {
           'div.pa-irow-side',
           h('time.pa-irow-time', { datetime: at, title: dateTime(at) }, relative(at)),
           it.unread_count > 0 &&
-            h('span.pa-unread', { title: `${it.unread_count} رسالة غير مقروءة` }, String(it.unread_count), h('span.sr-only', ' غير مقروءة')),
+            h('span.pa-unread', { title: count(it.unread_count, ['رسالة غير مقروءة', 'رسالتان غير مقروءتين', 'رسائل غير مقروءة', 'رسالة غير مقروءة']) }, String(it.unread_count), h('span.sr-only', ' غير مقروءة')),
           it.case_id && h('span.pa-irow-case', icon('briefcase', { size: 13 }), 'له ملف'),
         ),
       ),

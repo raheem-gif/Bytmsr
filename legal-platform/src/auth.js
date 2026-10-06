@@ -154,7 +154,7 @@ export function requireStaff(ctx) {
 }
 export function requireAdmin(ctx) {
   const u = requireUser(ctx);
-  if (u.role !== 'admin') throw forbidden('هذا الإجراء متاح لمدير النظام فقط');
+  if (u.role !== 'admin') throw forbidden('هذا الإجراء متاح لدور «إدارة النظام» فقط');
   return u;
 }
 export function requireLawyer(ctx) {

@@ -135,7 +135,8 @@ export default async function render(ctx) {
     statCard({ label: 'المصروفات', value: money(totals.expenses), hint: 'كل ما سُجل على الملف', icon: 'fileText', tone: 'neutral', onClick: () => goTab('expenses') }),
   );
 
-  const lawsuit = m.lawsuit_number ? ltr(`${m.lawsuit_number}${m.lawsuit_year ? ` / ${m.lawsuit_year}` : ''}`) : null;
+  // «رقم 1874 لسنة 2026» كما تُكتب أرقام الدعاوى في مصر (وكما تعرضها بوابة المحامي)
+  const lawsuit = m.lawsuit_number ? h('span', 'رقم ', ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null) : null;
   const summary = h(
     'div.grid-2.pb-summary',
     card({
@@ -147,7 +148,7 @@ export default async function render(ctx) {
           ['نوع الملف', label('matter_kind', m.kind)],
           ['المحكمة', m.court],
           ['الدائرة', m.circuit],
-          ['رقم الدعوى / السنة', lawsuit],
+          ['الدعوى', lawsuit],
           ['الخصم', m.opponent],
           ['الأتعاب المتفق عليها مع العميل', m.agreed_fee != null ? money(m.agreed_fee) : null],
           ['تاريخ الفتح', date(m.opened_at)],
@@ -255,7 +256,7 @@ export default async function render(ctx) {
         if (v.next_starts_at) {
           await api.post(`/admin/matters/${id}/events`, {
             kind: e.kind,
-            title: `${label('event_kind', e.kind)} تالية`,
+            title: `${label('event_kind', e.kind)} — الموعد التالي`,
             starts_at: v.next_starts_at,
             location: e.location || null,
             client_attendance_required: Boolean(e.client_attendance_required),

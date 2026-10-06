@@ -153,10 +153,15 @@ test('staff can confirm identity, revoke portal links, and archiving an unverifi
     await t.client().post('/webhooks/whatsapp', waPayload({ from: VICTIM_WA, text: 'متابعة بعد التأكيد' }));
     assert.equal(t.app.db.get("SELECT intake_id FROM messages WHERE body = 'متابعة بعد التأكيد'").intake_id, d.intake.id);
 
-    // client-wide revoke
+    // the phone owner's full portal does not show unconfirmed website requests (the submitter may have mistyped a number)
     const clientId = t.app.db.get('SELECT client_id FROM cases WHERE id = ?', caseId).client_id;
     const link = await admin.post(`/api/admin/clients/${clientId}/portal-link`, {});
     const fullToken = link.body.url.split('/p/')[1];
+    const owner = await t.client().get(`/api/portal/${fullToken}`);
+    const ownerDump = JSON.stringify(owner.body);
+    assert.ok(!ownerDump.includes('طلب ثالث بنفس الرقم'), 'unconfirmed website text stays out of the owner portal');
+    assert.ok(!ownerDump.includes(a.intake.code));
+    assert.ok(ownerDump.includes('طلب رابع من صاحب الرقم'), 'a confirmed request is shown to the owner');
     assert.equal((await admin.get(`/api/admin/clients/${clientId}`)).body.active_portal_links >= 1, true);
     const all = await admin.post(`/api/admin/clients/${clientId}/revoke-portal`, {});
     assert.ok(all.body.revoked >= 1);

@@ -668,7 +668,7 @@ export default async function render(ctx) {
             {
               key: 'team',
               label: 'الفريق',
-              render: (c) => h('div.pd-cell-stack', h('span.nowrap', `${num(c.team_size)} ${c.team_size === 1 ? 'محامٍ' : 'محامين'}`), c.team_size > 1 ? badge('متعدد التخصصات', 'accent') : null),
+              render: (c) => h('div.pd-cell-stack', h('span.nowrap', count(c.team_size, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])), c.team_size > 1 ? badge('متعدد التخصصات', 'accent') : null),
             },
           ],
         }),

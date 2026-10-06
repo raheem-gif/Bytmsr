@@ -1,9 +1,9 @@
 // المعرفة المؤسسية والذكاء الاصطناعي: قاعدة المعرفة المجهّلة المعتمدة، البحث بالمعنى، التصدير للتدريب،
-// وأداء الذكاء الاصطناعي المقاس من تصحيحات الإدارة والمحامين (كل تصحيح Feedback جديد).
+// وأداء الذكاء الاصطناعي المقاس من تصحيحات الإدارة والمحامين (كل تصحيح تغذية راجعة جديدة).
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, num, percent, dateTime, relative, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, num, count, percent, dateTime, relative, cairoToday } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -253,12 +253,12 @@ export default async function render(ctx) {
           },
           {
             key: 'counts',
-            label: 'المتخصصون / التصحيحات',
+            label: 'طلبات المساعدة / التصحيحات',
             render: (r) =>
               h(
                 'div.pd-cell-stack',
-                h('span.nowrap', icon('users', { size: 14 }), ` ${num(r.specialists_count)} متخصص`),
-                h('span.nowrap', icon('sparkle', { size: 14 }), ` ${num(r.corrections_count)} تصحيح للذكاء الاصطناعي`),
+                h('span.nowrap', icon('users', { size: 14 }), ` ${r.specialists_count ? count(r.specialists_count, ['طلب مساعدة واحد', 'طلبا مساعدة', 'طلبات مساعدة', 'طلب مساعدة']) : 'لا طلبات مساعدة'}`),
+                h('span.nowrap', icon('sparkle', { size: 14 }), ` ${r.corrections_count ? count(r.corrections_count, ['تصحيح واحد', 'تصحيحان', 'تصحيحات', 'تصحيحًا']) : 'لا تصحيحات'} للذكاء الاصطناعي`),
               ),
           },
           { key: 'outcome', label: 'النتيجة', render: (r) => (r.outcome ? h('span', label('case_outcome', r.outcome)) : null) },
@@ -403,7 +403,7 @@ export default async function render(ctx) {
     const summary = VERDICT_ORDER.map((k) => `${label('ai_verdict', k)}: ${f[k] || 0}`).join('، ');
     return h(
       'article.pd-field',
-      h('div.pd-field-head', h('h3', f.label || label('ai_field', f.field)), h('span.cell-sub', `${num(f.total)} مراجعة`)),
+      h('div.pd-field-head', h('h3', f.label || label('ai_field', f.field)), h('span.cell-sub', count(f.total, ['مراجعة واحدة', 'مراجعتان', 'مراجعات', 'مراجعة']))),
       h(
         'div.pd-field-acc',
         h('span.pd-field-pct', { dir: 'ltr' }, f.accuracy == null ? '—' : percent(f.accuracy)),
@@ -440,7 +440,7 @@ export default async function render(ctx) {
       alertBox(
         frag(
           h('p', 'الذكاء الاصطناعي مساعد لا يقرر: يلخص ويصنف ويقترح النواقص والمسائل والحالات المشابهة والمسودات الأولى، والقرار دائمًا للإدارة والمحامي.'),
-          h('p', h('strong', 'كل تصحيح من المحامي أو الإدارة Feedback جديد: '), 'يُسجَّل القبول والتصحيح والرفض وما فات الذكاء الاصطناعي، ومنه تُقاس الدقة هنا وتُحسَّن مع الوقت.'),
+          h('p', h('strong', 'كل تصحيح من المحامي أو الإدارة تغذية راجعة جديدة: '), 'يُسجَّل القبول والتصحيح والرفض وما فات الذكاء الاصطناعي، ومنه تُقاس الدقة هنا وتُحسَّن مع الوقت.'),
         ),
         'info',
         { title: 'كيف نقيس أداء الذكاء الاصطناعي؟', icon: 'sparkle' },
@@ -524,7 +524,7 @@ export default async function render(ctx) {
       h(
         'section.section',
         h('h2.section-title', 'أحدث التصحيحات'),
-        h('p.pd-section-hint', 'كل تصحيح من المحامي أو الإدارة Feedback جديد يدخل في قياس الأداء — وعند اعتماد الحالة يصبح جزءًا من بيانات التدريب المجهّلة.'),
+        h('p.pd-section-hint', 'كل تصحيح من المحامي أو الإدارة تغذية راجعة جديدة تدخل في قياس الأداء — وعند اعتماد الحالة تصبح جزءًا من بيانات التدريب المجهّلة.'),
         recent.length ? correctionsList(recent) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true }),
       ),
     );
@@ -551,7 +551,7 @@ export default async function render(ctx) {
           const res = await api.get('/admin/knowledge/export');
           const n = Array.isArray(res?.records) ? res.records.length : 0;
           downloadJson(res, `knowledge-training-${cairoToday()}.json`);
-          toast(n ? `تم تصدير ${num(n)} حالة معتمدة للتدريب (مجهّلة)` : 'لا توجد حالات معتمدة للتدريب بعد؛ صُدّر ملف فارغ', n ? 'success' : 'warning');
+          toast(n ? `تم تصدير ${count(n, ['حالة معتمدة واحدة', 'حالتين معتمدتين', 'حالات معتمدة', 'حالة معتمدة'])} للتدريب (مجهّلة)` : 'لا توجد حالات معتمدة للتدريب بعد؛ صُدّر ملف فارغ', n ? 'success' : 'warning');
         },
         { icon: 'download', title: 'يصدّر الحالات المعتمدة للتدريب فقط، بعد إخفاء البيانات الشخصية' },
       )

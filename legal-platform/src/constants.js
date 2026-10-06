@@ -277,7 +277,7 @@ export const DEFAULT_AUTOMATION_RULES = {
     params: {
       days_before: 3,
       template:
-        'نذكّر حضرتكم بموعد في ملفكم رقم {matter_code} يلزم حضوركم فيه شخصيًا:\nنوع الموعد: {event_kind}\nالتاريخ: {date} الساعة {time}\nالمكان: {location}\nللاستفسار يمكنكم الرد على هذه الرسالة. — {org_name}',
+        'نذكّر حضرتكم بموعد في ملفكم رقم {matter_code} يلزم حضوركم فيه شخصيًا.\nنوع الموعد: {event_kind}\nالتاريخ: {date} الساعة {time}\nالمكان: {location}\nللاستفسار يمكنكم الرد على هذه الرسالة. — {org_name}',
     },
   },
   invoice_reminder: {

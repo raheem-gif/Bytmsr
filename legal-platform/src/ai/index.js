@@ -1,6 +1,6 @@
 // خدمة الذكاء الاصطناعي: تحليل الطلبات، اقتراح المسائل، المسودات، النسخة الموجهة للعميل،
 // البحث عن الحالات المشابهة، وتسجيل التصحيحات (التغذية الراجعة) لقياس الأداء وتحسينه.
-import { nowIso, parseJson, notFound, truncate, arabicCount, AR_UNITS } from '../util.js';
+import { nowIso, parseJson, notFound, truncate, arabicCount, arabicPercent, AR_UNITS } from '../util.js';
 import { LABELS, LEGAL_AREAS } from '../constants.js';
 import * as H from './heuristic.js';
 import { createAnthropicProvider, AiUnavailable } from './anthropic.js';
@@ -337,8 +337,7 @@ export function createAi(app) {
         suggestion_id: sug.id, entity_type: 'assignment', entity_id: opinion.assignment_id, case_id: opinion.case_id, field: 'draft',
         verdict: ratio >= 0.85 ? 'accepted' : ratio >= 0.2 ? 'corrected' : 'rejected',
         ai_value: truncate(sug.output.text, 2000), final_value: truncate(opinion.body, 2000), actor,
-        // النسبة معزولة الاتجاه (LRI…PDI) كما في percent() بالواجهة حتى تظهر «36%» لا «%36»
-        note: `نسبة التشابه بين المسودة والنسخة المقدمة: ⁦${Math.round(ratio * 100)}%⁩`,
+        note: `نسبة التشابه بين المسودة والنسخة المقدمة: ${arabicPercent(ratio)}`,
         replace: true,
       });
     },

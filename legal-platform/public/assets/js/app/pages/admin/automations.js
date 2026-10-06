@@ -427,7 +427,7 @@ export default async function render(ctx) {
     const counts = {};
     for (const m of rows) counts[m.status] = (counts[m.status] || 0) + 1;
     const failed = counts.failed || 0;
-    if (!outboxState.status) tabsEl.setCount('outbox', failed ? `${num(failed)} فشل` : rows.length);
+    if (!outboxState.status) tabsEl.setCount('outbox', failed ? `فشل: ${num(failed)}` : rows.length);
     mount(
       outboxHost,
       rows.length && !outboxState.status
@@ -599,7 +599,7 @@ export default async function render(ctx) {
       actions: runBtn,
     }),
     waBanner,
-    !isAdmin && alertBox('تعديل القواعد وتفعيلها أو إيقافها متاح لمدير النظام فقط.', 'info'),
+    !isAdmin && alertBox('تعديل القواعد وتفعيلها أو إيقافها متاح لدور «إدارة النظام» فقط.', 'info'),
     card({ body: tabsEl }),
   );
 }

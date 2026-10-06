@@ -4,7 +4,7 @@
 
 import { h, frag, mount, clear } from '../../../lib/h.js';
 import { api, ApiError, filesToUploads, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, money, percent, count, date, dateTime, relative, isoToCairoInput } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, money, percent, count, hours, date, dateTime, relative, isoToCairoInput } from '../../../lib/fmt.js';
 import {
   icon,
   button,
@@ -1104,7 +1104,7 @@ export default async function render(ctx) {
   }
 
   function feeText(a) {
-    if (a.fee_mode === 'custom') return `${money(a.fee_amount)} — مبلغ محدد لهذه المهمة`;
+    if (a.fee_mode === 'custom') return `${money(a.fee_amount)} — مبلغ محدد لهذا الإسناد`;
     if (a.fee_mode === 'pro_bono') return label('fee_mode', 'pro_bono');
     return `حسب اتفاق المحامي${a.agreement_type ? ` (${label('agreement_type', a.agreement_type)})` : ''}`;
   }
@@ -1129,7 +1129,7 @@ export default async function render(ctx) {
           'div.btn-group.pb-member-actions',
           button('تعديل الصلاحيات', { size: 'sm', variant: 'primary', icon: 'shield', onClick: () => openGrantsDialog(a) }),
           button('تعديل الإسناد', { size: 'sm', icon: 'edit', onClick: () => openEditAssignmentDialog(a) }),
-          a.status === 'approved' && button('إعادة فتح المهمة للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReengageDialog(a) }),
+          a.status === 'approved' && button('إعادة فتح الإسناد للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReengageDialog(a) }),
           a.status !== 'approved' && button('سحب الإسناد', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openWithdrawDialog(a) }),
         )
       : null;
@@ -1163,7 +1163,7 @@ export default async function render(ctx) {
           ['موعد التسليم', a.due_at ? dateTime(a.due_at) : null],
           ['تقديم الرأي', a.submitted_at ? dateTime(a.submitted_at) : h('span.muted', 'لم يُقدَّم بعد')],
           a.approved_at && ['الاعتماد', dateTime(a.approved_at)],
-          a.hours_spent != null && ['الساعات المسجلة', `${a.hours_spent} ساعة`],
+          a.hours_spent != null && ['الساعات المسجلة', hours(a.hours_spent)],
         ],
         { columns: 2, className: 'pb-member-kv' },
       ),
@@ -1303,10 +1303,10 @@ export default async function render(ctx) {
             loadDefaults(true);
           },
         },
-        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: ctx.meta?.settings?.default_assignment_days ? `إن تُرك فارغًا يكون بعد ${ctx.meta.settings.default_assignment_days} أيام من الإسناد (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.' },
+        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: ctx.meta?.settings?.default_assignment_days ? `إن تُرك فارغًا يكون بعد ${count(ctx.meta.settings.default_assignment_days, 'day')} من الإسناد (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.' },
         {
           name: 'fee_mode',
-          label: 'معاملة الأتعاب لهذه المهمة',
+          label: 'معاملة الأتعاب لهذا الإسناد',
           type: 'select',
           required: true,
           placeholder: false,
@@ -1403,7 +1403,7 @@ export default async function render(ctx) {
             if (!f.validate()) return false;
             const v = f.getValues();
             if (v.fee_mode === 'custom' && !(Number(v.fee_amount) > 0)) {
-              f.setErrors({ fee_amount: 'أدخل مبلغ الأتعاب المحدد لهذه المهمة' });
+              f.setErrors({ fee_amount: 'أدخل مبلغ الأتعاب المحدد لهذا الإسناد' });
               return false;
             }
             const payload = {
@@ -1432,7 +1432,7 @@ export default async function render(ctx) {
       onClose: async (reason) => {
         if (reason !== 'action' || !result) return;
         (result.warnings || []).forEach((w) => toast(w, 'warning', 9000));
-        await refresh(counsel ? 'تم إسناد طلب المساعدة وأُبلغ المحاميان' : 'تم إسناد المحامي وأُبلغ بالمهمة', { tab: counsel ? 'requests' : 'team' });
+        await refresh(counsel ? 'تم إسناد طلب المساعدة وأُبلغ المحاميان' : 'تم الإسناد للمحامي وأُبلغ به', { tab: counsel ? 'requests' : 'team' });
       },
     });
     loadSuggestions();
@@ -1499,8 +1499,8 @@ export default async function render(ctx) {
         if (isoToCairoInput(v.due_at) !== isoToCairoInput(a.due_at)) body.due_at = v.due_at || null;
         if (!locked) {
           if (v.fee_mode === 'custom' && !(Number(v.fee_amount) > 0)) {
-            fapi.setErrors({ fee_amount: 'أدخل مبلغ الأتعاب المحدد لهذه المهمة' });
-            throw new Error('أدخل مبلغ الأتعاب المحدد لهذه المهمة');
+            fapi.setErrors({ fee_amount: 'أدخل مبلغ الأتعاب المحدد لهذا الإسناد' });
+            throw new Error('أدخل مبلغ الأتعاب المحدد لهذا الإسناد');
           }
           if (v.fee_mode !== a.fee_mode || (v.fee_mode === 'custom' && Number(v.fee_amount) !== Number(a.fee_amount))) {
             body.fee_mode = v.fee_mode;
@@ -1518,8 +1518,8 @@ export default async function render(ctx) {
   async function openReengageDialog(a) {
     const days = ctx.meta?.settings?.default_assignment_days;
     const res = await formModal({
-      title: `إعادة فتح مهمة ${a.lawyer_name}`,
-      intro: 'اعتُمد رأي هذا المحامي من قبل. إعادة فتح المهمة تتيح له استكمال العمل على الملف (مثل متابعة طلب جديد من العميل): تبدأ له مسودة جديدة من رأيه المعتمد ويُبلَّغ بالمهمة، ويبقى الرأي المعتمد السابق محفوظًا في سجل الآراء.',
+      title: `إعادة فتح إسناد ${a.lawyer_name}`,
+      intro: 'اعتُمد رأي هذا المحامي من قبل. إعادة فتح الإسناد تتيح له استكمال العمل على الملف (مثل متابعة طلب جديد من العميل): تبدأ له مسودة جديدة من رأيه المعتمد ويُبلَّغ بذلك، ويبقى الرأي المعتمد السابق محفوظًا في سجل الآراء.',
       fields: [
         {
           name: 'brief',
@@ -1539,11 +1539,11 @@ export default async function render(ctx) {
         },
       ],
       values: { brief: a.brief || '' },
-      submitLabel: 'إعادة فتح المهمة',
+      submitLabel: 'إعادة فتح الإسناد',
       submitIcon: 'refresh',
       onSubmit: (v) => api.post(`/admin/assignments/${a.id}/reengage`, { brief: v.brief || undefined, due_at: v.due_at || undefined }),
     });
-    if (res) await refresh('أُعيد فتح المهمة للمحامي وأُبلغ بها', { tab: 'team' });
+    if (res) await refresh('أُعيد فتح الإسناد للمحامي وأُبلغ به', { tab: 'team' });
   }
 
   async function openWithdrawDialog(a) {
@@ -1676,7 +1676,7 @@ export default async function render(ctx) {
         h(
           'p.pb-assigned-line',
           icon('userPlus', { size: 15 }),
-          `أُسند إلى ${assigned.lawyer_name} بصفته «${label('assignment_role', assigned.role)}» — `,
+          `أُسند إلى ${assigned.lawyer_name} (الدور: ${label('assignment_role', assigned.role)}) — `,
           statusBadge('assignment_status', assigned.status),
           button('عرض في الفريق', { size: 'sm', variant: 'link', onClick: () => goTab('team') }),
         ),
@@ -2359,7 +2359,7 @@ export default async function render(ctx) {
       if (!pending || !pending.length) throw err;
       const ok = await confirmAction({
         title: 'توجد آراء مقدَّمة لم تُراجع بعد',
-        message: `في الملف ${pending.length === 1 ? 'رأي مقدَّم' : `${pending.length} آراء مقدَّمة`} بانتظار مراجعة الإدارة. الإغلاق الآن سيحوّلها إلى «نسخة سابقة» ويسحب الإسنادات المفتوحة دون اعتماد. هل تريد الإغلاق مع تجاوز الآراء المعلقة؟`,
+        message: `في الملف ${count(pending.length, ['رأي مقدَّم', 'رأيان مقدَّمان', 'آراء مقدَّمة', 'رأيًا مقدَّمًا'])} بانتظار مراجعة الإدارة. الإغلاق الآن سيحوّلها إلى «نسخة سابقة» ويسحب الإسنادات المفتوحة دون اعتماد. هل تريد الإغلاق مع تجاوز الآراء المعلقة؟`,
         confirmLabel: 'إغلاق مع تجاوز الآراء المعلقة',
       });
       if (!ok) throw new ApiError('لم يُغلق الملف. راجع الآراء المقدمة من تبويب «الآراء والمراجعة» أولًا.', { status: 409 });
@@ -2387,7 +2387,7 @@ export default async function render(ctx) {
   async function openReopenDialog() {
     const res = await formModal({
       title: 'إعادة فتح الملف',
-      intro: 'سيعود الملف إلى العمل ويمكنك إسناده من جديد. الإسنادات المسحوبة عند الإغلاق لا تعود تلقائيًا. أما أعضاء الفريق الذين اعتُمدت آراؤهم فيمكن إعادة فتح المهمة لهم من تبويب «الفريق والصلاحيات» بزر «إعادة فتح المهمة للمحامي».',
+      intro: 'سيعود الملف إلى العمل ويمكنك إسناده من جديد. الإسنادات المسحوبة عند الإغلاق لا تعود تلقائيًا. أما أعضاء الفريق الذين اعتُمدت آراؤهم فيمكن إعادة فتح الإسناد لهم من تبويب «الفريق والصلاحيات» بزر «إعادة فتح المهمة للمحامي».',
       fields: [{ name: 'note', label: 'سبب إعادة الفتح (اختياري)', type: 'textarea', rows: 3, maxLength: 1000 }],
       submitLabel: 'إعادة فتح الملف',
       submitIcon: 'refresh',

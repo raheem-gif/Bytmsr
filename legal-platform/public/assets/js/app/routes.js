@@ -37,7 +37,7 @@ export const routes = [
 
   // ── بوابة المحامي ──
   { path: '/my', load: () => import('./pages/lawyer/home.js'), roles: LAWYER, title: 'ملفاتي' },
-  { path: '/my/assignments/:id', load: () => import('./pages/lawyer/assignment.js'), roles: LAWYER, title: 'تفاصيل المهمة' },
+  { path: '/my/assignments/:id', load: () => import('./pages/lawyer/assignment.js'), roles: LAWYER, title: 'تفاصيل الإسناد' },
   { path: '/my/matters', load: () => import('./pages/lawyer/matters.js'), roles: LAWYER, title: 'الملفات المستمرة' },
   { path: '/my/matters/:id', load: () => import('./pages/lawyer/matter.js'), roles: LAWYER, title: 'ملف مستمر' },
   { path: '/my/statement', load: () => import('./pages/lawyer/statement.js'), roles: LAWYER, title: 'كشف حسابي' },

@@ -38,7 +38,8 @@ assert.equal(dueInfo(new Date(now - 2 * 86400e3).toISOString(), now).text, 'مت
 assert.equal(dueInfo(new Date(now + 5 * 3600e3).toISOString(), now).tone, 'warning');
 assert.equal(count(11, 'char'), '11 حرفًا');
 assert.equal(money(1500), '1,500 ج.م');
-assert.equal(percent(0.734), '⁦73%⁩'); // معزولة الاتجاه لتظهر «73%» دائمًا بعد النص العربي
+// معزولة الاتجاه (LRI…PDI) لتظهر «73%» دائمًا بعد النص العربي
+assert.equal(percent(0.734), `${String.fromCharCode(0x2066)}73%${String.fromCharCode(0x2069)}`);
 assert.equal(count(1, 'assignment'), 'إسناد');
 assert.equal(count(15, 'task'), '15 مهمة');
 assert.equal(count(6, 'request'), '6 طلبات');

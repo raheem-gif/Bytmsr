@@ -2,7 +2,7 @@
 // بالقطعة → مستحق، شهري → ضمن التقرير الشهري، حصة شهرية → ضمنها ثم سعر الزيادة، باقة → خصم من الرصيد،
 // تطوعي → مساهمة مجانية بلا التزام مالي، مسؤولية مجتمعية (CSR) → استهلاك من التزام مكتب المحاماة.
 // وحدة المحاسبة في كل الاتفاقات هي «الاستشارة المعتمدة»، والعملة تُكتب «ج.م» كما في الواجهة.
-import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, toMinor, fromMinor, arabicCount, arabicPeriod, formatEgp, AR_UNITS } from '../util.js';
+import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, toMinor, fromMinor, arabicCount, arabicPeriod, arabicPercent, formatEgp, AR_UNITS } from '../util.js';
 import { LABELS, ENUMS } from '../constants.js';
 
 const INCLUDED = ['included_monthly', 'included_quota', 'package_credit'];
@@ -251,7 +251,7 @@ export function createAccounting(app) {
         kind: 'monthly_fee',
         amount_minor: amount,
         period,
-        description: `المبلغ الشهري الجزئي عن ${period} حتى تغيير الاتفاق (${Math.round(share * 100)}% من الشهر)`,
+        description: `المبلغ الشهري الجزئي عن ${arabicPeriod(period)} حتى تغيير الاتفاق (${arabicPercent(share)} من الشهر)`,
         dedupe_key: key,
         created_by: actor?.id,
       });
@@ -261,7 +261,7 @@ export function createAccounting(app) {
     addPackage(lawyerId, { size, price }, actor) {
       const lw = lawyerRow(lawyerId);
       if (lw.agreement.type !== 'package') throw badRequest('اتفاق هذا المحامي ليس باقة');
-      const n = v.int(size, 'عدد حالات الباقة', { required: true, min: 1, max: 100000 });
+      const n = v.int(size, 'عدد استشارات الباقة', { required: true, min: 1, max: 100000 });
       const p = v.money(price, 'قيمة الباقة', { required: true });
       db.tx(() => {
         db.run('UPDATE lawyers SET package_remaining = COALESCE(package_remaining, 0) + ? WHERE user_id = ?', n, lw.user_id);

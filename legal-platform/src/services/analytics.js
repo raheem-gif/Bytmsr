@@ -278,11 +278,27 @@ export function createPortal(app) {
   /** نطاق الوصول: قوائم المعرفات المسموح بها */
   function scopeOf(client, intakeId) {
     if (!intakeId) {
+      // طلب أنشأه الموقع برقم العميل ولم تؤكد الإدارة أن مقدّمه هو صاحب الرقم لا يظهر في بوابة صاحب الرقم:
+      // قد يكون شخصًا آخر أخطأ في كتابة رقمه، فلا تُكشف بياناته لصاحب الرقم
+      const unverified = new Set(
+        db
+          .all(
+            "SELECT id FROM intakes WHERE client_id = ? AND COALESCE(json_extract(source_detail, '$.phone_match_unverified'), 0) = 1",
+            client.id,
+          )
+          .map((r) => r.id),
+      );
       return {
         full: true,
-        intakeIds: db.all('SELECT id FROM intakes WHERE client_id = ?', client.id).map((r) => r.id),
-        caseIds: db.all('SELECT id FROM cases WHERE client_id = ?', client.id).map((r) => r.id),
-        matterIds: db.all('SELECT id FROM matters WHERE client_id = ?', client.id).map((r) => r.id),
+        intakeIds: db.all('SELECT id FROM intakes WHERE client_id = ?', client.id).map((r) => r.id).filter((x) => !unverified.has(x)),
+        caseIds: db
+          .all('SELECT id, intake_id FROM cases WHERE client_id = ?', client.id)
+          .filter((r) => !unverified.has(r.intake_id))
+          .map((r) => r.id),
+        matterIds: db
+          .all('SELECT m.id, c.intake_id FROM matters m JOIN cases c ON c.id = m.case_id WHERE m.client_id = ?', client.id)
+          .filter((r) => !unverified.has(r.intake_id))
+          .map((r) => r.id),
       };
     }
     const intake = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);

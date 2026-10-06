@@ -76,8 +76,8 @@ export function money(n) {
 }
 
 // عزل الاتجاه (LRI … PDI): بدونه تنقلب علامة % بعد نص عربي فتظهر «%73» في موضع و«73%» في آخر.
-const LRI = '⁦';
-const PDI = '⁩';
+const LRI = String.fromCharCode(0x2066); // LEFT-TO-RIGHT ISOLATE
+const PDI = String.fromCharCode(0x2069); // POP DIRECTIONAL ISOLATE
 
 /** نص لاتيني الاتجاه معزول داخل جملة عربية (أرقام بعلامات، رموز). */
 export function ltr(s) {

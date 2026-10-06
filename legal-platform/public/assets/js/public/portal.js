@@ -343,7 +343,7 @@ function renderPortal(data) {
         h('h1', firstName ? `مرحبًا ${firstName}` : 'مرحبًا بك'),
         h('p', `هذه صفحتك الخاصة لمتابعة طلباتك وملفاتك لدى ${orgName()}: ترد على طلباتنا، وترفع مستنداتك، وتراسلنا من مكان واحد.`),
         client.code ? h('p.row', h('span', 'رقم العميل:'), codeTag(client.code)) : null,
-        !client.code && client.reference ? h('p.row', h('span', 'رقم طلبك:'), codeTag(client.reference), h('span.small.muted', 'احتفظ به للمتابعة')) : null,
+        !client.code && client.reference ? h('p.row', h('span', 'رقم طلبك:'), codeTag(client.reference), h('span.small', 'احتفظ به للمتابعة')) : null,
         h(
           'nav.portal-summary',
           { 'aria-label': 'ملخص ملفك' },

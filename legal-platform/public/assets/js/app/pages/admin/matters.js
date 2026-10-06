@@ -126,8 +126,8 @@ export default async function render(ctx) {
     },
     {
       key: 'lawsuit',
-      label: 'رقم الدعوى / السنة',
-      render: (m) => (m.lawsuit_number ? ltr(`${m.lawsuit_number}${m.lawsuit_year ? ` / ${m.lawsuit_year}` : ''}`) : null),
+      label: 'الدعوى',
+      render: (m) => (m.lawsuit_number ? h('span.nowrap', 'رقم ', ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null) : null),
     },
     {
       key: 'next',

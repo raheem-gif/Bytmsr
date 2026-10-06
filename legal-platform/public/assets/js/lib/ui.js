@@ -1527,7 +1527,7 @@ export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl,
         h(
           'div.msg-bubble',
           (author || chan || m.automated) &&
-            h('div.msg-meta', author && h('span.msg-author', author), chan, m.automated && h('span.auto-tag', icon('zap', { size: 11 }), 'رسالة آلية')),
+            h('div.msg-meta', author && h('span.msg-author', author), chan, m.automated ? h('span.auto-tag', icon('zap', { size: 11 }), 'رسالة آلية') : null),
           m.body && h('div.msg-body', { dir: 'auto' }, richText(m.body)),
           docs.length ? h('div.msg-docs', docs) : null,
           h('div.msg-foot', h('time', { datetime: m.created_at, title: dateTime(m.created_at) }, fmtTime(m.created_at)), statusEl),

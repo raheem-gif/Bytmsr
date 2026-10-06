@@ -253,6 +253,11 @@ export function arabicCount(n, [one, two, few, many]) {
   return `${k} ${String(one).replace(/\s+واحد[ةه]?(?=\s|$)/, '')}`;
 }
 
+/** نسبة مئوية معزولة الاتجاه (LRI…PDI) مثل percent() في الواجهة: تظهر «36%» لا «%36» بعد النص العربي */
+export function arabicPercent(ratio) {
+  return `${String.fromCharCode(0x2066)}${Math.round(Number(ratio) * 100)}%${String.fromCharCode(0x2069)}`;
+}
+
 /** صيغ عدّ شائعة في نصوص الخادم (للاستخدام مع arabicCount) */
 export const AR_UNITS = {
   file: ['ملف', 'ملفين', 'ملفات', 'ملفًا'],

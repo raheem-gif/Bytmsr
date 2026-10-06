@@ -3,7 +3,7 @@
 
 import { h, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { relative, dateTime, normalizeEgPhone, toLatinDigits } from '../../../lib/fmt.js';
+import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName } from '../../../lib/fmt.js';
 import { pageHeader, card, button, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
 
 const INH_CLIENT_PHONE = '+201012345678';
@@ -24,7 +24,7 @@ function webhookPreview(v) {
       source_url: v.platform === 'instagram' ? 'https://www.instagram.com/p/sim' : 'https://fb.me/sim-ad',
       source_type: 'ad',
       source_id: v.ad_id || 'ad-…',
-      headline: v.headline || 'استشارة قانونية مجانية من بيوت مصر',
+      headline: v.headline || `استشارة قانونية مجانية من ${orgName()}`,
       ctwa_clid: '…',
     };
   }
@@ -223,7 +223,7 @@ export default async function render(ctx) {
       name: diffCb.checked ? 'قريب صاحب الطلب' : name,
       text: diffCb.checked
         ? `السلام عليكم بخصوص الطلب ${code}، أنا قريب صاحب الطلب وعايز أعرف وصلتوا لإيه؟`
-        : `مرحبًا بيوت مصر، رقم طلبي ${code} وأريد استكمال طلبي عبر واتساب.`,
+        : `مرحبًا ${orgName()}، رقم طلبي ${code} وأريد استكمال طلبي عبر واتساب.`,
     });
   }
 

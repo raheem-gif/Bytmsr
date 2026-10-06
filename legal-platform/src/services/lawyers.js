@@ -300,7 +300,7 @@ export function createLawyers(app) {
       }
       if ((patch.active === 0 || patch.role === 'case_manager') && u.role === 'admin') {
         const admins = Number(db.value("SELECT COUNT(*) FROM users WHERE role = 'admin' AND active = 1 AND id != ?", id));
-        if (!admins) throw badRequest('يجب أن يبقى مدير نظام نشط واحد على الأقل');
+        if (!admins) throw badRequest('يجب أن يبقى حساب نشط واحد على الأقل بدور «إدارة النظام»');
       }
       if (body.password) patch.password_hash = hashPassword(validatePassword(body.password));
       db.update('users', id, patch);

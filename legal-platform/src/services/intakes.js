@@ -258,7 +258,7 @@ export function createIntakes(app) {
           verdict: sug.output.legal_area === area ? 'accepted' : 'corrected', ai_value: sug.output.legal_area, final_value: area, actor, replace: true,
         });
       }
-      app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.handled_internally', summary: 'تعاملت الإدارة مع الطلب داخليًا دون إحالة لمحامٍ', data: { note } });
+      app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.handled_internally', summary: 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ', data: { note } });
       return svc.require(i.id);
     },
 

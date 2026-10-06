@@ -2,7 +2,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, relative, dateTime } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, relative, dateTime, count } from '../../../lib/fmt.js';
 import {
   pageHeader,
   table,
@@ -223,7 +223,7 @@ export default async function render(ctx) {
   function drawTable() {
     const rows = visibleRows();
     const truncated = total > items.length;
-    countLine.textContent = `عدد الملفات المعروضة: ${rows.length}${truncated ? ` (من أحدث ${items.length} ملفًا من إجمالي ${total})` : ''}`;
+    countLine.textContent = `عدد الملفات المعروضة: ${rows.length}${truncated ? ` (من أحدث ${count(items.length, 'case')} من إجمالي ${total})` : ''}`;
     const empty = state.q || state.area || state.priority || state.manager_id || state.lawyer_id || state.flag
       ? 'لا توجد ملفات مطابقة لعوامل التصفية الحالية'
       : state.status === 'open'

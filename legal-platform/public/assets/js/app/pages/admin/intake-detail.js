@@ -184,7 +184,7 @@ export default async function render(ctx) {
           button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen }),
         ),
         handled ? 'success' : 'info',
-        { title: handled ? 'تعاملت الإدارة مع الطلب داخليًا دون إحالة لمحامٍ' : 'الطلب مؤرشف', icon: handled ? 'checkCircle' : 'info' },
+        { title: handled ? 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ' : 'الطلب مؤرشف', icon: handled ? 'checkCircle' : 'info' },
       );
     }
     const opt = (cls, iconName, title, text, onClick) =>
@@ -196,7 +196,7 @@ export default async function render(ctx) {
       className: 'pa-decide-card',
       body: h(
         'div.pa-decide',
-        opt('is-primary', 'briefcase', 'تحويل إلى ملف قانوني', 'يحتاج دراسة محامٍ: يصدر له كود ملف مستقل ويُحال لفريق.', openConvert),
+        opt('is-primary', 'briefcase', 'تحويل إلى ملف قانوني', 'يحتاج دراسة محامٍ: يصدر له كود ملف مستقل ويُسند إلى فريق.', openConvert),
         opt('', 'checkCircle', 'تعامل داخلي دون محامٍ', 'استفسار بسيط ترد عليه الإدارة مباشرة دون إسناده لمحامٍ.', openHandle),
         opt('is-muted', 'x', 'أرشفة', 'رسالة غير جدية أو مكررة أو خارج نطاق الخدمة. يمكن إعادة فتحها لاحقًا.', openArchive),
       ),
@@ -248,7 +248,7 @@ export default async function render(ctx) {
         }),
     });
     if (res) {
-      toast('أُغلق الطلب كتعامل داخلي دون إحالة لمحامٍ', 'success');
+      toast('أُغلق الطلب كتعامل داخلي دون إسناده لمحامٍ', 'success');
       await reloadAndFocus(ctx, '#pa-decision');
     }
   }
@@ -494,7 +494,7 @@ export default async function render(ctx) {
     const conflicts = msgs.filter((m) => m.meta && m.meta.identity_conflict);
     const thread = chatThread(msgs, {
       inLabel: it.contact_name || (cl && cl.name) || 'العميل',
-      outLabel: 'بيوت مصر',
+      outLabel: 'المؤسسة',
       emptyText: 'لا توجد رسائل في هذا الطلب بعد',
     });
     // علامات داخل المحادثة: رقم يذكر طلبًا لعميل آخر، ورسائل فشل إرسالها
