@@ -32,7 +32,7 @@ import {
   richText,
   errorMessage,
 } from '../../../lib/ui.js';
-import { channelIcons, similarText, CHANNEL_ICONS } from './inbox.js';
+import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus } from './inbox.js';
 import { pickClient } from './clients.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
@@ -147,7 +147,7 @@ export default async function render(ctx) {
     await run(async () => {
       await api.post(`${base}/reopen`);
       toast('أُعيد فتح الطلب للفرز', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-decision');
     });
   }
 
@@ -183,7 +183,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('أُغلق الطلب كتعامل داخلي دون إحالة لمحامٍ', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-decision');
     }
   }
 
@@ -197,7 +197,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('تمت أرشفة الطلب', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-decision');
     }
   }
 
@@ -458,7 +458,7 @@ export default async function render(ctx) {
               async () => {
                 await api.post(`/admin/messages/${m.id}/retry`);
                 toast('أُعيدت محاولة الإرسال', 'success');
-                ctx.reload();
+                await reloadAndFocus(ctx, '#pa-conversation');
               },
               { variant: 'link', size: 'sm', icon: 'refresh' },
             ),
@@ -550,7 +550,7 @@ export default async function render(ctx) {
             : `تم إرسال الرد${msg && msg.channel ? ` عبر ${label('channel', msg.channel)}` : ''}`,
           'success',
         );
-        ctx.reload();
+        await reloadAndFocus(ctx, '.pa-composer textarea');
       },
       { variant: 'primary', icon: 'send' },
     );
@@ -638,9 +638,9 @@ export default async function render(ctx) {
             summary: v.summary || null,
             internal_notes: v.internal_notes || null,
           }),
-        onSuccess: () => {
+        onSuccess: async () => {
           toast('تم حفظ بيانات الفرز', 'success');
-          ctx.reload();
+          await reloadAndFocus(ctx, '#pa-triage');
         },
       },
     );
@@ -745,7 +745,7 @@ export default async function render(ctx) {
       async () => {
         await api.post(`${base}/analyze`);
         toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
-        ctx.reload();
+        await reloadAndFocus(ctx, '#pa-ai');
       },
       { size: 'sm', icon: ai ? 'refresh' : 'sparkle' },
     );
@@ -768,6 +768,8 @@ export default async function render(ctx) {
         'div.pa-ai-meta',
         badge(provider, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
         h('time.small.muted', { datetime: ai.created_at, title: dateTime(ai.created_at) }, `حُلّل ${relative(ai.created_at)}`),
+        h('span.spacer'),
+        reanalyze,
       ),
       out._fallback_reason && alertBox(`تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: ${out._fallback_reason}`, 'warning'),
       out.title && aiBlock('العنوان المقترح', h('p.pa-ai-text.is-strong', out.title), feedbackControl('title', out.title)),
@@ -862,7 +864,6 @@ export default async function render(ctx) {
       subtitle: 'مساعد فقط — القرار للإدارة، وتقييمك يُسجَّل لتحسينه',
       icon: 'sparkle',
       className: 'pa-ai-card',
-      actions: reanalyze,
       body: h('div.pa-ai', blocks, history),
     });
   }
@@ -886,7 +887,7 @@ export default async function render(ctx) {
     await run(async () => {
       await api.post(`${base}/link-client`, { client_id: target.id });
       toast(`تم الدمج — أصبح الطلب مرتبطًا بالعميل ${target.code}`, 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-client');
     });
   }
 
@@ -1006,6 +1007,12 @@ export default async function render(ctx) {
   }
 
   // ───────────── الترويسة والتخطيط ─────────────
+  function withId(el, id) {
+    el.id = id;
+    el.tabIndex = -1;
+    return el;
+  }
+
   const headerTitle = it.title || (it.contact_name ? `طلب ${it.contact_name}` : `الطلب ${it.code}`);
   const header = pageHeader({
     title: headerTitle,
@@ -1033,8 +1040,8 @@ export default async function render(ctx) {
     header,
     h(
       'div.detail-layout',
-      h('div.detail-main', decisionCard(), conversationCard(), triageCard(), activityCard()),
-      h('div.detail-side', aiCard(), clientCard(), sourceCard()),
+      h('div.detail-main', withId(decisionCard(), 'pa-decision'), withId(conversationCard(), 'pa-conversation'), withId(triageCard(), 'pa-triage'), activityCard()),
+      h('div.detail-side', withId(aiCard(), 'pa-ai'), withId(clientCard(), 'pa-client'), sourceCard()),
     ),
   );
 }

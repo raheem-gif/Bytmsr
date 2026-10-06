@@ -27,7 +27,7 @@ import {
   copyButton,
   errorMessage,
 } from '../../../lib/ui.js';
-import { channelIcons, fieldError } from './inbox.js';
+import { channelIcons, fieldError, reloadAndFocus } from './inbox.js';
 import { pickClient } from './clients.js';
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
@@ -84,7 +84,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('تم حفظ بيانات العميل', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-profile');
     }
   }
 
@@ -122,7 +122,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('أُضيفت وسيلة التواصل للعميل', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-identities');
     }
   }
 
@@ -142,7 +142,7 @@ export default async function render(ctx) {
     await run(async () => {
       await api.post(`${base}/merge`, { other_client_id: other.id });
       toast(`تم دمج العميل ${other.code} في ${c.code}`, 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#main');
     });
   }
 
@@ -351,6 +351,12 @@ export default async function render(ctx) {
     return card({ title: 'سجل النشاط', subtitle: 'آخر 50 حدثًا', icon: 'clock', body: timeline(items) });
   }
 
+  function withId(el, id) {
+    el.id = id;
+    el.tabIndex = -1;
+    return el;
+  }
+
   const openCases = cases.filter((k) => k.status !== 'closed').length;
   const openMatters = matters.filter((m) => m.status !== 'closed').length;
   const stats = h(
@@ -389,7 +395,7 @@ export default async function render(ctx) {
     h(
       'div.detail-layout',
       h('div.detail-main', historyCard(), invoicesCard(), activityCard()),
-      h('div.detail-side', profileCard(), identitiesCard(), portalCard(), mergeCard()),
+      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(identitiesCard(), 'pa-identities'), portalCard(), mergeCard()),
     ),
   );
 }

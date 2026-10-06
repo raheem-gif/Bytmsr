@@ -1807,8 +1807,8 @@ html[dir="rtl"] .pa-quote {
 
 .pa-chart-plot {
   display: grid;
-  grid-template-columns: repeat(12, minmax(40px, 1fr));
-  min-width: 500px;
+  grid-template-columns: repeat(12, minmax(50px, 1fr));
+  min-width: 600px;
 }
 
 .pa-chart-group {
@@ -1835,7 +1835,7 @@ html[dir="rtl"] .pa-quote {
   justify-content: flex-end;
   align-items: center;
   height: 100%;
-  width: 14px;
+  width: 18px;
   max-width: 45%;
 }
 

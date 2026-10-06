@@ -43,6 +43,11 @@ import {
 
 const ACTIVE_ASSIGNMENT = ['assigned', 'in_progress', 'returned'];
 
+/** مبلغ لبطاقة رقمية: الرقم كبير والعملة أصغر. */
+function moneyValue(n) {
+  return h('span.nowrap', num(Number(n) || 0), h('span.pd-unit', ' ج.م'));
+}
+
 function timeCell(iso) {
   return iso ? h('time.nowrap', { datetime: iso, title: dateTime(iso) }, date(iso)) : h('span.muted', '—');
 }
@@ -185,10 +190,10 @@ export default async function render(ctx) {
   ];
   if (isAdmin) {
     metrics.push(
-      statCard({ label: 'المستحق عن الشهر', value: money(m.earned_in_period), hint: `قيود ${pl} غير الملغاة`, icon: 'wallet', tone: 'primary' }),
+      statCard({ label: 'المستحق عن الشهر', value: moneyValue(m.earned_in_period), hint: `قيود ${pl} غير الملغاة`, icon: 'wallet', tone: 'primary' }),
       statCard({
         label: 'رصيد غير مصروف',
-        value: money(m.unpaid_balance),
+        value: moneyValue(m.unpaid_balance),
         hint: 'عرض القيود في دفتر المستحقات',
         icon: 'wallet',
         tone: m.unpaid_balance > 0 ? 'warning' : 'neutral',
@@ -320,8 +325,8 @@ export default async function render(ctx) {
       'div.stack-lg',
       h(
         'div.stats-grid.pd-stats-compact',
-        statCard({ label: 'رصيد غير مصروف', value: money(st.unpaid_balance), icon: 'wallet', tone: st.unpaid_balance > 0 ? 'warning' : 'neutral' }),
-        statCard({ label: 'إجمالي ما صُرف', value: money(st.paid_total), icon: 'checkCircle', tone: 'success' }),
+        statCard({ label: 'رصيد غير مصروف', value: moneyValue(st.unpaid_balance), icon: 'wallet', tone: st.unpaid_balance > 0 ? 'warning' : 'neutral' }),
+        statCard({ label: 'إجمالي ما صُرف', value: moneyValue(st.paid_total), icon: 'checkCircle', tone: 'success' }),
         statCard({ label: 'مساهمات تطوعية', value: num(st.pro_bono_count), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
         st.package_remaining != null && statCard({ label: 'المتبقي في الباقة', value: `${num(st.package_remaining)} حالة`, icon: 'briefcase', tone: st.package_remaining > 0 ? 'primary' : 'danger' }),
       ),

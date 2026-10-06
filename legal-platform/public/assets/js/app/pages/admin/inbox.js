@@ -57,6 +57,20 @@ export function replaceQuery(path, query = {}) {
   if (window.location.hash !== hash) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
 }
 
+/**
+ * يعيد عرض الصفحة بعد إجراء ثم يضع التركيز على عنصر مناسب (أو المحتوى الرئيسي)
+ * حتى لا يضيع مستخدم لوحة المفاتيح بعد اختفاء الزر الذي ضغطه.
+ */
+export async function reloadAndFocus(ctx, selector) {
+  await ctx.reload();
+  const active = document.activeElement;
+  if (active && active !== document.body && active.isConnected) return;
+  const el = (selector && document.querySelector(selector)) || document.getElementById('main');
+  if (!el) return;
+  if (!el.matches('a[href], button, input, select, textarea, [tabindex]')) el.setAttribute('tabindex', '-1');
+  el.focus({ preventScroll: true });
+}
+
 /** خطأ تحقق مرتبط بحقل في النموذج (يظهر تحت الحقل وفي تنبيه النموذج). */
 export function fieldError(name, message) {
   return new ApiError(message, { status: 422, code: 'validation', details: { fields: { [name]: message } } });
@@ -136,10 +150,15 @@ export default async function render(ctx) {
     try {
       const res = await api.get('/admin/intakes', apiQuery(state, append ? items.length : 0));
       if (my !== seq) return;
+      const before = items.length;
       data = res;
       items = append ? items.concat(res.items || []) : res.items || [];
       drawTabs();
       drawList();
+      if (append) {
+        const next = listHost.querySelectorAll('.pa-irow')[before];
+        if (next) next.focus();
+      }
     } catch (err) {
       if (my !== seq) return;
       if (append) toast(err.message, 'danger');

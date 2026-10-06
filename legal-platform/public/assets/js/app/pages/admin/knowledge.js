@@ -98,6 +98,21 @@ export function correctionItem(c, { showCase = true } = {}) {
   );
 }
 
+/** قائمة تصحيحات تعرض أول عدد منها مع زر لعرض الباقي. */
+export function correctionsList(items, { limit = 6, showCase = true } = {}) {
+  const list = h('ul.pd-corrs', items.slice(0, limit).map((c) => correctionItem(c, { showCase })));
+  if (items.length <= limit) return list;
+  const more = button(`عرض كل التصحيحات (${num(items.length)})`, {
+    variant: 'ghost',
+    icon: 'chevronDown',
+    onClick: () => {
+      list.append(...items.slice(limit).map((c) => correctionItem(c, { showCase })));
+      more.remove();
+    },
+  });
+  return h('div.stack', list, more);
+}
+
 function pipeline() {
   const steps = [
     { icon: 'briefcase', title: 'إغلاق الملف', text: 'يُبنى سجل يحفظ رحلة الحالة كاملة: الوقائع، المسائل، ما طُلب من العميل، المتخصصون، التصحيحات، والإجابة المعتمدة.' },
@@ -510,7 +525,7 @@ export default async function render(ctx) {
         'section.section',
         h('h2.section-title', 'أحدث التصحيحات'),
         h('p.pd-section-hint', 'كل تصحيح من المحامي أو الإدارة Feedback جديد يدخل في قياس الأداء — وعند اعتماد الحالة يصبح جزءًا من بيانات التدريب المجهّلة.'),
-        recent.length ? h('ul.pd-corrs', recent.map((c) => correctionItem(c))) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true }),
+        recent.length ? correctionsList(recent) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true }),
       ),
     );
   }

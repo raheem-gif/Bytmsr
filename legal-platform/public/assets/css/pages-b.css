@@ -35,8 +35,18 @@
   padding: 2px 10px;
 }
 
-.pb-nowrap-group {
-  flex-wrap: nowrap;
+.pb-table-actions {
+  gap: 4px 6px;
+}
+
+.pb-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pb-note > .icon {
+  margin-block-start: 4px;
 }
 
 .pb-warn-text {
@@ -74,6 +84,24 @@
 
 .pb-active-flag {
   gap: 8px;
+}
+
+.pb-alerts-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+@media (min-width: 900px) {
+  .segmented.pb-seg {
+    flex-wrap: wrap;
+  }
+
+  /* تبويبات الملف: تلتف بدل إخفاء آخرها خارج الشاشة */
+  .pb-case-tabs > .tablist {
+    flex-wrap: wrap;
+  }
 }
 
 /* ───────────── ترويسة ملف الاستشارة ───────────── */
@@ -1292,8 +1320,8 @@ html[dir="rtl"] .pb-step-pill {
     font-size: 15px;
   }
 
-  .pb-nowrap-group {
-    flex-wrap: wrap;
+  .pb-stats .stat-hint {
+    display: none;
   }
 
   .pb-composer .select-wrap.pb-channel {

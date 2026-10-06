@@ -24,8 +24,18 @@ import {
   kv,
   richText,
   statCard,
+  errorMessage,
 } from '../../../lib/ui.js';
 import { eventDateBox, lawsuitRef } from './matters.js';
+
+/** يغلف معالج نقر غير متزامن: أي خطأ يظهر في رسالة بدل أن يضيع. */
+const safe = (fn) => async (...args) => {
+  try {
+    await fn(...args);
+  } catch (err) {
+    toast(errorMessage(err), 'danger');
+  }
+};
 
 const REMINDER_HINT = 'عند التفعيل يرسل النظام تذكيرًا آليًا للعميل قبل الموعد بثلاثة أيام عبر قناة المؤسسة.';
 
@@ -69,8 +79,8 @@ export default async function render(ctx) {
       actions: isClosed()
         ? null
         : frag(
-            button('تسجيل جلسة/موعد', { variant: 'primary', icon: 'calendar', onClick: addEvent }),
-            button('إضافة مهمة', { variant: 'secondary', icon: 'plus', onClick: addTask }),
+            button('تسجيل جلسة/موعد', { variant: 'primary', icon: 'calendar', onClick: safe(addEvent) }),
+            button('إضافة مهمة', { variant: 'secondary', icon: 'plus', onClick: safe(addTask) }),
           ),
       meta: h('div.pc-meta-row', codeTag(m.code), statusBadge('matter_kind', m.kind), statusBadge('matter_status', m.status)),
     });
@@ -146,14 +156,14 @@ export default async function render(ctx) {
       title: 'الجلسات والمواعيد',
       icon: 'calendar',
       subtitle: 'الجلسات التي يلزم فيها حضور العميل يُذكَّر بها آليًا عبر قناة المؤسسة',
-      actions: isClosed() ? null : button('تسجيل جلسة/موعد', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: addEvent }),
+      actions: isClosed() ? null : button('تسجيل جلسة/موعد', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: safe(addEvent) }),
       body: data.events.length
         ? frag(
             h('h3.pc-subhead', 'القادمة'),
             upcoming.length ? h('ul.list-plain', upcoming.map(eventItem)) : h('p.muted.small', 'لا توجد مواعيد قادمة مسجلة.'),
             rest.length ? frag(h('h3.pc-subhead.mt-3', 'السابقة'), h('ul.list-plain', rest.map(eventItem))) : null,
           )
-        : emptyState('لم تُسجَّل جلسات أو مواعيد في هذا الملف بعد.', isClosed() ? null : button('تسجيل أول جلسة', { variant: 'primary', icon: 'calendar', onClick: addEvent }), { compact: true, icon: 'calendar' }),
+        : emptyState('لم تُسجَّل جلسات أو مواعيد في هذا الملف بعد.', isClosed() ? null : button('تسجيل أول جلسة', { variant: 'primary', icon: 'calendar', onClick: safe(addEvent) }), { compact: true, icon: 'calendar' }),
     });
   }
 
@@ -305,7 +315,7 @@ export default async function render(ctx) {
       title: 'المهام والمواعيد الإجرائية',
       icon: 'check',
       subtitle: 'المواعيد الإجرائية يتابعها النظام وينبّه قبل حلولها',
-      actions: isClosed() ? null : button('إضافة مهمة', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: addTask }),
+      actions: isClosed() ? null : button('إضافة مهمة', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: safe(addTask) }),
       body: tasks.length
         ? h('ul.pc-tasks', tasks.map(taskItem))
         : emptyState('لا توجد مهام مسجلة في هذا الملف.', null, { compact: true, icon: 'check' }),

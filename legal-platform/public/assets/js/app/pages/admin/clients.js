@@ -133,9 +133,14 @@ export default async function render(ctx) {
     try {
       const res = await api.get('/admin/clients', { q, limit: PAGE, offset: append ? items.length : 0 });
       if (my !== seq) return;
+      const before = items.length;
       data = res;
       items = append ? items.concat(res.items || []) : res.items || [];
       draw();
+      if (append) {
+        const next = host.querySelectorAll('tbody tr')[before];
+        if (next) next.focus();
+      }
     } catch (err) {
       if (my !== seq) return;
       if (append) toast(err.message, 'danger');

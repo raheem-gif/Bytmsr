@@ -1090,7 +1090,7 @@ export default async function render(ctx) {
       statusBadge('treatment', b.treatment),
       b.amount ? h('strong', money(b.amount)) : null,
       b.notional ? h('span.small.muted', `قيمة المساهمة: ${money(b.notional)}`) : null,
-      b.period && h('span.small.muted', `عن شهر ${b.period}`),
+      b.period && h('span.small.muted', 'عن شهر ', ltr(b.period)),
     );
   }
 
@@ -1324,7 +1324,7 @@ export default async function render(ctx) {
       counsel &&
         alertBox(
           frag(
-            h('div', `طلبه: ${counsel.requester_name || lawyerLabel(requester)} — ${label('counsel_kind', counsel.kind)}${counsel.specialty ? ` (${areaLabel(counsel.specialty)})` : ''}`),
+            h('div', `طلبه: ${counsel.requester_name || lawyerLabel(requester)} — ${label('counsel_kind', counsel.kind)}${counsel.specialty ? ` — التخصص: ${areaLabel(counsel.specialty)}` : ''}`),
             h('div.pb-pre', counsel.description),
           ),
           'info',
@@ -1596,7 +1596,7 @@ export default async function render(ctx) {
         statusBadge('counsel_kind', r.kind),
         statusBadge('counsel_status', r.status),
         r.specialty && badge(`التخصص المطلوب: ${areaLabel(r.specialty)}`, 'info', { icon: 'scale' }),
-        h('span.small.muted', `طلبه: ${r.requester_name || lawyerLabel(requester)}${requester ? ` (${label('assignment_role', requester.role)})` : ''}`),
+        h('span.small.muted', `طلبه: ${r.requester_name || lawyerLabel(requester)}${requester ? ` — ${label('assignment_role', requester.role)}` : ''}`),
         h('span.small.muted', '·'),
         timeTag(r.created_at, { relative: true }),
       ),
@@ -2116,7 +2116,7 @@ export default async function render(ctx) {
         label: 'إجراءات',
         render: (d) =>
           h(
-            'div.btn-group.pb-nowrap-group',
+            'div.btn-group.pb-table-actions',
             button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(d.id), target: '_blank', ariaLabel: `تنزيل ${d.title}` }),
             button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}` }),
           ),
@@ -2172,7 +2172,7 @@ export default async function render(ctx) {
         },
       }),
       messageComposer({
-        hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)». (Ctrl+Enter للإرسال)',
+        hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)». للإرسال السريع: Ctrl+Enter',
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/cases/${id}/messages`, { body, channel });
           await refresh('أُرسلت الرسالة للعميل', { tab: 'conversation' });

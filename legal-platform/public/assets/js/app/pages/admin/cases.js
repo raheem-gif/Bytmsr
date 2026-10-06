@@ -179,7 +179,7 @@ export default async function render(ctx) {
       label: 'العميل',
       render: (r) => h('div', h('div.cell-title', r.client_name || 'عميل بدون اسم'), h('div.cell-sub', codeTag(r.client_code))),
     },
-    { key: 'area', label: 'المجال', render: (r) => h('span.nowrap', areaLabel(r.legal_area)) },
+    { key: 'area', label: 'المجال', render: (r) => areaLabel(r.legal_area) },
     {
       key: 'status',
       label: 'الحالة',
@@ -202,22 +202,16 @@ export default async function render(ctx) {
         ),
     },
     {
-      key: 'pending',
-      label: 'بانتظار الإدارة',
-      align: 'center',
-      render: (r) => (r.pending_actions > 0 ? badge(String(r.pending_actions), 'warning', { icon: 'queue', title: 'آراء أو طلبات بانتظار قرار الإدارة' }) : null),
-    },
-    {
-      key: 'overdue',
-      label: 'إسنادات متأخرة',
-      align: 'center',
-      render: (r) => (r.overdue_assignments > 0 ? badge(String(r.overdue_assignments), 'danger', { icon: 'clock', title: 'إسنادات تجاوزت موعد التسليم' }) : null),
-    },
-    {
-      key: 'unread',
-      label: 'غير مقروء',
-      align: 'center',
-      render: (r) => (r.unread_count > 0 ? badge(String(r.unread_count), 'info', { icon: 'message', title: 'رسائل جديدة من العميل' }) : null),
+      key: 'alerts',
+      label: 'يحتاج انتباهًا',
+      render: (r) => {
+        const items = [
+          r.pending_actions > 0 && badge(`بانتظار قرار الإدارة: ${r.pending_actions}`, 'warning', { icon: 'queue' }),
+          r.overdue_assignments > 0 && badge(`إسنادات متأخرة: ${r.overdue_assignments}`, 'danger', { icon: 'clock' }),
+          r.unread_count > 0 && badge(`رسائل جديدة: ${r.unread_count}`, 'info', { icon: 'message' }),
+        ].filter(Boolean);
+        return items.length ? h('div.pb-alerts-cell', items) : null;
+      },
     },
     {
       key: 'created',

@@ -970,23 +970,16 @@ html[dir="rtl"] .pd-hbar-fill {
   min-width: 0;
 }
 
-/* سهم بين المراحل باتجاه القراءة (من اليمين لليسار) */
+/* سهم بين المراحل باتجاه القراءة (من اليمين لليسار): يقع في الفجوة على جهة البداية ويشير لليسار */
 .pd-step + .pd-step::before {
   content: "";
   position: absolute;
-  inset-inline-end: calc(100% + 9px);
+  inset-inline-end: calc(100% + 10px);
   inset-block-start: 50%;
   width: 10px;
   height: 10px;
-  border-block-start: 2px solid var(--accent-500);
-  border-inline-start: 2px solid var(--accent-500);
-  transform: translateY(-50%) rotate(-45deg);
-}
-
-html[dir="rtl"] .pd-step + .pd-step::before {
-  inset-inline-end: auto;
-  inset-inline-start: auto;
-  right: calc(100% + 9px);
+  border-top: 2px solid var(--accent-500);
+  border-left: 2px solid var(--accent-500);
   transform: translateY(-50%) rotate(-45deg);
 }
 
@@ -1033,11 +1026,10 @@ html[dir="rtl"] .pd-step + .pd-step::before {
     gap: 22px;
   }
 
-  html[dir="rtl"] .pd-step + .pd-step::before,
   .pd-step + .pd-step::before {
-    right: auto;
+    inset-inline-end: auto;
     inset-inline-start: 34px;
-    inset-block-start: -16px;
+    inset-block-start: -17px;
     transform: rotate(-135deg);
   }
 }
@@ -1194,8 +1186,8 @@ html[dir="rtl"] .pd-step + .pd-step::before {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
   font-size: 13px;
 }
 
@@ -1317,4 +1309,416 @@ html[dir="rtl"] .pd-step + .pd-step::before {
 .pd-corr-list {
   margin: 0;
   padding-inline-start: 18px;
+}
+
+/* ───────────── تفاصيل المادة المعرفية ───────────── */
+
+.pd-meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--primary-700);
+}
+
+.pd-redact-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.pd-redact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pd-redact strong {
+  font-size: 20px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-redact.has-value {
+  background: var(--primary-50);
+  border-color: var(--primary-100);
+  color: var(--primary-800);
+}
+
+.pd-redact.has-value strong {
+  color: var(--primary-800);
+}
+
+.pd-kn-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pd-kn-block h3 {
+  font-size: 14.5px;
+  color: var(--primary-800);
+}
+
+.pd-kn-text {
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: var(--gray-900);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--gray-100);
+}
+
+.pd-kn-list {
+  margin: 0;
+  padding-inline-start: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14.5px;
+}
+
+.pd-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 0;
+}
+
+.pd-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pd-details > summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid var(--gray-500);
+  border-right: 2px solid var(--gray-500);
+  transform: rotate(45deg);
+  margin-inline-start: auto;
+}
+
+.pd-details[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.pd-details > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+
+.pd-details > summary .cell-sub {
+  margin-inline-start: auto;
+}
+
+.pd-details[open] > summary .cell-sub {
+  display: none;
+}
+
+.pd-spec-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pd-spec-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ───────────── التسويق والتحليلات ───────────── */
+
+.pd-analytics-controls {
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.pd-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pd-control-end {
+  margin-inline-start: auto;
+}
+
+.pd-analytics-controls .pd-date-field {
+  flex: 0 1 180px;
+}
+
+.pd-analytics-controls .field-error {
+  flex-basis: 100%;
+}
+
+.pd-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pd-funnel-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr) minmax(70px, auto);
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.pd-funnel-label {
+  color: var(--gray-700);
+}
+
+.pd-funnel-track {
+  height: 18px;
+  border-radius: 4px;
+  background: var(--gray-50);
+  overflow: hidden;
+}
+
+.pd-funnel-fill {
+  display: block;
+  height: 100%;
+  background: var(--pd-c1);
+  border-radius: 4px 0 0 4px;
+}
+
+.pd-funnel-val {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-funnel.is-compact {
+  gap: 3px;
+  min-width: 230px;
+}
+
+.pd-funnel.is-compact .pd-funnel-row {
+  grid-template-columns: 92px minmax(60px, 1fr) 26px;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.pd-funnel.is-compact .pd-funnel-track {
+  height: 8px;
+}
+
+.pd-funnel.is-compact .pd-funnel-val {
+  font-size: 12.5px;
+}
+
+.table .pd-col-group { min-width: 170px; max-width: 260px; }
+.table .pd-col-funnel { min-width: 250px; }
+
+.pd-mini-bar {
+  width: 100%;
+  max-width: 160px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--gray-100);
+  overflow: hidden;
+}
+
+.pd-mini-bar span {
+  display: block;
+  height: 100%;
+  background: var(--pd-c1);
+}
+
+.pd-mini-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.pd-conv {
+  font-size: 18px;
+}
+
+.pd-align-end {
+  align-items: flex-end;
+}
+
+.pd-two-col-even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .pd-two-col-even { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* الرسم الأسبوعي */
+.pd-chart {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pd-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  color: var(--gray-700);
+}
+
+.pd-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pd-chart-plot {
+  position: relative;
+  height: 220px;
+  padding-inline-start: 28px;
+  padding-block-end: 26px;
+}
+
+.pd-chart-grid {
+  position: absolute;
+  inset-block: 0 26px;
+  inset-inline: 0;
+}
+
+.pd-chart-gridline {
+  position: absolute;
+  inset-inline: 28px 0;
+  border-block-start: 1px solid var(--gray-100);
+}
+
+.pd-chart-gridline span {
+  position: absolute;
+  inset-inline-start: -28px;
+  transform: translateY(-50%);
+  width: 22px;
+  text-align: end;
+  font-size: 11px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-chart-cols {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  gap: 4px;
+}
+
+.pd-chart-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-radius: 6px;
+}
+
+.pd-chart-col:hover,
+.pd-chart-col:focus-visible {
+  background: var(--primary-50);
+  outline: none;
+}
+
+.pd-chart-col:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.pd-chart-bars {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.pd-chart-bar {
+  position: relative;
+  width: 30%;
+  max-width: 12px;
+  border-radius: 4px 4px 0 0;
+}
+
+.pd-chart-bar.is-zero {
+  height: 0 !important;
+}
+
+.pd-chart-val {
+  position: absolute;
+  inset-block-end: calc(100% + 2px);
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--gray-800);
+  white-space: nowrap;
+}
+
+.pd-chart-x {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  padding-block-start: 6px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .pd-chart-col.is-third .pd-chart-x { visibility: hidden; }
+  .pd-chart-cols { gap: 2px; }
+}
+
+.pd-table-toggle > summary {
+  justify-content: flex-start;
+  font-size: 13.5px;
+  color: var(--link);
+}
+
+.pd-table-toggle > summary::after {
+  margin-inline-start: 4px;
+}
+
+.pd-table-toggle .table-wrap {
+  margin-block-start: 8px;
+}
+
+@media (max-width: 640px) {
+  .pd-funnel-row {
+    grid-template-columns: minmax(90px, 110px) minmax(0, 1fr) auto;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .pd-control-end { margin-inline-start: 0; }
+  .pd-analytics-controls .pd-date-field { flex: 1 1 140px; }
+}
+
+.pd-unit {
+  font-size: 0.6em;
+  font-weight: 600;
+  color: var(--text-muted);
 }

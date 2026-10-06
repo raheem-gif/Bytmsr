@@ -42,6 +42,11 @@ function moneyCell(n, { strong = false, zeroMuted = true } = {}) {
   return h(strong ? 'strong.nowrap.pd-amount' : 'span.nowrap.pd-amount', { class: v < 0 ? 'pd-text-danger' : null }, money(v));
 }
 
+/** مبلغ لبطاقة رقمية: الرقم كبير والعملة أصغر. */
+function moneyValue(n) {
+  return h('span.nowrap', num(Number(n) || 0), h('span.pd-unit', ' ج.م'));
+}
+
 function timeCell(iso) {
   return iso ? h('time.nowrap', { datetime: iso, title: dateTime(iso) }, date(iso)) : h('span.muted', '—');
 }
@@ -701,10 +706,10 @@ export default async function render(ctx) {
     }),
     h(
       'div.stats-grid.pd-stats-3',
-      statCard({ label: `مستحقات ${pl}`, value: money(t.period_amount), hint: 'قيود الفترة غير الملغاة', icon: 'wallet', tone: 'primary' }),
+      statCard({ label: `مستحقات ${pl}`, value: moneyValue(t.period_amount), hint: 'قيود الفترة غير الملغاة', icon: 'wallet', tone: 'primary' }),
       statCard({
         label: 'رصيد غير مصروف',
-        value: money(t.unpaid_balance),
+        value: moneyValue(t.unpaid_balance),
         hint: 'كل المستحقات التي لم تُصرف',
         icon: 'clock',
         tone: t.unpaid_balance > 0 ? 'warning' : 'neutral',
@@ -720,10 +725,10 @@ export default async function render(ctx) {
           tabsEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
         },
       }),
-      statCard({ label: 'المصروف خلال الفترة', value: money(t.paid_in_period), hint: `عمليات الصرف في ${pl}`, icon: 'checkCircle', tone: 'success' }),
+      statCard({ label: 'المصروف خلال الفترة', value: moneyValue(t.paid_in_period), hint: `عمليات الصرف في ${pl}`, icon: 'checkCircle', tone: 'success' }),
       statCard({ label: 'وقائع الاستحقاق', value: num(t.events), hint: 'مهام معتمدة خلال الفترة', icon: 'zap', tone: 'info' }),
       statCard({ label: 'وقائع تطوعية و CSR', value: num(t.pro_bono_events), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
-      statCard({ label: 'قيمة المساهمات', value: money(t.contribution_value), hint: 'القيمة التقديرية للعمل التطوعي', icon: 'star', tone: 'success' }),
+      statCard({ label: 'قيمة المساهمات', value: moneyValue(t.contribution_value), hint: 'القيمة التقديرية للعمل التطوعي', icon: 'star', tone: 'success' }),
     ),
     card({ body: tabsEl }),
   );

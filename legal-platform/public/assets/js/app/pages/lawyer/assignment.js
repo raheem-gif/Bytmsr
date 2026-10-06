@@ -66,6 +66,15 @@ function savedAt(iso) {
   return isoToCairoDate(iso) === cairoToday() ? time(iso) : dateTime(iso);
 }
 
+/** يغلف معالج نقر غير متزامن: أي خطأ يظهر في رسالة بدل أن يضيع. */
+const safe = (fn) => async (...args) => {
+  try {
+    await fn(...args);
+  } catch (err) {
+    if (!(err && err.name === 'AbortError')) toast(errorMessage(err), 'danger');
+  }
+};
+
 const KIND_HINTS = {
   second_opinion: 'رأي مستقل من محامٍ آخر في نفس المسائل للتحقق من النتيجة.',
   specialist_input: 'رأي محامٍ متخصص في مجال آخر بشأن مسألة محددة (مثل الضرائب أو العمل).',
@@ -318,7 +327,7 @@ export default async function render(ctx) {
       title: 'المسائل',
       subtitle: list.length ? `المسائل المتاحة لك: ${num(list.filter((i) => i.status === 'active').length)}` : null,
       icon: 'queue',
-      actions: canPropose ? button('اقتراح مسألة جديدة', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: proposeIssue }) : null,
+      actions: canPropose ? button('اقتراح مسألة جديدة', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: safe(proposeIssue) }) : null,
       body: list.length
         ? h(
             'ol.pc-issues',
@@ -529,6 +538,7 @@ export default async function render(ctx) {
           const res = await api.put(`${base}/draft`, { body, ai_suggestion_id: aiSuggestionId || undefined });
           lastSaved = body;
           lastSavedAt = res && res.updated_at ? res.updated_at : new Date().toISOString();
+          if (res && res.version && subtitleRef.el) subtitleRef.el.textContent = `نسخة العمل — الإصدار ${num(res.version)}`;
           if (ta.value === body) {
             removeKey('sessionStorage', backupKey);
             setStatus('saved', lastSavedAt);
@@ -713,7 +723,8 @@ export default async function render(ctx) {
       hosts.editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    const submitBtn = button('تقديم الرأي للإدارة', { variant: 'primary', icon: 'send', onClick: onSubmit });
+    const subtitleRef = { el: null };
+    const submitBtn = button('تقديم الرأي للإدارة', { variant: 'primary', icon: 'send', onClick: safe(onSubmit) });
     const saveNow = button('حفظ الآن', { variant: 'ghost', size: 'sm', icon: 'check', onClick: () => save() });
 
     setStatus(lastSavedAt ? 'saved' : 'idle', lastSavedAt);
@@ -740,6 +751,8 @@ export default async function render(ctx) {
         submitBtn,
       ),
     });
+
+    subtitleRef.el = node.querySelector('.card-subtitle');
 
     return {
       node,
@@ -998,8 +1011,8 @@ export default async function render(ctx) {
         can &&
           h(
             'div.pc-req-buttons',
-            button('طلب معلومات', { variant: 'secondary', icon: 'message', onClick: () => openInfoDialog('information') }),
-            button('طلب مستند', { variant: 'secondary', icon: 'paperclip', onClick: () => openInfoDialog('document') }),
+            button('طلب معلومات', { variant: 'secondary', icon: 'message', onClick: safe(() => openInfoDialog('information')) }),
+            button('طلب مستند', { variant: 'secondary', icon: 'paperclip', onClick: safe(() => openInfoDialog('document')) }),
           ),
         own.length || shared.length
           ? frag(

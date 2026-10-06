@@ -22,7 +22,7 @@ import {
   toast,
   richText,
 } from '../../../lib/ui.js';
-import { replaceQuery } from './inbox.js';
+import { replaceQuery, reloadAndFocus } from './inbox.js';
 
 const SEND_CHANNELS = [
   { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها العميل)' },
@@ -51,10 +51,10 @@ function quote(text, cls = '') {
 export default async function render(ctx) {
   const q = await api.get('/admin/queue');
 
-  async function act(fn, success) {
+  async function act(fn, success, key) {
     await fn();
     toast(success, 'success');
-    ctx.reload();
+    await reloadAndFocus(ctx, `#pa-q-${key}`);
   }
 
   // ───────────── طلبات المعلومات ─────────────
@@ -74,7 +74,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast(`أُرسل الطلب للعميل${res.sent_channel ? ` عبر ${label('channel', res.sent_channel)}` : ''}`, 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-q-info_requests');
     }
   }
 
@@ -88,7 +88,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('رُفض الطلب وأُبلغ المحامي بالسبب', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-q-info_requests');
     }
   }
 
@@ -107,7 +107,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('أصبح الرد متاحًا للمحامي', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-q-client_replies');
     }
   }
 
@@ -120,7 +120,7 @@ export default async function render(ctx) {
     });
     if (res) {
       toast('رُفض طلب المساعدة وأُبلغ المحامي', 'success');
-      ctx.reload();
+      await reloadAndFocus(ctx, '#pa-q-counsel_requests');
     }
   }
 
@@ -249,7 +249,7 @@ export default async function render(ctx) {
             actions: [
               asyncButton(
                 'اعتماد',
-                () => act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'active' }), 'اعتُمدت المسألة وأُتيحت للمحامي'),
+                () => act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'active' }), 'اعتُمدت المسألة وأُتيحت للمحامي', 'proposed_issues'),
                 { variant: 'primary', size: 'sm', icon: 'check' },
               ),
               asyncButton(
@@ -261,7 +261,7 @@ export default async function render(ctx) {
                     confirmLabel: 'استبعاد',
                     danger: true,
                   });
-                  if (ok) await act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'dropped' }), 'استُبعدت المسألة');
+                  if (ok) await act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'dropped' }), 'استُبعدت المسألة', 'proposed_issues');
                 },
                 { variant: 'ghost', size: 'sm', icon: 'x' },
               ),

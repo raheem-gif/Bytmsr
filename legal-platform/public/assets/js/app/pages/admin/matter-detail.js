@@ -133,7 +133,7 @@ export default async function render(ctx) {
       tone: balance > 0 ? 'warning' : 'success',
       onClick: () => goTab('invoices'),
     }),
-    statCard({ label: 'المصروفات', value: money(totals.expenses), hint: 'كل ما سُجل على الملف', icon: 'paperclip', tone: 'neutral', onClick: () => goTab('expenses') }),
+    statCard({ label: 'المصروفات', value: money(totals.expenses), hint: 'كل ما سُجل على الملف', icon: 'fileText', tone: 'neutral', onClick: () => goTab('expenses') }),
   );
 
   const lawsuit = m.lawsuit_number ? ltr(`${m.lawsuit_number}${m.lawsuit_year ? ` / ${m.lawsuit_year}` : ''}`) : null;
@@ -173,7 +173,7 @@ export default async function render(ctx) {
               : null,
           ],
         ]),
-        h('p.small.muted.pb-inline', icon('lock', { size: 14 }), 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل العميل أو الفواتير.'),
+        h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل العميل أو الفواتير.')),
       ),
     }),
   );
@@ -415,7 +415,7 @@ export default async function render(ctx) {
           closed
             ? null
             : h(
-                'div.btn-group.pb-nowrap-group',
+                'div.btn-group.pb-table-actions',
                 t.status === 'open' && asyncButton('تم الإنجاز', () => setTaskStatus(t, 'done', 'سُجلت المهمة منجزة'), { size: 'sm', variant: 'primary', icon: 'check' }),
                 button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditTask(t), ariaLabel: `تعديل المهمة ${t.title}` }),
                 t.status === 'open' &&
@@ -528,7 +528,7 @@ export default async function render(ctx) {
         label: 'إجراءات',
         render: (i) =>
           h(
-            'div.btn-group.pb-nowrap-group',
+            'div.btn-group.pb-table-actions',
             ['unpaid', 'partially_paid'].includes(i.status) && button('تسجيل دفعة', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => openPayment(i) }),
             i.status === 'unpaid' && !(i.paid_amount > 0) && asyncButton('إلغاء', () => cancelInvoice(i), { size: 'sm', variant: 'ghost', icon: 'x' }),
           ),
@@ -827,7 +827,7 @@ export default async function render(ctx) {
   const nz = (n) => (n > 0 ? n : null);
   const items = [
     { key: 'events', label: 'الجلسات والمواعيد', icon: 'calendar', count: nz(events.filter((e) => e.status === 'scheduled').length), render: renderEvents },
-    { key: 'tasks', label: 'المهام والمواعيد الإجرائية', icon: 'check', count: nz(openTasks.length), render: renderTasks },
+    { key: 'tasks', label: 'المهام الإجرائية', icon: 'check', count: nz(openTasks.length), render: renderTasks },
     { key: 'invoices', label: 'الفواتير والمدفوعات', icon: 'fileText', count: nz(invoices.filter((i) => ['unpaid', 'partially_paid'].includes(i.status)).length), render: renderInvoices },
     { key: 'expenses', label: 'المصروفات', icon: 'wallet', count: nz(expenses.length), render: renderExpenses },
     isAdmin && { key: 'fees', label: 'أتعاب المحامي', icon: 'scale', count: nz(fees.length), render: renderFees },
