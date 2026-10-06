@@ -250,7 +250,7 @@ export function arabicCount(n, [one, two, few, many]) {
   const r = k % 100;
   if (r >= 3 && r <= 10) return `${k} ${few}`;
   if (r >= 11 && r <= 99) return `${k} ${many}`;
-  return `${k} ${String(one).replace(/\s+واحد[ةه]?$/, '')}`;
+  return `${k} ${String(one).replace(/\s+واحد[ةه]?(?=\s|$)/, '')}`;
 }
 
 /** صيغ عدّ شائعة في نصوص الخادم (للاستخدام مع arabicCount) */

@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, options, num, money, percent, date, dateTime, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, options, num, count, money, percent, date, dateTime, cairoToday } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -128,7 +128,7 @@ export default async function render(ctx) {
       );
     }
     if (l.package_remaining != null) {
-      return badge(`المتبقي في الباقة: ${num(l.package_remaining)} حالة`, l.package_remaining > 0 ? 'primary' : 'danger');
+      return badge(`المتبقي في الباقة: ${count(l.package_remaining, 'consultation')}`, l.package_remaining > 0 ? 'primary' : 'danger');
     }
     if (l.csr) {
       const c = l.csr;
@@ -137,8 +137,8 @@ export default async function render(ctx) {
         'div.pd-usage',
         c.cases_commitment
           ? frag(
-              progressBar(Math.min(c.cases_used, c.cases_commitment), c.cases_commitment, 'success', { label: `القضايا: ${c.cases_used} من ${c.cases_commitment}`, visibleLabel: false }),
-              h('span.cell-sub', `القضايا ${per}: ${num(c.cases_used)} من ${num(c.cases_commitment)}`),
+              progressBar(Math.min(c.cases_used, c.cases_commitment), c.cases_commitment, 'success', { label: `الاستشارات: ${c.cases_used} من ${c.cases_commitment}`, visibleLabel: false }),
+              h('span.cell-sub', `الاستشارات ${per}: ${num(c.cases_used)} من ${num(c.cases_commitment)}`),
             )
           : null,
         c.hours_commitment
@@ -156,7 +156,7 @@ export default async function render(ctx) {
     const entries = Object.entries(l.by_treatment || {});
     return h(
       'div.pd-cell-stack',
-      h('span.nowrap', l.events ? `${num(l.events)} ${l.events === 1 ? 'واقعة' : 'وقائع'}` : h('span.muted', 'لا وقائع')),
+      h('span.nowrap', l.events ? count(l.events, ['واقعة واحدة', 'واقعتان', 'وقائع', 'واقعة']) : h('span.muted', 'لا وقائع')),
       entries.length ? h('div.pd-badges', entries.map(([k, n]) => badge(`${label('treatment', k)}: ${num(n)}`, statusTone('treatment', k)))) : null,
     );
   }
@@ -223,7 +223,7 @@ export default async function render(ctx) {
       }),
       h(
         'p.pd-footnote',
-        'مستحقات الفترة: مجموع القيود غير الملغاة عن الشهر المختار. الرصيد غير المصروف: كل القيود المستحقة التي لم تُصرف بعد أيًا كانت فترتها. قيمة المساهمة: القيمة التقديرية للاستشارات التطوعية وبرامج CSR.',
+        'مستحقات الفترة: مجموع القيود غير الملغاة عن الشهر المختار. الرصيد غير المصروف: كل القيود المستحقة التي لم تُصرف بعد أيًا كانت فترتها. قيمة المساهمة: القيمة التقديرية للاستشارات التطوعية وبرامج المسؤولية المجتمعية.',
       ),
     );
   }
@@ -356,14 +356,14 @@ export default async function render(ctx) {
         h(
           'div.pd-toolbar-text',
           single
-            ? h('span', 'دفتر ', h('strong', lawyerName(ledger.lawyer_id)), ` — ${num(ledgerRows.length)} قيد، المستحق غير المصروف ${money(totalAccrued)}`)
-            : h('span', `${num(ledgerRows.length)} قيد معروض — إجمالي غير الملغى ${money(totalShown)}`),
+            ? h('span', 'دفتر ', h('strong', lawyerName(ledger.lawyer_id)), ` — ${count(ledgerRows.length, ['قيد واحد', 'قيدان', 'قيود', 'قيدًا'])}، المستحق غير المصروف ${money(totalAccrued)}`)
+            : h('span', `${count(ledgerRows.length, ['قيد واحد معروض', 'قيدان معروضان', 'قيود معروضة', 'قيدًا معروضًا'])} — إجمالي غير الملغى ${money(totalShown)}`),
         ),
         h('div.pd-toolbar-actions', button('قيد يدوي / تسوية', { icon: 'plus', onClick: openAdjustment }), payBtn),
       ),
       !single && alertBox('لصرف مستحقات، اختر محاميًا من القائمة أولًا ثم حدد القيود المستحقة؛ تُصرف قيود محامٍ واحد في كل عملية صرف.', 'info'),
       !single && !ledger.period && ledgerRows.length >= 500
-        ? alertBox('تُعرض أحدث ٥٠٠ قيد فقط، فالإجمالي أعلاه جزئي. اختر محاميًا أو فترة لعرض كل القيود.', 'warning')
+        ? alertBox('تُعرض أحدث 500 قيد فقط، فالإجمالي أعلاه جزئي. اختر محاميًا أو فترة لعرض كل القيود.', 'warning')
         : null,
       single && selCount
         ? h(
@@ -602,10 +602,10 @@ export default async function render(ctx) {
       intro,
       h(
         'div.pd-insights',
-        insight('wallet', 'إجمالي تكلفة الملفات المغلقة', money(totalCost), `${num(closed.length)} ملفات — متوسط ${money(Math.round(totalCost / closed.length))} للملف`, 'primary'),
+        insight('wallet', 'إجمالي تكلفة الملفات المغلقة', money(totalCost), `${count(closed.length, 'case')} — متوسط ${money(Math.round(totalCost / closed.length))} للملف`, 'primary'),
         topCost && insight('alert', 'الأعلى تكلفة في المتوسط', areaLabel(topCost.legal_area), `${money(topCost.average)} للملف الواحد`, 'warning'),
         topMulti
-          ? insight('users', 'الأكثر احتياجًا لتعدد التخصصات', areaLabel(topMulti.legal_area), `${num(multiCount)} من ${num(closed.length)} ملفات مغلقة احتاجت فريقًا متعدد التخصصات`, 'accent')
+          ? insight('users', 'الأكثر احتياجًا لتعدد التخصصات', areaLabel(topMulti.legal_area), `${num(multiCount)} من ${count(closed.length, ['ملف مغلق', 'ملفين مغلقين', 'ملفات مغلقة', 'ملفًا مغلقًا'])} احتاجت فريقًا متعدد التخصصات`, 'accent')
           : insight('users', 'تعدد التخصصات', 'لا يوجد', 'لم يحتج أي ملف مغلق إلى أكثر من محامٍ', 'neutral'),
         insight('shieldCheck', 'قيمة المساهمات التطوعية', money(totalPb), 'القيمة التقديرية لعمل المتطوعين في هذه الملفات', 'success'),
       ),
@@ -729,8 +729,8 @@ export default async function render(ctx) {
         },
       }),
       statCard({ label: 'المصروف خلال الفترة', value: moneyValue(t.paid_in_period), hint: `عمليات الصرف في ${pl}`, icon: 'checkCircle', tone: 'success' }),
-      statCard({ label: 'وقائع الاستحقاق', value: num(t.events), hint: 'مهام معتمدة خلال الفترة', icon: 'zap', tone: 'info' }),
-      statCard({ label: 'وقائع تطوعية و CSR', value: num(t.pro_bono_events), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
+      statCard({ label: 'وقائع الاستحقاق', value: num(t.events), hint: 'استشارات معتمدة خلال الفترة', icon: 'zap', tone: 'info' }),
+      statCard({ label: 'وقائع تطوعية ومسؤولية مجتمعية', value: num(t.pro_bono_events), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
       statCard({ label: 'قيمة المساهمات', value: moneyValue(t.contribution_value), hint: 'القيمة التقديرية للعمل التطوعي', icon: 'star', tone: 'success' }),
     ),
     card({ body: tabsEl }),

@@ -170,7 +170,7 @@ export function count(n, unit) {
   if (r >= 3 && r <= 10) return `${shown} ${few}`;
   if (r >= 11 && r <= 99) return `${shown} ${many}`;
   // 0 و100 فأكثر: الرقم ثم المفرد («0 ملف»، «100 ملف»)؛ تُحذف «واحد/واحدة» إن مُرّرت في صيغة المفرد
-  return `${shown} ${String(one).replace(/\s+واحد[ةه]?$/, '')}`;
+  return `${shown} ${String(one).replace(/\s+واحد[ةه]?(?=\s|$)/, '')}`;
 }
 
 /**

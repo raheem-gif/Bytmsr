@@ -2,7 +2,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, areaLabel, num, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
+import { label, areaLabel, num, count, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
 import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge, formDialog, confirmDanger, toast } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
 
@@ -239,7 +239,7 @@ export default async function render(ctx) {
             {
               key: 'volume',
               label: 'الحجم',
-              render: (x) => h('div.pd-cell-stack', h('span.nowrap', h('strong', num(x.intakes)), ' طلب'), h('span.cell-sub.nowrap', `${num(x.messages)} رسالة واردة`)),
+              render: (x) => h('div.pd-cell-stack', h('span.nowrap', h('strong', count(x.intakes, 'request'))), h('span.cell-sub.nowrap', count(x.messages, ['رسالة واردة', 'رسالتان واردتان', 'رسائل واردة', 'رسالة واردة']))),
             },
             {
               key: 'funnel',
@@ -381,7 +381,7 @@ export default async function render(ctx) {
     icon: 'scale',
     body: h(
       'div.stack',
-      topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${num(topMulti.cases)} ملفات).`, 'info', { icon: 'users' }) : null,
+      topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${count(topMulti.cases, 'case')}).`, 'info', { icon: 'users' }) : null,
       table({
         className: 'pd-table-tight',
         caption: 'الملفات حسب المجال',

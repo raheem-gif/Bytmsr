@@ -234,20 +234,20 @@ export default async function render(ctx) {
   const capPct = cap.capacity ? (cap.open_assignments || 0) / cap.capacity : 0;
   const capacityCard = card({
     title: 'الطاقة القانونية',
-    subtitle: 'المهام المفتوحة مقارنة بالطاقة الاستيعابية لشبكة المحامين',
+    subtitle: 'الإسنادات المفتوحة مقارنة بالطاقة الاستيعابية لشبكة المحامين',
     icon: 'scale',
     actions: button('شبكة المحامين', { variant: 'ghost', size: 'sm', href: '#/lawyers' }),
     body: h(
       'div.stack',
       progressBar(cap.open_assignments || 0, cap.capacity || 0, capPct >= 0.85 ? 'danger' : capPct >= 0.6 ? 'warning' : 'success', {
-        label: `الإشغال ${percent(capPct)} — ${num(cap.open_assignments)} مهام مفتوحة من طاقة ${num(cap.capacity)}`,
+        label: `الإشغال ${percent(capPct)} — الإسنادات المفتوحة: ${num(cap.open_assignments)} من طاقة ${num(cap.capacity)}`,
       }),
       h(
         'div.pa-mini-stats',
         h('div', h('strong', num(cap.active)), h('span', 'محامٍ نشط')),
-        h('div', { class: cap.overdue ? 'is-danger' : '' }, h('strong', num(cap.overdue)), h('span', 'مهام متأخرة')),
+        h('div', { class: cap.overdue ? 'is-danger' : '' }, h('strong', num(cap.overdue)), h('span', 'إسنادات متأخرة')),
         h('div', h('strong', num(cap.completed_in_period)), h('span', 'أُنجزت هذا الشهر')),
-        h('div', h('strong', num(cap.pro_bono_in_period)), h('span', 'تطوعية ', h('span.nowrap', { dir: 'ltr' }, '(Pro Bono)'))),
+        h('div', h('strong', num(cap.pro_bono_in_period)), h('span', 'استشارات تطوعية')),
       ),
       (cap.top_loaded || []).length
         ? h(
@@ -267,11 +267,11 @@ export default async function render(ctx) {
                       'span.pa-load-main',
                       h('span.pa-load-head', h('span.pa-load-name', l.name), h('span.pa-load-n.ltr', `${l.open} / ${l.capacity}`)),
                       progressBar(l.open, l.capacity || 0, ratio >= 0.85 ? 'danger' : ratio >= 0.6 ? 'warning' : 'primary', {
-                        label: `${l.name}: ${l.open} مهام مفتوحة من ${l.capacity}`,
+                        label: `${l.name}: الإسنادات المفتوحة ${l.open} من ${l.capacity}`,
                         visibleLabel: false,
                       }),
                     ),
-                    l.overdue ? badge(`متأخر ${l.overdue}`, 'danger', { icon: 'clock' }) : null,
+                    l.overdue ? badge(`متأخرة: ${l.overdue}`, 'danger', { icon: 'clock', title: 'إسنادات تجاوزت الموعد المطلوب' }) : null,
                   ),
                 );
               }),
@@ -350,7 +350,7 @@ export default async function render(ctx) {
       h('div', h('span', 'ملفات فُتحت'), h('strong', num(month.cases_opened))),
       h('div', h('span', 'ملفات أُغلقت'), h('strong', num(month.cases_closed))),
       h('div', h('span', 'تكلفة المحامين'), h('strong', money(month.lawyer_cost))),
-      h('div', h('span', 'حالات تطوعية ', h('span.nowrap', { dir: 'ltr' }, '(Pro Bono)')), h('strong', num(month.pro_bono))),
+      h('div', h('span', 'استشارات تطوعية'), h('strong', num(month.pro_bono))),
     ),
   });
 
