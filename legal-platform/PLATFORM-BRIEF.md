@@ -330,7 +330,7 @@ funding programmes, surveys, quick replies and backups.
 - **Try it on a computer:** install Node.js 22+, then in the `legal-platform` folder run `npm start` and open
   `http://localhost:3000/app` (staff) or `http://localhost:3000/` (public site).
 - **Go live (recommended: Render):** merge the code into `main` on GitHub → Render → New → Blueprint →
-  path `legal-platform/render.yaml` → wait for the build → open the `/setup#token=…` link from the logs → create the
+  path `render.yaml` (repository root) → wait for the build → open the `/setup#token=…` link from the logs → create the
   admin → paste WhatsApp and Claude keys on the integrations page → follow the launch checklist on the system page.
   Cost: roughly $7–8/month for the server and disk, plus WhatsApp conversation fees and Claude usage.
 - **WhatsApp:** requires a verified Meta Business account, a WhatsApp Business phone number, a permanent token, the

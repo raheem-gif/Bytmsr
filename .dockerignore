@@ -1,0 +1,12 @@
+# جذر المستودع: لا يدخل الصورة إلا كود المنصة
+.git
+**/node_modules
+**/data
+**/test
+**/test-results
+**/screenshots
+**/.env
+**/*.db
+**/*.db-wal
+**/*.db-shm
+*.html

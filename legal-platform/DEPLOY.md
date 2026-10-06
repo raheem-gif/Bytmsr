@@ -52,9 +52,9 @@ Render منصة استضافة تدير الخادم وشهادة HTTPS والت
 2. اضغط **New +** ← **Blueprint**.
 3. اختر المستودع، ثم في **Blueprint Path** اكتب:
    ```
-   legal-platform/render.yaml
+   render.yaml
    ```
-   (إن كان كود المنصة في جذر المستودع مباشرة، عدّل في `render.yaml`: `dockerfilePath: ./Dockerfile` و`dockerContext: .`، واترك المسار `render.yaml`.)
+   (الملف `render.yaml` و`Dockerfile` في جذر المستودع، ويبنيان من المجلد `legal-platform/`. إن أنشأت «Web Service» يدويًا بدل Blueprint فاختر Runtime: Docker واترك Root Directory فارغًا وDockerfile Path على `./Dockerfile`.)
 4. راجع ما سيُنشأ: خدمة `beyoot-legal` بقرص `beyoot-legal-data`. سيطلب Render قيمة `PUBLIC_BASE_URL`: اكتب نطاق المؤسسة إن كان جاهزًا (`https://legal.beyootmisr.org`) أو اتركه فارغًا الآن. اضغط **Apply**.
    - الأقراص الدائمة تتطلب خطة مدفوعة (الخطة `0.5c-512mb` تكفي للبداية). **لا تشغّل المنصة بدون قرص**: كل نشر جديد سيمسح البيانات.
 5. انتظر انتهاء البناء (3–5 دقائق). افتح الخدمة ← **Logs**، وستجد مربعًا بعنوان «وضع الإعداد الأول» فيه رابط مثل:
@@ -396,7 +396,7 @@ docker image prune -f                          # حذف الصور القديم�
 **English quick reference**
 
 ```bash
-# Render: New → Blueprint → path legal-platform/render.yaml → Logs → open /setup#token=...
+# Render: New → Blueprint → path render.yaml → Logs → open /setup#token=...
 # VPS:
 cp .env.example .env            # NODE_ENV=production DEMO=0 PUBLIC_BASE_URL=https://... TRUST_PROXY=1 APP_SECRET=...
 docker compose --profile https up -d --build

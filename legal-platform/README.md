@@ -179,7 +179,7 @@ npm run restore -- <file.db | export.tar.gz> --yes                 # restore (se
 legal-platform/
 ├── server.js                  entry point (HTTP server + scheduler + startup summary)
 ├── package.json               npm scripts: start, dev, seed, admin, backup, restore, test
-├── Dockerfile · docker-compose.yml · render.yaml · .env.example
+├── Dockerfile · docker-compose.yml · .env.example   (render.yaml وDockerfile للنشر أيضًا في جذر المستودع)
 ├── DEPLOY.md                  deployment & operations guide (Arabic)
 ├── src/
 │   ├── app.js                 wires services, routes, HTTP handling, page handlers and the scheduler

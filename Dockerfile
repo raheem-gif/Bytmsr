@@ -1,6 +1,7 @@
 # صورة تشغيل منصة الدعم القانوني — مؤسسة بيوت مصر لدعم الأرامل والأيتام
 # Node 22 (يتضمن node:sqlite) — بدون اعتماديات تشغيل إلزامية.
 #
+#   (هذا الملف في جذر المستودع ويبني من المجلد legal-platform/ — يستخدمه Render وأي منصة تبحث عن Dockerfile في الجذر)
 #   docker build -t beyoot-legal .
 #   docker run -d --name beyoot-legal --init -p 127.0.0.1:3000:3000 -v beyoot-data:/app/data --env-file .env beyoot-legal
 #
@@ -24,14 +25,14 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 # الاعتمادية الوحيدة اختيارية (حزمة Claude الرسمية)؛ فشل تثبيتها لا يوقف البناء ولا التشغيل
-COPY package.json package-lock.json* ./
+COPY legal-platform/package.json legal-platform/package-lock.json* ./
 RUN (npm install --omit=dev --no-audit --no-fund || echo "optional dependency not installed") \
     && npm cache clean --force >/dev/null 2>&1 || true
 
-COPY server.js ./
-COPY src ./src
-COPY public ./public
-COPY scripts ./scripts
+COPY legal-platform/server.js ./
+COPY legal-platform/src ./src
+COPY legal-platform/public ./public
+COPY legal-platform/scripts ./scripts
 
 # مجلد البيانات الوحيد القابل للكتابة (قاعدة البيانات، المرفقات، النسخ الاحتياطية، مفتاح التشفير)
 RUN mkdir -p /app/data && chown node:node /app/data && chmod 700 /app/data
