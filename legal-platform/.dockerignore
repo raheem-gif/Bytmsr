@@ -1,0 +1,9 @@
+node_modules
+data
+test
+.env
+*.db
+*.db-wal
+*.db-shm
+screenshots
+test-results

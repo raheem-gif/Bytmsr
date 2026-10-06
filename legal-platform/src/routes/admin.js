@@ -1,0 +1,324 @@
+// مسارات الإدارة (مدير النظام ومديرو الحالات). الإجراءات المالية وإدارة الحسابات لمدير النظام فقط.
+import { requireStaff, requireAdmin } from '../auth.js';
+import { idParam } from '../http.js';
+import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
+import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
+
+const UPLOAD = { limit: 60 * 1024 * 1024 };
+
+export function registerAdminRoutes(router, app) {
+  const S = (fn, opts) => (ctx) => fn(ctx, requireStaff(ctx));
+  const A = (fn) => (ctx) => fn(ctx, requireAdmin(ctx));
+  const id = (ctx, k = 'id') => idParam(ctx.params, k);
+
+  // ===== لوحة المتابعة وقائمة القرارات =====
+  router.get('/api/admin/dashboard', S((ctx, u) => app.analytics.dashboard(u)));
+  router.get('/api/admin/queue', S(() => app.requests.queue()));
+  router.get('/api/admin/staff', S(() => app.lawyers.staffList().filter((x) => x.active).map(({ id: uid, name, role }) => ({ id: uid, name, role }))));
+
+  // ===== صندوق الوارد الموحد =====
+  router.get('/api/admin/intakes', S((ctx) => app.intakes.list(ctx.query)));
+  router.post('/api/admin/intakes', S((ctx, u) => {
+    ctx.status = 201;
+    return app.intakes.createManual(ctx.body, u);
+  }));
+  router.get('/api/admin/intakes/:id', S((ctx, u) => {
+    app.intakes.markSeen(id(ctx), u);
+    return app.intakes.detail(id(ctx));
+  }));
+  router.patch('/api/admin/intakes/:id', S((ctx, u) => app.intakes.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/intakes/:id/analyze', S(async (ctx, u) => app.ai.analyzeIntake(app.intakes.require(id(ctx)).id, u)));
+  router.post('/api/admin/intakes/:id/reply', S((ctx, u) => app.intakes.reply(id(ctx), ctx.body, u)));
+  router.post('/api/admin/intakes/:id/handle-internally', S((ctx, u) => app.intakes.handleInternally(id(ctx), ctx.body, u)));
+  router.post('/api/admin/intakes/:id/archive', S((ctx, u) => app.intakes.archive(id(ctx), ctx.body, u)));
+  router.post('/api/admin/intakes/:id/reopen', S((ctx, u) => app.intakes.reopen(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/confirm-identity', S((ctx, u) => app.intakes.confirmIdentity(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/revoke-portal', S((ctx, u) => app.intakes.revokePortal(id(ctx), u)));
+  router.post('/api/admin/intakes/:id/convert', S((ctx, u) => {
+    ctx.status = 201;
+    return { case: app.intakes.convert(id(ctx), ctx.body, u) };
+  }));
+  router.post('/api/admin/intakes/:id/link-client', S((ctx, u) => app.intakes.linkClient(id(ctx), v.int(ctx.body.client_id, 'العميل', { required: true, min: 1 }), u)));
+  router.post('/api/admin/intakes/:id/ai-feedback', S((ctx, u) => app.intakes.aiFeedback(id(ctx), ctx.body, u)));
+
+  // محاكي واتساب للعرض التجريبي: يبني Webhook مطابقًا لصيغة Meta ويمرره على نفس المسار الحقيقي
+  router.post('/api/admin/simulate/whatsapp', S((ctx) => {
+    if (!app.config.demo) throw notFound('المحاكي متاح في الوضع التجريبي فقط');
+    const b = ctx.body;
+    const phone = v.phone(b.from, 'رقم المرسل', { required: true });
+    const text = v.str(b.text, 'نص الرسالة', { required: true, max: 4000 });
+    const msg = { from: phone.replace(/^\+/, ''), id: `wamid.SIM.${randomToken(12)}`, timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: text } };
+    if (b.ad && b.ad.platform) {
+      const platform = v.oneOf(b.ad.platform, ['facebook', 'instagram'], 'منصة الإعلان', { required: true });
+      msg.referral = {
+        source_url: platform === 'instagram' ? 'https://www.instagram.com/p/sim' : 'https://fb.me/sim-ad',
+        source_type: 'ad',
+        source_id: v.str(b.ad.ad_id, 'رقم الإعلان', { max: 60 }) || `ad-${platform}-${randomToken(4)}`,
+        headline: v.str(b.ad.headline, 'عنوان الإعلان', { max: 150 }) || `استشارة قانونية مجانية من ${app.settings.get('org_name') || DEFAULT_SETTINGS.org_name}`,
+        ctwa_clid: randomToken(10),
+      };
+    }
+    const payload = {
+      object: 'whatsapp_business_account',
+      entry: [{ id: 'SIM', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { display_phone_number: 'SIM', phone_number_id: 'SIM' }, contacts: [{ profile: { name: v.str(b.name, 'اسم المرسل', { max: 100 }) || 'عميل' }, wa_id: msg.from }], messages: [msg] } }] }],
+    };
+    const result = app.engine.handleWhatsAppWebhook(payload);
+    const row = app.db.get('SELECT intake_id, case_id FROM messages WHERE channel = ? AND external_id = ?', 'whatsapp', msg.id);
+    return {
+      ...result,
+      intake_id: row?.intake_id ?? null,
+      case_id: row?.case_id ?? null,
+      intake_code: row?.intake_id ? app.db.value('SELECT code FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
+      case_code: row?.case_id ? app.db.value('SELECT code FROM cases WHERE id = ?', row.case_id) ?? null : null,
+    };
+  }));
+
+  // ===== العملاء =====
+  router.get('/api/admin/clients', S((ctx) => app.clients.list(ctx.query)));
+  router.get('/api/admin/clients/:id', S((ctx) => app.clients.detail(id(ctx))));
+  router.patch('/api/admin/clients/:id', S((ctx, u) => app.clients.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/clients/:id/identities', S((ctx, u) => {
+    const c = app.clients.require(id(ctx));
+    const kind = v.oneOf(ctx.body.kind, ['phone', 'email'], 'نوع الهوية', { required: true });
+    const value = kind === 'phone' ? v.phone(ctx.body.value, 'رقم الهاتف', { required: true }) : v.email(ctx.body.value, 'البريد الإلكتروني', { required: true });
+    app.clients.addIdentity(c.id, kind, value);
+    app.activity.log({ client_id: c.id, actor: u, type: 'client.identity_added', summary: `أُضيفت هوية تواصل جديدة للعميل (${kind === 'phone' ? 'هاتف' : 'بريد'})` });
+    return app.clients.identities(c.id);
+  }));
+  router.post('/api/admin/clients/:id/merge', S((ctx, u) => app.clients.merge(id(ctx), v.int(ctx.body.other_client_id, 'العميل المكرر', { required: true, min: 1 }), u)));
+  router.post('/api/admin/clients/:id/revoke-portal', S((ctx, u) => {
+    const c = app.clients.require(id(ctx));
+    const revoked = app.clients.revokePortalTokens(c.id);
+    if (revoked) app.activity.log({ client_id: c.id, actor: u, type: 'portal.revoked', summary: `ألغت الإدارة كل روابط البوابة السارية للعميل (${revoked})` });
+    return { revoked };
+  }));
+  router.post('/api/admin/clients/:id/portal-link', S((ctx, u) => {
+    const c = app.clients.require(id(ctx));
+    const token = app.clients.issuePortalToken(c.id);
+    const url = app.clients.portalUrl(token);
+    let message = null;
+    if (ctx.body.send) {
+      const absolute = url.startsWith('http') ? url : `${ctx.req.headers.origin || ''}${url}`;
+      message = app.engine.sendToClient({
+        client_id: c.id,
+        body: `يمكنكم متابعة ملفاتكم لدى ${app.settings.get('org_name')} ورفع المستندات المطلوبة من خلال الرابط الخاص بكم: ${absolute}`,
+        channel: 'whatsapp',
+        author: u,
+      });
+    }
+    app.activity.log({ client_id: c.id, actor: u, type: 'client.portal_link', summary: ctx.body.send ? 'أُرسل للعميل رابط البوابة الخاص به' : 'أُنشئ رابط بوابة جديد للعميل' });
+    return { url, message_id: message?.id ?? null };
+  }));
+
+  // ===== ملفات الاستشارات =====
+  router.get('/api/admin/cases', S((ctx) => app.cases.list(ctx.query)));
+  router.get('/api/admin/cases/:id', S((ctx) => {
+    app.cases.markRead(id(ctx));
+    return app.cases.detail(id(ctx));
+  }));
+  router.patch('/api/admin/cases/:id', S((ctx, u) => app.cases.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/cases/:id/issues', S((ctx, u) => app.cases.addIssue(id(ctx), ctx.body, u)));
+  router.patch('/api/admin/cases/:id/issues/:issueId', S((ctx, u) => app.cases.updateIssue(id(ctx), id(ctx, 'issueId'), ctx.body, u)));
+  router.post('/api/admin/cases/:id/ai/issues', S(async (ctx, u) => app.ai.suggestIssuesForCase(id(ctx), u)));
+  router.post('/api/admin/cases/:id/documents', S((ctx, u) => app.cases.addDocuments(id(ctx), ctx.body.files, u, { title: ctx.body.title })), UPLOAD);
+  router.patch('/api/admin/documents/:id', S((ctx, u) => {
+    const d = app.documents.get(id(ctx));
+    if (!d) throw notFound('المستند غير موجود');
+    const patch = {};
+    if (ctx.body.title !== undefined) patch.title = v.str(ctx.body.title, 'عنوان المستند', { required: true, max: 200 });
+    if (ctx.body.matter_id !== undefined) {
+      // إتاحة مستند (مثل مرفق من العميل) للمحامي المسؤول عن الملف المستمر، أو سحبه منه
+      const mid = ctx.body.matter_id === null ? null : v.int(ctx.body.matter_id, 'الملف المستمر', { min: 1 });
+      if (mid) {
+        const m = app.matters.require(mid);
+        if (m.client_id !== d.client_id) throw badRequest('المستند لا يخص عميل هذا الملف المستمر');
+      }
+      patch.matter_id = mid;
+    }
+    if (!Object.keys(patch).length) throw badRequest('لا توجد تعديلات');
+    app.db.update('documents', d.id, patch);
+    if (patch.matter_id !== undefined) {
+      const mid = patch.matter_id || d.matter_id;
+      const m = mid ? app.matters.require(mid) : null;
+      app.activity.log({
+        matter_id: m?.id,
+        case_id: m?.case_id ?? d.case_id,
+        actor: u,
+        type: patch.matter_id ? 'document.shared_matter' : 'document.unshared_matter',
+        summary: patch.matter_id ? `أُتيح المستند «${d.title || d.filename}» للمحامي المسؤول عن الملف المستمر` : `سُحب المستند «${d.title || d.filename}» من الملف المستمر`,
+      });
+    }
+    return app.documents.publicView(app.documents.get(d.id));
+  }));
+  router.get('/api/admin/cases/:id/suggest-lawyers', S((ctx) => {
+    const c = app.cases.require(id(ctx));
+    const area = ctx.query.area && AREA_CODES.includes(ctx.query.area) ? ctx.query.area : c.legal_area;
+    const excluded = app.db
+      .all(
+        `SELECT a.lawyer_id AS id, u.name, a.role FROM assignments a JOIN users u ON u.id = a.lawyer_id
+         WHERE a.case_id = ? AND a.status != 'withdrawn'`,
+        c.id,
+      )
+      .map((x) => ({ id: x.id, name: x.name, reason: `عضو بالفعل في فريق الملف (${LABELS.assignment_role[x.role]})` }));
+    return { area, items: app.lawyers.suggest({ area, case_id: c.id }).slice(0, 15), excluded };
+  }));
+  router.get('/api/admin/cases/:id/default-grants', S((ctx) => {
+    const c = app.cases.require(id(ctx));
+    const role = v.oneOf(ctx.query.role, ENUMS.assignment_role, 'الدور') || 'lead';
+    return app.visibility.defaultGrants(c.id, role);
+  }));
+  router.post('/api/admin/cases/:id/assignments', S((ctx, u) => {
+    ctx.status = 201;
+    return app.cases.assign(id(ctx), ctx.body, u);
+  }));
+  router.patch('/api/admin/assignments/:id', S((ctx, u) => app.cases.updateAssignment(id(ctx), ctx.body, u)));
+  router.put('/api/admin/assignments/:id/grants', S((ctx, u) => app.cases.setGrants(id(ctx), ctx.body, u)));
+  router.post('/api/admin/assignments/:id/reengage', S((ctx, u) => app.cases.reengage(id(ctx), u, ctx.body)));
+  router.post('/api/admin/assignments/:id/withdraw', S((ctx, u) => {
+    app.cases.withdraw(id(ctx), u, { note: v.str(ctx.body.note, 'السبب', { max: 500 }) });
+    return { ok: true };
+  }));
+
+  router.post('/api/admin/cases/:id/info-requests', S((ctx, u) => app.requests.createInfoByStaff(id(ctx), u, ctx.body)));
+  router.post('/api/admin/info-requests/:id/approve', S((ctx, u) => app.requests.approveInfo(id(ctx), u, ctx.body)));
+  router.post('/api/admin/info-requests/:id/reject', S((ctx, u) => app.requests.rejectInfo(id(ctx), u, ctx.body)));
+  router.post('/api/admin/info-requests/:id/record-reply', S((ctx, u) => app.requests.recordReply(id(ctx), u, ctx.body)));
+  router.post('/api/admin/info-requests/:id/share', S((ctx, u) => app.requests.shareInfo(id(ctx), u, ctx.body)));
+  router.post('/api/admin/info-requests/:id/cancel', S((ctx, u) => app.requests.cancelInfo(id(ctx), u)));
+  router.post('/api/admin/counsel-requests/:id/assign', S((ctx, u) => app.requests.assignCounsel(id(ctx), u, ctx.body)));
+  router.post('/api/admin/counsel-requests/:id/reject', S((ctx, u) => app.requests.rejectCounsel(id(ctx), u, ctx.body)));
+
+  router.post('/api/admin/opinions/:id/approve', S((ctx, u) => app.opinions.approve(id(ctx), u, ctx.body)));
+  router.post('/api/admin/opinions/:id/return', S((ctx, u) => app.opinions.returnToLawyer(id(ctx), u, ctx.body)));
+  router.post('/api/admin/cases/:id/client-answers', S((ctx, u) => app.opinions.saveClientAnswer(id(ctx), u, ctx.body)));
+  router.post('/api/admin/cases/:id/ai/client-version', S(async (ctx, u) => app.ai.clientVersion(id(ctx), v.int(ctx.body.opinion_id, 'الرأي', { required: true, min: 1 }), u)));
+  router.post('/api/admin/client-answers/:id/send', S((ctx, u) => app.opinions.sendClientAnswer(id(ctx), u, ctx.body)));
+  router.post('/api/admin/cases/:id/messages', S((ctx, u) => app.cases.sendMessage(id(ctx), ctx.body, u)));
+  router.post('/api/admin/cases/:id/close', S((ctx, u) => app.cases.close(id(ctx), ctx.body, u)));
+  router.post('/api/admin/cases/:id/reopen', S((ctx, u) => app.cases.reopen(id(ctx), ctx.body, u)));
+  router.post('/api/admin/cases/:id/matter', S((ctx, u) => {
+    ctx.status = 201;
+    return app.matters.createFromCase(id(ctx), ctx.body, u);
+  }));
+  router.post('/api/admin/messages/:id/retry', S((ctx) => app.engine.retry(id(ctx))));
+
+  // ===== الملفات المستمرة =====
+  router.get('/api/admin/matters', S((ctx) => app.matters.list(ctx.query)));
+  router.get('/api/admin/matters/:id', S((ctx) => app.matters.detail(id(ctx))));
+  router.patch('/api/admin/matters/:id', S((ctx, u) => app.matters.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matters/:id/events', S((ctx, u) => app.matters.addEvent(id(ctx), ctx.body, u)));
+  router.patch('/api/admin/matter-events/:id', S((ctx, u) => app.matters.updateEvent(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matter-events/:id/approve-reminder', S((ctx, u) => app.matters.approveEventText(id(ctx), u)));
+  router.post('/api/admin/matters/:id/tasks', S((ctx, u) => app.matters.addTask(id(ctx), ctx.body, u)));
+  router.patch('/api/admin/matter-tasks/:id', S((ctx, u) => app.matters.updateTask(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matters/:id/invoices', S((ctx, u) => app.matters.addInvoice(id(ctx), ctx.body, u)));
+  router.post('/api/admin/invoices/:id/payments', S((ctx, u) => app.matters.addPayment(id(ctx), ctx.body, u)));
+  router.post('/api/admin/invoices/:id/cancel', S((ctx, u) => app.matters.cancelInvoice(id(ctx), u)));
+  router.post('/api/admin/matters/:id/expenses', S((ctx, u) => app.matters.addExpense(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matters/:id/messages', S((ctx, u) => app.matters.sendMessage(id(ctx), ctx.body, u)));
+  router.post('/api/admin/matters/:id/documents', S((ctx, u) => {
+    const m = app.matters.require(id(ctx));
+    const ids = app.documents.saveMany(ctx.body.files, { client_id: m.client_id, matter_id: m.id, case_id: m.case_id, title: ctx.body.title }, u, { max: 10 });
+    app.activity.log({ matter_id: m.id, case_id: m.case_id, actor: u, type: 'documents.added', summary: `أُضيفت مستندات إلى الملف المستمر (العدد: ${ids.length})` });
+    return ids.map((x) => app.documents.publicView(app.documents.get(x)));
+  }), UPLOAD);
+  router.post('/api/admin/matters/:id/lawyer-fees', A((ctx, u) => {
+    const m = app.matters.require(id(ctx));
+    return app.accounting.addAdjustment({ ...ctx.body, kind: 'matter_fee', matter_id: m.id }, u);
+  }));
+
+  // ===== شبكة المحامين =====
+  router.get('/api/admin/lawyers', S((ctx) => app.lawyers.list(ctx.query)));
+  router.post('/api/admin/lawyers', A((ctx, u) => {
+    ctx.status = 201;
+    return app.lawyers.create(ctx.body, u);
+  }));
+  router.get('/api/admin/lawyers/suggest', S((ctx) => app.lawyers.suggest({ area: ctx.query.area, case_id: ctx.query.case_id })));
+  router.get('/api/admin/lawyers/:id', S((ctx) => app.lawyers.detail(id(ctx), ctx.query.period)));
+  router.patch('/api/admin/lawyers/:id', A((ctx, u) => app.lawyers.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/lawyers/:id/password', A((ctx, u) => app.lawyers.setPassword(id(ctx), ctx.body.password, u)));
+  router.post('/api/admin/lawyers/:id/package', A((ctx, u) => {
+    app.accounting.addPackage(id(ctx), ctx.body, u);
+    return app.lawyers.detail(id(ctx)).lawyer;
+  }));
+
+  // ===== المحاسبة (مدير النظام) =====
+  router.get('/api/admin/accounting/summary', A((ctx) => app.accounting.summary(ctx.query.period)));
+  router.get('/api/admin/accounting/ledger', A((ctx) => app.accounting.ledger(ctx.query)));
+  router.post('/api/admin/accounting/close-month', A((ctx, u) => app.accounting.closeMonth(ctx.body.period, u)));
+  router.post('/api/admin/accounting/payouts', A((ctx, u) => app.accounting.payout(ctx.body, u)));
+  router.post('/api/admin/accounting/adjustments', A((ctx, u) => app.accounting.addAdjustment(ctx.body, u)));
+  router.post('/api/admin/accounting/entries/:id/void', A((ctx, u) => app.accounting.voidEntry(id(ctx), u, v.str(ctx.body.note, 'السبب', { max: 300 }))));
+  router.get('/api/admin/accounting/case-cost/:id', S((ctx) => app.accounting.caseCost(app.cases.require(id(ctx)).id)));
+
+  // ===== الأتمتة والرسائل =====
+  router.get('/api/admin/automations', S(() => ({ rules: app.automations.list(), whatsapp_configured: app.whatsapp.configured })));
+  router.patch('/api/admin/automations/:key', A((ctx, u) => app.automations.update(ctx.params.key, ctx.body, u)));
+  router.post('/api/admin/automations/run', S(() => app.automations.runAll()));
+  router.get('/api/admin/outbox', S((ctx) => app.automations.outbox(ctx.query)));
+
+  // ===== المعرفة المؤسسية والذكاء الاصطناعي =====
+  router.get('/api/admin/knowledge', S((ctx) => app.knowledge.list(ctx.query)));
+  router.get('/api/admin/knowledge/search', S((ctx) => app.knowledge.search(v.str(ctx.query.q, 'نص البحث', { required: true, max: 2000 }))));
+  router.get('/api/admin/knowledge/export', A(() => ({ exported_at: nowIso(), records: app.knowledge.exportTraining() })));
+  router.get('/api/admin/knowledge/:id', S((ctx) => app.knowledge.get(id(ctx))));
+  router.patch('/api/admin/knowledge/:id', S((ctx, u) => app.knowledge.update(id(ctx), ctx.body, u)));
+  router.post('/api/admin/knowledge/:id/approve', S((ctx, u) => app.knowledge.approve(id(ctx), ctx.body, u)));
+  router.post('/api/admin/knowledge/:id/exclude', S((ctx, u) => app.knowledge.exclude(id(ctx), ctx.body, u)));
+  router.post('/api/admin/knowledge/:id/rebuild', S((ctx) => app.knowledge.rebuild(id(ctx))));
+  router.get('/api/admin/ai/metrics', S(() => app.ai.metrics()));
+
+  // ===== التحليلات =====
+  router.get('/api/admin/analytics/funnel', S((ctx) => {
+    const group = ['source', 'channel', 'campaign'].includes(ctx.query.group) ? ctx.query.group : 'source';
+    return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group });
+  }));
+  router.get('/api/admin/analytics/areas', S(() => ({ items: app.analytics.byArea(), weekly: app.analytics.weeklyVolume() })));
+  router.get('/api/admin/analytics/spend', S((ctx) => app.analytics.listSpend(ctx.query)));
+  router.post('/api/admin/analytics/spend', A((ctx, u) => app.analytics.saveSpend(ctx.body, u)));
+  router.patch('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.updateSpend(id(ctx), ctx.body)));
+  router.delete('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.deleteSpend(id(ctx))));
+
+  // ===== المستخدمون والإعدادات (مدير النظام) =====
+  router.get('/api/admin/users', A(() => app.lawyers.staffList()));
+  router.post('/api/admin/users', A((ctx) => {
+    ctx.status = 201;
+    return app.lawyers.createStaff(ctx.body);
+  }));
+  router.patch('/api/admin/users/:id', A((ctx, u) => app.lawyers.updateStaff(id(ctx), ctx.body, u)));
+  router.get('/api/admin/settings', A((ctx) => ({
+    settings: app.settings.all(),
+    integrations: {
+      whatsapp_configured: app.whatsapp.configured,
+      whatsapp_verify_token_set: !!app.config.whatsapp.verifyToken,
+      whatsapp_app_secret_set: !!app.config.whatsapp.appSecret,
+      webhook_path: '/webhooks/whatsapp',
+      ai: app.ai.status(),
+      demo: !!app.config.demo,
+    },
+  })));
+  router.patch('/api/admin/settings', A((ctx) => {
+    const b = ctx.body;
+    const out = {};
+    const str = (k, label, max, required = false) => {
+      if (b[k] !== undefined) out[k] = v.str(b[k], label, { required, max });
+    };
+    str('org_name', 'اسم المؤسسة', 100, true);
+    str('org_tagline', 'الشعار', 200);
+    str('privacy_notice', 'سياسة الخصوصية', 2000, true);
+    str('whatsapp_template_name', 'اسم قالب واتساب', 100);
+    str('whatsapp_template_language', 'لغة القالب', 10);
+    if (b.whatsapp_display_number !== undefined) {
+      const p = normalizePhone(b.whatsapp_display_number);
+      if (!p) throw badRequest('رقم واتساب غير صالح');
+      out.whatsapp_display_number = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
+    }
+    if (b.default_assignment_days !== undefined) out.default_assignment_days = v.int(b.default_assignment_days, 'المدة الافتراضية للرد', { required: true, min: 1, max: 60 });
+    if (b.similarity_threshold !== undefined) out.similarity_threshold = v.num(b.similarity_threshold, 'حد التشابه', { required: true, min: 0.05, max: 0.9 });
+    for (const [k, val] of Object.entries(out)) {
+      if (!(k in DEFAULT_SETTINGS)) continue;
+      app.settings.set(k, val);
+    }
+    return app.settings.all();
+  }));
+}
