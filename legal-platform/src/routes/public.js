@@ -180,7 +180,9 @@ export function registerPublicRoutes(router, app) {
         throw badRequest('JSON غير صالح');
       }
       const result = app.engine.handleWhatsAppWebhook(payload);
-      return { ok: true, ...result };
+      // عند فشل حفظ أي رسالة نرد بخطأ حتى تعيد ميتا الإرسال؛ الرسائل المحفوظة لن تتكرر (منع التكرار بمعرف الرسالة)
+      if (result.failed) ctx.status = 500;
+      return { ok: !result.failed, ...result };
     },
     { raw: true, limit: 5 * 1024 * 1024 },
   );

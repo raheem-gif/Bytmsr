@@ -216,6 +216,30 @@ test('document request awaiting the client → reminder after 2 days, then every
   }
 });
 
+test('no "still waiting for your reply" reminder when the client already replied on WhatsApp (before staff recorded it)', async () => {
+  const { t, admin } = await boot();
+  try {
+    const L = await createLawyer(admin, { specialties: ['CIV'] });
+    const cL = await t.login(L.username);
+    const phone = uniquePhone();
+    const k = await newCase(admin, { phone, legal_area: 'CIV', title: 'مطالبة بقيمة شيك' });
+    const a = await assign(admin, k.id, { lawyer_id: L.id, role: 'lead' });
+    const ir = ok(await cL.post(`/api/lawyer/assignments/${a.id}/info-requests`, { kind: 'document', question: 'صورة الشيك المرتد' }), 201);
+    ok(await admin.post(`/api/admin/info-requests/${ir.id}/approve`, { client_message: 'برجاء إرسال صورة الشيك المرتد' }));
+    freezeClock(plusDays(T0, 1));
+    const { waPayload } = await import('./helpers.js');
+    ok(await t.client().post('/webhooks/whatsapp', waPayload({ from: `20${phone.slice(1)}`, text: 'تمام، ده صورة الشيك والإفادة من البنك' })));
+    const d = ok(await admin.get(`/api/admin/cases/${k.id}`));
+    assert.ok(d.messages.some((m) => m.direction === 'in' && m.body.includes('صورة الشيك')), 'the reply reached the case');
+    freezeClock(plusDays(T0, 2.5));
+    await runAutomations(admin);
+    const rem = remindersFor(await outbox(admin), 'document_reminder', (m) => m.meta.info_request_id === ir.id);
+    assert.equal(rem.length, 0, 'the client already replied on WhatsApp — a "we are still waiting" reminder is wrong');
+  } finally {
+    await t.close();
+  }
+});
+
 test('procedural deadline approaching without the task done → one alert to the lawyer and staff; done tasks and ordinary tasks are ignored', async () => {
   const { t, admin } = await boot();
   try {

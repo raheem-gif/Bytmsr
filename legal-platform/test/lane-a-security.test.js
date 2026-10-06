@@ -115,6 +115,32 @@ describe('Req 13 — authentication and role separation', () => {
     assert.ok(!lawyers.items.some((l) => l.username === 'evil'));
   });
 
+  test('route sweep: EVERY /api/admin/* route answers 401 to anonymous and 403 to a lawyer; EVERY /api/lawyer/* route answers 401/403 to anonymous/staff', async () => {
+    const fill = (p) => p.replace(/:key\b/, 'hearing_reminder').replace(/:\w+/g, '1');
+    const routes = t.app.router.routes.map((r) => ({ method: r.method, path: fill(r.pattern) }));
+    const adminRoutes = routes.filter((r) => r.path.startsWith('/api/admin/'));
+    const lawyerRoutes = routes.filter((r) => r.path.startsWith('/api/lawyer/'));
+    assert.ok(adminRoutes.length > 50, `expected many admin routes, found ${adminRoutes.length}`);
+    assert.ok(lawyerRoutes.length > 5);
+    const anon = t.client();
+    const bad = [];
+    for (const r of adminRoutes) {
+      const body = r.method === 'GET' ? undefined : {};
+      const a = await anon.request(r.method, r.path, body);
+      if (a.status !== 401) bad.push(`anon ${r.method} ${r.path} -> ${a.status}`);
+      const l = await lawyer.request(r.method, r.path, body);
+      if (l.status !== 403) bad.push(`lawyer ${r.method} ${r.path} -> ${l.status}`);
+    }
+    for (const r of lawyerRoutes) {
+      const body = r.method === 'GET' ? undefined : {};
+      const a = await anon.request(r.method, r.path, body);
+      if (a.status !== 401) bad.push(`anon ${r.method} ${r.path} -> ${a.status}`);
+      const s = await manager.request(r.method, r.path, body);
+      if (s.status !== 403) bad.push(`manager ${r.method} ${r.path} -> ${s.status}`);
+    }
+    assert.deepEqual(bad, []);
+  });
+
   test('staff cannot use the lawyer portal endpoints (403)', async () => {
     assertApiError(await admin.get('/api/lawyer/dashboard'), 403);
     assertApiError(await manager.get('/api/lawyer/assignments'), 403);
@@ -142,6 +168,7 @@ describe('Req 13 — authentication and role separation', () => {
       ['PATCH', '/api/admin/settings', { org_name: 'مؤسسة أخرى' }],
       ['PATCH', '/api/admin/automations/hearing_reminder', { enabled: false }],
       ['GET', '/api/admin/knowledge/export'],
+      ['POST', '/api/admin/matters/1/lawyer-fees', { lawyer_id: lawyerRow.id, amount: 5000, note: 'أتعاب' }],
     ];
     for (const [method, url, body] of denied) {
       const r = await manager.request(method, url, body);

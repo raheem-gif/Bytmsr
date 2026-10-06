@@ -215,6 +215,33 @@ describe('Req 1 — two doors, one Intake Engine, one inbox', () => {
   });
 });
 
+describe('Demo scenario — سامية (CL-00881) and INH-2026-00482', () => {
+  test('a new WhatsApp message from the client of an open case joins INH-2026-00482 under CL-00881; the case keeps source facebook_ad on channel whatsapp', async () => {
+    const t = await startTestApp({ seed: 'demo' });
+    try {
+      const admin = await t.login('admin');
+      const openBefore = (await inbox(admin)).total;
+      const kase = (await admin.get('/api/admin/cases?q=INH-2026-00482')).body.items[0];
+      assert.equal(kase.code, 'INH-2026-00482');
+      assert.equal(kase.client_code, 'CL-00881');
+      assert.equal(kase.source, 'facebook_ad');
+      assert.equal(kase.channel, 'whatsapp');
+
+      await sendWa(t, { from: '201012345678', name: 'Samia', text: 'مساء الخير، إعلام الوراثة لسه ما طلعش، هبعته أول ما يطلع.' });
+      assert.equal((await inbox(admin)).total, openBefore, 'no new intake for a client with an open case');
+      const cd = (await admin.get(`/api/admin/cases/${kase.id}`)).body;
+      assert.ok(cd.messages.some((m) => m.direction === 'in' && m.body.startsWith('مساء الخير، إعلام الوراثة')));
+      assert.equal(cd.client.code, 'CL-00881');
+      assert.equal(cd.client.phone, '+201012345678');
+      const cl = (await admin.get(`/api/admin/clients/${cd.client.id}`)).body;
+      assert.equal(cl.client.code, 'CL-00881');
+      assert.deepEqual(cl.identities.map((i) => i.value), ['+201012345678'], 'still one phone identity — no duplicate client or identity');
+    } finally {
+      await t.close();
+    }
+  });
+});
+
 describe('Req 2 — source (marketing) is distinct from channel (door)', () => {
   let t;
   let admin;

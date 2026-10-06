@@ -1,7 +1,7 @@
 // صندوق الوارد الموحد: كل ما يصل من واتساب والموقع وأي قناة أخرى في قائمة واحدة للفرز.
 // القناة (واتساب، الموقع…) ليست هي المصدر (إعلان فيسبوك، بحث جوجل…): نعرض الاثنين معًا.
 
-import { h, frag, mount } from '../../../lib/h.js';
+import { h, mount } from '../../../lib/h.js';
 import { api, ApiError } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, count } from '../../../lib/fmt.js';
 import {
@@ -20,6 +20,7 @@ import {
   selectInput,
   formDialog,
   toast,
+  richText,
 } from '../../../lib/ui.js';
 
 // ───────────── أدوات مشتركة لصفحات المسار (تُستورد من الصفحات الأخرى) ─────────────
@@ -174,7 +175,7 @@ export default async function render(ctx) {
             icon(out ? 'arrowLeft' : 'arrowRight', { size: 13 }),
             out ? 'ردّنا:' : 'العميل:',
           ),
-          h('span.pa-irow-preview-text', { dir: 'auto' }, it.last_message),
+          h('span.pa-irow-preview-text', { dir: 'auto' }, richText(it.last_message)),
         )
       : null;
     const showStatus = !OPEN_STATUSES.includes(state.tab) && !CLOSED_STATUSES.includes(state.tab);
@@ -365,5 +366,5 @@ export default async function render(ctx) {
     ],
   });
 
-  return frag(header, h('div.pa-tabs-wrap', tabBar), filtersHost, resultInfo, listHost, moreHost);
+  return h('div.pa-page.pa-page-inbox', header, h('div.pa-tabs-wrap', tabBar), filtersHost, resultInfo, listHost, moreHost);
 }

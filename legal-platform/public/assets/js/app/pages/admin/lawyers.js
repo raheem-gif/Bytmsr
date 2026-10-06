@@ -475,6 +475,8 @@ function nameCell(l) {
       'div.pd-person-text',
       h('a.cell-title', { href: `#/lawyers/${l.id}` }, l.display_name),
       h('div.cell-sub', l.firm || (l.bar_level ? `قيد ${l.bar_level}` : 'محامٍ مستقل')),
+      chips(l.specialties_labels || l.specialties.map(areaLabel), { className: 'pd-spec-chips' }),
+      h('div.pd-person-badges', activeBadge(l.active)),
     ),
   );
 }
@@ -494,7 +496,7 @@ function lawyerCard(l) {
   return h(
     'a.pd-lcard',
     { href: `#/lawyers/${l.id}`, class: !l.active && 'is-inactive', 'aria-label': `ملف ${l.display_name}` },
-    h('div.pd-lcard-head', avatar(l.display_name), h('div.pd-person-text', h('div.cell-title', l.display_name), h('div.cell-sub', l.firm || l.agreement_text)), activeBadge(l.active)),
+    h('div.pd-lcard-head', avatar(l.display_name), h('div.pd-person-text', h('div.cell-title', l.display_name), h('div.cell-sub', l.firm || (l.bar_level ? `قيد ${l.bar_level}` : 'محامٍ مستقل'))), activeBadge(l.active)),
     chips(l.specialties_labels || l.specialties.map(areaLabel)),
     h('div.pd-lcard-agreement', icon('wallet', { size: 15 }), h('span', l.agreement_text)),
     loadMeter(m.open_assignments, l.capacity, l.display_name),
@@ -523,7 +525,7 @@ export default async function render(ctx) {
   };
   let data = await api.get('/admin/lawyers', { period: state.period, area: state.area });
 
-  const statsHost = h('div.stats-grid');
+  const statsHost = h('div.stats-grid.pd-stats-5');
   const resultsHost = h('div.pd-results');
   let seq = 0;
 
@@ -555,7 +557,7 @@ export default async function render(ctx) {
       statCard({ label: 'المحامون النشطون', value: num(t.active), hint: `من إجمالي ${num(t.lawyers)} في الشبكة`, icon: 'users', tone: 'primary' }),
       statCard({
         label: 'المهام المفتوحة مقابل الطاقة',
-        value: `${num(t.open_assignments)} من ${num(t.capacity)}`,
+        value: h('span.nowrap', `${num(t.open_assignments)} من ${num(t.capacity)}`),
         hint: progressBar(t.open_assignments, t.capacity || 1, loadRatio > 0.85 ? 'warning' : 'primary', { label: 'نسبة استخدام الطاقة الإجمالية', visibleLabel: false }),
         icon: 'briefcase',
         tone: 'info',
@@ -568,7 +570,7 @@ export default async function render(ctx) {
         tone: t.overdue ? 'danger' : 'success',
       }),
       statCard({ label: 'مهام مُنجزة ومعتمدة', value: num(t.completed_in_period), hint: `خلال ${pl}`, icon: 'checkCircle', tone: 'success' }),
-      statCard({ label: 'استشارات تطوعية (Pro Bono)', value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent' }),
+      statCard({ label: h('span', 'استشارات تطوعية ', h('bdi.nowrap', '(Pro Bono)')), value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent' }),
     );
   }
 
@@ -602,31 +604,47 @@ export default async function render(ctx) {
     }
     const pl = periodLabel(data.period || state.period);
     const tbl = table({
+      className: 'pd-table-tight',
       caption: 'قائمة محامي الشبكة ومؤشرات أدائهم',
       rows: items,
       rowClass: (l) => !l.active && 'is-muted',
       onRowClick: (l) => ctx.navigate(`/lawyers/${l.id}`),
       columns: [
-        { key: 'name', label: 'المحامي', render: nameCell, className: 'pd-col-name' },
-        { key: 'specialties', label: 'التخصصات', render: (l) => chips(l.specialties_labels || l.specialties.map(areaLabel)), className: 'pd-col-chips' },
+        { key: 'name', label: 'المحامي والتخصصات', render: nameCell, className: 'pd-col-name' },
         { key: 'agreement', label: 'الاتفاق', render: agreementCell, className: 'pd-col-agreement' },
         { key: 'load', label: 'الحمل الحالي', render: (l) => loadMeter(l.metrics.open_assignments, l.capacity, l.display_name), className: 'pd-col-load' },
-        { key: 'overdue', label: 'متأخرة', render: (l) => overdueCell(l.metrics.overdue), align: 'center' },
-        { key: 'resp', label: 'متوسط زمن الرد', render: (l) => h('span.nowrap', hoursText(l.metrics.avg_response_hours)) },
-        { key: 'done', label: `منجز (${pl})`, render: (l) => num(l.metrics.completed_in_period), align: 'center' },
-        { key: 'pb', label: 'تطوعي', render: (l) => num(l.metrics.pro_bono_in_period), align: 'center' },
+        {
+          key: 'speed',
+          label: 'السرعة والتأخير',
+          render: (l) =>
+            h(
+              'div.pd-cell-stack',
+              h('span.nowrap', { title: 'متوسط الزمن من الإسناد حتى أول تقديم' }, hoursText(l.metrics.avg_response_hours)),
+              l.metrics.overdue ? overdueCell(l.metrics.overdue) : h('span.cell-sub', 'لا تأخير'),
+            ),
+        },
+        {
+          key: 'done',
+          label: 'المنجز في الشهر',
+          render: (l) =>
+            h(
+              'div.pd-cell-stack',
+              h('span.nowrap', `${num(l.metrics.completed_in_period)} معتمدة`),
+              h('span.cell-sub.nowrap', `${num(l.metrics.pro_bono_in_period)} تطوعية`),
+            ),
+        },
         {
           key: 'quality',
           label: 'الجودة',
-          render: (l) => (l.metrics.avg_quality == null ? h('span.muted', '—') : h('span.pd-quality.nowrap', icon('star', { size: 14 }), qualityText(l.metrics.avg_quality))),
+          render: (l) =>
+            h(
+              'div.pd-cell-stack',
+              l.metrics.avg_quality == null ? h('span.muted', 'لا تقييم بعد') : h('span.pd-quality.nowrap', icon('star', { size: 14 }), qualityText(l.metrics.avg_quality)),
+              l.metrics.returned_rate == null
+                ? null
+                : h('span.cell-sub.nowrap', { class: l.metrics.returned_rate >= 0.3 ? 'pd-text-warning' : null }, 'الإعادة للتعديل ', h('bdi.ltr', { dir: 'ltr' }, percent(l.metrics.returned_rate))),
+            ),
         },
-        {
-          key: 'returned',
-          label: 'نسبة الإعادة',
-          render: (l) => (l.metrics.returned_rate == null ? h('span.muted', '—') : h('span', { class: l.metrics.returned_rate >= 0.3 ? 'pd-text-warning' : null }, percent(l.metrics.returned_rate))),
-          align: 'center',
-        },
-        { key: 'active', label: 'الحالة', render: (l) => activeBadge(l.active) },
       ],
     });
     mount(

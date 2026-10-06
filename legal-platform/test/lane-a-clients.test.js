@@ -71,7 +71,7 @@ describe('Client merge', () => {
     }
   });
 
-  test('merge validation: self-merge 400, unknown 404, already-merged 404', async () => {
+  test('merge validation: self-merge 400, unknown 404, already-merged 409', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
       const admin = await t.login('admin');
@@ -84,7 +84,8 @@ describe('Client merge', () => {
       assert.equal((await admin.post(`/api/admin/clients/9999/merge`, { other_client_id: b.id })).status, 404);
       assert.equal((await admin.post(`/api/admin/clients/${a.id}/merge`, {})).status, 400);
       assert.equal((await admin.post(`/api/admin/clients/${a.id}/merge`, { other_client_id: b.id })).status, 200);
-      assert.equal((await admin.post(`/api/admin/clients/${a.id}/merge`, { other_client_id: b.id })).status, 404);
+      // دمج نفس العميلين مرة ثانية: تعارض واضح «مدموجان بالفعل»
+      assert.equal((await admin.post(`/api/admin/clients/${a.id}/merge`, { other_client_id: b.id })).status, 409);
     } finally {
       await t.close();
     }
@@ -205,6 +206,23 @@ describe('Client directory and profile', () => {
         assert.deepEqual(r.body.items.map((x) => x.code), [target.code], `search "${q}"`);
       }
       assert.equal((await admin.get(`/api/admin/clients?q=${encodeURIComponent('لا يوجد أحد بهذا الاسم')}`)).body.total, 0);
+    } finally {
+      await t.close();
+    }
+  });
+
+  test('searching a full phone number returns only the client with that exact number (no partial-digit false matches)', async () => {
+    const t = await startTestApp({ seed: 'none' });
+    try {
+      await sendWa(t, { from: '201012345678', name: 'Target', text: 'مرحبا' });
+      await sendWa(t, { from: '201234567890', name: 'Other person', text: 'مرحبا' });
+      const admin = await t.login('admin');
+      for (const q of ['01012345678', '+201012345678']) {
+        const r = (await admin.get(`/api/admin/clients?q=${encodeURIComponent(q)}`)).body;
+        assert.deepEqual(r.items.map((c) => c.phone), ['+201012345678'], `search "${q}" must not return a different person's record`);
+      }
+      const other = (await admin.get(`/api/admin/clients?q=${encodeURIComponent('01234567890')}`)).body;
+      assert.deepEqual(other.items.map((c) => c.phone), ['+201234567890']);
     } finally {
       await t.close();
     }

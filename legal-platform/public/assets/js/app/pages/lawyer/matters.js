@@ -8,6 +8,18 @@ import { pageHeader, card, table, statusBadge, badge, codeTag, ltr, emptyState, 
 
 // ───────────── أدوات مشتركة لصفحات المحامي ─────────────
 
+/**
+ * نص عربي يحتوي مصطلحًا إنجليزيًا بين قوسين مثل «المحامي الأساسي (Lead Counsel)»:
+ * يُعزل الجزء الإنجليزي باتجاه LTR ولا يُكسر بين سطرين حتى لا تنقلب الأقواس.
+ */
+export function bidiText(text) {
+  const s = String(text ?? '');
+  return s
+    .split(/(\([A-Za-z][^()]*\))/)
+    .filter((p) => p !== '')
+    .map((p) => (/^\([A-Za-z]/.test(p) ? h('span.nowrap', { dir: 'ltr' }, p) : p));
+}
+
 /** مربع تاريخ صغير (اليوم والشهر) لبطاقات الجلسات. */
 export function eventDateBox(iso, { muted = false } = {}) {
   const p = calendarParts(iso);

@@ -125,7 +125,12 @@ export function createAutomations(app) {
       const max = Number(r.params.max_reminders) || 2;
       const list = db.all(
         `SELECT ir.*, c.code AS case_code, c.client_id, c.intake_id FROM info_requests ir JOIN cases c ON c.id = ir.case_id
-         WHERE ir.status = 'sent_to_client' AND ir.sent_at <= ? AND ir.reminder_count < ? AND c.status != 'closed'`,
+         WHERE ir.status = 'sent_to_client' AND ir.sent_at <= ? AND ir.reminder_count < ? AND c.status != 'closed'
+           -- إذا كتب العميل بعد إرسال الطلب (أو بعد آخر تذكير) فقد يكون ردًا لم تسجله الإدارة بعد: لا نذكّره
+           -- (الرسائل المرتبطة صراحة بطلب آخر، كالرد عليه من البوابة، لا تُحتسب)
+           AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.client_id = c.client_id AND m.direction = 'in'
+                           AND m.created_at > COALESCE(ir.last_reminder_at, ir.sent_at)
+                           AND (json_extract(m.meta, '$.info_request_id') IS NULL OR json_extract(m.meta, '$.info_request_id') = ir.id))`,
         addDays(t, -after),
         max,
       );

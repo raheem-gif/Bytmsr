@@ -289,3 +289,60 @@ test('matter money stays with staff: invoices, payments and expenses; lawyers ca
   const v = ok(await cM.get(`/api/lawyer/matters/${matter.id}`));
   assert.equal(JSON.stringify(v).includes('الدفعة الأولى من الأتعاب'), false, 'invoices are not shown to the lawyer');
 });
+
+test('AI assists but does not decide: a raw AI draft with «[يُستكمل» placeholders cannot be submitted until the lawyer completes it', async () => {
+  const k = await newCase(admin, { legal_area: 'FAM', title: 'رؤية الصغير', issues: ['تنظيم حق الرؤية'] });
+  const a = await assign(admin, k.id, { lawyer_id: L.id, role: 'lead' });
+  const ai = ok(await cL.post(`/api/lawyer/assignments/${a.id}/ai/draft`));
+  assert.ok(ai.text.includes('[يُستكمل'), 'the heuristic draft marks the parts the lawyer must complete');
+  ok(await cL.put(`/api/lawyer/assignments/${a.id}/draft`, { body: ai.text, ai_suggestion_id: ai.id }));
+  const r = await cL.post(`/api/lawyer/assignments/${a.id}/submit`);
+  assert.equal(r.status, 400);
+  assert.equal(ok(await cL.get(`/api/lawyer/assignments/${a.id}`)).assignment.status, 'in_progress');
+  const finished = ai.text.replace(/\[يُستكمل[^\]]*\]/g, 'يحق للأب غير الحاضن رؤية الصغير أسبوعيًا في مكان مناسب يحدده القاضي.');
+  const s = ok(await cL.post(`/api/lawyer/assignments/${a.id}/submit`, { body: finished, ai_suggestion_id: ai.id }));
+  assert.equal(s.status, 'submitted');
+  // a suggestion that belongs to another assignment cannot be attached
+  const other = await assign(admin, (await newCase(admin, { legal_area: 'FAM', title: 'ملف آخر' })).id, { lawyer_id: L.id, role: 'lead' });
+  assert.equal((await cL.put(`/api/lawyer/assignments/${other.id}/draft`, { body: 'نص', ai_suggestion_id: ai.id })).status, 400);
+});
+
+test('a closed matter accepts no new hearings and stops sending hearing reminders', async () => {
+  const k = await newCase(admin, { legal_area: 'CIV', title: 'قضية ستُغلق', phone: uniquePhone() });
+  const m = ok(await admin.post(`/api/admin/cases/${k.id}/matter`, { kind: 'litigation', responsible_lawyer_id: M.id, court: 'محكمة الإسكندرية' }), 201);
+  ok(await cM.post(`/api/lawyer/matters/${m.id}/events`, { kind: 'hearing', starts_at: plusDays(new Date().toISOString(), 2), client_attendance_required: true }));
+  ok(await admin.patch(`/api/admin/matters/${m.id}`, { status: 'closed' }));
+  assert.equal((await cM.post(`/api/lawyer/matters/${m.id}/events`, { kind: 'hearing', starts_at: plusDays(new Date().toISOString(), 3) })).status, 409);
+  await runAutomations(admin);
+  const rem = (await outbox(admin)).filter((x) => x.matter_id === m.id && x.automation_rule === 'hearing_reminder');
+  assert.equal(rem.length, 0);
+});
+
+test('atomicity: a matter conversion that cannot close the case (opinion awaiting review) leaves no orphan matter', async () => {
+  const k = await newCase(admin, { legal_area: 'FAM', title: 'تحويل فاشل' });
+  const a = await assign(admin, k.id, { lawyer_id: L.id, role: 'lead' });
+  ok(await cL.post(`/api/lawyer/assignments/${a.id}/submit`, { body: 'رأي مقدم ينتظر مراجعة الإدارة قبل أي تحويل للملف' }));
+  const before = ok(await admin.get('/api/admin/matters')).length;
+  const r = await admin.post(`/api/admin/cases/${k.id}/matter`, { kind: 'litigation', responsible_lawyer_id: M.id, close_case: true });
+  assert.equal(r.status, 409);
+  assert.equal(ok(await admin.get('/api/admin/matters')).length, before, 'no matter row may survive the failed conversion');
+  const d = await caseDetail(admin, k.id);
+  assert.equal(d.matter, null);
+  assert.equal(d.case.matter_id, null);
+  assert.notEqual(d.case.status, 'closed');
+  assert.equal(ok(await cM.get('/api/lawyer/matters')).some((x) => x.case_id === k.id || x.title === 'تحويل فاشل'), false);
+});
+
+test('atomicity: converting an intake with an invalid national id creates no case and leaves the intake open', async () => {
+  const intake = ok(await admin.post('/api/admin/intakes', { channel: 'phone', phone: uniquePhone(), name: 'عميل بيانات خاطئة', text: 'أحتاج استشارة بخصوص عقد عمل' }), 201);
+  const casesBefore = ok(await admin.get('/api/admin/cases')).total;
+  const labBefore = ok(await admin.get('/api/admin/cases?area=LAB')).total;
+  const r = await admin.post(`/api/admin/intakes/${intake.id}/convert`, { legal_area: 'LAB', title: 'عقد عمل', client: { national_id: '12345' } });
+  assert.equal(r.status, 400);
+  assert.equal(ok(await admin.get('/api/admin/cases')).total, casesBefore);
+  const d = ok(await admin.get(`/api/admin/intakes/${intake.id}`));
+  assert.notEqual(d.intake.status, 'converted');
+  assert.equal(d.intake.case_id, null);
+  const ok2 = ok(await admin.post(`/api/admin/intakes/${intake.id}/convert`, { legal_area: 'LAB', title: 'عقد عمل', client: { national_id: '29001011234567' } }), 201);
+  assert.match(ok2.case.code, new RegExp(`^LAB-\\d{4}-${String(labBefore + 1).padStart(5, '0')}$`), 'the failed attempt does not burn a case number');
+});

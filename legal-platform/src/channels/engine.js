@@ -197,6 +197,8 @@ export function createEngine(app) {
         if (identityConflict) meta.identity_conflict = identityConflict;
         if (msg.context_id) meta.reply_to = msg.context_id;
         if (msg.info_request_id) meta.info_request_id = msg.info_request_id;
+        // نعتمد وقت الاستلام في الخادم للترتيب، ونحفظ توقيت المزوّد للرجوع إليه
+        if (msg.timestamp) meta.provider_timestamp = msg.timestamp;
         const messageId = db.insert('messages', {
           client_id: client.id,
           intake_id: intake?.id ?? null,
@@ -208,7 +210,7 @@ export function createEngine(app) {
           body: text,
           status: 'received',
           meta: JSON.stringify(meta),
-          created_at: msg.timestamp && msg.timestamp < t ? msg.timestamp : t,
+          created_at: t,
         });
 
         // 5) المرفقات القادمة من الواجهة (base64) تُحفظ فورًا؛ وسائط واتساب تُنزَّل لاحقًا بشكل غير متزامن

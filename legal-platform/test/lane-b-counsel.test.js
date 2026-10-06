@@ -292,3 +292,19 @@ test('once the lead opinion is approved the lead can no longer raise new counsel
   });
   assert.equal(r.status, 409);
 });
+
+test('atomicity: assigning a counsel request to someone already on the team fails cleanly and the request stays pending', async () => {
+  const intake = ok(await admin.post('/api/admin/intakes', { channel: 'phone', phone: '01255550002', name: 'عميل ثالث', text: 'استشارة ميراث وضرائب' }), 201);
+  const c3 = ok(await admin.post(`/api/admin/intakes/${intake.id}/convert`, { legal_area: 'INH', title: 'ملف ميراث ثالث', issues: [{ title: 'مسألة ضريبية' }] }), 201).case;
+  const a3 = await assign(admin, c3.id, { lawyer_id: ahmed.id, role: 'lead' });
+  const r = ok(await cAhmed.post(`/api/lawyer/assignments/${a3.id}/counsel-requests`, { kind: 'specialist_input', specialty: 'TAX', description: 'أحتاج رأي متخصص ضرائب في هذا الملف' }), 201);
+  const bad = await admin.post(`/api/admin/counsel-requests/${r.id}/assign`, { lawyer_id: ahmed.id, grants: { facts: true } });
+  assert.equal(bad.status, 409, 'the requester is already on the team');
+  let d = await caseDetail(admin, c3.id);
+  assert.equal(d.counsel_requests[0].status, 'pending_admin');
+  assert.equal(d.assignments.length, 1);
+  const good = ok(await admin.post(`/api/admin/counsel-requests/${r.id}/assign`, { lawyer_id: hany.id, grants: { facts: true } }));
+  assert.equal(good.request.status, 'assigned');
+  d = await caseDetail(admin, c3.id);
+  assert.equal(d.assignments.length, 2);
+});

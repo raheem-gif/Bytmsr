@@ -1,6 +1,6 @@
 // العملاء: هوية موحدة عبر القنوات (رقم الهاتف/البريد)، الدمج، وروابط البوابة الآمنة.
 import {
-  nowIso, addDays, normalizePhone, randomToken, sha256, parseJson, badRequest, notFound, conflict, v, normalizeArabic,
+  nowIso, addDays, normalizePhone, latinDigits, randomToken, sha256, parseJson, badRequest, notFound, conflict, v, normalizeArabic,
 } from '../util.js';
 import { CODE_PREFIX } from '../constants.js';
 
@@ -14,10 +14,14 @@ export function createClients(app) {
 
   const svc = {
     get(id) {
-      const c = db.get('SELECT * FROM clients WHERE id = ?', id);
-      if (!c) return null;
-      // إذا دُمج العميل في آخر نتبع الدمج
-      if (c.merged_into) return svc.get(c.merged_into);
+      // إذا دُمج العميل في آخر نتبع الدمج حتى العميل الباقي (مع حماية من أي حلقة)
+      const seen = new Set();
+      let c = db.get('SELECT * FROM clients WHERE id = ?', id);
+      while (c && c.merged_into && !seen.has(c.id) && seen.size < 50) {
+        seen.add(c.id);
+        c = db.get('SELECT * FROM clients WHERE id = ?', c.merged_into);
+      }
+      if (!c || (c.merged_into && seen.has(c.id))) return null;
       return c;
     },
     require(id) {
@@ -103,7 +107,7 @@ export function createClients(app) {
         if (!client) {
           client = svc.create({ name, governorate, email });
           created = true;
-        } else {
+        } else if (verified) {
           // نكمل البيانات الناقصة فقط ولا نستبدل ما سجلته الإدارة
           const patch = {};
           if (!client.name && name) patch.name = name;
@@ -115,7 +119,8 @@ export function createClients(app) {
           }
         }
         if (p) svc.addIdentity(client.id, 'phone', p, channel);
-        if (email) {
+        // بريد غير موثّق لا يُضاف لعميل موجود (قد يكون المرسل شخصًا آخر استخدم رقمه)
+        if (email && (verified || created)) {
           try {
             svc.addIdentity(client.id, 'email', email, channel);
           } catch {
@@ -150,8 +155,10 @@ export function createClients(app) {
     merge(targetId, otherId, actor) {
       if (targetId === otherId) throw badRequest('لا يمكن دمج العميل مع نفسه');
       const target = svc.require(targetId);
-      const other = db.get('SELECT * FROM clients WHERE id = ?', otherId);
-      if (!other || other.merged_into) throw notFound('العميل المراد دمجه غير موجود');
+      // نحل الطرفين إلى العميل الباقي فعليًا قبل أي كتابة (قد يكون أحدهما مدموجًا من قبل)
+      const other = svc.get(otherId);
+      if (!other) throw notFound('العميل المراد دمجه غير موجود');
+      if (other.id === target.id) throw conflict('العميلان مدموجان بالفعل في ملف واحد');
       db.tx(() => {
         db.run('UPDATE client_identities SET client_id = ? WHERE client_id = ?', target.id, other.id);
         for (const t of ['intakes', 'cases', 'messages', 'documents', 'matters', 'invoices', 'portal_tokens']) {
@@ -176,10 +183,18 @@ export function createClients(app) {
       const params = [];
       let where = 'c.merged_into IS NULL';
       if (q) {
-        const like = `%${String(q).trim()}%`;
-        where += ` AND (c.name LIKE ? OR c.code LIKE ? OR EXISTS (SELECT 1 FROM client_identities i WHERE i.client_id = c.id AND i.value LIKE ?))`;
-        const digits = normalizePhone(q);
-        params.push(like, like, digits ? `%${digits.slice(-9)}%` : like);
+        const query = String(q).trim();
+        const like = `%${query}%`;
+        const digits = latinDigits(query).replace(/\D/g, '');
+        const fullPhone = digits.length >= 10 ? normalizePhone(query) : null;
+        if (fullPhone) {
+          // رقم كامل: مطابقة تامة فقط حتى لا يظهر أشخاص آخرون تتشابه أرقامهم جزئيًا
+          where += ` AND EXISTS (SELECT 1 FROM client_identities i WHERE i.client_id = c.id AND i.kind = 'phone' AND i.value = ?)`;
+          params.push(fullPhone);
+        } else {
+          where += ` AND (c.name LIKE ? OR c.code LIKE ? OR EXISTS (SELECT 1 FROM client_identities i WHERE i.client_id = c.id AND i.value LIKE ?))`;
+          params.push(like, like, digits.length >= 4 ? `%${digits}%` : like);
+        }
       }
       const rows = db.all(
         `SELECT c.*,

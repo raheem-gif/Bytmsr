@@ -21,7 +21,7 @@ import {
   button,
   icon,
 } from '../../../lib/ui.js';
-import { eventDateBox, matterCard } from './matters.js';
+import { eventDateBox, matterCard, bidiText } from './matters.js';
 
 const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'ملفاتي' }];
 
@@ -80,7 +80,7 @@ function assignmentCard(a, opts) {
     h(
       'div.pc-item-meta',
       h('span', icon('book', { size: 14 }), a.legal_area_label || areaLabel(a.legal_area)),
-      h('span', icon('user', { size: 14 }), a.role_label || label('assignment_role', a.role)),
+      h('span', icon('user', { size: 14 }), bidiText(a.role_label || label('assignment_role', a.role))),
     ),
     (!opts.history && a.due_at) || f.length
       ? h('div.pc-item-foot', !opts.history && a.due_at && dueBadge(a.due_at), f)
@@ -101,7 +101,7 @@ function assignmentList(rows, ctx, { history = false, emptyText, emptyTitle } = 
       render: (a) => h('div.pc-cell-stack', codeTag(a.case_code), h('span.cell-title', a.case_title)),
     },
     { key: 'area', label: 'المجال', render: (a) => a.legal_area_label || areaLabel(a.legal_area) },
-    { key: 'role', label: 'دوري', render: (a) => h('span.pc-role', a.role_label || label('assignment_role', a.role)) },
+    { key: 'role', label: 'دوري', render: (a) => h('span.pc-role', bidiText(a.role_label || label('assignment_role', a.role))) },
     { key: 'status', label: 'الحالة', render: (a) => statusBadge('assignment_status', a.status) },
     history
       ? { key: 'assigned', label: 'تاريخ الإحالة', render: (a) => h('span.nowrap', date(a.assigned_at)) }
@@ -142,7 +142,7 @@ function metricsCard(m) {
       ['إجمالي المهام المعتمدة', num(m.completed_total)],
       m.avg_quality != null && ['متوسط تقييم الجودة', `${num(m.avg_quality)} من 5`],
       m.returned_rate != null && ['نسبة الإعادة للتعديل', `${Math.round(m.returned_rate * 100)}%`],
-      ['مساهمات تطوعية (Pro Bono)', `${num(m.pro_bono_in_period)} هذا الشهر — ${num(m.pro_bono_total)} إجمالًا`],
+      [bidiText('مساهمات تطوعية (Pro Bono)'), `${num(m.pro_bono_in_period)} هذا الشهر — ${num(m.pro_bono_total)} إجمالًا`],
       Number(m.unpaid_balance) > 0 && ['مستحقات لم تُصرف بعد', h('a', { href: '#/my/statement' }, money(m.unpaid_balance))],
     ]),
   });
@@ -302,13 +302,12 @@ export default async function render(ctx) {
     icon: 'briefcase',
     flush: true,
     body: listTabs,
+    footer: h(
+      'p.pc-note.pc-note-flush',
+      icon('shield', { size: 15 }),
+      h('span', 'ترى في كل ملف ما أتاحته لك الإدارة فقط. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من داخل الملف وستتولى الإدارة التواصل.'),
+    ),
   });
-
-  const principle = alertBox(
-    'ترى في كل ملف ما أتاحته لك الإدارة فقط. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من داخل الملف وستتولى الإدارة التواصل.',
-    'info',
-    { icon: 'shield' },
-  );
 
   const urgent = [];
   if (counts.returned > 0) {
@@ -334,11 +333,8 @@ export default async function render(ctx) {
     header,
     stats,
     urgent.length ? h('div.stack-sm', urgent) : null,
-    h(
-      'div.detail-layout',
-      h('div.detail-main', mainCard, principle),
-      h('div.detail-side', eventsCard(events), mattersCard(matters), metricsCard(metrics)),
-    ),
+    mainCard,
+    h('div.grid-3.pc-home-side', eventsCard(events), mattersCard(matters), metricsCard(metrics)),
   );
 }
 

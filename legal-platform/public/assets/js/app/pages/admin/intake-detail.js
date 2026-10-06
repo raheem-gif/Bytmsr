@@ -1,7 +1,1040 @@
-// صفحة مؤقتة — تُستبدل بالتنفيذ الكامل.
-import { frag } from '../../../lib/h.js';
-import { pageHeader, card, emptyState } from '../../../lib/ui.js';
+// شاشة فرز الطلب الوارد: المحادثة، تحليل الذكاء الاصطناعي (مساعد فقط)، بيانات الفرز، العميل الموحد عبر القنوات،
+// ثم قرار الإدارة: تحويل إلى ملف قانوني له كود مستقل، أو تعامل داخلي دون محامٍ، أو أرشفة.
+
+import { h, frag, mount } from '../../../lib/h.js';
+import { api, downloadUrl } from '../../../lib/api.js';
+import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday } from '../../../lib/fmt.js';
+import {
+  pageHeader,
+  card,
+  button,
+  asyncButton,
+  badge,
+  statusBadge,
+  icon,
+  codeTag,
+  ltr,
+  kv,
+  timeline,
+  chatThread,
+  emptyState,
+  alertBox,
+  field,
+  form,
+  modal,
+  formDialog,
+  confirmDialog,
+  confirmDanger,
+  toast,
+  copyButton,
+  progressBar,
+  chips,
+  richText,
+  errorMessage,
+} from '../../../lib/ui.js';
+import { channelIcons, similarText, CHANNEL_ICONS } from './inbox.js';
+import { pickClient } from './clients.js';
+
+const OPEN = ['new', 'in_review', 'awaiting_client'];
+const REPLY_CHANNELS = [
+  { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها العميل)' },
+  { value: 'whatsapp', label: 'واتساب' },
+  { value: 'website', label: 'الموقع (بوابة العميل)' },
+];
+
+const SOURCE_DETAIL_LABELS = {
+  utm_source: 'مصدر الزيارة (utm_source)',
+  utm_medium: 'الوسيط (utm_medium)',
+  utm_campaign: 'الحملة (utm_campaign)',
+  utm_content: 'محتوى الإعلان (utm_content)',
+  utm_term: 'الكلمة المفتاحية (utm_term)',
+  ref: 'رمز جهة الإحالة',
+  referrer: 'الصفحة المحيلة',
+  landing_path: 'صفحة الدخول',
+  ad_id: 'رقم الإعلان',
+  source_type: 'نوع الإحالة',
+  source_url: 'رابط الإعلان',
+  headline: 'عنوان الإعلان',
+  ad_body: 'نص الإعلان',
+  ctwa_clid: 'معرّف النقرة (ctwa_clid)',
+  entered_by: 'سجّله يدويًا',
+};
+const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
+
+const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
+
+function activityIcon(type = '') {
+  if (type.startsWith('ai.')) return 'sparkle';
+  if (type.startsWith('message.')) return 'message';
+  if (type === 'intake.converted') return 'briefcase';
+  if (type === 'intake.archived') return 'x';
+  if (type === 'intake.handled_internally') return 'checkCircle';
+  if (type === 'intake.reopened') return 'refresh';
+  if (type === 'intake.created' || type === 'intake.manual') return 'inbox';
+  if (type.startsWith('client.')) return 'user';
+  return null;
+}
 
 export default async function render(ctx) {
-  return frag(pageHeader({ title: 'تفاصيل الطلب الوارد', breadcrumbs: [{ label: 'صندوق الوارد الموحد', href: '#/inbox' }, { label: `#${ctx.params.id}` }] }), card({ body: emptyState('هذه الصفحة قيد الإنشاء') }));
+  const d = await api.get(`/admin/intakes/${encodeURIComponent(ctx.params.id)}`);
+  const it = d.intake;
+  const cl = d.client;
+  const ai = d.ai || null;
+  const out = ai ? ai.output || {} : null;
+  const isOpen = OPEN.includes(it.status);
+  const aiTitle = out && out.title;
+  ctx.setTitle(`الطلب ${it.code}`);
+
+  const base = `/admin/intakes/${it.id}`;
+
+  // ───────────── أدوات ─────────────
+  async function run(fn) {
+    try {
+      await fn();
+    } catch (err) {
+      toast(errorMessage(err), 'danger');
+    }
+  }
+
+  // ───────────── القرار ─────────────
+  function decisionCard() {
+    if (it.status === 'converted') {
+      return alertBox(
+        h(
+          'div.pa-alert-row',
+          h('span', 'قررت الإدارة أن هذا الطلب يستحق ملفًا قانونيًا، وصدر له الكود ', d.case ? codeTag(d.case.code) : null, '. تستمر المحادثة مع العميل داخل الملف.'),
+          d.case && button('فتح الملف', { variant: 'primary', size: 'sm', icon: 'briefcase', href: `#/cases/${d.case.id}` }),
+        ),
+        'success',
+        { title: 'تحوّل الطلب إلى ملف قانوني', icon: 'checkCircle' },
+      );
+    }
+    if (it.status === 'handled_internally' || it.status === 'archived') {
+      const handled = it.status === 'handled_internally';
+      return alertBox(
+        h(
+          'div.pa-alert-row',
+          h('span', h('span.pa-alert-label', handled ? 'ملخص ما تم: ' : 'سبب الأرشفة: '), it.resolution_note || '—'),
+          button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen }),
+        ),
+        handled ? 'success' : 'info',
+        { title: handled ? 'تعاملت الإدارة مع الطلب داخليًا دون إحالة لمحامٍ' : 'الطلب مؤرشف', icon: handled ? 'checkCircle' : 'info' },
+      );
+    }
+    const opt = (cls, iconName, title, text, onClick) =>
+      h('button.pa-decide-opt', { type: 'button', class: cls, onClick }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
+    return card({
+      title: 'ما القرار في هذا الطلب؟',
+      subtitle: 'الرسالة لا تتحول تلقائيًا إلى ملف — تقرر الإدارة بعد قراءة الطلب وفرزه.',
+      icon: 'scale',
+      className: 'pa-decide-card',
+      body: h(
+        'div.pa-decide',
+        opt('is-primary', 'briefcase', 'تحويل إلى ملف قانوني', 'يحتاج دراسة محامٍ: يصدر له كود ملف مستقل ويُحال لفريق.', openConvert),
+        opt('', 'checkCircle', 'تعامل داخلي دون محامٍ', 'استفسار بسيط ترد عليه الإدارة مباشرة دون إسناده لمحامٍ.', openHandle),
+        opt('is-muted', 'x', 'أرشفة', 'رسالة غير جدية أو مكررة أو خارج نطاق الخدمة. يمكن إعادة فتحها لاحقًا.', openArchive),
+      ),
+    });
+  }
+
+  async function reopen() {
+    const ok = await confirmDialog({
+      title: 'إعادة فتح الطلب',
+      message: 'سيعود الطلب إلى قائمة الفرز بحالة «قيد الفرز» لتتخذ الإدارة قرارًا جديدًا بشأنه.',
+      confirmLabel: 'إعادة الفتح',
+    });
+    if (!ok) return;
+    await run(async () => {
+      await api.post(`${base}/reopen`);
+      toast('أُعيد فتح الطلب للفرز', 'success');
+      ctx.reload();
+    });
+  }
+
+  async function openHandle() {
+    const res = await formDialog({
+      title: 'تعامل داخلي دون محامٍ',
+      intro: 'استخدم هذا الخيار للاستفسارات البسيطة التي تجيب عنها الإدارة مباشرة. يُغلق الطلب ويُسجل ما تم في سجل العميل، ولا يُصدر له كود ملف.',
+      submitLabel: 'إغلاق الطلب كتعامل داخلي',
+      size: 'lg',
+      values: { legal_area: it.legal_area || (out && out.legal_area) || null, channel: 'auto' },
+      fields: [
+        {
+          name: 'resolution_note',
+          label: 'ملخص ما تم',
+          type: 'textarea',
+          required: true,
+          minLength: 5,
+          maxLength: 3000,
+          rows: 3,
+          hint: 'مثال: أُجيب العميل بخطوات استخراج إعلام الوراثة والمستندات المطلوبة. يُحفظ داخليًا فقط.',
+        },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), hint: 'يساعد في قياس دقة تصنيف الذكاء الاصطناعي وتحليل الطلبات' },
+        { name: 'channel', label: 'قناة الرد', type: 'select', placeholder: false, options: REPLY_CHANNELS },
+        { name: 'reply', label: 'رد يُرسل للعميل (اختياري)', type: 'textarea', maxLength: 4000, rows: 4, hint: 'اتركه فارغًا إذا كنت قد رددت عليه بالفعل في المحادثة أو هاتفيًا.' },
+      ],
+      onSubmit: (v) =>
+        api.post(`${base}/handle-internally`, {
+          resolution_note: v.resolution_note,
+          legal_area: v.legal_area || undefined,
+          reply: v.reply || undefined,
+          channel: v.channel || 'auto',
+        }),
+    });
+    if (res) {
+      toast('أُغلق الطلب كتعامل داخلي دون إحالة لمحامٍ', 'success');
+      ctx.reload();
+    }
+  }
+
+  async function openArchive() {
+    const res = await formDialog({
+      title: 'أرشفة الطلب',
+      intro: 'تُستخدم الأرشفة للرسائل غير الجدية أو المكررة أو الخارجة عن نطاق الخدمة. يبقى الطلب محفوظًا ويمكن إعادة فتحه إذا تواصل العميل مجددًا.',
+      submitLabel: 'أرشفة الطلب',
+      fields: [{ name: 'reason', label: 'سبب الأرشفة', type: 'textarea', required: true, minLength: 3, maxLength: 500, rows: 3 }],
+      onSubmit: (v) => api.post(`${base}/archive`, { reason: v.reason }),
+    });
+    if (res) {
+      toast('تمت أرشفة الطلب', 'success');
+      ctx.reload();
+    }
+  }
+
+  // ───────────── التحويل إلى ملف ─────────────
+  function openConvert() {
+    const area0 = it.legal_area || (out && out.legal_area) || null;
+    const facts = (out && Array.isArray(out.facts) ? out.facts : []).map((f) => `• ${f}`);
+    const summary = it.summary || (out && out.summary) || '';
+    const factsShared = [summary, facts.length ? `\nالوقائع كما وردت من العميل:\n${facts.join('\n')}` : ''].filter(Boolean).join('\n').trim();
+
+    const main = form(
+      [
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يحدد بادئة كود الملف (مثل INH للمواريث)' },
+        { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200 },
+        { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority') },
+        { name: 'due_at', label: 'الموعد المستهدف للرد على العميل', type: 'date', endOfDay: true, min: cairoToday() },
+        {
+          name: 'case_manager_id',
+          label: 'مدير الحالة',
+          type: 'select',
+          options: (d.staff || []).map((s) => ({ value: s.id, label: `${s.name} — ${label('user_role', s.role)}` })),
+        },
+        {
+          name: 'facts_shared',
+          label: 'ملخص الوقائع للمحامين',
+          type: 'textarea',
+          rows: 6,
+          maxLength: 20000,
+          hint: 'هذا ما يمكن إتاحته للمحامين لاحقًا — لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر العميل.',
+        },
+        { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000 },
+      ],
+      {
+        footer: false,
+        values: {
+          legal_area: area0,
+          title: it.title || aiTitle || '',
+          priority: it.priority || 'normal',
+          case_manager_id: it.assigned_staff_id || (ctx.user && ctx.user.id) || null,
+          facts_shared: factsShared,
+          facts_internal: it.internal_notes || '',
+        },
+      },
+    );
+
+    const clientForm = form(
+      [
+        { name: 'name', label: 'اسم العميل', maxLength: 150 },
+        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري' },
+        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
+      ],
+      { footer: false, columns: 2, values: { name: (cl && cl.name) || it.contact_name || '', national_id: (cl && cl.national_id) || '', governorate: (cl && cl.governorate) || it.governorate || null } },
+    );
+
+    // المسائل: المقترحة من الذكاء الاصطناعي (محددة مسبقًا) + ما يضيفه الموظف
+    const issues = (out && Array.isArray(out.suggested_issues) ? out.suggested_issues : []).map((x) => ({
+      title: x.title,
+      details: x.details || null,
+      legal_area: x.legal_area || null,
+      origin: 'ai',
+      checked: true,
+    }));
+    const issuesList = h('ol.pa-issues-list');
+    const issueInput = h('input.input', { type: 'text', maxlength: 300, placeholder: 'اكتب مسألة قانونية أخرى…', 'aria-label': 'مسألة جديدة' });
+    const issueArea = h(
+      'select.input',
+      { 'aria-label': 'مجال المسألة الجديدة' },
+      h('option', { value: '' }, 'نفس مجال الملف'),
+      areaOptions().map((o) => h('option', { value: o.value }, o.label)),
+    );
+    const issueNote = h('p.field-error', { hidden: true, role: 'alert' });
+
+    function drawIssues() {
+      if (!issues.length) {
+        mount(issuesList, h('li.pa-issue.is-empty', 'لا توجد مسائل بعد. أضف المسائل التي يحتاج الملف إلى دراستها.'));
+        return;
+      }
+      mount(
+        issuesList,
+        issues.map((x, i) => {
+          const areaBadge = x.legal_area ? badge(areaLabel(x.legal_area), 'neutral') : null;
+          if (x.origin === 'ai') {
+            const cb = h('input', {
+              type: 'checkbox',
+              checked: x.checked,
+              onChange: () => {
+                x.checked = cb.checked;
+              },
+            });
+            return h(
+              'li.pa-issue',
+              h('label.check', cb, h('span.pa-issue-title', x.title)),
+              h('span.pa-issue-meta', areaBadge, badge('اقتراح الذكاء الاصطناعي', 'accent', { icon: 'sparkle' })),
+            );
+          }
+          return h(
+            'li.pa-issue',
+            h('span.pa-issue-title', icon('check', { size: 16 }), x.title),
+            h(
+              'span.pa-issue-meta',
+              areaBadge,
+              badge('أضافتها الإدارة', 'primary'),
+              button('', {
+                variant: 'ghost',
+                size: 'sm',
+                icon: 'trash',
+                title: `حذف المسألة: ${x.title}`,
+                onClick: () => {
+                  issues.splice(i, 1);
+                  drawIssues();
+                  issueInput.focus();
+                },
+              }),
+            ),
+          );
+        }),
+      );
+    }
+    function addIssue() {
+      const t = issueInput.value.trim();
+      issueNote.hidden = true;
+      if (t.length < 3) {
+        issueNote.textContent = 'اكتب عنوان المسألة (3 أحرف على الأقل)';
+        issueNote.hidden = false;
+        issueInput.focus();
+        return;
+      }
+      if (issues.some((x) => x.title === t)) {
+        issueNote.textContent = 'هذه المسألة موجودة بالفعل';
+        issueNote.hidden = false;
+        return;
+      }
+      issues.push({ title: t, details: null, legal_area: issueArea.value || null, origin: 'staff', checked: true });
+      issueInput.value = '';
+      issueArea.value = '';
+      drawIssues();
+      issueInput.focus();
+    }
+    issueInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addIssue();
+      }
+    });
+    drawIssues();
+
+    let created = null;
+    modal({
+      title: 'تحويل الطلب إلى ملف قانوني',
+      size: 'lg',
+      body: frag(
+        h(
+          'p.modal-intro',
+          'سيصدر للملف كود مستقل حسب المجال (مثل INH-2026-00482)، وتنتقل إليه المحادثة والمستندات. بعدها تختار الإدارة فريق المحامين وتحدد ما يراه كل منهم.',
+        ),
+        main.el,
+        h(
+          'fieldset.pa-fieldset',
+          h('legend', 'المسائل القانونية محل الدراسة'),
+          h('p.field-hint', 'المسائل المقترحة محددة مسبقًا؛ ألغِ ما لا يلزم أو أضف غيرها. يمكن لاحقًا إتاحة كل مسألة لمحامٍ متخصص بعينه.'),
+          issuesList,
+          h('div.pa-issue-add', issueInput, h('div.select-wrap', issueArea), button('إضافة مسألة', { icon: 'plus', onClick: addIssue })),
+          issueNote,
+        ),
+        h(
+          'fieldset.pa-fieldset',
+          h('legend', 'بيانات العميل'),
+          h('p.field-hint', 'تُحدَّث في ملف العميل ', cl ? codeTag(cl.code) : null, '، ولا تظهر للمحامين إلا إذا أتاحت الإدارة الاسم صراحة.'),
+          clientForm.el,
+        ),
+      ),
+      actions: [
+        { label: 'إلغاء', variant: 'ghost' },
+        {
+          label: 'تحويل وإصدار كود الملف',
+          variant: 'primary',
+          icon: 'briefcase',
+          onClick: async () => {
+            const okMain = main.validate();
+            const okClient = clientForm.validate();
+            if (!okMain || !okClient) return false;
+            const v = main.getValues();
+            const c = clientForm.getValues();
+            const nid = toLatinDigits(c.national_id || '').replace(/\s/g, '');
+            if (nid && !/^[23]\d{13}$/.test(nid)) {
+              clientForm.setErrors({ national_id: 'الرقم القومي يجب أن يتكون من 14 رقمًا ويبدأ بـ 2 أو 3' });
+              return false;
+            }
+            const client = {};
+            if (c.name) client.name = c.name;
+            if (nid) client.national_id = nid;
+            if (c.governorate) client.governorate = c.governorate;
+            const payload = {
+              legal_area: v.legal_area,
+              title: v.title,
+              facts_shared: v.facts_shared || undefined,
+              facts_internal: v.facts_internal || undefined,
+              issues: issues.filter((x) => x.checked).map((x) => ({ title: x.title, details: x.details, legal_area: x.legal_area, origin: x.origin })),
+              priority: v.priority || undefined,
+              due_at: v.due_at || undefined,
+              case_manager_id: v.case_manager_id || undefined,
+              client: Object.keys(client).length ? client : undefined,
+              ai_suggestion_id: ai ? ai.id : undefined,
+            };
+            try {
+              const res = await api.post(`${base}/convert`, payload);
+              created = res.case;
+            } catch (err) {
+              main.showError(err);
+              return false;
+            }
+            return undefined;
+          },
+        },
+      ],
+      onClose: () => {
+        if (created) {
+          toast(`تم إنشاء الملف ${created.code} — اختر الآن فريق المحامين وصلاحياتهم`, 'success', 6000);
+          ctx.navigate(`/cases/${created.id}`);
+        }
+      },
+    });
+  }
+
+  // ───────────── المحادثة ─────────────
+  function conversationCard() {
+    const msgs = d.messages || [];
+    const conflicts = msgs.filter((m) => m.meta && m.meta.identity_conflict);
+    const thread = chatThread(msgs, {
+      inLabel: it.contact_name || (cl && cl.name) || 'العميل',
+      outLabel: 'بيوت مصر',
+      emptyText: 'لا توجد رسائل في هذا الطلب بعد',
+    });
+    // علامات داخل المحادثة: رقم يذكر طلبًا لعميل آخر، ورسائل فشل إرسالها
+    const nodes = thread.querySelectorAll ? [...thread.querySelectorAll('.msg')] : [];
+    msgs.forEach((m, i) => {
+      const node = nodes[i];
+      if (!node) return;
+      const ic = m.meta && m.meta.identity_conflict;
+      if (ic) {
+        node.after(
+          h(
+            'div.pa-msg-flag',
+            { class: m.direction === 'in' ? 'is-start' : 'is-end' },
+            icon('alert', { size: 14 }),
+            h('span', 'يذكر رقم طلب لعميل آخر: ', codeTag(ic.intake_code)),
+          ),
+        );
+      }
+      if (m.direction === 'out' && m.status === 'failed') {
+        node.after(
+          h(
+            'div.pa-msg-flag.is-end.is-danger',
+            icon('alert', { size: 14 }),
+            h('span', m.error ? `فشل الإرسال: ${m.error}` : 'فشل إرسال هذه الرسالة'),
+            asyncButton(
+              'إعادة المحاولة',
+              async () => {
+                await api.post(`/admin/messages/${m.id}/retry`);
+                toast('أُعيدت محاولة الإرسال', 'success');
+                ctx.reload();
+              },
+              { variant: 'link', size: 'sm', icon: 'refresh' },
+            ),
+          ),
+        );
+      }
+      if (m.meta && m.meta.referral && m.meta.referral.headline) {
+        node.after(h('div.pa-msg-flag.is-start.is-info', icon('flag', { size: 14 }), h('span', `وصلت عبر إعلان: «${m.meta.referral.headline}»`)));
+      }
+    });
+    const scroller = h('div.pa-chat-scroll', thread);
+    requestAnimationFrame(() => {
+      scroller.scrollTop = scroller.scrollHeight;
+    });
+
+    const banners = conflicts.map((m) => {
+      const ic = m.meta.identity_conflict;
+      return alertBox(
+        h(
+          'div.pa-alert-row',
+          h(
+            'span',
+            `رسالة بتاريخ ${dateTime(m.created_at)} من رقم غير مسجل لصاحب الطلب تذكر رقم الطلب `,
+            codeTag(ic.intake_code),
+            ic.client_code ? [' الخاص بالعميل ', codeTag(ic.client_code)] : null,
+            '. لم يدمج النظام العميلين تلقائيًا حماية للخصوصية — تحقق من هوية المرسل أولًا.',
+          ),
+          h(
+            'span.row',
+            ic.intake_id && button('فتح الطلب المذكور', { size: 'sm', icon: 'externalLink', href: `#/inbox/${ic.intake_id}` }),
+            cl && ic.client_code && button('دمج بعد التحقق', { size: 'sm', icon: 'link', onClick: () => mergeFlow(ic.client_code) }),
+          ),
+        ),
+        'warning',
+        { title: 'يذكر رقم طلب لعميل آخر' },
+      );
+    });
+
+    const loose = (d.documents || []).filter((doc) => !msgs.some((m) => (m.documents || []).some((x) => x.id === doc.id)));
+    const docs = loose.length
+      ? h(
+          'div.pa-docs',
+          h('span.pa-docs-title', icon('paperclip', { size: 15 }), `مستندات أخرى مرفقة بالطلب (${loose.length})`),
+          h(
+            'div.msg-docs',
+            loose.map((doc) =>
+              h('a.doc-chip', { href: downloadUrl(doc.id), target: '_blank', rel: 'noopener noreferrer' }, icon('file', { size: 14 }), h('span', { dir: 'auto' }, doc.filename || doc.title || 'مستند')),
+            ),
+          ),
+        )
+      : null;
+
+    const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
+    return card({
+      title: 'المحادثة',
+      subtitle: `${count(msgs.length, ['رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة'])} عبر ${chans.map((c) => label('channel', c)).join(' و')}`,
+      icon: 'message',
+      actions: channelIcons(chans, { withLabels: true }),
+      body: frag(banners.length ? h('div.stack-sm.mb-3', banners) : null, scroller, docs, composer()),
+    });
+  }
+
+  function composer() {
+    if (it.status === 'converted') {
+      return h(
+        'p.pa-note.mt-3',
+        icon('info', { size: 15 }),
+        h('span', 'تستمر المراسلات مع العميل داخل الملف القانوني ', d.case ? h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code)) : null, '.'),
+      );
+    }
+    const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: 'اكتب ردك على العميل…' });
+    const wrap = field('الرد على العميل', ta, { hint: 'يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.' });
+    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, REPLY_CHANNELS.map((o) => h('option', { value: o.value }, o.label)));
+    const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status) });
+    const sendBtn = asyncButton(
+      'إرسال الرد',
+      async () => {
+        const body = ta.value.trim();
+        if (!body) {
+          wrap.setError('اكتب نص الرد أولًا');
+          ta.focus();
+          return;
+        }
+        wrap.setError('');
+        const msg = await api.post(`${base}/reply`, { body, channel: chan.value, await_client: awaitCb.checked });
+        toast(
+          msg && msg.status === 'simulated'
+            ? 'سُجّل الرد كإرسال تجريبي (محاكاة) لعدم ضبط بيانات واتساب'
+            : `تم إرسال الرد${msg && msg.channel ? ` عبر ${label('channel', msg.channel)}` : ''}`,
+          'success',
+        );
+        ctx.reload();
+      },
+      { variant: 'primary', icon: 'send' },
+    );
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+    return h(
+      'div.composer.pa-composer',
+      wrap,
+      h(
+        'div.composer-actions',
+        h(
+          'div.pa-composer-opts',
+          h('div.select-wrap', chan),
+          h(
+            'label.check',
+            { title: it.status === 'awaiting_client' ? 'الطلب بانتظار العميل بالفعل' : null },
+            awaitCb,
+            h('span', 'بانتظار رد العميل'),
+          ),
+        ),
+        sendBtn,
+      ),
+    );
+  }
+
+  // ───────────── بيانات الفرز ─────────────
+  function triageCard() {
+    if (it.status === 'converted') {
+      return card({
+        title: 'بيانات الفرز',
+        icon: 'filter',
+        body: kv(
+          [
+            ['موضوع الطلب', it.title],
+            ['المجال القانوني', it.legal_area ? areaLabel(it.legal_area) : null],
+            ['نوع الطلب', it.kind ? label('intake_kind', it.kind) : null],
+            ['الأولوية', statusBadge('priority', it.priority)],
+            ['ملخص الطلب', it.summary ? h('span.pre', it.summary) : null],
+            ['ملاحظات داخلية', it.internal_notes ? h('span.pre', it.internal_notes) : null],
+          ],
+          { columns: 1 },
+        ),
+      });
+    }
+    const staffOpts = (d.staff || []).map((s) => ({ value: s.id, label: s.name }));
+    const f = form(
+      [
+        { name: 'title', label: 'موضوع الطلب', maxLength: 200, full: true },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions() },
+        { name: 'kind', label: 'نوع الطلب', type: 'select', options: options('intake_kind') },
+        { name: 'priority', label: 'الأولوية', type: 'select', required: true, placeholder: false, options: options('priority') },
+        { name: 'assigned_staff_id', label: 'المسؤول عن الفرز', type: 'select', options: staffOpts },
+        { name: 'source', label: 'مصدر العميل', type: 'select', required: true, placeholder: false, options: options('source') },
+        { name: 'campaign', label: 'الحملة / جهة الإحالة', maxLength: 150 },
+        { name: 'summary', label: 'ملخص الطلب', type: 'textarea', rows: 3, maxLength: 5000 },
+        { name: 'internal_notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 10000, hint: 'لا تظهر للعميل ولا للمحامين' },
+      ],
+      {
+        values: {
+          title: it.title,
+          legal_area: it.legal_area,
+          kind: it.kind,
+          priority: it.priority || 'normal',
+          assigned_staff_id: it.assigned_staff_id,
+          source: it.source || 'unknown',
+          campaign: it.campaign,
+          summary: it.summary,
+          internal_notes: it.internal_notes,
+        },
+        submitLabel: 'حفظ بيانات الفرز',
+        submitIcon: 'check',
+        onSubmit: (v) =>
+          api.patch(base, {
+            title: v.title || null,
+            legal_area: v.legal_area || null,
+            kind: v.kind || null,
+            priority: v.priority,
+            assigned_staff_id: v.assigned_staff_id || null,
+            source: v.source,
+            campaign: v.campaign || null,
+            summary: v.summary || null,
+            internal_notes: v.internal_notes || null,
+          }),
+        onSuccess: () => {
+          toast('تم حفظ بيانات الفرز', 'success');
+          ctx.reload();
+        },
+      },
+    );
+
+    const suggestions = out
+      ? [
+          ['title', out.title, out.title],
+          ['legal_area', out.legal_area, out.legal_area ? areaLabel(out.legal_area) : null],
+          ['priority', out.urgency, out.urgency ? label('priority', out.urgency) : null],
+          ['summary', out.summary, out.summary],
+        ].filter(([, v]) => v)
+      : [];
+    for (const [name, value, display] of suggestions) {
+      const c = f.control(name);
+      if (!c || !c.wrap) continue;
+      c.wrap.append(
+        h(
+          'div.pa-suggest',
+          h('span.pa-suggest-val', icon('sparkle', { size: 13 }), h('span', 'اقتراح: '), h('span.pa-suggest-text', display)),
+          button('استخدام الاقتراح', {
+            variant: 'link',
+            size: 'sm',
+            title: `استخدام اقتراح الذكاء الاصطناعي في حقل ${c.spec.label}`,
+            onClick: () => {
+              f.setValues({ [name]: value });
+              const el = c.focusEl && c.focusEl();
+              if (el) el.focus();
+            },
+          }),
+        ),
+      );
+    }
+    const fillAll = suggestions.length
+      ? button('استخدام اقتراح الذكاء الاصطناعي', {
+          size: 'sm',
+          icon: 'sparkle',
+          title: 'يملأ الحقول الفارغة فقط من اقتراحات الذكاء الاصطناعي',
+          onClick: () => {
+            const cur = f.getValues();
+            const patch = {};
+            for (const [name, value] of suggestions) {
+              if (name === 'priority') {
+                if (cur.priority === 'normal' && value !== 'normal') patch.priority = value;
+              } else if (!cur[name]) patch[name] = value;
+            }
+            if (!Object.keys(patch).length) toast('الحقول ممتلئة بالفعل — استخدم «استخدام الاقتراح» بجوار كل حقل للاستبدال', 'info');
+            else {
+              f.setValues(patch);
+              toast('مُلئت الحقول الفارغة من اقتراح الذكاء الاصطناعي — راجعها ثم احفظ', 'success');
+            }
+          },
+        })
+      : null;
+
+    return card({
+      title: 'بيانات الفرز',
+      subtitle: 'تصنيف الطلب وأولويته ومصدره — بيانات داخلية لا يراها العميل',
+      icon: 'filter',
+      actions: fillAll,
+      body: f.el,
+    });
+  }
+
+  // ───────────── تحليل الذكاء الاصطناعي ─────────────
+  function latestFeedback(fieldName) {
+    const rows = (d.feedback || []).filter((x) => x.field === fieldName && (!ai || x.suggestion_id == null || x.suggestion_id === ai.id));
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function feedbackControl(fieldName, aiValue) {
+    const prev = latestFeedback(fieldName);
+    let current = prev ? prev.verdict : null;
+    const status = h('span.pa-fb-status', { 'aria-live': 'polite' });
+    let okBtn;
+    let badBtn;
+    const sync = () => {
+      okBtn.setAttribute('aria-pressed', String(current === 'accepted'));
+      badBtn.setAttribute('aria-pressed', String(current === 'rejected' || current === 'corrected' || current === 'missed'));
+      okBtn.classList.toggle('is-on', current === 'accepted');
+      badBtn.classList.toggle('is-on', Boolean(current) && current !== 'accepted');
+      status.textContent = current ? `مسجل: ${label('ai_verdict', current)}` : '';
+    };
+    const send = (verdict) => async () => {
+      await api.post(`${base}/ai-feedback`, { field: fieldName, verdict, ai_value: aiValue });
+      current = verdict;
+      sync();
+      toast('سُجّل تقييمك — يُستخدم لقياس دقة الذكاء الاصطناعي وتحسينه', 'success', 2500);
+    };
+    okBtn = asyncButton('صحيح', send('accepted'), { variant: 'ghost', size: 'sm', icon: 'check', className: 'pa-fb-btn is-ok' });
+    badBtn = asyncButton('غير دقيق', send('rejected'), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-fb-btn is-bad' });
+    sync();
+    return h('div.pa-fb', { role: 'group', 'aria-label': `تقييم: ${label('ai_field', fieldName)}` }, okBtn, badBtn, status);
+  }
+
+  function aiBlock(title, content, fb) {
+    return h('section.pa-ai-block', h('div.pa-ai-block-head', h('h3.pa-ai-h', title), fb), content);
+  }
+
+  function aiCard() {
+    const reanalyze = asyncButton(
+      ai ? 'إعادة التحليل' : 'تحليل الآن',
+      async () => {
+        await api.post(`${base}/analyze`);
+        toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
+        ctx.reload();
+      },
+      { size: 'sm', icon: ai ? 'refresh' : 'sparkle' },
+    );
+    if (!ai) {
+      return card({
+        title: 'تحليل الذكاء الاصطناعي',
+        icon: 'sparkle',
+        className: 'pa-ai-card',
+        body: emptyState('لم يُحلَّل هذا الطلب بعد. يقترح التحليل عنوانًا وتصنيفًا وملخصًا والمعلومات الناقصة والحالات المشابهة.', reanalyze, { compact: true, icon: 'sparkle' }),
+      });
+    }
+    const provider = ai.provider === 'anthropic' ? 'Claude' : 'المحلل المحلي';
+    const missing = Array.isArray(out.missing_info) ? out.missing_info : [];
+    const missingItems = missing.map((m) => (typeof m === 'string' ? { item: m, kind: 'information' } : m));
+    const similar = (out.similar && out.similar.items) || [];
+    const similarTotal = (out.similar && out.similar.total) || similar.length;
+
+    const blocks = [
+      h(
+        'div.pa-ai-meta',
+        badge(provider, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
+        h('time.small.muted', { datetime: ai.created_at, title: dateTime(ai.created_at) }, `حُلّل ${relative(ai.created_at)}`),
+      ),
+      out._fallback_reason && alertBox(`تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: ${out._fallback_reason}`, 'warning'),
+      out.title && aiBlock('العنوان المقترح', h('p.pa-ai-text.is-strong', out.title), feedbackControl('title', out.title)),
+      out.legal_area &&
+        aiBlock(
+          'التصنيف القانوني',
+          h(
+            'div.stack-sm',
+            h('div.row', badge(areaLabel(out.legal_area), 'primary'), out.urgency && statusBadge('priority', out.urgency, { dot: false, title: 'الأولوية المقترحة' })),
+            out.confidence != null &&
+              progressBar(Math.round(out.confidence * 100), 100, out.confidence >= 0.7 ? 'success' : out.confidence >= 0.5 ? 'warning' : 'danger', {
+                label: `درجة الثقة ${percent(out.confidence)}`,
+              }),
+            out.secondary_areas && out.secondary_areas.length
+              ? h('div.pa-ai-sub', h('span.small.muted', 'مجالات ثانوية: '), chips(out.secondary_areas.map((a) => ({ label: areaLabel(a), tone: 'info' }))))
+              : null,
+            out.specialist_hint && h('p.pa-note', icon('users', { size: 15 }), h('span', out.specialist_hint)),
+          ),
+          feedbackControl('legal_area', out.legal_area),
+        ),
+      out.summary && aiBlock('الملخص', h('p.pa-ai-text', richText(out.summary)), feedbackControl('summary', out.summary)),
+      Array.isArray(out.facts) && out.facts.length
+        ? aiBlock('الوقائع المستخلصة', h('ul.pa-ai-list', out.facts.map((f) => h('li', { dir: 'auto' }, richText(f)))))
+        : null,
+      aiBlock(
+        'معلومات ومستندات ناقصة',
+        missingItems.length
+          ? h(
+              'ul.pa-missing',
+              missingItems.map((m) =>
+                h(
+                  'li',
+                  h('span.pa-missing-icon', { class: m.kind === 'document' ? 'is-doc' : 'is-info', title: m.kind === 'document' ? 'مستند' : 'معلومة' }, icon(m.kind === 'document' ? 'fileText' : 'info', { size: 15 })),
+                  h('span', m.item),
+                  h('span.sr-only', m.kind === 'document' ? ' (مستند)' : ' (معلومة)'),
+                ),
+              ),
+            )
+          : h('p.pa-ai-text.muted', 'تبدو المعلومات المقدمة كافية لبدء الدراسة.'),
+        feedbackControl('missing_info', missingItems.map((m) => m.item)),
+      ),
+      Array.isArray(out.suggested_issues) && out.suggested_issues.length
+        ? aiBlock(
+            'مسائل قانونية مقترحة',
+            h(
+              'ol.pa-ai-list.is-numbered',
+              out.suggested_issues.map((x) => h('li', h('span', x.title), x.legal_area && x.legal_area !== out.legal_area ? badge(areaLabel(x.legal_area), 'info') : null)),
+            ),
+          )
+        : null,
+      aiBlock(
+        similarTotal ? similarText(similarTotal) : 'حالات مشابهة',
+        similar.length
+          ? h(
+              'ul.pa-similar',
+              similar.slice(0, 5).map((s) =>
+                h(
+                  'li',
+                  h(
+                    'a.pa-similar-link',
+                    { href: s.type === 'case' || !s.type ? `#/cases/${s.id}` : `#/knowledge/${s.id}` },
+                    h('span.pa-similar-head', s.code ? codeTag(s.code) : null, badge(`تشابه ${percent(s.score)}`, 'neutral')),
+                    h('span.pa-similar-title', s.title),
+                    h('span.pa-similar-foot', s.status ? statusBadge('case_status', s.status) : null, s.outcome ? h('span.small.muted', label('case_outcome', s.outcome)) : null),
+                  ),
+                ),
+              ),
+            )
+          : h('p.pa-ai-text.muted', 'لم يجد الذكاء الاصطناعي حالات مشابهة في ملفات المؤسسة السابقة.'),
+      ),
+    ];
+
+    const fbAll = d.feedback || [];
+    const history = fbAll.length
+      ? h(
+          'details.pa-details',
+          h('summary', `سجل تقييمات الإدارة لهذا التحليل (${fbAll.length})`),
+          h(
+            'ul.pa-fb-history',
+            fbAll
+              .slice()
+              .reverse()
+              .map((x) =>
+                h('li', h('span', label('ai_field', x.field)), statusBadge('ai_verdict', x.verdict), h('time.small.muted', { datetime: x.created_at, title: dateTime(x.created_at) }, relative(x.created_at))),
+              ),
+          ),
+        )
+      : null;
+
+    return card({
+      title: 'تحليل الذكاء الاصطناعي',
+      subtitle: 'مساعد فقط — القرار للإدارة، وتقييمك يُسجَّل لتحسينه',
+      icon: 'sparkle',
+      className: 'pa-ai-card',
+      actions: reanalyze,
+      body: h('div.pa-ai', blocks, history),
+    });
+  }
+
+  // ───────────── العميل ─────────────
+  async function mergeFlow(initialQuery = '') {
+    if (!cl) return;
+    const target = await pickClient({
+      title: 'دمج مع عميل آخر',
+      intro: 'استخدم الدمج عندما يكون صاحب هذا الطلب هو نفسه عميلًا مسجلًا برقم أو بريد آخر. ابحث عن العميل الأساسي واختره.',
+      excludeId: cl.id,
+      initialQuery,
+    });
+    if (!target) return;
+    const ok = await confirmDanger({
+      title: 'تأكيد دمج العميلين',
+      message: `سيُدمج العميل ${cl.code}${cl.name ? ` (${cl.name})` : ''} في العميل ${target.code}${target.name ? ` (${target.name})` : ''}: تنتقل إليه كل أرقام التواصل والطلبات والملفات والرسائل، ويتوقف استخدام الرقم ${cl.code}. لا يمكن التراجع عن الدمج.`,
+      confirmLabel: 'نعم، ادمج العميلين',
+    });
+    if (!ok) return;
+    await run(async () => {
+      await api.post(`${base}/link-client`, { client_id: target.id });
+      toast(`تم الدمج — أصبح الطلب مرتبطًا بالعميل ${target.code}`, 'success');
+      ctx.reload();
+    });
+  }
+
+  function clientCard() {
+    if (!cl) {
+      return card({ title: 'العميل', icon: 'user', body: emptyState('لا يوجد عميل مرتبط بهذا الطلب', null, { compact: true, icon: 'user' }) });
+    }
+    const idents = cl.identities || [];
+    const allChannels = [...new Set([...idents.flatMap((x) => x.channels || []), ...(it.channels || [])])];
+    const others = cl.other_intakes || [];
+    const cases = cl.cases || [];
+    return card({
+      title: 'العميل',
+      icon: 'user',
+      actions: button('ملف العميل', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/clients/${cl.id}` }),
+      body: h(
+        'div.stack',
+        kv([
+          ['رقم العميل', h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
+          ['الاسم', cl.name || it.contact_name],
+          ['الهاتف', cl.phone ? h('span.row', ltr(cl.phone), copyButton(cl.phone, '')) : null],
+          cl.email && ['البريد', ltr(cl.email)],
+          ['المحافظة', cl.governorate || it.governorate],
+        ]),
+        allChannels.length
+          ? h(
+              'p.pa-note.is-info',
+              icon('link', { size: 15 }),
+              h(
+                'span',
+                allChannels.length > 1
+                  ? `ربط النظام تلقائيًا ما وصل من ${allChannels.map((c) => label('channel', c)).join(' و')} بنفس العميل `
+                  : `يتعرّف النظام على هذا العميل من رقمه، وأي رسالة منه عبر أي قناة تصل إلى نفس العميل `,
+                codeTag(cl.code),
+                '.',
+              ),
+            )
+          : null,
+        idents.length
+          ? h(
+              'div',
+              h('h3.pa-mini-h', 'وسائل التواصل المرتبطة'),
+              h(
+                'ul.pa-ident',
+                idents.map((x) =>
+                  h(
+                    'li',
+                    icon(x.kind === 'phone' ? 'phone' : 'mail', { size: 15 }),
+                    ltr(x.value),
+                    x.channels && x.channels.length ? channelIcons(x.channels, { size: 14 }) : null,
+                  ),
+                ),
+              ),
+            )
+          : null,
+        h(
+          'div',
+          h('h3.pa-mini-h', 'تاريخ العميل مع المؤسسة'),
+          others.length || cases.length
+            ? h(
+                'ul.pa-hist',
+                cases.map((c) =>
+                  h('li', h('a.pa-hist-link', { href: `#/cases/${c.id}` }, icon('briefcase', { size: 14 }), codeTag(c.code), h('span.pa-hist-title', c.title)), statusBadge('case_status', c.status)),
+                ),
+                others.map((o) =>
+                  h(
+                    'li',
+                    h('a.pa-hist-link', { href: `#/inbox/${o.id}` }, icon('inbox', { size: 14 }), codeTag(o.code), h('span.pa-hist-title', o.title || date(o.created_at))),
+                    statusBadge('intake_status', o.status),
+                  ),
+                ),
+              )
+            : h('p.small.muted', 'هذا أول تواصل لهذا العميل مع المؤسسة.'),
+        ),
+        button('دمج مع عميل آخر', { size: 'sm', icon: 'users', onClick: () => mergeFlow() }),
+      ),
+    });
+  }
+
+  // ───────────── المصدر والقناة ─────────────
+  function sourceCard() {
+    const detail = it.source_detail && typeof it.source_detail === 'object' ? it.source_detail : {};
+    const detailRows = Object.entries(detail)
+      .filter(([, v]) => v != null && v !== '')
+      .map(([k, v]) => [SOURCE_DETAIL_LABELS[k] || k, k === 'source_type' ? SOURCE_TYPE_LABELS[v] || String(v) : h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v))]);
+    const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
+    return card({
+      title: 'المصدر والقناة',
+      icon: 'flag',
+      body: h(
+        'div.stack-sm',
+        h('p.pa-note', icon('info', { size: 15 }), h('span', 'المصدر هو ما جاء بالعميل، والقناة هي طريقة التواصل: إعلان على فيسبوك قد يصل عبر واتساب.')),
+        kv([
+          ['المصدر', statusBadge('source', it.source, { dot: false })],
+          ['الحملة', it.campaign ? h('span', { dir: 'auto' }, it.campaign) : null],
+          ['أول قناة', it.first_channel ? h('span.pa-chan-line', icon(CHANNEL_ICONS[it.first_channel] || 'message', { size: 15 }), label('channel', it.first_channel)) : null],
+          ['كل القنوات', channelIcons(chans, { withLabels: true, size: 14 })],
+          ...detailRows,
+        ]),
+      ),
+    });
+  }
+
+  // ───────────── السجل ─────────────
+  function activityCard() {
+    const items = (d.activity || [])
+      .slice()
+      .reverse()
+      .map((a) => ({
+        time: a.created_at,
+        title: a.summary,
+        actor: a.actor_name || label('actor_kind', a.actor_kind),
+        tone: ACTOR_TONES[a.actor_kind] || 'neutral',
+        icon: activityIcon(a.type),
+      }));
+    return card({ title: 'سجل النشاط', icon: 'clock', body: timeline(items) });
+  }
+
+  // ───────────── الترويسة والتخطيط ─────────────
+  const headerTitle = it.title || (it.contact_name ? `طلب ${it.contact_name}` : `الطلب ${it.code}`);
+  const header = pageHeader({
+    title: headerTitle,
+    breadcrumbs: [
+      { label: 'صندوق الوارد الموحد', href: '#/inbox' },
+      { label: it.code },
+    ],
+    subtitle: !it.title && aiTitle ? h('span.pa-ai-inline', icon('sparkle', { size: 14 }), `عنوان مقترح: ${aiTitle}`) : null,
+    meta: [
+      codeTag(it.code),
+      statusBadge('intake_status', it.status),
+      statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
+      it.kind && badge(label('intake_kind', it.kind), 'neutral'),
+      it.legal_area && badge(areaLabel(it.legal_area), 'primary'),
+      h('span.small.muted', { title: dateTime(it.created_at) }, `وصل ${relative(it.created_at)}`),
+    ],
+    actions: [
+      button('رجوع', { variant: 'ghost', icon: 'chevronRight', href: '#/inbox' }),
+      it.status === 'converted' && d.case && button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}` }),
+    ],
+  });
+
+  return h(
+    'div.pa-page.pa-page-intake',
+    header,
+    h(
+      'div.detail-layout',
+      h('div.detail-main', decisionCard(), conversationCard(), triageCard(), activityCard()),
+      h('div.detail-side', aiCard(), clientCard(), sourceCard()),
+    ),
+  );
 }
