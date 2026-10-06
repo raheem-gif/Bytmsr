@@ -70,6 +70,14 @@ const RULES = {
     audience: 'internal',
     desc: 'ينبّه المحامي والإدارة عندما يتجاوز إسناد الموعد المطلوب دون تقديم الرأي.',
   },
+  // (v9 messaging) استبيان الرضا بعد إرسال الرد النهائي
+  satisfaction_survey: {
+    icon: 'star',
+    audience: 'client',
+    desc: 'يسأل العميل عن رضاه بعد إرسال الرد النهائي مرة واحدة لكل ملف: أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، وإلا القالب المربوط أو هذا النص (الرد برقم من 1 إلى 5). يُنبَّه مدير الحالة فور أي تقييم منخفض، والنتائج في صفحة «الردود الجاهزة والقوالب».',
+    placeholders: { case_code: 'كود الملف', client_name: 'اسم المستفيد', org_name: 'اسم المؤسسة (من الإعدادات)' },
+    sample: { case_code: 'INH-2026-00482', client_name: 'أم يوسف' },
+  },
 };
 
 const PARAM_FIELDS = {
@@ -77,8 +85,10 @@ const PARAM_FIELDS = {
   after_days: { label: 'بعد كم يوم من إرسال الطلب للعميل', hint: 'لا يُرسل التذكير قبل مرور هذه المدة', suffix: 'يوم' },
   repeat_every_days: { label: 'الفاصل بين التذكيرات', hint: 'أقل مدة بين تذكيرين لنفس العنصر', suffix: 'يوم' },
   max_reminders: { label: 'الحد الأقصى للتذكيرات', hint: 'لكل فاتورة أو طلب', suffix: 'تذكير' },
+  after_hours: { label: 'بعد كم ساعة من إرسال الرد', hint: 'يُرسل الاستبيان بعد هذه المدة من إرسال الرد النهائي للعميل', suffix: 'ساعة' },
+  expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود العميل بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم' },
 };
-const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_reminders'];
+const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_reminders', 'after_hours', 'expire_days'];
 
 const REMINDER_FORMS = ['تذكير واحد', 'تذكيرين', 'تذكيرات', 'تذكيرًا'];
 
@@ -93,6 +103,10 @@ function paramSentence(key, n) {
       return v === 1 ? 'يتكرر يوميًا' : `يتكرر كل ${count(v, 'day')}`;
     case 'max_reminders':
       return `بحد أقصى ${count(v, REMINDER_FORMS)}`;
+    case 'after_hours':
+      return v === 1 ? 'بعد ساعة واحدة من إرسال الرد' : `بعد ${count(v, 'hour')} من إرسال الرد`;
+    case 'expire_days':
+      return v === 1 ? 'يُقبل التقييم خلال يوم واحد' : `يُقبل التقييم خلال ${count(v, 'day')}`;
     default:
       return `${key}: ${v}`;
   }
@@ -104,6 +118,7 @@ const ENTITY_LABELS = {
   info_request: 'طلب معلومات',
   matter_task: 'مهمة إجرائية',
   assignment: 'إسناد لمحامٍ',
+  case: 'ملف',
 };
 
 function runText(run) {

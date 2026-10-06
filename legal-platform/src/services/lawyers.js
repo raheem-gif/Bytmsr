@@ -78,6 +78,8 @@ export function createLawyers(app) {
       pro_bono_total: proBonoTotal,
       earned_in_period: fromMinor(earned),
       unpaid_balance: fromMinor(unpaid),
+      // (الإصدار 9 — وحدة messaging) متوسط رضا العملاء عن الملفات التي اعتُمد فيها رأيه: avg_client_satisfaction, client_ratings
+      ...(app.messaging?.lawyerSatisfaction ? app.messaging.lawyerSatisfaction(lawyerId) : {}),
     };
   }
 
@@ -94,6 +96,8 @@ export function createLawyers(app) {
       email: r.email,
       phone: r.phone,
       active: !!r.active,
+      // حساب أُنشئ بدعوة لم تُقبل بعد (لا يستطيع الدخول ولا يُقترح للإسناد حتى التفعيل)
+      invite_pending: !!r.invite_pending,
       specialties: specs,
       specialties_labels: specs.map((s) => AREA[s]),
       bar_number: r.bar_number,
@@ -246,7 +250,7 @@ export function createLawyers(app) {
       const exclude = case_id
         ? new Set(db.all("SELECT lawyer_id FROM assignments WHERE case_id = ? AND status != 'withdrawn'", Number(case_id)).map((r) => r.lawyer_id))
         : new Set();
-      const list = svc.list({ period: p }).items.filter((l) => l.active && !exclude.has(l.id));
+      const list = svc.list({ period: p }).items.filter((l) => l.active && !l.invite_pending && !exclude.has(l.id));
       const scored = list.map((l) => {
         const specialty = area && l.specialties.includes(area) ? 1 : 0;
         const load = l.capacity ? l.metrics.open_assignments / l.capacity : 1;

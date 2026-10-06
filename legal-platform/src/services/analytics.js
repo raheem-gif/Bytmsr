@@ -246,6 +246,8 @@ export function createAnalytics(app) {
            WHERE a.type = 'ai.similar_alert' AND i.status IN ('new','in_review','awaiting_client') ORDER BY a.id DESC LIMIT 5`,
         ),
         knowledge_pending: q("SELECT COUNT(*) FROM knowledge_records WHERE status = 'pending_review'"),
+        // v9 practice: زمن أول رد ومستوى الخدمة
+        sla: app.practice ? app.practice.slaSummary() : null,
         capacity: (() => {
           const l = app.lawyers.list({ period });
           return { ...l.totals, top_loaded: l.items.filter((x) => x.active).sort((a, b) => (b.utilization || 0) - (a.utilization || 0)).slice(0, 5).map((x) => ({ id: x.id, name: x.display_name, open: x.metrics.open_assignments, capacity: x.capacity, overdue: x.metrics.overdue })) };
@@ -338,6 +340,7 @@ export function createPortal(app) {
           `SELECT id, direction, channel, body, created_at FROM messages
            WHERE client_id = ? AND (intake_id IN (${I}) OR case_id IN (${C}) OR matter_id IN (${M})${sc.full ? ' OR (intake_id IS NULL AND case_id IS NULL AND matter_id IS NULL)' : ''})
              AND (direction = 'in' OR status IN ('sent','delivered','read','simulated'))
+             AND COALESCE(automation_rule, '') != 'portal_otp'
            ORDER BY id DESC LIMIT 100`,
           client.id,
         )
@@ -348,6 +351,11 @@ export function createPortal(app) {
         for (const d of db.all(`SELECT id, message_id, filename FROM documents WHERE message_id IN (${ids}) AND uploaded_by_kind = 'client'`)) {
           if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
           byMsg.get(d.message_id).push({ id: d.id, filename: d.filename });
+        }
+        // (v9 messaging) المستندات التي أرسلتها الإدارة للعميل مع رسالة صادرة (تُنزَّل من /api/portal/<token>/documents/<id>)
+        for (const d of db.all(`SELECT d.id, ma.message_id, d.filename FROM message_attachments ma JOIN documents d ON d.id = ma.document_id WHERE ma.message_id IN (${ids})`)) {
+          if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
+          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename, sent: true });
         }
       }
       return {

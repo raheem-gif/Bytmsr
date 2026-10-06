@@ -153,6 +153,35 @@ function answersSection(answers) {
   });
 }
 
+// ───────────── المستندات التي أرسلتها المؤسسة ─────────────
+
+const docHref = (id) => `/api${base}/documents/${encodeURIComponent(id)}`;
+
+function sentDocumentsSection(messages) {
+  const docs = [];
+  for (const m of messages) {
+    if (m.direction !== 'out') continue;
+    for (const d of m.documents || []) if (!docs.some((x) => x.id === d.id)) docs.push({ ...d, at: m.created_at });
+  }
+  if (!docs.length) return null;
+  docs.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return sectionCard('documents', {
+    title: `مستندات من ${orgName()}`,
+    subtitle: 'مستندات ونماذج أرسلها لك فريقنا. اضغط على اسم المستند لتنزيله.',
+    icon: 'paperclip',
+    body: h(
+      'ul.list-plain.stack-sm',
+      docs.map((d) =>
+        h(
+          'li.row-between',
+          h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('download', { size: 14 }), h('span', { dir: 'auto' }, d.filename)),
+          h('time.small.muted', { datetime: d.at, title: dateTime(d.at) }, date(d.at)),
+        ),
+      ),
+    ),
+  });
+}
+
 function eventsSection(events) {
   const sorted = [...events].sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   return sectionCard('events', {
@@ -226,7 +255,8 @@ function invoicesSection(invoices) {
 function chatSection(messages) {
   const thread = chatThread(messages, {
     mine: 'in',
-    docHref: null,
+    // المستندات المرفقة بالمحادثة (ما رفعته أنت وما أرسلناه لك) تُنزَّل عبر رابط صفحتك فقط
+    docHref,
     inLabel: 'أنت',
     outLabel: orgName(),
     emptyText: 'لا توجد رسائل بعد. اكتب لنا أول رسالة من هنا.',
@@ -358,6 +388,7 @@ function renderPortal(data) {
       'div.container.portal-body',
       requestsSection(requests),
       answersSection(answers),
+      sentDocumentsSection(data.messages || []),
       eventsSection(events),
       invoices.length ? invoicesSection(invoices) : null,
       chatSection(data.messages || []),

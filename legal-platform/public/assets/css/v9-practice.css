@@ -1,0 +1,276 @@
+/* ==========================================================================
+   الإصدار 9 — وحدة practice: بطاقة المستفيد، الأطراف وتعارض المصالح، الأثر، التقويم، البحث الشامل، الاستيراد والتصدير
+   البادئة v9p- لكل الأصناف حتى لا تتعارض مع الوحدات الأخرى. الخصائص المنطقية (inline/block) لاتجاه RTL.
+   ========================================================================== */
+
+:root {
+  /* ألوان أنواع مواعيد التقويم (فُحصت لعمى الألوان، وتُرافقها أيقونة ونص دائمًا) */
+  --v9p-event: #0f9688;
+  --v9p-task: #c2620c;
+  --v9p-assignment: #2563eb;
+  --v9p-invoice: #8b5cf6;
+  --v9p-bar: var(--primary-500, #1b7187);
+}
+
+.v9p-page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.v9p-grid { align-items: start; }
+.v9p-grid > * { min-width: 0; }
+@media (max-width: 900px) {
+  .v9p-grid.grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+.v9p-subhead { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.92rem; margin: 0 0 6px; color: var(--text); }
+.v9p-how { margin: 0; padding-inline-start: 1.1em; display: flex; flex-direction: column; gap: 6px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.7; }
+.v9p-how .icon { vertical-align: -2px; }
+.card-actions-inner { gap: 6px; }
+
+/* ───────────── بطاقة المستفيد ───────────── */
+.v9p-beneficiary { display: flex; flex-direction: column; gap: 12px; }
+.v9p-score { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; }
+.v9p-score.is-severe { border-color: #f3b4ad; background: var(--danger-100); }
+.v9p-score.is-high { border-color: #f1d08a; background: var(--warning-100); }
+.v9p-score-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.v9p-score-num { display: flex; align-items: baseline; gap: 4px; direction: ltr; }
+.v9p-score-val { font-size: 2rem; font-weight: 700; line-height: 1; color: var(--text); }
+.v9p-score-max { color: var(--text-muted); font-size: 0.9rem; }
+.v9p-reasons summary { cursor: pointer; font-size: 0.88rem; color: var(--link); }
+.v9p-reasons ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.v9p-reasons li { display: flex; gap: 8px; align-items: baseline; }
+.v9p-pts { min-width: 2.6em; font-weight: 700; color: var(--primary-700); direction: ltr; text-align: end; }
+.v9p-kids { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.v9p-suggest { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.v9p-suggest .alert { width: 100%; }
+.v9p-submission { border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.v9p-submission .kv { width: 100%; }
+.v9p-kids-field { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.v9p-kid-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.v9p-kid-rows:empty { display: none; }
+.v9p-kid-row { display: grid; grid-template-columns: 110px minmax(0, 160px) auto; gap: 8px; align-items: center; }
+@media (max-width: 480px) {
+  .v9p-kid-row { grid-template-columns: 90px minmax(0, 1fr) auto; }
+}
+
+/* ───────────── الأطراف وتعارض المصالح ───────────── */
+.v9p-parties { display: flex; flex-direction: column; gap: 12px; }
+.v9p-party-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.v9p-party { border: 1px solid var(--border); border-inline-start: 4px solid var(--success-600); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v9p-party.has-high { border-inline-start-color: var(--danger-600); }
+.v9p-party.has-review { border-inline-start-color: var(--warning-500); }
+.v9p-party.has-info { border-inline-start-color: var(--info-600); }
+.v9p-party-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.v9p-party-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.v9p-party-name strong { overflow-wrap: anywhere; }
+.v9p-clear { display: flex; align-items: center; gap: 6px; color: var(--success-700); font-size: 0.88rem; }
+.v9p-matches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.v9p-match { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); }
+.v9p-match.is-high { background: var(--danger-100); border-color: #f3b4ad; }
+.v9p-match.is-review { background: var(--warning-100); border-color: #f1d08a; }
+.v9p-match.is-info { background: var(--info-100); border-color: #bcd6f3; }
+.v9p-match-icon { flex: none; margin-top: 2px; color: var(--text-muted); }
+.v9p-match.is-high .v9p-match-icon { color: var(--danger-700); }
+.v9p-match.is-review .v9p-match-icon { color: var(--warning-700); }
+.v9p-match-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.v9p-match-reason { font-size: 0.92rem; overflow-wrap: anywhere; }
+.v9p-client-check { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+/* ───────────── البحث الشامل (لوحة الأوامر) ───────────── */
+.v9p-search-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.v9p-search-label, .v9p-kbd { display: none; }
+@media (min-width: 1100px) {
+  .v9p-search-trigger { width: auto; padding-inline: 10px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text-muted); }
+  .v9p-search-label { display: inline; font-size: 0.9rem; }
+  .v9p-kbd { display: inline-block; font: 600 0.72rem var(--font-mono); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); }
+}
+.v9p-palette .modal-body { padding-top: 8px; }
+.v9p-search { display: flex; flex-direction: column; gap: 10px; min-height: 240px; }
+.v9p-search-box { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong); border-radius: var(--radius); padding-inline: 10px; background: var(--surface); }
+.v9p-search-box:focus-within { box-shadow: var(--focus-ring); border-color: var(--accent-500); }
+.v9p-search-box .icon { color: var(--text-muted); flex: none; }
+.v9p-search-box .v9p-search-input { border: 0; box-shadow: none; padding-inline: 0; min-height: 44px; font-size: 1rem; background: transparent; }
+.v9p-search-box .v9p-search-input:focus { outline: none; box-shadow: none; }
+.v9p-search-results { max-height: min(60vh, 460px); overflow-y: auto; overscroll-behavior: contain; }
+.v9p-search-hint { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; color: var(--text-muted); padding: 24px 8px; }
+.v9p-search-hint p { margin: 0; max-width: 46ch; }
+.v9p-search-groups { display: flex; flex-direction: column; gap: 10px; }
+.v9p-search-group-title { font-size: 0.78rem; font-weight: 700; color: var(--text-soft); padding: 2px 6px; }
+.v9p-search-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; min-height: 44px; }
+.v9p-search-item.is-active { background: var(--primary-50); box-shadow: inset 0 0 0 1px var(--primary-200); }
+.v9p-search-icon { flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--gray-100); color: var(--primary-700); }
+.v9p-search-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.v9p-search-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v9p-search-sub { font-size: 0.82rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v9p-search-item .code-tag { flex: none; }
+.v9p-search-error { color: var(--danger-700); }
+@media (max-width: 480px) {
+  .v9p-search-item .code-tag { display: none; }
+}
+
+/* ───────────── التقويم ───────────── */
+.v9p-t-event { --v9p-c: var(--v9p-event); }
+.v9p-t-task { --v9p-c: var(--v9p-task); }
+.v9p-t-assignment { --v9p-c: var(--v9p-assignment); }
+.v9p-t-invoice { --v9p-c: var(--v9p-invoice); }
+.v9p-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--v9p-c, var(--gray-400)); flex: none; }
+.v9p-cal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.v9p-cal-nav { display: flex; align-items: center; gap: 4px; }
+.v9p-cal-month { margin: 0; font-size: 1.15rem; min-width: 8.5em; text-align: center; }
+.v9p-cal-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.v9p-lawyer-filter .select-wrap { min-width: 190px; }
+.v9p-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--gray-100); border-radius: 10px; }
+.v9p-seg-btn { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 7px 12px; border-radius: 8px; font: inherit; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; min-height: 36px; }
+.v9p-seg-btn[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); font-weight: 600; }
+.v9p-seg-btn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+.v9p-type-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.v9p-type-toggle { display: inline-flex; align-items: center; gap: 6px; }
+.v9p-type-toggle:not(.is-on) { opacity: 0.62; }
+.v9p-type-toggle:not(.is-on) .v9p-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--v9p-c); }
+.v9p-cal-summary { margin: 0; }
+.v9p-overdue { border: 1px solid #f3b4ad; background: var(--danger-100); border-radius: var(--radius); padding: 8px 12px; }
+.v9p-overdue summary { cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--danger-700); font-weight: 600; }
+.v9p-overdue .v9p-cal-list { margin-top: 10px; }
+
+.v9p-month-wrap { display: flex; flex-direction: column; gap: 14px; }
+.v9p-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--border); gap: 1px; }
+.v9p-wd { background: var(--surface-2); text-align: center; padding: 6px 2px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+.v9p-wd-full { display: none; }
+.v9p-day { background: var(--surface); min-height: 54px; padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; position: relative; }
+.v9p-day.is-out { background: var(--surface-2); }
+.v9p-day.is-out .v9p-day-num { color: var(--text-soft); }
+.v9p-day-num { align-self: flex-start; border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 0.88rem; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; color: var(--text); direction: ltr; }
+.v9p-day-num:hover { background: var(--gray-100); }
+.v9p-day-num:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+.v9p-day.is-today .v9p-day-num { background: var(--primary-700); color: #fff; }
+.v9p-day.is-selected { box-shadow: inset 0 0 0 2px var(--accent-500); }
+.v9p-day.has-overdue::after { content: ''; position: absolute; top: 6px; inset-inline-end: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--danger-600); }
+.v9p-day-items { display: none; }
+.v9p-dots { display: flex; gap: 3px; flex-wrap: wrap; padding-inline: 4px; }
+.v9p-chip-item { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; line-height: 1.3; padding: 2px 6px; border-radius: 5px; background: color-mix(in srgb, var(--v9p-c) 12%, var(--surface)); border-inline-start: 3px solid var(--v9p-c); color: var(--text); text-decoration: none; min-width: 0; }
+.v9p-chip-item:hover { background: color-mix(in srgb, var(--v9p-c) 20%, var(--surface)); }
+.v9p-chip-time { flex: none; font-weight: 600; color: var(--text-muted); direction: ltr; }
+.v9p-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.v9p-more { border: 0; background: transparent; font: inherit; font-size: 0.75rem; color: var(--link); cursor: pointer; text-align: start; padding: 2px 6px; }
+@media (min-width: 760px) {
+  .v9p-wd-full { display: inline; }
+  .v9p-wd-short { display: none; }
+  .v9p-day { min-height: 104px; }
+  .v9p-day-items { display: flex; flex-direction: column; gap: 3px; }
+  .v9p-dots { display: none; }
+}
+
+.v9p-cal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.v9p-cal-item { display: grid; grid-template-columns: 4px 92px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px 10px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.v9p-cal-item.is-overdue { border-color: #f3b4ad; }
+.v9p-cal-item.is-done { opacity: 0.7; }
+.v9p-cal-bar { align-self: stretch; border-radius: 4px; background: var(--v9p-c); }
+.v9p-cal-when { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; color: var(--text); }
+.v9p-cal-date { font-weight: 500; font-size: 0.8rem; color: var(--text-muted); }
+.v9p-cal-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.v9p-cal-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-weight: 600; overflow-wrap: anywhere; }
+.v9p-cal-type { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--v9p-c); white-space: nowrap; }
+.v9p-cal-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 0.85rem; color: var(--text-muted); }
+.v9p-cal-loc { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .v9p-cal-item { grid-template-columns: 4px minmax(0, 1fr); }
+  .v9p-cal-when { grid-column: 2; flex-direction: row; gap: 6px; }
+  .v9p-cal-main { grid-column: 2; }
+  .v9p-cal-bar { grid-row: span 2; }
+  .v9p-cal-month { min-width: 0; font-size: 1.05rem; }
+}
+.v9p-agenda { display: flex; flex-direction: column; gap: 18px; }
+.v9p-agenda-head { margin: 0 0 8px; font-size: 1rem; }
+.v9p-agenda-day.is-past { opacity: 0.75; }
+.v9p-agenda-day.is-today .v9p-agenda-head { color: var(--primary-700); }
+
+.v9p-sub { min-height: 120px; }
+.v9p-steps { margin: 0; padding-inline-start: 1.3em; display: flex; flex-direction: column; gap: 6px; line-height: 1.7; }
+.v9p-feed-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.v9p-feed-url .input { flex: 1 1 260px; font-family: var(--font-mono); font-size: 0.82rem; min-width: 0; }
+
+/* ───────────── تقرير الأثر ───────────── */
+.v9p-filter-card .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.v9p-presets { max-width: 240px; }
+@media (max-width: 900px) {
+  .v9p-filter-card .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .v9p-filter-card .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .v9p-presets { max-width: none; }
+}
+.v9p-report { display: flex; flex-direction: column; gap: 18px; }
+.v9p-report-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--primary-50), var(--accent-50)); }
+.v9p-report-org, .v9p-report-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.v9p-report-org strong { font-size: 1.05rem; color: var(--primary-800); }
+.v9p-report-meta { text-align: end; }
+@media (max-width: 600px) {
+  .v9p-report-meta { text-align: start; }
+}
+.v9p-kpis { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.v9p-kpis .stat-value { white-space: nowrap; font-size: clamp(1.25rem, 2.2vw, 1.6rem); }
+.v9p-chart { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.v9p-hbars { display: flex; flex-direction: column; gap: 6px; }
+.v9p-hbar { display: grid; grid-template-columns: minmax(70px, 34%) minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 26px; }
+.v9p-hbar-label { font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v9p-hbar-svg { display: block; overflow: visible; }
+.v9p-hbar-track { fill: var(--gray-100); }
+.v9p-hbar-fill { fill: var(--v9p-bar); }
+.v9p-hbar:hover .v9p-hbar-fill { fill: var(--primary-700); }
+.v9p-hbar-val { font-weight: 600; font-size: 0.88rem; white-space: nowrap; min-width: 3ch; text-align: end; }
+.v9p-table-view summary { cursor: pointer; font-size: 0.85rem; color: var(--link); }
+.v9p-table-view .table-wrap { margin-top: 8px; }
+.v9p-vbars-scroll { overflow-x: auto; max-width: 100%; }
+.v9p-vbars { display: block; width: 100%; height: 150px; }
+.v9p-axis { stroke: var(--border-strong); stroke-width: 1; }
+.v9p-vbar { fill: var(--v9p-bar); }
+.v9p-vbar:hover { fill: var(--primary-700); }
+.v9p-vbar-val { font: 600 10px var(--font); fill: var(--text); }
+.v9p-vbar-x { font: 10px var(--font); fill: var(--text-muted); }
+.v9p-value-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.v9p-value-totals > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
+.v9p-value-totals strong { font-size: 1.12rem; overflow-wrap: anywhere; }
+.v9p-value-totals .is-main { background: var(--success-100); border-color: #b8dfc5; }
+.v9p-sla-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.v9p-sla-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+.v9p-notes .v9p-how { font-size: 0.85rem; }
+
+/* ───────────── الاستيراد والتصدير ───────────── */
+.v9p-export-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.v9p-export-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); min-width: 0; }
+.v9p-export-item p { margin: 0; flex: 1; }
+.v9p-export-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.v9p-export-head h3 { margin: 0; font-size: 1rem; }
+.v9p-import-steps { margin: 0; padding: 0; list-style: none; counter-reset: v9p-step; display: flex; flex-direction: column; gap: 16px; }
+.v9p-import-steps > li { counter-increment: v9p-step; position: relative; padding-inline-start: 42px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.v9p-import-steps > li::before { content: counter(v9p-step); position: absolute; inset-inline-start: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--primary-700); color: #fff; }
+.v9p-import-steps h3 { margin: 4px 0 0; font-size: 1rem; }
+.v9p-import-steps > li > * { max-width: 100%; }
+.v9p-import-sel { min-width: 240px; }
+.v9p-file-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.v9p-file-pick .file-native:focus-visible + .btn { box-shadow: var(--focus-ring); }
+.v9p-file-name { overflow-wrap: anywhere; }
+.v9p-import-result { min-width: 0; }
+.v9p-import-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.v9p-import-stats > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-2); }
+.v9p-import-stats strong { font-size: 1.3rem; }
+.v9p-import-stats .is-ok { background: var(--success-100); border-color: #b8dfc5; }
+.v9p-import-stats .is-bad { background: var(--danger-100); border-color: #f3b4ad; }
+.v9p-row-bad td { background: #fff7f6; }
+.v9p-row-msgs { margin: 0; padding-inline-start: 1em; font-size: 0.85rem; display: flex; flex-direction: column; gap: 2px; }
+.v9p-row-msgs .is-error { color: var(--danger-700); }
+.v9p-row-msgs .is-warning { color: var(--warning-700); }
+.v9p-created { margin: 0; padding-inline-start: 1.2em; columns: 2 240px; font-size: 0.9rem; }
+
+/* ───────────── الطباعة (تقرير الأثر للمجلس والجهات المانحة والوزارة) ───────────── */
+@media print {
+  .v9p-filter-card,
+  .v9p-table-view,
+  .v9p-search-trigger,
+  .v9p-sla-now { display: none !important; }
+  .v9p-impact .page-header { display: none; }
+  .v9p-report-head { background: none; border: 2px solid #000; }
+  .v9p-report .card,
+  .v9p-report .stat-card { break-inside: avoid; box-shadow: none; }
+  .v9p-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .v9p-grid.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .v9p-hbar-fill, .v9p-vbar { fill: #333; }
+  .v9p-hbar-track { fill: #ddd; }
+  .v9p-vbars-scroll { overflow: visible; }
+}

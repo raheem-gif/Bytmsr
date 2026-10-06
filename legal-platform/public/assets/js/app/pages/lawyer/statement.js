@@ -4,6 +4,7 @@ import { h, frag } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { label, money, num, date, count, orgName } from '../../../lib/fmt.js';
 import { bidiText } from './matters.js';
+import { printButton } from '../../components/print-button.js';
 import { pageHeader, card, table, tabs, statCard, statusBadge, codeTag, emptyState, errorState, alertBox, kv, progressBar, ltr } from '../../../lib/ui.js';
 
 const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'كشف حسابي' }];
@@ -72,6 +73,7 @@ export default async function render(ctx) {
     title: 'كشف حسابي',
     subtitle: `اتفاقك مع ${orgName()}، وما استُحق لك وما صُرف، ومساهماتك التطوعية.`,
     breadcrumbs: CRUMBS,
+    actions: ctx.user ? [printButton({ kind: 'statement', id: ctx.user.id, label: 'طباعة كشف الحساب', size: 'md' })] : null,
   });
 
   // ── الاتفاق ──

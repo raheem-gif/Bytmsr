@@ -68,7 +68,7 @@ export function createApp(config, { logger = console } = {}) {
   app.auth = createAuth(app);
   app.documents = createDocuments(app);
   app.clients = createClients(app);
-  app.whatsapp = createWhatsApp(config, app.log);
+  app.whatsapp = createWhatsApp(config, app.log, app);
   app.engine = createEngine(app);
   app.ai = createAi(app);
   app.visibility = createVisibility(app);
@@ -224,6 +224,8 @@ export function createApp(config, { logger = console } = {}) {
       return sendJson(res, 400, { error: 'رابط غير صالح', code: 'bad_request' });
     }
     const pathname = url.pathname;
+    // وضع الإعداد الأول (وحدة platform): 503 لكل /api عدا مسارات الإعداد و/api/meta، وتحويل /app إلى /setup
+    if (app.system?.gate?.(req, res, url)) return;
     if (pathname.startsWith('/api/') || pathname.startsWith('/webhooks/')) return handleApi(req, res, url);
     if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { error: 'الطريقة غير مسموح بها', code: 'method_not_allowed' });
     if (app.pageHandlers.has(pathname)) {

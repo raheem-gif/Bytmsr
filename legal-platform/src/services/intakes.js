@@ -322,6 +322,8 @@ export function createIntakes(app) {
       const caseRow = db.tx(() => {
         if (body.client) app.clients.update(i.client_id, body.client, actor);
         const c = app.cases.createFromIntake(i, body, actor);
+        // ربط الملف الجديد ببرنامج تمويل اختاره الموظف عند التحويل (وحدة programs)
+        if (body.program_id) app.programs.linkCase(c.id, body.program_id, actor, { force: true });
         db.update('intakes', i.id, {
           status: 'converted',
           kind: 'consultation',
@@ -342,6 +344,7 @@ export function createIntakes(app) {
           data: { case_code: c.code },
         });
         app.ai.feedbackOnConversion(i.id, c.id, { legal_area: c.legal_area, title: c.title }, actor);
+        app.practice?.onCaseCreated(c, actor); // v9 practice: فحص تعارض المصالح للعميل (لا يوقف التحويل)
         if (Array.isArray(body.issues) && body.ai_suggestion_id) {
           const sug = app.ai.suggestion(Number(body.ai_suggestion_id));
           if (sug) {

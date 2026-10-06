@@ -1,0 +1,619 @@
+/* ==========================================================================
+   الإصدار 9 — وحدة platform: معالج الإعداد الأول، صفحة التكاملات، صفحة صحة النظام
+   كل الأصناف مسبوقة بـ pf- لتجنب التعارض مع بقية الوحدات.
+   ========================================================================== */
+
+/* ───────────── عام ───────────── */
+.pf-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.pf-muted .icon {
+  vertical-align: -3px;
+}
+.pf-code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  unicode-bidi: isolate;
+}
+.pf-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+.pf-card-actions,
+.pf-row-actions,
+.pf-inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pf-inline-actions {
+  margin-block-start: 8px;
+}
+.pf-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  margin-block-end: 8px;
+}
+.pf-error-text {
+  color: var(--danger-700);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  max-width: 320px;
+}
+.pf-page .stack-lg > *,
+.pf-grid > * {
+  min-width: 0;
+}
+.pf-grid {
+  align-items: start;
+}
+/* المسارات وأسماء الملفات الطويلة تلتف داخل الصفحات بدل أن تمدد العرض */
+.pf-page .code-tag {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.pf-job-name {
+  font-size: 11px;
+  margin-block-start: 4px;
+}
+
+/* رقم الإصدار أسفل القائمة الجانبية */
+.sidebar-version {
+  margin-block-start: 4px;
+  font-size: 11px;
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+
+/* ───────────── معالج الإعداد الأول (/setup) ───────────── */
+.pf-setup-body {
+  background: var(--bg);
+}
+.pf-setup {
+  padding: 24px 16px 48px;
+}
+.pf-setup-wrap {
+  max-width: 820px;
+  margin-inline: auto;
+}
+.pf-setup-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.pf-setup-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pf-setup-h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--primary-800);
+}
+.pf-setup-sub,
+.pf-setup-intro {
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+.pf-setup-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.pf-setup-panel[hidden] {
+  display: none;
+}
+.pf-setup-title {
+  font-size: 18px;
+  font-weight: 700;
+  outline: none;
+}
+.pf-setup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--border);
+}
+.pf-setup-actions.pf-center {
+  justify-content: center;
+  border: 0;
+}
+.pf-setup-status:empty {
+  display: none;
+}
+
+/* مؤشر الخطوات */
+.pf-stepper {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  counter-reset: none;
+}
+.pf-stepper li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  position: relative;
+  min-width: 0;
+}
+.pf-stepper li::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  inset-inline-start: calc(50% + 18px);
+  inset-inline-end: calc(-50% + 18px);
+  height: 2px;
+  background: var(--border);
+}
+.pf-stepper li:last-child::before {
+  display: none;
+}
+.pf-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  position: relative;
+  z-index: 1;
+}
+.pf-stepper li.is-done .pf-step-num {
+  background: var(--success-100);
+  border-color: var(--success-600);
+  color: var(--success-700);
+}
+.pf-stepper li.is-done::before {
+  background: var(--success-600);
+}
+.pf-stepper li.is-current {
+  color: var(--primary-800);
+  font-weight: 700;
+}
+.pf-stepper li.is-current .pf-step-num {
+  background: var(--primary-700);
+  border-color: var(--primary-700);
+  color: #fff;
+}
+.pf-step-label {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+/* كلمة المرور */
+.pf-pw-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+.pf-pw-checks {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.pf-pw-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text-muted);
+}
+.pf-pw-checks li .icon {
+  margin-block-start: 3px;
+}
+.pf-pw-checks li.is-ok {
+  color: var(--success-700);
+}
+
+/* مجموعات التكاملات في المعالج */
+.pf-fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px 16px;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pf-fieldset legend {
+  font-weight: 700;
+  padding-inline: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* المراجعة والإنهاء */
+.pf-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pf-review-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-800);
+  margin-block-start: 8px;
+}
+.pf-setup-done {
+  align-items: center;
+  text-align: center;
+}
+.pf-done-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--success-100);
+  color: var(--success-700);
+}
+.pf-next-steps {
+  text-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  line-height: 1.8;
+  padding-inline-start: 22px;
+  margin: 0;
+}
+
+/* ───────────── رابط Webhook ───────────── */
+.pf-webhook {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-100);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-width: 0;
+}
+.pf-webhook-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.pf-webhook-row .pf-code {
+  flex: 1 1 220px;
+  min-width: 0;
+  background: var(--surface);
+}
+
+/* ───────────── صفحة التكاملات ───────────── */
+.pf-integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.pf-fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.pf-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--border);
+  min-width: 0;
+}
+.pf-field:last-child {
+  border-block-end: 0;
+}
+.pf-field-label {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+.pf-field-en {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: end;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+html[dir='rtl'] .pf-field-en {
+  text-align: right;
+}
+.pf-field-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.pf-field-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.pf-env {
+  font-size: 11px;
+}
+.pf-secret {
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+.pf-test-result .alert {
+  margin: 0;
+}
+.pf-guide {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.pf-guide > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-weight: 700;
+  color: var(--primary-800);
+}
+.pf-guide > summary::-webkit-details-marker {
+  display: none;
+}
+.pf-guide > summary::after {
+  content: '';
+  margin-inline-start: auto;
+  width: 8px;
+  height: 8px;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+.pf-guide[open] > summary::after {
+  transform: rotate(-135deg);
+}
+.pf-guide > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius);
+}
+.pf-guide-steps {
+  margin: 0;
+  padding-block: 4px 14px;
+  padding-inline: 34px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  line-height: 1.9;
+  font-size: 14px;
+}
+.pf-guide-steps li {
+  overflow-wrap: anywhere;
+}
+
+/* ───────────── صفحة صحة النظام ───────────── */
+.pf-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pf-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.pf-check.is-danger {
+  border-color: var(--danger-600);
+  background: var(--danger-100);
+}
+.pf-check.is-warning {
+  border-color: var(--warning-500);
+  background: var(--warning-100);
+}
+.pf-check-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+}
+.pf-check.is-danger .pf-check-icon,
+.pf-check.is-warning .pf-check-icon {
+  background: var(--surface);
+}
+.pf-check-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pf-check-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+.pf-check-detail {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.pf-check.is-danger .pf-check-detail,
+.pf-check.is-warning .pf-check-detail {
+  color: var(--gray-700);
+}
+
+/* ───────────── الشاشات الصغيرة ───────────── */
+@media (max-width: 1100px) {
+  .pf-integrations-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 900px) {
+  .pf-checks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pf-grid.grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .pf-setup {
+    padding: 12px 12px 32px;
+  }
+  .pf-setup-card {
+    padding: 18px 16px;
+    border-radius: var(--radius-lg);
+    gap: 16px;
+  }
+  .pf-setup-h1 {
+    font-size: 19px;
+  }
+  .pf-stepper li {
+    font-size: 11px;
+  }
+  .pf-stepper li:not(.is-current) .pf-step-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .pf-step-num {
+    width: 28px;
+    height: 28px;
+  }
+  .pf-stepper li::before {
+    top: 13px;
+    inset-inline-start: calc(50% + 16px);
+    inset-inline-end: calc(-50% + 16px);
+  }
+  .pf-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .pf-field-meta {
+    justify-content: flex-start;
+  }
+  .pf-setup-actions > .btn {
+    flex: 1 1 auto;
+  }
+  /* الجداول تتحول إلى بطاقات مكدسة على الهاتف (التسمية من data-label) */
+  .pf-stack-table {
+    overflow: visible;
+    border: 0;
+  }
+  .pf-stack-table table,
+  .pf-stack-table tbody,
+  .pf-stack-table tr,
+  .pf-stack-table td {
+    display: block;
+    width: 100%;
+  }
+  .pf-stack-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .pf-stack-table tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    margin-block-end: 10px;
+    background: var(--surface);
+  }
+  .card-body-flush > .pf-stack-table {
+    padding: 12px;
+  }
+  .pf-stack-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    text-align: start;
+    min-width: 0;
+  }
+  .pf-stack-table td + td {
+    border-block-start: 1px dashed var(--border);
+  }
+  .pf-stack-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding-block-start: 2px;
+  }
+  .pf-stack-table td > * {
+    min-width: 0;
+    text-align: end;
+  }
+  .pf-stack-table .table-empty td::before {
+    content: none;
+  }
+  .pf-guide-steps {
+    padding-inline-start: 26px;
+    padding-inline-end: 12px;
+  }
+}

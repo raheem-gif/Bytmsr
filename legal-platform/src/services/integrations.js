@@ -20,7 +20,7 @@ export const INTEGRATION_SPEC = {
       waba_id: { label: 'معرّف حساب واتساب للأعمال (WABA ID)', env: 'WHATSAPP_WABA_ID', cfg: (c) => c.whatsapp?.wabaId },
       app_secret: { label: 'سر التطبيق (App Secret)', secret: true, env: 'WHATSAPP_APP_SECRET', cfg: (c) => c.whatsapp?.appSecret },
       verify_token: { label: 'رمز التحقق من Webhook', secret: true, env: 'WHATSAPP_VERIFY_TOKEN', cfg: (c) => c.whatsapp?.verifyToken },
-      number: { label: 'رقم واتساب الظاهر للعملاء (أرقام دولية فقط)', env: 'WHATSAPP_NUMBER', cfg: (c) => c.whatsapp?.numberDigits },
+      number: { label: 'رقم واتساب الظاهر للمستفيدين (أرقام دولية فقط)', env: 'WHATSAPP_NUMBER', cfg: (c) => c.whatsapp?.numberDigits },
       api_version: { label: 'إصدار Graph API', env: 'WHATSAPP_API_VERSION', cfg: (c) => (process.env.WHATSAPP_API_VERSION ? c.whatsapp?.apiVersion : ''), default: 'v21.0' },
     },
   },
@@ -124,7 +124,7 @@ export function createIntegrations(app) {
     },
 
     /** حفظ قيم (القيمة الفارغة "" تحذف الحقل). يطلق الحدث integrations.changed لإعادة تهيئة الخدمة المعنية */
-    set(name, patch, actor) {
+    set(name, patch, actor, ctx = null) {
       const s = spec(name);
       if (!patch || typeof patch !== 'object') throw badRequest('بيانات غير صالحة');
       const cur = stored(name);
@@ -146,7 +146,7 @@ export function createIntegrations(app) {
         actor?.id ?? null,
         nowIso(),
       );
-      app.audit?.log({ actor, type: 'integration.updated', severity: 'warning', summary: `تم تحديث إعدادات ${s.label}`, data: { name, fields: Object.keys(patch) } });
+      app.audit?.log({ actor, ctx, type: 'integration.updated', severity: 'warning', summary: `تم تحديث إعدادات ${s.label}`, data: { name, fields: Object.keys(patch) } });
       app.events.emit('integrations.changed', { name });
       return svc.status(name);
     },

@@ -34,6 +34,8 @@ import {
 } from '../../../lib/ui.js';
 import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus } from './inbox.js';
 import { pickClient } from './clients.js';
+import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
+import { programSelect } from '../../components/program-picker.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
 const REPLY_CHANNELS = [
@@ -410,6 +412,11 @@ export default async function render(ctx) {
     });
     drawIssues();
 
+    // برنامج التمويل (اختياري) مع تنبيه الأهلية حسب المجال والمحافظة المختارين
+    const program = programSelect({ area: area0, governorate: (cl && cl.governorate) || it.governorate || null });
+    main.el.addEventListener('change', () => program.setContext({ area: main.getValues().legal_area }));
+    clientForm.el.addEventListener('change', () => program.setContext({ governorate: clientForm.getValues().governorate }));
+
     let created = null;
     modal({
       title: 'تحويل الطلب إلى ملف قانوني',
@@ -434,6 +441,7 @@ export default async function render(ctx) {
           h('p.field-hint', 'تُحدَّث في ملف العميل ', cl ? codeTag(cl.code) : null, '، ولا تظهر للمحامين إلا إذا أتاحت الإدارة الاسم صراحة.'),
           clientForm.el,
         ),
+        h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el),
       ),
       actions: [
         { label: 'إلغاء', variant: 'ghost' },
@@ -467,6 +475,7 @@ export default async function render(ctx) {
               case_manager_id: v.case_manager_id || undefined,
               client: Object.keys(client).length ? client : undefined,
               ai_suggestion_id: ai ? ai.id : undefined,
+              program_id: program.get() || undefined,
             };
             try {
               const res = await api.post(`${base}/convert`, payload);
@@ -1142,6 +1151,7 @@ export default async function render(ctx) {
         withId(decisionCard(), 'pa-decision'),
         withId(conversationCard(), 'pa-conversation'),
         withId(triageCard(), 'pa-triage'),
+        it.client_id && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
         activityCard(),
       ),
       h('div.detail-side', withId(aiCard(), 'pa-ai'), withId(clientCard(), 'pa-client'), sourceCard()),

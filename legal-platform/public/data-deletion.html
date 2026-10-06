@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>طلب حذف البيانات — {{site_name}}</title>
+    <meta name="description" content="كيف تطلب حذف بياناتك الشخصية من برنامج {{program_name}} في {{org_legal_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة المقر، وما الذي يحدث بعد الطلب." />
+    <!--site:head-->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
+    <link rel="stylesheet" href="/assets/css/app.css" />
+    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <script type="module" src="/assets/js/public/landing.js"></script>
+  </head>
+  <body class="site pub">
+    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+    {{{header}}}
+
+    <main id="main" tabindex="-1">
+      <section class="pub-page-hero" aria-labelledby="page-title">
+        <div class="pub-container">
+          <nav aria-label="مسار التصفح">
+            <ol class="pub-crumbs">
+              <li><a href="/">الرئيسية</a></li>
+              <li><a href="/privacy">سياسة الخصوصية</a></li>
+              <li aria-current="page">حذف البيانات</li>
+            </ol>
+          </nav>
+          <h1 id="page-title">طلب حذف بياناتك</h1>
+          <p>
+            من حقك أن تطلب حذف بياناتك الشخصية ومحادثاتك ومستنداتك المحفوظة لدى برنامج {{program_name}} في أي وقت، سواء تواصلت معنا عبر الموقع أو
+            واتساب أو غيرهما.
+          </p>
+          <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>
+        </div>
+      </section>
+
+      <div class="pub-container pub-doc-layout">
+        <details class="pub-toc" open>
+          <summary>محتويات الصفحة</summary>
+          <ol>
+            <li><a href="#how">كيف تطلب الحذف</a></li>
+            <li><a href="#include">ما الذي تذكره في طلبك</a></li>
+            <li><a href="#steps">ماذا يحدث بعد الطلب</a></li>
+            <li><a href="#deleted">ما الذي يُحذف</a></li>
+            <li><a href="#kept">ما قد نحتفظ به</a></li>
+            <li><a href="#whatsapp">محادثات واتساب</a></li>
+          </ol>
+        </details>
+
+        <article class="pub-doc">
+          <section id="how" aria-labelledby="how-title">
+            <h2 id="how-title">1. كيف تطلب الحذف</h2>
+            <p>اختر الوسيلة الأسهل لك، ويفضَّل أن تتواصل من رقم الهاتف نفسه الذي استخدمته معنا حتى نتحقق من هويتك بسرعة:</p>
+            <ul class="pub-ways">
+              <!--#if whatsapp_deletion_url-->
+              <li>
+                <span class="pub-tile"><svg class="pub-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg></span>
+                <div>
+                  <strong>عبر واتساب</strong>
+                  أرسل لنا رسالة بعبارة «طلب حذف بياناتي» من رقمك المسجل لدينا.
+                  <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">أرسل الطلب عبر واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
+                </div>
+              </li>
+              <!--/if whatsapp_deletion_url-->
+              <!--#if org_phone-->
+              <li>
+                <span class="pub-tile"><svg class="pub-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+                <div>
+                  <strong>بالهاتف</strong>
+                  اتصل بنا على الرقم <a href="tel:{{org_phone_href}}" class="pub-ltr" dir="ltr">{{org_phone}}</a><!--#if office_hours--> ({{office_hours}})<!--/if office_hours-->.
+                </div>
+              </li>
+              <!--/if org_phone-->
+              <!--#if org_email-->
+              <li>
+                <span class="pub-tile"><svg class="pub-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg></span>
+                <div>
+                  <strong>بالبريد الإلكتروني</strong>
+                  راسلنا على <a href="mailto:{{org_email}}?subject=%D8%B7%D9%84%D8%A8%20%D8%AD%D8%B0%D9%81%20%D8%A8%D9%8A%D8%A7%D9%86%D8%A7%D8%AA" class="pub-ltr" dir="ltr">{{org_email}}</a> بعنوان «طلب حذف بيانات».
+                </div>
+              </li>
+              <!--/if org_email-->
+              <!--#if org_address-->
+              <li>
+                <span class="pub-tile"><svg class="pub-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span>
+                <div>
+                  <strong>بزيارة مقر المؤسسة</strong>
+                  {{org_address}}<!--#if office_hours-->، {{office_hours}}<!--/if office_hours-->.
+                </div>
+              </li>
+              <!--/if org_address-->
+            </ul>
+          </section>
+
+          <section id="include" aria-labelledby="include-title">
+            <h2 id="include-title">2. ما الذي تذكره في طلبك</h2>
+            <ul>
+              <li>اسمك ورقم الهاتف الذي تواصلت منه معنا.</li>
+              <li>رقم الطلب (مثل <span class="pub-ltr" dir="ltr">REQ-2026-00123</span>) أو رقم الملف إن كان لديك، لتسريع الإجراء.</li>
+              <li>هل تريد حذف كل بياناتك، أم بيانات طلب بعينه فقط، أم التوقف عن مراسلتك فحسب.</li>
+            </ul>
+            <div class="pub-callout">
+              <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+              <p>لن نطلب منك أبدًا كلمة مرور أو رمز تحقق أو أي مبلغ مالي لتنفيذ طلب الحذف. وإذا وصلتك رسالة تطلب ذلك باسمنا فلا تستجب لها.</p>
+            </div>
+          </section>
+
+          <section id="steps" aria-labelledby="steps-title">
+            <h2 id="steps-title">3. ماذا يحدث بعد الطلب</h2>
+            <ol class="pub-timeline">
+              <li><strong>تأكيد الاستلام</strong>نؤكد استلام طلبك خلال ثلاثة أيام عمل عبر الوسيلة التي تواصلت منها.</li>
+              <li><strong>التحقق من الهوية</strong>نتحقق من أنك صاحب البيانات، عادةً بمطابقة رقم الهاتف، حتى لا يُحذف ملف أحد بطلب من غيره.</li>
+              <li><strong>تنفيذ الحذف</strong>نحذف بياناتك ونُلغي روابط المتابعة الخاصة بك خلال مدة لا تتجاوز ثلاثين يومًا من التحقق.</li>
+              <li><strong>إبلاغك بالنتيجة</strong>نرسل إليك تأكيدًا بإتمام الحذف، ونوضح لك ما قد نضطر للاحتفاظ به قانونًا وسببه.</li>
+            </ol>
+            <p>
+              إذا كان لك ملف مفتوح أو إجراء جارٍ أمام محكمة أو جهة حكومية، فسنوضح لك قبل الحذف أثر ذلك على متابعة ملفك، ولك أن تختار الاستمرار أو
+              الإيقاف.
+            </p>
+          </section>
+
+          <section id="deleted" aria-labelledby="deleted-title">
+            <h2 id="deleted-title">4. ما الذي يُحذف</h2>
+            <ul>
+              <li>بيانات التواصل: الاسم ورقم الهاتف والبريد الإلكتروني والمحافظة.</li>
+              <li>محتوى الرسائل والمحادثات عبر الموقع وواتساب وبوابة المتابعة.</li>
+              <li>المستندات والصور والتسجيلات الصوتية التي أرسلتها.</li>
+              <li>بيانات الأسرة الاختيارية، وأي ملاحظات تخص حالتك.</li>
+              <li>روابط المتابعة الخاصة بك، فتتوقف عن العمل فورًا.</li>
+            </ul>
+          </section>
+
+          <section id="kept" aria-labelledby="kept-title">
+            <h2 id="kept-title">5. ما قد نحتفظ به</h2>
+            <ul>
+              <li>إحصاءات مجمّعة لا تكشف هويتك، مثل عدد الطلبات في كل مجال.</li>
+              <li>نسخ مُجهّلة من الحالات المغلقة خالية من أي بيانات تعريفية، تُستخدم لتحسين جودة الاستشارات.</li>
+              <li>الحد الأدنى من السجلات التي يلزمنا القانون بالاحتفاظ بها، كالسجلات المحاسبية، وللمدة التي يقررها فقط.</li>
+              <li>ما يلزم لإثبات تنفيذ طلب الحذف نفسه (تاريخه ورقم الطلب) دون محتوى بياناتك.</li>
+            </ul>
+          </section>
+
+          <section id="whatsapp" aria-labelledby="whatsapp-title">
+            <h2 id="whatsapp-title">6. محادثات واتساب</h2>
+            <p>
+              حذف المحادثة من تطبيق واتساب على هاتفك لا يحذف نسختنا منها، ولا يحذف ما تحتفظ به شركة Meta وفق سياستها. ولحذف نسختنا اتبع الخطوات أعلاه،
+              ولإدارة بياناتك لدى واتساب نفسه استخدم إعدادات التطبيق وفق سياسة خصوصية واتساب.
+            </p>
+            <p>لمزيد من التفاصيل عن تعاملنا مع بياناتك راجع <a href="/privacy">سياسة الخصوصية</a>.</p>
+          </section>
+        </article>
+      </div>
+    </main>
+
+    {{{footer}}}
+  </body>
+</html>

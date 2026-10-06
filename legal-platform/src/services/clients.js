@@ -168,6 +168,7 @@ export function createClients(app) {
         for (const k of ['name', 'national_id', 'governorate', 'email']) if (!target[k] && other[k]) patch[k] = other[k];
         db.update('clients', target.id, { ...patch, updated_at: nowIso() });
         db.update('clients', other.id, { merged_into: target.id, updated_at: nowIso() });
+        app.practice?.onClientsMerged(target.id, other.id); // v9 practice: نقل بطاقة المستفيد وبيانات الأسرة المقترحة
         app.activity.log({
           client_id: target.id,
           actor,

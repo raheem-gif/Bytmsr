@@ -26,6 +26,10 @@ import {
   progressBar,
 } from '../../../lib/ui.js';
 import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
+import { printButton } from '../../components/print-button.js';
+import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
+import { partiesCard } from '../../components/parties.js'; // v9 practice
+import { outcomeCard } from '../../components/outcome.js'; // v9 practice
 
 const TAB_KEYS = ['events', 'tasks', 'invoices', 'expenses', 'fees', 'documents', 'messages', 'activity'];
 
@@ -565,6 +569,7 @@ export default async function render(ctx) {
             'div.btn-group.pb-table-actions',
             ['unpaid', 'partially_paid'].includes(i.status) && button('تسجيل دفعة', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => openPayment(i) }),
             i.status === 'unpaid' && !(i.paid_amount > 0) && asyncButton('إلغاء', () => cancelInvoice(i), { size: 'sm', variant: 'ghost', icon: 'x' }),
+            printButton({ kind: 'invoice', id: i.id, label: 'طباعة', variant: 'ghost', title: `طباعة الفاتورة ${i.number}` }),
           ),
       },
     ];
@@ -595,11 +600,13 @@ export default async function render(ctx) {
         flush: true,
         body: table({
           columns: [
+            { key: 'receipt', label: 'رقم الإيصال', render: (p) => (p.receipt_number ? codeTag(p.receipt_number) : null) },
             { key: 'invoice', label: 'الفاتورة', render: (p) => codeTag(p.invoice_number) },
             { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => h('strong.nowrap', money(p.amount)) },
             { key: 'paid_at', label: 'تاريخ الدفع', render: (p) => h('span.small.nowrap', date(p.paid_at)) },
             { key: 'method', label: 'الطريقة', render: (p) => p.method },
             { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null) },
+            { key: 'print', label: '', render: (p) => printButton({ kind: 'receipt', id: p.id, label: 'إيصال', variant: 'ghost', title: `طباعة إيصال الاستلام${p.receipt_number ? ` ${p.receipt_number}` : ''}` }) },
           ],
           rows: payments,
           caption: 'المدفوعات المسجلة',
@@ -765,8 +772,14 @@ export default async function render(ctx) {
             { key: 'size', label: 'الحجم', render: (x) => h('span.small.nowrap', formatBytes(x.size)) },
             {
               key: 'dl',
-              label: 'تنزيل',
-              render: (x) => button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
+              label: 'إجراءات',
+              render: (x) =>
+                h(
+                  'div.btn-group',
+                  button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
+                  // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
+                  sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }) }),
+                ),
             },
           ],
           rows: documents,
@@ -923,6 +936,8 @@ export default async function render(ctx) {
     closed && alertBox(`الملف المستمر مغلق منذ ${date(m.closed_at)}. يمكنك إعادة فتحه بتعديل الحالة.`, 'info', { icon: 'lock' }),
     stats,
     summary,
+    // v9 practice: أطراف الدعوى وتعارض المصالح، والأثر المتحقق للمستفيد
+    h('div.grid-2.v9p-grid', partiesCard({ matterId: m.id }), outcomeCard({ kind: 'matter', id: m.id })),
     tabsEl,
   );
 }

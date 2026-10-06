@@ -39,6 +39,7 @@ export const routes = [
   { path: '/impact', load: () => import('./pages/admin/impact.js'), roles: STAFF, title: 'تقرير الأثر' },
   { path: '/conflicts', load: () => import('./pages/admin/conflicts.js'), roles: STAFF, title: 'فحص تعارض المصالح' },
   { path: '/programs', load: () => import('./pages/admin/programs.js'), roles: STAFF, title: 'البرامج والتمويل' },
+  { path: '/programs/:id', load: () => import('./pages/admin/programs.js'), roles: STAFF, title: 'برنامج تمويل' },
   { path: '/quick-replies', load: () => import('./pages/admin/quick-replies.js'), roles: STAFF, title: 'الردود الجاهزة وقوالب واتساب' },
   { path: '/integrations', load: () => import('./pages/admin/integrations.js'), roles: ADMIN, title: 'التكاملات' },
   { path: '/system', load: () => import('./pages/admin/system.js'), roles: ADMIN, title: 'صحة النظام والنسخ الاحتياطي' },

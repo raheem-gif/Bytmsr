@@ -20,7 +20,9 @@ export function registerPublicRoutes(router, app) {
 
   function waDigits() {
     const s = app.settings.all();
-    return config.whatsapp.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
+    // الرقم الفعلي من إعدادات التكاملات (البيئة أولًا) ثم الرقم الظاهر في الإعدادات العامة
+    const eff = app.whatsapp.effective ? app.whatsapp.effective() : config.whatsapp;
+    return eff.numberDigits || String(s.whatsapp_display_number || '').replace(/\D/g, '');
   }
 
   router.get('/api/meta', (ctx) => {
@@ -44,10 +46,8 @@ export function registerPublicRoutes(router, app) {
   });
 
   // ===== الدخول =====
-  router.post('/api/auth/login', (ctx) => {
-    const user = app.auth.login(ctx, ctx.body.username, ctx.body.password);
-    return { user };
-  });
+  // يعيد { user } أو { two_factor_required, challenge } لحسابات التحقق بخطوتين (الخطوة الثانية: POST /api/auth/login/2fa)
+  router.post('/api/auth/login', (ctx) => app.auth.loginStep(ctx, ctx.body.username, ctx.body.password));
   router.post('/api/auth/logout', (ctx) => {
     app.auth.logout(ctx);
     return { ok: true };
@@ -96,6 +96,8 @@ export function registerPublicRoutes(router, app) {
       const area = b.legal_area ? v.oneOf(b.legal_area, LEGAL_AREAS.map((a) => a.code), 'نوع المشكلة') : null;
       const description = v.str(b.description, 'وصف المشكلة', { required: true, min: 20, max: 10000 });
       const mode = b.mode === 'guided' ? 'guided' : 'form';
+      // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء
+      const beneficiary = app.practice ? app.practice.beneficiary.validatePublic(b.beneficiary) : null;
       const attribution = sourceFromWebAttribution(b.attribution || {});
       attribution.detail = { ...attribution.detail, intake_mode: mode };
       const r = app.engine.receive({
@@ -114,6 +116,7 @@ export function registerPublicRoutes(router, app) {
       // الرابط مقصور على هذا الطلب الجديد وحده: رقم الهاتف في نموذج الموقع غير موثّق،
       // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
       if (r.duplicate || !r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
+      if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
       const token = app.clients.issuePortalToken(r.client.id, { intakeId: r.intake.id });
       const s = app.settings.all();
       const digits = waDigits();
@@ -168,7 +171,9 @@ export function registerPublicRoutes(router, app) {
   // ===== Webhook واتساب (WhatsApp Business Platform) =====
   router.get('/webhooks/whatsapp', (ctx) => {
     const q = ctx.query;
-    if (q['hub.mode'] === 'subscribe' && config.whatsapp.verifyToken && q['hub.verify_token'] === config.whatsapp.verifyToken) {
+    // رمز التحقق الفعلي: البيئة أولًا ثم ما حُفظ من صفحة التكاملات
+    const verifyToken = app.whatsapp.effective().verifyToken;
+    if (q['hub.mode'] === 'subscribe' && verifyToken && q['hub.verify_token'] === verifyToken) {
       ctx.text = q['hub.challenge'] || '';
       return;
     }
@@ -177,10 +182,12 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/webhooks/whatsapp',
     (ctx) => {
-      if (!config.whatsapp.appSecret) {
+      // سر التطبيق الفعلي: البيئة أولًا ثم ما حُفظ (مشفرًا) من صفحة التكاملات
+      const appSecret = app.whatsapp.effective().appSecret;
+      if (!appSecret) {
         // بدون سر التطبيق لا يمكن التحقق من أن الرسالة من ميتا: نقبلها فقط في وضع المحاكاة خارج الإنتاج
-        if (config.production || app.whatsapp.configured) throw forbidden('Webhook واتساب معطل: يجب ضبط WHATSAPP_APP_SECRET');
-      } else if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], config.whatsapp.appSecret)) {
+        if (config.production || app.whatsapp.configured) throw forbidden('Webhook واتساب معطل: يجب ضبط سر التطبيق (WHATSAPP_APP_SECRET) من صفحة التكاملات أو متغيرات البيئة');
+      } else if (!verifySignature(ctx.rawBody, ctx.req.headers['x-hub-signature-256'], appSecret)) {
         throw forbidden('توقيع غير صالح');
       }
       let payload;

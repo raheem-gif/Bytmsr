@@ -20,6 +20,8 @@ import {
   ltr,
   avatar,
 } from '../../../lib/ui.js';
+import { usersAdminSection } from '../../components/account-admin.js';
+import { siteSettingsCard } from '../../components/site-settings.js';
 
 const ENV_VARS = [
   { name: 'WHATSAPP_TOKEN', desc: 'رمز الوصول الدائم من Meta (System User Token) لإرسال الرسائل', group: 'wa' },
@@ -42,10 +44,9 @@ function fieldError(name, msg) {
 
 export default async function render(ctx) {
   const me = ctx.user || {};
-  const [data, usersRes] = await Promise.all([api.get('/admin/settings'), api.get('/admin/users')]);
+  const data = await api.get('/admin/settings');
   const settings = data.settings || {};
   const integ = data.integrations || {};
-  let users = Array.isArray(usersRes) ? usersRes : [];
 
   // ───────────── إعدادات المؤسسة ─────────────
   const orgForm = form(
@@ -196,150 +197,8 @@ export default async function render(ctx) {
     ),
   });
 
-  // ───────────── المستخدمون ─────────────
-  const usersHost = h('div');
-
-  async function reloadUsers() {
-    users = await api.get('/admin/users');
-    drawUsers();
-  }
-
-  function openAddUser() {
-    formDialog({
-      title: 'إضافة مستخدم للإدارة',
-      intro: 'دور «إدارة النظام» يملك كل الصلاحيات بما فيها المحاسبة والإعدادات؛ ودور «إدارة الحالات» يدير الوارد والملفات والمحامين دون المحاسبة والإعدادات.',
-      submitLabel: 'إضافة المستخدم',
-      fields: [
-        {
-          name: 'role',
-          label: 'الدور',
-          type: 'select',
-          required: true,
-          options: [
-            { value: 'case_manager', label: label('user_role', 'case_manager') },
-            { value: 'admin', label: label('user_role', 'admin') },
-          ],
-        },
-        { name: 'name', label: 'الاسم', required: true, maxLength: 120 },
-        { name: 'username', label: 'اسم المستخدم', required: true, ltr: true, minLength: 3, maxLength: 40, autocomplete: 'off', hint: 'حروف لاتينية وأرقام فقط' },
-        { name: 'password', label: 'كلمة المرور المبدئية', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل' },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone' },
-      ],
-      values: { role: 'case_manager' },
-      onSubmit: async (v) => {
-        if (!USERNAME_RE.test(v.username)) throw fieldError('username', 'اسم المستخدم يقبل الحروف اللاتينية والأرقام والنقطة والشرطة فقط');
-        return api.post('/admin/users', { role: v.role, name: v.name, username: v.username, password: v.password, email: v.email || null, phone: v.phone || null });
-      },
-    }).then(async (res) => {
-      if (!res) return;
-      toast(`تمت إضافة ${res.name} (${label('user_role', res.role)})`, 'success');
-      await reloadUsers();
-    });
-  }
-
-  function openEditUser(u) {
-    const self = u.id === me.id;
-    formDialog({
-      title: `تعديل حساب ${u.name}`,
-      intro: self ? 'هذا حسابك: لا يمكنك إيقافه أو خفض صلاحياتك بنفسك، حتى لا تبقى المنصة بلا حساب بدور «إدارة النظام».' : null,
-      submitLabel: 'حفظ التعديلات',
-      fields: [
-        { name: 'name', label: 'الاسم', required: true, maxLength: 120 },
-        {
-          name: 'role',
-          label: 'الدور',
-          type: 'select',
-          required: true,
-          placeholder: false,
-          disabled: self,
-          options: [
-            { value: 'admin', label: label('user_role', 'admin') },
-            { value: 'case_manager', label: label('user_role', 'case_manager') },
-          ],
-        },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone' },
-        {
-          name: 'password',
-          label: 'كلمة مرور جديدة (اختياري)',
-          type: 'password',
-          minLength: 8,
-          autocomplete: 'new-password',
-          hint: 'اتركها فارغة للإبقاء على كلمة المرور الحالية؛ تغييرها يُنهي جلسات المستخدم',
-        },
-        {
-          name: 'active',
-          type: 'checkbox',
-          text: self ? 'الحساب نشط (لا يمكنك إيقاف حسابك)' : 'الحساب نشط ويمكنه الدخول — أزل العلامة لإيقافه وإنهاء جلساته',
-          disabled: self,
-          full: true,
-        },
-      ],
-      values: { name: u.name, role: u.role, email: u.email, phone: u.phone, active: Boolean(u.active) },
-      onSubmit: async (v) => {
-        const patch = { name: v.name, email: v.email || null, phone: v.phone || null };
-        if (!self) {
-          if (v.role !== u.role) patch.role = v.role;
-          if (v.active !== Boolean(u.active)) patch.active = v.active;
-        }
-        if (v.password) patch.password = v.password;
-        return api.patch(`/admin/users/${encodeURIComponent(u.id)}`, patch);
-      },
-    }).then(async (res) => {
-      if (!res) return;
-      toast('تم حفظ بيانات المستخدم', 'success');
-      await reloadUsers();
-    });
-  }
-
-  function drawUsers() {
-    mount(
-      usersHost,
-      table({
-        className: 'pd-table-tight',
-        caption: 'مستخدمو الإدارة',
-        rows: users,
-        empty: 'لا يوجد مستخدمون',
-        rowClass: (u) => !u.active && 'is-muted',
-        columns: [
-          {
-            key: 'name',
-            label: 'الاسم',
-            render: (u) =>
-              h('div.pd-person', avatar(u.name, { size: 'sm' }), h('div.pd-person-text', h('span.cell-title', u.name), u.id === me.id ? h('div', badge('أنت', 'primary')) : null)),
-          },
-          { key: 'username', label: 'اسم المستخدم', render: (u) => codeTag(u.username) },
-          { key: 'role', label: 'الدور', render: (u) => statusBadge('user_role', u.role, { dot: false }) },
-          {
-            key: 'contact',
-            label: 'التواصل',
-            render: (u) => (u.email || u.phone ? h('div.pd-cell-stack', u.email ? ltr(u.email) : null, u.phone ? ltr(u.phone) : null) : null),
-          },
-          { key: 'active', label: 'الحالة', render: (u) => (u.active ? badge('نشط', 'success', { dot: true }) : badge('موقوف', 'muted', { dot: true })) },
-          {
-            key: 'last_login',
-            label: 'آخر دخول',
-            render: (u) => (u.last_login_at ? h('time.nowrap', { datetime: u.last_login_at, title: dateTime(u.last_login_at) }, relative(u.last_login_at)) : h('span.muted', 'لم يدخل بعد')),
-          },
-          { key: 'actions', label: '', render: (u) => button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditUser(u) }) },
-        ],
-      }),
-    );
-  }
-  drawUsers();
-
-  const usersCard = card({
-    title: 'المستخدمون',
-    subtitle: 'حسابات فريق الإدارة (إدارة النظام وإدارة الحالات)',
-    icon: 'users',
-    actions: button('إضافة مستخدم', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: openAddUser }),
-    body: h(
-      'div.stack',
-      usersHost,
-      h('p.pd-footnote', 'حسابات المحامين تُدار من ', h('a', { href: '#/lawyers' }, 'شبكة المحامين'), ' مع تخصصاتهم واتفاقاتهم المالية.'),
-    ),
-  });
+  // ───────────── المستخدمون (وحدة accounts: الحسابات، الدعوات المعلقة، سياسة الأمان) ─────────────
+  const usersSection = usersAdminSection({ me });
 
   return frag(
     pageHeader({
@@ -348,8 +207,9 @@ export default async function render(ctx) {
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الإعدادات والمستخدمون' }],
     }),
     card({ title: 'إعدادات المؤسسة', subtitle: 'تظهر للعملاء في الموقع والبوابة ورسائل واتساب', icon: 'settings', body: orgForm.el }),
+    siteSettingsCard(settings),
     integrationsCard,
-    usersCard,
+    usersSection,
   );
 }
 

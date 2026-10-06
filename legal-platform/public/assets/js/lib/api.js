@@ -60,7 +60,7 @@ const AUTH_QUIET_PATHS = ['/auth/login', '/auth/me', '/auth/session'];
  * @param {string} path مسار نسبي إلى /api
  * @param {{query?:object, body?:any, signal?:AbortSignal}} [opts]
  */
-export async function request(method, path, { query, body, signal } = {}) {
+export async function request(method, path, { query, body, signal, background = false } = {}) {
   const m = method.toUpperCase();
   const init = {
     method: m,
@@ -68,6 +68,8 @@ export async function request(method, path, { query, body, signal } = {}) {
     headers: { Accept: 'application/json' },
     signal,
   };
+  // طلبات الخلفية (مثل تحديث الإشعارات الدوري) لا يحتسبها الخادم نشاطًا يمدّد مهلة عدم النشاط للجلسة
+  if (background) init.headers['X-Background-Request'] = '1';
   if (m !== 'GET' && m !== 'HEAD') {
     // الخادم يرفض الطلبات المعدِّلة بغير JSON (حماية CSRF)
     init.headers['Content-Type'] = 'application/json';
@@ -102,6 +104,10 @@ export async function request(method, path, { query, body, signal } = {}) {
     const bare = String(path).split('?')[0];
     if (res.status === 401 && !AUTH_QUIET_PATHS.includes(bare)) {
       window.dispatchEvent(new CustomEvent('auth:expired'));
+    }
+    // قيد فُرض على الحساب أثناء الجلسة (إلزام بالتحقق بخطوتين أو كلمة مرور مؤقتة): main.js يعرض شاشة الإلزام
+    if (res.status === 403 && (err.code === 'two_factor_enrollment_required' || err.code === 'password_change_required')) {
+      window.dispatchEvent(new CustomEvent('auth:restricted', { detail: { code: err.code } }));
     }
     throw err;
   }

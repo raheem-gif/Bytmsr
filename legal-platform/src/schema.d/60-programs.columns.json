@@ -1,0 +1,4 @@
+[
+  ["cases", "program_id", "INTEGER REFERENCES programs(id)"],
+  ["payments", "receipt_number", "TEXT"]
+]

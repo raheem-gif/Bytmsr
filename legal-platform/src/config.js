@@ -25,7 +25,8 @@ export function loadConfig(overrides = {}) {
   const env = process.env;
   const production = env.NODE_ENV === 'production';
   const dataDir = path.resolve(ROOT, env.DATA_DIR || 'data');
-  const publicBaseUrl = (env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+  // على Render: الرابط العام للخدمة (https://<name>.onrender.com) إن لم يُضبط PUBLIC_BASE_URL صراحةً
+  const publicBaseUrl = (env.PUBLIC_BASE_URL || env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
   const cfg = {
     root: ROOT,
     production,

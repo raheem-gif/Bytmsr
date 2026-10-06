@@ -756,11 +756,256 @@ export async function seedDemo(app) {
 
     // ================= بيانات تجريبية لوحدات الإصدار 9 (كل وحدة تضيف كتلتها تحت علامتها فقط) =================
     // <seed:platform>
+    // صحة النظام: النسخة الاحتياطية التجريبية تُنشأ في src/bootstrap.js بعد اكتمال كل البيانات التجريبية
+    // (app.system.demoBackup) حتى تطابق اللقطة ما يراه المستخدم إذا نزّلها أو استعادها.
     // <seed:accounts>
+    // الحسابات والأمان: دعوة سارية لمحامية متطوعة وأخرى منتهية، مسؤولة امتثال بتحقق بخطوتين، جلسات، وسجل أمان (src/services/accounts-seed.js)
+    await (await import('./services/accounts-seed.js')).seedAccountsDemo(app, { at, adv, user });
     // <seed:messaging>
+    // الردود الجاهزة، قوالب واتساب المعتمدة وربطها، واستبيانات رضا مُجابة عن ملفات أُرسل فيها الرد (src/services/messaging-seed.js)
+    await (await import('./services/messaging-seed.js')).seedMessagingDemo(app, {
+      setTime: (iso) => {
+        T = Math.min(Date.parse(iso), realNow - 60 * 1000);
+        tick();
+      },
+      at,
+      admin,
+      manager,
+    });
     // <seed:practice>
+    // بطاقات المستفيدين، أطراف الملفات وتعارض المصالح (ومنه تنبيه حقيقي: خصم مسجل مستفيدًا لدى المؤسسة)،
+    // الأثر المتحقق للملفات المغلقة، وطلب من الموقع لأرملة مع بيانات أسرتها (غير موثّقة).
+    {
+      const savedT = T;
+      const P = app.practice;
+      const yr = cairoParts(new Date(realNow)).year;
+      const clientByName = (name) => db.get('SELECT id FROM clients WHERE name = ? AND merged_into IS NULL ORDER BY id LIMIT 1', name);
+      const caseOf = (clientName) => db.get('SELECT c.* FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE cl.name = ? ORDER BY c.id LIMIT 1', clientName);
+      const ben = (name, data, { verify = false, daysAgo = 3 } = {}) => {
+        const c = clientByName(name);
+        if (!c) return null;
+        at(daysAgo, 12);
+        P.beneficiary.save(c.id, { ...data, verify }, manager);
+        return c.id;
+      };
+      ben('سامية محمود عبد الحميد', {
+        relation: 'widow', children: [{ birth_year: yr - 17, gender: 'f' }, { birth_year: yr - 13, gender: 'm' }], monthly_income_band: '2000_4000', housing: 'rented_old',
+        employment: 'irregular', foundation_file_number: 'BM-2023-0418', is_foundation_beneficiary: true,
+        notes: 'أرملة منذ 2021، ابنتها في برنامج «نجاح» التعليمي. تعمل خياطة من المنزل بدخل غير منتظم.',
+      }, { verify: true, daysAgo: 5 });
+      ben('نهى سمير عبد الفتاح', {
+        relation: 'divorced', children: [{ birth_year: yr - 7, gender: 'm' }, { birth_year: yr - 5, gender: 'm' }], monthly_income_band: 'lt_2000', housing: 'family',
+        employment: 'irregular', notes: 'مقيمة مع أسرتها بعد الطلاق، والمطلق متوقف عن النفقة منذ أربعة أشهر.',
+      }, { verify: true, daysAgo: 80 });
+      ben('هبة ناصر', { relation: 'divorced', children: [{ birth_year: yr - 4, gender: 'f' }], monthly_income_band: 'none', housing: 'rented_old', employment: 'none' }, { daysAgo: 8 });
+      ben('أم يوسف', { relation: 'divorced', children: [{ birth_year: yr - 9, gender: 'm' }, { birth_year: yr - 6, gender: 'f' }, { birth_year: yr - 2, gender: 'f' }], monthly_income_band: 'lt_2000', housing: 'rented_new', employment: 'none', notes: 'بيانات من مكالمة هاتفية — تحتاج زيارة بحث اجتماعي.' }, { daysAgo: 0 });
+      ben('فاطمة إبراهيم السيد', { relation: 'wife', children_count: 2, monthly_income_band: '4000_7000', housing: 'owned', employment: 'employed' }, { verify: true, daysAgo: 115 });
+      ben('منى محمود حسن', { relation: 'other', children_count: 0, monthly_income_band: '2000_4000', housing: 'family', employment: 'employed', notes: 'ابنة المتوفى؛ والدتها الأرملة شريكة في التركة.' }, { daysAgo: 95 });
+      ben('عزة مصطفى', { relation: 'other', children_count: 0, monthly_income_band: 'lt_2000', housing: 'rented_old', employment: 'pension', has_disability: true, notes: 'تتقاضى معاش والدها، ولديها مرض مزمن.' }, { verify: true, daysAgo: 44 });
+      ben('مروة جمال', { relation: 'wife', children: [{ birth_year: yr - 3, gender: 'm' }], monthly_income_band: 'none', housing: 'family', employment: 'none' }, { daysAgo: 20 });
+
+      // خصم في ملف الميراث الرئيسي سبق تسجيله مستفيدًا من برنامج «نماء» (بصيغة كتابة مختلفة للاسم) ← تنبيه تعارض مصالح
+      at(30, 11);
+      const hasan = app.clients.create({ name: 'حسن محمود عبدالحميد', governorate: 'القاهرة', notes: 'مستورد من سجلات برنامج «نماء» (زكاة المال).' });
+      app.clients.addIdentity(hasan.id, 'phone', '01288334455');
+      db.insert('beneficiary_profiles', {
+        client_id: hasan.id, relation: 'other', children_count: 3, children: '[]', monthly_income_band: '2000_4000', housing: 'rented_new', employment: 'irregular',
+        has_disability: 0, foundation_file_number: 'BM-2021-0233', is_foundation_beneficiary: 1, data_source: 'import', updated_by: admin.id,
+        created_at: new Date(T).toISOString(), updated_at: new Date(T).toISOString(),
+      });
+      app.activity.log({ client_id: hasan.id, actor: admin, type: 'client.imported', summary: `أُضيف العميل ${hasan.code} من ملف استيراد مع بطاقة المستفيد` });
+      const main = db.get("SELECT * FROM cases WHERE code LIKE 'INH-%-00482'");
+      if (main) {
+        at(4, 13);
+        P.parties.add({ caseId: main.id }, { role: 'opponent', name: 'حسن محمود عبد الحميد', notes: 'الأخ الأكبر — واضع يده على المحل ويرفض القسمة.' }, manager);
+        adv(0.2);
+        P.parties.add({ caseId: main.id }, { role: 'related', name: 'نادية فتحي السيد', notes: 'أرملة الابن المتوفى والوصية على القاصرين بقرار محكمة الأسرة (2023).' }, manager);
+      }
+      // الملفات المستمرة: أسماء الخصوم الحقيقية بدل الوصف العام، وشاهد هو عميل سابق (يحتاج مراجعة)
+      at(3, 10);
+      app.matters.update(m1.id, { opponent: 'أيمن فاروق عبد الله' }, manager);
+      app.matters.update(m2.id, { opponent: 'مصطفى كامل الشريف' }, manager);
+      adv(0.5);
+      P.parties.add({ matterId: m2.id }, { role: 'witness', name: 'سيد عبد الفتاح', notes: 'زميل سابق شهد تسليم البضاعة.' }, manager);
+
+      // الأثر المتحقق للملفات المغلقة (لتقرير الأثر)
+      const value = (clientName, v) => {
+        const c = caseOf(clientName);
+        if (!c || c.status !== 'closed') return;
+        T = Math.min(Date.parse(c.closed_at) + 2 * HOUR, realNow - 30 * 60 * 1000);
+        tick();
+        P.outcome.save('case', c.id, P.outcome.parse(v), manager);
+      };
+      value('فاطمة إبراهيم السيد', { outcome_kind: 'inheritance_share', recovered_one_time: 285000, notes: 'قسمة رضائية للشقة بعد الاستشارة: بيعت ووُزع الثمن بالأنصبة الشرعية (نصيب العميلة الربع).' });
+      value('منى محمود حسن', { outcome_kind: 'document_issued', notes: 'صدر إعلام الوراثة متضمنًا الزوجة والبنات والإخوة الأشقاء.' });
+      value('خالد عبد الرحيم', { outcome_kind: 'inheritance_share', recovered_one_time: 120000, notes: 'ثبتت الوصية الواجبة للأحفاد الثلاثة في إعلام الوراثة.' });
+      value('سيد عبد الفتاح', { outcome_kind: 'settlement', recovered_one_time: 42000, notes: 'تسوية ودية بمكتب العمل شملت الأجر المتأخر ومقابل الإجازات، وإلزام صاحب العمل بالتأمين عن المدة الفعلية.' });
+      value('عزة مصطفى', { outcome_kind: 'other', recovered_monthly: 2500, notes: 'امتد عقد الإيجار القديم للابنة المقيمة؛ القيمة الشهرية = الفرق التقديري عن الإيجار السوقي الذي تجنبته الأسرة.' });
+      value('حسام الدين يوسف', { outcome_kind: 'advice_only' });
+      value('شريف عادل', { outcome_kind: 'advice_only' });
+
+      // طلب من الموقع لأرملة مع بيانات أسرتها (يذكرها مقدم الطلب) ← بطاقة «غير موثّقة» بانتظار تحقق الإدارة
+      at(0, 9, 5);
+      const w = web(
+        '01068443322',
+        'وفاء عبد الستار',
+        'المنيا',
+        'زوجي الله يرحمه توفى من 8 شهور وكان شغال في شركة خاصة ومأمن عليه، ولحد دلوقتي معرفتش أصرف المعاش ليا وللعيال. التأمينات بتطلب ورق كتير ومش فاهمة أعمل إيه، ومعايا 3 عيال في المدارس.',
+        { utm_source: 'facebook', utm_medium: 'social', referrer: 'https://www.facebook.com/' },
+        { area: 'LAB' },
+      );
+      P.beneficiary.savePublic(w.intake, w.client, P.beneficiary.validatePublic({ relation: 'widow', children_count: 3, monthly_income_band: 'none', housing: 'rented_new', foundation_file_number: 'BM-2022-0087' }), { createdClient: !!w.created_client });
+      // نموذج الموقع برقم سامية (غير موثّق): البيانات تبقى مقترحة على الطلب ولا تمس بطاقة صاحبة الرقم
+      const i7row = db.get("SELECT id FROM intakes WHERE contact_name = 'هبة' AND first_channel = 'website' ORDER BY id DESC LIMIT 1");
+      if (i7row) {
+        const ir = db.get('SELECT * FROM intakes WHERE id = ?', i7row.id);
+        P.beneficiary.savePublic(ir, app.clients.get(ir.client_id), P.beneficiary.validatePublic({ relation: 'other', children_count: 1, monthly_income_band: 'lt_2000', housing: 'family' }), { createdClient: false });
+      }
+      T = savedT;
+      tick();
+    }
     // <seed:ai>
+    // الذكاء الاصطناعي: مجالا المؤسسة الجديدان في صندوق الوارد (معاش أرملة، أموال قاصرين تحت إشراف النيابة الحسبية)،
+    // تصنيف مبدئي لمستندات الملف الرئيسي، ورد مقترح لطلب المستندات استخدمته مديرة الحالات.
+    {
+      at(1, 11, 5);
+      const penIntake = wa('01093216540', 'أم مريم', 'السلام عليكم، جوزي الله يرحمه اتوفى من 3 شهور وكان شغال في شركة خاصة ومتأمن عليه، وعندي بنتين في ابتدائي. رحت مكتب التأمينات قالولي محتاجين إعلام وراثة. أعمل إيه عشان أصرف معاشه؟', { referral: fbAd('حقك في معاش زوجك — اسألي بيوت مصر') });
+      await app.ai.analyzeIntake(penIntake.intake.id);
+      adv(2.5);
+      const grdIntake = web('01284460931', 'نجلاء عبد الفتاح', 'الجيزة', 'زوجي توفي من سنة وترك لأولادي الثلاثة (9 و12 و15 سنة) نصيبًا في شقة ومبلغًا في البنك. البنك يقول إن الفلوس تحت إشراف النيابة الحسبية ولا أستطيع الصرف منها لمصاريف المدارس، وجد الأولاد يريد أن يكون هو الوصي. ما الإجراءات؟', { utm_source: 'facebook', utm_medium: 'social' });
+      await app.ai.analyzeIntake(grdIntake.intake.id);
+      at(0, 9, 10);
+      for (const d of [deathDoc, flatDoc]) if (d) await app.ai.analyzeDocument(d.id, manager);
+      adv(0.4);
+      const suggested = await app.ai.suggestReply({ case_id: nCase.id, intent: 'ask_documents' }, manager);
+      if (suggested.suggestions[0]) app.ai.replyFeedback(suggested.id, { index: 0, action: 'sent', final_text: suggested.suggestions[0].text }, manager);
+    }
     // <seed:programs>
+    // البرامج ومصادر التمويل: منحة (أسرة وميراث)، زكاة «نماء» (الغارمون والأسر المستحقة)، شراكة مسؤولية مجتمعية (عمل ومعاشات)،
+    // وبرنامج مخطط للعام القادم. تواريخ نسبية حتى يبقى السيناريو متسقًا أيًا كان تاريخ التشغيل.
+    {
+      const nowParts = cairoParts(new Date(realNow));
+      const monthStart = (offset) => {
+        const d = new Date(Date.UTC(nowParts.year, nowParts.month - 1 + offset, 1));
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      };
+      const monthEnd = (offset) => {
+        const d = new Date(Date.UTC(nowParts.year, nowParts.month + offset, 0));
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
+      const caseOf = (clientName) => db.value('SELECT c.id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE cl.name = ? ORDER BY c.id LIMIT 1', clientName);
+      const link = (clientName, prg) => {
+        const cid = caseOf(clientName);
+        if (cid) app.programs.linkCase(cid, prg.id, manager, { confirm: true });
+        return cid;
+      };
+
+      at(150, 9);
+      const prgFamily = app.programs.create(
+        {
+          name: 'الدعم القانوني للأرامل والأيتام في قضايا الأسرة والميراث',
+          funder_name: 'شريك تنموي — منحة مقيدة لدعم الأسر الأولى بالرعاية',
+          funder_type: 'grant',
+          agreement_ref: `GR-${nowParts.year}/014`,
+          funder_contact: 'مسؤولة المنح لدى الشريك — يُراسَل عبر البريد الرسمي للمؤسسة',
+          description: 'تمويل الاستشارات والتمثيل القضائي للأرامل والأيتام في دعاوى النفقة والحضانة والميراث والولاية على المال بمحافظات القاهرة الكبرى.',
+          restrictions: 'تُصرف المنحة على أتعاب المحامين ومصروفات التقاضي فقط، ولا تشمل المصروفات الإدارية للمؤسسة. يُقدَّم تقرير ربع سنوي بعدد الأسر المستفيدة والنتائج دون أي بيانات شخصية.',
+          start_date: monthStart(-5),
+          end_date: monthEnd(6),
+          budget: 25000,
+          eligible_governorates: ['القاهرة', 'الجيزة', 'القليوبية'],
+          eligible_areas: ['FAM', 'INH'],
+        },
+        admin,
+      ).program;
+      at(125, 11);
+      const prgZakat = app.programs.create(
+        {
+          name: 'نماء — زكاة المال للتمثيل القضائي للغارمين والأسر المستحقة',
+          funder_name: 'صندوق نماء للزكاة — مؤسسة بيوت مصر',
+          funder_type: 'zakat',
+          agreement_ref: `NAMAA-${nowParts.year}-LEGAL`,
+          description: 'مخصص من أموال الزكاة لتغطية مصروفات التقاضي وأتعاب الحضور للأسر المستحقة والغارمين المهددين بالحبس أو الطرد.',
+          restrictions: 'أموال زكاة: تُصرف في مصارفها الشرعية فقط (الفقراء والمساكين والغارمون) بعد بحث اجتماعي يثبت الاستحقاق، ولا يجوز صرفها على أجور العاملين الإداريين أو التسويق.',
+          start_date: monthStart(-4),
+          end_date: monthEnd(2),
+          budget: 4000,
+        },
+        admin,
+      ).program;
+      at(120, 12);
+      const prgCsr = app.programs.create(
+        {
+          name: 'شراكة المسؤولية المجتمعية — حقوق العمل والمعاشات',
+          funder_name: 'مجموعة صناعية خاصة (برنامج المسؤولية المجتمعية)',
+          funder_type: 'csr',
+          agreement_ref: `CSR-${nowParts.year}-07`,
+          description: 'دعم الاستشارات العمالية ومطالبات المعاشات والتأمينات للأرامل وأبناء العمال المتوفين.',
+          restrictions: 'لا يُذكر اسم الشريك علنًا إلا بموافقته، ولا يُستخدم التمويل في نزاعات ضد الشركات التابعة له.',
+          start_date: monthStart(-4),
+          end_date: monthEnd(5),
+          budget: 6000,
+          eligible_areas: ['LAB', 'ADM'],
+        },
+        admin,
+      ).program;
+      app.programs.create(
+        {
+          name: 'الولاية على المال وحماية أنصبة القُصَّر في التركات',
+          funder_name: 'موارد ذاتية — فائض حملة رمضان',
+          funder_type: 'internal',
+          description: 'برنامج مخطط لمتابعة طلبات الولاية على المال أمام نيابة شؤون الأسرة وحماية أنصبة الأيتام في التركات.',
+          start_date: monthStart(3),
+          end_date: monthEnd(14),
+          budget: 30000,
+          status: 'planned',
+          eligible_areas: ['INH', 'FAM'],
+        },
+        admin,
+      );
+
+      // ربط الملفات بالبرامج (كل ملف ببرنامج واحد على الأكثر)
+      T = realNow - 30 * 60 * 1000;
+      tick();
+      for (const n of ['فاطمة إبراهيم السيد', 'منى محمود حسن', 'نهى سمير عبد الفتاح', 'هبة ناصر', 'سامية محمود عبد الحميد']) link(n, prgFamily);
+      for (const n of ['رامي فوزي', 'عزة مصطفى']) link(n, prgZakat);
+      const sayedCase = link('سيد عبد الفتاح', prgCsr);
+      link('أشرف عبد الحكيم', prgCsr);
+      link('عبد الله حمدي', prgCsr);
+
+      // الإنفاق الفعلي على مدى الأشهر: مصروفات دفعتها المؤسسة وأتعاب مباشرة على ملفات البرامج
+      at(70, 12);
+      app.matters.addExpense(m1.id, { description: 'رسوم إعلان صحيفة دعوى النفقة', amount: 120, paid_by: 'organization' }, manager);
+      at(41, 13);
+      app.matters.addExpense(m1.id, { description: 'أمانة خبير حسابات لتقدير دخل المطلق', amount: 750, paid_by: 'organization' }, manager);
+      at(30, 10);
+      app.accounting.addAdjustment({ kind: 'matter_fee', matter_id: m1.id, lawyer_id: U.rania.id, amount: 1500, description: 'أتعاب مباشرة دعوى النفقة — المرحلة الأولى' }, admin);
+      at(3, 11);
+      app.accounting.addAdjustment({ case_id: nCase.id, lawyer_id: U.ahmed.id, amount: 1200, description: 'أتعاب إضافية: حضور جلسة نيابة شؤون الأسرة لإثبات حقوق القاصرين' }, admin);
+
+      at(36, 12);
+      app.matters.addExpense(m2.id, { description: 'رسوم استخراج صور رسمية من محضر التبديد', amount: 180, paid_by: 'organization' }, manager);
+      at(30, 10);
+      const zInv = app.matters.addInvoice(m2.id, { description: 'رسوم إدارية رمزية — ملف الجنحة', amount: 200, due_at: addDays(new Date(T).toISOString(), 14) }, manager);
+      at(28, 13);
+      app.matters.addPayment(zInv.id, { amount: 200, method: 'نقدًا بمقر المؤسسة' }, manager);
+      at(21, 11);
+      app.accounting.addAdjustment({ kind: 'matter_fee', matter_id: m2.id, lawyer_id: U.hany.id, amount: 2500, description: 'أتعاب حضور جلسات الجنحة (خارج الاتفاق الشهري)' }, admin);
+      at(8, 12);
+      app.matters.addExpense(m2.id, { description: 'رسوم إعلان شاهد النفي', amount: 220, paid_by: 'organization' }, manager);
+      at(2, 10);
+      app.matters.addExpense(m2.id, { description: 'مستخرجات السجل التجاري لإثبات طبيعة التعامل', amount: 450, paid_by: 'organization' }, manager);
+
+      at(50, 12);
+      if (sayedCase) app.accounting.addAdjustment({ case_id: sayedCase, lawyer_id: U.yasmine.id, amount: 400, description: 'بدل انتقال لمكتب العمل بالزقازيق' }, admin);
+      at(1, 16);
+      if (lc) app.accounting.addAdjustment({ case_id: lc.id, lawyer_id: U.yasmine.id, amount: 900, description: 'صياغة إنذار رسمي لصاحب العمل بصرف الأجور المتأخرة' }, admin);
+
+      // فحص الميزانيات الآن: برنامج «نماء» تجاوز 80% فيصل تنبيه للإدارة (مرة واحدة)
+      T = realNow - 10 * 60 * 1000;
+      tick();
+      app.programs.checkBudget();
+    }
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

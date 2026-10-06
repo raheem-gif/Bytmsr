@@ -74,7 +74,7 @@ export function registerLawyerRoutes(router, app) {
   // مساعدة الذكاء الاصطناعي: مسودة أولية + حالات مشابهة من المعرفة المعتمدة المجهّلة فقط
   router.post('/api/lawyer/assignments/:id/ai/draft', L(async (ctx, u) => {
     const s = await app.ai.draftForAssignment(id(ctx), u);
-    return { id: s.id, text: s.output.text, provider: s.provider, fallback_reason: s.output._fallback_reason || null };
+    return { id: s.id, text: s.output.text, provider: s.provider, fallback_reason: s.output._fallback_reason || null, sources: s.output.sources || [] };
   }));
   router.get('/api/lawyer/assignments/:id/similar', L((ctx, u) => {
     const view = app.visibility.assignmentView(id(ctx), u);

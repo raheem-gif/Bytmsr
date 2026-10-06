@@ -71,6 +71,7 @@ export function createMatters(app) {
           updated_at: t,
         });
         db.update('cases', c.id, { matter_id: mid, updated_at: t });
+        app.practice?.syncMatterOpponent(mid, actor); // v9 practice: فحص تعارض المصالح للخصم
         app.activity.log({
           case_id: c.id,
           matter_id: mid,
@@ -239,6 +240,7 @@ export function createMatters(app) {
       }
       db.tx(() => {
         db.update('matters', m.id, patch);
+        if (patch.opponent !== undefined && patch.opponent !== m.opponent) app.practice?.syncMatterOpponent(m.id, actor); // v9 practice
         // المهام المفتوحة للمحامي السابق تنتقل للمحامي الجديد (ولا تبقى إشعاراتها عند من لم يعد له وصول للملف)
         if (patch.responsible_lawyer_id !== undefined && m.responsible_lawyer_id && patch.responsible_lawyer_id !== m.responsible_lawyer_id) {
           db.run(
@@ -423,6 +425,8 @@ export function createMatters(app) {
           paid_at: v.iso(body.paid_at, 'تاريخ الدفع') || t,
           method: v.str(body.method, 'طريقة الدفع', { max: 60 }),
           reference: v.str(body.reference, 'المرجع', { max: 120 }),
+          // رقم إيصال الاستلام RCPT-YYYY-NNNNN يُمنح عند التسجيل ويبقى ثابتًا (وحدة programs)
+          receipt_number: app.programs?.nextReceiptNumber ? app.programs.nextReceiptNumber(t) : null,
           recorded_by: actor.id,
           created_at: t,
         });

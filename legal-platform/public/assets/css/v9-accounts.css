@@ -1,0 +1,711 @@
+/* ==========================================================================
+   الإصدار 9 — وحدة الحسابات والأمان (accounts)
+   الدعوات، إعادة التعيين، التحقق بخطوتين، الجلسات، سجل الأمان، وشاشات ما قبل الدخول.
+   ========================================================================== */
+
+/* ───────── شاشات ما قبل الدخول (رابط الدعوة، إعادة التعيين، الخطوة الثانية، الإلزام) ───────── */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 32px 16px 40px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(184, 134, 46, 0.12), transparent 40%),
+    linear-gradient(180deg, var(--primary-50) 0%, var(--bg) 320px);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-800);
+}
+
+.auth-brand .brand-mark {
+  width: 40px;
+  height: 40px;
+}
+
+.auth-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.auth-brand-text strong {
+  font-size: 17px;
+}
+
+.auth-brand-text span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  outline: none;
+}
+
+.auth-card-wide {
+  max-width: 640px;
+}
+
+.auth-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-block-end: 18px;
+}
+
+.auth-head h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.auth-head-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.auth-sub {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.auth-expiry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 0 0 16px;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-block-start: 16px;
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-start: 14px;
+}
+
+.auth-back,
+.login-forgot {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.login-forgot {
+  margin: 14px 0 0;
+  text-align: center;
+}
+
+/* ───────── مؤشر قوة كلمة المرور ───────── */
+.acc-strength {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-block-start: 6px;
+}
+
+.acc-strength-track {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  overflow: hidden;
+}
+
+.acc-strength-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--gray-300);
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.acc-strength[data-level="1"] .acc-strength-bar { width: 25%; background: var(--danger-600); }
+.acc-strength[data-level="2"] .acc-strength-bar { width: 50%; background: var(--warning-500); }
+.acc-strength[data-level="3"] .acc-strength-bar { width: 75%; background: var(--info-600); }
+.acc-strength[data-level="4"] .acc-strength-bar { width: 100%; background: var(--success-600); }
+
+.acc-strength-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  min-height: 1em;
+}
+
+.acc-strength[data-level="1"] .acc-strength-text { color: var(--danger-700); }
+
+/* ───────── عام ───────── */
+.acc-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.acc-lead {
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.acc-text-warning {
+  color: var(--warning-700);
+  font-weight: 600;
+}
+
+.acc-otp-input {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  max-width: 260px;
+}
+
+.acc-footnote {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.acc-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.acc-person .cell-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.acc-cell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.acc-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.acc-summary-row:empty {
+  display: none;
+}
+
+/* ───────── معالج التحقق بخطوتين ───────── */
+.acc-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 16px;
+  padding: 0 0 12px;
+  border-block-end: 1px solid var(--border);
+}
+
+.acc-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-soft);
+}
+
+.acc-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.acc-steps li.is-current {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.acc-steps li.is-current .acc-step-num {
+  background: var(--primary-700);
+  color: #fff;
+}
+
+.acc-steps li.is-done .acc-step-num {
+  background: var(--success-100);
+  color: var(--success-700);
+}
+
+.acc-scan {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-block-end: 16px;
+}
+
+.acc-qr {
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  line-height: 0;
+}
+
+.acc-qr .qr-code {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.acc-howto {
+  margin: 0 0 12px;
+  padding-inline-start: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acc-manual {
+  margin-block-end: 10px;
+}
+
+.acc-manual summary,
+.acc-message-preview summary,
+.acc-events summary {
+  cursor: pointer;
+  color: var(--link);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.acc-manual[open] summary,
+.acc-message-preview[open] summary,
+.acc-events[open] summary {
+  margin-block-end: 8px;
+}
+
+.acc-secret {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: flex-start;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  user-select: all;
+}
+
+/* ───────── رموز الاسترداد ───────── */
+.acc-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acc-codes {
+  list-style: none;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  counter-reset: rc;
+}
+
+.acc-codes li {
+  counter-increment: rc;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.acc-codes li::before {
+  content: counter(rc) ".";
+  font-size: 12px;
+  color: var(--text-soft);
+  min-width: 1.6em;
+}
+
+.acc-codes code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.acc-confirm {
+  font-weight: 500;
+}
+
+/* ───────── روابط الدعوة وإعادة التعيين ───────── */
+.acc-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.acc-link-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.acc-message-preview .pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── لوحة أمان الحساب (للإدارة) ───────── */
+.acc-event-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.acc-event-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--gray-100);
+}
+
+.acc-event-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.acc-event-type {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+/* ───────── صفحة حسابي ───────── */
+.acc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.acc-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.acc-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.acc-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.acc-session {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.acc-session.is-current {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+}
+
+.acc-session-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.acc-session-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acc-session-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.acc-session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* ───────── سجل الأمان ───────── */
+.acc-stats {
+  margin-block-end: 20px;
+}
+
+.acc-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.acc-date-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.acc-date {
+  width: 158px;
+  max-width: 100%;
+}
+
+.acc-results-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.acc-total {
+  font-weight: 600;
+}
+
+.acc-col-summary {
+  min-width: 260px;
+}
+
+.acc-audit-table tr.sev-critical td:first-child {
+  box-shadow: inset -3px 0 0 var(--danger-600);
+}
+
+.acc-audit-table tr.sev-warning td:first-child {
+  box-shadow: inset -3px 0 0 var(--warning-500);
+}
+
+.acc-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-block-start: 14px;
+}
+
+.acc-pager-text {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.acc-json {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* تغييرات سياسة الأمان في نافذة تفاصيل الحدث: «الإعداد: القيمة السابقة ← الجديدة» */
+.acc-change-list {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── الشاشات المتوسطة والصغيرة ───────── */
+@media (max-width: 1100px) {
+  .acc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-screen {
+    padding: 20px 16px 32px;
+  }
+
+  .auth-card {
+    padding: 20px 16px;
+  }
+
+  .acc-scan {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .acc-scan-text {
+    width: 100%;
+  }
+
+  .acc-codes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .acc-link-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .acc-date-range,
+  .acc-date-label,
+  .acc-date {
+    width: 100%;
+  }
+
+  .acc-date-label .acc-date {
+    flex: 1 1 auto;
+  }
+
+  /* الجداول تتحول إلى بطاقات مكدسة على الجوال */
+  .acc-audit-table,
+  .acc-table {
+    border: 0;
+    background: transparent;
+  }
+
+  .acc-audit-table thead,
+  .acc-table thead {
+    display: none;
+  }
+
+  .acc-audit-table table,
+  .acc-audit-table tbody,
+  .acc-table table,
+  .acc-table tbody {
+    display: block;
+  }
+
+  .acc-audit-table tr,
+  .acc-table tr {
+    display: block;
+    margin-block-end: 10px;
+    padding: 6px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  .acc-audit-table td,
+  .acc-table td {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 6px 12px;
+    border: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .acc-audit-table td[data-label]::before,
+  .acc-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    flex: 0 0 92px;
+    font-size: 12px;
+    color: var(--text-soft);
+  }
+
+  .acc-col-summary {
+    min-width: 0;
+  }
+
+  .acc-audit-table tr.sev-critical,
+  .acc-audit-table tr.sev-warning {
+    border-inline-start-width: 4px;
+  }
+
+  .acc-audit-table tr.sev-critical { border-inline-start-color: var(--danger-600); }
+  .acc-audit-table tr.sev-warning { border-inline-start-color: var(--warning-500); }
+
+  .acc-audit-table tr.sev-critical td:first-child,
+  .acc-audit-table tr.sev-warning td:first-child {
+    box-shadow: none;
+  }
+
+  .acc-table tr.table-empty td::before {
+    content: none;
+  }
+}

@@ -2,6 +2,7 @@
 
 import { h } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
+import { duration as v9pDuration, count as v9pCount } from '../../../lib/fmt.js'; // v9 practice
 import { label, money, num, relative, dateTime, time, calendarParts, cairoParts, percent } from '../../../lib/fmt.js';
 import { pageHeader, card, button, badge, statusBadge, icon, codeTag, statCard, progressBar, emptyState, avatar, richText } from '../../../lib/ui.js';
 
@@ -154,6 +155,25 @@ export default async function render(ctx) {
       tone: d.overdue_assignments ? 'danger' : 'neutral',
       href: '#/queue?section=overdue_assignments',
     }),
+    // v9 practice: زمن أول رد ومستوى الخدمة (طلبات واتساب والموقع، آخر 30 يومًا)
+    d.sla &&
+      statCard({
+        label: 'متوسط زمن أول رد',
+        value: d.sla.avg_minutes != null ? v9pDuration(d.sla.avg_minutes * 60000) : '—',
+        hint: d.sla.within_sla_rate != null ? `ضمن مهلة ${v9pCount(d.sla.hours, 'hour')}: ${percent(d.sla.within_sla_rate)} (آخر 30 يومًا)` : 'لا ردود خلال آخر 30 يومًا',
+        icon: 'message',
+        tone: 'info',
+        href: '#/impact',
+      }),
+    d.sla &&
+      statCard({
+        label: 'متأخرة عن مستوى الخدمة',
+        value: num(d.sla.overdue_now),
+        hint: d.sla.overdue_now ? `طلبات بلا رد منذ أكثر من ${v9pCount(d.sla.hours, 'hour')}` : `لا توجد طلبات تجاوزت مهلة ${v9pCount(d.sla.hours, 'hour')} دون رد`,
+        icon: 'clock',
+        tone: d.sla.overdue_now ? 'danger' : 'success',
+        href: d.sla.overdue_now && d.sla.overdue[0] ? `#/inbox/${d.sla.overdue[0].id}` : '#/inbox',
+      }),
     statCard({
       label: 'فواتير متأخرة',
       value: num(d.overdue_invoices),

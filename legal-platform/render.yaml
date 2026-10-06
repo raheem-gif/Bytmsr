@@ -1,0 +1,55 @@
+# Render Blueprint — منصة الدعم القانوني (مؤسسة بيوت مصر لدعم الأرامل والأيتام)
+#
+# الاستخدام (راجع DEPLOY.md للخطوات بالتفصيل):
+#   Render Dashboard ← New ← Blueprint ← اختر المستودع ← Blueprint Path: legal-platform/render.yaml
+#   (إن كان كود المنصة في جذر المستودع مباشرة: اجعل dockerfilePath ./Dockerfile و dockerContext . واختر render.yaml)
+#
+# • قرص دائم على /app/data لقاعدة البيانات والمرفقات والنسخ الاحتياطية (لا تعمل المنصة بدونه: كل إعادة نشر تمسح البيانات).
+# • الخدمة ذات القرص الدائم لا تُوسَّع لأكثر من نسخة واحدة — وهذا مناسب لـ SQLite.
+# • APP_SECRET يُولَّد تلقائيًا (مفتاح تشفير أسرار التكاملات). لا تغيّره بعد التشغيل وإلا لزم إعادة إدخال الأسرار.
+# • بعد أول نشر: افتح Logs وانسخ رابط «الإعداد الأول» (‎/setup#token=…‎) لإنشاء حساب مدير النظام.
+# • مفاتيح واتساب وClaude تُدخل من صفحة «التكاملات» داخل المنصة (تُحفظ مشفرة)، أو كمتغيرات بيئة من لوحة Render.
+services:
+  - type: web
+    name: beyoot-legal
+    runtime: docker
+    dockerfilePath: ./legal-platform/Dockerfile
+    dockerContext: ./legal-platform
+    # فرانكفورت أقرب منطقة متاحة لمصر
+    region: frankfurt
+    # الأقراص الدائمة غير متاحة في الخطة المجانية؛ 0.5c-512mb تكفي لبداية البرنامج
+    plan: 0.5c-512mb
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    disk:
+      name: beyoot-legal-data
+      mountPath: /app/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO
+        value: "0"
+      - key: DATA_DIR
+        value: /app/data
+      # Render يضع المنصة خلف وكيل يضيف X-Forwarded-For و X-Forwarded-Proto
+      - key: TRUST_PROXY
+        value: "1"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      # الرابط العام بـ https، مثل https://legal.beyootmisr.org. يطلبه Render عند إنشاء الـ Blueprint:
+      # اتركه فارغًا إن لم يُربط نطاق المؤسسة بعد، فتستخدم المنصة تلقائيًا RENDER_EXTERNAL_URL (رابط onrender.com الفعلي
+      # للخدمة حتى لو أضاف Render لاحقة للاسم)، ثم اضبطه من Environment بعد ربط النطاق (Settings ← Custom Domains).
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: SCHEDULER_INTERVAL_SECONDS
+        value: "60"
+      - key: SESSION_TTL_HOURS
+        value: "12"
+      - key: MAX_UPLOAD_MB
+        value: "8"
+      - key: PUBLIC_INTAKE_PER_HOUR
+        value: "20"
+      # مفاتيح واتساب وClaude: من صفحة «التكاملات» داخل المنصة (أو أضف WHATSAPP_* و ANTHROPIC_API_KEY هنا لاحقًا)

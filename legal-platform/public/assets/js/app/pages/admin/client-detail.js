@@ -29,6 +29,7 @@ import {
 } from '../../../lib/ui.js';
 import { channelIcons, fieldError, reloadAndFocus } from './inbox.js';
 import { pickClient } from './clients.js';
+import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
 
@@ -428,7 +429,7 @@ export default async function render(ctx) {
     h(
       'div.detail-layout',
       h('div.detail-main', historyCard(), invoicesCard(), activityCard()),
-      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(identitiesCard(), 'pa-identities'), withId(portalCard(), 'pa-portal'), mergeCard()),
+      h('div.detail-side', withId(profileCard(), 'pa-profile'), withId(beneficiaryCard({ clientId: c.id, editable: true }), 'v9p-beneficiary'), withId(identitiesCard(), 'pa-identities'), withId(portalCard(), 'pa-portal'), mergeCard()),
     ),
   );
 }

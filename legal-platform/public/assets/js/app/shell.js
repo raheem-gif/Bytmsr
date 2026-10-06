@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { label, relative, dateTime } from '../lib/fmt.js';
 import { icon, avatar, button, brandMark, loading, emptyState, richText } from '../lib/ui.js';
 import { notifIcon, markRead, followLink } from './notif.js';
+import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
 
 const POLL_MS = 30000;
 const DROPDOWN_LIMIT = 8;
@@ -134,7 +135,12 @@ export function createShell({ user, meta, onLogout }) {
       h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة التشغيل القانوني')),
     ),
     nav,
-    h('div.sidebar-footer', meta && meta.demo ? 'نسخة تجريبية — البيانات المعروضة وهمية' : settings.org_tagline || orgName),
+    h(
+      'div.sidebar-footer',
+      h('div', meta && meta.demo ? 'نسخة تجريبية — البيانات المعروضة وهمية' : settings.org_tagline || orgName),
+      // رقم الإصدار (وحدة platform): «الإصدار 9.0» من app.version في /api/meta
+      h('div.sidebar-version', { title: meta && meta.version ? `الإصدار ${meta.version}` : null }, `الإصدار ${String((meta && meta.version) || '9.0').split('.').slice(0, 2).join('.')}`),
+    ),
   );
   const backdrop = h('div.sidebar-backdrop', { onClick: () => closeDrawer(true) });
 
@@ -172,12 +178,14 @@ export function createShell({ user, meta, onLogout }) {
     icon('logout', { size: 20 }),
   );
 
+  const globalSearch = createSearch({ user });
   const topbar = h(
     'header.topbar',
     menuBtn,
     titleEl,
     h(
       'div.topbar-actions',
+      globalSearch.button,
       bellWrap,
       h(
         'div.user-chip',
@@ -265,7 +273,8 @@ export function createShell({ user, meta, onLogout }) {
   async function poll() {
     if (destroyed) return;
     try {
-      const data = await api.get('/notifications');
+      // طلب خلفية: لا يمدّد مهلة عدم النشاط للجلسة (وحدة الحسابات)
+      const data = await api.get('/notifications', undefined, { background: true });
       if (destroyed) return;
       latest = Array.isArray(data && data.items) ? data.items : [];
       setUnread(data && data.unread != null ? data.unread : latest.filter((n) => !n.read_at).length);
@@ -360,6 +369,7 @@ export function createShell({ user, meta, onLogout }) {
       document.removeEventListener('click', onDocClick);
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
+      globalSearch.destroy();
       mobileQuery.removeEventListener('change', onMediaChange);
     },
   };

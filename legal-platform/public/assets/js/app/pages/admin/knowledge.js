@@ -29,6 +29,8 @@ import {
   richText,
 } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
+// v9 (وحدة ai): الاستهلاك والتكلفة وسقف الإنفاق، حالة المزود واختبار الاتصال، وتحليلات المستندات
+import { aiStatusCard, aiUsageSection, recentDocAnalyses } from '../../components/ai-usage.js';
 
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const monthLabel = (ym) => {
@@ -41,7 +43,8 @@ const KIND_LABELS = {
   intake_analysis: 'تحليل الطلبات الواردة وتصنيفها',
   issues: 'اقتراح المسائل القانونية',
   draft: 'مسودة أولية للمحامي',
-  client_version: 'صياغة نسخة الرد للعميل',
+  client_version: 'صياغة نسخة الرد للمستفيد',
+  reply: 'الردود المقترحة على المستفيد',
 };
 const VERDICT_ORDER = ['accepted', 'corrected', 'rejected', 'missed'];
 const VERDICT_COLORS = { accepted: 'var(--success-600)', corrected: 'var(--warning-500)', rejected: 'var(--danger-600)', missed: 'var(--pd-c3)' };
@@ -424,7 +427,12 @@ export default async function render(ctx) {
   }
 
   async function aiPanel() {
-    const m = await api.get('/admin/ai/metrics');
+    // الاستهلاك وتحليلات المستندات لا تمنع عرض مؤشرات الدقة إن تعذر تحميلها
+    const [m, usage, docAnalyses] = await Promise.all([
+      api.get('/admin/ai/metrics'),
+      api.get('/admin/ai/usage').catch((err) => ({ __error: err })),
+      api.get('/admin/ai/documents', { limit: 8 }).catch(() => null),
+    ]);
     const fields = Array.isArray(m.fields) ? [...m.fields].sort((a, b) => b.total - a.total) : [];
     const monthly = Array.isArray(m.monthly) ? m.monthly : [];
     const providers = Array.isArray(m.providers) ? m.providers : [];
@@ -445,18 +453,8 @@ export default async function render(ctx) {
         'info',
         { title: 'كيف نقيس أداء الذكاء الاصطناعي؟', icon: 'sparkle' },
       ),
-      card({
-        title: 'مزود التحليل الحالي',
-        icon: 'settings',
-        body: kv(
-          [
-            ['المزود', h('span', st.label || PROVIDER_LABELS[st.provider] || '—', ' ', badge(st.provider === 'anthropic' ? 'متصل' : 'يعمل محليًا', st.provider === 'anthropic' ? 'success' : 'info'))],
-            ['النموذج', st.model ? codeTag(st.model) : null],
-            ['ملاحظة', st.provider === 'anthropic' ? 'عند تعذر الاتصال يعود النظام تلقائيًا للمحلل المحلي حتى لا يتوقف العمل.' : 'لتفعيل Claude اضبط ANTHROPIC_API_KEY في إعدادات الخادم.'],
-          ],
-          { columns: 1 },
-        ),
-      }),
+      aiStatusCard(usage && !usage.__error ? usage.status : st, { isAdmin }),
+      aiUsageSection(usage, { isAdmin }),
       h(
         'section.section',
         h('h2.section-title', 'الدقة حسب نوع الاقتراح'),
@@ -527,6 +525,7 @@ export default async function render(ctx) {
         h('p.pd-section-hint', 'كل تصحيح من المحامي أو الإدارة تغذية راجعة جديدة تدخل في قياس الأداء — وعند اعتماد الحالة تصبح جزءًا من بيانات التدريب المجهّلة.'),
         recent.length ? correctionsList(recent) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true }),
       ),
+      docAnalyses ? recentDocAnalyses(docAnalyses) : null,
     );
   }
 

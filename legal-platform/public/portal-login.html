@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>دخول بوابة العملاء — {{org_name}}</title>
+    <meta name="description" content="ادخل إلى صفحتك الخاصة لمتابعة طلباتك وملفاتك القانونية لدى {{org_name}} برمز يصلك على واتساب." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <!--site:head-->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
+    <link rel="stylesheet" href="/assets/css/app.css" />
+    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <link rel="stylesheet" href="/assets/css/v9-messaging.css" />
+    <script type="module" src="/assets/js/public/portal-login.js"></script>
+  </head>
+  <body class="site pub">
+    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+    {{{header}}}
+
+    <main id="main" tabindex="-1">
+      <section class="pub-page-hero" aria-labelledby="page-title">
+        <div class="pub-container">
+          <nav aria-label="مسار التصفح">
+            <ol class="pub-crumbs">
+              <li><a href="/">الرئيسية</a></li>
+              <li aria-current="page">دخول بوابة العملاء</li>
+            </ol>
+          </nav>
+          <h1 id="page-title">دخول بوابة العملاء</h1>
+          <p>تابع طلباتك وملفاتك لدى {{org_name}}، واطّلع على الردود، وارفع المستندات المطلوبة من صفحتك الخاصة. يصلك رمز الدخول على واتساب.</p>
+        </div>
+      </section>
+
+      <div class="pl-main">
+        <section class="pl-card" aria-labelledby="pl-title">
+          <div id="portal-login-root">
+            <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span><span>جارٍ التحميل…</span></div>
+          </div>
+          <noscript><p>تحتاج هذه الصفحة إلى تفعيل JavaScript في المتصفح. يمكنك أيضًا مراسلتنا عبر واتساب لإرسال رابط صفحتك.</p></noscript>
+        </section>
+      </div>
+    </main>
+
+    {{{footer}}}
+  </body>
+</html>

@@ -1,0 +1,231 @@
+/* ==========================================================================
+   الإصدار 9 — وحدة الذكاء الاصطناعي: الردود المقترحة، تحليل المستندات، لوحة الاستهلاك والتكلفة
+   (تصميم للجوال أولًا؛ الخصائص المنطقية تضمن الاتجاه الصحيح RTL)
+   ========================================================================== */
+
+/* ───────────── الردود المقترحة ───────────── */
+.ai-intents {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-block-end: 16px;
+}
+.ai-intent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.ai-intent:hover { background: var(--primary-50); border-color: var(--primary-300); }
+.ai-intent:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ai-intent[aria-pressed='true'] {
+  background: var(--primary-700);
+  border-color: var(--primary-700);
+  color: #fff;
+}
+.ai-intent .icon { flex: none; }
+
+.ai-reply-results { min-height: 120px; }
+.ai-reply-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 12px;
+}
+.ai-reply-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.ai-reply-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.ai-reply-item.is-rejected { opacity: 0.55; }
+.ai-reply-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-reply-text {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  background: var(--surface);
+}
+.ai-reply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ai-reply-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 12px;
+}
+
+/* ───────────── تحليل المستندات ───────────── */
+.doc-ai { display: grid; gap: 14px; min-width: 0; }
+.doc-ai-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.doc-ai-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.05rem;
+  color: var(--primary-800);
+}
+.doc-ai-summary { margin: 0; line-height: 1.9; }
+.doc-ai-fallback { display: flex; align-items: center; gap: 4px; margin: 0; }
+.doc-ai-section { display: grid; gap: 8px; min-width: 0; }
+.doc-ai-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--gray-800);
+}
+.doc-ai-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+}
+.doc-ai-fact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.doc-ai-fact dt { font-size: 0.8rem; color: var(--text-muted); }
+.doc-ai-fact dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.doc-ai-list {
+  margin: 0;
+  padding-inline-start: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.doc-ai-list li {
+  position: relative;
+  padding-inline-start: 18px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.doc-ai-list.is-proves li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 2px;
+  top: 0.75em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success-600);
+}
+.doc-ai-list.is-flags li { padding-inline-start: 0; display: grid; gap: 2px; }
+.doc-ai-flag-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--warning-700);
+}
+.doc-ai-disclaimer { margin: 0; }
+.doc-ai-again { display: flex; justify-content: flex-end; margin-block-start: 14px; }
+.doc-ai.is-compact { gap: 10px; }
+
+/* ───────────── لوحة الاستهلاك والتكلفة ───────────── */
+.ai-usage { display: grid; gap: 16px; min-width: 0; }
+.ai-usage .section-title .icon { vertical-align: -3px; margin-inline-end: 4px; }
+.ai-usage-stats { margin: 0; }
+.ai-budget {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.ai-budget-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.ai-budget-head span { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); }
+.ai-budget p { margin: 0; }
+.ai-budget-none { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; }
+.progress.tone-success .progress-bar { background: var(--success-600); }
+.progress.tone-danger .progress-bar { background: var(--danger-600); }
+.ai-usage-tables { display: grid; gap: 16px; min-width: 0; }
+.ai-usage-block { display: grid; gap: 8px; min-width: 0; }
+.ai-usage-title { margin: 0; font-size: 0.95rem; color: var(--gray-800); }
+.ai-errors { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ai-error {
+  padding: 10px 12px;
+  border: 1px solid var(--danger-100);
+  border-inline-start: 3px solid var(--danger-600);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 0;
+}
+.ai-error-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ai-error p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.ai-price-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; }
+.ai-status-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ai-test-result:not(:empty) { margin-block-start: 12px; }
+
+@media (min-width: 640px) {
+  .ai-intents { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .doc-ai-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .ai-usage-tables { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+}
+
+/* الجوال: بطاقات الأرقام بأيقونة فوق القيمة حتى لا تنكسر «0 دولار»، والجداول تكتفي بالأعمدة الأساسية
+   (الوظيفة/الشهر، Claude، التكلفة) دون تمرير أفقي؛ التفاصيل الكاملة على الشاشات الأوسع */
+@media (max-width: 640px) {
+  .ai-usage-stats .stat-card { flex-direction: column; gap: 8px; padding: 12px; }
+  .ai-usage-stats .stat-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .ai-usage-stats .stat-value { font-size: 22px; white-space: nowrap; }
+  .ai-usage .ai-col-opt { display: none; }
+  /* ثلاثة أعمدة فقط تتسع للشاشة، فلا حاجة للحد الأدنى العام لعرض الخلية (7.5rem) الذي يفرض التمرير */
+  .ai-usage .table td { min-width: 0; }
+  .ai-usage .pd-table-tight .table th,
+  .ai-usage .pd-table-tight .table td { padding-inline: 8px; }
+}

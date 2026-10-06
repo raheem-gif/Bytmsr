@@ -82,7 +82,7 @@ export function createAutomations(app) {
           continue;
         }
         const did = once('hearing_reminder', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
-          const body = fill(r.params.template, {
+          const vars = {
             event_kind: LABELS.event_kind[e.kind],
             matter_code: e.matter_code,
             date: arabicDate(e.starts_at),
@@ -90,7 +90,8 @@ export function createAutomations(app) {
             location: e.location || 'المحكمة المختصة',
             title: e.title,
             org_name: orgName(),
-          });
+          };
+          const body = fill(r.params.template, vars);
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
             intake_id: e.intake_id,
@@ -99,6 +100,8 @@ export function createAutomations(app) {
             body,
             automated: true,
             rule: 'hearing_reminder',
+            // متغيرات القالب المربوط بالقاعدة عند الإرسال خارج نافذة الـ 24 ساعة
+            meta: { vars },
           });
           app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد (${LABELS.event_kind[e.kind]} — ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)})` });
           return { message_id: msg.id };
@@ -123,13 +126,14 @@ export function createAutomations(app) {
         if (i.last_reminder_at && addDays(i.last_reminder_at, every) > t) continue;
         const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id));
         const did = once('invoice_reminder', `invoice:${i.id}:${i.reminder_count + 1}`, 'invoice', i.id, () => {
-          const body = fill(r.params.template, {
+          const vars = {
             invoice_number: i.number,
             amount: fromMinor(i.amount_minor - paid).toLocaleString('en-US'),
             due_date: arabicDate(i.due_at, { weekday: false }),
             org_name: orgName(),
-          });
-          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder' });
+          };
+          const body = fill(r.params.template, vars);
+          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars } });
           db.update('invoices', i.id, { reminder_count: i.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ matter_id: i.matter_id, case_id: i.case_id, actor: { kind: 'system' }, type: 'automation.invoice_reminder', summary: `أُرسل تذكير آلي بالفاتورة ${i.number}` });
           return { message_id: msg.id };
@@ -159,8 +163,9 @@ export function createAutomations(app) {
       for (const ir of list) {
         if (ir.last_reminder_at && addDays(ir.last_reminder_at, every) > t) continue;
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
-          const body = fill(r.params.template, { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() });
-          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id } });
+          const vars = { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() };
+          const body = fill(r.params.template, vars);
+          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars } });
           db.update('info_requests', ir.id, { reminder_count: ir.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل ب${LABELS.info_request_kind[ir.kind]} لم يرد عليه بعد` });
           return { message_id: msg.id };
@@ -228,6 +233,12 @@ export function createAutomations(app) {
       }
       return n;
     },
+
+    // (الإصدار 9 — وحدة messaging) استبيان رضا العميل بعد إرسال الرد النهائي؛ التفاصيل في app.messaging.runSurveys
+    satisfaction_survey(r) {
+      app.messaging.expireSurveys();
+      return app.messaging.runSurveys(r.params, { once });
+    },
   };
 
   /** وصف مقروء لمصدر كل تشغيل آلي مع روابط الملف */
@@ -248,6 +259,9 @@ export function createAutomations(app) {
         break;
       case 'assignment':
         ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, NULL AS matter_id FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', run.entity_id);
+        break;
+      case 'case':
+        ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, c.matter_id FROM cases c WHERE c.id = ?', run.entity_id);
         break;
       default:
         break;

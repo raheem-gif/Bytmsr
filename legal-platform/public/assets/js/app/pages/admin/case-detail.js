@@ -40,6 +40,11 @@ import {
   errorState,
   selectInput,
 } from '../../../lib/ui.js';
+import { printButton } from '../../components/print-button.js';
+import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
+import { caseProgramField } from '../../components/program-picker.js';
+import { outcomeFields, outcomePayload, outcomeCard } from '../../components/outcome.js'; // v9 practice
+import { partiesCard } from '../../components/parties.js'; // v9 practice
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
 
@@ -442,6 +447,7 @@ export default async function render(ctx) {
         ),
       );
     }
+    acts.push(printButton({ kind: 'case-summary', id: c.id, label: 'طباعة ملخص الملف', size: 'md' }));
     if (closed) acts.push(button('إعادة فتح الملف', { icon: 'refresh', variant: 'primary', onClick: openReopenDialog }));
     else acts.push(button('إغلاق الملف', { icon: 'lock', variant: 'danger', onClick: openCloseDialog }));
     return acts;
@@ -547,11 +553,19 @@ export default async function render(ctx) {
         ['الموعد المستهدف', c.due_at ? inline(h('span', date(c.due_at)), !closed && dueBadge(c.due_at)) : h('span.muted', 'بدون موعد محدد')],
         ['فريق العمل', activeTeam.length ? h('span', `${activeTeam.length} — المحامي الأساسي: ${lead ? lead.lawyer_name : 'لم يُحدَّد'}`) : h('span.muted', 'لم يُسند لأي محامٍ بعد')],
         ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}` }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
+        ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })],
         [
           'المعرفة المؤسسية',
           data.knowledge
             ? inline(h('a', { href: `#/knowledge/${data.knowledge.id}` }, `السجل المعرفي #${data.knowledge.id}`), statusBadge('knowledge_status', data.knowledge.status))
             : h('span.muted', closed ? 'لم يُنشأ سجل' : 'يُنشأ سجل مجهّل تلقائيًا عند الإغلاق'),
+        ],
+        // (v9 messaging) تقييم العميل للخدمة من استبيان الرضا
+        data.satisfaction && [
+          'رضا العميل',
+          data.satisfaction.rating
+            ? h('span.qr-sat', h('span', { 'aria-hidden': 'true' }, stars(data.satisfaction.rating)), h('span', { class: data.satisfaction.low ? 'pb-warn-text' : null }, data.satisfaction.text), data.satisfaction.comment ? h('span.cell-sub.pb-d-block', { dir: 'auto' }, `«${data.satisfaction.comment}»`) : null)
+            : h('span.muted', data.satisfaction.text),
         ],
         ['أُنشئ', h('span', dateTime(c.created_at))],
         closed && ['أُغلق', h('span', dateTime(c.closed_at))],
@@ -876,7 +890,7 @@ export default async function render(ctx) {
     return h(
       'div.stack-lg',
       h('div.grid-2.pb-facts-grid', factsBlock('internal'), factsBlock('shared')),
-      h('div.detail-layout', h('div.detail-main', issuesCard()), h('div.detail-side', aiAnalysisCard(), similarCard())),
+      h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', outcomeCard({ kind: 'case', id: c.id }), aiAnalysisCard(), similarCard())),
     );
   }
 
@@ -2006,6 +2020,7 @@ export default async function render(ctx) {
           statusBadge('client_answer_status', ans.status),
           op && h('span.small.muted', `مبني على رأي ${a ? a.lawyer_name : op.lawyer_name} (الإصدار ${op.version})`),
           h('span.small.muted', ans.status === 'sent' ? `أُرسل ${dateTime(ans.sent_at)}${ans.channel ? ` عبر ${label('channel', ans.channel)}` : ''}` : `آخر تحديث ${relative(ans.updated_at)}`),
+          ans.status === 'sent' && printButton({ kind: 'answer', id: ans.id, label: 'طباعة الإفادة', variant: 'ghost' }),
         ),
         h('div.answer-body', { dir: 'auto' }, ans.body),
         ans.status === 'draft' &&
@@ -2189,6 +2204,9 @@ export default async function render(ctx) {
             'div.btn-group.pb-table-actions',
             button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(d.id), target: '_blank', ariaLabel: `تنزيل ${d.title}` }),
             button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}` }),
+            // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
+            // (يعرض المكوّن نفسه رسالة النجاح والقناة المستخدمة، فلا تُكرر هنا)
+            sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }) }),
           ),
       },
     ];
@@ -2377,9 +2395,10 @@ export default async function render(ctx) {
       fields: [
         { name: 'outcome', label: 'نتيجة الملف', type: 'select', required: true, options: options('case_outcome') },
         { name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 3000 },
+        ...outcomeFields(),
       ],
       values: { outcome: c.status === 'answered' ? 'answered' : null },
-      onSubmit: (v) => withPendingOpinionsOverride((force) => api.post(`/admin/cases/${id}/close`, { outcome: v.outcome, note: v.note || null, force: force || undefined })),
+      onSubmit: (v) => withPendingOpinionsOverride((force) => api.post(`/admin/cases/${id}/close`, { outcome: v.outcome, note: v.note || null, force: force || undefined, outcome_value: outcomePayload(v) })),
     });
     if (res) await refresh('أُغلق الملف، وأُنشئ سجل معرفي مجهّل للمراجعة');
   }

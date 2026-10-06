@@ -4,6 +4,7 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { startTestApp, waPayload } from './helpers.js';
+import { DEFAULT_SETTINGS } from '../src/constants.js';
 
 const ARABIC = /[؀-ۿ]/;
 const WA_SECRET_CFG = { whatsapp: { appSecret: 's3cret', verifyToken: 'verify-me', token: '', phoneNumberId: '', numberDigits: '201000000000' } };
@@ -180,7 +181,7 @@ describe('Req 13 — authentication and role separation', () => {
     assert.ok(!users.some((u) => u.username === 'mgrboss'));
     const lw = (await admin.get(`/api/admin/lawyers/${lawyerRow.id}`)).body.lawyer;
     assert.equal(lw.capacity, 10);
-    assert.equal((await admin.get('/api/admin/settings')).body.settings.org_name, 'بيوت مصر');
+    assert.equal((await admin.get('/api/admin/settings')).body.settings.org_name, DEFAULT_SETTINGS.org_name);
     const rules = (await admin.get('/api/admin/automations')).body.rules;
     assert.ok(JSON.stringify(rules).length > 0);
     assert.equal((await t.client().post('/api/auth/login', { username: 'lawyer1', password: 'Lawyer@2026' })).status, 200, 'lawyer password unchanged');
@@ -266,7 +267,7 @@ describe('Req 13 — CSRF protections on mutating API calls', () => {
     const patch = await raw(t, 'PATCH', '/api/admin/settings', { body: JSON.stringify({ org_name: 'x' }), headers: { 'content-type': 'text/plain' }, cookie: admin.cookie });
     assertApiError(patch, 415);
     assert.equal((await admin.get('/api/admin/intakes?scope=all')).body.total, 0);
-    assert.equal((await admin.get('/api/admin/settings')).body.settings.org_name, 'بيوت مصر');
+    assert.equal((await admin.get('/api/admin/settings')).body.settings.org_name, DEFAULT_SETTINGS.org_name);
   });
 
   test('cross-origin Origin header is rejected with 403 (login, admin mutation, public intake); same origin is accepted', async () => {
