@@ -252,10 +252,14 @@ export default async function render(ctx) {
       }
     }
     revokeOthers = asyncButton('تسجيل الخروج من كل الأجهزة الأخرى', async () => {
-      const ok = await confirmDanger({ title: 'تسجيل الخروج من الأجهزة الأخرى', message: 'ستبقى مسجّلًا على هذا الجهاز فقط، ويُطلب الدخول من جديد على أي جهاز آخر.', confirmLabel: 'تسجيل الخروج منها' });
+      const ok = await confirmDanger({
+        title: 'تسجيل الخروج من الأجهزة الأخرى',
+        message: 'ستبقى مسجّلًا على هذا الجهاز فقط، ويُطلب الدخول من جديد على أي جهاز آخر. ويتوقف أيضًا رابط اشتراك التقويم إن كنت أصدرته، ويمكنك إصدار رابط جديد من صفحة التقويم.',
+        confirmLabel: 'تسجيل الخروج منها',
+      });
       if (!ok) return;
       const r = await api.post('/account/sessions/revoke-others');
-      toast(r.revoked ? `سُجّل الخروج من ${count(r.revoked, SESSION_FORMS)}` : 'لا توجد جلسات أخرى', 'success');
+      toast(`${r.revoked ? `سُجّل الخروج من ${count(r.revoked, SESSION_FORMS)}` : 'لا توجد جلسات أخرى'}${r.calendar_feed_revoked ? '، وأُلغي رابط التقويم' : ''}`, 'success');
       await load();
     }, { variant: 'secondary', size: 'sm', icon: 'logout' });
     revokeOthers.hidden = true;

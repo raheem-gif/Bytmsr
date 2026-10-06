@@ -11,7 +11,7 @@
 
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label, options } from '../../lib/fmt.js';
+import { label, options, orgName } from '../../lib/fmt.js';
 import { modal, button, icon, toast, emptyState, loading, errorState, badge, errorMessage, uid } from '../../lib/ui.js';
 
 const VAR_LABELS = {
@@ -36,6 +36,14 @@ export function templateNodes(text, { values = {} } = {}) {
       const v = values[m[1]];
       return v ? h('mark.qr-filled', { title: varLabel(m[1]) }, v) : h('code.qr-tok', { dir: 'ltr', title: varLabel(m[1]) }, p);
     });
+}
+
+/**
+ * قيم معاينة المتغيرات في نافذة الاختيار: سياق المحادثة + اسم المؤسسة من الإعدادات
+ * (يملؤه الخادم دائمًا عند الإدراج، فيجب أن تظهر المعاينة مطابقة لما سيُدرج).
+ */
+export function previewValues(context = {}) {
+  return { org_name: orgName(), ...(context || {}) };
 }
 
 /** سياق المتغيرات المرسل للخادم (الحقول النصية + معرفات الملف/الطلب إن وُجدت). */
@@ -169,7 +177,7 @@ export function openPicker({ context = {}, onPick } = {}) {
             r.shortcut ? h('code.qr-shortcut', { dir: 'auto' }, r.shortcut) : null,
             badge(r.category_label || label('quick_reply_category', r.category), 'neutral'),
           ),
-          h('span.qr-pick-body', { dir: 'auto' }, templateNodes(r.body.length > 220 ? `${r.body.slice(0, 220)}…` : r.body, { values: context })),
+          h('span.qr-pick-body', { dir: 'auto' }, templateNodes(r.body.length > 220 ? `${r.body.slice(0, 220)}…` : r.body, { values: previewValues(context) })),
         ),
       ),
     );

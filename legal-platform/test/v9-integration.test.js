@@ -106,7 +106,8 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);
     assert.match(html, /<title>متابعة طلبك — مؤسسة بيوت مصر<\/title>/);
     assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/portal" \/>/);
-    assert.match(html, /<script type="module" src="\/assets\/js\/public\/portal\.js"><\/script>/);
+    // (إصلاحات الإطلاق) روابط CSS/JS تحمل رقم إصدار الملف ?v=… للتخزين الطويل في المتصفح
+    assert.match(html, /<script type="module" src="\/assets\/js\/public\/portal\.js(\?v=[A-Za-z0-9_-]+)?"><\/script>/);
     assert.match(html, /id="portal-root"/);
     assert.match(html, /\/assets\/css\/public-site\.css/);
     // «متابعة طلب» هي الصفحة الحالية في القائمة
@@ -119,8 +120,13 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.equal(inline.length, 0);
   });
 
-  test('malformed /p/ paths are 404 and /portal.html is not served directly', async () => {
-    assert.equal((await t.client().get('/p/short')).status, 404);
+  test('truncated /p/ links open the follow-up page (it explains the link is invalid); /portal.html is not served directly', async () => {
+    // (إصلاحات الإطلاق) رابط مقطوع عند نسخه من واتساب يفتح صفحة المتابعة بهويتها ورقم المؤسسة و«الدخول برقم الموبايل»
+    const short = await t.client().get('/p/short');
+    assert.equal(short.status, 200);
+    assert.match(short.body, /id="portal-root"/);
+    assert.equal((await t.client().get('/api/portal/short')).status, 404);
+    assert.equal((await t.client().get('/p/a/b')).status, 404);
     assert.equal((await t.client().get('/portal.html')).status, 404);
   });
 });

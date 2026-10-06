@@ -379,6 +379,17 @@ html[dir='rtl'] .pf-field-en {
 .pf-env {
   font-size: 11px;
 }
+/* معرّف النموذج (claude-opus-5-5) لا ينكسر عند الشرطة */
+.pf-page .code-tag.pf-nowrap {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+/* القيمة الخام بجوار تسميتها العربية (مثل «متوسط (موصى به)» medium) */
+.pf-value-label .pf-raw {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
 .pf-secret {
   font-family: var(--font-mono);
   display: inline-flex;

@@ -57,6 +57,10 @@ function randomSecret(len = 32) {
 function valueCell(f) {
   if (!f.set) return h('span.muted', 'غير مضبوط');
   if (f.secret) return h('span.pf-secret', { dir: 'ltr', title: 'القيمة السرية لا تُعرض؛ تظهر آخر أربع خانات فقط' }, icon('lock', { size: 14 }), ' ', f.hint || '••••');
+  // قيمة من قائمة محددة: التسمية العربية أولًا والقيمة الخام كرمز صغير (كما تُكتب في متغير البيئة)
+  if (f.value_label) return h('span.pf-value-label', f.value_label, ' ', codeTag(f.value, { className: 'pf-raw' }));
+  // معرّف تقني (اسم النموذج): رمز لاتيني لا يلتف في منتصفه
+  if (f.code) return codeTag(f.value, { className: 'pf-nowrap' });
   return ltr(f.value);
 }
 
@@ -113,7 +117,7 @@ function keyAlert(data) {
       h(
         'span',
         'الأسرار مشفرة بمفتاح محفوظ في الملف ',
-        codeTag(data.key_file || 'data/.secret-key'),
+        codeTag(data.key_file || '.secret-key'),
         '. احفظ هذا الملف مع كل نسخة احتياطية لقاعدة البيانات؛ فبدونه لا يمكن فك تشفير الأسرار بعد نقل المنصة أو استعادتها. البديل الأفضل: ضبط APP_SECRET في متغيرات البيئة.',
       ),
       'warning',
@@ -149,6 +153,18 @@ async function editIntegration(item, onSaved) {
         full: true,
       });
       initial[f.key] = '';
+    } else if (Array.isArray(f.options) && f.options.length) {
+      // قيمة من قائمة محددة: اختيار بالتسميات العربية بدل كتابة القيمة الإنجليزية
+      const current = f.source === 'db' ? f.value || '' : '';
+      const def = f.source === 'default' ? f.options.find((o) => o.value === f.value) : null;
+      fields.push({
+        name: f.key,
+        label: f.label,
+        type: 'select',
+        placeholder: false,
+        options: [{ value: '', label: def ? `الافتراضي: ${def.label}` : 'الافتراضي' }, ...f.options.map((o) => ({ value: o.value, label: o.label }))],
+      });
+      initial[f.key] = current;
     } else {
       const current = f.source === 'db' ? f.value || '' : '';
       fields.push({ name: f.key, label: f.label, type: 'text', ltr: true, autocomplete: 'off', placeholder: f.source === 'default' ? `الافتراضي: ${f.value}` : '' });

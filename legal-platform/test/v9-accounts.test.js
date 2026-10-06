@@ -593,6 +593,7 @@ describe('accounts: two-factor authentication and two-step login', () => {
     assert.equal(locked.status, 429);
     assert.match(locked.body.error, /مؤقتًا/);
     t.app.db.run('UPDATE users SET locked_until = NULL, failed_login_count = 0 WHERE id = 1');
+    t.app.db.run('DELETE FROM login_locks WHERE user_id = 1'); // الإيقاف يخص مصدر المحاولات (عنوان IP / جهاز)
   });
 
   test('disabling requires password + code; regenerating codes invalidates the old ones', async () => {
@@ -692,7 +693,8 @@ describe('accounts: lockout, rate limits, idle timeout and sessions', () => {
     const notes = ok(await admin.get('/api/notifications')).items;
     assert.ok(notes.some((n) => n.type === 'security' && n.title.includes('حساب مستهدف') && n.link === '#/audit'));
     const lockouts = ok(await admin.get('/api/admin/audit?type=auth.lockout')).items;
-    assert.ok(lockouts.length >= 2 && lockouts.every((e) => e.severity === 'warning'));
+    // الإيقاف لكل مصدر: بعد رفع الإيقاف والدخول الناجح يبدأ عداد هذا المصدر من جديد (التنبيه الحرج يتبع عداد الحساب كله)
+    assert.ok(lockouts.length >= 1 && lockouts.every((e) => e.severity === 'warning'));
     const failed = ok(await admin.get('/api/admin/audit?type=auth.login_failed&q=ghost-user')).items;
     assert.ok(failed.length >= 5 && failed[0].data.username === 'ghost-user', 'the tried username is recorded');
     assert.ok(failed[0].ip, 'the IP is recorded');

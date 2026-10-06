@@ -1,7 +1,116 @@
 // طبقة HTTP: موجّه طلبات بسيط، قراءة JSON، ملفات ثابتة، ترويسات أمان، معالجة أخطاء موحدة.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { ApiError, badRequest } from './util.js';
+
+// ───────── الضغط والتخزين المؤقت (للتشغيل المباشر أو على Render بلا وكيل يضغط الردود) ─────────
+// الملفات النصية تُرسل مضغوطة (gzip) لمن يقبلها، مع ETag للتحقق السريع (304)،
+// والملفات المطلوبة برقم إصدارها (?v=…) تُخزَّن في المتصفح سنة كاملة لأن أي تعديل يغيّر الرقم.
+const COMPRESSIBLE_EXT = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.txt', '.webmanifest', '.ico']);
+const MIN_COMPRESS_BYTES = 1024;
+const MAX_COMPRESS_BYTES = 5 * 1024 * 1024;
+const gzCache = new Map(); // المسار ← { key, gz }
+const versionCache = new Map(); // المسار ← { key, v }
+
+export function acceptsGzip(req) {
+  return /\bgzip\b/i.test(String(req?.headers?.['accept-encoding'] || ''));
+}
+
+const statKey = (st) => `${st.size}-${Math.floor(st.mtimeMs)}`;
+
+/** رقم إصدار قصير لملف ثابت (يتغير مع أي تعديل في محتواه) — يُضاف للروابط كـ ?v=… */
+export function assetVersion(file) {
+  let st;
+  try {
+    st = fs.statSync(file);
+  } catch {
+    return null;
+  }
+  const key = statKey(st);
+  const c = versionCache.get(file);
+  if (c && c.key === key) return c.v;
+  let v;
+  try {
+    v = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('base64url').slice(0, 10);
+  } catch {
+    return null;
+  }
+  versionCache.set(file, { key, v });
+  if (versionCache.size > 2000) versionCache.delete(versionCache.keys().next().value);
+  return v;
+}
+
+function gzipFile(file, st) {
+  const key = statKey(st);
+  const c = gzCache.get(file);
+  if (c && c.key === key) return c.gz;
+  const gz = zlib.gzipSync(fs.readFileSync(file), { level: 9 });
+  gzCache.set(file, { key, gz });
+  if (gzCache.size > 500) gzCache.delete(gzCache.keys().next().value);
+  return gz;
+}
+
+/**
+ * يرسل جسمًا نصيًا جاهزًا (JSON أو HTML) مضغوطًا إن قبله المتصفح وكان أكبر من 1 كيلوبايت.
+ * يضبط Content-Length و Vary؛ ولا يكتب الجسم لطلبات HEAD.
+ */
+export function sendBody(res, status, body, { req = res.req } = {}) {
+  let buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8');
+  res.statusCode = status;
+  if (buf.length >= MIN_COMPRESS_BYTES && buf.length <= MAX_COMPRESS_BYTES) {
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (acceptsGzip(req)) {
+      buf = zlib.gzipSync(buf, { level: 6 });
+      res.setHeader('Content-Encoding', 'gzip');
+    }
+  }
+  res.setHeader('Content-Length', buf.length);
+  if (req?.method === 'HEAD') return res.end();
+  res.end(buf);
+}
+
+/** إرسال ملف ثابت: ETag/304، ضغط gzip للملفات النصية، وCache-Control كما يحدده المستدعي */
+function sendStaticFile(req, res, file, st, cacheControl) {
+  const ext = path.extname(file).toLowerCase();
+  res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+  res.setHeader('Cache-Control', cacheControl);
+  const etag = `W/"${statKey(st)}"`;
+  res.setHeader('ETag', etag);
+  res.setHeader('Last-Modified', new Date(st.mtimeMs).toUTCString());
+  const compressible = COMPRESSIBLE_EXT.has(ext) && st.size >= MIN_COMPRESS_BYTES && st.size <= MAX_COMPRESS_BYTES;
+  if (compressible) res.setHeader('Vary', 'Accept-Encoding');
+  const inm = String(req.headers['if-none-match'] || '');
+  if (inm && inm.split(',').some((x) => x.trim() === etag)) {
+    res.statusCode = 304;
+    res.end();
+    return true;
+  }
+  res.statusCode = 200;
+  if (compressible && acceptsGzip(req)) {
+    let gz;
+    try {
+      gz = gzipFile(file, st);
+    } catch {
+      gz = null;
+    }
+    if (gz) {
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Content-Length', gz.length);
+      if (req.method === 'HEAD') res.end();
+      else res.end(gz);
+      return true;
+    }
+  }
+  res.setHeader('Content-Length', st.size);
+  if (req.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -44,11 +153,10 @@ export function securityHeaders(res) {
 
 export function sendJson(res, status, data) {
   const body = JSON.stringify(data);
-  res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Content-Length', Buffer.byteLength(body));
-  res.end(body);
+  // الردود الكبيرة (مثل /api/meta) تُضغط لمن يقبل gzip
+  sendBody(res, status, body);
 }
 
 export function sendError(res, err, log) {
@@ -178,15 +286,7 @@ export function sendFile(req, res, file) {
   }
   if (!st.isFile()) return false;
   const ext = path.extname(file).toLowerCase();
-  res.statusCode = 200;
-  res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-store' : 'no-cache');
-  if (req.method === 'HEAD') {
-    res.end();
-    return true;
-  }
-  fs.createReadStream(file).pipe(res);
-  return true;
+  return sendStaticFile(req, res, file, st, ext === '.html' ? 'no-store' : 'no-cache');
 }
 
 /** خدمة الملفات الثابتة بأمان (منع الخروج من المجلد) */
@@ -201,8 +301,9 @@ export function serveStatic(req, res, publicDir, pathname, { fallbackFile } = {}
   const target = path.normalize(path.join(publicDir, rel));
   if (!target.startsWith(publicDir + path.sep) && target !== publicDir) return false;
   let file = target;
+  let st;
   try {
-    let st = fs.statSync(file);
+    st = fs.statSync(file);
     if (st.isDirectory()) {
       file = path.join(file, 'index.html');
       st = fs.statSync(file);
@@ -211,16 +312,20 @@ export function serveStatic(req, res, publicDir, pathname, { fallbackFile } = {}
   } catch {
     if (!fallbackFile) return false;
     file = fallbackFile;
+    try {
+      st = fs.statSync(file);
+    } catch {
+      return false;
+    }
   }
   const ext = path.extname(file).toLowerCase();
-  res.statusCode = 200;
-  res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
-  // ملفات الواجهة تتغير مع كل إصدار؛ نطلب إعادة التحقق دائمًا لتجنب نسخ قديمة
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-store' : 'no-cache');
-  if (req.method === 'HEAD') {
-    res.end();
-    return true;
+  // ملفات الواجهة تتغير مع كل إصدار؛ نطلب إعادة التحقق دائمًا (ETag ← 304 دون إعادة التنزيل)،
+  // إلا إذا طُلب الملف برقم إصداره الحالي (?v=…) فيُخزَّن سنة كاملة
+  let cache = ext === '.html' ? 'no-store' : 'no-cache';
+  if (ext !== '.html') {
+    const q = String(req.url || '').split('?')[1] || '';
+    const v = new URLSearchParams(q).get('v');
+    if (v && v === assetVersion(file)) cache = 'public, max-age=31536000, immutable';
   }
-  fs.createReadStream(file).pipe(res);
-  return true;
+  return sendStaticFile(req, res, file, st, cache);
 }

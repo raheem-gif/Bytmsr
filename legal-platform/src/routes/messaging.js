@@ -44,7 +44,7 @@ export function registerMessagingRoutes(router, app) {
   router.get('/api/portal/:token/documents/:id', (ctx) => {
     const access = app.clients.portalAccess(ctx.params.token);
     if (!access) throw notFound('الرابط غير صالح أو انتهت صلاحيته. تواصل معنا لإرسال رابط جديد.');
-    const doc = M().portalDocument(access.client, access.intakeId, id(ctx));
+    const doc = M().portalDocument(access.client, access.intakeId, id(ctx), { phone: access.phone || null });
     if (!doc) throw notFound('المستند غير موجود');
     app.documents.send(ctx.res, doc, { inline: ctx.query.inline === '1' });
     ctx.streamed = true;

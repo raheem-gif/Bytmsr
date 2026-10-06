@@ -1,5 +1,5 @@
-// بوابة المحامي — «ملفاتي»: مساحة العمل اليومية للمحامي.
-// الملفات المسندة إليه فقط، والمطلوب منه في كل منها، دون أي بيانات اتصال بالعميل.
+// بوابة المحامي — «إسناداتي»: مساحة العمل اليومية للمحامي.
+// إسناداته فقط، والمطلوب منه في كل منها، دون أي بيانات اتصال بالعميل.
 // المصطلح الموحد: «الإسناد» هو ما تكلّف به الإدارة المحاميَ في ملف؛ و«المهام» للملفات المستمرة فقط.
 
 import { h, frag, mount } from '../../../lib/h.js';
@@ -24,7 +24,7 @@ import {
 } from '../../../lib/ui.js';
 import { eventDateBox, matterCard, bidiText } from './matters.js';
 
-const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'ملفاتي' }];
+const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'إسناداتي' }];
 
 // فلاتر بطاقات الأرقام
 const FILTERS = {
@@ -66,7 +66,7 @@ function assignmentCard(a, opts) {
   const f = flags(a, opts);
   return h(
     'a.pc-item-card',
-    { href: assignmentHref(a), class: a.overdue && 'is-overdue', 'aria-label': `فتح الملف ${a.case_code}: ${a.case_title}` },
+    { href: assignmentHref(a), class: a.overdue && 'is-overdue', 'aria-label': `فتح الإسناد ${a.case_code}: ${a.case_title}` },
     h('div.pc-item-head', codeTag(a.case_code), statusBadge('assignment_status', a.status)),
     h('div.pc-item-title', a.case_title),
     h(
@@ -115,7 +115,7 @@ function assignmentList(rows, ctx, { history = false, emptyText, emptyTitle } = 
         rows,
         onRowClick: (a) => ctx.navigate(`/my/assignments/${a.id}`),
         rowClass: (a) => (a.overdue ? 'pc-row-overdue' : a.status === 'assigned' ? 'pc-row-new' : null),
-        caption: history ? 'سجل الملفات السابقة' : 'الملفات المسندة إليك',
+        caption: history ? 'الإسنادات السابقة' : 'الإسنادات الحالية',
       }),
     ),
     h('ul.pc-card-list.pc-only-mobile', rows.map((a) => h('li', assignmentCard(a, { history })))),
@@ -189,7 +189,7 @@ export default async function render(ctx) {
   try {
     data = await api.get('/lawyer/dashboard');
   } catch (err) {
-    return frag(pageHeader({ title: 'ملفاتي', breadcrumbs: CRUMBS }), card({ body: errorState(err, () => ctx.reload()) }));
+    return frag(pageHeader({ title: 'إسناداتي', breadcrumbs: CRUMBS }), card({ body: errorState(err, () => ctx.reload()) }));
   }
   const assignments = Array.isArray(data.assignments) ? data.assignments : [];
   const counts = data.counts || {};
@@ -200,7 +200,7 @@ export default async function render(ctx) {
   const today = cairoToday();
   const header = pageHeader({
     title: firstName ? `مرحبًا، ${firstName}` : 'مرحبًا بك',
-    subtitle: `هذه مساحة عملك: الملفات التي أسندتها إليك ${orgName()}، والمطلوب منك في كل منها.`,
+    subtitle: `هذه مساحة عملك: الإسنادات التي كلّفتك بها ${orgName()}، والمطلوب منك في كل منها.`,
     breadcrumbs: CRUMBS,
     meta: h('span.pc-today', icon('calendar', { size: 15 }), h('time', { datetime: today }, `${weekday(new Date())}، ${date(new Date())}`)),
   });
@@ -227,7 +227,7 @@ export default async function render(ctx) {
     if ((counts[s.key] || 0) > 0 && (s.key === 'overdue' || s.key === 'returned')) btn.classList.add('pc-stat-alert');
     return btn;
   });
-  const stats = h('div.stats-grid.pc-stats', { role: 'group', 'aria-label': 'ملخص الملفات — اضغط على أي بطاقة لتصفية القائمة' }, statButtons);
+  const stats = h('div.stats-grid.pc-stats', { role: 'group', 'aria-label': 'ملخص الإسنادات — اضغط على أي بطاقة لتصفية القائمة' }, statButtons);
 
   // ── قائمة الإسنادات النشطة ──
   const activeHost = h('div');
@@ -248,9 +248,9 @@ export default async function render(ctx) {
     mount(
       activeHost,
       assignmentList(rows, ctx, {
-        emptyTitle: filter ? 'لا توجد ملفات مطابقة' : 'لا توجد ملفات مسندة إليك حاليًا',
+        emptyTitle: filter ? 'لا توجد إسنادات مطابقة' : 'لا توجد إسنادات حالية',
         emptyText: filter
-          ? 'لا توجد ملفات في هذه الفئة الآن.'
+          ? 'لا توجد إسنادات في هذه الفئة الآن.'
           : 'سيصلك إشعار عند إسناد ملف جديد إليك من الإدارة، وسيظهر هنا مع المطلوب منك تحديدًا.',
       }),
     );
@@ -265,14 +265,14 @@ export default async function render(ctx) {
     [
       {
         key: 'active',
-        label: 'الملفات النشطة',
+        label: 'الإسنادات الحالية',
         icon: 'briefcase',
         count: assignments.length,
         render: () => frag(h('div.pc-tab-pad', filterNote), activeHost),
       },
       {
         key: 'history',
-        label: 'السجل',
+        label: 'الإسنادات السابقة',
         icon: 'clock',
         render: async () => {
           const rows = await api.get('/lawyer/assignments', { scope: 'history' });
@@ -280,7 +280,7 @@ export default async function render(ctx) {
           listTabs.setCount('history', list.length);
           return assignmentList(list, ctx, {
             history: true,
-            emptyText: 'لا توجد ملفات سابقة في سجلك بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أو أغلقت ملفاتها.',
+            emptyText: 'لا توجد إسنادات سابقة في سجلك بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أو أغلقت ملفاتها.',
           });
         },
       },
@@ -289,15 +289,15 @@ export default async function render(ctx) {
   );
 
   const mainCard = card({
-    title: 'الملفات المسندة إليك',
-    subtitle: 'اضغط على أي ملف لفتح مساحة العمل الخاصة به',
+    title: 'إسناداتي',
+    subtitle: 'اضغط على أي إسناد لفتح مساحة العمل الخاصة به',
     icon: 'briefcase',
     flush: true,
     body: listTabs,
     footer: h(
       'p.pc-note.pc-note-flush',
       icon('shield', { size: 15 }),
-      h('span', 'ترى في كل ملف ما أتاحته لك الإدارة فقط. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من داخل الملف وستتولى الإدارة التواصل.'),
+      h('span', 'ترى في كل إسناد ما أتاحته لك الإدارة من الملف فقط. لا تتواصل مع المستفيد/ة مباشرة؛ اطلب أي معلومة أو مستند من داخل الإسناد وستتولى الإدارة التواصل.'),
     ),
   });
 
@@ -305,7 +305,7 @@ export default async function render(ctx) {
   if (counts.returned > 0) {
     urgent.push(
       alertBox(
-        `لديك ${count(counts.returned, ['ملف معاد', 'ملفان معادان', 'ملفات معادة', 'ملفًا معادًا'])} للتعديل بملاحظات من الإدارة.`,
+        `لديك ${count(counts.returned, ['إسناد معاد', 'إسنادان معادان', 'إسنادات معادة', 'إسنادًا معادًا'])} للتعديل بملاحظات من الإدارة.`,
         'danger',
         { icon: 'refresh' },
       ),
@@ -314,7 +314,7 @@ export default async function render(ctx) {
   if (counts.overdue > 0) {
     urgent.push(
       alertBox(
-        `لديك ${count(counts.overdue, ['ملف متأخر', 'ملفان متأخران', 'ملفات متأخرة', 'ملفًا متأخرًا'])} عن الموعد المطلوب. إن احتجت مهلة إضافية أو معلومات ناقصة فاطلبها من داخل الملف.`,
+        `لديك ${count(counts.overdue, ['إسناد متأخر', 'إسنادان متأخران', 'إسنادات متأخرة', 'إسنادًا متأخرًا'])} عن الموعد المطلوب. إن احتجت مهلة إضافية أو معلومات ناقصة فاطلبها من داخل الإسناد.`,
         'warning',
         { icon: 'clock' },
       ),

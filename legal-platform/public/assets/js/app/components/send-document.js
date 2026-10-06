@@ -9,9 +9,9 @@ import { api } from '../../lib/api.js';
 import { button, formDialog, toast } from '../../lib/ui.js';
 
 const CHANNELS = [
-  { value: 'auto', label: 'تلقائي: واتساب إن أمكن، وإلا بوابة العملاء' },
-  { value: 'whatsapp', label: 'واتساب (خلال 24 ساعة من آخر رسالة للعميل فقط)' },
-  { value: 'website', label: 'بوابة العملاء فقط' },
+  { value: 'auto', label: 'تلقائي: واتساب إن أمكن، وإلا صفحة المتابعة' },
+  { value: 'whatsapp', label: 'واتساب (خلال 24 ساعة من آخر رسالة للمستفيد/ة فقط)' },
+  { value: 'website', label: 'صفحة المتابعة فقط' },
 ];
 
 /**
@@ -21,8 +21,8 @@ const CHANNELS = [
 export async function openSendDocumentDialog(doc) {
   const name = doc.title || doc.filename || 'المستند';
   const result = await formDialog({
-    title: 'إرسال مستند للعميل',
-    intro: `سيصل المستند «${name}» إلى العميل ويظهر مرفقًا في محادثته وفي صفحته ببوابة العملاء. لا يُرسل للمحامين شيء.`,
+    title: 'إرسال مستند للمستفيد/ة',
+    intro: `سيصل المستند «${name}» إلى المستفيد/ة ويظهر مرفقًا في المحادثة وفي صفحة المتابعة الخاصة به. لا يُرسل للمحامين شيء.`,
     submitLabel: 'إرسال المستند',
     fields: [
       {
@@ -32,7 +32,7 @@ export async function openSendDocumentDialog(doc) {
         required: true,
         placeholder: false,
         options: CHANNELS,
-        hint: 'لا يسمح واتساب بإرسال المستندات خارج نافذة الـ 24 ساعة من آخر رسالة أرسلها العميل؛ في الوضع التلقائي يُتاح المستند في البوابة عندئذٍ.',
+        hint: 'لا يسمح واتساب بإرسال المستندات خارج نافذة الـ 24 ساعة من آخر رسالة أرسلها المستفيد/ة؛ في الوضع التلقائي يُتاح المستند في البوابة عندئذٍ.',
       },
       {
         name: 'caption',
@@ -47,8 +47,8 @@ export async function openSendDocumentDialog(doc) {
     onSubmit: (v) => api.post(`/admin/documents/${encodeURIComponent(doc.id)}/send-to-client`, { channel: v.channel || 'auto', caption: v.caption || null }),
   });
   if (!result) return null;
-  const via = result.channel === 'whatsapp' ? 'عبر واتساب' : 'في بوابة العملاء';
-  toast(`أُرسل المستند للعميل ${via}`, 'success');
+  const via = result.channel === 'whatsapp' ? 'عبر واتساب' : 'في صفحة المتابعة';
+  toast(`أُرسل المستند للمستفيد/ة ${via}`, 'success');
   if (result.note) toast(result.note, 'warning', 9000);
   return result;
 }
@@ -58,12 +58,12 @@ export async function openSendDocumentDialog(doc) {
  * @param {{id:number, title?:string, filename?:string}} doc
  * @param {{onSent?:(result:object)=>void, label?:string, size?:string, variant?:string}} [opts]
  */
-export function sendDocumentButton(doc, { onSent, label = 'إرسال للعميل', size = 'sm', variant = 'ghost' } = {}) {
+export function sendDocumentButton(doc, { onSent, label = 'إرسال للمستفيد/ة', size = 'sm', variant = 'ghost' } = {}) {
   const btn = button(label, {
     size,
     variant,
     icon: 'send',
-    title: `إرسال «${doc.title || doc.filename || 'المستند'}» للعميل`,
+    title: `إرسال «${doc.title || doc.filename || 'المستند'}» للمستفيد/ة`,
     onClick: async () => {
       const r = await openSendDocumentDialog(doc);
       if (r && onSent) onSent(r);

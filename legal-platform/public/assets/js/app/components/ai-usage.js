@@ -85,7 +85,8 @@ export function aiStatusCard(st = {}, { isAdmin = false } = {}) {
       kv(
         [
           ['المزود', h('span.ai-status-line', st.label || label('ai_provider', st.provider), badge(active ? 'متصل' : blocked ? 'متوقف مؤقتًا' : 'يعمل محليًا', active ? 'success' : blocked ? 'danger' : 'info'))],
-          ['النموذج', st.configured_model ? codeTag(st.configured_model) : st.model ? codeTag(st.model) : null],
+          // النموذج لا يُستخدم إلا مع Claude: مع المحلل المحلي يُعرض كإعداد للمستقبل لا كمزود فعلي
+          [active ? 'النموذج' : 'النموذج عند تفعيل Claude', st.configured_model ? codeTag(st.configured_model) : st.model ? codeTag(st.model) : null],
           st.mode ? ['وضع التشغيل', label('ai_mode', st.mode)] : null,
           st.effort ? ['مستوى الجهد', label('ai_effort', st.effort)] : null,
           ['ملاحظة', note],

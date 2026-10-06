@@ -193,12 +193,28 @@ export function accountActions(acc, { me, onChanged }) {
   if (acc.sessions > 0 && !self) {
     out.push(
       asyncButton('إنهاء كل الجلسات', async () => {
-        const ok = await confirmDanger({ title: 'إنهاء الجلسات', message: `سيُسجَّل خروج ${acc.display_name || acc.name} من كل الأجهزة (${count(acc.sessions, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])}).`, confirmLabel: 'إنهاء الجلسات' });
+        const feedNote = acc.calendar_feed && acc.calendar_feed.active ? ' ويتوقف رابط اشتراك التقويم الخاص به' : '';
+        const ok = await confirmDanger({ title: 'إنهاء الجلسات', message: `سيُسجَّل خروج ${acc.display_name || acc.name} من كل الأجهزة (${count(acc.sessions, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])})${feedNote}.`, confirmLabel: 'إنهاء الجلسات' });
         if (!ok) return;
         const r = await api.post(`/admin/accounts/${id}/sessions/revoke`);
-        toast(r.revoked ? `أُنهيت ${count(r.revoked, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])}` : 'لا توجد جلسات نشطة', 'success');
+        toast(`${r.revoked ? `أُنهيت ${count(r.revoked, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])}` : 'لا توجد جلسات نشطة'}${r.calendar_feed_revoked ? ' وأُلغي رابط التقويم' : ''}`, 'success');
         changed();
       }, { variant: 'ghost', size: 'sm', icon: 'logout' }),
+    );
+  }
+  if (acc.calendar_feed && acc.calendar_feed.active) {
+    out.push(
+      asyncButton('إلغاء رابط التقويم', async () => {
+        const ok = await confirmDanger({
+          title: 'إلغاء رابط اشتراك التقويم',
+          message: `سيتوقف فورًا رابط التقويم الذي يعرض مواعيد ${acc.display_name || acc.name} في تطبيقات التقويم على أجهزته، ويستطيع إصدار رابط جديد بعد الدخول.`,
+          confirmLabel: 'إلغاء الرابط',
+        });
+        if (!ok) return;
+        await api.post(`/admin/accounts/${id}/calendar-feed/revoke`);
+        toast('أُلغي رابط اشتراك التقويم', 'success');
+        changed();
+      }, { variant: 'ghost', size: 'sm', icon: 'calendar' }),
     );
   }
   return out;
@@ -212,7 +228,17 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
   const actions = accountActions(acc, { me, onChanged });
   return h(
     'div.stack.acc-panel',
-    acc.state === 'locked' && alertBox(`الدخول إلى هذا الحساب موقوف مؤقتًا حتى ${dateTime(acc.locked_until)} بعد ${count(acc.failed_login_count, ['محاولة فاشلة واحدة', 'محاولتين فاشلتين', 'محاولات فاشلة', 'محاولة فاشلة'])} متتالية.`, 'danger', { title: 'موقوف مؤقتًا' }),
+    acc.state === 'locked' &&
+      alertBox(
+        `أُوقفت محاولات الدخول مؤقتًا حتى ${dateTime(acc.locked_until)} من ${(() => {
+          const n = Array.isArray(acc.login_locks) ? acc.login_locks.length : 0;
+          if (n === 2) return 'مصدرين تكررت منهما';
+          if (n > 2) return `${count(n, ['مصدر واحد', 'مصدرين', 'مصادر', 'مصدرًا'])} تكررت منها`;
+          return 'المصدر الذي تكررت منه';
+        })()} المحاولات الفاشلة (${count(acc.failed_login_count, ['محاولة فاشلة واحدة', 'محاولتين فاشلتين', 'محاولات فاشلة', 'محاولة فاشلة'])} متتالية على الحساب). يستطيع صاحب الحساب الدخول من جهاز سبق أن دخل منه أو من شبكة أخرى.`,
+        'danger',
+        { title: 'محاولات دخول موقوفة مؤقتًا' },
+      ),
     acc.invite_pending &&
       alertBox(
         acc.invite?.status === 'active'
@@ -231,6 +257,12 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
         ['آخر تغيير لكلمة المرور', acc.password_changed_at ? dateTime(acc.password_changed_at) : null],
         acc.confidentiality_pledged_at ? ['التعهد بسرية بيانات المستفيدين', `أُقرّ عند التفعيل في ${dateTime(acc.confidentiality_pledged_at)}`] : null,
         acc.failed_login_count ? ['محاولات فاشلة متتالية', num(acc.failed_login_count)] : null,
+        acc.calendar_feed && acc.calendar_feed.active
+          ? [
+              'رابط اشتراك التقويم',
+              `ساري — أُصدر ${relative(acc.calendar_feed.created_at)}${acc.calendar_feed.last_used_at ? `، آخر استخدام ${relative(acc.calendar_feed.last_used_at)}` : '، لم يُستخدم بعد'}${acc.calendar_feed.hint ? ` (ينتهي بـ ⁦${acc.calendar_feed.hint}⁩)` : ''}`,
+            ]
+          : null,
         acc.reset_link ? ['رابط إعادة تعيين ساري', `حتى ${dateTime(acc.reset_link.expires_at)}`] : null,
       ],
       { columns: 2 },

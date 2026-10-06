@@ -28,7 +28,7 @@ const GROUP_LABELS = {
   auth: 'الدخول والجلسات',
   account: 'الحسابات وكلمات المرور',
   user: 'المستخدمون والأدوار',
-  portal: 'بوابة العملاء',
+  portal: 'صفحة المتابعة',
   settings: 'الإعدادات',
   security: 'سياسة الأمان',
   integration: 'التكاملات',
@@ -68,7 +68,7 @@ function dataRows(data) {
     from: 'من',
     to: 'إلى',
     fields: 'الحقول',
-    client_id: 'رقم العميل',
+    client_id: 'رقم المستفيد/ة',
     intake_id: 'رقم الطلب الوارد',
     revoked: 'أُلغي',
     sent: 'أُرسل عبر واتساب',
@@ -270,7 +270,7 @@ export default async function render(ctx) {
   return frag(
     pageHeader({
       title: 'سجل الأمان',
-      subtitle: 'من فعل ماذا ومتى ومن أين: الدخول، الحسابات والصلاحيات، الإعدادات، وروابط بوابة العملاء. لا يُعدَّل السجل ولا يُحذف من الواجهة.',
+      subtitle: 'من فعل ماذا ومتى ومن أين: الدخول، الحسابات والصلاحيات، الإعدادات، وروابط صفحة المتابعة. لا يُعدَّل السجل ولا يُحذف من الواجهة.',
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'سجل الأمان' }],
       actions: exportBtn,
     }),

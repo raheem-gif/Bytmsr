@@ -192,7 +192,7 @@ export default async function render(ctx) {
     statCard({ label: 'متوسط الجودة', value: qualityText(m.avg_quality), hint: 'تقييم الإدارة عند الاعتماد', icon: 'star', tone: 'accent' }),
     // (v9 messaging) رضا العملاء من استبيان ما بعد الرد في الملفات التي اعتُمد فيها رأيه
     m.avg_client_satisfaction !== undefined &&
-      statCard({ label: 'رضا العملاء', value: qualityText(m.avg_client_satisfaction), hint: m.client_ratings ? `من ${count(m.client_ratings, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])} للملفات التي اعتُمد فيها رأيه` : 'لا تقييمات من العملاء بعد', icon: 'star', tone: m.avg_client_satisfaction != null && m.avg_client_satisfaction < 3 ? 'warning' : 'success' }),
+      statCard({ label: 'رضا المستفيدين', value: qualityText(m.avg_client_satisfaction), hint: m.client_ratings ? `من ${count(m.client_ratings, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])} للملفات التي اعتُمد فيها رأيه` : 'لا تقييمات من المستفيدين بعد', icon: 'star', tone: m.avg_client_satisfaction != null && m.avg_client_satisfaction < 3 ? 'warning' : 'success' }),
     statCard({ label: 'استشارات تطوعية', value: num(m.pro_bono_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.pro_bono_total)}`, icon: 'shieldCheck', tone: 'success' }),
   ];
   if (isAdmin) {
@@ -474,7 +474,9 @@ export default async function render(ctx) {
   const specialtiesText = (l.specialties_labels || (l.specialties || []).map(areaLabel)).join('، ');
   return frag(
     pageHeader({
-      title: h('span.pd-title-with-avatar', avatar(l.display_name, { size: 'lg' }), h('span', l.display_name)),
+      // الصورة الرمزية خارج <h1>: نص العنوان هو اسم المحامي فقط
+      title: l.display_name,
+      titleMedia: avatar(l.display_name, { size: 'lg' }),
       subtitle: specialtiesText ? `التخصصات: ${specialtiesText}` : null,
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'شبكة المحامين', href: '#/lawyers' }, { label: l.display_name }],
       meta: [activeBadge(l.active), statusBadge('agreement_type', ag.type, { dot: false }), m.overdue ? badge(`إسنادات متأخرة: ${num(m.overdue)}`, 'danger', { icon: 'clock' }) : null],

@@ -261,7 +261,8 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
     const p = view.profile;
     mount(
       actions,
-      editable && button(p ? 'تعديل' : 'إضافة البيانات', { size: 'sm', icon: p ? 'edit' : 'plus', onClick: () => editDialog(view, saved) }),
+      // قبل وجود بطاقة: زر «إضافة البيانات» واحد فقط داخل الحالة الفارغة (لا زر مكرر في رأس البطاقة)
+      editable && p && button('تعديل', { size: 'sm', icon: 'edit', onClick: () => editDialog(view, saved) }),
       editable &&
         p &&
         !p.verified &&
@@ -328,7 +329,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
         ['العمل', p.employment ? label('employment', p.employment) : null],
         ['إعاقة أو مرض مزمن', p.has_disability ? 'نعم' : 'لا'],
         ['رقم الملف لدى المؤسسة', p.foundation_file_number ? h('span.ltr', { dir: 'ltr' }, p.foundation_file_number) : null],
-        ['برامج المؤسسة الأخرى', p.is_foundation_beneficiary ? badge('الأسرة مستفيدة من برامج المؤسسة', 'accent') : 'لا'],
+        ['برامج المؤسسة الأخرى', p.is_foundation_beneficiary ? badge('الأسرة مستفيدة من برامج المؤسسة', 'accent', { title: 'الأسرة مستفيدة من برامج المؤسسة', className: 'badge-wrap' }) : 'لا'],
         p.notes && ['ملاحظات', h('span.pre', p.notes)],
       ]),
     );

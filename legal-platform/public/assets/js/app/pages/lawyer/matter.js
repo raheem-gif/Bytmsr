@@ -37,7 +37,7 @@ const safe = (fn) => async (...args) => {
   }
 };
 
-const REMINDER_HINT = 'عند التفعيل يرسل النظام تذكيرًا آليًا للعميل قبل الموعد بثلاثة أيام عبر قناة المؤسسة.';
+const REMINDER_HINT = 'عند التفعيل يرسل النظام تذكيرًا آليًا للمستفيد/ة قبل الموعد بثلاثة أيام عبر قناة المؤسسة.';
 
 export default async function render(ctx) {
   const id = ctx.params.id;
@@ -128,7 +128,7 @@ export default async function render(ctx) {
           ? h(
               'div.pc-reminder',
               icon('zap', { size: 14 }),
-              h('span', e.status === 'scheduled' && !past ? 'يلزم حضور العميل — يُرسل له تذكير آلي قبل الموعد بثلاثة أيام' : 'كان يلزم حضور العميل'),
+              h('span', e.status === 'scheduled' && !past ? 'يلزم حضور المستفيد/ة — يُرسل له تذكير آلي قبل الموعد بثلاثة أيام' : 'كان يلزم حضور المستفيد/ة'),
             )
           : null,
         e.notes && h('p.pc-event-notes', richText(e.notes)),
@@ -155,7 +155,7 @@ export default async function render(ctx) {
     return card({
       title: 'الجلسات والمواعيد',
       icon: 'calendar',
-      subtitle: 'الجلسات التي يلزم فيها حضور العميل يُذكَّر بها آليًا عبر قناة المؤسسة',
+      subtitle: 'الجلسات التي يلزم فيها حضور المستفيد/ة يُذكَّر بها آليًا عبر قناة المؤسسة',
       actions: isClosed() ? null : button('تسجيل جلسة/موعد', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: safe(addEvent) }),
       body: data.events.length
         ? frag(
@@ -178,7 +178,7 @@ export default async function render(ctx) {
         { name: 'starts_at', label: 'التاريخ والوقت (بتوقيت القاهرة)', type: 'datetime', required: true },
         { name: 'title', label: 'العنوان', placeholder: 'مثال: جلسة المرافعة الثانية', maxLength: 200, hint: 'اتركه فارغًا لاستخدام نوع الموعد عنوانًا.' },
         { name: 'location', label: 'المكان', placeholder: m.court ? `${m.court}${m.circuit ? ` — ${m.circuit}` : ''}` : 'مثال: محكمة الأسرة ببنها', maxLength: 200, hint: m.court ? 'اتركه فارغًا لاستخدام المحكمة المسجلة في الملف.' : null },
-        { name: 'client_attendance_required', type: 'checkbox', text: 'يلزم حضور العميل شخصيًا', hint: REMINDER_HINT, full: true },
+        { name: 'client_attendance_required', type: 'checkbox', text: 'يلزم حضور المستفيد/ة شخصيًا', hint: REMINDER_HINT, full: true },
         { name: 'notes', label: 'ملاحظات (اختياري)', type: 'textarea', rows: 3, maxLength: 3000 },
       ],
       onSubmit: async (vals) => {
@@ -197,7 +197,7 @@ export default async function render(ctx) {
       },
     });
     if (!res) return;
-    toast(res.client_attendance_required ? 'سُجّل الموعد، وسيُرسل للعميل تذكير آلي قبله بثلاثة أيام.' : 'سُجّل الموعد في الملف.', 'success', 5000);
+    toast(res.client_attendance_required ? 'سُجّل الموعد، وسيُرسل للمستفيد/ة تذكير آلي قبله بثلاثة أيام.' : 'سُجّل الموعد في الملف.', 'success', 5000);
     await refresh();
   }
 
@@ -206,7 +206,7 @@ export default async function render(ctx) {
       [
         { name: 'status', label: 'الحالة', type: 'select', required: true, options: options('event_status'), placeholder: false, onChange: (v, api2) => toggleNext(api2, v) },
         { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 4, maxLength: 5000, placeholder: 'مثال: قررت المحكمة التأجيل لجلسة 20 ديسمبر للاطلاع وتقديم المستندات.' },
-        { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime', hint: 'عند تحديده يُسجَّل موعد جديد بنفس البيانات، ويُذكَّر العميل آليًا إن كان حضوره لازمًا.' },
+        { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime', hint: 'عند تحديده يُسجَّل موعد جديد بنفس البيانات، ويُذكَّر المستفيد/ة آليًا إن كان حضوره لازمًا.' },
         { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 3000 },
       ],
       {
@@ -357,7 +357,7 @@ export default async function render(ctx) {
       body: frag(
         kv(
           [
-            ['العميل', data.client_name],
+            ['المستفيد/ة', data.client_name],
             ['نوع الملف', label('matter_kind', m.kind)],
             ['المحكمة', m.court],
             ['الدائرة', m.circuit],
@@ -402,9 +402,9 @@ export default async function render(ctx) {
       icon: 'zap',
       body: h(
         'ul.pc-auto-list',
-        h('li', icon('calendar', { size: 16 }), h('span', 'تذكير العميل بالجلسات التي يلزم حضوره فيها قبل الموعد بثلاثة أيام عبر قناة المؤسسة.')),
+        h('li', icon('calendar', { size: 16 }), h('span', 'تذكير المستفيد/ة بالجلسات التي يلزم حضوره فيها قبل الموعد بثلاثة أيام عبر قناة المؤسسة.')),
         h('li', icon('flag', { size: 16 }), h('span', 'تنبيهك والإدارة قبل حلول المواعيد الإجرائية بثلاثة أيام إن لم يُسجَّل الإجراء.')),
-        h('li', icon('shield', { size: 16 }), h('span', 'التواصل مع العميل والفواتير من مسؤولية الإدارة؛ لا تُعرض بيانات الاتصال في بوابتك.')),
+        h('li', icon('shield', { size: 16 }), h('span', 'التواصل مع المستفيد/ة والفواتير من مسؤولية الإدارة؛ لا تُعرض بيانات الاتصال في بوابتك.')),
       ),
     });
   }
@@ -424,7 +424,7 @@ export default async function render(ctx) {
     hosts.header,
     isClosed()
       ? alertBox('هذا الملف المستمر مغلق — العرض للقراءة فقط.', 'warning', { icon: 'lock' })
-      : alertBox(`سجّل كل جلسة وما تم فيها أولًا بأول. تتولى ${orgName()} التواصل مع العميل وتذكيره آليًا بالمواعيد التي يلزم حضوره فيها.`, 'info', { icon: 'shield' }),
+      : alertBox(`سجّل كل جلسة وما تم فيها أولًا بأول. تتولى ${orgName()} التواصل مع المستفيد/ة وتذكيره آليًا بالمواعيد التي يلزم حضوره فيها.`, 'info', { icon: 'shield' }),
     hosts.stats,
     h('div.detail-layout', h('div.detail-main', hosts.events, hosts.tasks), h('div.detail-side', infoCard(), docsCard(), automationCard())),
   );

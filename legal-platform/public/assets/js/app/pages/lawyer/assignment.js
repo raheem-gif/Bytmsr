@@ -83,7 +83,7 @@ const KIND_HINTS = {
   co_counsel: 'مشاركة محامٍ في دراسة مسألة معقدة إلى جانبك.',
 };
 
-const UPLOADER = { client: 'أرسله العميل', staff: 'أضافته الإدارة', lawyer: 'أضفته أنت', system: 'من النظام' };
+const UPLOADER = { client: 'أرسله المستفيد/ة', staff: 'أضافته الإدارة', lawyer: 'أضفته أنت', system: 'من النظام' };
 
 /**
  * عنصر مستند مع رابط تنزيل.
@@ -128,7 +128,7 @@ export default async function render(ctx) {
   const base = `/lawyer/assignments/${encodeURIComponent(id)}`;
   const crumbs = (code) => [
     { label: 'بوابة المحامي', href: '#/my' },
-    { label: 'ملفاتي', href: '#/my' },
+    { label: 'إسناداتي', href: '#/my' },
     { label: code || `#${id}` },
   ];
 
@@ -145,7 +145,8 @@ export default async function render(ctx) {
     return frag(pageHeader({ title: 'تفاصيل الإسناد', breadcrumbs: crumbs() }), card({ body: errorState(err, () => ctx.reload()) }));
   }
 
-  ctx.setTitle(`ملف ${view.case.code}`);
+  // «إسناد INH-2026-00482»: ما يراه المحامي إسناد في ملف المؤسسة، لا الملف نفسه
+  ctx.setTitle(`إسناد ${view.case.code}`);
 
   // مفاتيح التخزين المحلي
   const backupKey = `pc-draft-backup-${id}`;
@@ -255,7 +256,7 @@ export default async function render(ctx) {
     }
     out.push(
       alertBox(
-        `هذا الملف مُسند إليك من ${orgName()}. لا تتواصل مع العميل مباشرة؛ اطلب أي معلومة أو مستند من خلال المنصة وستتولى الإدارة التواصل.`,
+        `هذا الملف مُسند إليك من ${orgName()}. لا تتواصل مع المستفيد/ة مباشرة؛ اطلب أي معلومة أو مستند من خلال المنصة وستتولى الإدارة التواصل.`,
         'info',
         { icon: 'shield' },
       ),
@@ -309,7 +310,7 @@ export default async function render(ctx) {
       icon: 'fileText',
       subtitle: 'كما أعدّتها الإدارة لك',
       body: frag(
-        h('div.pc-client-line', icon('user', { size: 16 }), h('span', 'العميل: '), h('strong', v.client_label)),
+        h('div.pc-client-line', icon('user', { size: 16 }), h('span', 'المستفيد/ة: '), h('strong', v.client_label)),
         v.facts_granted
           ? v.facts
             ? collapsibleText(v.facts, { limit: 900, className: 'pc-facts' })
@@ -440,8 +441,8 @@ export default async function render(ctx) {
     const latest = shownOpinion(v);
     let note;
     if (closed) note = alertBox('أغلقت الإدارة هذا الملف، ولم يعد تعديل الرأي متاحًا.', 'warning', { icon: 'lock' });
-    else if (a.status === 'submitted') note = alertBox('لن يصل رأيك للعميل مباشرة؛ سيصلك إشعار عند اعتماده أو إعادته إليك بملاحظات. يمكنك خلال المراجعة طلب معلومات أو مستندات إضافية.', 'info', { icon: 'clock', title: 'قُدّم رأيك وهو قيد مراجعة الإدارة' });
-    else if (a.status === 'approved') note = alertBox('تتولى الإدارة إعداد النسخة الموجهة للعميل وإرسالها من خلال قنوات المؤسسة. شكرًا لك.', 'success', { icon: 'checkCircle', title: 'اعتمدت الإدارة رأيك' });
+    else if (a.status === 'submitted') note = alertBox('لن يصل رأيك للمستفيد/ة مباشرة؛ سيصلك إشعار عند اعتماده أو إعادته إليك بملاحظات. يمكنك خلال المراجعة طلب معلومات أو مستندات إضافية.', 'info', { icon: 'clock', title: 'قُدّم رأيك وهو قيد مراجعة الإدارة' });
+    else if (a.status === 'approved') note = alertBox('تتولى الإدارة إعداد النسخة الموجهة للمستفيد/ة وإرسالها من خلال قنوات المؤسسة. شكرًا لك.', 'success', { icon: 'checkCircle', title: 'اعتمدت الإدارة رأيك' });
     else note = alertBox('تعديل الرأي غير متاح في هذه المرحلة.', 'info');
     return card({
       title: 'رأيي',
@@ -669,7 +670,7 @@ export default async function render(ctx) {
       clearTimeout(timer);
       const result = await formDialog({
         title: 'تقديم الرأي للإدارة',
-        intro: 'لن يصل رأيك للعميل مباشرة؛ ستراجعه الإدارة أولًا.',
+        intro: 'لن يصل رأيك للمستفيد/ة مباشرة؛ ستراجعه الإدارة أولًا.',
         submitLabel: 'تقديم للمراجعة',
         size: 'md',
         fields: [
@@ -681,7 +682,7 @@ export default async function render(ctx) {
               h(
                 'ol.pc-steps',
                 h('li', 'تراجع الإدارة رأيك، فتعتمده أو تعيده إليك بملاحظات.'),
-                h('li', 'بعد الاعتماد تُعِد الإدارة نسخة موجهة للعميل بلغة مبسطة وترسلها من خلال قنوات المؤسسة.'),
+                h('li', 'بعد الاعتماد تُعِد الإدارة نسخة موجهة للمستفيد/ة بلغة مبسطة وترسلها من خلال قنوات المؤسسة.'),
                 h('li', 'لا يمكنك تعديل الرأي أثناء المراجعة، ويمكنك متابعة حالته من هذه الصفحة.'),
               ),
           },
@@ -692,7 +693,7 @@ export default async function render(ctx) {
             min: 0,
             max: 1000,
             suffix: 'ساعة',
-            hint: 'يساعد الإدارة على قياس الجهد، ولا يظهر للعميل.',
+            hint: 'يساعد الإدارة على قياس الجهد، ولا يظهر للمستفيد/ة.',
             full: true,
           },
         ],
@@ -747,7 +748,7 @@ export default async function render(ctx) {
       ),
       footer: h(
         'div.pc-submit-row',
-        h('p.pc-submit-hint', icon('shield', { size: 16 }), h('span', 'عند التقديم يصل رأيك للإدارة أولًا للمراجعة، ولا يُرسل للعميل مباشرة.')),
+        h('p.pc-submit-hint', icon('shield', { size: 16 }), h('span', 'عند التقديم يصل رأيك للإدارة أولًا للمراجعة، ولا يُرسل للمستفيد/ة مباشرة.')),
         submitBtn,
       ),
     });
@@ -840,7 +841,7 @@ export default async function render(ctx) {
         ['معاملة الأتعاب', a.fee_mode === 'pro_bono' ? badge(fee, 'accent', { icon: 'star' }) : h('span', bidiText(fee))],
         ['حالة الملف', v.case.state === 'closed' ? badge('مغلق', 'muted', { icon: 'lock' }) : badge('مفتوح', 'success', { dot: true })],
       ]),
-      footer: h('p.small.muted', 'إغلاق الملف والتواصل مع العميل من مسؤولية الإدارة وحدها.'),
+      footer: h('p.small.muted', 'إغلاق الملف والتواصل مع المستفيد/ة من مسؤولية الإدارة وحدها.'),
     });
   }
 
@@ -954,11 +955,11 @@ export default async function render(ctx) {
       const docs = r.documents || [];
       const hint =
         r.status === 'sent_to_client'
-          ? 'أرسلته الإدارة للعميل عبر قناة المؤسسة، وستتيح لك الرد بعد مراجعته.'
+          ? 'أرسلته الإدارة للمستفيد/ة عبر قناة المؤسسة، وستتيح لك الرد بعد مراجعته.'
           : r.status === 'client_replied'
-            ? 'وصل رد العميل وتراجعه الإدارة قبل إتاحته لك.'
+            ? 'وصل رد المستفيد/ة وتراجعه الإدارة قبل إتاحته لك.'
             : r.status === 'pending_admin'
-              ? 'لم يُرسل للعميل بعد — بانتظار موافقة الإدارة.'
+              ? 'لم يُرسل للمستفيد/ة بعد — بانتظار موافقة الإدارة.'
               : null;
       return h(
         'li.pc-req',
@@ -1006,7 +1007,7 @@ export default async function render(ctx) {
     return card({
       title: 'طلبات المعلومات والمستندات',
       icon: 'message',
-      subtitle: 'سيصل طلبك للإدارة أولًا، وهي التي تتواصل مع العميل',
+      subtitle: 'سيصل طلبك للإدارة أولًا، وهي التي تتواصل مع المستفيد/ة',
       body: frag(
         can &&
           h(
@@ -1029,8 +1030,8 @@ export default async function render(ctx) {
   async function openInfoDialog(kind) {
     const isDoc = kind === 'document';
     const res = await formDialog({
-      title: isDoc ? 'طلب مستند من العميل' : 'طلب معلومات من العميل',
-      intro: 'سيصل طلبك للإدارة أولًا، وهي التي تتواصل مع العميل عبر قنواتها الرسمية ثم تتيح لك الرد بعد مراجعته. اكتب المطلوب بوضوح وباختصار.',
+      title: isDoc ? 'طلب مستند من المستفيد/ة' : 'طلب معلومات من المستفيد/ة',
+      intro: 'سيصل طلبك للإدارة أولًا، وهي التي تتواصل مع المستفيد/ة عبر قنواتها الرسمية ثم تتيح لك الرد بعد مراجعته. اكتب المطلوب بوضوح وباختصار.',
       submitLabel: 'إرسال الطلب للإدارة',
       fields: [
         {
@@ -1047,7 +1048,7 @@ export default async function render(ctx) {
       onSubmit: (vals) => api.post(`${base}/info-requests`, { kind, question: vals.question }),
     });
     if (!res) return;
-    toast('أُرسل طلبك للإدارة. سيصلك إشعار عند إرساله للعميل أو إتاحة الرد لك.', 'success', 5000);
+    toast('أُرسل طلبك للإدارة. سيصلك إشعار عند إرساله للمستفيد/ة أو إتاحة الرد لك.', 'success', 5000);
     await refresh();
   }
 

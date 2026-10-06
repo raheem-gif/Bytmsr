@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { nowIso, badRequest, notFound, parseJson } from '../util.js';
+import { LABELS } from '../constants.js';
 
 /**
  * تعريف كل تكامل: الحقول، أيها سري (لا يُعاد للواجهة أبدًا)، ومصدره من الإعدادات المحمّلة من البيئة.
@@ -28,9 +29,10 @@ export const INTEGRATION_SPEC = {
     label: 'الذكاء الاصطناعي (Claude من Anthropic)',
     fields: {
       api_key: { label: 'مفتاح Anthropic API', secret: true, env: 'ANTHROPIC_API_KEY', cfg: (c) => c.ai?.anthropicApiKey },
-      model: { label: 'النموذج', env: 'AI_MODEL', cfg: (c) => (process.env.AI_MODEL ? c.ai?.model : ''), default: 'claude-opus-5-5' },
-      effort: { label: 'مستوى الجهد', env: 'AI_EFFORT', cfg: (c) => (process.env.AI_EFFORT ? c.ai?.effort : ''), default: 'medium' },
-      provider: { label: 'المزوّد (auto / anthropic / heuristic)', env: 'AI_PROVIDER', cfg: (c) => (process.env.AI_PROVIDER ? c.ai?.provider : ''), default: 'auto' },
+      model: { label: 'النموذج (عند تفعيل Claude)', env: 'AI_MODEL', cfg: (c) => (process.env.AI_MODEL ? c.ai?.model : ''), default: 'claude-opus-5-5', code: true },
+      // options: القيم المقبولة وتسمياتها العربية (تُعرض للإدارة بدل القيمة الإنجليزية الخام)
+      effort: { label: 'مستوى الجهد', env: 'AI_EFFORT', cfg: (c) => (process.env.AI_EFFORT ? c.ai?.effort : ''), default: 'medium', options: LABELS.ai_effort },
+      provider: { label: 'وضع التشغيل', env: 'AI_PROVIDER', cfg: (c) => (process.env.AI_PROVIDER ? c.ai?.provider : ''), default: 'auto', options: LABELS.ai_mode },
       monthly_budget_usd: { label: 'سقف الإنفاق الشهري بالدولار (0 = بلا سقف)', env: 'AI_MONTHLY_BUDGET_USD', cfg: () => process.env.AI_MONTHLY_BUDGET_USD || '', default: '0' },
     },
   },
@@ -117,6 +119,11 @@ export function createIntegrations(app) {
           source,
           env: f.env,
           value: f.secret ? null : value || null,
+          // القيمة بالعربية للحقول ذات القيم المحددة (مثل «متوسط (موصى به)» بدل medium)؛ القيمة الخام تبقى في value
+          value_label: !f.secret && f.options && value ? f.options[value] || null : null,
+          options: f.options ? Object.entries(f.options).map(([v, l]) => ({ value: v, label: l })) : null,
+          // معرّفات تقنية (مثل اسم النموذج) تُعرض كرمز لاتيني لا يلتف
+          code: !!f.code,
           hint: f.secret && value ? `••••${String(value).slice(-4)}` : null,
         };
       }

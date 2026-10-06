@@ -6,24 +6,23 @@ import { label, relative, dateTime } from '../lib/fmt.js';
 import { icon, avatar, button, brandMark, loading, emptyState, richText } from '../lib/ui.js';
 import { notifIcon, notifTone, markRead, followLink } from './notif.js';
 import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
+import { routeTitle } from './routes.js';
 
 const POLL_MS = 30000;
 const DROPDOWN_LIMIT = 8;
 
+/** عنصر قائمة: اسمه عنوان المسار نفسه (routeTitle) فلا تختلف القائمة عن عنوان الصفحة. */
+const navItem = (href, iconName, extra = {}) => ({ href, label: routeTitle(href), icon: iconName, ...extra });
+
 /** عناصر القائمة حسب الدور. */
 export function navGroups(user, meta) {
-  const notifications = { href: '/notifications', label: 'الإشعارات', icon: 'bell', notif: true };
-  const account = { href: '/account', label: 'حسابي والأمان', icon: 'shield' };
+  const notifications = navItem('/notifications', 'bell', { notif: true });
+  const account = navItem('/account', 'shield');
   if (user.role === 'lawyer') {
     return [
       {
         title: 'بوابة المحامي',
-        items: [
-          { href: '/my', label: 'ملفاتي', icon: 'briefcase' },
-          { href: '/my/matters', label: 'الملفات المستمرة', icon: 'gavel' },
-          { href: '/my/calendar', label: 'تقويمي', icon: 'calendar' },
-          { href: '/my/statement', label: 'كشف حسابي', icon: 'wallet' },
-        ],
+        items: [navItem('/my', 'briefcase'), navItem('/my/matters', 'gavel'), navItem('/my/calendar', 'calendar'), navItem('/my/statement', 'wallet')],
       },
       { title: 'عام', items: [notifications, account] },
     ];
@@ -33,49 +32,58 @@ export function navGroups(user, meta) {
     {
       title: 'التشغيل اليومي',
       items: [
-        { href: '/dashboard', label: 'لوحة المتابعة', icon: 'home' },
-        { href: '/inbox', label: 'صندوق الوارد الموحد', icon: 'inbox' },
-        { href: '/queue', label: 'بانتظار قرار الإدارة', icon: 'queue' },
-        { href: '/cases', label: 'ملفات الاستشارات', icon: 'briefcase' },
-        { href: '/matters', label: 'الملفات المستمرة', icon: 'gavel' },
-        { href: '/clients', label: 'العملاء والمستفيدون', icon: 'users' },
-        { href: '/calendar', label: 'التقويم', icon: 'calendar' },
+        navItem('/dashboard', 'home'),
+        navItem('/inbox', 'inbox'),
+        navItem('/queue', 'queue'),
+        navItem('/cases', 'briefcase'),
+        navItem('/matters', 'gavel'),
+        navItem('/clients', 'users'),
+        navItem('/calendar', 'calendar'),
       ],
     },
     {
       title: 'الشبكة والمالية والبرامج',
-      items: [
-        { href: '/lawyers', label: 'شبكة المحامين', icon: 'scale' },
-        isAdmin && { href: '/accounting', label: 'المحاسبة', icon: 'wallet' },
-        { href: '/programs', label: 'البرامج والتمويل', icon: 'book' },
-        { href: '/conflicts', label: 'فحص تعارض المصالح', icon: 'shieldCheck' },
-      ],
+      items: [navItem('/lawyers', 'scale'), isAdmin && navItem('/accounting', 'wallet'), navItem('/programs', 'book'), navItem('/conflicts', 'shieldCheck')],
     },
     {
       title: 'الأثر والمعرفة والتواصل',
-      items: [
-        { href: '/impact', label: 'تقرير الأثر', icon: 'star' },
-        { href: '/automations', label: 'الأتمتة والرسائل', icon: 'zap' },
-        { href: '/quick-replies', label: 'الردود الجاهزة والقوالب', icon: 'message' },
-        { href: '/knowledge', label: 'المعرفة المؤسسية والذكاء الاصطناعي', icon: 'sparkle' },
-        { href: '/analytics', label: 'التسويق والتحليلات', icon: 'chart' },
-      ],
+      items: [navItem('/impact', 'star'), navItem('/automations', 'zap'), navItem('/quick-replies', 'message'), navItem('/knowledge', 'sparkle'), navItem('/analytics', 'chart')],
     },
     {
       title: 'النظام',
       items: [
-        meta && meta.demo && { href: '/simulator', label: 'محاكي واتساب', icon: 'whatsapp' },
-        isAdmin && { href: '/settings', label: 'الإعدادات والمستخدمون', icon: 'settings' },
-        isAdmin && { href: '/integrations', label: 'التكاملات', icon: 'link' },
-        isAdmin && { href: '/system', label: 'صحة النظام والنسخ الاحتياطي', icon: 'refresh' },
-        isAdmin && { href: '/audit', label: 'سجل الأمان', icon: 'lock' },
-        isAdmin && { href: '/data', label: 'استيراد وتصدير البيانات', icon: 'download' },
+        meta && meta.demo && navItem('/simulator', 'whatsapp'),
+        isAdmin && navItem('/settings', 'settings'),
+        isAdmin && navItem('/integrations', 'link'),
+        isAdmin && navItem('/system', 'refresh'),
+        isAdmin && navItem('/audit', 'lock'),
+        isAdmin && navItem('/data', 'download'),
         account,
         notifications,
       ],
     },
   ];
   return groups.map((g) => ({ ...g, items: g.items.filter(Boolean) })).filter((g) => g.items.length);
+}
+
+// ── طي مجموعات القائمة ──
+// على الشاشات القصيرة (1366×768 مثلًا) لا تتسع القائمة لكل العناصر: تُطوى المجموعات غير الحالية تلقائيًا،
+// وتبقى المجموعة التي فيها الصفحة الحالية مفتوحة دائمًا. اختيار المستخدم (فتح/طي) يُحفظ في هذا المتصفح فقط.
+const NAV_STATE_KEY = 'bm-nav-groups';
+function readNavState() {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(NAV_STATE_KEY) || 'null');
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+function writeNavState(state) {
+  try {
+    window.localStorage.setItem(NAV_STATE_KEY, JSON.stringify(state));
+  } catch {
+    /* تخزين المتصفح غير متاح: يبقى الاختيار لهذه الجلسة فقط */
+  }
 }
 
 /**
@@ -95,17 +103,42 @@ export function createShell({ user, meta, onLogout }) {
   const navLinks = [];
   const navCounts = [];
   const groups = navGroups(user, meta);
+  const navState = readNavState(); // { [عنوان المجموعة]: true مفتوحة | false مطوية } باختيار المستخدم
+  const groupCtl = []; // { title, el, links, set(open), userSet }
   const nav = h(
     'nav.nav',
     { 'aria-label': 'القائمة الرئيسية' },
     groups.map((g) => {
-      const titleId = `nav-g-${Math.random().toString(36).slice(2, 8)}`;
-      return h(
-        'div.nav-group',
-        h('div.nav-group-title', { id: titleId }, g.title),
-        h(
+      const uidPart = Math.random().toString(36).slice(2, 8);
+      const titleId = `nav-g-${uidPart}`;
+      const listId = `nav-l-${uidPart}`;
+      const groupLinks = [];
+      // عنوان المجموعة زر طي/فتح (يُعلن حالته لقارئات الشاشة)
+      const toggle = h(
+        'button.nav-group-title.nav-group-toggle',
+        { type: 'button', id: titleId, 'aria-expanded': 'true', 'aria-controls': listId },
+        h('span', g.title),
+        icon('chevronDown', { size: 14, className: 'nav-group-chev' }),
+      );
+      const ctl = { title: g.title, links: groupLinks, userSet: Object.prototype.hasOwnProperty.call(navState, g.title) };
+      ctl.set = (open) => {
+        ctl.open = open;
+        toggle.setAttribute('aria-expanded', String(open));
+        ctl.el.classList.toggle('is-collapsed', !open);
+        list.hidden = !open;
+      };
+      toggle.addEventListener('click', () => {
+        // المجموعة التي فيها الصفحة الحالية لا تُطوى (تبقى الصفحة الحالية ظاهرة في القائمة)
+        if (ctl.open && groupLinks.some((a) => a.classList.contains('is-active'))) return;
+        ctl.set(!ctl.open);
+        ctl.userSet = true;
+        navState[g.title] = ctl.open;
+        writeNavState(navState);
+        updateNavFade();
+      });
+      const list = h(
           'ul',
-          { 'aria-labelledby': titleId },
+          { id: listId, 'aria-labelledby': titleId },
           g.items.map((item) => {
             const countEl = item.notif ? h('span.nav-count', { hidden: true, 'aria-hidden': 'true' }) : null;
             if (countEl) navCounts.push(countEl);
@@ -118,12 +151,65 @@ export function createShell({ user, meta, onLogout }) {
             );
             a.addEventListener('click', () => closeDrawer(false));
             navLinks.push(a);
+            groupLinks.push(a);
             return h('li', a);
           }),
-        ),
       );
+      ctl.el = h('div.nav-group', toggle, list);
+      ctl.set(ctl.userSet ? navState[g.title] !== false : true);
+      groupCtl.push(ctl);
+      return ctl.el;
     }),
   );
+
+  // تلاشي حافة القائمة حين يختفي جزء منها أسفل (أو أعلى) منطقة العرض: إشارة إلى أن فيها المزيد
+  let navFadeRaf = 0;
+  function updateNavFade() {
+    if (navFadeRaf) return;
+    navFadeRaf = requestAnimationFrame(() => {
+      navFadeRaf = 0;
+      const more = nav.scrollHeight - nav.clientHeight;
+      nav.classList.toggle('more-below', more > 2 && nav.scrollTop < more - 2);
+      nav.classList.toggle('more-above', more > 2 && nav.scrollTop > 2);
+    });
+  }
+  nav.addEventListener('scroll', updateNavFade, { passive: true });
+  let activeLink = null;
+  let lastNavHeight = 0;
+  // تغيّر ارتفاع النافذة (أو ظهور القائمة لأول مرة) يعيد حساب المجموعات المطوية
+  const navResize =
+    typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          if (nav.clientHeight !== lastNavHeight) {
+            lastNavHeight = nav.clientHeight;
+            syncNavGroups(activeLink);
+          } else updateNavFade();
+        })
+      : null;
+  if (navResize) navResize.observe(nav);
+
+  /**
+   * يضبط المجموعات المفتوحة لصفحة جديدة: مجموعة الصفحة الحالية مفتوحة دائمًا، والمجموعات التي لم يخترها المستخدم
+   * تُطوى (من الأسفل، عدا الأولى «التشغيل اليومي») فقط إن كانت القائمة لا تتسع لكل شيء (الشاشات القصيرة).
+   */
+  function syncNavGroups(activeLink) {
+    const current = activeLink ? groupCtl.find((c) => c.links.includes(activeLink)) : null;
+    if (current && !current.open) current.set(true);
+    if (!nav.isConnected || nav.clientHeight === 0) {
+      updateNavFade();
+      return;
+    }
+    // افتح ما لم يختر المستخدم طيّه، ثم اطوِ (من الأسفل) ما لم يختره حتى تتسع القائمة
+    groupCtl.forEach((c) => {
+      if (!c.userSet && !c.open) c.set(true);
+    });
+    const auto = groupCtl.filter((c) => !c.userSet && c !== current && c !== groupCtl[0]).reverse();
+    for (const c of auto) {
+      if (nav.scrollHeight <= nav.clientHeight) break;
+      c.set(false);
+    }
+    updateNavFade();
+  }
 
   const sidebar = h(
     'aside.sidebar#app-sidebar',
@@ -360,6 +446,8 @@ export function createShell({ user, meta, onLogout }) {
         if (on) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');
       });
+      activeLink = best;
+      syncNavGroups(best);
       closeDropdown(false);
     },
     refresh: poll,
@@ -371,6 +459,7 @@ export function createShell({ user, meta, onLogout }) {
       document.removeEventListener('visibilitychange', onVisibility);
       globalSearch.destroy();
       mobileQuery.removeEventListener('change', onMediaChange);
+      if (navResize) navResize.disconnect();
     },
   };
 }

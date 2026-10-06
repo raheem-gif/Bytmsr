@@ -265,7 +265,15 @@ function outboxAndIntegrations(d) {
         kv([
           ['واتساب', h('div.pf-badges', badge(i.whatsapp.label, i.whatsapp.live ? 'success' : 'muted'), testLine(i.whatsapp.last_test))],
           ['الذكاء الاصطناعي', h('div.pf-badges', badge(i.anthropic.label, i.anthropic.live ? 'success' : 'info'), testLine(i.anthropic.last_test))],
-          ['مفتاح التشفير', badge(label('key_source', i.key_source), i.key_source === 'env' ? 'success' : i.key_source === 'file' ? 'warning' : 'danger')],
+          [
+            'مفتاح التشفير',
+            h(
+              'div.pf-badges',
+              badge(label('key_source', i.key_source), i.key_source === 'env' ? 'success' : i.key_source === 'file' ? 'warning' : 'danger'),
+              // المسار الفعلي كما يحسبه الخادم (DATA_DIR/.secret-key)، لا مسار ثابت قد لا يطابق مجلد البيانات
+              i.key_source === 'file' && i.key_file ? codeTag(i.key_file) : null,
+            ),
+          ],
           ['رابط Webhook', h('code.pf-code', { dir: 'ltr' }, d.webhook_url)],
         ]),
         button('إدارة التكاملات', { icon: 'arrowLeft', variant: 'secondary', size: 'sm', href: '#/integrations' }),
@@ -369,14 +377,19 @@ function backupsCard(b, reload) {
   });
 }
 
-function exportCard(keySource) {
+function exportCard(keySource, keyFile) {
   let includeKey = false;
   const keyToggle =
     keySource === 'file'
       ? h(
           'label.check.check-single',
           h('input', { type: 'checkbox', onChange: (e) => (includeKey = e.target.checked) }),
-          h('span', 'تضمين مفتاح التشفير data/.secret-key (لازم لنقل أسرار التكاملات المحفوظة إلى الخادم الجديد)'),
+          h(
+            'span',
+            'تضمين مفتاح التشفير ',
+            keyFile ? codeTag(keyFile) : '(الملف .secret-key في مجلد البيانات)',
+            ' — لازم لنقل أسرار التكاملات المحفوظة إلى الخادم الجديد',
+          ),
         )
       : null;
   const start = async () => {
@@ -445,7 +458,7 @@ export default async function render(ctx) {
         h('div.grid-2.pf-grid', serverCard(d), dbCard(d)),
         jobsCard(d, load),
         outboxAndIntegrations(d),
-        exportCard(d.integrations.key_source),
+        exportCard(d.integrations.key_source, d.integrations.key_file),
       ),
     );
     if (ctx && ctx.query && ctx.query.focus === 'backups') {

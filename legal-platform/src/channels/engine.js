@@ -9,6 +9,27 @@ import { parseWebhook, sourceFromReferral } from './whatsapp.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
 
+/**
+ * طلب لا يُثبت أن مقدّمه صاحب رقم الهاتف، فلا يظهر في رابط البوابة الكامل لصاحب الرقم
+ * (رمز الدخول عبر واتساب أو رابط ترسله الإدارة) حتى تؤكد الإدارة الهوية من صفحة الطلب:
+ *  - طلب من نموذج الموقع طابق رقمه عميلًا مسجلًا (phone_match_unverified)، أو
+ *  - أي طلب بدأ من نموذج الموقع (الرقم فيه مجرد إدخال؛ قد يكون خطأً في الكتابة أو رقم قريب أو رقم الخصم)،
+ *    ما لم يُرسله صاحب رابط بوابة كامل (sender_verified) أو تؤكد الإدارة هويته (identity_confirmed_at).
+ * يعمل كذلك على الطلبات القديمة التي أُنشئت قبل هذه العلامات (first_channel = 'website').
+ * alias: اسم جدول intakes في الاستعلام (اختياري).
+ */
+export function portalUnverifiedSql(alias = '') {
+  const c = (col) => (alias ? `${alias}.${col}` : col);
+  return `(COALESCE(json_extract(${c('source_detail')}, '$.phone_match_unverified'), 0) = 1 OR (${c('first_channel')} = 'website' AND json_extract(${c('source_detail')}, '$.identity_confirmed_at') IS NULL AND COALESCE(json_extract(${c('source_detail')}, '$.sender_verified'), 0) = 0))`;
+}
+/** نفس الشرط لصف طلب محمّل */
+export function isPortalUnverifiedIntake(i) {
+  if (!i) return false;
+  const sd = parseJson(i.source_detail, {});
+  if (sd.phone_match_unverified) return true;
+  return i.first_channel === 'website' && !sd.identity_confirmed_at && !sd.sender_verified;
+}
+
 /** استنتاج مصدر العميل من بيانات الموقع (UTM / Referrer / رمز جهة الإحالة) */
 export function sourceFromWebAttribution(attr = {}) {
   const a = attr || {};
@@ -59,7 +80,7 @@ export function createEngine(app) {
    * هذا المرسل لا تُوجَّه رسائله تلقائيًا إلى طلب غير موثّق أنشأه شخص آخر من الموقع بنفس الرقم،
    * وإلا وصلت رسائل صاحب الرقم إلى رابط بوابة ذلك الشخص.
    */
-  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender }) {
+  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender, portalSender = false }) {
     if (intakeId) {
       // رسالة من رابط بوابة خاص بطلب بعينه
       const i = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);
@@ -77,15 +98,18 @@ export function createEngine(app) {
     if (forceNew) return { intake: null, caseRow: null };
     if (refIntake) return { intake: refIntake, caseRow: refIntake.case_id ? db.get('SELECT * FROM cases WHERE id = ?', refIntake.case_id) : null };
     const skipUnverified = verifiedSender ? 1 : 0;
+    // صاحب رابط البوابة الكامل (رمز واتساب أو رابط من الإدارة) لا يرى الطلبات غير الموثّقة في صفحته،
+    // فلا تُوجَّه رسالته إليها أيضًا (وإلا وصلت لرابط مقدّم طلب الموقع الذي ربما أخطأ في كتابة رقمه)
+    const skipSql = portalSender ? portalUnverifiedSql() : UNVERIFIED_SQL;
     const openIntake = db.get(
       `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
-         AND NOT (? = 1 AND ${UNVERIFIED_SQL})
+         AND NOT (? = 1 AND ${skipSql})
        ORDER BY id DESC LIMIT 1`,
       client.id,
       skipUnverified,
     );
     if (openIntake) return { intake: openIntake, caseRow: null };
-    const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${UNVERIFIED_SQL})`;
+    const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${skipSql})`;
     const openCase = db.get(
       `SELECT * FROM cases WHERE client_id = ? AND status != 'closed' AND NOT (? = 1 AND id IN (${unverifiedCaseIds})) ORDER BY id DESC LIMIT 1`,
       client.id,
@@ -111,6 +135,8 @@ export function createEngine(app) {
 
   const engine = {
     lastInbound,
+    /** وضع المعاينة: الرسائل تُسجَّل فقط (داخل معاملة سيُتراجع عنها) ولا تُرسل لواتساب */
+    dryRun: false,
 
     /**
      * استقبال رسالة واردة موحدة من أي قناة.
@@ -225,6 +251,7 @@ export function createEngine(app) {
           caseId: msg.target_case_id,
           intakeId: msg.target_intake_id,
           verifiedSender,
+          portalSender: !!msg.portal_client_id && !msg.target_intake_id,
         });
         let intake = target.intake;
         let caseRow = target.caseRow;
@@ -237,6 +264,10 @@ export function createEngine(app) {
           if (msg.channel === 'website' && !createdClient && !msg.portal_client_id) {
             // طلب من الموقع برقم عميل موجود: الرقم غير موثّق، فننبه الإدارة قبل الاعتماد على هذا الربط
             attribution = { ...(attribution || {}), detail: { ...((attribution && attribution.detail) || {}), phone_match_unverified: true } };
+          }
+          if (msg.channel === 'website' && verifiedSender) {
+            // طلب جديد كتبه صاحب رابط بوابة كامل (أثبت ملكية الرقم): يظهر في بوابته رغم أن قناته «الموقع»
+            attribution = { ...(attribution || {}), detail: { ...((attribution && attribution.detail) || {}), sender_verified: true } };
           }
           if (!attribution || !attribution.source || attribution.source === 'unknown') {
             attribution = { ...(attribution || {}), source: previous > 0 ? 'returning' : attribution?.source || 'unknown' };
@@ -571,6 +602,8 @@ export function createEngine(app) {
           db.update('messages', id, { status: 'failed', error: 'لا يوجد رقم هاتف مسجل لهذا العميل للإرسال عبر واتساب' });
         } else if (!app.whatsapp.configured) {
           db.update('messages', id, { status: 'simulated', sent_at: t });
+        } else if (engine.dryRun) {
+          // معاينة (مثل «كم رسالة ستُرسل لو شُغلت القواعد الآن؟»): تُسجَّل داخل معاملة تُلغى، ولا تُرسل أبدًا
         } else {
           if (secret) secrets.set(id, secret);
           // الإرسال الفعلي غير متزامن؛ الحالة تُحدَّث عند النجاح/الفشل ومن Webhook الحالات
@@ -695,7 +728,7 @@ export function createEngine(app) {
         case_id: msg.case_id,
         matter_id: msg.matter_id,
         channel: 'website',
-        body: `أتحنا لكم المستند «${doc.title || doc.filename}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحتكم في بوابة العملاء. — ${org}`,
+        body: `أتحنا لكم المستند «${doc.title || doc.filename}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحة متابعة طلبكم. — ${org}`,
         author: msg.author_user_id ? { id: msg.author_user_id } : null,
         automated: !!msg.automated,
         meta: { portal_fallback_for: msg.id },

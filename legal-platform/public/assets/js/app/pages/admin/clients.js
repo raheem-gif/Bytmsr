@@ -45,7 +45,7 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
         if (my !== seq) return;
         const list = (res.items || []).filter((c) => c.id !== excludeId);
         if (!list.length) {
-          mount(results, emptyState(q ? 'لا يوجد عميل مطابق لهذا البحث' : 'لا يوجد عملاء آخرون', null, { compact: true, icon: 'users' }));
+          mount(results, emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون آخرون', null, { compact: true, icon: 'users' }));
           return;
         }
         const buttons = [];
@@ -74,7 +74,7 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
           buttons.push(b);
           return h('li', b);
         });
-        mount(results, h('ul.pa-pick-list', { 'aria-label': 'نتائج البحث — اختر عميلًا' }, items));
+        mount(results, h('ul.pa-pick-list', { 'aria-label': 'نتائج البحث — اختر مستفيدًا' }, items));
       } catch (err) {
         if (my !== seq) return;
         mount(results, errorState(err, () => search(q)));
@@ -88,8 +88,8 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
         frag(
           intro && h('p.modal-intro', intro),
           searchInput({
-            placeholder: 'ابحث بالاسم أو رقم العميل أو رقم الهاتف…',
-            label: 'بحث عن عميل',
+            placeholder: 'ابحث بالاسم أو كود المستفيد/ة أو رقم الهاتف…',
+            label: 'بحث عن مستفيد/ة',
             value: initialQuery,
             onSearch: (q) => search(q),
           }),
@@ -102,7 +102,7 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
           variant: 'primary',
           onClick: () => {
             if (!chosen) {
-              toast('اختر عميلًا من نتائج البحث أولًا', 'warning');
+              toast('اختر مستفيدًا من نتائج البحث أولًا', 'warning');
               return false;
             }
             confirmed = true;
@@ -129,7 +129,7 @@ export default async function render(ctx) {
   async function load({ append = false } = {}) {
     const my = ++seq;
     replaceQuery('/clients', { q });
-    if (!append) mount(host, loading('جارٍ تحميل العملاء…'));
+    if (!append) mount(host, loading('جارٍ تحميل المستفيدين…'));
     try {
       const res = await api.get('/admin/clients', { q, limit: PAGE, offset: append ? items.length : 0 });
       if (my !== seq) return;
@@ -152,12 +152,12 @@ export default async function render(ctx) {
 
   function draw() {
     const total = Number(data.total) || 0;
-    info.textContent = total ? `عدد العملاء: ${num(total)}${items.length < total ? ` — المعروض ${items.length}` : ''}` : '';
+    info.textContent = total ? `عدد المستفيدين: ${num(total)}${items.length < total ? ` — المعروض ${items.length}` : ''}` : '';
     if (!items.length) {
       mount(
         host,
         card({
-          body: emptyState(q ? 'لا يوجد عميل مطابق لهذا البحث' : 'لا يوجد عملاء مسجلون بعد', q ? button('مسح البحث', { icon: 'x', onClick: () => ctx.navigate('/clients') }) : null, {
+          body: emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون مسجلون بعد', q ? button('مسح البحث', { icon: 'x', onClick: () => ctx.navigate('/clients') }) : null, {
             icon: 'users',
           }),
         }),
@@ -168,11 +168,12 @@ export default async function render(ctx) {
     mount(
       host,
       table({
-        caption: 'قائمة العملاء',
+        caption: 'قائمة المستفيدين',
+        stack: true,
         className: 'pa-clients-table',
         onRowClick: (row) => ctx.navigate(`/clients/${row.id}`),
         columns: [
-          { key: 'code', label: 'رقم العميل', render: (r) => h('a.pa-plain-link', { href: `#/clients/${r.id}` }, codeTag(r.code)) },
+          { key: 'code', label: 'كود المستفيد/ة', render: (r) => h('a.pa-plain-link', { href: `#/clients/${r.id}` }, codeTag(r.code)) },
           {
             key: 'name',
             label: 'الاسم',
@@ -213,19 +214,19 @@ export default async function render(ctx) {
   return h(
     'div.pa-page.pa-page-clients',
     pageHeader({
-      title: 'العملاء',
-      subtitle: 'كل عميل له رقم مستقل، ويمكن أن تكون له عدة طلبات وملفات عبر الزمن',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'العملاء' }],
+      title: 'المستفيدون',
+      subtitle: 'كل مستفيد/ة له رقم مستقل، ويمكن أن تكون له عدة طلبات وملفات عبر الزمن',
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'المستفيدون' }],
       meta: h(
         'p.pa-principle',
         icon('link', { size: 15 }),
-        h('span', 'يتعرّف النظام على العميل من رقم هاتفه أو بريده، فيربط تلقائيًا ما يصل منه عبر واتساب أو الموقع أو غيرهما بنفس الملف.'),
+        h('span', 'يتعرّف النظام على المستفيد/ة من رقم هاتفه أو بريده، فيربط تلقائيًا ما يصل منه عبر واتساب أو الموقع أو غيرهما بنفس الملف.'),
       ),
     }),
     filterBar([
       searchInput({
-        placeholder: 'ابحث بالاسم أو رقم العميل أو رقم الهاتف…',
-        label: 'بحث في العملاء',
+        placeholder: 'ابحث بالاسم أو كود المستفيد/ة أو رقم الهاتف…',
+        label: 'بحث في المستفيدين',
         value: q,
         onSearch: (v) => {
           q = v;

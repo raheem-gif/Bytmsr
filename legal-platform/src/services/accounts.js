@@ -281,6 +281,16 @@ export function createAccounts(app) {
   }
   const looksLikeTotp = (c) => /^\d{6}$/.test(String(c ?? '').replace(/[\s-]/g, ''));
 
+  /** إلغاء رابط اشتراك التقويم لحساب (وحدة practice) مع تسجيله؛ يعيد true إن وُجد رابط */
+  function revokeCalendarFeed(userId, actor, ctx, reason) {
+    try {
+      return !!app.practice?.calendar?.revokeFeedFor?.(userId, actor, ctx, reason);
+    } catch (e) {
+      app.log('calendar feed revoke failed', e);
+      return false;
+    }
+  }
+
   // ===================== حالة الحساب =====================
   function stateOf(u) {
     if (!u.active) return 'inactive';
@@ -312,6 +322,8 @@ export function createAccounts(app) {
       two_factor_enabled: tf.enabled,
       recovery_remaining: tf.recovery_remaining,
       sessions: sessionsCount(u.id),
+      // رابط اشتراك التقويم (يعمل بلا دخول): حالته فقط، بلا الرمز
+      calendar_feed: app.practice?.calendar?.feedInfo ? app.practice.calendar.feedInfo(u.id) : { active: false },
       created_at: u.created_at,
       last_login_at: u.last_login_at || null,
       password_changed_at: u.password_changed_at || null,
@@ -418,6 +430,10 @@ export function createAccounts(app) {
       if (!before) return result;
       const after = db.get('SELECT * FROM users WHERE id = ?', userId);
       if (!after) return result;
+      // تغيير الدور أو إيقاف الحساب: رابط التقويم صدر بنطاق الدور السابق فيُلغى (يصدر المستخدم رابطًا جديدًا عند الحاجة)
+      if (before.role !== after.role || (before.active && !after.active)) {
+        revokeCalendarFeed(after.id, actor, ctx, before.role !== after.role ? 'تغيير دور الحساب' : 'إيقاف الحساب');
+      }
       if (!!before.active !== !!after.active) {
         audit({
           actor,
@@ -494,6 +510,9 @@ export function createAccounts(app) {
       return {
         ...accountSummary(u),
         session_list: app.auth.listSessions(u.id),
+        // المصادر الموقوفة مؤقتًا (الإيقاف يخص المصدر الذي تكررت منه المحاولات، لا الحساب كله)
+        login_locks: app.auth.loginLocks ? app.auth.loginLocks(u.id) : [],
+        known_devices: app.auth.knownDevices ? app.auth.knownDevices(u.id) : 0,
         recent_events: svc.auditList({ user_id: u.id, page_size: 10 }).items,
       };
     },
@@ -548,6 +567,8 @@ export function createAccounts(app) {
     unlock(userId, actor, ctx) {
       const u = userRow(userId);
       db.update('users', u.id, { failed_login_count: 0, locked_until: null });
+      // الإيقاف المؤقت لكل مصدر (عنوان IP أو جهاز) تكررت منه المحاولات الفاشلة
+      app.auth.clearLoginLocks?.(u.id);
       audit({ actor, ctx, type: 'account.unlocked', summary: `رفع الإيقاف المؤقت عن حساب ${who(u)} وتصفير عداد المحاولات الفاشلة`, data: { target_user_id: u.id } });
       return accountSummary(userRow(u.id));
     },
@@ -561,14 +582,16 @@ export function createAccounts(app) {
         db.run('DELETE FROM user_recovery_codes WHERE user_id = ?', u.id);
       });
       const revoked = app.auth.revokeUserSessions(u.id);
+      // الهاتف المفقود هو غالبًا الجهاز المشترك في رابط التقويم: يُلغى الرابط مع الجلسات
+      const feedRevoked = revokeCalendarFeed(u.id, actor, ctx, 'إلغاء التحقق بخطوتين (فقدان الهاتف)');
       const isAdmin = u.role === 'admin';
       audit({
         actor,
         ctx,
         type: 'account.2fa_reset_by_admin',
         severity: isAdmin ? 'critical' : 'warning',
-        summary: `إلغاء التحقق بخطوتين لحساب ${who(u)} بواسطة الإدارة (فقدان الهاتف) وإنهاء جلساته`,
-        data: { target_user_id: u.id, sessions_revoked: revoked },
+        summary: `إلغاء التحقق بخطوتين لحساب ${who(u)} بواسطة الإدارة (فقدان الهاتف) وإنهاء جلساته${feedRevoked ? ' ورابط التقويم' : ''}`,
+        data: { target_user_id: u.id, sessions_revoked: revoked, calendar_feed_revoked: feedRevoked },
       });
       app.notifications.notify(u.id, { type: 'security', title: 'ألغت الإدارة التحقق بخطوتين لحسابك', body: 'أُلغي التحقق بخطوتين لحسابك بناءً على طلب الإدارة. ننصحك بإعادة تفعيله من صفحة «حسابي والأمان» فور الدخول.', link: '#/account' });
       if (isAdmin) notifyAdmins({ title: `أُلغي التحقق بخطوتين لحساب ${u.name}`, body: `ألغى ${actor.name} التحقق بخطوتين لحساب «${u.username}» بدور «إدارة النظام».` }, { exceptUserId: actor.id });
@@ -578,8 +601,25 @@ export function createAccounts(app) {
     revokeAllSessionsByAdmin(userId, actor, ctx) {
       const u = userRow(userId);
       const n = u.id === actor.id ? app.auth.revokeUserSessions(u.id, { exceptTokenHash: ctx.user.session_token_hash }) : app.auth.revokeUserSessions(u.id);
-      audit({ actor, ctx, type: 'auth.sessions_revoked', severity: 'warning', summary: `إنهاء ${n ? arabicCount(n, SESSIONS) : 'كل الجلسات'} لحساب ${who(u)} بواسطة الإدارة`, data: { target_user_id: u.id, count: n } });
-      return { revoked: n, account: accountSummary(userRow(u.id)) };
+      // رابط التقويم بيانات اعتماد مستقلة عن الجلسات (يعمل بلا دخول): يُلغى معها
+      const feedRevoked = revokeCalendarFeed(u.id, actor, ctx, 'إنهاء كل الجلسات');
+      audit({
+        actor,
+        ctx,
+        type: 'auth.sessions_revoked',
+        severity: 'warning',
+        summary: `إنهاء ${n ? arabicCount(n, SESSIONS) : 'كل الجلسات'} لحساب ${who(u)} بواسطة الإدارة${feedRevoked ? ' وإلغاء رابط التقويم' : ''}`,
+        data: { target_user_id: u.id, count: n, calendar_feed_revoked: feedRevoked },
+      });
+      return { revoked: n, calendar_feed_revoked: feedRevoked, account: accountSummary(userRow(u.id)) };
+    },
+
+    /** إلغاء رابط اشتراك التقويم لحساب من صفحة الحساب (مدير النظام) */
+    revokeCalendarFeedByAdmin(userId, actor, ctx) {
+      const u = userRow(userId);
+      const revoked = revokeCalendarFeed(u.id, actor, ctx, 'ألغته الإدارة من صفحة الحساب');
+      if (!revoked) throw conflict('لا يوجد رابط تقويم ساري لهذا الحساب');
+      return { revoked, account: accountSummary(userRow(u.id)) };
     },
 
     // ===================== روابط الدعوة وإعادة التعيين (بدون دخول) =====================
@@ -862,8 +902,10 @@ export function createAccounts(app) {
     },
     revokeMyOtherSessions(ctx) {
       const n = app.auth.revokeUserSessions(ctx.user.id, { exceptTokenHash: ctx.user.session_token_hash });
+      // رابط التقويم المشترك على جهاز آخر (مثل هاتف مفقود) يتوقف أيضًا؛ يمكن إصدار رابط جديد من صفحة التقويم
+      const feedRevoked = revokeCalendarFeed(ctx.user.id, ctx.user, ctx, 'تسجيل الخروج من كل الأجهزة الأخرى');
       if (n) audit({ actor: ctx.user, ctx, type: 'auth.sessions_revoked', summary: `تسجيل الخروج من كل الأجهزة الأخرى (${arabicCount(n, SESSIONS_NOM)})`, data: { target_user_id: ctx.user.id, count: n } });
-      return { revoked: n, ...svc.mySessions(ctx) };
+      return { revoked: n, calendar_feed_revoked: feedRevoked, ...svc.mySessions(ctx) };
     },
     /** أحداث حسابي: ما فعلته أنا، وما فعلته الإدارة على حسابي (دون عنوان IP أو جهاز من قام به) */
     myActivity(ctx) {

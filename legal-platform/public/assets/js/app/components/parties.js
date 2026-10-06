@@ -12,7 +12,7 @@ const LEVEL_ICON = { high: 'alert', review: 'flag', info: 'info' };
 export function matchItem(m) {
   let target;
   if (m.target === 'client' && m.client) {
-    target = h('a', { href: `#/clients/${m.client.id}` }, m.client.name || 'عميل', ' ', codeTag(m.client.code));
+    target = h('a', { href: `#/clients/${m.client.id}` }, m.client.name || 'مستفيد/ة', ' ', codeTag(m.client.code));
   } else if (m.party) {
     const p = m.party;
     const href = p.matter_id ? `#/matters/${p.matter_id}` : p.case_id ? `#/cases/${p.case_id}` : null;
@@ -66,7 +66,7 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
   const addBtn = !readOnly && button('إضافة طرف', { size: 'sm', icon: 'userPlus', onClick: () => edit(null) });
   const el = card({
     title: 'أطراف الملف وتعارض المصالح',
-    subtitle: 'الخصوم والأطراف ذات الصلة — يُفحص كل اسم مقابل كل العملاء وأطراف الملفات الأخرى',
+    subtitle: 'الخصوم والأطراف ذات الصلة — يُفحص كل اسم مقابل كل المستفيدين وأطراف الملفات الأخرى',
     icon: 'shieldCheck',
     actions: addBtn,
     body,
@@ -103,7 +103,7 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
       p.notes && h('div.small', p.notes),
       p.matches.length
         ? matchList(p.matches)
-        : h('div.v9p-clear', icon('checkCircle', { size: 15 }), h('span', 'لا يوجد تطابق مع عملاء المؤسسة أو أطراف ملفات أخرى')),
+        : h('div.v9p-clear', icon('checkCircle', { size: 15 }), h('span', 'لا يوجد تطابق مع مستفيدي المؤسسة أو أطراف ملفات أخرى')),
     );
   }
 
@@ -137,7 +137,7 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
       title: p ? `تعديل بيانات الطرف «${p.name}»` : 'إضافة طرف في الملف',
       intro: fromMatter
         ? 'هذا هو الخصم المسجل في بيانات الدعوى: تعديل اسمه هنا يحدّث حقل «الخصم» في الملف المستمر أيضًا، ثم يُعاد فحص تعارض المصالح.'
-        : 'يُفحص الاسم (بكل صيغ كتابته العربية) والرقم القومي مقابل كل عملاء المؤسسة وأطراف ملفاتها، وتُسجل النتيجة في سجل الملف.',
+        : 'يُفحص الاسم (بكل صيغ كتابته العربية) والرقم القومي مقابل كل مستفيدي المؤسسة وأطراف ملفاتها، وتُسجل النتيجة في سجل الملف.',
       fields: partyFields({ lockRole: fromMatter }),
       values: p ? { role: p.role, name: p.name, national_id: p.national_id, notes: p.notes } : { role: 'opponent' },
       onSubmit: async (v) => {

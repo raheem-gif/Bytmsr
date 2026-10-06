@@ -496,7 +496,8 @@ async function renderDetail(ctx) {
     statCard({ label: 'المتبقي', value: money(s.remaining), icon: 'checkCircle', tone: s.remaining < 0 ? 'danger' : 'success' }),
     statCard({ label: 'معدل الإنفاق الشهري', value: money(s.burn_rate_monthly), hint: s.projected_total != null ? `المتوقع حتى نهاية المدة: ${money(s.projected_total)}` : null, icon: 'zap', tone: 'primary' }),
     statCard({ label: 'الأسر المستفيدة', value: num(s.families), hint: `${count(s.cases, 'case')} — المغلق منها ${num(s.closed_cases)}`, icon: 'users', tone: 'info' }),
-    statCard({ label: 'متوسط الإنفاق للملف', value: s.cost_per_case != null ? money(s.cost_per_case) : '—', hint: s.in_kind_count ? `مساهمات تطوعية بقيمة ${money(s.in_kind_value)}` : null, icon: 'scale', tone: 'neutral' }),
+    // المبالغ كلها بالجنيه الصحيح: المتوسط يُقرَّب (433.33 → 433 ج.م)
+    statCard({ label: 'متوسط الإنفاق للملف', value: s.cost_per_case != null ? money(Math.round(s.cost_per_case)) : '—', hint: s.in_kind_count ? `مساهمات تطوعية بقيمة ${money(s.in_kind_value)}` : null, icon: 'scale', tone: 'neutral' }),
   );
 
   const budgetCard = card({
@@ -641,10 +642,11 @@ async function renderDetail(ctx) {
       ),
       h(
         'div.grid-2',
-        card({ title: 'نتائج الملفات المغلقة', icon: 'checkCircle', body: bars((im.outcomes || []).map((o) => ({ label: o.label, value: o.count, tone: 'success' })), { empty: 'لم يُغلق أي ملف في البرنامج بعد', valueText: (r) => count(r.value, 'case') }) }),
-        card({ title: 'حالة الملفات', icon: 'briefcase', body: bars((im.by_status || []).map((o) => ({ label: o.label, value: o.count })), { valueText: (r) => count(r.value, 'case') }) }),
-        card({ title: 'المجالات القانونية', icon: 'scale', body: bars((im.by_area || []).map((o) => ({ label: o.label, value: o.cases, families: o.families, tone: 'info' })), { valueText: (r) => count(r.value, 'case') }) }),
-        card({ title: 'التوزيع الجغرافي (الأسر)', icon: 'mapPin', body: bars((im.by_governorate || []).map((o) => ({ label: o.label, value: o.families, tone: 'accent' })), { valueText: (r) => count(r.value, ['أسرة واحدة', 'أسرتان', 'أسر', 'أسرة']) }) }),
+        // قيم الأعمدة أرقام صريحة (والوحدة في عنوان البطاقة) بدل «ملفان» بجوار «أسرة واحدة» في البطاقة التالية
+        card({ title: 'نتائج الملفات المغلقة (عدد الملفات)', icon: 'checkCircle', body: bars((im.outcomes || []).map((o) => ({ label: o.label, value: o.count, tone: 'success' })), { empty: 'لم يُغلق أي ملف في البرنامج بعد' }) }),
+        card({ title: 'حالة الملفات (عدد الملفات)', icon: 'briefcase', body: bars((im.by_status || []).map((o) => ({ label: o.label, value: o.count }))) }),
+        card({ title: 'المجالات القانونية (عدد الملفات)', icon: 'scale', body: bars((im.by_area || []).map((o) => ({ label: o.label, value: o.cases, families: o.families, tone: 'info' }))) }),
+        card({ title: 'التوزيع الجغرافي (عدد الأسر)', icon: 'mapPin', body: bars((im.by_governorate || []).map((o) => ({ label: o.label, value: o.families, tone: 'accent' }))) }),
       ),
       ext && Array.isArray(ext.items) && ext.items.length
         ? card({ title: ext.title || 'مؤشرات الأثر', icon: 'star', body: kv(ext.items.map((x) => [x.label, x.value == null ? '—' : String(x.value)]), { columns: 2 }) })

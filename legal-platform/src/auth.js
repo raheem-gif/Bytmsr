@@ -5,6 +5,8 @@ import { randomToken, sha256, nowIso, now, addHours, unauthorized, forbidden, to
 
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 export const SESSION_COOKIE = 'bm_sid';
+/** كعكة «جهاز معروف»: تُضبط بعد كل دخول ناجح ولا تُرسل إلا لمسارات الدخول (/api/auth) */
+export const DEVICE_COOKIE = 'bm_dev';
 
 /** قيمة لا تطابق أي كلمة مرور: للحسابات التي لم تُقبل دعوتها بعد */
 export const UNUSABLE_PASSWORD = '!invite-pending';
@@ -14,10 +16,16 @@ export const BACKGROUND_HEADER = 'x-background-request';
 
 // ===== سياسة الدخول =====
 export const AUTH_POLICY = {
-  /** عدد المحاولات الفاشلة المتتالية قبل الإيقاف المؤقت (ثم يتضاعف زمن الإيقاف مع كل دفعة) */
+  /**
+   * عدد المحاولات الفاشلة المتتالية من مصدر واحد (عنوان IP، أو جهاز سبق الدخول منه) قبل إيقاف ذلك المصدر مؤقتًا،
+   * ثم يتضاعف زمن الإيقاف مع كل دفعة حتى الحد الأقصى. الإيقاف لا يشمل الحساب كله: لا يستطيع غريب يعرف اسم المستخدم
+   * أن يمنع صاحبه من الدخول من جهازه المعتاد أو من شبكة أخرى.
+   */
   lockAfter: 5,
   lockBaseMinutes: 15,
-  lockMaxMinutes: 24 * 60,
+  lockMaxMinutes: 4 * 60,
+  /** مدة تذكر الجهاز بعد آخر دخول ناجح منه (كعكة bm_dev) */
+  deviceDays: 180,
   /** تنبيه حرج للإدارة كل 10 محاولات فاشلة لنفس الحساب */
   alertEvery: 10,
   /** مهلة خطوة رمز التحقق بعد قبول كلمة المرور، وأقصى عدد محاولات للرمز */
@@ -197,16 +205,81 @@ export function createAuth(app) {
     return Math.min(AUTH_POLICY.lockMaxMinutes, AUTH_POLICY.lockBaseMinutes * 2 ** (round - 1));
   }
 
-  function lockedUntilOf(user, account) {
+  // ───── الأجهزة المعروفة ومصدر المحاولة ─────
+  function deviceToken(ctx) {
+    const v = ctx?.cookies?.[DEVICE_COOKIE];
+    return typeof v === 'string' && v.length >= 20 && v.length <= 200 && /^[A-Za-z0-9_-]+$/.test(v) ? v : null;
+  }
+  /** معرّف الجهاز إن كانت الكعكة لجهاز سبق أن أتم منه هذا المستخدم الدخول، وإلا null */
+  function trustedDeviceId(ctx, user) {
+    if (!user) return null;
+    const tok = deviceToken(ctx);
+    if (!tok) return null;
+    const cutoff = new Date(now().getTime() - AUTH_POLICY.deviceDays * 86400000).toISOString();
+    const row = db.get('SELECT id FROM login_devices WHERE user_id = ? AND token_hash = ? AND COALESCE(last_used_at, created_at) >= ?', user.id, sha256(tok), cutoff);
+    return row ? row.id : null;
+  }
+  /** مصدر المحاولة: الجهاز المعروف لهذا المستخدم، وإلا عنوان IP */
+  const sourceOf = (ctx, deviceId) => (deviceId ? `dev:${deviceId}` : `ip:${ctx?.ip || 'unknown'}`);
+  const sourceLabel = (source) => (source.startsWith('dev:') ? 'جهاز سبق الدخول منه' : `العنوان ${source.slice(3)}`);
+
+  function deviceCookieHeader(token) {
+    const parts = [`${DEVICE_COOKIE}=${token}`, 'Path=/api/auth', 'HttpOnly', 'SameSite=Strict', `Max-Age=${AUTH_POLICY.deviceDays * 86400}`];
+    if (config.cookieSecure) parts.push('Secure');
+    return parts.join('; ');
+  }
+
+  /** بعد دخول ناجح: تذكر هذا الجهاز لهذا المستخدم (أو تحديث آخر استخدام) وإعادة ضبط الكعكة لتمديد صلاحيتها */
+  function rememberDevice(ctx, user, existingId) {
+    const t = nowIso();
+    const presented = deviceToken(ctx);
+    if (existingId && presented) {
+      db.run('UPDATE login_devices SET last_used_at = ? WHERE id = ?', t, existingId);
+      return deviceCookieHeader(presented);
+    }
+    // متصفح مشترك يحمل كعكة جهاز لمستخدم آخر: نعيد استخدامها؛ أما قيمة لا نعرفها فلا نعتمدها ونصدر قيمة جديدة
+    const known = presented && db.get('SELECT 1 FROM login_devices WHERE token_hash = ?', sha256(presented));
+    const tok = known ? presented : randomToken(32);
+    db.run(
+      'INSERT OR IGNORE INTO login_devices (user_id, token_hash, created_at, last_used_at, user_agent) VALUES (?, ?, ?, ?, ?)',
+      user.id,
+      sha256(tok),
+      t,
+      t,
+      String(ctx?.req?.headers?.['user-agent'] || '').slice(0, 300),
+    );
+    db.run('UPDATE login_devices SET last_used_at = ? WHERE user_id = ? AND token_hash = ?', t, user.id, sha256(tok));
+    // أحدث 20 جهازًا فقط لكل مستخدم
+    db.run(
+      'DELETE FROM login_devices WHERE user_id = ? AND id NOT IN (SELECT id FROM login_devices WHERE user_id = ? ORDER BY COALESCE(last_used_at, created_at) DESC, id DESC LIMIT 20)',
+      user.id,
+      user.id,
+    );
+    return deviceCookieHeader(tok);
+  }
+
+  /** آخر إيقاف ساري لأي مصدر (يُعرض للإدارة في حالة الحساب فقط؛ لا يمنع الدخول من مصدر آخر) */
+  function latestLock(userId) {
+    return db.value('SELECT MAX(locked_until) FROM login_locks WHERE user_id = ? AND locked_until > ?', userId, nowIso()) ?? null;
+  }
+
+  function lockedUntilOf(user, account, source) {
     const t = now().getTime();
-    if (user) return user.locked_until && Date.parse(user.locked_until) > t ? Date.parse(user.locked_until) : null;
-    const g = ghosts.get(account);
+    if (user) {
+      const r = db.get('SELECT locked_until FROM login_locks WHERE user_id = ? AND source = ?', user.id, source);
+      return r?.locked_until && Date.parse(r.locked_until) > t ? Date.parse(r.locked_until) : null;
+    }
+    const g = ghosts.get(`${account}|${source}`);
     return g && g.lockedUntil > t ? g.lockedUntil : null;
   }
 
   function lockedError(untilMs) {
     const mins = Math.max(1, Math.ceil((untilMs - now().getTime()) / 60000));
-    const err = new ApiError(429, `تم إيقاف الدخول إلى هذا الحساب مؤقتًا بسبب محاولات دخول فاشلة متكررة. حاول مرة أخرى بعد ${arabicCount(mins, MINUTE_FORMS)}، أو تواصل مع الإدارة.`, 'rate_limited');
+    const err = new ApiError(
+      429,
+      `تم إيقاف محاولات الدخول من هذا الجهاز أو الشبكة مؤقتًا بسبب محاولات دخول فاشلة متكررة. حاول مرة أخرى بعد ${arabicCount(mins, MINUTE_FORMS)}، أو ادخل من جهاز سبق أن دخلت منه، أو تواصل مع الإدارة.`,
+      'rate_limited',
+    );
     err.details = { locked_until: new Date(untilMs).toISOString() };
     return err;
   }
@@ -220,21 +293,42 @@ export function createAuth(app) {
     }
   }
 
-  /** تسجيل محاولة فاشلة (كلمة مرور أو رمز تحقق) مع الإيقاف المؤقت والتنبيه عند التكرار */
-  function recordFailure(ctx, user, account, reason) {
+  /**
+   * تسجيل محاولة فاشلة (كلمة مرور أو رمز تحقق) مع إيقاف مصدرها مؤقتًا والتنبيه عند التكرار.
+   * source: «ip:<العنوان>» أو «dev:<معرّف الجهاز المعروف>» — الإيقاف يخص هذا المصدر وحده، لا الحساب كله،
+   * والمحاولات أثناء الإيقاف تُرفض قبل فحص كلمة المرور فلا تطيل الإيقاف.
+   */
+  function recordFailure(ctx, user, account, reason, source = sourceOf(ctx, null)) {
     const t = now().getTime();
     if (!user) {
-      const g = ghosts.get(account) || { count: 0, lockedUntil: 0 };
+      // أسماء مستخدمين غير موجودة: نفس السلوك تمامًا (في الذاكرة) حتى لا يُعرف وجود الحساب من الإيقاف
+      const key = `${account}|${source}`;
+      const g = ghosts.get(key) || { count: 0, lockedUntil: 0 };
       g.count += 1;
       if (g.count % AUTH_POLICY.lockAfter === 0) g.lockedUntil = t + lockMinutes(g.count) * 60000;
-      ghosts.set(account, g);
+      ghosts.set(key, g);
       if (ghosts.size > 5000) for (const [k, x] of ghosts) if (x.lockedUntil < t) ghosts.delete(k);
       app.audit.log({ ctx, type: 'auth.login_failed', severity: 'info', summary: `محاولة دخول فاشلة باسم مستخدم غير موجود «${String(account).slice(0, 60)}»`, data: { username: String(account).slice(0, 100), reason: 'unknown_user' } });
       return;
     }
+    // n: المحاولات الفاشلة المتتالية على الحساب من كل المصادر (للتنبيه)، f: من هذا المصدر (للإيقاف)
     const n = (Number(user.failed_login_count) || 0) + 1;
-    const lock = n % AUTH_POLICY.lockAfter === 0 ? new Date(t + lockMinutes(n) * 60000).toISOString() : undefined;
-    db.update('users', user.id, { failed_login_count: n, last_failed_login_at: nowIso(), locked_until: lock });
+    const prev = db.get('SELECT failures FROM login_locks WHERE user_id = ? AND source = ?', user.id, source);
+    const f = (Number(prev?.failures) || 0) + 1;
+    const lockMins = f % AUTH_POLICY.lockAfter === 0 ? lockMinutes(f) : 0;
+    const lock = lockMins ? new Date(t + lockMins * 60000).toISOString() : null;
+    db.run(
+      `INSERT INTO login_locks (user_id, source, failures, locked_until, updated_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, source) DO UPDATE SET failures = excluded.failures, locked_until = COALESCE(excluded.locked_until, login_locks.locked_until), updated_at = excluded.updated_at`,
+      user.id,
+      source,
+      f,
+      lock,
+      nowIso(),
+    );
+    const patch = { failed_login_count: n, last_failed_login_at: nowIso() };
+    if (lock) patch.locked_until = latestLock(user.id);
+    db.update('users', user.id, patch);
     const what = reason === '2fa' ? 'رمز تحقق غير صحيح' : 'كلمة مرور غير صحيحة';
     app.audit.log({
       actor: user,
@@ -242,7 +336,7 @@ export function createAuth(app) {
       type: reason === '2fa' ? 'auth.2fa_failed' : 'auth.login_failed',
       severity: 'info',
       summary: `محاولة دخول فاشلة لحساب «${user.username}» (${what}) — المحاولة الفاشلة رقم ${n} على التوالي`,
-      data: { username: String(account).slice(0, 100), reason, consecutive_failures: n },
+      data: { username: String(account).slice(0, 100), reason, consecutive_failures: n, source_failures: f, source_kind: source.startsWith('dev:') ? 'device' : 'ip' },
     });
     if (lock) {
       app.audit.log({
@@ -250,8 +344,8 @@ export function createAuth(app) {
         ctx,
         type: 'auth.lockout',
         severity: 'warning',
-        summary: `إيقاف مؤقت لدخول حساب «${user.username}» لمدة ${arabicCount(lockMinutes(n), MINUTE_FORMS)} بعد ${arabicCount(n, ATTEMPTS)} متتالية`,
-        data: { username: user.username, consecutive_failures: n, locked_until: lock },
+        summary: `إيقاف مؤقت لمحاولات الدخول إلى حساب «${user.username}» من ${sourceLabel(source)} لمدة ${arabicCount(lockMins, MINUTE_FORMS)} بعد ${arabicCount(f, ATTEMPTS)} متتالية (يبقى الدخول من الأجهزة المعروفة والمصادر الأخرى متاحًا)`,
+        data: { username: user.username, consecutive_failures: n, source_failures: f, source_kind: source.startsWith('dev:') ? 'device' : 'ip', locked_until: lock },
       });
     }
     if (n % AUTH_POLICY.alertEvery === 0) {
@@ -265,7 +359,7 @@ export function createAuth(app) {
       });
       notifyAdmins({
         title: `محاولات دخول فاشلة متكررة لحساب ${user.name}`,
-        body: `سُجلت ${arabicCount(n, ['محاولة دخول فاشلة', 'محاولتا دخول فاشلتان', 'محاولات دخول فاشلة', 'محاولة دخول فاشلة'])} متتالية لحساب «${user.username}»، آخرها من العنوان ${ctx?.ip || 'غير معروف'}. الحساب موقوف مؤقتًا؛ راجع سجل الأمان.`,
+        body: `سُجلت ${arabicCount(n, ['محاولة دخول فاشلة', 'محاولتا دخول فاشلتان', 'محاولات دخول فاشلة', 'محاولة دخول فاشلة'])} متتالية لحساب «${user.username}»، آخرها من العنوان ${ctx?.ip || 'غير معروف'}. تُوقف المحاولات من كل مصدر يكررها مؤقتًا، ويبقى دخول صاحب الحساب من أجهزته المعروفة متاحًا؛ راجع سجل الأمان.`,
       });
     }
   }
@@ -286,8 +380,12 @@ export function createAuth(app) {
       last_seen_at: created,
       auth_method: method,
     });
-    db.update('users', user.id, { last_login_at: created, failed_login_count: 0, locked_until: null });
-    ctx.res.setHeader('Set-Cookie', cookieHeader(token, Math.round(hours * 3600)));
+    // نجاح من هذا المصدر يصفّر محاولاته الفاشلة؛ إيقاف مصدر آخر (مثل عنوان من يخمّن كلمة المرور) يبقى ساريًا
+    const deviceId = trustedDeviceId(ctx, user);
+    db.run('DELETE FROM login_locks WHERE user_id = ? AND source = ?', user.id, sourceOf(ctx, deviceId));
+    const deviceCookie = rememberDevice(ctx, user, deviceId);
+    db.update('users', user.id, { last_login_at: created, failed_login_count: 0, locked_until: latestLock(user.id) });
+    ctx.res.setHeader('Set-Cookie', [cookieHeader(token, Math.round(hours * 3600)), deviceCookie].filter(Boolean));
     const fresh = db.get('SELECT * FROM users WHERE id = ?', user.id);
     return publicUser(fresh);
   }
@@ -315,26 +413,29 @@ export function createAuth(app) {
     loginStep(ctx, username, password) {
       const raw = String(username || '').trim().slice(0, 100);
       const account = raw.toLowerCase();
-      const key = `${ctx.ip}|${account}`;
+      const user = raw ? db.get('SELECT * FROM users WHERE username = ?', raw) : null;
+      // جهاز سبق أن أتم منه هذا المستخدم الدخول: له عداد مستقل، ولا يخضع لحد الحساب العام
+      // (فلا يستطيع من يخمّن كلمة المرور من مكان آخر أن يمنع صاحب الحساب من الدخول من جهازه)
+      const deviceId = trustedDeviceId(ctx, user);
+      const source = sourceOf(ctx, deviceId);
+      const key = `${deviceId ? `dev:${deviceId}` : ctx.ip}|${account}`;
       try {
         loginLimiter.hit(key);
-        accountLimiter.hit(account);
+        if (!deviceId) accountLimiter.hit(account);
       } catch (err) {
         if (err.firstExceed) {
-          const target = raw ? db.get('SELECT id, name, username FROM users WHERE username = ?', raw) : null;
-          app.audit.log({ actor: target || null, ctx, type: 'auth.rate_limited', severity: 'warning', summary: `تجاوز حد محاولات الدخول لاسم المستخدم «${raw.slice(0, 60)}» من العنوان ${ctx.ip}`, data: { username: raw.slice(0, 100) } });
+          app.audit.log({ actor: user ? { id: user.id, name: user.name, username: user.username } : null, ctx, type: 'auth.rate_limited', severity: 'warning', summary: `تجاوز حد محاولات الدخول لاسم المستخدم «${raw.slice(0, 60)}» من العنوان ${ctx.ip}`, data: { username: raw.slice(0, 100) } });
         }
         throw err;
       }
-      const user = raw ? db.get('SELECT * FROM users WHERE username = ?', raw) : null;
-      const locked = lockedUntilOf(user, account);
+      const locked = lockedUntilOf(user, account, source);
       if (locked) throw lockedError(locked);
       // نتحقق دائمًا من كلمة المرور (scrypt) حتى لو لم يوجد المستخدم أو لم يقبل دعوته بعد (قيمة غير قابلة للاستخدام)،
       // حتى لا يكشف زمن الرد وجود الحساب أو حالته
       const usable = !!user && typeof user.password_hash === 'string' && user.password_hash.startsWith('scrypt$');
       const ok = verifyPassword(password || '', usable ? user.password_hash : DUMMY_HASH) && usable;
       if (!user || !ok) {
-        recordFailure(ctx, user, account, 'password');
+        recordFailure(ctx, user, account, 'password', source);
         throw unauthorized('اسم المستخدم أو كلمة المرور غير صحيحة');
       }
       if (!user.active) {
@@ -342,8 +443,8 @@ export function createAuth(app) {
         throw forbidden('هذا الحساب موقوف، يرجى التواصل مع الإدارة');
       }
       loginLimiter.reset(key);
-      accountLimiter.reset(account);
-      ghosts.delete(account);
+      if (!deviceId) accountLimiter.reset(account);
+      ghosts.delete(`${account}|${source}`);
       if (twoFactorEnabled(user.id)) {
         const challenge = randomToken(32);
         const created = nowIso();
@@ -388,7 +489,8 @@ export function createAuth(app) {
         db.run('DELETE FROM login_challenges WHERE token_hash = ?', row.token_hash);
         throw new ApiError(401, 'انتهت مهلة التحقق، يرجى تسجيل الدخول من جديد', 'challenge_expired');
       }
-      const locked = lockedUntilOf(user, user.username.toLowerCase());
+      const source = sourceOf(ctx, trustedDeviceId(ctx, user));
+      const locked = lockedUntilOf(user, user.username.toLowerCase(), source);
       if (locked) {
         db.run('DELETE FROM login_challenges WHERE token_hash = ?', row.token_hash);
         throw lockedError(locked);
@@ -399,11 +501,11 @@ export function createAuth(app) {
         const exhausted = attempts >= AUTH_POLICY.challengeMaxAttempts;
         if (exhausted) db.run('DELETE FROM login_challenges WHERE token_hash = ?', row.token_hash);
         else db.run('UPDATE login_challenges SET attempts = ? WHERE token_hash = ?', attempts, row.token_hash);
-        recordFailure(ctx, user, user.username.toLowerCase(), '2fa');
-        const fresh = db.get('SELECT locked_until FROM users WHERE id = ?', user.id);
-        if (fresh?.locked_until && Date.parse(fresh.locked_until) > now().getTime()) {
+        recordFailure(ctx, user, user.username.toLowerCase(), '2fa', source);
+        const lockedNow = lockedUntilOf(user, user.username.toLowerCase(), source);
+        if (lockedNow) {
           db.run('DELETE FROM login_challenges WHERE token_hash = ?', row.token_hash);
-          throw lockedError(Date.parse(fresh.locked_until));
+          throw lockedError(lockedNow);
         }
         if (exhausted) throw new ApiError(401, 'تجاوزت عدد المحاولات المسموح لرمز التحقق، يرجى تسجيل الدخول من جديد', 'challenge_expired');
         const left = AUTH_POLICY.challengeMaxAttempts - attempts;
@@ -465,7 +567,32 @@ export function createAuth(app) {
     /** إنهاء كل جلسات مستخدم (مع استثناء الجلسة الحالية اختياريًا). يعيد عدد الجلسات المنهاة. */
     revokeUserSessions(userId, { exceptTokenHash = null } = {}) {
       if (exceptTokenHash) return db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', userId, exceptTokenHash).changes;
+      // إنهاء كل الجلسات (إيقاف الحساب، كلمة مرور مؤقتة، فقدان الهاتف): تُنسى الأجهزة المعروفة أيضًا
+      db.run('DELETE FROM login_devices WHERE user_id = ?', userId);
       return db.run('DELETE FROM sessions WHERE user_id = ?', userId).changes;
+    },
+
+    /** رفع الإيقاف المؤقت عن كل مصادر المحاولات لهذا المستخدم (رفع الإيقاف من الإدارة) */
+    clearLoginLocks(userId) {
+      return db.run('DELETE FROM login_locks WHERE user_id = ?', userId).changes;
+    },
+
+    /** المصادر الموقوفة حاليًا لهذا المستخدم (لصفحة الحساب عند الإدارة) */
+    loginLocks(userId) {
+      return db
+        .all('SELECT source, failures, locked_until, updated_at FROM login_locks WHERE user_id = ? AND locked_until > ? ORDER BY locked_until DESC', userId, nowIso())
+        .map((r) => ({
+          kind: r.source.startsWith('dev:') ? 'device' : 'ip',
+          ip: r.source.startsWith('ip:') ? r.source.slice(3) : null,
+          failures: Number(r.failures) || 0,
+          locked_until: r.locked_until,
+          last_attempt_at: r.updated_at,
+        }));
+    },
+
+    /** عدد الأجهزة المعروفة لهذا المستخدم */
+    knownDevices(userId) {
+      return Number(db.value('SELECT COUNT(*) FROM login_devices WHERE user_id = ?', userId));
     },
 
     /** الجلسات النشطة لمستخدم (بدون أي رموز) */
@@ -504,6 +631,10 @@ export function createAuth(app) {
       const idleCut = new Date(now().getTime() - idleHours() * 3600000).toISOString();
       const a = db.run('DELETE FROM sessions WHERE expires_at <= ? OR COALESCE(last_seen_at, created_at) < ?', nowI, idleCut).changes;
       const b = db.run('DELETE FROM login_challenges WHERE expires_at <= ?', nowI).changes;
+      // عدادات المصادر بعد يوم بلا محاولات (وانتهاء إيقافها)، والأجهزة غير المستخدمة منذ مدة التذكر
+      const dayAgo = new Date(now().getTime() - 24 * 3600000).toISOString();
+      db.run('DELETE FROM login_locks WHERE updated_at < ? AND (locked_until IS NULL OR locked_until <= ?)', dayAgo, nowI);
+      db.run('DELETE FROM login_devices WHERE COALESCE(last_used_at, created_at) < ?', new Date(now().getTime() - AUTH_POLICY.deviceDays * 86400000).toISOString());
       return { sessions: a, challenges: b };
     },
   };

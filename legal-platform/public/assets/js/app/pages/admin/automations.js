@@ -34,7 +34,7 @@ const RULES = {
   hearing_reminder: {
     icon: 'calendar',
     audience: 'client',
-    desc: 'يُرسَل للعميل قبل الجلسة أو الموعد الذي يلزم حضوره شخصيًا، مرة واحدة لكل موعد.',
+    desc: 'يُرسَل للمستفيد/ة قبل الجلسة أو الموعد الذي يلزم حضوره شخصيًا، مرة واحدة لكل موعد.',
     placeholders: {
       event_kind: 'نوع الموعد (جلسة، اجتماع…)',
       matter_code: 'كود الملف المستمر',
@@ -49,15 +49,15 @@ const RULES = {
   invoice_reminder: {
     icon: 'wallet',
     audience: 'client',
-    desc: 'يُذكّر العميل بفاتورة تجاوزت تاريخ استحقاقها ولم تُسدَّد، بتكرار محدود حتى لا يصبح إزعاجًا.',
+    desc: 'يُذكّر المستفيد/ة بفاتورة تجاوزت تاريخ استحقاقها ولم تُسدَّد، بتكرار محدود حتى لا يصبح إزعاجًا.',
     placeholders: { invoice_number: 'رقم الفاتورة', amount: 'المبلغ المتبقي (رقم فقط)', due_date: 'تاريخ الاستحقاق', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { invoice_number: 'INV-2026-00001', amount: '300', due_date: '27 سبتمبر 2026' },
   },
   document_reminder: {
     icon: 'fileText',
     audience: 'client',
-    desc: 'يُذكّر العميل بمعلومة أو مستند طلبناه منه ولم يصل بعد، فلا يتوقف الملف بسبب نقص بسيط.',
-    placeholders: { case_code: 'كود الملف', request: 'نص الطلب الموجه للعميل', org_name: 'اسم المؤسسة (من الإعدادات)' },
+    desc: 'يُذكّر المستفيد/ة بمعلومة أو مستند طلبناه منه ولم يصل بعد، فلا يتوقف الملف بسبب نقص بسيط.',
+    placeholders: { case_code: 'كود الملف', request: 'نص الطلب الموجه للمستفيد/ة', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { case_code: 'INH-2026-00482', request: 'برجاء إرسال صورة إعلام الوراثة' },
   },
   procedural_deadline: {
@@ -74,7 +74,7 @@ const RULES = {
   satisfaction_survey: {
     icon: 'star',
     audience: 'client',
-    desc: 'يسأل العميل عن رضاه بعد إرسال الرد النهائي مرة واحدة لكل ملف: أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، وإلا القالب المربوط أو هذا النص (الرد برقم من 1 إلى 5). يُنبَّه مدير الحالة فور أي تقييم منخفض، والنتائج في صفحة «الردود الجاهزة والقوالب».',
+    desc: 'يسأل المستفيد/ة عن رضاه بعد إرسال الرد النهائي مرة واحدة لكل ملف: أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، وإلا القالب المربوط أو هذا النص (الرد برقم من 1 إلى 5). يُنبَّه مدير الحالة فور أي تقييم منخفض، والنتائج في صفحة «الردود الجاهزة والقوالب».',
     placeholders: { case_code: 'كود الملف', client_name: 'اسم المستفيد', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { case_code: 'INH-2026-00482', client_name: 'أم يوسف' },
   },
@@ -82,11 +82,11 @@ const RULES = {
 
 const PARAM_FIELDS = {
   days_before: { label: 'عدد الأيام قبل الموعد', hint: 'متى يبدأ التذكير أو التنبيه قبل الموعد', suffix: 'يوم' },
-  after_days: { label: 'بعد كم يوم من إرسال الطلب للعميل', hint: 'لا يُرسل التذكير قبل مرور هذه المدة', suffix: 'يوم' },
+  after_days: { label: 'بعد كم يوم من إرسال الطلب للمستفيد/ة', hint: 'لا يُرسل التذكير قبل مرور هذه المدة', suffix: 'يوم' },
   repeat_every_days: { label: 'الفاصل بين التذكيرات', hint: 'أقل مدة بين تذكيرين لنفس العنصر', suffix: 'يوم' },
   max_reminders: { label: 'الحد الأقصى للتذكيرات', hint: 'لكل فاتورة أو طلب', suffix: 'تذكير' },
-  after_hours: { label: 'بعد كم ساعة من إرسال الرد', hint: 'يُرسل الاستبيان بعد هذه المدة من إرسال الرد النهائي للعميل', suffix: 'ساعة' },
-  expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود العميل بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم' },
+  after_hours: { label: 'بعد كم ساعة من إرسال الرد', hint: 'يُرسل الاستبيان بعد هذه المدة من إرسال الرد النهائي للمستفيد/ة', suffix: 'ساعة' },
+  expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود المستفيد/ة بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم' },
 };
 const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_reminders', 'after_hours', 'expire_days'];
 
@@ -113,13 +113,44 @@ function paramSentence(key, n) {
 }
 
 const ENTITY_LABELS = {
-  matter_event: 'موعد',
-  invoice: 'فاتورة',
-  info_request: 'طلب معلومات',
-  matter_task: 'مهمة إجرائية',
-  assignment: 'إسناد لمحامٍ',
-  case: 'ملف',
+  matter_event: 'موعد في الملف',
+  invoice: 'الفاتورة',
+  info_request: 'طلب معلومات في الملف',
+  matter_task: 'مهمة إجرائية في الملف',
+  assignment: 'إسناد لمحامٍ في الملف',
+  case: 'الملف',
 };
+
+/** رابط العنصر الذي نُفّذت عليه القاعدة (الملف أو الفاتورة) من بيانات describeRun في الخادم */
+function runHref(run) {
+  const m = run.matter_id ? `#/matters/${encodeURIComponent(run.matter_id)}` : null;
+  const c = run.case_id ? `#/cases/${encodeURIComponent(run.case_id)}` : null;
+  switch (run.entity_type) {
+    case 'matter_event':
+      return m && `${m}?tab=events`;
+    case 'matter_task':
+      return m && `${m}?tab=tasks`;
+    case 'invoice':
+      return m ? `${m}?tab=invoices` : c;
+    case 'info_request':
+      return c && `${c}?tab=requests`;
+    case 'assignment':
+      return c && `${c}?tab=team`;
+    case 'case':
+      return c;
+    default:
+      return m || c;
+  }
+}
+
+/** «الفاتورة INV-2026-00001 — نهى سمير» بدل «فاتورة رقم 1» (المعرّف الداخلي لا يعني شيئًا لمدير الحالة) */
+function runEntity(run) {
+  const what = ENTITY_LABELS[run.entity_type] || 'العنصر';
+  if (!run.entity_code) return h('span', what, ' ', h('span.muted', '(لم يعد موجودًا)'));
+  const href = runHref(run);
+  const code = codeTag(run.entity_code);
+  return h('span', `${what} `, href ? h('a', { href, 'aria-label': `${what} ${run.entity_code}` }, code) : code, run.client_name ? ` — ${run.client_name}` : null);
+}
 
 function runText(run) {
   let result = run.result;
@@ -128,7 +159,7 @@ function runText(run) {
   } catch {
     /* نص عادي */
   }
-  if (result && typeof result === 'object' && result.message_id) return 'أُرسلت رسالة للعميل';
+  if (result && typeof result === 'object' && result.message_id) return 'أُرسلت رسالة للمستفيد/ة';
   if (result === 'notified') return String(run.dedupe_key || '').startsWith('overdue:') ? 'تنبيه داخلي: فات الموعد' : 'أُرسل تنبيه داخلي';
   return 'نُفّذت';
 }
@@ -193,13 +224,13 @@ export default async function render(ctx) {
       h(
         'p',
         waConfigured
-          ? 'الرسائل الآلية والفردية تُرسل فعليًا للعملاء عبر WhatsApp Business API، وتظهر حالة كل رسالة (أُرسلت، سُلّمت، قُرئت) في صندوق الصادر.'
-          : 'لم تُضبط بيانات اعتماد WhatsApp Business بعد، لذلك تُسجَّل كل رسالة صادرة بحالة «إرسال تجريبي (محاكاة)» دون أن تصل للعميل فعليًا. تعمل القواعد كاملة حتى تتأكد من صياغتها قبل التشغيل الحقيقي.',
+          ? 'الرسائل الآلية والفردية تُرسل فعليًا للمستفيدين عبر WhatsApp Business API، وتظهر حالة كل رسالة (أُرسلت، سُلّمت، قُرئت) في صندوق الصادر.'
+          : 'لم تُضبط بيانات اعتماد WhatsApp Business بعد، لذلك تُسجَّل كل رسالة صادرة بحالة «إرسال تجريبي (محاكاة)» دون أن تصل للمستفيد/ة فعليًا. تعمل القواعد كاملة حتى تتأكد من صياغتها قبل التشغيل الحقيقي.',
       ),
       h(
         'p.pd-wa-note',
         h('strong', 'نافذة الـ 24 ساعة: '),
-        'يسمح واتساب بالرسائل الحرة خلال 24 ساعة من آخر رسالة أرسلها العميل فقط؛ خارجها لا تُرسل إلا قوالب معتمدة مسبقًا من ميتا، وتستخدم المنصة تلقائيًا القالب المحدد في الإعدادات.',
+        'يسمح واتساب بالرسائل الحرة خلال 24 ساعة من آخر رسالة أرسلها المستفيد/ة فقط؛ خارجها لا تُرسل إلا قوالب معتمدة مسبقًا من ميتا، وتستخدم المنصة تلقائيًا القالب المحدد في الإعدادات.',
         isAdmin ? [' ', h('a', { href: '#/settings' }, 'إعدادات واتساب والتكاملات')] : null,
       ),
     ),
@@ -260,7 +291,7 @@ export default async function render(ctx) {
       ),
       h(
         'div.pd-badges',
-        meta.audience === 'client' ? badge('رسالة للعميل عبر واتساب', 'success', { icon: 'whatsapp' }) : badge('تنبيه داخلي للمحامي والإدارة', 'info', { icon: 'bell' }),
+        meta.audience === 'client' ? badge('رسالة للمستفيد/ة عبر واتساب', 'success', { icon: 'whatsapp' }) : badge('تنبيه داخلي للمحامي والإدارة', 'info', { icon: 'bell' }),
       ),
       h('p.pd-rule-desc', meta.desc),
       paramKeys.length ? h('ul.pd-rule-params', paramKeys.map((k) => h('li', icon('check', { size: 14 }), paramSentence(k, params[k])))) : null,
@@ -277,7 +308,7 @@ export default async function render(ctx) {
                 h(
                   'li',
                   h('time', { datetime: run.created_at, title: dateTime(run.created_at) }, relative(run.created_at)),
-                  h('span', `${ENTITY_LABELS[run.entity_type] || 'عنصر'} رقم ${run.entity_id}`),
+                  runEntity(run),
                   h('span.muted', runText(run)),
                 ),
               ),
@@ -454,7 +485,7 @@ export default async function render(ctx) {
         : null,
       table({
         className: 'pd-table-tight',
-        caption: 'الرسائل الصادرة للعملاء',
+        caption: 'الرسائل الصادرة للمستفيدين',
         rows,
         empty: outboxState.status ? 'لا توجد رسائل بهذه الحالة' : 'لم تُرسل أي رسائل بعد',
         rowClass: (m) => m.status === 'failed' && 'pd-row-failed',
@@ -467,10 +498,10 @@ export default async function render(ctx) {
           },
           {
             key: 'client',
-            label: 'العميل',
+            label: 'المستفيد/ة',
             render: (m) =>
               m.client_id
-                ? h('div.pd-cell-stack', h('a.cell-title', { href: `#/clients/${m.client_id}` }, m.client_name || 'عميل'), m.client_code && codeTag(m.client_code))
+                ? h('div.pd-cell-stack', h('a.cell-title', { href: `#/clients/${m.client_id}` }, m.client_name || 'مستفيد/ة'), m.client_code && codeTag(m.client_code))
                 : h('span.muted', '—'),
           },
           {
@@ -541,7 +572,7 @@ export default async function render(ctx) {
     loadOutbox();
     return h(
       'div.stack',
-      h('p.pd-section-hint.pd-intro', 'كل ما أرسلته المؤسسة للعملاء — آليًا أو يدويًا — من نفس محرك الرسائل، مع حالته الفعلية. الرسائل الفاشلة يمكن إعادة إرسالها.'),
+      h('p.pd-section-hint.pd-intro', 'كل ما أرسلته المؤسسة للمستفيدين — آليًا أو يدويًا — من نفس محرك الرسائل، مع حالته الفعلية. الرسائل الفاشلة يمكن إعادة إرسالها.'),
       filterBar([statusSel, button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: loadOutbox })]),
       outboxHost,
     );
@@ -564,6 +595,32 @@ export default async function render(ctx) {
   const runBtn = asyncButton(
     'تشغيل القواعد الآن',
     async () => {
+      // معاينة على الخادم (دون تنفيذ أو إرسال): كم رسالة ستصل للمستفيدين الآن
+      const pv = await api.get('/admin/automations/preview');
+      if (pv && pv.skipped) {
+        toast('القواعد قيد التشغيل بالفعل، حاول بعد لحظات', 'warning');
+        return;
+      }
+      const msgs = Number(pv && pv.messages) || 0;
+      const wa = Number(pv && pv.whatsapp) || 0;
+      const notes = Number(pv && pv.staff_notifications) || 0;
+      const MSG = ['رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة'];
+      let message;
+      if (!msgs && !notes) message = 'لا يوجد الآن ما يستدعي التنفيذ؛ كل ما يستحق التذكير أُرسل من قبل.';
+      else {
+        const parts = [];
+        if (msgs) {
+          parts.push(
+            wa
+              ? `ستُرسل ${count(wa, MSG)} إلى المستفيدين عبر واتساب${pv.live ? '' : ' (محاكاة؛ واتساب غير مربوط)'}${msgs > wa ? ` و${count(msgs - wa, MSG)} في صفحة المتابعة` : ''}.`
+              : `ستُتاح ${count(msgs, MSG)} للمستفيدين في صفحة المتابعة.`,
+          );
+        }
+        if (notes) parts.push(`وسيصل للفريق ${count(notes, ['تنبيه واحد', 'تنبيهان', 'تنبيهات', 'تنبيهًا'])}.`);
+        message = `${parts.join(' ')} لا تُكرر القواعد ما نُفّذ من قبل.`;
+      }
+      const go = await confirmDialog({ title: 'تشغيل قواعد الأتمتة الآن', message, confirmLabel: msgs ? 'تشغيل وإرسال' : 'تشغيل' });
+      if (!go) return;
       const res = await api.post('/admin/automations/run');
       if (res && res.skipped) {
         toast('القواعد قيد التشغيل بالفعل، حاول بعد لحظات', 'warning');

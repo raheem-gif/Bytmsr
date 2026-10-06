@@ -197,7 +197,7 @@ export default async function render(ctx) {
             'span.pa-dir',
             { class: out ? 'is-out' : 'is-in' },
             icon(out ? 'arrowLeft' : 'arrowRight', { size: 13 }),
-            out ? 'ردّنا:' : 'العميل:',
+            out ? 'ردّنا:' : 'المستفيد/ة:',
           ),
           h('span.pa-irow-preview-text', { dir: 'auto' }, richText(it.last_message)),
         )
@@ -215,7 +215,7 @@ export default async function render(ctx) {
             'div.pa-irow-head',
             codeTag(it.code),
             h('strong.pa-irow-name', it.contact_name || 'بدون اسم'),
-            it.returning_client && badge('عميل سابق', 'accent', { icon: 'refresh', title: 'لهذا العميل طلبات سابقة لدى المؤسسة' }),
+            it.returning_client && badge('مستفيد/ة سابق/ة', 'accent', { icon: 'refresh', title: 'لهذا المستفيد/ة طلبات سابقة لدى المؤسسة' }),
             it.client_code && h('span.pa-irow-client', { dir: 'ltr' }, it.client_code),
           ),
           h('div.pa-irow-subject', subject, area),
@@ -303,7 +303,7 @@ export default async function render(ctx) {
         },
       }),
       selectInput({
-        label: 'مصدر العميل',
+        label: 'مصدر المستفيد/ة',
         allLabel: 'كل المصادر',
         options: options('source'),
         value: state.source,
@@ -340,7 +340,7 @@ export default async function render(ctx) {
     const created = await formDialog({
       title: 'تسجيل طلب يدوي',
       intro:
-        'للطلبات التي تصل بمكالمة هاتفية أو حضور شخصي أو بريد إلكتروني. يدخل الطلب نفس محرك الاستقبال، ويُربط بالعميل تلقائيًا إن كان رقمه أو بريده مسجلًا من قبل.',
+        'للطلبات التي تصل بمكالمة هاتفية أو حضور شخصي أو بريد إلكتروني. يدخل الطلب نفس محرك الاستقبال، ويُربط بالمستفيد/ة تلقائيًا إن كان رقمه أو بريده مسجلًا من قبل.',
       size: 'lg',
       submitLabel: 'تسجيل الطلب',
       values: { channel: 'phone', source: 'unknown' },
@@ -353,13 +353,13 @@ export default async function render(ctx) {
           placeholder: false,
           options: ['phone', 'walk_in', 'email'].map((v) => ({ value: v, label: label('channel', v) })),
         },
-        { name: 'name', label: 'اسم العميل', maxLength: 150, autocomplete: 'off' },
+        { name: 'name', label: 'اسم المستفيد/ة', maxLength: 150, autocomplete: 'off' },
         { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'مطلوب للمكالمات والحضور الشخصي' },
         { name: 'email', label: 'البريد الإلكتروني', type: 'email', hint: 'مطلوب إذا وصل الطلب بالبريد' },
         { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
-        { name: 'source', label: 'كيف عرف العميل بالمؤسسة؟ (المصدر)', type: 'select', placeholder: false, options: options('source') },
+        { name: 'source', label: 'كيف عرف المستفيد/ة بالمؤسسة؟ (المصدر)', type: 'select', placeholder: false, options: options('source') },
         { name: 'campaign', label: 'الحملة أو جهة الإحالة', maxLength: 150, hint: 'اختياري — مثل اسم الإعلان أو الجمعية المحيلة', full: true },
-        { name: 'text', label: 'وصف الطلب كما رواه العميل', type: 'textarea', required: true, minLength: 10, maxLength: 20000, rows: 5 },
+        { name: 'text', label: 'وصف الطلب كما رواه المستفيد/ة', type: 'textarea', required: true, minLength: 10, maxLength: 20000, rows: 5 },
       ],
       onSubmit: async (v) => {
         if (v.channel !== 'email' && !v.phone) throw fieldError('phone', 'رقم الموبايل مطلوب للمكالمات والحضور الشخصي');
@@ -392,7 +392,7 @@ export default async function render(ctx) {
     meta: h(
       'p.pa-principle',
       icon('info', { size: 15 }),
-      h('span', h('strong', 'القناة'), ' هي طريقة التواصل (واتساب، الموقع…)، و', h('strong', 'المصدر'), ' هو ما جاء بالعميل (إعلان، بحث، إحالة…). والرسالة لا تصبح ملفًا إلا بقرار من الإدارة.'),
+      h('span', h('strong', 'القناة'), ' هي طريقة التواصل (واتساب، الموقع…)، و', h('strong', 'المصدر'), ' هو ما جاء بالمستفيد/ة (إعلان، بحث، إحالة…). والرسالة لا تصبح ملفًا إلا بقرار من الإدارة.'),
     ),
     actions: [
       button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load() }),

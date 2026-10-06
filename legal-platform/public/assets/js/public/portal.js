@@ -1,8 +1,8 @@
-// بوابة العميل /p/<token>: طلبات بانتظار الرد، الردود، المواعيد، الفواتير، المحادثة، والملفات.
+// صفحة متابعة المستفيد/ة /p/<token>: طلبات بانتظار الرد، الردود، المواعيد، الفواتير، المحادثة، والملفات.
 
 import { h, mount } from '../lib/h.js';
 import { api, filesToUploads, ApiError } from '../lib/api.js';
-import { setMeta, date, dateTime, time, relative, money, calendarParts, label } from '../lib/fmt.js';
+import { setMeta, date, dateTime, time, relative, money, calendarParts, label, count } from '../lib/fmt.js';
 import {
   card,
   emptyState,
@@ -343,12 +343,22 @@ function filesSection(cases, intakes) {
 
 // ───────────── الصفحة ─────────────
 
-function summaryLink(href, iconName, num, text) {
+/**
+ * بطاقة ملخص: العدد مع معدوده بصيغة عربية سليمة («طلب واحد»، «طلبان»، «3 طلبات»، «11 طلبًا») ثم سياقه («بانتظار ردك»)،
+ * والصفر «لا توجد» مع اسم الجمع («لا توجد / طلبات بانتظار ردك») بدل «0 طلبات» أو «1 طلبات».
+ * @param {string[]} forms [مفرد بـ«واحد»، مثنى، جمع، تمييز] كما في count()
+ */
+function summaryParts(n, forms, context, zeroText) {
+  const v = Math.max(0, Math.round(Number(n) || 0));
+  return v === 0 ? ['لا توجد', zeroText] : [count(v, forms), context];
+}
+
+function summaryLink(href, iconName, [big, small]) {
   return h(
     'a',
     { href },
     h('span.sum-icon', icon(iconName, { size: 20 })),
-    h('span', h('span.sum-num', String(num)), h('span.sum-label', text)),
+    h('span', h('span.sum-num', big), h('span.sum-label', small)),
   );
 }
 
@@ -384,15 +394,15 @@ function renderPortal(data) {
         'div.container',
         h('h1', firstName ? `مرحبًا ${firstName}` : 'مرحبًا بك'),
         h('p', `هذه صفحتك الخاصة لمتابعة طلباتك وملفاتك لدى ${orgName()}: ترد على طلباتنا، وترفع مستنداتك، وتراسلنا من مكان واحد.`),
-        client.code ? h('p.row', h('span', 'رقم العميل:'), codeTag(client.code)) : null,
+        client.code ? h('p.row', h('span', 'رقمك لدى المؤسسة:'), codeTag(client.code)) : null,
         !client.code && client.reference ? h('p.row', h('span', 'رقم طلبك:'), codeTag(client.reference), h('span.small', 'احتفظ به للمتابعة')) : null,
         h(
           'nav.portal-summary',
           { 'aria-label': 'ملخص ملفك' },
-          summaryLink('#requests', 'message', requests.filter((r) => r.can_reply).length, 'طلبات بانتظار ردك'),
-          summaryLink('#answers', 'fileText', answers.length, `ردود ${orgName()}`),
-          summaryLink('#events', 'calendar', events.length, 'مواعيد قادمة'),
-          invoices.length ? summaryLink('#invoices', 'wallet', unpaid.length, 'فواتير غير مسددة') : null,
+          summaryLink('#requests', 'message', summaryParts(requests.filter((r) => r.can_reply).length, ['طلب واحد', 'طلبان', 'طلبات', 'طلبًا'], 'بانتظار ردك', 'طلبات بانتظار ردك')),
+          summaryLink('#answers', 'fileText', summaryParts(answers.length, ['ردّ واحد', 'ردّان', 'ردود', 'ردًّا'], `من ${orgName()}`, `ردود من ${orgName()} بعد`)),
+          summaryLink('#events', 'calendar', summaryParts(events.length, ['موعد واحد', 'موعدان', 'مواعيد', 'موعدًا'], 'في الأيام القادمة', 'مواعيد قادمة')),
+          invoices.length ? summaryLink('#invoices', 'wallet', summaryParts(unpaid.length, ['فاتورة واحدة', 'فاتورتان', 'فواتير', 'فاتورة'], 'بانتظار السداد', 'فواتير غير مسددة')) : null,
         ),
         contact ? h('div.cta-row.portal-contact', contact) : null,
       ),
@@ -436,7 +446,8 @@ function renderInvalid(err) {
 }
 
 async function load({ keepScroll = false } = {}) {
-  if (!token) {
+  // رابط مقطوع (عند نسخه من واتساب مثلًا) أو مشوّه: لا حاجة لسؤال الخادم، فالرموز الصحيحة 20–100 خانة لاتينية
+  if (!token || token.length < 20 || token.length > 100 || !/^[A-Za-z0-9_-]+$/.test(token)) {
     renderInvalid(new ApiError('الرابط غير مكتمل؛ تأكد من نسخه كاملًا.', { status: 404, code: 'invalid_token' }));
     return;
   }

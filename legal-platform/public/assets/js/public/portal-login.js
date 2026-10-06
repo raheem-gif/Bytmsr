@@ -1,5 +1,5 @@
-// دخول بوابة العملاء برمز يصل عبر واتساب (/portal):
-// 1) يكتب العميل رقم الموبايل المسجل لدينا ← 2) يصله رمز من 6 أرقام على واتساب ← 3) يُحوَّل إلى صفحته الخاصة /p/<رمز>.
+// «متابعة طلبك» — الدخول إلى صفحة متابعة المستفيد/ة برمز يصل عبر واتساب (/portal):
+// 1) يكتب المستفيد/ة رقم الموبايل المسجل لدينا ← 2) يصله رمز من 6 أرقام على واتساب ← 3) يُحوَّل إلى صفحته الخاصة /p/<رمز>.
 // الرد على طلب الرمز واحد دائمًا سواء كان الرقم مسجلًا أم لا، حتى لا تكشف الصفحة وجود أي رقم لدينا.
 
 import { h, mount } from '../lib/h.js';
@@ -42,10 +42,12 @@ function maskPhone(p) {
 }
 
 function notes() {
-  const wa = whatsappUrl(meta.settings?.whatsapp_number_digits, `مرحبًا ${orgName()}، لا يصلني رمز الدخول إلى بوابة العملاء.`);
+  const wa = whatsappUrl(meta.settings?.whatsapp_number_digits, `مرحبًا ${orgName()}، لا يصلني رمز الدخول إلى صفحة المتابعة. رقم طلبي: `);
   return h(
     'ul.pl-notes',
-    h('li', icon('shieldCheck', { size: 16 }), h('span', 'لا نُظهر لأحد هل الرقم مسجل لدينا أم لا؛ يصل الرمز فقط إلى رقم سبق أن تواصل معنا عبر واتساب أو سجّله فريقنا.')),
+    h('li', icon('shieldCheck', { size: 16 }), h('span', 'لا نُظهر لأحد هل الرقم مسجل لدينا أم لا؛ يصل الرمز فقط إلى رقم سبق أن تواصل معنا عبر واتساب أو أكّده فريقنا.')),
+    // من قدّم طلبه من الموقع فقط لا يصله رمز حتى يتحقق الفريق من هويته؛ طريق استعادة الرابط عندها هو التواصل برقم الطلب
+    h('li', icon('info', { size: 16 }), h('span', 'قدّمت طلبك من الموقع ولم تراسلنا على واتساب بعد؟ لن يصلك رمز قبل أن يتحقق فريقنا من رقمك؛ تابع من الرابط الخاص الذي ظهر لك بعد إرسال الطلب، وإن فقدته فتواصل معنا واذكر رقم طلبك (يبدأ بـ REQ) لنرسل لك رابطًا جديدًا.')),
     h('li', icon('lock', { size: 16 }), h('span', 'لا تشارك الرمز مع أي شخص؛ لن يطلبه منك أحد من فريقنا أبدًا.')),
     h(
       'li',
@@ -168,6 +170,15 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
   const change = h('button.pl-link-btn', { type: 'button', onClick: () => phoneStep(phone) }, 'تغيير الرقم');
   const submit = button('دخول', { variant: 'primary', icon: 'lock', type: 'submit', block: true });
   let busy = false;
+  // كل إرسال للرمز يستهلك محاولة من المحاولات الخمس: الرمز الذي رفضه الخادم لا يُرسل ثانيةً دون تغيير،
+  // وزر «دخول» معطل حتى يكتمل رمز جديد من 6 أرقام.
+  let rejected = '';
+  let locked = false;
+  const typed = () => toLatinDigits(input.value).replace(/\D/g, '');
+  function syncSubmit() {
+    const v = typed();
+    submit.disabled = busy || locked || v.length !== 6 || v === rejected;
+  }
 
   function tick() {
     const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
@@ -189,6 +200,11 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
       expiresAt = Date.now() + (r.expires_in || 600) * 1000;
       resendAt = Date.now() + (r.resend_after || 60) * 1000;
       input.value = '';
+      rejected = '';
+      locked = false;
+      input.disabled = false;
+      input.removeAttribute('aria-invalid');
+      syncSubmit();
       status.textContent = 'أُرسل رمز جديد إن كان الرقم مسجلًا لدينا؛ الرمز السابق لم يعد صالحًا.';
       input.focus();
     } catch (err) {
@@ -199,17 +215,22 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
   });
 
   async function verify() {
-    if (busy) return;
-    mount(errHost);
-    const code = toLatinDigits(input.value).replace(/\D/g, '');
+    if (busy || locked) return;
+    const code = typed();
     if (code.length !== 6) {
       mount(errHost, alertBox('أدخل الرمز المكون من 6 أرقام كما وصلك', 'danger', { icon: 'alert' }));
       input.setAttribute('aria-invalid', 'true');
       input.focus();
       return;
     }
+    // الرمز نفسه الذي رُفض للتو: لا نرسله (يستهلك محاولة دون فائدة) ونُبقي رسالة الخطأ السابقة ظاهرة
+    if (code === rejected) {
+      input.focus();
+      return;
+    }
+    mount(errHost);
     busy = true;
-    submit.disabled = true;
+    syncSubmit();
     submit.classList.add('is-loading');
     status.textContent = 'جارٍ التحقق من الرمز…';
     try {
@@ -221,18 +242,31 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
       status.textContent = '';
       showError(errHost, err);
       input.setAttribute('aria-invalid', 'true');
-      input.select();
-      submit.disabled = false;
+      // رفض الخادم الرمز (خطأ أو انتهاء صلاحية): يُمسح الحقل ليكتب الرمز من جديد. أما خطأ الشبكة أو كثرة المحاولات
+      // فيبقى الرمز كما هو ليُعاد إرساله.
+      const refused = err && err.status >= 400 && err.status < 500 && err.status !== 429;
+      if (refused) {
+        rejected = code;
+        input.value = '';
+        if (err.details && err.details.attempts_left === 0) {
+          locked = true;
+          input.disabled = true;
+          status.textContent = 'أُوقف هذا الرمز؛ اطلب رمزًا جديدًا من «إعادة إرسال الرمز».';
+        }
+      }
       submit.classList.remove('is-loading');
       busy = false;
+      syncSubmit();
+      if (!locked) input.focus();
     }
   }
 
   input.addEventListener('input', () => {
-    const v = toLatinDigits(input.value).replace(/\D/g, '').slice(0, 6);
+    const v = typed().slice(0, 6);
     if (input.value !== v) input.value = v;
     input.removeAttribute('aria-invalid');
-    if (v.length === 6) verify();
+    syncSubmit();
+    if (v.length === 6 && v !== rejected) verify();
   });
   const form = h(
     'form.pl-form',
@@ -258,6 +292,7 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
     notes(),
   );
   tick();
+  syncSubmit();
   timers.push(setInterval(tick, 1000));
   input.focus();
 }
@@ -268,7 +303,7 @@ function disabledView() {
     root,
     h('span.pl-icon', { 'aria-hidden': 'true' }, icon('info', { size: 26 })),
     h('h2#pl-title', 'الدخول برمز واتساب غير متاح حاليًا'),
-    h('p.pl-lead', wa ? 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، أو مراسلتنا لنرسل لك رابطًا جديدًا.' : 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، أو الاتصال بنا لنرسل لك رابطًا جديدًا.'),
+    h('p.pl-lead', wa ? 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، وإن فقدته فراسلنا واذكر رقم طلبك لنرسل لك رابطًا جديدًا.' : 'يمكنك متابعة طلبك من الرابط الخاص الذي أرسلناه لك، وإن فقدته فاتصل بنا واذكر رقم طلبك لنرسل لك رابطًا جديدًا.'),
     wa
       ? button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank', block: true })
       : meta.site?.org_phone

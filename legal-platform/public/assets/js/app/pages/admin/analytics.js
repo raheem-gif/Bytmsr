@@ -7,7 +7,7 @@ import { pageHeader, card, statCard, table, field, button, emptyState, errorStat
 import { replaceQuery } from './lawyers.js';
 
 const GROUPS = {
-  source: { label: 'المصدر', col: 'مصدر العميل', hint: 'من أين عرفنا العميل: إعلان ممول، بحث جوجل، إحالة…' },
+  source: { label: 'المصدر', col: 'مصدر المستفيد/ة', hint: 'من أين عرفنا المستفيد/ة: إعلان ممول، بحث جوجل، إحالة…' },
   channel: { label: 'القناة', col: 'قناة التواصل', hint: 'من أي باب دخل: واتساب أو الموقع أو غيرهما' },
   campaign: { label: 'الحملة', col: 'الحملة الإعلانية', hint: 'عنوان الإعلان أو اسم الحملة إن وُجد' },
 };
@@ -179,7 +179,7 @@ export default async function render(ctx) {
       funnelHost,
       h(
         'div.stats-grid.pd-stats-5',
-        statCard({ label: 'رسائل واردة', value: num(t.messages), hint: 'من العملاء عبر كل القنوات', icon: 'message', tone: 'primary' }),
+        statCard({ label: 'رسائل واردة', value: num(t.messages), hint: 'من المستفيدين عبر كل القنوات', icon: 'message', tone: 'primary' }),
         statCard({ label: 'طلبات واردة', value: num(t.intakes), hint: 'محادثات أو نماذج مستقلة', icon: 'inbox', tone: 'info' }),
         statCard({ label: 'استشارات قانونية', value: num(t.consultations), hint: 'طلبات تحتاج رأيًا قانونيًا', icon: 'scale', tone: 'accent' }),
         statCard({ label: 'عولجت داخليًا', value: num(t.handled_internally), hint: 'دون فتح ملف', icon: 'checkCircle', tone: 'success' }),
@@ -521,7 +521,7 @@ export default async function render(ctx) {
   return frag(
     pageHeader({
       title: 'التسويق والتحليلات',
-      subtitle: 'مصدر العميل يختلف عن قناة التواصل: نقيس ماذا حدث فعلًا لكل رسالة جاءت من كل مصدر — كم صار استشارة، وكم احتاج محاميًا، وكم صار ملفًا، وكم كلّف.',
+      subtitle: 'مصدر المستفيد/ة يختلف عن قناة التواصل: نقيس ماذا حدث فعلًا لكل رسالة جاءت من كل مصدر — كم صار استشارة، وكم احتاج محاميًا، وكم صار ملفًا، وكم كلّف.',
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'التسويق والتحليلات' }],
     }),
     controls,

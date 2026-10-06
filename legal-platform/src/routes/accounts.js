@@ -48,6 +48,7 @@ export function registerAccountsRoutes(router, app) {
   router.post('/api/admin/accounts/:id/unlock', A((ctx, u) => acc.unlock(id(ctx), u, ctx)));
   router.post('/api/admin/accounts/:id/2fa/reset', A((ctx, u) => acc.resetTwoFactorByAdmin(id(ctx), u, ctx)));
   router.post('/api/admin/accounts/:id/sessions/revoke', A((ctx, u) => acc.revokeAllSessionsByAdmin(id(ctx), u, ctx)));
+  router.post('/api/admin/accounts/:id/calendar-feed/revoke', A((ctx, u) => acc.revokeCalendarFeedByAdmin(id(ctx), u, ctx)));
 
   // ===== سياسة الأمان =====
   router.get('/api/admin/security/policy', A(() => acc.policy()));

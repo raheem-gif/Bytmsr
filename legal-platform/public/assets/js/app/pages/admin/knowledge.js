@@ -118,7 +118,7 @@ export function correctionsList(items, { limit = 6, showCase = true } = {}) {
 
 function pipeline() {
   const steps = [
-    { icon: 'briefcase', title: 'إغلاق الملف', text: 'يُبنى سجل يحفظ رحلة الحالة كاملة: الوقائع، المسائل، ما طُلب من العميل، المتخصصون، التصحيحات، والإجابة المعتمدة.' },
+    { icon: 'briefcase', title: 'إغلاق الملف', text: 'يُبنى سجل يحفظ رحلة الحالة كاملة: الوقائع، المسائل، ما طُلب من المستفيد/ة، المتخصصون، التصحيحات، والإجابة المعتمدة.' },
     { icon: 'eyeOff', title: 'إخفاء البيانات الشخصية', text: 'تُخفى الأسماء والهواتف والأرقام القومية والعناوين والأكواد آليًا قبل أي استخدام.' },
     { icon: 'shieldCheck', title: 'مراجعة واعتماد', text: 'تراجع الإدارة الإخفاء وتحدد الاستخدام: للاسترجاع المعرفي فقط، أو للتدريب وقياس الأداء أيضًا.' },
   ];
@@ -287,7 +287,7 @@ export default async function render(ctx) {
   const searchResults = h('div.pd-search-results', { 'aria-live': 'polite' });
   const semInput = h('input.input', {
     type: 'search',
-    placeholder: 'صف المشكلة بكلمات العميل، مثل: أخي يرفض تقسيم شقة والدنا المتوفى…',
+    placeholder: 'صف المشكلة بكلمات المستفيد/ة، مثل: أخي يرفض تقسيم شقة والدنا المتوفى…',
     'aria-label': 'نص البحث بالمعنى في الحالات المعتمدة',
     maxlength: 2000,
   });

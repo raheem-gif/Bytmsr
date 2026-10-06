@@ -24,7 +24,7 @@ const LIMIT = 500;
 const FLAGS = {
   action: { label: 'بحاجة إلى قرار الإدارة', test: (r) => r.pending_actions > 0 },
   overdue: { label: 'بها إسنادات متأخرة', test: (r) => r.overdue_assignments > 0 },
-  unread: { label: 'بها رسائل غير مقروءة من العميل', test: (r) => r.unread_count > 0 },
+  unread: { label: 'بها رسائل غير مقروءة من المستفيد/ة', test: (r) => r.unread_count > 0 },
 };
 
 export default async function render(ctx) {
@@ -121,7 +121,7 @@ export default async function render(ctx) {
       statCard({ label: 'ملفات مفتوحة', value: open.length, icon: 'briefcase', tone: 'primary', hint: 'كل ما لم تغلقه الإدارة بعد', onClick: () => setStatus('open') }),
       statCard({ label: 'بحاجة إلى قرار الإدارة', value: action, icon: 'queue', tone: 'warning', hint: 'آراء أو طلبات بانتظار البت', onClick: () => setFlag('action') }),
       statCard({ label: 'ملفات بها إسنادات متأخرة', value: overdue, icon: 'clock', tone: overdue ? 'danger' : 'muted', hint: 'تجاوز المحامي المدة المطلوبة', onClick: () => setFlag('overdue') }),
-      statCard({ label: 'رسائل جديدة من العملاء', value: unread, icon: 'message', tone: 'info', hint: 'لم تُقرأ بعد في المحادثة', onClick: () => setFlag('unread') }),
+      statCard({ label: 'رسائل جديدة من المستفيدين', value: unread, icon: 'message', tone: 'info', hint: 'لم تُقرأ بعد في المحادثة', onClick: () => setFlag('unread') }),
     );
   }
 
@@ -176,8 +176,8 @@ export default async function render(ctx) {
     },
     {
       key: 'client',
-      label: 'العميل',
-      render: (r) => h('div', h('div.cell-title', r.client_name || 'عميل بدون اسم'), h('div.cell-sub', codeTag(r.client_code))),
+      label: 'المستفيد/ة',
+      render: (r) => h('div', h('div.cell-title', r.client_name || 'بدون اسم'), h('div.cell-sub', codeTag(r.client_code))),
     },
     { key: 'area', label: 'المجال', render: (r) => areaLabel(r.legal_area) },
     {
@@ -198,7 +198,7 @@ export default async function render(ctx) {
         h(
           'div',
           r.lead_name ? h('div.nowrap', r.lead_name) : h('div.muted', 'لم يُسند بعد'),
-          r.team_size > 0 && h('div.cell-sub', `حجم الفريق: ${r.team_size}`),
+          r.team_size > 0 && h('div.cell-sub', `الفريق: ${count(r.team_size, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])}`),
         ),
     },
     {
@@ -216,6 +216,8 @@ export default async function render(ctx) {
     {
       key: 'created',
       label: 'أُنشئ',
+      // عمود ثانوي: يختفي تحت 1440px (الترتيب الافتراضي بالأحدث يغني عنه) حتى لا يُدفع الجدول إلى التمرير
+      className: 'col-hide-lg',
       render: (r) => h('time.nowrap.small', { datetime: r.created_at, title: dateTime(r.created_at) }, relative(r.created_at)),
     },
   ];
@@ -241,6 +243,7 @@ export default async function render(ctx) {
             columns,
             rows,
             empty,
+            stack: true,
             caption: 'جدول ملفات الاستشارات',
             onRowClick: (r) => ctx.navigate(`/cases/${r.id}`),
             rowClass: (r) => (r.status === 'closed' ? 'is-muted' : r.priority === 'urgent' ? 'is-highlight' : null),
@@ -275,7 +278,7 @@ export default async function render(ctx) {
   });
 
   const filters = filterBar([
-    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم العميل أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
+    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
     selectInput({ options: areaOptions(), value: state.area, onChange: onFilter('area'), label: 'المجال القانوني', allLabel: 'كل المجالات' }),
     selectInput({ options: options('priority'), value: state.priority, onChange: onFilter('priority'), label: 'الأولوية', allLabel: 'كل الأولويات' }),
     managerOptions.length > 0 &&

@@ -42,6 +42,8 @@ export function loadConfig(overrides = {}) {
     cookieSecure: bool(env.COOKIE_SECURE, publicBaseUrl.startsWith('https://')),
     sessionTtlHours: Number(env.SESSION_TTL_HOURS || 12),
     portalTokenDays: Number(env.PORTAL_TOKEN_DAYS || 180),
+    // رابط البوابة الصادر بعد الدخول برمز واتساب: أقصر عمرًا (يمكن الدخول برمز جديد في أي وقت)
+    portalOtpTokenDays: Number(env.PORTAL_OTP_TOKEN_DAYS || 30),
     adminUsername: env.ADMIN_USERNAME || '',
     adminPassword: env.ADMIN_PASSWORD || '',
     maxUploadMb: Number(env.MAX_UPLOAD_MB || 8),

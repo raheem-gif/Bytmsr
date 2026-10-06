@@ -2,7 +2,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, options, dateTime, relative } from '../../../lib/fmt.js';
+import { label, options, date, time, dateTime, relative } from '../../../lib/fmt.js';
 import {
   pageHeader,
   table,
@@ -100,63 +100,71 @@ export default async function render(ctx) {
     );
   }
 
+  // الحالة بجوار الكود، والمحكمة والدعوى في عمود واحد: يتسع الجدول لعرض 1366px دون أن تختفي أعمدته الأخيرة
   const columns = [
     {
       key: 'code',
       label: 'الملف',
-      className: 'col-wide',
+      className: 'col-case',
       render: (m) =>
         h(
           'div.pb-case-cell',
-          h('a.pb-code-link', { href: `#/matters/${m.id}`, 'aria-label': `فتح الملف ${m.code}` }, codeTag(m.code)),
+          h(
+            'div.fx-code-row',
+            h('a.pb-code-link', { href: `#/matters/${m.id}`, 'aria-label': `فتح الملف ${m.code}` }, codeTag(m.code)),
+            statusBadge('matter_status', m.status),
+          ),
           h('div.cell-title', m.title),
-          h('div.cell-sub', `${label('matter_kind', m.kind)}${m.case_code ? ` · من الاستشارة ${m.case_code}` : ''}`),
+          h('div.cell-sub', label('matter_kind', m.kind), m.case_code ? [' · من الاستشارة ', h('bdi.nowrap-code', { dir: 'ltr' }, m.case_code)] : null),
         ),
     },
     {
       key: 'client',
-      label: 'العميل',
-      render: (m) => h('div', h('div.cell-title', m.client_name || 'عميل بدون اسم'), h('div.cell-sub', codeTag(m.client_code))),
+      label: 'المستفيد/ة',
+      render: (m) => h('div', h('div.cell-title', m.client_name || 'بدون اسم'), h('div.cell-sub', codeTag(m.client_code))),
     },
-    { key: 'lawyer', label: 'المحامي المسؤول', render: (m) => (m.lawyer_name ? h('span.nowrap', m.lawyer_name) : h('span.muted', 'لم يُحدَّد')) },
+    { key: 'lawyer', label: 'المحامي المسؤول', render: (m) => (m.lawyer_name ? h('span', m.lawyer_name) : h('span.muted', 'لم يُحدَّد')) },
     {
       key: 'court',
-      label: 'المحكمة',
-      render: (m) => (m.court ? h('div', h('div', m.court), m.circuit && h('div.cell-sub', m.circuit)) : null),
-    },
-    {
-      key: 'lawsuit',
-      label: 'الدعوى',
-      render: (m) => (m.lawsuit_number ? h('span.nowrap', 'رقم ', ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null) : null),
+      label: 'المحكمة والدعوى',
+      className: 'fx-court-cell',
+      render: (m) =>
+        m.court || m.lawsuit_number
+          ? h(
+              'div',
+              m.court && h('div', m.court),
+              m.circuit && h('div.cell-sub', m.circuit),
+              m.lawsuit_number && h('div.cell-sub.nowrap', 'الدعوى رقم ', ltr(m.lawsuit_number), m.lawsuit_year ? [' لسنة ', ltr(m.lawsuit_year)] : null),
+            )
+          : null,
     },
     {
       key: 'next',
       label: 'الموعد القادم',
       render: (m) =>
         m.next_event_at
-          ? h('div', h('div.nowrap.small', dateTime(m.next_event_at)), h('div.cell-sub', relative(m.next_event_at)))
+          ? h('time', { datetime: m.next_event_at, title: dateTime(m.next_event_at) }, h('div.nowrap.small', date(m.next_event_at)), h('div.cell-sub.nowrap', time(m.next_event_at)), h('div.cell-sub.nowrap', relative(m.next_event_at)))
           : h('span.small.muted', 'لا مواعيد مجدولة'),
     },
     {
       key: 'tasks',
-      label: 'المهام المفتوحة',
+      label: 'المهام',
       align: 'center',
       render: (m) =>
         m.open_tasks || m.overdue_tasks
           ? h(
               'div.row.pb-center-row',
               m.open_tasks > 0 && badge(String(m.open_tasks), 'info', { title: 'مهام مفتوحة' }),
-              m.overdue_tasks > 0 && badge(`متأخرة ${m.overdue_tasks}`, 'danger', { icon: 'clock' }),
+              m.overdue_tasks > 0 && badge(`متأخرة: ${m.overdue_tasks}`, 'danger', { icon: 'clock' }),
             )
           : null,
     },
     {
       key: 'invoices',
-      label: 'فواتير غير مسددة',
+      label: 'غير مسدد',
       align: 'center',
-      render: (m) => (m.unpaid_invoices > 0 ? badge(String(m.unpaid_invoices), 'warning', { icon: 'wallet' }) : null),
+      render: (m) => (m.unpaid_invoices > 0 ? badge(String(m.unpaid_invoices), 'warning', { icon: 'wallet', title: 'فواتير غير مسددة' }) : null),
     },
-    { key: 'status', label: 'الحالة', render: (m) => statusBadge('matter_status', m.status) },
   ];
 
   function drawTable() {
@@ -171,6 +179,7 @@ export default async function render(ctx) {
           table({
             columns,
             rows,
+            stack: true,
             caption: 'جدول الملفات المستمرة',
             empty: state.q ? 'لا توجد ملفات مستمرة مطابقة للبحث' : 'لا توجد ملفات مستمرة في هذه الحالة. تُنشأ من داخل ملف الاستشارة عبر «تحويل إلى ملف مستمر».',
             onRowClick: (m) => ctx.navigate(`/matters/${m.id}`),
@@ -189,14 +198,14 @@ export default async function render(ctx) {
 
   const header = pageHeader({
     title: 'الملفات المستمرة',
-    subtitle: 'تمثيل أمام القضاء أو عمل قانوني مستمر نشأ من تحويل استشارة، مع الاحتفاظ بكل ما تم فيها: جلسات ومهام إجرائية وفواتير وتذكيرات آلية للعميل.',
+    subtitle: 'تمثيل أمام القضاء أو عمل قانوني مستمر نشأ من تحويل استشارة، مع الاحتفاظ بكل ما تم فيها: جلسات ومهام إجرائية وفواتير وتذكيرات آلية للمستفيد/ة.',
     breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الملفات المستمرة' }],
     actions: button('ملفات الاستشارات', { icon: 'briefcase', href: '#/cases' }),
   });
 
   const filters = filterBar([
     searchInput({
-      placeholder: 'ابحث بكود الملف أو العنوان أو رقم الدعوى أو اسم العميل…',
+      placeholder: 'ابحث بكود الملف أو العنوان أو رقم الدعوى أو اسم المستفيد/ة…',
       value: state.q,
       label: 'بحث في الملفات المستمرة',
       onSearch: (v) => {

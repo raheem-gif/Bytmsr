@@ -3,9 +3,9 @@
 // التوزيع حسب المجال والمحافظة والشهر، قيمة العمل التطوعي، زمن الاستجابة، ورضا المستفيدين. قابل للطباعة والتصدير CSV.
 import { h, svg, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { num, money, percent, count, hours, date, dateTime, duration, areaOptions, governorateOptions, cairoToday, cairoDateToIso, isoToCairoDate, relative } from '../../../lib/fmt.js';
+import { num, money, percent, count, hours, date, dateTime, statDuration, rating, areaOptions, governorateOptions, cairoToday, cairoDateToIso, isoToCairoDate, relative } from '../../../lib/fmt.js';
 import {
-  pageHeader, card, button, statCard, emptyState, loading, errorState, alertBox, form, selectInput, toast, formDialog, badge, codeTag, errorMessage,
+  pageHeader, card, button, statCard, emptyState, loading, errorState, alertBox, form, selectInput, toast, formDialog, badge, codeTag, errorMessage, overflowCue,
 } from '../../../lib/ui.js';
 
 // ───────────── المخططات (SVG بسيط بلا مكتبات) ─────────────
@@ -53,9 +53,10 @@ function monthBars({ caption, months, key, format = num }) {
   const base = H - 26;
   const barW = Math.min(22, slot - 14);
   const summary = `${caption}: ${months.map((m) => `${m.label} ${format(m[key])}`).join('، ')}`;
+  // على الشاشات الضيقة يُمرَّر المخطط أفقيًا: يبدأ العرض بأحدث الأشهر (يسار المخطط) وتتلاشى الحافة التي خلفها أشهر أخرى
   return h(
     'figure.v9p-chart',
-    h(
+    overflowCue(h(
       'div.v9p-vbars-scroll',
       svg(
         'svg',
@@ -77,7 +78,7 @@ function monthBars({ caption, months, key, format = num }) {
           );
         }),
       ),
-    ),
+    ), { startAtEnd: true }),
     h(
       'details.v9p-table-view',
       h('summary', 'عرض البيانات كجدول'),
@@ -236,9 +237,9 @@ export default async function render(ctx) {
       statCard({ label: 'ملفات استشارة أُغلقت', value: num(t.cases_closed), hint: `فُتح في الفترة: ${num(t.cases_opened)}`, icon: 'briefcase', tone: 'success' }),
       statCard({ label: 'القيمة السنوية للحقوق المستردة', value: money(val.annualized), hint: `دفعة واحدة ${money(val.one_time)} + شهريًا ${money(val.monthly)}`, icon: 'star', tone: 'success' }),
       statCard({ label: 'قيمة العمل التطوعي', value: money(r.volunteer.notional_value), hint: `${count(r.volunteer.consultations, 'consultation')} · ${hours(r.volunteer.hours)}`, icon: 'scale', tone: 'accent' }),
-      statCard({ label: 'متوسط زمن أول رد', value: resp.first_response_avg_minutes != null ? duration(resp.first_response_avg_minutes * 60000) : '—', hint: resp.within_sla_rate != null ? `ضمن المهلة (${count(resp.sla_hours, 'hour')}): ${percent(resp.within_sla_rate)}` : 'لا توجد ردود في الفترة', icon: 'clock', tone: 'info' }),
+      statCard({ label: 'متوسط زمن أول رد', value: resp.first_response_avg_minutes != null ? statDuration(resp.first_response_avg_minutes * 60000) : '—', hint: resp.within_sla_rate != null ? `ضمن المهلة (${count(resp.sla_hours, 'hour')}): ${percent(resp.within_sla_rate)} — للفترة المختارة` : 'لا توجد ردود في الفترة', icon: 'clock', tone: 'info' }),
       r.satisfaction && r.satisfaction.count
-        ? statCard({ label: 'رضا المستفيدين', value: `${num(r.satisfaction.average)} / ${r.satisfaction.scale}`, hint: `من ${count(r.satisfaction.count, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])}`, icon: 'checkCircle', tone: 'success' })
+        ? statCard({ label: 'رضا المستفيدين', value: rating(r.satisfaction.average, r.satisfaction.scale), hint: `من ${count(r.satisfaction.count, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])}`, icon: 'checkCircle', tone: 'success' })
         : null,
     );
 
@@ -319,7 +320,7 @@ export default async function render(ctx) {
         'div.stack',
         h(
           'div.v9p-value-totals',
-          h('div', h('span.small.muted', 'متوسط زمن أول رد'), h('strong', resp.first_response_avg_minutes != null ? duration(resp.first_response_avg_minutes * 60000) : '—')),
+          h('div', h('span.small.muted', 'متوسط زمن أول رد'), h('strong', resp.first_response_avg_minutes != null ? statDuration(resp.first_response_avg_minutes * 60000) : '—')),
           h('div', h('span.small.muted', `ضمن مهلة ${count(resp.sla_hours, 'hour')}`), h('strong', resp.within_sla_rate != null ? percent(resp.within_sla_rate) : '—')),
           h('div', h('span.small.muted', 'متوسط الوصول لإجابة قانونية'), h('strong', resp.answer_avg_days != null ? days(resp.answer_avg_days) : '—')),
         ),
@@ -334,7 +335,7 @@ export default async function render(ctx) {
       body: h(
         'ul.v9p-how',
         h('li', 'الأسر المخدومة: كل مستفيد له طلب وارد (غير مؤرشف) أو ملف استشارة في الفترة، ويُحسب مرة واحدة مهما تعددت طلباته.'),
-        h('li', 'صفة المستفيد وعدد الأبناء من بطاقات البحث الاجتماعي؛ البيانات التي ذكرها مقدمو الطلبات ولم يُتحقق منها تُحسب ضمن البطاقات وتُميَّز في ملف العميل.'),
+        h('li', 'صفة المستفيد وعدد الأبناء من بطاقات البحث الاجتماعي؛ البيانات التي ذكرها مقدمو الطلبات ولم يُتحقق منها تُحسب ضمن البطاقات وتُميَّز في ملف المستفيد/ة.'),
         h('li', 'قيمة الحقوق المستردة كما سجلتها الإدارة عند إغلاق الملفات (حكم نفقة، نصيب ميراث، معاش …). القيمة السنوية = الدفعة الواحدة + القيمة الشهرية × 12. إذا سُجّل أثر للملف المستمر الناشئ عن استشارة يُعتمد وحده ولا يُحتسب أثر الاستشارة مرة ثانية.'),
         h('li', 'قيمة العمل التطوعي: القيمة التقديرية المتفق عليها لكل استشارة اعتُمدت من محامٍ متطوع أو ضمن برنامج مسؤولية مجتمعية.'),
         h('li', 'لا يتضمن التقرير أي بيانات شخصية للمستفيدين؛ الأرقام مجمعة فقط.'),

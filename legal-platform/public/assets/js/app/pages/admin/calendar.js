@@ -11,6 +11,8 @@ import {
 
 const TYPE_ICON = { event: 'gavel', task: 'check', assignment: 'briefcase', invoice: 'wallet' };
 const TYPE_SHORT = { event: 'جلسة / موعد', task: 'موعد إجرائي', assignment: 'تسليم إسناد', invoice: 'فاتورة' };
+// ملخص الشهر بصيغة «التسمية: العدد» (بالجمع) حتى لا يأتي الرقم بعد اسم مفرد («تسليم إسناد 5»)
+const TYPE_PLURAL = { event: 'الجلسات والمواعيد', task: 'المواعيد الإجرائية', assignment: 'تسليم الإسنادات', invoice: 'استحقاق الفواتير' };
 const WEEKDAYS = [
   ['السبت', 'سبت'], ['الأحد', 'أحد'], ['الاثنين', 'اثنين'], ['الثلاثاء', 'ثلاثاء'], ['الأربعاء', 'أربعاء'], ['الخميس', 'خميس'], ['الجمعة', 'جمعة'],
 ];
@@ -92,7 +94,7 @@ function itemRow(it, { showDate = false, isLawyer = false } = {}) {
         it.ref?.code && codeTag(it.ref.code),
         statusOf(it),
         it.overdue && badge('متأخر', 'danger', { icon: 'clock' }),
-        it.client_attendance_required && badge(isLawyer ? 'يلزم حضور صاحب الشأن' : 'يلزم حضور العميل', 'warning', { icon: 'user' }),
+        it.client_attendance_required && badge(isLawyer ? 'يلزم حضور صاحب الشأن' : 'يلزم حضور المستفيد/ة', 'warning', { icon: 'user' }),
         it.location && h('span.v9p-cal-loc', icon('mapPin', { size: 13 }), it.location),
         !isLawyer && it.lawyer?.name && h('span.v9p-cal-loc', icon('scale', { size: 13 }), it.lawyer.name),
         it.amount != null && h('span.nowrap', `المتبقي: ${money(it.amount)}`),
@@ -400,7 +402,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
     const inMonth = (data.items || []).filter((it) => isoToCairoDate(it.starts_at).startsWith(monthKey(state.month)));
     const summary = h(
       'p.v9p-cal-summary.small.muted',
-      inMonth.length ? `في هذا الشهر: ${allTypes.map((t) => [t, inMonth.filter((i) => i.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${TYPE_SHORT[t]} ${n}`).join(' · ')}` : 'لا توجد مواعيد في هذا الشهر حسب التصفية الحالية.',
+      inMonth.length ? `في هذا الشهر: ${allTypes.map((t) => [t, inMonth.filter((i) => i.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${TYPE_PLURAL[t]}: ${n}`).join(' · ')}` : 'لا توجد مواعيد في هذا الشهر حسب التصفية الحالية.',
     );
     mount(content, overdueBox(), summary, state.view === 'month' ? renderMonth(grid, map) : renderAgenda(map));
     Object.entries(viewBtns).forEach(([k, b]) => b.setAttribute('aria-pressed', k === state.view ? 'true' : 'false'));

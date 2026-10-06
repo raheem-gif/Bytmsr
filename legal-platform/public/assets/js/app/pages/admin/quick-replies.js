@@ -56,7 +56,7 @@ export function ratingStars(n) {
   const v = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
   return h(
     'span.qr-stars',
-    { role: 'img', 'aria-label': `تقييم العميل ${v} من 5`, title: `${v} من 5` },
+    { role: 'img', 'aria-label': `تقييم المستفيد/ة ${v} من 5`, title: `${v} من 5` },
     [1, 2, 3, 4, 5].map((i) => h('span', { class: i <= v ? 'is-on' : null, 'aria-hidden': 'true' }, '★')),
   );
 }
@@ -326,7 +326,7 @@ export default async function render(ctx) {
                 legacy
                   ? `يُستخدم القالب الافتراضي من الإعدادات «${data.legacy_template}» بمتغير واحد يحمل نص الرسالة.`
                   : m.purpose === 'otp'
-                    ? 'بدون قالب مصادقة لا يصل رمز الدخول إلا لعميل راسلنا خلال آخر 24 ساعة.'
+                    ? 'بدون قالب مصادقة لا يصل رمز الدخول إلا لمستفيد/ة راسلنا خلال آخر 24 ساعة.'
                     : m.purpose === 'case_update'
                       ? 'لا يوجد قالب: الرسائل خارج نافذة الـ 24 ساعة ستفشل.'
                       : 'يُستخدم قالب «تحديثات الملف» بنص الرسالة كاملًا.',
@@ -481,10 +481,10 @@ export default async function render(ctx) {
       let note;
       let tone;
       if (!st.enabled) {
-        note = 'موقوف: تعرض صفحة «دخول بوابة العملاء» رسالة بأن الخدمة غير متاحة، ويتواصل العميل معكم لإرسال رابط صفحته.';
+        note = 'موقوف: تعرض صفحة «متابعة طلبك» (/portal) رسالة بأن الخدمة غير متاحة، ويتواصل المستفيد/ة معكم لإرسال رابط صفحته.';
         tone = 'muted';
       } else if (!st.available) {
-        note = 'مفعّل في الإعدادات لكنه غير متاح للعملاء: واتساب غير متصل في بيئة الإنتاج، فلن يصل أي رمز. اضبط بيانات واتساب من صفحة التكاملات.';
+        note = 'مفعّل في الإعدادات لكنه غير متاح للمستفيدين: واتساب غير متصل في بيئة الإنتاج، فلن يصل أي رمز. اضبط بيانات واتساب من صفحة التكاملات.';
         tone = 'warning';
       } else if (st.simulation) {
         note = 'وضع المحاكاة: لا تُرسل رسائل حقيقية، ويظهر رمز الدخول في «صندوق الصادر» بصفحة الأتمتة للتجربة فقط.';
@@ -492,13 +492,13 @@ export default async function render(ctx) {
       } else {
         note =
           otpMapping?.state === 'ok'
-            ? 'يعمل: يصل الرمز للعميل بقالب المصادقة المربوط، ولا يُحفظ الرمز في قاعدة البيانات.'
-            : 'يعمل، لكن بلا قالب مصادقة مربوط لا يصل الرمز إلا لعميل راسلكم خلال آخر 24 ساعة. اربط قالب «رمز دخول بوابة العملاء» أدناه.';
+            ? 'يعمل: يصل الرمز للمستفيد/ة بقالب المصادقة المربوط، ولا يُحفظ الرمز في قاعدة البيانات.'
+            : 'يعمل، لكن بلا قالب مصادقة مربوط لا يصل الرمز إلا لمستفيد/ة راسلكم خلال آخر 24 ساعة. اربط قالب «رمز الدخول إلى صفحة المتابعة» أدناه.';
         tone = otpMapping?.state === 'ok' ? 'success' : 'warning';
       }
       const sw = h(
         'button.pd-switch',
-        { type: 'button', role: 'switch', 'aria-checked': String(!!st.enabled), 'aria-label': 'تفعيل الدخول إلى بوابة العملاء برمز واتساب' },
+        { type: 'button', role: 'switch', 'aria-checked': String(!!st.enabled), 'aria-label': 'تفعيل الدخول إلى صفحة المتابعة برمز واتساب' },
         h('span.pd-switch-track', { 'aria-hidden': 'true' }, h('span.pd-switch-thumb')),
         h('span.pd-switch-text', st.enabled ? 'مفعّل' : 'موقوف'),
       );
@@ -508,7 +508,7 @@ export default async function render(ctx) {
         if (!next) {
           const yes = await confirmDialog({
             title: 'إيقاف الدخول برمز واتساب',
-            message: 'لن يتمكن العملاء من الدخول إلى صفحاتهم من «دخول بوابة العملاء» حتى تعيد التفعيل، وتبقى الروابط المرسلة لهم صالحة. هل تريد المتابعة؟',
+            message: 'لن يتمكن المستفيدون من الدخول إلى صفحاتهم من «متابعة طلبك» برمز واتساب حتى تعيد التفعيل، وتبقى الروابط المرسلة لهم صالحة. هل تريد المتابعة؟',
             confirmLabel: 'إيقاف',
             danger: true,
           });
@@ -517,7 +517,7 @@ export default async function render(ctx) {
         sw.disabled = true;
         try {
           await api.patch('/admin/settings', { portal_otp_enabled: next });
-          toast(next ? 'فُعّل الدخول إلى بوابة العملاء برمز واتساب' : 'أُوقف الدخول إلى بوابة العملاء برمز واتساب', 'success');
+          toast(next ? 'فُعّل الدخول إلى صفحة المتابعة برمز واتساب' : 'أُوقف الدخول إلى صفحة المتابعة برمز واتساب', 'success');
           await refresh();
         } catch (err) {
           toast(errorMessage(err), 'danger');
@@ -525,8 +525,8 @@ export default async function render(ctx) {
         }
       });
       return card({
-        title: 'دخول بوابة العملاء برمز واتساب',
-        subtitle: 'صفحة /portal: يكتب العميل رقمه المسجل فيصله رمز من 6 أرقام',
+        title: 'الدخول إلى صفحة المتابعة برمز واتساب',
+        subtitle: 'صفحة /portal: يكتب المستفيد/ة رقمه المسجل فيصله رمز من 6 أرقام',
         icon: 'lock',
         actions: sw,
         body: alertBox(note, tone === 'muted' ? 'info' : tone),
@@ -619,7 +619,7 @@ export default async function render(ctx) {
         h(
           'div.qr-threshold',
           field('التقييم المنخفض الذي يُنبَّه عنده مدير الحالة فورًا', h('div.select-wrap', sel), {
-            hint: 'عند تقييم منخفض يُطلب من العميل أيضًا توضيح ما لم يعجبه، ويظهر تعليقه في الملف.',
+            hint: 'عند تقييم منخفض يُطلب من المستفيد/ة أيضًا توضيح ما لم يعجبه، ويظهر تعليقه في الملف.',
           }),
           save,
         ),
@@ -633,17 +633,17 @@ export default async function render(ctx) {
     const t = s.totals || {};
     const stats = h(
       'div.stats-grid',
-      statCard({ label: 'متوسط رضا العملاء', value: ratingText(t.avg_rating), hint: t.responses ? `من ${count(t.responses, RATINGS_UNIT)}` : 'لا تقييمات بعد', icon: 'star', tone: 'accent' }),
+      statCard({ label: 'متوسط رضا المستفيدين', value: ratingText(t.avg_rating), hint: t.responses ? `من ${count(t.responses, RATINGS_UNIT)}` : 'لا تقييمات بعد', icon: 'star', tone: 'accent' }),
       statCard({ label: 'نسبة الاستجابة', value: t.response_rate == null ? '—' : percent(t.response_rate), hint: `${t.surveys_sent ? `أُرسل ${count(t.surveys_sent, ['استبيان واحد', 'استبيانان', 'استبيانات', 'استبيانًا'])}` : 'لم يُرسل أي استبيان'}${t.undelivered ? ` — وتعذر إرسال ${count(t.undelivered, ['استبيان واحد', 'استبيانين', 'استبيانات', 'استبيانًا'])}` : ''}`, icon: 'message', tone: 'info' }),
       statCard({ label: 'تقييمات منخفضة', value: num(t.low_ratings || 0), hint: `${num(s.threshold)} من 5 فأقل — يُنبَّه مدير الحالة فورًا`, icon: 'alert', tone: t.low_ratings ? 'danger' : 'success' }),
-      statCard({ label: 'بانتظار التقييم', value: num(t.awaiting || 0), hint: 'استبيانات سارية لم يرد عليها العميل', icon: 'clock', tone: 'neutral' }),
+      statCard({ label: 'بانتظار التقييم', value: num(t.awaiting || 0), hint: 'استبيانات سارية لم يرد عليها المستفيد/ة', icon: 'clock', tone: 'neutral' }),
     );
     if (!t.surveys_sent && !t.responses && !t.undelivered) {
       return h(
         'div.stack',
         stats,
         card({
-          body: emptyState('يُرسل استبيان الرضا تلقائيًا بعد إرسال الرد النهائي للعميل بيوم (قابل للتعديل من صفحة الأتمتة)، وتظهر النتائج هنا.', button('إعدادات الاستبيان في الأتمتة', { href: '#/automations', icon: 'zap' }), { icon: 'star', title: 'لم تُرسل استبيانات بعد' }),
+          body: emptyState('يُرسل استبيان الرضا تلقائيًا بعد إرسال الرد النهائي للمستفيد/ة بيوم (قابل للتعديل من صفحة الأتمتة)، وتظهر النتائج هنا.', button('إعدادات الاستبيان في الأتمتة', { href: '#/automations', icon: 'zap' }), { icon: 'star', title: 'لم تُرسل استبيانات بعد' }),
         }),
         isAdmin ? thresholdCard(s.threshold) : null,
       );
@@ -671,7 +671,7 @@ export default async function render(ctx) {
       icon: 'calendar',
       flush: true,
       body: table({
-        caption: 'رضا العملاء بالشهر',
+        caption: 'رضا المستفيدين بالشهر',
         className: 'qr-mtable',
         columns: [
           { key: 'label', label: 'الشهر' },
@@ -687,7 +687,7 @@ export default async function render(ctx) {
       icon: 'book',
       flush: true,
       body: table({
-        caption: 'رضا العملاء بالمجال القانوني',
+        caption: 'رضا المستفيدين بالمجال القانوني',
         className: 'qr-mtable',
         columns: [
           { key: 'label', label: 'المجال', render: (r) => r.label || areaLabel(r.area) },
@@ -703,7 +703,7 @@ export default async function render(ctx) {
       icon: 'users',
       flush: true,
       body: table({
-        caption: 'رضا العملاء بالمحامي الأساسي',
+        caption: 'رضا المستفيدين بالمحامي الأساسي',
         className: 'qr-mtable',
         columns: [
           { key: 'name', label: 'المحامي', render: (r) => h('a', { href: `#/lawyers/${r.lawyer_id}` }, r.name) },
@@ -743,7 +743,7 @@ export default async function render(ctx) {
     });
     return h(
       'div.stack',
-      h('p.qr-intro', 'يُرسل استبيان الرضا للعميل تلقائيًا بعد إرسال الرد النهائي (أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، أو رد برقم من 1 إلى 5)، ويُنبَّه مدير الحالة فور أي تقييم منخفض. ', h('a', { href: '#/automations' }, 'إعدادات توقيت الاستبيان ونصه')),
+      h('p.qr-intro', 'يُرسل استبيان الرضا للمستفيد/ة تلقائيًا بعد إرسال الرد النهائي (أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، أو رد برقم من 1 إلى 5)، ويُنبَّه مدير الحالة فور أي تقييم منخفض. ', h('a', { href: '#/automations' }, 'إعدادات توقيت الاستبيان ونصه')),
       stats,
       h('div.grid-2.qr-survey-grid', distCard, recent),
       h('div.grid-2.qr-survey-grid', areaCard, lawyerCard),
@@ -756,7 +756,7 @@ export default async function render(ctx) {
     [
       { key: 'replies', label: 'الردود الجاهزة', icon: 'zap', render: renderReplies },
       { key: 'templates', label: 'قوالب واتساب', icon: 'whatsapp', render: renderTemplates },
-      { key: 'survey', label: 'رضا العملاء', icon: 'star', render: renderSurvey },
+      { key: 'survey', label: 'رضا المستفيدين', icon: 'star', render: renderSurvey },
     ],
     {
       active,
@@ -770,7 +770,7 @@ export default async function render(ctx) {
   return frag(
     pageHeader({
       title: 'الردود الجاهزة وقوالب واتساب',
-      subtitle: 'نصوص جاهزة لرسائل المستفيدين، وقوالب واتساب المعتمدة للإرسال خارج نافذة الـ 24 ساعة، ونتائج استبيان رضا العملاء.',
+      subtitle: 'نصوص جاهزة لرسائل المستفيدين، وقوالب واتساب المعتمدة للإرسال خارج نافذة الـ 24 ساعة، ونتائج استبيان رضا المستفيدين.',
     }),
     tabsEl,
   );

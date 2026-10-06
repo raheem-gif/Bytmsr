@@ -264,6 +264,15 @@ export function calendarParts(iso) {
   return { day: DTF_DAY.format(d), month: DTF_MONTH.format(d), weekday: DTF_WEEKDAY.format(d), year: cairoParts(d).year };
 }
 
+const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+/** شهر محاسبي 'YYYY-MM' → «أكتوبر 2026» (بدل عرض الصيغة الخام 2026-10). أي قيمة أخرى تُعاد كما هي. */
+export function monthLabel(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '').trim());
+  if (!m || +m[2] < 1 || +m[2] > 12) return ym ? String(ym) : '—';
+  return `${AR_MONTHS[+m[2] - 1]} ${m[1]}`;
+}
+
 /** اسم اليوم: «الأحد» */
 export function weekday(iso) {
   const d = toDate(iso);
@@ -288,6 +297,31 @@ function splitDuration(ms) {
 export function duration(ms) {
   const parts = splitDuration(ms);
   return parts ? count(parts[0], parts[1]) : 'أقل من دقيقة';
+}
+
+/**
+ * مدة لقيمة مؤشر (بطاقة إحصاء): تظهر دائمًا بعدد صريح، لا «يوم» وحدها كما في duration().
+ * أقل من ساعة بالدقائق، وأقل من 72 ساعة بالساعات («26 ساعة»)، وما فوق ذلك بالأيام بكسر عشري واحد («3.5 يوم»).
+ */
+export function statDuration(ms) {
+  if (ms == null || ms === '' || Number.isNaN(Number(ms))) return '—';
+  const s = Math.abs(Number(ms)) / 1000;
+  if (s < 60) return 'أقل من دقيقة';
+  const min = Math.round(s / 60);
+  if (min < 60) return count(min, ['دقيقة واحدة', 'دقيقتان', 'دقائق', 'دقيقة']);
+  const hrs = s / 3600;
+  if (hrs < 72) {
+    const r = hrs < 10 ? Math.round(hrs * 10) / 10 : Math.round(hrs);
+    return Number.isInteger(r) ? count(r, ['ساعة واحدة', 'ساعتان', 'ساعات', 'ساعة']) : `${num(r)} ساعة`;
+  }
+  const d = Math.round((hrs / 24) * 10) / 10;
+  return Number.isInteger(d) ? count(d, ['يوم واحد', 'يومان', 'أيام', 'يومًا']) : `${num(d)} يوم`;
+}
+
+/** تقييم من مقياس: «4.1 من 5» (الصيغة الموحدة في كل الصفحات بدل «5 / 4.1»). */
+export function rating(avg, scale = 5) {
+  if (avg == null || avg === '' || Number.isNaN(Number(avg))) return '—';
+  return `${num(Math.round(Number(avg) * 10) / 10)} من ${num(scale || 5)}`;
 }
 
 /** «منذ 3 ساعات» / «بعد يومين» / «الآن». */

@@ -233,7 +233,9 @@ export function createApp(config, { logger = console } = {}) {
       if (handled !== false) return;
     }
     if (pages[pathname]) return sendFile(req, res, pages[pathname]) || notFoundPage(res);
-    if (/^\/p\/[A-Za-z0-9_-]{20,100}\/?$/.test(pathname)) {
+    // كل روابط /p/… (حتى المقطوعة عند نسخها من واتساب) تفتح صفحة المتابعة، وهي تعرض «تعذر فتح صفحة المتابعة»
+    // مع رقم المؤسسة و«الدخول برقم الموبايل» بدل صفحة 404 عامة
+    if (/^\/p\/[^/]{0,200}\/?$/.test(pathname)) {
       // الرمز في الرابط سر: لا يُرسل في Referer لأي موقع آخر، ولا تُفهرس الصفحة ولا تُخزَّن
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
@@ -251,6 +253,21 @@ export function createApp(config, { logger = console } = {}) {
   }
 
   function notFoundPage(res) {
+    // صفحة 404 بهوية الموقع العام (الرأس والتذييل ورقم المؤسسة وروابط «متابعة طلبك» و«قدّم طلبًا») من القالب public/404.html
+    const req = res.req;
+    if (app.site?.renderPage && req) {
+      try {
+        const html = app.site.renderPage('404.html', req, '/404', { noindex: true });
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Length', Buffer.byteLength(html));
+        res.end(req.method === 'HEAD' ? undefined : html);
+        return true;
+      } catch (e) {
+        if (e?.code !== 'ENOENT') app.log('404 page render failed', e);
+      }
+    }
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
@@ -260,6 +277,9 @@ export function createApp(config, { logger = console } = {}) {
     );
     return true;
   }
+
+  // صفحة 404 الموحدة (تستخدمها الوحدات الأخرى، مثل /setup بعد انتهاء الإعداد)
+  app.notFoundPage = notFoundPage;
 
   app.server = http.createServer((req, res) => {
     handle(req, res).catch((e) => {

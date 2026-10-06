@@ -355,7 +355,7 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
         },
       },
       isNew && { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام، ويُطلب من المحامي تغييرها عند أول دخول' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للعملاء' },
+      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للمستفيدين' },
       { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
       { name: 'bar_number', label: 'رقم القيد بالنقابة', ltr: true, maxLength: 40 },
       { name: 'bar_level', label: 'درجة القيد', type: 'select', placeholder: '— غير محدد —', options: levels.map((x) => ({ value: x, label: x })) },

@@ -23,8 +23,9 @@ export function registerAdminRoutes(router, app) {
     ctx.status = 201;
     return app.intakes.createManual(ctx.body, u);
   }));
-  router.get('/api/admin/intakes/:id', S((ctx, u) => {
-    app.intakes.markSeen(id(ctx), u);
+  router.get('/api/admin/intakes/:id', S((ctx) => {
+    // فتح الطلب يصفّر غير المقروء فقط؛ «قيد الفرز» والإسناد يبدآن مع أول إجراء فرز (رد، تعديل، قرار)
+    app.intakes.markRead(id(ctx));
     // (v9 messaging) إعلام العميل على واتساب بقراءة رسالته (أفضل جهد، غير متزامن)
     app.messaging?.markConversationRead?.({ intakeId: id(ctx) });
     return app.intakes.detail(id(ctx));
@@ -273,6 +274,8 @@ export function registerAdminRoutes(router, app) {
   router.get('/api/admin/automations', S(() => ({ rules: app.automations.list(), whatsapp_configured: app.whatsapp.configured })));
   router.patch('/api/admin/automations/:key', A((ctx, u) => app.automations.update(ctx.params.key, ctx.body, u)));
   router.post('/api/admin/automations/run', S(() => app.automations.runAll()));
+  // معاينة قبل التشغيل اليدوي: كم رسالة ستُرسل للمستفيدين الآن (لا يُنفَّذ ولا يُرسل شيء)
+  router.get('/api/admin/automations/preview', S(() => app.automations.preview()));
   router.get('/api/admin/outbox', S((ctx) => app.automations.outbox(ctx.query)));
 
   // ===== المعرفة المؤسسية والذكاء الاصطناعي =====
@@ -314,6 +317,8 @@ export function registerAdminRoutes(router, app) {
     settings: app.settings.all(),
     integrations: {
       whatsapp_configured: app.whatsapp.configured,
+      // حالة الاتصال الفعلية (بعد «اختبار الاتصال»): simulation | untested | failed | connected
+      whatsapp_status: app.system?.whatsappStatus ? app.system.whatsappStatus() : null,
       // القيم الفعلية (البيئة أولًا ثم المحفوظ من صفحة التكاملات)
       whatsapp_verify_token_set: !!app.whatsapp.effective().verifyToken,
       whatsapp_app_secret_set: !!app.whatsapp.effective().appSecret,

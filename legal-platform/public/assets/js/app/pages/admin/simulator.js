@@ -39,7 +39,7 @@ function webhookPreview(v) {
             value: {
               messaging_product: 'whatsapp',
               metadata: { display_phone_number: 'SIM', phone_number_id: 'SIM' },
-              contacts: [{ profile: { name: v.name || 'عميل' }, wa_id: phone }],
+              contacts: [{ profile: { name: v.name || 'مستفيد/ة' }, wa_id: phone }],
               messages: [msg],
             },
           },
@@ -56,7 +56,7 @@ export default async function render(ctx) {
 
   const f = form(
     [
-      { name: 'from', label: 'رقم المرسل', type: 'phone', required: true, hint: 'رقم موبايل مصري؛ نفس الرقم يعني نفس العميل' },
+      { name: 'from', label: 'رقم المرسل', type: 'phone', required: true, hint: 'رقم موبايل مصري؛ نفس الرقم يعني نفس المستفيد/ة' },
       { name: 'name', label: 'اسم المرسل كما يظهر في واتساب', maxLength: 100 },
       { name: 'text', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5 },
       {
@@ -130,9 +130,9 @@ export default async function render(ctx) {
       title = 'تعذر استقبال الرسالة';
       text = 'راجع سجل الخادم لمعرفة السبب.';
     } else if (res.case_id) {
-      text = 'وصلت من رقم عميل لديه ملف مفتوح، فأُلحقت بالملف نفسه بدل إنشاء طلب جديد، وأُبلغت الإدارة.';
+      text = 'وصلت من رقم مستفيد/ة لديه ملف مفتوح، فأُلحقت بالملف نفسه بدل إنشاء طلب جديد، وأُبلغت الإدارة.';
     } else if (res.intake_id) {
-      text = 'سُجلت في صندوق الوارد الموحد: طلب جديد أو طلب مفتوح لنفس العميل. يحلل الذكاء الاصطناعي الطلب خلال لحظات.';
+      text = 'سُجلت في صندوق الوارد الموحد: طلب جديد أو طلب مفتوح لنفس المستفيد/ة. يحلل الذكاء الاصطناعي الطلب خلال لحظات.';
     } else {
       text = 'استُقبلت الرسالة.';
     }
@@ -246,7 +246,7 @@ export default async function render(ctx) {
     {
       icon: 'globe',
       title: 'متابعة طلب من الموقع',
-      text: 'عميل قدّم طلبًا على الموقع ثم يكمل على واتساب بذكر رقم طلبه — يُلحق بنفس الطلب ولا يُنشأ طلب جديد.',
+      text: 'مستفيد/ة قدّم طلبًا على الموقع ثم يكمل على واتساب بذكر رقم طلبه — يُلحق بنفس الطلب ولا يُنشأ طلب جديد.',
       extra: h(
         'div.pa-preset-extra',
         h('div.pa-url-row', reqInput, button('تجهيز', { size: 'sm', icon: 'check', onClick: prepareFollowUp })),
@@ -256,8 +256,8 @@ export default async function render(ctx) {
     },
     {
       icon: 'briefcase',
-      title: 'رد من عميل ملف قائم',
-      text: 'عميلة الملف INH-2026-00482 ترد على طلب المستند — تصل الرسالة إلى الملف نفسه.',
+      title: 'رد من مستفيد/ة له ملف قائم',
+      text: 'مستفيدة الملف INH-2026-00482 ترد على طلب المستند — تصل الرسالة إلى الملف نفسه.',
       action: () =>
         fill({
           from: INH_CLIENT_PHONE,
@@ -268,7 +268,7 @@ export default async function render(ctx) {
     {
       icon: 'userPlus',
       title: 'رسالة من رقم جديد',
-      text: 'عميل لم يتواصل من قبل ودون إعلان: يُنشأ له رقم عميل وطلب جديد في صندوق الوارد.',
+      text: 'مستفيد/ة لم يتواصل من قبل ودون إعلان: يُنشأ له كود مستفيد/ة وطلب جديد في صندوق الوارد.',
       action: () =>
         fill({
           from: randomMobile(),
@@ -312,7 +312,7 @@ export default async function render(ctx) {
   }
 
   const pipeline = [
-    ['تحديد العميل', 'من رقم الهاتف: الرقم نفسه من الموقع أو واتساب يعني العميل نفسه ورقم العميل نفسه.'],
+    ['تحديد المستفيد/ة', 'من رقم الهاتف: الرقم نفسه من الموقع أو واتساب يعني المستفيد/ة نفسه وكود المستفيد/ة نفسه.'],
     ['ربط الرسالة', 'رقم طلب مذكور ← نفس الطلب؛ طلب مفتوح ← يُلحق به؛ ملف مفتوح ← يُلحق بالملف؛ غير ذلك ← طلب جديد.'],
     ['المصدر', 'بيانات الإعلان (referral) تحدد المصدر والحملة، مستقلة عن القناة.'],
     ['التحليل والإشعار', 'يحلل الذكاء الاصطناعي الطلب ويُبلغ الإدارة؛ ولا يصبح الطلب ملفًا إلا بقرارها.'],

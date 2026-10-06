@@ -616,7 +616,7 @@ export function createMessaging(app) {
         caption ||
         (channel === 'whatsapp'
           ? `مرفق لكم المستند «${title}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}. — ${orgName()}`
-          : `أتحنا لكم المستند «${title}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحتكم في بوابة العملاء. — ${orgName()}`);
+          : `أتحنا لكم المستند «${title}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحة متابعة طلبكم. — ${orgName()}`);
       const msg = app.engine.sendToClient({
         client_id: client.id,
         intake_id: doc.intake_id || caseRow?.intake_id || null,
@@ -642,17 +642,19 @@ export function createMessaging(app) {
     },
 
     /** مستند يحق لصاحب رابط البوابة تنزيله: مرفق برسالة ضمن نطاق الرابط (أرسلناه له أو رفعه هو) */
-    portalDocument(client, intakeId, docId) {
-      const sc = app.portal.scopeOf(client, intakeId);
+    portalDocument(client, intakeId, docId, { phone = null } = {}) {
+      const sc = app.portal.scopeOf(client, intakeId, { phone });
       const ids = (a) => (a.length ? a.map(Number).join(',') : '-1');
-      const scope = `(m.intake_id IN (${ids(sc.intakeIds)}) OR m.case_id IN (${ids(sc.caseIds)}) OR m.matter_id IN (${ids(sc.matterIds)})${
-        sc.full ? ' OR (m.intake_id IS NULL AND m.case_id IS NULL AND m.matter_id IS NULL)' : ''
-      })`;
+      const orphan = app.portal.orphanSql(sc, 'm');
+      const scope = `(m.intake_id IN (${ids(sc.intakeIds)}) OR m.case_id IN (${ids(sc.caseIds)}) OR m.matter_id IN (${ids(sc.matterIds)})${orphan.sql})${
+        sc.websiteOnly ? " AND m.channel = 'website'" : ''
+      }`;
       const sent = db.get(
         `SELECT d.* FROM documents d JOIN message_attachments ma ON ma.document_id = d.id JOIN messages m ON m.id = ma.message_id
          WHERE d.id = ? AND m.client_id = ? AND m.direction = 'out' AND m.status IN ('sent','delivered','read','simulated') AND ${scope}`,
         docId,
         client.id,
+        ...orphan.params,
       );
       if (sent) return sent;
       return (
@@ -661,6 +663,7 @@ export function createMessaging(app) {
            WHERE d.id = ? AND d.uploaded_by_kind = 'client' AND m.client_id = ? AND m.direction = 'in' AND ${scope}`,
           docId,
           client.id,
+          ...orphan.params,
         ) || null
       );
     },
@@ -716,11 +719,11 @@ export function createMessaging(app) {
         setImmediate(() => {
           try {
             const org = orgName();
-            const realText = `رمز الدخول إلى بوابة العملاء لدى ${org}: ${code}\nصالح لمدة ${OTP_TTL_MINUTES} دقائق. لا تشارك هذا الرمز مع أي شخص؛ لن يطلبه منك أحد من فريقنا.`;
+            const realText = `رمز الدخول إلى صفحة متابعة طلبك لدى ${org}: ${code}\nصالح لمدة ${OTP_TTL_MINUTES} دقائق. لا تشارك هذا الرمز مع أي شخص؛ لن يطلبه منك أحد من فريقنا.`;
             // في وضع المحاكاة (خارج الإنتاج أو في النسخة التجريبية فقط) يُسجَّل الرمز في صندوق الصادر لتجربة الدخول؛
             // أما مع واتساب الحقيقي فلا يُحفظ الرمز في قاعدة البيانات أبدًا
             const simulationOk = !app.config?.production || !!app.config?.demo;
-            const stored = app.whatsapp.configured || !simulationOk ? `رمز الدخول إلى بوابة العملاء لدى ${org}: •••••• (أُرسل للعميل فقط ولا يُحفظ)` : realText;
+            const stored = app.whatsapp.configured || !simulationOk ? `رمز الدخول إلى صفحة متابعة طلبك لدى ${org}: •••••• (أُرسل للمستفيد/ة فقط ولا يُحفظ)` : realText;
             const hasTemplate = !!resolveMapping(['otp']);
             const msg = app.engine.record({
               client_id: client.id,
@@ -795,8 +798,15 @@ export function createMessaging(app) {
       const client = app.clients.get(row.client_id);
       if (!client) throw badRequest(INVALID);
       db.update('portal_otps', row.id, { attempts, consumed_at: t });
-      const token = app.clients.issuePortalToken(client.id);
-      app.activity.log({ client_id: client.id, actor: { kind: 'client' }, type: 'portal.otp_login', summary: 'دخل العميل إلى بوابة العملاء برمز وصله عبر واتساب' });
+      // رابط بنطاق صاحب الرقم: لا تظهر فيه طلبات الموقع غير الموثّقة (انظر portal.scopeOf)، وعمره أقصر من روابط الإدارة
+      const token = app.clients.issuePortalToken(client.id, { days: app.config.portalOtpTokenDays || 30, phone: row.phone });
+      app.activity.log({
+        client_id: client.id,
+        actor: { kind: 'client' },
+        type: 'portal.otp_login',
+        summary: `دخل صاحب الرقم ${maskPhone(row.phone)} إلى بوابة العملاء برمز وصله عبر واتساب`,
+        data: { phone: maskPhone(row.phone) },
+      });
       app.audit?.log({ ctx, actor: { kind: 'client' }, type: 'portal.otp_login', summary: `دخل العميل ${client.code} إلى بوابة العملاء برمز واتساب`, data: { client_id: client.id, phone: maskPhone(row.phone) } });
       return { ok: true, redirect: `/p/${token}`, portal_url: app.clients.portalUrl(token) };
     },

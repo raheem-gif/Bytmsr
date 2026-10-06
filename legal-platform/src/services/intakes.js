@@ -1,7 +1,7 @@
 // صندوق الوارد الموحد: فرز الطلبات الواردة من كل القنوات، والرد، والتعامل الداخلي، والتحويل إلى ملف.
 import { nowIso, parseJson, badRequest, notFound, conflict, v } from '../util.js';
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
-import { mapMessage } from '../channels/engine.js';
+import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
@@ -122,16 +122,37 @@ export function createIntakes(app) {
       };
     },
 
-    /** فتح الطلب من الإدارة: تصفير غير المقروء وبدء الفرز */
-    markSeen(id, actor) {
+    /**
+     * فتح الطلب من الإدارة: تصفير غير المقروء فقط. مجرد التصفح لا يغيّر الحالة ولا يُسند الفرز لمن فتحه
+     * (حتى لا يسحب زميل يتصفح الطلبات طلبًا من عداد «جديد»)؛ الإسناد يحدث مع أول إجراء فرز (startTriage).
+     */
+    markRead(id) {
       const i = svc.require(id);
-      const patch = { unread_count: 0 };
+      if (i.unread_count) db.update('intakes', i.id, { unread_count: 0 });
+    },
+
+    /**
+     * أول إجراء فرز فعلي (رد، تعديل، تأكيد هوية، قرار): «جديد» ← «قيد الفرز»، ويُسند الفرز لمن قام بالإجراء
+     * إن لم يكن مسندًا لأحد. assign=false عندما يحدد الإجراء نفسه المسؤول عن الفرز.
+     */
+    startTriage(id, actor, { assign = true } = {}) {
+      const i = svc.require(id);
+      if (!actor?.id) return i;
+      const patch = {};
       if (i.status === 'new') patch.status = 'in_review';
-      if (!i.assigned_staff_id) patch.assigned_staff_id = actor.id;
+      if (assign && !i.assigned_staff_id && ['admin', 'case_manager'].includes(actor.role)) patch.assigned_staff_id = actor.id;
+      if (!Object.keys(patch).length) return i;
       db.update('intakes', i.id, patch);
-      if (i.status === 'new') {
+      if (patch.status) {
         app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.triage_started', summary: `بدأ ${actor.name} فرز الطلب` });
       }
+      return svc.require(i.id);
+    },
+
+    /** فتح الطلب وبدء فرزه معًا (تستخدمه البيانات التجريبية) */
+    markSeen(id, actor) {
+      svc.markRead(id);
+      return svc.startTriage(id, actor);
     },
 
     detail(id) {
@@ -160,6 +181,8 @@ export function createIntakes(app) {
           source_detail: sd,
           identity: {
             phone_match_unverified: !!sd.phone_match_unverified,
+            // رقم من نموذج الموقع لم يُثبت أن مقدّم الطلب صاحبه: الطلب لا يظهر في بوابة صاحب الرقم حتى التأكيد
+            phone_unverified: isPortalUnverifiedIntake(i),
             confirmed_at: sd.identity_confirmed_at || null,
             confirmed_by_name: sd.identity_confirmed_by_name || null,
           },
@@ -212,6 +235,8 @@ export function createIntakes(app) {
         patch.status = st;
       }
       db.update('intakes', i.id, patch);
+      // تعديل بيانات الطلب إجراء فرز: يبدأ الفرز (ما لم يحدد التعديل المسؤول عن الفرز بنفسه)
+      if (OPEN_STATUSES.includes(i.status)) return svc.startTriage(i.id, actor, { assign: body.assigned_staff_id === undefined });
       return svc.require(i.id);
     },
 
@@ -226,9 +251,10 @@ export function createIntakes(app) {
         channel: body.channel || 'auto',
         author: actor,
       });
+      // الرد أول إجراء فرز: «قيد الفرز» ويُسند الفرز لمن رد إن لم يكن مسندًا
+      if (OPEN_STATUSES.includes(i.status)) svc.startTriage(i.id, actor);
       const patch = { updated_at: nowIso() };
       if (body.await_client && ['new', 'in_review'].includes(i.status)) patch.status = 'awaiting_client';
-      else if (i.status === 'new') patch.status = 'in_review';
       db.update('intakes', i.id, patch);
       app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'message.sent', summary: `ردت الإدارة على العميل عبر ${LABELS.channel[msg.channel]}` });
       return msg;
@@ -243,6 +269,7 @@ export function createIntakes(app) {
       if (body.reply) {
         app.engine.sendToClient({ client_id: i.client_id, intake_id: i.id, body: v.str(body.reply, 'نص الرد', { required: true, max: 4000 }), channel: body.channel || 'auto', author: actor });
       }
+      svc.startTriage(i.id, actor); // من بتّ في الطلب هو المسؤول عن فرزه إن لم يكن مسندًا لأحد
       db.update('intakes', i.id, {
         status: 'handled_internally',
         kind: i.kind || 'inquiry',
@@ -267,6 +294,7 @@ export function createIntakes(app) {
       if (i.status === 'converted') throw conflict('لا يمكن أرشفة طلب تحول إلى ملف');
       if (!OPEN_STATUSES.includes(i.status)) throw conflict('تم البت في هذا الطلب بالفعل');
       const reason = v.str(body.reason, 'سبب الأرشفة', { required: true, max: 500 });
+      svc.startTriage(i.id, actor);
       db.tx(() => {
         db.update('intakes', i.id, { status: 'archived', resolution_note: reason, unread_count: 0, updated_at: nowIso() });
         app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'intake.archived', summary: `أُرشف الطلب: ${reason}` });
@@ -283,7 +311,9 @@ export function createIntakes(app) {
     confirmIdentity(id, actor) {
       const i = svc.require(id);
       const sd = parseJson(i.source_detail, {});
-      if (!sd.phone_match_unverified) throw conflict('لا يحتاج هذا الطلب إلى تأكيد هوية، أو تم تأكيدها بالفعل');
+      // طلب طابق رقمه عميلًا مسجلًا، أو أي طلب من نموذج الموقع لم يُثبت أن مقدّمه صاحب الرقم
+      if (!isPortalUnverifiedIntake(i)) throw conflict('لا يحتاج هذا الطلب إلى تأكيد هوية، أو تم تأكيدها بالفعل');
+      if (OPEN_STATUSES.includes(i.status)) svc.startTriage(i.id, actor);
       delete sd.phone_match_unverified;
       sd.identity_confirmed_at = nowIso();
       sd.identity_confirmed_by = actor.id;
@@ -320,6 +350,7 @@ export function createIntakes(app) {
       if (!OPEN_STATUSES.includes(i.status)) throw conflict('أعد فتح الطلب أولًا قبل تحويله إلى ملف');
       if (!i.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
       const caseRow = db.tx(() => {
+        svc.startTriage(i.id, actor);
         if (body.client) app.clients.update(i.client_id, body.client, actor);
         const c = app.cases.createFromIntake(i, body, actor);
         // ربط الملف الجديد ببرنامج تمويل اختاره الموظف عند التحويل (وحدة programs)

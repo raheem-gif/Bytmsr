@@ -12,6 +12,7 @@ import crypto from 'node:crypto';
 import { LEGAL_AREAS, DEFAULT_SETTINGS, GOVERNORATES } from './constants.js';
 import { normalizePhone, v, badRequest } from './util.js';
 import { publicWhatsAppDigits, isPlaceholderWhatsApp } from './channels/whatsapp.js';
+import { assetVersion, sendBody } from './http.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -188,8 +189,8 @@ export const FAQ = [
   },
   {
     q: 'كيف أتابع طلبي بعد إرساله؟',
-    a: 'تحصل فور الإرسال على رقم طلب ورابط متابعة خاص بك، تتابع من خلاله الردود وترفع المستندات الإضافية. ويمكنك كذلك المتابعة عبر واتساب بذكر رقم الطلب، أو من صفحة «متابعة طلب».',
-    more: { href: '/portal', label: 'متابعة طلب سابق' },
+    a: 'تحصل فور الإرسال على رقم طلب ورابط متابعة خاص بك، تتابع من خلاله الردود وترفع المستندات الإضافية. ويمكنك كذلك المتابعة عبر واتساب بذكر رقم الطلب. وإن فقدت الرابط فراسلنا أو اتصل بنا واذكر رقم طلبك لنرسل لك رابطًا جديدًا.',
+    more: { href: '/portal', label: 'متابعة طلبك' },
   },
   {
     q: 'هل يمكنني التقدم بطلب نيابةً عن قريبة أو جارة؟',
@@ -431,7 +432,7 @@ export function registerSite(app) {
     </button>
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية">
       ${links}
-      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>متابعة طلب</span></a>
+      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>متابعة طلبك</span></a>
       <a class="pub-btn pub-btn-gold pub-nav-cta" href="/intake" data-cta="intake"${current === '/intake' ? ' aria-current="page"' : ''}>${iconSvg('send', 18, 'pub-flip')}<span>قدّم طلبك</span></a>
     </nav>
   </div>
@@ -496,7 +497,7 @@ export function registerSite(app) {
         <li><a href="/">الصفحة الرئيسية</a></li>
         <li><a href="/about">عن البرنامج</a></li>
         <li><a href="/intake" data-cta="intake">قدّم طلبك</a></li>
-        <li><a href="/portal">دخول بوابة العملاء</a></li>
+        <li><a href="/portal">متابعة طلبك</a></li>
         <li><a href="/#faq">أسئلة شائعة</a></li>
       </ul>
     </nav>
@@ -684,18 +685,28 @@ export function registerSite(app) {
     // إن عرّف القالب وسم robots بنفسه لا نضيف وسمًا ثانيًا
     const noindex = extra.noindex && !/<meta name="robots"/.test(html);
     const head = headTags(ps, base, pagePath, { title, description, noindex, faq: pagePath === '/' });
-    return html.replace('<!--site:head-->', () => head);
+    return versionAssets(html.replace('<!--site:head-->', () => head));
+  }
+
+  /**
+   * يضيف رقم إصدار الملف (?v=…) لروابط ملفات CSS وJS المحلية في الصفحة (أكبر ما يُنزَّل)،
+   * فيخزّنها المتصفح سنة كاملة ويعيد تنزيلها فقط عند تغيّر محتواها (src/http.js).
+   * الأيقونات وصور المشاركة تبقى بروابطها الثابتة (وسوم SEO).
+   */
+  function versionAssets(html) {
+    return html.replace(/\b(href|src)="(\/assets\/[^"?#]+\.(?:css|js))"/g, (m, attr, url) => {
+      const v = assetVersion(path.join(pub, url));
+      return v ? `${attr}="${url}?v=${v}"` : m;
+    });
   }
 
   function sendHtml(req, res, html, { noStore = false } = {}) {
-    res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     // لا بيانات شخصية في هذه الصفحات؛ إعادة التحقق في كل زيارة حتى تظهر تعديلات الإعدادات فورًا.
     // صفحات الروابط الخاصة (noStore) لا تُحفظ في ذاكرة المتصفح أو الوسطاء إطلاقًا.
     res.setHeader('Cache-Control', noStore ? 'no-store' : 'no-cache');
-    res.setHeader('Content-Length', Buffer.byteLength(html));
-    if (req.method === 'HEAD') return res.end();
-    res.end(html);
+    // مضغوطة (gzip) لمن يقبلها: الموقع العام يُفتح غالبًا من هواتف بباقات بيانات محدودة
+    sendBody(res, 200, html, { req });
   }
 
   /**

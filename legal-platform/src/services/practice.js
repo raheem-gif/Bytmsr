@@ -989,6 +989,31 @@ export function createPractice(app) {
       if (r.changes) app.audit.log({ actor: user, ctx, type: 'calendar.feed_revoked', summary: 'أُلغي رابط اشتراك التقويم' });
       return calendar.feedStatus(user, ctx);
     },
+    /** حالة رابط التقويم لحساب ما (لصفحة الحساب عند مدير النظام) — بدون الرمز */
+    feedInfo(userId) {
+      const r = db.get('SELECT created_at, last_used_at, use_count, token_hint FROM calendar_feeds WHERE user_id = ?', userId);
+      if (!r) return { active: false };
+      return { active: true, created_at: r.created_at, last_used_at: r.last_used_at || null, use_count: Number(r.use_count) || 0, hint: r.token_hint || null };
+    },
+    /**
+     * إلغاء رابط التقويم لحساب: يُستدعى عند إنهاء كل الجلسات، وإلغاء التحقق بخطوتين (فقدان الهاتف)،
+     * وتغيير الدور أو إيقاف الحساب، ومن صفحة الحساب عند الإدارة. reason يظهر في سجل الأمان. يعيد true إن وُجد رابط.
+     */
+    revokeFeedFor(userId, actor, ctx, reason) {
+      const r = db.run('DELETE FROM calendar_feeds WHERE user_id = ?', userId);
+      if (!r.changes) return false;
+      const target = db.get('SELECT name, username FROM users WHERE id = ?', userId);
+      const self = actor && actor.id === userId;
+      app.audit.log({
+        actor,
+        ctx,
+        type: 'calendar.feed_revoked',
+        severity: self ? 'info' : 'warning',
+        summary: `إلغاء رابط اشتراك التقويم${self ? '' : ` لحساب ${target?.name || ''}${target?.username ? ` (${target.username})` : ''}`} — ${reason}`,
+        data: { target_user_id: userId, reason },
+      });
+      return true;
+    },
     /** محتوى ملف ICS لرمز صالح، أو null (لرمز غير صالح أو حساب موقوف) */
     renderFeed(token, ctx) {
       if (typeof token !== 'string' || token.length < 20 || token.length > 100 || !/^[A-Za-z0-9_-]+$/.test(token)) return null;

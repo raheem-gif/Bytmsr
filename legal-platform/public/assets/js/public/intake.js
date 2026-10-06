@@ -3,7 +3,7 @@
 
 import { h, mount } from '../lib/h.js';
 import { api, filesToUploads } from '../lib/api.js';
-import { setMeta, getMeta, areaOptions, areaLabel, governorateOptions, normalizeEgPhone, toLatinDigits, count, money } from '../lib/fmt.js';
+import { setMeta, getMeta, areaOptions, areaLabel, governorateOptions, normalizeEgPhone, toLatinDigits, count, money, ltr } from '../lib/fmt.js';
 import {
   form,
   tabs,
@@ -233,7 +233,7 @@ function showSuccess(res, name) {
           codeTag(ref, { className: 'code-lg' }),
           copyButton(ref, 'نسخ الرقم', { variant: 'secondary' }),
         ),
-      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), res && res.whatsapp_url ? 'ستحتاج إليه عند المتابعة معنا عبر الموقع أو واتساب.' : 'ستحتاج إليه عند المتابعة معنا عبر الموقع أو الهاتف.'),
+      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), res && res.whatsapp_url ? 'ستحتاج إليه عند التواصل معنا عبر واتساب أو الهاتف.' : 'ستحتاج إليه عند التواصل معنا عبر الهاتف.'),
       (portal || (res && res.whatsapp_url)) &&
         h(
           'div.success-portal',
@@ -248,7 +248,12 @@ function showSuccess(res, name) {
             h(
               'p.success-warning',
               icon('lock', { size: 16 }),
-              h('span', 'هذا الرابط خاص بك وحدك؛ احفظه ولا تشاركه مع أحد. ويمكنك أيضًا المتابعة من صفحة «متابعة طلب» برقم طلبك.'),
+              // لا وعد بالمتابعة «برقم الطلب» من /portal: الصفحة لا تقبل رقم الطلب، ولا يصل رمز واتساب لرقم جاء من الموقع فقط
+              // قبل أن يتحقق الفريق منه. طريق استعادة الرابط الوحيد هو التواصل مع المؤسسة بذكر رقم الطلب.
+              h(
+                'span',
+                `هذا الرابط خاص بك وحدك؛ احفظه ولا تشاركه مع أحد. إن فقدته فراسلنا أو اتصل بنا واذكر رقم طلبك${ref ? ` ${ltr(ref)}` : ''} لنرسل لك رابطًا جديدًا.`,
+              ),
             ),
         ),
       h('h3', 'ماذا يحدث الآن؟'),

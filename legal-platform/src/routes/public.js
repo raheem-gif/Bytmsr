@@ -140,18 +140,18 @@ export function registerPublicRoutes(router, app) {
     return access;
   }
   router.get('/api/portal/:token', (ctx) => {
-    const { client, intakeId } = portalAccess(ctx);
-    return app.portal.view(client, intakeId);
+    const { client, intakeId, phone } = portalAccess(ctx);
+    return app.portal.view(client, intakeId, { phone });
   });
   router.post(
     '/api/portal/:token/messages',
     (ctx) => {
-      const { client, intakeId } = portalAccess(ctx);
+      const { client, intakeId, phone } = portalAccess(ctx);
       app.limiters.portal.hit(`portal:${client.id}`);
       const body = v.str(ctx.body.body, 'الرسالة', { max: 5000 }) || '';
       const docs = Array.isArray(ctx.body.documents) ? ctx.body.documents.slice(0, 5) : [];
       if (!body && !docs.length) throw badRequest('اكتب رسالتك أو أرفق ملفًا');
-      app.engine.receive({ channel: 'website', portal_client_id: client.id, text: body || '[مرفقات]', attachments: docs, ...app.portal.targetFor(client, intakeId) });
+      app.engine.receive({ channel: 'website', portal_client_id: client.id, text: body || '[مرفقات]', attachments: docs, ...app.portal.targetFor(client, intakeId, { phone }) });
       return { ok: true };
     },
     { limit: 60 * 1024 * 1024 },
@@ -159,9 +159,9 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/api/portal/:token/requests/:id/reply',
     (ctx) => {
-      const { client, intakeId } = portalAccess(ctx);
+      const { client, intakeId, phone } = portalAccess(ctx);
       app.limiters.portal.hit(`portal:${client.id}`);
-      if (!app.portal.allowsInfoRequest(client, intakeId, idParam(ctx.params))) throw notFound('الطلب غير موجود');
+      if (!app.portal.allowsInfoRequest(client, intakeId, idParam(ctx.params), { phone })) throw notFound('الطلب غير موجود');
       return app.requests.clientReplyFromPortal(idParam(ctx.params), client, {
         body: ctx.body.body,
         documents: Array.isArray(ctx.body.documents) ? ctx.body.documents.slice(0, 5) : [],

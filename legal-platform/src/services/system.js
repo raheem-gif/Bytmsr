@@ -28,6 +28,7 @@ import {
   nowIso,
   addHours,
   arabicCount,
+  arabicDate,
   sha256,
   randomToken,
   cairoParts,
@@ -223,8 +224,8 @@ const INTEGRATION_RULES = {
   anthropic: {
     api_key: (s) => (/^sk-ant-[A-Za-z0-9_-]{10,300}$/.test(s) ? null : 'مفتاح Anthropic غير صالح: يبدأ بـ sk-ant- كما يظهر في console.anthropic.com'),
     model: (s) => (/^[a-z0-9][a-z0-9._-]{2,80}(\[1m\])?$/i.test(s) ? null : 'اسم النموذج غير صالح، مثل claude-opus-5-5'),
-    effort: (s) => (['low', 'medium', 'high', 'xhigh', 'max'].includes(s) ? null : 'مستوى الجهد: low أو medium أو high أو xhigh أو max'),
-    provider: (s) => (['auto', 'anthropic', 'heuristic'].includes(s) ? null : 'المزوّد: auto أو anthropic أو heuristic'),
+    effort: (s) => (['low', 'medium', 'high', 'xhigh', 'max'].includes(s) ? null : 'اختر مستوى الجهد من القائمة: منخفض أو متوسط أو مرتفع أو مرتفع جدًا أو أقصى جهد'),
+    provider: (s) => (['auto', 'anthropic', 'heuristic'].includes(s) ? null : 'اختر وضع التشغيل من القائمة: تلقائي أو Claude دائمًا أو المحلل المحلي فقط'),
     monthly_budget_usd: (s) => {
       const n = Number(s);
       return Number.isFinite(n) && n >= 0 && n <= 100000 ? null : 'سقف الإنفاق رقم بالدولار من 0 إلى 100000';
@@ -314,6 +315,11 @@ export function createSystem(app) {
   }
 
   function notFoundHtml(res) {
+    // صفحة 404 بهوية الموقع العام إن توفرت (src/app.js)
+    if (typeof app.notFoundPage === 'function') {
+      app.notFoundPage(res);
+      return;
+    }
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
@@ -486,13 +492,45 @@ export function createSystem(app) {
     return name === 'whatsapp' ? app.whatsapp : name === 'anthropic' ? app.ai : null;
   }
 
+  /**
+   * بصمة قصيرة لبيانات الاعتماد التي اختُبرت (لا تكشف القيمة): تُحفظ مع نتيجة الاختبار حتى نعرف
+   * أن آخر اختبار يخص البيانات الحالية لا بيانات سابقة (تغيرت من لوحة الإدارة أو من متغيرات البيئة).
+   */
+  function credFingerprint(name) {
+    const eff = app.integrations.get(name);
+    const parts = name === 'whatsapp' ? [eff.token, eff.phone_number_id] : [eff.api_key, eff.model];
+    return sha256(`bm-cred-fp|${name}|${parts.map((x) => x || '').join('|')}`).slice(0, 16);
+  }
+
   function lastTest(name) {
     const r = db.get(
       `SELECT t.*, u.name AS tested_by_name FROM integration_tests t LEFT JOIN users u ON u.id = t.tested_by
        WHERE t.name = ? ORDER BY t.id DESC LIMIT 1`,
       name,
     );
-    return r ? { ...r, ok: !!r.ok, details: parseJson(r.details, null) } : null;
+    if (!r) return null;
+    const details = parseJson(r.details, null);
+    const fp = details && typeof details === 'object' ? details.cred_fp : undefined;
+    let clean = details;
+    if (fp !== undefined) {
+      const { cred_fp: _fp, ...rest } = details;
+      clean = Object.keys(rest).length ? rest : null;
+    }
+    // نتيجة قديمة: اختُبرت بيانات اعتماد مختلفة عن الحالية (أو حُفظت البيانات بعد الاختبار ولا بصمة للمقارنة)
+    const meta = db.get('SELECT updated_at FROM integration_secrets WHERE name = ?', name);
+    const stale = fp ? fp !== credFingerprint(name) : !!(meta?.updated_at && r.tested_at < meta.updated_at);
+    return { ...r, ok: !!r.ok, details: clean, stale };
+  }
+
+  /**
+   * حالة واتساب الفعلية للعرض (صحة النظام، لوحة المتابعة، صفحة التكاملات):
+   * «متصل» فقط بعد اختبار اتصال ناجح لبيانات الاعتماد الحالية؛ وإلا «لم يُختبر» أو «فشل آخر اختبار».
+   */
+  function whatsappState(configured, test) {
+    if (!configured) return { state: 'simulation', label: 'وضع المحاكاة (لا تُرسل رسائل فعلية)' };
+    if (!test || test.stale) return { state: 'untested', label: 'مضبوط (لم يُختبر الاتصال بعد)' };
+    if (!test.ok) return { state: 'failed', label: 'مضبوط — فشل آخر اختبار للاتصال' };
+    return { state: 'connected', label: 'متصل بـ WhatsApp Cloud API' };
   }
 
   function integrationItem(name) {
@@ -515,7 +553,10 @@ export function createSystem(app) {
       updated_by_name: meta?.updated_by_name || null,
     };
     if (name === 'whatsapp') {
-      item.runtime = { live: !!app.whatsapp?.configured, label: app.whatsapp?.configured ? 'متصل بـ WhatsApp Cloud API' : 'وضع المحاكاة (لا تُرسل رسائل فعلية)' };
+      // live: الإرسال الحقيقي مفعّل (بيانات مضبوطة)؛ state/label: هل ثبت الاتصال فعلًا باختبار ناجح للبيانات الحالية
+      const live = !!app.whatsapp?.configured;
+      const st2 = whatsappState(live, item.last_test);
+      item.runtime = { live, state: st2.state, label: st2.label };
       item.app_secret_set = !!eff.app_secret;
       item.verify_token_set = !!eff.verify_token;
     } else {
@@ -584,6 +625,20 @@ export function createSystem(app) {
       if (p.startsWith('/api/setup/') || p === '/api/meta' || p === '/healthz') return false;
       if (p.startsWith('/api/') || p.startsWith('/webhooks/')) {
         res.setHeader('Retry-After', '300');
+        // نموذج الطلب وبوابة المستفيد: رسالة مفهومة للمستفيد بدل تعليمات تقنية موجهة لمدير النظام
+        if (p.startsWith('/api/public/') || p.startsWith('/api/portal/')) {
+          let phone = '';
+          try {
+            phone = String(app.settings.get('org_phone') || '').trim();
+          } catch {
+            phone = '';
+          }
+          sendJson(res, 503, {
+            error: `الخدمة قيد التجهيز حاليًا ولا تستقبل الطلبات عبر الموقع بعد.${phone ? ` للتواصل اتصل بنا على ${phone}.` : ' حاول مرة أخرى لاحقًا.'}`,
+            code: 'service_unavailable',
+          });
+          return true;
+        }
         sendJson(res, 503, {
           error: 'المنصة في وضع الإعداد الأول ولم يُنشأ حساب مدير النظام بعد. أكمل الإعداد من الرابط الظاهر في سجل تشغيل الخادم.',
           code: 'setup_required',
@@ -991,6 +1046,17 @@ export function createSystem(app) {
     },
 
     // ===== التكاملات =====
+    /**
+     * حالة واتساب المختصرة للوحة المتابعة والإعدادات:
+     * state = simulation | untested | failed | connected، و«متصل» فقط بعد اختبار ناجح لبيانات الاعتماد الحالية.
+     */
+    whatsappStatus() {
+      const live = !!app.whatsapp?.configured;
+      const test = live ? lastTest('whatsapp') : null;
+      const st = whatsappState(live, test);
+      return { configured: live, live, state: st.state, label: st.label, last_tested_at: test?.tested_at || null, last_test_ok: test ? test.ok && !test.stale : null };
+    },
+
     integrationsOverview(ctx) {
       const keySource = app.integrations.keySource;
       return {
@@ -1046,11 +1112,15 @@ export function createSystem(app) {
       }
       result.duration_ms = Date.now() - t0;
       result.tested_at = nowIso();
+      // بصمة بيانات الاعتماد المختبرة (للتعرف على نتيجة قديمة بعد تغيير البيانات)؛ لا تُعاد للواجهة
+      const d = result.details;
+      let storedDetails = JSON.stringify({ ...(d && typeof d === 'object' && !Array.isArray(d) ? d : d == null ? {} : { value: d }), cred_fp: credFingerprint(name) });
+      if (storedDetails.length > 4000) storedDetails = JSON.stringify({ cred_fp: credFingerprint(name) });
       db.insert('integration_tests', {
         name,
         ok: result.ok ? 1 : 0,
         message: result.message,
-        details: result.details == null ? null : JSON.stringify(result.details).slice(0, 4000),
+        details: storedDetails,
         duration_ms: result.duration_ms,
         tested_by: actor?.id ?? null,
         tested_at: result.tested_at,
@@ -1169,8 +1239,21 @@ export function createSystem(app) {
       }
       if (wa.undecryptable || ai.undecryptable) add('undecryptable', 'danger', 'تعذر فك تشفير أسرار محفوظة', 'تغيّر مفتاح التشفير بعد حفظ الأسرار. أعد إدخال مفاتيح التكاملات.', '#/integrations');
       if (!wa.configured) add('whatsapp', 'warning', 'واتساب في وضع المحاكاة', 'لم تُضبط بيانات WhatsApp Cloud API بعد، فلا تُرسل رسائل فعلية للمستفيدين.', '#/integrations');
-      else if (!wa.app_secret_set) add('whatsapp', 'danger', 'سر تطبيق ميتا غير مضبوط', 'بدون App Secret يرفض النظام كل رسائل Webhook الواردة.', '#/integrations');
-      else add('whatsapp', 'ok', 'واتساب مضبوط', wa.runtime.label);
+      else if (wa.runtime.state === 'failed') {
+        const why = String(wa.last_test.message || 'فشل اختبار الاتصال').replace(/[.،\s]+$/, '');
+        add('whatsapp', 'danger', 'آخر اختبار اتصال لواتساب فشل', `${why}. بعد تصحيح بيانات الاعتماد من صفحة التكاملات أعد «اختبار الاتصال».`, '#/integrations');
+      } else if (!wa.app_secret_set) add('whatsapp', 'danger', 'سر تطبيق ميتا غير مضبوط', 'بدون App Secret يرفض النظام كل رسائل Webhook الواردة.', '#/integrations');
+      else if (wa.runtime.state === 'untested') {
+        add(
+          'whatsapp',
+          'warning',
+          'لم يُختبر الاتصال بواتساب بعد',
+          wa.last_test
+            ? 'تغيّرت بيانات الاعتماد بعد آخر اختبار. اضغط «اختبار الاتصال» في صفحة التكاملات للتأكد من صلاحية رمز الوصول ومعرّف رقم الهاتف.'
+            : 'البيانات مضبوطة لكن لم يُتحقق منها. اضغط «اختبار الاتصال» في صفحة التكاملات للتأكد من صلاحية رمز الوصول ومعرّف رقم الهاتف.',
+          '#/integrations',
+        );
+      } else add('whatsapp', 'ok', 'واتساب مضبوط ومتصل', `${wa.runtime.label} — آخر اختبار ناجح يوم ${arabicDate(wa.last_test.tested_at)}.`);
       add('ai', ai.configured ? 'ok' : 'info', ai.configured ? 'Claude مضبوط' : 'الذكاء الاصطناعي: المحلل المحلي', ai.runtime.label || '', '#/integrations');
       if (memoryDb) add('backup', 'warning', 'قاعدة بيانات في الذاكرة', 'لا يمكن النسخ الاحتياطي لقاعدة بيانات في الذاكرة.');
       else if (!backups.enabled) add('backup', 'warning', 'النسخ الاحتياطي التلقائي متوقف', 'فعّل النسخ الاحتياطي اليومي من هذه الصفحة.');
@@ -1215,9 +1298,11 @@ export function createSystem(app) {
         jobs,
         outbox,
         integrations: {
-          whatsapp: { configured: wa.configured, live: wa.runtime.live, label: wa.runtime.label, last_test: wa.last_test },
+          whatsapp: { configured: wa.configured, live: wa.runtime.live, state: wa.runtime.state, label: wa.runtime.label, last_test: wa.last_test },
           anthropic: { configured: ai.configured, live: ai.runtime.live, label: ai.runtime.label, last_test: ai.last_test },
           key_source: keySource,
+          // المسار الفعلي للمفتاح (DATA_DIR/.secret-key) لصفحة صحة النظام بدل «data/.secret-key» الثابت
+          key_file: keySource === 'file' ? keyFileDisplay() : null,
         },
         backups: {
           enabled: backups.enabled,

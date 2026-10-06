@@ -250,22 +250,25 @@ export function createClients(app) {
      * رابط بوابة آمن. intakeId يقصر الرابط على طلب واحد وما تفرع عنه (رابط الموقع)،
      * وبدونه يشمل كل ملفات العميل (رابط ترسله الإدارة لرقم موثّق).
      */
-    issuePortalToken(clientId, { intakeId = null } = {}) {
+    issuePortalToken(clientId, { intakeId = null, days = null, phone = null } = {}) {
       const token = randomToken(24);
       const t = nowIso();
+      const ttl = Number(days) > 0 ? Number(days) : config.portalTokenDays;
       db.insert('portal_tokens', {
         token_hash: sha256(token),
         client_id: clientId,
         intake_id: intakeId,
+        // رابط صدر بعد الدخول برمز واتساب على رقم بعينه: نطاقه ما أتى من هذا الرقم فقط (انظر portal.scopeOf)
+        phone: phone || null,
         created_at: t,
-        expires_at: addDays(t, config.portalTokenDays),
+        expires_at: addDays(t, ttl),
       });
       return token;
     },
     portalUrl(token) {
       return `${config.publicBaseUrl || ''}/p/${token}`;
     },
-    /** @returns {{ client, intakeId: number|null } | null} */
+    /** @returns {{ client, intakeId: number|null, phone: string|null } | null} */
     portalAccess(token) {
       if (typeof token !== 'string' || token.length < 20 || token.length > 100) return null;
       const row = db.get('SELECT * FROM portal_tokens WHERE token_hash = ?', sha256(token));
@@ -273,7 +276,7 @@ export function createClients(app) {
       const client = svc.get(row.client_id);
       if (!client) return null;
       db.run('UPDATE portal_tokens SET last_used_at = ? WHERE token_hash = ?', nowIso(), row.token_hash);
-      return { client, intakeId: row.intake_id ?? null };
+      return { client, intakeId: row.intake_id ?? null, phone: row.phone || null };
     },
     /** إلغاء روابط البوابة: كل روابط العميل، أو روابط طلب واحد فقط. يعيد عدد الروابط الملغاة */
     revokePortalTokens(clientId, { intakeId = null } = {}) {

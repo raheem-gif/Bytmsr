@@ -35,7 +35,7 @@ export function createSearch({ user }) {
       'aria-expanded': 'false',
       'aria-controls': listId,
       'aria-autocomplete': 'list',
-      'aria-label': isLawyer ? 'ابحث في إسناداتك وملفاتك المستمرة' : 'ابحث في العملاء والطلبات والملفات والمحامين',
+      'aria-label': isLawyer ? 'ابحث في إسناداتك وملفاتك المستمرة' : 'ابحث في المستفيدين والطلبات والملفات والمحامين',
       placeholder: isLawyer ? 'كود الملف أو عنوانه أو رقم الدعوى…' : 'اسم، كود، رقم هاتف، رقم دعوى…',
       autocomplete: 'off',
       spellcheck: 'false',
@@ -152,7 +152,7 @@ export function createSearch({ user }) {
 
     hint();
     handle = modal({
-      title: isLawyer ? 'البحث في ملفاتي' : 'البحث الشامل',
+      title: isLawyer ? 'البحث في إسناداتي وملفاتي المستمرة' : 'البحث الشامل',
       size: 'md',
       className: 'v9p-palette',
       body: h('div.v9p-search', h('div.v9p-search-box', icon('search', { size: 20 }), input), status, results),

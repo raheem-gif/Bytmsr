@@ -139,6 +139,8 @@ try {
       db.run(`UPDATE users SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...keys.map((k) => patch[k]), existing.id);
       const sessions = db.run('DELETE FROM sessions WHERE user_id = ?', existing.id).changes;
       if (hasTable('login_challenges')) db.run('DELETE FROM login_challenges WHERE user_id = ?', existing.id);
+      // الإيقاف المؤقت لكل مصدر محاولات (الإصدار 9)
+      if (hasTable('login_locks')) db.run('DELETE FROM login_locks WHERE user_id = ?', existing.id);
       // روابط إعادة التعيين أو الدعوة المعلقة لهذا الحساب تُلغى: قد تكون أُنشئت بيد من استولى على حساب آخر
       let linksRevoked = 0;
       if (hasTable('account_tokens')) {
