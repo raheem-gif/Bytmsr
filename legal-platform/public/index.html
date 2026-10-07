@@ -4,110 +4,49 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>الدعم القانوني للأرامل والأيتام وأسرهم — {{org_name}}</title>
-    <meta name="description" content="برنامج {{program_name}} في {{org_legal_name}}: استشارات ومتابعة قانونية للأرامل وأولياء أمور الأيتام وأسر المؤسسة في المواريث والنفقة والحضانة والمعاشات وغيرها. تواصل عبر واتساب أو قدّم طلبك من الموقع." />
+    <meta name="description" content="مساعدة قانونية مجانية وسرية للأرامل وأسر الأيتام من {{org_legal_name}}: الورث والمعاش والنفقة والحضانة والسكن وفلوس الأيتام والورق الرسمي. احكيلنا مشكلتك برسالة صوتية أو كتابة." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم -->
+    <!--site:critical-css-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91 pub-landing">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
-      <!-- البطل -->
+      <!-- الشاشة الأولى (B91-07): مجاني وسري قبل أي شيء، وزر واحد أساسي -->
       <section class="pub-hero" aria-labelledby="hero-title">
         <div class="pub-container pub-hero-inner">
-          <div>
-            <span class="pub-eyebrow">برنامج {{program_name}} في {{org_name}}</span>
+          <div class="pub-hero-main" data-hero>
             <h1 id="hero-title">حقُّك لن يضيع، <em>ونحن معك</em> حتى تصل إليه</h1>
-            <p class="pub-hero-lead">
-              نقدّم المشورة والمتابعة القانونية للأرامل وأولياء أمور الأيتام وأسر المؤسسة في مسائل الميراث والنفقة والحضانة والمعاشات وغيرها،
-              بإشراف فريق المؤسسة ومحامين مختصين، وبسرية تامة.
-            </p>
-            <div class="pub-cta-row">
-              <a class="pub-btn pub-btn-gold pub-btn-lg" href="/intake" data-cta="intake">قدّم طلبك من الموقع</a>
-              <!--#if whatsapp_url-->
-              <a class="pub-btn pub-btn-whatsapp pub-btn-lg" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp">
-                <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>
-                <span>تواصل عبر واتساب</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span>
-              </a>
-              <!--/if whatsapp_url-->
-            </div>
-            <p class="pub-hero-note">
-              <span>قدّمت طلبًا من قبل؟ تابعه من رابطك الخاص أو من <a href="/portal">صفحة متابعة طلبك</a>، وإن فقدت الرابط فتواصل معنا برقم طلبك</span>
-              <!--#if org_phone--><span>أو اتصل بنا: <a href="tel:{{org_phone_href}}" class="pub-ltr" dir="ltr">{{org_phone}}</a></span><!--/if org_phone-->
-            </p>
-          </div>
-
-          <aside class="pub-hero-card" aria-labelledby="start-title">
-            <h2 id="start-title">كل ما تحتاجه لتبدأ</h2>
-            <ul class="pub-check-list">
-              <li>
-                <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-                <span>وصف مختصر لمشكلتك بكلماتك<small>لا يلزم أن تعرف المصطلحات القانونية</small></span>
-              </li>
-              <li>
-                <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-                <span>رقم موبايل للتواصل معك<small>يُفضّل أن يكون عليه واتساب</small></span>
-              </li>
-              <li>
-                <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-                <span>صور المستندات إن وُجدت<small>اختياري، ويمكنك إرسالها لاحقًا</small></span>
-              </li>
+            <p class="pub-hero-sub">مساعدة قانونية للأرامل وأسر الأيتام، من {{org_name}}.</p>
+            <ul class="pub-hero-checks">
+              <li>{{{icon_check}}}<span><b>مجانًا.</b> محدش هيطلب منك فلوس.</span></li>
+              <li>{{{icon_check}}}<span><b>سرّي.</b> المحامي مش بيشوف رقمك.</span></li>
+              <li>{{{icon_check}}}<span>مش لازم تعرفي أي كلام قانوني.</span></li>
             </ul>
-            <!--#if org_registration-->
-            <p class="pub-hero-reg">
-              <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-              <span>{{org_legal_name}}، {{org_registration}}</span>
-            </p>
-            <!--/if org_registration-->
-          </aside>
-        </div>
-      </section>
-
-      <!-- من نخدم -->
-      <section id="who" class="pub-section" aria-labelledby="who-title">
-        <div class="pub-container">
-          <div class="pub-section-head">
-            <span class="pub-kicker">من نخدم</span>
-            <h2 id="who-title">نقف إلى جانب الأسر التي فقدت سندها</h2>
-            <p>يتوجه البرنامج أولًا إلى الفئات التي تخدمها المؤسسة منذ تأسيسها، ليجد كل منهم من يرشده إلى حقه ويتابعه معه.</p>
+            <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake" data-cta="intake" data-hero-cta>احكيلنا مشكلتك</a>
+            {{{contact_buttons}}}
+            <!--#if office_hours_line--><p class="pub-hero-hours">{{office_hours_line}}</p><!--/if office_hours_line-->
           </div>
-          <ul class="pub-audience">
-            <li>
-              <span class="pub-tile"><svg class="pub-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></span>
-              <h3>الأرامل</h3>
-              <p>في مسائل الميراث والمعاش والنفقة والسكن، وما يترتب على وفاة الزوج من إجراءات ومستندات.</p>
-            </li>
-            <li>
-              <span class="pub-tile"><svg class="pub-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-              <h3>أولياء أمور الأيتام والأوصياء</h3>
-              <p>الأم الحاضنة أو الوصي، في الولاية على أموال القُصّر وحقوقهم في التركة والمعاش والنفقة.</p>
-            </li>
-            <li>
-              <span class="pub-tile"><svg class="pub-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
-              <h3>أسر المؤسسة</h3>
-              <p>الأسر المستفيدة من برامج المؤسسة الأخرى، كالمائدة والكسوة وصك الإيواء، حين تواجه مشكلة قانونية.</p>
-            </li>
-          </ul>
-          <p class="pub-audience-note">
-            <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-            <span>وتستقبل المؤسسة كذلك طلبات الأسر الأولى بالرعاية من غير المسجلين لديها، ويُنظر فيها بحسب أولوية الحالة والإمكانات المتاحة.</span>
-          </p>
+          <div class="pub-hero-art" aria-hidden="true">{{{brand_mark}}}</div>
         </div>
       </section>
 
-      <!-- مجالات الدعم -->
-      <section id="services" class="pub-section pub-section-cream" aria-labelledby="services-title">
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
+      <div class="pub-container pub-returning-wrap" data-returning-wrap>
+        <a class="pub-returning" href="/portal" data-returning>
+          <span><strong>قدّمتي طلب قبل كده؟</strong> تابعيه من هنا</span>
+          <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        </a>
+      </div>
+
+      <!-- 1) بنساعد في إيه؟ -->
+      <section id="services" class="pub-section" aria-labelledby="services-title">
         <div class="pub-container">
           <div class="pub-section-head">
-            <span class="pub-kicker">مجالات الدعم</span>
-            <h2 id="services-title">في أي المسائل نساعدك؟</h2>
-            <p>إن لم تجد مسألتك ضمن القائمة فلا بأس؛ اكتب لنا وسنوجّهها إلى المختص.</p>
+            <h2 id="services-title">بنساعد في إيه؟</h2>
           </div>
           <ul class="pub-services">
             {{{services}}}
@@ -115,112 +54,57 @@
         </div>
       </section>
 
-      <!-- كيف نعمل -->
-      <section id="how" class="pub-section" aria-labelledby="how-title">
+      <!-- 2) إزاي بنشتغل؟ (صفوف نصية فقط) -->
+      <section id="how" class="pub-section pub-section-cream" aria-labelledby="how-title">
         <div class="pub-container">
           <div class="pub-section-head">
-            <span class="pub-kicker">كيف نعمل</span>
-            <h2 id="how-title">ثلاث خطوات واضحة من أول رسالة حتى الرد</h2>
-            <p>كل خطوة تتم تحت إشراف فريق المؤسسة، ويصلك الرد من المؤسسة نفسها.</p>
+            <h2 id="how-title">إزاي بنشتغل؟</h2>
           </div>
-          <ol class="pub-steps">
-            <li class="pub-step">
-              <span class="pub-step-num" aria-hidden="true">1</span>
-              <h3>تواصل معنا عبر واتساب أو الموقع</h3>
-              <p>اكتب مشكلتك بكلماتك وأرفق ما لديك من مستندات، وستحصل فورًا على رقم طلب للمتابعة.</p>
-              <div class="pub-step-channels">
-                <span class="pub-chip">واتساب</span>
-                <span class="pub-chip">الموقع الإلكتروني</span>
-                <span class="pub-chip">الهاتف</span>
-              </div>
+          <ol class="pub-how">
+            <li>
+              <span class="pub-how-num" aria-hidden="true">1</span>
+              <div><strong>تحكيلنا مشكلتك</strong><span>برسالة صوتية أو كتابة، من هنا<!--#if whatsapp_url--> أو على واتساب<!--/if whatsapp_url-->.</span></div>
             </li>
-            <li class="pub-step">
-              <span class="pub-step-num" aria-hidden="true">2</span>
-              <h3>يراجع فريقنا طلبك</h3>
-              <p>يدرس فريق المؤسسة طلبك ويحدد نوع المسألة وأولويتها، وقد نطلب منك معلومة أو مستندًا ناقصًا قبل إحالته.</p>
+            <li>
+              <span class="pub-how-num" aria-hidden="true">2</span>
+              <div><strong>محامي مختص يدرسها</strong><span>وفريقنا بيراجع كل حاجة.</span></div>
             </li>
-            <li class="pub-step">
-              <span class="pub-step-num" aria-hidden="true">3</span>
-              <h3>محامٍ مختص يدرس حالتك ونرد عليك</h3>
-              <p>نحيل الطلب إلى محامٍ مختص في المجال ليُعد رأيه القانوني، وتراجعه المؤسسة قبل أن يصلك عبر واتساب أو رابط المتابعة الخاص بك.</p>
+            <li>
+              <span class="pub-how-num" aria-hidden="true">3</span>
+              <div><strong>يوصلك الرد</strong><span><!--#if whatsapp_url-->على واتساب و<!--/if whatsapp_url-->على صفحة طلبك.</span></div>
             </li>
           </ol>
         </div>
       </section>
 
-      <!-- المجانية والاستحقاق -->
-      <section id="eligibility" class="pub-section pub-section-cream" aria-labelledby="eligibility-title">
-        <div class="pub-container">
-          <div class="pub-section-head">
-            <span class="pub-kicker">المجانية والاستحقاق</span>
-            <h2 id="eligibility-title">خدمة دون مقابل، ووضوح في كل خطوة</h2>
-            <p>نلتزم بأن نخبرك بما نستطيع تقديمه بصدق، دون وعود لا نملكها.</p>
+      <!-- 3) هل الخدمة بفلوس؟  4) بياناتك في أمان -->
+      <section id="free" class="pub-section" aria-label="الفلوس والخصوصية">
+        <div class="pub-container pub-split">
+          <div class="pub-panel pub-panel-gold">
+            <span class="pub-tile">{{{icon_wallet}}}</span>
+            <h2 id="free-title">هل الخدمة بفلوس؟</h2>
+            <p>لأ، الاستشارة مجانية. ومحدش من المحامين يطلب منك فلوس، ولو حد طلب بلغينا فورًا.</p>
+            <p>لو قضيتك محتاجة رسوم حكومية أو مصاريف محكمة، هنقولك عليها الأول، ومش هنعمل حاجة غير بموافقتك.</p>
+            <p>بنساعد الأرامل وأسر الأيتام وأسر المؤسسة الأول. لو مقدرناش نساعدك، هنقولك بوضوح ونوجّهك لجهة تانية.</p>
           </div>
-          <div class="pub-split">
-            <div class="pub-panel pub-panel-gold">
-              <span class="pub-tile"><svg class="pub-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
-              <h3>هل الخدمة مجانية؟</h3>
-              <p>
-                تقدّم المؤسسة الاستشارة والمتابعة القانونية دون مقابل لمستفيديها وللأسر التي تنطبق عليها شروط البرنامج. ولا يحق لأي محامٍ يعمل ضمن
-                البرنامج أن يطلب منك أتعابًا أو مبالغ مقابل خدماته؛ وإن حدث ذلك فأبلغنا فورًا.
-              </p>
-              <p>
-                أما الرسوم الحكومية أو القضائية التي قد تلزم لبعض الإجراءات، كاستخراج الشهادات أو قيد الدعاوى، فنوضحها لك مسبقًا قبل اتخاذ أي خطوة،
-                علمًا بأن القانون يعفي بعض دعاوى الأسرة، كدعاوى النفقة، من الرسوم القضائية.
-              </p>
-            </div>
-            <div class="pub-panel">
-              <span class="pub-tile"><svg class="pub-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/></svg></span>
-              <h3>كيف يتحدد الاستحقاق؟</h3>
-              <ul class="pub-check-list is-neutral">
-                <li><svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5"/></svg><span>يُراجَع كل طلب على حدة، ويتحدد الاستحقاق النهائي بعد المراجعة.</span></li>
-                <li><svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5"/></svg><span>الأولوية للأرامل والأيتام وأسر المؤسسة، وللحالات الأشد احتياجًا أو المرتبطة بمواعيد قانونية قريبة.</span></li>
-                <li><svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5"/></svg><span>قد نطلب بعض المستندات للتحقق من الحالة، ونحفظها بسرية.</span></li>
-                <li><svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5"/></svg><span>إن تعذر علينا قبول الطلب نبلغك بذلك بوضوح، ونرشدك إلى جهة أخرى قدر الإمكان.</span></li>
-                <li><svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5"/></svg><span>لا نعد بنتيجة بعينها؛ فالفصل في أي نزاع للمحكمة أو الجهة المختصة وحدها.</span></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- الخصوصية -->
-      <section id="privacy-promise" class="pub-section" aria-labelledby="privacy-title">
-        <div class="pub-container">
-          <div class="pub-privacy">
-            <div>
-              <span class="pub-privacy-icon"><svg class="pub-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-              <h2 id="privacy-title">خصوصيتك محفوظة، وكرامتك مصونة</h2>
-              <p>نتعامل مع كل طلب بسرية تامة، ولا يطّلع كل فرد في فريق العمل إلا على ما يلزمه لأداء مهمته. <a href="/privacy">اقرأ سياسة الخصوصية</a></p>
-            </div>
-            <ul class="pub-privacy-points">
-              <li>
-                <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-                <div><strong>المحامي لا يرى رقم هاتفك</strong><span>ولا يطّلع على محادثاتك مع المؤسسة؛ يرى فقط الوقائع والمستندات التي يتيحها له فريق المؤسسة.</span></div>
-              </li>
-              <li>
-                <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-                <div><strong>كل رد يُراجَع قبل إرساله</strong><span>يعتمد فريق المؤسسة الرأي القانوني قبل أن يصلك، ويُرسل إليك من قنوات المؤسسة الرسمية.</span></div>
-              </li>
-              <li>
-                <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                <div><strong>رابط متابعة خاص بك وحدك</strong><span>تتابع منه طلبك وترفع مستنداتك، ويمكن إلغاؤه في أي وقت بطلب منك.</span></div>
-              </li>
-              <li>
-                <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                <div><strong>لك أن تطلب حذف بياناتك</strong><span>في أي وقت، وفق الخطوات الموضحة في <a href="/data-deletion">صفحة حذف البيانات</a>.</span></div>
-              </li>
+          <div class="pub-panel" id="privacy-promise">
+            <span class="pub-tile">{{{icon_lock}}}</span>
+            <h2 id="privacy-title">بياناتك في أمان</h2>
+            <ul class="pub-check-list">
+              <li>{{{icon_check}}}<span>المحامي مش بيشوف رقمك ولا رسايلك.</span></li>
+              <li>{{{icon_check}}}<span>كل رد بيتراجع قبل ما يوصلك.</span></li>
+              <li>{{{icon_check}}}<span>تقدري تطلبي نمسح بياناتك في أي وقت.</span></li>
             </ul>
+            <p class="pub-panel-link"><a href="/privacy#summary">اقري سياسة الخصوصية</a></p>
           </div>
         </div>
       </section>
 
-      <!-- الأسئلة الشائعة -->
+      <!-- 5) أسئلة -->
       <section id="faq" class="pub-section pub-section-cream" aria-labelledby="faq-title">
         <div class="pub-container">
-          <div class="pub-section-head is-center">
-            <span class="pub-kicker">أسئلة شائعة</span>
-            <h2 id="faq-title">إجابات عن أكثر ما يُسأل عنه</h2>
+          <div class="pub-section-head">
+            <h2 id="faq-title">أسئلة بتتسأل كتير</h2>
           </div>
           <div class="pub-faq">
             {{{faq}}}
@@ -228,73 +112,17 @@
         </div>
       </section>
 
-      <!-- التواصل -->
+      <!-- 6) كلمينا -->
       <section id="contact" class="pub-section" aria-labelledby="contact-title">
-        <div class="pub-container">
-          <div class="pub-section-head">
-            <span class="pub-kicker">تواصل معنا</span>
-            <h2 id="contact-title">يسعدنا أن نسمع منك</h2>
-            <p><!--#if whatsapp_url-->راسلنا عبر واتساب أو قدّم طلبك من الموقع في أي وقت<!--/if whatsapp_url--><!--#if no_whatsapp-->قدّم طلبك من الموقع في أي وقت أو اتصل بنا هاتفيًا<!--/if no_whatsapp-->، أو زرنا في مقر المؤسسة خلال مواعيد العمل.</p>
+        <div class="pub-container pub-contact">
+          <div class="pub-panel">
+            <h2 id="contact-title" class="pub-h2">كلمينا</h2>
+            {{{contact_list}}}
           </div>
-          <div class="pub-contact">
-            <div class="pub-panel">
-              {{{contact_list}}}
-              {{{socials}}}
-            </div>
-            <div class="pub-panel pub-panel-gold">
-              <h3>ابدأ طلبك الآن</h3>
-              <p>أسرع طريقة لبدء طلبك هي النموذج الإلكتروني<!--#if whatsapp_url--> أو واتساب<!--/if whatsapp_url-->، وستحصل فورًا على رقم طلب للمتابعة.</p>
-              <div class="pub-contact-actions">
-                <a class="pub-btn pub-btn-gold" href="/intake" data-cta="intake">قدّم طلبك من الموقع</a>
-                <!--#if whatsapp_url-->
-                <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp">تواصل عبر واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
-                <!--/if whatsapp_url-->
-                <!--#if map_url-->
-                <a class="pub-btn pub-btn-outline" href="{{map_url}}" target="_blank" rel="noopener noreferrer">موقع المؤسسة على الخريطة<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
-                <!--/if map_url-->
-                <a class="pub-btn pub-btn-outline" href="/portal">متابعة طلبك</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- برامج المؤسسة -->
-      <section id="programs" class="pub-section pub-section-cream" aria-labelledby="programs-title">
-        <div class="pub-container">
-          <div class="pub-section-head">
-            <span class="pub-kicker">{{org_name}}</span>
-            <h2 id="programs-title">الدعم القانوني جزء من رعاية متكاملة</h2>
-            <p>يعمل البرنامج إلى جانب برامج المؤسسة الأخرى لدعم الأرامل والأيتام وأسرهم.</p>
-          </div>
-          <ul class="pub-programs">
-            <li class="is-current"><strong>{{program_name}}</strong><span>المشورة والمتابعة القانونية</span></li>
-            {{{programs}}}
-          </ul>
-          <!--#if org_facebook_url-->
-          <p class="pub-programs-foot">
-            <span>لمعرفة المزيد عن برامج المؤسسة وأنشطتها تابع صفحتها الرسمية.</span>
-            <a class="pub-social" href="{{org_facebook_url}}" target="_blank" rel="noopener noreferrer">
-              <svg class="pub-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-              <span>صفحة المؤسسة على فيسبوك</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span>
-            </a>
-          </p>
-          <!--/if org_facebook_url-->
-        </div>
-      </section>
-
-      <!-- دعوة أخيرة -->
-      <section class="pub-section" aria-labelledby="final-title">
-        <div class="pub-container">
           <div class="pub-final-cta">
-            <h2 id="final-title">لا تؤجّل السؤال عن حقك</h2>
-            <p>بعض الحقوق ترتبط بمواعيد قانونية، وكلما تواصلت مبكرًا اتسع الوقت المتاح لاتخاذ الإجراء المناسب.</p>
-            <div class="pub-cta-row">
-              <a class="pub-btn pub-btn-teal pub-btn-lg" href="/intake" data-cta="intake">قدّم طلبك الآن</a>
-              <!--#if whatsapp_url-->
-              <a class="pub-btn pub-btn-whatsapp pub-btn-lg" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp">تواصل عبر واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
-              <!--/if whatsapp_url-->
-            </div>
+            <h2 id="final-title">جاهزين نسمعك</h2>
+            <p>برسالة صوتية أو كتابة. مش لازم تعرفي أي كلام قانوني.</p>
+            <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
           </div>
         </div>
       </section>

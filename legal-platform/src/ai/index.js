@@ -909,6 +909,13 @@ export function createAi(app) {
         () => ({ text: H.clientVersion(args) }),
         { feature: 'client_version', entity_type: 'case', entity_id: caseId, user_id: actor?.id ?? null },
       );
+      // v9.1 b-portal (B91-08): «الخلاصة بكلام بسيط» و«الخطوات» مقترحتان دائمًا (من Claude، وإلا من المحلل المحلي
+      // بخطوات المحامي المقترحة للمستفيد/ة إن وُجدت)؛ تراجعها الإدارة قبل الحفظ
+      if (result.output && (!result.output.summary || !result.output.steps?.length)) {
+        const local = H.clientSummary({ opinion: op.body, clientSteps: op.client_steps });
+        result.output.summary = result.output.summary || local.summary;
+        result.output.steps = result.output.steps?.length ? result.output.steps : local.steps;
+      }
       if (result.provider === 'anthropic' && sources.length) {
         // للإدارة فقط: ما استُرشد به (لا يدخل في نص الرسالة الموجهة للمستفيد)
         result.output.sources = sources.map((s) => ({ ref: s.ref, title: s.title }));

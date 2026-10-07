@@ -144,6 +144,8 @@ export function createClients(app) {
         governorate: body.governorate !== undefined ? v.str(body.governorate, 'المحافظة', { max: 50 }) : undefined,
         email: body.email !== undefined ? v.email(body.email, 'البريد الإلكتروني') : undefined,
         notes: body.notes !== undefined ? v.str(body.notes, 'الملاحظات', { max: 5000 }) : undefined,
+        // v9.1 b-portal (B91-02): طريقة المخاطبة في صفحة المتابعة ورسائلها — 'f' مؤنث، 'm' مذكر، فارغ = تلقائي من الاسم
+        address_form: body.address_form !== undefined ? (body.address_form === 'm' || body.address_form === 'f' ? body.address_form : body.address_form === '' || body.address_form === null ? null : v.oneOf(body.address_form, ['f', 'm'], 'طريقة المخاطبة')) : undefined,
         updated_at: nowIso(),
       };
       db.update('clients', c.id, patch);
@@ -267,6 +269,14 @@ export function createClients(app) {
     },
     portalUrl(token) {
       return `${config.publicBaseUrl || ''}/p/${token}`;
+    },
+    /**
+     * v9.1 b-site (B91-01): رابط صفحة المتابعة داخل رسالة واتساب. نطاقه نطاق الدخول برمز واتساب على هذا الرقم
+     * (لا تظهر فيه قصص غير مؤكدة) وعمره portalOtpTokenDays.
+     */
+    messageLink(clientId, phone) {
+      const token = svc.issuePortalToken(clientId, { phone: phone || svc.primaryPhone(clientId), days: config.portalOtpTokenDays || 30 });
+      return svc.portalUrl(token);
     },
     /** @returns {{ client, intakeId: number|null, phone: string|null } | null} */
     portalAccess(token) {

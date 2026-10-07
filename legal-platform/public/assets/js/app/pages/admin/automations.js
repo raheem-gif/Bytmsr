@@ -78,6 +78,12 @@ const RULES = {
     placeholders: { case_code: 'كود الملف', client_name: 'اسم المستفيد', org_name: 'اسم المؤسسة (من الإعدادات)' },
     sample: { case_code: 'INH-2026-00482', client_name: 'أم يوسف' },
   },
+  // v9.1 l-court
+  hearing_outcome_missing: {
+    icon: 'gavel',
+    audience: 'internal',
+    desc: 'ينبّه المحامي المسؤول إلى جلسة انعقدت ولم يسجل نتيجتها: الساعة 3 عصرًا يوم الجلسة، ثم مرة أخيرة 10 صباح اليوم التالي، حتى تُضاف الجلسة القادمة لتقويمه وتراجعها الإدارة قبل تذكير المستفيد/ة.',
+  },
 };
 
 const PARAM_FIELDS = {

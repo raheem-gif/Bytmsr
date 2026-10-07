@@ -368,11 +368,29 @@ export function createAuth(app) {
     }
   }
 
+  /**
+   * v9.1 l-home (L-17): «تذكّرني على هذا الجهاز» للمحامين فقط — مع التحقق بخطوتين: 30 يومًا (خمول 14 يومًا)،
+   * وبدونه: 7 أيام (خمول 3 أيام). الإدارة وعمر الجلسة المضبوط من الخادم (SESSION_TTL_HOURS) لا يتأثران.
+   * @returns {{maxHours:number, idleHours:number}|null}
+   */
+  function rememberPolicy(user, remember) {
+    if (!remember || !user || user.role !== 'lawyer' || ttlOverride() !== null) return null;
+    if (twoFactorEnabled(user.id)) {
+      const days = setting('lawyer_remember_days_2fa', 30, { min: 1, max: 90 });
+      return { maxHours: days * 24, idleHours: Math.min(14, days) * 24 };
+    }
+    const days = setting('lawyer_remember_days', 7, { min: 1, max: 30 });
+    return { maxHours: days * 24, idleHours: Math.min(3, days) * 24 };
+  }
+  /** طلب «تذكّرني» من جسم طلب الدخول (الخطوة الأولى أو خطوة رمز التحقق) */
+  const wantsRemember = (ctx) => ctx?.body?.remember === true;
+
   /** إنشاء جلسة جديدة وضبط الكعكة */
   function createSession(ctx, user, method = 'password_only') {
     const token = randomToken(32);
     const created = nowIso();
-    const hours = maxSessionHours();
+    const remember = rememberPolicy(user, wantsRemember(ctx));
+    const hours = remember ? remember.maxHours : maxSessionHours();
     db.insert('sessions', {
       token_hash: sha256(token),
       user_id: user.id,
@@ -383,6 +401,8 @@ export function createAuth(app) {
       public_id: randomToken(9),
       last_seen_at: created,
       auth_method: method,
+      remember: remember ? 1 : 0,
+      idle_hours: remember ? remember.idleHours : null,
     });
     // نجاح من هذا المصدر يصفّر محاولاته الفاشلة؛ إيقاف مصدر آخر (مثل عنوان من يخمّن كلمة المرور) يبقى ساريًا
     const deviceId = trustedDeviceId(ctx, user);
@@ -396,7 +416,10 @@ export function createAuth(app) {
 
   function auditLogin(ctx, user, method) {
     const how = { password_only: 'بكلمة المرور', totp: 'بكلمة المرور ورمز التحقق', recovery: 'بكلمة المرور ورمز استرداد', invite: 'بعد قبول الدعوة' }[method] || '';
-    app.audit.log({ actor: user, ctx, type: 'auth.login', severity: 'info', summary: `تسجيل دخول ناجح ${how} — ${describeUserAgent(ctx.req?.headers?.['user-agent']).label}`, data: { method } });
+    // v9.1 l-home: علامة «تذكّرني على هذا الجهاز» في سجل الأمان (طُلبت، وهل طُبقت على هذا الحساب)
+    const remember = wantsRemember(ctx);
+    const applied = !!rememberPolicy(user, remember);
+    app.audit.log({ actor: user, ctx, type: 'auth.login', severity: 'info', summary: `تسجيل دخول ناجح ${how}${applied ? ' (تذكّر هذا الجهاز)' : ''} — ${describeUserAgent(ctx.req?.headers?.['user-agent']).label}`, data: { method, remember, remember_applied: applied } });
   }
 
   const svc = {
@@ -410,6 +433,22 @@ export function createAuth(app) {
     maxSessionHours,
     /** هل عمر الجلسة مضبوط من الخادم (متغير البيئة) بدل إعدادات لوحة الإدارة */
     sessionTtlFromServer: () => ttlOverride() !== null,
+    rememberPolicy,
+
+    /** v9.1 l-home: حالة «تذكّرني» للجلسة الحالية (لصفحة «حسابي») — للمحامين فقط */
+    rememberInfo(user, tokenHash) {
+      if (!user || user.role !== 'lawyer') return {};
+      const s = tokenHash ? db.get('SELECT remember, expires_at FROM sessions WHERE token_hash = ?', tokenHash) : null;
+      return {
+        remember: {
+          available: ttlOverride() === null,
+          this_device: !!s?.remember,
+          expires_at: s?.remember ? s.expires_at : null,
+          days_with_2fa: setting('lawyer_remember_days_2fa', 30, { min: 1, max: 90 }),
+          days_without_2fa: setting('lawyer_remember_days', 7, { min: 1, max: 30 }),
+        },
+      };
+    },
 
     /**
      * الخطوة الأولى للدخول. يعيد { user } أو { two_factor_required, challenge, expires_at } لحسابات التحقق بخطوتين.
@@ -536,6 +575,8 @@ export function createAuth(app) {
     logout(ctx) {
       const token = ctx.cookies[SESSION_COOKIE];
       if (token) db.run('DELETE FROM sessions WHERE token_hash = ?', sha256(token));
+      // v9.1 l-home: اشتراك تنبيهات الجهاز (Web Push) لهذه الجلسة يُحذف معها
+      if (token) app.webPush?.forgetSession(sha256(token));
       if (ctx.user) app.audit.log({ actor: ctx.user, ctx, type: 'auth.logout', severity: 'info', summary: 'تسجيل خروج' });
       ctx.res.setHeader('Set-Cookie', cookieHeader('', 0));
     },
@@ -547,7 +588,7 @@ export function createAuth(app) {
       const th = sha256(token);
       const row = db.get(
         `SELECT u.*, s.expires_at AS session_expires, s.created_at AS session_created, s.last_seen_at AS session_last_seen,
-                s.public_id AS session_public_id, s.auth_method AS session_auth_method
+                s.public_id AS session_public_id, s.auth_method AS session_auth_method, s.idle_hours AS session_idle_hours
          FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`,
         th,
       );
@@ -555,7 +596,9 @@ export function createAuth(app) {
       const t = now().getTime();
       const nowI = new Date(t).toISOString();
       const lastSeen = Date.parse(row.session_last_seen || row.session_created);
-      if (row.session_expires <= nowI || !row.active || t - lastSeen > idleHours() * 3600000) {
+      // v9.1 l-home: جلسة «تذكّرني» لها مهلة خمول خاصة بها (المحامون فقط)
+      const idleLimit = Number(row.session_idle_hours) > 0 ? Number(row.session_idle_hours) : idleHours();
+      if (row.session_expires <= nowI || !row.active || t - lastSeen > idleLimit * 3600000) {
         db.run('DELETE FROM sessions WHERE token_hash = ?', th);
         return null;
       }
@@ -570,6 +613,8 @@ export function createAuth(app) {
 
     /** إنهاء كل جلسات مستخدم (مع استثناء الجلسة الحالية اختياريًا). يعيد عدد الجلسات المنهاة. */
     revokeUserSessions(userId, { exceptTokenHash = null } = {}) {
+      // v9.1 l-home: اشتراكات تنبيهات الجهاز للجلسات المنهاة تُحذف معها
+      app.webPush?.forgetUser(userId, { exceptSessionHash: exceptTokenHash });
       if (exceptTokenHash) return db.run('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?', userId, exceptTokenHash).changes;
       // إنهاء كل الجلسات (إيقاف الحساب، كلمة مرور مؤقتة، فقدان الهاتف): تُنسى الأجهزة المعروفة أيضًا
       db.run('DELETE FROM login_devices WHERE user_id = ?', userId);
@@ -602,12 +647,13 @@ export function createAuth(app) {
     /** الجلسات النشطة لمستخدم (بدون أي رموز) */
     listSessions(userId, currentTokenHash = null) {
       db.run("UPDATE sessions SET public_id = lower(hex(randomblob(9))) WHERE user_id = ? AND public_id IS NULL", userId);
-      const idleMs = idleHours() * 3600000;
+      const defaultIdleMs = idleHours() * 3600000;
       const t = now().getTime();
       return db
-        .all('SELECT token_hash, public_id, created_at, expires_at, last_seen_at, ip, user_agent, auth_method FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY COALESCE(last_seen_at, created_at) DESC', userId, nowIso())
-        .filter((s) => t - Date.parse(s.last_seen_at || s.created_at) <= idleMs)
+        .all('SELECT token_hash, public_id, created_at, expires_at, last_seen_at, ip, user_agent, auth_method, remember, idle_hours FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY COALESCE(last_seen_at, created_at) DESC', userId, nowIso())
+        .filter((s) => t - Date.parse(s.last_seen_at || s.created_at) <= (Number(s.idle_hours) > 0 ? Number(s.idle_hours) * 3600000 : defaultIdleMs))
         .map((s) => {
+          const idleMs = Number(s.idle_hours) > 0 ? Number(s.idle_hours) * 3600000 : defaultIdleMs;
           const ua = describeUserAgent(s.user_agent);
           return {
             id: s.public_id,
@@ -621,6 +667,7 @@ export function createAuth(app) {
             expires_at: s.expires_at,
             idle_expires_at: new Date(Date.parse(s.last_seen_at || s.created_at) + idleMs).toISOString(),
             auth_method: s.auth_method || 'password_only',
+            remember: !!s.remember,
           };
         });
     },
@@ -633,7 +680,15 @@ export function createAuth(app) {
     purgeExpired() {
       const nowI = nowIso();
       const idleCut = new Date(now().getTime() - idleHours() * 3600000).toISOString();
-      const a = db.run('DELETE FROM sessions WHERE expires_at <= ? OR COALESCE(last_seen_at, created_at) < ?', nowI, idleCut).changes;
+      // v9.1 l-home: جلسات «تذكّرني» (idle_hours) تُقاس بمهلتها الخاصة
+      const a = db.run(
+        `DELETE FROM sessions WHERE expires_at <= ?
+           OR (idle_hours IS NULL AND COALESCE(last_seen_at, created_at) < ?)
+           OR (idle_hours IS NOT NULL AND (julianday(?) - julianday(COALESCE(last_seen_at, created_at))) * 24 > idle_hours)`,
+        nowI,
+        idleCut,
+        nowI,
+      ).changes;
       const b = db.run('DELETE FROM login_challenges WHERE expires_at <= ?', nowI).changes;
       // عدادات المصادر بعد يوم بلا محاولات (وانتهاء إيقافها)، والأجهزة غير المستخدمة منذ مدة التذكر
       const dayAgo = new Date(now().getTime() - 24 * 3600000).toISOString();

@@ -267,7 +267,9 @@ test('the responsible lawyer sees the matter (court data, no client contact data
   assert.equal(reminders[0].channel, 'whatsapp');
   assert.equal(reminders[0].status, 'simulated');
   assert.equal(reminders[0].automated, true);
-  assert.ok(reminders[0].body.includes(matter.code));
+  // v9.1 b-site (B91-10): بلا كود الملف الداخلي، ومعه رابط صفحتها
+  assert.ok(!reminders[0].body.includes(matter.code));
+  assert.match(reminders[0].body, /\/p\//);
   assert.ok(reminders[0].to_address.endsWith(phoneCore(matter.phone)));
 });
 

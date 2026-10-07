@@ -141,7 +141,10 @@ ${AREA_GUIDE}
 - لغة بسيطة مهذبة رحيمة، وخطوات عملية مرقمة واضحة، وما يلزم إحضاره من مستندات.
 - لا تضف أي رأي أو استنتاج قانوني غير موجود في الرأي المعتمد. استرشد بالحالات السابقة المعتمدة وتحليلات المستندات لصياغة الخطوات العملية فقط.
 - بلا مصطلحات معقدة، وبلا ملاحظات داخلية أو أسماء محامين أو رموز حالات سابقة.
-- اختم بأن الإفادة مبنية على المعلومات والمستندات المقدمة، وبدعوة للتواصل بالرد على الرسالة.`,
+- اختم بأن الإفادة مبنية على المعلومات والمستندات المقدمة، وبدعوة للتواصل بالرد على الرسالة.
+- ابدأ text بـ «أهلًا يا {الاسم}،» باسم المستفيد الأول أو كنيته («أم محمد»)، لا «الأستاذ/ة» ولا «تحية طيبة وبعد»، ولا تذكر رقم الملف أو أي كود.
+- summary: الخلاصة بالعامية المصرية البسيطة في ثلاث جمل على الأكثر (≤ 400 حرف)، بلا مصطلح قانوني إلا مع شرحه بين قوسين، مثل «نفقة (مصاريف العيال الشهرية)».
+- steps: من خطوة إلى ثماني خطوات عملية مطلوبة من المستفيد، كل خطوة جملة قصيرة بالعامية (≤ 160 حرفًا)، بلا أسماء محامين ولا ملاحظات داخلية.`,
 
   reply: `مهمتك: اقتراح ردود قصيرة جاهزة للإرسال عبر واتساب من فريق «{ORG}» إلى المستفيد، يراجعها الموظف قبل الإرسال.
 - اقترح ردين أو ثلاثة بنبرات مختلفة (formal رسمي، warm ودود، brief مختصر)، كل رد في حدود 500 حرف ويُختم بـ «— {ORG}».
@@ -214,6 +217,18 @@ const TEXT_SCHEMA = {
   type: 'object',
   properties: { text: { type: 'string' } },
   required: ['text'],
+  additionalProperties: false,
+};
+
+// v9.1 b-portal (B91-08): النسخة الموجهة للمستفيد/ة + «الخلاصة بكلام بسيط» + «الخطوات المطلوبة منها»
+const CLIENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    text: { type: 'string' },
+    summary: { type: 'string' },
+    steps: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['text', 'summary', 'steps'],
   additionalProperties: false,
 };
 
@@ -435,9 +450,10 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
         meta,
         feature: 'client_version',
         content: json({ beneficiary_name: clientName || null, case_code: caseCode, approved_opinion: opinion, document_analyses: documents, approved_precedents: precedents }),
-        schema: TEXT_SCHEMA,
+        schema: CLIENT_SCHEMA, // v9.1 b-portal: + summary / steps
       });
-      return { text: data.text, _model: m };
+      const steps = Array.isArray(data.steps) ? data.steps.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 160)) : undefined;
+      return { text: data.text, summary: typeof data.summary === 'string' && data.summary.trim() ? data.summary.trim().slice(0, 400) : undefined, steps: steps && steps.length ? steps : undefined, _model: m };
     },
 
     async suggestReplies(context, meta = {}) {

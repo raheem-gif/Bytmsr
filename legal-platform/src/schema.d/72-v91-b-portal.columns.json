@@ -1,0 +1,15 @@
+[
+  ["clients", "address_form", "TEXT"],
+  ["info_requests", "items", "TEXT"],
+  ["info_requests", "items_missing", "TEXT"],
+  ["documents", "info_request_item", "INTEGER"],
+  ["client_answers", "summary", "TEXT"],
+  ["client_answers", "steps", "TEXT"],
+  ["client_answers", "voice_document_id", "INTEGER"],
+  ["matter_events", "client_note", "TEXT"],
+  ["matter_events", "client_response", "TEXT"],
+  ["matter_events", "client_response_at", "TEXT"],
+  ["invoices", "client_agreed_at", "TEXT"],
+  ["invoices", "client_response", "TEXT"],
+  ["invoices", "client_response_at", "TEXT"]
+]

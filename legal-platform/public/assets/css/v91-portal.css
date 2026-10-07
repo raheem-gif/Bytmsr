@@ -1,0 +1,1516 @@
+/* ==========================================================================
+   صفحة متابعة المستفيد/ة /p/<رمز> و«تابعي طلبك» /portal — الإصدار 9.1 (مسار b-portal)
+   خط 18px، أزرار 48–56px، أسود على أبيض بتباين عالٍ، الكهرماني للمال والمواعيد، الأخضر لما خلص،
+   والأحمر للأخطاء التي تمنع فقط (لا لون أحمر في المصاريف أبدًا). لا تعتمد على app.css.
+   ========================================================================== */
+
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/assets/fonts/plex-arabic-400.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/assets/fonts/plex-arabic-700.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/assets/fonts/plex-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/assets/fonts/plex-latin-700.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+.bp-portal,
+.bp-login {
+  --bp-ink: #142129;
+  --bp-soft: #3f4f5c;
+  --bp-teal: #0f4c5c;
+  --bp-teal-d: #082a33;
+  --bp-teal-bg: #e7f1f3;
+  --bp-gold: #b8862e;
+  --bp-cream: #fbf8f2;
+  --bp-cream-2: #fbf3e3;
+  --bp-line: #e6dfd0;
+  --bp-ok: #1d7a46;
+  --bp-ok-bg: #e4f3ea;
+  --bp-amber: #8a5200;
+  --bp-amber-bg: #fff8ea;
+  --bp-amber-line: #ecd3a3;
+  --bp-wa: #157a3f;
+  --bp-err: #b42318;
+  --bp-bar-h: 64px;
+  --bp-radius: 18px;
+  font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, sans-serif;
+  background: var(--bp-cream);
+  margin: 0;
+  color: var(--bp-ink);
+}
+
+.bp-portal *,
+.bp-portal *::before,
+.bp-portal *::after,
+.bp-login *,
+.bp-login *::before,
+.bp-login *::after {
+  box-sizing: border-box;
+}
+
+:where(.bp-portal, .bp-login) :where(button, input, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+.bp-portal img,
+.bp-portal svg,
+.bp-portal audio {
+  max-width: 100%;
+}
+
+.bp-portal [hidden],
+.bp-login [hidden] {
+  display: none !important;
+}
+
+.bp-noscroll,
+.bp-noscroll body {
+  overflow: hidden;
+}
+
+/* تذييل الموقع الطويل لا يظهر على الموبايل في صفحتها الخاصة (التواصل في الشريط السفلي) */
+.bp-portal .pub-footer {
+  display: none;
+}
+
+.bp-main {
+  min-height: 60vh;
+}
+
+.bp-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.bp-ic {
+  flex: none;
+  vertical-align: middle;
+}
+
+/* ───────────── الصفحة ───────────── */
+
+.bp-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 16px calc(var(--bp-bar-space, 120px) + 16px);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.bp-page h1,
+.bp-page h2,
+.bp-page h3,
+.bp-sheet h2 {
+  font-family: inherit;
+  margin: 0;
+  color: var(--bp-ink);
+  letter-spacing: 0;
+}
+
+.bp-page p {
+  margin: 0;
+}
+
+.bp-greet h1 {
+  font-size: 24px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.bp-sub {
+  font-size: 16px;
+  color: var(--bp-soft);
+}
+
+.bp-greet-contact {
+  display: none;
+}
+
+/* ───────────── الأزرار ───────────── */
+
+.bp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 16px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: center;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bp-btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.bp-btn--primary {
+  min-height: 56px;
+  font-size: 19px;
+  background: var(--bp-teal);
+  color: #fff;
+}
+
+.bp-btn--primary:hover {
+  background: var(--bp-teal-d);
+}
+
+.bp-btn--primary.is-soft,
+.bp-btn--primary[aria-disabled="true"] {
+  background: #5d8591;
+}
+
+.bp-btn--secondary {
+  min-height: 52px;
+  background: #fff;
+  color: var(--bp-teal);
+  border-color: var(--bp-teal);
+}
+
+.bp-btn--whatsapp {
+  min-height: 52px;
+  background: var(--bp-wa);
+  color: #fff;
+}
+
+.bp-btn--text {
+  color: var(--bp-teal);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.bp-btn--ghost {
+  color: var(--bp-teal);
+  border-color: var(--bp-line);
+  background: #fff;
+}
+
+.bp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bp-btn:focus-visible,
+.bp-row:focus-visible,
+.bp-linkbtn:focus-visible,
+.bp-back:focus-visible,
+.bp-icon-btn:focus-visible,
+.bp-choice:focus-visible,
+.bp-page a:focus-visible,
+.bp-page summary:focus-visible {
+  outline: 3px solid var(--bp-gold);
+  outline-offset: 2px;
+}
+
+.bp-linkbtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 4px;
+  border: 0;
+  background: none;
+  color: var(--bp-teal);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.bp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border: 1px solid var(--bp-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--bp-teal);
+  cursor: pointer;
+}
+
+.bp-icon-btn[aria-expanded="true"] {
+  background: var(--bp-teal-bg);
+  border-color: var(--bp-teal);
+}
+
+.bp-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ───────────── البطاقات ───────────── */
+
+.bp-card {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--bp-line);
+  border-radius: var(--bp-radius);
+  padding: 12px 16px;
+  margin-top: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.bp-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.bp-now {
+  border: 2px solid var(--bp-gold);
+  background: var(--bp-amber-bg);
+  border-radius: var(--bp-radius);
+  padding: 12px 16px 14px;
+  margin-top: 12px;
+}
+
+.bp-now .bp-btn {
+  margin-top: 12px;
+}
+
+.bp-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bp-amber);
+}
+
+.bp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bp-gold);
+}
+
+.bp-now-title {
+  font-size: 21px;
+  line-height: 1.45;
+  margin: 4px 0 6px;
+}
+
+.bp-now-list {
+  margin: 0;
+  padding-inline-start: 26px;
+  font-size: 18px;
+}
+
+.bp-now-text {
+  font-size: 17px;
+  color: var(--bp-soft);
+}
+
+.bp-now-alt {
+  text-align: center;
+  margin-top: 4px;
+}
+
+.bp-now.is-calm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--bp-line);
+  background: #fff;
+}
+
+.bp-now.is-calm .bp-now-title {
+  font-size: 19px;
+}
+
+.bp-calm-ic {
+  color: var(--bp-ok);
+  margin-top: 4px;
+}
+
+.bp-more {
+  margin-top: 2px !important;
+  font-size: 16px;
+  text-align: center;
+}
+
+.bp-more a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--bp-teal);
+  font-weight: 700;
+}
+
+.bp-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bp-clamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bp-hidden-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ───────────── «طلبك وصل لفين؟» ───────────── */
+
+.bp-steps {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.bp-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 3px 0;
+  font-size: 17px;
+}
+
+.bp-step-dot {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  background: #ececec;
+  color: #4f5a63;
+  margin-top: 1px;
+}
+
+.bp-step.is-done .bp-step-dot {
+  background: var(--bp-ok);
+  color: #fff;
+}
+
+.bp-step.is-done .bp-step-title {
+  color: var(--bp-soft);
+}
+
+.bp-step.is-current .bp-step-dot {
+  background: var(--bp-gold);
+  color: #fff;
+  box-shadow: 0 0 0 4px #f3e2bf;
+}
+
+.bp-step.is-current .bp-step-title {
+  font-weight: 700;
+}
+
+.bp-step-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.bp-step-hint {
+  font-size: 15px;
+  color: var(--bp-soft);
+}
+
+/* ───────────── القوائم والصفوف ───────────── */
+
+.bp-rows,
+.bp-cards,
+.bp-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--bp-line);
+  background: none;
+  color: var(--bp-ink);
+  text-decoration: none;
+  text-align: start;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.bp-rows li:last-child .bp-row {
+  border-bottom: 0;
+}
+
+.bp-row > .bp-ic:first-child {
+  color: var(--bp-teal);
+}
+
+.bp-row > .bp-ic:last-child {
+  color: #7a858f;
+}
+
+.bp-row.is-on {
+  font-weight: 700;
+}
+
+.bp-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bp-row-title {
+  overflow-wrap: anywhere;
+}
+
+.bp-row-sub {
+  font-size: 15px;
+  color: var(--bp-soft);
+}
+
+.bp-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: #eef1f3;
+  color: #33414c;
+  white-space: nowrap;
+}
+
+.bp-pill.is-ok {
+  background: var(--bp-ok-bg);
+  color: #145a33;
+}
+
+.bp-pill.is-amber {
+  background: #fdf0d8;
+  color: var(--bp-amber);
+}
+
+.bp-callback {
+  margin-top: 10px;
+}
+
+.bp-ref {
+  margin-top: 14px;
+  font-size: 16px;
+  color: var(--bp-soft);
+}
+
+.bp-code {
+  font-family: "IBM Plex Sans Arabic", ui-monospace, monospace;
+  font-weight: 700;
+  color: var(--bp-ink);
+  unicode-bidi: isolate;
+  direction: ltr;
+}
+
+.bp-forget {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.bp-forget .bp-linkbtn {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--bp-soft);
+}
+
+.bp-empty {
+  margin-top: 16px;
+  font-size: 18px;
+  color: var(--bp-soft);
+}
+
+.bp-meta {
+  font-size: 15px;
+  color: var(--bp-soft);
+}
+
+.bp-small {
+  font-size: 15px;
+  color: var(--bp-soft);
+  margin-top: 8px !important;
+}
+
+/* ───────────── الشريط السفلي ───────────── */
+
+.bp-bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  background: #fff;
+  border-top: 1px solid var(--bp-line);
+  padding: 6px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -4px 16px rgba(20, 33, 41, 0.06);
+}
+
+.bp-hours {
+  max-width: 560px;
+  margin: 0 auto 6px;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--bp-soft);
+}
+
+.bp-hours.is-closed {
+  color: var(--bp-amber);
+  font-weight: 700;
+}
+
+.bp-bar-btns {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.bp-bar-btns > * {
+  flex: 1;
+  min-height: 52px;
+  padding-inline: 8px;
+}
+
+/* ───────────── رأس الصفحات الفرعية ───────────── */
+
+.bp-viewhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+
+.bp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--bp-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--bp-teal);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bp-viewtitle {
+  font-size: 21px !important;
+  line-height: 1.4;
+}
+
+body.pub .bp-viewtitle:focus,
+body.pub .bp-viewtitle:focus-visible {
+  outline: none;
+}
+
+/* ───────────── الورق المطلوب ───────────── */
+
+.bp-msg {
+  font-size: 18px;
+}
+
+.bp-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bp-line);
+}
+
+.bp-item:last-child {
+  border-bottom: 0;
+}
+
+.bp-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.bp-item-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.bp-sent-files {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.bp-sent-files a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 16px;
+  color: var(--bp-teal);
+}
+
+.bp-missing {
+  margin-top: 2px;
+}
+
+.bp-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--bp-amber-bg);
+  font-size: 16px;
+}
+
+.bp-tip p {
+  flex: 1;
+}
+
+.bp-note {
+  margin-top: 4px;
+}
+
+.bp-note summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--bp-teal);
+}
+
+.bp-note[open] summary {
+  margin-bottom: 6px;
+}
+
+.bp-note .bp-input {
+  margin: 8px 0;
+}
+
+.bp-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.bp-input {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  border: 2px solid var(--bp-line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 18px;
+  line-height: 1.6;
+  background: #fff;
+  resize: vertical;
+}
+
+.bp-input:focus {
+  outline: none;
+  border-color: var(--bp-teal);
+  box-shadow: 0 0 0 3px rgba(184, 134, 46, 0.35);
+}
+
+.bp-send-error,
+.bp-restore {
+  background: var(--bp-amber-bg);
+  border: 1px solid var(--bp-amber-line);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 10px 0;
+  color: #5c3800;
+  font-size: 17px;
+}
+
+.bp-send-error .bp-btn {
+  margin-top: 8px;
+}
+
+.bp-send-hint {
+  font-size: 16px;
+  color: var(--bp-amber);
+  margin: 8px 0 4px !important;
+  min-height: 1em;
+}
+
+.bp-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px !important;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bp-ok-bg);
+  color: #145a33;
+  font-weight: 700;
+}
+
+/* ───────────── الرد ───────────── */
+
+.bp-answer > * + * {
+  margin-top: 10px;
+}
+
+.bp-summary {
+  background: var(--bp-cream-2);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.bp-summary h3,
+.bp-steps-todo h3,
+.bp-bring h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bp-amber);
+  margin-bottom: 2px;
+}
+
+.bp-summary p {
+  font-size: 19px;
+  line-height: 1.8;
+}
+
+.bp-steps-todo ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bp-todo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bp-line);
+}
+
+.bp-todo-n {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: var(--bp-teal-bg);
+  color: var(--bp-teal);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.bp-todo-text {
+  flex: 1;
+  font-size: 18px;
+}
+
+.bp-todo.is-done .bp-todo-text {
+  color: var(--bp-soft);
+  text-decoration: line-through;
+}
+
+.bp-todo-check {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 56px;
+  min-height: 48px;
+  font-size: 15px;
+  color: var(--bp-soft);
+  cursor: pointer;
+}
+
+.bp-todo-check input {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  accent-color: var(--bp-ok);
+}
+
+.bp-full summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--bp-teal);
+}
+
+.bp-fulltext {
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.bp-fulltext p + p {
+  margin-top: 10px;
+}
+
+.bp-strong {
+  font-weight: 700;
+}
+
+.bp-voice {
+  background: var(--bp-teal-bg);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.bp-voice audio {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* ───────────── المواعيد ───────────── */
+
+.bp-event-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bp-event-date {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+}
+
+.bp-event-what {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bp-line {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 18px;
+  margin-top: 6px !important;
+}
+
+.bp-line .bp-ic {
+  color: var(--bp-teal);
+  margin-top: 4px;
+}
+
+.bp-event > .bp-btn {
+  margin-top: 8px;
+}
+
+.bp-bring {
+  background: var(--bp-cream-2);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 12px 0;
+}
+
+.bp-bring ul {
+  margin: 0;
+  padding-inline-start: 22px;
+}
+
+.bp-respond {
+  display: grid;
+  gap: 8px;
+}
+
+.bp-response {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 700;
+  color: #145a33;
+}
+
+.bp-cal {
+  margin-top: 8px !important;
+}
+
+.bp-cal a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  color: var(--bp-teal);
+  font-weight: 700;
+}
+
+/* ───────────── المصاريف (بلا أحمر) ───────────── */
+
+.bp-info {
+  background: var(--bp-cream-2);
+  border: 1px solid var(--bp-line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 17px;
+}
+
+.bp-info p + p {
+  margin-top: 6px;
+}
+
+.bp-consent {
+  border: 2px solid var(--bp-gold);
+  background: var(--bp-amber-bg);
+}
+
+.bp-consent .bp-btn {
+  margin-top: 8px;
+}
+
+.bp-invoice > * + * {
+  margin-top: 6px;
+}
+
+.bp-inv-desc {
+  font-size: 18px;
+}
+
+.bp-inv-amount {
+  font-size: 24px;
+  font-weight: 700;
+  direction: rtl;
+}
+
+.bp-inv-due {
+  font-size: 16px;
+}
+
+.bp-inv-due.is-past {
+  color: #4f5a63;
+}
+
+.bp-howpay summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--bp-teal);
+}
+
+/* ───────────── الرسائل ───────────── */
+
+.bp-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bp-bubble {
+  max-width: 88%;
+  border-radius: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--bp-line);
+  background: #fff;
+  align-self: flex-start;
+}
+
+.bp-bubble.is-mine {
+  align-self: flex-end;
+  background: var(--bp-teal-bg);
+  border-color: #cfe1e5;
+}
+
+.bp-bubble-who {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bp-soft);
+}
+
+.bp-bubble-ch {
+  font-weight: 400;
+}
+
+.bp-bubble-text {
+  font-size: 17px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bp-bubble-time {
+  font-size: 15px;
+  color: var(--bp-soft);
+  margin-top: 2px !important;
+}
+
+.bp-bubble audio {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  margin-top: 6px;
+}
+
+.bp-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--bp-teal);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.bp-composer {
+  position: sticky;
+  bottom: calc(var(--bp-bar-space, 120px) + 8px);
+  z-index: 5;
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid var(--bp-line);
+  border-radius: var(--bp-radius);
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(20, 33, 41, 0.08);
+}
+
+.bp-compose-text {
+  min-height: 56px;
+  resize: none;
+}
+
+.bp-compose-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.bp-compose-send {
+  flex: 1;
+  min-height: 52px !important;
+}
+
+.bp-compose-rec,
+.bp-compose-cam {
+  margin-top: 8px;
+}
+
+.bp-compose-ctx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bp-teal);
+  margin-bottom: 6px !important;
+}
+
+.bp-compose-ctx .bp-icon-btn {
+  width: 44px;
+  height: 44px;
+  margin-inline-start: auto;
+}
+
+/* ───────────── الحالات: تحميل، نت، رابط ───────────── */
+
+.bp-sk {
+  background: #eee6d6;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+.bp-sk-h1 {
+  height: 32px;
+  width: 60%;
+}
+
+.bp-sk-line {
+  height: 18px;
+  width: 80%;
+}
+
+.bp-sk-card {
+  height: 220px;
+  border-radius: var(--bp-radius);
+}
+
+.bp-sk-card.is-short {
+  height: 160px;
+}
+
+.bp-state {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.bp-state h1 {
+  font-size: 22px;
+  margin-top: 8px;
+}
+
+.bp-state p {
+  margin-top: 6px;
+  color: var(--bp-soft);
+}
+
+.bp-state-ic {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bp-teal-bg);
+  color: var(--bp-teal);
+}
+
+.bp-state .bp-actions {
+  text-align: start;
+}
+
+.bp-new {
+  text-align: center;
+  margin-top: 4px;
+}
+
+.bp-new a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--bp-teal);
+  font-weight: 700;
+}
+
+.bp-noscript {
+  font-size: 18px;
+}
+
+/* ───────────── اللوحة السفلية والتنبيهات ───────────── */
+
+.bp-sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(8, 20, 26, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bp-sheet {
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  font-size: 18px;
+  font-family: inherit;
+}
+
+.bp-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.bp-sheet h2 {
+  font-size: 20px;
+}
+
+.bp-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.bp-choice {
+  min-height: 56px;
+  border: 2px solid var(--bp-line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bp-choice[aria-checked="true"] {
+  border-color: var(--bp-teal);
+  background: var(--bp-teal-bg);
+  color: var(--bp-teal);
+}
+
+.bp-sheet .bp-btn--primary {
+  margin-top: 12px;
+}
+
+.bp-toasts {
+  position: fixed;
+  inset-inline: 16px;
+  bottom: calc(var(--bp-bar-space, 120px) + 12px);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.bp-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 520px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bp-ink);
+  color: #fff;
+  font-size: 17px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  transition: opacity 0.2s ease;
+}
+
+.bp-toast.is-out {
+  opacity: 0;
+}
+
+.bp-toast .bp-ic {
+  color: #8fd3ad;
+}
+
+.bp-toast-btn {
+  margin-inline-start: auto;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--bp-teal);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-toast {
+    transition: none;
+  }
+}
+
+/* ───────────── الشاشات الأعرض ───────────── */
+
+@media (min-width: 1024px) {
+  .bp-portal .bp-bar {
+    display: none;
+  }
+
+  .bp-portal .pub-footer {
+    display: block;
+  }
+
+  .bp-page {
+    padding-bottom: 40px;
+  }
+
+  .bp-greet-contact {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .bp-greet-contact > * {
+    flex: 1;
+  }
+
+  .bp-composer {
+    bottom: 12px;
+  }
+
+  .bp-toasts {
+    bottom: 24px;
+  }
+}
+
+/* ═════════════ «تابعي طلبك» /portal (portal-login.js) ═════════════ */
+
+.bp-login .bp-page {
+  padding-bottom: 32px;
+}
+
+.bp-login-title {
+  font-size: 24px !important;
+  margin-top: 6px !important;
+}
+
+.bp-login .bp-card h2 {
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+.bp-login .bp-card > p {
+  margin-top: 4px;
+  color: var(--bp-soft);
+}
+
+.bp-field {
+  margin-top: 10px;
+}
+
+.bp-field .bp-input {
+  direction: ltr;
+  text-align: right;
+  min-height: 52px;
+}
+
+.bp-code-input {
+  min-height: 56px !important;
+  font-size: 26px !important;
+  letter-spacing: 8px;
+  text-align: center !important;
+}
+
+.bp-hint {
+  font-size: 15px;
+  color: var(--bp-soft);
+  margin-top: 4px !important;
+}
+
+.bp-error {
+  color: var(--bp-err);
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 8px !important;
+}
+
+.bp-safety {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 14px !important;
+  font-size: 16px;
+  color: var(--bp-soft);
+}
+
+.bp-saved {
+  border: 2px solid var(--bp-gold);
+  background: var(--bp-amber-bg);
+}
+
+.bp-saved .bp-btn {
+  margin-top: 8px;
+}
+
+.bp-demo {
+  margin-top: 14px;
+  font-size: 16px;
+  color: var(--bp-soft);
+}
+
+.bp-demo summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.bp-nocode {
+  margin-top: 12px;
+  border: 1px solid var(--bp-amber-line);
+  background: var(--bp-amber-bg);
+}
+
+.bp-row-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* ───────────── مراجعة 9.1 ───────────── */
+
+/* «المحامي هيقابلك فين؟» سطر منفصل عن «هاتي معاكي» (مكان لقاء، مش ورقة) */
+.bp-meet {
+  background: var(--bp-teal-bg);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+
+.bp-meet h3 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+
+.bp-meet p {
+  margin: 0;
+}
+
+/* زر واحد مملوء في كل شاشة: «ابعتي الورق» هو الأساسي، و«صوّري» في كل صف محدد (مش مملوء) */
+.bp-item .bmf-pick-camera.bmf-btn-primary {
+  background: var(--bp-teal-bg);
+  color: var(--bp-teal);
+  border: 2px solid var(--bp-teal);
+}
+
+.bp-item .bmf-pick-camera.bmf-btn-primary:hover:not(:disabled) {
+  background: #d6e8ec;
+  color: var(--bp-teal-d);
+}
+
+/* الشريط السفلي مع خط كبير (Android «كبير جدًا»): «اتصلي بينا» تفضل سطر واحد */
+.bp-bar-btns .bp-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 340px) {
+  .bp-bar {
+    padding-inline: 10px;
+  }
+
+  .bp-bar-btns .bp-btn {
+    gap: 6px;
+    padding-inline: 6px;
+    font-size: 17px;
+  }
+}

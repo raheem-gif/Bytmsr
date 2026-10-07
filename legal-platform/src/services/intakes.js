@@ -51,6 +51,12 @@ export function createIntakes(app) {
           '(i.code LIKE ? OR i.title LIKE ? OR i.contact_name LIKE ? OR i.contact_phone LIKE ? OR cl.code LIKE ? OR EXISTS (SELECT 1 FROM messages m WHERE m.intake_id = i.id AND m.body LIKE ?))',
         );
         fParams.push(like, like, like, like, like, like);
+        // v9.1 b-portal (B91-21): رقم الطلب القصير كما تقوله المستفيدة في التليفون («29» أو «29/2026»)
+        const refs = app.portal?.shortRefCodes ? app.portal.shortRefCodes(q) : [];
+        if (refs.length) {
+          fWhere[fWhere.length - 1] = `(${fWhere[fWhere.length - 1]} OR i.code IN (${refs.map(() => '?').join(', ')}))`;
+          fParams.push(...refs);
+        }
       }
       where.push(...fWhere.slice(1));
       params.push(...fParams);
@@ -174,6 +180,8 @@ export function createIntakes(app) {
         .map((m) => mapMessage(m, docsByMessage));
       const ai = app.ai.latest('intake', i.id, 'intake_analysis');
       const sd = parseJson(i.source_detail, {});
+      // v9.1 b-forms: مُجزّأ كود التأكيد لا يغادر الخادم (6 أرقام فقط يسهل تخمينها من المُجزّأ)
+      delete sd.confirm_hash;
       return {
         intake: {
           ...i,
@@ -185,6 +193,9 @@ export function createIntakes(app) {
             phone_unverified: isPortalUnverifiedIntake(i),
             confirmed_at: sd.identity_confirmed_at || null,
             confirmed_by_name: sd.identity_confirmed_by_name || null,
+            // v9.1 b-site (B91-01): أين يصل الرد؟ «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
+            confirmed_via: sd.identity_confirmed_via || null,
+            reply_channel: i.client_id && app.engine?.channelHint ? app.engine.channelHint({ clientId: i.client_id, intakeId: i.id }) : null,
           },
           active_portal_links: i.client_id ? app.clients.activePortalLinks(i.client_id, { intakeId: i.id }) : 0,
         },
@@ -314,11 +325,16 @@ export function createIntakes(app) {
       // طلب طابق رقمه عميلًا مسجلًا، أو أي طلب من نموذج الموقع لم يُثبت أن مقدّمه صاحب الرقم
       if (!isPortalUnverifiedIntake(i)) throw conflict('لا يحتاج هذا الطلب إلى تأكيد هوية، أو تم تأكيدها بالفعل');
       if (OPEN_STATUSES.includes(i.status)) svc.startTriage(i.id, actor);
-      delete sd.phone_match_unverified;
-      sd.identity_confirmed_at = nowIso();
-      sd.identity_confirmed_by = actor.id;
-      sd.identity_confirmed_by_name = actor.name;
-      db.update('intakes', i.id, { source_detail: JSON.stringify(sd), updated_at: nowIso() });
+      if (app.engine?.confirmStory) {
+        // v9.1 b-site (B91-01): نفس مسار التأكيد برسالة واتساب (رقم الطلب + كود التأكيد)؛ بعده تصل الرسائل على واتساب
+        app.engine.confirmStory(svc.require(i.id), 'staff', actor);
+      } else {
+        delete sd.phone_match_unverified;
+        sd.identity_confirmed_at = nowIso();
+        sd.identity_confirmed_by = actor.id;
+        sd.identity_confirmed_by_name = actor.name;
+        db.update('intakes', i.id, { source_detail: JSON.stringify(sd), updated_at: nowIso() });
+      }
       app.activity.log({ intake_id: i.id, client_id: i.client_id, actor, type: 'identity.confirmed', summary: 'أكّدت الإدارة أن مقدم الطلب هو صاحب رقم الهاتف المسجل' });
       return { ok: true };
     },

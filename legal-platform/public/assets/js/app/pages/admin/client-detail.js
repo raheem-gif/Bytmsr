@@ -64,9 +64,22 @@ export default async function render(ctx) {
     const res = await formDialog({
       title: 'تعديل بيانات المستفيد/ة',
       size: 'lg',
-      values: { name: c.name, national_id: c.national_id, governorate: c.governorate, email: c.email, notes: c.notes },
+      values: { name: c.name, national_id: c.national_id, governorate: c.governorate, email: c.email, notes: c.notes, address_form: c.address_form || '' },
       fields: [
         { name: 'name', label: 'الاسم', maxLength: 150 },
+        // v9.1 b-portal (B91-02): صيغة المخاطبة في صفحة المتابعة ورسائل واتساب
+        {
+          name: 'address_form',
+          label: 'طريقة المخاطبة',
+          type: 'select',
+          placeholder: false,
+          options: [
+            { value: '', label: 'تلقائي من الاسم (مؤنث ما لم يبدأ بـ«أبو»)' },
+            { value: 'f', label: 'مؤنث' },
+            { value: 'm', label: 'مذكر' },
+          ],
+          hint: 'تُستخدم في صفحة المتابعة والرسائل: «صوّري الورقة» أو «صوّر الورقة».',
+        },
         { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3' },
         { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
         { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
@@ -81,6 +94,7 @@ export default async function render(ctx) {
           governorate: v.governorate || null,
           email: v.email || null,
           notes: v.notes || null,
+          address_form: v.address_form || null, // v9.1 b-portal
         });
       },
     });
@@ -212,6 +226,7 @@ export default async function render(ctx) {
         ['الرقم القومي', c.national_id ? ltr(c.national_id) : null],
         ['المحافظة', c.governorate],
         ['البريد', c.email ? ltr(c.email) : null],
+        ['طريقة المخاطبة', c.address_form === 'm' ? 'مذكر' : c.address_form === 'f' ? 'مؤنث' : null], // v9.1 b-portal
         ['مسجَّل لدينا منذ', date(c.created_at)],
         ['ملاحظات داخلية', c.notes ? h('span.pre', c.notes) : null],
       ]),

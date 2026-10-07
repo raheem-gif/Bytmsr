@@ -99,6 +99,14 @@ export function createNotifications(app) {
       for (const uid of ids) {
         db.insert('notifications', { user_id: uid, type, title, body, link, created_at: t });
       }
+      // v9.1 l-home: تنبيه المحامي على واتساب/جهازه لأنواع محددة (نص بلا بيانات مستفيدين) — لا يكسر الإشعار أبدًا
+      if (app.lawyerAlerts && ids.length) {
+        try {
+          app.lawyerAlerts.onNotify(ids, { type, title, body, link });
+        } catch (e) {
+          app.log?.('lawyer alerts hook', e);
+        }
+      }
     },
     /** إشعار للإدارة: مدير الحالة المسؤول إن وُجد، وإلا كل مستخدمي الإدارة النشطين */
     notifyStaff(n, { caseManagerId = null, exceptUserId = null } = {}) {

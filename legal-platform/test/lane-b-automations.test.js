@@ -67,7 +67,11 @@ test('hearing with client attendance → exactly one WhatsApp reminder within th
     assert.equal(rem[0].channel, 'whatsapp');
     assert.equal(rem[0].status, 'simulated');
     assert.ok(rem[0].to_address.endsWith(phoneCore(phone)));
-    assert.ok(rem[0].body.includes(matter.code));
+    // v9.1 b-site (B91-10): كلام بسيط باسمها والساعة كما تُقال ورابط صفحتها، بلا كود الملف الداخلي
+    assert.ok(!rem[0].body.includes(matter.code), 'no internal MTR- code in the client message');
+    assert.match(rem[0].body, /^أهلًا /);
+    assert.match(rem[0].body, /الصبح|الضهر|العصر|بالليل/);
+    assert.match(rem[0].body, /\/p\//);
     assert.ok(rem[0].body.includes('محكمة شمال القاهرة'));
 
     await runAutomations(admin);
@@ -78,13 +82,15 @@ test('hearing with client attendance → exactly one WhatsApp reminder within th
     freezeClock(plusDays(T0, 6));
     await runAutomations(admin);
     rem = await forMatter();
-    assert.equal(rem.length, 1, 'still exactly one reminder for this hearing after repeated runs');
+    // v9.1 b-portal (B91-13): تذكير ثانٍ قبل الموعد بيوم (days_before [3, 1])، مرة واحدة، ولا يتكرر أي منهما
+    assert.equal(rem.length, 2, 'the 3-day reminder plus one day-before reminder, never duplicated after repeated runs');
+    assert.ok(rem.some((m) => m.body.includes('فكّرناك: بكرة')), 'the day-before text');
     const sim = ok(await admin.get('/api/admin/outbox?status=simulated'));
     assert.ok(sim.some((m) => m.id === rem[0].id));
     const rules = ok(await admin.get('/api/admin/automations'));
     assert.equal(rules.whatsapp_configured, false);
     const hr = rules.rules.find((x) => x.key === 'hearing_reminder');
-    assert.equal(hr.total_runs, 1);
+    assert.equal(hr.total_runs, 2);
     assert.equal(hr.recent_runs[0].entity_id, ev.id);
   } finally {
     await t.close();
@@ -116,7 +122,8 @@ test('days_before is configurable by admin only (case manager 403) and drives th
   }
 });
 
-test('hearing reminder is sent on WhatsApp even when the client first came through the website form', async () => {
+// v9.1 b-site (B91-01): رقم كُتب في نموذج الموقع لا يصله شيء حتى يتأكد؛ بعد «تأكيد الهوية» يصل التذكير على واتساب
+test('website-form client: no hearing reminder to an unconfirmed number (staff told once); after identity confirmation it goes out on WhatsApp', async () => {
   const { t, admin } = await boot();
   try {
     const phone = uniquePhone();
@@ -129,6 +136,13 @@ test('hearing reminder is sent on WhatsApp even when the client first came throu
     const M = await createLawyer(admin, { specialties: ['CIV'] });
     const m = ok(await admin.post(`/api/admin/cases/${c.id}/matter`, { kind: 'litigation', responsible_lawyer_id: M.id, court: 'محكمة الجيزة' }), 201);
     ok(await admin.post(`/api/admin/matters/${m.id}/events`, { kind: 'hearing', starts_at: plusDays(T0, 2), client_attendance_required: true }));
+    await runAutomations(admin);
+    await runAutomations(admin);
+    assert.equal(remindersFor(await outbox(admin), 'hearing_reminder', (x) => x.matter_id === m.id).length, 0, 'nothing reaches an unconfirmed number');
+    const held = (await admin.get('/api/notifications')).body.items.filter((n) => n.type === 'automation.unconfirmed');
+    assert.equal(held.length, 1, 'staff are told once per story');
+    assert.ok(held[0].title.includes(r.reference));
+    ok(await admin.post(`/api/admin/intakes/${intake.id}/confirm-identity`, {}));
     await runAutomations(admin);
     const rem = remindersFor(await outbox(admin), 'hearing_reminder', (x) => x.matter_id === m.id);
     assert.equal(rem.length, 1);
@@ -157,7 +171,9 @@ test('overdue unpaid invoice → reminder, repeated only every 7 days, using the
     await runAutomations(admin);
     let rem = await mine();
     assert.equal(rem.length, 1, 'only the unpaid overdue invoice is reminded');
-    assert.ok(rem[0].body.includes(inv.number));
+    // v9.1 b-site (B91-10): المبلغ وسببه بكلام بسيط، و«ردّي علينا قبل ما تدفعي» — رقم الفاتورة يبقى في بطاقتها في صفحة المتابعة
+    assert.ok(rem[0].body.includes('أتعاب الدعوى'), `reminder states the reason: ${rem[0].body}`);
+    assert.ok(rem[0].body.includes('قبل ما تدفع'));
     assert.ok(rem[0].body.includes('1,500'), `reminder states the remaining balance: ${rem[0].body}`);
     assert.equal(rem[0].channel, 'whatsapp');
     assert.ok(rem[0].to_address.endsWith(phoneCore(phone)));
@@ -203,7 +219,10 @@ test('document request awaiting the client → reminder after 2 days, then every
     await runAutomations(admin);
     let rem = await forIr(ir.id);
     assert.equal(rem.length, 1);
-    assert.ok(rem[0].body.includes(k.code));
+    // v9.1 b-site (B91-10): بلا كود الملف الداخلي، ومعه رابط صفحتها و«صوّري الورقة وابعتيها»
+    assert.ok(!rem[0].body.includes(k.code), 'no internal case code in the client message');
+    assert.match(rem[0].body, /\/p\//);
+    assert.ok(rem[0].body.includes('صوّري الورقة وابعتيها'));
     assert.ok(rem[0].body.includes('برجاء إرسال صورة إيصال الأمانة'));
     assert.equal((await forIr(ir2.id)).length, 0, 'a request the client already answered is not reminded');
     freezeClock(plusDays(T0, 4));

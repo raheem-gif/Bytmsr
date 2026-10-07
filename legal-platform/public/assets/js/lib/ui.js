@@ -451,29 +451,87 @@ function focusablesIn(root) {
  * actions: [{ label, variant, icon, onClick }] — onClick قد تكون async؛ إعادة false تُبقي النافذة مفتوحة،
  * والأخطاء تظهر في toast وتبقى النافذة مفتوحة.
  * @returns {{close:(reason?:string)=>void, el:HTMLElement, body:HTMLElement}}
+ *
+ * (v9.1 l-court — إضافات متوافقة مع السابق، كلها اختيارية)
+ *  sheet: true      ورقة سفلية على الهاتف (≤ 640px: ملتصقة بأسفل الشاشة بعرضها، مقبض سحب، السحب لأسفل يغلق)،
+ *                   ونافذة عرضها 480px على الحاسوب (size يُتجاهل).
+ *  subtitle         سطر ثانوي تحت العنوان (مثل «عنوان الجلسة · الأربعاء 7 أكتوبر 9:30 ص»).
+ *  beforeClose(reason) يُستدعى قبل إغلاق يبدؤه المستخدم ('dismiss' زر ✕، 'escape'، 'backdrop'، 'swipe')؛
+ *                   إن أعاد false (أو Promise<false>) تبقى النافذة مفتوحة — لتأكيد «تجاهل ما أدخلته؟».
  */
-export function modal({ title, body, actions = [], size = 'md', onClose, dismissible = true, className } = {}) {
+export function modal({ title, body, actions = [], size = 'md', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose } = {}) {
   const titleId = uid('modal-title');
   const previousFocus = document.activeElement;
   let closed = false;
   let busy = false;
+  let asking = false;
+
+  /** إغلاق يبدؤه المستخدم: يمر على beforeClose أولًا */
+  async function requestDismiss(reason) {
+    if (closed || busy || asking) return;
+    if (beforeClose) {
+      asking = true;
+      let ok = true;
+      try {
+        ok = (await beforeClose(reason)) !== false;
+      } catch {
+        ok = false;
+      } finally {
+        asking = false;
+      }
+      if (!ok) return;
+    }
+    close(reason);
+  }
 
   const bodyEl = h('div.modal-body', typeof body === 'function' ? null : body);
   const footer = actions.length ? h('div.modal-footer') : null;
+  const grip = sheet ? h('div.modal-grip', { 'aria-hidden': 'true' }) : null;
   const dialog = h(
     'div.modal',
-    { class: [`modal-${size}`, className], role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1' },
+    { class: [sheet ? 'modal-sheet' : `modal-${size}`, className], role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1' },
+    grip,
     h(
       'div.modal-header',
-      h('h2.modal-title', { id: titleId }, title || ''),
+      subtitle ? h('div.modal-heading', h('h2.modal-title', { id: titleId }, title || ''), h('p.modal-subtitle', subtitle)) : h('h2.modal-title', { id: titleId }, title || ''),
       dismissible &&
-        h('button.modal-close', { type: 'button', 'aria-label': 'إغلاق', onClick: () => close('dismiss') }, icon('x', { size: 20 })),
+        h('button.modal-close', { type: 'button', 'aria-label': 'إغلاق', onClick: () => requestDismiss('dismiss') }, icon('x', { size: 20 })),
     ),
     bodyEl,
     footer,
   );
-  const backdrop = h('div.modal-backdrop', dialog);
-  const handle = { close, el: dialog, body: bodyEl };
+  const backdrop = h('div.modal-backdrop', { class: sheet && 'modal-backdrop-sheet' }, dialog);
+  const handle = { close, el: dialog, body: bodyEl, requestDismiss };
+
+  // السحب لأسفل من المقبض أو الترويسة يغلق الورقة (بعد beforeClose)
+  if (sheet && dismissible) {
+    let startY = null;
+    let dy = 0;
+    const header = dialog.querySelector('.modal-header');
+    const onStart = (e) => {
+      if (e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      startY = e.touches ? e.touches[0].clientY : null;
+      dy = 0;
+    };
+    const onMove = (e) => {
+      if (startY == null || !e.touches) return;
+      dy = Math.max(0, e.touches[0].clientY - startY);
+      dialog.style.transform = dy ? `translateY(${dy}px)` : '';
+    };
+    const onEnd = () => {
+      if (startY == null) return;
+      startY = null;
+      dialog.style.transform = '';
+      if (dy > 80) requestDismiss('swipe');
+      dy = 0;
+    };
+    for (const el of [grip, header]) {
+      el.addEventListener('touchstart', onStart, { passive: true });
+      el.addEventListener('touchmove', onMove, { passive: true });
+      el.addEventListener('touchend', onEnd);
+      el.addEventListener('touchcancel', onEnd);
+    }
+  }
 
   const buttons = actions.map((a) => {
     const btn = button(a.label, { variant: a.variant || 'secondary', icon: a.icon, disabled: a.disabled });
@@ -516,7 +574,7 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
     if (modalStack[modalStack.length - 1] !== handle) return;
     if (e.key === 'Escape' && dismissible && !busy) {
       e.preventDefault();
-      close('escape');
+      requestDismiss('escape');
     } else if (e.key === 'Tab') {
       const items = focusablesIn(dialog);
       if (!items.length) {
@@ -539,7 +597,7 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   let downOnBackdrop = false;
   backdrop.addEventListener('mousedown', (e) => (downOnBackdrop = e.target === backdrop));
   backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop && downOnBackdrop && dismissible && !busy) close('backdrop');
+    if (e.target === backdrop && downOnBackdrop && dismissible && !busy) requestDismiss('backdrop');
   });
 
   function close(reason = 'close') {
@@ -563,7 +621,8 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   document.body.classList.add('has-modal');
   modalStack.push(handle);
 
-  const firstField = bodyEl.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select, textarea');
+  // الورقة السفلية لا تفتح لوحة المفاتيح تلقائيًا (أول ما فيها اختيار لا كتابة) إلا لعنصر عليه autofocus
+  const firstField = sheet ? bodyEl.querySelector('[autofocus]') : bodyEl.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select, textarea');
   requestAnimationFrame(() => (firstField || dialog).focus({ preventScroll: true }));
   return handle;
 }
@@ -987,7 +1046,7 @@ function buildControl(spec, formApi) {
       c.get = () => input.checked;
       c.set = (v) => (input.checked = Boolean(v));
       const req = spec.required ? h('span.req', { 'aria-hidden': 'true' }, '*') : null;
-      control = h('label.check.check-single', { htmlFor: id }, input, h('span', spec.text || spec.label, req));
+      control = h('label.check.check-single', { htmlFor: id, class: spec.checkClass }, input, h('span', spec.text || spec.label, req));
       break;
     }
     case 'number':
@@ -1093,13 +1152,14 @@ function buildControl(spec, formApi) {
     if (type === 'number' || type === 'money') {
       const raw = c.raw();
       if (Number.isNaN(raw)) return 'أدخل رقمًا صحيحًا';
-      if (raw == null) return spec.required ? requiredMessage(type) : null;
+      if (raw == null) return spec.required ? spec.requiredMessage || requiredMessage(type) : null;
       if (spec.min != null && raw < spec.min) return `يجب ألا تقل القيمة عن ${spec.min}`;
       if (spec.max != null && raw > spec.max) return `يجب ألا تزيد القيمة على ${spec.max}`;
       if (type === 'number' && spec.integer && !Number.isInteger(raw)) return 'أدخل عددًا صحيحًا بدون كسور';
       return null;
     }
-    if (spec.required && isEmptyValue(v)) return requiredMessage(type);
+    // v9.1 l-home (L-10): رسالة خاصة بالحقل (مثل التعهد بالسرية) بدل الرسالة العامة — اختيارية ومتوافقة مع السابق
+    if (spec.required && isEmptyValue(v)) return spec.requiredMessage || requiredMessage(type);
     if (isEmptyValue(v)) return null;
     if (type === 'phone' && !normalizeEgPhone(input.value)) return 'أدخل رقم موبايل مصري صحيح مثل 01012345678';
     if (type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return 'أدخل بريدًا إلكترونيًا صحيحًا';
@@ -1522,6 +1582,8 @@ export function timeline(items = [], { empty = 'لا توجد أحداث مسج�
   );
 }
 
+// v9.1 b-forms: مستند صوتي (بالنوع، أو بالامتداد إن لم يُرسل النوع)
+export const isAudioDoc = (d) => /^audio\//.test(String(d?.mime || '')) || /\.(webm|ogg|oga|opus|m4a|mp3|aac)$/i.test(String(d?.filename || ''));
 const CHANNEL_SHORT = { whatsapp: 'واتساب', website: 'الموقع', portal: 'الموقع', phone: 'مكالمة', email: 'بريد', walk_in: 'حضور', simulator: 'محاكاة' };
 const STATUS_TICKS = { sent: 1, delivered: 2, read: 2 };
 
@@ -1546,7 +1608,10 @@ export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl,
     const chan = m.channel ? h('span.chan-tag', { class: `chan-${m.channel}` }, m.channel === 'whatsapp' && icon('whatsapp', { size: 12 }), CHANNEL_SHORT[m.channel] || lbl('channel', m.channel)) : null;
     const docs = (m.documents || []).map((d) =>
       docHref
-        ? h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename))
+        ? isAudioDoc(d)
+          ? // v9.1 b-forms: الرسالة الصوتية تُسمع داخل المحادثة (لا تُحمَّل قبل الضغط على تشغيل)
+            h('span.doc-audio', h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': `رسالة صوتية: ${d.filename}` }), h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)))
+          : h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename))
         : h('span.doc-chip', icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)),
     );
     const statusEl =
@@ -1724,6 +1789,72 @@ export function chips(items = [], { onRemove, className } = {}) {
       );
     }),
   );
+}
+
+/**
+ * (v9.1 l-court) اختيار واحد بمربعات كبيرة (variant 'tile' — شبكة columns أعمدة، ارتفاع ≥ 56px) أو شرائح
+ * (variant 'chip' — ارتفاع ≥ 44px). نمط radiogroup: الأسهم تنقل الاختيار، ولا شيء مختار مسبقًا ما لم يُمرَّر value.
+ * choiceTiles({ label, options: [{ value, label, icon?, hint? }], value, onChange(value), variant, columns, allowDeselect })
+ * @returns {HTMLElement & { value: any, setValue(v:any):void }}
+ */
+export function choiceTiles({ label, options = [], value = null, onChange, variant = 'tile', columns = 2, allowDeselect = false, className } = {}) {
+  let current = value;
+  const labelId = label ? uid('choice') : null;
+  const btns = options.map((o, i) =>
+    h(
+      'button.choice-tile',
+      {
+        type: 'button',
+        role: 'radio',
+        'aria-checked': o.value === current ? 'true' : 'false',
+        tabindex: (current == null ? i === 0 : o.value === current) ? '0' : '-1',
+        dataset: { value: String(o.value) },
+        onClick: () => pick(o.value === current && allowDeselect ? null : o.value, true),
+        onKeydown: (e) => {
+          const dir = { ArrowLeft: 1, ArrowDown: 1, ArrowRight: -1, ArrowUp: -1 }[e.key]; // RTL: اليسار = التالي
+          if (!dir) return;
+          e.preventDefault();
+          const next = options[(i + dir + options.length) % options.length];
+          pick(next.value, true);
+          btns[options.indexOf(next)].focus();
+        },
+      },
+      o.icon ? icon(o.icon, { size: 20 }) : null,
+      h('span.choice-tile-label', o.label),
+      o.hint ? h('span.choice-tile-hint', o.hint) : null,
+    ),
+  );
+  function sync() {
+    btns.forEach((b, i) => {
+      const on = options[i].value === current;
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.classList.toggle('is-on', on);
+      b.tabIndex = (current == null ? i === 0 : on) ? 0 : -1;
+    });
+  }
+  function pick(v, fromUser) {
+    if (v === current && !fromUser) return;
+    const changed = v !== current;
+    current = v;
+    sync();
+    if (changed && onChange) onChange(current);
+  }
+  const group = h(
+    'div.choice-group',
+    {
+      class: [`choice-${variant}s`, className],
+      role: 'radiogroup',
+      'aria-labelledby': labelId,
+      style: variant === 'tile' ? { '--choice-cols': String(columns) } : null,
+    },
+    btns,
+  );
+  sync();
+  const wrap = label ? h('div.choice-field', h('div.field-label.choice-label', { id: labelId }, label), group) : group;
+  Object.defineProperty(wrap, 'value', { get: () => current });
+  wrap.setValue = (v) => pick(v, false);
+  wrap.focusFirst = () => (btns.find((b) => b.tabIndex === 0) || btns[0])?.focus();
+  return wrap;
 }
 
 /**

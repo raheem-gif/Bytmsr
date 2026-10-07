@@ -54,7 +54,8 @@ export function createKnowledge(app) {
       const intake = c.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null;
       const facts = R(c.facts_shared || c.facts_internal || intake?.summary || '');
       const issues = db.all("SELECT title FROM case_issues WHERE case_id = ? AND status = 'active' ORDER BY number", caseId).map((i) => R(i.title));
-      const irs = db.all("SELECT kind, question FROM info_requests WHERE case_id = ? AND status != 'cancelled' ORDER BY id", caseId);
+      // v9.1 l-work: طلبات المهلة والأسئلة للإدارة و«أحتاج هذا أيضًا» ليست «معلومات طُلبت» في سجل المعرفة
+      const irs = db.all("SELECT kind, question FROM info_requests WHERE case_id = ? AND status != 'cancelled' AND kind IN ('document','information') AND duplicate_of_id IS NULL ORDER BY id", caseId);
       const specialists = db
         .all('SELECT kind, specialty, description FROM counsel_requests WHERE case_id = ? AND status IN (\'assigned\',\'completed\') ORDER BY id', caseId)
         .map((x) => ({ kind: x.kind, kind_label: LABELS.counsel_kind[x.kind], specialty: x.specialty, specialty_label: x.specialty ? AREA[x.specialty] : null, reason: R(x.description) }));

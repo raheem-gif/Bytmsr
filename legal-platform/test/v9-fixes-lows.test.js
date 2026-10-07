@@ -358,7 +358,9 @@ describe('Arabic wording fixes', () => {
       assert.ok(ics.includes(`SUMMARY:اجتماع: مراجعة حافظة المستندات (${m.code})`), 'custom titles keep the kind prefix');
       // صفحة المتابعة: لا تكرر النوع في الشارة إذا كان العنوان هو اسم النوع
       const portal = read('public/assets/js/public/portal.js');
-      assert.match(portal, /kindLabel && title !== kindLabel \? badge\(kindLabel/);
+      // v9.1 b-portal (تغيير مقصود، B91-13): الموعد جملة واحدة «عندك جلسة يوم …» فيها النوع مرة واحدة، بلا عنوان داخلي ولا شارة
+      assert.match(portal, /`عندك \$\{e\.kind_label \|\| 'موعد'\} يوم /);
+      assert.ok(!/\be\.title\b/.test(portal), 'the internal event title never reaches the follow-up page');
     } finally {
       await t.close();
     }
@@ -386,8 +388,10 @@ describe('Public pages while the platform is being set up', () => {
 
   test('the follow-up login page does not promise a WhatsApp code before knowing it is available', () => {
     const html = read('public/portal-login.html');
-    const hero = /<section class="pub-page-hero"[\s\S]*?<\/section>/.exec(html)[0];
-    assert.doesNotMatch(hero, /رمز|واتساب/);
+    // v9.1 b-portal (تغيير مقصود، B91-06): لا قسم hero؛ العنوان وحده («تابعي طلبك») والكروت تُبنى بعد معرفة توفّر الكود
+    const hero = /<h1 id="page-title"[\s\S]*?<\/h1>/.exec(html)[0];
+    assert.doesNotMatch(hero, /رمز|واتساب|كود/);
+    assert.doesNotMatch(/<div id="portal-login-root"[\s\S]*?<\/div>/.exec(html)[0], /رمز|واتساب|كود/);
     assert.doesNotMatch(/<meta name="description"[^>]*>/.exec(html)[0], /واتساب/);
   });
 });

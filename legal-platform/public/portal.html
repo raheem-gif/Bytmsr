@@ -2,35 +2,39 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>متابعة طلبك — {{org_name}}</title>
-    <meta name="description" content="صفحتك الخاصة لمتابعة طلباتك وملفاتك لدى {{org_name}}: الردود والمواعيد والمستندات والمحادثة مع فريق المؤسسة." />
+    <meta name="description" content="صفحتك الخاصة لمتابعة طلبك لدى {{org_name}}: المطلوب منك، وصل طلبك لفين، الرد، المواعيد، والرسائل." />
     <!-- صفحة خاصة برابط سري: لا تُفهرس، ولا يُرسل رابطها في Referer عند فتح أي رابط منها -->
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
+    <link rel="preload" href="/assets/fonts/plex-arabic-400.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <link rel="stylesheet" href="/assets/css/v91-b-forms.css" />
+    <link rel="stylesheet" href="/assets/css/v91-portal.css" />
     <script type="module" src="/assets/js/public/portal.js"></script>
   </head>
-  <body class="site pub">
+  <body class="site pub v91 bp-portal">
     <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
     {{{header}}}
 
-    <main id="main" class="site-main portal-page" tabindex="-1">
+    <main id="main" class="site-main bp-main" tabindex="-1">
       <div id="portal-root">
-        <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span><span>جارٍ تحميل ملفك…</span></div>
+        <div class="bp-page bp-skeleton" aria-busy="true">
+          <p class="bp-sr" role="status">بنجهّز صفحتك…</p>
+          <div class="bp-sk bp-sk-h1"></div>
+          <div class="bp-sk bp-sk-line"></div>
+          <div class="bp-sk bp-sk-card"></div>
+          <div class="bp-sk bp-sk-card is-short"></div>
+        </div>
       </div>
       <noscript>
-        <div class="pub-container portal-noscript">
-          <p>تحتاج صفحة المتابعة إلى تفعيل JavaScript في المتصفح. ويمكنك بدلًا من ذلك التواصل معنا مباشرة:</p>
+        <div class="bp-page">
+          <p class="bp-noscript">الصفحة دي محتاجة تشغيل JavaScript في المتصفح. ممكن تكلمنا على طول:</p>
           {{{contact_list}}}
         </div>
       </noscript>
-      <p class="pub-container portal-private-note">هذه الصفحة خاصة بك؛ لا تشارك رابطها مع أحد.</p>
     </main>
 
     {{{footer}}}

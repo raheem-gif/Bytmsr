@@ -258,3 +258,20 @@
     mask-image: none !important;
   }
 }
+
+/* v9.1 b-forms: الرسائل الصوتية في محادثة الإدارة وقوائم المستندات */
+.doc-audio {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 100%;
+}
+.doc-audio audio,
+audio.doc-audio-player {
+  display: block;
+  width: 260px;
+  max-width: 100%;
+  height: 40px;
+  margin-block: 4px;
+}

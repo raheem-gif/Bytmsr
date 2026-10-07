@@ -1,6 +1,7 @@
 // ملفات العمل القانوني المستمر (Matter): تمثيل قضائي أو عمل مستمر مرتبط بنفس العميل والاستشارة الأصلية.
 // محكمة، رقم دعوى، جلسات، مهام ومواعيد إجرائية، أتعاب ومدفوعات ومصروفات.
 import { nowIso, cairoYear, badRequest, notFound, conflict, v, fromMinor, truncate, arabicDate, arabicTime, formatEgp } from '../util.js';
+import { createCourtOutcomes } from './matters-court.js'; // v9.1 l-court: نتيجة الجلسة (L-02/L-22) وتنبيه الجلسة بلا نتيجة
 import { LABELS, ENUMS, CODE_PREFIX } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
 
@@ -145,6 +146,8 @@ export function createMatters(app) {
       return {
         matter: { ...m, agreed_fee: fromMinor(m.agreed_fee_minor) },
         client: client ? { id: client.id, code: client.code, name: client.name, phone: app.clients.primaryPhone(client.id) } : null,
+        // v9.1 b-site (B91-01): أين تصل رسائل هذا الملف؟ (تلميح صندوق الرد)
+        reply_channel: app.engine?.channelHint ? app.engine.channelHint({ clientId: m.client_id, caseId: m.case_id, matterId: m.id }) : null,
         case: db.get('SELECT id, code, title, status, legal_area FROM cases WHERE id = ?', m.case_id),
         responsible_lawyer: m.responsible_lawyer_id ? { id: m.responsible_lawyer_id, name: app.cases.lawyerName(m.responsible_lawyer_id) } : null,
         events: db
@@ -203,9 +206,10 @@ export function createMatters(app) {
           notes: m.notes,
           opened_at: m.opened_at,
         },
-        client_name: client?.name || 'العميل',
-        events: db.all('SELECT id, kind, title, starts_at, location, client_attendance_required, status, notes, outcome FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id),
-        tasks: db.all('SELECT id, title, details, due_at, procedural, status, done_at, assignee_user_id FROM matter_tasks WHERE matter_id = ? ORDER BY status, due_at', m.id),
+        client_name: client?.name || 'المستفيد/ة',
+        // v9.1 l-court: حقول النتيجة المنظمة وneeds_outcome وnext_event_id (court.lawyerEventView)
+        events: db.all('SELECT * FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id).map((e) => svc.lawyerEventView(e)),
+        tasks: db.all('SELECT id, title, details, due_at, procedural, status, done_at, assignee_user_id, source_event_id FROM matter_tasks WHERE matter_id = ? ORDER BY status, due_at', m.id),
         documents: db.all('SELECT * FROM documents WHERE matter_id = ? ORDER BY id', m.id).map((d) => app.documents.publicView(d)),
       };
     },
@@ -215,8 +219,11 @@ export function createMatters(app) {
       return db.all(
         `SELECT m.id, m.code, m.title, m.kind, m.status, m.court, m.circuit, m.lawsuit_number, m.lawsuit_year,
            (SELECT MIN(starts_at) FROM matter_events e WHERE e.matter_id = m.id AND e.status = 'scheduled' AND e.starts_at >= ?) AS next_event_at,
-           (SELECT COUNT(*) FROM matter_tasks k WHERE k.matter_id = m.id AND k.status = 'open') AS open_tasks
+           (SELECT COUNT(*) FROM matter_tasks k WHERE k.matter_id = m.id AND k.status = 'open') AS open_tasks,
+           -- v9.1 l-court: جلسات انعقدت وما زالت بلا نتيجة
+           (SELECT COUNT(*) FROM matter_events e WHERE e.matter_id = m.id AND e.status = 'scheduled' AND e.kind IN ('hearing','expert') AND e.starts_at <= ?) AS pending_outcomes
          FROM matters m WHERE m.responsible_lawyer_id = ? ORDER BY CASE m.status WHEN 'closed' THEN 1 ELSE 0 END, m.id DESC`,
+        t,
         t,
         lawyer.id,
       );
@@ -279,6 +286,8 @@ export function createMatters(app) {
         client_attendance_required: v.bool(body.client_attendance_required) ? 1 : 0,
         status: 'scheduled',
         notes: v.str(body.notes, 'ملاحظات', { max: 3000 }),
+        // v9.1 b-portal (B91-13): «هاتي معاكي» للمستفيد/ة (سطر لكل بند) — يمر بنفس اعتماد نص الموعد
+        client_note: v.str(body.client_note, 'ما تحضره المستفيدة معها', { max: 400 }),
         // ما يكتبه المحامي لا يصل للعميل (تذكيرًا أو في البوابة) قبل اعتماد الإدارة
         client_text_approved: actor.role === 'lawyer' ? 0 : 1,
         created_by: actor.id,
@@ -317,7 +326,10 @@ export function createMatters(app) {
       if (body.status !== undefined) patch.status = v.oneOf(body.status, ENUMS.event_status, 'الحالة', { required: true });
       if (body.notes !== undefined) patch.notes = v.str(body.notes, 'ملاحظات', { max: 3000 });
       if (body.outcome !== undefined) patch.outcome = v.str(body.outcome, 'ما تم في الجلسة', { max: 5000 });
-      const clientFacing = ['kind', 'title', 'starts_at', 'location', 'client_attendance_required'].some((k) => patch[k] !== undefined && patch[k] !== e[k]);
+      if (body.client_note !== undefined) patch.client_note = v.str(body.client_note, 'ما تحضره المستفيدة معها', { max: 400 }); // v9.1 b-portal
+      // v9.1 b-portal: ردها «هحضر / مش هقدر» كان على الميعاد القديم؛ بعد تغيير الميعاد تُسأل من جديد
+      if (patch.starts_at !== undefined && patch.starts_at !== e.starts_at) Object.assign(patch, { client_response: null, client_response_at: null });
+      const clientFacing = ['kind', 'title', 'starts_at', 'location', 'client_attendance_required', 'client_note'].some((k) => patch[k] !== undefined && patch[k] !== e[k]);
       if (actor.role !== 'lawyer') patch.client_text_approved = 1; // تعديل الإدارة اعتماد للنص
       else if (clientFacing) patch.client_text_approved = 0;
       db.update('matter_events', e.id, patch);
@@ -493,5 +505,6 @@ export function createMatters(app) {
       });
     },
   };
+  Object.assign(svc, createCourtOutcomes(app, svc)); // v9.1 l-court
   return svc;
 }

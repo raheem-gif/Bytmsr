@@ -1,193 +1,192 @@
-// بوابة المحامي — كشف الحساب الشخصي: الاتفاق مع المؤسسة، وقائع الاستحقاق، القيود المالية، والمدفوعات.
+// بوابة المحامي — «مستحقاتي» (الإصدار 9.1 — مسار l-court، L-09): كم لي هذا الشهر، ومتى.
+// الترتيب على الهاتف: هذا الشهر ← لم يُصرف بعد (وموعد الصرف وآخر دفعة) ← الأشهر السابقة ← اتفاقك ← أدائي ← طباعة الكشف.
+// بلا جداول عريضة ولا مصطلحات محاسبية. الأرقام للاطلاع فقط ولا تُعدَّل من البوابة.
 
-import { h, frag } from '../../../lib/h.js';
+import { h } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { label, money, num, date, count, orgName } from '../../../lib/fmt.js';
+import { label, money, date, percent, monthLabel, hours, num } from '../../../lib/fmt.js';
+import { card, errorState, icon, codeTag } from '../../../lib/ui.js';
 import { bidiText } from './matters.js';
 import { printButton } from '../../components/print-button.js';
-import { pageHeader, card, table, tabs, statCard, statusBadge, codeTag, emptyState, errorState, alertBox, kv, progressBar, ltr } from '../../../lib/ui.js';
+import { count } from '../../words.js';
 
-const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'كشف حسابي' }];
+const STATUS_WORD = { paid: 'صُرف', unpaid: 'لم يُصرف', partial: 'صُرف جزئيًا' };
+const STATUS_TONE = { paid: 'is-paid', unpaid: 'is-unpaid', partial: 'is-partial' };
+const VOLUNTEER = ['pro_bono', 'csr'];
+const MONTHLY = ['monthly', 'monthly_quota'];
+const APPROVED = ['استشارة معتمدة واحدة', 'استشارتان معتمدتان', 'استشارات معتمدة', 'استشارة معتمدة'];
 
-const PERIOD_FMT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-
-/** '2026-09' → «سبتمبر 2026» */
-function periodLabel(p) {
-  const m = String(p || '').match(/^(\d{4})-(\d{2})$/);
-  if (!m) return p || '—';
-  return PERIOD_FMT.format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15)));
+/** سطر «تسمية — مبلغ» مع ملاحظة اختيارية */
+function moneyLine(labelNode, amount, note, { muted = false } = {}) {
+  return h(
+    'li.lc-line',
+    { class: muted && 'is-muted' },
+    h('span.lc-line-label', labelNode),
+    h('span.lc-line-amount', money(amount)),
+    note ? h('span.lc-line-note', note) : null,
+  );
 }
 
-const TREATMENT_NOTES = {
-  per_case: 'كل استشارة معتمدة من الإدارة تُسجَّل واقعة استحقاق بالمبلغ المتفق عليه.',
-  monthly: 'تُسجَّل الاستشارات المعتمدة ضمن المبلغ الشهري الثابت، ويُستحق المبلغ الشهري عن كل شهر.',
-  monthly_quota: 'الاستشارات المعتمدة ضمن الحصة الشهرية مشمولة في المبلغ الشهري، وما يزيد عليها يُحسب بسعر الزيادة.',
-  package: 'كل استشارة معتمدة تُخصم من رصيد الباقة، وبعد نفادها تُحسب بسعر ما بعد الباقة.',
-  pro_bono: 'مساهماتك تطوعية بالكامل، وتُسجَّل قيمتها التقديرية لقياس الأثر فقط ولا تُصرف.',
-  csr: 'مساهمات مكتبك ضمن برنامج المسؤولية المجتمعية تُسجَّل بقيمتها التقديرية لقياس الأثر فقط.',
-};
+const codes = (l) => [l.matter_code && codeTag(l.matter_code), !l.matter_code && l.case_code && codeTag(l.case_code)].filter(Boolean);
 
-/** رسم أعمدة أفقي بسيط للمستحقات الشهرية (القيم مكتوبة بجانب كل عمود). */
-function monthlyChart(entries) {
-  const byPeriod = new Map();
-  for (const e of entries) {
-    if (e.status === 'void') continue;
-    byPeriod.set(e.period, (byPeriod.get(e.period) || 0) + Number(e.amount || 0));
-  }
-  const rows = [...byPeriod.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]))).slice(-6);
-  if (!rows.length) return null;
-  const max = Math.max(...rows.map((r) => r[1]), 1);
-  return card({
-    title: 'المستحقات حسب الشهر',
-    subtitle: 'آخر ستة أشهر مسجلة (عدا القيود الملغاة)',
-    icon: 'chart',
-    body: h(
-      'ul.pc-bars',
-      { 'aria-label': 'المستحقات حسب الشهر' },
-      rows.map(([p, v]) =>
-        h(
-          'li.pc-bar-row',
-          h('span.pc-bar-label', periodLabel(p)),
-          h('span.pc-bar-track', { 'aria-hidden': 'true' }, h('span.pc-bar-fill', { style: { width: `${Math.max(2, (v / max) * 100)}%` } })),
-          h('span.pc-bar-value', money(v)),
-        ),
-      ),
-    ),
-  });
+/** متوسط زمن تقديم الرأي: «25 ساعة» أو «يومان» */
+function responseTime(hrs) {
+  if (hrs == null) return '—';
+  const n = Number(hrs);
+  if (n >= 48) return count(Math.round(n / 24), ['يوم واحد', 'يومان', 'أيام', 'يومًا']);
+  return hours(Math.round(n));
 }
 
 export default async function render(ctx) {
+  ctx.setTitle('مستحقاتي');
   let s;
   try {
     s = await api.get('/lawyer/statement');
   } catch (err) {
-    return frag(pageHeader({ title: 'كشف حسابي', breadcrumbs: CRUMBS }), card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.lc-page', h('h1.page-title', 'مستحقاتي'), card({ body: errorState(err, () => ctx.reload()) }));
   }
   const ag = s.agreement || {};
-  const entries = Array.isArray(s.entries) ? s.entries : [];
-  const events = Array.isArray(s.events) ? s.events : [];
-  const payouts = Array.isArray(s.payouts) ? s.payouts : [];
-  const volunteer = ag.type === 'pro_bono' || ag.type === 'csr';
+  const tm = s.this_month || { period: null, lines: [], expected_total: 0 };
+  const volunteer = VOLUNTEER.includes(ag.type);
+  const monthly = MONTHLY.includes(ag.type);
+  const months = Array.isArray(s.months) ? s.months : [];
+  const pastMonths = months.filter((m) => m.period !== tm.period);
+  const unpaid = s.unpaid || { total: s.unpaid_balance || 0, periods: [] };
 
-  const header = pageHeader({
-    title: 'كشف حسابي',
-    subtitle: `اتفاقك مع ${orgName()}، وما استُحق لك وما صُرف، ومساهماتك التطوعية.`,
-    breadcrumbs: CRUMBS,
-    actions: ctx.user ? [printButton({ kind: 'statement', id: ctx.user.id, label: 'طباعة كشف الحساب', size: 'md' })] : null,
-  });
-
-  // ── الاتفاق ──
-  const agreementCard = card({
-    title: 'اتفاقك مع المؤسسة',
-    icon: 'fileText',
-    body: frag(
-      h('p.pc-agreement-text', bidiText(s.agreement_text || label('agreement_type', ag.type))),
-      kv(
-        [
-          ['نوع الاتفاق', ag.type ? statusBadge('agreement_type', ag.type, { dot: false }) : null],
-          ['متى يُسجَّل الاستحقاق', ag.billable_event ? label('billable_trigger', ag.billable_event) : null],
-          ag.type === 'package' && ['حجم الباقة', count(ag.package_size, ['استشارة واحدة', 'استشارتان', 'استشارات', 'استشارة'])],
-          volunteer && ag.notional_value != null && ['القيمة التقديرية للمساهمة', h('span', money(ag.notional_value), h('span.muted.small', ' — لقياس الأثر فقط'))],
-        ],
-        { columns: 1 },
-      ),
-      TREATMENT_NOTES[ag.type] && h('p.field-hint.mt-2', TREATMENT_NOTES[ag.type]),
-    ),
-  });
-
-  // ── الأرقام ──
-  const statItems = [
-    statCard({ label: 'مستحق لم يُصرف بعد', value: money(s.unpaid_balance), icon: 'wallet', tone: Number(s.unpaid_balance) > 0 ? 'warning' : 'neutral', hint: 'قيود بحالة «مستحق»' }),
-    statCard({ label: 'إجمالي ما صُرف لك', value: money(s.paid_total), icon: 'checkCircle', tone: 'success', hint: payouts.length ? `عدد الدفعات: ${num(payouts.length)}` : 'لا توجد دفعات بعد' }),
-    statCard({ label: 'مساهمات تطوعية', value: num(s.pro_bono_count), icon: 'star', tone: 'accent', hint: Number(s.pro_bono_count) > 0 ? 'تطوعية أو ضمن مسؤولية مجتمعية — شكرًا لك' : 'تطوعية أو ضمن مسؤولية مجتمعية' }),
-  ];
-  if (s.package_remaining != null) {
-    const size = Number(ag.package_size) || 0;
-    const remaining = Number(s.package_remaining) || 0;
-    statItems.push(
-      h(
-        'div.stat-card.tone-primary.pc-package',
-        h('div.stat-body', h('div.stat-label', 'المتبقي من الباقة'), h('div.stat-value', `${num(remaining)} من ${num(size)}`), progressBar(size - remaining, size || 1, 'primary', { label: 'المستخدم من الباقة', visibleLabel: false })),
-      ),
+  // ── 1) هذا الشهر ──
+  let hero;
+  if (volunteer) {
+    const v = tm.volunteer || { count: 0, notional: 0 };
+    hero = h(
+      'section.lc-hero.is-volunteer',
+      { 'aria-labelledby': 'lc-hero-title' },
+      h('h2#lc-hero-title.lc-hero-period', monthLabel(tm.period)),
+      h('p.lc-hero-label', 'مساهماتك التطوعية هذا الشهر'),
+      h('p.lc-hero-figure', num(v.count || 0)),
+      h('p.lc-hero-sub', Number(v.notional) > 0 ? `قيمتها التقديرية ${money(v.notional)} — لقياس الأثر فقط.` : 'تُسجَّل قيمتها التقديرية لقياس الأثر فقط ولا تُصرف.'),
+      tm.lines && tm.lines.length ? h('ul.lc-lines', tm.lines.map((l) => moneyLine(l.label, l.amount))) : null,
+      h('p.lc-hero-thanks', icon('star', { size: 16 }), 'شكرًا لك على وقتك وعلمك.'),
+    );
+  } else {
+    const lines = (tm.lines || []).map((l) => {
+      if (l.key === 'consultations') {
+        const n = Number(l.count) || 0;
+        return moneyLine(n ? `${count(n, APPROVED)} هذا الشهر` : 'لا استشارات معتمدة هذا الشهر بعد', l.amount);
+      }
+      return moneyLine(l.label, l.amount, l.state === 'expected' ? l.note || 'يُسجَّل عند إقفال الشهر' : null, { muted: l.state === 'expected' ? false : Number(l.amount) === 0 });
+    });
+    hero = h(
+      'section.lc-hero',
+      { 'aria-labelledby': 'lc-hero-title' },
+      h('h2#lc-hero-title.lc-hero-period', monthLabel(tm.period)),
+      h('p.lc-hero-figure', money(tm.expected_total)),
+      h('p.lc-hero-label', 'المتوقع لك هذا الشهر'),
+      lines.length ? h('ul.lc-lines', lines) : null,
+      tm.quota ? h('p.lc-hero-sub', `الحصة الشهرية: ${num(tm.quota.used)} من ${count(tm.quota.included, ['استشارة واحدة', 'استشارتين', 'استشارات', 'استشارة'])}`) : null,
+      tm.package && tm.package.size ? h('p.lc-hero-sub', `المتبقي من الباقة: ${num(tm.package.remaining ?? 0)} من ${num(tm.package.size)}`) : null,
     );
   }
-  const stats = h('div.stats-grid.pc-money-stats', statItems);
 
-  // ── الجداول ──
-  const eventsTable = () =>
-    events.length
-      ? table({
-          caption: 'وقائع الاستحقاق',
-          rows: events,
-          columns: [
-            { key: 'case', label: 'الملف', render: (e) => codeTag(e.case_code) },
-            { key: 'role', label: 'الدور', render: (e) => h('span', bidiText(e.role_label || label('assignment_role', e.role))) },
-            { key: 'treatment', label: 'المعاملة', render: (e) => statusBadge('treatment', e.treatment) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (e) => (Number(e.amount) > 0 ? h('span.nowrap', money(e.amount)) : h('span.muted', '—')) },
-            { key: 'notional', label: 'القيمة التقديرية', align: 'end', render: (e) => (Number(e.notional) > 0 ? h('span.nowrap', money(e.notional)) : h('span.muted', '—')) },
-            { key: 'period', label: 'الفترة', render: (e) => h('span.nowrap', periodLabel(e.period)) },
-            { key: 'date', label: 'التاريخ', render: (e) => h('span.nowrap', date(e.created_at)) },
-          ],
-        })
-      : h('div.pc-tab-pad', emptyState('لا توجد وقائع استحقاق بعد. تُسجَّل الواقعة عند اعتماد الإدارة لرأيك (أو عند إغلاق الملف بحسب اتفاقك).', null, { compact: true, icon: 'fileText' }));
+  // ── 2) لم يُصرف بعد ──
+  const lp = s.last_payout;
+  const showUnpaid = !volunteer || Number(unpaid.total) > 0;
+  const unpaidCard = showUnpaid
+    ? h(
+        'section.lc-money-card',
+        { 'aria-labelledby': 'lc-unpaid-title' },
+        h('h2#lc-unpaid-title.lc-card-title', 'لم يُصرف بعد'),
+        h('p.lc-money-figure', money(unpaid.total)),
+        unpaid.periods && unpaid.periods.length ? h('p.lc-money-for', `عن: ${unpaid.periods.map(monthLabel).join('، ')}`) : h('p.lc-money-for', 'لا مبالغ بانتظار الصرف.'),
+        h(
+          'ul.lc-facts',
+          h('li', icon('calendar', { size: 16 }), s.payout_note ? h('span', 'موعد الصرف المعتاد: ', h('strong', s.payout_note)) : h('span', 'تحدد الإدارة موعد الصرف. للاستفسار تواصل معها.')),
+          h('li', icon('checkCircle', { size: 16 }), lp ? h('span', `آخر دفعة: ${date(lp.paid_at)} — `, h('strong', money(lp.amount))) : h('span', 'لم تُصرف لك دفعات بعد.')),
+        ),
+      )
+    : null;
 
-  const entriesTable = () =>
-    entries.length
-      ? table({
-          caption: 'القيود المالية',
-          rows: entries,
-          rowClass: (e) => (e.status === 'void' ? 'is-muted' : null),
-          columns: [
-            {
-              key: 'desc',
-              label: 'البيان',
-              className: 'col-wide',
-              render: (e) => h('div.pc-cell-stack', h('span', e.description || e.kind_label), (e.case_code || e.matter_code) && h('span.row', e.case_code && codeTag(e.case_code), e.matter_code && codeTag(e.matter_code))),
-            },
-            { key: 'kind', label: 'النوع', render: (e) => e.kind_label || label('ledger_kind', e.kind) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (e) => h('span.nowrap', money(e.amount)) },
-            { key: 'status', label: 'الحالة', render: (e) => statusBadge('ledger_status', e.status) },
-            { key: 'period', label: 'الفترة', render: (e) => h('span.nowrap', periodLabel(e.period)) },
-          ],
-        })
-      : h('div.pc-tab-pad', emptyState('لا توجد قيود مالية مسجلة لك بعد.', null, { compact: true, icon: 'wallet' }));
+  // ── 3) الأشهر السابقة ──
+  const monthsBlock = pastMonths.length
+    ? h(
+        'section.lc-months',
+        h('h2.lc-card-title', 'الأشهر السابقة'),
+        h(
+          'ul.lc-month-list',
+          pastMonths.map((m) =>
+            h(
+              'li',
+              h(
+                'details.lc-month',
+                h(
+                  'summary',
+                  h('span.lc-month-name', monthLabel(m.period)),
+                  h('span.lc-month-total', money(m.total)),
+                  h('span.lc-month-status', { class: STATUS_TONE[m.status] }, STATUS_WORD[m.status] || ''),
+                  icon('chevronDown', { size: 18, className: 'lc-chev' }),
+                ),
+                h(
+                  'ul.lc-lines',
+                  m.lines.map((l) => moneyLine([l.label, ...codes(l).map((c) => [' ', c])], l.amount, l.note ? bidiText(l.note) : l.status === 'paid' ? 'صُرف' : null)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+    : null;
 
-  const payoutsTable = () =>
-    payouts.length
-      ? table({
-          caption: 'المدفوعات',
-          rows: payouts,
-          columns: [
-            { key: 'date', label: 'تاريخ الصرف', render: (p) => h('span.nowrap', date(p.paid_at)) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => h('span.nowrap', money(p.amount)) },
-            { key: 'method', label: 'الطريقة', render: (p) => p.method || '—' },
-            { key: 'ref', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : '—') },
-          ],
-        })
-      : h('div.pc-tab-pad', emptyState('لم تُصرف لك دفعات بعد.', null, { compact: true, icon: 'wallet' }));
-
-  const detailTabs = tabs(
-    [
-      { key: 'events', label: 'وقائع الاستحقاق', icon: 'fileText', count: events.length, render: eventsTable },
-      { key: 'entries', label: 'القيود المالية', icon: 'wallet', count: entries.length, render: entriesTable },
-      { key: 'payouts', label: 'المدفوعات', icon: 'checkCircle', count: payouts.length, render: payoutsTable },
-    ],
-    { active: ['events', 'entries', 'payouts'].includes(ctx.query.tab) ? ctx.query.tab : 'events', className: 'pc-list-tabs' },
+  // ── 4) اتفاقك ──
+  const agreementBlock = h(
+    'details.lc-details.lc-agreement',
+    h('summary', h('span.lc-agree-title', 'اتفاقك'), h('span.lc-agree-text', bidiText(s.agreement_text || label('agreement_type', ag.type))), h('span.lc-agree-more', 'التفاصيل'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
+    h(
+      'div.lc-details-body',
+      h(
+        'dl.lc-dl',
+        h('div', h('dt', 'نوع الاتفاق'), h('dd', label('agreement_type', ag.type))),
+        // «متى يُسجَّل» لا معنى له في الاتفاق الشهري الثابت
+        !monthly && !volunteer && ag.billable_event ? h('div', h('dt', 'متى تُحسب الاستشارة'), h('dd', label('billable_trigger', ag.billable_event))) : null,
+        ag.type === 'package' && ag.package_size ? h('div', h('dt', 'حجم الباقة'), h('dd', count(ag.package_size, ['استشارة واحدة', 'استشارتان', 'استشارات', 'استشارة']))) : null,
+      ),
+      h(
+        'p.lc-muted-line',
+        monthly
+          ? 'المبلغ الشهري يُسجَّل لك عند إقفال كل شهر، وما يزيد عليه من أتعاب يظهر في سطر «أتعاب إضافية».'
+          : volunteer
+            ? 'مساهماتك تطوعية؛ تُسجَّل قيمتها التقديرية لقياس الأثر في تقارير المؤسسة فقط.'
+            : 'كل استشارة تعتمدها الإدارة تُسجَّل لك بالمبلغ المتفق عليه.',
+      ),
+    ),
   );
 
-  const chart = monthlyChart(entries);
+  // ── 5) أدائي ──
+  const p = s.performance;
+  const perfBlock = p
+    ? h(
+        'details.lc-details.lc-perf',
+        h('summary', h('span', 'أدائي'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
+        h(
+          'div.lc-details-body',
+          h(
+            'dl.lc-dl',
+            h('div', h('dt', 'متوسط زمن تقديم الرأي'), h('dd', responseTime(p.avg_response_hours))),
+            h('div', h('dt', 'آراء معتمدة هذا الشهر'), h('dd', num(p.approved_this_month || 0))),
+            h('div', h('dt', 'نسبة الإعادة للتعديل'), h('dd', p.returned_rate == null ? '—' : percent(p.returned_rate))),
+          ),
+        ),
+      )
+    : null;
 
-  return frag(
-    header,
-    stats,
-    h('div.pc-statement-top', { class: !chart && 'is-single' }, agreementCard, chart),
-    card({ title: 'التفاصيل', subtitle: 'كل ما سُجّل لك في دفاتر المؤسسة', icon: 'wallet', flush: true, body: detailTabs }),
-    alertBox(
-          volunteer
-            ? 'شكرًا لمساهمتك. تُستخدم القيمة التقديرية لقياس أثر العمل التطوعي في تقارير المؤسسة فقط.'
-            : `للاستفسار عن أي قيد أو دفعة تواصل مع إدارة ${orgName()}. الأرقام هنا للاطلاع ولا تُعدَّل من بوابتك.`,
-          'info',
-          { icon: volunteer ? 'star' : 'info' },
-    ),
+  // ── 6) طباعة الكشف ──
+  const printRow = ctx.user ? h('div.lc-print-row', printButton({ kind: 'statement', id: ctx.user.id, label: 'طباعة الكشف', size: 'md', variant: 'ghost' })) : null;
+
+  return h(
+    'div.lc-page.lc-statement',
+    h('header.lc-head', h('h1.page-title.lc-title', 'مستحقاتي')),
+    h('div.lc-statement-grid', hero, unpaidCard),
+    monthsBlock,
+    agreementBlock,
+    perfBlock,
+    printRow,
   );
 }

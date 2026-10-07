@@ -111,6 +111,25 @@ export default async function render(ctx) {
         suffix: 'يوم',
         hint: 'تُقترح تلقائيًا كموعد مطلوب عند إسناد الملفات',
       },
+      // v9.1 l-court: يظهر للمحامين في «مستحقاتي» بعد «موعد الصرف المعتاد:»
+      {
+        name: 'lawyer_payout_note',
+        label: 'موعد صرف مستحقات المحامين',
+        maxLength: 200,
+        placeholder: 'مثال: من 5 إلى 10 من الشهر التالي، بتحويل بنكي',
+        hint: 'يظهر للمحامين في صفحة «مستحقاتي». اتركه فارغًا لإخفائه، فيظهر لهم «تحدد الإدارة موعد الصرف».',
+      },
+      // v9.1 b-portal (B91-09): «إزاي أدفع؟» في «مصاريف قضيتك» بصفحة متابعة المستفيد/ة
+      {
+        name: 'portal_payment_instructions',
+        label: 'تعليمات الدفع للمستفيد/ة',
+        type: 'textarea',
+        rows: 3,
+        maxLength: 500,
+        counter: true,
+        placeholder: 'مثال: الدفع في مقر المؤسسة من السبت للخميس، وخدي إيصال مختوم دايمًا.',
+        hint: 'تظهر تحت «إزاي أدفع؟» في صفحة المتابعة. بكلام بسيط، ومن غير أرقام حسابات شخصية. اتركه فارغًا لإخفائه.',
+      },
       {
         name: 'similarity_threshold',
         label: 'حد التشابه للحالات المشابهة',
@@ -139,6 +158,8 @@ export default async function render(ctx) {
           whatsapp_template_language: v.whatsapp_template_language || '',
           default_assignment_days: v.default_assignment_days,
           similarity_threshold: v.similarity_threshold,
+          lawyer_payout_note: v.lawyer_payout_note || '', // v9.1 l-court
+          portal_payment_instructions: v.portal_payment_instructions || '', // v9.1 b-portal
         });
         const meta = getMeta();
         if (meta && meta.settings && saved) {

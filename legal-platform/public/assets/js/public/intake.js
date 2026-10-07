@@ -1,857 +1,1229 @@
-// صفحة تقديم الطلب من الموقع: نموذج منظم أو محادثة خطوة بخطوة، والطريقتان تكتبان في نفس المسودة.
-// المجالات القانونية والمحافظات تأتي من /api/meta (لا تُكتب هنا)، وبيانات الأسرة اختيارية لترتيب الأولويات.
+// v9.1 b-forms — «احكيلنا مشكلتك»: طلب الدعم القانوني في 3 خطوات قصيرة (B91-04/05/17).
+//   1) المشكلة: رسالة صوتية أولًا (حتى 3)، أو كتابة بكلامها العادي، والموضوع اختياري.
+//   2) الورق: «صوّري ورقة» أولًا ثم «من الموبايل»، والصور تُصغَّر على الموبايل.
+//   3) إزاي نوصلّك: الاسم والموبايل والمحافظة وسؤالين اختياريين والموافقة، ثم إرسال بنسبة ظاهرة وإعادة محاولة.
+// المسودة (النصوص والصور والتسجيلات) تبقى على الموبايل لو اتقفلت الصفحة، وتُمسح بعد الإرسال.
+// بيانات المؤسسة من كتلة bm-public المضمّنة في الصفحة (بلا طلب /api/meta)، وإلا من /api/meta.
 
-import { h, mount } from '../lib/h.js';
-import { api, filesToUploads } from '../lib/api.js';
-import { setMeta, getMeta, areaOptions, areaLabel, governorateOptions, normalizeEgPhone, toLatinDigits, count, money, ltr } from '../lib/fmt.js';
-import {
-  form,
-  tabs,
-  button,
-  icon,
-  codeTag,
-  copyButton,
-  alertBox,
-  errorState,
-  fileInput,
-  progressBar,
-  kv,
-  errorMessage,
-  loading,
-  setBusy,
-} from '../lib/ui.js';
-import { captureAttribution, getAttribution, whatsappUrl, initSiteChrome } from './common.js';
+import { h, svg, mount } from '../lib/h.js';
+import { captureAttribution, getAttribution, whatsappUrl, initSiteChrome, savedCard, rememberPortal, forgetSaved } from './common.js';
+import { addressName, addressForm, genderize, countWord, publicData } from './words.js';
+import { voiceRecorder, blobToUpload, canRecord, clock } from './recorder.js';
+// upload.js (التصوير والإرسال) يُحمَّل بعد ظهور الخطوة الأولى حتى لا يزاحمها على نت ضعيف
+let U = null;
+let uploadLoading = null;
+const loadUpload = () =>
+  (uploadLoading ??= import('./upload.js').then((m) => {
+    U = m;
+    return m;
+  }));
+import { draftStore, clearAllDrafts } from './drafts.js';
 
-const UNSURE = 'unsure';
-const MIN_DESC = 20;
+const MIN_CHARS = 10; // حروف بلا مسافات، حين لا توجد رسالة صوتية
 const MAX_DESC = 5000;
-const MAX_FILES = 5;
-const MAX_BYTES = 8 * 1024 * 1024;
-const MAX_FILE_NO = 40;
-const QUICK_GOVS = ['القاهرة', 'الجيزة', 'الإسكندرية', 'القليوبية', 'الشرقية', 'الدقهلية'];
-const PHONE_ERROR = 'أدخل رقم موبايل مصري صحيح مثل 01012345678';
+const MAX_PHOTOS = 5;
+const MAX_VOICES = 3;
+const MAX_VOICE_SECONDS = 180;
+const DRAFT_KEY = 'intake';
 
-// ───────────── بيانات الأسرة (اختيارية) — نفس قيم واجهة الخادم ─────────────
-// المسميات من /api/meta (LABELS) إن وُجدت حتى يتطابق المصطلح مع واجهة الإدارة، وهذه القوائم ترتيبها واحتياطيها
-const RELATIONS_FALLBACK = [
+// الموضوع: كلام الناس ← مجال الإدارة. يُقبل المجال فقط إن كان معرّفًا في بيانات المنصة (areaCodes)
+const TOPICS = [
+  { key: 'inh', label: 'ورث', area: 'INH' },
+  { key: 'pen', label: 'معاش', area: 'PEN' },
+  { key: 'alimony', label: 'نفقة ومصاريف العيال', area: 'FAM' },
+  { key: 'custody', label: 'حضانة ورؤية', area: 'FAM' },
+  { key: 'rent', label: 'سكن وإيجار', area: 'PRP' },
+  { key: 'guardianship', label: 'فلوس الأيتام والوصاية', area: 'GRD' },
+  { key: 'papers', label: 'ورق رسمي', area: 'ADM' },
+  { key: 'other', label: 'حاجة تانية / مش عارفة', area: null },
+];
+const QUICK_GOVS = ['القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'الشرقية', 'الدقهلية'];
+// بيانات الأسرة الاختيارية: الصفة وعدد الأطفال فقط (الخادم ما زال يقبل الباقي من قنوات أخرى)
+const RELATIONS = [
   { value: 'widow', label: 'أرملة' },
-  { value: 'orphan_guardian', label: 'ولي أمر أو وصي على أيتام' },
+  { value: 'orphan_guardian', label: 'وصية على أيتام' },
   { value: 'divorced', label: 'مطلقة' },
-  { value: 'wife', label: 'زوجة' },
-  { value: 'other', label: 'غير ذلك' },
+  { value: 'other', label: 'غير كده' },
 ];
-const INCOME_FALLBACK = [
-  { value: 'none', label: 'لا يوجد دخل ثابت' },
-  { value: 'lt_2000', label: `أقل من ${money(2000)} شهريًا` },
-  { value: '2000_4000', label: `من ${money(2000)} إلى ${money(4000)}` },
-  { value: '4000_7000', label: `من ${money(4000)} إلى ${money(7000)}` },
-  { value: 'gt_7000', label: `أكثر من ${money(7000)}` },
+const CHILDREN = [
+  { value: 0, label: 'لأ' },
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
+  { value: 4, label: '4 أو أكتر' },
 ];
-const HOUSING_FALLBACK = [
-  { value: 'owned', label: 'سكن تمليك' },
-  { value: 'rented_old', label: 'إيجار قديم' },
-  { value: 'rented_new', label: 'إيجار جديد' },
-  { value: 'family', label: 'أقيم مع الأهل أو الأقارب' },
-  { value: 'none', label: 'لا يوجد سكن مستقر' },
-];
-const CHILD_FORMS = ['طفل واحد', 'طفلان', 'أطفال', 'طفلًا'];
-const CHILDREN = [{ value: 0, label: 'لا يوجد أطفال' }, ...Array.from({ length: 20 }, (_, i) => ({ value: i + 1, label: count(i + 1, CHILD_FORMS) }))];
-const FILE_NO_RE = /^[\p{L}\p{N}][\p{L}\p{N} /._-]*$/u;
-const FILE_NO_ERROR = 'رقم الملف يقبل الحروف والأرقام والشرطة والشرطة المائلة فقط';
 
-function withMetaLabels(group, fallback) {
-  const g = getMeta().constants?.LABELS?.[group] || {};
-  return fallback.map((o) => ({ value: o.value, label: g[o.value] || o.label }));
-}
-const RELATIONS = () => withMetaLabels('beneficiary_relation', RELATIONS_FALLBACK);
-const INCOME_BANDS = () => withMetaLabels('income_band', INCOME_FALLBACK);
-const HOUSING = () => withMetaLabels('housing', HOUSING_FALLBACK);
-
-const BENEF_NOTE = 'تساعدنا هذه البيانات على ترتيب الأولويات وتحديد الاستحقاق، ويطّلع عليها فريق المؤسسة المختص فقط. كل الحقول اختيارية.';
-
-const optLabel = (list, v) => (list.find((o) => String(o.value) === String(v)) || {}).label || '';
+const MSG = {
+  problem: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.',
+  name: 'اكتبي اسمك.',
+  phoneEmpty: 'اكتبي رقم موبايلك.',
+  phoneBad: 'الرقم ده مش مظبوط. اكتبيه كده: 01012345678',
+  consent: 'لازم توافقي عشان نقدر نساعدك.',
+  net: 'ما اتبعتش. اتأكدي إن النت شغال وجربي تاني.',
+};
 
 const root = document.getElementById('intake-root');
-let settings = {};
-let site = {};
+const store = draftStore(DRAFT_KEY);
+let org = {};
+let areaCodes = new Set();
 
-// مسودة مشتركة بين الطريقتين حتى لا تضيع البيانات عند التبديل
-const draft = {
+// ───────── أيقونات ─────────
+const PATHS = {
+  lock: ['M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z', 'M7 11V7a5 5 0 0 1 10 0v4'],
+  arrowRight: ['M5 12h14', 'M12 5l7 7-7 7'],
+  arrowLeft: ['M19 12H5', 'M12 19l-7-7 7-7'],
+  check: ['M20 6 9 17l-5-5'],
+  whatsapp: ['M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21', 'M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1'],
+  phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', 'M9 12l2 2 4-4'],
+  share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
+  copy: ['M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
+  alert: ['M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
+  refresh: ['M23 4v6h-6', 'M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'],
+  home: ['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10'],
+  send: ['M22 2 11 13', 'M22 2l-7 20-4-9-9-4 20-7z'],
+};
+function ic(name, size = 20, cls = '') {
+  return svg(
+    'svg',
+    { class: `bmf-ic bmf-ic-${name} ${cls}`.trim(), width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' },
+    PATHS[name].map((d) => svg('path', { d })),
+  );
+}
+
+function newSubmissionId() {
+  const bytes = new Uint8Array(16);
+  try {
+    crypto.getRandomValues(bytes);
+  } catch {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return `w${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+const nonSpace = (s) => String(s || '').replace(/\s/gu, '').length;
+
+/** بصمة قصيرة لنص الإرسال (FNV-1a 32 + الطول) لمعرفة إن كان المحتوى تغيّر بعد إرسال غير مؤكد */
+function fingerprint(s) {
+  let x = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) {
+    x ^= s.charCodeAt(i);
+    x = Math.imul(x, 0x01000193) >>> 0;
+  }
+  return `${s.length.toString(36)}-${x.toString(36)}`;
+}
+
+// أرقام الموبايل: تُقبل الأرقام العربية (٠١٢…) والمسافات والشرطات و+20 (نفس قواعد fmt.js دون تحميله على الصفحة العامة)
+function toLatinDigits(v) {
+  return String(v ?? '')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
+}
+function normalizeEgPhone(input) {
+  let d = toLatinDigits(input).replace(/[\s\-().\u200e\u200f\u202a-\u202e]/g, '');
+  if (d.startsWith('+')) d = d.slice(1);
+  if (!/^\d+$/.test(d)) return null;
+  if (d.startsWith('0020')) d = d.slice(4);
+  else if (d.startsWith('20') && d.length === 12) d = d.slice(2);
+  if (/^1[0125]\d{8}$/.test(d)) d = `0${d}`;
+  return /^01[0125]\d{8}$/.test(d) ? d : null;
+}
+
+// ───────── بيانات المؤسسة ─────────
+
+function fromPublic(p) {
+  return {
+    org_name: p.org_name,
+    site_name: p.site_name,
+    phone: p.phone,
+    phone_e164: p.phone_e164,
+    whatsapp_digits: p.whatsapp_digits,
+    office_hours: p.office_hours,
+    governorates: Array.isArray(p.governorates) ? p.governorates : [],
+    areas: Array.isArray(p.areas) ? p.areas : [],
+    setup_required: !!p.setup_required,
+  };
+}
+
+function fromMeta(m) {
+  const s = m.settings || {};
+  const site = m.site || {};
+  const c = m.constants || {};
+  return {
+    org_name: site.org_name || s.org_name,
+    site_name: site.site_name,
+    phone: site.org_phone,
+    phone_e164: site.org_phone_e164,
+    whatsapp_digits: s.whatsapp_number_digits,
+    office_hours: site.office_hours,
+    governorates: Array.isArray(c.GOVERNORATES) ? c.GOVERNORATES : [],
+    areas: Array.isArray(c.LEGAL_AREAS) ? c.LEGAL_AREAS : [],
+    setup_required: !!m.setup_required,
+  };
+}
+
+async function loadMeta() {
+  const p = publicData();
+  if (p && p.org_name && Array.isArray(p.governorates) && Array.isArray(p.areas)) return fromPublic(p);
+  const res = await fetch('/api/meta', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!res.ok) throw new Error('meta');
+  return fromMeta(await res.json());
+}
+
+const orgName = () => org.org_name || 'مؤسسة بيوت مصر';
+const waLink = (text) => whatsappUrl(org.whatsapp_digits, text);
+const greetingWa = () => waLink(`السلام عليكم ${orgName()}، عايزة أحكيلكم مشكلتي.`);
+
+function contactLine() {
+  const wa = greetingWa();
+  if (wa) {
+    return h('p.bmf-contact', 'تحبي تحكيلنا على واتساب؟ ', h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'افتحي واتساب'));
+  }
+  if (!org.phone) return null;
+  return h(
+    'p.bmf-contact',
+    'أو اتصلي بينا: ',
+    h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone),
+    org.office_hours ? ` — ${org.office_hours}` : '',
+  );
+}
+
+// ───────── حالة الطلب ─────────
+
+const state = {
+  step: 1,
+  description: '',
+  topic: null,
   name: '',
   phone: '',
-  email: '',
   governorate: null,
-  legal_area: null,
-  description: '',
-  documents: [],
-  beneficiary: {},
+  govOther: false,
+  relation: null,
+  children: null,
   consent: false,
+  sid: newSubmissionId(),
+  sentFp: null, // بصمة آخر إرسال فشل والنت مقطوع (يمكن يكون وصل الخادم)
 };
+let voiceEls = [];
+let picker = null;
+let builtBody = null; // جسم الإرسال الجاهز (نفس الملفات عند «حاولي تاني»)
+let sending = false;
+let failedOffline = false;
+let banner = null;
 
-// حقل المصيدة: يبقى فارغًا عند البشر، مخفي بصريًا وعن قارئات الشاشة
 const honeypotInput = h('input', { type: 'text', id: 'hp-website', name: 'website', tabindex: '-1', autocomplete: 'off' });
-const honeypot = h('div.honeypot', { 'aria-hidden': 'true' }, h('label', { htmlFor: 'hp-website' }, 'الموقع الإلكتروني'), honeypotInput);
+const honeypot = h('div.bmf-honeypot', { 'aria-hidden': 'true' }, h('label', { htmlFor: 'hp-website' }, 'الموقع الإلكتروني'), honeypotInput);
 
-const orgName = () => settings.org_name || 'مؤسسة بيوت مصر';
-// الاسم الذي نخاطب به: الكلمة الأولى، أو الكنية كاملة («أم يوسف»، «أبو أحمد»)
-const KUNYA = new Set(['أم', 'ام', 'أبو', 'ابو']);
-const firstName = (name) => {
-  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!w.length) return '';
-  return KUNYA.has(w[0]) && w[1] ? `${w[0]} ${w[1]}` : w[0];
+let onPhotosChanged = null;
+function ensurePicker() {
+  if (!picker) {
+    picker = U.photoPicker({
+      max: MAX_PHOTOS,
+      tip: true,
+      namePrefix: 'ورقة',
+      onChange: () => {
+        changed({ now: true });
+        onPhotosChanged?.();
+      },
+    });
+  }
+  return picker;
+}
+
+const voices = () => voiceEls.filter((el) => el.getBlob()).map((el) => ({ blob: el.getBlob(), seconds: el.getSeconds() }));
+const photos = () => (picker ? picker.getFiles() : []);
+const topicArea = () => {
+  const t = TOPICS.find((x) => x.key === state.topic);
+  return t && t.area && areaCodes.has(t.area) ? t.area : null;
 };
 
-function areaText(v) {
-  if (!v) return 'لم يُحدد';
-  return v === UNSURE ? 'لست متأكدًا' : areaLabel(v);
-}
-
-function filesText(files) {
-  const n = files.length;
-  if (!n) return 'لا توجد مستندات حاليًا';
-  const names = files.map((f) => f.name).join('، ');
-  if (n === 1) return `أرفقت ملفًا واحدًا: ${names}`;
-  if (n === 2) return `أرفقت ملفين: ${names}`;
-  return `أرفقت ${count(n, 'file')}: ${names}`;
-}
-
-/** بيانات الأسرة بصيغة واجهة الخادم، أو null إن لم يُملأ شيء. */
-function beneficiaryPayload(b = {}) {
-  const out = {};
-  if (RELATIONS_FALLBACK.some((o) => o.value === b.relation)) out.relation = b.relation;
-  const kids = b.children_count === '' || b.children_count == null ? null : Number(b.children_count);
-  if (Number.isInteger(kids) && kids >= 0 && kids <= 20) out.children_count = kids;
-  const fileNo = toLatinDigits(String(b.foundation_file_number || '')).trim().slice(0, MAX_FILE_NO);
-  if (fileNo) out.foundation_file_number = fileNo;
-  if (INCOME_FALLBACK.some((o) => o.value === b.monthly_income_band)) out.monthly_income_band = b.monthly_income_band;
-  if (HOUSING_FALLBACK.some((o) => o.value === b.housing)) out.housing = b.housing;
-  return Object.keys(out).length ? out : null;
-}
-
-function beneficiaryText(b) {
-  const p = beneficiaryPayload(b);
-  if (!p) return '';
-  return [
-    p.relation && optLabel(RELATIONS(), p.relation),
-    p.children_count != null && optLabel(CHILDREN, p.children_count),
-    p.housing && optLabel(HOUSING(), p.housing),
-    p.monthly_income_band && `الدخل: ${optLabel(INCOME_BANDS(), p.monthly_income_band)}`,
-    p.foundation_file_number && `رقم الملف بالمؤسسة: ${p.foundation_file_number}`,
-  ]
-    .filter(Boolean)
-    .join('، ');
-}
-
-/** حقول بيانات الأسرة بمواصفات form() — prefix يميزها داخل النموذج الكامل */
-function beneficiaryFields(prefix = 'b_') {
-  return [
-    { name: `${prefix}relation`, label: 'صفة مقدّم الطلب', type: 'select', options: RELATIONS(), placeholder: '— اختر —' },
-    { name: `${prefix}children_count`, label: 'عدد الأطفال المعالين', type: 'select', options: CHILDREN, placeholder: '— اختر —' },
-    { name: `${prefix}housing`, label: 'السكن الحالي', type: 'select', options: HOUSING(), placeholder: '— اختر —' },
-    { name: `${prefix}monthly_income_band`, label: 'دخل الأسرة الشهري تقريبًا', type: 'select', options: INCOME_BANDS(), placeholder: '— اختر —' },
-    {
-      name: `${prefix}foundation_file_number`,
-      label: 'رقم ملفك لدى المؤسسة',
-      maxLength: MAX_FILE_NO,
-      ltr: true,
-      placeholder: 'إن كنت من مستفيدي برامج المؤسسة',
-      hint: 'اختياري — تجده في بطاقة المستفيد أو لدى الباحثة الاجتماعية',
-    },
-  ];
-}
-
-const B_KEYS = ['relation', 'children_count', 'housing', 'monthly_income_band', 'foundation_file_number'];
-
-function beneficiaryFromValues(values, prefix = 'b_') {
-  const b = {};
-  for (const k of B_KEYS) b[k] = values[`${prefix}${k}`] ?? null;
-  return b;
-}
-
-function beneficiaryToValues(b = {}, prefix = 'b_') {
-  const out = {};
-  for (const k of B_KEYS) out[`${prefix}${k}`] = b[k] ?? null;
-  return out;
-}
-
-// ───────────── الإرسال ─────────────
-
-async function submitIntake(values, mode) {
-  const files = values.documents || [];
-  if (files.length > MAX_FILES) throw new Error(`يمكنك إرفاق ${count(MAX_FILES, 'file')} كحد أقصى`);
-  const documents = await filesToUploads(files, { maxBytes: MAX_BYTES });
-  const payload = {
-    name: String(values.name || '').trim(),
-    phone: normalizeEgPhone(values.phone) || toLatinDigits(values.phone || '').trim(),
-    governorate: values.governorate || '',
-    legal_area: values.legal_area && values.legal_area !== UNSURE ? values.legal_area : '',
-    description: String(values.description || '').trim(),
-    documents,
-    attribution: getAttribution(),
-    mode,
-    consent: true,
-    website: honeypotInput.value,
+function draftObject() {
+  return {
+    step: state.step,
+    description: state.description,
+    topic: state.topic,
+    name: state.name,
+    phone: state.phone,
+    governorate: state.governorate,
+    govOther: state.govOther,
+    relation: state.relation,
+    children: state.children,
+    sid: state.sid,
+    sentFp: state.sentFp,
+    voices: voices().map((v) => ({ kind: 'audio', blob: v.blob, seconds: v.seconds })),
+    photos: photos().map((f) => ({ kind: 'image', blob: f, name: f.name })),
   };
-  const email = String(values.email || '').trim();
-  if (email) payload.email = email;
-  const beneficiary = beneficiaryPayload(values.beneficiary);
-  if (beneficiary) payload.beneficiary = beneficiary;
-  const res = await api.post('/public/intake', payload);
-  showSuccess(res, payload.name);
 }
 
-function successStep(n, title, text, done = false) {
+function meaningful() {
+  return nonSpace(state.description) > 0 || voices().length > 0 || photos().length > 0 || state.name.trim() || state.phone.trim();
+}
+
+function changed({ now = false } = {}) {
+  builtBody = null;
+  if (state.step > 3) return;
+  // لا نكتب مسودة فاضية (زيارة بلا كتابة)، ونمسحها لو اتمسح كل شيء
+  if (!meaningful()) {
+    store.clear();
+    return;
+  }
+  if (now) store.save(draftObject());
+  else store.saveSoon(draftObject(), 500);
+}
+
+// الموبايل قد يقفل الصفحة في الخلفية: نكتب المسودة فورًا عند إخفائها
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && !sending && state.step <= 3) store.flush();
+});
+window.addEventListener('pagehide', () => {
+  if (!sending && state.step <= 3) store.flush();
+});
+
+// ───────── عناصر مشتركة ─────────
+
+function errorLine() {
+  const el = h('p.bmf-error', { role: 'alert', hidden: true });
+  el.show = (msg) => {
+    mount(el, msg ? [ic('alert', 18), h('span', msg)] : []);
+    el.hidden = !msg;
+  };
+  return el;
+}
+
+function pressable(cls, { label, pressed, onToggle }) {
   return h(
-    'li',
-    { class: done && 'is-done' },
-    h('span.success-step-num', { 'aria-hidden': 'true' }, done ? icon('check', { size: 18 }) : String(n)),
-    h('div', h('strong', title), h('span', text)),
+    `button.${cls}`,
+    { type: 'button', 'aria-pressed': String(!!pressed), onClick: onToggle },
+    ic('check', 16),
+    h('span', label),
   );
+}
+
+function header(step, title, sub) {
+  const heading = h('h1.bmf-title', { tabindex: '-1', id: `bmf-step-${step}-title` }, title);
+  return {
+    heading,
+    el: h(
+      'div.bmf-head',
+      h('p.bmf-trust', ic('lock', 18), h('span', 'مجاني وسرّي. المحامي مش بيشوف رقمك.')),
+      h(
+        'div.bmf-steprow',
+        step > 1 && h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', 'رجوع')),
+        h('ol.bmf-steps', { 'aria-hidden': 'true' }, [1, 2, 3].map((n) => h('li', { class: n <= step && 'is-on' }))),
+        h('span.bmf-stepno', `خطوة ${step} من 3`),
+      ),
+      heading,
+      sub && h('p.bmf-sub', sub),
+    ),
+  };
+}
+
+// بطاقة «عندك طلب عندنا» (B91-06) من saved.js المشترك مع الصفحة الرئيسية؛ تُبنى مرة واحدة وتبقى فوق الخطوات
+let savedEl;
+function topCards() {
+  if (savedEl === undefined) {
+    savedEl = savedCard({
+      headingLevel: 2,
+      onForget: () => {
+        savedEl = null;
+        current?.heading.focus();
+        // ننتظر أي حفظ جارٍ للمسودة ثم نمسح كل المسودات على الموبايل
+        store.clear().finally(() => clearAllDrafts());
+      },
+    });
+  }
+  return [savedEl, banner];
+}
+
+// ───────── الخطوات ─────────
+
+let current = null; // { el, heading }
+
+function show(step, { focus = true, push = true } = {}) {
+  if (step > 1 && !U) {
+    loadUpload().then(() => show(step, { focus, push }), () => errorView(() => window.location.reload()));
+    return;
+  }
+  state.step = step;
+  if (push && history.state?.bmfStep !== step) {
+    try {
+      history.pushState({ bmfStep: step }, '', window.location.href);
+    } catch {
+      /* لا شيء */
+    }
+  }
+  const view = step === 1 ? stepProblem() : step === 2 ? stepPapers() : stepContact();
+  current = view;
+  mount(root, topCards(), view.el, honeypot);
+  changed();
+  if (focus) {
+    view.heading.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+}
+
+function goBack() {
+  if (history.state?.bmfStep > 1) history.back();
+  else show(Math.max(1, state.step - 1), { push: false });
+}
+
+window.addEventListener('popstate', (e) => {
+  if (state.step > 3) return; // بعد الإرسال لا نرجع للنموذج
+  const step = e.state?.bmfStep || 1;
+  if (step !== state.step) show(step, { push: false });
+});
+
+// ═════ الخطوة 1: احكيلنا مشكلتك ═════
+
+function stopRecordings() {
+  const live = voiceEls.filter((el) => el.isRecording());
+  if (!live.length) return Promise.resolve();
+  return new Promise((resolve) => {
+    let left = live.length;
+    const t = setTimeout(resolve, 2000);
+    live.forEach((el) => {
+      el.addEventListener(
+        'bmf-recorded',
+        () => {
+          left -= 1;
+          if (!left) {
+            clearTimeout(t);
+            resolve();
+          }
+        },
+        { once: true },
+      );
+      el.stop();
+    });
+  });
+}
+
+function addRecorder(initial = null) {
+  const el = voiceRecorder({
+    maxSeconds: MAX_VOICE_SECONDS,
+    whatsappUrl: greetingWa(),
+    initial,
+    onChange: () => {
+      el.dispatchEvent(new Event('bmf-recorded'));
+      // رسالة صوتية تكفي: نشيل خطأ «سجّلي رسالة صوتية أو اكتبي…» لو كان ظاهرًا
+      if (el.getBlob()) clearProblemError?.();
+      // تسجيل اتمسح (وفيه تسجيلات تانية): نشيل خانته
+      if (!el.getBlob() && voiceEls.length > 1 && !el.isRecording()) {
+        voiceEls = voiceEls.filter((x) => x !== el);
+        el.destroy();
+      }
+      changed({ now: true });
+      paintVoices();
+    },
+  });
+  voiceEls.push(el);
+  return el;
+}
+
+let voicesBox = null;
+let clearProblemError = null;
+function paintVoices() {
+  if (!voicesBox) return;
+  if (!voiceEls.length) addRecorder();
+  const all = voiceEls.every((el) => el.getBlob());
+  const more =
+    all && voiceEls.length < MAX_VOICES && canRecord()
+      ? h(
+          'button.bmf-btn.bmf-btn-text.bmf-more-voice',
+          {
+            type: 'button',
+            onClick: () => {
+              const el = addRecorder();
+              paintVoices();
+              el.querySelector('.bmf-rec-start')?.click();
+            },
+          },
+          'سجّلي رسالة كمان',
+        )
+      : null;
+  // إعادة تركيب العناصر تُفقدها التركيز (زر «اسمعيها» بعد «خلّصت» مثلًا): نعيده لنفس الزر
+  const active = document.activeElement;
+  mount(voicesBox, voiceEls, more);
+  if (active && active !== document.activeElement && active.isConnected && voicesBox.contains(active)) active.focus({ preventScroll: true });
+}
+
+function stepProblem() {
+  const { el: head, heading } = header(1, 'احكيلنا مشكلتك', 'بكلامك العادي. مش لازم تعرفي أي كلام قانوني.');
+  const err = errorLine();
+  const canVoice = canRecord();
+  voicesBox = h('div.bmf-voices');
+  paintVoices();
+
+  const ta = h('textarea.bmf-textarea', {
+    id: 'bmf-desc',
+    rows: 4,
+    maxlength: MAX_DESC,
+    value: state.description,
+    placeholder: 'مثلًا: جوزي اتوفى من 8 شهور، وعايزة أطلّع معاشه ونصيبنا في الشقة.',
+    'aria-labelledby': 'bmf-desc-label',
+  });
+  clearProblemError = () => {
+    err.show('');
+    ta.removeAttribute('aria-invalid');
+  };
+  ta.addEventListener('input', () => {
+    state.description = ta.value;
+    clearProblemError();
+    changed();
+  });
+
+  const tiles = h(
+    'div.bmf-tiles',
+    TOPICS.map((t) =>
+      pressable('bmf-tile', {
+        label: t.label,
+        pressed: state.topic === t.key,
+        onToggle: (e) => {
+          state.topic = state.topic === t.key ? null : t.key;
+          tiles.querySelectorAll('.bmf-tile').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+          if (state.topic) e.currentTarget.setAttribute('aria-pressed', 'true');
+          changed();
+        },
+      }),
+    ),
+  );
+
+  const next = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button' }, h('span', 'التالي'), ic('arrowLeft', 20));
+  next.addEventListener('click', async () => {
+    await stopRecordings();
+    state.description = ta.value;
+    if (!voices().length && nonSpace(state.description) < MIN_CHARS) {
+      err.show(MSG.problem);
+      ta.setAttribute('aria-invalid', 'true');
+      ta.focus();
+      return;
+    }
+    show(2);
+  });
+
+  const el = h(
+    'section.bmf-step',
+    { 'aria-labelledby': heading.id },
+    head,
+    h(
+      'div.bmf-body',
+      voicesBox,
+      canVoice || greetingWa() ? h('p.bmf-or', { id: 'bmf-desc-label' }, 'أو اكتبي هنا') : h('label.bmf-label', { id: 'bmf-desc-label', htmlFor: 'bmf-desc' }, 'اكتبي مشكلتك هنا'),
+      ta,
+      h('fieldset.bmf-group', h('legend', 'الموضوع عن إيه؟ (لو تعرفي)'), tiles),
+      h('div.bmf-actions', err, next, contactLine()),
+    ),
+  );
+  return { el, heading };
+}
+
+// ═════ الخطوة 2: الورق ═════
+
+function stepPapers() {
+  const { el: head, heading } = header(2, 'عندك ورق يخص المشكلة؟', 'زي شهادة الوفاة أو عقد أو حكم. مش لازم دلوقتي، تقدري تبعتيه بعدين.');
+  const next = h('button.bmf-btn.bmf-btn-lg.bmf-btn-block', { type: 'button' });
+  const paintNext = () => {
+    const has = photos().length > 0;
+    next.className = `bmf-btn bmf-btn-lg bmf-btn-block ${has ? 'bmf-btn-gold' : 'bmf-btn-outline'}`;
+    mount(next, h('span', has ? 'التالي' : 'مفيش ورق دلوقتي — التالي'), ic('arrowLeft', 20));
+  };
+  ensurePicker();
+  onPhotosChanged = paintNext;
+  paintNext();
+  next.addEventListener('click', async () => {
+    await picker.ready();
+    show(3);
+  });
+  const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', picker, h('div.bmf-actions', next)));
+  return { el, heading };
+}
+
+// ═════ الخطوة 3: إزاي نوصلّك ═════
+
+function problemSummary() {
+  const v = voices();
+  const total = v.reduce((s, x) => s + (x.seconds || 0), 0);
+  const parts = [];
+  if (v.length === 1) parts.push(`رسالة صوتية (${clock(total)})`);
+  else if (v.length === 2) parts.push(`رسالتين صوتيتين (${clock(total)})`);
+  else if (v.length > 2) parts.push(`${v.length} رسايل صوتية (${clock(total)})`);
+  const text = String(state.description || '').trim();
+  if (text) parts.push(v.length ? 'وكلام مكتوب' : `«${text.length > 40 ? `${text.slice(0, 40)}…` : text}»`);
+  return parts.join(' ');
+}
+
+function field({ id, label, hint, input }) {
+  const err = h('p.bmf-error', { id: `${id}-err`, hidden: true });
+  const hintEl = hint ? h('p.bmf-hint', { id: `${id}-hint` }, hint) : null;
+  input.id = id;
+  input.setAttribute('aria-describedby', [hintEl && `${id}-hint`, `${id}-err`].filter(Boolean).join(' '));
+  const wrap = h('div.bmf-field', h('label.bmf-label', { htmlFor: id }, label), input, hintEl, err);
+  wrap.setError = (msg) => {
+    mount(err, msg ? [ic('alert', 18), h('span', msg)] : []);
+    err.hidden = !msg;
+    if (msg) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  };
+  return wrap;
+}
+
+function stepContact() {
+  const { el: head, heading } = header(3, 'إزاي نوصلّك؟');
+  const err = errorLine();
+  const status = h('div.bmf-send-status');
+
+  const summary = h(
+    'ul.bmf-summary',
+    { 'aria-label': 'طلبك لحد دلوقتي' },
+    h(
+      'li',
+      h('span.bmf-summary-text', h('strong', 'مشكلتك: '), problemSummary()),
+      h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(1), 'aria-label': 'تعديل المشكلة' }, 'تعديل'),
+    ),
+    h(
+      'li',
+      h('span.bmf-summary-text', h('strong', 'الورق: '), photos().length ? U.photosText(photos().length) : 'مفيش دلوقتي'),
+      h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(2), 'aria-label': 'تعديل الورق' }, 'تعديل'),
+    ),
+  );
+
+  const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', maxlength: 120, value: state.name });
+  const nameField = field({ id: 'bmf-name', label: 'اسمك', hint: 'أو الاسم اللي تحبي نناديكي بيه، زي «أم محمد»', input: nameInput });
+  nameInput.addEventListener('input', () => {
+    state.name = nameInput.value;
+    nameField.setError('');
+    changed();
+  });
+
+  const phoneInput = h('input.bmf-input', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', maxlength: 20, placeholder: '01XXXXXXXXX', value: state.phone });
+  const phoneField = field({ id: 'bmf-phone', label: 'رقم موبايلك', hint: 'يفضّل يكون عليه واتساب.', input: phoneInput });
+  phoneInput.addEventListener('input', () => {
+    state.phone = phoneInput.value;
+    phoneField.setError('');
+    changed();
+  });
+
+  // المحافظة: أشهر 6 كأزرار، و«محافظة تانية» تفتح القائمة كاملة
+  const govs = org.governorates || [];
+  const quick = QUICK_GOVS.filter((g) => govs.includes(g));
+  const select = h(
+    'select.bmf-select',
+    { id: 'bmf-gov', 'aria-label': 'اختاري المحافظة' },
+    h('option', { value: '' }, 'اختاري المحافظة'),
+    govs.map((g) => h('option', { value: g, selected: state.governorate === g }, g)),
+  );
+  select.value = state.governorate && !quick.includes(state.governorate) ? state.governorate : '';
+  const govChips = h('div.bmf-chips');
+  const paintGov = () => {
+    const otherOn = state.govOther || (state.governorate && !quick.includes(state.governorate));
+    mount(
+      govChips,
+      quick.map((g) =>
+        pressable('bmf-chip', {
+          label: g,
+          pressed: state.governorate === g,
+          onToggle: () => {
+            state.governorate = state.governorate === g ? null : g;
+            state.govOther = false;
+            paintGov();
+            changed();
+          },
+        }),
+      ),
+      pressable('bmf-chip', {
+        label: 'محافظة تانية',
+        pressed: otherOn,
+        onToggle: () => {
+          state.govOther = !otherOn;
+          if (!state.govOther && state.governorate && !quick.includes(state.governorate)) state.governorate = null;
+          if (state.govOther && quick.includes(state.governorate)) state.governorate = null;
+          paintGov();
+          changed();
+          if (state.govOther) select.focus();
+        },
+      }),
+    );
+    select.hidden = !otherOn;
+    select.value = otherOn && state.governorate ? state.governorate : '';
+  };
+  select.addEventListener('change', () => {
+    state.governorate = select.value || null;
+    changed();
+  });
+  paintGov();
+
+  const choiceGroup = (legend, list, key) => {
+    const box = h('div.bmf-chips');
+    const paint = () =>
+      mount(
+        box,
+        list.map((o) =>
+          pressable('bmf-chip', {
+            label: o.label,
+            pressed: state[key] === o.value,
+            onToggle: () => {
+              state[key] = state[key] === o.value ? null : o.value;
+              paint();
+              changed();
+            },
+          }),
+        ),
+      );
+    paint();
+    return h('fieldset.bmf-group', h('legend', legend), box);
+  };
+
+  const consentCb = h('input', { type: 'checkbox', id: 'bmf-consent', checked: state.consent });
+  const consentLabel = h('label.bmf-consent', { htmlFor: 'bmf-consent' }, consentCb, h('span', 'موافقة إن المؤسسة تستخدم بياناتي عشان تساعدني بس.'));
+  const consentErr = h('p.bmf-error', { id: 'bmf-consent-err', hidden: true });
+  consentCb.setAttribute('aria-describedby', 'bmf-consent-err');
+  consentCb.addEventListener('change', () => {
+    state.consent = consentCb.checked;
+    consentLabel.classList.remove('is-invalid');
+    consentErr.hidden = true;
+  });
+
+  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button' }, h('span', 'إرسال الطلب'), ic('send', 20, 'bmf-flip'));
+
+  function validate() {
+    const problems = [];
+    const name = nameInput.value.trim();
+    if (name.length < 2) {
+      nameField.setError(MSG.name);
+      problems.push([MSG.name, nameInput]);
+    }
+    const rawPhone = phoneInput.value.trim();
+    if (!rawPhone) {
+      phoneField.setError(MSG.phoneEmpty);
+      problems.push([MSG.phoneEmpty, phoneInput]);
+    } else if (!normalizeEgPhone(rawPhone)) {
+      phoneField.setError(MSG.phoneBad);
+      problems.push([MSG.phoneBad, phoneInput]);
+    }
+    if (!consentCb.checked) {
+      consentLabel.classList.add('is-invalid');
+      mount(consentErr, ic('alert', 18), h('span', MSG.consent));
+      consentErr.hidden = false;
+      problems.push([MSG.consent, consentCb]);
+    }
+    if (problems.length) {
+      err.show(problems[0][0]);
+      problems[0][1].focus();
+      return false;
+    }
+    err.show('');
+    return true;
+  }
+
+  async function buildBody() {
+    if (builtBody) return builtBody;
+    const { payload, fp } = await buildPayload();
+    // الإرسال السابق فشل والنت مقطوع: يمكن يكون وصلنا. لو غيّرت حاجة بعدها (صورة زيادة، تصحيح الرقم…)
+    // نستخدم معرّف إرسال جديد، وإلا رجّع الخادم الطلب الأول وضاع التعديل بصمت. بلا تغيير: نفس المعرّف (طلب واحد فقط).
+    if (state.sentFp && fp !== state.sentFp) {
+      state.sid = newSubmissionId();
+      payload.submission_id = state.sid;
+      state.sentFp = null;
+      store.save(draftObject());
+    }
+    lastFp = fp;
+    builtBody = JSON.stringify(payload);
+    return builtBody;
+  }
+
+  async function buildPayload() {
+    await picker?.ready();
+    const documents = [];
+    for (const f of photos()) documents.push(await U.fileToUpload(f));
+    const vs = voices();
+    for (let i = 0; i < vs.length; i += 1) documents.push(await blobToUpload(vs[i].blob, `رسالة-صوتية-${i + 1}`));
+    const payload = {
+      name: nameInput.value.trim(),
+      phone: normalizeEgPhone(phoneInput.value) || toLatinDigits(phoneInput.value).trim(),
+      governorate: state.governorate || '',
+      legal_area: topicArea() || '',
+      description: String(state.description || '').trim(),
+      documents,
+      attribution: getAttribution(),
+      mode: new URLSearchParams(window.location.search).get('mode') === 'guided' ? 'guided' : 'form',
+      consent: true,
+      website: honeypotInput.value,
+      submission_id: state.sid,
+    };
+    const beneficiary = {};
+    if (state.relation) beneficiary.relation = state.relation;
+    if (Number.isInteger(state.children)) beneficiary.children_count = state.children;
+    if (Object.keys(beneficiary).length) payload.beneficiary = beneficiary;
+    // بصمة المحتوى بدون معرّف الإرسال
+    const fp = fingerprint(JSON.stringify({ ...payload, submission_id: undefined }));
+    return { payload, fp };
+  }
+  let lastFp = null;
+
+  function setBusy(busy) {
+    sending = busy;
+    submit.disabled = busy;
+    [nameInput, phoneInput, consentCb, select].forEach((x) => (x.disabled = busy));
+    current?.el.querySelectorAll('.bmf-chip, .bmf-summary button, .bmf-back').forEach((b) => (b.disabled = busy));
+  }
+
+  async function send() {
+    if (sending) return;
+    hideToast();
+    if (!validate()) return;
+    state.name = nameInput.value;
+    state.phone = phoneInput.value;
+    setBusy(true);
+    const progress = U.uploadProgress({ text: 'بنبعت طلبك…' });
+    mount(status, progress);
+    let res;
+    try {
+      const body = await buildBody();
+      res = await U.sendWithProgress('/api/public/intake', body, { onProgress: (f) => progress.set(f) });
+    } catch (e) {
+      setBusy(false);
+      const network = !e || e.code === 'network_error' || !e.status || e.status >= 500;
+      failedOffline = network;
+      // ما نعرفش إن كان وصل: نحفظ بصمة ما أُرسل (في المسودة كمان، لو اتقفلت الصفحة)
+      if (network && lastFp) {
+        state.sentFp = lastFp;
+        store.save(draftObject());
+      }
+      const msg = network ? MSG.net : U.friendlyError(e);
+      mount(
+        status,
+        h(
+          'div.bmf-alert',
+          { class: network ? '' : 'is-error', role: 'alert' },
+          h('p', msg),
+          network && h('button.bmf-btn.bmf-btn-outline', { type: 'button', onClick: send }, ic('refresh', 18), h('span', 'حاولي تاني')),
+        ),
+      );
+      if (e && e.details && e.details.fields && e.details.fields.description) {
+        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(1) }, 'ارجعي للمشكلة'));
+      }
+      return;
+    }
+    sending = false;
+    failedOffline = false;
+    // الطلب وصل: نمسح المسودة، لكن لا نؤخر شاشة «وصلنا طلبك» أكثر من ثانيتين لو التخزين بطيء
+    // (لو ما اتمسحتش، إعادة إرسالها بنفس submission_id ترجع نفس الطلب ولا تكرره)
+    await Promise.race([store.clear().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
+    voiceEls.forEach((v) => v.destroy());
+    voiceEls = [];
+    showSuccess(res || {}, nameInput.value.trim());
+  }
+  submit.addEventListener('click', send);
+  retrySend = send;
+
+  const el = h(
+    'section.bmf-step',
+    { 'aria-labelledby': heading.id },
+    head,
+    h(
+      'div.bmf-body',
+      summary,
+      nameField,
+      phoneField,
+      h('fieldset.bmf-group', h('legend', 'ساكنة فين؟ (اختياري)'), govChips, select),
+      h(
+        'section.bmf-optional',
+        { 'aria-label': 'سؤالين اختياريين' },
+        h('p.bmf-optional-title', 'سؤالين اختياريين يساعدونا نفهم ظروفك'),
+        choiceGroup('انتي:', RELATIONS, 'relation'),
+        choiceGroup('عندك أطفال تحت 18 سنة؟', CHILDREN, 'children'),
+      ),
+      h('div.bmf-field', consentLabel, h('p.bmf-consent-more', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, 'اعرفي أكتر')), consentErr),
+      h('div.bmf-actions', err, submit, status),
+    ),
+  );
+  return { el, heading };
+}
+
+// ───────── رجوع النت بعد فشل الإرسال ─────────
+
+let retrySend = null;
+let toastEl = null;
+function hideToast() {
+  toastEl?.remove();
+  toastEl = null;
+}
+window.addEventListener('online', () => {
+  if (!failedOffline || sending || state.step !== 3 || !retrySend) return;
+  hideToast();
+  toastEl = h(
+    'div.bmf-toast',
+    { role: 'status' },
+    h('p', 'النت رجع. تحبي تبعتي دلوقتي؟'),
+    h('button.bmf-btn.bmf-btn-gold', { type: 'button', onClick: () => retrySend() }, 'ابعتي'),
+  );
+  document.body.append(toastEl);
+});
+
+// ───────── شاشة «وصلنا طلبك» (B91-05) ─────────
+
+function refNumber(ref) {
+  const m = /^REQ-\d{4}-0*(\d+)$/.exec(String(ref || ''));
+  return m ? m[1] : '';
 }
 
 function showSuccess(res, name) {
-  const ref = res && res.reference;
-  // عنوان الصفحة الرئيسي بعد الإرسال (يحل محل عنوان النموذج، فتبقى للصفحة h1 واحدة)
-  const heading = h('h1#success-title.success-title', { tabindex: '-1' }, 'تم استلام طلبك بنجاح');
-  const portal = res && res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
-  document.title = `تم استلام طلبك — ${orgName()}`;
+  state.step = 4;
+  hideToast();
+  // زر الرجوع في الموبايل يخرج من الصفحة مباشرة (بدل ضغطتين بلا أي تغيير على خطوتي 2 و3 المحفوظتين في السجل)
+  const doneUrl = window.location.pathname + window.location.search;
+  const markDone = () => {
+    try {
+      history.replaceState({ bmfDone: true }, '', doneUrl);
+    } catch {
+      /* لا شيء */
+    }
+  };
+  const depth = Number(history.state?.bmfStep) || 1;
+  if (depth > 1) {
+    window.addEventListener('popstate', markDone, { once: true });
+    try {
+      history.go(-(depth - 1));
+    } catch {
+      window.removeEventListener('popstate', markDone);
+      markDone();
+    }
+  } else markDone();
+  const ref = res.reference;
+  if (!ref) {
+    // حقل الفخ أو رد بلا رقم: شكر بسيط
+    const heading = h('h1', { tabindex: '-1' }, 'وصلنا رسالتك. شكرًا!');
+    mount(root, h('section.bmf-success', heading, h('a.bmf-btn.bmf-btn-outline.bmf-btn-lg', { href: '/' }, ic('home', 20), h('span', 'الصفحة الرئيسية'))));
+    heading.focus();
+    return;
+  }
+  const form = addressForm(name);
+  const g = (s) => genderize(s, form);
+  const who = addressName(name);
+  const portal = res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
+  const confirmUrl = typeof res.confirm_url === 'string' && /^https:\/\/wa\.me\/\d+\?text=/.test(res.confirm_url) ? res.confirm_url : null;
+  document.title = `وصلنا طلبك — ${org.site_name || orgName()}`;
+
+  // نحفظ صفحة الطلب على هذا الموبايل (B91-06)؛ طلب جديد من نفس الموبايل يلغي «امسحي» السابقة
+  const savedHere = portal ? rememberPortal({ url: portal, ref }, { force: true }) : false;
+
+  const heading = h('h1#success-title', { tabindex: '-1' }, 'وصلنا طلبك');
+
+  // البطاقة أ: تأكيد الرقم برسالة واتساب واحدة
+  let cardA = null;
+  if (confirmUrl) {
+    let clicked = false;
+    let away = false;
+    const body = h('div.bmf-card-body');
+    const paintA = (sent) =>
+      mount(
+        body,
+        sent
+          ? [
+              h('p.bmf-sent', ic('check', 22), h('span', g('بعت{ي}ها؟ هيوصلك رد مننا على واتساب.'))),
+              h('a.bmf-btn.bmf-btn-text', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) }, g('لسه ما بعت{ي}هاش؟ ابعت{ي}ها تاني')),
+            ]
+          : [
+              h('p.bmf-kicker', 'خطوة أخيرة مهمة'),
+              h('p.bmf-card-text', g('ابعت{ي}لنا رقم طلبك على واتساب، عشان نقدر نرد عليك{ي} هناك.')),
+              h(
+                'a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block.bmf-confirm',
+                { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) },
+                ic('whatsapp', 22),
+                h('span', g('ابعت{ي} رقم الطلب على واتساب')),
+              ),
+            ],
+      );
+    paintA(false);
+    document.addEventListener('visibilitychange', () => {
+      if (!clicked) return;
+      if (document.visibilityState === 'hidden') away = true;
+      else if (away) paintA(true);
+    });
+    cardA = h('section.bmf-card.is-gold', { 'aria-label': 'تأكيد الرقم على واتساب' }, body);
+  }
+
+  // البطاقة ب: احفظي صفحة طلبك
+  let cardB = null;
+  if (portal) {
+    const shareText = `صفحة طلبي عند ${orgName()}: ${portal}`;
+    const shareHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    const live = h('span.bmf-sr', { 'aria-live': 'polite' });
+    const copyBtn = h('button.bmf-btn.bmf-btn-text', { type: 'button' }, ic('copy', 18), h('span', 'نسخ الرابط'));
+    copyBtn.addEventListener('click', async () => {
+      let ok = false;
+      try {
+        await navigator.clipboard.writeText(portal);
+        ok = true;
+      } catch {
+        try {
+          const tmp = h('textarea', { style: 'position:fixed;opacity:0;inset-block-start:0', readonly: true }, portal);
+          document.body.append(tmp);
+          tmp.select();
+          ok = document.execCommand('copy');
+          tmp.remove();
+        } catch {
+          ok = false;
+        }
+      }
+      mount(copyBtn, ic(ok ? 'check' : 'copy', 18), h('span', ok ? 'اتنسخ' : 'نسخ الرابط'));
+      live.textContent = ok ? 'اتنسخ الرابط' : '';
+      setTimeout(() => mount(copyBtn, ic('copy', 18), h('span', 'نسخ الرابط')), 2500);
+    });
+    const shareBtn = h('a.bmf-btn.bmf-btn-outline.bmf-btn-block', { href: shareHref, target: '_blank', rel: 'noopener noreferrer' }, ic('share', 20), h('span', g('ابعت{ي} الرابط لنفسك')));
+    shareBtn.addEventListener('click', async (e) => {
+      if (typeof navigator.share !== 'function') return;
+      e.preventDefault();
+      try {
+        await navigator.share({ text: shareText });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        window.open(shareHref, '_blank', 'noopener');
+      }
+    });
+    const savedLine = h('p.bmf-note', { hidden: !savedHere }, 'اتحفظت كمان على الموبايل ده. ');
+    const forget = h(
+      'button.bmf-btn.bmf-btn-text.bmf-small-link',
+      {
+        type: 'button',
+        hidden: !savedHere,
+        onClick: () => {
+          forgetSaved();
+          savedLine.hidden = false;
+          mount(savedLine, 'اتمسحت من الموبايل ده.');
+          forget.hidden = true;
+          savedLine.setAttribute('role', 'status');
+          clearAllDrafts();
+        },
+      },
+      g('مش موبايلك؟ امسح{ي}ها'),
+    );
+    cardB = h(
+      'section.bmf-card',
+      { 'aria-labelledby': 'bmf-save-title' },
+      h('h2', { id: 'bmf-save-title' }, g('احفظ{ي} صفحة طلبك')),
+      h('p.bmf-card-text', g('من الصفحة دي هتعرف{ي} كل جديد، وتبعت{ي} الورق.')),
+      h(
+        'a.bmf-btn.bmf-btn-block.bmf-open-portal',
+        { href: portal, class: confirmUrl ? 'bmf-btn-outline' : 'bmf-btn-primary bmf-btn-lg' },
+        h('span', g('افتح{ي} صفحة طلبك')),
+        ic('arrowLeft', 20),
+      ),
+      shareBtn,
+      copyBtn,
+      live,
+      h('p.bmf-note', g('ابعت{ي}ه لنفسك بس، مش لحد تاني.')),
+      savedLine,
+      forget,
+    );
+  }
+
+  const days = Math.max(1, Number(res.eta_review_days) || 2);
+  const next = h(
+    'section.bmf-next',
+    { 'aria-labelledby': 'bmf-next-title' },
+    h('h2', { id: 'bmf-next-title' }, 'هيحصل إيه بعد كده؟'),
+    h(
+      'ol',
+      h('li', `فريقنا هيقرا طلبك — غالبًا خلال ${countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
+      h('li', 'ممكن نطلب منك ورقة أو معلومة.'),
+      h('li', `محامي هيدرس مشكلتك، وهنبعتلك الرد ${confirmUrl ? 'على واتساب وعلى صفحتك' : 'على صفحتك'}.`),
+    ),
+  );
+
+  const num = refNumber(ref);
+  // رقم واحد تقوله في التليفون (B91-21): «طلب رقم 29» بدل تعليمتين متتاليتين بقيمتين مختلفتين
+  const fine = h(
+    'div.bmf-fine',
+    h('p', 'رقم طلبك: ', h('span.bmf-ref.bmf-ltr', ref), num ? '' : g(' — قول{ي}ه لو كلمت{ي}نا.')),
+    num && h('p', g(`لو كلمت{ي}نا قول{ي}: طلب رقم ${num}`)),
+    org.phone &&
+      h('p', g('لو حد طلب منك فلوس باسمنا، بلغ{ي}نا فورًا: '), h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone)),
+  );
+
   mount(
     root,
     h(
-      'section.intake-card.success-card',
+      'section.bmf-success',
       { 'aria-labelledby': 'success-title' },
-      h('span.success-icon', icon('check', { size: 36 })),
+      h('span.bmf-done-icon', ic('check', 36)),
       heading,
-      h(
-        'p.muted',
-        `شكرًا لك${firstName(name) ? ` يا ${firstName(name)}` : ''}. سيراجع فريق ${orgName()} طلبك ويتواصل معك عبر واتساب أو الهاتف بعد المراجعة.`,
-      ),
-      ref &&
-        h(
-          'div.ref-box',
-          h('span.ref-label', 'رقم طلبك'),
-          codeTag(ref, { className: 'code-lg' }),
-          copyButton(ref, 'نسخ الرقم', { variant: 'secondary' }),
-        ),
-      ref && h('p', h('strong', 'احتفظ برقم طلبك؛ '), res && res.whatsapp_url ? 'ستحتاج إليه عند التواصل معنا عبر واتساب أو الهاتف.' : 'ستحتاج إليه عند التواصل معنا عبر الهاتف.'),
-      (portal || (res && res.whatsapp_url)) &&
-        h(
-          'div.success-portal',
-          portal && h('strong', 'تابع طلبك وأرسل مستنداتك من رابطك الخاص'),
-          portal && h('div.success-portal-link', h('code', { title: portal }, portal), copyButton(portal, 'نسخ الرابط', { variant: 'secondary' })),
-          h(
-            'div.cta-row',
-            portal && button('فتح صفحة المتابعة', { variant: 'primary', size: 'lg', icon: 'upload', href: portal }),
-            res && res.whatsapp_url && button('أكمل عبر واتساب', { variant: 'whatsapp', size: 'lg', icon: 'whatsapp', href: res.whatsapp_url, target: '_blank' }),
-          ),
-          portal &&
-            h(
-              'p.success-warning',
-              icon('lock', { size: 16 }),
-              // لا وعد بالمتابعة «برقم الطلب» من /portal: الصفحة لا تقبل رقم الطلب، ولا يصل رمز واتساب لرقم جاء من الموقع فقط
-              // قبل أن يتحقق الفريق منه. طريق استعادة الرابط الوحيد هو التواصل مع المؤسسة بذكر رقم الطلب.
-              h(
-                'span',
-                `هذا الرابط خاص بك وحدك؛ احفظه ولا تشاركه مع أحد. إن فقدته فراسلنا أو اتصل بنا واذكر رقم طلبك${ref ? ` ${ltr(ref)}` : ''} لنرسل لك رابطًا جديدًا.`,
-              ),
-            ),
-        ),
-      h('h3', 'ماذا يحدث الآن؟'),
-      h(
-        'ol.success-steps',
-        successStep(1, 'استلمنا طلبك', ref ? `سُجّل طلبك برقم ${ref}.` : 'سُجّل طلبك لدينا.', true),
-        successStep(2, 'يراجع فريقنا طلبك', 'نحدد نوع المسألة وأولويتها، وقد نطلب منك معلومة أو مستندًا ناقصًا.'),
-        successStep(3, 'محامٍ مختص يدرس حالتك', 'يطّلع المحامي على ما يلزم فقط، ولا يرى رقم هاتفك.'),
-        successStep(4, 'يصلك الرد من المؤسسة', `يُراجَع الرد ويُعتمد من ${orgName()} قبل إرساله إليك.`),
-      ),
-      h('div.cta-row', button('العودة إلى الصفحة الرئيسية', { variant: 'ghost', icon: 'home', href: '/' })),
+      h('p.bmf-thanks', who ? `شكرًا يا ${who}.` : 'شكرًا.'),
+      h('p.bmf-reassure', ic('shield', 20), h('span', 'الخدمة مجانية، ومحدش هيطلب منك فلوس.')),
+      cardA,
+      cardB,
+      next,
+      fine,
     ),
   );
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'instant' });
   heading.focus({ preventScroll: true });
 }
 
-// ───────────── النموذج المنظم ─────────────
+// ───────── الموقع قيد التجهيز ─────────
 
-function areaChoices() {
-  return [...areaOptions(), { value: UNSURE, label: 'لست متأكدًا' }];
-}
-
-function buildForm() {
-  const f = form(
-    [
-      { name: 'name', label: 'الاسم', required: true, autocomplete: 'name', maxLength: 120, placeholder: 'الاسم الذي تحب أن نناديك به' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone', required: true, hint: 'يُفضَّل أن يكون عليه واتساب لنتواصل معك بسهولة' },
-      { name: 'email', label: 'البريد الإلكتروني', type: 'email', hint: 'اختياري' },
-      { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), placeholder: '— اختر المحافظة —' },
-      {
-        name: 'legal_area',
-        label: 'نوع المسألة القانونية',
-        type: 'select',
-        options: areaChoices(),
-        placeholder: '— اختر نوع المسألة —',
-        hint: 'إن لم تكن متأكدًا اختر «لست متأكدًا» وسنصنفها نحن',
-        full: true,
-      },
-      {
-        name: 'description',
-        label: 'اشرح مشكلتك',
-        type: 'textarea',
-        required: true,
-        rows: 7,
-        minLength: MIN_DESC,
-        maxLength: MAX_DESC,
-        placeholder: 'ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟ وهل هناك موعد جلسة أو إنذار قريب؟',
-        hint: 'كلما كانت التفاصيل أوضح، كان الرد أدق وأسرع.',
-      },
-      {
-        name: 'documents',
-        label: 'المستندات',
-        type: 'file',
-        multiple: true,
-        maxFiles: MAX_FILES,
-        maxBytes: MAX_BYTES,
-        hint: 'اختياري: صور العقود أو الإيصالات أو الأحكام أو شهادات الوفاة أو أي مستند متعلق بالمسألة.',
-      },
-      ...beneficiaryFields(),
-      {
-        name: 'consent',
-        type: 'checkbox',
-        required: true,
-        label: 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة وفق سياسة الخصوصية',
-        hint: settings.privacy_notice,
-      },
-    ],
-    {
-      values: { ...draft, ...beneficiaryToValues(draft.beneficiary) },
-      submitLabel: 'إرسال الطلب',
-      submitIcon: 'send',
-      onSubmit: async (values) => {
-        const fileNo = toLatinDigits(String(values.b_foundation_file_number || '')).trim();
-        if (fileNo && !FILE_NO_RE.test(fileNo)) {
-          f.el.querySelector('.benef-section')?.setAttribute('open', '');
-          const e = new Error(FILE_NO_ERROR);
-          e.details = { fields: { b_foundation_file_number: FILE_NO_ERROR } };
-          throw e;
-        }
-        syncFromForm(values);
-        await submitIntake(draft, 'form');
-      },
-    },
-  );
-  f.el.querySelector('button[type=submit]')?.classList.add('btn-lg');
-
-  // بيانات الأسرة في قسم قابل للطي قبل الموافقة
-  const wraps = B_KEYS.map((k) => f.control(`b_${k}`)?.wrap).filter(Boolean);
-  const consentWrap = f.control('consent')?.wrap;
-  const filled = Boolean(beneficiaryPayload(draft.beneficiary));
-  const section = h(
-    'details.benef-section',
-    { open: filled },
-    h(
-      'summary',
-      h('span.benef-icon', { 'aria-hidden': 'true' }, icon('users', { size: 22 })),
-      h('span.benef-summary-text', h('strong', 'بيانات الأسرة (اختيارية)'), h('span', 'للأرامل وأولياء أمور الأيتام ومستفيدي برامج المؤسسة')),
-      h('span.benef-chevron', { 'aria-hidden': 'true' }, icon('chevronDown', { size: 20 })),
-    ),
-    h('div.benef-body', h('p.benef-note', icon('info', { size: 16 }), h('span', BENEF_NOTE)), h('div.form-grid', wraps)),
-  );
-  if (consentWrap) consentWrap.before(section);
-  else f.el.querySelector('.form-grid')?.append(section);
-
-  // رابط سياسة الخصوصية بجوار الموافقة
-  consentWrap?.querySelector('.field-hint')?.append(' ', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'اقرأ سياسة الخصوصية'));
-  return f;
-}
-
-function syncFromForm(values) {
-  for (const [k, v] of Object.entries(values)) if (!k.startsWith('b_')) draft[k] = v;
-  draft.beneficiary = beneficiaryFromValues(values);
-}
-
-// ───────────── المحادثة خطوة بخطوة ─────────────
-
-function createWizard() {
-  let step = 0;
-  const el = h('div.wizard');
-  const live = h('p.sr-only', { 'aria-live': 'polite' });
-
-  const navButtons = ({ onNext, nextLabel = 'التالي', skip, nextIcon = 'arrowLeft' } = {}) => {
-    const next = onNext ? button(nextLabel, { variant: 'primary', iconEnd: nextIcon, onClick: onNext }) : null;
-    return {
-      next,
-      row: h(
-        'div.wizard-actions',
-        step > 0 ? button('رجوع', { variant: 'ghost', icon: 'arrowRight', onClick: back }) : h('span'),
-        h('div.btn-group', skip && button(skip.label, { variant: 'secondary', onClick: skip.onClick }), next),
-      ),
-    };
-  };
-
-  const errorLine = () => {
-    const e = h('p.field-error', { hidden: true, role: 'alert' }, icon('alert', { size: 14 }), h('span'));
-    e.show = (msg) => {
-      e.lastChild.textContent = msg || '';
-      e.hidden = !msg;
-    };
-    return e;
-  };
-
-  function advance() {
-    step = Math.min(step + 1, STEPS.length - 1);
-    render(true);
-  }
-
-  function back() {
-    step = Math.max(step - 1, 0);
-    render(true);
-  }
-
-  // سؤال بإجابة نصية قصيرة
-  function textComposer({ key, type = 'text', label, placeholder, autocomplete, validate, normalize }) {
-    const input = h('input.input', {
-      type,
-      id: `wz-${key}`,
-      value: draft[key] || '',
-      placeholder,
-      autocomplete,
-      dir: type === 'tel' ? 'ltr' : null,
-      inputmode: type === 'tel' ? 'tel' : null,
-    });
-    const err = errorLine();
-    const submit = () => {
-      const v = input.value.trim();
-      const msg = validate(v);
-      if (msg) {
-        err.show(msg);
-        input.setAttribute('aria-invalid', 'true');
-        input.focus();
-        return;
-      }
-      draft[key] = normalize ? normalize(v) : v;
-      advance();
-    };
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        submit();
-      }
-    });
-    const { row } = navButtons({ onNext: submit });
-    return { node: [h('label.field-label', { htmlFor: input.id }, label), input, err, row], focus: input };
-  }
-
-  const STEPS = [
-    {
-      key: 'name',
-      ask: () => `أهلًا بك في ${orgName()}. سنطرح عليك بعض الأسئلة القصيرة لنفهم مشكلتك جيدًا. ما اسمك؟`,
-      answer: () => draft.name,
-      composer: () =>
-        textComposer({
-          key: 'name',
-          label: 'اسمك',
-          placeholder: 'الاسم الذي تحب أن نناديك به',
-          autocomplete: 'name',
-          validate: (v) => (v.length < 2 ? 'اكتب اسمك من فضلك' : null),
-        }),
-    },
-    {
-      key: 'phone',
-      ask: () => `تشرّفنا بك${firstName(draft.name) ? ` يا ${firstName(draft.name)}` : ''}. ما رقم موبايلك؟ يُفضَّل أن يكون عليه واتساب لنتواصل معك بسهولة.`,
-      answer: () => draft.phone,
-      composer: () =>
-        textComposer({
-          key: 'phone',
-          type: 'tel',
-          label: 'رقم الموبايل',
-          placeholder: '01XXXXXXXXX',
-          autocomplete: 'tel',
-          validate: (v) => (normalizeEgPhone(v) ? null : PHONE_ERROR),
-          normalize: (v) => normalizeEgPhone(v),
-        }),
-    },
-    {
-      key: 'governorate',
-      ask: () => 'في أي محافظة تقيم؟',
-      answer: () => draft.governorate || 'أفضّل عدم التحديد',
-      composer: () => {
-        const pick = (g) => {
-          draft.governorate = g;
-          advance();
-        };
-        const quick = h(
-          'div.chip-select',
-          { role: 'group', 'aria-label': 'محافظات شائعة' },
-          QUICK_GOVS.filter((g) => governorateOptions().some((o) => o.value === g)).map((g) =>
-            h('button.chip-toggle', { type: 'button', 'aria-pressed': String(draft.governorate === g), onClick: () => pick(g) }, icon('check', { size: 14 }), h('span', g)),
-          ),
-        );
-        const select = h(
-          'select.input',
-          { id: 'wz-gov', value: draft.governorate || '' },
-          h('option', { value: '' }, '— محافظة أخرى —'),
-          governorateOptions().map((o) => h('option', { value: o.value }, o.label)),
-        );
-        const err = errorLine();
-        const { row } = navButtons({
-          onNext: () => {
-            if (!select.value) {
-              err.show('اختر محافظتك من القائمة أو اضغط «تخطَّ»');
-              return;
-            }
-            pick(select.value);
-          },
-          skip: { label: 'تخطَّ', onClick: () => pick(null) },
-        });
-        return {
-          node: [quick, h('label.field-label', { htmlFor: 'wz-gov' }, 'أو اختر من كل المحافظات'), h('div.select-wrap', select), err, row],
-          focus: quick.querySelector('button'),
-        };
-      },
-    },
-    {
-      key: 'legal_area',
-      ask: () => 'ما نوع المسألة القانونية؟ اختر الأقرب لمشكلتك، وإن لم تكن متأكدًا فلا بأس.',
-      answer: () => areaText(draft.legal_area),
-      composer: () => {
-        const group = h(
-          'div.chip-select',
-          { role: 'group', 'aria-label': 'نوع المسألة القانونية' },
-          areaChoices().map((o) =>
-            h(
-              'button.chip-toggle',
-              {
-                type: 'button',
-                'aria-pressed': String(draft.legal_area === o.value),
-                onClick: () => {
-                  draft.legal_area = o.value;
-                  advance();
-                },
-              },
-              icon('check', { size: 14 }),
-              h('span', o.label),
-            ),
-          ),
-        );
-        const { row } = navButtons();
-        return { node: [group, row], focus: group.querySelector('[aria-pressed="true"]') || group.querySelector('button') };
-      },
-    },
-    {
-      key: 'description',
-      ask: () => 'احكِ لنا المشكلة بالتفصيل: ماذا حدث؟ ومتى؟ ومن الأطراف؟ وما الذي تريد الوصول إليه؟ وهل هناك موعد جلسة أو إنذار قريب؟',
-      answer: () => draft.description,
-      composer: () => {
-        const ta = h('textarea.input', { id: 'wz-desc', rows: 6, maxlength: MAX_DESC, value: draft.description || '', placeholder: 'اكتب التفاصيل هنا…' });
-        const counter = h('span.char-count', { 'aria-live': 'polite' });
-        const update = () => {
-          const n = ta.value.trim().length;
-          counter.textContent = n < MIN_DESC ? `عدد الأحرف: ${n} — الحد الأدنى ${count(MIN_DESC, 'char')}` : `عدد الأحرف: ${n}`;
-          counter.classList.toggle('is-ok', n >= MIN_DESC);
-        };
-        ta.addEventListener('input', update);
-        update();
-        const err = errorLine();
-        const { row } = navButtons({
-          onNext: () => {
-            const v = ta.value.trim();
-            if (v.length < MIN_DESC) {
-              err.show(`اكتب ${count(MIN_DESC, 'char')} على الأقل حتى نفهم مشكلتك`);
-              ta.focus();
-              return;
-            }
-            draft.description = v;
-            advance();
-          },
-        });
-        return { node: [h('label.field-label', { htmlFor: 'wz-desc' }, 'تفاصيل المشكلة'), h('div.textarea-wrap', ta, counter), err, row], focus: ta };
-      },
-    },
-    {
-      key: 'documents',
-      ask: () => 'هل لديك مستندات تريد إرفاقها؟ مثل عقد أو إيصال أو حكم أو شهادة وفاة. هذه الخطوة اختيارية ويمكنك إرسالها لاحقًا.',
-      answer: () => filesText(draft.documents || []),
-      composer: () => {
-        let nav = null;
-        const fi = fileInput({
-          maxFiles: MAX_FILES,
-          maxBytes: MAX_BYTES,
-          onChange: (files) => {
-            draft.documents = files;
-            mount(nav.next, h('span.btn-label', files.length ? 'التالي' : 'تخطَّ، لا توجد مستندات'), icon('arrowLeft', { size: 18 }));
-          },
-        });
-        fi.setFiles(draft.documents || []);
-        nav = navButtons({
-          onNext: () => {
-            draft.documents = fi.getFiles();
-            advance();
-          },
-          nextLabel: (draft.documents || []).length ? 'التالي' : 'تخطَّ، لا توجد مستندات',
-        });
-        return { node: [fi.el, nav.row], focus: fi.input };
-      },
-    },
-    {
-      key: 'beneficiary',
-      ask: () => 'سؤال اختياري: هل تحب أن تخبرنا ببعض البيانات عن أسرتك؟ تساعدنا على ترتيب الأولويات وتحديد الاستحقاق، ويمكنك تخطي هذه الخطوة.',
-      answer: () => beneficiaryText(draft.beneficiary) || 'تخطّيت هذه الخطوة',
-      composer: () => {
-        const mini = form(beneficiaryFields('w_'), { values: beneficiaryToValues(draft.beneficiary, 'w_'), footer: false, className: 'benef-body' });
-        const save = () => {
-          draft.beneficiary = beneficiaryFromValues(mini.getValues(), 'w_');
-        };
-        const { row } = navButtons({
-          onNext: () => {
-            const fileNo = toLatinDigits(String(mini.getValues().w_foundation_file_number || '')).trim();
-            if (fileNo && !FILE_NO_RE.test(fileNo)) {
-              mini.setErrors({ w_foundation_file_number: FILE_NO_ERROR });
-              return;
-            }
-            save();
-            advance();
-          },
-          skip: {
-            label: 'تخطَّ',
-            onClick: () => {
-              draft.beneficiary = {};
-              advance();
-            },
-          },
-        });
-        return { node: [h('p.benef-note', icon('info', { size: 16 }), h('span', BENEF_NOTE)), mini.el, row], focus: mini.el.querySelector('select') };
-      },
-    },
-    {
-      key: 'consent',
-      ask: () => `قبل الإرسال، نطمئنك: ${settings.privacy_notice || 'بياناتك تُستخدم فقط لتقديم الخدمة القانونية المطلوبة.'}`,
-      answer: () => 'أوافق على استخدام بياناتي لتقديم الخدمة',
-      composer: () => {
-        const cb = h('input', { type: 'checkbox', id: 'wz-consent', checked: Boolean(draft.consent) });
-        const err = errorLine();
-        const { row } = navButtons({
-          onNext: () => {
-            if (!cb.checked) {
-              err.show('يجب الموافقة للمتابعة');
-              cb.focus();
-              return;
-            }
-            draft.consent = true;
-            advance();
-          },
-        });
-        cb.addEventListener('change', () => (draft.consent = cb.checked));
-        return {
-          node: [
-            h('label.check.check-single', { htmlFor: 'wz-consent' }, cb, h('span', 'أوافق على استخدام بياناتي لتقديم الخدمة القانونية المطلوبة وفق سياسة الخصوصية')),
-            h('p.field-hint', h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'اقرأ سياسة الخصوصية')),
-            err,
-            row,
-          ],
-          focus: cb,
-        };
-      },
-    },
-    {
-      key: 'review',
-      ask: () => 'راجع بياناتك قبل الإرسال. يمكنك الضغط على «رجوع» لتعديل أي إجابة.',
-      answer: () => '',
-      composer: () => {
-        const alertHost = h('div');
-        const docs = draft.documents || [];
-        const family = beneficiaryText(draft.beneficiary);
-        const summary = kv(
-          [
-            ['الاسم', draft.name],
-            ['رقم الموبايل', h('span.ltr', draft.phone)],
-            ['المحافظة', draft.governorate || '—'],
-            ['نوع المسألة', areaText(draft.legal_area)],
-            ['المستندات', docs.length ? filesText(docs) : 'لا توجد'],
-            ['بيانات الأسرة', family || 'لم تُذكر'],
-            ['التفاصيل', h('span.pre', draft.description)],
-          ],
-          { className: 'review-list' },
-        );
-        const sendBtn = button('إرسال الطلب', { variant: 'primary', icon: 'send', size: 'lg' });
-        sendBtn.addEventListener('click', async () => {
-          if (sendBtn.classList.contains('is-loading')) return;
-          mount(alertHost);
-          setBusy(sendBtn, true);
-          try {
-            await submitIntake(draft, 'guided');
-          } catch (err) {
-            mount(alertHost, alertBox(errorMessage(err), 'danger'));
-          } finally {
-            setBusy(sendBtn, false);
-          }
-        });
-        const row = h(
-          'div.wizard-actions',
-          button('رجوع', { variant: 'ghost', icon: 'arrowRight', onClick: back }),
-          h('div.btn-group', sendBtn),
-        );
-        return { node: [summary, alertHost, row], focus: sendBtn };
-      },
-    },
-  ];
-
-  const bot = (text) =>
-    h('div.msg.msg-start', h('div.msg-bubble', h('div.msg-meta', h('span.msg-author', orgName())), h('div.msg-body', text)));
-  const mine = (text) => h('div.msg.msg-end', h('div.msg-bubble', h('div.msg-body', { dir: 'auto' }, text)));
-
-  function render(focus = false) {
-    const thread = h('div.chat', { role: 'log', 'aria-label': 'المحادثة' });
-    for (let i = 0; i < step; i += 1) {
-      thread.append(bot(STEPS[i].ask()));
-      const a = STEPS[i].answer();
-      if (a) thread.append(mine(a));
-    }
-    const current = STEPS[step];
-    thread.append(bot(current.ask()));
-    const { node, focus: focusEl } = current.composer();
-    mount(
-      el,
-      h(
-        'div.wizard-progress',
-        h('span.nowrap', `الخطوة ${step + 1} من ${STEPS.length}`),
-        progressBar(step + 1, STEPS.length, 'primary', { label: 'تقدم الإجابة على الأسئلة', visibleLabel: false }),
-      ),
-      thread,
-      h('div.wizard-composer', node),
-      live,
-    );
-    live.textContent = current.ask();
-    thread.scrollTop = thread.scrollHeight;
-    if (focus && focusEl) focusEl.focus({ preventScroll: true });
-    if (focus) el.querySelector('.wizard-composer').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
-
-  return { el, render };
-}
-
-// ───────────── التهيئة ─────────────
-
-function renderIntake() {
-  const params = new URLSearchParams(window.location.search);
-  const initial = params.get('mode') === 'guided' ? 'guided' : 'form';
-  // ?area=INH من بطاقات المجالات في الصفحة الرئيسية (يُقبل فقط إن كان مجالًا معرّفًا)
-  const area = String(params.get('area') || '').toUpperCase();
-  if (area && !draft.legal_area && areaOptions().some((o) => o.value === area)) draft.legal_area = area;
-
-  const formApi = buildForm();
-  const wizard = createWizard();
-
-  const t = tabs(
-    [
-      { key: 'form', label: 'نموذج منظم', icon: 'fileText', render: () => formApi.el },
-      {
-        key: 'guided',
-        label: 'احكِ مشكلتك خطوة بخطوة',
-        icon: 'message',
-        render: () => {
-          wizard.render(false);
-          return wizard.el;
-        },
-      },
-    ],
-    {
-      active: initial,
-      className: 'tabs-pills',
-      onChange: (key, prev) => {
-        if (prev === 'form') syncFromForm(formApi.getValues());
-        if (key === 'form') {
-          formApi.setValues({ ...draft, ...beneficiaryToValues(draft.beneficiary) });
-          const sec = formApi.el.querySelector('.benef-section');
-          if (sec && beneficiaryPayload(draft.beneficiary)) sec.open = true;
-        }
-        if (key === 'guided') wizard.render(true);
-      },
-    },
-  );
-
-  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أود الحصول على استشارة قانونية.`);
-  mount(
-    root,
-    h(
-      'div.intake-head',
-      h('h1', 'قدّم طلب دعم قانوني'),
-      h(
-        'p',
-        `اكتب لنا مشكلتك بالطريقة التي تناسبك، وسيراجعها فريق ${orgName()} ثم يحيلها إلى محامٍ مختص. ويمكنك المتابعة لاحقًا ${wa ? 'من الموقع أو من واتساب' : 'من الموقع برابط المتابعة الخاص بك'} على نفس الطلب.`,
-      ),
-      h(
-        'ul.intake-trust',
-        h('li', icon('checkCircle', { size: 16 }), 'دون مقابل للمستحقين'),
-        h('li', icon('lock', { size: 16 }), 'المحامي لا يرى رقم هاتفك'),
-        h('li', icon('link', { size: 16 }), 'رقم طلب ورابط متابعة فور الإرسال'),
-      ),
-      wa &&
-        h(
-          'p.wa-alt',
-          icon('whatsapp', { size: 18 }),
-          h('span', 'تفضّل واتساب؟'),
-          h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'راسلنا مباشرة'),
-        ),
-      // بلا رقم واتساب مضبوط: الهاتف بديلًا (لا يظهر أي رابط واتساب)
-      !wa &&
-        site.org_phone &&
-        h(
-          'p.wa-alt',
-          icon('phone', { size: 18 }),
-          h('span', 'تفضّل الاتصال الهاتفي؟'),
-          h('a', { href: `tel:${site.org_phone_e164 || site.org_phone}`, dir: 'ltr' }, site.org_phone),
-        ),
-    ),
-    h('section.intake-card', { 'aria-label': 'نموذج الطلب' }, t, honeypot),
-  );
-}
-
-/**
- * «الموقع قيد التجهيز»: المنصة في وضع الإعداد الأول (لم يُنشأ حساب مدير النظام بعد) فلا تستقبل الطلبات.
- * نعرض للمستفيد/ة رسالة واضحة ووسيلة تواصل بدل نموذج طويل ينتهي برسالة تقنية موجهة لمدير الخادم.
- */
 function preparingView() {
-  const wa = whatsappUrl(settings.whatsapp_number_digits, `مرحبًا ${orgName()}، أود الحصول على استشارة قانونية.`);
-  const phone = site.org_phone;
+  const wa = greetingWa();
+  const phone = org.phone;
   mount(
     root,
-    h('div.intake-head', h('h1', 'الموقع قيد التجهيز'), h('p', `نستعد لاستقبال طلبات الدعم القانوني عبر موقع ${orgName()} قريبًا.`)),
     h(
-      'section.intake-card.intake-preparing',
+      'section.bmf-card',
       { role: 'status' },
-      alertBox(
-        wa || phone ? 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا، أو تواصل معنا الآن وسيساعدك فريقنا.' : 'لا يستقبل الموقع الطلبات بعد. حاول مرة أخرى لاحقًا.',
-        'info',
-        { title: 'الخدمة قيد التجهيز', icon: 'clock' },
-      ),
-      h(
-        'div.row',
-        wa && button('راسلنا عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: wa, target: '_blank' }),
-        phone && button(`اتصل بنا: ${phone}`, { variant: wa ? 'secondary' : 'primary', icon: 'phone', href: `tel:${site.org_phone_e164 || phone}` }),
-      ),
+      h('h1', 'الموقع قيد التجهيز'),
+      h('p.bmf-card-text', `بنجهّز استقبال الطلبات على موقع ${orgName()}. ممكن تكلمينا دلوقتي وهنساعدك.`),
+      wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', 'كلمينا على واتساب')),
+      phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}` }, ic('phone', 20), h('span', 'اتصلي بينا: '), h('span.bmf-ltr', phone)),
     ),
   );
 }
+
+function errorView(retry) {
+  mount(
+    root,
+    h(
+      'section.bmf-card',
+      { role: 'alert' },
+      h('h1', 'الصفحة ما فتحتش'),
+      h('p.bmf-card-text', 'اتأكدي إن النت شغال وجربي تاني.'),
+      h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button', onClick: retry }, ic('refresh', 20), h('span', 'جربي تاني')),
+    ),
+  );
+}
+
+// ───────── استعادة المسودة ─────────
+
+async function restoreDraft() {
+  let d = null;
+  try {
+    d = await store.load();
+  } catch {
+    d = null;
+  }
+  if (!d) return false;
+  const vs = Array.isArray(d.voices) ? d.voices.filter((v) => v && v.blob instanceof Blob) : [];
+  const ps = Array.isArray(d.photos) ? d.photos.filter((p) => p && p.blob instanceof Blob) : [];
+  const meaningful = nonSpace(d.description) > 0 || vs.length || ps.length || String(d.name || '').trim() || String(d.phone || '').trim();
+  if (!meaningful) return false;
+  for (const k of ['description', 'name', 'phone']) if (typeof d[k] === 'string') state[k] = d[k].slice(0, MAX_DESC);
+  if (TOPICS.some((t) => t.key === d.topic)) state.topic = d.topic;
+  if (typeof d.governorate === 'string' && (org.governorates || []).includes(d.governorate)) state.governorate = d.governorate;
+  state.govOther = !!d.govOther;
+  if (RELATIONS.some((r) => r.value === d.relation)) state.relation = d.relation;
+  if (CHILDREN.some((c) => c.value === d.children)) state.children = d.children;
+  if (typeof d.sid === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(d.sid)) state.sid = d.sid;
+  if (typeof d.sentFp === 'string' && d.sentFp.length <= 40) state.sentFp = d.sentFp;
+  voiceEls = [];
+  for (const v of vs.slice(0, MAX_VOICES)) addRecorder({ blob: v.blob, seconds: Number(v.seconds) || 0 });
+  if (ps.length) {
+    await loadUpload();
+    ensurePicker().setFiles(
+      ps.slice(0, MAX_PHOTOS).map((p) => {
+        if (p.blob instanceof File) return p.blob;
+        try {
+          return new File([p.blob], p.name || 'ورقة.jpg', { type: p.blob.type });
+        } catch {
+          return p.blob;
+        }
+      }),
+    );
+  }
+  const step = [1, 2, 3].includes(d.step) ? d.step : 1;
+  banner = h(
+    'section.bmf-banner',
+    { role: 'status' },
+    h('p', 'كنتي بدأتي طلب قبل كده.'),
+    d._blobsLost && h('p.bmf-banner-note', 'الصور والتسجيل محتاجين يتعملوا تاني.'),
+    h(
+      'div.bmf-banner-actions',
+      h('button.bmf-btn.bmf-btn-primary', { type: 'button', onClick: () => dismissBanner() }, 'كمّلي'),
+      h(
+        'button.bmf-btn.bmf-btn-outline',
+        {
+          type: 'button',
+          onClick: async () => {
+            await store.clear();
+            voiceEls.forEach((v) => v.destroy());
+            voiceEls = [];
+            picker = null;
+            Object.assign(state, { description: '', topic: null, name: '', phone: '', governorate: null, govOther: false, relation: null, children: null, consent: false, sid: newSubmissionId(), sentFp: null });
+            preselectArea();
+            banner = null;
+            show(1, { push: false });
+          },
+        },
+        'ابدئي من الأول',
+      ),
+    ),
+  );
+  return step;
+}
+
+function dismissBanner() {
+  banner?.remove();
+  banner = null;
+  current?.heading.focus();
+}
+
+// ?topic=custody (مفاتيح بطاقات «بنساعد في إيه؟» في الصفحة الرئيسية) يحدد الموضوع بدقة حين يشترك موضوعان في مجال واحد
+const TOPIC_ALIASES = { inheritance: 'inh', pensions: 'pen', housing: 'rent', documents: 'papers' };
+
+function preselectArea() {
+  if (state.topic) return;
+  const params = new URLSearchParams(window.location.search);
+  const rawTopic = String(params.get('topic') || '').toLowerCase();
+  const byTopic = TOPICS.find((x) => x.key === (TOPIC_ALIASES[rawTopic] || rawTopic));
+  if (byTopic && (!byTopic.area || areaCodes.has(byTopic.area))) {
+    state.topic = byTopic.key;
+    return;
+  }
+  // ?area=INH من بطاقات المجالات (يُقبل فقط إن كان مجالًا معرّفًا)
+  const area = String(params.get('area') || '').toUpperCase();
+  if (!area || !areaCodes.has(area)) return;
+  const t = TOPICS.find((x) => x.area === area);
+  if (t) state.topic = t.key;
+}
+
+// ───────── التهيئة ─────────
 
 async function init() {
   captureAttribution();
   initSiteChrome();
-  mount(root, loading('جارٍ تحميل النموذج…'));
   let meta;
   try {
-    meta = setMeta(await api.get('/meta'));
-    settings = meta.settings || {};
-    site = meta.site || {};
-    if (site.site_name) document.title = `قدّم طلب دعم قانوني — ${site.site_name}`;
-  } catch (err) {
-    mount(root, errorState(err, init));
+    meta = await loadMeta();
+  } catch {
+    errorView(init);
     return;
   }
+  org = meta;
+  areaCodes = new Set((meta.areas || []).map((a) => a.code));
   if (meta.setup_required) {
     preparingView();
     return;
   }
-  renderIntake();
+  const step = await restoreDraft();
+  preselectArea();
+  try {
+    // نحن نرجع لأول الصفحة مع كل خطوة؛ استعادة المتصفح لمكان التمرير القديم تنزل شاشة النجاح أو الخطوة لتحت
+    history.scrollRestoration = 'manual';
+    history.replaceState({ bmfStep: 1 }, '', window.location.href);
+  } catch {
+    /* لا شيء */
+  }
+  if (step && step > 1) {
+    // نعيد بناء سجل الخطوات حتى يعمل زر الرجوع في الموبايل
+    for (let s = 2; s <= step; s += 1) {
+      try {
+        history.pushState({ bmfStep: s }, '', window.location.href);
+      } catch {
+        /* لا شيء */
+      }
+    }
+  }
+  show(step || 1, { push: false, focus: false });
+  // نجهّز وحدة التصوير والإرسال في الخلفية بعد ظهور الخطوة الأولى
+  setTimeout(() => loadUpload().catch(() => {}), 0);
 }
 
 init();

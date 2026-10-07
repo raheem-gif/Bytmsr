@@ -1,0 +1,5 @@
+[
+  ["users", "alert_whatsapp", "INTEGER NOT NULL DEFAULT 0"],
+  ["sessions", "remember", "INTEGER NOT NULL DEFAULT 0"],
+  ["sessions", "idle_hours", "REAL"]
+]

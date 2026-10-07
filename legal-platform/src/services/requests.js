@@ -2,12 +2,17 @@
 // المحامي لا يتواصل مع العميل ولا يفتح الملف لزميل بنفسه: كل طلب يمر بالإدارة أولًا.
 import { nowIso, parseJson, badRequest, notFound, conflict, v, truncate, arabicCount, AR_UNITS } from '../util.js';
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
+import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
+// v9.1 l-work: أنواع طلبات المحامي الجديدة (مهلة، سؤال للإدارة) و«أحتاج هذا أيضًا» وبنود المستندات
+import { migrateInfoRequestKinds, LAWYER_REQUEST_KINDS, ADMIN_ONLY_KINDS } from './v91-l-work.js';
+import { cairoParts, cairoLocalToIso, cairoDayKey, arabicDate, arabicTime, addDays } from '../util.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const COUNSEL_ROLE = { second_opinion: 'second_opinion', specialist_input: 'specialist', document_review: 'specialist', co_counsel: 'co_counsel' };
 
 export function createRequests(app) {
   const { db } = app;
+  migrateInfoRequestKinds(db); // v9.1 l-work: يقبل الجدول نوعي «طلب مهلة» و«سؤال للإدارة»
 
   function requireIr(id) {
     const r = db.get('SELECT * FROM info_requests WHERE id = ?', id);
@@ -30,8 +35,58 @@ export function createRequests(app) {
       const a = app.visibility.requireAssignment(assignmentId, lawyer);
       const c = app.cases.requireOpen(a.case_id);
       if (a.status === 'approved') throw conflict('تم اعتماد رأيك في هذا الملف بالفعل');
-      const kind = v.oneOf(body.kind, ENUMS.info_request_kind, 'نوع الطلب', { required: true });
-      const question = v.str(body.question, 'المطلوب', { required: true, min: 5, max: 3000 });
+      // v9.1 l-work: إعادة الإرسال الآمنة — نفس client_ref من نفس المحامي يعيد الطلب نفسه دون تكرار
+      const clientRef = v.str(body.client_ref, 'مرجع الطلب', { max: 80 });
+      if (clientRef) {
+        const prev = db.get('SELECT * FROM info_requests WHERE requested_by = ? AND client_ref = ?', lawyer.id, clientRef);
+        if (prev) {
+          if (prev.assignment_id !== a.id) throw conflict('مرجع الطلب مستخدم في ملف آخر');
+          return prev;
+        }
+      }
+      let kind = v.oneOf(body.kind, LAWYER_REQUEST_KINDS, 'نوع الطلب', { required: !body.duplicate_of_id });
+      let question = null;
+      let items = null;
+      let requestedDueAt = null;
+      let duplicateOf = null;
+      if (body.duplicate_of_id !== undefined && body.duplicate_of_id !== null && body.duplicate_of_id !== '') {
+        // «أحتاج هذا أيضًا»: طلب مرتبط بطلب قائم أُرسل للمستفيد/ة في نفس الملف، دون سؤاله مرة أخرى
+        const dupId = v.int(body.duplicate_of_id, 'الطلب القائم', { min: 1 });
+        const open = app.visibility.caseOpenRequests(a, lawyer).find((r) => r.id === dupId);
+        if (!open) throw badRequest('الطلب القائم غير متاح لك');
+        const orig = requireIr(dupId);
+        if (db.get("SELECT 1 FROM info_requests WHERE assignment_id = ? AND duplicate_of_id = ? AND status IN ('pending_admin','shared')", a.id, orig.id)) {
+          throw conflict('طلبت هذا بالفعل، وسيصلك الرد نفسه عند وصوله');
+        }
+        duplicateOf = orig;
+        kind = orig.kind;
+        // النص كما يراه هذا المحامي في «مطلوب بالفعل» (منقّى من اسم المستفيد/ة غير المتاح له ومن الأرقام والروابط)
+        question = `أحتاج هذا أيضًا: ${open.client_message || ''}${open.items && open.items.length ? ` (${open.items.join('، ')})` : ''}`.trim().slice(0, 3000);
+      } else if (kind === 'extension') {
+        if (!['assigned', 'in_progress', 'returned'].includes(a.status)) throw conflict('لا يمكن طلب مهلة بعد تقديم الرأي');
+        if (!a.due_at) throw badRequest('لا يوجد موعد تسليم محدد لهذا الإسناد');
+        requestedDueAt = svc.extensionDueAt(a, body);
+        if (requestedDueAt <= a.due_at) throw badRequest('اختر يومًا بعد موعد التسليم الحالي');
+        if (requestedDueAt > addDays(a.due_at, 60)) throw badRequest('أقصى مهلة يمكن طلبها 60 يومًا بعد الموعد الحالي');
+        const reason = v.str(body.reason, 'سبب المهلة', { max: 300 });
+        const note = v.str(body.note ?? body.question, 'ملاحظة', { max: 1000 });
+        question = [`مهلة حتى ${arabicDate(requestedDueAt)}، ${arabicTime(requestedDueAt)}`, reason, note].filter(Boolean).join(' — ');
+        if (db.get("SELECT 1 FROM info_requests WHERE assignment_id = ? AND kind = 'extension' AND status = 'pending_admin'", a.id)) {
+          throw conflict('لديك طلب مهلة عند الإدارة بالفعل');
+        }
+      } else if (kind === 'document' && body.items !== undefined && body.items !== null) {
+        // B91-16: المستندات المطلوبة بندًا بندًا (تظهر للمستفيد/ة قائمةً بعد موافقة الإدارة)
+        if (!Array.isArray(body.items)) throw badRequest('«المستندات المطلوبة» يجب أن تكون قائمة');
+        const labels = body.items.map((x) => String(x ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+        if (!labels.length) throw badRequest('اكتب مستندًا واحدًا على الأقل');
+        if (labels.length > 5) throw badRequest('الحد الأقصى 5 مستندات في الطلب الواحد');
+        for (const l of labels) if (l.length > 80) throw badRequest(`اسم المستند أطول من 80 حرفًا: «${truncate(l, 40)}»`);
+        items = labels.map((label) => ({ label }));
+        const reason = v.str(body.reason ?? body.question, 'سبب الطلب', { max: 2000 });
+        question = `مطلوب: ${labels.join('، ')}${reason ? `\n${reason}` : ''}`;
+      } else {
+        question = v.str(body.question, 'المطلوب', { required: true, min: 5, max: 3000 });
+      }
       const t = nowIso();
       const id = db.insert('info_requests', {
         case_id: c.id,
@@ -40,29 +95,52 @@ export function createRequests(app) {
         kind,
         question,
         status: 'pending_admin',
+        requested_due_at: requestedDueAt,
+        duplicate_of_id: duplicateOf ? duplicateOf.id : null,
+        items: items ? JSON.stringify(items) : null,
+        client_ref: clientRef,
         created_at: t,
         updated_at: t,
       });
       touchAssignment(a.id);
+      const kindLabel = duplicateOf ? `طلب مكرر (${LABELS.info_request_kind[kind]})` : LABELS.info_request_kind[kind];
       app.activity.log({
         case_id: c.id,
         actor: lawyer,
         type: 'info_request.created',
-        summary: `قدّم ${lawyer.name} ${LABELS.info_request_kind[kind]}: «${truncate(question, 120)}»`,
+        summary: `قدّم ${lawyer.name} ${kindLabel}: «${truncate(question, 120)}»`,
         data: { info_request_id: id },
       });
       app.notifications.notifyStaff(
-        { type: 'info_request.pending', title: `${LABELS.info_request_kind[kind]} من المحامي في الملف ${c.code}`, body: truncate(question, 160), link: `#/cases/${c.id}` },
+        { type: 'info_request.pending', title: `${kindLabel} من المحامي في الملف ${c.code}`, body: truncate(question, 160), link: `#/cases/${c.id}` },
         { caseManagerId: c.case_manager_id },
       );
-      app.ai.feedbackOnInfoRequest(c.id, question, lawyer);
+      if (!duplicateOf && (kind === 'document' || kind === 'information')) app.ai.feedbackOnInfoRequest(c.id, question, lawyer);
       return requireIr(id);
+    },
+
+    /**
+     * v9.1 l-work: موعد التسليم المطلوب في طلب المهلة. يقبل requested_due_date ('YYYY-MM-DD' بتوقيت القاهرة، بنفس ساعة
+     * الموعد الحالي) أو requested_due_at (ISO).
+     */
+    extensionDueAt(a, body) {
+      const day = typeof body.requested_due_date === 'string' ? body.requested_due_date.trim() : '';
+      if (day) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+        if (!m) throw badRequest('«حتى أي يوم؟» ليس تاريخًا صالحًا');
+        const p = cairoParts(a.due_at);
+        const iso = cairoLocalToIso(Number(m[1]), Number(m[2]), Number(m[3]), p.hour, p.minute);
+        if (cairoDayKey(iso) !== day) throw badRequest('«حتى أي يوم؟» ليس تاريخًا صالحًا');
+        return iso;
+      }
+      return v.iso(body.requested_due_at, 'حتى أي يوم؟', { required: true });
     },
 
     /** الإدارة تطلب من العميل مباشرة (أثناء الفرز أو بعده) */
     createInfoByStaff(caseId, actor, body) {
       const c = app.cases.requireOpen(caseId);
-      const kind = v.oneOf(body.kind, ENUMS.info_request_kind, 'نوع الطلب', { required: true });
+      // v9.1 l-work: الإدارة تطلب من المستفيد/ة معلومة أو مستندًا فقط (المهلة والسؤال للإدارة من المحامي وحده)
+      const kind = v.oneOf(body.kind, ENUMS.info_request_kind.filter((k) => !ADMIN_ONLY_KINDS.includes(k)), 'نوع الطلب', { required: true });
       const question = v.str(body.question, 'المطلوب', { required: true, min: 5, max: 3000 });
       const t = nowIso();
       const id = db.insert('info_requests', {
@@ -76,26 +154,39 @@ export function createRequests(app) {
         updated_at: t,
       });
       app.activity.log({ case_id: c.id, actor, type: 'info_request.created', summary: `أنشأت الإدارة ${LABELS.info_request_kind[kind]}: «${truncate(question, 120)}»` });
-      if (body.send !== false) return svc.approveInfo(id, actor, { client_message: body.client_message || question, channel: body.channel });
+      if (body.send !== false) return svc.approveInfo(id, actor, { client_message: body.client_message || question, channel: body.channel, items: body.items }); // v9.1 b-portal: items
       return requireIr(id);
     },
 
     /** موافقة الإدارة وإرسال السؤال للعميل عبر قناة المؤسسة */
     approveInfo(id, actor, body) {
       const r = requireIr(id);
+      // v9.1 l-work: طلب المهلة والسؤال للإدارة و«أحتاج هذا أيضًا» لا تُرسل للمستفيد/ة أبدًا
+      if (ADMIN_ONLY_KINDS.includes(r.kind) || r.duplicate_of_id) throw conflict('هذا الطلب لا يُرسل للمستفيد/ة');
       if (r.status !== 'pending_admin') throw conflict('تم البت في هذا الطلب بالفعل');
       const c = app.cases.requireOpen(r.case_id);
       const clientMessage = v.str(body.client_message, 'نص الرسالة للعميل', { required: true, max: 3000 });
-      const settings = app.settings.all();
-      const full = `${clientMessage}\n\n(بخصوص ملفكم رقم ${c.code} لدى ${settings.org_name}. يمكنكم الرد على هذه الرسالة مباشرة${r.kind === 'document' ? ' وإرفاق المستند' : ''}.)`;
+      // v9.1 b-portal (B91-03): البنود المطلوبة كما راجعتها الإدارة (بند في كل سطر، ≤ 5) ← صف «صوّري» لكل بند في صفحتها
+      const editedItems = r.kind === 'document' && body.items !== undefined && app.portal?.itemsInput ? app.portal.itemsInput(body.items) : undefined;
+      // v9.1 b-site (B91-01/B91-10): صفحة المتابعة تعرض نص الطلب نظيفًا، وعلى واتساب فقط يُضاف سطر بسيط
+      // («صوّري الورقة وابعتيها هنا، أو من صفحتك: الرابط» / «ردّي علينا هنا بكتابة أو برسالة صوتية.») بلا كود الملف
+      const story = { clientId: c.client_id, intakeId: c.intake_id, caseId: c.id };
+      const channel = app.engine.pickChannel(c.client_id, body.channel || 'auto', story);
+      const meta = { info_request_id: r.id };
+      if (channel === 'whatsapp') {
+        const words = app.engine.clientWords(story);
+        const suffix = r.kind === 'document' ? CLIENT_TEXTS.info_suffix_document : CLIENT_TEXTS.info_suffix_information;
+        const link = /\{portal_link\}/.test(suffix) ? app.engine.storyLink(story) : null;
+        meta.wa_text = app.engine.fillClientText(`${clientMessage}${suffix}`, { portal_link: link }, words.form);
+      }
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
         intake_id: c.intake_id,
         case_id: c.id,
-        body: full,
-        channel: body.channel || 'auto',
+        body: clientMessage,
+        channel,
         author: actor,
-        meta: { info_request_id: r.id },
+        meta,
       });
       const t = nowIso();
       db.update('info_requests', r.id, {
@@ -106,13 +197,14 @@ export function createRequests(app) {
         sent_at: t,
         sent_channel: msg.channel,
         outbound_message_id: msg.id,
+        items: editedItems, // v9.1 b-portal (undefined = يبقى ما كتبه المحامي)
         updated_at: t,
       });
       app.activity.log({ case_id: c.id, actor, type: 'info_request.sent', summary: `وافقت الإدارة على الطلب وأرسلته للعميل عبر ${LABELS.channel[msg.channel]}` });
       if (r.requested_by && r.assignment_id) {
         app.notifications.notify(r.requested_by, {
           type: 'info_request.sent',
-          title: `أُرسل طلبك للعميل في الملف ${c.code}`,
+          title: `أُرسل طلبك للمستفيد/ة في الملف ${c.code}`,
           body: 'سيصلك إشعار عند إتاحة الرد لك.',
           link: `#/my/assignments/${r.assignment_id}`,
         });
@@ -213,7 +305,13 @@ export function createRequests(app) {
       // صاحب الطلب يُضاف تلقائيًا ما دام في الفريق؛ إن سُحب إسناده يختار الموظف من يتسلم الرد بدلًا منه
       const requester = r.assignment_id ? db.get('SELECT status FROM assignments WHERE id = ?', r.assignment_id) : null;
       if (requester && requester.status !== 'withdrawn') targets.add(r.assignment_id);
-      if (!targets.size) {
+      // v9.1 l-work: الطلبات المرتبطة («أحتاج هذا أيضًا») تكفي مستلمين للرد حين لا يوجد صاحب طلب أصلي في الفريق
+      const hasLinked = !r.duplicate_of_id && !!db.get(
+        `SELECT 1 FROM info_requests d JOIN assignments da ON da.id = d.assignment_id
+         WHERE d.duplicate_of_id = ? AND d.status = 'pending_admin' AND da.status != 'withdrawn'`,
+        r.id,
+      );
+      if (!targets.size && !hasLinked) {
         const team = Number(db.value("SELECT COUNT(*) FROM assignments WHERE case_id = ? AND status != 'withdrawn'", c.id));
         if (team) {
           throw badRequest(
@@ -223,9 +321,25 @@ export function createRequests(app) {
           );
         }
       }
+      // v9.1 l-work: تمديد الموعد عند الرد على طلب المهلة (approve_extension) — في نفس المعاملة
+      const approveExtension = r.kind === 'extension' && v.bool(body.approve_extension);
+      if (approveExtension && !r.requested_due_at) throw badRequest('طلب المهلة لا يحدد موعدًا جديدًا');
+      const extAssignment = approveExtension && r.assignment_id ? db.get("SELECT * FROM assignments WHERE id = ? AND status != 'withdrawn'", r.assignment_id) : null;
+      if (approveExtension && !extAssignment) throw badRequest('المحامي صاحب طلب المهلة لم يعد في الفريق');
+      // v9.1 l-work: من طلبوا الشيء نفسه («أحتاج هذا أيضًا») يصلهم الرد نفسه دون سؤال المستفيد/ة مرة أخرى
+      const duplicates = r.duplicate_of_id ? [] : db.all("SELECT * FROM info_requests WHERE duplicate_of_id = ? AND status = 'pending_admin' ORDER BY id", r.id);
+      const sharedTitle = (code) =>
+        r.kind === 'admin_question'
+          ? `ردّت الإدارة على سؤالك في الملف ${code}`
+          : r.kind === 'extension'
+            ? approveExtension
+              ? `مُدّد موعد تسليم رأيك في الملف ${code} إلى ${arabicDate(r.requested_due_at)}، ${arabicTime(r.requested_due_at)}`
+              : `ردّت الإدارة على طلب المهلة في الملف ${code}`
+            : `أصبحت المعلومة المطلوبة متاحة في الملف ${code}`;
       const t = nowIso();
       db.tx(() => {
-        db.update('info_requests', r.id, { status: 'shared', response_text: response, shared_at: t, shared_by: actor.id, updated_at: t, decided_by: r.decided_by ?? actor.id, decided_at: r.decided_at ?? t });
+        db.update('info_requests', r.id, { status: 'shared', response_text: response, shared_at: t, shared_by: actor.id, updated_at: t, decided_by: r.decided_by ?? actor.id, decided_at: r.decided_at ?? t, extension_applied_at: approveExtension ? t : undefined });
+        if (approveExtension) db.update('assignments', extAssignment.id, { due_at: r.requested_due_at, last_activity_at: t });
         for (const aid of targets) {
           const a = db.get("SELECT * FROM assignments WHERE id = ? AND case_id = ? AND status != 'withdrawn'", aid, c.id);
           if (!a) throw badRequest('عضو الفريق المختار غير صالح');
@@ -233,10 +347,24 @@ export function createRequests(app) {
           if (a.id !== r.assignment_id) app.visibility.addGrant(a.id, 'info_request', r.id, actor);
           app.notifications.notify(a.lawyer_id, {
             type: 'info_request.shared',
-            title: `أصبحت المعلومة المطلوبة متاحة في الملف ${c.code}`,
+            title: sharedTitle(c.code),
             body: truncate(r.question, 140),
-            link: `#/my/assignments/${a.id}`,
+            link: `#/my/assignments/${a.id}${r.kind === 'extension' ? '' : '?tab=requests'}`,
           });
+        }
+        for (const d of duplicates) {
+          const da = d.assignment_id ? db.get("SELECT * FROM assignments WHERE id = ? AND case_id = ? AND status != 'withdrawn'", d.assignment_id, c.id) : null;
+          if (!da) continue;
+          db.update('info_requests', d.id, { status: 'shared', response_text: response, shared_at: t, shared_by: actor.id, updated_at: t, decided_by: actor.id, decided_at: t });
+          for (const did of docIds) app.visibility.addGrant(da.id, 'document', did, actor);
+          if (!targets.has(da.id)) {
+            app.notifications.notify(da.lawyer_id, {
+              type: 'info_request.shared',
+              title: `أصبحت المعلومة المطلوبة متاحة في الملف ${c.code}`,
+              body: truncate(d.question, 140),
+              link: `#/my/assignments/${da.id}?tab=requests`,
+            });
+          }
         }
       });
       app.activity.log({ case_id: c.id, actor, type: 'info_request.shared', summary: `راجعت الإدارة الرد وأتاحته للمحامي${docIds.length ? ` مع ${arabicCount(docIds.length, AR_UNITS.document)}` : ''}` });

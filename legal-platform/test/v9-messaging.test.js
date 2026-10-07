@@ -345,7 +345,8 @@ describe('Client portal login by WhatsApp OTP', () => {
       }
       const fifth = await anon.post('/api/public/portal-login/verify', { challenge: r3.challenge, code: wrongCode });
       assert.equal(fifth.status, 400);
-      assert.match(fifth.body.error, /تجاوزت عدد المحاولات/);
+      // v9.1 b-portal (تغيير مقصود، B91-06): رسائل الكود بالعامية البسيطة
+      assert.match(fifth.body.error, /الكود ده اتقفل/);
       assert.equal((await anon.post('/api/public/portal-login/verify', { challenge: r3.challenge, code: code3 })).status, 400, 'locked even with the right code');
       assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'portal.otp_locked'"));
     } finally {
@@ -526,7 +527,8 @@ describe('WhatsApp Cloud API features (mocked Graph)', () => {
       assert.ok(btnCall, 'interactive survey sent');
       const survey = t.app.db.get('SELECT * FROM case_surveys WHERE case_id = ?', k2.id);
       assert.deepEqual(btnCall.json.interactive.action.buttons.map((b) => b.reply.id), [`svy:${survey.id}:5`, `svy:${survey.id}:3`, `svy:${survey.id}:1`]);
-      assert.deepEqual(btnCall.json.interactive.action.buttons.map((b) => b.reply.title), ['ممتاز', 'جيد', 'غير راضٍ']);
+      // v9.1 b-site (B91-10): «مش راضية/مش راضي» حسب صيغة المخاطبة (الافتراضي مؤنث)
+      assert.deepEqual(btnCall.json.interactive.action.buttons.map((b) => b.reply.title), ['ممتاز', 'جيد', 'مش راضية']);
     } finally {
       g.restore();
       await t.close();
@@ -623,7 +625,7 @@ describe('Satisfaction survey', () => {
       for (const s of surveys) {
         assert.equal(s.channel, 'whatsapp');
         assert.equal(s.status, 'simulated');
-        assert.match(s.body, /من 1 إلى 5/);
+        assert.match(s.body, /رقم من 1 لـ 5/); // v9.1 b-site (B91-10)
         assert.equal(s.meta.wa.buttons.length, 3);
       }
       const sv = (k) => t.app.db.get('SELECT * FROM case_surveys WHERE case_id = ?', k.kase.id);
@@ -716,7 +718,7 @@ describe('Satisfaction survey', () => {
       assert.equal(fb(A).comment, 'الرد كان مفيد');
       assert.equal(fb(A).channel, 'website');
       const view = ok(await t.client().get(`/api/portal/${token}`));
-      assert.match(view.messages[view.messages.length - 1].body, /شكرًا جزيلًا على تقييمكم/);
+      assert.match(view.messages[view.messages.length - 1].body, /شكرًا على رأيك/); // v9.1 b-site (B91-10)
       // B answers with a word right after the survey
       ok(await t.client().post('/webhooks/whatsapp', wa('201077700022', 'ممتاز')));
       assert.equal(fb(B).rating, 5);
@@ -794,9 +796,10 @@ describe('Review fixes (messaging)', () => {
       await wrong(bad);
       const third = await wrong(bad);
       assert.equal(third.body.details.attempts_left, 2);
-      assert.match(third.body.error, /يتبقى لك محاولتان\./);
+      // v9.1 b-portal (تغيير مقصود، B91-06): العامية «فاضل محاولتين» مع مطابقة العدد للمعدود
+      assert.match(third.body.error, /فاضل محاولتين\./);
       const fourth = await wrong(bad);
-      assert.match(fourth.body.error, /يتبقى لك محاولة واحدة\./);
+      assert.match(fourth.body.error, /فاضل محاولة واحدة\./);
     } finally {
       await t.close();
     }

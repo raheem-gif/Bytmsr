@@ -100,7 +100,8 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     const html = r.body;
     assert.match(html, /class="pub-header"/);
     assert.match(html, /class="pub-footer"/);
-    assert.match(html, /<body class="site pub">/);
+    // v9.1 b-portal (تغيير مقصود، B91-02): نفس قالب الموقع مع فئات الصفحة الجديدة
+    assert.match(html, /<body class="site pub v91 bp-portal">/);
     assert.match(html, /<meta name="robots" content="noindex, nofollow" \/>/);
     assert.equal((html.match(/<meta name="robots"/g) || []).length, 1, 'a single robots tag');
     assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);
@@ -113,10 +114,11 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     // «متابعة طلب» هي الصفحة الحالية في القائمة
     assert.match(html, /href="\/portal" aria-current="page"/);
     assert.ok(!html.includes(token), 'the secret token must not be written into the page (canonical, og:url, JSON-LD)');
-    const withoutLd = html.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '');
+    // v9.1 b-site (تغيير مقصود، B91-11): كتلة بيانات JSON ‎#bm-public‎ غير تنفيذية تُستثنى مثل ld+json
+    const withoutLd = html.replace(/<script type="application\/(?:ld\+)?json"[^>]*>[\s\S]*?<\/script>/g, '');
     assert.ok(!/\{\{|\}\}|<!--#if|<!--\/if|<!--site:head-->/.test(withoutLd), 'no unrendered template tokens');
     // CSP: لا سكربتات تنفيذية مضمّنة
-    const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/ld\+json/.test(m[1]));
+    const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/(?:ld\+)?json/.test(m[1]));
     assert.equal(inline.length, 0);
   });
 
@@ -161,7 +163,9 @@ describe('v9 integration — the placeholder WhatsApp number never reaches the p
     assert.match(home, /href="tel:\+201211114662"/);
     assert.match(home, /href="\/portal"/);
     assert.ok(!home.includes('data-cta="whatsapp"'), `${label}: no WhatsApp CTA buttons`);
-    assert.match(home, /قدّم طلبك من الموقع في أي وقت أو اتصل بنا هاتفيًا/);
+    // v9.1 b-site (B91-07): بلا واتساب يأخذ زر «اتصال» العرض كله، ولا كلمة «واتساب» في «إزاي بنشتغل؟»
+    assert.match(home, /<div class="pub-contact-buttons is-single"><a class="pub-btn pub-btn-call" href="tel:\+201211114662">/);
+    assert.ok(!/<ol class="pub-how">[\s\S]*?واتساب[\s\S]*?<\/ol>/.test(home), `${label}: how-it-works does not promise WhatsApp`);
     const del = (await c.get('/data-deletion')).body;
     assert.match(del, /href="tel:\+201211114662"/);
     const sub = ok(await c.post('/api/public/intake', { name: 'منى عبد الله', phone: '01098765432', description: DESC, consent: true }), 201);

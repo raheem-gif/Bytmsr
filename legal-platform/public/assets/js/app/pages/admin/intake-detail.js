@@ -68,7 +68,8 @@ const SOURCE_DETAIL_LABELS = {
 const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
 const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة' };
 // مفاتيح داخلية في source_detail (التحقق من الهوية) تُعرض بتنبيه مخصص لا كصفوف خام
-const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k.startsWith('identity_');
+// (v9.1 b-forms) وكود تأكيد الرقم برسالة واتساب (confirm_*) لا يُعرض كذلك
+const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k.startsWith('identity_') || k.startsWith('confirm_');
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
 
@@ -625,6 +626,8 @@ export default async function render(ctx) {
                 'span.pc-doc-meta',
                 [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
               ),
+              // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة
+              String(doc.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'none', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` }),
               docAiBadge(analyses, doc.id),
             ),
             h(
@@ -647,7 +650,9 @@ export default async function render(ctx) {
       );
     }
     const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: 'اكتب ردك على المستفيد/ة…' });
-    const wrap = field('الرد على المستفيد/ة', ta, { hint: 'يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.' });
+    // v9.1 b-site (B91-01): أين يصل الرد؟ «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
+    const replyChannel = it.identity && it.identity.reply_channel ? `يصل الرد: ${it.identity.reply_channel.text}. ` : '';
+    const wrap = field('الرد على المستفيد/ة', ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.` });
     // (v9) ردود جاهزة واقتراح رد. الهوية غير المؤكدة: الاسم كما كتبه المرسل فقط، دون ربط بملف العميل المسجل
     const tools = composerTools(ta, {
       context: {

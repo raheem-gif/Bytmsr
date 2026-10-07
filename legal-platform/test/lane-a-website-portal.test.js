@@ -80,7 +80,8 @@ describe('Website intake validation', () => {
     try {
       const admin = await t.login('admin');
       const bad = [
-        form({ description: 'مشكلة ميراث' }),
+        // v9.1 b-forms: الحد الأدنى صار 10 حروف (أو رسالة صوتية)، فـ«معاش» وحدها قصيرة
+        form({ description: 'معاش' }),
         form({ description: '                         ' }),
         form({ description: undefined }),
         form({ name: '' }),
@@ -286,7 +287,9 @@ describe('Client portal', () => {
       const req = p.requests.find((x) => x.id === ir.body.id);
       assert.ok(req, 'the request is visible in the portal');
       assert.equal(req.can_reply, true);
-      assert.equal(req.case_code, kase.code);
+      // v9.1 b-portal (B91-02): رقم الطلب REQ هو الرقم الوحيد الذي تراه؛ case_code لا يصل للصفحة (cases[] باقية للتوافق)
+      assert.equal(req.case_code, undefined);
+      assert.equal(req.story_ref, res.reference);
       assert.ok(p.cases.some((c) => c.code === kase.code));
 
       // another client's token cannot answer this request

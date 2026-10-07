@@ -3,10 +3,20 @@
 import { requireLawyer } from '../auth.js';
 import { idParam } from '../http.js';
 import { nowIso, periodOf } from '../util.js';
+import { suggestedDocuments } from '../services/v91-l-work.js'; // v9.1 l-work
 
 export function registerLawyerRoutes(router, app) {
   const L = (fn) => (ctx) => fn(ctx, requireLawyer(ctx));
   const id = (ctx, k = 'id') => idParam(ctx.params, k);
+  // v9.1 l-work: هل يعمل Claude الآن (مفتاح مضبوط ولم يُتجاوز السقف)؟ — يظهر للمحامي في /api/meta كـ ai.claude فقط
+  const claudeActive = () => {
+    try {
+      return app.ai?.status?.().provider === 'anthropic';
+    } catch {
+      return false;
+    }
+  };
+  app.metaProviders?.push((ctx) => (ctx?.user?.role === 'lawyer' ? { ai: { claude: claudeActive() } } : {}));
 
   router.get('/api/lawyer/dashboard', L((ctx, u) => {
     const active = app.visibility.listForLawyer(u, { scope: 'active' });
@@ -37,13 +47,17 @@ export function registerLawyerRoutes(router, app) {
     // نبني العرض أولًا (حتى تظهر علامة «جديد» على ما أُتيح منذ آخر اطلاع) ثم نسجل الاطلاع
     const view = app.visibility.assignmentView(id(ctx), u);
     app.visibility.markViewed(id(ctx), u);
-    return view;
+    // v9.1 l-work: أدوات Claude (تحليل المستند، المسودة الآلية) تظهر فقط حين يعمل Claude فعلًا — لا مفاتيح ولا تكلفة
+    return { ...view, ai: { claude: claudeActive() } };
   }));
-  router.post('/api/lawyer/assignments/:id/open', L((ctx, u) => app.visibility.markOpened(id(ctx), u)));
+  router.post('/api/lawyer/assignments/:id/open', L((ctx, u) => ({ ...app.visibility.markOpened(id(ctx), u), ai: { claude: claudeActive() } })));
   router.put('/api/lawyer/assignments/:id/draft', L((ctx, u) => {
     const o = app.opinions.saveDraft(id(ctx), u, ctx.body);
-    return { id: o.id, version: o.version, status: o.status, updated_at: o.updated_at };
+    // v9.1 l-work: length/words ليتحقق الجهاز أن ما حُفظ هو نصه نفسه قبل حذف نسخته الاحتياطية
+    return { id: o.id, version: o.version, status: o.status, updated_at: o.updated_at, length: o.body.length, words: o.body.trim() ? o.body.trim().split(/\s+/).length : 0 };
   }));
+  // v9.1 l-work (L-19): مستندات مقترحة عند طلب مستند — بلا أي بيانات للمستفيد/ة، و404 لإسناد ليس له
+  router.get('/api/lawyer/assignments/:id/suggested-documents', L((ctx, u) => suggestedDocuments(app, id(ctx), u)));
   router.post('/api/lawyer/assignments/:id/submit', L((ctx, u) => {
     const o = app.opinions.submit(id(ctx), u, ctx.body);
     return { id: o.id, version: o.version, status: o.status, submitted_at: o.submitted_at };
@@ -84,8 +98,12 @@ export function registerLawyerRoutes(router, app) {
   // الملفات المستمرة المسندة للمحامي
   router.get('/api/lawyer/matters', L((ctx, u) => app.matters.listForLawyer(u)));
   router.get('/api/lawyer/matters/:id', L((ctx, u) => app.matters.lawyerView(id(ctx), u)));
-  router.post('/api/lawyer/matters/:id/events', L((ctx, u) => app.matters.addEvent(id(ctx), ctx.body, u)));
-  router.patch('/api/lawyer/matter-events/:id', L((ctx, u) => app.matters.updateEvent(id(ctx), ctx.body, u)));
+  // v9.1 l-court: الرد بما يراه المحامي من الموعد فقط (بلا علم الاعتماد ولا رد المستفيد/ة على الموعد ولا ملاحظتها)
+  router.post('/api/lawyer/matters/:id/events', L((ctx, u) => app.matters.lawyerEventView(app.matters.addEvent(id(ctx), ctx.body, u))));
+  router.patch('/api/lawyer/matter-events/:id', L((ctx, u) => app.matters.lawyerEventView(app.matters.updateEvent(id(ctx), ctx.body, u))));
+  // v9.1 l-court (L-02/L-22): نتيجة الجلسة + الجلسة القادمة + ميعاد الطعن في طلب واحد آمن للتكرار (client_ref)
+  router.post('/api/lawyer/matter-events/:id/outcome', L((ctx, u) => app.matters.recordOutcome(id(ctx), ctx.body, u)));
+  router.get('/api/lawyer/pending-outcomes', L((ctx, u) => app.matters.pendingOutcomesForLawyer(u)));
   router.post('/api/lawyer/matters/:id/tasks', L((ctx, u) => app.matters.addTask(id(ctx), ctx.body, u)));
   router.patch('/api/lawyer/matter-tasks/:id', L((ctx, u) => app.matters.updateTask(id(ctx), ctx.body, u)));
 

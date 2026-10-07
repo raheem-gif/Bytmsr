@@ -413,12 +413,14 @@ describe('Branded 404 and truncated /p/ links', () => {
       for (const p of ['/no-such-page', '/setup', '/privacy.html']) {
         const r = await c.get(p);
         assert.equal(r.status, 404, p);
-        assert.match(r.body, /الصفحة غير موجودة/);
+        // v9.1 b-site (B91-12): نفس المعنى بكلام بسيط
+        assert.match(r.body, /الصفحة دي مش موجودة/);
         assert.match(r.body, /public-site\.css/, 'styled like the public site');
-        assert.match(r.body, /href="\/portal"[^>]*>متابعة طلبك/);
-        assert.match(r.body, /href="\/intake"[^>]*>قدّم طلبًا/);
+        assert.match(r.body, /href="\/portal"[^>]*>تابعي طلبك/);
+        assert.match(r.body, /href="\/intake"[^>]*>احكيلنا مشكلتك/);
         assert.ok(r.body.includes('01211114662'), 'the org phone is shown');
-        assert.doesNotMatch(r.body, /Tahoma/);
+        // ليست صفحة الطوارئ المجردة (v9.1 b-site: الأنماط المضمّنة في 404 تذكر Tahoma ضمن قائمة الخطوط البديلة)
+        assert.doesNotMatch(r.body, /تأكد من الرابط أو عد إلى|font-family:Tahoma,sans-serif;background:#f6f7f8/);
       }
     } finally {
       await t.close();
@@ -443,7 +445,8 @@ describe('Compression and caching of public assets', () => {
   test('static CSS/JS and JSON are gzipped, revalidate with ETag/304, and versioned URLs are immutable', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
-      const css = await raw(t.base, '/assets/css/app.css', { 'accept-encoding': 'gzip, br' });
+      // v9.1 l-home (L-07): من يقبل br يتلقى Brotli (اختباره في v91-l-home.test.js)؛ هنا عميل gzip فقط
+      const css = await raw(t.base, '/assets/css/app.css', { 'accept-encoding': 'gzip' });
       assert.equal(css.status, 200);
       assert.equal(css.headers['content-encoding'], 'gzip');
       assert.match(css.headers.vary || '', /Accept-Encoding/i);
@@ -513,7 +516,10 @@ describe('Viewing a request does not claim it; running rules is previewed first'
       const M = await createLawyer(admin, { name: 'محامي الجلسات', specialties: ['CIV'] });
       const c = await newCase(admin, { phone: '01055500011', legal_area: 'CIV', title: 'دعوى تعويض' });
       const m = ok(await admin.post(`/api/admin/cases/${c.id}/matter`, { kind: 'litigation', responsible_lawyer_id: M.id, court: 'محكمة شمال القاهرة' }), 201);
-      ok(await admin.post(`/api/admin/matters/${m.id}/invoices`, { description: 'أتعاب الدعوى', amount: 2000, due_at: plusDays(T0, 1) }));
+      const inv = ok(await admin.post(`/api/admin/matters/${m.id}/invoices`, { description: 'أتعاب الدعوى', amount: 2000, due_at: plusDays(T0, 1) }));
+      // v9.1 b-portal (تغيير مقصود، B91-09): لا تذكير بمبلغ قبل أن توافق عليه المستفيدة من صفحة المتابعة
+      const portalToken = t.app.clients.issuePortalToken(t.app.db.value('SELECT client_id FROM cases WHERE id = ?', c.id));
+      ok(await t.client().post(`/api/portal/${portalToken}/invoices/${inv.number}/response`, { answer: 'agree' }));
       freezeClock(plusDays(T0, 2));
       const count = () => Number(t.app.db.value("SELECT COUNT(*) FROM messages WHERE direction = 'out' AND automation_rule = 'invoice_reminder'"));
       const runs = () => Number(t.app.db.value("SELECT COUNT(*) FROM automation_runs WHERE rule_key = 'invoice_reminder'"));

@@ -3,6 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { Db } from './db.js';
 import { Router, sendJson, sendError, readBody, parseCookies, securityHeaders, serveStatic, sendFile } from './http.js';
+import { sendBody } from './http.js'; // v9.1 b-site: صفحة 404 مضغوطة (تُفتح غالبًا من رابط واتساب مقطوع على باقة بطيئة)
 import { ApiError, badRequest, forbidden } from './util.js';
 import { createAuth, RateLimiter } from './auth.js';
 import { createEvents, createActivity, createNotifications, createSettings } from './services/core.js';
@@ -43,6 +44,11 @@ import { registerAiRoutes } from './routes/ai.js';
 import { registerProgramsRoutes } from './routes/programs.js';
 import { registerSite } from './site.js';
 import { secureDataDir } from './secure-fs.js';
+// v9.1 l-home: «اليوم» للمحامي وتنبيهاته على واتساب وتنبيهات الجهاز
+import { createLawyerToday } from './services/lawyer-today.js';
+import { createLawyerAlerts } from './services/lawyer-alerts.js';
+import { createWebPush } from './services/web-push.js';
+import { registerLawyerHomeRoutes } from './routes/lawyer-home.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -92,6 +98,10 @@ export function createApp(config, { logger = console } = {}) {
   app.messaging = createMessaging(app);
   app.practice = createPractice(app);
   app.programs = createPrograms(app);
+  // v9.1 l-home
+  app.lawyerToday = createLawyerToday(app);
+  app.webPush = createWebPush(app);
+  app.lawyerAlerts = createLawyerAlerts(app);
   app.limiters = {
     publicIntake: new RateLimiter({ windowMs: 60 * 60 * 1000, max: config.publicIntakePerHour || 20 }),
     // حد لكل رقم هاتف أيًا كان عنوان IP: يمنع إغراق رقم عميل بطلبات (وتكلفة التحليل الآلي لها)
@@ -119,6 +129,7 @@ export function createApp(config, { logger = console } = {}) {
   registerPracticeRoutes(router, app);
   registerAiRoutes(router, app);
   registerProgramsRoutes(router, app);
+  registerLawyerHomeRoutes(router, app); // v9.1 l-home
   registerSite(app);
   app.router = router;
 
@@ -265,11 +276,9 @@ export function createApp(config, { logger = console } = {}) {
     if (app.site?.renderPage && req) {
       try {
         const html = app.site.renderPage('404.html', req, '/404', { noindex: true });
-        res.statusCode = 404;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'no-store');
-        res.setHeader('Content-Length', Buffer.byteLength(html));
-        res.end(req.method === 'HEAD' ? undefined : html);
+        sendBody(res, 404, html, { req });
         return true;
       } catch (e) {
         if (e?.code !== 'ENOENT') app.log('404 page render failed', e);

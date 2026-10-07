@@ -20,6 +20,8 @@ const ALLOWED = {
   'audio/mpeg': '.mp3',
   'audio/mp4': '.m4a',
   'video/mp4': '.mp4',
+  // v9.1 b-forms: الرسالة الصوتية من نموذج الموقع والبوابة (MediaRecorder في Chrome على أندرويد يسجّل audio/webm)
+  'audio/webm': '.webm',
 };
 const EXT_TO_MIME = Object.fromEntries(Object.entries(ALLOWED).map(([m, e]) => [e, m]));
 EXT_TO_MIME['.jpeg'] = 'image/jpeg';
@@ -52,6 +54,9 @@ function contentMatches(mime, buf) {
       return ole();
     case 'audio/ogg':
       return ascii(0, 'OggS');
+    case 'audio/webm':
+      // v9.1 b-forms: حاوية Matroska/WebM تبدأ بترويسة EBML
+      return at(0, 0x1a, 0x45, 0xdf, 0xa3);
     case 'audio/mpeg':
       return ascii(0, 'ID3') || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0);
     case 'text/plain':
@@ -90,6 +95,11 @@ export function createDocuments(app) {
 
   const svc = {
     maxBytes,
+    /** v9.1 b-forms: هل الملف المرفوع (قبل الحفظ) رسالة صوتية؟ بالامتداد أولًا ثم النوع المعلن، كما في save() */
+    isAudio(file) {
+      const m = resolveMime(sanitizeFilename(file?.filename), file?.mime);
+      return !!m && m.startsWith('audio/');
+    },
     /**
      * حفظ ملف مرفوع (base64 من الواجهة أو Buffer من واتساب).
      * links: { client_id, intake_id, case_id, matter_id, message_id, info_request_id, title }
@@ -155,6 +165,8 @@ export function createDocuments(app) {
         size: d.size,
         uploaded_by_kind: d.uploaded_by_kind,
         created_at: d.created_at,
+        // v9.1 l-work: نوع العرض داخل التطبيق (PDF في عارض المتصفح، الصور في العارض المدمج، غيرها تنزيل فقط)
+        kind: d.mime === 'application/pdf' ? 'pdf' : /^image\/(jpeg|png|webp)$/.test(d.mime || '') ? 'image' : 'doc',
       };
     },
 

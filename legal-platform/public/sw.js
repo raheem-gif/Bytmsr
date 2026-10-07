@@ -35,6 +35,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
+      // v9.1 l-home: صفحة المنصة نفسها تُخزَّن مع الإصدار (الخادم يرسلها no-cache بلا بيانات شخصية)
+      await refreshShell(cache);
       // كل ملف على حدة: فشل ملف واحد لا يُفشل التثبيت كله
       await Promise.all(
         PRECACHE.map(async (path) => {
@@ -85,10 +87,36 @@ async function cacheFirst(request) {
   return res;
 }
 
-async function networkFirstShell(request) {
+// v9.1 l-home (L-07): صفحة المنصة /app (بلا أي بيانات شخصية) من المخزن أولًا ثم تُحدَّث في الخلفية،
+// فيبدأ فتح المنصة من أيقونة الهاتف دون انتظار الشبكة. تنبيه «يتوفر إصدار أحدث» يبقى كما هو للإصدارات الجديدة.
+const SHELL_KEY = '/app';
+
+async function refreshShell(cache) {
   try {
-    // لا تُخزَّن صفحة المنصة: تُطلب من الشبكة دائمًا
-    return await fetch(request);
+    const res = await fetch(SHELL_KEY, { cache: 'no-cache', credentials: 'same-origin' });
+    if (res && res.ok && res.status === 200 && res.type === 'basic' && !res.redirected && !res.headers.get('Set-Cookie')) {
+      await cache.put(SHELL_KEY, res.clone());
+    }
+    return res;
+  } catch {
+    return null;
+  }
+}
+
+async function networkFirstShell(request, event) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(SHELL_KEY);
+  if (hit) {
+    const update = refreshShell(cache);
+    if (event && event.waitUntil) event.waitUntil(update);
+    return hit;
+  }
+  try {
+    const res = await fetch(request);
+    if (res && res.ok && res.status === 200 && res.type === 'basic' && !res.redirected && !res.headers.get('Set-Cookie')) {
+      cache.put(SHELL_KEY, res.clone()).catch(() => {});
+    }
+    return res;
   } catch {
     return offlineResponse();
   }
@@ -105,10 +133,63 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.origin !== self.location.origin || isNever(url)) return; // يمر للشبكة دون تدخل
   if (request.mode === 'navigate') {
-    if (isAppShell(url)) event.respondWith(networkFirstShell(request));
+    // صفحة المنصة بلا استعلام فقط (روابط الدعوة وإعادة التعيين في الجزء بعد # لا تصل للخادم أصلًا)
+    if (isAppShell(url) && !url.search) event.respondWith(networkFirstShell(request, event));
     return;
   }
   if (isStaticAsset(url)) event.respondWith(cacheFirst(request));
+});
+
+// ───────── v9.1 l-home (L-20): تنبيهات الجهاز (Web Push) ─────────
+// الحمولة لا تحمل إلا {type, link}؛ ونص شاشة القفل عام دائمًا بلا أكواد ولا بيانات مستفيدين.
+const PUSH_TEXT = 'لديك تحديث في منصة الدعم القانوني';
+
+function safeLink(link) {
+  const s = String(link || '');
+  return /^#\/[A-Za-z0-9/_?=&-]*$/.test(s) ? s : '#/my';
+}
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+  const link = safeLink(payload.link);
+  event.waitUntil(
+    self.registration.showNotification(PUSH_TEXT, {
+      body: '',
+      lang: 'ar',
+      dir: 'rtl',
+      tag: 'bm-update',
+      renotify: true,
+      icon: '/assets/img/apple-touch-icon.png',
+      badge: '/assets/img/favicon.svg',
+      data: { link },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = safeLink(event.notification.data && event.notification.data.link);
+  const target = `/app${link}`;
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of all) {
+        const u = new URL(c.url);
+        if (u.origin === self.location.origin && (u.pathname === '/app' || u.pathname === '/app/')) {
+          await c.focus();
+          // التنقل داخل المنصة المفتوحة (تعرض صفحة الدخول أولًا إن انتهت الجلسة)
+          if ('navigate' in c) await c.navigate(target).catch(() => {});
+          return;
+        }
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
 });
 
 function escapeHtml(s) {

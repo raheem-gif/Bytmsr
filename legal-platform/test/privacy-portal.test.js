@@ -104,8 +104,13 @@ test('website first, then WhatsApp from the same phone continues the same intake
     const intake = t.app.db.get('SELECT * FROM intakes WHERE code = ?', sub.body.reference);
     assert.deepEqual(JSON.parse(intake.channels).sort(), ['website', 'whatsapp']);
     assert.equal(Number(t.app.db.value('SELECT COUNT(*) FROM intakes')), 1);
-    // الرد بعد رسالة واتساب يذهب لواتساب
+    // v9.1 b-site (B91-01): رقم الطلب وحده (أرقام متسلسلة) لا يثبت أن صاحب الرقم هو مقدّم الطلب: الرد يبقى في صفحة المتابعة
     const admin = await t.login('admin');
+    const before = await admin.post(`/api/admin/intakes/${intake.id}/reply`, { body: 'أهلًا بك' });
+    assert.equal(before.body.channel, 'website');
+    // رسالة شاشة النجاح الجاهزة (رقم الطلب + كود التأكيد) تؤكد الرقم، وبعدها تصل الردود على واتساب
+    const code = /كود التأكيد (\d{6})/.exec(decodeURIComponent(sub.body.confirm_url.split('?text=')[1]))[1];
+    await t.client().post('/webhooks/whatsapp', waPayload({ from: '201044444444', name: 'سارة', text: `السلام عليكم، ده رقم طلبي ${sub.body.reference} وكود التأكيد ${code}` }));
     const reply = await admin.post(`/api/admin/intakes/${intake.id}/reply`, { body: 'أهلًا بك' });
     assert.equal(reply.body.channel, 'whatsapp');
     assert.equal(reply.body.status, 'simulated');

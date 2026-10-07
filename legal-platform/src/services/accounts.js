@@ -641,7 +641,7 @@ export function createAccounts(app) {
       const name = v.str(body.name, 'الاسم', { required: true, min: 3, max: 120 });
       const password = checkNewPassword(body.password, body.password_confirm, row.username);
       // التعهد بسرية بيانات المستفيدين شرط للتفعيل، ويُحفظ وقته (لا يكفي التحقق في الواجهة)
-      if (body.pledge !== true) throw fieldError('pledge', 'يجب الإقرار بالتعهد بالحفاظ على سرية بيانات المستفيدين والمستفيدات قبل تفعيل الحساب');
+      if (body.pledge !== true) throw fieldError('pledge', 'يلزم الإقرار بسرية بيانات المستفيدين لتفعيل الحساب.'); // v9.1 l-home (L-10)
       const t = nowIso();
       db.tx(() => {
         db.update('users', row.user_id, { name, password_hash: hashPassword(password), invite_pending: 0, must_change_password: 0, password_changed_at: t, failed_login_count: 0, locked_until: null, confidentiality_pledged_at: t });
@@ -720,6 +720,9 @@ export function createAccounts(app) {
           max_hours: app.auth.maxSessionHours(),
           password_min_length: 8,
         },
+        // v9.1 l-home: اشتراك المحامي في تنبيهات واتساب وحالة تجهيز الهاتف، ومدة بقاء الدخول على هذا الجهاز
+        ...(app.lawyerAlerts ? app.lawyerAlerts.accountFields(u) : {}),
+        ...(app.auth.rememberInfo ? app.auth.rememberInfo(u, ctx.user.session_token_hash) : {}),
       };
     },
 
@@ -735,7 +738,9 @@ export function createAccounts(app) {
       }
       if (body.email !== undefined) patch.email = v.email(body.email, 'البريد الإلكتروني');
       if (body.phone !== undefined) patch.phone = v.phone(body.phone, 'رقم الموبايل');
-      const FIELD_LABELS = { name: 'الاسم', email: 'البريد الإلكتروني', phone: 'رقم الموبايل' };
+      // v9.1 l-home: تنبيهات واتساب (للمحامين فقط، وتشترط رقم موبايل مصريًا صحيحًا)
+      if (body.alert_whatsapp !== undefined && app.lawyerAlerts) Object.assign(patch, app.lawyerAlerts.profilePatch(u, body, patch));
+      const FIELD_LABELS = { name: 'الاسم', email: 'البريد الإلكتروني', phone: 'رقم الموبايل', alert_whatsapp: 'تنبيهات واتساب' };
       const changed = Object.keys(patch).filter((k) => (patch[k] || null) !== (u[k] || null));
       if (changed.length) {
         db.update('users', u.id, Object.fromEntries(changed.map((k) => [k, patch[k]])));

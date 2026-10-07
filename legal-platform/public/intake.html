@@ -3,27 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>قدّم طلب دعم قانوني — {{site_name}}</title>
-    <meta name="description" content="قدّم طلب دعم قانوني إلى {{org_legal_name}} عبر نموذج منظم أو محادثة خطوة بخطوة، مع إمكانية رفع المستندات، واحصل فورًا على رقم طلب ورابط متابعة خاص بك." />
+    <title>احكيلنا مشكلتك — {{site_name}}</title>
+    <meta name="description" content="احكيلنا مشكلتك القانونية برسالة صوتية أو بالكتابة، وصوّري الورق من الموبايل. الخدمة من {{org_legal_name}} مجانية وسرّية، والمحامي مش بيشوف رقمك." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
     <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <link rel="stylesheet" href="/assets/css/v91-b-forms.css" />
     <script type="module" src="/assets/js/public/intake.js"></script>
   </head>
-  <body class="site pub">
+  <body class="site pub v91 bmf-page">
     <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
     {{{header}}}
 
-    <main id="main" class="site-main intake-page" tabindex="-1">
-      <div class="intake-wrap" id="intake-root">
-        <div class="loading-state" role="status"><span class="spinner" aria-hidden="true"></span><span>جارٍ تحميل النموذج…</span></div>
+    <main id="main" class="site-main bmf-main" tabindex="-1">
+      <div class="bmf-intake" id="intake-root">
+        <div class="bmf-loading" role="status"><span class="bmf-spinner" aria-hidden="true"></span><span>لحظة…</span></div>
         <noscript>
-          <div class="intake-card">
-            <h1>قدّم طلبك</h1>
-            <p>يحتاج نموذج الطلب إلى تفعيل JavaScript في المتصفح. ويمكنك بدلًا من ذلك التواصل معنا مباشرة:</p>
+          <div class="bmf-card">
+            <h1>احكيلنا مشكلتك</h1>
+            <p>الصفحة دي محتاجة تشغيل JavaScript في المتصفح. ممكن تكلمينا على طول:</p>
             {{{contact_list}}}
           </div>
         </noscript>

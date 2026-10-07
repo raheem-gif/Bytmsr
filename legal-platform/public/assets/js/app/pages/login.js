@@ -23,13 +23,21 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
       submitLabel: 'تسجيل الدخول',
       className: 'login-form',
       onSubmit: async (values) => {
-        const res = await api.post('/auth/login', { username: values.username, password: values.password });
+        // v9.1 l-home (L-17): «تذكّرني على هذا الجهاز» (يطبقه الخادم على حسابات المحامين فقط)
+        const remember = !!rememberBox.checked;
+        const res = await api.post('/auth/login', { username: values.username, password: values.password, remember });
         // res قد يطلب خطوة التحقق الثانية (two_factor_required) — يعالجها main.js
-        onLogin(res.user, res);
+        onLogin(res.user, { ...res, remember });
       },
     },
   );
   loginForm.el.querySelector('button[type=submit]')?.classList.add('btn-block', 'btn-lg');
+  // v9.1 l-home (L-17): مفعّل افتراضيًا على الهواتف (المؤشر باللمس)
+  const rememberBox = h('input', { type: 'checkbox', name: 'remember', checked: !!window.matchMedia?.('(pointer: coarse)').matches });
+  const rememberRow = h('label.lh-remember', rememberBox, h('span', 'تذكّرني على هذا الجهاز'));
+  const submitBtn = loginForm.el.querySelector('button[type=submit]');
+  if (submitBtn) (submitBtn.closest('.form-actions') || submitBtn).before(rememberRow);
+  else loginForm.el.append(rememberRow);
 
   const demoAccounts = meta && meta.demo && Array.isArray(meta.demo_accounts) ? meta.demo_accounts : [];
   const demoPanel = demoAccounts.length
@@ -64,13 +72,13 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
     : null;
 
   return h(
-    'div.login-page',
+    'div.login-page.lh-login',
     h(
       'section.login-brand',
       h(
         'div.brand',
         brandMark({ size: 28 }),
-        h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة التشغيل القانوني')),
+        h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني')),
       ),
       h(
         'div.login-pitch',
@@ -98,10 +106,56 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
         h('p.login-sub', 'لفريق الإدارة والمحامين المعتمدين لدى المؤسسة'),
         expired && h('div.mb-3', alertBox('انتهت جلستك، يرجى تسجيل الدخول مرة أخرى للمتابعة.', 'warning')),
         loginForm.el,
-        h('p.login-forgot', 'نسيت كلمة المرور؟ تواصل مع إدارة المؤسسة لإرسال رابط إعادة تعيين إليك.'),
+        // v9.1 l-home (L-10/L-21): «نسيت كلمة المرور؟» تفتح ورقة: اتصال بالمؤسسة، واتساب، أو رابط على واتساب للمحامين المشتركين
+        h('p.login-forgot', h('button.lh-forgot', { type: 'button', onClick: () => openForgotSheet(meta, loginForm.el) }, 'نسيت كلمة المرور؟')),
       ),
       demoPanel,
       h('a.login-back', { href: '/' }, `العودة إلى موقع ${org}`),
     ),
   );
+}
+
+// ───────── v9.1 l-home: «نسيت كلمة المرور؟» ─────────
+async function openForgotSheet(meta, formEl) {
+  const { modal, button, toast, errorMessage } = await import('../../lib/ui.js');
+  const site = (meta && meta.site) || {};
+  const settings = (meta && meta.settings) || {};
+  const phone = String(site.org_phone_e164 || site.org_phone || '').replace(/[^\d+]/g, '');
+  const wa = String(settings.whatsapp_number_digits || '').replace(/\D/g, '');
+  const typed = formEl?.querySelector('input[name=username]')?.value || '';
+  const userInput = h('input.input#lh-reset-user', { type: 'text', dir: 'ltr', autocomplete: 'username', value: typed, autocapitalize: 'off', spellcheck: false });
+  const result = h('p.lh-muted', { role: 'status', hidden: true });
+  const sendBtn = button('أرسل رابطًا إلى واتساب', { variant: 'secondary', icon: 'whatsapp' });
+  sendBtn.addEventListener('click', async () => {
+    const username = userInput.value.trim();
+    if (!username) {
+      userInput.focus();
+      return;
+    }
+    sendBtn.disabled = true;
+    try {
+      const r = await api.post('/auth/reset-request', { username });
+      result.textContent = (r && r.message) || 'إن كان الحساب مسجلًا برقم واتساب فسيصله رابط خلال دقيقة.';
+      result.hidden = false;
+    } catch (err) {
+      toast(errorMessage(err), 'danger');
+      sendBtn.disabled = false;
+    }
+  });
+  modal({
+    title: 'اطلب رابطًا جديدًا من الإدارة',
+    sheet: true,
+    className: 'lh-forgot-sheet',
+    body: h(
+      'div',
+      h('div.lh-sheet-actions', phone && button('اتصل بالمؤسسة', { variant: 'primary', icon: 'phone', href: `tel:${phone}` }), wa && button('واتساب', { variant: 'secondary', icon: 'whatsapp', href: `https://wa.me/${wa}`, target: '_blank' })),
+      h(
+        'div.lh-reset-form',
+        h('label', { for: 'lh-reset-user' }, 'للمحامين المشتركين في تنبيهات واتساب: اسم المستخدم'),
+        userInput,
+        sendBtn,
+        result,
+      ),
+    ),
+  });
 }

@@ -6,15 +6,11 @@
     <title>عن برنامج {{program_name}} — {{org_name}}</title>
     <meta name="description" content="تعرّف على برنامج {{program_name}} في {{org_legal_name}}: لماذا أُطلق، وما الذي يقدمه للأرامل والأيتام وأسرهم، وكيف يعمل فريق المؤسسة والمحامون المختصون، ومبادئنا في السرية والكرامة والصدق." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -27,6 +23,10 @@
             </ol>
           </nav>
           <h1 id="page-title">عن برنامج {{program_name}}</h1>
+          <div class="pub-summary" id="summary">
+            <h2>بالمختصر</h2>
+            <p>برنامج من {{org_legal_name}} بيساعد الأرامل وأسر الأيتام في مشاكلهم القانونية مجانًا، مع محامين متطوعين ومتعاونين.</p>
+          </div>
           <p>
             برنامج من برامج {{org_legal_name}} يقدّم المشورة والمتابعة القانونية للأرامل والأيتام وأسرهم، حتى لا يضيع حق بسبب نقص المعرفة
             بالإجراءات أو العجز عن تحمّل أتعاب المحاماة.
@@ -34,12 +34,16 @@
         </div>
       </section>
 
+      <!-- B91-11: العنوان و«بالمختصر» مرسومان من الأنماط المضمّنة؛ الملف الكامل هنا فلا يؤخر أول رسم -->
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
       <div class="pub-container pub-doc-layout">
-        <details class="pub-toc" open>
-          <summary>محتويات الصفحة</summary>
+        <details class="pub-toc">
+          <summary><span>محتويات الصفحة</span><svg class="pub-icon pub-faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
           <ol>
             <li><a href="#why">لماذا هذا البرنامج؟</a></li>
+            <li><a href="#audience">مين بنساعد؟</a></li>
             <li><a href="#what">ما الذي نقدمه؟</a></li>
+            <li><a href="#eligibility">إزاي بنراجع الطلبات؟</a></li>
             <li><a href="#how">كيف نعمل؟</a></li>
             <li><a href="#who">من يقدّم الاستشارات؟</a></li>
             <li><a href="#values">مبادئنا</a></li>
@@ -61,6 +65,13 @@
             </p>
           </section>
 
+          <!-- v9.1 (B91-07): انتقلت من الصفحة الرئيسية -->
+          <section id="audience" aria-labelledby="audience-title">
+            <h2 id="audience-title">مين بنساعد؟</h2>
+            <ul class="pub-audience">{{{audience}}}</ul>
+            <p>ونستقبل كمان طلبات الأسر الأولى بالرعاية من غير المسجلين عندنا، حسب أولوية كل حالة والإمكانات المتاحة.</p>
+          </section>
+
           <section id="what" aria-labelledby="what-title">
             <h2 id="what-title">ما الذي نقدمه؟</h2>
             <ul>
@@ -76,6 +87,17 @@
                 بعينها في أي نزاع، فالفصل فيه للمحكمة أو الجهة المختصة وحدها.
               </p>
             </div>
+          </section>
+
+          <section id="eligibility" aria-labelledby="eligibility-title">
+            <h2 id="eligibility-title">إزاي بنراجع الطلبات؟</h2>
+            <ul>
+              <li>يُراجَع كل طلب على حدة، ويتحدد الاستحقاق النهائي بعد المراجعة.</li>
+              <li>الأولوية للأرامل والأيتام وأسر المؤسسة، وللحالات الأشد احتياجًا أو المرتبطة بمواعيد قانونية قريبة.</li>
+              <li>قد نطلب بعض المستندات للتحقق من الحالة، ونحفظها بسرية.</li>
+              <li>إن تعذر علينا قبول الطلب نبلغك بذلك بوضوح، ونرشدك إلى جهة أخرى قدر الإمكان.</li>
+              <li>لا نعد بنتيجة بعينها؛ فالفصل في أي نزاع للمحكمة أو الجهة المختصة وحدها.</li>
+            </ul>
           </section>
 
           <section id="how" aria-labelledby="how-title">
@@ -141,8 +163,8 @@
               {{{programs}}}
             </ul>
             <div class="pub-cta-row pub-doc-cta">
-              <a class="pub-btn pub-btn-gold" href="/intake" data-cta="intake">قدّم طلبك</a>
-              <a class="pub-btn pub-btn-outline" href="/#contact">تواصل معنا</a>
+              <a class="pub-btn pub-btn-gold" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
+              <a class="pub-btn pub-btn-outline" href="/#contact">كلمينا</a>
             </div>
           </section>
         </article>

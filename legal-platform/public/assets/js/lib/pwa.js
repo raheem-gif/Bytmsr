@@ -72,11 +72,109 @@ function showBanner({ kind, title, text, actions = [], onDismiss }) {
   return current;
 }
 
+// ───────── v9.1 l-home (L-10): «أضف المنصة إلى شاشتك الرئيسية» من بطاقة «جهّز هاتفك» ─────────
+// آخر حدث beforeinstallprompt (يحفظه setupInstallHint). الوحدة تُحمَّل بعد أول شاشة (L-07)، فالحدث إن سبقها
+// تلتقطه main.js في window.__bmInstallPrompt
+let installPrompt = (typeof window !== 'undefined' && window.__bmInstallPrompt) || null;
+
+/** هل تعمل المنصة مثبتة على الشاشة الرئيسية؟ */
+export function standalone() {
+  return isStandalone();
+}
+
+/**
+ * يعرض نافذة التثبيت (أندرويد/كروم). يعيد 'accepted' | 'dismissed' | 'installed' | 'unavailable'
+ * (unavailable: المتصفح لم يعرض التثبيت — مثل سفاري على iOS — فتعرض الصفحة خطوات «المشاركة ← إضافة إلى الشاشة الرئيسية»).
+ */
+export async function promptInstall() {
+  if (isStandalone()) return 'installed';
+  if (!installPrompt) return 'unavailable';
+  const ev = installPrompt;
+  installPrompt = null;
+  closeBanner();
+  try {
+    await ev.prompt();
+    const choice = await ev.userChoice;
+    return choice && choice.outcome === 'accepted' ? 'accepted' : 'dismissed';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+// ───────── v9.1 l-home (L-20): تنبيهات الجهاز (Web Push) ─────────
+/** هل يدعم هذا المتصفح تنبيهات الجهاز؟ */
+export function pushSupported() {
+  return typeof window !== 'undefined' && window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+function keyBytes(b64u) {
+  const s = String(b64u || '').replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(s + '='.repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function pushRegistration() {
+  const reg = await navigator.serviceWorker.getRegistration('/app');
+  return reg || navigator.serviceWorker.ready;
+}
+
+/** الاشتراك الحالي لهذا المتصفح (أو null) */
+export async function currentPushSubscription() {
+  if (!pushSupported()) return null;
+  try {
+    const reg = await pushRegistration();
+    return reg ? await reg.pushManager.getSubscription() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * يطلب الإذن ويشترك ويرسل الاشتراك للخادم. يعيد 'subscribed' | 'denied' | 'unsupported'.
+ * @param {(path:string, body?:object)=>Promise<any>} post دالة الطلب (api.post)
+ * @param {(path:string)=>Promise<any>} get (api.get)
+ */
+export async function subscribePush({ get, post }) {
+  if (!pushSupported()) return 'unsupported';
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (perm !== 'granted') return 'denied';
+  const status = await get('/account/push-subscription');
+  const reg = await pushRegistration();
+  if (!reg) return 'unsupported';
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(status.public_key) });
+  await post('/account/push-subscription', { subscription: sub.toJSON() });
+  return 'subscribed';
+}
+
+/** يلغي الاشتراك من المتصفح (والخادم إن مُرّرت del) */
+export async function unsubscribePush({ del = null, silent = false } = {}) {
+  const sub = await currentPushSubscription();
+  if (!sub) return false;
+  const endpoint = sub.endpoint;
+  try {
+    await sub.unsubscribe();
+  } catch {
+    /* تجاهل */
+  }
+  if (del) {
+    try {
+      await del('/account/push-subscription', { endpoint });
+    } catch (err) {
+      if (!silent) throw err;
+    }
+  }
+  return true;
+}
+
 function setupInstallHint() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    installPrompt = e;
+  });
   if (isStandalone()) return;
   let deferred = null;
 
-  window.addEventListener('beforeinstallprompt', (e) => {
+  const onPrompt = (e) => {
     e.preventDefault();
     deferred = e;
     if (recentlyDismissed() || !isPhoneLike()) return;
@@ -106,7 +204,13 @@ function setupInstallHint() {
       ],
       onDismiss: () => store('set', DISMISS_KEY, String(Date.now())),
     });
-  });
+  };
+  window.addEventListener('beforeinstallprompt', onPrompt);
+  if (window.__bmInstallPrompt) {
+    const early = window.__bmInstallPrompt;
+    window.__bmInstallPrompt = null;
+    onPrompt(early);
+  }
 
   window.addEventListener('appinstalled', () => {
     closeBanner();

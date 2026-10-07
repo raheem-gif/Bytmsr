@@ -23,7 +23,7 @@ function section(title, iconName, body) {
  * @param {object} analysis كائن التحليل كما يعيده الخادم ({ doc_type, provider, result: {...} })
  * @param {{compact?:boolean}} [opts]
  */
-export function docAiPanel(analysis, { compact = false } = {}) {
+export function docAiPanel(analysis, { compact = false, onRequestDoc = null } = {}) {
   if (!analysis) return h('p.muted', 'لم يُحلَّل هذا المستند بعد.');
   const r = analysis.result || analysis;
   const ai = analysis.provider === 'anthropic';
@@ -66,7 +66,21 @@ export function docAiPanel(analysis, { compact = false } = {}) {
           ),
         )
       : null,
-    missing.length ? section('مستندات مرتبطة يُستحسن طلبها', 'paperclip', chips(missing.map((m) => ({ label: m, tone: 'primary' })))) : null,
+    missing.length
+      ? section(
+          'مستندات مرتبطة يُستحسن طلبها',
+          'paperclip',
+          // v9.1 l-work (L-23): مع Claude ولدى المحامي، كل شريحة تفتح «اطلب» بنص «صورة {المستند}»
+          ai && onRequestDoc
+            ? h(
+                'div.doc-ai-request-chips',
+                missing.map((m) =>
+                  h('button.lw-chip.doc-ai-request-chip', { type: 'button', onClick: () => onRequestDoc(`صورة ${String(m).replace(/\s*\([^)]*\)\s*/g, ' ').trim()}`) }, icon('plus', { size: 14 }), h('span', m)),
+                ),
+              )
+            : chips(missing.map((m) => ({ label: m, tone: 'primary' }))),
+        )
+      : null,
     ai ? h('p.cell-sub.doc-ai-disclaimer', 'نتيجة آلية للمساعدة؛ يُرجع دائمًا إلى أصل المستند قبل الاعتماد عليها.') : null,
   );
 }
@@ -75,17 +89,27 @@ export function docAiPanel(analysis, { compact = false } = {}) {
  * زر تحليل مستند: يعرض التحليل السابق إن وُجد، وإلا يحلل المستند ويعرض النتيجة.
  * @param {{documentId:number, onDone?:(analysis:object)=>void, scope?:'admin'|'lawyer', label?:string, size?:string, variant?:string}} opts
  */
-export function docAiButton({ documentId, onDone, scope = 'admin', label: text = 'تحليل المستند', size = 'sm', variant = 'ghost' } = {}) {
-  const base = scope === 'lawyer' ? '/lawyer/ai/documents' : '/admin/ai/documents';
+export function docAiButton({ documentId, onDone, scope = 'admin', label: text = 'تحليل المستند', size = 'sm', variant = 'ghost', onView = null, onRequestDoc = null } = {}) {
   const btn = button(text, {
     variant,
     size,
     icon: 'sparkle',
     className: 'doc-ai-btn',
     title: 'تحليل نوع المستند ووقائعه وما يثبته والملاحظات عليه',
-    onClick: () => open(),
+    onClick: () => openDocAi({ documentId, onDone, scope, onView, onRequestDoc }),
   });
   if (!documentId) btn.disabled = true;
+  return btn;
+}
+
+/**
+ * v9.1 l-work: فتح نافذة التحليل مباشرة (من قائمة ⋯ للمستند).
+ * onView(): زر «عرض المستند» أعلى النافذة (L-05)، onRequestDoc(text): الشرائح المرتبطة تفتح «اطلب» (L-23، مع Claude فقط).
+ */
+export function openDocAi({ documentId, onDone, scope = 'admin', onView = null, onRequestDoc = null } = {}) {
+  const base = scope === 'lawyer' ? '/lawyer/ai/documents' : '/admin/ai/documents';
+  let m = null;
+  open();
 
   function open() {
     const body = h('div.doc-ai-modal-body', { 'aria-live': 'polite' }, loading('جارٍ التحميل…'));
@@ -111,10 +135,18 @@ export function docAiButton({ documentId, onDone, scope = 'admin', label: text =
 
     function show(a) {
       const again = button('إعادة التحليل', { variant: 'secondary', size: 'sm', icon: 'refresh', onClick: (e) => analyze(e.currentTarget) });
-      mount(body, docAiPanel(a), h('div.doc-ai-again', again));
+      const request = onRequestDoc
+        ? (text) => {
+            if (m) m.close('action');
+            onRequestDoc(text);
+          }
+        : null;
+      mount(body, docAiPanel(a, { onRequestDoc: request }), h('div.doc-ai-again', again));
     }
 
-    modal({ title: 'تحليل المستند', size: 'lg', className: 'doc-ai-modal', body, actions: [{ label: 'إغلاق', variant: 'ghost' }] });
+    // v9.1 l-work (L-05): «عرض المستند» أعلى النافذة
+    const viewTop = onView ? h('div.doc-ai-view-top', button('عرض المستند', { variant: 'secondary', size: 'sm', icon: 'eye', onClick: () => onView() })) : null;
+    m = modal({ title: 'تحليل المستند', size: 'lg', className: 'doc-ai-modal', body: viewTop ? h('div', viewTop, body) : body, actions: [{ label: 'إغلاق', variant: 'ghost' }] });
     api
       .get(`${base}/${documentId}`)
       .then((res) => (res && res.analysis ? show(res.analysis) : analyze()))
@@ -123,8 +155,7 @@ export function docAiButton({ documentId, onDone, scope = 'admin', label: text =
         else mount(body, alertBox(errorMessage(err), 'danger'));
       });
   }
-
-  return btn;
+  return m;
 }
 
 export default docAiButton;

@@ -4,6 +4,7 @@
 // وحدة المحاسبة في كل الاتفاقات هي «الاستشارة المعتمدة»، والعملة تُكتب «ج.م» كما في الواجهة.
 import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, notFound, conflict, v, toMinor, fromMinor, arabicCount, arabicPeriod, arabicPercent, formatEgp, AR_UNITS } from '../util.js';
 import { LABELS, ENUMS } from '../constants.js';
+import { lawyerPayView } from './lawyer-pay.js'; // v9.1 l-court: «مستحقاتي»
 
 const INCLUDED = ['included_monthly', 'included_quota', 'package_credit'];
 
@@ -619,6 +620,8 @@ export function createAccounting(app) {
         entries: entries.map(({ dedupe_key, created_by, ...e }) => ({ ...e, kind_label: LABELS.ledger_kind[e.kind], status_label: LABELS.ledger_status[e.status] })),
         events,
         payouts,
+        // v9.1 l-court (L-09): this_month, months, unpaid, last_payout, payout_note, performance
+        ...lawyerPayView(app, { lw, entries, payouts }),
       };
     },
 

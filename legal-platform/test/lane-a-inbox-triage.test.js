@@ -391,7 +391,9 @@ describe('Outbound replies use the client\'s channel; WhatsApp is simulated with
     }
   });
 
-  test('a website client who switches to WhatsApp is answered on WhatsApp; staff may still force the website channel', async () => {
+  // v9.1 b-site (B91-01): رسالة واتساب من نفس الرقم بلا رقم الطلب وكود التأكيد لا تثبت أن صاحب الرقم هو مقدّم الطلب؛
+  // الرد يبقى في صفحة المتابعة حتى تؤكد الإدارة الهوية (أو ترسل المستفيدة الرسالة الجاهزة بالكود)، ثم يصل على واتساب
+  test('a website client who switches to WhatsApp is answered on WhatsApp once the number is confirmed; staff may still force the website channel', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
       const web = await webIntake(t, { phone: '01022200033' });
@@ -399,6 +401,10 @@ describe('Outbound replies use the client\'s channel; WhatsApp is simulated with
       const admin = await t.login('admin');
       const it = (await inbox(admin)).items[0];
       assert.equal(it.code, web.reference);
+      const before = await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'تمام، سنكمل هنا.' });
+      assert.equal(before.body.channel, 'website');
+      assert.equal((await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'x', channel: 'whatsapp' })).status, 400);
+      assert.equal((await admin.post(`/api/admin/intakes/${it.id}/confirm-identity`, {})).status, 200);
       const r = await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'تمام، سنكمل هنا.' });
       assert.equal(r.body.channel, 'whatsapp');
       assert.equal(r.body.status, 'simulated');

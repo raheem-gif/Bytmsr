@@ -2,6 +2,7 @@
 import { nowIso, addDays, cairoYear, parseJson, badRequest, notFound, conflict, v, truncate } from '../util.js';
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
+import { newAssignmentBody, deadlineText, grantsNotification } from './lawyer-copy.js'; // v9.1 l-home (L-12)
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const OPEN_ASSIGNMENT = ['assigned', 'in_progress', 'submitted', 'returned'];
@@ -287,8 +288,10 @@ export function createCases(app) {
         },
         client: client ? { ...client, phone: app.clients.primaryPhone(client.id), identities: app.clients.identities(client.id) } : null,
         intake: intake
-          ? { id: intake.id, code: intake.code, source: intake.source, campaign: intake.campaign, first_channel: intake.first_channel, channels: parseJson(intake.channels, []), source_detail: parseJson(intake.source_detail, {}), created_at: intake.created_at }
+          ? { id: intake.id, code: intake.code, source: intake.source, campaign: intake.campaign, first_channel: intake.first_channel, channels: parseJson(intake.channels, []), source_detail: (({ confirm_hash, ...rest }) => rest)(parseJson(intake.source_detail, {})), created_at: intake.created_at }
           : null,
+        // v9.1 b-site (B91-01): أين تصل رسائل هذا الملف؟ (تلميح صندوق الرد)
+        reply_channel: app.engine?.channelHint ? app.engine.channelHint({ clientId: c.client_id, intakeId: c.intake_id, caseId: c.id }) : null,
         issues,
         documents,
         messages,
@@ -533,10 +536,12 @@ export function createCases(app) {
         summary: `أُسند الملف إلى ${lawyerName(lawyerId)} — الدور: «${LABELS.assignment_role[role]}»`,
         data: { assignment_id: assignmentId, lawyer_id: lawyerId, role },
       });
+      // v9.1 l-home (L-12): الموعد كاملًا (اليوم والتاريخ والساعة) ثم المطلوب مختصرًا
+      const newRow = db.get('SELECT due_at FROM assignments WHERE id = ?', assignmentId);
       app.notifications.notify(lawyerId, {
         type: 'assignment.new',
         title: `أُسند إليك الملف ${c.code}`,
-        body: brief ? truncate(brief, 160) : truncate(c.title, 160),
+        body: newAssignmentBody(newRow?.due_at, brief || c.title),
         link: `#/my/assignments/${assignmentId}`,
       });
       svc.refreshStatus(c.id);
@@ -560,10 +565,15 @@ export function createCases(app) {
       }
       db.update('assignments', a.id, patch);
       app.activity.log({ case_id: a.case_id, actor, type: 'assignment.updated', summary: `تم تعديل بيانات إسناد ${lawyerName(a.lawyer_id)}` });
-      if (patch.due_at || patch.brief) {
+      // v9.1 l-home (L-12): يقول ماذا تغيّر — الموعد (وإلى متى) أو المطلوب
+      const dueChanged = patch.due_at !== undefined && patch.due_at !== a.due_at;
+      const briefChanged = patch.brief !== undefined && (patch.brief || null) !== (a.brief || null);
+      if (dueChanged || briefChanged) {
+        const code = svc.require(a.case_id).code;
         app.notifications.notify(a.lawyer_id, {
           type: 'assignment.updated',
-          title: `تم تحديث تكليفك في الملف ${svc.require(a.case_id).code}`,
+          title: dueChanged && patch.due_at ? `تغيّر موعد تسليم رأيك في ${code} إلى ${deadlineText(patch.due_at)}` : `عدّلت الإدارة المطلوب منك في ${code}`,
+          body: dueChanged && briefChanged ? 'وعدّلت الإدارة المطلوب منك أيضًا.' : null,
           link: `#/my/assignments/${a.id}`,
         });
       }
@@ -583,11 +593,13 @@ export function createCases(app) {
         data: { before, after },
       });
       const c = svc.require(a.case_id);
-      app.notifications.notify(a.lawyer_id, {
-        type: 'grants.updated',
-        title: `تم تحديث المحتوى المتاح لك في الملف ${c.code}`,
-        link: `#/my/assignments/${a.id}`,
-      });
+      // v9.1 l-home (L-12): الإشعار يقول ماذا أُتيح بالضبط (بصيغ عدد سليمة)، ولا إشعار إن لم يتغير شيء
+      const titlesOf = (kind, ids) =>
+        ids.length ? db.all(`SELECT title FROM ${kind === 'document' ? 'documents' : 'case_issues'} WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY id`, ...ids).map((r) => r.title) : [];
+      const n = grantsNotification(before, after, c.code, titlesOf);
+      if (n && a.status !== 'withdrawn') {
+        app.notifications.notify(a.lawyer_id, { type: 'grants.updated', title: n.title, body: n.body, link: `#/my/assignments/${a.id}` });
+      }
       return after;
     },
 

@@ -14,7 +14,7 @@ const PUB = path.join(ROOT, 'public');
 
 const PAGES = [
   ['/', /الدعم القانوني للأرامل والأيتام وأسرهم — مؤسسة بيوت مصر/],
-  ['/intake', /قدّم طلب دعم قانوني — الدعم القانوني — مؤسسة بيوت مصر/],
+  ['/intake', /احكيلنا مشكلتك — الدعم القانوني — مؤسسة بيوت مصر/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
   ['/about', /عن برنامج الدعم القانوني — مؤسسة بيوت مصر/],
   ['/privacy', /سياسة الخصوصية — الدعم القانوني — مؤسسة بيوت مصر/],
   ['/terms', /شروط الاستخدام — الدعم القانوني — مؤسسة بيوت مصر/],
@@ -50,14 +50,15 @@ describe('v9 site — public pages rendered on the server', () => {
       assert.match(r.headers.get('content-type'), /text\/html/);
       assert.match(titleOf(r.body), title, `${p} title`);
       assert.match(r.body, /<html lang="ar" dir="rtl">/);
-      const withoutLd = r.body.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, '');
+      // v9.1 b-site: بيانات JSON-LD وbm-public والأنماط المضمّنة ليست قوالب (قد تحتوي «}}»)
+      const withoutLd = r.body.replace(/<script type="application\/(?:ld\+)?json"[^>]*>[\s\S]*?<\/script>/g, '').replace(/<style>[\s\S]*?<\/style>/g, '');
       assert.ok(!/\{\{|\}\}|<!--#if|<!--\/if|<!--site:head-->/.test(withoutLd), `${p} has unrendered tokens`);
       // الرأس والتذييل المشتركان + روابط السياسات والمتابعة
       assert.match(r.body, /class="pub-header"/);
       assert.match(r.body, /class="pub-footer"/);
       for (const href of ['/privacy', '/terms', '/data-deletion', '/portal', '/intake', '/about']) assert.ok(r.body.includes(`href="${href}"`), `${p} links ${href}`);
       // CSP صارمة: لا سكربتات مضمّنة تنفيذية
-      const inline = [...r.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/ld\+json/.test(m[1]));
+      const inline = [...r.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/(?:ld\+)?json/.test(m[1]));
       assert.equal(inline.length, 0, `${p} must not have inline executable scripts`);
       assert.match(r.headers.get('content-security-policy'), /script-src 'self'/);
     }
@@ -100,9 +101,10 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.equal(ngo.address.addressCountry, 'EG');
     assert.deepEqual(ngo.sameAs, ['https://www.facebook.com/Beyootmisr/']);
     assert.equal(svc.parentOrganization['@id'], ngo['@id']);
-    assert.equal(svc.knowsAbout.length, SERVICES.length);
+    // v9.1 b-site (B91-07): ثمانية مربعات بكلام يومي، و«حاجة تانية» بلا مجال قانوني؛ خمسة أسئلة فقط
+    assert.equal(svc.knowsAbout.length, SERVICES.filter((s) => s.seo).length);
     const faq = graph.find((n) => n['@type'] === 'FAQPage');
-    assert.ok(FAQ.length >= 8 && FAQ.length <= 10);
+    assert.equal(FAQ.length, 5);
     assert.equal(faq.mainEntity.length, FAQ.length);
     // صفحات أخرى لا تحمل FAQPage
     const about = jsonLd((await t.client().get('/about')).body)['@graph'];
@@ -116,6 +118,10 @@ describe('v9 site — public pages rendered on the server', () => {
       const m = new RegExp(`id="service-${s.key}"[\\s\\S]*?href="([^"]+)"`).exec(html);
       assert.ok(m, `service ${s.key} rendered`);
       const area = new URL(m[1], 'http://x').searchParams.get('area');
+      if (!s.areas.length) {
+        assert.equal(m[1], '/intake', 'v9.1: «حاجة تانية» opens the form without an area');
+        continue;
+      }
       assert.ok(area && codes.has(area), `service ${s.key} links to a defined area (${area})`);
       assert.equal(area, s.areas.find((c) => codes.has(c)));
     }
@@ -124,7 +130,9 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.match(html, /href="tel:\+201211114662"/);
     assert.match(html, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=44%20/);
     assert.match(html, /https:\/\/wa\.me\/201000000001\?text=/);
-    for (const p of ['نجاح', 'المائدة', 'سلامة', 'الكسوة', 'أفراح', 'صك الإيواء', 'نماء']) assert.ok(html.includes(`«${p}»`), p);
+    // v9.1 b-site (B91-07): برامج المؤسسة انتقلت إلى «عن البرنامج»
+    const about = (await t.client().get('/about')).body;
+    for (const p of ['نجاح', 'المائدة', 'سلامة', 'الكسوة', 'أفراح', 'صك الإيواء', 'نماء']) assert.ok(about.includes(`«${p}»`), p);
     // لا محتوى مختلق: لا شهادات ولا إحصاءات
     assert.ok(!/شهادات المستفيدين|testimonial/i.test(html));
   });
@@ -399,12 +407,15 @@ describe('v9 site — website intake with the optional family (beneficiary) sect
     assert.match(r.body.error, /[؀-ۿ]/);
   });
 
-  test('the intake page renders legal areas from meta (no hard-coded list) and sends the contract keys', () => {
+  // v9.1 b-forms (تغيير مقصود): النموذج صار 3 خطوات؛ الموضوع بكلام الناس يُترجم لمجال يُقبل فقط إن عرّفته بيانات المنصة،
+  // وبيانات الأسرة في النموذج سؤالان فقط (الصفة وعدد الأطفال). الخادم ما زال يقبل الحقول الأخرى (اختبار validatePublic أعلاه).
+  test('the intake page maps plain-language topics to areas known by the platform and sends the contract keys', () => {
     const src = fs.readFileSync(path.join(PUB, 'assets/js/public/intake.js'), 'utf8');
-    assert.match(src, /areaOptions\(\)/);
-    assert.ok(!/['"]INH['"]|['"]FAM['"]/.test(src), 'no hard-coded area codes');
-    for (const k of ['relation', 'children_count', 'foundation_file_number', 'monthly_income_band', 'housing']) assert.ok(src.includes(k), k);
-    for (const v of ['widow', 'orphan_guardian', 'divorced', 'wife', 'lt_2000', '2000_4000', '4000_7000', 'gt_7000', 'rented_old', 'rented_new']) assert.ok(src.includes(`'${v}'`), v);
+    assert.match(src, /areaCodes\.has\(/, 'a topic sends its area only when the platform defines it');
+    assert.match(src, /areaCodes = new Set\(\(meta\.areas \|\| \[\]\)\.map/);
+    for (const k of ['relation', 'children_count']) assert.ok(src.includes(k), k);
+    for (const v of ['widow', 'orphan_guardian', 'divorced', 'other']) assert.ok(src.includes(`'${v}'`), v);
+    for (const gone of ['foundation_file_number', 'monthly_income_band', 'email', "'rented_old'", 'beneficiary.housing']) assert.ok(!src.includes(gone), `${gone} is no longer asked on the public form`);
     // شاشة النجاح تحل محل النموذج وعنوانه، فعنوانها h1 (عنوان رئيسي واحد للصفحة)
     assert.match(src, /h\('h1#success-title/);
   });

@@ -3,6 +3,7 @@
 import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, conflict, v, normalizePhone } from '../util.js';
 import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
 import { portalUnverifiedSql, isPortalUnverifiedIntake } from '../channels/engine.js';
+import { createPortalV91, shortRefCodes, itemsInput } from './portal-v91.js'; // v9.1 b-portal
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -377,7 +378,7 @@ export function createPortal(app) {
       const orphan = orphanSql(sc);
       const msgs = db
         .all(
-          `SELECT id, direction, channel, body, created_at FROM messages
+          `SELECT id, direction, channel, body, created_at, automated, meta FROM messages
            WHERE client_id = ? AND (intake_id IN (${I}) OR case_id IN (${C}) OR matter_id IN (${M})${orphan.sql})
              ${sc.websiteOnly ? "AND channel = 'website'" : ''}
              AND (direction = 'in' OR status IN ('sent','delivered','read','simulated'))
@@ -390,17 +391,18 @@ export function createPortal(app) {
       const byMsg = new Map();
       if (msgs.length) {
         const ids = msgs.map((m) => m.id).join(',');
-        for (const d of db.all(`SELECT id, message_id, filename FROM documents WHERE message_id IN (${ids}) AND uploaded_by_kind = 'client'`)) {
+        // (v9.1 b-portal: mime لعرض الصور والرسائل الصوتية في المحادثة)
+        for (const d of db.all(`SELECT id, message_id, filename, mime FROM documents WHERE message_id IN (${ids}) AND uploaded_by_kind = 'client'`)) {
           if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
-          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename });
+          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename, mime: d.mime });
         }
         // (v9 messaging) المستندات التي أرسلتها الإدارة للعميل مع رسالة صادرة (تُنزَّل من /api/portal/<token>/documents/<id>)
-        for (const d of db.all(`SELECT d.id, ma.message_id, d.filename FROM message_attachments ma JOIN documents d ON d.id = ma.document_id WHERE ma.message_id IN (${ids})`)) {
+        for (const d of db.all(`SELECT d.id, ma.message_id, d.filename, d.mime FROM message_attachments ma JOIN documents d ON d.id = ma.document_id WHERE ma.message_id IN (${ids})`)) {
           if (!byMsg.has(d.message_id)) byMsg.set(d.message_id, []);
-          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename, sent: true });
+          byMsg.get(d.message_id).push({ id: d.id, filename: d.filename, mime: d.mime, sent: true });
         }
       }
-      return {
+      const out = {
         scope: sc.full ? 'client' : 'request',
         client: !sc.full
           ? { code: null, name: sc.intake?.contact_name || null, reference: sc.intake?.code || null }
@@ -418,7 +420,12 @@ export function createPortal(app) {
              WHERE r.case_id IN (${C}) AND r.status IN ('sent_to_client','client_replied') ORDER BY r.id DESC`,
           )
           .map((r) => ({ id: r.id, kind: r.kind, case_code: r.case_code, message: r.client_message, status: r.status, created_at: r.sent_at, can_reply: r.status === 'sent_to_client' })),
-        messages: msgs.map((m) => ({ ...m, documents: byMsg.get(m.id) || [] })),
+        // v9.1 b-portal: نوع الرسالة الصادرة فقط (الرد، طلب ورق، تذكير آلي) بدل بياناتها الداخلية (meta لا يصل للمستفيد/ة)
+        messages: msgs.map(({ automated, meta, ...m }) => {
+          const mm = m.direction === 'out' ? JSON.parse(meta || '{}') : {};
+          const kind = mm.client_answer_id ? 'answer' : mm.info_request_id ? 'request' : automated ? 'auto' : null;
+          return { ...m, kind, documents: byMsg.get(m.id) || [] };
+        }),
         answers: db.all(
           `SELECT a.id, a.body, a.sent_at, c.code AS case_code FROM client_answers a JOIN cases c ON c.id = a.case_id
            WHERE a.case_id IN (${C}) AND a.status = 'sent' ORDER BY a.id DESC`,
@@ -444,7 +451,28 @@ export function createPortal(app) {
             paid_amount: fromMinor(Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id))),
           })),
       };
+      // v9.1 b-portal: «إيه المطلوب مني؟» و«طلبك وصل لفين؟» وحقول الورق والرد والجلسة والمصاريف (src/services/portal-v91.js).
+      // cases[] وintakes[] باقيتان إصدارًا واحدًا للتوافق، أما case_code وmatter_code فلا تصلان للصفحة بعد الآن.
+      v91.decorate(client, sc, out);
+      out.home = v91.home(client, sc, out);
+      return out;
     },
+
+    // v9.1 b-portal: ردود الصفحة المنظمة (كلها داخل نطاق الرابط نفسه؛ الموارد خارجه تعيد 404)
+    replyToRequest: (...a) => v91.replyToRequest(...a),
+    postMessage: (...a) => v91.postMessage(...a),
+    eventResponse: (...a) => v91.eventResponse(...a),
+    invoiceResponse: (...a) => v91.invoiceResponse(...a),
+    callback: (...a) => v91.callback(...a),
+    onButtonReply: (...a) => v91.onButtonReply(...a),
+    dayBeforeReminder: (...a) => v91.dayBeforeReminder(...a),
+    // B91-21: «29» أو «29/2026» ← REQ-<السنة>-00029 (بحث الإدارة في صندوق الوارد والبحث الشامل)
+    shortRefCodes,
+    // B91-03: بنود الورق كما تراجعها الإدارة عند الموافقة على الطلب (requests.approveInfo)
+    itemsInput,
+    officeOpen: (...a) => v91.officeOpen(...a),
+    stageOf: (...a) => v91.stageOf(...a),
   };
+  const v91 = createPortalV91(app, { scopeOf, inList });
   return svc;
 }

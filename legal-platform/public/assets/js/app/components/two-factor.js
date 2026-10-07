@@ -8,6 +8,15 @@ import { qrSvg } from './qr.js';
 
 const APPS = 'Google Authenticator أو Microsoft Authenticator أو أي تطبيق مصادقة يدعم TOTP';
 
+/** v9.1 l-home (L-11): الإعداد يجري على الهاتف نفسه (لمس وشاشة أضيق من 768px) */
+export function isPhoneSetup() {
+  try {
+    return !!window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 768;
+  } catch {
+    return false;
+  }
+}
+
 /** تنزيل نص كملف (رموز الاسترداد) */
 export function downloadText(filename, text) {
   const blob = new Blob([`﻿${text}`], { type: 'text/plain;charset=utf-8' });
@@ -44,8 +53,8 @@ export function recoveryCodesPanel(codes, { username = '', onDone, doneLabel = '
     h('ol.acc-codes', { dir: 'ltr', 'aria-label': 'رموز الاسترداد' }, codes.map((c) => h('li', h('code', c)))),
     h(
       'div.acc-actions-row',
-      copyButton(codes.join('\n'), 'نسخ الرموز', { variant: 'secondary' }),
-      button('تنزيل كملف نصي', { variant: 'secondary', size: 'sm', icon: 'download', onClick: () => downloadText(`recovery-codes-${username || 'account'}.txt`, text) }),
+      copyButton(codes.join('\n'), isPhoneSetup() ? 'نسخ الكل' : 'نسخ الرموز', { variant: 'secondary' }),
+      button(isPhoneSetup() ? 'تنزيل ملف نصي' : 'تنزيل كملف نصي', { variant: 'secondary', size: 'sm', icon: 'download', onClick: () => downloadText(`recovery-codes-${username || 'account'}.txt`, text) }),
     ),
     onDone && h('label.check.check-single.acc-confirm', { htmlFor: 'acc-rc-confirm' }, confirm, h('span', 'حفظت رموز الاسترداد في مكان آمن')),
     onDone && h('div.acc-actions-row', doneBtn),
@@ -122,6 +131,26 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
       qr = qrSvg(setup.otpauth_uri, { size: 196, label: 'رمز QR لإضافة الحساب إلى تطبيق المصادقة' });
     } catch {
       qr = alertBox('تعذر رسم رمز QR؛ استخدم إدخال المفتاح يدويًا.', 'warning');
+    }
+    // v9.1 l-home (L-11): على الهاتف نفسه لا يمكن مسح رمز معروض عليه — فتح التطبيق مباشرة أو نسخ المفتاح أولًا،
+    // والرمز تحت «لديك جهاز آخر؟». الحاسوب بلا تغيير (الرمز أولًا).
+    if (isPhoneSetup()) {
+      const groups = String(setup.secret || '').replace(/\s+/g, '').match(/.{1,4}/g) || setup.secret_groups || [];
+      mount(
+        body,
+        h(
+          'div.lh-2fa-phone',
+          h('h3.acc-lead', 'أضف حسابك إلى تطبيق المصادقة'),
+          button('افتح تطبيق المصادقة', { variant: 'primary', icon: 'externalLink', href: setup.otpauth_uri, block: true }),
+          h('div.lh-2fa-key', { dir: 'ltr', translate: 'no', 'aria-label': 'المفتاح السري' }, groups.join(' ')),
+          copyButton(setup.secret, 'انسخ المفتاح', { variant: 'secondary', size: 'md' }),
+          h('p.lh-2fa-tip', 'لا يوجد تطبيق؟ ثبّت Google Authenticator أو Microsoft Authenticator ثم عد إلى هنا.'),
+          h('details.lh-2fa-other', h('summary', 'لديك جهاز آخر؟ امسح الرمز'), h('div.acc-qr', qr)),
+          h('p.small.muted', `يجب إكمال الإعداد قبل ${dateTime(setup.expires_at)}.`),
+        ),
+        codeForm.el,
+      );
+      return;
     }
     mount(
       body,

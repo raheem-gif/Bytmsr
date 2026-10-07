@@ -1,0 +1,10 @@
+[
+  ["matter_events", "outcome_kind", "TEXT"],
+  ["matter_events", "outcome_reason", "TEXT"],
+  ["matter_events", "outcome_decision", "TEXT"],
+  ["matter_events", "outcome_at", "TEXT"],
+  ["matter_events", "outcome_by", "INTEGER REFERENCES users(id)"],
+  ["matter_events", "client_ref", "TEXT"],
+  ["matter_events", "parent_event_id", "INTEGER REFERENCES matter_events(id)"],
+  ["matter_tasks", "source_event_id", "INTEGER REFERENCES matter_events(id)"]
+]

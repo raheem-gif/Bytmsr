@@ -386,3 +386,67 @@ export function pick(obj, keys) {
   for (const k of keys) if (obj && Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];
   return out;
 }
+
+// ===== v9.1 b-site: مخاطبة المستفيد/ة في الرسائل (نفس قواعد public/assets/js/public/words.js) =====
+const KUNYA_RE = /^(أم|ام|إم|أبو|ابو|أبو)$/;
+const MALE_KUNYA_RE = /^(أبو|ابو|أبو)$/;
+
+/**
+ * الاسم الذي نخاطب به المستفيد/ة: الكنية كاملة («أم محمد عبد الله» ← «أم محمد»، «ابو أحمد» ← «ابو أحمد»)،
+ * أو الاسم الأول («سامية محمود» ← «سامية»؛ «عبد الله محمد» ← «عبد الله»). لا يعيد «أم» وحدها أبدًا. '' للفارغ.
+ */
+export function addressName(name) {
+  const w = String(name ?? '').replace(/[‎‏؜]/g, '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return '';
+  if (KUNYA_RE.test(w[0])) return w[1] ? `${w[0]} ${w[1]}${w[1] === 'عبد' && w[2] ? ` ${w[2]}` : ''}` : '';
+  if (w[0] === 'عبد' && w[1]) return `${w[0]} ${w[1]}`;
+  return w[0];
+}
+
+/**
+ * صيغة المخاطبة: 'm' أو 'f'. ما حددته الإدارة (address_form) أولًا، ثم «أبو …» = مذكر، وإلا مؤنث (الأغلب في البرنامج).
+ * تقبل صف العميل كاملًا أو { name, address_form }.
+ */
+export function addressForm(person) {
+  const set = person?.address_form;
+  if (set === 'm' || set === 'f') return set;
+  const first = String(person?.name ?? '').trim().split(/\s+/)[0] || '';
+  return MALE_KUNYA_RE.test(first) ? 'm' : 'f';
+}
+
+/** رموز النوع في نصوص الرسائل: {ي} و{ة} تصبح «ي»/«ة» للمؤنث وتُحذف للمذكر («صوّر{ي}» ← «صوّري» / «صوّر»). */
+export function genderize(text, form = 'f') {
+  const f = form !== 'm';
+  return String(text ?? '').replace(/\{ي\}/g, f ? 'ي' : '').replace(/\{ة\}/g, f ? 'ة' : '');
+}
+
+/** الوقت كما يُقال: «10 الصبح»، «1 الضهر»، «4 العصر»، «8 بالليل»، «10 ونص الصبح» (بتوقيت القاهرة) */
+export function spokenTime(iso) {
+  const p = cairoParts(iso);
+  const period = p.hour < 4 ? 'بالليل' : p.hour < 6 ? 'الفجر' : p.hour < 12 ? 'الصبح' : p.hour < 15 ? 'الضهر' : p.hour < 18 ? 'العصر' : 'بالليل';
+  const h12 = p.hour % 12 === 0 ? 12 : p.hour % 12;
+  const mins = p.minute === 0 ? '' : p.minute === 30 ? ' ونص' : p.minute === 15 ? ' وربع' : `:${String(p.minute).padStart(2, '0')}`;
+  return `${h12}${mins} ${period}`;
+}
+
+/** اليوم كما يُقال بلا سنة: «الجمعة 9 أكتوبر» */
+export function spokenDate(iso) {
+  const p = cairoParts(iso);
+  const dow = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
+  return `${AR_DAYS[dow]} ${p.day} ${AR_MONTHS[p.month - 1]}`;
+}
+
+/** قرب الموعد كما يُقال: «النهارده»، «بكرة»، «بعد يومين»، «بعد 3 أيام»، وإلا «يوم الجمعة 9 أكتوبر» */
+export function dayWord(iso, nowValue = nowIso()) {
+  const key = (x) => {
+    const p = cairoParts(x);
+    return Date.UTC(p.year, p.month - 1, p.day);
+  };
+  const diff = Math.round((key(iso) - key(nowValue)) / 86400000);
+  if (diff === 0) return 'النهارده';
+  if (diff === 1) return 'بكرة';
+  if (diff === 2) return 'بعد يومين';
+  if (diff >= 3 && diff <= 6) return `بعد ${diff} أيام`;
+  if (diff === -1) return 'إمبارح';
+  return `يوم ${spokenDate(iso)}`;
+}

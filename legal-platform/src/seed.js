@@ -3,6 +3,12 @@
 import { setClock, cairoLocalToIso, cairoParts, addDays } from './util.js';
 import { sourceFromReferral } from './channels/whatsapp.js';
 import { sourceFromWebAttribution } from './channels/engine.js';
+import { seedCourtDemo } from './seed-v91-l-court.js'; // v9.1 l-court
+import { seedHomeDemo } from './seed-v91-l-home.js'; // v9.1 l-home
+import { seedWorkDemo } from './seed-v91-l-work.js'; // v9.1 l-work
+import { seedFormsDemo } from './seed-v91-b-forms.js'; // v9.1 b-forms
+import { seedSiteDemo } from './seed-v91-b-site.js'; // v9.1 b-site
+import { seedPortalDemo } from './seed-v91-b-portal.js'; // v9.1 b-portal
 
 const HOUR = 3600 * 1000;
 
@@ -527,9 +533,10 @@ export async function seedDemo(app) {
     const rep = wa(sPhone, sName, 'أيوه، مرات أخويا الله يرحمه (أم الولاد) هي الوصية بقرار من محكمة الأسرة سنة 2023');
     adv(13);
     app.requests.recordReply(ir1.id, manager, { message_ids: [rep.message_id] });
-    app.requests.shareInfo(ir1.id, manager, { response_text: 'أفادت العميلة بأن أم القاصرين (أرملة الابن المتوفى) هي الوصية عليهما بقرار من محكمة الأسرة صادر عام 2023.' });
+    app.requests.shareInfo(ir1.id, manager, { response_text: 'أفادت المستفيدة بأن أم القاصرين (أرملة الابن المتوفى) هي الوصية عليهما بقرار من محكمة الأسرة صادر عام 2023.' });
     adv(3);
-    const ir2 = app.requests.createInfoByLawyer(lead.id, U.ahmed, { kind: 'document', question: 'صورة إعلام الوراثة إن كان قد صدر، وإن لم يصدر نرجو إفادتنا بذلك.' });
+    // v9.1 l-work: طلبته الإدارة نفسها من المستفيدة (لا المحامي)، فيظهر للمحامي في «مطلوب بالفعل من المستفيد/ة»
+    const ir2 = app.requests.createInfoByStaff(nCase.id, manager, { kind: 'document', question: 'صورة إعلام الوراثة إن كان قد صدر، وإن لم يصدر نرجو إفادتنا بذلك.', send: false });
     const docs = db.all('SELECT id, filename FROM documents WHERE case_id = ? ORDER BY id', nCase.id);
     const deathDoc = docs.find((d) => d.filename.includes('الوفاة'));
     const flatDoc = docs.find((d) => d.filename.includes('شقة'));
@@ -729,7 +736,7 @@ export async function seedDemo(app) {
     // جلسة يوم 15 من الشهر القادم (كما في المثال: «جلسة يوم 15 نوفمبر وحضور العميل مطلوب»)
     const nm = p.month === 12 ? 1 : p.month + 1;
     const ny = p.month === 12 ? p.year + 1 : p.year;
-    app.matters.addEvent(m2.id, { kind: 'hearing', title: 'جلسة نظر جنحة التبديد', starts_at: cairoLocalToIso(ny, nm, 15, 9, 30), location: 'محكمة جنح مدينة نصر', client_attendance_required: true, notes: 'يلزم حضور العميل شخصيًا.' }, U.hany);
+    app.matters.addEvent(m2.id, { kind: 'hearing', title: 'جلسة نظر جنحة التبديد', starts_at: cairoLocalToIso(ny, nm, 15, 9, 30), location: 'محكمة جنح مدينة نصر', client_attendance_required: true, notes: 'يلزم حضور المستفيد/ة شخصيًا.' }, U.hany);
     app.matters.addTask(m2.id, { title: 'تقديم حافظة مستندات تثبت الطبيعة التجارية للتعامل', due_at: addDays(nowIsoStr, 2), procedural: true }, U.hany);
     const inv = db.get('SELECT id FROM invoices WHERE matter_id = ?', m1.id);
     db.update('invoices', inv.id, { due_at: addDays(nowIsoStr, -9) });
@@ -1005,6 +1012,24 @@ export async function seedDemo(app) {
       tick();
       app.programs.checkBudget();
     }
+
+    // <seed:v91-l-court> جلسة سابقة بنتيجة «تأجّلت» وجلسة اليوم بلا نتيجة في ملف الجنحة، وموعد الصرف المعتاد
+    seedCourtDemo(app, { matterId: m2.id, lawyer: U.hany, manager, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
+
+    // <seed:v91-b-forms> طلبان من نموذج الموقع الجديد برسالة صوتية (وصورة ورقة)، كما ترسلهما أغلب المستفيدات
+    seedFormsDemo(app, { at });
+
+    // <seed:v91-b-site> طلب من الموقع تأكد رقمه بنقرة واحدة على واتساب، وطلب رقمه غير مؤكد (صفحة المتابعة فقط)
+    seedSiteDemo(app, { at, manager });
+
+    // <seed:v91-l-home> هاني مشترك في تنبيهات واتساب، وإسناد جديد له (محامٍ مشارك) في ملف الميراث الرئيسي يُسلَّم بعد يومين
+    seedHomeDemo(app, { lawyer: U.hany, manager, caseId: nCase.id, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
+
+    // <seed:v91-l-work> أعادت الإدارة رأي رانيا (النفقة ومسكن الحضانة) بثلاث ملاحظات، ونسخة العمل عالجت الأولى
+    seedWorkDemo(app, { lawyer: U.rania, manager, assignmentId: fLead.id, inhCaseId: nCase.id, inhLeadId: lead.id, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
+
+    // <seed:v91-b-portal> رد نهى بخلاصة وخطوات، «هاتي معاكي» لجلستها، طلب ورق ببندين لسامية، وتعليمات الدفع
+    seedPortalDemo(app, { manager });
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

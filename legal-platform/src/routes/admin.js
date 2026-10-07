@@ -3,6 +3,7 @@ import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
+import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
@@ -110,7 +111,13 @@ export function registerAdminRoutes(router, app) {
       const absolute = url.startsWith('http') ? url : `${ctx.req.headers.origin || ''}${url}`;
       message = app.engine.sendToClient({
         client_id: c.id,
-        body: `يمكنكم متابعة ملفاتكم لدى ${app.settings.get('org_name')} ورفع المستندات المطلوبة من خلال الرابط الخاص بكم: ${absolute}`,
+        // v9.1 b-site (B91-10): نفس كلام رسائل المستفيد/ة البسيط («دي صفحة طلبك…») بصيغة المخاطبة الصحيحة
+        body: app.engine.clientWords
+          ? (() => {
+              const w = app.engine.clientWords({ clientId: c.id });
+              return app.engine.fillClientText(CLIENT_TEXTS.portal_link_message, { first_name: w.first_name, org_name: app.settings.get('org_name'), portal_link: absolute }, w.form);
+            })()
+          : `يمكنكم متابعة ملفاتكم لدى ${app.settings.get('org_name')} ورفع المستندات المطلوبة من خلال الرابط الخاص بكم: ${absolute}`,
         channel: 'whatsapp',
         author: u,
       });

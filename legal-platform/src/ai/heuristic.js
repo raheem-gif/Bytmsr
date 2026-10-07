@@ -420,6 +420,41 @@ export function draftOpinion({ title, area, facts, brief, issues, missing, simil
   return lines.join('\n');
 }
 
+/** v9.1 b-portal: الاسم الذي نخاطب به («أم محمد عبد الله» ← «أم محمد»، «سامية محمود» ← «سامية») */
+function kunyaName(name) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return '';
+  if (/^(أم|ام|إم|أبو|ابو)$/.test(w[0])) return w[1] ? `${w[0]} ${w[1]}` : '';
+  if (w[0] === 'عبد' && w[1]) return `${w[0]} ${w[1]}`;
+  return w[0];
+}
+
+/**
+ * v9.1 b-portal (B91-08): اقتراح «الخلاصة بكلام بسيط» و«الخطوات» من الرأي المعتمد بلا ذكاء اصطناعي خارجي.
+ * الخلاصة من «التوصية» (أو أول فقرة) مختصرة لثلاث جمل ≤ 400 حرف؛ الخطوات مما اقترحه المحامي للمستفيد/ة،
+ * وإلا خطوات عامة آمنة لا تضيف رأيًا قانونيًا. تراجعها الإدارة دائمًا قبل الإرسال.
+ */
+export function clientSummary({ opinion, clientSteps } = {}) {
+  const lines = String(opinion || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !/^مسودة أولية|^\[يُستكمل/.test(l));
+  const rec = lines.find((l) => /^التوصية/.test(l));
+  const base = (rec ? rec.replace(/^التوصية\s*[:：-]?\s*/, '') : lines[0] || '').replace(/^(أولًا|أولا|ثانيًا|ثالثًا)\s*[:：-]\s*/, '');
+  const parts = sentences(base).slice(0, 3);
+  let summary = (parts.length ? parts.join(' ') : base).trim();
+  if (summary.length > 400) summary = `${summary.slice(0, 397).replace(/\s+\S*$/, '')}…`;
+  let steps = [];
+  try {
+    steps = Array.isArray(clientSteps) ? clientSteps : JSON.parse(clientSteps || '[]');
+  } catch {
+    steps = String(clientSteps || '').split('\n');
+  }
+  steps = steps.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 160));
+  if (!steps.length) steps = ['جهّزي الورق اللي معاكي عن المشكلة دي.', 'لو عندك أي سؤال على الرد، اسألينا من صفحتك أو كلمينا.'];
+  return { summary, steps };
+}
+
 /** نسخة موجهة للعميل بلغة مبسطة */
 export function clientVersion({ clientName, caseCode, opinion, orgName }) {
   const body = String(opinion || '')
@@ -427,11 +462,13 @@ export function clientVersion({ clientName, caseCode, opinion, orgName }) {
     .filter((l) => !/^مسودة أولية|^\[يُستكمل/.test(l.trim()))
     .join('\n')
     .trim();
+  void caseCode; // v9.1 b-portal (B91-08): لا كود داخلي في نص الرد؛ الرقم الوحيد الذي تعرفه هو رقم الطلب
+  const first = kunyaName(clientName);
   return [
-    // المستفيدون ليسوا «عملاء»: تحية محايدة لا تفترض جنس المستفيد
-    `${clientName ? `الأستاذ/ة ${clientName}` : 'حضرة المستفيد/ة الكريم/ة'}، تحية طيبة وبعد،`,
+    // v9.1 b-portal (B91-08): تحية بالاسم بدل «الأستاذ/ة …، تحية طيبة وبعد»
+    `${first ? `أهلًا يا ${first}` : 'أهلًا بيكي'}،`,
     '',
-    `بخصوص استفساركم في الملف رقم ${caseCode}، وبعد دراسته من المختصين لدينا، نفيدكم بما يلي:`,
+    'ده ردّنا على مشكلتك بعد ما درسها المختصين عندنا:',
     '',
     body,
     '',
