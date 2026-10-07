@@ -139,10 +139,12 @@ describe('v9 frontend fixes — terminology', () => {
   test('route titles are the sidebar labels (one name per page): «المستفيدون», «ملف المستفيد/ة», «إسناداتي»', () => {
     assert.equal(routeTitle('/clients'), 'المستفيدون');
     assert.equal(routeTitle('/clients/:id'), 'ملف المستفيد/ة');
-    assert.equal(routeTitle('/my'), 'إسناداتي');
+    // v9.1 l-home (L-01): /my أصبحت «اليوم»، وقائمة الإسنادات انتقلت إلى /my/assignments «إسناداتي»
+    assert.equal(routeTitle('/my'), 'اليوم');
+    assert.equal(routeTitle('/my/assignments'), 'إسناداتي');
     for (const role of ['admin', 'case_manager', 'lawyer']) {
       for (const g of navGroups({ role }, { demo: true })) {
-        for (const item of g.items) assert.equal(item.label, routeTitle(item.href), `${role} ${item.href}`);
+        for (const item of g.items) assert.equal(item.label, routeTitle(item.href, role), `${role} ${item.href}`); // v9.1 l-home: lawyerTitle للمحامي
       }
     }
     const staff = navGroups({ role: 'admin' }, { demo: true }).flatMap((g) => g.items.map((i) => i.label));
@@ -151,14 +153,17 @@ describe('v9 frontend fixes — terminology', () => {
   });
 
   test('the lawyer portal calls its work «إسنادات», never «ملفاتي»', () => {
+    // v9.1 l-home (L-01): القائمة (الحالية/السابقة) في صفحة «إسناداتي» (assignments.js)، و«اليوم» يربط بالسابقة
     const home = read('public/assets/js/app/pages/lawyer/home.js');
-    const strings = visibleStrings(home).map((s) => s.text).join('\n');
+    const list = read('public/assets/js/app/pages/lawyer/assignments.js');
+    const strings = visibleStrings(home + '\n' + list).map((s) => s.text).join('\n');
     assert.ok(!/ملفاتي(?! المستمرة)/.test(strings), 'no «ملفاتي» except «ملفاتي المستمرة»');
     for (const s of ['الإسنادات الحالية', 'الإسنادات السابقة', 'إسناداتي']) assert.ok(strings.includes(s), s);
     // v9.1 l-work (L-04/L-08): عنوان الشريط العلوي كود الملف كاملًا بلا بادئة «إسناد»
     assert.match(read('public/assets/js/app/pages/lawyer/assignment.js'), /ctx\.setTitle\(view\.case\.code\)/);
     const lawyerNav = navGroups({ role: 'lawyer' }, {}).flatMap((g) => g.items.map((i) => i.label));
-    assert.equal(lawyerNav[0], 'إسناداتي');
+    assert.equal(lawyerNav[0], 'اليوم'); // v9.1 l-home (L-01)
+    assert.equal(lawyerNav[1], 'إسناداتي');
   });
 
   test('shared labels: queue sections and the merge action have one name on every page', () => {

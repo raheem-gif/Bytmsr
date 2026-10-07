@@ -478,7 +478,8 @@ describe('v9 site — PWA for staff and lawyers', () => {
     const precache = JSON.parse(/const PRECACHE = (\[[^\n]*\]);/.exec(src)[1]);
     assert.ok(precache.length > 10);
     assert.ok(precache.every((p) => p.startsWith('/assets/')), 'only static assets are precached');
-    assert.ok(precache.includes('/assets/js/app/main.js'));
+    // v9.1 l-home (L-07): الروابط برقم إصدارها (?v=…) — نفس ما تطلبه الصفحة فيُخدم من المخزن مباشرة
+    assert.ok(precache.some((p) => p.split('?')[0] === '/assets/js/app/main.js'));
     assert.ok(!precache.some((p) => p.startsWith('/assets/js/public/')), 'public-site scripts are not precached');
     // الإصدار ثابت ما لم تتغير الملفات
     const again = /const VERSION = "([^"]+)";/.exec((await t.client().get('/sw.js')).body)[1];
@@ -489,8 +490,12 @@ describe('v9 site — PWA for staff and lawyers', () => {
     const src = fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8');
     for (const re of ['/^\\/api(\\/|$)/', '/^\\/p\\//', '/^\\/portal(\\/|$)/']) assert.ok(src.includes(re), `NEVER list contains ${re}`);
     // كل استدعاءات التخزين تمر عبر cacheable() وتخص /assets فقط
+    // v9.1 l-home (L-07): + صفحة المنصة /app نفسها (SHELL_KEY، بلا بيانات شخصية) عبر cacheable() أيضًا
     const puts = [...src.matchAll(/cache\.put\(/g)].length;
-    assert.equal(puts, 2, 'cache.put only in precache and cacheFirst');
+    assert.equal(puts, 4, 'cache.put only in precache, cacheFirst and the /app shell (refreshShell + first fetch)');
+    assert.equal([...src.matchAll(/cache\.put\(SHELL_KEY, res\.clone\(\)\)/g)].length, 2);
+    assert.equal([...src.matchAll(/if \(cacheable\(res\) && !res\.redirected\) (?:await )?cache\.put\(SHELL_KEY/g)].length, 2);
+    assert.match(src, /const SHELL_KEY = '\/app';/);
     assert.match(src, /if \(cacheable\(res\)\) await cache\.put\(path, res\)/);
     assert.match(src, /if \(cacheable\(res\)\) cache\.put\(request, res\.clone\(\)\)/);
     assert.match(src, /if \(url\.origin !== self\.location\.origin \|\| isNever\(url\)\) return;/);
@@ -498,8 +503,10 @@ describe('v9 site — PWA for staff and lawyers', () => {
     assert.match(src, /url\.pathname\.startsWith\('\/assets\/'\)/);
     assert.match(src, /cc\.includes\('no-store'\) \|\| cc\.includes\('private'\)/);
     assert.match(src, /res\.headers\.get\('Set-Cookie'\)/);
-    // صفحة المنصة لا تُخزَّن (الشبكة دائمًا، وصفحة عدم الاتصال عند الانقطاع)
-    assert.match(src, /async function networkFirstShell\(request\) \{\s*try \{\s*\/\/[^\n]*\n\s*return await fetch\(request\);/);
+    // v9.1 l-home (L-07): صفحة المنصة /app وحدها (بلا بيانات شخصية) من المخزن أولًا ثم تُحدَّث في الخلفية
+    // (كان: الشبكة دائمًا)، وصفحة عدم الاتصال عند الانقطاع إن لم تُخزَّن بعد
+    assert.match(src, /async function networkFirstShell\(request, event\) \{\s*const cache = await caches\.open\(CACHE\);\s*const hit = await cache\.match\(SHELL_KEY\);/);
+    assert.match(src, /return offlineResponse\(\);/);
     assert.ok(!/onclick=|<script/i.test(src.slice(src.indexOf('function offlineResponse'))), 'offline page has no script');
     assert.match(src, /لا يوجد اتصال بالإنترنت/);
   });

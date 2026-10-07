@@ -27,7 +27,7 @@ function websiteIntake(app, { phone, name, gov, area, text }) {
   app.clients.issuePortalToken(r.client.id, { intakeId: r.intake.id });
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   const sd = parseJson(app.db.value('SELECT source_detail FROM intakes WHERE id = ?', r.intake.id), {});
-  sd.confirm_hash = sha256(code);
+  sd.confirm_hash = app.integrations.hmac('intake-confirm', code);
   sd.confirm_expires_at = addDays(nowIso(), 30);
   sd.confirm_failures = 0;
   app.db.update('intakes', r.intake.id, { source_detail: JSON.stringify(sd) });

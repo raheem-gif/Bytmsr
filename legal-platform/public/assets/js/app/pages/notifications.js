@@ -114,5 +114,7 @@ export default async function render(ctx) {
   draw();
   const header = pageHeader({ title: 'الإشعارات', actions: markAllBtn });
   header.querySelector('.page-header-text').append(subtitle);
+  // v9.1 l-home: غلاف للمحامي (أهداف لمس 44px على الهاتف في v91-l-home.css) — صفحة الإدارة كما هي
+  if (ctx.user && ctx.user.role === 'lawyer') return h('div.lh-notif-page', header, segmented, card({ body: listHost, flush: true }));
   return frag(header, segmented, card({ body: listHost, flush: true }));
 }

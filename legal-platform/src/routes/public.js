@@ -142,7 +142,7 @@ export function registerPublicRoutes(router, app) {
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const fresh = db.get('SELECT source_detail FROM intakes WHERE id = ?', intake.id);
     const sd = parseJson(fresh?.source_detail, {});
-    sd.confirm_hash = sha256(code);
+    sd.confirm_hash = app.integrations.hmac('intake-confirm', code);
     sd.confirm_expires_at = addDays(nowIso(), 30);
     if (!Number.isInteger(sd.confirm_failures)) sd.confirm_failures = 0;
     db.update('intakes', intake.id, { source_detail: JSON.stringify(sd) });

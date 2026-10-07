@@ -143,7 +143,8 @@ describe('v9.1 b-forms — POST /api/public/intake', () => {
     assert.equal(m[1], res.reference);
     const row = t.app.db.get('SELECT source_detail FROM intakes WHERE code = ?', res.reference);
     const sd = JSON.parse(row.source_detail);
-    assert.equal(sd.confirm_hash, crypto.createHash('sha256').update(m[2]).digest('hex'));
+    assert.equal(sd.confirm_hash, t.app.integrations.hmac('intake-confirm', m[2]));
+    assert.notEqual(sd.confirm_hash, crypto.createHash('sha256').update(m[2]).digest('hex'), 'keyed hash, not a plain sha256 of 6 digits');
     assert.equal(sd.confirm_failures, 0);
     const days = (Date.parse(sd.confirm_expires_at) - Date.now()) / 86400000;
     assert.ok(days > 29.9 && days <= 30.01, String(days));
@@ -181,8 +182,8 @@ describe('v9.1 b-forms — POST /api/public/intake', () => {
     const codeA = decodeURIComponent(a.confirm_url).slice(-6);
     const codeB = decodeURIComponent(b.confirm_url).slice(-6);
     const sd = JSON.parse(t.app.db.get('SELECT source_detail FROM intakes WHERE code = ?', a.reference).source_detail);
-    assert.equal(sd.confirm_hash, crypto.createHash('sha256').update(codeB).digest('hex'));
-    if (codeA !== codeB) assert.notEqual(sd.confirm_hash, crypto.createHash('sha256').update(codeA).digest('hex'));
+    assert.equal(sd.confirm_hash, t.app.integrations.hmac('intake-confirm', codeB));
+    if (codeA !== codeB) assert.notEqual(sd.confirm_hash, t.app.integrations.hmac('intake-confirm', codeA));
   });
 
   test('the same submission id from a different phone never returns someone else\'s request', async () => {

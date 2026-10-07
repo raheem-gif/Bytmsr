@@ -16,6 +16,8 @@ import { encryptPayload, decryptPayload } from '../src/services/web-push.js';
 import { cairoLocalToIso } from '../src/util.js';
 
 const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+/** ينتظر ما جُدول بعد الرد (setImmediate) */
+const settle = () => new Promise((r) => setTimeout(r, 30));
 const FORBIDDEN_TODAY_KEYS = ['client_name', 'phone', 'national_id', 'client_id', 'client_phone', 'facts', 'facts_internal', 'question', 'conversation'];
 
 // ───────────────────────── «اليوم» (L-01) ─────────────────────────
@@ -702,6 +704,7 @@ describe('l-home: self-service reset by WhatsApp', () => {
     assert.deepEqual(a, b);
     assert.deepEqual(a, s);
     assert.equal(a.message, 'إن كان الحساب مسجلًا برقم واتساب فسيصله رابط خلال دقيقة.');
+    await settle(); // مراجعة l-home: الإرسال بعد الرد (لا فرق في زمن الرد بين الحسابات)
     const msgs = t.app.db.all('SELECT * FROM messages WHERE id > ?', before);
     assert.equal(msgs.length, 1, 'only the opted-in lawyer gets a message');
     assert.equal(msgs[0].to_address, '+201201234567');
@@ -715,6 +718,7 @@ describe('l-home: self-service reset by WhatsApp', () => {
     const c = t.client();
     const before = Number(t.app.db.value("SELECT COUNT(*) FROM account_tokens WHERE kind = 'reset'"));
     for (let i = 0; i < 4; i++) ok(await c.post('/api/auth/reset-request', { username: lw.username }));
+    await settle();
     const after1 = Number(t.app.db.value("SELECT COUNT(*) FROM account_tokens WHERE kind = 'reset'"));
     assert.ok(after1 - before <= 2, 'at most 3 per hour per account (1 already used above)');
     let limited = false;
@@ -723,6 +727,155 @@ describe('l-home: self-service reset by WhatsApp', () => {
       if (r.status === 429) limited = true;
     }
     assert.equal(limited, true, 'per-IP limit');
+  });
+});
+
+// ───────────────────────── مراجعة l-home: إصلاحات ─────────────────────────
+describe('l-home review: phone change, alert edge cases, «قادم», push orphans', () => {
+  let t;
+  let admin;
+  before(async () => {
+    t = await startTestApp({ seed: 'demo' });
+    t.app.config.demo = true;
+    admin = await t.login('admin');
+  });
+  after(() => {
+    resetClock();
+    return t.close();
+  });
+
+  test('a lawyer changing the mobile (the WhatsApp reset channel) from an old session must confirm the current password', async () => {
+    const t0 = cairoLocalToIso(2026, 10, 7, 11, 0);
+    freezeClock(t0);
+    const lw = await createLawyer(admin, { name: 'محامي تغيير الرقم' });
+    const c = await t.login(lw.username);
+    // دخول حديث (أقل من 10 دقائق): بلا سؤال — مثل بطاقة «جهّز هاتفك» بعد التفعيل
+    ok(await c.patch('/api/account', { phone: '01001230001', alert_whatsapp: true }));
+    freezeClock(new Date(Date.parse(t0) + 11 * 60000).toISOString());
+    const r = await c.patch('/api/account', { phone: '01001239999' });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.details.fields.current_password, 'أدخل كلمة المرور الحالية لتغيير رقم الموبايل.');
+    assert.equal(t.app.db.value('SELECT phone FROM users WHERE id = ?', lw.id), '+201001230001', 'unchanged');
+    const wrong = await c.patch('/api/account', { phone: '01001239999', current_password: 'خطأ-Wrong1' });
+    assert.equal(wrong.status, 400);
+    assert.equal(wrong.body.details.fields.current_password, 'كلمة المرور الحالية غير صحيحة');
+    ok(await c.patch('/api/account', { phone: '01001239999', current_password: 'Lawyer@2026' }));
+    assert.equal(t.app.db.value('SELECT phone FROM users WHERE id = ?', lw.id), '+201001239999');
+    // نفس الرقم (حفظ بطاقة البيانات دون تغييره) وإيقاف التنبيهات: بلا كلمة مرور
+    ok(await c.patch('/api/account', { phone: '01001239999', email: null }));
+    ok(await c.patch('/api/account', { alert_whatsapp: false }));
+    // الإدارة لا تتأثر
+    const m = await t.login('manager');
+    freezeClock(new Date(Date.parse(t0) + 30 * 60000).toISOString());
+    ok(await m.patch('/api/account', { phone: '01001238888' }));
+    resetClock();
+  });
+
+  test('an extension refused (info_request.rejected) is «وصلك رد من الإدارة»', async () => {
+    freezeClock(cairoLocalToIso(2026, 10, 7, 12, 0));
+    const lw = await createLawyer(admin, { name: 'محامي المهلة' });
+    const c = await t.login(lw.username);
+    ok(await c.patch('/api/account', { phone: '01001230002', alert_whatsapp: true }));
+    const kase = await newCase(admin, { title: 'ملف المهلة' });
+    const a = await assign(admin, kase.id, { lawyer_id: lw.id, role: 'lead', due_at: cairoLocalToIso(2026, 10, 12, 18, 0) });
+    t.app.lawyerAlerts.onNotify([lw.id], { type: 'info_request.rejected', title: 'لم توافق الإدارة على طلبك', link: `#/my/assignments/${a.id}` });
+    const row = t.app.db.get("SELECT * FROM lawyer_alerts WHERE user_id = ? AND type = 'admin_reply'", lw.id);
+    assert.ok(row, 'admin reply alert recorded');
+    assert.equal(row.body, `وصلك رد من الإدارة في ${kase.code}.`);
+    resetClock();
+  });
+
+  test('outcome-missing text says «اليوم» only on the hearing day; a night alert queued to 08:00 names the date', async () => {
+    const at = cairoLocalToIso(2026, 10, 6, 9, 30);
+    assert.equal(ALERT_TEXT['hearing.outcome_missing']({ code: 'MTR-2026-00002', at, sendAt: cairoLocalToIso(2026, 10, 6, 15, 0) }), 'لم تُسجَّل نتيجة جلسة اليوم في MTR-2026-00002.');
+    assert.equal(ALERT_TEXT['hearing.outcome_missing']({ code: 'MTR-2026-00002', at, sendAt: cairoLocalToIso(2026, 10, 7, 8, 0) }), 'لم تُسجَّل نتيجة جلسة الثلاثاء 6 أكتوبر في MTR-2026-00002.');
+    const hany = t.app.db.get("SELECT id FROM users WHERE username = 'hany'");
+    const m = t.app.db.get("SELECT id, code FROM matters WHERE responsible_lawyer_id = ? AND status != 'closed' LIMIT 1", hany.id);
+    const ev = t.app.matters.addEvent(m.id, { kind: 'hearing', title: 'جلسة مسائية', starts_at: cairoLocalToIso(2026, 10, 20, 19, 0) }, { id: 1, role: 'admin' });
+    freezeClock(cairoLocalToIso(2026, 10, 20, 22, 30));
+    t.app.lawyerAlerts.onNotify([hany.id], { type: 'hearing.outcome_missing', title: 'x', link: `#/my/matters/${m.id}?outcome=${ev.id}` });
+    const row = t.app.db.get("SELECT * FROM lawyer_alerts WHERE user_id = ? AND entity = ?", hany.id, `event:${ev.id}`);
+    assert.equal(row.status, 'queued');
+    assert.equal(row.body, `لم تُسجَّل نتيجة جلسة الثلاثاء 20 أكتوبر في ${m.code}.`);
+    // سُجّلت النتيجة ليلًا ← لا يُرسل التنبيه في الثامنة
+    t.app.db.run("UPDATE matter_events SET status = 'held' WHERE id = ?", ev.id);
+    freezeClock(cairoLocalToIso(2026, 10, 21, 8, 5));
+    t.app.lawyerAlerts.flush();
+    const after = t.app.db.get('SELECT status, error, message_id FROM lawyer_alerts WHERE id = ?', row.id);
+    assert.deepEqual({ status: after.status, error: after.error, message_id: after.message_id }, { status: 'skipped', error: 'resolved', message_id: null });
+    t.app.db.run('DELETE FROM matter_events WHERE id = ?', ev.id);
+    resetClock();
+  });
+
+  test('a queued new-assignment alert is dropped if the assignment was withdrawn overnight', async () => {
+    freezeClock(cairoLocalToIso(2026, 10, 22, 23, 0));
+    admin = await t.login('admin'); // الجلسة السابقة انتهت بتحريك الساعة
+    const lw = await createLawyer(admin, { name: 'محامي السحب' });
+    const c = await t.login(lw.username);
+    ok(await c.patch('/api/account', { phone: '01001230003', alert_whatsapp: true }));
+    const kase = await newCase(admin, { title: 'ملف يُسحب' });
+    const a = await assign(admin, kase.id, { lawyer_id: lw.id, role: 'lead', due_at: cairoLocalToIso(2026, 10, 26, 18, 0) });
+    const row = t.app.db.get('SELECT * FROM lawyer_alerts WHERE user_id = ? AND entity = ?', lw.id, `assignment:${a.id}`);
+    assert.equal(row.status, 'queued');
+    t.app.db.run("UPDATE assignments SET status = 'withdrawn' WHERE id = ?", a.id);
+    freezeClock(cairoLocalToIso(2026, 10, 23, 8, 5));
+    t.app.lawyerAlerts.flush();
+    assert.equal(t.app.db.get('SELECT error FROM lawyer_alerts WHERE id = ?', row.id).error, 'resolved');
+    resetClock();
+  });
+
+  test('«قادم» shows the next hearing of each matter even beyond 14 days (adjourned to three weeks later)', async () => {
+    const hany = await t.login('hany');
+    const m = t.app.db.get("SELECT id FROM matters WHERE responsible_lawyer_id = ? AND status != 'closed' ORDER BY id LIMIT 1", hany.user.id);
+    const ev = t.app.matters.addEvent(m.id, { kind: 'hearing', title: 'جلسة بعد التأجيل', starts_at: new Date(Date.now() + 21 * 86400000).toISOString() }, { id: 1, role: 'admin' });
+    const nearer = t.app.db.value("SELECT COUNT(*) FROM matter_events WHERE matter_id = ? AND status = 'scheduled' AND starts_at >= ? AND starts_at < ?", m.id, new Date().toISOString(), ev.starts_at);
+    const d = ok(await hany.get('/api/lawyer/today'));
+    assert.equal(Number(nearer), 0, 'demo matter: no other hearing before the new one');
+    assert.ok(d.upcoming.some((u) => u.kind === 'hearing' && u.event_id === ev.id), JSON.stringify(d.upcoming));
+    assert.ok(d.upcoming.length <= 3);
+    // محامٍ آخر لا يراها
+    const ahmed = await t.login('ahmed');
+    assert.equal(ok(await ahmed.get('/api/lawyer/today')).upcoming.some((u) => u.event_id === ev.id), false);
+    t.app.db.run('DELETE FROM matter_events WHERE id = ?', ev.id);
+  });
+
+  test('push subscriptions of sessions that ended without logout are pruned and never notified', async () => {
+    resetClock();
+    admin = await t.login('admin');
+    const lw = await createLawyer(admin, { name: 'محامي الجهاز' });
+    const c = await t.login(lw.username);
+    const ecdh = crypto.createECDH('prime256v1');
+    ecdh.generateKeys();
+    t.app.webPush.allowHostForTests('127.0.0.1:9');
+    ok(await c.post('/api/account/push-subscription', { subscription: { endpoint: 'http://127.0.0.1:9/push/orphan', keys: { p256dh: ecdh.getPublicKey().toString('base64url'), auth: crypto.randomBytes(16).toString('base64url') } } }));
+    assert.equal(Number(t.app.db.value('SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?', lw.id)), 1);
+    // الجلسة انتهت (خمول) دون تسجيل خروج
+    t.app.db.run('DELETE FROM sessions WHERE user_id = ?', lw.id);
+    t.app.engine.dryRun = false;
+    assert.equal(t.app.webPush.onNotify(lw.id, { type: 'assignment.new', link: '#/my' }), 0, 'no push to a device whose session ended');
+    assert.equal(t.app.webPush.pruneOrphans() >= 1, true);
+    assert.equal(Number(t.app.db.value('SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?', lw.id)), 0);
+  });
+
+  test('UI wiring: phone re-auth sheet, test alert after enabling in the checklist, spec order on phones, panel above the bottom nav', () => {
+    const home = read('public/assets/js/app/pages/lawyer/home.js');
+    const acc = read('public/assets/js/app/pages/account.js');
+    const reauth = read('public/assets/js/app/lh-reauth.js');
+    const css = read('public/assets/css/v91-l-home.css');
+    const main = read('public/assets/js/app/main.js');
+    assert.match(reauth, /current_password/);
+    assert.match(home, /withPasswordConfirm\(/);
+    assert.ok((acc.match(/withPasswordConfirm\(/g) || []).length >= 3, 'profile card, alerts switch and alerts phone field');
+    assert.match(home, /'جرّب التنبيه'/);
+    assert.match(home, /section\.lh-section\.lh-upcoming/);
+    assert.match(home, /section\.lh-section\.lh-work/);
+    assert.match(css, /\.lh-cols \.lh-upcoming \{\s*order: 2;/);
+    assert.match(css, /\.lh-cols \.lh-work \{\s*order: 3;/);
+    assert.match(css, /\.is-lawyer:not\(\.lh-detail\) \.dropdown\.lh-notif-panel \{\s*max-height: calc\(100dvh - 64px - 56px/);
+    // تسجيل خروج بلا شبكة يُكمل على الخادم عند أول اتصال
+    assert.match(main, /LOGOUT_PENDING_KEY = 'bm-logout-pending'/);
+    assert.match(main, /store\.set\(LOGOUT_PENDING_KEY, '1'\)/);
+    assert.match(read('public/assets/js/app/boot-early.js'), /read\('bm-logout-pending'\)/);
   });
 });
 

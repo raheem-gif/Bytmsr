@@ -3,7 +3,8 @@
  * القواعد:
  *  - الملفات الثابتة تحت /assets: من التخزين المؤقت أولًا (cache-first). اسم المخزن مرتبط برقم إصدار
  *    يحقنه الخادم ويتغير مع أي تعديل في الملفات، فتُحذف النسخ القديمة عند التفعيل.
- *  - صفحة المنصة /app: من الشبكة دائمًا، وعند انقطاع الاتصال تظهر صفحة «لا يوجد اتصال» عربية.
+ *  - صفحة المنصة /app (بلا أي بيانات شخصية): من المخزن أولًا ثم تُحدَّث في الخلفية (v9.1 l-home)؛ وإن لم تُخزَّن بعد
+ *    وانقطع الاتصال تظهر صفحة «لا يوجد اتصال» عربية.
  *  - لا يُخزَّن أبدًا: /api و/p/ و/portal و/webhooks وأي استجابة غير ملف ثابت عام (كل ما يتطلب جلسة).
  *
  * يُخدم هذا الملف عبر src/site.js الذي يحقن رقم الإصدار وقائمة الملفات واسم المؤسسة في الثوابت أدناه.
@@ -94,9 +95,7 @@ const SHELL_KEY = '/app';
 async function refreshShell(cache) {
   try {
     const res = await fetch(SHELL_KEY, { cache: 'no-cache', credentials: 'same-origin' });
-    if (res && res.ok && res.status === 200 && res.type === 'basic' && !res.redirected && !res.headers.get('Set-Cookie')) {
-      await cache.put(SHELL_KEY, res.clone());
-    }
+    if (cacheable(res) && !res.redirected) await cache.put(SHELL_KEY, res.clone());
     return res;
   } catch {
     return null;
@@ -113,9 +112,7 @@ async function networkFirstShell(request, event) {
   }
   try {
     const res = await fetch(request);
-    if (res && res.ok && res.status === 200 && res.type === 'basic' && !res.redirected && !res.headers.get('Set-Cookie')) {
-      cache.put(SHELL_KEY, res.clone()).catch(() => {});
-    }
+    if (cacheable(res) && !res.redirected) cache.put(SHELL_KEY, res.clone()).catch(() => {});
     return res;
   } catch {
     return offlineResponse();
@@ -226,7 +223,7 @@ function offlineResponse() {
   </div>
   <h1>لا يوجد اتصال بالإنترنت</h1>
   <p>تعذر فتح منصة ${org} لأن جهازك غير متصل بالشبكة الآن.</p>
-  <p>تحقق من اتصال الإنترنت ثم أعد المحاولة. لا تُحفظ بيانات الملفات على الجهاز حفاظًا على سريتها.</p>
+  <p>تحقق من اتصال الإنترنت ثم أعد المحاولة. لا يُحفظ على الجهاز من بيانات الملفات إلا القليل اللازم للعمل دون اتصال، ويُمسح عند تسجيل الخروج.</p>
   <a class="retry" href="/app">إعادة المحاولة</a>
   <small>ستعود المنصة للعمل تلقائيًا فور عودة الاتصال.</small>
 </main>

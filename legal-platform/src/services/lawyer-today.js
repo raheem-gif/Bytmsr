@@ -173,9 +173,26 @@ export function createLawyerToday(app) {
       actions.sort((x, y) => RANK[x.kind] - RANK[y.kind] || String(x.at || '').localeCompare(String(y.at || '')));
 
       // ── «قادم»: أقرب 3 مواعيد خلال 14 يومًا غير مذكورة أعلاه ──
+      // + الجلسة القادمة لكل ملف مستمر حتى 30 يومًا (الجلسات متباعدة: التأجيل 3 أسابيع — مثل 28 أكتوبر في مهمة الاختبار T9 —
+      //   يظهر هنا فور تسجيل النتيجة؛ وما بعد الشهر في «تقويمي» فلا تطول صفحة «اليوم»)
       const upcoming = [];
       for (const e of soonEvents) {
         if (listed.events.has(e.id)) continue;
+        upcoming.push({ kind: 'hearing', at: e.starts_at, event_id: e.id, matter_id: e.matter_id, matter_code: e.matter_code, title: e.title, location: e.location || null });
+      }
+      const laterHearings = db.all(
+        `SELECT e.id, e.title, e.starts_at, e.location, m.id AS matter_id, m.code AS matter_code
+         FROM matter_events e JOIN matters m ON m.id = e.matter_id
+         WHERE m.responsible_lawyer_id = ? AND m.status != 'closed' AND e.status = 'scheduled' AND e.starts_at > ? AND e.starts_at <= ?
+           AND e.starts_at = (SELECT MIN(x.starts_at) FROM matter_events x WHERE x.matter_id = m.id AND x.status = 'scheduled' AND x.starts_at >= ?)
+         ORDER BY e.starts_at`,
+        lawyer.id,
+        in14d,
+        addDays(t, 30),
+        t,
+      );
+      for (const e of laterHearings) {
+        if (listed.events.has(e.id) || upcoming.some((u) => u.event_id === e.id)) continue;
         upcoming.push({ kind: 'hearing', at: e.starts_at, event_id: e.id, matter_id: e.matter_id, matter_code: e.matter_code, title: e.title, location: e.location || null });
       }
       for (const a of assignments) {

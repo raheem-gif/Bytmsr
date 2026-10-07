@@ -127,9 +127,11 @@ export function todaySkeleton() {
 /**
  * عنوان صفحة المسار — المصدر الوحيد لاسم الصفحة: يظهر في الشريط العلوي وعنوان المتصفح وعنصر القائمة الجانبية.
  * @param {string} path مسار ثابت مثل '/quick-replies'
+ * @param {string} [role] v9.1 l-home: للمحامي عنوانه الخاص إن وُجد (lawyerTitle، مثل «حسابي»)
  */
-export function routeTitle(path) {
+export function routeTitle(path, role) {
   const r = routes.find((x) => x.path === path);
+  if (r && role === 'lawyer' && r.lawyerTitle) return r.lawyerTitle;
   return (r && r.title) || '';
 }
 

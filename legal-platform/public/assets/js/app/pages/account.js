@@ -4,6 +4,7 @@
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, dateTime, relative, count, num, hours, normalizeEgPhone, date } from '../../lib/fmt.js';
+import { withPasswordConfirm, REAUTH_CANCELLED } from '../lh-reauth.js'; // v9.1 l-home (L-21)
 import {
   pageHeader,
   card,
@@ -48,7 +49,7 @@ export default async function render(ctx) {
       [
         { name: 'name', label: 'الاسم', required: true, minLength: 3, maxLength: 120, readonly: !data.editable.name, hint: data.editable.name ? null : 'يُعدَّل اسم المحامي من الإدارة لارتباطه ببيانات القيد والاتفاق' },
         { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل الداخلي مع الإدارة فقط' : null },
+        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل مع الإدارة وتنبيهات واتساب فقط' : null },
       ],
       {
         values: { name: u.name, email: u.email, phone: u.phone },
@@ -57,7 +58,16 @@ export default async function render(ctx) {
         onSubmit: async (v) => {
           const payload = { email: v.email || null, phone: v.phone || null };
           if (data.editable.name) payload.name = v.name;
-          data = await api.patch('/account', payload);
+          // v9.1 l-home (L-21): تغيير موبايل المحامي من جلسة قديمة يطلب كلمة المرور الحالية (ورقة تأكيد ثم الطلب نفسه)
+          try {
+            data = await withPasswordConfirm((extra) => api.patch('/account', { ...payload, ...extra }));
+          } catch (e) {
+            if (e && e.code === REAUTH_CANCELLED) {
+              f.setValues({ phone: data.user.phone });
+              return;
+            }
+            throw e;
+          }
           f.setValues({ name: data.user.name, email: data.user.email, phone: data.user.phone });
           toast('حُفظت بياناتك', 'success');
           if (ctx.refreshShell) ctx.refreshShell();
@@ -333,15 +343,42 @@ export default async function render(ctx) {
       }
       sw.disabled = true;
       try {
-        data = await api.patch('/account', payload);
+        // v9.1 l-home (L-21): رقم جديد من جلسة قديمة ← تأكيد كلمة المرور الحالية ثم الطلب نفسه
+        data = await withPasswordConfirm((extra) => api.patch('/account', { ...payload, ...extra }));
         testBtn.hidden = !data.alert_whatsapp;
         toast(on ? 'ستصلك التنبيهات على واتساب' : 'أُوقفت تنبيهات واتساب', 'success');
       } catch (e) {
         sw.checked = !on;
-        err.textContent = (e.details && e.details.fields && (e.details.fields.phone || e.details.fields.alert_whatsapp)) || e.message;
-        err.hidden = false;
+        if (!(e && e.code === REAUTH_CANCELLED)) {
+          err.textContent = (e.details && e.details.fields && (e.details.fields.phone || e.details.fields.alert_whatsapp)) || e.message;
+          err.hidden = false;
+        }
       } finally {
         sw.disabled = !available;
+      }
+    });
+    // v9.1 l-home (مراجعة): تعديل الرقم والتنبيهات مفعّلة يُحفظ عند مغادرة الحقل (كان لا يُحفظ إلا بإعادة تشغيل المفتاح)
+    phoneInput.addEventListener('change', async () => {
+      if (!sw.checked) return;
+      err.hidden = true;
+      const v = normalizeEgPhone(phoneInput.value);
+      const current = data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : '';
+      if (!v) {
+        err.textContent = 'أدخل رقم الموبايل لتصلك التنبيهات.';
+        err.hidden = false;
+        return;
+      }
+      if (v === current) return;
+      try {
+        data = await withPasswordConfirm((extra) => api.patch('/account', { phone: v, ...extra }));
+        phoneInput.value = data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : v;
+        toast('حُفظ رقم التنبيهات', 'success');
+      } catch (e) {
+        phoneInput.value = current;
+        if (!(e && e.code === REAUTH_CANCELLED)) {
+          err.textContent = (e.details && e.details.fields && e.details.fields.phone) || e.message;
+          err.hidden = false;
+        }
       }
     });
     return card({

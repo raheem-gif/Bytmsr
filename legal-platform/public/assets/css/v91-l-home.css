@@ -1049,3 +1049,93 @@
   min-width: 44px;
   min-height: 44px;
 }
+
+/* ───────── مراجعة l-home ───────── */
+
+/* «اليوم» على الهاتف بترتيب المواصفة: مطلوب الآن ← قادم ← عملي الجاري ← المستحقات
+   (على الحاسوب: عمود رئيسي 720px وعمود جانبي 320px لـ«قادم» والمستحقات) */
+@media (max-width: 1023px) {
+  .lh-cols {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lh-cols > .lh-main,
+  .lh-cols > .lh-side {
+    display: contents;
+  }
+
+  .lh-cols .lh-now,
+  .lh-cols .lh-setup,
+  .lh-cols .lh-empty {
+    order: 1;
+  }
+
+  .lh-cols .lh-upcoming {
+    order: 2;
+  }
+
+  .lh-cols .lh-work {
+    order: 3;
+  }
+
+  .lh-cols .lh-pay {
+    order: 4;
+  }
+}
+
+/* بعد تفعيل التنبيهات من بطاقة «جهّز هاتفك»: تأكيد وزر «جرّب التنبيه» */
+.lh-alerts-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 4px 16px 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--success-50, #ecf8f0);
+  color: var(--success-700, #1d6b3a);
+  font-weight: 600;
+}
+
+.lh-alerts-done > span {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 640px) {
+  /* لوحة الإشعارات تنتهي فوق الشريط السفلي فيبقى «عرض الكل» ظاهرًا (في صفحات التفاصيل لا شريط سفلي) */
+  .is-lawyer:not(.lh-detail) .dropdown.lh-notif-panel {
+    max-height: calc(100dvh - 64px - 56px - 16px - env(safe-area-inset-bottom, 0px));
+  }
+
+  /* أهداف لمس ≥ 44px في صفحات المحامي وشاشات الدخول على الهاتف */
+  .lh-login .input,
+  .lh-lawyer-ui .acc-page .input,
+  .lh-lawyer-ui .acc-page .select,
+  .lh-forgot-sheet .input,
+  .lh-reauth-sheet .input,
+  .lh-lawyer-ui .lh-inline-form .input {
+    min-height: 48px;
+  }
+
+  .lh-login .input-action,
+  .lh-lawyer-ui .acc-page .input-action,
+  .lh-reauth-sheet .input-action {
+    inset-block: 2px;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .lh-lawyer-ui .acc-page .btn,
+  .lh-lawyer-ui .lh-notif-page .btn,
+  .lh-forgot-sheet .btn,
+  .lh-reauth-sheet .btn,
+  .lh-logout-sheet .btn {
+    --btn-h: 44px;
+    min-width: 44px;
+  }
+
+  .lh-lawyer-ui .lh-notif-page .seg {
+    min-height: 44px;
+  }
+}

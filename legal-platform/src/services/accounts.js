@@ -738,6 +738,16 @@ export function createAccounts(app) {
       }
       if (body.email !== undefined) patch.email = v.email(body.email, 'البريد الإلكتروني');
       if (body.phone !== undefined) patch.phone = v.phone(body.phone, 'رقم الموبايل');
+      // v9.1 l-home (L-21): موبايل المحامي يستقبل رابط إعادة تعيين كلمة المرور على واتساب، فتغييره من جلسة قديمة
+      // (هاتف مفتوح تُرك أو جلسة مسروقة) يتطلب كلمة المرور الحالية؛ وبعد دخول حديث (10 دقائق) لا يُطلب شيء
+      if (patch.phone !== undefined && u.role === 'lawyer' && (patch.phone || null) !== (u.phone || null)) {
+        const sessionCreated = db.value('SELECT created_at FROM sessions WHERE token_hash = ?', ctx.user.session_token_hash || '');
+        const recent = sessionCreated && now().getTime() - Date.parse(sessionCreated) < RECENT_AUTH_MS;
+        if (!recent || body.current_password) {
+          if (!body.current_password) throw fieldError('current_password', 'أدخل كلمة المرور الحالية لتغيير رقم الموبايل.');
+          checkCurrentPassword(u, body.current_password, 'current_password');
+        }
+      }
       // v9.1 l-home: تنبيهات واتساب (للمحامين فقط، وتشترط رقم موبايل مصريًا صحيحًا)
       if (body.alert_whatsapp !== undefined && app.lawyerAlerts) Object.assign(patch, app.lawyerAlerts.profilePatch(u, body, patch));
       const FIELD_LABELS = { name: 'الاسم', email: 'البريد الإلكتروني', phone: 'رقم الموبايل', alert_whatsapp: 'تنبيهات واتساب' };

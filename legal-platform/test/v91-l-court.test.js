@@ -88,6 +88,10 @@ describe('v9.1 l-court — hearing outcome, calendar, outbox idempotency, statem
     const [y, m, d] = day.split('-').map(Number);
     const hanyId = hany.user.id;
     const count = () => Number(t.app.db.value("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND type = 'hearing.outcome_missing'", hanyId));
+    // الصفحة التجريبية تشغّل الأتمتة بالوقت الفعلي: إن جرى الاختبار بعد 15:00 يكون تنبيه اليوم قد أُرسل وقت التهيئة.
+    // نمسح أثره لهذه الجلسة حتى لا تعتمد النتيجة على ساعة تشغيل الاختبار.
+    t.app.db.run("DELETE FROM automation_runs WHERE rule_key = 'hearing_outcome_missing' AND dedupe_key LIKE ?", `event:${pendingId}:%`);
+    t.app.db.run("DELETE FROM notifications WHERE user_id = ? AND type = 'hearing.outcome_missing'", hanyId);
     const before0 = count();
     try {
       freezeClock(cairoLocalToIso(y, m, d, 14, 0));

@@ -42,13 +42,16 @@ export const ALERT_TEXT = {
   'opinion.returned': ({ code }) => `أعادت الإدارة رأيك في ${code} بملاحظات.`,
   'assignment.due_soon': ({ code }) => `يتبقى يوم على موعد تسليم رأيك في ${code}.`,
   'assignment.overdue': ({ code }) => `تأخر رأيك في ${code}. قدّمه أو اطلب مهلة.`,
-  'hearing.outcome_missing': ({ code }) => `لم تُسجَّل نتيجة جلسة اليوم في ${code}.`,
+  // «اليوم» فقط إن وصلت الرسالة في يوم الجلسة نفسه؛ وإلا بتاريخها (تنبيه أُجّل لما بعد ساعات الهدوء أو تذكير اليوم التالي)
+  'hearing.outcome_missing': ({ code, at, sendAt }) =>
+    !at || !sendAt || cairoDayKey(at) === cairoDayKey(sendAt) ? `لم تُسجَّل نتيجة جلسة اليوم في ${code}.` : `لم تُسجَّل نتيجة جلسة ${dayMonth(at)} في ${code}.`,
   admin_reply: ({ code }) => `وصلك رد من الإدارة في ${code}.`,
   digest: ({ n }) => `اليوم مطلوب منك ${arabicCount(n, THINGS)}.`,
 };
 
 /** أنواع إشعارات «رد من الإدارة»: إتاحة المعلومة، الإجابة عن سؤال، والبت في طلب المهلة (مسار l-work) */
-const ADMIN_REPLY_TYPES = /^(info_request\.(shared|answered|extension_(approved|rejected|decided))|extension\.(approved|rejected|decided)|question\.answered)$/;
+// (info_request.rejected: لم توافق الإدارة على الطلب — ومنه رفض طلب المهلة، وهو «بتّ في المهلة» كما في المواصفة)
+const ADMIN_REPLY_TYPES = /^(info_request\.(shared|answered|rejected|extension_(approved|rejected|decided))|extension\.(approved|rejected|decided)|question\.answered)$/;
 
 export function createLawyerAlerts(app) {
   const { db, config } = app;
@@ -108,10 +111,11 @@ export function createLawyerAlerts(app) {
         if (!m) return null;
         const matter = db.get('SELECT id, code FROM matters WHERE id = ?', Number(m[1]));
         if (!matter) return null;
+        const ev = m[2] ? db.get('SELECT starts_at FROM matter_events WHERE id = ? AND matter_id = ?', Number(m[2]), matter.id) : null;
         return {
           type: n.type,
           entity: m[2] ? `event:${Number(m[2])}` : `matter:${matter.id}:${cairoDayKey(t)}`,
-          text: ALERT_TEXT[n.type]({ code: matter.code }),
+          text: ALERT_TEXT[n.type]({ code: matter.code, at: ev?.starts_at || null, sendAt: quietUntil(t) || t }),
           path: `/my/matters/${matter.id}${m[2] ? `?outcome=${Number(m[2])}` : ''}`,
         };
       }
@@ -131,6 +135,31 @@ export function createLawyerAlerts(app) {
     return Number(db.value("SELECT COUNT(*) FROM lawyer_alerts WHERE user_id = ? AND status IN ('sent','simulated') AND type != 'test' AND sent_at >= ?", userId, start));
   }
 
+  /** هل ما زال التنبيه يستحق الإرسال الآن؟ (يهم ما أُجّل لما بعد ساعات الهدوء) */
+  function stillRelevant(row) {
+    const ent = String(row.entity || '');
+    let m = /^event:(\d+)$/.exec(ent);
+    if (row.type === 'hearing.outcome_missing' && m) {
+      const e = db.get('SELECT status FROM matter_events WHERE id = ?', Number(m[1]));
+      return !!e && e.status === 'scheduled';
+    }
+    m = /^assignment:(\d+)/.exec(ent);
+    if (!m) return true;
+    const a = db.get('SELECT a.status, a.lawyer_id, c.status AS case_status FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', Number(m[1]));
+    if (!a || a.lawyer_id !== row.user_id || a.case_status === 'closed') return false;
+    switch (row.type) {
+      case 'assignment.new':
+        return a.status === 'assigned' || a.status === 'in_progress';
+      case 'opinion.returned':
+        return a.status === 'returned';
+      case 'assignment.due_soon':
+      case 'assignment.overdue':
+        return a.status === 'assigned' || a.status === 'in_progress' || a.status === 'returned';
+      default:
+        return a.status !== 'withdrawn';
+    }
+  }
+
   /** يرسل تنبيهًا مسجلًا (أو يتخطاه) — متزامن؛ الإرسال الفعلي لواتساب يكمل في الخلفية عبر engine.record */
   function deliver(row, { force = false } = {}) {
     const t = nowIso();
@@ -145,6 +174,8 @@ export function createLawyerAlerts(app) {
     if (!phone) return skip('no_phone');
     if (!available()) return skip('unavailable');
     if (!force && row.type !== 'test' && sentToday(u.id, t) >= DAILY_CAP) return skip('daily_cap');
+    // تنبيه انتظر ساعات الهدوء: لا يُرسل إن لم يعد له معنى (سُجّلت النتيجة، قُدّم الرأي، سُحب الإسناد…)
+    if (!force && !stillRelevant(row)) return skip('resolved');
     const link = linkFor(row.link || '/my');
     const body = link ? `${row.body} ${link}` : row.body;
     const msg = app.engine.record({
@@ -318,6 +349,12 @@ export function createLawyerAlerts(app) {
     /** المهمة الدورية (كل 5 دقائق): تذكير يتبقى يوم، الملخص الصباحي، ثم إرسال قائمة الانتظار */
     async runScheduled() {
       const t = nowIso();
+      // اشتراكات تنبيهات الجهاز لجلسات انتهت (خمول أو انتهاء عمر الجلسة دون تسجيل خروج) تُحذف
+      try {
+        app.webPush?.pruneOrphans?.();
+      } catch (e) {
+        app.log('web push prune', e);
+      }
       return { due_soon: svc.runDueSoon(t), digest: svc.runDigest(t), sent: svc.flush(t) };
     },
 

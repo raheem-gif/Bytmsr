@@ -326,6 +326,7 @@ export const LABELS = {
     'account.password_reset_link': 'إصدار رابط إعادة تعيين كلمة المرور',
     'account.password_reset': 'إعادة تعيين كلمة المرور عبر الرابط',
     'account.temp_password_set': 'تعيين كلمة مرور مؤقتة',
+    'account.push_enabled': 'تفعيل تنبيهات الجهاز للمحامي', // v9.1 l-home
     'account.2fa_enabled': 'تفعيل التحقق بخطوتين',
     'account.2fa_disabled': 'إلغاء التحقق بخطوتين',
     'account.2fa_reset_by_admin': 'إلغاء التحقق بخطوتين بواسطة الإدارة',

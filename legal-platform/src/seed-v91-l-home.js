@@ -35,6 +35,8 @@ export function seedHomeDemo(app, { lawyer, manager, caseId = null, realNow, set
       {
         lawyer_id: lawyer.id,
         role: 'co_counsel',
+        // يكفيه الوقائع والمسائل لسؤاله (الشق الجنائي) — بلا مستندات المستفيدة حتى تقرر الإدارة إتاحتها
+        grants: { facts: true, issue_ids: db.all('SELECT id FROM case_issues WHERE case_id = ?', c.id).map((x) => x.id), document_ids: [] },
         due_at: due,
         brief: 'مراجعة الشق الجنائي المحتمل: هل يمثل امتناع أحد الورثة عن تسليم نصيب القاصرين في ريع المحل جريمة يمكن تحريكها، وما أثر ذلك على دعوى القسمة؟',
       },

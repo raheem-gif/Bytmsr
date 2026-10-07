@@ -77,6 +77,7 @@ function teardownApp() {
 const META_KEY = 'bm-meta';
 const ROLE_KEY = 'bm-last-role';
 const LAST_USER_KEY = 'bm-last-user'; // آخر محامٍ دخل من هذا الجهاز (للفتح دون اتصال فقط)
+const LOGOUT_PENDING_KEY = 'bm-logout-pending'; // تسجيل خروج لم يصل للخادم (بلا شبكة): يُرسل قبل أي تحقق من الجلسة
 function lastLawyer() {
   try {
     const u = JSON.parse(window.localStorage.getItem(LAST_USER_KEY) || 'null');
@@ -230,6 +231,22 @@ function retryBootWhenOnline() {
 
 async function boot() {
   mount(root, bootSplash());
+  // v9.1 l-home: تسجيل خروج سابق لم يصل للخادم (بلا شبكة) يُرسل أولًا، ولا يُستخدم أي رد طُلب قبله (app/boot-early.js)
+  if (store.get(LOGOUT_PENDING_KEY)) {
+    try {
+      await api.post('/auth/logout');
+      store.remove(LOGOUT_PENDING_KEY);
+    } catch (err) {
+      if (err && err.status === 0) {
+        mount(root, h('div.boot-splash', errorState(err, boot)));
+        retryBootWhenOnline();
+        return;
+      }
+      store.remove(LOGOUT_PENDING_KEY);
+    }
+    clearPrefetched();
+    store.remove(LAST_USER_KEY);
+  }
   const cached = cachedMeta();
   if (cached) setMeta(cached.meta);
   const hasLink = LINK_RE.test(window.location.hash) || /^#\/(invite|reset)\/?$/.test(window.location.hash);
@@ -429,6 +446,11 @@ async function enterApp(user, { fromLogin = false } = {}) {
     return;
   }
   if (currentUser !== user) return; // خرج المستخدم أو تغيّر أثناء التحميل
+  // v9.1 l-home: meta تختلف قليلًا حسب الدور (مثل ai.claude للمحامي): بعد دخول جديد تُراجع نسخة الجهاز في الخلفية (304 غالبًا)
+  if (fromLogin && !getMeta()?.partial) {
+    const c = cachedMeta();
+    if (c) fetchMeta(c.etag).then((fresh) => fresh && currentUser === user && setMeta(fresh)).catch(() => {});
+  }
   if (shell) shell.destroy();
   shell = createShell({ user, meta: getMeta(), onLogout: logout });
   mount(root, shell.el);
@@ -526,8 +548,11 @@ async function logout() {
   currentUser = null; // حتى لا يُعامل رد 401 أثناء الخروج كجلسة منتهية
   try {
     await api.post('/auth/logout');
+    store.remove(LOGOUT_PENDING_KEY);
   } catch {
-    /* حتى لو فشل الطلب نعود لشاشة الدخول */
+    // حتى لو فشل الطلب نعود لشاشة الدخول؛ v9.1 l-home: والجلسة تُنهى على الخادم عند أول اتصال (هاتف مشترك بلا شبكة
+    // في ممر المحكمة: لا يعود «تذكّرني» فيُدخل الشخص التالي إلى الحساب)
+    store.set(LOGOUT_PENDING_KEY, '1');
   }
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
   await showLogin();

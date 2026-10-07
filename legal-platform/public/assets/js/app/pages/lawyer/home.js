@@ -8,7 +8,8 @@
 import { h, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { time, shortDate, money, num, normalizeEgPhone } from '../../../lib/fmt.js';
-import { button, icon, toast, modal, errorMessage } from '../../../lib/ui.js';
+import { button, icon, toast, modal, errorMessage, asyncButton } from '../../../lib/ui.js';
+import { withPasswordConfirm, REAUTH_CANCELLED } from '../../lh-reauth.js';
 import {
   NAV,
   count,
@@ -97,6 +98,7 @@ export default async function render(ctx) {
   let loading = false;
   let showAll = false;
   const hiddenTasks = new Set(); // مهام عُلّمت «تمّت» (تُخفى فورًا قبل رد الخادم)
+  let alertsJustOn = false; // فُعّلت التنبيهات من بطاقة «جهّز هاتفك» الآن: يظهر «جرّب التنبيه» تحتها
 
   // ── التحميل ──
   async function load({ initial = false } = {}) {
@@ -338,7 +340,7 @@ export default async function render(ctx) {
   function upcomingSection(items) {
     if (!items.length) return null;
     return h(
-      'section.lh-section',
+      'section.lh-section.lh-upcoming',
       h('h2.lh-section-title', 'قادم'),
       h(
         'ul.lh-list',
@@ -378,7 +380,7 @@ export default async function render(ctx) {
       ),
     ];
     return h(
-      'section.lh-section',
+      'section.lh-section.lh-work',
       h('h2.lh-section-title', 'عملي الجاري'),
       lines.length ? h('ul.lh-list', lines) : h('p.lh-muted', 'لا يوجد عمل جارٍ الآن.'),
       h('a.lh-link.lh-history', { href: '#/my/assignments?tab=history' }, 'الإسنادات السابقة ›'),
@@ -429,6 +431,7 @@ export default async function render(ctx) {
         ),
       ),
       inline,
+      alertsJustOn && setup.alert_whatsapp ? alertsDoneRow() : null,
       h('h3.lh-how-title', 'كيف تعمل المنصة؟'),
       h(
         'ul.lh-how',
@@ -437,6 +440,24 @@ export default async function render(ctx) {
         h('li', 'تجد أتعابك في «مستحقاتي».'),
       ),
       h('div.lh-setup-actions', button('تم', { variant: 'primary', onClick: dismiss }), button('لاحقًا', { variant: 'ghost', onClick: dismiss })),
+    );
+  }
+
+  /** بعد التفعيل من البطاقة: تأكيد قصير وزر «جرّب التنبيه» (رسالة تجريبية تصل الآن، ولو في ساعات الهدوء) */
+  function alertsDoneRow() {
+    return h(
+      'div.lh-alerts-done',
+      { role: 'status' },
+      icon('checkCircle', { size: 18 }),
+      h('span', 'ستصلك التنبيهات على واتساب.'),
+      asyncButton(
+        'جرّب التنبيه',
+        async () => {
+          const r = await api.post('/account/alerts/test');
+          toast(r && r.simulated ? 'سُجّل تنبيه تجريبي (وضع المحاكاة — لا يُرسل فعليًا)' : 'أُرسل تنبيه تجريبي إلى واتساب', 'success');
+        },
+        { variant: 'secondary', icon: 'whatsapp', className: 'lh-row-btn' },
+      ),
     );
   }
 
@@ -463,14 +484,16 @@ export default async function render(ctx) {
       }
       save.disabled = true;
       try {
-        await api.patch('/account', { phone: v, alert_whatsapp: true });
+        // رقم جديد من جلسة قديمة: تأكيد كلمة المرور الحالية ثم الطلب نفسه (L-21)
+        await withPasswordConfirm((extra) => api.patch('/account', { phone: v, alert_whatsapp: true, ...extra }));
         if (data && data.setup) data.setup.alert_whatsapp = true;
-        toast('ستصلك التنبيهات على واتساب', 'success');
+        alertsJustOn = true; // التأكيد وزر «جرّب التنبيه» داخل البطاقة نفسها (بلا تنبيه منبثق يكرره)
         draw();
       } catch (e) {
+        save.disabled = false;
+        if (e && e.code === REAUTH_CANCELLED) return;
         err.textContent = (e.details && e.details.fields && (e.details.fields.phone || e.details.fields.alert_whatsapp)) || errorMessage(e);
         err.hidden = false;
-        save.disabled = false;
       }
     });
     mount(

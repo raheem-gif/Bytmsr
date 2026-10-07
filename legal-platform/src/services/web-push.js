@@ -201,6 +201,10 @@ export function createWebPush(app) {
     forgetSession(sessionHash) {
       if (sessionHash) db.run('DELETE FROM push_subscriptions WHERE session_hash = ?', sessionHash);
     },
+    /** اشتراكات جلسات لم تعد موجودة (انتهت بالخمول أو بعمرها دون تسجيل خروج) تُحذف — لا تنبيه لجهاز خرج صاحبه */
+    pruneOrphans() {
+      return db.run('DELETE FROM push_subscriptions WHERE session_hash IS NULL OR session_hash NOT IN (SELECT token_hash FROM sessions)').changes;
+    },
     forgetUser(userId, { exceptSessionHash = null } = {}) {
       if (exceptSessionHash) db.run('DELETE FROM push_subscriptions WHERE user_id = ? AND (session_hash IS NULL OR session_hash != ?)', userId, exceptSessionHash);
       else db.run('DELETE FROM push_subscriptions WHERE user_id = ?', userId);
@@ -217,7 +221,13 @@ export function createWebPush(app) {
       if (!PUSH_TYPES.test(String(n.type || ''))) return 0;
       const hour = cairoParts(nowIso()).hour;
       if (hour >= 22 || hour < 8) return 0;
-      const subs = db.all("SELECT s.* FROM push_subscriptions s JOIN users u ON u.id = s.user_id WHERE s.user_id = ? AND u.active = 1 AND u.role = 'lawyer'", userId);
+      // الأجهزة التي ما زالت جلستها قائمة فقط (الجلسة المنتهية لا يصلها حتى التنبيه العام)
+      const subs = db.all(
+        `SELECT s.* FROM push_subscriptions s JOIN users u ON u.id = s.user_id
+         WHERE s.user_id = ? AND u.active = 1 AND u.role = 'lawyer' AND s.session_hash IN (SELECT token_hash FROM sessions WHERE user_id = ?)`,
+        userId,
+        userId,
+      );
       if (!subs.length || app.engine?.dryRun) return 0;
       const payload = svc.payloadFor(n);
       for (const s of subs) sendOne(s, payload).catch((e) => app.log('web push send', e));

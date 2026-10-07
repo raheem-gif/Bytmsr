@@ -160,7 +160,8 @@ export function createEngine(app) {
     if (!isPortalUnverifiedIntake(intake)) return null; // مؤكدة بالفعل
     if (sd.confirm_locked_at) return 'locked';
     const fresh = sd.confirm_hash && (!sd.confirm_expires_at || sd.confirm_expires_at > nowIso());
-    if (fresh && sha256(m[1]) === sd.confirm_hash) {
+    // البصمة المفتاحية الحالية، مع قبول البصمة القديمة (sha256) للأكواد الصادرة قبل التحديث حتى تنتهي صلاحيتها
+    if (fresh && (app.integrations.hmac('intake-confirm', m[1]) === sd.confirm_hash || sha256(m[1]) === sd.confirm_hash)) {
       confirmStory(intake, 'whatsapp_ref');
       app.activity.log({
         intake_id: intake.id,

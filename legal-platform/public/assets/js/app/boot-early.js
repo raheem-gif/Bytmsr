@@ -35,6 +35,8 @@
     var role = read('bm-last-role');
     var known = !!role || info.sid === 1;
     if (!known) return;
+    // تسجيل خروج لم يصل للخادم بعد (بلا شبكة): main.js يرسله أولًا — لا طلب لبيانات الجلسة قبله
+    if (read('bm-logout-pending')) return;
 
     var raw = hash.replace(/^#!?/, '');
     var qi = raw.indexOf('?');

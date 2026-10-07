@@ -113,12 +113,21 @@ function keyBytes(b64u) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
-async function pushRegistration() {
-  const reg = await navigator.serviceWorker.getRegistration('/app');
-  return reg || navigator.serviceWorker.ready;
+/**
+ * تسجيل عامل الخدمة الحالي. create=true: يُسجَّل الآن إن لم يكن (بعد أول فتح يُسجَّل بعد ثوانٍ من main.js) وينتظر
+ * تفعيله 15 ثانية على الأكثر — لا انتظار بلا نهاية لـ serviceWorker.ready (كانت بطاقة «تنبيهات على هذا الجهاز» تبقى فارغة).
+ */
+async function pushRegistration({ create = false } = {}) {
+  let reg = await navigator.serviceWorker.getRegistration('/app');
+  if (!reg && !create) return null;
+  if (!reg) reg = await navigator.serviceWorker.register('/sw.js', { scope: '/app' });
+  if (reg.active) return reg;
+  const ready = navigator.serviceWorker.ready;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
+  return (await Promise.race([ready, timeout])) || (reg.active ? reg : null);
 }
 
-/** الاشتراك الحالي لهذا المتصفح (أو null) */
+/** الاشتراك الحالي لهذا المتصفح (أو null) — لا ينتظر تسجيل عامل الخدمة */
 export async function currentPushSubscription() {
   if (!pushSupported()) return null;
   try {
@@ -139,7 +148,7 @@ export async function subscribePush({ get, post }) {
   const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
   if (perm !== 'granted') return 'denied';
   const status = await get('/account/push-subscription');
-  const reg = await pushRegistration();
+  const reg = await pushRegistration({ create: true });
   if (!reg) return 'unsupported';
   let sub = await reg.pushManager.getSubscription();
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(status.public_key) });

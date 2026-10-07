@@ -67,11 +67,15 @@ export function registerLawyerHomeRoutes(router, app) {
     } catch {
       return { ok: true, message: RESET_REQUEST_REPLY };
     }
-    try {
-      sendSelfReset(ctx, username);
-    } catch (e) {
-      if (!(e && e.status)) app.log('self reset failed', e);
-    }
+    // العمل الفعلي بعد الرد (لا فرق في زمن الرد بين حساب موجود مشترك في التنبيهات وغيره)
+    const req = { ip: ctx.ip, req: { headers: { ...(ctx.req?.headers || {}) } } };
+    setImmediate(() => {
+      try {
+        sendSelfReset(req, username);
+      } catch (e) {
+        if (!(e && e.status)) app.log('self reset failed', e);
+      }
+    });
     return { ok: true, message: RESET_REQUEST_REPLY };
   });
 
