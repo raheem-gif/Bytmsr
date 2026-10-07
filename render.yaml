@@ -46,8 +46,8 @@ services:
         generateValue: true
       - key: SCHEDULER_INTERVAL_SECONDS
         value: "60"
-      - key: SESSION_TTL_HOURS
-        value: "12"
+      # لا نضبط SESSION_TTL_HOURS: ضبطه يفرض عمرًا ثابتًا للجلسة ويعطّل «تذكّرني على هذا الجهاز» للمحامين.
+      # مدة الجلسات وتذكّر الأجهزة تُضبط من «الإعدادات ← سياسة الأمان» داخل المنصة.
       - key: MAX_UPLOAD_MB
         value: "8"
       - key: PUBLIC_INTAKE_PER_HOUR

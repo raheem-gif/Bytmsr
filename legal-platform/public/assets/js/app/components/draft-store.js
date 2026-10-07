@@ -294,6 +294,37 @@ export async function confirmLogoutWithDrafts(user, { navigate } = {}) {
   });
 }
 
+/**
+ * (إصلاح 9.1) دخل حساب آخر على هذا الجهاز بعد انتهاء جلسة محامٍ دون تسجيل خروج: نسخ الرأي غير المرسلة لذلك المحامي
+ * (نصوص قانونية عن ملفات) تُحذف — كانت فرصته أن يدخل بحسابه فتُرسل تلقائيًا. نسخ المستخدم الحالي تبقى.
+ * @returns {number} عدد النسخ المحذوفة
+ */
+export function clearOtherUsersDrafts(userId) {
+  let n = 0;
+  const mine = `:${userId}:`;
+  for (const s of [store('local'), store('session')]) {
+    for (const k of keysOf(s)) {
+      const prefix = k.startsWith(DRAFT_PREFIX) ? DRAFT_PREFIX : k.startsWith(NOTES_PREFIX) ? NOTES_PREFIX : null;
+      if (!prefix || `:${k.slice(prefix.length)}`.startsWith(mine)) continue;
+      removeKey(s, k);
+      n += 1;
+    }
+  }
+  return n;
+}
+
+/** (إصلاح 9.1) هل على الجهاز نص رأي لم يُرسل لأي حساب (لتنبيه شاشة الدخول بعد انتهاء جلسة) */
+export function hasAnyPendingDraft() {
+  for (const s of [store('local'), store('session')]) {
+    for (const k of keysOf(s)) {
+      if (!k.startsWith(DRAFT_PREFIX)) continue;
+      const v = readKey(s, k);
+      if (v && typeof v.body === 'string' && v.body.trim()) return true;
+    }
+  }
+  return false;
+}
+
 export function purgeOldDrafts(maxAgeDays = 30) {
   const limit = Date.now() - maxAgeDays * DAY_MS;
   for (const s of [store('local'), store('session')]) {

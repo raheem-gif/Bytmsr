@@ -319,9 +319,12 @@ export function createPortal(app) {
     if (!intake) return { full: false, intakeIds: [], caseIds: [], matterIds: [], intake: null };
     const caseIds = intake.case_id ? [intake.case_id] : [];
     const matterIds = caseIds.length ? db.all('SELECT id FROM matters WHERE case_id = ?', caseIds[0]).map((r) => r.id) : [];
-    // رابط طلب من الموقع لم تُؤكد هوية مقدّمه: يعرض جانب الموقع والبوابة من المحادثة فقط، لا رسائل واتساب صاحب الرقم
-    // (قد يكون صاحب الرقم شخصًا آخر أخطأ مقدّم الطلب في كتابة رقمه؛ رسائله وردود الإدارة عليه لا تخص صاحب الرابط)
-    return { full: false, intakeIds: [intake.id], caseIds, matterIds, intake, websiteOnly: isPortalUnverifiedIntake(intake) };
+    // رابط طلب من الموقع: يعرض جانب الموقع والبوابة من المحادثة فقط، لا رسائل واتساب صاحب الرقم
+    // (قد يكون صاحب الرقم شخصًا آخر أخطأ مقدّم الطلب في كتابة رقمه؛ رسائله وردود الإدارة عليه لا تخص صاحب الرابط).
+    // v9.1 fixes: نطاق الرابط يُحدَّد لحظة إصداره ولا يتسع بعد ذلك: روابط الطلب تصدر من نموذج الموقع وحده (رقم مُدخل
+    // غير مثبت)، وتأكيد الرقم لاحقًا (بالكود أو من الإدارة) يثبت صاحب الرقم لا حامل الرابط، فيبقى الرابط «موقع فقط» دائمًا.
+    // صاحبة الرقم تتابع واتساب برابط رقمها (رد التأكيد أو الدخول برمز).
+    return { full: false, intakeIds: [intake.id], caseIds, matterIds, intake, websiteOnly: true, unverified: isPortalUnverifiedIntake(intake) };
   }
   const inList = (ids) => (ids.length ? ids.join(',') : '-1'); // معرفات رقمية من قاعدة البيانات فقط
 
@@ -374,7 +377,7 @@ export function createPortal(app) {
       const I = inList(sc.intakeIds);
       const C = inList(sc.caseIds);
       const M = inList(sc.matterIds);
-      const cases = db.all(`SELECT id, code, title, status FROM cases WHERE id IN (${C}) ORDER BY id DESC`);
+      const cases = db.all(`SELECT c.id, c.title, c.status, i.code AS ref FROM cases c LEFT JOIN intakes i ON i.id = c.intake_id WHERE c.id IN (${C}) ORDER BY c.id DESC`);
       const orphan = orphanSql(sc);
       const msgs = db
         .all(
@@ -409,8 +412,10 @@ export function createPortal(app) {
           : sc.phone && Number(db.value("SELECT COUNT(*) FROM client_identities WHERE client_id = ? AND kind = 'phone'", client.id)) > 1
             ? // ملف عميل بأكثر من رقم (قد يكون دمجًا لملفين): لا نعرض اسم الملف وكوده لصاحب هذا الرقم، بل الاسم الذي كتبه هو
               { code: null, name: sc.latestName || null }
-            : { code: client.code, name: client.name },
-        cases: cases.map((c) => ({ code: c.code, title: c.title, status: c.status, status_label: clientStatus(c.status) })),
+            : // v9.1 fixes (B91-02): كود العميل CL- داخلي لا يصل للصفحة (code باقٍ null للتوافق)
+              { code: null, name: client.name },
+        // v9.1 fixes (B91-02): رقم واحد تراه المستفيدة: رقم طلبها REQ- بدل كود الملف الداخلي (INH-/FAM-…)
+        cases: cases.map((c) => ({ ref: c.ref || null, title: c.title, status: c.status, status_label: clientStatus(c.status) })),
         intakes: db
           .all(`SELECT code, status, created_at FROM intakes WHERE id IN (${I}) AND status IN ('new','in_review','awaiting_client') ORDER BY id DESC`)
           .map((i) => ({ ...i, status_label: i.status === 'awaiting_client' ? 'بانتظار ردك' : 'قيد المراجعة' })),
@@ -472,6 +477,8 @@ export function createPortal(app) {
     itemsInput,
     officeOpen: (...a) => v91.officeOpen(...a),
     stageOf: (...a) => v91.stageOf(...a),
+    // v9.1 fixes: حالة بنود طلب الورق (needed / received / missing) لتحذير الإدارة قبل إتاحة رد ناقص
+    requestState: (...a) => v91.requestState(...a),
   };
   const v91 = createPortalV91(app, { scopeOf, inList });
   return svc;

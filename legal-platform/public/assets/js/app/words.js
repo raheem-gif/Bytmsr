@@ -258,7 +258,8 @@ export function actionCopy(a, now = Date.now()) {
       };
     case 'info_shared':
       return {
-        title: 'وصلك رد على طلبك',
+        // v9.1 fixes: رد وصل بعد تقديم الرأي (للعلم: إن غيّر رأيك اطلب من الإدارة إعادته)
+        title: a.after_submit ? 'وصلك رد بعد تقديم رأيك' : 'وصلك رد على طلبك',
         sub: clean([code(a.case_code), Number(a.count) > 1 ? keep(count(a.count, 'reply')) : null]),
         tone: 'teal',
         chevron: true,

@@ -239,6 +239,8 @@ export function createOpinions(app) {
       const c = app.cases.requireOpen(ans.case_id);
       // v9.1 b-portal (B91-08): مع الخلاصة تصل الرسالة قصيرة (التحية، الخلاصة، الخطوات، رابط صفحتها)، والرد الكامل في صفحتها
       const short = answerMessageText(app, ans, c);
+      // v9.1 fixes: نص واتساب وحده يحمل {portal_link} (يُصدر الرابط عند الإرسال الفعلي)؛ النص المحفوظ بلا رابط
+      const waText = short ? answerMessageText(app, ans, c, { forWhatsApp: true }) : null;
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
         intake_id: c.intake_id,
@@ -246,7 +248,7 @@ export function createOpinions(app) {
         body: short || ans.body,
         channel: body.channel || 'auto',
         author: actor,
-        meta: { client_answer_id: ans.id },
+        meta: { client_answer_id: ans.id, ...(waText && waText !== short ? { wa_text: waText } : {}) },
         // الرسالة الصوتية من المؤسسة (إن أُرفقت) تُتاح في صفحة المتابعة مع الرد
         attachments: ans.voice_document_id ? [ans.voice_document_id] : [],
       });

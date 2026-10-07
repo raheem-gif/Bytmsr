@@ -489,6 +489,25 @@ export function securityPolicyCard({ me }) {
           },
           { name: 'session_idle_hours', label: 'إنهاء الجلسة بعد عدم النشاط', type: 'number', required: true, min: 0.25, max: 720, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'عمر الجلسة مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'يُسجَّل خروج المستخدم تلقائيًا إذا لم يستخدم المنصة طوال هذه المدة' },
           { name: 'session_max_hours', label: 'الحد الأقصى لعمر الجلسة', type: 'number', integer: true, required: true, min: 1, max: 2160, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'بعدها يلزم تسجيل الدخول من جديد أيًا كان النشاط' },
+          // v9.1 fixes: «تذكّرني على هذا الجهاز» للمحامين قرار صريح بجانب سياسة الجلسات
+          {
+            name: 'lawyer_remember',
+            label: '«تذكّرني على هذا الجهاز» للمحامين',
+            type: 'select',
+            required: true,
+            placeholder: false,
+            disabled: p.session_ttl_from_env,
+            options: [
+              { value: 'all', label: 'متاح لكل المحامين' },
+              { value: 'with_2fa', label: 'لمن فعّل التحقق بخطوتين فقط' },
+              { value: 'off', label: 'مطفأ (تسري مدة الجلسة أعلاه)' },
+            ],
+            hint: p.lawyer_remember_capped
+              ? 'مطفأ لأن عمر الجلسة أو مهلة عدم النشاط أقصر من الافتراضي. اختر «متاح» لتسمح به رغم ذلك.'
+              : 'جلسة «تذكّرني» أطول من مدة الجلسة أعلاه، حتى لو ضاع الهاتف. يمكن إنهاؤها من «الجلسات النشطة».',
+          },
+          { name: 'lawyer_remember_days', label: 'مدة «تذكّرني» بلا تحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 30, suffix: 'يوم', disabled: p.session_ttl_from_env },
+          { name: 'lawyer_remember_days_2fa', label: 'مدة «تذكّرني» مع التحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 90, suffix: 'يوم', disabled: p.session_ttl_from_env },
           { name: 'invite_valid_hours', label: 'صلاحية رابط الدعوة', type: 'number', integer: true, required: true, min: 1, max: 336, suffix: 'ساعة' },
           { name: 'reset_valid_hours', label: 'صلاحية رابط إعادة التعيين', type: 'number', integer: true, required: true, min: 1, max: 168, suffix: 'ساعة' },
           { name: 'security_audit_retention_days', label: 'مدة الاحتفاظ بأحداث سجل الأمان', type: 'number', integer: true, required: true, min: 30, max: 3650, suffix: 'يوم', hint: 'التحذيرات والأحداث الحرجة تُحفظ ضعف هذه المدة' },
@@ -502,6 +521,9 @@ export function securityPolicyCard({ me }) {
             if (p.session_ttl_from_env) {
               delete payload.session_max_hours;
               delete payload.session_idle_hours;
+              delete payload.lawyer_remember;
+              delete payload.lawyer_remember_days;
+              delete payload.lawyer_remember_days_2fa;
             }
             const saved = await api.patch('/admin/security/policy', payload);
             f.setValues(saved);

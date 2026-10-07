@@ -151,6 +151,34 @@ export function parseSteps(raw) {
     .map((s) => s.slice(0, 160));
 }
 
+/**
+ * v9.1 fixes: نص تذكير الجلسة بقائمة «هاتي معاكي» التي اعتمدتها الإدارة (ملاحظة الموعد) بدل «هاتي معاكي بطاقتك» وحدها،
+ * وسطر اللقاء («المحامي هيقابلك …») قبل التوقيع. بلا ملاحظة معتمدة يبقى النص كما هو.
+ */
+export function withClientNote(body, e, form = 'f') {
+  if (!e || !e.client_text_approved || !e.client_note) return body;
+  const lines = String(e.client_note).split(/\r?\n/).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8);
+  const meetRe = /(هيقابل|هتقابل|هنقابل|هنستنا|هيستنا|نتقابل|مكان اللقا|ميعاد اللقا)/;
+  const bring = lines.filter((s) => !meetRe.test(s));
+  const meet = lines.find((s) => meetRe.test(s)) || null;
+  let out = String(body);
+  const beforeSignature = (text, line) => {
+    const parts = text.split('\n');
+    const at = parts.findIndex((p) => /^—\s/.test(p));
+    if (at >= 0) parts.splice(at, 0, line);
+    else parts.push(line);
+    return parts.join('\n');
+  };
+  if (bring.length) {
+    const items = bring.some((s) => /بطاق/.test(s)) ? bring : ['بطاقتك', ...bring];
+    const say = form === 'm' ? 'هات معاك' : 'هاتي معاكي';
+    const re = /هاتي?(?:\s+معاكي?)?\s+بطاقتك(?:\s+الشخصية)?/;
+    out = re.test(out) ? out.replace(re, `${say}: ${items.join('، ')}`) : beforeSignature(out, `${say}: ${items.join('، ')}.`);
+  }
+  if (meet) out = beforeSignature(out, meet);
+  return out;
+}
+
 /** نص تذكير «قبلها بيوم» (B91-13): {ي} و{ة} حسب صيغة المخاطبة */
 export const DAY_BEFORE_TEMPLATE =
   'أهلًا يا {first_name}، فكّرناك: بكرة {event_kind} الساعة {time_spoken} في {location}.\nهات{ي} بطاقتك. لو في أي مشكلة رد{ي} علينا هنا.\n— {org_name}';
@@ -184,31 +212,30 @@ export function clientAnswerFields(app, caseId, body = {}) {
  * نص رسالة الرد على واتساب حين توجد خلاصة (B91-08): التحية بالاسم، الخلاصة، الخطوات مرقمة، ورابط صفحتها
  * (رابط مقصور على طلبها، ولا رابط لطلب من الموقع لم تتأكد هوية صاحبه)، ≤ 1000 حرف. null إن لم توجد خلاصة.
  */
-export function answerMessageText(app, ans, caseRow) {
+export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {}) {
   if (!ans?.summary || !String(ans.summary).trim()) return null;
   const client = app.clients.get(caseRow.client_id) || {};
   const form = addressForm(client);
   const name = addressName(client.name);
   const org = app.settings.get('org_name') || 'بيوت مصر';
-  let link = null;
   const intake = caseRow.intake_id ? app.db.get('SELECT * FROM intakes WHERE id = ?', caseRow.intake_id) : null;
   const story = { clientId: caseRow.client_id, intakeId: intake?.id ?? null, caseId: caseRow.id };
-  if (app.engine?.isStoryConfirmed && app.engine?.storyLink) {
-    // قاعدة القناة الواحدة (B91-01): القصة المؤكدة فقط تأخذ رابطًا على رقمها، وغير المؤكدة تقرأ الرد في صفحتها
-    if (app.engine.isStoryConfirmed(story)) link = app.engine.storyLink(story);
-  } else if (!intake || !parseJson(intake.source_detail, {}).phone_match_unverified) {
-    link = app.clients.portalUrl(app.clients.issuePortalToken(caseRow.client_id, { intakeId: intake?.id ?? null }));
-  }
+  // قاعدة القناة الواحدة (B91-01): القصة المؤكدة فقط تأخذ رابطًا على رقمها، وغير المؤكدة تقرأ الرد في صفحتها.
+  // v9.1 fixes: الرابط لا يُكتب في نص الرسالة المحفوظ أبدًا: نص واتساب (forWhatsApp) يحمل {portal_link} ويُصدر الرابط
+  // عند الإرسال الفعلي (engine.renderLinks)، والنص المحفوظ يقول «الرد كامل على صفحتك.» فقط
+  const withLink = forWhatsApp && !!app.engine?.isStoryConfirmed?.(story);
   const steps = parseSteps(ans.steps);
   const head = `${name ? `أهلًا يا ${name}` : 'أهلًا بيك{ي}'}، ردّنا على مشكلتك جاهز.\n\n${String(ans.summary).trim()}`;
-  const tail = `\n\n${link ? `الرد كامل على صفحتك: ${link}` : 'الرد كامل على صفحتك.'}\nلو عندك سؤال، رد{ي} علينا هنا.\n— ${org}`;
+  const tail = `\n\n${withLink ? 'الرد كامل على صفحتك: {portal_link}' : 'الرد كامل على صفحتك.'}\nلو عندك سؤال، رد{ي} علينا هنا.\n— ${org}`;
+  // طول الرابط الفعلي عند الإرسال (≈ 70 حرفًا) يُحسب ضمن حد الـ 1000 حرف
+  const linkRoom = withLink ? 70 : 0;
   let list = '';
   if (steps.length) {
     list = `\n\nتعمل{ي} إيه دلوقتي:`;
     let i = 0;
     for (const s of steps) {
       const line = `\n${i + 1}. ${s}`;
-      if ((head + list + line + tail).length > 960) {
+      if ((head + list + line + tail).length + linkRoom > 960) {
         list += '\nوباقي الخطوات على صفحتك.';
         break;
       }
@@ -223,7 +250,7 @@ const STUDY_DAYS = ['يوم', 'يومين', 'أيام', 'يوم'];
 const WORK_DAYS = ['يوم شغل', 'يومين شغل', 'أيام شغل', 'يوم شغل'];
 const WHEN_LABEL = { morning: 'الصبح', noon: 'الضهر', any: 'أي وقت' };
 /** سطر مكان اللقاء في ملاحظة الجلسة («المحامي هيقابلك قدام باب القاعة…») */
-const MEET_RE = /(هيقابل|هتقابل|هنقابل|هنستنا|هيستنا|نتقابل|مكان اللقا|ميعاد اللقا)/;
+export const MEET_RE = /(هيقابل|هتقابل|هنقابل|هنستنا|هيستنا|نتقابل|مكان اللقا|ميعاد اللقا)/;
 /** مفتاح منع التكرار من الصفحة: نفس الإرسال بعد انقطاع النت لا يُسجَّل مرتين */
 const CLIENT_REF_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const RESPONSE_TEXT = {
@@ -834,12 +861,23 @@ export function createPortalV91(app, { scopeOf, inList }) {
     callback(client, intakeId, body = {}, { phone = null } = {}) {
       const when = v.oneOf(body.when || 'any', ['morning', 'noon', 'any'], 'الوقت المناسب', { required: true });
       const since = addDays(nowIso(), -1);
-      const n = Number(db.value("SELECT COUNT(*) FROM messages WHERE client_id = ? AND direction = 'in' AND json_extract(meta, '$.callback') IS NOT NULL AND created_at > ?", client.id, since));
-      if (n >= 2) throw new ApiError(429, 'طلبتي مكالمة مرتين النهارده. هنكلمك قريب إن شاء الله.', 'callback_limit');
       const sc = scopeOf(client, intakeId, { phone });
+      // v9.1 fixes: الحد لكل نطاق رابط (طلبات الرابط وما تفرع عنها)، لا لكل العميل: طلب موقع غير مؤكد برقمها
+      // لا يستهلك حصة صاحبة الرقم الحقيقية (ولا العكس)
+      const n = Number(
+        db.value(
+          `SELECT COUNT(*) FROM messages WHERE client_id = ? AND direction = 'in' AND json_extract(meta, '$.callback') IS NOT NULL AND created_at > ?
+             AND (intake_id IN (${inList(sc.intakeIds)}) OR case_id IN (${inList(sc.caseIds)}) OR matter_id IN (${inList(sc.matterIds)}))`,
+          client.id,
+          since,
+        ),
+      );
+      if (n >= 2) throw new ApiError(429, 'طلبتي مكالمة مرتين النهارده. هنكلمك قريب إن شاء الله.', 'callback_limit');
       const form = sc.websiteOnly ? addressForm({ name: sc.intake?.contact_name }) : addressForm(client);
       const text = `${form === 'm' ? 'طلب المستفيد' : 'طلبت المستفيدة'} مكالمة (${WHEN_LABEL[when]})`;
-      const res = receivePortal(client, app.portal.targetFor(client, intakeId, { phone }), text, { meta: { callback: when } });
+      // v9.1 fixes: الرسالة في محادثتها بكلامها هي؛ صياغة الإدارة («طلبت المستفيدة مكالمة») في السجل والإشعار فقط
+      const own = `${form === 'm' ? 'عايز' : 'عايزة'} حد يكلمني — ${WHEN_LABEL[when]}`;
+      const res = receivePortal(client, app.portal.targetFor(client, intakeId, { phone }), own, { meta: { callback: when } });
       const ref = res.intake?.code || (res.caseRow ? refOfCase(res.caseRow.id) : null);
       app.activity.log({ intake_id: res.intake?.id, case_id: res.caseRow?.id, client_id: client.id, actor: { kind: 'client' }, type: 'client.callback', summary: text, data: { when, message_id: res.message_id } });
       notifyFor(res.caseRow?.id || null, {
@@ -870,9 +908,14 @@ export function createPortalV91(app, { scopeOf, inList }) {
         org_name: app.settings.get('org_name') || 'بيوت مصر',
       };
       const tpl = typeof params.template_day_before === 'string' && params.template_day_before.trim() ? params.template_day_before : DAY_BEFORE_TEMPLATE;
-      const body = app.engine?.fillClientText
-        ? app.engine.fillClientText(tpl, vars, form)
-        : genderize(String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] ? String(vars[k]) : m)).replace(/يا \{first_name\}/, 'بيك{ي}'), form);
+      // (v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة بدل «هاتي بطاقتك» وحدها)
+      const body = withClientNote(
+        app.engine?.fillClientText
+          ? app.engine.fillClientText(tpl, vars, form)
+          : genderize(String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] ? String(vars[k]) : m)).replace(/يا \{first_name\}/, 'بيك{ي}'), form),
+        e,
+        form,
+      );
       const msg = app.engine.sendToClient({
         client_id: e.client_id,
         intake_id: e.intake_id ?? null,
@@ -912,7 +955,9 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const text = `${form === 'm' ? 'ردّ المستفيد' : 'ردّت المستفيدة'}: ${RESPONSE_TEXT[answer]} — ${when}`;
     let mid = messageId;
     if (via === 'portal') {
-      const res = receivePortal(client, targetForCase(intakeId, e.case_id), text, { meta: { event_id: e.id, event_response: answer } });
+      // v9.1 fixes: رسالتها في محادثتها بكلامها هي («هحضر إن شاء الله — جلسة يوم …»)؛ صياغة الإدارة في السجل والإشعار فقط
+      const own = `${RESPONSE_TEXT[answer]} — ${when}`;
+      const res = receivePortal(client, targetForCase(intakeId, e.case_id), own, { meta: { event_id: e.id, event_response: answer } });
       mid = res.message_id;
     } else if (messageId) {
       db.run("UPDATE messages SET meta = json_set(meta, '$.event_id', ?, '$.event_response', ?) WHERE id = ?", e.id, answer, messageId);
@@ -933,6 +978,16 @@ export function createPortalV91(app, { scopeOf, inList }) {
       },
       { caseManagerId: db.value('SELECT case_manager_id FROM cases WHERE id = ?', e.case_id) || null },
     );
+    // v9.1 fixes: المحامي المسؤول يعرف حضورها المتوقع (بصياغة محايدة، بلا ردها الحرفي ولا أي بيانات تواصل)
+    const lawyerId = answer === 'question' ? null : db.value('SELECT responsible_lawyer_id FROM matters WHERE id = ?', e.matter_id);
+    if (lawyerId) {
+      app.notifications.notify(lawyerId, {
+        type: 'event.client_attendance',
+        title: answer === 'yes' ? `أكّدت المستفيد/ة حضور ${when}` : `أبلغت المستفيد/ة بتعذّر حضور ${when}`,
+        body: e.matter_code ? `الملف ${e.matter_code}` : null,
+        link: `#/my/matters/${e.matter_id}`,
+      });
+    }
     return { ok: true, client_response: answer, client_response_at: t };
   }
 

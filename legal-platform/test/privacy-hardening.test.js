@@ -102,14 +102,22 @@ test('the genuine website user continuing on WhatsApp with the code still reache
   const t = await startTestApp();
   try {
     await victimWithCase(t);
-    const { intake, token } = await attackerSubmits(t, 'لدي مشكلة في الإيجار القديم وصاحب البيت يريد طردي.');
+    const { intake, token, sub } = await attackerSubmits(t, 'لدي مشكلة في الإيجار القديم وصاحب البيت يريد طردي.');
+    // v9.1 fixes: رقم الطلب وحده (أرقام متسلسلة) لا يضيف رسالة صاحب الرقم إلى طلب موقع غير مؤكد يحمل رابطه شخص آخر
     await t.client().post('/webhooks/whatsapp', waPayload({ from: VICTIM_WA, text: `رقم طلبي ${intake.code} وأريد الإكمال هنا` }));
     const msg = t.app.db.get("SELECT * FROM messages WHERE body LIKE 'رقم طلبي%'");
-    assert.equal(msg.intake_id, intake.id);
+    assert.notEqual(msg.intake_id, intake.id);
+    assert.equal(JSON.parse(msg.meta).mentioned_ref, intake.code);
     const admin = await t.login('admin');
     const notes = (await admin.get('/api/notifications')).body.items;
     assert.ok(notes.some((n) => n.type === 'identity.ref_from_owner'), 'staff are asked to confirm the identity');
     assert.equal((await t.client().get(`/api/portal/${token}`)).status, 200);
+    // رقم الطلب + كود التأكيد (رسالة شاشة النجاح الجاهزة) يصل لطلبه، ورابط الموقع القديم يُلغى (الرابط الجديد على واتساب)
+    const text = decodeURIComponent(sub.body.confirm_url.split('?text=')[1]);
+    await t.client().post('/webhooks/whatsapp', waPayload({ from: VICTIM_WA, text }));
+    const confirmMsg = t.app.db.get("SELECT * FROM messages WHERE body LIKE '%كود التأكيد%'");
+    assert.equal(confirmMsg.intake_id, intake.id);
+    assert.equal((await t.client().get(`/api/portal/${token}`)).status, 404);
   } finally {
     await t.close();
   }

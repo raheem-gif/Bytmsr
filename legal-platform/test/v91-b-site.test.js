@@ -158,21 +158,19 @@ describe('v9.1 b-site — one channel rule and one-tap WhatsApp confirmation (B9
       const autoReply = t.app.db.all("SELECT * FROM messages WHERE client_id = ? AND direction = 'out' AND channel = 'whatsapp'", intake.client_id);
       assert.equal(autoReply.length, 1);
       assert.equal(autoReply[0].status, 'simulated');
-      assert.ok(autoReply[0].body.includes('/p/') && autoReply[0].body.includes('رقم طلبك') && autoReply[0].body.includes(r.reference));
+      // v9.1 fixes: الرابط لا يُحفظ في نص الرسالة؛ يُصدر عند الإرسال الفعلي (انظر test/v91-fixes-backend.test.js)
+      assert.ok(!autoReply[0].body.includes('/p/') && autoReply[0].body.includes('رقم طلبك') && autoReply[0].body.includes(r.reference));
+      assert.match(JSON.parse(autoReply[0].meta).wa_text, /صفحة طلبك: \{portal_link\}/);
       assert.match(autoReply[0].body, /^أهلًا يا أم محمد،/);
       assert.equal(autoReply[0].to_address.slice(-10), phoneCore(phone));
-      // الرابط في الرد بنطاق الرقم نفسه ويعرض الطلب الآن
-      const link = /\/p\/([A-Za-z0-9_-]+)/.exec(autoReply[0].body)[1];
-      const scoped = ok(await t.client().get(`/api/portal/${link}`));
-      assert.ok(JSON.stringify(scoped).includes(r.reference));
       const activity = t.app.db.value("SELECT summary FROM activity WHERE intake_id = ? AND type = 'identity.confirmed'", intake.id);
       assert.match(activity, /أكّدت المستفيدة رقمها برسالة واتساب/);
 
       const reply = ok(await admin.post(`/api/admin/intakes/${intake.id}/reply`, { body: 'أهلًا يا أم محمد، محتاجين شهادة الوفاة.' }));
       assert.equal(reply.channel, 'whatsapp');
+      // v9.1 fixes: تأكيد الرقم بالكود يثبت صاحب الرقم لا حامل رابط الموقع: رابط الموقع القديم يُلغى
       const token = r.portal_url.split('/p/')[1];
-      const portal = ok(await t.client().get(`/api/portal/${token}`));
-      assert.ok(JSON.stringify(portal).includes('محتاجين شهادة الوفاة'), 'the website-request link now shows WhatsApp replies too');
+      assert.equal((await t.client().get(`/api/portal/${token}`)).status, 404, 'the website link issued before confirmation is revoked');
       const detail = ok(await admin.get(`/api/admin/intakes/${intake.id}`));
       assert.equal(detail.intake.identity.reply_channel.text, 'واتساب + صفحة المتابعة');
       for (const m of t.app.db.all("SELECT body FROM messages WHERE direction = 'out' AND channel = 'whatsapp'")) assert.ok(!INTERNAL_CODE_RE.test(m.body), m.body);
@@ -274,7 +272,10 @@ describe('v9.1 b-site — every message she receives in plain words (B91-10)', (
       const body = rem[0].body;
       assert.match(body, /^أهلًا يا أم محمد، عندك جلسة يوم /);
       assert.match(body, /الصبح|الضهر|العصر|بالليل/);
-      assert.match(body, /\/p\//);
+      // v9.1 fixes: الرابط لا يُحفظ في النص؛ نص واتساب يحمل {portal_link} ويُصدر الرابط عند الإرسال الفعلي
+      assert.ok(!/\/p\//.test(body), body);
+      assert.match(rem[0].meta.wa_text, /التفاصيل: \{portal_link\}/);
+      assert.ok(!/\/p\//.test(JSON.stringify(rem[0].meta)), 'no bearer link in the stored meta either');
       assert.ok(!/MTR-|حضرتكم/.test(body), body);
       assert.ok(body.includes('لازم تحضري بنفسك'));
       assert.ok(!/\{ي\}|\{ة\}|\{\w+\}/.test(body));
@@ -304,7 +305,9 @@ describe('v9.1 b-site — every message she receives in plain words (B91-10)', (
       for (const x of rem) {
         assert.ok(!/\{ي\}|\{ة\}/.test(x.body));
         assert.ok(!INTERNAL_CODE_RE.test(x.body), x.body);
-        assert.match(x.body, /\/p\//);
+        // v9.1 fixes: الرابط يُصدر عند الإرسال الفعلي فقط
+        assert.ok(!/\/p\//.test(x.body), x.body);
+        assert.match(x.meta.wa_text, /أو من صفحتك: \{portal_link\}/);
       }
     } finally {
       await t.close();
@@ -321,7 +324,11 @@ describe('v9.1 b-site — every message she receives in plain words (B91-10)', (
       assert.equal(msg.channel, 'whatsapp');
       assert.equal(msg.body, 'محتاجين صورة شهادة الوفاة');
       const meta = JSON.parse(msg.meta);
-      assert.match(meta.wa_text, /^محتاجين صورة شهادة الوفاة\n\nصوّري الورقة وابعتيها هنا، أو من صفحتك: \S*\/p\//);
+      // v9.1 fixes: {portal_link} يبقى متغيرًا ويُصدر الرابط عند الإرسال الفعلي فقط (لا رابط في قاعدة البيانات)
+      assert.match(meta.wa_text, /محتاجين صورة شهادة الوفاة\n\nصوّري الورقة وابعتيها هنا، أو من صفحتك: \{portal_link\}$/);
+      // (إصلاح 9.1، B91-10) اسمها ورقم طلبها (REQ لا كود الملف) في أول نص واتساب
+      assert.match(meta.wa_text, /^أهلًا يا نادية(?:، بخصوص طلبك REQ-\d{4}-\d{5})?:\nمحتاجين/);
+      assert.ok(!INTERNAL_CODE_RE.test(meta.wa_text), meta.wa_text);
       const token = (await admin.post(`/api/admin/clients/${k.clientId}/portal-link`, {})).body.url.split('/p/')[1];
       const portal = JSON.stringify(ok(await t.client().get(`/api/portal/${token}`)));
       assert.ok(portal.includes('محتاجين صورة شهادة الوفاة'));

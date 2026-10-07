@@ -252,6 +252,8 @@ export function createCases(app) {
         .map((r) => ({
           ...r,
           documents: db.all('SELECT * FROM documents WHERE info_request_id = ?', r.id).map((d) => app.documents.publicView(d)),
+          // v9.1 fixes: بنود طلب الورق التي لم يصل لها شيء بعد (تحذير «لسه ناقص» في نافذة الإتاحة)
+          items_needed: app.requests?.neededItems ? app.requests.neededItems(r) : [],
         }));
       const counselRequests = db
         .all(
@@ -267,7 +269,26 @@ export function createCases(app) {
            JOIN assignments a ON a.id = o.assignment_id JOIN users u ON u.id = a.lawyer_id
            LEFT JOIN users r ON r.id = o.reviewed_by WHERE o.case_id = ? AND o.status != 'draft' ORDER BY o.id`,
           c.id,
-        );
+        )
+        // v9.1 fixes: ردود على طلبات المحامي أُتيحت له بعد تقديم رأيه (لم يرها وهو يكتب): تحذير قبل الاعتماد
+        .map((o) => ({
+          ...o,
+          replies_after_submit:
+            o.status === 'submitted' && o.submitted_at
+              ? db
+                  .all(
+                    `SELECT ir.id, ir.question FROM info_requests ir
+                     WHERE ir.case_id = ? AND ir.status = 'shared' AND ir.shared_at > ? AND ir.kind IN ('document','information','admin_question')
+                       AND (ir.assignment_id = ? OR EXISTS (SELECT 1 FROM assignment_grants g WHERE g.assignment_id = ? AND g.resource = 'info_request' AND g.resource_id = ir.id))
+                     ORDER BY ir.id`,
+                    c.id,
+                    o.submitted_at,
+                    o.assignment_id,
+                    o.assignment_id,
+                  )
+                  .map((r) => ({ id: r.id, question: truncate(r.question, 120) }))
+              : [],
+        }));
       const clientAnswers = db.all('SELECT * FROM client_answers WHERE case_id = ? ORDER BY id', c.id);
       const issues = db.all(
         `SELECT i.*, u.name AS proposed_by_name FROM case_issues i LEFT JOIN users u ON u.id = i.proposed_by_user_id

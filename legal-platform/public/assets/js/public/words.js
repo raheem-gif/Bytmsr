@@ -123,6 +123,10 @@ export const GLOSSARY = Object.freeze({
   'جلسة': 'ميعاد في المحكمة',
   'القيد العائلي': 'ورقة فيها أفراد الأسرة',
   'حكم': 'قرار المحكمة',
+  // (إصلاح 9.1) مصطلحات تتسرب من الرأي إلى «الخلاصة بكلام بسيط» (تحذير الإدارة في محرر الرد)
+  'قاصر': 'طفل أقل من 21 سنة',
+  'قاصرين': 'أطفال أقل من 21 سنة',
+  'التركة': 'اللي سابه المتوفي من فلوس وحاجات',
 });
 
 const stripAl = (s) => String(s).replace(/^ال(?=\S{3,})/, '');
@@ -158,6 +162,20 @@ export function glossText(text, seen = new Set()) {
     if (out.includes(plain)) continue;
     const at = m.index + m[1].length + m[2].length;
     out = `${out.slice(0, at)} (${plain})${out.slice(at)}`;
+  }
+  return out;
+}
+
+/**
+ * (إصلاح 9.1) مصطلحات القاموس الموجودة في النص بلا شرحها (لتحذير الإدارة في محرر الرد) — حتى لو تلاها قوس لا يشرحها
+ * («قاصرين (ابن وبنت)»). يعيد [{ term, plain }].
+ */
+export function glossTerms(text) {
+  const s = String(text ?? '');
+  const out = [];
+  for (const [term, plain] of Object.entries(GLOSSARY)) {
+    const re = new RegExp(`(^|[\\s«(،.])(?:[وفبل]|وب|ول)?(?:ال)?${escRe(stripAl(term))}(?=$|[\\s»)،.:؟!(])`, 'u');
+    if (re.test(s) && !s.includes(plain)) out.push({ term, plain });
   }
   return out;
 }
@@ -224,6 +242,34 @@ export function countWord(n, [one, two, few, many]) {
   if (r >= 3 && r <= 10) return `${k} ${few}`;
   if (r >= 11 && r <= 99) return `${k} ${many}`;
   return `${k} ${String(one).replace(/\s+واحد[ةه]?(?=\s|$)/, '')}`;
+}
+
+// ───────────── (إصلاح 9.1) روابط صفحة المتابعة داخل نص رسالة ─────────────
+
+const PORTAL_LINK = /(?:https?:\/\/[^\s/]+)?\/p\/[A-Za-z0-9_-]{20,100}\/?/;
+/**
+ * نص رسالة كما يظهر في صفحتها هي: رابط «صفحتك» (من نسخة واتساب) ضجيج هناك ويشير لرابط آخر، فيُحذف مع عنوانه.
+ * «الرد كامل على صفحتك: /p/…» ← يُحذف السطر؛ «صوّري الورقة وابعتيها هنا، أو من صفحتك: /p/…» ← «صوّري الورقة وابعتيها هنا.»
+ */
+export function withoutPortalLinks(text) {
+  const out = [];
+  for (const line of String(text ?? '').split('\n')) {
+    const m = PORTAL_LINK.exec(line);
+    if (!m) {
+      out.push(line);
+      continue;
+    }
+    let before = line.slice(0, m.index);
+    const after = line.slice(m.index + m[0].length).replace(new RegExp(PORTAL_LINK.source, 'g'), '').trim();
+    const colon = before.lastIndexOf(':');
+    if (colon >= 0) before = before.slice(0, colon);
+    // عنوان الرابط («أو من صفحتك» / «الرد كامل على صفحتك») بعد آخر فاصل جملة يُحذف معه
+    const sep = Math.max(before.lastIndexOf('،'), before.lastIndexOf('.'), before.lastIndexOf(','));
+    const keep = (sep >= 0 ? before.slice(0, sep) : '').trim();
+    const rest = [keep ? `${keep}.` : '', after].filter(Boolean).join(' ');
+    if (rest) out.push(rest);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 // ───────────── بيانات المؤسسة المضمّنة في الصفحة (B91-11) ─────────────

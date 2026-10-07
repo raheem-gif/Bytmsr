@@ -107,7 +107,10 @@ function itemRow(it, { showDate = false, isLawyer = false, onOutcome = null } = 
             : statusOf(it),
         it.overdue && badge('متأخر', 'danger', { icon: 'clock' }),
         it.client_attendance_required && badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' }),
+        // v9.1 fixes: ردها على الحضور، ولقاء وعدت به الإدارة باسم المحامي
+        it.client_attendance_label && badge(it.client_attendance_label, it.client_attendance === 'not_coming' ? 'danger' : 'success', { icon: it.client_attendance === 'not_coming' ? 'alert' : 'check' }),
         it.location && h('span.v9p-cal-loc', icon('mapPin', { size: 13 }), it.location),
+        it.meeting_promise && h('span.v9p-cal-loc', icon('user', { size: 13 }), it.meeting_promise),
         !isLawyer && it.lawyer?.name && h('span.v9p-cal-loc', icon('scale', { size: 13 }), it.lawyer.name),
         it.amount != null && h('span.nowrap', `المتبقي: ${money(it.amount)}`),
       ),

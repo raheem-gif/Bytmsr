@@ -1,7 +1,7 @@
 // الصلاحيات الدقيقة: «ما تراه الإدارة ليس بالضرورة ما يراه المحامي».
 // هذا الملف هو المصدر الوحيد لما يُعرض للمحامي؛ كل بيانات المحامي تُبنى هنا من المنح الصريحة (assignment_grants).
 // لا يحصل المحامي أبدًا على: هاتف العميل، رقمه القومي، بريده، المحادثة الأصلية، مصدر العميل، الملاحظات الداخلية، التكلفة.
-import { nowIso, notFound, badRequest, parseJson } from '../util.js';
+import { nowIso, notFound, badRequest, parseJson, addressName } from '../util.js';
 import { LABELS, LEGAL_AREAS } from '../constants.js';
 import { parseItems } from './v91-l-work.js'; // v9.1 l-work
 import { redact } from '../ai/redact.js'; // v9.1 l-work: تنقية رسائل الإدارة للمستفيد/ة قبل عرضها للمحامي
@@ -161,12 +161,18 @@ export function createVisibility(app) {
           asg.case_id,
           asg.id,
         )
-        .map((r) => ({
+        .map((r) => {
+          // بنود الورق كما أرسلتها الإدارة للمستفيد/ة (جزء من الرسالة المعتمدة نفسها)
+          const items = parseItems(r.items).map((it) => clean(it.label));
+          return { r, items };
+        })
+        .map(({ r, items }) => ({
           id: r.id,
           kind: r.kind,
-          client_message: clean(r.client_message),
-          // بنود الورق كما أرسلتها الإدارة للمستفيد/ة (جزء من الرسالة المعتمدة نفسها)
-          items: parseItems(r.items).map((it) => clean(it.label)),
+          // v9.1 fixes: طلب ورق ببنود يُعرض ببنوده فقط (لا نص الإدارة الحر للمستفيد/ة: قد يناديها أو يذكر عنوانًا أو رابطًا)؛
+          // طلب المعلومة بلا بنود بنصه بعد التنقية
+          client_message: items.length ? items.join('، ') : clean(r.client_message),
+          items,
           status: r.status,
           sent_at: r.sent_at,
           // ضغط «أحتاج هذا أيضًا» من قبل (طلبه المرتبط عند الإدارة أو وصله الرد)
@@ -181,10 +187,26 @@ export function createVisibility(app) {
     beneficiaryTextCleaner(caseId, g) {
       const names = [];
       if (!g.client_name) {
-        const row = db.get('SELECT cl.name FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', caseId);
+        const row = db.get('SELECT cl.name, c.client_id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', caseId);
         if (row && row.name) names.push(row.name);
+        // v9.1 fixes: والاسم الذي تُنادى به (الكنية «أم محمد» أو الاسم الأول) والاسم الذي كتبته في طلباتها
+        if (row) {
+          for (const r of db.all('SELECT DISTINCT contact_name FROM intakes WHERE client_id = ? AND contact_name IS NOT NULL', row.client_id)) names.push(r.contact_name);
+          for (const n of [...names]) {
+            const a = addressName(n);
+            if (a) names.push(a);
+          }
+        }
       }
-      return (text) => (text == null ? text : redact(String(text), { names }).text);
+      const kunya = !g.client_name;
+      return (text) => {
+        if (text == null) return text;
+        let s = redact(String(text), { names }).text;
+        // كنية لم تُعرف مسبقًا («يا أم محمد»، «بطاقة أبو أحمد») ← [اسم] ما دام الاسم غير متاح للمحامي
+        // («ام» بلا همزة قد تكون «أو» في الكلام الدارج، فلا تُعد كنية إلا بعد «يا»)
+        if (kunya) s = s.replace(/(^|[^\p{L}])(?:أم|أبو|ابو|(?<=يا\s+)ام)\s+(?!\[)(?!ال)\p{L}{3,}/gu, '$1[اسم]');
+        return s;
+      };
     },
 
     /** العرض الكامل للمحامي — مبني حصريًا من المنح الصريحة */

@@ -529,6 +529,59 @@ const COST_KIND = {
 const F_ISSUES = ['مسألة واحدة', 'مسألتين', 'مسائل', 'مسألة'];
 const F_DOCS = ['مستند واحد', 'مستندين', 'مستندات', 'مستندًا'];
 
+/**
+ * (إصلاح 9.1) رسالة صوتية WebM من MediaRecorder (أندرويد قديم) بلا مدة في رأسها: المشغل يعرض «0:00» حتى نهايتها.
+ * مرة واحدة لكل مشغّل في صفحات الإدارة: قفزة لنهاية الملف فيعرف مدته، ثم عودة للبداية (الملف صغير: دقائق قليلة).
+ * MP4 تُكتب مدته في رأسه عند التسجيل (recorder.js fixMp4Duration).
+ */
+export function resolveAudioDuration(e) {
+  const a = e && e.target;
+  if (!a || a.tagName !== 'AUDIO' || !a.classList.contains('doc-audio-player') || a.duration !== Infinity || a.dataset.durFix) return;
+  a.dataset.durFix = '1';
+  const done = () => {
+    if (a.duration === Infinity) return;
+    a.removeEventListener('durationchange', done);
+    a.currentTime = 0;
+  };
+  a.addEventListener('durationchange', done);
+  a.currentTime = 1e101;
+}
+if (typeof document !== 'undefined') document.addEventListener('loadedmetadata', resolveAudioDuration, true);
+
+/**
+ * (إصلاح 9.1) آخر رسالة من المستفيد/ة أحدث من آخر رد كتبته المؤسسة (الرسائل الآلية والفاشلة ليست ردًا)، أو null.
+ * يُنبَّه بها قبل إغلاق الملف أو تحويله: سؤالها «مش فاهمة» كان يضيع مع الإغلاق.
+ * since: رسائل الطلب نفسه قبل فتح الملف (وصف المشكلة) ليست سؤالًا معلقًا.
+ */
+export function unansweredClientMessage(messages = [], { since = null } = {}) {
+  let lastIn = null;
+  let lastOut = null;
+  const from = since ? Date.parse(since) || 0 : 0;
+  for (const m of messages || []) {
+    const at = Date.parse(m.created_at || '') || 0;
+    if (m.direction === 'in') {
+      if (at < from) continue;
+      if (!lastIn || at >= lastIn.at) lastIn = { m, at };
+    } else if (m.direction === 'out' && !m.automated && m.status !== 'failed') {
+      if (!lastOut || at >= lastOut.at) lastOut = { m, at };
+    }
+  }
+  return lastIn && (!lastOut || lastIn.at > lastOut.at) ? lastIn.m : null;
+}
+
+/** (إصلاح 9.1) خطوات الرد كقائمة (مخزّنة JSON أو نصًا بسطر لكل خطوة) */
+export function answerSteps(raw) {
+  let list = raw;
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      list = list.split('\n');
+    }
+  }
+  return Array.isArray(list) ? list.map((s) => String(s || '').trim()).filter(Boolean) : [];
+}
+
 function truncate(s, n = 90) {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
@@ -1907,7 +1960,8 @@ export default async function render(ctx) {
   async function openStaffRequestDialog(prefill = {}) {
     const res = await formModal({
       title: 'طلب معلومة أو مستند من المستفيد/ة مباشرة',
-      intro: 'تُرسل الرسالة باسم المؤسسة، ويُضاف إليها تلقائيًا رقم الملف وطريقة الرد.',
+      // (إصلاح 9.1) لا يصلها كود الملف أبدًا (رقم واحد: رقم طلبها)
+      intro: 'تُرسل الرسالة باسم المؤسسة. على واتساب يُضاف تلقائيًا اسم المستفيد/ة ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.',
       fields: [
         { name: 'kind', label: 'نوع الطلب', type: 'select', required: true, placeholder: false, options: options('info_request_kind').filter((o) => o.value === 'document' || o.value === 'information') }, // v9.1 l-work
         { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS },
@@ -1939,7 +1993,7 @@ export default async function render(ctx) {
   async function openApproveIrDialog(r) {
     const res = await formModal({
       title: 'موافقة وإرسال الطلب للمستفيد/ة',
-      intro: 'صِغ السؤال بلغة واضحة مناسبة للمستفيد/ة. سيُضاف تلقائيًا رقم الملف وطريقة الرد.',
+      intro: 'صِغ السؤال بكلام بسيط مناسب للمستفيد/ة. على واتساب يُضاف تلقائيًا اسم المستفيد/ة ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.',
       before: textBlock(r.assignment_id ? 'صياغة المحامي (لن يراها المستفيد/ة)' : 'المطلوب', r.question, { iconName: 'fileText' }),
       fields: [
         { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
@@ -1987,8 +2041,11 @@ export default async function render(ctx) {
           ? alertBox('لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبويب «الفريق والصلاحيات»، أو ألغِ الطلب إن لم يعد مطلوبًا.', 'warning')
           : null,
         linked.length ? alertBox(`يصل الرد نفسه تلقائيًا أيضًا إلى: ${linked.map((a) => a.lawyer_name).join('، ')} (طلبوا الشيء نفسه).`, 'info', { icon: 'link' }) : null, // v9.1 l-work
+        // v9.1 fixes: بنود لم يصل لها شيء بعد
+        (r.items_needed || []).length ? alertBox(`لم يصل بعد من المستفيد/ة: ${r.items_needed.join('، ')}.`, 'warning') : null,
       ),
       fields: [
+        (r.items_needed || []).length > 0 && { name: 'request_rest', type: 'checkbox', label: 'اطلب الباقي من المستفيد/ة (يظهر في صفحتها «لسه محتاجين»)', full: true },
         // v9.1 l-work: الموافقة على طلب المهلة تمدّد موعد التسليم في نفس الخطوة
         r.kind === 'extension' && r.requested_due_at && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
         {
@@ -2021,6 +2078,7 @@ export default async function render(ctx) {
         response_text: r.response_text || r.client_reply || '',
         document_ids: docs.filter((d) => d.info_request_id === r.id && !String(d.mime || '').startsWith('audio/')).map((d) => d.id),
         share_with_assignment_ids: [],
+        request_rest: true, // v9.1 fixes
       },
       submitLabel: 'إتاحة للمحامي',
       submitIcon: 'shieldCheck',
@@ -2030,9 +2088,10 @@ export default async function render(ctx) {
           document_ids: v.document_ids || [],
           share_with_assignment_ids: v.share_with_assignment_ids || [],
           approve_extension: !!v.approve_extension, // v9.1 l-work
+          request_rest: (r.items_needed || []).length ? !!v.request_rest : undefined, // v9.1 fixes
         }),
     });
-    if (res) await refresh('أُتيح الرد للمحامي وأُبلغ به', { tab: 'requests' });
+    if (res) await refresh((res.follow_up_items || []).length ? 'أُتيح الرد للمحامي، وطُلب الباقي من المستفيد/ة' : 'أُتيح الرد للمحامي وأُبلغ به', { tab: 'requests' });
   }
 
   async function openRecordReplyDialog(r) {
@@ -2257,9 +2316,26 @@ export default async function render(ctx) {
 
   async function openApproveOpinionDialog(o, a) {
     const isLead = a && a.role === 'lead';
+    // v9.1 fixes: رد على طلب المحامي وصله بعد تقديم الرأي (لم يره وهو يكتب)
+    const late = o.replies_after_submit || [];
+    let modalRef = null;
+    const lateBox = late.length
+      ? alertBox(
+          h(
+            'span',
+            `وصل للمحامي رد على طلبه بعد التقديم (${late.map((x) => x.question).join('، ')}). `,
+            h('button.btn-link', { type: 'button', onClick: () => { if (modalRef) modalRef.close(); openReturnOpinionDialog(o, a); } }, 'إعادة للمحامي'),
+          ),
+          'warning',
+        )
+      : null;
     const res = await formModal({
       title: `اعتماد رأي ${a ? a.lawyer_name : o.lawyer_name}`,
       intro: `الاعتماد يعني أن الرأي سليم مهنيًا، ولا يصل للمستفيد/ة إلا بعد إعداد نسخة مبسطة وإرسالها.${isLead ? ' اعتماد رأي المحامي الأساسي ينقل الملف إلى «معتمد — بانتظار الرد على المستفيد/ة».' : ''} قد تُستحق أتعاب المحامي عند الاعتماد حسب اتفاقه.`,
+      before: lateBox,
+      setup: (f, m) => {
+        modalRef = m;
+      },
       fields: [
         { name: 'quality_score', label: 'تقييم جودة الرأي', type: 'select', required: true, options: QUALITY_OPTIONS, hint: 'يُستخدم في مؤشرات أداء المحامي وترشيحه للملفات القادمة.' },
         { name: 'note', label: 'ملاحظة للمحامي (اختيارية)', type: 'textarea', rows: 3, maxLength: 3000 },
@@ -2296,6 +2372,8 @@ export default async function render(ctx) {
     };
     const initialOp = opinion || (answer && answer.opinion_id ? opById.get(answer.opinion_id) : null) || (approved.length === 1 ? approved[0] : null);
     let autoText = answer ? null : initialOp ? initialOp.body : '';
+    // (إصلاح 9.1) الخطوات التي ملأها الرأي المختار تلقائيًا: تُستبدل عند تغيير الرأي ما دامت لم تُعدَّل (مثل autoText)
+    let autoSteps = null;
     let fref = null;
     const aiNote = h('p.small.muted', { 'aria-live': 'polite' });
     const aiBtn = asyncButton(
@@ -2329,6 +2407,7 @@ export default async function render(ctx) {
       }
       return Array.isArray(list) ? list.map((s) => String(s || '').trim()).filter(Boolean).join('\n') : '';
     };
+    autoSteps = answer ? null : initialOp?.client_steps ? stepsText(initialOp.client_steps) : '';
     let aiCache = null;
     const suggest = async () => {
       const opId = fref.control('opinion_id').get();
@@ -2342,9 +2421,10 @@ export default async function render(ctx) {
     const glossWarn = h('p.small.text-warning', { 'aria-live': 'polite' });
     const checkGloss = async (text) => {
       try {
-        const { glossText } = await import('../../../public/words.js');
-        const glossed = glossText(text || '');
-        glossWarn.textContent = glossed !== (text || '') ? `فيها مصطلح محتاج شرح بسيط بين قوسين، مثل: ${glossed.match(/\S+ \([^)]+\)/)?.[0] || ''}` : '';
+        // (إصلاح 9.1) كل مصطلح بلا شرحه، حتى لو تلاه قوس لا يشرحه («قاصرين (ابن وبنت)»)
+        const { glossTerms } = await import('../../../public/words.js');
+        const t = glossTerms(text || '')[0];
+        glossWarn.textContent = t ? `فيها مصطلح محتاج شرح بسيط بين قوسين، مثل: ${t.term} (${t.plain})` : '';
       } catch {
         glossWarn.textContent = '';
       }
@@ -2353,7 +2433,8 @@ export default async function render(ctx) {
       'اقتراح',
       async () => {
         const out = await suggest();
-        if (!out?.summary) return toast('لم يُرجِع الاقتراح خلاصة، اكتبها يدويًا', 'warning');
+        // (إصلاح 9.1) لا تُقترح الوقائع خلاصةً: بلا فقرة خلاصة/توصية في الرأي يُطلب منك كتابتها
+        if (!out?.summary) return toast('الرأي ليس فيه فقرة خلاصة أو توصية واضحة. اكتب الخلاصة بنفسك بكلام بسيط: إيه اللي من حقها وهتعمل إيه.', 'warning', 7000);
         fref.control('summary').set(out.summary);
         checkGloss(out.summary);
       },
@@ -2389,9 +2470,14 @@ export default async function render(ctx) {
               bodyCtl.set(o.body);
               autoText = o.body;
             }
-            // v9.1: خطوات المحامي المقترحة للمستفيد/ة تملأ الحقل إن كان فارغًا
+            // v9.1: خطوات المحامي المقترحة للمستفيد/ة تملأ الحقل إن كان فارغًا أو ما زال بخطوات الرأي السابق كما هي
+            // (إصلاح 9.1: كانت خطوات الرأي الأول تبقى عند اختيار رأي بلا خطوات)
             const stepsCtl = fref.control('steps');
-            if (o && o.client_steps && !String(stepsCtl.get() || '').trim()) stepsCtl.set(stepsText(o.client_steps));
+            const curSteps = String(stepsCtl.get() || '').trim();
+            if (o && (!curSteps || (autoSteps !== null && curSteps === autoSteps.trim()))) {
+              autoSteps = o.client_steps ? stepsText(o.client_steps) : '';
+              stepsCtl.set(autoSteps);
+            }
           },
         },
         { name: '_ai', type: 'static', label: 'مساعدة الذكاء الاصطناعي', full: true, render: () => h('div.stack-sm', h('div.row', aiBtn), aiNote) },
@@ -2438,11 +2524,19 @@ export default async function render(ctx) {
   }
 
   async function openSendAnswerDialog(ans) {
+    // (إصلاح 9.1) الخطوات المرقّمة تصلها على واتساب وفي صفحتها: تظهر هنا قبل الإرسال مع الخلاصة والنص
+    const steps = answerSteps(ans.steps);
     const res = await formModal({
       title: 'إرسال الرد للمستفيد/ة',
       // v9.1 b-portal (B91-08): تنبيه إن لم تُكتب خلاصة بسيطة
       intro: `بعد الإرسال لا يمكن تعديل الرد. تأكد من مراجعة الصياغة النهائية.${ans.summary ? '' : ' الرد هيوصل من غير خلاصة.'}`,
-      before: h('div.pb-preview', { dir: 'auto' }, ans.summary ? h('p', h('strong', 'الخلاصة: '), ans.summary) : null, ans.body),
+      before: h(
+        'div.pb-preview',
+        { dir: 'auto' },
+        ans.summary ? h('p', h('strong', 'الخلاصة: '), ans.summary) : null,
+        steps.length ? h('div.pb-preview-steps', h('strong', 'الخطوات المطلوبة منها:'), h('ol', steps.map((s) => h('li', s)))) : null,
+        ans.body,
+      ),
       fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS }],
       values: { channel: 'auto' },
       submitLabel: 'إرسال الآن',
@@ -2470,8 +2564,8 @@ export default async function render(ctx) {
             h('div.cell-title', { dir: 'auto' }, d.title),
             d.filename !== d.title && h('div.cell-sub', { dir: 'auto' }, d.filename),
             d.info_request_id && irById.has(d.info_request_id) && h('div.cell-sub', `مرفق بطلب: ${truncate(irById.get(d.info_request_id).question, 60)}`),
-            // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة
-            String(d.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'none', src: downloadUrl(d.id), 'aria-label': `رسالة صوتية: ${d.title}` }),
+            // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
+            String(d.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(d.id), 'aria-label': `رسالة صوتية: ${d.title}` }),
             docAiBadge(analyses, d.id),
           ),
       },
@@ -2688,10 +2782,29 @@ export default async function render(ctx) {
     }
   }
 
+  /** (إصلاح 9.1) «فيه رسالة من المستفيد/ة لم يُرد عليها» مع رابط المحادثة، أو null */
+  function unansweredNotice() {
+    const m = unansweredClientMessage(data.messages, { since: c.created_at });
+    if (!m) return null;
+    return h(
+      'div.mb-3',
+      alertBox(
+        h(
+          'span',
+          `فيه رسالة من المستفيد/ة لم يُرد عليها (${relative(m.created_at)}): «${truncate(String(m.body || 'مرفق'), 90)}». `,
+          h('a', { href: `#/cases/${id}?tab=conversation` }, 'افتح المحادثة ورد عليها'),
+        ),
+        'warning',
+        { icon: 'message' },
+      ),
+    );
+  }
+
   async function openCloseDialog() {
     const res = await formModal({
       title: 'إغلاق الملف',
       intro: 'الإغلاق قرار الإدارة وحدها. ستُلغى الطلبات المعلقة، وتُسحب الإسنادات المفتوحة، ويُنشأ تلقائيًا سجل معرفي مجهّل بانتظار مراجعتك قبل استخدامه في المعرفة أو التدريب.',
+      before: unansweredNotice(),
       danger: true,
       submitLabel: 'إغلاق الملف',
       submitIcon: 'lock',
@@ -2721,10 +2834,13 @@ export default async function render(ctx) {
   async function openMatterDialog(lawyers) {
     // المحامي المسؤول يجب أن يكون حسابه مفعّلًا (لا دعوة معلّقة) — يرفضه الخادم كذلك
     const lawyerOptions = (lawyers || []).filter((l) => !l.invite_pending).map((l) => ({ value: l.id, label: l.display_name || l.name }));
+    // (إصلاح 9.1) رسالة منها لم يُرد عليها: تنبيه، و«إغلاق ملف الاستشارة» غير محدد افتراضيًا
+    const pendingMsg = unansweredNotice();
     const res = await formModal({
       title: 'تحويل الاستشارة إلى ملف عمل مستمر',
       size: 'lg',
       intro: 'يُنشأ ملف مستمر (تمثيل قضائي أو عمل قانوني مستمر) مرتبط بنفس المستفيد/ة وهذه الاستشارة، دون فقد أي شيء مما تم.',
+      before: pendingMsg,
       fields: [
         { name: 'kind', label: 'نوع الملف', type: 'select', required: true, options: options('matter_kind') },
         { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يرى الملف المستمر من بوابته دون بيانات تواصل المستفيد/ة أو الفواتير.' },
@@ -2736,6 +2852,8 @@ export default async function render(ctx) {
         { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200 },
         { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0 },
         { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000 },
+        // v9.1 fixes: مستندات الاستشارة المتاحة للمحامي المسؤول نفسه تظهر في صفحة الملف المستمر
+        { name: 'link_granted_documents', type: 'checkbox', text: 'أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بلا الرسائل الصوتية)', full: true },
         !closed && { name: 'close_case', type: 'checkbox', text: 'إغلاق ملف الاستشارة بنتيجة «تحوّل إلى ملف عمل مستمر»', full: true },
       ],
       values: {
@@ -2743,7 +2861,8 @@ export default async function render(ctx) {
         title: c.title,
         responsible_lawyer_id: lead ? lead.lawyer_id : null,
         lawsuit_year: String(new Date().getFullYear()),
-        close_case: true,
+        close_case: !pendingMsg,
+        link_granted_documents: true,
       },
       submitLabel: 'إنشاء الملف المستمر',
       submitIcon: 'gavel',
@@ -2761,6 +2880,7 @@ export default async function render(ctx) {
             agreed_fee: v.agreed_fee ?? null,
             notes: v.notes || null,
             close_case: closed ? false : Boolean(v.close_case),
+            link_granted_documents: v.link_granted_documents !== false, // v9.1 fixes
             force: force || undefined,
           }),
         ),

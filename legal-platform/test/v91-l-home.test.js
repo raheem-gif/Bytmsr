@@ -686,7 +686,8 @@ describe('l-home: self-service reset by WhatsApp', () => {
   let admin;
   let lw;
   before(async () => {
-    t = await startTestApp();
+    // v9.1 fixes: رابط إعادة التعيين من PUBLIC_BASE_URL فقط (لا من ترويسة Host حتى في النسخة التجريبية)
+    t = await startTestApp({ config: { publicBaseUrl: 'https://legal.example.org' } });
     t.app.config.demo = true;
     admin = await t.login('admin');
     lw = await createLawyer(admin);

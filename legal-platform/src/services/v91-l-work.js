@@ -139,6 +139,9 @@ export function suggestedDocuments(app, assignmentId, lawyer) {
   for (const d of granted) {
     take(d.title);
     take(d.filename);
+    // (إصلاح 9.1) نوع المستند من آخر تحليل له: صورة باسم «ورقة 1» قد تكون شهادة الوفاة نفسها فلا تُقترح مرة أخرى
+    const ai = d.id && d.granted !== false ? app.db.get('SELECT doc_type FROM document_ai WHERE document_id = ? ORDER BY id DESC LIMIT 1', d.id) : null;
+    if (ai && ai.doc_type && ai.doc_type !== 'other') taken.add(`t:${ai.doc_type}`);
   }
   for (const r of view.info_requests || []) {
     if (!['pending_admin', 'sent_to_client', 'client_replied'].includes(r.status)) continue;

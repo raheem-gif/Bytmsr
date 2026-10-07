@@ -9,6 +9,9 @@ import { sha256, parseJson, addDays, nowIso } from './util.js';
 import { sourceFromWebAttribution } from './channels/engine.js';
 import { countTemplateParams } from './channels/whatsapp.js';
 
+/** v9.1 fixes: نص قالب «في جديد في طلبك» المقدَّم لميتا — محايد (يصلح للمستفيد والمستفيدة) */
+export const PORTAL_UPDATE_TEMPLATE_BODY = 'أهلًا يا {{1}}، في جديد في طلبك عند {{2}}.\nصفحة طلبك: {{3}}';
+
 /** طلب من نموذج الموقع بنفس مسار POST /api/public/intake (رابط مقصور على الطلب + كود تأكيد مُجزّأ لمدة 30 يومًا) */
 function websiteIntake(app, { phone, name, gov, area, text }) {
   const attribution = sourceFromWebAttribution({ landing_path: '/intake', utm_source: 'facebook', utm_medium: 'social' });
@@ -95,7 +98,8 @@ export function seedSiteDemo(app, { at, manager }) {
   // 3) قالب «في جديد في طلبك» بلا تفاصيل — قُدّم لميتا وينتظر الاعتماد
   at(1, 9, 0);
   if (!db.get("SELECT 1 FROM wa_templates WHERE name = 'portal_update' AND language = 'ar'")) {
-    const body = 'أهلًا يا {{1}}، في جديد في طلبك عند {{2}}.\nافتحي صفحتك من هنا: {{3}}';
+    // v9.1 fixes: نص قالب ميتا ثابت لا يقبل رموز {ي}، فيُكتب بصيغة تصلح للرجل والمرأة («صفحة طلبك:» لا «افتحي صفحتك»)
+    const body = PORTAL_UPDATE_TEMPLATE_BODY;
     db.insert('wa_templates', {
       external_id: '1288430915532901',
       name: 'portal_update',

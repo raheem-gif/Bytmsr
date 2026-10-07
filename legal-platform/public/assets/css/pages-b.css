@@ -1146,6 +1146,17 @@ html[dir="rtl"] .pb-step-pill {
   border: 1px solid var(--border);
 }
 
+/* (إصلاح 9.1) الخطوات المرقّمة في تأكيد «إرسال الرد للمستفيد/ة» */
+.pb-preview-steps {
+  white-space: normal;
+  margin-block-end: 10px;
+}
+
+.pb-preview-steps ol {
+  margin: 4px 0 0;
+  padding-inline-start: 22px;
+}
+
 .pb-older > summary {
   cursor: pointer;
   color: var(--link);

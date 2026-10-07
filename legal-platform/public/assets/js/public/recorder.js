@@ -148,6 +148,121 @@ function readAsBase64(blob) {
   });
 }
 
+// ───────── (إصلاح 9.1) مدة تسجيل MP4 ─────────
+// MediaRecorder يكتب MP4 مجزّأً (moov ثم moof/mdat) ومدته في الرأس (mvhd) صفر، فيعرض المشغل مدة ما قرأه من الأجزاء
+// فقط (3.94 ث لتسجيل مدته 6.46 ث) أو «0:00» حتى التشغيل. نحسب المدة الحقيقية من الأجزاء (tfdt + مدد العينات في trun)
+// ونكتبها في mvhd وtkhd وmdhd في أماكنها (بلا تغيير في حجم الملف ولا في الصوت نفسه). أي بنية غير متوقعة ← null (يبقى كما هو).
+
+/**
+ * @param {Uint8Array|ArrayBuffer} input ملف MP4
+ * @returns {{bytes: Uint8Array, seconds: number}|null} نسخة مصححة، أو null إن لم يلزم أو لم يمكن
+ */
+export function fixMp4Duration(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u32 = (p) => dv.getUint32(p);
+  const u64 = (p) => dv.getUint32(p) * 4294967296 + dv.getUint32(p + 4);
+  function* boxes(start, end) {
+    let p = start;
+    while (p + 8 <= end) {
+      let size = u32(p);
+      let hdr = 8;
+      if (size === 1) {
+        if (p + 16 > end) return;
+        size = u64(p + 8);
+        hdr = 16;
+      } else if (size === 0) size = end - p;
+      if (size < hdr || p + size > end) return;
+      yield { t: String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]), body: p + hdr, end: p + size };
+      p += size;
+    }
+  }
+  const child = (box, t) => {
+    for (const c of boxes(box.body, box.end)) if (c.t === t) return c;
+    return null;
+  };
+  const v1 = (box) => b[box.body] === 1;
+  try {
+    let moov = null;
+    const moofs = [];
+    for (const x of boxes(0, b.length)) {
+      if (x.t === 'moov') moov = x;
+      else if (x.t === 'moof') moofs.push(x);
+    }
+    if (!moov || !moofs.length) return null;
+    const mvhd = child(moov, 'mvhd');
+    const traks = [...boxes(moov.body, moov.end)].filter((x) => x.t === 'trak');
+    if (!mvhd || traks.length !== 1) return null; // تسجيل صوت: مسار واحد
+    const tkhd = child(traks[0], 'tkhd');
+    const mdia = child(traks[0], 'mdia');
+    const mdhd = mdia && child(mdia, 'mdhd');
+    if (!tkhd || !mdhd) return null;
+    const mvDurAt = v1(mvhd) ? mvhd.body + 24 : mvhd.body + 16;
+    if ((v1(mvhd) ? u64(mvDurAt) : u32(mvDurAt)) !== 0) return null; // المدة مكتوبة أصلًا
+    const mvTs = u32(v1(mvhd) ? mvhd.body + 20 : mvhd.body + 12);
+    const mdTs = u32(v1(mdhd) ? mdhd.body + 20 : mdhd.body + 12);
+    if (!mvTs || !mdTs) return null;
+    const mvex = child(moov, 'mvex');
+    const trex = mvex && child(mvex, 'trex');
+    const trexDur = trex ? u32(trex.body + 12) : 0;
+    let end = 0;
+    for (const moof of moofs) {
+      for (const traf of boxes(moof.body, moof.end)) {
+        if (traf.t !== 'traf') continue;
+        const tfhd = child(traf, 'tfhd');
+        const tfdt = child(traf, 'tfdt');
+        if (!tfhd || !tfdt) return null;
+        let t = v1(tfdt) ? u64(tfdt.body + 4) : u32(tfdt.body + 4);
+        const hf = u32(tfhd.body) & 0xffffff;
+        let q = tfhd.body + 8;
+        if (hf & 0x1) q += 8;
+        if (hf & 0x2) q += 4;
+        const defDur = hf & 0x8 ? u32(q) : trexDur;
+        for (const trun of boxes(traf.body, traf.end)) {
+          if (trun.t !== 'trun') continue;
+          const f = u32(trun.body) & 0xffffff;
+          const count = u32(trun.body + 4);
+          let r = trun.body + 8;
+          if (f & 0x1) r += 4;
+          if (f & 0x4) r += 4;
+          const per = (f & 0x100 ? 4 : 0) + (f & 0x200 ? 4 : 0) + (f & 0x400 ? 4 : 0) + (f & 0x800 ? 4 : 0);
+          if (r + count * per > trun.end) return null;
+          if (!(f & 0x100) && !defDur) return null;
+          for (let i = 0; i < count; i++) t += f & 0x100 ? u32(r + i * per) : defDur;
+        }
+        end = Math.max(end, t);
+      }
+    }
+    if (!(end > 0) || end > 0xffffffff) return null;
+    const out = b.slice();
+    const o = new DataView(out.buffer, out.byteOffset, out.byteLength);
+    const put = (box, at, val) => {
+      if (v1(box)) {
+        o.setUint32(at, Math.floor(val / 4294967296));
+        o.setUint32(at + 4, val % 4294967296);
+      } else o.setUint32(at, val);
+    };
+    const movieDur = Math.round((end * mvTs) / mdTs);
+    put(mvhd, mvDurAt, movieDur);
+    put(tkhd, v1(tkhd) ? tkhd.body + 28 : tkhd.body + 20, movieDur);
+    put(mdhd, v1(mdhd) ? mdhd.body + 24 : mdhd.body + 16, end);
+    return { bytes: out, seconds: end / mdTs };
+  } catch {
+    return null;
+  }
+}
+
+/** تسجيل MP4 بمدته الحقيقية في رأسه (وإلا يعود كما هو) */
+async function withMp4Duration(blob) {
+  try {
+    if (!/mp4|m4a/i.test(blob.type || '')) return blob;
+    const fixed = fixMp4Duration(new Uint8Array(await blob.arrayBuffer()));
+    return fixed ? new Blob([fixed.bytes], { type: blob.type }) : blob;
+  } catch {
+    return blob;
+  }
+}
+
 /**
  * تجهيز التسجيل للإرسال بصيغة مرفقات الخادم. الامتداد يطابق النوع الفعلي دائمًا
  * (الخادم يحدد النوع من الامتداد أولًا ثم يتحقق من محتوى الملف).
@@ -306,15 +421,20 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
     }
   }
 
-  function finish() {
+  async function finish() {
     if (!recorder) return;
     const type = recorder.mimeType || (chunks[0] && chunks[0].type) || 'audio/webm';
     recorder = null;
     clearInterval(tick);
     tick = null;
     releaseStream();
-    const b = chunks.length ? new Blob(chunks, { type }) : null;
+    let b = chunks.length ? new Blob(chunks, { type }) : null;
     chunks = [];
+    // (إصلاح 9.1) MP4 المجزّأ: المدة الحقيقية في رأس الملف، فيعرضها المشغل (عند الإدارة وفي صفحتها) قبل التشغيل
+    if (b && seconds >= MIN_SECONDS) {
+      b = await withMp4Duration(b);
+      if (state !== 'recording') return; // مُسحت أثناء التجهيز (reset)
+    }
     if (!b || seconds < MIN_SECONDS) {
       state = 'idle';
       note = note || t.tooShort;

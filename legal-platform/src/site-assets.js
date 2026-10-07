@@ -136,6 +136,111 @@ export function graphVersion(file) {
 }
 
 /**
+ * (إصلاح 9.1، B91-20) أسطر التعليقات الكاملة في JS المخدوم برقم إصداره تُحذف: التعليقات العربية تثقل الملفات
+ * (صفحة المتابعة كانت 33.7 KB gzip وحدّها 30 KB). يُحذف السطر فقط إن كان كله تعليقًا («//…» أو كتلة «/* … *\/»)
+ * وبدايته خارج أي نص أو قالب `…` أو تعبير نمطي؛ أي سطر آخر يبقى كما هو حرفيًا (لا تُمس التعليقات بعد الكود).
+ */
+export function stripJsCommentLines(src) {
+  const out = [];
+  let inBlock = false; // داخل كتلة تعليق بدأت في سطر محذوف
+  let state = 'code'; // code | ' | " | tpl | re | reclass | block
+  const braces = []; // '{' عادية أو '${' داخل قالب
+  let prevSig = '';
+  const KW = /(?:^|[^\w$])(?:return|typeof|case|in|of|new|delete|void|throw|else|do|instanceof|yield|await)$/;
+  const scan = (s) => {
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (state === 'code') {
+        if (c === '/' && s[i + 1] === '/') break;
+        if (c === '/' && s[i + 1] === '*') {
+          state = 'block';
+          i += 2;
+          continue;
+        }
+        if (c === "'" || c === '"') state = c;
+        else if (c === '`') state = 'tpl';
+        else if (c === '/') {
+          const before = s.slice(0, i).trimEnd();
+          const isRe = !before ? !/[\w$)\]]/.test(prevSig) : /[(,=:[!&|?{};+\-*%<>~^]$/.test(before) || KW.test(before);
+          if (isRe) state = 're';
+        } else if (c === '{') braces.push('{');
+        else if (c === '}') {
+          if (braces.pop() === '${') {
+            state = 'tpl';
+            i++;
+            continue;
+          }
+        }
+        if (!/\s/.test(c)) prevSig = c;
+        i++;
+      } else if (state === "'" || state === '"') {
+        if (c === '\\') i += 2;
+        else {
+          if (c === state) {
+            state = 'code';
+            prevSig = c;
+          }
+          i++;
+        }
+      } else if (state === 'tpl') {
+        if (c === '\\') i += 2;
+        else if (c === '`') {
+          state = 'code';
+          prevSig = '`';
+          i++;
+        } else if (c === '$' && s[i + 1] === '{') {
+          braces.push('${');
+          state = 'code';
+          i += 2;
+        } else i++;
+      } else if (state === 're' || state === 'reclass') {
+        if (c === '\\') i += 2;
+        else {
+          if (state === 're' && c === '[') state = 'reclass';
+          else if (state === 'reclass' && c === ']') state = 're';
+          else if (state === 're' && c === '/') {
+            state = 'code';
+            prevSig = 'a';
+          }
+          i++;
+        }
+      } else if (c === '*' && s[i + 1] === '/') {
+        state = 'code';
+        i += 2;
+      } else i++;
+    }
+    // النصوص العادية والتعبيرات النمطية لا تمتد لسطر تالٍ
+    if (state === "'" || state === '"' || state === 're' || state === 'reclass') state = 'code';
+  };
+  for (const line of String(src).split('\n')) {
+    if (inBlock) {
+      const end = line.indexOf('*/');
+      if (end < 0) continue;
+      inBlock = false;
+      const rest = line.slice(end + 2);
+      if (!rest.trim()) continue;
+      out.push(rest);
+      scan(rest);
+      continue;
+    }
+    const t = line.trimStart();
+    if (state === 'code' && t.startsWith('//')) continue;
+    if (state === 'code' && t.startsWith('/*')) {
+      const end = t.indexOf('*/', 2);
+      if (end < 0) {
+        inBlock = true;
+        continue;
+      }
+      if (!t.slice(end + 2).trim()) continue;
+    }
+    out.push(line);
+    scan(line);
+  }
+  return out.join('\n');
+}
+
+/**
  * محتوى JS/CSS بعد إضافة أرقام الإصدار لكل استيراد نسبي أو رابط url() محلي. null لغير ذلك.
  * الاستيراد لملف غير موجود يُترك كما هو.
  */
@@ -152,7 +257,7 @@ export function transformAsset(file) {
   };
   let text;
   if (info.kind === 'js') {
-    text = info.text
+    text = stripJsCommentLines(info.text)
       .replace(STATIC_RE, (m, pre, q, spec) => `${pre}${q}${ver(spec)}${q}`)
       .replace(DYNAMIC_RE, (m, pre, q, spec, post) => `${pre}${q}${ver(spec)}${q}${post}`);
   } else {

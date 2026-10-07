@@ -812,6 +812,12 @@
   }
 }
 
+/* (إصلاح 9.1، L-07) شاشة الدخول بوزنين فقط (400 و700): ما كان 600 (العناوين الصغيرة والأزرار) صار 700،
+   فلا يُنزَّل ملف الخط 600 (≈46 KB) على شبكة بطيئة قبل الدخول */
+.login-page :is(.field-label, .btn, .lh-forgot, .demo-name, .badge, .field-error) {
+  font-weight: 700;
+}
+
 .lh-forgot {
   border: 0;
   background: none;

@@ -269,7 +269,9 @@ test('the responsible lawyer sees the matter (court data, no client contact data
   assert.equal(reminders[0].automated, true);
   // v9.1 b-site (B91-10): بلا كود الملف الداخلي، ومعه رابط صفحتها
   assert.ok(!reminders[0].body.includes(matter.code));
-  assert.match(reminders[0].body, /\/p\//);
+  // v9.1 fixes: رابط صفحتها يُصدر عند الإرسال الفعلي فقط (لا يُحفظ في النص)
+  assert.ok(!/\/p\//.test(reminders[0].body));
+  assert.match(reminders[0].meta.wa_text, /\{portal_link\}/);
   assert.ok(reminders[0].to_address.endsWith(phoneCore(matter.phone)));
 });
 

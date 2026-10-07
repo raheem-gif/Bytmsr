@@ -140,13 +140,14 @@ body.pub p {
   margin: 0;
 }
 
-/* الروابط النصية فقط (:where لا يرفع الأولوية)؛ الأزرار (.btn من مكتبة المكونات و.pub-btn) تحتفظ بألوانها */
-body.pub a:where(:not(.btn):not(.pub-btn):not(.skip-link):not(.pub-tile-link)) {
+/* الروابط النصية فقط (:where لا يرفع الأولوية)؛ الأزرار (.btn من مكتبة المكونات و.pub-btn وأزرار صفحة المتابعة .bp-btn
+   وصفوفها .bp-row) تحتفظ بألوانها — وإلا صار «افتحي صفحة طلبك» و«واتساب» نصًا تركوازيًا على خلفية تركوازية/خضراء */
+body.pub a:where(:not(.btn):not(.pub-btn):not(.bp-btn):not(.bp-row):not(.skip-link):not(.pub-tile-link)) {
   color: #145d6f;
   text-underline-offset: 3px;
 }
 
-body.pub a:where(:not(.btn):not(.pub-btn):not(.skip-link):not(.pub-tile-link)):hover {
+body.pub a:where(:not(.btn):not(.pub-btn):not(.bp-btn):not(.bp-row):not(.skip-link):not(.pub-tile-link)):hover {
   color: var(--pub-teal);
 }
 
@@ -1484,7 +1485,7 @@ body.pub .pub-toc a {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 48px; /* (إصلاح 9.1) قاعدة الـ 48px للمستفيدة (B91-12) */
 }
 
 body.pub .pub-toc a:hover {

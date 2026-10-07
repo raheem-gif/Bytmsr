@@ -1012,15 +1012,33 @@ export function createAccounts(app) {
         security_audit_retention_days: settingNum('security_audit_retention_days', 365, 30, 3650),
         security_totp_issuer: String(app.settings.get('security_totp_issuer') || 'Beyoot Misr'),
         session_ttl_from_env: app.auth.sessionTtlFromServer(),
+        // v9.1 fixes: «تذكّرني على هذا الجهاز» للمحامين قرار صريح بجانب سياسة الجلسات
+        ...(() => {
+          const m = app.auth.rememberMode();
+          return {
+            lawyer_remember: m.cappedByPolicy ? 'off' : m.mode,
+            lawyer_remember_capped: m.cappedByPolicy,
+            lawyer_remember_days: settingNum('lawyer_remember_days', 7, 1, 30),
+            lawyer_remember_days_2fa: settingNum('lawyer_remember_days_2fa', 30, 1, 90),
+          };
+        })(),
       };
     },
     /**
      * مفاتيح الإعدادات التي تخص سياسة الأمان: لا تُحفظ إلا عبر updatePolicy (بتحققها وشروطها وتسجيلها في سجل الأمان)،
      * حتى لو أُرسلت إلى PATCH /api/admin/settings العام.
      */
-    POLICY_KEYS: ['security_require_2fa_admins', 'session_idle_hours', 'session_max_hours', 'invite_valid_hours', 'reset_valid_hours', 'security_audit_retention_days', 'security_totp_issuer'],
+    POLICY_KEYS: ['security_require_2fa_admins', 'session_idle_hours', 'session_max_hours', 'invite_valid_hours', 'reset_valid_hours', 'security_audit_retention_days', 'security_totp_issuer', 'lawyer_remember', 'lawyer_remember_days', 'lawyer_remember_days_2fa'],
     updatePolicy(body = {}, actor, ctx) {
       const out = {};
+      // v9.1 fixes: «تذكّرني» للمحامين: all (7 أيام بلا تحقق بخطوتين، 30 معه) | with_2fa | off، ومدتاه
+      if (body.lawyer_remember !== undefined) out.lawyer_remember = v.oneOf(body.lawyer_remember, ['all', 'with_2fa', 'off'], '«تذكّرني على هذا الجهاز» للمحامين', { required: true });
+      if (body.lawyer_remember_days !== undefined) out.lawyer_remember_days = v.int(body.lawyer_remember_days, 'مدة «تذكّرني» بلا تحقق بخطوتين', { required: true, min: 1, max: 30 });
+      if (body.lawyer_remember_days_2fa !== undefined) out.lawyer_remember_days_2fa = v.int(body.lawyer_remember_days_2fa, 'مدة «تذكّرني» مع التحقق بخطوتين', { required: true, min: 1, max: 90 });
+      // (القيمة المعروضة كما هي — الافتراضي أو «مطفأ» لسياسة جلسات شدّدتها الإدارة — ليست قرارًا صريحًا جديدًا:
+      // لا تُحفظ، فيبقى تشديد عمر الجلسة لاحقًا مطفئًا لـ«تذكّرني» ما لم تختره الإدارة صراحة)
+      const rm = app.auth.rememberMode();
+      if (out.lawyer_remember !== undefined && !rm.explicit && out.lawyer_remember === (rm.cappedByPolicy ? 'off' : rm.mode)) delete out.lawyer_remember;
       if (body.security_require_2fa_admins !== undefined) out.security_require_2fa_admins = v.bool(body.security_require_2fa_admins);
       if (body.session_idle_hours !== undefined) out.session_idle_hours = v.num(body.session_idle_hours, 'مهلة عدم النشاط', { required: true, min: 0.25, max: 720 });
       if (body.session_max_hours !== undefined) out.session_max_hours = v.num(body.session_max_hours, 'الحد الأقصى لعمر الجلسة', { required: true, min: 1, max: 2160 });
@@ -1049,8 +1067,13 @@ export function createAccounts(app) {
         reset_valid_hours: 'صلاحية رابط إعادة التعيين',
         security_audit_retention_days: 'مدة الاحتفاظ بسجل الأمان',
         security_totp_issuer: 'اسم الجهة في تطبيق المصادقة',
+        lawyer_remember: '«تذكّرني على هذا الجهاز» للمحامين',
+        lawyer_remember_days: 'مدة «تذكّرني» بلا تحقق بخطوتين',
+        lawyer_remember_days_2fa: 'مدة «تذكّرني» مع التحقق بخطوتين',
       };
       const policyValue = (k, x) => {
+        if (k === 'lawyer_remember') return { all: 'لكل المحامين', with_2fa: 'لمن فعّل التحقق بخطوتين فقط', off: 'مطفأ' }[x] || x;
+        if (k === 'lawyer_remember_days' || k === 'lawyer_remember_days_2fa') return arabicCount(x, ['يوم', 'يومين', 'أيام', 'يومًا']);
         if (typeof x === 'boolean') return x ? 'مفعّل' : 'غير مفعّل';
         if (typeof x === 'string') return x;
         if (k === 'security_audit_retention_days') return arabicCount(x, ['يوم', 'يومين', 'أيام', 'يومًا']);
@@ -1062,7 +1085,9 @@ export function createAccounts(app) {
         const longer = (k) => out[k] !== undefined && out[k] > before[k];
         const weakened =
           (changed.includes('security_require_2fa_admins') && !out.security_require_2fa_admins) ||
-          ['session_idle_hours', 'session_max_hours', 'invite_valid_hours', 'reset_valid_hours'].some(longer) ||
+          ['session_idle_hours', 'session_max_hours', 'invite_valid_hours', 'reset_valid_hours', 'lawyer_remember_days', 'lawyer_remember_days_2fa'].some(longer) ||
+          // (v9.1 fixes) فتح «تذكّرني» أو توسيعه إضعاف للسياسة
+          (changed.includes('lawyer_remember') && ({ off: 0, with_2fa: 1, all: 2 }[out.lawyer_remember] ?? 0) > ({ off: 0, with_2fa: 1, all: 2 }[before.lawyer_remember] ?? 0)) ||
           (out.security_audit_retention_days !== undefined && out.security_audit_retention_days < before.security_audit_retention_days);
         audit({
           actor,

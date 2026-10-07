@@ -34,7 +34,7 @@ const RULES = {
   hearing_reminder: {
     icon: 'calendar',
     audience: 'client',
-    desc: 'يُرسَل للمستفيد/ة قبل الجلسة أو الموعد الذي يلزم حضوره شخصيًا، مرة واحدة لكل موعد.',
+    desc: 'يُرسَل للمستفيد/ة قبل الجلسة أو الموعد الذي يلزم حضوره شخصيًا: تذكير قبل الموعد بالمدة المحددة ثم تذكير قبله بيوم (مرة واحدة لكل منهما).',
     placeholders: {
       event_kind: 'نوع الموعد (جلسة، اجتماع…)',
       matter_code: 'كود الملف المستمر',
@@ -98,11 +98,14 @@ const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_remi
 
 const REMINDER_FORMS = ['تذكير واحد', 'تذكيرين', 'تذكيرات', 'تذكيرًا'];
 
-function paramSentence(key, n) {
+export function paramSentence(key, n, ruleKey = null) {
   const v = Number(n) || 0;
   switch (key) {
-    case 'days_before':
-      return v === 1 ? 'قبل الموعد بيوم واحد' : v === 2 ? 'قبل الموعد بيومين' : `قبل الموعد بـ ${count(v, 'day')}`;
+    case 'days_before': {
+      const first = v === 1 ? 'قبل الموعد بيوم واحد' : v === 2 ? 'قبل الموعد بيومين' : `قبل الموعد بـ ${count(v, 'day')}`;
+      // (إصلاح 9.1، B91-13) تذكير الجلسة يُرسل مرتين: بالمدة المحددة ثم قبل الموعد بيوم (automations.js في الخادم)
+      return ruleKey === 'hearing_reminder' && v > 1 ? `${first} ثم قبله بيوم` : first;
+    }
     case 'after_days':
       return v === 1 ? 'بعد يوم واحد من إرسال الطلب' : `بعد ${count(v, 'day')} من إرسال الطلب`;
     case 'repeat_every_days':
@@ -300,7 +303,7 @@ export default async function render(ctx) {
         meta.audience === 'client' ? badge('رسالة للمستفيد/ة عبر واتساب', 'success', { icon: 'whatsapp' }) : badge('تنبيه داخلي للمحامي والإدارة', 'info', { icon: 'bell' }),
       ),
       h('p.pd-rule-desc', meta.desc),
-      paramKeys.length ? h('ul.pd-rule-params', paramKeys.map((k) => h('li', icon('check', { size: 14 }), paramSentence(k, params[k])))) : null,
+      paramKeys.length ? h('ul.pd-rule-params', paramKeys.map((k) => h('li', icon('check', { size: 14 }), paramSentence(k, params[k], r.key)))) : null,
       params.template
         ? h('div.pd-template', h('div.pd-template-label', icon('message', { size: 14 }), 'نص الرسالة'), h('p.pd-template-body', { dir: 'rtl' }, templateNodes(params.template)))
         : null,

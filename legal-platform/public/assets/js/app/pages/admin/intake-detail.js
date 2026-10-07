@@ -41,6 +41,8 @@ import { MERGE_LABEL } from '../../labels.js';
 import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
+/** (إصلاح 9.1) اسم عام لا يقول ما في الورقة: «ورقة 1»، «ورقة-2.jpg»، «صورة 3»، «IMG_2041.jpg» */
+export const GENERIC_DOC_NAME = /^\s*(?:ورقة|ورقه|صورة|صوره|مستند|مرفق|IMG|image|photo|scan|document|file|DSC|PXL|WhatsApp Image)[\s_-]*[\d\s_.:-]*(?:at[\d\s_.:-]*)?(?:\.(?:jpe?g|png|webp|heic|pdf))?\s*$/i;
 const REPLY_CHANNELS = [
   { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها المستفيد/ة)' },
   { value: 'whatsapp', label: 'واتساب' },
@@ -605,14 +607,34 @@ export default async function render(ctx) {
   // آخر تحليل لكل مستند: ما حُلل ضمن الطلب، وما حُلل بعد تحويله إلى ملف
   const analyses = allDocs.length ? docAnalysisStore([{ intake_id: it.id }, d.case && d.case.id && { case_id: d.case.id }]) : null;
 
+  // (إصلاح 9.1) صور المستفيدة تصل باسم «ورقة 1»/«صورة 2» فلا يفهم المحامي منها شيئًا: الفرز يسمّيها (شهادة الوفاة…)
+  async function renameDoc(doc) {
+    const res = await formDialog({
+      title: 'تسمية المستند',
+      intro: 'اكتب اسم الورقة كما هي (مثل: شهادة الوفاة، قسيمة الزواج). الاسم يظهر للمحامي إن أُتيح له المستند.',
+      fields: [{ name: 'title', label: 'اسم المستند', type: 'text', required: true, maxLength: 200 }],
+      values: { title: GENERIC_DOC_NAME.test(doc.title || '') ? '' : doc.title || '' },
+      onSubmit: (v) => api.patch(`/admin/documents/${doc.id}`, { title: v.title }),
+    });
+    if (res) {
+      toast('تم تحديث اسم المستند', 'success');
+      await reloadAndFocus(ctx, '#pa-documents');
+    }
+  }
+
   function documentsCard() {
     const inMessages = new Set();
     for (const m of d.messages || []) for (const x of m.documents || []) inMessages.add(x.id);
-    return card({
+    const generic = allDocs.filter((doc) => !String(doc.mime || '').startsWith('audio/') && GENERIC_DOC_NAME.test(doc.title || doc.filename || '')).length;
+    const el = card({
       title: 'مستندات الطلب',
       subtitle: `عدد المستندات: ${allDocs.length} — حلّل المستند لمعرفة نوعه ووقائعه وما يثبته`,
       icon: 'paperclip',
-      body: h(
+      body: frag(
+        generic
+          ? h('p.pa-note.mb-2', icon('info', { size: 15 }), h('span', `${generic === 1 ? 'مستند باسم عام' : `${generic} مستندات بأسماء عامة`} مثل «ورقة 1»: سمّه بما فيه حتى يعرف المحامي ما لديه ولا يطلبه مرة أخرى.`))
+          : null,
+        h(
         'ul.pc-docs.doc-ai-docs',
         allDocs.map((doc) => {
           const name = doc.title || doc.filename || 'مستند';
@@ -621,24 +643,28 @@ export default async function render(ctx) {
             h('span.pc-doc-icon', icon('fileText', { size: 18 })),
             h(
               'div.pc-doc-text',
-              h('span.pc-doc-name', { dir: 'auto', title: name }, name),
+              // (إصلاح 9.1) اسم ملف بامتداد («ورقة-1.jpg») يُعرض LTR: كان يظهر «jpg.1-ورقة»
+              h('span.pc-doc-name', { dir: /\.[A-Za-z0-9]{2,5}$/.test(name) ? 'ltr' : 'auto', title: name }, name),
               h(
                 'span.pc-doc-meta',
                 [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
               ),
-              // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة
-              String(doc.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'none', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` }),
+              // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
+              String(doc.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` }),
               docAiBadge(analyses, doc.id),
             ),
             h(
               'div.pc-doc-actions',
               button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(doc.id), target: '_blank', ariaLabel: `تنزيل ${name}` }),
+              !String(doc.mime || '').startsWith('audio/') && button('تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => renameDoc(doc), ariaLabel: `تسمية ${name}` }),
               docAiAction(analyses, doc),
             ),
           );
         }),
+        ),
       ),
     });
+    return el;
   }
 
   function composer() {

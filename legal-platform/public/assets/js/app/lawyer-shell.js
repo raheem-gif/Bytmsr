@@ -34,6 +34,23 @@ export function lawyerNavItems() {
   };
 }
 
+const MORE_PATHS = ['/my/matters', '/my/statement', '/notifications', '/account'];
+
+/**
+ * أي زر في الشريط السفلي يُضاء لمسار ما: «اليوم» (/my) لمساره هو فقط — وإلا أضاء لكل /my/... («ملفاتي» و«مستحقاتي»)
+ * ولم يُضأ «المزيد» أبدًا؛ بقية الأزرار لمسارها وما تحته (الأطول تطابقًا يفوز).
+ * @returns {{tab: string|null, more: boolean}}
+ */
+export function bottomNavActive(path, tabPaths) {
+  let tab = null;
+  for (const p of tabPaths) {
+    const hit = p === '/my' ? path === '/my' : path === p || path.startsWith(`${p}/`);
+    if (hit && (!tab || p.length > tab.length)) tab = p;
+  }
+  const more = !tab && MORE_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+  return { tab, more };
+}
+
 function readCount() {
   try {
     const n = Number(window.localStorage.getItem(TODAY_COUNT_KEY));
@@ -203,17 +220,14 @@ export function enhanceLawyerShell({ el, mainCol, menuBtn, sidebar, user, openDr
       const detail = !!lawyerDetailParent(path);
       setBackMode(detail);
       el.classList.toggle('lh-detail', detail);
-      let best = null;
-      for (const a of tabEls) {
-        const p = a.dataset.path;
-        if ((path === p || path.startsWith(`${p}/`)) && (!best || p.length > best.dataset.path.length)) best = a;
-      }
+      const active = bottomNavActive(path, tabs.map((t) => t.path));
+      const best = tabEls.find((a) => a.dataset.path === active.tab) || null;
       tabEls.forEach((a) => {
         a.classList.toggle('is-active', a === best);
         if (a === best) a.setAttribute('aria-current', 'page');
         else a.removeAttribute('aria-current');
       });
-      moreBtn.classList.toggle('is-active', !best && ['/my/matters', '/my/statement', '/notifications', '/account'].some((p) => path === p || path.startsWith(`${p}/`)));
+      moreBtn.classList.toggle('is-active', active.more);
     },
     setBadge,
     destroy() {

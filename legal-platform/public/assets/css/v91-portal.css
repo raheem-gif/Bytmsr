@@ -4,18 +4,8 @@
    والأحمر للأخطاء التي تمنع فقط (لا لون أحمر في المصاريف أبدًا). لا تعتمد على app.css.
    ========================================================================== */
 
-@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
-  src: url("/assets/fonts/plex-arabic-400.woff2") format("woff2");
-  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
-@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
-  src: url("/assets/fonts/plex-arabic-700.woff2") format("woff2");
-  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
-@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
-  src: url("/assets/fonts/plex-latin-400.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
-  src: url("/assets/fonts/plex-latin-700.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* (إصلاح 9.1، B91-11/B91-20) الخط من public-site.css وحده (العربية 400/700). أُزيل الملفان اللاتينيان (≈40 KB):
+   مداهما يشمل المسافة (U+0020) فكانا يُنزَّلان في كل صفحة. الأرقام ورقم الطلب بخط الجهاز كبقية صفحات الموقع العام. */
 
 .bp-portal,
 .bp-login {
@@ -281,6 +271,11 @@
   margin-bottom: 4px;
 }
 
+/* (إصلاح 9.1) «عايزة يوصلك الجديد على واتساب؟» — بطاقة ثانوية تحت «المطلوب منك» */
+.bp-waconfirm .bp-btn {
+  margin-top: 10px;
+}
+
 .bp-now {
   border: 2px solid var(--bp-gold);
   background: var(--bp-amber-bg);
@@ -357,7 +352,8 @@
 .bp-more a {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 48px; /* (إصلاح 9.1) قاعدة الـ 48px للمستفيدة (B91-12) */
+  padding-inline: 8px;
   color: var(--bp-teal);
   font-weight: 700;
 }
@@ -1076,6 +1072,16 @@ body.pub .bp-viewtitle:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* (إصلاح 9.1) «REQ-2026-00032» لا ينكسر بعد «REQ-»، والرابط والاسم الطويل ينكسران داخل حدودهما */
+.bp-ref-inline {
+  white-space: nowrap;
+}
+
+.bp-url-inline,
+.bp-fname {
+  word-break: break-all;
+}
+
 .bp-bubble-time {
   font-size: 15px;
   color: var(--bp-soft);
@@ -1213,7 +1219,8 @@ body.pub .bp-viewtitle:focus-visible {
 .bp-new a {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 48px; /* (إصلاح 9.1) قاعدة الـ 48px للمستفيدة (B91-12) */
+  padding-inline: 8px;
   color: var(--bp-teal);
   font-weight: 700;
 }

@@ -258,7 +258,22 @@ export function createApp(config, { logger = console } = {}) {
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       // (v9 site) نفس رأس الموقع العام وتذييله إن استخدمهما القالب؛ المسار الظاهر في الوسوم /portal بلا الرمز
-      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true })) return;
+      // (إصلاح 9.1، B91-11) بيانات صفحتها (نفس رد GET /api/portal/<رمز>) داخل الصفحة نفسها ككتلة JSON لا تُنفَّذ:
+      // رحلة كاملة أقل على شبكة بطيئة (لا انتظار للوحدات ثم طلب ثانٍ). الصفحة no-store وبلا Referer، والرمز في الرابط أصلًا.
+      // رمز غير صالح: لا بيانات، فتطلبها الصفحة وتعرض «تعذر فتح صفحة المتابعة» كما كانت.
+      const tok = req.method === 'GET' ? /^\/p\/([A-Za-z0-9_-]{20,100})\/?$/.exec(pathname) : null;
+      let headExtra = '';
+      if (tok && app.portal?.view) {
+        try {
+          const access = app.clients.portalAccess(tok[1]);
+          // رابط منتهٍ أو ملغى: علامة فقط فتعرض الصفحة «تعذر فتح صفحة المتابعة» دون طلب يرد 404
+          const data = access ? app.portal.view(access.client, access.intakeId, { phone: access.phone }) : { invalid: true };
+          if (data) headExtra = `<script type="application/json" id="bm-portal-data">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+        } catch {
+          headExtra = '';
+        }
+      }
+      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true, headExtra })) return;
       return sendFile(req, res, path.join(pub, 'portal.html')) || notFoundPage(res);
     }
     if (pathname === '/healthz') return sendJson(res, 200, { ok: true });

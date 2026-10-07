@@ -84,10 +84,12 @@ export function registerLawyerHomeRoutes(router, app) {
     const u = db.get("SELECT * FROM users WHERE username = ? AND role = 'lawyer' AND active = 1 AND invite_pending = 0 AND alert_whatsapp = 1", username);
     if (!u || !u.phone) return;
     if (!app.lawyerAlerts.available()) return;
-    // الرابط المطلق من PUBLIC_BASE_URL فقط (لا من ترويسة Host التي يتحكم فيها الطالب)؛ في النسخة التجريبية من Host
-    const host = String(ctx.req?.headers?.host || '');
-    const base = config.publicBaseUrl || (config.demo && /^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(host) ? `http://${host}` : '');
+    // v9.1 fixes: الرابط المطلق من PUBLIC_BASE_URL (أو RENDER_EXTERNAL_URL) فقط — أبدًا من ترويسة Host التي يتحكم فيها
+    // الطالب (ولا في النسخة التجريبية)؛ بدونه لا يُرسل شيء
+    const base = config.publicBaseUrl || '';
     if (!base) return;
+    // v9.1 fixes: طلب ذاتي (بلا تسجيل دخول) لا يلغي رابط إعادة تعيين ساري أصدرته الإدارة
+    if (db.get("SELECT 1 FROM account_tokens WHERE user_id = ? AND kind = 'reset' AND created_by IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?", u.id, nowIso())) return;
     const payload = app.accounts.issueResetLink(u.id, null, ctx);
     const expires = addHours(nowIso(), SELF_RESET_MINUTES / 60);
     db.run("UPDATE account_tokens SET expires_at = ? WHERE id = (SELECT MAX(id) FROM account_tokens WHERE user_id = ? AND kind = 'reset')", expires, u.id);

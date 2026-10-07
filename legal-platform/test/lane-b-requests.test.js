@@ -117,7 +117,9 @@ test('admin approves: the client receives the admin wording over the org WhatsAp
   assert.ok(msg.body.includes('برجاء إرسال صورة عقد إيجار المحل الأصلي'));
   // v9.1 b-site (B91-10): صفحة المتابعة تعرض الطلب نظيفًا؛ نص واتساب وحده يضيف «صوّري الورقة وابعتيها هنا» ورابط صفحتها، بلا كود الملف
   assert.ok(!msg.body.includes(kase.code));
-  assert.match(msg.meta.wa_text, /صوّري الورقة وابعتيها هنا، أو من صفحتك: \S*\/p\//);
+  // v9.1 fixes: الرابط لا يُحفظ أبدًا؛ {portal_link} يُستبدل برابط جديد عند الإرسال الفعلي فقط
+  assert.match(msg.meta.wa_text, /صوّري الورقة وابعتيها هنا، أو من صفحتك: \{portal_link\}/);
+  assert.ok(!JSON.stringify(msg).includes('/p/'), 'no bearer portal link stored in the message');
   assert.equal(msg.body.includes('LAWYERWORDING'), false, "the lawyer's internal wording is not sent verbatim");
   assert.equal(msg.meta.info_request_id, irDoc);
   const notes = await notificationsOf(lead);

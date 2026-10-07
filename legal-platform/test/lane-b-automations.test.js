@@ -71,7 +71,9 @@ test('hearing with client attendance → exactly one WhatsApp reminder within th
     assert.ok(!rem[0].body.includes(matter.code), 'no internal MTR- code in the client message');
     assert.match(rem[0].body, /^أهلًا /);
     assert.match(rem[0].body, /الصبح|الضهر|العصر|بالليل/);
-    assert.match(rem[0].body, /\/p\//);
+    // v9.1 fixes: رابط صفحتها لا يُحفظ في النص؛ {portal_link} في نص واتساب ويُصدر عند الإرسال الفعلي
+    assert.ok(!/\/p\//.test(rem[0].body));
+    assert.match(rem[0].meta.wa_text, /\{portal_link\}/);
     assert.ok(rem[0].body.includes('محكمة شمال القاهرة'));
 
     await runAutomations(admin);
@@ -221,7 +223,9 @@ test('document request awaiting the client → reminder after 2 days, then every
     assert.equal(rem.length, 1);
     // v9.1 b-site (B91-10): بلا كود الملف الداخلي، ومعه رابط صفحتها و«صوّري الورقة وابعتيها»
     assert.ok(!rem[0].body.includes(k.code), 'no internal case code in the client message');
-    assert.match(rem[0].body, /\/p\//);
+    // v9.1 fixes: رابط صفحتها يُصدر عند الإرسال الفعلي فقط
+    assert.ok(!/\/p\//.test(rem[0].body));
+    assert.match(rem[0].meta.wa_text, /\{portal_link\}/);
     assert.ok(rem[0].body.includes('صوّري الورقة وابعتيها'));
     assert.ok(rem[0].body.includes('برجاء إرسال صورة إيصال الأمانة'));
     assert.equal((await forIr(ir2.id)).length, 0, 'a request the client already answered is not reminded');

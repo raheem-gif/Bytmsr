@@ -2,6 +2,7 @@
 // تذكير العميل بالجلسات، بالفواتير المتأخرة، بالمستندات الناقصة، وتنبيه الإدارة/المحامي بالمواعيد الإجرائية والتأخير.
 import { nowIso, addDays, parseJson, badRequest, notFound, v, arabicDate, arabicTime, fromMinor, truncate } from '../util.js';
 import { spokenTime } from '../util.js'; // v9.1 b-site (B91-10)
+import { withClientNote } from './portal-v91.js'; // v9.1 fixes: «هاتي معاكي» المعتمدة في نص التذكير
 import { LABELS, DEFAULT_AUTOMATION_RULES, LEGACY_AUTOMATION_TEMPLATES } from '../constants.js';
 
 function fill(template, values) {
@@ -48,10 +49,14 @@ export function createAutomations(app) {
     // رقم واحد تراه المستفيدة (B91-10): {case_code}/{matter_code} في القوالب التي عدّلتها الإدارة أو القوالب المربوطة
     // اسمان بديلان لرقم الطلب REQ، فلا يصل رقمها كود ملف داخلي (INH-/MTR-) أبدًا
     if (words.ref) for (const k of ['case_code', 'matter_code']) if (k in values) values[k] = words.ref;
-    if (/\{portal_link\}/.test(template) && app.engine.isStoryConfirmed(story)) values.portal_link = app.engine.storyLink(story);
-    const body = app.engine.fillClientText(template, values, words.form);
-    // سطر برابط لم يُصدر (قصة غير مؤكدة أو قالب قديم) لا يظهر للمستفيدة بنص {portal_link}
-    return { body: body.replace(/^.*\{portal_link\}.*$\n?/gm, '').trim(), vars: { ...values, form: words.form } };
+    // v9.1 fixes: الرابط لا يُصدر هنا ولا يُحفظ في نص الرسالة ولا متغيراتها: {portal_link} يبقى في نص واتساب (wa_text)
+    // ويُصدر رابط جديد عند الإرسال الفعلي فقط (engine.renderLinks / messaging.templatePlan) — وللقصة المؤكدة فقط
+    delete values.portal_link;
+    const text = app.engine.fillClientText(template, values, words.form);
+    // النص المحفوظ (للإدارة وصفحة المتابعة) بلا الرابط وعنوانه
+    const body = app.engine.withoutLinkLines(text);
+    const withLink = /\{portal_link\}/.test(text) && app.engine.isStoryConfirmed(story);
+    return { body, wa_text: withLink ? text.trim() : null, vars: { ...values, form: words.form } };
   }
 
   /**
@@ -155,7 +160,9 @@ export function createAutomations(app) {
             org_name: orgName(),
           });
           const vars = filled.vars;
-          const body = filled.body;
+          // v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة (ملاحظة الموعد) بدل «هاتي معاكي بطاقتك» وحدها
+          const body = withClientNote(filled.body, e, vars.form);
+          const waText = filled.wa_text ? withClientNote(filled.wa_text, e, vars.form) : null;
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
             intake_id: e.intake_id,
@@ -165,7 +172,7 @@ export function createAutomations(app) {
             automated: true,
             rule: 'hearing_reminder',
             // متغيرات القالب المربوط بالقاعدة عند الإرسال خارج نافذة الـ 24 ساعة
-            meta: { vars },
+            meta: { vars, ...(waText ? { wa_text: waText } : {}) },
           });
           if (msg.skipped) return 'skipped_unconfirmed';
           app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد (${LABELS.event_kind[e.kind]} — ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)})` });
@@ -205,7 +212,7 @@ export function createAutomations(app) {
           });
           const vars = filled.vars;
           const body = filled.body;
-          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars } });
+          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars, ...(filled.wa_text ? { wa_text: filled.wa_text } : {}) } });
           if (msg.skipped) return 'skipped_unconfirmed';
           db.update('invoices', i.id, { reminder_count: i.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ matter_id: i.matter_id, case_id: i.case_id, actor: { kind: 'system' }, type: 'automation.invoice_reminder', summary: `أُرسل تذكير آلي بالفاتورة ${i.number}` });
@@ -240,10 +247,11 @@ export function createAutomations(app) {
         if (skipUnconfirmed('document_reminder', story)) continue;
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
           // v9.1 b-site (B91-10): {ref} رقم الطلب بدل كود الملف ({case_code} يبقى للقوالب القديمة المعدّلة)
-          const filled = clientText(r.params.template, story, { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() });
+          // (v9.1 fixes: طلب المتابعة «لسه محتاجين: …» يُذكر ببنوده فقط بعد «لسه مستنيين منك:»)
+          const filled = clientText(r.params.template, story, { case_code: ir.case_code, request: truncate(String(ir.client_message || ir.question).replace(/^لسه محتاجين:\s*/, ''), 200), org_name: orgName() });
           const vars = filled.vars;
           const body = filled.body;
-          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars } });
+          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars, ...(filled.wa_text ? { wa_text: filled.wa_text } : {}) } });
           if (msg.skipped) return 'skipped_unconfirmed';
           db.update('info_requests', ir.id, { reminder_count: ir.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل ب${LABELS.info_request_kind[ir.kind]} لم يرد عليه بعد` });

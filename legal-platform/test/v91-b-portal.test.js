@@ -181,7 +181,10 @@ describe('v9.1 b-portal — portal home, papers by item, answer, hearing, money,
     assert.ok(sent, 'the WhatsApp message uses the short format');
     assert.match(sent.body, /^أهلًا يا أم يوسف، ردّنا على مشكلتك جاهز\./);
     assert.match(sent.body, /1\. جهّزي شهادات ميلاد العيال\n2\. هاتي صورة بطاقتك/);
-    assert.match(sent.body, /\/p\//);
+    // v9.1 fixes: النص المحفوظ بلا رابط («الرد كامل على صفحتك.»)؛ نص واتساب يحمل {portal_link} ويُصدر الرابط عند الإرسال
+    assert.ok(!/\/p\//.test(sent.body));
+    assert.match(sent.body, /الرد كامل على صفحتك\./);
+    assert.match(sent.meta.wa_text, /الرد كامل على صفحتك: \{portal_link\}/);
     assert.ok(sent.body.length <= 1000);
     assert.doesNotMatch(sent.body, /الأستاذ\/ة|تحية طيبة وبعد/);
 
@@ -260,7 +263,8 @@ describe('v9.1 b-portal — portal home, papers by item, answer, hearing, money,
     const last = rem.find((m) => m.body.includes('فكّرناك'));
     assert.ok(last, 'day-before text');
     assert.match(last.body, /بكرة جلسة الساعة 11 الصبح/);
-    assert.match(last.body, /هاتي بطاقتك/);
+    // v9.1 fixes: قائمة «هاتي معاكي» التي اعتمدتها الإدارة في ملاحظة الموعد بدل «هاتي بطاقتك» وحدها
+    assert.match(last.body, /هاتي معاكي: بطاقتك الشخصية، شهادات ميلاد العيال\./);
     assert.doesNotMatch(last.body, /\{ي\}|MTR-/);
     freezeClock(T0);
   });

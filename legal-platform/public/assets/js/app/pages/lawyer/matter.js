@@ -160,7 +160,7 @@ export default async function render(ctx) {
     return h(
       'p.lc-attend',
       icon('user', { size: 14 }),
-      h('span', isUpcoming ? `يلزم حضور ${BEN} — تذكير آلي قبل الموعد بثلاثة أيام` : `كان يلزم حضور ${BEN}`),
+      h('span', isUpcoming ? `يلزم حضور ${BEN} — تذكير آلي قبل الموعد بثلاثة أيام ثم قبله بيوم` : `كان يلزم حضور ${BEN}`),
     );
   }
 
@@ -213,6 +213,9 @@ export default async function render(ctx) {
         group === 'past' && !line && e.status === 'cancelled' ? h('p.lc-ev-outcome.muted', 'أُلغيت') : null,
         group === 'past' && !line && e.status === 'done' ? h('p.lc-ev-outcome.muted', 'تمّ') : null,
         attendanceBadge(e, group === 'upcoming'),
+        // v9.1 fixes: لقاء وعدت به الإدارة المستفيد/ة باسمك، وردها على الحضور
+        group !== 'past' && e.client_attendance_label ? h('p.lc-attend', icon(e.client_attendance === 'not_coming' ? 'alert' : 'check', { size: 14 }), h('span', e.client_attendance_label)) : null,
+        group !== 'past' && e.meeting_promise ? h('p.lc-attend', icon('mapPin', { size: 14 }), h('span', e.meeting_promise)) : null,
         e.notes ? h('p.lc-ev-notes', richText(e.notes)) : null,
         queueLine(e),
       ),
@@ -240,7 +243,7 @@ export default async function render(ctx) {
           group('القادمة', u, 'upcoming'),
           !u.length ? h('p.muted.small.lc-none', 'لا توجد جلسات قادمة مسجلة.') : null,
           group('السابقة', shownPast, 'past', more),
-          h('p.lc-muted-line', icon('zap', { size: 14 }), `الجلسات التي يلزم فيها حضور ${BEN}: تذكير آلي قبلها بثلاثة أيام بعد مراجعة الإدارة.`),
+          h('p.lc-muted-line', icon('zap', { size: 14 }), `الجلسات التي يلزم فيها حضور ${BEN}: تذكير آلي قبلها بثلاثة أيام ثم قبلها بيوم، بعد مراجعة الإدارة.`),
         )
       : emptyState('لم تُسجَّل جلسات في هذا الملف بعد.', isClosed() ? null : button('إضافة جلسة', { variant: 'secondary', icon: 'calendar', onClick: safe(addHearing) }), { compact: true, icon: 'calendar' });
     return card({ title: 'الجلسات', icon: 'gavel', className: 'lc-card lc-events-card', body });

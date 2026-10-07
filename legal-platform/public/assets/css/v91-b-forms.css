@@ -966,6 +966,20 @@ html[dir="rtl"] .bmf-flip {
   font-weight: 700;
   text-underline-offset: 3px;
 }
+/* (إصلاح 9.1، B91-12) رقم المساعدة وروابط التواصل: زر محدد 48px بدل رابط نصي ارتفاعه 17px */
+.bmf-contact a,
+.bmf-fine a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 4px 16px;
+  margin-block: 4px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  text-decoration: none;
+  vertical-align: middle;
+}
 .bmf-summary {
   margin: 0;
   padding: 4px 12px;

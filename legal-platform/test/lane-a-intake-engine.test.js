@@ -90,7 +90,9 @@ describe('Req 1 — two doors, one Intake Engine, one inbox', () => {
     }
   });
 
-  test('website then WhatsApp from the same phone (wa_id format) is the SAME client and the SAME intake — not two stories', async () => {
+  // v9.1 fixes: نفس العميل دائمًا، لكن رسالة واتساب بلا كود التأكيد لا تُضاف لطلب الموقع غير المؤكد (رابطه في متصفح
+  // لم يثبت أنه صاحب الرقم)؛ الرسالة الجاهزة برقم الطلب وكود التأكيد تكمل نفس الطلب (انظر الاختبار التالي)
+  test('website then WhatsApp from the same phone (wa_id format) is the SAME client; without the confirmation code it opens its own request', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
       const web = await okWebIntake(t, { phone: '01011112222', name: 'هبة' });
@@ -99,17 +101,16 @@ describe('Req 1 — two doors, one Intake Engine, one inbox', () => {
 
       const admin = await t.login('admin');
       const list = await inbox(admin, '?scope=all');
-      assert.equal(list.total, 1, 'only ONE intake must exist for the citizen');
-      const it = list.items[0];
-      assert.equal(it.code, web.reference);
+      assert.equal(list.total, 2);
+      const it = list.items.find((x) => x.code === web.reference);
       assert.equal(it.first_channel, 'website');
-      assert.deepEqual([...it.channels].sort(), ['website', 'whatsapp']);
-      assert.equal(it.messages_count, 2);
+      assert.deepEqual([...it.channels].sort(), ['website']);
+      assert.equal(it.messages_count, 1);
 
       const clients = await admin.get('/api/admin/clients');
       assert.equal(clients.body.total, 1, 'only ONE client must exist');
       const d = await detail(admin, it.id);
-      assert.deepEqual(d.messages.map((x) => x.channel), ['website', 'whatsapp']);
+      assert.deepEqual(d.messages.map((x) => x.channel), ['website']);
       const phones = d.client.identities.filter((x) => x.kind === 'phone');
       assert.equal(phones.length, 1);
       assert.equal(phones[0].value, '+201011112222');
@@ -126,7 +127,8 @@ describe('Req 1 — two doors, one Intake Engine, one inbox', () => {
       const first = await okWebIntake(t, { phone: '01033334444', description: 'مشكلة في عقد إيجار الشقة والمالك يرفض استلام الإيجار منذ ثلاثة أشهر.' });
       const second = await okWebIntake(t, { phone: '01033334444', description: 'سؤال آخر منفصل عن نفقة الأطفال بعد الطلاق وكيفية رفع دعوى نفقة.' });
       assert.notEqual(first.reference, second.reference);
-      const prefilled = decodeURIComponent(first.whatsapp_url.split('text=')[1]);
+      // v9.1 fixes: الرسالة الجاهزة الحالية (رقم الطلب + كود التأكيد) — رقم الطلب وحده لا يضيف الرسالة لطلب موقع غير مؤكد
+      const prefilled = decodeURIComponent(first.confirm_url.split('text=')[1]);
       await sendWa(t, { from: '201033334444', text: prefilled });
 
       const admin = await t.login('admin');

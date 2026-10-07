@@ -6,11 +6,56 @@
 // تعتمد على: h.js، portal-ui.js (هذا المسار)، words.js (b-site)، upload.js وrecorder.js وdrafts.js (b-forms).
 
 import { h, mount } from '../lib/h.js';
-import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, forgetThisPhone, SAVED_KEY, SAVED_OFF_KEY } from './portal-ui.js';
-import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord } from './words.js';
-import { photoPicker, sendWithProgress, uploadProgress, friendlyError } from './upload.js';
-import { voiceRecorder, blobToUpload } from './recorder.js';
-import { draftStore } from './drafts.js';
+import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, forgetThisPhone, SAVED_KEY, SAVED_OFF_KEY, savedWaConfirm, WA_CONFIRM_KEY } from './portal-ui.js';
+import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord, withoutPortalLinks } from './words.js';
+
+// (إصلاح 9.1، B91-11/B91-20) الكاميرا والتسجيل ومسودات الإرسال (upload.js وrecorder.js وdrafts.js ≈ 18 KB مضغوطة)
+// تُحمَّل أول مرة تفتح فيها صفحة فيها إرسال (#request و#messages)، لا مع الصفحة الرئيسية على نت ضعيف.
+let CAP = null; // { photoPicker, sendWithProgress, uploadProgress, friendlyError, voiceRecorder, blobToUpload, draftStore }
+let capReq = null;
+const CAPTURE_VIEWS = new Set(['request', 'messages']);
+/** ملف تنسيق مكوّنات التصوير والتسجيل (لم يعد في <head> الصفحة): يُضاف ويُنتظر قبل أول عرض لها فلا تظهر بلا تنسيق */
+function formsCss() {
+  return new Promise((resolve) => {
+    let link = document.querySelector('link[data-bmf-css], link[href*="v91-b-forms.css"]');
+    if (link && link.sheet) return resolve();
+    if (!link) {
+      link = h('link', { rel: 'stylesheet', href: '/assets/css/v91-b-forms.css', 'data-bmf-css': '1' });
+      document.head.append(link);
+    }
+    link.addEventListener('load', () => resolve(), { once: true });
+    link.addEventListener('error', () => resolve(), { once: true });
+    setTimeout(resolve, 10000);
+  });
+}
+function loadCapture() {
+  if (CAP) return Promise.resolve(CAP);
+  if (!capReq) {
+    capReq = Promise.all([import('./upload.js'), import('./recorder.js'), import('./drafts.js'), formsCss()]).then(
+      ([u, r, d]) => (CAP = { ...u, ...r, ...d }),
+      (err) => {
+        capReq = null;
+        throw err;
+      },
+    );
+  }
+  return capReq;
+}
+// تُستدعى فقط بعد loadCapture() (render ينتظرها لصفحات CAPTURE_VIEWS)
+const draftStore = (...a) => CAP.draftStore(...a);
+const photoPicker = (...a) => CAP.photoPicker(...a);
+const voiceRecorder = (...a) => CAP.voiceRecorder(...a);
+const blobToUpload = (...a) => CAP.blobToUpload(...a);
+const uploadProgress = (...a) => CAP.uploadProgress(...a);
+const sendWithProgress = (...a) => CAP.sendWithProgress(...a);
+/** رسالة الخطأ المفهومة (upload.js)، وفي صفحة بلا إرسال (موافقة، ميعاد، مكالمة) نفس كلامها دون تحميل الوحدة */
+function friendlyError(err, address = 'f') {
+  if (CAP) return CAP.friendlyError(err, address);
+  const t = (s) => genderize(s, address);
+  if (err && err.status === 429) return err.message || t('بعت{ي} كتير في وقت قصير. استن{ي} شوية وجرب{ي} تاني.');
+  if (!err || err.code === 'network_error' || err.status === 0 || err.status >= 500) return t('ما اتبعتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.');
+  return err.message || t('ما اتبعتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.');
+}
 
 const root = document.getElementById('portal-root');
 const token = (() => {
@@ -75,12 +120,21 @@ function whenSent(iso) {
   if (d === 'إمبارح') return `إمبارح ${spokenTime(iso)}`;
   return shortDate(iso);
 }
-/** نص فيه أرقام لاتينية (REQ-2026-00029 أو INV-…) داخل جملة عربية: الرقم في <bdi> حتى لا ينقلب ترتيبه */
+/**
+ * نص فيه أرقام لاتينية (REQ-2026-00029 أو INV-…) أو رابط داخل جملة عربية: كل منها في <bdi dir=ltr> حتى لا ينقلب
+ * ترتيبه — الرقم لا ينكسر على سطرين (bp-ref-inline)، والرابط الطويل ينكسر أينما لزم (bp-url-inline).
+ */
 function rich(text) {
   return String(text ?? '')
     .split(/(\b(?:REQ|INV|RCPT)-\d{4}-\d+\b|https?:\/\/\S+)/)
     .filter((x) => x !== '')
-    .map((part, i) => (i % 2 === 1 || /^(?:REQ|INV|RCPT)-|^https?:/.test(part) ? h('bdi', { dir: 'ltr' }, part) : part));
+    .map((part) =>
+      /^(?:REQ|INV|RCPT)-\d{4}-\d+$/.test(part)
+        ? h('bdi.bp-ref-inline', { dir: 'ltr' }, part)
+        : /^https?:\/\//.test(part)
+          ? h('bdi.bp-url-inline', { dir: 'ltr' }, part)
+          : part,
+    );
 }
 const spoken = (ref) => (/^REQ-\d{4}-(\d+)$/.exec(ref || '') ? String(Number(/^REQ-\d{4}-(\d+)$/.exec(ref)[1])) : '');
 
@@ -425,12 +479,34 @@ function homeView() {
   return [
     greeting(),
     now,
+    waConfirmCard(),
     stories(),
     tracker(),
     sectionList(),
     h('div.bp-callback', btn(`${s('اطلبي')} مكالمة`, { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback })),
     refLine(),
   ];
+}
+
+/**
+ * (إصلاح 9.1، B91-01) لم تؤكد رقمها على واتساب بعد: بطاقة ثانوية تعرض رسالة التأكيد مرة تانية (الرابط نفسه من شاشة
+ * «وصلنا طلبك» على هذا الموبايل). بعد التأكيد تختفي ويُمسح الرابط.
+ */
+function waConfirmCard() {
+  const home = state.data.home;
+  if (home.whatsapp_confirmed) {
+    storage.del(WA_CONFIRM_KEY);
+    return null;
+  }
+  const url = savedWaConfirm([home.ref, ...(home.stories || []).map((x) => x.ref)].filter(Boolean));
+  if (!url) return null;
+  return h(
+    'section.bp-card.bp-waconfirm',
+    { 'aria-labelledby': 'bp-wa-title' },
+    h('h2.bp-card-title#bp-wa-title', g('عايز{ة} يوصلك الجديد على واتساب؟')),
+    h('p.bp-hint', g('ابعت{ي}لنا رقم طلبك برسالة واحدة على واتساب، وبعدها هنبعتلك كل جديد هناك.')),
+    btn(g('ابعت{ي} رقم طلبك'), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true }),
+  );
 }
 
 function forgetLine() {
@@ -1013,15 +1089,18 @@ const CHANNEL = { whatsapp: 'واتساب', website: 'صفحتك', phone: 'تل�
 
 function bubble(m) {
   const mine = m.direction === 'in';
+  // (إصلاح 9.1) نسخة واتساب فيها «الرد كامل على صفحتك: /p/…»: على صفحتها نفسها يُحذف سطر الرابط (رابط آخر لنفس الصفحة)
+  const body = m.body && !/^\[(مرفقات|مستند مرفق ردًا على الطلب)\]$/.test(m.body) ? withoutPortalLinks(m.body) : '';
   return h(
     'li.bp-bubble',
     { class: mine ? 'is-mine' : 'is-ours' },
     h('p.bp-bubble-who', mine ? s('إنتي') : contact().org, h('span.bp-bubble-ch', ` · ${CHANNEL[m.channel] || ''}`)),
-    m.body && !/^\[(مرفقات|مستند مرفق ردًا على الطلب)\]$/.test(m.body) ? h('p.bp-bubble-text', { dir: 'auto' }, rich(m.body)) : null,
+    body ? h('p.bp-bubble-text', { dir: 'auto' }, rich(body)) : null,
     (m.documents || []).map((d) =>
       /^audio\//.test(d.mime || '')
-        ? h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': 'رسالة صوتية' })
-        : h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), h('span', { dir: 'auto' }, d.filename)),
+        ? h('audio', { controls: true, preload: 'metadata', src: docHref(d.id), 'aria-label': 'رسالة صوتية' })
+        : // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr>: كان يظهر «jpg.1-ورقة»
+          h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), h('bdi.bp-fname', { dir: 'ltr' }, d.filename)),
     ),
     h('p.bp-bubble-time', whenSent(m.created_at)),
   );
@@ -1164,8 +1243,15 @@ function papers() {
 
 function papersView() {
   const list = papers();
-  if (!list.length) return notFoundView('لسه مفيش ورق.');
-  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', { dir: 'auto' }, d.filename), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
+  // (إصلاح 9.1) بلا ورق: عنوان الصفحة نفسه، وطريقة تبعت بيها ورقة (من الرسائل)، بدل سطر وحيد بلا عنوان
+  if (!list.length) {
+    return [
+      backBar('الورق'),
+      h('section.bp-card', h('p.bp-empty', 'لسه مفيش ورق.'), btn(g('صوّر{ي} ورقة وابعت{ي}ها'), { kind: 'secondary', icon: 'camera', block: true, onClick: () => go('#messages') })),
+    ];
+  }
+  // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr> حتى لا يظهر «jpg.1-ورقة»
+  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', h('bdi.bp-fname', { dir: 'ltr' }, d.filename)), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
   const mine = list.filter((d) => d.mine);
   const ours = list.filter((d) => !d.mine);
   return [
@@ -1240,6 +1326,20 @@ function bottomBar() {
 
 function render({ from } = {}) {
   if (!state.data) return;
+  // (إصلاح 9.1) صفحة فيها إرسال: وحدات الكاميرا والتسجيل أولًا (مرة واحدة، ومن الذاكرة بعدها)
+  if (CAPTURE_VIEWS.has(state.view) && !CAP) {
+    const view = state.view;
+    mount(root, h('div.bp-page.bp-skeleton', { 'aria-busy': 'true' }, backBar(view === 'messages' ? 'الرسائل' : ''), h('p.bp-empty', { role: 'status' }, 'لحظة…')));
+    bottomBar();
+    loadCapture().then(
+      () => state.view === view && render({ from }),
+      () => {
+        if (state.view !== view) return;
+        mount(root, h('div.bp-page', backBar(''), h('p.bp-empty', { role: 'alert' }, g('الصفحة دي ما فتحتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.')), btn(g('جرب{ي} تاني'), { kind: 'secondary', block: true, onClick: () => render({ from }) })));
+      },
+    );
+    return;
+  }
   let content;
   switch (state.view) {
     case 'answer':
@@ -1357,6 +1457,28 @@ async function refresh({ quiet = false } = {}) {
   }
 }
 
+/**
+ * بيانات الصفحة المضمّنة في HTML (كتلة JSON) — تُقرأ مرة واحدة ثم تُحذف من الصفحة.
+ * { invalid: true } لرابط منتهٍ أو ملغى (يعرض «تعذر فتح صفحة المتابعة» دون طلب).
+ */
+function embeddedData() {
+  const el = document.getElementById('bm-portal-data');
+  if (!el) return null;
+  el.remove();
+  try {
+    const v = JSON.parse(el.textContent || 'null');
+    if (v && v.invalid === true) {
+      const err = new Error('invalid');
+      err.status = 404;
+      throw err;
+    }
+    return v && typeof v === 'object' && v.home ? v : null;
+  } catch (err) {
+    if (err && err.status) throw err;
+    return null;
+  }
+}
+
 async function load() {
   // رابط مقطوع أو مشوّه: لا داعي لسؤال الخادم (الرموز الصحيحة 20–100 حرف لاتيني)
   if (!token || token.length < 20 || token.length > 100 || !/^[A-Za-z0-9_-]+$/.test(token)) {
@@ -1369,7 +1491,8 @@ async function load() {
   }
   if (!state.data) skeleton();
   try {
-    const data = await getJson(API);
+    // (إصلاح 9.1) أول مرة: البيانات داخل الصفحة نفسها (الخادم يضعها مع /p/<رمز>)، وإلا من /api/portal
+    const data = embeddedData() || (await getJson(API));
     state.data = data;
     state.form = data.home?.address === 'm' ? 'm' : 'f';
     document.documentElement.dataset.address = state.form;

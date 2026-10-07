@@ -5,6 +5,8 @@ import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
+// v9.1 fixes: معاينة آخر رسالة في صندوق الوارد تتخطى رسالة تأكيد الرقم (رقم الطلب + كود التأكيد) والرد الآلي عليها
+const PREVIEW_SQL = "json_extract(m.meta, '$.identity_confirm') IS NULL AND COALESCE(m.automation_rule, '') != 'identity_confirm'";
 
 export function createIntakes(app) {
   const { db } = app;
@@ -63,8 +65,8 @@ export function createIntakes(app) {
       const base = `FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id WHERE ${where.join(' AND ')}`;
       const rows = db.all(
         `SELECT i.*, cl.code AS client_code, cl.name AS client_name,
-           (SELECT body FROM messages m WHERE m.intake_id = i.id ORDER BY m.id DESC LIMIT 1) AS last_message,
-           (SELECT direction FROM messages m WHERE m.intake_id = i.id ORDER BY m.id DESC LIMIT 1) AS last_direction,
+           (SELECT body FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_message,
+           (SELECT direction FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_direction,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id) AS messages_count,
            (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id) AS documents_count,
            (SELECT COUNT(*) FROM intakes o WHERE o.client_id = i.client_id AND o.id != i.id) AS client_other_intakes

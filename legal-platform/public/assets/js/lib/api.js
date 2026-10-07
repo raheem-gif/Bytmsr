@@ -34,6 +34,28 @@ function fallbackMessage(status) {
   return GENERIC_ERROR;
 }
 
+// ───────── (إصلاح 9.1) نافذة فتح المنصة دون اتصال ─────────
+// «اليوم» المحفوظ على الجهاز يُفتح دون اتصال حتى نهاية الجلسة على الخادم فقط (انتهاؤها أو مهلة عدم النشاط، أيهما أقرب)،
+// لا بعدها (هاتف مفقود أو مشترك بعد إنهاء الجلسة). الخادم يحدّث آخر نشاط كل 5 دقائق على الأكثر: هامش 10 دقائق.
+const UNTIL_SLACK_MS = 10 * 60000;
+/**
+ * @param {{expires_at:string, idle_hours:number}|null} session من /api/auth/session
+ * @param {number} [at] وقت آخر نشاط (ms)
+ * @returns {number} وقت (ms) لا يُفتح بعده شيء من الجهاز دون اتصال؛ 0 إن لم تُعرف الجلسة
+ */
+export function sessionUntil(session, at = Date.now()) {
+  if (!session || typeof session !== 'object') return 0;
+  const exp = Date.parse(session.expires_at || '');
+  const idleMs = Number(session.idle_hours) * 3600000;
+  if (!Number.isFinite(exp) || !(idleMs > 0)) return 0;
+  return Math.max(0, Math.min(exp, at + idleMs - UNTIL_SLACK_MS));
+}
+let activityHook = null;
+/** يُستدعى بعد كل طلب ناجح ليس من الخلفية (يحتسبه الخادم نشاطًا يمدّد مهلة عدم النشاط) */
+export function onUserActivity(fn) {
+  activityHook = typeof fn === 'function' ? fn : null;
+}
+
 /** يبني الرابط الكامل مع تجاهل القيم الفارغة في الاستعلام. */
 export function buildUrl(path, query) {
   const clean = String(path || '').startsWith('/') ? path : `/${path}`;
@@ -165,6 +187,13 @@ export async function request(method, path, { query, body, signal, background = 
       window.dispatchEvent(new CustomEvent('auth:restricted', { detail: { code: err.code } }));
     }
     throw err;
+  }
+  if (!background && activityHook) {
+    try {
+      activityHook();
+    } catch {
+      /* تجاهل */
+    }
   }
   return data;
 }

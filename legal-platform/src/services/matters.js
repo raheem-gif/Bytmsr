@@ -6,6 +6,20 @@ import { LABELS, ENUMS, CODE_PREFIX } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
 
 export function createMatters(app) {
+  /**
+   * v9.1 fixes: وعدت الإدارة المستفيد/ة بلقاء المحامي («المحامي هيقابلك عند باب المحكمة…») في ملاحظة الجلسة:
+   * يُبلَّغ المحامي المسؤول بنفس الصياغة التي يراها في صفحة الملف (بلا بقية الملاحظة ولا بيانات تواصل)
+   */
+  function notifyMeetPromise(m, e) {
+    const facts = svc.lawyerClientFacts ? svc.lawyerClientFacts({ ...e, client_text_approved: 1 }) : null;
+    if (!facts?.meeting_promise || !m.responsible_lawyer_id) return;
+    app.notifications.notify(m.responsible_lawyer_id, {
+      type: 'event.meeting_promise',
+      title: `لقاء مع المستفيد/ة في جلسة ${arabicDate(e.starts_at)} — الملف ${m.code}`,
+      body: facts.meeting_promise,
+      link: `#/my/matters/${m.id}`,
+    });
+  }
   const { db } = app;
 
   function nextMatterCode(iso) {
@@ -79,6 +93,26 @@ export function createMatters(app) {
           updated_at: t,
         });
         db.update('cases', c.id, { matter_id: mid, updated_at: t });
+        // v9.1 fixes: مستندات الاستشارة التي سبق أن أتاحتها الإدارة للمحامي المسؤول نفسه (إسناد غير مسحوب) تُربط بالملف
+        // المستمر فيجدها في صفحة الملف بدل الرجوع للإسناد المغلق — بلا الرسائل الصوتية (قد تحمل بيانات تواصل)،
+        // ولا يُتاح له بذلك أي مستند لم يُتح له من قبل. link_granted_documents: false يوقف الربط.
+        if (lawyerId && body.link_granted_documents !== false) {
+          const docs = db
+            .all(
+              `SELECT DISTINCT d.id, d.mime FROM documents d
+               JOIN assignment_grants g ON g.resource = 'document' AND g.resource_id = d.id
+               JOIN assignments a ON a.id = g.assignment_id
+               WHERE d.case_id = ? AND d.matter_id IS NULL AND a.case_id = ? AND a.lawyer_id = ? AND a.status != 'withdrawn'`,
+              c.id,
+              c.id,
+              lawyerId,
+            )
+            .filter((d) => !/^audio\//.test(String(d.mime || '')));
+          for (const d of docs) db.run('UPDATE documents SET matter_id = ? WHERE id = ?', mid, d.id);
+          if (docs.length) {
+            app.activity.log({ case_id: c.id, matter_id: mid, actor, type: 'matter.documents_linked', summary: `رُبط بالملف المستمر ${docs.length === 1 ? 'مستند واحد' : `${docs.length} مستندات`} سبق إتاحتها للمحامي المسؤول` });
+          }
+        }
         app.practice?.syncMatterOpponent(mid, actor); // v9 practice: فحص تعارض المصالح للخصم
         app.activity.log({
           case_id: c.id,
@@ -309,6 +343,8 @@ export function createMatters(app) {
           body: e.client_attendance_required ? 'يلزم حضور العميل: راجع بيانات الموعد واعتمد تذكير العميل.' : null,
           link: `#/matters/${m.id}`,
         });
+      } else if (e.client_note) {
+        notifyMeetPromise(m, e);
       }
       return e;
     },
@@ -341,6 +377,7 @@ export function createMatters(app) {
         });
       }
       app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'event.updated', summary: `تم تحديث موعد (${LABELS.event_kind[e.kind]})${patch.outcome ? ': ' + truncate(patch.outcome, 100) : ''}` });
+      if (actor.role !== 'lawyer' && patch.client_note !== undefined && patch.client_note !== e.client_note) notifyMeetPromise(m, { ...e, ...patch });
       return db.get('SELECT * FROM matter_events WHERE id = ?', e.id);
     },
 

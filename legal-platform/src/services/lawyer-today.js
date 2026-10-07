@@ -150,8 +150,9 @@ export function createLawyerToday(app) {
           actions.push({ kind: 'assignment_due_soon', at: a.due_at, ...base });
           listed.assignments.add(a.id);
         }
-        if (Number(a.unseen_shared_info_requests) > 0 && a.status !== 'submitted') {
-          actions.push({ kind: 'info_shared', at: a.due_at || t, assignment_id: a.id, case_code: a.case_code, count: Number(a.unseen_shared_info_requests) });
+        // v9.1 fixes: رد وصل بعد تقديم الرأي يبقى صفًا للعلم («وصلك رد بعد تقديم رأيك») — قد يغيّر الرأي قبل اعتماده
+        if (Number(a.unseen_shared_info_requests) > 0) {
+          actions.push({ kind: 'info_shared', at: a.due_at || t, assignment_id: a.id, case_code: a.case_code, count: Number(a.unseen_shared_info_requests), ...(a.status === 'submitted' ? { after_submit: true } : {}) });
         }
       }
 

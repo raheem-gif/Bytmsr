@@ -422,7 +422,7 @@ describe('v9.1 l-court — static checks of lawyer-facing copy and markup', () =
     assert.ok(!src.includes('تسجيل ما تم'));
     assert.ok(!src.includes("options('event_status')"));
     assert.ok(!src.includes('ما يتولاه النظام آليًا'), 'automation card removed');
-    for (const s of ['جلسة بلا نتيجة', 'بانتظار النتيجة', 'القادمة', 'السابقة', 'سجّل النتيجة', 'بيانات الدعوى', 'تذكير آلي قبلها بثلاثة أيام بعد مراجعة الإدارة']) assert.ok(src.includes(s), `matter page has «${s}»`);
+    for (const s of ['جلسة بلا نتيجة', 'بانتظار النتيجة', 'القادمة', 'السابقة', 'سجّل النتيجة', 'بيانات الدعوى', 'تذكير آلي قبلها بثلاثة أيام ثم قبلها بيوم، بعد مراجعة الإدارة']) assert.ok(src.includes(s), `matter page has «${s}»`);
   });
 
   test('outcome sheet copy matches the spec', () => {

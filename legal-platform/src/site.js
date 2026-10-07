@@ -847,7 +847,7 @@ export function registerSite(app) {
    * أو إن كان optIn ولم يحتوِ القالب على {{{header}}}. pagePath هو المسار الظاهر في canonical والقائمة،
    * ولصفحات الروابط الخاصة (/p/<رمز>) يُمرَّر مسار عام بلا الرمز حتى لا يُكتب الرمز في وسوم الصفحة.
    */
-  function servePage(req, res, file, pagePath, { optIn = false, noindex = false, noStore = false } = {}) {
+  function servePage(req, res, file, pagePath, { optIn = false, noindex = false, noStore = false, headExtra = '' } = {}) {
     let html;
     try {
       if (optIn && !readTemplate(file).includes('{{{header}}}')) return false;
@@ -856,6 +856,8 @@ export function registerSite(app) {
       if (e && e.code === 'ENOENT') return false; // يعود للمعالجة الافتراضية (404)
       throw e;
     }
+    // (إصلاح 9.1) وسوم إضافية في <head> لهذا الطلب وحده (مثل preload لبيانات صفحة المتابعة)
+    if (headExtra) html = html.replace('</head>', `${headExtra}\n  </head>`);
     sendHtml(req, res, html, { noStore });
     return true;
   }

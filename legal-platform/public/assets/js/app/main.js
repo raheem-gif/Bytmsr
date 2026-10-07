@@ -2,7 +2,7 @@
 // الدخول على خطوتين، شاشات الإلزام (كلمة مرور مؤقتة / تفعيل التحقق بخطوتين)، ثم الهيكل والموجّه.
 
 import { h, mount } from '../lib/h.js';
-import { api, putEarlyResult, clearPrefetched } from '../lib/api.js';
+import { api, putEarlyResult, clearPrefetched, sessionUntil, onUserActivity } from '../lib/api.js';
 import { setMeta, getMeta } from '../lib/fmt.js';
 import { errorState, toast, closeAllModals, alertBox } from '../lib/ui.js';
 import { startRouter, stopRouter, parseHash, matchRoute } from './router.js';
@@ -78,13 +78,51 @@ const META_KEY = 'bm-meta';
 const ROLE_KEY = 'bm-last-role';
 const LAST_USER_KEY = 'bm-last-user'; // آخر محامٍ دخل من هذا الجهاز (للفتح دون اتصال فقط)
 const LOGOUT_PENDING_KEY = 'bm-logout-pending'; // تسجيل خروج لم يصل للخادم (بلا شبكة): يُرسل قبل أي تحقق من الجلسة
-function lastLawyer() {
+function readLastUser() {
   try {
     const u = JSON.parse(window.localStorage.getItem(LAST_USER_KEY) || 'null');
     return u && u.role === 'lawyer' && u.id ? u : null;
   } catch {
     return null;
   }
+}
+/** (إصلاح 9.1) آخر محامٍ — ما دامت نافذة جلسته على الخادم لم تنتهِ فقط (until من /api/auth/session ونشاطه بعدها) */
+function lastLawyer() {
+  const u = readLastUser();
+  return u && Number(u.until) > Date.now() ? u : null;
+}
+/**
+ * يحفظ نافذة الجلسة لآخر محامٍ (عند كل تحقق من الجلسة، وعند كل نشاط يمدّد مهلة عدم النشاط).
+ * active: الطلب نفسه نشاط يحتسبه الخادم (ليس طلب خلفية) فتبدأ المهلة الآن، وإلا من آخر نشاط مسجّل.
+ */
+function saveSessionWindow(user, session, { active = true } = {}) {
+  if (!user || user.role !== 'lawyer' || !session) return;
+  const seen = Date.parse(session.last_seen_at || '');
+  const until = sessionUntil(session, active || !Number.isFinite(seen) ? Date.now() : seen);
+  store.set(LAST_USER_KEY, JSON.stringify({ id: user.id, role: 'lawyer', name: user.name, username: user.username, session, until }));
+}
+let activitySaved = 0;
+onUserActivity(() => {
+  if (!currentUser || currentUser.role !== 'lawyer' || Date.now() - activitySaved < 60000) return;
+  const u = readLastUser();
+  if (!u || u.id !== currentUser.id || !u.session) return;
+  activitySaved = Date.now();
+  store.set(LAST_USER_KEY, JSON.stringify({ ...u, until: Math.max(Number(u.until) || 0, sessionUntil(u.session)) }));
+});
+/**
+ * (إصلاح 9.1) انتهت الجلسة (401 أو user=null): ما حُفظ على الجهاز من بيانات العمل يُمسح فلا يُفتح بعدها دون اتصال.
+ * نص الرأي غير المرسل يبقى لصاحبه فقط: يُرسل تلقائيًا إن دخل بحسابه، ويُحذف إن دخل حساب آخر (enterApp).
+ */
+function sessionEnded() {
+  clearUserCaches(null);
+}
+function hasDraftKeys() {
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) if (/^bm-(draft|notes):/.test(window.localStorage.key(i) || '')) return true;
+  } catch {
+    /* تجاهل */
+  }
+  return false;
 }
 const store = {
   get(k) {
@@ -309,6 +347,7 @@ async function boot() {
   try {
     const res = await (sessionReq || api.get('/auth/session'));
     currentUser = res && res.user ? res.user : null;
+    if (currentUser) saveSessionWindow(currentUser, res.session);
     // نسخة meta على الجهاز قديمة: نجلب الجديدة قبل العرض (رحلة إضافية فقط عند تغيّر الإعدادات أو الإصدار)
     if (cached && res && res.meta_version && res.meta_version !== cached.etag) {
       const fresh = await fetchMeta(cached.etag);
@@ -316,7 +355,8 @@ async function boot() {
     }
   } catch (err) {
     // v9.1 l-home (L-01): المحامي بلا اتصال يفتح «اليوم» من آخر نسخة على جهازه (تُمسح عند تسجيل الخروج)؛
-    // أول طلب بعد عودة الشبكة يتحقق من الجلسة (401 ← شاشة الدخول)
+    // أول طلب بعد عودة الشبكة يتحقق من الجلسة (401 ← شاشة الدخول).
+    // (إصلاح 9.1) وفقط داخل نافذة جلسته على الخادم (lastLawyer)؛ بعدها رسالة «لا يوجد اتصال» كأي مستخدم
     if (err.status === 0) {
       const last = lastLawyer();
       if (last) {
@@ -332,8 +372,26 @@ async function boot() {
     }
     currentUser = null;
   }
-  if (currentUser) proceed(currentUser);
-  else showLogin().then(loadFullMetaSoon); // showLogin يمسح الطلبات المبكرة
+  // (إصلاح 9.1، L-07) شاشة الدخول لا تجلب نسخة meta الكاملة في الخلفية: تُطلب بعد الدخول في enterApp بالتوازي مع
+  // تحميل هيكل التطبيق (فلا تضيف وقتًا)، ولا تُثقل شاشة الدخول على شبكة بطيئة بما لا تحتاجه
+  if (currentUser) {
+    proceed(currentUser);
+    return;
+  }
+  // (إصلاح 9.1) لا جلسة (انتهت مهلتها، أو أنهتها الإدارة، أو مُسحت الكعكة): بيانات العمل المحفوظة على الجهاز تُمسح
+  const ended = readLastUser();
+  sessionEnded();
+  showLogin({ message: ended ? await pendingDraftNotice() : null }); // showLogin يمسح الطلبات المبكرة
+}
+
+/** تنبيه شاشة الدخول إن بقي على الجهاز نص رأي لم يُرسل (جلسة محامٍ انتهت دون تسجيل خروج) */
+async function pendingDraftNotice() {
+  try {
+    const m = await import('./components/draft-store.js');
+    return m.hasAnyPendingDraft() ? 'على هذا الجهاز نص رأي لم يُرسل بعد. ادخل بنفس الحساب ليُرسل تلقائيًا؛ وإن دخل حساب آخر يُحذف من الجهاز.' : null;
+  } catch {
+    return null;
+  }
 }
 
 /** بعد التحقق من الهوية: شاشة الإلزام إن وُجد قيد، وإلا التطبيق */
@@ -435,8 +493,20 @@ async function showRestricted(user) {
 async function enterApp(user, { fromLogin = false } = {}) {
   currentUser = user;
   store.set(ROLE_KEY, user.role === 'lawyer' ? 'lawyer' : 'staff'); // v9.1 l-home: شاشة الإقلاع التالية
-  if (user.role === 'lawyer') store.set(LAST_USER_KEY, JSON.stringify({ id: user.id, role: 'lawyer', name: user.name, username: user.username }));
-  else store.remove(LAST_USER_KEY);
+  if (user.role === 'lawyer') {
+    // (إصلاح 9.1) نافذة الجلسة (لفتح «اليوم» دون اتصال) تأتي من /api/auth/session: محفوظة إن مرّ بها الإقلاع،
+    // وبعد دخول جديد تُطلب في الخلفية (طلب صغير لا يمدّد مهلة عدم النشاط)
+    const prev = readLastUser();
+    if (fromLogin || !prev || prev.id !== user.id || !prev.session) {
+      store.set(LAST_USER_KEY, JSON.stringify({ id: user.id, role: 'lawyer', name: user.name, username: user.username }));
+      api
+        .get('/auth/session', undefined, { background: true })
+        .then((r) => r && r.user && r.user.id === user.id && currentUser === user && saveSessionWindow(r.user, r.session, { active: false }))
+        .catch(() => {});
+    }
+  } else store.remove(LAST_USER_KEY);
+  // (إصلاح 9.1) نسخ رأي بقيت لحساب آخر انتهت جلسته دون خروج تُحذف عند دخول حساب غيره على الجهاز
+  if (fromLogin && hasDraftKeys()) import('./components/draft-store.js').then((m) => m.clearOtherUsersDrafts(user.id)).catch(() => {});
   let createShell;
   try {
     // v9.1 l-home (L-07): نسخة meta الكاملة (إن بدأ الجهاز بالصغيرة) مع هيكل التطبيق بالتوازي
@@ -560,7 +630,9 @@ async function logout() {
 }
 
 window.addEventListener('auth:expired', () => {
-  if (currentUser) showLogin({ expired: true });
+  if (!currentUser) return;
+  sessionEnded(); // (إصلاح 9.1) لا يُفتح «اليوم» المحفوظ دون اتصال بعد انتهاء الجلسة
+  showLogin({ expired: true });
 });
 
 // فتح رابط دعوة/إعادة تعيين في نفس التبويب بعد تحميل المنصة
@@ -578,6 +650,7 @@ window.addEventListener('focus', async () => {
   try {
     const res = await api.get('/auth/session', undefined, { background: true });
     if (res && res.user && res.user.restricted && currentUser) showRestricted(res.user);
+    else if (res && res.user && currentUser && res.user.id === currentUser.id) saveSessionWindow(res.user, res.session, { active: false });
   } catch {
     /* تجاهل */
   }

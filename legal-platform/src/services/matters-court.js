@@ -12,6 +12,7 @@
 // المستفيد/ة قبل اعتماد الإدارة (hearing_reminder يتحقق من ذلك)، والمحامي لا يصل إلا لملفاته (requireForLawyer).
 import { nowIso, addDays, badRequest, notFound, conflict, v, truncate, arabicDate, cairoParts, cairoDayKey, cairoLocalToIso } from '../util.js';
 import { LABELS, ENUMS } from '../constants.js';
+import { MEET_RE } from './portal-v91.js'; // v9.1 fixes: سطر اللقاء في ملاحظة الجلسة المعتمدة
 
 /** أنواع المواعيد التي تُسجَّل لها «نتيجة جلسة» (ما يقرره قاضٍ أو خبير) */
 export const COURT_EVENT_KINDS = ['hearing', 'expert'];
@@ -101,6 +102,24 @@ export function createCourtOutcomes(app, svc) {
       next_event_at: next ? next.starts_at : null,
       appeal_due_at: appeal ? appeal.due_at : null,
       needs_outcome: e.status === 'scheduled' && COURT_EVENT_KINDS.includes(e.kind) && e.starts_at <= t,
+      ...lawyerClientFacts(e),
+    };
+  }
+
+  /**
+   * v9.1 fixes: ما يلزم المحامي معرفته مما اتفقت عليه الإدارة مع المستفيد/ة — بلا نص الملاحظة كاملة ولا ردها الحرفي:
+   *  meeting_promise: سطر اللقاء المعتمد («المحامي هيقابلك عند باب المحكمة الساعة 8:30») بصياغة للمحامي، أو null
+   *  client_attendance: 'coming' | 'not_coming' | null (ردها على موعد يلزم حضوره)
+   * لا بيانات تواصل في أي منهما (ولا أسماء أبناء: بقية سطور «هاتي معاكي» لا تصل).
+   */
+  function lawyerClientFacts(e) {
+    const approved = !!e.client_text_approved;
+    const meet = approved && e.client_note ? String(e.client_note).split(/\r?\n/).map((s) => s.trim()).find((s) => s && MEET_RE.test(s)) || null : null;
+    const attending = e.client_attendance_required && e.status === 'scheduled' ? { yes: 'coming', no: 'not_coming' }[e.client_response] || null : null;
+    return {
+      meeting_promise: meet ? `وعدت الإدارة المستفيد/ة بلقائك: «${truncate(meet, 160)}»` : null,
+      client_attendance: attending,
+      client_attendance_label: attending === 'coming' ? 'أكّدت المستفيد/ة الحضور' : attending === 'not_coming' ? 'أبلغت المستفيد/ة بتعذّر الحضور' : null,
     };
   }
 
@@ -191,7 +210,9 @@ export function createCourtOutcomes(app, svc) {
 
       // 2) الجلسة القادمة (جديدة، أو تعديل جلسة أُنشئت من تسجيل سابق لنفس الجلسة ولم تُنظر بعد)
       const child = db.get("SELECT * FROM matter_events WHERE parent_event_id = ? AND status != 'cancelled' ORDER BY id DESC LIMIT 1", e.id);
-      const nextTitle = result === 'reserved' ? 'جلسة النطق بالحكم' : e.title;
+      // v9.1 fixes: عنوان محايد للجلسة التالية (لا يُنسخ عنوان السابقة بترتيبه «الجلسة الأولى…»): سبب التأجيل إن وُجد
+      const reasonLabel = result === 'adjourned' && reason ? LABELS.event_outcome_reason[reason] : null;
+      const nextTitle = result === 'reserved' ? 'جلسة النطق بالحكم' : reasonLabel ? `جلسة — ${reasonLabel}` : 'الجلسة القادمة';
       let nextId = null;
       // ما ألغاه هذا التعديل (الجلسة المولّدة سابقًا / مهمة ميعاد الطعن) يعود في الرد لتحديث الصفوف دون إعادة تحميل
       let cancelledEventId = null;
@@ -343,5 +364,5 @@ export function createCourtOutcomes(app, svc) {
     return n;
   }
 
-  return { lawyerEventView, recordOutcome, pendingOutcomesForLawyer, runOutcomeMissing, outcomeText };
+  return { lawyerEventView, lawyerClientFacts, recordOutcome, pendingOutcomesForLawyer, runOutcomeMissing, outcomeText };
 }

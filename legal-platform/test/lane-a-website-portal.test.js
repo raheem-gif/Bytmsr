@@ -290,7 +290,9 @@ describe('Client portal', () => {
       // v9.1 b-portal (B91-02): رقم الطلب REQ هو الرقم الوحيد الذي تراه؛ case_code لا يصل للصفحة (cases[] باقية للتوافق)
       assert.equal(req.case_code, undefined);
       assert.equal(req.story_ref, res.reference);
-      assert.ok(p.cases.some((c) => c.code === kase.code));
+      // v9.1 fixes: cases[] تحمل رقم الطلب REQ (ref) بدل كود الملف الداخلي
+      assert.ok(p.cases.some((c) => c.ref === res.reference && c.code === undefined));
+      assert.ok(!JSON.stringify(p).includes(kase.code), 'no internal case code anywhere in the portal JSON');
 
       // another client's token cannot answer this request
       const foreign = await t.client().post(`/api/portal/${tokenOf(other.portal_url)}/requests/${ir.body.id}/reply`, { body: 'رد دخيل' });
@@ -337,7 +339,9 @@ describe('Client portal', () => {
       assert.equal(out.status, 'simulated');
       const p = await t.client().get(`/api/portal/${tokenOf(r.body.url)}`);
       assert.equal(p.status, 200);
-      assert.equal(p.body.client.code, it.client_code);
+      // v9.1 fixes (B91-02): كود العميل CL- داخلي لا يصل للصفحة
+      assert.equal(p.body.client.code, null);
+      assert.ok(!JSON.stringify(p.body).includes(it.client_code));
     } finally {
       await t.close();
     }

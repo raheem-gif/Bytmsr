@@ -1278,6 +1278,35 @@ button.lc-outbox-pill {
     min-width: 44px;
   }
 
+  /* (إصلاح 9.1) عنوان الموعد رابط يفتح الملف: كان سطرًا بارتفاع 26px */
+  .lc-cal-lawyer .v9p-cal-title a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* عرض الشهر: رقم اليوم كان دائرة 30×30؛ الآن الخانة كلها هدف اللمس (≥ 44px ارتفاعًا وعرضَ الخانة) */
+  .lc-cal-lawyer .v9p-day {
+    padding: 0;
+  }
+
+  .lc-cal-lawyer .v9p-day-num {
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    border-radius: 0;
+  }
+
+  .lc-cal-lawyer .v9p-dots {
+    padding-block-end: 4px;
+  }
+
+  /* على 360px كانت الخانة 40px عرضًا: الشبكة تمتد في هامش البطاقة فتصير كل خانة ≥ 44px */
+  .lc-cal-lawyer .v9p-month {
+    margin-inline: -16px;
+  }
+
   .lc-cal-lawyer .v9p-cal-card .stack > .v9p-type-toggles {
     order: 3;
   }

@@ -909,14 +909,27 @@ function showSuccess(res, name) {
 
   const heading = h('h1#success-title', { tabindex: '-1' }, 'وصلنا طلبك');
 
+  // (إصلاح 9.1، B91-01) الخطوة 3 لا تعد بواتساب إلا لو بعتت رقم الطلب فعلًا
+  const step3 = h('li');
+  const paintStep3 = (sent) =>
+    mount(step3, `محامي هيدرس مشكلتك، وهنبعتلك الرد ${!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')}.`);
+  paintStep3(false);
+
   // البطاقة أ: تأكيد الرقم برسالة واتساب واحدة
   let cardA = null;
   if (confirmUrl) {
+    // صفحتها تعرض رسالة التأكيد نفسها مرة تانية لو ما بعتتهاش (portal-ui.js: bm_wa_confirm، 30 يومًا كالكود)
+    try {
+      window.localStorage.setItem('bm_wa_confirm', JSON.stringify({ ref, url: confirmUrl, at: new Date().toISOString() }));
+    } catch {
+      /* التخزين غير متاح */
+    }
     let clicked = false;
     let away = false;
     const body = h('div.bmf-card-body');
-    const paintA = (sent) =>
-      mount(
+    const paintA = (sent) => {
+      if (sent) paintStep3(true);
+      return mount(
         body,
         sent
           ? [
@@ -934,6 +947,7 @@ function showSuccess(res, name) {
               ),
             ],
       );
+    };
     paintA(false);
     document.addEventListener('visibilitychange', () => {
       if (!clicked) return;
@@ -994,6 +1008,11 @@ function showSuccess(res, name) {
           forget.hidden = true;
           savedLine.setAttribute('role', 'status');
           clearAllDrafts();
+          try {
+            window.localStorage.removeItem('bm_wa_confirm');
+          } catch {
+            /* التخزين غير متاح */
+          }
         },
       },
       g('مش موبايلك؟ امسح{ي}ها'),
@@ -1027,7 +1046,7 @@ function showSuccess(res, name) {
       'ol',
       h('li', `فريقنا هيقرا طلبك — غالبًا خلال ${countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
       h('li', 'ممكن نطلب منك ورقة أو معلومة.'),
-      h('li', `محامي هيدرس مشكلتك، وهنبعتلك الرد ${confirmUrl ? 'على واتساب وعلى صفحتك' : 'على صفحتك'}.`),
+      step3,
     ),
   );
 

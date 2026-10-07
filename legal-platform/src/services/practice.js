@@ -792,7 +792,7 @@ export function createPractice(app) {
     if (types.includes('event')) {
       const rows = db.all(
         `SELECT e.id, e.kind, e.title, e.starts_at, e.location, e.status, e.client_attendance_required, m.id AS matter_id, m.code AS matter_code,
-           m.responsible_lawyer_id, m.court
+           m.responsible_lawyer_id, m.court, e.client_note, e.client_text_approved, e.client_response
          FROM matter_events e JOIN matters m ON m.id = e.matter_id
          WHERE e.starts_at >= ? AND e.starts_at < ? AND e.status != 'cancelled' ${lid ? 'AND m.responsible_lawyer_id = ?' : ''}
          ORDER BY e.starts_at`,
@@ -818,6 +818,8 @@ export function createPractice(app) {
           // v9.1 l-court: جلسة انعقدت وما زالت «مجدولة» بلا نتيجة (زر «سجّل النتيجة» في تقويم المحامي)
           needs_outcome: e.status === 'scheduled' && ['hearing', 'expert'].includes(e.kind) && e.starts_at <= t,
           event_id: e.id,
+          // v9.1 fixes: لقاء وعدت به الإدارة المستفيد/ة وحضورها المتوقع (بلا نص الملاحظة ولا ردها الحرفي)
+          ...(app.matters?.lawyerClientFacts ? app.matters.lawyerClientFacts(e) : {}),
         });
       }
     }

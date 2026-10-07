@@ -38,7 +38,7 @@ export const TEMPLATE_PURPOSES = {
   lawyer_alert: ['body', 'org_name'],
 };
 // v9.1 b-site (B91-01/B91-10): كل أغراض المستفيدين تقبل اسم المخاطبة ورقم الطلب ورابط صفحتها والساعة كما تُقال،
-// وغرض جديد portal_update بلا أي تفاصيل («في جديد في طلبك… افتحي صفحتك من هنا: الرابط»)
+// وغرض جديد portal_update بلا أي تفاصيل («في جديد في طلبك… صفحة طلبك: الرابط» — نص قالب ميتا ثابت فيُكتب بصيغة محايدة)
 for (const [purpose, vars] of Object.entries(TEMPLATE_PURPOSES)) {
   if (purpose === 'otp' || purpose === 'lawyer_alert') continue;
   for (const k of ['first_name', 'ref', 'portal_link', 'time_spoken']) if (!vars.includes(k)) vars.push(k);

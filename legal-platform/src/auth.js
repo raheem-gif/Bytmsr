@@ -375,12 +375,37 @@ export function createAuth(app) {
    */
   function rememberPolicy(user, remember) {
     if (!remember || !user || user.role !== 'lawyer' || ttlOverride() !== null) return null;
-    if (twoFactorEnabled(user.id)) {
+    // v9.1 fixes: «تذكّرني» قرار صريح للإدارة في سياسة الأمان (lawyer_remember: all | with_2fa | off)
+    const mode = rememberMode();
+    if (mode.mode === 'off') return null;
+    const twoFa = twoFactorEnabled(user.id);
+    if (mode.mode === 'with_2fa' && !twoFa) return null;
+    // سياسة جلسات شدّدتها الإدارة (أقصر من الافتراضي) ولم تسمح بعدها بـ«تذكّرني» صراحة: لا تتجاوزها جلسة «تذكّرني» أبدًا
+    if (mode.cappedByPolicy) return null;
+    if (twoFa) {
       const days = setting('lawyer_remember_days_2fa', 30, { min: 1, max: 90 });
       return { maxHours: days * 24, idleHours: Math.min(14, days) * 24 };
     }
     const days = setting('lawyer_remember_days', 7, { min: 1, max: 30 });
     return { maxHours: days * 24, idleHours: Math.min(3, days) * 24 };
+  }
+  /**
+   * وضع «تذكّرني» الفعلي: { mode, explicit, cappedByPolicy }. بلا إعداد صريح: «all» (السلوك الافتراضي L-17)،
+   * إلا إذا شدّدت الإدارة عمر الجلسة أو مهلة عدم النشاط عن الافتراضي — عندها تحكم سياستها (cappedByPolicy).
+   */
+  function rememberMode() {
+    const stored = db.get("SELECT value FROM settings WHERE key = 'lawyer_remember'");
+    const raw = stored ? String(app.settings.get('lawyer_remember') || '') : '';
+    const mode = ['all', 'with_2fa', 'off'].includes(raw) ? raw : 'all';
+    const storedNum = (k) => {
+      const r = db.get('SELECT value FROM settings WHERE key = ?', k);
+      const n = r ? Number(app.settings.get(k)) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    const max = storedNum('session_max_hours');
+    const idle = storedNum('session_idle_hours');
+    const tightened = (max !== null && max < 72) || (idle !== null && idle < 12);
+    return { mode, explicit: !!stored, cappedByPolicy: !stored && tightened };
   }
   /** طلب «تذكّرني» من جسم طلب الدخول (الخطوة الأولى أو خطوة رمز التحقق) */
   const wantsRemember = (ctx) => ctx?.body?.remember === true;
@@ -434,14 +459,18 @@ export function createAuth(app) {
     /** هل عمر الجلسة مضبوط من الخادم (متغير البيئة) بدل إعدادات لوحة الإدارة */
     sessionTtlFromServer: () => ttlOverride() !== null,
     rememberPolicy,
+    rememberMode,
 
     /** v9.1 l-home: حالة «تذكّرني» للجلسة الحالية (لصفحة «حسابي») — للمحامين فقط */
     rememberInfo(user, tokenHash) {
       if (!user || user.role !== 'lawyer') return {};
       const s = tokenHash ? db.get('SELECT remember, expires_at FROM sessions WHERE token_hash = ?', tokenHash) : null;
+      // v9.1 fixes: متاح فقط إن سمحت به سياسة الإدارة لهذا الحساب (lawyer_remember وتشديد عمر الجلسة)
+      const m = rememberMode();
       return {
         remember: {
-          available: ttlOverride() === null,
+          available: ttlOverride() === null && m.mode !== 'off' && !m.cappedByPolicy && (m.mode !== 'with_2fa' || twoFactorEnabled(user.id)),
+          mode: m.mode,
           this_device: !!s?.remember,
           expires_at: s?.remember ? s.expires_at : null,
           days_with_2fa: setting('lawyer_remember_days_2fa', 30, { min: 1, max: 90 }),

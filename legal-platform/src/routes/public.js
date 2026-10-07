@@ -6,7 +6,7 @@ import { v, badRequest, notFound, forbidden } from '../util.js';
 import crypto from 'node:crypto'; // v9.1 b-forms
 import { sha256, parseJson, addDays, nowIso } from '../util.js'; // v9.1 b-forms
 import { sha256 as metaHash } from '../util.js'; // v9.1 l-home
-import { sourceFromWebAttribution } from '../channels/engine.js';
+import { sourceFromWebAttribution, isPortalUnverifiedIntake } from '../channels/engine.js';
 import { verifySignature, publicWhatsAppDigits, isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const DEMO_ACCOUNTS = [
@@ -94,6 +94,12 @@ export function registerPublicRoutes(router, app) {
   router.get('/api/auth/session', async (ctx) => {
     const full = buildMeta(ctx);
     const out = { user: ctx.user ? app.auth.publicUser(ctx.user) : null, meta_version: metaVersion(full) };
+    // (إصلاح 9.1) نافذة الجلسة: الواجهة لا تفتح «اليوم» المحفوظ على الجهاز دون اتصال بعد انتهائها (هاتف مفقود أو مشترك).
+    // last_seen_at هو آخر نشاط مسجّل قبل هذا الطلب (طلب الخلفية لا يمدّد المهلة)
+    if (ctx.user && ctx.user.session_expires) {
+      const idle = Number(ctx.user.session_idle_hours) > 0 ? Number(ctx.user.session_idle_hours) : app.auth.idleHours();
+      out.session = { expires_at: ctx.user.session_expires, idle_hours: idle, last_seen_at: ctx.user.session_last_seen || ctx.user.session_created || null };
+    }
     const want = ctx.query?.meta;
     if (want === 'full' || want === 'login') {
       out.meta = want === 'login' && !ctx.user ? loginMeta(full) : full;
@@ -136,9 +142,23 @@ export function registerPublicRoutes(router, app) {
   // يُخزَّن مُجزّأً 30 يومًا) يُرسل مع رقم الطلب في رسالة واتساب جاهزة فيثبت أن مقدّمة الطلب صاحبة الرقم (B91-01).
   // إعادة الإرسال بنفس submission_id (انقطع النت بعد وصول الطلب) تُصدر رابطًا وكودًا جديدين لنفس الطلب ولا تنشئ طلبًا ثانيًا.
   function intakeResponse(intake, clientId) {
-    const token = app.clients.issuePortalToken(clientId, { intakeId: intake.id });
     const s = app.settings.all();
     const digits = waDigits();
+    const current = db.get('SELECT * FROM intakes WHERE id = ?', intake.id) || intake;
+    if (!isPortalUnverifiedIntake(current)) {
+      // v9.1 fixes: إعادة الإرسال بنفس submission_id بعد تأكيد الرقم (بالكود أو من الإدارة) لا تُصدر رابطًا ولا كودًا جديدًا:
+      // الطلب صار قصة صاحبة الرقم، ورابطها يصلها على واتساب. (حامل submission_id أثبت أنه المتصفح الذي أرسل الطلب، لا صاحب الرقم)
+      return {
+        reference: intake.code,
+        portal_url: null,
+        confirm_url: null,
+        whatsapp_url: null,
+        confirmed: true,
+        eta_review_days: Math.max(1, Number(s.portal_eta_review_days) || 2),
+      };
+    }
+    // رابط الموقع «موقع فقط» دائمًا (portal.scopeOf): لا يعرض رسائل واتساب صاحب الرقم ولا يتسع بعد تأكيد الرقم
+    const token = app.clients.issuePortalToken(clientId, { intakeId: intake.id });
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const fresh = db.get('SELECT source_detail FROM intakes WHERE id = ?', intake.id);
     const sd = parseJson(fresh?.source_detail, {});

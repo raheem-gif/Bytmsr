@@ -58,10 +58,13 @@ export function createLawyerAlerts(app) {
   const testLimiter = new RateLimiter({ windowMs: 60 * 60 * 1000, max: 3 });
   let lastOrigin = '';
 
-  /** الرابط المطلق للمنصة: PUBLIC_BASE_URL، وفي النسخة التجريبية فقط آخر عنوان فُتحت منه المنصة */
+  /**
+   * الرابط المطلق للمنصة: PUBLIC_BASE_URL (أو RENDER_EXTERNAL_URL) فقط. v9.1 fixes: لا يُبنى من ترويسة Host لأي طلب
+   * (ولا في النسخة التجريبية): كان طلب محامٍ واحد بترويسة مزيفة يحدد رابط تنبيهات كل المحامين. بدونه تُرسل التنبيهات بلا رابط.
+   */
   function baseUrl() {
-    if (config.publicBaseUrl) return config.publicBaseUrl;
-    return config.demo ? lastOrigin : '';
+    void lastOrigin;
+    return config.publicBaseUrl || '';
   }
   function linkFor(path) {
     const b = baseUrl();
@@ -286,11 +289,9 @@ export function createLawyerAlerts(app) {
       return { ok: true, status: r.status, simulated: r.status === 'simulated' };
     },
 
-    /** يحفظ آخر عنوان فُتحت منه المنصة (للنسخة التجريبية بلا PUBLIC_BASE_URL فقط) */
+    /** v9.1 fixes: لم يعد يحفظ عنوان Host (انظر baseUrl) — باقٍ للتوافق مع المستدعين */
     noteRequest(ctx) {
-      if (config.publicBaseUrl || !config.demo) return;
-      const host = String(ctx?.req?.headers?.host || '');
-      if (/^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(host)) lastOrigin = `http://${host}`;
+      void ctx;
     },
 
     /** تذكير «يتبقى يوم» قبل موعد التسليم بـ 24 ساعة (إشعار داخل المنصة لكل المحامين، وواتساب لمن اشترك) */

@@ -528,7 +528,8 @@ export async function seedDemo(app) {
     adv(2);
     const ir1 = app.requests.createInfoByLawyer(lead.id, U.ahmed, { kind: 'information', question: 'هل صدر قرار من محكمة الأسرة بتعيين وصي على ابني الأخ المتوفى القاصرين؟ ومن هو الوصي؟' });
     adv(1.5);
-    app.requests.approveInfo(ir1.id, manager, { client_message: 'تحية طيبة أستاذة سامية، لاستكمال دراسة ملفكم: هل صدر قرار من محكمة الأسرة بتعيين وصي على أبناء أخيكم المتوفى القاصرين؟ ومن هو الوصي؟' });
+    // (إصلاح 9.1، B91-10) بكلام بسيط كما تصلها الرسائل الآن (لا «تحية طيبة» ولا «ملفكم»)
+    app.requests.approveInfo(ir1.id, manager, { client_message: 'يا ترى محكمة الأسرة عيّنت حد وصي على ولاد أخوكي الله يرحمه؟ ومين هو الوصي؟' });
     adv(9);
     const rep = wa(sPhone, sName, 'أيوه، مرات أخويا الله يرحمه (أم الولاد) هي الوصية بقرار من محكمة الأسرة سنة 2023');
     adv(13);

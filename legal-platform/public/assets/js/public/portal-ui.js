@@ -270,11 +270,29 @@ export function savedPortal() {
   }
 }
 
+// (إصلاح 9.1، B91-01 «قنوات صادقة») رابط تأكيد الرقم على واتساب من شاشة «وصلنا طلبك» على هذا الموبايل:
+// { ref, url: https://wa.me/<رقم>?text=…, at }. صفحتها تعرضه مرة تانية ما دام الرقم لم يتأكد (الكود صالح 30 يومًا).
+export const WA_CONFIRM_KEY = 'bm_wa_confirm';
+const WA_CONFIRM_DAYS = 30;
+/** رابط التأكيد المحفوظ لأحد أرقام الطلبات المعطاة، أو null */
+export function savedWaConfirm(refs) {
+  const v = storage.json(WA_CONFIRM_KEY, null);
+  if (!v || typeof v.url !== 'string' || typeof v.ref !== 'string') return null;
+  if (!/^https:\/\/wa\.me\/\d{8,15}\?text=[^\s]+$/.test(v.url)) return null;
+  const at = Date.parse(v.at || '');
+  if (!Number.isFinite(at) || Date.now() - at > WA_CONFIRM_DAYS * 86400000) {
+    storage.del(WA_CONFIRM_KEY);
+    return null;
+  }
+  return (Array.isArray(refs) ? refs : [refs]).includes(v.ref) ? v.url : null;
+}
+
 /** مسح الصفحة المحفوظة ومسودات الصور والتسجيلات من هذا الموبايل («مش موبايلك؟ امسحي») */
 export async function forgetThisPhone() {
   storage.del(SAVED_KEY);
   storage.set(SAVED_OFF_KEY, '1');
   storage.del('bm_seen');
+  storage.del(WA_CONFIRM_KEY);
   try {
     const { clearAllDrafts } = await import('./drafts.js');
     await clearAllDrafts();

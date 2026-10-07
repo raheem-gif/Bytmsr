@@ -473,6 +473,11 @@ html[dir="ltr"] .pc-brief-card {
   white-space: nowrap;
 }
 
+/* (إصلاح 9.1) اسم ملف بامتداد يُعرض LTR («ورقة-1.jpg») لكنه يبقى في جهة البداية من الصفحة العربية */
+.pc-doc-name[dir='ltr'] {
+  text-align: right;
+}
+
 .pc-doc-meta {
   font-size: 12.5px;
   color: var(--text-muted);

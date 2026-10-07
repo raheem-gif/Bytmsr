@@ -986,6 +986,9 @@ export function createSystem(app) {
         const keySource = app.integrations.keySource;
         const keyFile = path.join(config.dataDir || path.dirname(config.dbPath), '.secret-key');
         const withKey = includeKey && keySource === 'file' && fs.existsSync(keyFile);
+        // مفاتيح تنبيهات الأجهزة (Web Push) تُنقل مع المفاتيح حتى لا يُضطر المحامون لإعادة تفعيل التنبيهات بعد نقل الخادم
+        const vapidFile = path.join(config.dataDir || path.dirname(config.dbPath), 'vapid.json');
+        const withVapid = includeKey && fs.existsSync(vapidFile);
         const counts = {};
         for (const t of ['users', 'clients', 'intakes', 'cases', 'matters', 'documents', 'messages']) {
           try {
@@ -1003,6 +1006,7 @@ export function createSystem(app) {
           '  data/platform.db   SQLite database snapshot (VACUUM INTO, integrity checked)',
           '  data/uploads/      uploaded documents',
           withKey ? '  data/.secret-key   encryption key for integration secrets (KEEP PRIVATE)' : '  (encryption key not included)',
+          withVapid ? '  data/vapid.json    device-alert (Web Push) signing keys (KEEP PRIVATE)' : '  (device-alert keys not included)',
           '  manifest.json      sha256 of every file',
           '',
           'Restore on a new server (stop the server first):',
@@ -1024,6 +1028,7 @@ export function createSystem(app) {
             yield add({ name: `${root}/data/uploads/${f.rel}`, file: f.full, size: f.size, mtime: f.mtime, rel: `data/uploads/${f.rel}` });
           }
           if (withKey) yield add({ name: `${root}/data/.secret-key`, data: fs.readFileSync(keyFile), mode: 0o600, rel: 'data/.secret-key' });
+          if (withVapid) yield add({ name: `${root}/data/vapid.json`, data: fs.readFileSync(vapidFile), mode: 0o600, rel: 'data/vapid.json' });
           const uploads = files.filter((f) => f.rel.startsWith('data/uploads/'));
           const manifest = {
             format: 'beyoot-legal-export',
@@ -1254,7 +1259,9 @@ export function createSystem(app) {
       } else if (!config.production) {
         add('environment', 'warning', 'بيئة التشغيل ليست «إنتاج»', 'اضبط NODE_ENV=production عند التشغيل الفعلي.');
       } else add('environment', 'ok', 'بيئة الإنتاج', 'NODE_ENV=production والوضع التجريبي مطفأ.');
-      if (!config.publicBaseUrl) add('base_url', 'warning', 'الرابط العام غير مضبوط', 'اضبط PUBLIC_BASE_URL (مثل https://legal.example.org) لتعمل روابط بوابة المستفيد وWebhook بشكل صحيح.');
+      // v9.1 fixes: مع واتساب الحقيقي وبلا رابط عام لا تحمل رسائل المستفيدين أي رابط لصفحتهم (رابط «/p/…» النسبي لا يُفتح من واتساب، فلا يُرسل)
+      if (!config.publicBaseUrl && app.whatsapp?.configured) add('base_url', 'danger', 'الرابط العام غير مضبوط وواتساب يعمل', 'رسائل واتساب للمستفيدين تُرسل الآن بلا رابط صفحة المتابعة، وروابط تنبيهات المحامين وإعادة تعيين كلمة المرور لا تُرسل. اضبط PUBLIC_BASE_URL (مثل https://legal.example.org) فورًا.');
+      else if (!config.publicBaseUrl) add('base_url', 'warning', 'الرابط العام غير مضبوط', 'اضبط PUBLIC_BASE_URL (مثل https://legal.example.org) لتعمل روابط بوابة المستفيد وWebhook بشكل صحيح. بدونه لا تحمل رسائل واتساب للمستفيدين رابط صفحتهم.');
       else if (!config.publicBaseUrl.startsWith('https://')) add('base_url', 'warning', 'الرابط العام لا يستخدم HTTPS', 'شغّل المنصة خلف HTTPS واضبط PUBLIC_BASE_URL بـ https لتفعيل الكعكات الآمنة.');
       else add('base_url', 'ok', 'الرابط العام بـ HTTPS', config.publicBaseUrl);
       if (keySource === 'env') add('key', 'ok', 'مفتاح التشفير من APP_SECRET', 'الأسرار المخزنة مشفرة بمفتاح خارج قاعدة البيانات.');

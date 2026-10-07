@@ -176,8 +176,10 @@ export function createRequests(app) {
       if (channel === 'whatsapp') {
         const words = app.engine.clientWords(story);
         const suffix = r.kind === 'document' ? CLIENT_TEXTS.info_suffix_document : CLIENT_TEXTS.info_suffix_information;
-        const link = /\{portal_link\}/.test(suffix) ? app.engine.storyLink(story) : null;
-        meta.wa_text = app.engine.fillClientText(`${clientMessage}${suffix}`, { portal_link: link }, words.form);
+        // (إصلاح 9.1، B91-10) على واتساب: اسمها ورقم طلبها في أول الرسالة إن لم تبدأ الإدارة بتحية (صفحتها تعرض النص نظيفًا)
+        const head = /^\s*(?:أهل|اهل|السلام|مرحب|صباح|مساء)/.test(clientMessage) ? '' : `أهلًا يا {first_name}${words.ref ? `، بخصوص طلبك ${words.ref}` : ''}:\n`;
+        // v9.1 fixes: {portal_link} يبقى متغيرًا ويُصدر الرابط عند الإرسال الفعلي فقط (لا رابط في قاعدة البيانات)
+        meta.wa_text = app.engine.fillClientText(`${head}${clientMessage}${suffix}`, { first_name: words.first_name }, words.form);
       }
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
@@ -328,6 +330,11 @@ export function createRequests(app) {
       if (approveExtension && !extAssignment) throw badRequest('المحامي صاحب طلب المهلة لم يعد في الفريق');
       // v9.1 l-work: من طلبوا الشيء نفسه («أحتاج هذا أيضًا») يصلهم الرد نفسه دون سؤال المستفيد/ة مرة أخرى
       const duplicates = r.duplicate_of_id ? [] : db.all("SELECT * FROM info_requests WHERE duplicate_of_id = ? AND status = 'pending_admin' ORDER BY id", r.id);
+      // v9.1 fixes: طلب ورق أجابت المستفيدة عن بعض بنوده: البنود التي لم تصل بعد (لا صورة ولا «مش لاقية») تبقى مطلوبة منها
+      // في طلب متابعة يظهر في صفحتها «لسه محتاجين: …» (افتراضيًا؛ request_rest: false يوقفه)، بدل أن تختفي بصمت
+      const restItems = svc.neededItems(r);
+      const requestRest = restItems.length > 0 && (body.request_rest === undefined || body.request_rest === null ? true : v.bool(body.request_rest));
+      let followUpId = null;
       const sharedTitle = (code) =>
         r.kind === 'admin_question'
           ? `ردّت الإدارة على سؤالك في الملف ${code}`
@@ -340,6 +347,26 @@ export function createRequests(app) {
       db.tx(() => {
         db.update('info_requests', r.id, { status: 'shared', response_text: response, shared_at: t, shared_by: actor.id, updated_at: t, decided_by: r.decided_by ?? actor.id, decided_at: r.decided_at ?? t, extension_applied_at: approveExtension ? t : undefined });
         if (approveExtension) db.update('assignments', extAssignment.id, { due_at: r.requested_due_at, last_activity_at: t });
+        if (requestRest) {
+          // طلب متابعة بالبنود الباقية فقط: يظهر في صفحتها دون رسالة جديدة (تذكير المستندات الآلي يذكّرها بعد يومين)
+          followUpId = db.insert('info_requests', {
+            case_id: c.id,
+            assignment_id: r.assignment_id ?? null,
+            requested_by: r.requested_by ?? null,
+            kind: 'document',
+            question: `المتبقي من الطلب السابق: ${restItems.join('، ')}`,
+            client_message: `لسه محتاجين: ${restItems.join('، ')}`,
+            items: JSON.stringify(restItems.map((label) => ({ label }))),
+            status: 'sent_to_client',
+            decided_by: actor.id,
+            decided_at: t,
+            sent_at: t,
+            sent_channel: 'website',
+            follow_up_of_id: r.id,
+            created_at: t,
+            updated_at: t,
+          });
+        }
         for (const aid of targets) {
           const a = db.get("SELECT * FROM assignments WHERE id = ? AND case_id = ? AND status != 'withdrawn'", aid, c.id);
           if (!a) throw badRequest('عضو الفريق المختار غير صالح');
@@ -348,7 +375,7 @@ export function createRequests(app) {
           app.notifications.notify(a.lawyer_id, {
             type: 'info_request.shared',
             title: sharedTitle(c.code),
-            body: truncate(r.question, 140),
+            body: requestRest ? truncate(`${r.question} — لم يصل بعد وطُلب مرة أخرى: ${restItems.join('، ')}`, 200) : truncate(r.question, 140),
             link: `#/my/assignments/${a.id}${r.kind === 'extension' ? '' : '?tab=requests'}`,
           });
         }
@@ -368,7 +395,20 @@ export function createRequests(app) {
         }
       });
       app.activity.log({ case_id: c.id, actor, type: 'info_request.shared', summary: `راجعت الإدارة الرد وأتاحته للمحامي${docIds.length ? ` مع ${arabicCount(docIds.length, AR_UNITS.document)}` : ''}` });
-      return requireIr(r.id);
+      if (followUpId) {
+        app.activity.log({ case_id: c.id, actor, type: 'info_request.follow_up', summary: `بقي مطلوبًا من المستفيد/ة في صفحة المتابعة: ${truncate(restItems.join('، '), 160)}`, data: { info_request_id: followUpId, follow_up_of: r.id } });
+      }
+      return { ...requireIr(r.id), follow_up_id: followUpId, follow_up_items: requestRest ? restItems : [] };
+    },
+
+    /** v9.1 fixes: بنود طلب الورق التي لم يصل لها شيء بعد (لا صورة ولا «مش لاقية») — لتحذير الإدارة قبل الإتاحة */
+    neededItems(r) {
+      if (!r || r.kind !== 'document' || !['sent_to_client', 'client_replied'].includes(r.status) || !app.portal?.requestState) return [];
+      const st = app.portal.requestState(r);
+      const items = st.items || [];
+      // طلب لم تجب عن أي بند منه (تجيب الإدارة مباشرة) ليس «نصف مجاب»: لا طلب متابعة يكرره عليها
+      if (!items.some((x) => x.status !== 'needed')) return [];
+      return items.filter((x) => x.status === 'needed' && x.label).map((x) => x.label);
     },
 
     cancelInfo(id, user) {
