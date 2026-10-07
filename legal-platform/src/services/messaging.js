@@ -10,6 +10,7 @@ import {
   normalizeArabic, maskPhone, truncate, periodOf, arabicPeriod, arabicCount, isValidPeriod, periodRange,
 } from '../util.js';
 import { LABELS, ENUMS, LEGAL_AREAS } from '../constants.js';
+import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { RateLimiter } from '../auth.js';
 import { countTemplateParams, graphErrorArabic } from '../channels/whatsapp.js';
 import { mapMessage } from '../channels/engine.js';
@@ -33,7 +34,17 @@ export const TEMPLATE_PURPOSES = {
   'rule:hearing_reminder': ['body', 'client_name', 'org_name', 'event_kind', 'matter_code', 'date', 'time', 'location', 'title'],
   'rule:invoice_reminder': ['body', 'client_name', 'org_name', 'invoice_number', 'amount', 'due_date'],
   'rule:document_reminder': ['body', 'client_name', 'org_name', 'case_code', 'request'],
+  // v9.1 l-home: تنبيهات المحامين — متغير واحد بنص التنبيه (أكواد وتواريخ ورابط فقط)
+  lawyer_alert: ['body', 'org_name'],
 };
+// v9.1 b-site (B91-01/B91-10): كل أغراض المستفيدين تقبل اسم المخاطبة ورقم الطلب ورابط صفحتها والساعة كما تُقال،
+// وغرض جديد portal_update بلا أي تفاصيل («في جديد في طلبك… صفحة طلبك: الرابط» — نص قالب ميتا ثابت فيُكتب بصيغة محايدة)
+for (const [purpose, vars] of Object.entries(TEMPLATE_PURPOSES)) {
+  if (purpose === 'otp' || purpose === 'lawyer_alert') continue;
+  for (const k of ['first_name', 'ref', 'portal_link', 'time_spoken']) if (!vars.includes(k)) vars.push(k);
+}
+if (!TEMPLATE_PURPOSES['rule:invoice_reminder'].includes('description')) TEMPLATE_PURPOSES['rule:invoice_reminder'].push('description');
+TEMPLATE_PURPOSES.portal_update = ['first_name', 'org_name', 'portal_link', 'ref'];
 
 // ===== دخول البوابة برمز =====
 const OTP_TTL_MINUTES = 10;
@@ -65,6 +76,8 @@ export function ratingFromWords(text) {
   if (t === 'جيد') return 3;
   if (t === 'مقبول') return 2;
   if (/^(غير راض(ي|يه)?|مش راض(ي|يه)?|سيء|سيئ|سييء)$/.test(t)) return 1;
+  // v9.1 b-site (B91-10): «راضية» / «راضي» من نص الاستبيان الجديد (1 = مش راضية … 5 = ممتاز)
+  if (/^راض(ي|يه)?$/.test(t)) return 4;
   return null;
 }
 
@@ -130,6 +143,17 @@ export function createMessaging(app) {
     if (msg.case_id) out.case_code = db.value('SELECT code FROM cases WHERE id = ?', msg.case_id) ?? undefined;
     if (msg.matter_id) out.matter_code = db.value('SELECT code FROM matters WHERE id = ?', msg.matter_id) ?? undefined;
     if (msg.intake_id) out.request_code = db.value('SELECT code FROM intakes WHERE id = ?', msg.intake_id) ?? undefined;
+    // v9.1 b-site (B91-10): اسم المخاطبة بالكنية ورقم طلب القصة (REQ) — الرقم الوحيد الذي تراه المستفيدة
+    if (msg.client_id && app.engine?.clientWords) {
+      const w = app.engine.clientWords({ clientId: msg.client_id, intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
+      if (w.first_name) out.first_name = w.first_name;
+      if (w.ref) {
+        out.ref = w.ref;
+        // رقم واحد تراه المستفيدة: متغيرا كود الملف في القوالب المربوطة اسمان بديلان لرقم الطلب REQ
+        if (out.case_code) out.case_code = w.ref;
+        if (out.matter_code) out.matter_code = w.ref;
+      }
+    }
     return out;
   }
 
@@ -535,11 +559,20 @@ export function createMessaging(app) {
       const wa = meta.wa || {};
       const isOtp = wa.type === 'otp' || wa.purpose === 'otp';
       const purposes = [];
+      // v9.1 l-home: تنبيهات المحامين تُرسل بقالبها المربوط وحده (لا تنتقل لقالب تحديثات المستفيدين ولا القالب القديم)
+      if (wa.purpose === 'lawyer_alert') {
+        const own = resolveMapping(['lawyer_alert']);
+        if (!own) return null;
+        const v91vars = { ...baseVars(msg), ...(meta.vars || {}), ...(secretVars || {}) };
+        return { name: own.template.name, language: own.template.language, params: parseJson(own.mapping.params, []).map((k) => v91vars[k] ?? '-'), buttons: [], purpose: 'lawyer_alert' };
+      }
       if (isOtp) purposes.push('otp');
       else {
         if (wa.purpose) purposes.push(wa.purpose);
         if (msg.automation_rule) purposes.push(msg.automation_rule === 'satisfaction_survey' ? 'survey' : `rule:${msg.automation_rule}`);
         purposes.push('case_update');
+        // v9.1 b-site (B91-01): بلا قالب مربوط بالغرض ← قالب «في جديد في طلبك» بلا أي تفاصيل ورابط صفحتها
+        purposes.push('portal_update');
       }
       const found = resolveMapping([...new Set(purposes)]);
       if (!found) {
@@ -548,6 +581,12 @@ export function createMessaging(app) {
         return s.whatsapp_template_name ? { name: s.whatsapp_template_name, language: s.whatsapp_template_language || 'ar', params: [msg.body], buttons: [] } : null;
       }
       const vars = { ...baseVars(msg), ...(meta.vars || {}), ...(secretVars || {}) };
+      // v9.1 b-site (B91-10): رقم الطلب REQ وحده يصل المستفيدة، حتى لو مرّر المُرسل كود الملف في متغيرات الرسالة
+      if (msg.client_id && vars.ref) for (const k of ['case_code', 'matter_code']) if (vars[k]) vars[k] = vars.ref;
+      // v9.1 b-site: رابط صفحتها يُصدر عند الإرسال فقط إن احتاجه القالب المربوط (نطاق الرقم نفسه)
+      if (!vars.portal_link && parseJson(found.mapping.params, []).includes('portal_link') && app.engine?.messageLink && msg.client_id) {
+        vars.portal_link = app.engine.messageLink(msg.client_id, msg.to_address);
+      }
       const params = parseJson(found.mapping.params, []).map((k) => vars[k] ?? '-');
       const buttons = [];
       parseJson(found.template.buttons, []).forEach((b, index) => {
@@ -590,33 +629,39 @@ export function createMessaging(app) {
       const caption = v.str(body.caption, 'النص المرافق', { max: 1000 });
       const phone = app.clients.primaryPhone(client.id);
       const inWindow = app.engine.inWindow(client.id);
+      // v9.1 b-site (B91-01): المستند لا يُرسل على واتساب لقصة رقمها غير مؤكد (يُتاح في صفحة المتابعة فقط)
+      const docCase = doc.case_id ? db.get('SELECT id, intake_id, matter_id FROM cases WHERE id = ?', doc.case_id) : null;
+      const docStory = { clientId: client.id, intakeId: doc.intake_id || docCase?.intake_id || null, caseId: docCase?.id ?? null, matterId: doc.matter_id || docCase?.matter_id || null };
+      const storyConfirmed = app.engine.isStoryConfirmed ? app.engine.isStoryConfirmed(docStory) : true;
       let channel;
       let note = null;
       if (requested === 'whatsapp') {
         if (!phone) throw badRequest('لا يوجد رقم واتساب مسجل لهذا العميل');
+        if (!storyConfirmed) throw badRequest('رقم هذا الطلب غير مؤكد. أكّدوا هوية المستفيد/ة أولًا ثم أعيدوا الإرسال.');
         if (!inWindow) {
           throw conflict('لا يسمح واتساب بإرسال المستندات إلا خلال 24 ساعة من آخر رسالة أرسلها العميل. أرسله عبر بوابة العملاء، أو اطلب من العميل مراسلتكم على واتساب ثم أعد الإرسال.');
         }
         channel = 'whatsapp';
       } else if (requested === 'website') {
         channel = 'website';
-      } else if (phone && inWindow) {
+      } else if (phone && inWindow && storyConfirmed) {
         channel = 'whatsapp';
       } else {
         channel = 'website';
-        note = phone
-          ? 'لم يُرسل المستند عبر واتساب لأن آخر رسالة من العميل مضى عليها أكثر من 24 ساعة؛ أُتيح له في بوابة العملاء. تأكد أن لديه رابط البوابة، أو يمكنه الدخول برقم هاتفه من صفحة «دخول بوابة العملاء».'
-          : 'لا يوجد رقم واتساب للعميل؛ أُتيح المستند في بوابة العملاء.';
+        note = !storyConfirmed && phone
+          ? 'رقم هذا الطلب غير مؤكد، فلم يُرسل المستند عبر واتساب؛ أُتيح في صفحة المتابعة فقط. أكّدوا هوية المستفيد/ة لتصلها المستندات على واتساب.'
+          : phone
+            ? 'لم يُرسل المستند عبر واتساب لأن آخر رسالة من العميل مضى عليها أكثر من 24 ساعة؛ أُتيح له في بوابة العملاء. تأكد أن لديه رابط البوابة، أو يمكنه الدخول برقم هاتفه من صفحة «دخول بوابة العملاء».'
+            : 'لا يوجد رقم واتساب للعميل؛ أُتيح المستند في بوابة العملاء.';
       }
       const caseRow = doc.case_id ? db.get('SELECT id, code, intake_id, matter_id FROM cases WHERE id = ?', doc.case_id) : null;
       const matter = doc.matter_id ? db.get('SELECT id, code, case_id FROM matters WHERE id = ?', doc.matter_id) : null;
-      const ref = caseRow?.code || matter?.code || null;
       const title = doc.title || doc.filename;
+      // v9.1 b-site (B91-10): كلام بسيط بلا أكواد الملفات الداخلية (INH-/MTR-)
+      const words = app.engine.clientWords ? app.engine.clientWords(docStory) : { form: 'f' };
       const text =
         caption ||
-        (channel === 'whatsapp'
-          ? `مرفق لكم المستند «${title}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}. — ${orgName()}`
-          : `أتحنا لكم المستند «${title}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحة متابعة طلبكم. — ${orgName()}`);
+        app.engine.fillClientText(channel === 'whatsapp' ? CLIENT_TEXTS.document_sent : CLIENT_TEXTS.document_fallback, { title, org_name: orgName() }, words.form);
       const msg = app.engine.sendToClient({
         client_id: client.id,
         intake_id: doc.intake_id || caseRow?.intake_id || null,
@@ -686,7 +731,7 @@ export function createMessaging(app) {
       if (last) {
         const wait = Math.ceil((Date.parse(last.created_at) + OTP_COOLDOWN_SECONDS * 1000 - Date.parse(nowIso())) / 1000);
         if (wait > 0) {
-          throw new ApiError(429, `يمكنك طلب رمز جديد بعد ${arabicCount(wait, SECONDS)}.`, 'otp_cooldown', { retry_after: wait });
+          throw new ApiError(429, `تقدري تطلبي كود جديد بعد ${arabicCount(wait, SECONDS)}.`, 'otp_cooldown', { retry_after: wait }); // v9.1 b-portal: كلام بسيط
         }
       }
       try {
@@ -719,11 +764,12 @@ export function createMessaging(app) {
         setImmediate(() => {
           try {
             const org = orgName();
-            const realText = `رمز الدخول إلى صفحة متابعة طلبك لدى ${org}: ${code}\nصالح لمدة ${OTP_TTL_MINUTES} دقائق. لا تشارك هذا الرمز مع أي شخص؛ لن يطلبه منك أحد من فريقنا.`;
+            // v9.1 b-site (B91-10): «كود دخول صفحتك عند …: 123456 — محدش من عندنا هيطلبه منك أبدًا.»
+            const realText = fillVars(CLIENT_TEXTS.otp, { org_name: org, code });
             // في وضع المحاكاة (خارج الإنتاج أو في النسخة التجريبية فقط) يُسجَّل الرمز في صندوق الصادر لتجربة الدخول؛
             // أما مع واتساب الحقيقي فلا يُحفظ الرمز في قاعدة البيانات أبدًا
             const simulationOk = !app.config?.production || !!app.config?.demo;
-            const stored = app.whatsapp.configured || !simulationOk ? `رمز الدخول إلى صفحة متابعة طلبك لدى ${org}: •••••• (أُرسل للمستفيد/ة فقط ولا يُحفظ)` : realText;
+            const stored = app.whatsapp.configured || !simulationOk ? `${fillVars(CLIENT_TEXTS.otp, { org_name: org, code: '••••••' })} (أُرسل للمستفيد/ة فقط ولا يُحفظ)` : realText;
             const hasTemplate = !!resolveMapping(['otp']);
             const msg = app.engine.record({
               client_id: client.id,
@@ -753,7 +799,8 @@ export function createMessaging(app) {
         challenge,
         expires_in: OTP_TTL_MINUTES * 60,
         resend_after: OTP_COOLDOWN_SECONDS,
-        message: 'إذا كان هذا الرقم مسجلًا لدينا فسيصلك خلال لحظات رمز من 6 أرقام عبر واتساب. أدخله هنا للدخول إلى صفحتك.',
+        // v9.1 b-portal (B91-06): لا وعد بوصول الكود «خلال لحظات» — نفس الرد حرفيًا للرقم المسجل وغير المسجل
+        message: 'لو رقمك متسجل عندنا، هيوصلك كود من 6 أرقام على واتساب خلال دقيقة.',
       };
     },
 
@@ -767,8 +814,8 @@ export function createMessaging(app) {
       }
       const challenge = typeof body.challenge === 'string' ? body.challenge.trim() : '';
       const code = latinDigits(String(body.code ?? '')).replace(/\D/g, '');
-      if (!/^\d{6}$/.test(code)) throw badRequest('أدخل الرمز المكون من 6 أرقام كما وصلك');
-      const INVALID = 'الرمز غير صحيح أو انتهت صلاحيته. يمكنك طلب رمز جديد.';
+      if (!/^\d{6}$/.test(code)) throw badRequest('اكتبي الكود اللي فيه 6 أرقام زي ما وصلك.');
+      const INVALID = 'الكود ده مش صح أو خلص وقته. اطلبي كود جديد.'; // v9.1 b-portal (B91-06)
       if (!challenge || challenge.length > 100) throw badRequest(INVALID);
       const challengeHash = sha256(challenge);
       const row = db.get('SELECT * FROM portal_otps WHERE challenge_hash = ?', challengeHash);
@@ -791,9 +838,10 @@ export function createMessaging(app) {
             : `رمز دخول بوابة غير صحيح للرقم ${maskPhone(row.phone)}`,
           data: { phone: maskPhone(row.phone), attempts },
         });
-        if (locked) throw badRequest('تجاوزت عدد المحاولات المسموح به لهذا الرمز. اطلب رمزًا جديدًا.', { attempts_left: 0 });
+        // v9.1 b-portal (B91-06): نفس المعنى بكلام بسيط
+        if (locked) throw badRequest('الكود ده اتقفل. اطلبي كود جديد.', { attempts_left: 0 });
         const left = OTP_MAX_ATTEMPTS - attempts;
-        throw badRequest(`الرمز غير صحيح. يتبقى لك ${arabicCount(left, ATTEMPTS_LEFT)}.`, { attempts_left: left });
+        throw badRequest(`الكود ده مش صح. فاضل ${arabicCount(left, ['محاولة واحدة', 'محاولتين', 'محاولات', 'محاولة'])}.`, { attempts_left: left });
       }
       const client = app.clients.get(row.client_id);
       if (!client) throw badRequest(INVALID);
@@ -844,7 +892,10 @@ export function createMessaging(app) {
             expires_at: addDays(sent, expireDays),
           });
           const org = orgName();
-          const body = fillVars(params.template, { case_code: r.code, org_name: org, client_name: client.name || '' }).replace(/\s{2,}/g, ' ').trim();
+          // v9.1 b-site (B91-10): «أهلًا يا أم محمد، يا ترى ردّنا فادك؟» بلا كود الملف، و{ي}/{ة} حسب صيغة المخاطبة
+          const words = app.engine.clientWords({ clientId: client.id, intakeId: r.intake_id, caseId: r.case_id, matterId: r.matter_id });
+          const fillW = (tpl, extra = {}) => app.engine.fillClientText(tpl, { case_code: words.ref || r.code, ref: words.ref, first_name: words.first_name, org_name: org, client_name: client.name || '', ...extra }, words.form);
+          const body = fillW(params.template).replace(/[ \t]{2,}/g, ' ').trim();
           const msg = app.engine.sendToClient({
             client_id: client.id,
             intake_id: r.intake_id,
@@ -853,16 +904,18 @@ export function createMessaging(app) {
             body,
             automated: true,
             rule: 'satisfaction_survey',
+            // v9.1 b-site (B91-01): رقم غير مؤكد ← الاستبيان في صفحة المتابعة فقط (لا يصل الرقم شيء)
+            unconfirmed: 'portal',
             meta: {
               survey_id: surveyId,
-              vars: { case_code: r.code, client_name: client.name || undefined },
+              vars: { case_code: words.ref || r.code, client_name: client.name || undefined, first_name: words.first_name || undefined, ref: words.ref || undefined },
               wa: {
                 type: 'buttons',
                 purpose: 'survey',
                 survey_id: surveyId,
-                text: `نرجو أن يكون ردنا في ملفكم رقم ${r.code} قد أفادكم. كيف تقيّمون خدمة ${org}؟`,
-                footer: 'يمكنكم أيضًا الرد برقم من 1 إلى 5',
-                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.title })),
+                text: fillW(CLIENT_TEXTS.survey_question),
+                footer: fillW(CLIENT_TEXTS.survey_footer),
+                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.rating === 1 ? (words.form === 'm' ? 'مش راضي' : 'مش راضية') : b.title })),
               },
             },
           });
@@ -993,10 +1046,10 @@ export function createMessaging(app) {
       const c = db.get('SELECT id, client_id, intake_id, matter_id FROM cases WHERE id = ?', outcome.case_id);
       if (!c) return null;
       const org = orgName();
-      let body;
-      if (outcome.type === 'comment') body = `شكرًا لتوضيحكم، وصلت ملاحظتكم إلى مسؤول الملف وسيتابعها معكم. — ${org}`;
-      else if (outcome.ask_comment) body = `نأسف لأن تجربتكم لم تكن كما تستحقون. نرجو أن تكتبوا لنا في رسالة واحدة ما الذي لم يعجبكم أو ما يمكننا تحسينه، وسيتواصل معكم مسؤول الملف. — ${org}`;
-      else body = `شكرًا جزيلًا على تقييمكم. يسعدنا أن نكون في خدمتكم دائمًا، ويمكنكم مراسلتنا في أي وقت. — ${org}`;
+      // v9.1 b-site (B91-10): شكر بكلام بسيط وصيغة المخاطبة الصحيحة
+      const words = app.engine.clientWords({ clientId: c.client_id, intakeId: c.intake_id, caseId: c.id, matterId: c.matter_id });
+      const tpl = outcome.type === 'comment' ? CLIENT_TEXTS.survey_comment_thanks : outcome.ask_comment ? CLIENT_TEXTS.survey_ask_comment : CLIENT_TEXTS.survey_thanks;
+      const body = app.engine.fillClientText(tpl, { first_name: words.first_name, org_name: org }, words.form);
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
         intake_id: c.intake_id,
@@ -1005,6 +1058,7 @@ export function createMessaging(app) {
         body,
         channel: outcome.channel === 'whatsapp' ? 'whatsapp' : 'website',
         automated: true,
+        unconfirmed: 'portal', // v9.1 b-site: رقم غير مؤكد ← صفحة المتابعة فقط
         rule: 'satisfaction_survey',
         meta: { survey_id: outcome.survey_id, survey_followup: outcome.type === 'comment' ? 'comment_thanks' : outcome.ask_comment ? 'ask_comment' : 'thanks' },
       });

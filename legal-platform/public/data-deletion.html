@@ -6,15 +6,11 @@
     <title>طلب حذف البيانات — {{site_name}}</title>
     <meta name="description" content="كيف تطلب حذف بياناتك الشخصية من برنامج {{program_name}} في {{org_legal_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة المقر، وما الذي يحدث بعد الطلب." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -28,6 +24,13 @@
             </ol>
           </nav>
           <h1 id="page-title">طلب حذف بياناتك</h1>
+          <div class="pub-summary" id="summary">
+            <h2>بالمختصر</h2>
+            <ul>
+              <li>{{{icon_check}}}<span>تقدري تطلبي نمسح بياناتك في أي وقت.</span></li>
+              <!--#if org_phone--><li>{{{icon_phone}}}<span>كلمينا على <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if whatsapp_deletion_url--> أو <a href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">ابعتيلنا على واتساب</a><!--/if whatsapp_deletion_url-->، وقولي اسمك ورقم طلبك لو معاكي.</span></li><!--/if org_phone-->
+            </ul>
+          </div>
           <p>
             من حقك أن تطلب حذف بياناتك الشخصية ومحادثاتك ومستنداتك المحفوظة لدى برنامج {{program_name}} في أي وقت، سواء تواصلت معنا عبر الموقع أو
             واتساب أو غيرهما.
@@ -36,9 +39,11 @@
         </div>
       </section>
 
+      <!-- B91-11: العنوان و«بالمختصر» مرسومان من الأنماط المضمّنة؛ الملف الكامل هنا فلا يؤخر أول رسم -->
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
       <div class="pub-container pub-doc-layout">
-        <details class="pub-toc" open>
-          <summary>محتويات الصفحة</summary>
+        <details class="pub-toc">
+          <summary><span>محتويات الصفحة</span><svg class="pub-icon pub-faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
           <ol>
             <li><a href="#how">كيف تطلب الحذف</a></li>
             <li><a href="#include">ما الذي تذكره في طلبك</a></li>
@@ -60,7 +65,7 @@
                 <div>
                   <strong>عبر واتساب</strong>
                   أرسل لنا رسالة بعبارة «طلب حذف بياناتي» من رقمك المسجل لدينا.
-                  <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">أرسل الطلب عبر واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
+                  <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">ابعتي الطلب على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
                 </div>
               </li>
               <!--/if whatsapp_deletion_url-->

@@ -127,7 +127,7 @@ if (isArchive) {
       if (e.type !== '0') continue;
       const parts = rel.split('/');
       if (parts.includes('..') || parts.some((p) => p === '' || p === '.')) throw new Error(`مسار غير آمن داخل الأرشيف: ${e.name}`);
-      const allowed = rel === 'manifest.json' || rel === 'README.txt' || rel === 'data/platform.db' || rel === 'data/.secret-key' || rel.startsWith('data/uploads/');
+      const allowed = rel === 'manifest.json' || rel === 'README.txt' || rel === 'data/platform.db' || rel === 'data/.secret-key' || rel === 'data/vapid.json' || rel.startsWith('data/uploads/');
       if (!allowed) throw new Error(`ملف غير متوقع داخل الأرشيف: ${rel}`);
       if (rel === 'manifest.json' || rel === 'README.txt') {
         const chunks = [];
@@ -180,6 +180,7 @@ if (isArchive) {
     db: path.join(dir, 'data/platform.db'),
     uploads: fs.existsSync(path.join(dir, 'data/uploads')) ? path.join(dir, 'data/uploads') : null,
     key: hashes['data/.secret-key'] ? path.join(dir, 'data/.secret-key') : null,
+    vapid: hashes['data/vapid.json'] ? path.join(dir, 'data/vapid.json') : null,
     manifest,
   };
   restoreDb = staged.db;
@@ -258,6 +259,12 @@ if (staged) {
     }
     fs.copyFileSync(staged.key, keyFile);
     fs.chmodSync(keyFile, 0o600);
+  }
+  if (staged.vapid) {
+    const vapidFile = path.join(dataDir, 'vapid.json');
+    if (fs.existsSync(vapidFile)) fs.renameSync(vapidFile, `${vapidFile}.before-restore-${stamp}`);
+    fs.copyFileSync(staged.vapid, vapidFile);
+    fs.chmodSync(vapidFile, 0o600);
   }
   fs.rmSync(staged.dir, { recursive: true, force: true });
 }

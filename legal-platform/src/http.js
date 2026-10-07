@@ -4,6 +4,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { ApiError, badRequest } from './util.js';
+// v9.1 b-site (B91-11): أرقام إصدار JS/CSS من محتوى الملف وكل ما يستورده، وإعادة كتابة الاستيرادات بأرقامها
+import { graphVersion, transformAsset, isGraphAsset, setPublicRoot } from './site-assets.js';
 
 // ───────── الضغط والتخزين المؤقت (للتشغيل المباشر أو على Render بلا وكيل يضغط الردود) ─────────
 // الملفات النصية تُرسل مضغوطة (gzip) لمن يقبلها، مع ETag للتحقق السريع (304)،
@@ -18,10 +20,29 @@ export function acceptsGzip(req) {
   return /\bgzip\b/i.test(String(req?.headers?.['accept-encoding'] || ''));
 }
 
+// v9.1 l-home (L-07): Brotli لمن يقبله (كل المتصفحات الحديثة) — أصغر من gzip بنحو 15–20٪ في JS/CSS/JSON العربية،
+// وهذا فرق محسوس على شبكة 3G بطيئة. الملفات الثابتة بأعلى جودة (تُضغط مرة وتُخزَّن)، والردود الديناميكية بجودة سريعة.
+export function acceptsBrotli(req) {
+  return /\bbr\b(?!\s*;\s*q=0(?:\.0+)?\s*(?:,|$))/i.test(String(req?.headers?.['accept-encoding'] || ''));
+}
+const BR_STATIC = { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT } };
+const BR_DYNAMIC = { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5, [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT } };
+const brCache = new Map(); // المسار أو المفتاح ← { key, br }
+function cachedBrotli(cacheKey, version, makeBody) {
+  const c = brCache.get(cacheKey);
+  if (c && c.key === version) return c.br;
+  const br = zlib.brotliCompressSync(makeBody(), BR_STATIC);
+  brCache.set(cacheKey, { key: version, br });
+  if (brCache.size > 500) brCache.delete(brCache.keys().next().value);
+  return br;
+}
+
 const statKey = (st) => `${st.size}-${Math.floor(st.mtimeMs)}`;
 
 /** رقم إصدار قصير لملف ثابت (يتغير مع أي تعديل في محتواه) — يُضاف للروابط كـ ?v=… */
 export function assetVersion(file) {
+  // v9.1 b-site: JS وCSS برقم يشمل كل ما يستوردانه (src/site-assets.js)
+  if (isGraphAsset(file)) return graphVersion(file);
   let st;
   try {
     st = fs.statSync(file);
@@ -56,12 +77,17 @@ function gzipFile(file, st) {
  * يرسل جسمًا نصيًا جاهزًا (JSON أو HTML) مضغوطًا إن قبله المتصفح وكان أكبر من 1 كيلوبايت.
  * يضبط Content-Length و Vary؛ ولا يكتب الجسم لطلبات HEAD.
  */
-export function sendBody(res, status, body, { req = res.req } = {}) {
+export function sendBody(res, status, body, { req = res.req, cacheKey = null } = {}) {
   let buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8');
   res.statusCode = status;
   if (buf.length >= MIN_COMPRESS_BYTES && buf.length <= MAX_COMPRESS_BYTES) {
     res.setHeader('Vary', 'Accept-Encoding');
-    if (acceptsGzip(req)) {
+    if (acceptsBrotli(req)) {
+      // cacheKey (اختياري، v9.1 l-home): جسم ثابت يتكرر (مثل ملفات CSS المجمّعة) يُضغط بأعلى جودة مرة واحدة
+      const src = buf;
+      buf = cacheKey ? cachedBrotli(`body:${cacheKey}`, crypto.createHash('sha1').update(src).digest('base64'), () => src) : zlib.brotliCompressSync(src, BR_DYNAMIC);
+      res.setHeader('Content-Encoding', 'br');
+    } else if (acceptsGzip(req)) {
       buf = zlib.gzipSync(buf, { level: 6 });
       res.setHeader('Content-Encoding', 'gzip');
     }
@@ -88,6 +114,21 @@ function sendStaticFile(req, res, file, st, cacheControl) {
     return true;
   }
   res.statusCode = 200;
+  if (compressible && acceptsBrotli(req)) {
+    let br;
+    try {
+      br = cachedBrotli(`file:${file}`, statKey(st), () => fs.readFileSync(file));
+    } catch {
+      br = null;
+    }
+    if (br) {
+      res.setHeader('Content-Encoding', 'br');
+      res.setHeader('Content-Length', br.length);
+      if (req.method === 'HEAD') res.end();
+      else res.end(br);
+      return true;
+    }
+  }
   if (compressible && acceptsGzip(req)) {
     let gz;
     try {
@@ -112,6 +153,43 @@ function sendStaticFile(req, res, file, st, cacheControl) {
   return true;
 }
 
+// v9.1 b-site: إرسال محتوى ملف ثابت بعد تحويله (JS/CSS بأرقام إصدار الاستيرادات): ETag من رقم الإصدار وضغط gzip مخزّن
+const gzBufCache = new Map(); // etag ← gz
+function sendStaticBuffer(req, res, file, body, cacheControl, etag) {
+  const ext = path.extname(file).toLowerCase();
+  res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+  res.setHeader('Cache-Control', cacheControl);
+  res.setHeader('ETag', etag);
+  const inm = String(req.headers['if-none-match'] || '');
+  if (inm && inm.split(',').some((x) => x.trim() === etag)) {
+    res.statusCode = 304;
+    res.end();
+    return true;
+  }
+  res.statusCode = 200;
+  let out = body;
+  if (body.length >= MIN_COMPRESS_BYTES && body.length <= MAX_COMPRESS_BYTES) {
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (acceptsBrotli(req)) {
+      out = cachedBrotli(`buf:${file}`, etag, () => body);
+      res.setHeader('Content-Encoding', 'br');
+    } else if (acceptsGzip(req)) {
+      const key = `${file}|${etag}`;
+      out = gzBufCache.get(key);
+      if (!out) {
+        out = zlib.gzipSync(body, { level: 9 });
+        gzBufCache.set(key, out);
+        if (gzBufCache.size > 500) gzBufCache.delete(gzBufCache.keys().next().value);
+      }
+      res.setHeader('Content-Encoding', 'gzip');
+    }
+  }
+  res.setHeader('Content-Length', out.length);
+  if (req.method === 'HEAD') res.end();
+  else res.end(out);
+  return true;
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -132,8 +210,9 @@ const MIME = {
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com data:",
+  // v9.1 l-home (L-07): كل الصفحات تستخدم خطًا مستضافًا ذاتيًا — لا مصادر أنماط أو خطوط من Google
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
   "img-src 'self' data: blob:",
   "connect-src 'self'",
   "frame-ancestors 'none'",
@@ -142,12 +221,36 @@ const CSP = [
   "object-src 'none'",
 ].join('; ');
 
-export function securityHeaders(res) {
-  res.setHeader('Content-Security-Policy', CSP);
+// v9.1 b-forms: الرسالة الصوتية تحتاج الميكروفون وتشغيل التسجيل من blob: — في صفحتي نموذج الطلب والمتابعة فقط
+const CAPTURE_PAGE_RE = /^\/(?:intake\/?$|p\/)/;
+/** هل المسار صفحة تسجّل فيها المستفيدة رسالة صوتية (/intake و/p/<رمز>)؟ */
+export function isCapturePage(pathname) {
+  return CAPTURE_PAGE_RE.test(String(pathname || ''));
+}
+
+// v9.1 l-home (L-07): منصة الإدارة والمحامين (/app) بلا مصادر خطوط أو أنماط من Google — صارت السياسة العامة نفسها بعد
+// انتقال الموقع العام (b-site) وصفحة /setup إلى الخط المستضاف ذاتيًا؛ يبقى الاسم للتوافق.
+export const CSP_APP = CSP;
+const APP_PAGE_RE = /^\/app\/?$/;
+
+// v9.1 b-forms: المسار كما يقرؤه الموجّه (new URL يحل /p/../app إلى /app) حتى لا تصل صلاحية الميكروفون لصفحة أخرى بمسار ملتف
+function requestPathname(res) {
+  const raw = String(res?.req?.url || '');
+  try {
+    return new URL(raw, 'http://localhost').pathname;
+  } catch {
+    return raw.split('?')[0];
+  }
+}
+
+export function securityHeaders(res, pathname = requestPathname(res)) {
+  const capture = isCapturePage(pathname);
+  const base = APP_PAGE_RE.test(String(pathname || '')) ? CSP_APP : CSP;
+  res.setHeader('Content-Security-Policy', capture ? `${base}; media-src 'self' blob:` : base);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', capture ? 'camera=(), microphone=(self), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 }
 
@@ -326,6 +429,12 @@ export function serveStatic(req, res, publicDir, pathname, { fallbackFile } = {}
     const q = String(req.url || '').split('?')[1] || '';
     const v = new URLSearchParams(q).get('v');
     if (v && v === assetVersion(file)) cache = 'public, max-age=31536000, immutable';
+    // v9.1 b-site: ملف JS/CSS مطلوب برقم إصدار: استيراداته وروابطه تُعاد بأرقام إصدارها فيُخزَّن الرسم كله
+    if (v && isGraphAsset(file)) {
+      setPublicRoot(publicDir);
+      const body = transformAsset(file);
+      if (body) return sendStaticBuffer(req, res, file, body, cache, `W/"g-${assetVersion(file)}"`);
+    }
   }
   return sendStaticFile(req, res, file, st, cache);
 }

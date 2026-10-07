@@ -15,6 +15,7 @@ import {
   DEFAULT_MODEL, REPLY_TONES, DOC_TYPES, FACT_KINDS, FLAG_KINDS, MODEL_PRICES,
 } from './anthropic.js';
 import { buildIndex, similarityRatio, tokens } from './text.js';
+import { factsText } from '../channels/engine.js'; // v9.1 fixes: رسالة تأكيد الرقم ليست من وقائع الطلب
 
 // مسميات أحداث الأمان الخاصة بالذكاء الاصطناعي تُضاف لمسميات سجل الأمان (مثل وحدة الرسائل)
 if (LABELS.security_event && LABELS.ai_security_event) {
@@ -273,7 +274,7 @@ export function createAi(app) {
     const docs = db
       .all(
         `SELECT c.id, c.code, c.title, c.legal_area, c.status, c.outcome, c.facts_shared, c.facts_internal, i.summary AS intake_summary,
-           (SELECT substr(group_concat(m.body, ' '), 1, 3000) FROM messages m WHERE m.intake_id = c.intake_id AND m.direction = 'in') AS client_text
+           (SELECT substr(group_concat(m.body, ' '), 1, 3000) FROM messages m WHERE m.intake_id = c.intake_id AND m.direction = 'in' AND json_extract(m.meta, '$.identity_confirm') IS NULL) AS client_text
          FROM cases c LEFT JOIN intakes i ON i.id = c.intake_id`,
       )
       .map((r) => ({
@@ -387,10 +388,12 @@ export function createAi(app) {
     // الرسائل الصادرة التي فشل إرسالها لم تصل للمستفيد، فلا تدخل في سياق الرد
     return db
       .all(
-        `SELECT * FROM (SELECT id, direction, body, automated, created_at FROM messages
+        `SELECT * FROM (SELECT id, direction, body, automated, created_at, meta FROM messages
          WHERE (${where}) AND NOT (direction = 'out' AND status = 'failed') ORDER BY id DESC LIMIT 20) ORDER BY id`,
         ...params,
       )
+      // (v9.1 fixes: رسالة تأكيد الرقم بلا رقم الطلب والكود)
+      .map((m) => (m.direction === 'in' ? { ...m, body: factsText(m.body, m.meta) } : m))
       .filter((m) => String(m.body || '').trim())
       .map((m) => ({
         from: m.direction === 'in' ? 'المستفيد' : m.automated ? 'رسالة آلية من المؤسسة' : 'فريق المؤسسة',
@@ -438,7 +441,7 @@ export function createAi(app) {
       // قائمة النواقص بحسب مجال الملف المعتمد من الإدارة (قد يختلف عن تصنيف الفرز الآلي)
       let missing = (an?.missing_info || []).map((m) => (typeof m === 'string' ? { item: m, kind: 'information' } : m));
       if (!an || an.legal_area !== c.legal_area) {
-        const inbound = db.all("SELECT body FROM messages WHERE (case_id = ? OR (? IS NOT NULL AND intake_id = ?)) AND direction = 'in' ORDER BY id", c.id, c.intake_id, c.intake_id).map((m) => m.body);
+        const inbound = db.all("SELECT body, meta FROM messages WHERE (case_id = ? OR (? IS NOT NULL AND intake_id = ?)) AND direction = 'in' ORDER BY id", c.id, c.intake_id, c.intake_id).map((m) => factsText(m.body, m.meta));
         const gov = db.value('SELECT governorate FROM clients WHERE id = ?', c.client_id);
         missing = H.missingInfoFor(c.legal_area, [c.title, c.facts_shared, ...inbound].filter(Boolean).join('\n'), { governorate: gov || 'معروفة' });
       }
@@ -783,9 +786,13 @@ export function createAi(app) {
     async analyzeIntake(intakeId, actor = null) {
       const intake = db.get('SELECT * FROM intakes WHERE id = ?', intakeId);
       if (!intake) throw notFound('الطلب غير موجود');
-      const msgs = db.all("SELECT body FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id", intakeId);
+      // v9.1 fixes: رسالة تأكيد الرقم الجاهزة (رقم الطلب + كود التأكيد) تُحذف من النص فلا تصير «وقائع» تصل المحامين
+      const msgs = db.all("SELECT body, meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id", intakeId);
       const docs = db.all('SELECT filename FROM documents WHERE intake_id = ?', intakeId);
-      let text = msgs.map((m) => m.body).join('\n');
+      let text = msgs
+        .map((m) => factsText(m.body, m.meta))
+        .filter((s) => s.trim())
+        .join('\n');
       if (docs.length) text += `\n[مرفقات مرسلة: ${docs.map((d) => d.filename).join('، ')}]`;
       const ctx = { governorate: intake.governorate };
       const result = await run('analyzeIntake', { text, governorate: intake.governorate }, () => H.analyzeIntake(text, ctx), {
@@ -909,6 +916,13 @@ export function createAi(app) {
         () => ({ text: H.clientVersion(args) }),
         { feature: 'client_version', entity_type: 'case', entity_id: caseId, user_id: actor?.id ?? null },
       );
+      // v9.1 b-portal (B91-08): «الخلاصة بكلام بسيط» و«الخطوات» مقترحتان دائمًا (من Claude، وإلا من المحلل المحلي
+      // بخطوات المحامي المقترحة للمستفيد/ة إن وُجدت)؛ تراجعها الإدارة قبل الحفظ
+      if (result.output && (!result.output.summary || !result.output.steps?.length)) {
+        const local = H.clientSummary({ opinion: op.body, clientSteps: op.client_steps });
+        result.output.summary = result.output.summary || local.summary;
+        result.output.steps = result.output.steps?.length ? result.output.steps : local.steps;
+      }
       if (result.provider === 'anthropic' && sources.length) {
         // للإدارة فقط: ما استُرشد به (لا يدخل في نص الرسالة الموجهة للمستفيد)
         result.output.sources = sources.map((s) => ({ ref: s.ref, title: s.title }));

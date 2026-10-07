@@ -1,29 +1,75 @@
 /* ==========================================================================
-   الموقع العام — برنامج الدعم القانوني، مؤسسة بيوت مصر (الإصدار 9 — وحدة site)
-   دافئ وموثوق وكريم، خط كبير وتباين عالٍ، ويعمل من 360px حتى الشاشات العريضة.
-   يُحمّل بعد app.css ويستخدم نفس ألوان المنصة (الأزرق المخضر والذهبي).
+   الموقع العام — برنامج الدعم القانوني، مؤسسة بيوت مصر (الإصدار 9.1 — مسار b-site)
+   صفحات المستفيدين: الرئيسية وعن البرنامج والسياسات (وتكمل صفحتي الطلب والمتابعة).
+   يعمل وحده دون app.css (الصفحة الرئيسية والسياسات لا تحمّل مكتبة المنصة)، ومع app.css في صفحات الطلب والمتابعة.
+   نظام الأحجام (B91-12) تحت body.pub.v91: نص 18px، لا شيء أقل من 15px، أزرار 48px والزر الأساسي 56px.
    ========================================================================== */
 
+/* @critical-start — من هنا حتى @critical-end يُضمَّن في <head> الصفحة الرئيسية (B91-11) فيظهر أول ما تراه دون انتظار هذا الملف */
+
+/* خط IBM Plex Sans Arabic مستضاف محليًا (رخصة SIL OFL — /assets/fonts/OFL.txt): العربية فقط، وزنان */
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/plex-arabic-400.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/fonts/plex-arabic-700.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
 :root {
-  --pub-font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
-  --pub-font-head: "Noto Kufi Arabic", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --pub-font: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, sans-serif;
+  --pub-font-head: var(--pub-font);
   --pub-ink: #142129;
   --pub-ink-soft: #3f4f5c;
   --pub-cream: #fbf8f2;
   --pub-cream-2: #f5efe2;
   --pub-line: #e6dfd0;
-  --pub-teal: var(--primary-700, #0f4c5c);
-  --pub-teal-deep: var(--primary-900, #082a33);
-  --pub-gold: var(--accent-500, #b8862e);
-  --pub-gold-soft: var(--accent-300, #dcbd84);
+  --pub-teal: #0f4c5c;
+  --pub-teal-deep: #082a33;
+  --pub-gold: #b8862e;
+  --pub-gold-soft: #dcbd84;
+  --pub-ok: #1d7a46;
+  --pub-warn: #9a5b00;
+  --pub-warn-bg: #fff8ea;
+  --pub-danger: #b42318;
+  --pub-whatsapp: #0e7a55;
   --pub-radius: 18px;
   --pub-container: 1160px;
   --pub-gutter: 24px;
-  --pub-header-h: 72px;
+  --pub-header-h: 64px;
+  /* نظام الأحجام (B91-12) */
+  --text: 18px;
+  --text-small: 16px;
+  --text-meta: 15px;
+  --tap-primary: 56px;
+  --tap: 48px;
+  --input-h: 52px;
+  --row-h: 56px;
+  --bar-h: 64px;
   --pub-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.06' stroke-width='1.5'%3E%3Cpath d='M40 4 76 40 40 76 4 40Z'/%3E%3Cpath d='M40 20 60 40 40 60 20 40Z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
+/* ───────────── أساسيات (الصفحات التي لا تحمّل app.css) ───────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--pub-header-h) + 12px);
 }
@@ -32,9 +78,20 @@ html {
   html {
     scroll-behavior: auto;
   }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body.pub {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: var(--pub-font);
   font-size: 17px;
   line-height: 1.85;
@@ -43,10 +100,36 @@ body.pub {
   overflow-x: clip;
 }
 
+body.pub main {
+  flex: 1 0 auto;
+}
+
+body.pub.v91 {
+  font-size: var(--text);
+  line-height: 1.7;
+}
+
+body.pub img,
+body.pub svg {
+  max-width: 100%;
+}
+
+body.pub button,
+body.pub input,
+body.pub select,
+body.pub textarea {
+  font: inherit;
+}
+
+body.pub [hidden] {
+  display: none !important;
+}
+
 body.pub h1,
 body.pub h2,
 body.pub h3 {
   font-family: var(--pub-font-head);
+  font-weight: 700;
   color: var(--pub-ink);
   line-height: 1.5;
   margin: 0;
@@ -57,13 +140,14 @@ body.pub p {
   margin: 0;
 }
 
-/* الروابط النصية فقط (:where لا يرفع الأولوية)؛ الأزرار (.btn من مكتبة المكونات و.pub-btn) تحتفظ بألوانها */
-body.pub a:where(:not(.btn):not(.pub-btn):not(.skip-link)) {
-  color: var(--primary-600, #145d6f);
+/* الروابط النصية فقط (:where لا يرفع الأولوية)؛ الأزرار (.btn من مكتبة المكونات و.pub-btn وأزرار صفحة المتابعة .bp-btn
+   وصفوفها .bp-row) تحتفظ بألوانها — وإلا صار «افتحي صفحة طلبك» و«واتساب» نصًا تركوازيًا على خلفية تركوازية/خضراء */
+body.pub a:where(:not(.btn):not(.pub-btn):not(.bp-btn):not(.bp-row):not(.skip-link):not(.pub-tile-link)) {
+  color: #145d6f;
   text-underline-offset: 3px;
 }
 
-body.pub a:where(:not(.btn):not(.pub-btn):not(.skip-link)):hover {
+body.pub a:where(:not(.btn):not(.pub-btn):not(.bp-btn):not(.bp-row):not(.skip-link):not(.pub-tile-link)):hover {
   color: var(--pub-teal);
 }
 
@@ -71,6 +155,24 @@ body.pub :focus-visible {
   outline: 3px solid var(--pub-gold);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+body.pub .skip-link {
+  position: fixed;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  z-index: 200;
+  transform: translateY(-200%);
+  background: var(--pub-gold);
+  color: var(--pub-teal-deep);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+body.pub .skip-link:focus {
+  transform: none;
 }
 
 .pub-sr {
@@ -115,17 +217,17 @@ body.pub :focus-visible {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 48px;
+  min-height: var(--tap);
   padding: 10px 22px;
   border-radius: 14px;
   border: 2px solid transparent;
   font: inherit;
   font-weight: 700;
-  font-size: 16.5px;
-  line-height: 1.4;
+  font-size: 17px;
+  line-height: 1.35;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   text-align: center;
 }
 
@@ -133,15 +235,17 @@ body.pub a.pub-btn {
   text-decoration: none;
 }
 
-.pub-btn:active {
-  transform: translateY(1px);
+.pub-btn-lg,
+.pub-btn-primary {
+  min-height: var(--tap-primary);
+  padding: 12px 28px;
+  font-size: 19px;
+  border-radius: 16px;
 }
 
-.pub-btn-lg {
-  min-height: 56px;
-  padding: 12px 28px;
-  font-size: 17.5px;
-  border-radius: 16px;
+/* الزر الأساسي: عرض كامل على الهاتف */
+.pub-btn-primary {
+  width: 100%;
 }
 
 body.pub .pub-btn-gold {
@@ -160,42 +264,42 @@ body.pub .pub-btn-teal {
 }
 
 body.pub .pub-btn-teal:hover {
-  background: var(--primary-800, #0b3a46);
+  background: #0b3a46;
   color: #fff;
 }
 
 body.pub .pub-btn-whatsapp {
-  background: var(--whatsapp, #0e7a55);
+  background: var(--pub-whatsapp);
   color: #fff;
 }
 
 body.pub .pub-btn-whatsapp:hover {
-  background: var(--whatsapp-dark, #0a6345);
+  background: #0a6345;
   color: #fff;
 }
 
 body.pub .pub-btn-outline {
-  background: transparent;
+  background: #fff;
   color: var(--pub-teal);
-  border-color: var(--primary-200, #b9d7de);
+  border-color: var(--pub-teal);
 }
 
 body.pub .pub-btn-outline:hover {
-  border-color: var(--pub-teal);
   color: var(--pub-teal);
-  background: var(--primary-50, #eef6f7);
+  background: #eef6f7;
 }
 
-body.pub .pub-btn-light {
-  background: rgba(255, 255, 255, 0.08);
+body.pub .pub-btn-light,
+body.pub .pub-btn-call {
+  background: transparent;
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 
-body.pub .pub-btn-light:hover {
-  background: rgba(255, 255, 255, 0.16);
+body.pub .pub-btn-light:hover,
+body.pub .pub-btn-call:hover {
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .pub-cta-row {
@@ -210,8 +314,7 @@ body.pub .pub-btn-light:hover {
   position: sticky;
   inset-block-start: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: saturate(1.4) blur(10px);
+  background: rgba(255, 255, 255, 0.97);
   border-block-end: 1px solid var(--pub-line);
 }
 
@@ -225,23 +328,23 @@ body.pub .pub-btn-light:hover {
 body.pub .pub-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
+  min-height: var(--tap);
   text-decoration: none;
   color: var(--pub-ink);
   margin-inline-end: auto;
 }
 
 .pub-logo {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--pub-teal);
   color: var(--pub-gold-soft);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .pub-brand-text {
@@ -252,14 +355,13 @@ body.pub .pub-brand {
 }
 
 .pub-brand-text strong {
-  font-family: var(--pub-font-head);
   font-size: 17px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .pub-brand-text span {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--pub-ink-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -276,19 +378,19 @@ body.pub .pub-nav-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 6px 12px;
   border-radius: 10px;
   color: var(--pub-ink);
-  font-weight: 600;
-  font-size: 15.5px;
+  font-weight: 700;
+  font-size: 16px;
   text-decoration: none;
   white-space: nowrap;
 }
 
 body.pub .pub-nav-link:hover,
 body.pub .pub-nav-link[aria-current="page"] {
-  background: var(--primary-50, #eef6f7);
+  background: #eef6f7;
   color: var(--pub-teal);
 }
 
@@ -298,15 +400,14 @@ body.pub .pub-nav-portal {
 
 .pub-nav-cta {
   margin-inline-start: 8px;
-  min-height: 46px;
   padding-inline: 18px;
-  font-size: 15.5px;
+  font-size: 16px;
 }
 
 .pub-menu-toggle {
   display: none;
-  width: 48px;
-  height: 48px;
+  width: var(--tap);
+  height: var(--tap);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -355,59 +456,46 @@ body.pub .pub-nav-portal {
   }
 
   body.pub .pub-nav-link {
-    min-height: 50px;
-    font-size: 17px;
+    min-height: var(--row-h);
+    font-size: 18px;
     padding-inline: 14px;
   }
 
   .pub-nav-cta {
     margin: 8px 0 0;
-    min-height: 54px;
-    font-size: 17px;
+    min-height: var(--tap-primary);
+    font-size: 18px;
   }
 }
 
-/* ───────────── البطل ───────────── */
+/* ───────────── البطل (الصفحة الرئيسية — B91-07) ───────────── */
 
 .pub-hero {
   position: relative;
   color: #fff;
   background:
     var(--pub-pattern),
-    radial-gradient(circle at 8% 92%, rgba(184, 134, 46, 0.32), transparent 42%),
-    radial-gradient(circle at 92% 6%, rgba(127, 179, 192, 0.2), transparent 40%),
+    radial-gradient(circle at 8% 92%, rgba(184, 134, 46, 0.3), transparent 42%),
     linear-gradient(165deg, var(--pub-teal) 0%, var(--pub-teal-deep) 100%);
   overflow: hidden;
 }
 
 .pub-hero-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 48px;
   align-items: center;
-  padding-block: 72px 84px;
+  padding-block: 56px 64px;
 }
 
-.pub-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 14.5px;
-  font-weight: 600;
-  line-height: 1.5;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--pub-gold-soft);
+.pub-hero-main {
+  max-width: 640px;
 }
 
 body.pub .pub-hero h1 {
   color: #fff;
-  font-size: clamp(32px, 5.4vw, 54px);
-  font-weight: 800;
-  line-height: 1.4;
-  margin-block: 20px 16px;
+  font-size: clamp(26px, 4.6vw, 46px);
+  line-height: 1.45;
 }
 
 .pub-hero h1 em {
@@ -415,95 +503,183 @@ body.pub .pub-hero h1 {
   color: var(--pub-gold-soft);
 }
 
-.pub-hero-lead {
-  font-size: clamp(17.5px, 2.1vw, 20px);
-  color: rgba(255, 255, 255, 0.9);
-  max-width: 620px;
+.pub-hero-sub {
+  margin-block-start: 8px !important;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.pub-hero .pub-cta-row {
-  margin-block-start: 32px;
-}
-
-.pub-hero-note {
-  margin-block-start: 18px;
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.78);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-}
-
-body.pub .pub-hero-note a {
-  color: #fff;
-  font-weight: 600;
-}
-
-.pub-hero-card {
-  position: relative;
-  padding: 28px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(4px);
-}
-
-.pub-hero-card h2 {
-  font-size: 19px;
-  color: #fff !important;
-  margin-block-end: 14px !important;
-}
-
-.pub-check-list {
+.pub-hero-checks {
   list-style: none;
-  margin: 0;
+  margin: 12px 0 16px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  font-size: 17px;
+  line-height: 1.5;
 }
 
-.pub-check-list li {
+.pub-hero-checks li {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
 }
 
-.pub-check-list .pub-icon {
-  margin-block-start: 4px;
+.pub-hero-checks .pub-icon {
+  margin-block-start: 2px;
   color: var(--pub-gold-soft);
 }
 
-.pub-hero-card .pub-check-list li {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 16px;
+.pub-hero-checks b {
+  color: #fff;
 }
 
-.pub-hero-card .pub-check-list small {
-  display: block;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-}
-
-.pub-hero-reg {
-  display: flex;
+.pub-contact-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
-  margin-block-start: 20px;
-  padding-block-start: 18px;
-  border-block-start: 1px solid rgba(255, 255, 255, 0.16);
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
+  margin-block-start: 12px;
 }
 
-.pub-hero-reg .pub-icon {
-  color: var(--pub-gold-soft);
+.pub-contact-buttons.is-single {
+  grid-template-columns: minmax(0, 1fr);
 }
+
+.pub-contact-buttons .pub-btn {
+  min-height: 52px;
+  font-size: 17px;
+  padding-inline: 12px;
+}
+
+.pub-hero-hours {
+  margin-block-start: 10px !important;
+  font-size: var(--text-meta);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pub-hero-art {
+  display: grid;
+  place-items: center;
+  color: var(--pub-gold-soft);
+  opacity: 0.9;
+}
+
+.pub-hero-art .pub-mark-svg {
+  width: min(280px, 100%);
+  height: auto;
+}
+
+/* بطاقة «قدّمتي طلب قبل كده؟» وبطاقة «عندك طلب عندنا» (صفحة محفوظة على الموبايل — B91-06) */
+.pub-returning-wrap {
+  padding-block: 14px 0;
+}
+
+body.pub .pub-returning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--row-h);
+  padding: 12px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--pub-line);
+  background: var(--pub-cream);
+  color: var(--pub-ink);
+  text-decoration: none;
+  font-size: 17px;
+}
+
+body.pub .pub-returning strong {
+  color: var(--pub-teal);
+}
+
+body.pub .pub-returning .pub-icon {
+  color: var(--pub-teal);
+}
+
+.pub-saved {
+  margin-block: 4px 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--pub-warn-bg);
+  border: 2px solid var(--pub-gold);
+  color: var(--pub-ink);
+}
+
+body.pub .pub-saved h2 {
+  font-size: 19px;
+  color: var(--pub-ink);
+  margin-block-end: 8px;
+}
+
+.pub-saved .pub-btn {
+  width: 100%;
+}
+
+body.pub .pub-saved-forget {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  margin-block-start: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #145d6f;
+  font-size: var(--text-meta);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* الشاشة الأولى على الموبايل */
+@media (max-width: 900px) {
+  .pub-hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-block: 36px 40px;
+  }
+
+  .pub-hero-art {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --pub-gutter: 16px;
+    --pub-header-h: 56px;
+  }
+
+  .pub-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .pub-brand-text span {
+    display: none;
+  }
+
+  .pub-hero-inner {
+    padding-block: 20px 24px;
+  }
+
+  body.pub .pub-hero h1 {
+    font-size: 26px;
+    line-height: 1.4;
+  }
+
+  .pub-hero-sub {
+    font-size: 17px;
+  }
+}
+
+/* @critical-end */
 
 /* ───────────── الأقسام ───────────── */
 
 .pub-section {
-  padding-block: 80px;
+  padding-block: 72px;
 }
 
 .pub-section-cream {
@@ -513,7 +689,7 @@ body.pub .pub-hero-note a {
 
 .pub-section-head {
   max-width: 720px;
-  margin-block-end: 40px;
+  margin-block-end: 28px;
 }
 
 .pub-section-head.is-center {
@@ -525,229 +701,144 @@ body.pub .pub-hero-note a {
   display: inline-block;
   font-weight: 700;
   font-size: 15px;
-  color: var(--accent-700, #7a5518);
+  color: #7a5518;
   margin-block-end: 8px;
 }
 
-body.pub .pub-section-head h2 {
-  font-size: clamp(25px, 3.4vw, 34px);
-  font-weight: 700;
+body.pub .pub-section-head h2,
+body.pub .pub-h2 {
+  font-size: clamp(24px, 3.2vw, 32px);
 }
 
 .pub-section-head p {
-  margin-block-start: 12px;
+  margin-block-start: 10px;
   font-size: 18px;
   color: var(--pub-ink-soft);
 }
 
-/* من نخدم */
-.pub-audience {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.pub-audience li {
-  padding: 28px 24px;
-  border-radius: var(--pub-radius);
-  background: #fff;
-  border: 1px solid var(--pub-line);
-  box-shadow: 0 1px 2px rgba(20, 33, 41, 0.04);
-}
-
-.pub-audience .pub-tile {
-  margin-block-end: 16px;
-}
-
-body.pub .pub-audience h3 {
-  font-size: 19px;
-  margin-block-end: 6px;
-}
-
-.pub-audience p {
-  color: var(--pub-ink-soft);
-  font-size: 16px;
-}
-
-.pub-tile {
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--accent-50, #fbf7ee);
-  color: var(--accent-700, #7a5518);
-  border: 1px solid var(--accent-100, #f6ecd8);
-}
-
-.pub-audience-note {
-  margin-block-start: 22px;
-  font-size: 16px;
-  color: var(--pub-ink-soft);
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.pub-audience-note .pub-icon {
-  color: var(--pub-teal);
-  margin-block-start: 4px;
-}
-
-/* مجالات الخدمة */
+/* «بنساعد في إيه؟»: مربعات كلها روابط */
 .pub-services {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .pub-service {
   display: flex;
-  flex-direction: column;
-  padding: 24px 22px;
-  border-radius: var(--pub-radius);
-  background: #fff;
-  border: 1px solid var(--pub-line);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.pub-service:hover {
-  border-color: var(--primary-300, #7fb3c0);
-  box-shadow: 0 10px 28px rgba(8, 42, 51, 0.08);
+body.pub .pub-tile-link {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: var(--row-h);
+  padding: 16px;
+  border-radius: var(--pub-radius);
+  background: #fff;
+  border: 2px solid var(--pub-line);
+  color: var(--pub-ink);
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.pub .pub-tile-link:hover {
+  border-color: var(--pub-teal);
+  box-shadow: 0 8px 20px rgba(8, 42, 51, 0.08);
 }
 
 .pub-service-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   display: grid;
   place-items: center;
-  background: var(--primary-50, #eef6f7);
+  background: #eef6f7;
   color: var(--pub-teal);
-  margin-block-end: 16px;
 }
 
-body.pub .pub-service h3 {
+.pub-tile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pub-tile-text strong {
   font-size: 18px;
-  margin-block-end: 8px;
-}
-
-.pub-service p {
-  color: var(--pub-ink-soft);
-  font-size: 15.5px;
-  flex: 1 1 auto;
-}
-
-body.pub .pub-service-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-block-start: 16px;
-  min-height: 44px;
-  font-weight: 700;
-  font-size: 15.5px;
   color: var(--pub-teal);
-  text-decoration: none;
 }
 
-body.pub .pub-service-link:hover {
-  text-decoration: underline;
+.pub-tile-text span {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--pub-ink-soft);
 }
 
-/* الخطوات */
-.pub-steps {
+/* «إزاي بنشتغل؟»: 3 صفوف مرقّمة (نص فقط، لا شيء يشبه الأزرار) */
+.pub-how {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
-  position: relative;
+  gap: 16px;
 }
 
-.pub-step {
-  position: relative;
-  padding: 30px 26px 28px;
-  border-radius: var(--pub-radius);
-  background: #fff;
-  border: 1px solid var(--pub-line);
+.pub-how li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
 }
 
-.pub-step-num {
-  width: 52px;
-  height: 52px;
+.pub-how-num {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-family: var(--pub-font-head);
-  font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
+  font-size: 18px;
   color: var(--pub-teal-deep);
   background: var(--pub-gold-soft);
-  border: 4px solid #fff;
-  box-shadow: 0 0 0 1px var(--pub-line);
-  margin-block-end: 16px;
 }
 
-body.pub .pub-step h3 {
-  font-size: 19px;
-  margin-block-end: 8px;
+.pub-how strong {
+  display: block;
+  font-size: 18px;
 }
 
-.pub-step p {
+.pub-how span {
   color: var(--pub-ink-soft);
-  font-size: 16px;
 }
 
-.pub-step-channels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-block-start: 14px;
-}
-
-.pub-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  background: var(--primary-50, #eef6f7);
-  color: var(--pub-teal);
-  border: 1px solid var(--primary-100, #dcecef);
-}
-
-/* الاستحقاق والمجانية */
+/* «هل الخدمة بفلوس؟» و«بياناتك في أمان» */
 .pub-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: 20px;
   align-items: stretch;
 }
 
 .pub-panel {
-  padding: 32px 28px;
+  padding: 28px 26px;
   border-radius: 22px;
   background: #fff;
   border: 1px solid var(--pub-line);
 }
 
 .pub-panel-gold {
-  background: linear-gradient(160deg, var(--accent-50, #fbf7ee), #fff 70%);
-  border-color: var(--accent-100, #f6ecd8);
+  background: linear-gradient(160deg, #fbf7ee, #fff 70%);
+  border-color: #f6ecd8;
 }
 
+body.pub .pub-panel h2,
 body.pub .pub-panel h3 {
-  font-size: 21px;
-  margin-block: 12px 10px;
+  font-size: 22px;
+  margin-block: 10px 10px;
 }
 
 .pub-panel p + p {
@@ -755,116 +846,72 @@ body.pub .pub-panel h3 {
 }
 
 .pub-panel p {
-  color: var(--pub-ink-soft);
-}
-
-.pub-panel .pub-check-list {
-  margin-block-start: 6px;
-}
-
-.pub-panel .pub-check-list li {
   color: var(--pub-ink);
-  font-size: 16.5px;
 }
 
-.pub-panel .pub-check-list .pub-icon {
-  color: var(--success-700, #1c6a39);
-}
-
-.pub-panel .pub-check-list.is-neutral .pub-icon {
-  color: var(--accent-700, #7a5518);
-}
-
-/* الخصوصية */
-.pub-privacy {
-  color: #fff;
-  background: var(--pub-pattern), linear-gradient(160deg, var(--pub-teal), var(--pub-teal-deep));
-  border-radius: 28px;
-  padding: 48px 44px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 40px;
-  align-items: center;
-}
-
-body.pub .pub-privacy h2 {
-  color: #fff;
-  font-size: clamp(24px, 3vw, 32px);
-  margin-block: 14px 12px;
-}
-
-.pub-privacy > div > p {
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 17.5px;
-}
-
-body.pub .pub-privacy a {
-  color: #fff;
-  font-weight: 700;
-}
-
-.pub-privacy-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--pub-gold-soft);
-}
-
-.pub-privacy-points {
+.pub-check-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 14px;
-}
-
-.pub-privacy-points li {
   display: flex;
-  gap: 14px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pub-check-list li {
+  display: flex;
+  gap: 12px;
   align-items: flex-start;
-  padding: 16px 18px;
+}
+
+.pub-check-list .pub-icon {
+  margin-block-start: 4px;
+  color: var(--pub-ok);
+}
+
+.pub-check-list.is-neutral .pub-icon {
+  color: #7a5518;
+}
+
+.pub-panel-link {
+  margin-block-start: 14px !important;
+}
+
+.pub-panel-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 700;
+}
+
+.pub-tile {
+  width: 52px;
+  height: 52px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  background: #fbf7ee;
+  color: #7a5518;
+  border: 1px solid #f6ecd8;
 }
 
-.pub-privacy-points .pub-icon {
-  color: var(--pub-gold-soft);
-  margin-block-start: 3px;
-}
-
-.pub-privacy-points strong {
-  display: block;
-  color: #fff;
-  font-size: 16.5px;
-}
-
-.pub-privacy-points span {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 15px;
-}
-
-/* الأسئلة الشائعة */
+/* الأسئلة */
 .pub-faq {
   max-width: 880px;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .pub-faq-item {
   border-radius: 16px;
   background: #fff;
   border: 1px solid var(--pub-line);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pub-faq-item[open] {
-  border-color: var(--primary-200, #b9d7de);
+  border-color: #b9d7de;
   box-shadow: 0 8px 22px rgba(8, 42, 51, 0.06);
 }
 
@@ -874,13 +921,12 @@ body.pub .pub-privacy a {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 60px;
-  padding: 14px 22px;
+  min-height: var(--row-h);
+  padding: 10px 20px;
   cursor: pointer;
-  font-family: var(--pub-font-head);
-  font-weight: 600;
-  font-size: 17px;
-  line-height: 1.6;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.5;
 }
 
 .pub-faq-item summary::-webkit-details-marker {
@@ -897,21 +943,26 @@ body.pub .pub-privacy a {
   transition: transform 0.2s ease;
 }
 
-.pub-faq-item[open] .pub-faq-chevron {
+.pub-faq-item[open] .pub-faq-chevron,
+.pub-footer-more[open] .pub-faq-chevron,
+.pub-toc[open] .pub-faq-chevron {
   transform: rotate(180deg);
 }
 
 .pub-faq-body {
-  padding: 0 22px 20px;
-  color: var(--pub-ink-soft);
-  font-size: 16.5px;
+  padding: 0 20px 18px;
+  color: var(--pub-ink);
+  font-size: 17px;
 }
 
 .pub-faq-body p + p {
-  margin-block-start: 10px;
+  margin-block-start: 8px;
 }
 
 body.pub .pub-faq-body a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   font-weight: 700;
 }
 
@@ -919,7 +970,7 @@ body.pub .pub-faq-body a {
 .pub-contact {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: 20px;
 }
 
 .pub-contact-list {
@@ -928,7 +979,7 @@ body.pub .pub-faq-body a {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .pub-contact-list li {
@@ -950,20 +1001,23 @@ body.pub .pub-faq-body a {
 
 .pub-contact-label {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--accent-700, #7a5518);
+  color: #7a5518;
 }
 
 body.pub .pub-contact-list a {
-  font-weight: 600;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
 }
 
 .pub-contact-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-block-start: 22px;
+  margin-block-start: 18px;
 }
 
 .pub-contact-actions .pub-btn {
@@ -981,22 +1035,22 @@ body.pub .pub-social {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 6px 16px;
   border-radius: 999px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
   text-decoration: none;
   color: var(--pub-teal);
-  background: var(--primary-50, #eef6f7);
-  border: 1px solid var(--primary-100, #dcecef);
+  background: #eef6f7;
+  border: 1px solid #dcecef;
 }
 
 body.pub .pub-social:hover {
-  background: var(--primary-100, #dcecef);
+  background: #dcecef;
 }
 
-/* برامج المؤسسة */
+/* برامج المؤسسة (في «عن البرنامج») */
 .pub-programs {
   list-style: none;
   margin: 0;
@@ -1009,14 +1063,13 @@ body.pub .pub-social:hover {
 .pub-programs li {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 14px;
   background: #fff;
   border: 1px solid var(--pub-line);
 }
 
 .pub-programs strong {
-  font-family: var(--pub-font-head);
   color: var(--pub-teal);
   font-size: 17px;
 }
@@ -1036,59 +1089,80 @@ body.pub .pub-social:hover {
   color: #fff;
 }
 
-.pub-programs-foot {
-  margin-block-start: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  color: var(--pub-ink-soft);
+/* «مين بنساعد؟» (في «عن البرنامج») */
+.pub-audience {
+  list-style: none !important;
+  margin: 14px 0 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px !important;
 }
 
-/* شريط الدعوة الأخير */
+.pub-audience li {
+  padding: 18px;
+  border-radius: var(--pub-radius);
+  background: var(--pub-cream);
+  border: 1px solid var(--pub-line);
+}
+
+.pub-audience .pub-tile {
+  margin-block-end: 10px;
+}
+
+body.pub .pub-audience h3 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.pub-audience p {
+  color: var(--pub-ink-soft);
+  font-size: 16px;
+}
+
 .pub-final-cta {
   text-align: center;
-  padding: 48px 28px;
-  border-radius: 28px;
+  padding: 36px 24px;
+  border-radius: 24px;
   background: var(--pub-cream);
   border: 1px solid var(--pub-line);
 }
 
 body.pub .pub-final-cta h2 {
-  font-size: clamp(24px, 3vw, 32px);
+  font-size: clamp(22px, 3vw, 28px);
 }
 
 .pub-final-cta p {
-  margin: 12px auto 26px;
-  max-width: 620px;
+  margin: 8px auto 0;
+  max-width: 560px;
   color: var(--pub-ink-soft);
-  font-size: 18px;
 }
 
-.pub-final-cta .pub-cta-row {
-  justify-content: center;
+.pub-final-cta .pub-btn {
+  margin-block-start: 16px;
+  max-width: 420px;
 }
 
 /* ───────────── التذييل ───────────── */
 
 .pub-footer {
   margin-block-start: auto;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.85);
   background: var(--pub-teal-deep);
-  font-size: 15.5px;
+  font-size: 16px;
 }
 
 .pub-footer-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.3fr);
   gap: 36px;
-  padding-block: 56px 40px;
+  padding-block: 48px 32px;
 }
 
 body.pub .pub-footer h2 {
   font-size: 16px;
   color: var(--pub-gold-soft);
-  margin-block-end: 14px;
+  margin-block-end: 12px;
 }
 
 .pub-footer ul {
@@ -1097,7 +1171,7 @@ body.pub .pub-footer h2 {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 body.pub .pub-footer a {
@@ -1111,13 +1185,13 @@ body.pub .pub-footer a:hover {
 
 .pub-footer-col ul a {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 40px;
   align-items: center;
 }
 
 .pub-footer-about p {
-  margin-block-start: 14px;
-  color: rgba(255, 255, 255, 0.75);
+  margin-block-start: 12px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 body.pub .pub-brand-light {
@@ -1125,21 +1199,21 @@ body.pub .pub-brand-light {
 }
 
 body.pub .pub-brand-light .pub-brand-text span {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .pub-brand-light .pub-logo {
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(220, 189, 132, 0.35);
 }
 
 .pub-footer-reg {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
   color: var(--pub-gold-soft) !important;
 }
 
 .pub-footer .pub-contact-list {
-  gap: 12px;
+  gap: 10px;
 }
 
 .pub-footer .pub-contact-list .pub-icon {
@@ -1147,8 +1221,7 @@ body.pub .pub-brand-light .pub-brand-text span {
 }
 
 .pub-footer .pub-contact-label {
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 body.pub .pub-footer .pub-social {
@@ -1157,47 +1230,105 @@ body.pub .pub-footer .pub-social {
   border-color: rgba(255, 255, 255, 0.16);
 }
 
+/* «روابط مهمة» — الموبايل فقط */
+.pub-footer-more,
+.pub-footer-call {
+  display: none;
+}
+
+.pub-footer-more {
+  margin-inline: var(--pub-gutter);
+  border-block-start: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.pub-footer-more summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--row-h);
+  font-weight: 700;
+  font-size: 17px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.pub-footer-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.pub-footer-more .pub-faq-chevron {
+  color: var(--pub-gold-soft);
+}
+
+.pub-footer-more ul {
+  padding-block-end: 10px;
+}
+
+.pub-footer-more ul a {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-size: 17px;
+}
+
+.pub-footer-call {
+  margin: 0 var(--pub-gutter) 8px !important;
+  font-size: 16px;
+}
+
+body.pub .pub-footer-call a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 700;
+}
+
 .pub-footer-bottom {
   border-block-start: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .pub-footer-bottom-inner {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px 24px;
-  padding-block: 18px;
+  gap: 4px 24px;
+  padding-block: 14px;
 }
 
 body.pub .pub-staff-link {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.8);
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
 }
 
 /* ───────────── الصفحات الداخلية والقانونية ───────────── */
 
+/* @critical-start:legal — العنوان و«بالمختصر» يُضمّنان في <head> الصفحات القانونية وصفحة 404 (مع الكتلة العامة أعلاه) */
 .pub-page-hero {
   color: #fff;
   background: var(--pub-pattern), linear-gradient(165deg, var(--pub-teal) 0%, var(--pub-teal-deep) 100%);
-  padding-block: 56px 60px;
+  padding-block: 40px 44px;
 }
 
 .pub-crumbs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   padding: 0;
   list-style: none;
-  font-size: 14.5px;
-  color: rgba(255, 255, 255, 0.75);
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .pub-crumbs li + li::before {
   content: "‹";
   margin-inline-end: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 body.pub .pub-crumbs a {
@@ -1206,53 +1337,135 @@ body.pub .pub-crumbs a {
 
 body.pub .pub-page-hero h1 {
   color: #fff;
-  font-size: clamp(28px, 4.4vw, 42px);
-  font-weight: 800;
+  font-size: clamp(26px, 4.2vw, 40px);
 }
 
 .pub-page-hero p {
-  margin-block-start: 12px;
+  margin-block-start: 10px;
   max-width: 760px;
-  font-size: 18.5px;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .pub-updated {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-block-start: 18px !important;
-  font-size: 14.5px !important;
+  margin-block-start: 12px !important;
+  font-size: 15px !important;
   color: var(--pub-gold-soft) !important;
 }
+
+/* «بالمختصر» (B91-15): أعلى كل صفحة سياسة، تحت العنوان مباشرة */
+body.pub .pub-summary {
+  margin-block-start: 14px;
+  max-width: 760px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--pub-cream);
+  color: var(--pub-ink);
+  border: 1px solid var(--pub-line);
+  border-inline-start: 5px solid var(--pub-gold);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+body.pub .pub-summary h2 {
+  font-size: 19px;
+  color: var(--pub-teal);
+  margin: 0 0 6px;
+}
+
+body.pub .pub-summary ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+body.pub .pub-summary li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+body.pub .pub-summary li .pub-icon {
+  margin-block-start: 4px;
+  color: var(--pub-ok);
+}
+
+body.pub .pub-summary p {
+  margin: 0;
+  max-width: none;
+  font-size: 18px;
+  color: var(--pub-ink);
+}
+
+body.pub .pub-summary a {
+  color: #145d6f;
+  font-weight: 700;
+}
+
+/* روابط التليفون وواتساب داخل الجمل («بالمختصر»، طرق طلب الحذف، صفحة 404): هدف لمس ≥ 48px دون تغيير ارتفاع السطر */
+body.pub.v91 .pub-summary a,
+body.pub.v91 .pub-doc p > a[href^="tel:"],
+body.pub.v91 .pub-ways a[href^="tel:"] {
+  padding-block: 10px;
+  margin-block: -10px;
+}
+
+@media (max-width: 600px) {
+  .pub-page-hero {
+    padding-block: 18px 22px;
+  }
+
+  body.pub .pub-page-hero h1 {
+    font-size: 26px;
+  }
+
+  .pub-page-hero p {
+    font-size: 17px;
+  }
+
+  body.pub .pub-summary {
+    padding: 12px 14px;
+  }
+
+  /* مسار التصفح على الموبايل: الشعار في الرأس يرجع للرئيسية، فتظهر «بالمختصر» كاملة في الشاشة الأولى */
+  .pub-page-hero nav[aria-label="مسار التصفح"] {
+    display: none;
+  }
+}
+/* @critical-end */
 
 .pub-doc-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 48px;
   align-items: start;
-  padding-block: 56px 72px;
+  padding-block: 48px 64px;
 }
 
 .pub-toc {
   position: sticky;
   inset-block-start: calc(var(--pub-header-h) + 20px);
-  padding: 20px;
+  padding: 4px 18px;
   border-radius: 16px;
   background: var(--pub-cream);
   border: 1px solid var(--pub-line);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .pub-toc summary {
-  font-family: var(--pub-font-head);
   font-weight: 700;
   cursor: pointer;
   list-style: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 32px;
+  min-height: var(--tap);
 }
 
 .pub-toc summary::-webkit-details-marker {
@@ -1260,18 +1473,19 @@ body.pub .pub-page-hero h1 {
 }
 
 .pub-toc ol {
-  margin: 12px 0 0;
+  margin: 4px 0 12px;
   padding-inline-start: 22px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 body.pub .pub-toc a {
   color: var(--pub-ink);
   text-decoration: none;
-  display: inline-block;
-  padding-block: 3px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px; /* (إصلاح 9.1) قاعدة الـ 48px للمستفيدة (B91-12) */
 }
 
 body.pub .pub-toc a:hover {
@@ -1285,19 +1499,19 @@ body.pub .pub-toc a:hover {
 }
 
 .pub-doc section + section {
-  margin-block-start: 40px;
+  margin-block-start: 36px;
 }
 
 body.pub .pub-doc h2 {
-  font-size: 23px;
+  font-size: 22px;
   margin-block-end: 12px;
-  padding-block-end: 10px;
-  border-block-end: 2px solid var(--accent-100, #f6ecd8);
+  padding-block-end: 8px;
+  border-block-end: 2px solid #f6ecd8;
 }
 
 body.pub .pub-doc h3 {
   font-size: 18.5px;
-  margin-block: 22px 8px;
+  margin-block: 20px 8px;
 }
 
 .pub-doc p,
@@ -1326,11 +1540,11 @@ body.pub .pub-doc h3 {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  padding: 18px 20px;
-  margin-block: 18px;
+  padding: 16px 18px;
+  margin-block: 16px;
   border-radius: 16px;
-  background: var(--primary-50, #eef6f7);
-  border: 1px solid var(--primary-100, #dcecef);
+  background: #eef6f7;
+  border: 1px solid #dcecef;
   border-inline-start: 4px solid var(--pub-teal);
 }
 
@@ -1340,13 +1554,13 @@ body.pub .pub-doc h3 {
 }
 
 .pub-callout-gold {
-  background: var(--accent-50, #fbf7ee);
-  border-color: var(--accent-100, #f6ecd8);
+  background: #fbf7ee;
+  border-color: #f6ecd8;
   border-inline-start-color: var(--pub-gold);
 }
 
 .pub-callout-gold .pub-icon {
-  color: var(--accent-700, #7a5518);
+  color: #7a5518;
 }
 
 .pub-callout p {
@@ -1365,7 +1579,7 @@ body.pub .pub-doc h3 {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  padding: 18px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--pub-line);
   background: #fff;
@@ -1379,7 +1593,6 @@ body.pub .pub-doc h3 {
 
 .pub-ways strong {
   display: block;
-  font-family: var(--pub-font-head);
   font-size: 17px;
 }
 
@@ -1390,8 +1603,7 @@ body.pub .pub-doc h3 {
 
 .pub-ways .pub-btn {
   margin-block-start: 10px;
-  min-height: 44px;
-  font-size: 15px;
+  font-size: 16px;
   padding: 8px 16px;
 }
 
@@ -1405,7 +1617,7 @@ body.pub .pub-doc h3 {
 .pub-timeline li {
   position: relative;
   padding-inline-start: 52px;
-  padding-block-end: 20px;
+  padding-block-end: 18px;
   counter-increment: tl;
 }
 
@@ -1431,12 +1643,11 @@ body.pub .pub-doc h3 {
   inset-inline-start: 17px;
   inset-block: 40px 4px;
   width: 2px;
-  background: var(--primary-100, #dcecef);
+  background: #dcecef;
 }
 
 .pub-timeline strong {
   display: block;
-  font-family: var(--pub-font-head);
 }
 
 .pub-values {
@@ -1448,7 +1659,7 @@ body.pub .pub-doc h3 {
 }
 
 .pub-values li {
-  padding: 18px 20px;
+  padding: 16px 18px;
   border-radius: 16px;
   background: var(--pub-cream);
   border: 1px solid var(--pub-line);
@@ -1456,7 +1667,6 @@ body.pub .pub-doc h3 {
 
 .pub-values strong {
   display: block;
-  font-family: var(--pub-font-head);
   color: var(--pub-teal);
   font-size: 17px;
   margin-block-end: 4px;
@@ -1467,10 +1677,10 @@ body.pub .pub-doc h3 {
 }
 
 .pub-doc-cta {
-  margin-block-start: 28px;
+  margin-block-start: 24px;
 }
 
-/* ───────────── بوابة العميل /p/<رمز> (تكمل أنماط app.css؛ الرأس والتذييل المشتركان من src/site.js) ───────────── */
+/* ───────────── صفحة المتابعة /p/<رمز> وصفحة الطلب (تكمل أنماط app.css؛ أسماء الأصناف ثابتة لصفحتي الطلب والمتابعة) ───────────── */
 
 body.pub .portal-page {
   background: var(--pub-cream);
@@ -1508,7 +1718,7 @@ body.pub .portal-section {
 }
 
 body.pub .portal-private-note {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--pub-ink-soft);
   text-align: center;
   padding-block: 8px 0;
@@ -1604,7 +1814,7 @@ body.pub .intake-card {
 }
 
 .benef-summary-text span {
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--text-muted, #4f5d6b);
 }
 
@@ -1631,7 +1841,7 @@ body.pub .intake-card {
   gap: 8px;
   align-items: flex-start;
   margin: 0 0 14px;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--gray-700, #374654);
 }
 
@@ -1742,7 +1952,7 @@ body.pub .success-card .success-title {
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: ltr;
-  font-size: 13px;
+  font-size: 15px;
   padding: 8px 10px;
   border-radius: 10px;
   background: #fff;
@@ -1750,7 +1960,7 @@ body.pub .success-card .success-title {
 }
 
 .success-warning {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--warning-700, #8a5300);
   display: flex;
   gap: 8px;
@@ -1774,32 +1984,17 @@ body.pub .success-card .success-title {
 }
 
 @media (max-width: 900px) {
-  .pub-hero-inner {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 32px;
-    padding-block: 48px 56px;
-  }
-
-  .pub-audience,
-  .pub-steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
+  .pub-how,
   .pub-split,
   .pub-contact,
-  .pub-privacy {
+  .pub-audience {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pub-privacy {
-    padding: 36px 24px;
-    gap: 24px;
   }
 
   .pub-doc-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    padding-block: 32px 56px;
+    gap: 20px;
+    padding-block: 24px 48px;
   }
 
   .pub-toc {
@@ -1807,69 +2002,89 @@ body.pub .success-card .success-title {
   }
 
   .pub-section {
-    padding-block: 60px;
+    padding-block: 52px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* التذييل على الموبايل: الشعار والإشهار ثم «روابط مهمة» مطوية ورقم المساعدة */
+  .pub-footer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-block: 28px 12px;
+  }
+
+  .pub-footer-desktop {
+    display: none !important;
+  }
+
+  .pub-footer-more {
+    display: block;
+  }
+
+  .pub-footer-call {
+    display: block;
+  }
+
+  /* «دخول فريق العمل» موجود داخل «روابط مهمة» */
+  body.pub .pub-footer-bottom .pub-staff-link {
+    display: none;
   }
 }
 
 @media (max-width: 600px) {
-  :root {
-    --pub-gutter: 16px;
-    --pub-header-h: 66px;
-  }
-
   body.pub {
-    font-size: 16.5px;
+    font-size: 17px;
   }
 
-  .pub-logo {
-    width: 42px;
-    height: 42px;
+  body.pub.v91 {
+    font-size: var(--text);
   }
 
-  .pub-brand-text strong {
-    font-size: 16px;
-  }
-
-  .pub-brand-text span {
-    font-size: 12px;
-  }
-
-  .pub-services,
-  .pub-ways,
-  .pub-values {
+  .pub-values,
+  .pub-ways {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .pub-footer-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-    padding-block: 44px 28px;
+  .pub-services {
+    gap: 8px;
   }
 
-  .pub-cta-row .pub-btn {
-    width: 100%;
+  body.pub .pub-tile-link {
+    padding: 12px;
+    gap: 6px;
   }
 
-  .pub-hero-card,
-  .pub-panel {
-    padding: 22px 18px;
+  .pub-service-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
   }
 
   .pub-section {
-    padding-block: 48px;
+    padding-block: 36px;
   }
 
   .pub-section-head {
-    margin-block-end: 28px;
+    margin-block-end: 18px;
+  }
+
+  body.pub .pub-section-head h2,
+  body.pub .pub-h2 {
+    font-size: 23px;
   }
 
   .pub-section-head p {
     font-size: 17px;
   }
 
+  .pub-panel {
+    padding: 20px 16px;
+  }
+
   .pub-faq-item summary {
     padding-inline: 16px;
-    font-size: 16.5px;
+    font-size: 17px;
   }
 
   .pub-faq-body {
@@ -1877,12 +2092,14 @@ body.pub .success-card .success-title {
   }
 
   .pub-final-cta {
-    padding: 36px 18px;
+    padding: 24px 16px;
   }
 
-  .pub-page-hero {
-    padding-block: 40px 44px;
+  .pub-cta-row .pub-btn {
+    width: 100%;
   }
+
+  /* (عنوان الصفحات الداخلية و«بالمختصر» على الموبايل: في كتلة @critical-start:legal أعلاه) */
 
   body.pub .intake-page {
     padding-block: 24px 56px;

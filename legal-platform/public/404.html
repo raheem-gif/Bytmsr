@@ -8,15 +8,11 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -28,22 +24,24 @@
               <li aria-current="page">صفحة غير موجودة</li>
             </ol>
           </nav>
-          <h1 id="page-title">الصفحة غير موجودة</h1>
-          <p>قد يكون الرابط ناقصًا أو انقطع جزء منه عند نسخه من رسالة واتساب. تأكد من الرابط، أو اختر ما تريد من الخيارات التالية.</p>
+          <h1 id="page-title">الصفحة دي مش موجودة</h1>
+          <p>ممكن الرابط يكون ناقص أو اتقطع منه حتة وهو بيتنسخ من واتساب.</p>
         </div>
       </section>
 
+      <!-- B91-11: صفحة تُفتح غالبًا لأول مرة من رابط واتساب مقطوع: العنوان من الأنماط المضمّنة، والملف الكامل هنا -->
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
       <section class="pub-section" aria-labelledby="next-title">
         <div class="pub-container">
           <article class="pub-doc">
-            <h2 id="next-title">ماذا تريد أن تفعل؟</h2>
+            <h2 id="next-title">تحبي تعملي إيه؟</h2>
             <div class="pub-cta-row">
-              <a class="pub-btn pub-btn-teal" href="/portal">متابعة طلبك</a>
-              <a class="pub-btn pub-btn-gold" href="/intake" data-cta="intake">قدّم طلبًا</a>
+              <a class="pub-btn pub-btn-teal pub-btn-primary" href="/portal">تابعي طلبك</a>
+              <a class="pub-btn pub-btn-outline" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
               <a class="pub-btn pub-btn-outline" href="/">الصفحة الرئيسية</a>
             </div>
             <!--#if org_phone-->
-            <p style="margin-block-start: 16px">للمساعدة اتصل بنا على <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a>.</p>
+            <p style="margin-block-start: 16px">للمساعدة كلمينا: <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if office_hours_line--> — {{office_hours_line}}<!--/if office_hours_line--></p>
             <!--/if org_phone-->
           </article>
         </div>

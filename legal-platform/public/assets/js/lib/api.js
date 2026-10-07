@@ -34,6 +34,28 @@ function fallbackMessage(status) {
   return GENERIC_ERROR;
 }
 
+// ───────── (إصلاح 9.1) نافذة فتح المنصة دون اتصال ─────────
+// «اليوم» المحفوظ على الجهاز يُفتح دون اتصال حتى نهاية الجلسة على الخادم فقط (انتهاؤها أو مهلة عدم النشاط، أيهما أقرب)،
+// لا بعدها (هاتف مفقود أو مشترك بعد إنهاء الجلسة). الخادم يحدّث آخر نشاط كل 5 دقائق على الأكثر: هامش 10 دقائق.
+const UNTIL_SLACK_MS = 10 * 60000;
+/**
+ * @param {{expires_at:string, idle_hours:number}|null} session من /api/auth/session
+ * @param {number} [at] وقت آخر نشاط (ms)
+ * @returns {number} وقت (ms) لا يُفتح بعده شيء من الجهاز دون اتصال؛ 0 إن لم تُعرف الجلسة
+ */
+export function sessionUntil(session, at = Date.now()) {
+  if (!session || typeof session !== 'object') return 0;
+  const exp = Date.parse(session.expires_at || '');
+  const idleMs = Number(session.idle_hours) * 3600000;
+  if (!Number.isFinite(exp) || !(idleMs > 0)) return 0;
+  return Math.max(0, Math.min(exp, at + idleMs - UNTIL_SLACK_MS));
+}
+let activityHook = null;
+/** يُستدعى بعد كل طلب ناجح ليس من الخلفية (يحتسبه الخادم نشاطًا يمدّد مهلة عدم النشاط) */
+export function onUserActivity(fn) {
+  activityHook = typeof fn === 'function' ? fn : null;
+}
+
 /** يبني الرابط الكامل مع تجاهل القيم الفارغة في الاستعلام. */
 export function buildUrl(path, query) {
   const clean = String(path || '').startsWith('/') ? path : `/${path}`;
@@ -54,13 +76,61 @@ export function buildUrl(path, query) {
 
 const AUTH_QUIET_PATHS = ['/auth/login', '/auth/me', '/auth/session'];
 
+// ───────── v9.1 l-home (L-07): طلب GET مبكر لبيانات الصفحة ─────────
+// يبدأ بالتوازي مع تحميل وحدة الصفحة (رابط إشعار يُفتح على شبكة بطيئة)، ثم يأخذه أول api.get بنفس الرابط بدل طلب جديد
+// — مرة واحدة وخلال 15 ثانية. الرد يُعالج عند أخذه كأي رد (فـ 401 مثلًا يُبلَّغ عندها لا قبلها).
+// المخزن نفسه يملؤه app/boot-early.js (سكربت صغير يسبق وحدات التطبيق في صفحة /app): الرابط ← { promise, at }
+const EARLY_GET_MAX_MS = 15000;
+function earlyGets() {
+  const w = typeof window !== 'undefined' ? window : globalThis;
+  if (!w.__bmEarlyGets || typeof w.__bmEarlyGets !== 'object') w.__bmEarlyGets = {};
+  return w.__bmEarlyGets;
+}
+export function prefetchGet(path, query) {
+  const url = buildUrl(path, query);
+  const map = earlyGets();
+  const hit = map[url];
+  if (hit && Date.now() - hit.at < EARLY_GET_MAX_MS) return;
+  const promise = fetch(url, { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' } });
+  promise.catch(() => {});
+  map[url] = { promise, at: Date.now() };
+}
+/**
+ * رد جاهز لطلب GET (مثل بيانات الصفحة التي تصل مع /api/auth/session?page=…) يأخذه أول api.get بالمسار نفسه.
+ * @param {string} path مسار نسبي إلى /api (مثل '/lawyer/matters/2')
+ * @param {number} status
+ * @param {any} body
+ */
+export function putEarlyResult(path, status, body) {
+  if (typeof path !== 'string' || !path.startsWith('/')) return;
+  earlyGets()[buildUrl(path)] = { result: { status: Number(status) || 200, body }, at: Date.now() };
+}
+function takeEarlyGet(url) {
+  const map = earlyGets();
+  const hit = map[url];
+  if (!hit) return null;
+  delete map[url];
+  if (Date.now() - hit.at >= EARLY_GET_MAX_MS) return null;
+  if (hit.result) {
+    // يُعالج كأي رد من الشبكة (الأخطاء والجلسة المنتهية بالمسار نفسه)
+    const { status, body } = hit.result;
+    return Promise.resolve(new Response(status === 204 ? null : JSON.stringify(body ?? null), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } }));
+  }
+  return hit.promise || null;
+}
+/** يلغي الطلبات المبكرة (عند تسجيل الدخول أو الخروج: لا يأخذ مستخدم ردًا طُلب قبل جلسته) */
+export function clearPrefetched() {
+  const map = earlyGets();
+  for (const k of Object.keys(map)) delete map[k];
+}
+
 /**
  * ينفذ طلبًا ويعيد JSON المحلل أو يرمي ApiError.
  * @param {string} method
  * @param {string} path مسار نسبي إلى /api
  * @param {{query?:object, body?:any, signal?:AbortSignal}} [opts]
  */
-export async function request(method, path, { query, body, signal, background = false } = {}) {
+export async function request(method, path, { query, body, signal, background = false, keepalive = false } = {}) {
   const m = method.toUpperCase();
   const init = {
     method: m,
@@ -68,6 +138,8 @@ export async function request(method, path, { query, body, signal, background = 
     headers: { Accept: 'application/json' },
     signal,
   };
+  // v9.1 l-work: keepalive يُكمل الطلب بعد إغلاق الصفحة (حفظ مسودة الرأي عند visibilitychange→hidden)؛ حده 64 كيلوبايت
+  if (keepalive) init.keepalive = true;
   // طلبات الخلفية (مثل تحديث الإشعارات الدوري) لا يحتسبها الخادم نشاطًا يمدّد مهلة عدم النشاط للجلسة
   if (background) init.headers['X-Background-Request'] = '1';
   if (m !== 'GET' && m !== 'HEAD') {
@@ -78,7 +150,9 @@ export async function request(method, path, { query, body, signal, background = 
 
   let res;
   try {
-    res = await fetch(buildUrl(path, query), init);
+    const url = buildUrl(path, query);
+    const early = m === 'GET' && !signal ? takeEarlyGet(url) : null;
+    res = await (early || fetch(url, init));
   } catch (err) {
     if (err && err.name === 'AbortError') throw err;
     throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
@@ -113,6 +187,13 @@ export async function request(method, path, { query, body, signal, background = 
       window.dispatchEvent(new CustomEvent('auth:restricted', { detail: { code: err.code } }));
     }
     throw err;
+  }
+  if (!background && activityHook) {
+    try {
+      activityHook();
+    } catch {
+      /* تجاهل */
+    }
   }
   return data;
 }

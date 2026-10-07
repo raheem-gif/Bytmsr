@@ -1,8 +1,10 @@
 // الصلاحيات الدقيقة: «ما تراه الإدارة ليس بالضرورة ما يراه المحامي».
 // هذا الملف هو المصدر الوحيد لما يُعرض للمحامي؛ كل بيانات المحامي تُبنى هنا من المنح الصريحة (assignment_grants).
 // لا يحصل المحامي أبدًا على: هاتف العميل، رقمه القومي، بريده، المحادثة الأصلية، مصدر العميل، الملاحظات الداخلية، التكلفة.
-import { nowIso, notFound, badRequest, parseJson } from '../util.js';
+import { nowIso, notFound, badRequest, parseJson, addressName } from '../util.js';
 import { LABELS, LEGAL_AREAS } from '../constants.js';
+import { parseItems } from './v91-l-work.js'; // v9.1 l-work
+import { redact } from '../ai/redact.js'; // v9.1 l-work: تنقية رسائل الإدارة للمستفيد/ة قبل عرضها للمحامي
 
 const ACTIVE_ASSIGNMENT = ['assigned', 'in_progress', 'submitted', 'returned', 'approved'];
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
@@ -105,7 +107,8 @@ export function createVisibility(app) {
     /** الصلاحيات المقترحة افتراضيًا (تعدلها الإدارة قبل الحفظ) */
     defaultGrants(caseId, role, { issueIds = null, documentIds = null } = {}) {
       const allIssues = db.all("SELECT id FROM case_issues WHERE case_id = ? AND status = 'active'", caseId).map((r) => r.id);
-      const allDocs = db.all('SELECT id FROM documents WHERE case_id = ?', caseId).map((r) => r.id);
+      // v9.1 b-forms: الرسائل الصوتية لا تدخل أبدًا في «كل المستندات» (قد تحتوي بيانات تواصل)؛ تُتاح فقط باختيار صريح
+      const allDocs = db.all("SELECT id FROM documents WHERE case_id = ? AND mime NOT LIKE 'audio/%'", caseId).map((r) => r.id);
       if (role === 'lead' || role === 'co_counsel') {
         return { facts: true, client_name: false, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
       }
@@ -139,6 +142,73 @@ export function createVisibility(app) {
       return svc.assignmentView(a.id, lawyer);
     },
 
+    /**
+     * v9.1 l-work: ما طلبته الإدارة بالفعل من المستفيد/ة في نفس الملف (حتى لا يُسأل مرتين).
+     * يُعرض فقط لمن أُتيح له ملخص الوقائع، ويقتصر على نص الرسالة المعتمدة للمستفيد/ة وحالتها:
+     * لا سؤال المحامي الآخر، ولا اسم من طلب، ولا رد المستفيد/ة.
+     */
+    caseOpenRequests(a, lawyer) {
+      const asg = typeof a === 'object' && a ? a : svc.requireAssignment(a, lawyer);
+      const g = svc.grantsOf(asg.id);
+      if (!g.facts) return [];
+      // رسالة الإدارة للمستفيد/ة قد تناديها باسمها («أستاذة سامية») أو تذكر رقمًا أو رابطًا: تُنقّى قبل وصولها للمحامي
+      const clean = svc.beneficiaryTextCleaner(asg.case_id, g);
+      return db
+        .all(
+          `SELECT id, kind, client_message, items, status, sent_at FROM info_requests
+           WHERE case_id = ? AND status IN ('sent_to_client','client_replied') AND (assignment_id IS NULL OR assignment_id != ?)
+             AND kind IN ('document','information') AND client_message IS NOT NULL ORDER BY id`,
+          asg.case_id,
+          asg.id,
+        )
+        .map((r) => {
+          // بنود الورق كما أرسلتها الإدارة للمستفيد/ة (جزء من الرسالة المعتمدة نفسها)
+          const items = parseItems(r.items).map((it) => clean(it.label));
+          return { r, items };
+        })
+        .map(({ r, items }) => ({
+          id: r.id,
+          kind: r.kind,
+          // v9.1 fixes: طلب ورق ببنود يُعرض ببنوده فقط (لا نص الإدارة الحر للمستفيد/ة: قد يناديها أو يذكر عنوانًا أو رابطًا)؛
+          // طلب المعلومة بلا بنود بنصه بعد التنقية
+          client_message: items.length ? items.join('، ') : clean(r.client_message),
+          items,
+          status: r.status,
+          sent_at: r.sent_at,
+          // ضغط «أحتاج هذا أيضًا» من قبل (طلبه المرتبط عند الإدارة أو وصله الرد)
+          joined: !!db.get("SELECT 1 FROM info_requests WHERE assignment_id = ? AND duplicate_of_id = ? AND status IN ('pending_admin','shared')", asg.id, r.id),
+        }));
+    },
+
+    /**
+     * v9.1 l-work: تنقية نص كتبته الإدارة للمستفيد/ة قبل عرضه للمحامي: الروابط والهواتف والأرقام القومية دائمًا،
+     * واسم المستفيد/ة ما لم يُتح له الاسم (src/ai/redact.js، نفس أداة قاعدة المعرفة).
+     */
+    beneficiaryTextCleaner(caseId, g) {
+      const names = [];
+      if (!g.client_name) {
+        const row = db.get('SELECT cl.name, c.client_id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', caseId);
+        if (row && row.name) names.push(row.name);
+        // v9.1 fixes: والاسم الذي تُنادى به (الكنية «أم محمد» أو الاسم الأول) والاسم الذي كتبته في طلباتها
+        if (row) {
+          for (const r of db.all('SELECT DISTINCT contact_name FROM intakes WHERE client_id = ? AND contact_name IS NOT NULL', row.client_id)) names.push(r.contact_name);
+          for (const n of [...names]) {
+            const a = addressName(n);
+            if (a) names.push(a);
+          }
+        }
+      }
+      const kunya = !g.client_name;
+      return (text) => {
+        if (text == null) return text;
+        let s = redact(String(text), { names }).text;
+        // كنية لم تُعرف مسبقًا («يا أم محمد»، «بطاقة أبو أحمد») ← [اسم] ما دام الاسم غير متاح للمحامي
+        // («ام» بلا همزة قد تكون «أو» في الكلام الدارج، فلا تُعد كنية إلا بعد «يا»)
+        if (kunya) s = s.replace(/(^|[^\p{L}])(?:أم|أبو|ابو|(?<=يا\s+)ام)\s+(?!\[)(?!ال)\p{L}{3,}/gu, '$1[اسم]');
+        return s;
+      };
+    },
+
     /** العرض الكامل للمحامي — مبني حصريًا من المنح الصريحة */
     assignmentView(assignmentId, lawyer) {
       const a = svc.requireAssignment(assignmentId, lawyer);
@@ -147,7 +217,8 @@ export function createVisibility(app) {
       const closed = c.status === 'closed';
       const editable = !closed && ['assigned', 'in_progress', 'returned'].includes(a.status);
 
-      let clientLabel = 'بيانات الهوية غير متاحة'; // تُعرض بعد «العميل:» في بوابة المحامي
+      // v9.1 l-work: null حين لا يُتاح الاسم، والواجهة تكتب «اسم المستفيد/ة محجوب للخصوصية.»
+      let clientLabel = null;
       if (g.client_name) {
         const cl = app.clients.get(c.client_id);
         if (cl?.name) clientLabel = cl.name;
@@ -176,6 +247,8 @@ export function createVisibility(app) {
           review_note: o.status === 'returned' || o.status === 'approved' ? o.review_note : null,
           ai_suggestion_id: o.ai_suggestion_id,
           updated_at: o.updated_at,
+          // v9.1 l-work (B91-16): خطوات عملية للمستفيد/ة كتبها المحامي نفسه (تراجعها الإدارة قبل أي إرسال)
+          client_steps: parseJson(o.client_steps, null),
         }));
       const draft = myOpinions.filter((o) => o.status === 'draft').pop() || null;
 
@@ -245,12 +318,49 @@ export function createVisibility(app) {
         own,
         admin_note: own && r.status === 'rejected' ? r.admin_note : null,
         response_text: r.status === 'shared' ? r.response_text : null,
-        documents: r.status === 'shared' ? irDocs(r.id) : [],
+        // v9.1 l-work: «أحتاج هذا أيضًا» يصله رد الطلب الأصلي: مستنداته (المتاحة له فقط) تظهر في صف طلبه هو
+        documents: r.status === 'shared' ? (own && r.duplicate_of_id ? dupDocs(r) : irDocs(r.id)) : [],
         created_at: r.created_at,
         shared_at: r.shared_at,
         // جديد منذ آخر مرة فتح فيها المحامي الملف
         is_new: r.status === 'shared' && !!r.shared_at && (!a.last_viewed_at || r.shared_at > a.last_viewed_at),
+        // v9.1 l-work: المهلة، و«أحتاج هذا أيضًا»، وبنود المستندات (حالة كل بند لا تظهر إلا بعد إتاحة الرد)
+        sent_at: own ? r.sent_at : null,
+        requested_due_at: own && r.kind === 'extension' ? r.requested_due_at : null,
+        extension_applied: own && r.kind === 'extension' ? !!r.extension_applied_at : false,
+        duplicate_of_id: own ? r.duplicate_of_id || null : null,
+        items: own && r.duplicate_of_id ? dupItems(r) : itemStatuses(r),
       });
+      // v9.1 l-work: الطلب المرتبط يعرض بنود الطلب الأصلي (نفس ما يراه في «مطلوب بالفعل»، منقّى) وحالتها بعد إتاحة الرد
+      const cleanForLawyer = svc.beneficiaryTextCleaner(c.id, g);
+      function dupOriginal(r) {
+        const o = db.get('SELECT * FROM info_requests WHERE id = ? AND case_id = ?', r.duplicate_of_id, c.id);
+        return o || null;
+      }
+      function dupItems(r) {
+        const o = dupOriginal(r);
+        if (!o) return [];
+        const list = itemStatuses(r.status === 'shared' && o.status === 'shared' ? o : { ...o, status: null });
+        return list.map((it) => ({ ...it, label: cleanForLawyer(it.label) }));
+      }
+      function dupDocs(r) {
+        const seen = new Set();
+        return [...irDocs(r.duplicate_of_id), ...irDocs(r.id)].filter((d) => (seen.has(d.id) ? false : seen.add(d.id)));
+      }
+      // B91-16: «وصل» / «ناقص» لكل بند بعد إتاحة الرد فقط (من ملفات رد المستفيد/ة على كل بند وما أفادت بعدم وجوده)
+      function itemStatuses(r) {
+        const items = parseItems(r.items);
+        if (!items.length) return [];
+        if (r.status !== 'shared') return items.map((it) => ({ label: it.label, status: null }));
+        const missing = new Set((parseJson(r.items_missing, []) || []).map(Number));
+        let received = new Set();
+        try {
+          received = new Set(db.all('SELECT DISTINCT info_request_item AS i FROM documents WHERE info_request_id = ? AND info_request_item IS NOT NULL', r.id).map((x) => Number(x.i)));
+        } catch {
+          /* عمود info_request_item غير موجود في قاعدة بيانات أقدم */
+        }
+        return items.map((it, idx) => ({ label: it.label, status: received.has(idx) ? 'received' : missing.has(idx) ? 'missing' : 'needed' }));
+      }
       const infoRequests = [
         ...db.all('SELECT * FROM info_requests WHERE assignment_id = ? ORDER BY id', a.id).map((r) => mapIr(r, true)),
         ...db
@@ -318,6 +428,8 @@ export function createVisibility(app) {
         team,
         requested_by: requestedBy,
         info_requests: infoRequests,
+        // v9.1 l-work: «مطلوب بالفعل من المستفيد/ة» (فارغة دون منحة الوقائع)
+        case_open_requests: svc.caseOpenRequests(a, lawyer),
         counsel_requests: counsel,
         permissions: {
           can_edit: editable,

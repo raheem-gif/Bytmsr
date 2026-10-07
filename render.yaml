@@ -1,8 +1,8 @@
 # Render Blueprint — منصة الدعم القانوني (مؤسسة بيوت مصر لدعم الأرامل والأيتام)
 #
 # الاستخدام (راجع DEPLOY.md للخطوات بالتفصيل):
-#   Render Dashboard ← New ← Blueprint ← اختر المستودع ← Blueprint Path: legal-platform/render.yaml
-#   (إن كان كود المنصة في جذر المستودع مباشرة: اجعل dockerfilePath ./Dockerfile و dockerContext . واختر render.yaml)
+#   Render Dashboard ← New ← Blueprint ← اختر المستودع (المسار الافتراضي render.yaml في جذر المستودع)
+#   يبني من Dockerfile الموجود في جذر المستودع، وهو ينسخ كود المنصة من المجلد legal-platform/
 #
 # • قرص دائم على /app/data لقاعدة البيانات والمرفقات والنسخ الاحتياطية (لا تعمل المنصة بدونه: كل إعادة نشر تمسح البيانات).
 # • الخدمة ذات القرص الدائم لا تُوسَّع لأكثر من نسخة واحدة — وهذا مناسب لـ SQLite.
@@ -13,8 +13,8 @@ services:
   - type: web
     name: beyoot-legal
     runtime: docker
-    dockerfilePath: ./legal-platform/Dockerfile
-    dockerContext: ./legal-platform
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     # فرانكفورت أقرب منطقة متاحة لمصر
     region: frankfurt
     # الأقراص الدائمة غير متاحة في الخطة المجانية؛ 0.5c-512mb تكفي لبداية البرنامج
@@ -46,8 +46,8 @@ services:
         generateValue: true
       - key: SCHEDULER_INTERVAL_SECONDS
         value: "60"
-      - key: SESSION_TTL_HOURS
-        value: "12"
+      # لا نضبط SESSION_TTL_HOURS: ضبطه يفرض عمرًا ثابتًا للجلسة ويعطّل «تذكّرني على هذا الجهاز» للمحامين.
+      # مدة الجلسات وتذكّر الأجهزة تُضبط من «الإعدادات ← سياسة الأمان» داخل المنصة.
       - key: MAX_UPLOAD_MB
         value: "8"
       - key: PUBLIC_INTAKE_PER_HOUR

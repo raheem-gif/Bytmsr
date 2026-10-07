@@ -3,7 +3,7 @@
 // ولا تُستخدم الحالة معرفيًا أو تدريبيًا إلا بعد مراجعة الإدارة واعتمادها.
 import { nowIso, parseJson, badRequest, notFound, conflict, v } from '../util.js';
 import { LABELS, ENUMS, LEGAL_AREAS, AREA_CODES } from '../constants.js';
-import { redact } from '../ai/redact.js';
+import { redact, familyNames } from '../ai/redact.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -19,6 +19,15 @@ export function createKnowledge(app) {
     if (intake?.contact_name) names.push(intake.contact_name);
     for (const r of db.all('SELECT DISTINCT u.name FROM assignments a JOIN users u ON u.id = a.lawyer_id WHERE a.case_id = ?', caseId)) names.push(r.name);
     for (const r of db.all("SELECT name FROM users WHERE role IN ('admin','case_manager')")) names.push(r.name);
+    // v9.1 fixes: أسماء الأبناء والأسرة المذكورة في الوقائع ورسائلها وملاحظات الجلسات («طفلان قاصران (يوسف ومريم)»،
+    // «شهادات ميلاد يوسف ومريم»، الكنية «أم يوسف») تُخفى أينما وردت في السجل
+    const kase = db.get('SELECT facts_shared, facts_internal, intake_id, client_id FROM cases WHERE id = ?', caseId);
+    const texts = [kase?.facts_shared, kase?.facts_internal, client?.name, intake?.contact_name];
+    if (kase?.intake_id) texts.push(db.value('SELECT summary FROM intakes WHERE id = ?', kase.intake_id));
+    for (const r of db.all("SELECT body FROM messages WHERE (case_id = ? OR (? IS NOT NULL AND intake_id = ?)) AND direction = 'in'", caseId, kase?.intake_id ?? null, kase?.intake_id ?? null)) texts.push(r.body);
+    for (const r of db.all('SELECT summary, body FROM client_answers WHERE case_id = ?', caseId)) texts.push(r.summary, r.body);
+    for (const r of db.all('SELECT e.client_note FROM matter_events e JOIN matters m ON m.id = e.matter_id WHERE m.case_id = ? AND e.client_note IS NOT NULL', caseId)) texts.push(r.client_note);
+    for (const t of texts) if (t) names.push(...familyNames(t));
     return names;
   }
 
@@ -54,7 +63,8 @@ export function createKnowledge(app) {
       const intake = c.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null;
       const facts = R(c.facts_shared || c.facts_internal || intake?.summary || '');
       const issues = db.all("SELECT title FROM case_issues WHERE case_id = ? AND status = 'active' ORDER BY number", caseId).map((i) => R(i.title));
-      const irs = db.all("SELECT kind, question FROM info_requests WHERE case_id = ? AND status != 'cancelled' ORDER BY id", caseId);
+      // v9.1 l-work: طلبات المهلة والأسئلة للإدارة و«أحتاج هذا أيضًا» ليست «معلومات طُلبت» في سجل المعرفة
+      const irs = db.all("SELECT kind, question FROM info_requests WHERE case_id = ? AND status != 'cancelled' AND kind IN ('document','information') AND duplicate_of_id IS NULL ORDER BY id", caseId);
       const specialists = db
         .all('SELECT kind, specialty, description FROM counsel_requests WHERE case_id = ? AND status IN (\'assigned\',\'completed\') ORDER BY id', caseId)
         .map((x) => ({ kind: x.kind, kind_label: LABELS.counsel_kind[x.kind], specialty: x.specialty, specialty_label: x.specialty ? AREA[x.specialty] : null, reason: R(x.description) }));

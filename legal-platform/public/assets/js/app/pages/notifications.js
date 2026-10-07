@@ -2,7 +2,7 @@
 
 import { h, frag, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { relative, dateTime } from '../../lib/fmt.js';
+import { relative, dateTime, isoToCairoDate } from '../../lib/fmt.js';
 import { pageHeader, card, emptyState, asyncButton, icon, toast, richText } from '../../lib/ui.js';
 import { notifIcon, notifTone, markRead, followLink } from '../notif.js';
 
@@ -93,11 +93,28 @@ export default async function render(ctx) {
       );
       return;
     }
+    // v9.1 l-home (L-12): للمحامي مجموعات «اليوم» / «أمس» / «أقدم» وعناوين بسطرين على الأكثر
+    if (ctx.user && ctx.user.role === 'lawyer') {
+      const today = isoToCairoDate(new Date());
+      const yesterday = isoToCairoDate(new Date(Date.now() - 86400000));
+      const groups = [
+        ['اليوم', shown.filter((n) => isoToCairoDate(n.created_at) === today)],
+        ['أمس', shown.filter((n) => isoToCairoDate(n.created_at) === yesterday)],
+        ['أقدم', shown.filter((n) => isoToCairoDate(n.created_at) < yesterday)],
+      ].filter(([, list]) => list.length);
+      mount(
+        listHost,
+        groups.map(([title, list]) => h('section.lh-notif-group', h('h2.lh-notif-day', title), h('ul.notif-list.lh-notif-clamp', list.map(row)))),
+      );
+      return;
+    }
     mount(listHost, h('ul.notif-list', shown.map(row)));
   }
 
   draw();
   const header = pageHeader({ title: 'الإشعارات', actions: markAllBtn });
   header.querySelector('.page-header-text').append(subtitle);
+  // v9.1 l-home: غلاف للمحامي (أهداف لمس 44px على الهاتف في v91-l-home.css) — صفحة الإدارة كما هي
+  if (ctx.user && ctx.user.role === 'lawyer') return h('div.lh-notif-page', header, segmented, card({ body: listHost, flush: true }));
   return frag(header, segmented, card({ body: listHost, flush: true }));
 }

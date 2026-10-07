@@ -1,0 +1,1313 @@
+/* الإصدار 9.1 — مسار l-court: ملف مستمر للمحامي، أوراق ممر المحكمة (نتيجة الجلسة/إضافة جلسة/مهمة)،
+   صندوق الصادر دون اتصال، «مستحقاتي»، وتقويم المحامي. كل الأصناف تبدأ بـ .lc- وتعتمد على رموز app.css.
+   متغير اختياري: --bm-bottom-nav-h (ارتفاع شريط التنقل السفلي للمحامي على الهاتف إن وُجد) يرفع الشريط اللاصق فوقه. */
+
+/* ───────────── عام ───────────── */
+.lc-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lc-num {
+  white-space: nowrap;
+  unicode-bidi: isolate;
+}
+
+.lc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lc-head-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lc-title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.lc-court-line {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lc-sep {
+  color: var(--gray-400);
+}
+
+.lc-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.lc-card .card-body {
+  min-width: 0;
+}
+
+.lc-muted-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.lc-muted-line .icon {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* روابط نصية تكشف حقلًا («+ أضف ملاحظة»، «تغيير الساعة»، «تعديل النتيجة») — هدف لمس ≥ 44px */
+.lc-reveal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lc-reveal:hover {
+  text-decoration: underline;
+}
+
+.lc-reveal:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+
+.lc-reveal.lc-inline {
+  min-height: 44px;
+  padding-inline: 2px;
+}
+
+.lc-reveal.lc-small {
+  font-size: 13.5px;
+}
+
+/* ───────────── صفحة الملف المستمر ───────────── */
+.lc-pending-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #f1c56b;
+  border-inline-start: 5px solid var(--warning-500);
+  border-radius: var(--radius-lg);
+  background: var(--warning-100);
+}
+
+.lc-pending-text {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.lc-pending-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--warning-700);
+}
+
+.lc-pending-sub {
+  margin: 2px 0 0;
+  color: var(--gray-800);
+  overflow-wrap: anywhere;
+}
+
+.lc-pending-btn {
+  flex: 0 0 auto;
+}
+
+.lc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.lc-main,
+.lc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .lc-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    align-items: start;
+  }
+}
+
+.lc-group + .lc-group {
+  margin-top: 14px;
+}
+
+.lc-group-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.lc-group-pending .lc-group-title {
+  color: var(--warning-700);
+}
+
+.lc-count {
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+.lc-ev-list,
+.lc-task-list,
+.lc-matter-list,
+.lc-month-list,
+.lc-lines,
+.lc-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lc-ev {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lc-ev:last-child {
+  border-bottom: 0;
+}
+
+.lc-ev .event-date {
+  width: 54px;
+  padding: 4px 2px;
+}
+
+.lc-ev .event-date .d {
+  font-size: 19px;
+}
+
+.lc-ev.is-pending .event-date {
+  background: var(--warning-100);
+  color: var(--warning-700);
+}
+
+.lc-ev.is-past .event-date {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.lc-ev-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lc-ev-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.lc-ev-when,
+.lc-ev-outcome,
+.lc-ev-notes,
+.lc-attend {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lc-ev-when {
+  color: var(--text-muted);
+}
+
+.lc-ev-outcome {
+  color: var(--gray-800);
+  font-weight: 500;
+}
+
+.lc-ev-notes {
+  color: var(--text-muted);
+}
+
+.lc-attend {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--accent-700);
+}
+
+.lc-attend .icon {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.lc-ev-actions {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.lc-ev-primary {
+  min-height: 44px;
+}
+
+/* على الهاتف: زر «سجّل النتيجة» تحت نص الجلسة بعرض كامل (لا يضغط العنوان) */
+@media (max-width: 640px) {
+  .lc-ev.is-pending {
+    flex-wrap: wrap;
+  }
+
+  .lc-ev.is-pending .lc-ev-main {
+    flex: 1 1 calc(100% - 66px);
+  }
+
+  .lc-ev.is-pending .lc-ev-actions {
+    flex: 1 1 100%;
+    padding-inline-start: 66px;
+  }
+
+  .lc-ev.is-pending .lc-ev-primary {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* «تعديل النتيجة» تحت سطر القرار */
+  .lc-ev.is-past {
+    flex-wrap: wrap;
+  }
+
+  .lc-ev.is-past .lc-ev-main {
+    flex: 1 1 calc(100% - 66px);
+  }
+
+  .lc-ev.is-past .lc-ev-actions {
+    flex: 1 1 100%;
+    padding-inline-start: 62px;
+    margin-top: -6px;
+  }
+}
+
+/* أجزاء سطر المحكمة لا تنكسر إلا عند الفواصل */
+.lc-court-line > span:not(.lc-sep) {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.lc-more {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.lc-more:hover {
+  background: var(--gray-50);
+}
+
+.lc-more:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.lc-none {
+  margin: 4px 0 0;
+}
+
+.lc-queued,
+.lc-failed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lc-queued {
+  background: var(--warning-100);
+  color: var(--warning-700);
+}
+
+.lc-failed {
+  background: var(--danger-100);
+  color: var(--danger-700);
+}
+
+.lc-failed .lc-reveal {
+  min-height: 32px;
+  color: var(--danger-700);
+  text-decoration: underline;
+}
+
+/* قائمة «⋯» كورقة */
+.lc-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lc-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--gray-900);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.lc-menu-item:hover {
+  background: var(--gray-50);
+}
+
+.lc-menu-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.lc-menu-item.is-danger {
+  color: var(--danger-700);
+}
+
+/* المهام */
+.lc-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lc-task:last-child {
+  border-bottom: 0;
+}
+
+.lc-task-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--gray-100);
+}
+
+.lc-task-icon.tone-success { background: var(--success-100); color: var(--success-700); }
+.lc-task-icon.tone-warning { background: var(--warning-100); color: var(--warning-700); }
+.lc-task-icon.tone-info { background: var(--info-100); color: var(--info-700); }
+
+.lc-task-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lc-task-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lc-task.is-done .lc-task-title,
+.lc-task.is-cancelled .lc-task-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.lc-task-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.lc-task-details {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.lc-task-actions {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.lc-task-btn {
+  min-height: 44px;
+  min-width: 72px;
+}
+
+/* بيانات الدعوى / التفاصيل المطوية */
+.lc-details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.lc-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lc-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lc-details > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-lg);
+}
+
+.lc-chev {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  color: var(--gray-500);
+  transition: transform 0.15s;
+}
+
+details[open] > summary .lc-chev {
+  transform: rotate(180deg);
+}
+
+.lc-details-body {
+  padding: 0 16px 14px;
+}
+
+.lc-dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.lc-dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.lc-dl > div:last-child {
+  border-bottom: 0;
+}
+
+.lc-dl dt {
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.lc-dl dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lc-assign-notes {
+  margin-top: 10px;
+}
+
+.lc-assign-notes .pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+/* الشريط السفلي اللاصق (هاتف فقط) */
+.lc-bar-host:empty {
+  display: none;
+}
+
+.lc-bottom-bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .lc-head-actions {
+    display: none;
+  }
+
+  /* (مراجعة) الالتصاق على الحاوية نفسها: العنصر الملتصق لا يتحرك خارج أبيه، وأبو الشريط بحجمه تمامًا فلم يكن يلتصق */
+  .lc-bar-host {
+    position: sticky;
+    bottom: calc(var(--bm-bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+  }
+
+  .lc-bottom-bar {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 8px;
+    margin-inline: calc(-1 * var(--gutter, 16px));
+    padding: 10px var(--gutter, 16px);
+    background: rgba(255, 255, 255, 0.97);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 18px rgba(8, 42, 51, 0.08);
+  }
+
+  .lc-bottom-bar .btn {
+    min-height: 52px;
+    padding-inline: 10px;
+  }
+
+  .lc-title {
+    font-size: 19px;
+  }
+}
+
+/* قائمة الملفات */
+.lc-matter-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 900px) {
+  .lc-matter-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lc-matter-card {
+  min-height: 56px;
+}
+
+.lc-card-alert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--warning-100);
+  color: var(--warning-700);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lc-closed > summary {
+  color: var(--gray-700);
+}
+
+/* ───────────── الأوراق السفلية ───────────── */
+.lc-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lc-sheet-dyn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lc-sheet-dyn:empty {
+  display: none;
+}
+
+.lc-sheet-body .field {
+  margin: 0;
+}
+
+.lc-sheet-body .field-label {
+  margin-bottom: 4px;
+}
+
+.lc-sheet-body .input,
+.lc-sheet-body .select {
+  min-height: 48px;
+}
+
+.lc-date-echo {
+  margin: 4px 0 0;
+  font-weight: 700;
+  color: var(--primary-800);
+}
+
+.lc-date-echo[hidden] {
+  display: none;
+}
+
+/* سطر التسمية مع عنصر جانبي (التاريخ بالحروف، أو «+ أضف ملاحظة») */
+.lc-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  margin-bottom: 4px;
+}
+
+.lc-label-row .field-label {
+  margin: 0;
+}
+
+.lc-label-row .lc-date-echo {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+/* هدف لمس 44px دون أن يأخذ ارتفاعه كله من التخطيط */
+.lc-label-row .lc-reveal,
+.lc-time-hint .lc-reveal {
+  margin-block: -10px;
+}
+
+.lc-time-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.lc-reason-block .choice-group {
+  gap: 6px;
+}
+
+.lc-sheet-dyn > .lc-reveal {
+  align-self: flex-start;
+}
+
+.lc-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.lc-time-row .field-label {
+  margin: 0;
+}
+
+.lc-time-input {
+  max-width: 160px;
+}
+
+.lc-past-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--warning-700);
+}
+
+.lc-past-hint[hidden] {
+  display: none;
+}
+
+.lc-reason .choice-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lc-reason .choice-tile {
+  padding-inline: 12px;
+}
+
+.lc-result-tiles .choice-tile {
+  font-size: 16px;
+}
+
+.lc-next-extras:empty {
+  display: none;
+}
+
+.lc-next-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lc-sheet-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.lc-sheet-status[hidden] {
+  display: none;
+}
+
+.lc-sheet-status.tone-warning {
+  background: var(--warning-100);
+  color: var(--warning-700);
+}
+
+.lc-sheet-status.tone-danger {
+  background: var(--danger-100);
+  color: var(--danger-700);
+}
+
+.lc-sheet-status .icon {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.lc-sheet-footer {
+  padding: 10px 22px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  border-end-start-radius: var(--radius-xl);
+  border-end-end-radius: var(--radius-xl);
+}
+
+.lc-save {
+  width: 100%;
+  min-height: 52px;
+}
+
+.lc-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.lc-place-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  color: var(--gray-800);
+}
+
+.lc-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.lc-links-row > div {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 640px) {
+  .lc-sheet-footer {
+    padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 0;
+  }
+
+  .lc-outcome-sheet .modal-body {
+    padding-block: 10px;
+  }
+
+  .lc-outcome-sheet .lc-sheet-body,
+  .lc-outcome-sheet .lc-sheet-dyn {
+    gap: 8px;
+  }
+
+  .lc-outcome-sheet .modal-header {
+    padding-block: 6px 6px;
+  }
+
+  .lc-outcome-sheet .modal-title {
+    font-size: 17px;
+  }
+
+  .lc-outcome-sheet .choice-label,
+  .lc-outcome-sheet .field-label {
+    font-size: 14px;
+  }
+
+  .lc-outcome-sheet .lc-muted-line {
+    margin-top: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+}
+
+/* مفتاح تبديل (role=switch) */
+.lc-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lc-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.lc-switch-track {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--gray-300);
+  transition: background-color 0.15s;
+}
+
+.lc-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: inset-inline-start 0.15s;
+}
+
+.lc-switch-input:checked + .lc-switch-track {
+  background: var(--primary-700);
+}
+
+.lc-switch-input:checked + .lc-switch-track::after {
+  inset-inline-start: 21px;
+}
+
+.lc-switch-input:focus-visible + .lc-switch-track {
+  box-shadow: var(--focus-ring);
+}
+
+.lc-switch-text {
+  line-height: 1.5;
+}
+
+/* شارة صندوق الصادر (للصفحة الرئيسية) */
+.lc-outbox-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid #f1c56b;
+  border-radius: 999px;
+  background: var(--warning-100);
+  color: var(--warning-700);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+button.lc-outbox-pill {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.lc-outbox-pill[hidden] {
+  display: none;
+}
+
+/* ───────────── «مستحقاتي» ───────────── */
+.lc-statement-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .lc-statement-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.lc-hero,
+.lc-money-card,
+.lc-months {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.lc-hero {
+  border-color: var(--primary-200);
+  background: linear-gradient(180deg, var(--primary-50), var(--surface) 70%);
+}
+
+.lc-hero.is-volunteer {
+  border-color: var(--accent-300);
+  background: linear-gradient(180deg, var(--accent-50), var(--surface) 70%);
+}
+
+.lc-hero-period {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-800);
+}
+
+.lc-hero-figure {
+  margin: 4px 0 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--gray-900);
+  white-space: nowrap;
+}
+
+.lc-hero-label {
+  margin: 2px 0 0;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lc-hero.is-volunteer .lc-hero-label {
+  margin-top: 6px;
+}
+
+.lc-hero-sub {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--gray-800);
+}
+
+.lc-hero-thanks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  color: var(--accent-700);
+}
+
+.lc-lines {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lc-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.lc-line-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lc-line-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-line-note {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.lc-line.is-muted .lc-line-amount {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.lc-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.lc-money-figure {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.lc-money-for {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.lc-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.lc-facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.lc-facts .icon {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--primary-600);
+}
+
+.lc-month-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.lc-month {
+  border-top: 1px solid var(--border);
+}
+
+.lc-month > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-height: 52px;
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lc-month > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lc-month > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 8px;
+}
+
+.lc-month-name {
+  font-weight: 700;
+}
+
+.lc-month-total {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-month-status {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.lc-month-status.is-paid { background: var(--success-100); color: var(--success-700); }
+.lc-month-status.is-unpaid { background: var(--warning-100); color: var(--warning-700); }
+.lc-month-status.is-partial { background: var(--info-100); color: var(--info-700); }
+
+.lc-month .lc-lines {
+  margin: 0 0 8px;
+}
+
+.lc-agreement > summary {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.lc-agree-text {
+  font-weight: 500;
+  color: var(--gray-800);
+  overflow-wrap: anywhere;
+}
+
+.lc-agree-more {
+  margin-inline-start: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--link);
+}
+
+.lc-agree-more + .lc-chev {
+  margin-inline-start: 0;
+}
+
+.lc-print-row {
+  display: flex;
+  justify-content: center;
+}
+
+.lc-print-row .btn {
+  min-height: 44px;
+}
+
+/* ───────────── تقويم المحامي ───────────── */
+.lc-cal-pending {
+  padding: 12px 14px;
+  border: 1px solid #f1c56b;
+  border-inline-start: 5px solid var(--warning-500);
+  border-radius: var(--radius-lg);
+  background: var(--warning-100);
+}
+
+.lc-cal-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--warning-700);
+}
+
+.lc-cal-pending .v9p-cal-item {
+  background: var(--surface);
+}
+
+.lc-cal-action {
+  margin-top: 8px;
+}
+
+.lc-cal-action .btn {
+  min-height: 44px;
+}
+
+.lc-honest {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--info-100);
+  color: var(--info-700);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lc-honest .icon {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* (مراجعة) تقويم المحامي على الهاتف: أهداف لمس ≥ 44px (الإجراء الأساسي 48px)، والقائمة («بانتظار النتيجة» ثم اليوم)
+   قبل مرشحات الأنواع حتى يظهر «سجّل النتيجة» في الشاشة الأولى */
+@media (max-width: 640px) {
+  .lc-cal-lawyer .page-header .btn-primary {
+    min-height: 48px;
+  }
+
+  .lc-cal-lawyer .v9p-cal-nav .btn,
+  .lc-cal-lawyer .v9p-seg-btn,
+  .lc-cal-lawyer .v9p-type-toggle,
+  .lc-cal-lawyer .v9p-cal-item .btn {
+    min-height: 44px;
+  }
+
+  .lc-cal-lawyer .v9p-cal-nav .btn:not(.btn-sm) {
+    min-width: 44px;
+  }
+
+  /* (إصلاح 9.1) عنوان الموعد رابط يفتح الملف: كان سطرًا بارتفاع 26px */
+  .lc-cal-lawyer .v9p-cal-title a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* عرض الشهر: رقم اليوم كان دائرة 30×30؛ الآن الخانة كلها هدف اللمس (≥ 44px ارتفاعًا وعرضَ الخانة) */
+  .lc-cal-lawyer .v9p-day {
+    padding: 0;
+  }
+
+  .lc-cal-lawyer .v9p-day-num {
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    border-radius: 0;
+  }
+
+  .lc-cal-lawyer .v9p-dots {
+    padding-block-end: 4px;
+  }
+
+  /* على 360px كانت الخانة 40px عرضًا: الشبكة تمتد في هامش البطاقة فتصير كل خانة ≥ 44px */
+  .lc-cal-lawyer .v9p-month {
+    margin-inline: -16px;
+  }
+
+  .lc-cal-lawyer .v9p-cal-card .stack > .v9p-type-toggles {
+    order: 3;
+  }
+}

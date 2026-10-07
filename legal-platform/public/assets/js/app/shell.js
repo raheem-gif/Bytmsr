@@ -7,6 +7,7 @@ import { icon, avatar, button, brandMark, loading, emptyState, richText } from '
 import { notifIcon, notifTone, markRead, followLink } from './notif.js';
 import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
 import { routeTitle } from './routes.js';
+import { enhanceLawyerShell, lawyerNavItems } from './lawyer-shell.js'; // v9.1 l-home: هيكل المحامي على الهاتف
 
 const POLL_MS = 30000;
 const DROPDOWN_LIMIT = 8;
@@ -19,12 +20,11 @@ export function navGroups(user, meta) {
   const notifications = navItem('/notifications', 'bell', { notif: true });
   const account = navItem('/account', 'shield');
   if (user.role === 'lawyer') {
+    // v9.1 l-home (L-08): أسماء المحامي من words.js («اليوم»، «إسناداتي»، «مستحقاتي»، «حسابي»…)
+    const L = lawyerNavItems();
     return [
-      {
-        title: 'بوابة المحامي',
-        items: [navItem('/my', 'briefcase'), navItem('/my/matters', 'gavel'), navItem('/my/calendar', 'calendar'), navItem('/my/statement', 'wallet')],
-      },
-      { title: 'عام', items: [notifications, account] },
+      { title: 'بوابة المحامي', items: L.work },
+      { title: 'عام', items: L.general },
     ];
   }
   const isAdmin = user.role === 'admin';
@@ -218,7 +218,8 @@ export function createShell({ user, meta, onLogout }) {
       'a.brand',
       { href: '#/' },
       brandMark({ size: 24 }),
-      h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة التشغيل القانوني')),
+      // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان
+      h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
     ),
     nav,
     h(
@@ -259,10 +260,17 @@ export function createShell({ user, meta, onLogout }) {
   const bellWrap = h('div.dropdown-anchor', bellBtn, dropdown);
 
   const logoutBtn = h(
-    'button.icon-btn',
-    { type: 'button', 'aria-label': 'تسجيل الخروج', title: 'تسجيل الخروج', onClick: () => onLogout && onLogout() },
+    'button.icon-btn.topbar-logout',
+    {
+      type: 'button',
+      'aria-label': 'تسجيل الخروج',
+      title: 'تسجيل الخروج',
+      // v9.1 l-home (L-08): المحامي يؤكد الخروج أولًا (لمسة خاطئة تكلفه دخولًا جديدًا على شبكة بطيئة)
+      onClick: () => (lawyerUi ? lawyerUi.confirmLogout() : onLogout && onLogout()),
+    },
     icon('logout', { size: 20 }),
   );
+  let lawyerUi = null;
 
   const globalSearch = createSearch({ user });
   const topbar = h(
@@ -311,6 +319,12 @@ export function createShell({ user, meta, onLogout }) {
     if (!mobileQuery.matches) closeDrawer(false);
   };
   mobileQuery.addEventListener('change', onMediaChange);
+
+  // v9.1 l-home (L-08/L-16): هيكل المحامي على الهاتف — زر رجوع، شريط سفلي، الخروج من القائمة بتأكيد
+  if (user.role === 'lawyer') {
+    lawyerUi = enhanceLawyerShell({ el, mainCol, menuBtn, sidebar, user, openDrawer, closeDrawer, onLogout });
+    dropdown.classList.add('lh-notif-panel');
+  }
 
   // ── الإشعارات ──
   function setUnread(n) {
@@ -431,7 +445,8 @@ export function createShell({ user, meta, onLogout }) {
     outlet,
     main,
     setTitle(t) {
-      titleEl.textContent = t || '';
+      if (lawyerUi) lawyerUi.renderTitle(titleEl, t);
+      else titleEl.textContent = t || '';
       document.title = t ? `${t} — ${orgName}` : `منصة ${orgName} القانونية`;
     },
     setActive(path) {
@@ -449,6 +464,7 @@ export function createShell({ user, meta, onLogout }) {
       activeLink = best;
       syncNavGroups(best);
       closeDropdown(false);
+      if (lawyerUi) lawyerUi.setActive(path);
     },
     refresh: poll,
     destroy() {
@@ -458,6 +474,7 @@ export function createShell({ user, meta, onLogout }) {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
       globalSearch.destroy();
+      if (lawyerUi) lawyerUi.destroy();
       mobileQuery.removeEventListener('change', onMediaChange);
       if (navResize) navResize.disconnect();
     },

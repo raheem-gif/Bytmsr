@@ -1,6 +1,8 @@
 // الأتمتة المرتبطة بما يحدث داخل الملف (وليست رسائل تسويقية عامة):
 // تذكير العميل بالجلسات، بالفواتير المتأخرة، بالمستندات الناقصة، وتنبيه الإدارة/المحامي بالمواعيد الإجرائية والتأخير.
 import { nowIso, addDays, parseJson, badRequest, notFound, v, arabicDate, arabicTime, fromMinor, truncate } from '../util.js';
+import { spokenTime } from '../util.js'; // v9.1 b-site (B91-10)
+import { withClientNote } from './portal-v91.js'; // v9.1 fixes: «هاتي معاكي» المعتمدة في نص التذكير
 import { LABELS, DEFAULT_AUTOMATION_RULES, LEGACY_AUTOMATION_TEMPLATES } from '../constants.js';
 
 function fill(template, values) {
@@ -36,6 +38,56 @@ export function createAutomations(app) {
   /** اسم المؤسسة لتوقيع رسائل العميل الآلية ({org_name}) */
   const orgName = () => app.settings.get('org_name') || 'بيوت مصر';
 
+  // ───────────── v9.1 b-site (B91-01/B91-10) ─────────────
+  /**
+   * نص رسالة المستفيد/ة من قالب القاعدة: {first_name} بالكنية، {ref} رقم الطلب REQ، {portal_link} رابط صفحتها
+   * (يُصدر فقط إن احتاجه القالب وكانت القصة مؤكدة)، ورموز النوع {ي}/{ة} حسب صيغة المخاطبة.
+   */
+  function clientText(template, story, vars) {
+    const words = app.engine.clientWords(story);
+    const values = { ...vars, first_name: words.first_name, ref: words.ref || vars.ref || '' };
+    // رقم واحد تراه المستفيدة (B91-10): {case_code}/{matter_code} في القوالب التي عدّلتها الإدارة أو القوالب المربوطة
+    // اسمان بديلان لرقم الطلب REQ، فلا يصل رقمها كود ملف داخلي (INH-/MTR-) أبدًا
+    if (words.ref) for (const k of ['case_code', 'matter_code']) if (k in values) values[k] = words.ref;
+    // v9.1 fixes: الرابط لا يُصدر هنا ولا يُحفظ في نص الرسالة ولا متغيراتها: {portal_link} يبقى في نص واتساب (wa_text)
+    // ويُصدر رابط جديد عند الإرسال الفعلي فقط (engine.renderLinks / messaging.templatePlan) — وللقصة المؤكدة فقط
+    delete values.portal_link;
+    const text = app.engine.fillClientText(template, values, words.form);
+    // النص المحفوظ (للإدارة وصفحة المتابعة) بلا الرابط وعنوانه
+    const body = app.engine.withoutLinkLines(text);
+    const withLink = /\{portal_link\}/.test(text) && app.engine.isStoryConfirmed(story);
+    return { body, wa_text: withLink ? text.trim() : null, vars: { ...values, form: words.form } };
+  }
+
+  /**
+   * القصة غير مؤكدة الرقم: لا يُرسل التذكير (ولا يصل الرقم أي شيء)، ويُسجَّل التخطي وتُنبَّه الإدارة مرة واحدة لكل (قاعدة، طلب).
+   * @returns {boolean} true إذا تُخطي التذكير
+   */
+  function skipUnconfirmed(ruleKey, story) {
+    if (app.engine.isStoryConfirmed(story)) return false;
+    const words = app.engine.clientWords(story);
+    const intakeId = story.intakeId || null;
+    once(ruleKey, `unconfirmed:${ruleKey}:${intakeId ?? `case-${story.caseId ?? '-'}`}`, 'intake', intakeId, () => {
+      app.notifications.notifyStaff({
+        type: 'automation.unconfirmed',
+        title: `لم يُرسل التذكير: رقم المستفيد/ة في الطلب ${words.ref || '—'} غير مؤكد`,
+        body: `لم يُرسل التذكير: رقم المستفيد/ة في الطلب ${words.ref || '—'} غير مؤكد. اتصلوا به/بها ثم اضغطوا «تأكيد الهوية».`,
+        link: intakeId ? `#/inbox/${intakeId}` : story.caseId ? `#/cases/${story.caseId}` : '#/automations',
+      });
+      app.activity.log({
+        intake_id: intakeId,
+        case_id: story.caseId || null,
+        matter_id: story.matterId || null,
+        client_id: story.clientId,
+        actor: { kind: 'system' },
+        type: 'automation.skipped_unconfirmed',
+        summary: `لم يُرسل تذكير آلي (${LABELS.automation_rule[ruleKey] || ruleKey}) لأن رقم المستفيد/ة غير مؤكد`,
+      });
+      return 'skipped_unconfirmed';
+    });
+    return true;
+  }
+
   /** تنفيذ مرة واحدة لكل مفتاح (يمنع تكرار التذكير لنفس الحدث) */
   function once(ruleKey, dedupeKey, entityType, entityId, fn) {
     const exists = db.get('SELECT 1 FROM automation_runs WHERE rule_key = ? AND dedupe_key = ?', ruleKey, dedupeKey);
@@ -58,7 +110,11 @@ export function createAutomations(app) {
   const runners = {
     hearing_reminder(r) {
       const t = nowIso();
-      const until = addDays(t, Number(r.params.days_before) || 3);
+      // v9.1 b-portal (B91-13): تذكيران على الأكثر لكل موعد — قبله بـ days_before (3 افتراضيًا) ثم قبله بيوم.
+      // days_before رقم (يعدّله مدير النظام) أو مصفوفة مثل [3, 1]؛ لكل مهلة مفتاح once() خاص فلا يتكرر أي منهما.
+      const offsets = [...new Set((Array.isArray(r.params.days_before) ? r.params.days_before : [Number(r.params.days_before) || 3, 1]).map(Number).filter((x) => x > 0))].sort((a, b) => b - a);
+      const first = offsets[0] || 3;
+      const until = addDays(t, first);
       const events = db.all(
         `SELECT e.*, m.code AS matter_code, m.court AS matter_court, m.client_id, m.case_id, c.intake_id FROM matter_events e
          JOIN matters m ON m.id = e.matter_id JOIN cases c ON c.id = m.case_id
@@ -81,17 +137,32 @@ export function createAutomations(app) {
           });
           continue;
         }
+        // v9.1 b-site (B91-01): رقم غير مؤكد ← لا تذكير على واتساب، وتنبيه الإدارة مرة واحدة للقصة
+        if (skipUnconfirmed('hearing_reminder', { clientId: e.client_id, intakeId: e.intake_id, caseId: e.case_id, matterId: e.matter_id })) continue;
+        // أقرب مهلة دخل فيها الموعد: تذكير «قبلها بيوم» لموعد بعد أقل من يوم، وإلا التذكير الأول (مفتاحه القديم كما هو)
+        const offset = [...offsets].reverse().find((d) => e.starts_at <= addDays(t, d)) ?? first;
+        if (offset !== first && app.portal?.dayBeforeReminder) {
+          const did2 = once('hearing_reminder', `event:${e.id}:${e.starts_at}:d${offset}`, 'matter_event', e.id, () => app.portal.dayBeforeReminder(e, r.params));
+          if (did2) n++;
+          continue;
+        }
         const did = once('hearing_reminder', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
-          const vars = {
+          // v9.1 b-site (B91-10): «أهلًا يا {first_name}، عندك جلسة يوم … الساعة 10 الصبح» + رابط صفحتها، بلا أكواد داخلية
+          const story = { clientId: e.client_id, intakeId: e.intake_id, caseId: e.case_id, matterId: e.matter_id };
+          const filled = clientText(r.params.template, story, {
             event_kind: LABELS.event_kind[e.kind],
-            matter_code: e.matter_code,
+            matter_code: e.matter_code, // للقوالب القديمة التي عدّلتها الإدارة فقط
             date: arabicDate(e.starts_at),
             time: arabicTime(e.starts_at),
-            location: e.location || 'المحكمة المختصة',
+            time_spoken: spokenTime(e.starts_at),
+            location: e.location || e.matter_court || 'المحكمة المختصة',
             title: e.title,
             org_name: orgName(),
-          };
-          const body = fill(r.params.template, vars);
+          });
+          const vars = filled.vars;
+          // v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة (ملاحظة الموعد) بدل «هاتي معاكي بطاقتك» وحدها
+          const body = withClientNote(filled.body, e, vars.form);
+          const waText = filled.wa_text ? withClientNote(filled.wa_text, e, vars.form) : null;
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
             intake_id: e.intake_id,
@@ -101,8 +172,9 @@ export function createAutomations(app) {
             automated: true,
             rule: 'hearing_reminder',
             // متغيرات القالب المربوط بالقاعدة عند الإرسال خارج نافذة الـ 24 ساعة
-            meta: { vars },
+            meta: { vars, ...(waText ? { wa_text: waText } : {}) },
           });
+          if (msg.skipped) return 'skipped_unconfirmed';
           app.activity.log({ matter_id: e.matter_id, case_id: e.case_id, actor: { kind: 'system' }, type: 'automation.hearing_reminder', summary: `أُرسل تذكير آلي للعميل بموعد (${LABELS.event_kind[e.kind]} — ${arabicDate(e.starts_at)} الساعة ${arabicTime(e.starts_at)})` });
           return { message_id: msg.id };
         });
@@ -117,23 +189,31 @@ export function createAutomations(app) {
       const max = Number(r.params.max_reminders) || 3;
       const invoices = db.all(
         `SELECT i.*, c.intake_id FROM invoices i LEFT JOIN cases c ON c.id = i.case_id
-         WHERE i.status IN ('unpaid','partially_paid') AND i.due_at < ? AND i.reminder_count < ?`,
+         WHERE i.status IN ('unpaid','partially_paid') AND i.due_at < ? AND i.reminder_count < ?
+           AND (i.client_agreed_at IS NOT NULL OR EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = i.id))`, // v9.1 b-portal (B91-18): لا تذكير بمبلغ لم توافق عليه المستفيدة (دفع جزء منه موافقة)
         t,
         max,
       );
       let n = 0;
       for (const i of invoices) {
         if (i.last_reminder_at && addDays(i.last_reminder_at, every) > t) continue;
+        // v9.1 b-site (B91-01): رقم غير مؤكد ← لا تذكير على واتساب، وتنبيه الإدارة مرة واحدة للقصة
+        const story = { clientId: i.client_id, intakeId: i.intake_id, caseId: i.case_id, matterId: i.matter_id };
+        if (skipUnconfirmed('invoice_reminder', story)) continue;
         const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id));
         const did = once('invoice_reminder', `invoice:${i.id}:${i.reminder_count + 1}`, 'invoice', i.id, () => {
-          const vars = {
+          // v9.1 b-site (B91-10): المبلغ وسببه بكلمات بسيطة و«ردّي علينا قبل ما تدفعي»
+          const filled = clientText(r.params.template, story, {
             invoice_number: i.number,
             amount: fromMinor(i.amount_minor - paid).toLocaleString('en-US'),
+            description: i.description || 'مصاريف القضية',
             due_date: arabicDate(i.due_at, { weekday: false }),
             org_name: orgName(),
-          };
-          const body = fill(r.params.template, vars);
-          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars } });
+          });
+          const vars = filled.vars;
+          const body = filled.body;
+          const msg = app.engine.sendToClient({ client_id: i.client_id, intake_id: i.intake_id, case_id: i.case_id, matter_id: i.matter_id, body, automated: true, rule: 'invoice_reminder', meta: { vars, ...(filled.wa_text ? { wa_text: filled.wa_text } : {}) } });
+          if (msg.skipped) return 'skipped_unconfirmed';
           db.update('invoices', i.id, { reminder_count: i.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ matter_id: i.matter_id, case_id: i.case_id, actor: { kind: 'system' }, type: 'automation.invoice_reminder', summary: `أُرسل تذكير آلي بالفاتورة ${i.number}` });
           return { message_id: msg.id };
@@ -162,10 +242,17 @@ export function createAutomations(app) {
       let n = 0;
       for (const ir of list) {
         if (ir.last_reminder_at && addDays(ir.last_reminder_at, every) > t) continue;
+        // v9.1 b-site (B91-01): رقم غير مؤكد ← لا تذكير على واتساب (نص الطلب لا يصل رقمًا ربما كُتب خطأً)، وتنبيه الإدارة مرة واحدة
+        const story = { clientId: ir.client_id, intakeId: ir.intake_id, caseId: ir.case_id };
+        if (skipUnconfirmed('document_reminder', story)) continue;
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
-          const vars = { case_code: ir.case_code, request: truncate(ir.client_message || ir.question, 200), org_name: orgName() };
-          const body = fill(r.params.template, vars);
-          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars } });
+          // v9.1 b-site (B91-10): {ref} رقم الطلب بدل كود الملف ({case_code} يبقى للقوالب القديمة المعدّلة)
+          // (v9.1 fixes: طلب المتابعة «لسه محتاجين: …» يُذكر ببنوده فقط بعد «لسه مستنيين منك:»)
+          const filled = clientText(r.params.template, story, { case_code: ir.case_code, request: truncate(String(ir.client_message || ir.question).replace(/^لسه محتاجين:\s*/, ''), 200), org_name: orgName() });
+          const vars = filled.vars;
+          const body = filled.body;
+          const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars, ...(filled.wa_text ? { wa_text: filled.wa_text } : {}) } });
+          if (msg.skipped) return 'skipped_unconfirmed';
           db.update('info_requests', ir.id, { reminder_count: ir.reminder_count + 1, last_reminder_at: t });
           app.activity.log({ case_id: ir.case_id, actor: { kind: 'system' }, type: 'automation.document_reminder', summary: `أُرسل تذكير آلي للعميل ب${LABELS.info_request_kind[ir.kind]} لم يرد عليه بعد` });
           return { message_id: msg.id };
@@ -219,7 +306,8 @@ export function createAutomations(app) {
           app.notifications.notify(a.lawyer_id, {
             type: 'assignment.overdue',
             title: `تجاوزت المدة المطلوبة للرد في الملف ${a.case_code}`,
-            body: 'يرجى تقديم رأيك أو التواصل مع الإدارة لتمديد الموعد.',
+            // v9.1 l-home (L-12): طلب المهلة صار من داخل الإسناد (L-04)
+            body: 'قدّم رأيك أو اطلب مهلة من داخل الإسناد.',
             link: `#/my/assignments/${a.id}`,
           });
           app.notifications.notifyStaff(
@@ -238,6 +326,11 @@ export function createAutomations(app) {
     satisfaction_survey(r) {
       app.messaging.expireSurveys();
       return app.messaging.runSurveys(r.params, { once });
+    },
+
+    // v9.1 l-court: جلسة انعقدت دون تسجيل نتيجتها ← تنبيه المحامي المسؤول (15:00 يوم الجلسة، ثم 10:00 اليوم التالي)
+    hearing_outcome_missing(r) {
+      return app.matters.runOutcomeMissing(r.params, { once });
     },
   };
 
@@ -262,6 +355,9 @@ export function createAutomations(app) {
         break;
       case 'case':
         ref = db.get('SELECT c.code AS entity_code, c.id AS case_id, c.matter_id, cl.name AS client_name FROM cases c LEFT JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', run.entity_id);
+        break;
+      case 'intake': // v9.1 b-site: تذكير تُخطي لأن رقم الطلب غير مؤكد
+        ref = db.get('SELECT i.code AS entity_code, i.case_id, NULL AS matter_id, i.contact_name AS client_name FROM intakes i WHERE i.id = ?', run.entity_id);
         break;
       default:
         break;
@@ -292,7 +388,7 @@ export function createAutomations(app) {
       if (body.params && typeof body.params === 'object') {
         for (const [k, val] of Object.entries(body.params)) {
           if (!(k in def)) continue;
-          if (k === 'template') params[k] = v.str(val, 'نص الرسالة', { required: true, max: 1000 });
+          if (k === 'template') params[k] = v.str(val, 'نص الرسالة', { required: true, max: 600 }); // v9.1 b-site: رسائل قصيرة (B91-10)
           else {
             // الصفر كان يعود صامتًا للقيمة الافتراضية؛ إيقاف القاعدة يكون بمفتاح التفعيل
             if (Number(val) === 0) throw badRequest('القيمة يجب أن تكون ١ على الأقل. لإيقاف هذه التذكيرات أوقف القاعدة من مفتاح التفعيل');

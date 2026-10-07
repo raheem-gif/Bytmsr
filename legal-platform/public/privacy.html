@@ -6,15 +6,11 @@
     <title>سياسة الخصوصية — {{site_name}}</title>
     <meta name="description" content="سياسة الخصوصية لبرنامج {{program_name}} في {{org_legal_name}}: ما البيانات التي نجمعها عبر الموقع وواتساب، ولماذا، ومن يطّلع عليها، ومدة الاحتفاظ بها، وحقوقك وطريقة التواصل معنا." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -27,14 +23,26 @@
             </ol>
           </nav>
           <h1 id="page-title">سياسة الخصوصية</h1>
+          <div class="pub-summary" id="summary">
+            <h2>بالمختصر</h2>
+            <ul>
+              <li>{{{icon_check}}}<span>بنستخدم بياناتك عشان نساعدك بس.</span></li>
+              <li>{{{icon_check}}}<span>المحامي مش بيشوف رقمك ولا رسايلك.</span></li>
+              <li>{{{icon_check}}}<span>مش بنبيع ولا بنشارك بياناتك مع حد.</span></li>
+              <li>{{{icon_check}}}<span>تقدري تطلبي نمسح بياناتك في أي وقت.</span></li>
+              <!--#if org_phone--><li>{{{icon_phone}}}<span>لو عندك سؤال: <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a></span></li><!--/if org_phone-->
+            </ul>
+          </div>
           <p>نوضح في هذه الصفحة بلغة واضحة كيف نتعامل مع بياناتك حين تتواصل مع برنامج {{program_name}} عبر الموقع أو واتساب أو غيرهما من قنوات المؤسسة.</p>
           <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>
         </div>
       </section>
 
+      <!-- B91-11: العنوان و«بالمختصر» مرسومان من الأنماط المضمّنة؛ الملف الكامل هنا فلا يؤخر أول رسم -->
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
       <div class="pub-container pub-doc-layout">
-        <details class="pub-toc" open>
-          <summary>محتويات الصفحة</summary>
+        <details class="pub-toc">
+          <summary><span>محتويات الصفحة</span><svg class="pub-icon pub-faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
           <ol>
             <li><a href="#who">من نحن</a></li>
             <li><a href="#data">البيانات التي نجمعها</a></li>
@@ -79,7 +87,7 @@
               <li>وصف مشكلتك القانونية ونوعها، وما ترسله من رسائل أو ردود على أسئلتنا.</li>
               <li>المستندات والصور والرسائل الصوتية التي ترفقها، مثل شهادات الوفاة أو العقود أو الأحكام.</li>
               <li>
-                بيانات اختيارية عن الأسرة تساعدنا على ترتيب الأولويات وتحديد الاستحقاق: صفة مقدّم الطلب، وعدد الأطفال، ورقم الملف لدى المؤسسة، وفئة الدخل
+                بيانات اختيارية عن الأسرة تساعدنا على ترتيب الأولويات ومعرفة المساعدة التي تناسب ظروفك: صفة مقدّم الطلب، وعدد الأطفال، ورقم الملف لدى المؤسسة، وفئة الدخل
                 الشهري، ونوع السكن.
               </li>
             </ul>
@@ -105,7 +113,7 @@
             <ul>
               <li>دراسة مشكلتك القانونية وإعداد الرأي القانوني ومتابعة الإجراءات اللازمة.</li>
               <li>التواصل معك بشأن طلبك: الأسئلة والطلبات والردود والتذكير بالمواعيد والجلسات والمستندات الناقصة.</li>
-              <li>ترتيب الأولويات وتحديد الاستحقاق، وتوجيهك إلى برامج المؤسسة الأخرى عند الحاجة.</li>
+              <li>ترتيب الأولويات ومعرفة المساعدة التي تناسب ظروفك، وتوجيهك إلى برامج المؤسسة الأخرى عند الحاجة.</li>
               <li>تحسين جودة الخدمة وقياس أثرها في صورة إحصاءات مجمّعة لا تكشف هوية أحد.</li>
               <li>حماية الخدمة من الإساءة، والوفاء بالالتزامات القانونية والمحاسبية للمؤسسة.</li>
             </ul>

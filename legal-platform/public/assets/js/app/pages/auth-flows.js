@@ -5,9 +5,12 @@
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, dateTime, count } from '../../lib/fmt.js';
-import { form, button, alertBox, loading, brandMark, icon, toast, errorMessage } from '../../lib/ui.js';
+import { form, button, alertBox, loading, brandMark, icon, toast, errorMessage, copyButton } from '../../lib/ui.js';
 import { attachStrength, passwordProblem, PASSWORD_HINT } from '../components/password.js';
 import { twoFactorWizard } from '../components/two-factor.js';
+
+/** v9.1 l-home (L-10): رسالة التعهد الناقص كما في المواصفة (بدل «يجب الموافقة للمتابعة» العامة) */
+export const PLEDGE_REQUIRED = 'يلزم الإقرار بسرية بيانات المستفيدين لتفعيل الحساب.';
 
 function orgOf(meta) {
   return (meta && meta.settings && meta.settings.org_name) || 'بيوت مصر';
@@ -64,32 +67,42 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
     }
     const u = info.user;
     const isInvite = kind === 'invite';
+    // v9.1 l-home (L-10): شاشة التفعيل في أقل من 60 كلمة — حقلان للكتابة ولمستان (التعهد ثم الزر)
     const fields = [
-      isInvite && { name: 'name', label: 'الاسم الكامل', required: true, minLength: 3, maxLength: 120, autocomplete: 'name', hint: 'تأكد من كتابة اسمك صحيحًا كما سيظهر للإدارة' },
-      { name: 'username', label: 'اسم المستخدم للدخول', type: 'static', value: u.username, render: (x) => h('span.ltr.mono', { dir: 'ltr' }, x) },
-      { name: 'password', label: isInvite ? 'كلمة المرور' : 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT },
+      isInvite && { name: 'name', label: 'الاسم الكامل', required: true, minLength: 3, maxLength: 120, autocomplete: 'name' },
+      {
+        name: 'username',
+        label: isInvite ? 'اسم الدخول' : 'اسم المستخدم للدخول',
+        type: 'static',
+        value: u.username,
+        render: (x) => h('span.lh-copy-row', h('bdi.ltr.mono', { dir: 'ltr' }, x), copyButton(x, '', { size: 'sm', variant: 'ghost' })),
+      },
+      { name: 'password', label: isInvite ? 'كلمة المرور' : 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: isInvite ? '8 أحرف على الأقل، حروف وأرقام' : PASSWORD_HINT },
       { name: 'password_confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
       isInvite && {
         name: 'pledge',
         type: 'checkbox',
         required: true,
-        text: 'أتعهد بالحفاظ على سرية بيانات المستفيدين والمستفيدات وعدم استخدامها خارج نطاق العمل في المؤسسة',
+        text: 'أتعهد بالحفاظ على سرية بيانات المستفيدين وعدم استخدامها خارج عمل المؤسسة.',
+        requiredMessage: PLEDGE_REQUIRED,
+        checkClass: 'lh-pledge',
         full: true,
       },
     ].filter(Boolean);
     const f = form(fields, {
       columns: 1,
       values: isInvite ? { name: u.name } : {},
-      submitLabel: isInvite ? 'تفعيل الحساب والدخول' : 'حفظ كلمة المرور الجديدة',
+      submitLabel: isInvite ? 'تفعيل والدخول' : 'حفظ كلمة المرور الجديدة',
       submitIcon: isInvite ? 'checkCircle' : 'lock',
       onSubmit: async (v) => {
         const p = passwordProblem(v.password, u.username);
         if (p) throw fieldError('password', p);
         if (v.password !== v.password_confirm) throw fieldError('password_confirm', 'كلمتا المرور غير متطابقتين');
         if (isInvite) {
-          if (!v.pledge) throw fieldError('pledge', 'يجب الإقرار بالتعهد بالحفاظ على سرية بيانات المستفيدين والمستفيدات قبل تفعيل الحساب');
-          const res = await api.post('/auth/invite/accept', { token, name: v.name, password: v.password, password_confirm: v.password_confirm, pledge: true });
-          toast('فُعّل حسابك بنجاح، أهلًا بك', 'success');
+          if (!v.pledge) throw fieldError('pledge', PLEDGE_REQUIRED);
+          // v9.1 l-home: على الهاتف يبقى الدخول على هذا الجهاز (تذكّرني) كما في شاشة الدخول؛ ولا تنبيه منبثق بعد التفعيل
+          const remember = !!window.matchMedia?.('(pointer: coarse)').matches;
+          const res = await api.post('/auth/invite/accept', { token, name: v.name, password: v.password, password_confirm: v.password_confirm, pledge: true, remember });
           onLoggedIn(res.user);
         } else {
           const res = await api.post('/auth/reset', { token, password: v.password, password_confirm: v.password_confirm });
@@ -107,9 +120,9 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
     mount(
       host,
       isInvite
-        ? heading('userPlus', 'تفعيل حسابك', `مرحبًا ${u.display_name}، دعتك ${info.org} للانضمام إلى منصة الدعم القانوني بدور «${u.role_label}». أكّد اسمك واختر كلمة مرور لحسابك.`)
+        ? heading('userPlus', 'تفعيل حسابك', `مرحبًا ${u.display_name}، اختر كلمة مرور لتبدأ.`)
         : heading('lock', 'تعيين كلمة مرور جديدة', `مرحبًا ${u.display_name}، اختر كلمة مرور جديدة لحسابك.`),
-      h('p.auth-expiry', icon('clock', { size: 15 }), `الرابط صالح للاستخدام مرة واحدة حتى ${dateTime(info.expires_at)}`),
+      h('p.auth-expiry', icon('clock', { size: 15 }), isInvite ? `الرابط صالح حتى ${dateTime(info.expires_at)}` : `الرابط صالح للاستخدام مرة واحدة حتى ${dateTime(info.expires_at)}`),
       f.el,
     );
   })();
@@ -120,7 +133,7 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
  * الخطوة الثانية للدخول.
  * @param {{meta:object, challenge:string, expiresAt?:string, maxAttempts?:number, onSuccess:(user:object)=>void, onCancel:(opts?:object)=>void}} opts
  */
-export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onCancel }) {
+export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onCancel, remember = false }) {
   const host = h('div');
   const root = screen(meta, {}, host);
   document.title = `رمز التحقق — ${orgOf(meta)}`;
@@ -141,7 +154,8 @@ export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onC
         onSubmit: async (v) => {
           const code = String(v.code).trim();
           try {
-            const res = await api.post('/auth/login/2fa', isTotp ? { challenge, code: code.replace(/\s/g, '') } : { challenge, recovery_code: code });
+            // v9.1 l-home (L-17): اختيار «تذكّرني» من الخطوة الأولى يُطبَّق عند إنشاء الجلسة هنا
+            const res = await api.post('/auth/login/2fa', isTotp ? { challenge, code: code.replace(/\s/g, ''), remember: !!remember } : { challenge, recovery_code: code, remember: !!remember });
             if (res.recovery_codes_remaining !== undefined) {
               toast(
                 res.recovery_codes_remaining <= 3

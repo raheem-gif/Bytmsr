@@ -1,7 +1,8 @@
 // آراء المحامين: المسودة، التقديم للإدارة، الاعتماد أو الإعادة، ثم إعداد النسخة الموجهة للعميل وإرسالها.
 // ضغط المحامي على «تقديم» لا يعني أن العميل تلقى الرد: الرد يعود أولًا للمؤسسة.
-import { nowIso, badRequest, notFound, conflict, v, truncate } from '../util.js';
+import { nowIso, badRequest, notFound, conflict, v, truncate, ApiError } from '../util.js';
 import { LABELS } from '../constants.js';
+import { clientAnswerFields, answerMessageText } from './portal-v91.js'; // v9.1 b-portal
 
 export function createOpinions(app) {
   const { db } = app;
@@ -32,9 +33,26 @@ export function createOpinions(app) {
       }
       const t = nowIso();
       const draft = db.get("SELECT * FROM opinions WHERE assignment_id = ? AND status = 'draft' ORDER BY version DESC LIMIT 1", a.id);
+      // v9.1 l-work (L-03): لا كتابة صامتة فوق نص أحدث حُفظ من جهاز آخر — يقرر المحامي أي النصين يبقى
+      if (draft && body.base_updated_at && body.base_updated_at !== draft.updated_at && draft.body !== text && body.force !== true) {
+        throw new ApiError(409, 'تغيّر نص رأيك على المنصة من جهاز آخر بعد آخر حفظ من هذا الجهاز', 'draft_conflict', {
+          server_body: draft.body,
+          server_updated_at: draft.updated_at,
+          server_words: draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0,
+        });
+      }
+      // v9.1 l-work (B91-16): خطوات عملية مقترحة للمستفيد/ة (اختيارية، خطوة في كل سطر، حتى 8)
+      let steps;
+      if (body.client_steps !== undefined) {
+        const list = Array.isArray(body.client_steps) ? body.client_steps : String(body.client_steps ?? '').split('\n');
+        const clean = list.map((s) => String(s ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+        if (clean.length > 8) throw badRequest('الحد الأقصى 8 خطوات للمستفيد/ة');
+        if (clean.some((s) => s.length > 300)) throw badRequest('كل خطوة للمستفيد/ة 300 حرف على الأكثر');
+        steps = clean.length ? JSON.stringify(clean) : null;
+      }
       let id;
       if (draft) {
-        db.update('opinions', draft.id, { body: text, ai_suggestion_id: aiId ?? draft.ai_suggestion_id, updated_at: t });
+        db.update('opinions', draft.id, { body: text, ai_suggestion_id: aiId ?? draft.ai_suggestion_id, client_steps: steps, updated_at: t });
         id = draft.id;
       } else {
         id = db.insert('opinions', {
@@ -44,6 +62,7 @@ export function createOpinions(app) {
           body: text,
           status: 'draft',
           ai_suggestion_id: aiId,
+          client_steps: steps ?? undefined,
           created_at: t,
           updated_at: t,
         });
@@ -64,7 +83,8 @@ export function createOpinions(app) {
       if (!['assigned', 'in_progress', 'returned'].includes(a.status)) {
         throw conflict(a.status === 'submitted' ? 'رأيك مقدم بالفعل وبانتظار مراجعة الإدارة' : 'لا يمكن تقديم الرأي في هذه المرحلة');
       }
-      if (body.body !== undefined) svc.saveDraft(a.id, lawyer, { body: body.body, ai_suggestion_id: body.ai_suggestion_id });
+      // v9.1 l-work: client_steps، وbase_updated_at/force حتى لا يكتب التقديم من نافذة قديمة فوق نص أحدث (409 draft_conflict)
+      if (body.body !== undefined) svc.saveDraft(a.id, lawyer, { body: body.body, ai_suggestion_id: body.ai_suggestion_id, client_steps: body.client_steps, base_updated_at: body.base_updated_at, force: body.force });
       const draft = db.get("SELECT * FROM opinions WHERE assignment_id = ? AND status = 'draft' ORDER BY version DESC LIMIT 1", a.id);
       if (!draft || draft.body.trim().length < 20) throw badRequest('اكتب رأيك (20 حرفًا على الأقل) قبل التقديم');
       if (/\[يُستكمل/.test(draft.body)) throw badRequest('المسودة ما زالت تحتوي على أجزاء «يُستكمل» من المسودة الآلية. أكملها أو احذفها قبل التقديم.');
@@ -163,6 +183,7 @@ export function createOpinions(app) {
           body: o.body,
           status: 'draft',
           ai_suggestion_id: o.ai_suggestion_id,
+          client_steps: o.client_steps ?? undefined, // v9.1 l-work
           created_at: t,
           updated_at: t,
         });
@@ -172,7 +193,8 @@ export function createOpinions(app) {
         type: 'opinion.returned',
         title: `أعادت الإدارة رأيك في الملف ${c.code} للتعديل`,
         body: truncate(note, 160),
-        link: `#/my/assignments/${a.id}`,
+        // v9.1 l-home (L-12): يفتح المحرر مباشرة لا صفحة الإسناد الطويلة
+        link: `#/my/assignments/${a.id}/write`,
       });
       app.cases.refreshStatus(c.id);
       return requireOpinion(o.id);
@@ -193,12 +215,13 @@ export function createOpinions(app) {
         const ans = db.get('SELECT * FROM client_answers WHERE id = ? AND case_id = ?', body.id, c.id);
         if (!ans) throw notFound('مسودة الرد غير موجودة');
         if (ans.status === 'sent') throw conflict('تم إرسال هذا الرد بالفعل');
-        db.update('client_answers', ans.id, { body: text, opinion_id: opinionId ?? ans.opinion_id, updated_at: t });
+        db.update('client_answers', ans.id, { body: text, opinion_id: opinionId ?? ans.opinion_id, ...clientAnswerFields(app, c.id, body), updated_at: t }); // v9.1 b-portal: الخلاصة والخطوات
         return db.get('SELECT * FROM client_answers WHERE id = ?', ans.id);
       }
       const id = db.insert('client_answers', {
         case_id: c.id,
         opinion_id: opinionId,
+        ...clientAnswerFields(app, c.id, body), // v9.1 b-portal (B91-08): summary / steps / voice_document_id
         body: text,
         status: 'draft',
         prepared_by: actor.id,
@@ -214,14 +237,20 @@ export function createOpinions(app) {
       if (!ans) throw notFound('مسودة الرد غير موجودة');
       if (ans.status === 'sent') throw conflict('تم إرسال هذا الرد بالفعل');
       const c = app.cases.requireOpen(ans.case_id);
+      // v9.1 b-portal (B91-08): مع الخلاصة تصل الرسالة قصيرة (التحية، الخلاصة، الخطوات، رابط صفحتها)، والرد الكامل في صفحتها
+      const short = answerMessageText(app, ans, c);
+      // v9.1 fixes: نص واتساب وحده يحمل {portal_link} (يُصدر الرابط عند الإرسال الفعلي)؛ النص المحفوظ بلا رابط
+      const waText = short ? answerMessageText(app, ans, c, { forWhatsApp: true }) : null;
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
         intake_id: c.intake_id,
         case_id: c.id,
-        body: ans.body,
+        body: short || ans.body,
         channel: body.channel || 'auto',
         author: actor,
-        meta: { client_answer_id: ans.id },
+        meta: { client_answer_id: ans.id, ...(waText && waText !== short ? { wa_text: waText } : {}) },
+        // الرسالة الصوتية من المؤسسة (إن أُرفقت) تُتاح في صفحة المتابعة مع الرد
+        attachments: ans.voice_document_id ? [ans.voice_document_id] : [],
       });
       const t = nowIso();
       db.update('client_answers', ans.id, { status: 'sent', channel: msg.channel, message_id: msg.id, sent_by: actor.id, sent_at: t, updated_at: t });

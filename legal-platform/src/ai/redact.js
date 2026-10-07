@@ -28,6 +28,38 @@ const stripMarks = (w) => String(w || '').trim().replace(/\p{M}/gu, '');
 // ألقاب مختصرة: يجب أن تكون كلمة مستقلة تمامًا
 const ABBR = '(?:أ\\.|د\\.|م\\.)';
 
+// ───────────── v9.1 fixes: أسماء الأبناء والأسرة المذكورة في الوقائع ─────────────
+const FAMILY_TERMS =
+  '(?:أطفال|اطفال|أولاد|اولاد|ولاد|عيال|أبناء|ابناء|طفلان|طفلين|طفلتان|طفلتين|طفل|طفلة|قاصران|قاصرين|قاصرتين|قصر|قاصر|قاصرة|ابن|ابنة|بنت|بنات|ولد|ابني|بنتي|ابنها|بنتها|ابنه|بنته|إخوة|اخوة|أشقاء|اشقاء|ورثة|الورثة)';
+const NOT_NAMES = new Set([
+  'صغار', 'صغير', 'صغيرة', 'كبار', 'قصر', 'قاصر', 'قاصرة', 'قاصرين', 'سنة', 'سنه', 'سنين', 'سنوات', 'شهور', 'أشهر', 'اشهر', 'عمر', 'عمره', 'عمرها',
+  'ولد', 'ولدين', 'بنت', 'بنتين', 'ذكر', 'أنثى', 'انثى', 'توأم', 'توام', 'تقريبا', 'تقريبًا', 'حاليا', 'حاليًا', 'فقط', 'كلهم', 'منهم', 'معاها', 'معاه',
+]);
+/** كلمة تصلح اسمًا علمًا: 3 حروف على الأقل، ليست كلمة شائعة ولا معرّفة بـ«ال» ولا رقمًا */
+function nameLike(w) {
+  const x = stripMarks(w);
+  return /^\p{L}{3,}$/u.test(x) && !/^ال/.test(x) && !NOT_NAMES.has(x) && !COMMON_AFTER_KIN.test(x);
+}
+function splitNames(list) {
+  return String(list)
+    .replace(/\s+و(?=\p{L})/gu, '،')
+    .split(/[،,\s]+/)
+    .filter(nameLike);
+}
+/**
+ * أسماء الأبناء/الأسرة المذكورة صراحة في نص (لتُخفى أينما وردت في سجل المعرفة):
+ * «طفلان قاصران (يوسف ومريم)»، «شهادات ميلاد يوسف ومريم»، والكنية «أم يوسف» ← «يوسف».
+ */
+export function familyNames(text) {
+  const s = String(text || '');
+  const out = new Set();
+  for (const m of s.matchAll(new RegExp(`${FAMILY_TERMS}[^()\\n]{0,25}\\(([^()\\n]{2,80})\\)`, 'gu'))) for (const n of splitNames(m[1])) out.add(n);
+  for (const m of s.matchAll(/شهاد(?:ة|ه|ات|تي|ات)\s+(?:ال)?ميلاد\s+(\p{L}{3,}(?:\s*(?:،|,|و)\s*\p{L}{3,}){0,5})/gu)) for (const n of splitNames(m[1])) out.add(n);
+  // («ام» بلا همزة قد تكون «أو» في الكلام الدارج، فلا تُعد كنية)
+  for (const m of s.matchAll(/(?:^|[^\p{L}])(?:أم|أبو|ابو)\s+(\p{L}{3,})/gu)) if (nameLike(m[1])) out.add(m[1]);
+  return [...out];
+}
+
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -62,6 +94,10 @@ export function redact(text, { names = [] } = {}) {
 
   rep(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[بريد إلكتروني]', 'emails');
   rep(/https?:\/\/\S+/g, '[رابط]', 'links');
+  // v9.1 fixes: روابط بلا بروتوكول (wa.me/… و www.… و legal.example.org/p/…) ورابط صفحة المتابعة النسبي /p/<رمز>
+  rep(/\b(?:www\.|wa\.me\/)\S+/gi, '[رابط]', 'links');
+  rep(/\b(?:[a-z0-9-]+\.)+(?:com|org|net|eg|me|io|info|gov|edu|app|link|ly|co|ai|site|online|xyz)(?:\.[a-z]{2})?(?:\/\S*)?(?![\w.-])/gi, '[رابط]', 'links');
+  rep(/\/p\/[A-Za-z0-9_-]{8,}/g, '[رابط]', 'links');
   rep(/\b[23]\d{13}\b/g, '[رقم قومي]', 'national_ids');
   s = s.replace(/(?:\+|00)?\d[\d\s-]{7,16}\d/g, (m) => {
     const t = m.trim();
@@ -72,7 +108,11 @@ export function redact(text, { names = [] } = {}) {
     return '[رقم هاتف]';
   });
   rep(/\b(?:[A-Z]{2,3})-\d{4}-\d{5}\b|\bCL-\d{5}\b/g, '[رقم ملف]', 'codes');
-  rep(/(?:شارع|ش\.)\s+[^\s،.,]+(?:\s+[^\s،.,]+){0,2}/g, '[عنوان]', 'addresses');
+  // v9.1 fixes: «ش.» / «ش» / «شارع» كلمة مستقلة فقط (لا نهاية «المعاش.»)، ومعها رقم المبنى قبلها إن وُجد («12 ش التحرير»)
+  s = s.replace(/(^|[^\p{L}\p{M}\d])(?:\d{1,4}\s*)?(?:شارع|ش\.?)\s+[^\s،.,]+(?:\s+[^\s،.,]+){0,2}/gu, (m, pre) => {
+    bump('addresses');
+    return `${pre}[عنوان]`;
+  });
   rep(/(?:عمارة|عماره|برج|شقة|شقه)\s+رقم\s*\d+/g, '[عنوان]', 'addresses');
 
   // الأسماء المعروفة: الاسم الكامل ثم الاسم الثنائي ثم الاسم الأول (إن لم يكن شائعًا جدًا)
@@ -86,7 +126,8 @@ export function redact(text, { names = [] } = {}) {
     if (parts[0].length >= 4 && !STOP_NAME_PARTS.has(parts[0])) variants.add(parts[0]);
   }
   for (const nm of [...variants].sort((a, b) => b.length - a.length)) {
-    const re = new RegExp(`(^|[^\\p{L}])${tolerantName(nm)}(?=$|[^\\p{L}])`, 'gu');
+    // (v9.1 fixes: ومع حرف العطف أو الجر الملتصق: «يوسف ومريم» ← «[اسم] و[اسم]»)
+    const re = new RegExp(`(^[وفبل]?|[^\\p{L}][وفبل]?)${tolerantName(nm)}(?=$|[^\\p{L}])`, 'gu');
     s = s.replace(re, (m, pre) => {
       bump('names');
       return `${pre}[اسم]`;

@@ -3,6 +3,31 @@
    الخصائص المنطقية (inline/block) تضمن اتجاهًا صحيحًا من اليمين لليسار.
    ========================================================================== */
 
+/* v9.1 l-home (L-07): خط IBM Plex Sans Arabic مستضاف ذاتيًا (رخصة SIL OFL — public/assets/fonts/OFL.txt)،
+   بلا أي طلب لخوادم Google. العربية واللاتينية (الأرقام والأكواد) مقسّمتان بـ unicode-range فلا يُنزَّل إلا ما يلزم.
+   المسافة (U+0020/U+00A0) موجودة في ملف العربية نفسه فتُنسب إليه، والنجمة (علامة الحقل المطلوب) و«…» (نصوص التحميل)
+   تُرسمان بخط النظام: فشاشة عربية بلا أرقام ولا حروف لاتينية (كشاشة الدخول) لا تنزّل الملف اللاتيني.
+   (إصلاح 9.1) لا ملف للوزن 500: ملف 600 يغطي «500 600» فالنص المتوسط (font-weight:500) يُرسم أثقل كما في 9.0 لا بوزن 400،
+   بلا ملف إضافي (ملف 600 تنزّله كل صفحات العمل أصلًا). */
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/assets/fonts/plex-arabic-400.woff2") format("woff2");
+  unicode-range: U+0020, U+00A0, U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 500 600; font-display: swap;
+  src: url("/assets/fonts/plex-arabic-600.woff2") format("woff2");
+  unicode-range: U+0020, U+00A0, U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/assets/fonts/plex-arabic-700.woff2") format("woff2");
+  unicode-range: U+0020, U+00A0, U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("/assets/fonts/plex-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-001F, U+0021-0029, U+002B-009F, U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 500 600; font-display: swap;
+  src: url("/assets/fonts/plex-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-001F, U+0021-0029, U+002B-009F, U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/assets/fonts/plex-latin-700.woff2") format("woff2");
+  unicode-range: U+0000-001F, U+0021-0029, U+002B-009F, U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 :root {
   /* الخطوط */
   --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
@@ -694,6 +719,17 @@ html[dir="rtl"] .icon-dir {
   border-block-start: 1px solid var(--border);
   padding: 8px;
   text-align: center;
+}
+
+/* (إصلاح 9.1) الهاتف: لوحة الإشعارات بعرض الشاشة لكل الأدوار — كانت للمحامي فقط، وعند فريق العمل تخرج عن حافة الشاشة
+   (الجرس ليس في طرف الشريط). الشريط العلوي فيه backdrop-filter فيصير هو مرجع position:fixed: تبدأ تحته مباشرة */
+@media (max-width: 640px) {
+  .dropdown-anchor > .dropdown {
+    position: fixed;
+    inset-block-start: var(--topbar-h);
+    inset-inline: 8px;
+    width: auto;
+  }
 }
 
 .notif-list {
@@ -2349,6 +2385,137 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   .modal-footer .btn {
     flex: 1 1 auto;
   }
+}
+
+/* v9.1 l-court — ورقة سفلية (modal({ sheet: true })) ومربعات الاختيار (choiceTiles) */
+.modal-sheet {
+  max-width: 480px;
+}
+
+.modal-grip {
+  display: none;
+}
+
+.modal-heading {
+  min-width: 0;
+}
+
+.modal-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.modal-sheet .modal-close {
+  width: 44px;
+  height: 44px;
+}
+
+.modal-sheet .modal-header {
+  padding-block: 12px 10px;
+}
+
+.modal-sheet .modal-body {
+  padding-block: 14px;
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop.modal-backdrop-sheet {
+    padding: 0;
+  }
+
+  .modal-sheet {
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    transition: transform 0.12s ease;
+  }
+
+  .modal-sheet .modal-grip {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 8px auto 0;
+    border-radius: 2px;
+    background: var(--gray-300);
+  }
+
+  .modal-sheet .modal-footer {
+    border-radius: 0;
+  }
+}
+
+.choice-field {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-label {
+  font-weight: 600;
+}
+
+.choice-group {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-group.choice-tiles {
+  grid-template-columns: repeat(var(--choice-cols, 2), minmax(0, 1fr));
+}
+
+.choice-group.choice-chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.choice-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.choice-chips .choice-tile {
+  flex-direction: row;
+  min-height: 44px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.choice-tile:hover {
+  border-color: var(--primary-500);
+}
+
+.choice-tile:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.choice-tile[aria-checked="true"] {
+  border-color: var(--primary-700);
+  background: var(--primary-50);
+  color: var(--primary-800);
+  box-shadow: inset 0 0 0 1px var(--primary-700);
+}
+
+.choice-tile-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 @keyframes fade-in {

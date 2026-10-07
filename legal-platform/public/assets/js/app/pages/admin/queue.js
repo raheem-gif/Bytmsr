@@ -79,6 +79,29 @@ export default async function render(ctx) {
     }
   }
 
+  // v9.1 l-work: طلب المهلة والسؤال للإدارة و«أحتاج هذا أيضًا» لا تُرسل للمستفيد/ة — تجيب الإدارة المحامي مباشرة
+  const adminOnly = (r) => r.kind === 'extension' || r.kind === 'admin_question' || !!r.duplicate_of_id;
+  async function answerLawyer(r) {
+    const ext = r.kind === 'extension' && r.requested_due_at;
+    const res = await formDialog({
+      title: r.kind === 'extension' ? 'الرد على طلب المهلة' : r.duplicate_of_id ? 'طلب مكرر' : 'الرد على سؤال المحامي',
+      intro: r.duplicate_of_id ? 'يصل للمحامي تلقائيًا الرد نفسه عند إتاحة رد الطلب الأصلي؛ أو اكتب ردًا الآن.' : null,
+      size: 'lg',
+      submitLabel: 'أرسل الرد للمحامي',
+      values: { response_text: '', approve_extension: false },
+      fields: [
+        { type: 'static', label: `طلب المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true },
+        ext && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
+        { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 4 },
+      ],
+      onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, approve_extension: !!v.approve_extension }),
+    });
+    if (res) {
+      toast('وصل الرد للمحامي', 'success');
+      await reloadAndFocus(ctx, '#pa-q-info_requests');
+    }
+  }
+
   async function rejectInfo(r) {
     const res = await formDialog({
       title: 'رفض طلب المعلومات',
@@ -165,11 +188,14 @@ export default async function render(ctx) {
       render: (rows) =>
         list(rows, (r) =>
           item({
-            head: [caseLink(r, 'requests'), statusBadge('info_request_kind', r.kind)],
+            head: [caseLink(r, 'requests'), statusBadge('info_request_kind', r.kind), r.duplicate_of_id ? badge('طلب مكرر', 'warning', { icon: 'link' }) : null],
             body: quote(r.question),
             foot: [h('span', icon('user', { size: 14 }), r.requested_by_name || 'الإدارة'), when(r.created_at)],
             actions: [
-              button('موافقة وإرسال', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => approveInfo(r) }),
+              // v9.1 l-work: لا «إرسال للمستفيد/ة» للمهلة والسؤال للإدارة والطلب المكرر
+              adminOnly(r)
+                ? button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => answerLawyer(r) })
+                : button('موافقة وإرسال', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => approveInfo(r) }),
               button('رفض', { variant: 'ghost', size: 'sm', icon: 'x', onClick: () => rejectInfo(r) }),
             ],
           }),

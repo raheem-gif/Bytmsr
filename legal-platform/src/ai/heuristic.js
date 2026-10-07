@@ -420,6 +420,54 @@ export function draftOpinion({ title, area, facts, brief, issues, missing, simil
   return lines.join('\n');
 }
 
+/** v9.1 b-portal: الاسم الذي نخاطب به («أم محمد عبد الله» ← «أم محمد»، «سامية محمود» ← «سامية») */
+function kunyaName(name) {
+  const w = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return '';
+  if (/^(أم|ام|إم|أبو|ابو)$/.test(w[0])) return w[1] ? `${w[0]} ${w[1]}` : '';
+  if (w[0] === 'عبد' && w[1]) return `${w[0]} ${w[1]}`;
+  return w[0];
+}
+
+/**
+ * v9.1 b-portal (B91-08): اقتراح «الخلاصة بكلام بسيط» و«الخطوات» من الرأي المعتمد بلا ذكاء اصطناعي خارجي.
+ * الخلاصة من «التوصية»/«الخلاصة»/«الرأي» (وإلا فارغة) مختصرة لثلاث جمل ≤ 400 حرف؛ الخطوات مما اقترحه المحامي للمستفيد/ة،
+ * وإلا خطوات عامة آمنة لا تضيف رأيًا قانونيًا. تراجعها الإدارة دائمًا قبل الإرسال.
+ */
+export function clientSummary({ opinion, clientSteps } = {}) {
+  const lines = String(opinion || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !/^مسودة أولية|^\[يُستكمل/.test(l));
+  // (إصلاح 9.1) الخلاصة من فقرة الخلاصة/التوصية/الرأي فقط (الأخيرة أولًا)، لا من أول فقرة: أول فقرة غالبًا «الوقائع»
+  // وفيها مصطلحات («قاصرين»). بلا فقرة كهذه لا اقتراح، وتكتب الإدارة الخلاصة بنفسها.
+  const ORD = /^(?:أولًا|أولا|ثانيًا|ثانيا|ثالثًا|ثالثا|رابعًا|رابعا|خامسًا|خامسا|سادسًا|سادسا|[0-9٠-٩]+[.)-])\s*[:：.\-–]?\s*/;
+  const HEAD = '(?:التوصيات|التوصية|الخلاصة والتوصية|خلاصة الرأي|الخلاصة|النتيجة|الرأي القانوني|الرأي في المسائل|الرأي|رأينا|الخطوات المقترحة|المطلوب عمله)';
+  const CONCL = new RegExp(`^${HEAD}(?=\\s*[:：.\\-–]|\\s*$)`);
+  const FACTS = /^(?:الوقائع|وقائع|ملخص الوقائع|التكييف|الأسانيد|السند|المسائل)/;
+  const bare = lines.map((l) => l.replace(ORD, ''));
+  let base = '';
+  for (let i = bare.length - 1; i >= 0; i--) {
+    if (!CONCL.test(bare[i])) continue;
+    base = bare[i].replace(new RegExp(`^${HEAD}\\s*[:：.\\-–]?\\s*`), '').trim();
+    // عنوان وحده في سطره («ثالثًا: الرأي في المسائل») ← الفقرة التالية له
+    if (!base && bare[i + 1] && !FACTS.test(bare[i + 1]) && !CONCL.test(bare[i + 1])) base = bare[i + 1];
+    break;
+  }
+  const parts = sentences(base).slice(0, 3);
+  let summary = (parts.length ? parts.join(' ') : base).trim();
+  if (summary.length > 400) summary = `${summary.slice(0, 397).replace(/\s+\S*$/, '')}…`;
+  let steps = [];
+  try {
+    steps = Array.isArray(clientSteps) ? clientSteps : JSON.parse(clientSteps || '[]');
+  } catch {
+    steps = String(clientSteps || '').split('\n');
+  }
+  steps = steps.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 160));
+  if (!steps.length) steps = ['جهّزي الورق اللي معاكي عن المشكلة دي.', 'لو عندك أي سؤال على الرد، اسألينا من صفحتك أو كلمينا.'];
+  return { summary, steps };
+}
+
 /** نسخة موجهة للعميل بلغة مبسطة */
 export function clientVersion({ clientName, caseCode, opinion, orgName }) {
   const body = String(opinion || '')
@@ -427,11 +475,13 @@ export function clientVersion({ clientName, caseCode, opinion, orgName }) {
     .filter((l) => !/^مسودة أولية|^\[يُستكمل/.test(l.trim()))
     .join('\n')
     .trim();
+  void caseCode; // v9.1 b-portal (B91-08): لا كود داخلي في نص الرد؛ الرقم الوحيد الذي تعرفه هو رقم الطلب
+  const first = kunyaName(clientName);
   return [
-    // المستفيدون ليسوا «عملاء»: تحية محايدة لا تفترض جنس المستفيد
-    `${clientName ? `الأستاذ/ة ${clientName}` : 'حضرة المستفيد/ة الكريم/ة'}، تحية طيبة وبعد،`,
+    // v9.1 b-portal (B91-08): تحية بالاسم بدل «الأستاذ/ة …، تحية طيبة وبعد»
+    `${first ? `أهلًا يا ${first}` : 'أهلًا بيكي'}،`,
     '',
-    `بخصوص استفساركم في الملف رقم ${caseCode}، وبعد دراسته من المختصين لدينا، نفيدكم بما يلي:`,
+    'ده ردّنا على مشكلتك بعد ما درسها المختصين عندنا:',
     '',
     body,
     '',

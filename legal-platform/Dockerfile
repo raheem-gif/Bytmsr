@@ -10,7 +10,7 @@ FROM node:22-bookworm-slim
 
 LABEL org.opencontainers.image.title="beyoot-legal-platform" \
       org.opencontainers.image.description="Beyoot Misr legal support platform (منصة الدعم القانوني — بيوت مصر)" \
-      org.opencontainers.image.version="9.0.0" \
+      org.opencontainers.image.version="9.1.0" \
       org.opencontainers.image.licenses="UNLICENSED"
 
 ENV NODE_ENV=production \
@@ -37,7 +37,7 @@ COPY scripts ./scripts
 RUN mkdir -p /app/data && chown node:node /app/data && chmod 700 /app/data
 
 USER node
-VOLUME ["/app/data"]
+# لا نستخدم VOLUME: القرص الدائم يُركَّب من المنصة (Render Disk) أو من docker-compose / docker run -v
 EXPOSE 3000
 STOPSIGNAL SIGTERM
 

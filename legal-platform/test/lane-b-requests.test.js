@@ -115,7 +115,11 @@ test('admin approves: the client receives the admin wording over the org WhatsAp
   assert.equal(msg.status, 'simulated', 'without WhatsApp credentials outbound messages are recorded as simulated');
   assert.ok(msg.to_address.endsWith(phoneCore(phone)));
   assert.ok(msg.body.includes('برجاء إرسال صورة عقد إيجار المحل الأصلي'));
-  assert.ok(msg.body.includes(kase.code));
+  // v9.1 b-site (B91-10): صفحة المتابعة تعرض الطلب نظيفًا؛ نص واتساب وحده يضيف «صوّري الورقة وابعتيها هنا» ورابط صفحتها، بلا كود الملف
+  assert.ok(!msg.body.includes(kase.code));
+  // v9.1 fixes: الرابط لا يُحفظ أبدًا؛ {portal_link} يُستبدل برابط جديد عند الإرسال الفعلي فقط
+  assert.match(msg.meta.wa_text, /صوّري الورقة وابعتيها هنا، أو من صفحتك: \{portal_link\}/);
+  assert.ok(!JSON.stringify(msg).includes('/p/'), 'no bearer portal link stored in the message');
   assert.equal(msg.body.includes('LAWYERWORDING'), false, "the lawyer's internal wording is not sent verbatim");
   assert.equal(msg.meta.info_request_id, irDoc);
   const notes = await notificationsOf(lead);
@@ -173,7 +177,8 @@ test('admin shares the reviewed reply: the lawyer is notified, sees the response
   assert.ok(v.documents.some((x) => x.id === replyDocId), 'shared document joins the lawyer documents');
   assert.equal((await lead.get(`/api/documents/${replyDocId}/download`)).status, 200);
   const notes = await notificationsOf(lead);
-  assert.ok(notes.some((n) => n.type === 'info_request.shared' && n.link === `#/my/assignments/${leadAsg.id}`));
+  // v9.1 l-work (L-12): الإشعار يفتح قسم «الطلبات» في صفحة الإسناد مباشرة
+  assert.ok(notes.some((n) => n.type === 'info_request.shared' && n.link === `#/my/assignments/${leadAsg.id}?tab=requests`));
   // co-counsel was not part of this share
   const coView = ok(await co.get(`/api/lawyer/assignments/${coAsg.id}`));
   assert.equal(coView.info_requests.some((x) => x.id === irDoc), false);

@@ -518,6 +518,13 @@ test('platform: full .tar.gz export is valid (parse back, sha256 manifest, DB sn
       const withKey = await readTarBuffer(zlib.gunzipSync(r.body));
       assert.ok(withKey.some((e) => e.name.endsWith('/data/.secret-key')));
       assert.ok(app.db.get("SELECT 1 FROM security_events WHERE type = 'system.export' AND severity = 'critical'"));
+      // مفاتيح تنبيهات الأجهزة (9.1) تُنقل مع المفاتيح فقط
+      app.webPush?.publicKey?.();
+      const vapidFile = path.join(app.config.dataDir, 'vapid.json');
+      if (fs.existsSync(vapidFile)) {
+        assert.ok(withKey.some((e) => e.name.endsWith('/data/vapid.json')) || (await readTarBuffer(zlib.gunzipSync((await admin.download('/api/admin/system/export', { include_key: true })).body))).some((e) => e.name.endsWith('/data/vapid.json')));
+        assert.ok(!(await readTarBuffer(zlib.gunzipSync(archive))).some((e) => e.name.endsWith('/data/vapid.json')), 'vapid keys excluded by default');
+      }
     }
 
     // الاستعادة على «خادم جديد» من الأرشيف

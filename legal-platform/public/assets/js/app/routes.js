@@ -48,25 +48,90 @@ export const routes = [
 
   // ── بوابة المحامي ──
   // «الإسناد» ما تكلّف به الإدارة المحامي؛ «الملف» ملف المؤسسة نفسه
-  { path: '/my', load: () => import('./pages/lawyer/home.js'), roles: LAWYER, title: 'إسناداتي' },
+  // v9.1 l-home (L-01): «اليوم» قائمة واحدة بما هو مطلوب الآن؛ قائمة الإسنادات (الحالية والسابقة) في /my/assignments.
+  // prefetch يطلب /api/lawyer/today بالتوازي مع تحميل وحدة الصفحة، وskeleton يعرض صفوفًا رمادية بدل مؤشر التحميل.
+  {
+    path: '/my',
+    load: () => import('./pages/lawyer/home.js'),
+    roles: LAWYER,
+    title: 'اليوم',
+    // عند فتح المنصة على «اليوم» تصل بياناته مع /api/auth/session (?page=/lawyer/today) فيأخذها api.get دون طلب جديد
+    prefetch: () => import('../lib/api.js').then(({ api }) => api.get('/lawyer/today')),
+    skeleton: () => todaySkeleton(),
+  },
+  { path: '/my/assignments', load: () => import('./pages/lawyer/assignments.js'), roles: LAWYER, title: 'إسناداتي' },
   { path: '/my/assignments/:id', load: () => import('./pages/lawyer/assignment.js'), roles: LAWYER, title: 'تفاصيل الإسناد' },
+  // v9.1 l-work (L-03): وضع الكتابة المركّز «رأيي»
+  { path: '/my/assignments/:id/write', load: () => import('./pages/lawyer/write.js'), roles: LAWYER, title: 'رأيي' },
   { path: '/my/matters', load: () => import('./pages/lawyer/matters.js'), roles: LAWYER, title: 'الملفات المستمرة' },
   { path: '/my/matters/:id', load: () => import('./pages/lawyer/matter.js'), roles: LAWYER, title: 'ملف مستمر' },
-  { path: '/my/statement', load: () => import('./pages/lawyer/statement.js'), roles: LAWYER, title: 'كشف حسابي' },
+  { path: '/my/statement', load: () => import('./pages/lawyer/statement.js'), roles: LAWYER, title: 'مستحقاتي' },
   { path: '/my/calendar', load: () => import('./pages/lawyer/calendar.js'), roles: LAWYER, title: 'تقويمي' },
 
   // ── مشترك ──
   { path: '/notifications', load: () => import('./pages/notifications.js'), roles: EVERYONE, title: 'الإشعارات' },
-  { path: '/account', load: () => import('./pages/account.js'), roles: EVERYONE, title: 'حسابي والأمان' },
-  { path: '/print/:kind/:id', load: () => import('./pages/print.js'), roles: EVERYONE, title: 'طباعة' },
+  { path: '/account', load: () => import('./pages/account.js'), roles: EVERYONE, title: 'حسابي والأمان', lawyerTitle: 'حسابي' },
+  { path: '/print/:kind/:id', load: () => import('./pages/print.js'), roles: EVERYONE, title: 'طباعة', css: ['v9-programs'] },
 ];
+
+// ───────── v9.1 l-home (L-07): أوراق أنماط الإدارة تُحمَّل عند الحاجة لا في كل فتح للمنصة ─────────
+/** أوراق الأنماط الخاصة بصفحات الإدارة (لا يحتاجها المحامي): تُحمَّل لأي صفحة إدارة ولكل مستخدم من الإدارة */
+export const STAFF_CSS = ['pages-a', 'pages-b', 'pages-d', 'v9-platform', 'v9-programs', 'v9-messaging'];
+for (const r of routes) {
+  if (r.roles === STAFF || r.roles === ADMIN) r.css = [...new Set([...(r.css || []), ...STAFF_CSS])];
+}
+
+// v9.1 l-home (L-07): بيانات صفحات المحامي تُطلب بالتوازي مع تحميل وحدة الصفحة (api.prefetchGet)، فرابط إشعار يُفتح
+// على شبكة بطيئة لا ينتظر الوحدة ثم البيانات على التوالي. الرابط هو نفسه ما تطلبه الصفحة (وإلا لا يُستعمل الطلب المبكر).
+const LAWYER_DATA = {
+  '/my/assignments/:id': (ctx) => `/lawyer/assignments/${encodeURIComponent(ctx.params.id)}`,
+  '/my/assignments/:id/write': (ctx) => `/lawyer/assignments/${encodeURIComponent(ctx.params.id)}`,
+  '/my/matters': () => '/lawyer/matters',
+  '/my/matters/:id': (ctx) => `/lawyer/matters/${encodeURIComponent(ctx.params.id)}`,
+  '/my/statement': () => '/lawyer/statement',
+};
+for (const r of routes) {
+  if (LAWYER_DATA[r.path] && !r.prefetchGet) r.prefetchGet = LAWYER_DATA[r.path];
+}
+
+/** أوراق إضافية حسب الدور: الإدارة تحمّل أوراقها كلها مع أول صفحة فيبقى شكل صفحاتها كما كان تمامًا */
+export function roleCss(user) {
+  return user && user.role !== 'lawyer' ? STAFF_CSS : [];
+}
+
+/**
+ * v9.1 l-home (L-08): صفحات التفاصيل للمحامي (يظهر فيها زر «رجوع» بدل القائمة ويختفي الشريط السفلي)
+ * والصفحة الأم لكل منها (عند فتحها مباشرة من رابط أو إشعار).
+ */
+export function lawyerDetailParent(path) {
+  const p = String(path || '');
+  let m = /^\/my\/assignments\/([^/]+)\/write$/.exec(p);
+  if (m) return `/my/assignments/${m[1]}`;
+  if (/^\/my\/assignments\/[^/]+$/.test(p)) return '/my';
+  if (/^\/my\/matters\/[^/]+$/.test(p)) return '/my/matters';
+  return null;
+}
+
+/** صفوف رمادية تُعرض أثناء تحميل «اليوم» (بدل مؤشر صفحة كاملة) */
+export function todaySkeleton() {
+  const el = document.createElement('div');
+  el.className = 'page lh-today lh-loading';
+  el.setAttribute('aria-busy', 'true');
+  el.innerHTML =
+    '<div class="lh-today-head"><div class="lh-sk lh-sk-date"></div><div class="lh-sk lh-sk-h1"></div></div>' +
+    '<section class="lh-now card"><div class="lh-sk-row"></div><div class="lh-sk-row"></div><div class="lh-sk-row"></div></section>' +
+    '<span class="sr-only" role="status">جارٍ تحميل مهامك…</span>';
+  return el;
+}
 
 /**
  * عنوان صفحة المسار — المصدر الوحيد لاسم الصفحة: يظهر في الشريط العلوي وعنوان المتصفح وعنصر القائمة الجانبية.
  * @param {string} path مسار ثابت مثل '/quick-replies'
+ * @param {string} [role] v9.1 l-home: للمحامي عنوانه الخاص إن وُجد (lawyerTitle، مثل «حسابي»)
  */
-export function routeTitle(path) {
+export function routeTitle(path, role) {
   const r = routes.find((x) => x.path === path);
+  if (r && role === 'lawyer' && r.lawyerTitle) return r.lawyerTitle;
   return (r && r.title) || '';
 }
 

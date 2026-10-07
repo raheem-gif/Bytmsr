@@ -3,7 +3,8 @@
 // (الإصدار 9 — وحدة accounts)
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label, dateTime, relative, count, num, hours } from '../../lib/fmt.js';
+import { label, dateTime, relative, count, num, hours, normalizeEgPhone, date } from '../../lib/fmt.js';
+import { withPasswordConfirm, REAUTH_CANCELLED } from '../lh-reauth.js'; // v9.1 l-home (L-21)
 import {
   pageHeader,
   card,
@@ -48,7 +49,7 @@ export default async function render(ctx) {
       [
         { name: 'name', label: 'الاسم', required: true, minLength: 3, maxLength: 120, readonly: !data.editable.name, hint: data.editable.name ? null : 'يُعدَّل اسم المحامي من الإدارة لارتباطه ببيانات القيد والاتفاق' },
         { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل الداخلي مع الإدارة فقط' : null },
+        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل مع الإدارة وتنبيهات واتساب فقط' : null },
       ],
       {
         values: { name: u.name, email: u.email, phone: u.phone },
@@ -57,7 +58,16 @@ export default async function render(ctx) {
         onSubmit: async (v) => {
           const payload = { email: v.email || null, phone: v.phone || null };
           if (data.editable.name) payload.name = v.name;
-          data = await api.patch('/account', payload);
+          // v9.1 l-home (L-21): تغيير موبايل المحامي من جلسة قديمة يطلب كلمة المرور الحالية (ورقة تأكيد ثم الطلب نفسه)
+          try {
+            data = await withPasswordConfirm((extra) => api.patch('/account', { ...payload, ...extra }));
+          } catch (e) {
+            if (e && e.code === REAUTH_CANCELLED) {
+              f.setValues({ phone: data.user.phone });
+              return;
+            }
+            throw e;
+          }
           f.setValues({ name: data.user.name, email: data.user.email, phone: data.user.phone });
           toast('حُفظت بياناتك', 'success');
           if (ctx.refreshShell) ctx.refreshShell();
@@ -128,6 +138,10 @@ export default async function render(ctx) {
           host,
           h('p.acc-lead', 'التحقق بخطوتين يحمي حسابك حتى لو عرف أحد كلمة مرورك: عند كل دخول يُطلب رمز مؤقت من تطبيق مصادقة على هاتفك.'),
           data.user.role === 'admin' ? alertBox('حسابك بدور «إدارة النظام» ويطّلع على بيانات المستفيدين وهواتفهم؛ تفعيل التحقق بخطوتين ضروري لحمايتها.', 'warning') : null,
+          // v9.1 l-home (L-17)
+          data.user.role === 'lawyer' && data.remember && data.remember.available
+            ? h('p.lh-remember-note', `فعّل التحقق بخطوتين ليبقى دخولك ${count(data.remember.days_with_2fa || 30, ['يومًا واحدًا', 'يومين', 'أيام', 'يومًا'])} على هذا الجهاز.`)
+            : null,
           h('div.acc-actions-row', button('تفعيل التحقق بخطوتين', { variant: 'primary', icon: 'shieldCheck', onClick: startWizard })),
         );
         return;
@@ -213,9 +227,13 @@ export default async function render(ctx) {
         const res = await api.get('/account/sessions');
         const others = res.items.filter((s) => !s.current);
         revokeOthers.hidden = !others.length;
+        // v9.1 l-home (L-17): جلسة «تذكّرني» على هذا الجهاز (المحامون)
+        const rem = data.remember && data.remember.this_device && data.remember.expires_at ? data.remember : null;
         mount(
           host,
-          h('p.small.muted', `يُسجَّل الخروج تلقائيًا بعد ${hours(res.idle_hours)} من عدم النشاط، وبعد ${hours(res.max_hours)} من الدخول أيًا كان النشاط.`),
+          rem
+            ? h('p.lh-remember-note', icon('phone', { size: 15 }), ` يبقى دخولك على هذا الجهاز حتى ${date(rem.expires_at)}.`)
+            : h('p.small.muted', `يُسجَّل الخروج تلقائيًا بعد ${hours(res.idle_hours)} من عدم النشاط، وبعد ${hours(res.max_hours)} من الدخول أيًا كان النشاط.`),
           res.items.length
             ? h(
                 'ul.acc-sessions',
@@ -293,6 +311,139 @@ export default async function render(ctx) {
     return card({ title: 'آخر أحداث الأمان على حسابك', subtitle: 'إن لاحظت دخولًا لا تعرفه فغيّر كلمة المرور فورًا وأبلغ الإدارة', icon: 'clock', body: host });
   }
 
+  // ───────────── v9.1 l-home (L-06): تنبيهات واتساب للمحامي ─────────────
+  function alertsCard() {
+    const available = !!data.alerts_available;
+    const sw = h('input.lh-switch#lh-alert-switch', { type: 'checkbox', role: 'switch', checked: !!data.alert_whatsapp, disabled: !available, 'aria-describedby': 'lh-alert-desc' });
+    const phoneInput = h('input.input#lh-alert-phone', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', placeholder: '01xxxxxxxxx', value: data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : '' });
+    const err = h('p.field-error', { role: 'alert', hidden: true });
+    const testBtn = asyncButton(
+      'جرّب التنبيه',
+      async () => {
+        const r = await api.post('/account/alerts/test');
+        toast(r && r.simulated ? 'سُجّل تنبيه تجريبي (وضع المحاكاة — لا يُرسل فعليًا)' : 'أُرسل تنبيه تجريبي إلى واتساب', 'success');
+      },
+      { variant: 'secondary', icon: 'whatsapp' },
+    );
+    testBtn.hidden = !data.alert_whatsapp;
+    sw.addEventListener('change', async () => {
+      err.hidden = true;
+      const on = sw.checked;
+      const payload = { alert_whatsapp: on };
+      if (on) {
+        const v = normalizeEgPhone(phoneInput.value);
+        if (!v) {
+          sw.checked = false;
+          err.textContent = 'أدخل رقم الموبايل لتصلك التنبيهات.';
+          err.hidden = false;
+          phoneInput.focus();
+          return;
+        }
+        payload.phone = v;
+      }
+      sw.disabled = true;
+      try {
+        // v9.1 l-home (L-21): رقم جديد من جلسة قديمة ← تأكيد كلمة المرور الحالية ثم الطلب نفسه
+        data = await withPasswordConfirm((extra) => api.patch('/account', { ...payload, ...extra }));
+        testBtn.hidden = !data.alert_whatsapp;
+        toast(on ? 'ستصلك التنبيهات على واتساب' : 'أُوقفت تنبيهات واتساب', 'success');
+      } catch (e) {
+        sw.checked = !on;
+        if (!(e && e.code === REAUTH_CANCELLED)) {
+          err.textContent = (e.details && e.details.fields && (e.details.fields.phone || e.details.fields.alert_whatsapp)) || e.message;
+          err.hidden = false;
+        }
+      } finally {
+        sw.disabled = !available;
+      }
+    });
+    // v9.1 l-home (مراجعة): تعديل الرقم والتنبيهات مفعّلة يُحفظ عند مغادرة الحقل (كان لا يُحفظ إلا بإعادة تشغيل المفتاح)
+    phoneInput.addEventListener('change', async () => {
+      if (!sw.checked) return;
+      err.hidden = true;
+      const v = normalizeEgPhone(phoneInput.value);
+      const current = data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : '';
+      if (!v) {
+        err.textContent = 'أدخل رقم الموبايل لتصلك التنبيهات.';
+        err.hidden = false;
+        return;
+      }
+      if (v === current) return;
+      try {
+        data = await withPasswordConfirm((extra) => api.patch('/account', { phone: v, ...extra }));
+        phoneInput.value = data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : v;
+        toast('حُفظ رقم التنبيهات', 'success');
+      } catch (e) {
+        phoneInput.value = current;
+        if (!(e && e.code === REAUTH_CANCELLED)) {
+          err.textContent = (e.details && e.details.fields && e.details.fields.phone) || e.message;
+          err.hidden = false;
+        }
+      }
+    });
+    return card({
+      title: 'التنبيهات',
+      icon: 'bell',
+      className: 'lh-alerts-card',
+      body: h(
+        'div.stack',
+        { id: 'alerts' },
+        h('label.lh-switch-row', { for: 'lh-alert-switch' }, h('span', 'أرسل لي تنبيهًا على واتساب'), sw),
+        available
+          ? h(
+              'div',
+              h('div.field', h('label.field-label', { for: 'lh-alert-phone' }, 'رقم الموبايل'), phoneInput, err),
+              h('p.lh-fine#lh-alert-desc', 'تصلك تنبيهات قصيرة بلا أي بيانات عن المستفيدين: إسناد جديد، رأي مُعاد، موعد يقترب، جلسة بلا نتيجة.'),
+              h('p.lh-fine', 'لا نرسل بين 10 م و8 ص.'),
+              h('div.lh-alerts-actions', testBtn),
+            )
+          : h('p.lh-fine#lh-alert-desc', 'تنبيهات واتساب غير متاحة حاليًا. ستجد كل التنبيهات داخل المنصة.'),
+      ),
+    });
+  }
+
+  // ───────────── v9.1 l-home (L-20): تنبيهات على هذا الجهاز (Web Push) ─────────────
+  function pushCard() {
+    const host = h('div.stack');
+    (async () => {
+      let pwa;
+      try {
+        pwa = await import('../../lib/pwa.js');
+      } catch {
+        return;
+      }
+      if (!pwa.pushSupported || !pwa.pushSupported()) {
+        mount(host, h('p.lh-fine', 'هذا المتصفح لا يدعم التنبيهات. ثبّت المنصة على الشاشة الرئيسية ثم افتحها من أيقونتها.'));
+        return;
+      }
+      const sub = await pwa.currentPushSubscription();
+      const sw = h('input.lh-switch#lh-push-switch', { type: 'checkbox', role: 'switch', checked: !!sub });
+      const note = h('p.lh-fine', 'تظهر على الشاشة إشارة عامة «لديك تحديث في منصة الدعم القانوني» بلا أكواد ولا تفاصيل، وتفتح المنصة عند لمسها.');
+      sw.addEventListener('change', async () => {
+        sw.disabled = true;
+        try {
+          if (sw.checked) {
+            const r = await pwa.subscribePush({ get: (p) => api.get(p), post: (p, b) => api.post(p, b) });
+            if (r !== 'subscribed') {
+              sw.checked = false;
+              toast(r === 'denied' ? 'لم يُسمح بالتنبيهات. فعّلها من إعدادات المتصفح ثم حاول مرة أخرى.' : 'هذا المتصفح لا يدعم التنبيهات', 'warning');
+            } else toast('فُعّلت التنبيهات على هذا الجهاز', 'success');
+          } else {
+            await pwa.unsubscribePush({ del: (p, b) => api.del(p, b) });
+            toast('أُوقفت التنبيهات على هذا الجهاز', 'success');
+          }
+        } catch (e) {
+          sw.checked = !sw.checked;
+          toast(e.message || 'تعذر تغيير الإعداد', 'danger');
+        } finally {
+          sw.disabled = false;
+        }
+      });
+      mount(host, h('label.lh-switch-row', { for: 'lh-push-switch' }, h('span', 'فعّل'), sw), note);
+    })();
+    return card({ title: 'تنبيهات على هذا الجهاز', icon: 'phone', className: 'lh-alerts-card', body: host });
+  }
+
   async function refresh() {
     data = await api.get('/account');
     draw();
@@ -300,6 +451,18 @@ export default async function render(ctx) {
 
   function draw() {
     const tf = data.two_factor;
+    // v9.1 l-home: صفحة المحامي «حسابي» — التنبيهات أولًا، بلا نص تعريفي، وزر الخروج في أسفلها
+    if (data.user.role === 'lawyer') {
+      mount(
+        page,
+        h('h1.lh-h1.lh-page-h1', 'حسابي'),
+        tf.enabled && tf.recovery_remaining === 0 ? alertBox('نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا تفقد الوصول إلى حسابك إذا فقدت هاتفك.', 'danger') : null,
+        h('div.acc-grid', h('div.acc-col', alertsCard(), pushCard(), profileCard(), passwordCard()), h('div.acc-col', twoFactorCard(), sessionsCard(), activityCard())),
+        h('div.lh-account-logout', button('تسجيل الخروج', { variant: 'secondary', icon: 'logout', onClick: () => window.dispatchEvent(new CustomEvent('bm:logout-request')) })),
+      );
+      if (ctx.query.focus === 'alerts') requestAnimationFrame(() => page.querySelector('#alerts')?.closest('.card')?.scrollIntoView({ block: 'start' }));
+      return;
+    }
     mount(
       page,
       pageHeader({

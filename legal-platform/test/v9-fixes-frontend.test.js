@@ -67,38 +67,47 @@ describe('v9 frontend fixes — formatting helpers', () => {
     assert.equal(count(11, forms), '11 طلبًا');
     const src = read('public/assets/js/public/portal.js');
     assert.ok(!/summaryLink\('#requests', 'message', requests\.filter\(\(r\) => r\.can_reply\)\.length, 'طلبات بانتظار ردك'\)/.test(src), 'no fixed plural label next to a bare count');
-    assert.match(src, /summaryParts\(requests\.filter\(\(r\) => r\.can_reply\)\.length, \['طلب واحد', 'طلبان', 'طلبات', 'طلبًا'\]/);
-    assert.match(src, /'لا توجد'/, 'zero is «لا توجد …» rather than «0 ردود»');
+    // v9.1 b-portal (تغيير مقصود، B91-02/B91-12): لا مربعات ملخص بعد الآن؛ الأعداد بالعامية عبر countWord،
+    // والرقم الوحيد الظاهر هو رقم الطلب REQ («رقم طلبك:») بدل «رقمك لدى المؤسسة»
+    assert.match(src, /countWord\(list\.length, \['طلب واحد', 'طلبين', 'طلبات', 'طلب'\]\)/);
     assert.ok(!src.includes('رقم العميل'), 'the beneficiary never sees «رقم العميل»');
-    assert.match(src, /رقمك لدى المؤسسة/);
+    assert.match(src, /'رقم طلبك: '/);
   });
 });
 
 describe('v9 frontend fixes — follow-up copy matches what /portal can do', () => {
-  test('the intake success screen does not promise follow-up by request number on /portal; it says how to recover the link', () => {
+  // v9.1 b-forms (تغيير مقصود، B91-05): بدل «احفظه… إن فقدته فراسلنا» صارت الشاشة تحفظ الصفحة على الموبايل
+  // وتعرض «ابعتي الرابط لنفسك» و«نسخ الرابط»، وتقول ما تذكره المستفيدة لو اتصلت (رقم الطلب القصير).
+  test('the intake success screen does not promise follow-up by request number on /portal; it says how to keep and recover the link', () => {
     const src = read('public/assets/js/public/intake.js');
     assert.ok(!src.includes('من صفحة «متابعة طلب» برقم طلبك'), 'no promise /portal cannot keep');
-    assert.match(src, /إن فقدته فراسلنا أو اتصل بنا واذكر رقم طلبك/);
-    assert.match(src, /لنرسل لك رابطًا جديدًا/);
+    assert.match(src, /ابعت\{ي\} الرابط لنفسك/);
+    assert.match(src, /نسخ الرابط/);
+    assert.match(src, /لو كلمت\{ي\}نا قول\{ي\}: طلب رقم/);
   });
 
   test('landing page, site nav/footer and the /portal page use one name and explain link recovery', async () => {
     const index = read('public/index.html');
     assert.ok(!index.includes('تابع طلبك من هنا'));
-    assert.match(index, /وإن فقدت الرابط فتواصل معنا برقم طلبك/);
+    // v9.1 b-site (B91-07): استعادة الرابط صارت سؤالًا في «أسئلة» بالصفحة الرئيسية («ضيّعت رابط طلبي، أعمل إيه؟»)
+    assert.match(index, /قدّمتي طلب قبل كده؟<\/strong> تابعيه من هنا/);
     const login = read('public/portal-login.html');
     assert.ok(!/بوابة العملاء/.test(login), 'no «بوابة العملاء» on the beneficiary-facing login page');
     assert.match(login, /<title>متابعة طلبك — \{\{org_name\}\}<\/title>/);
-    assert.match(login, /<h1 id="page-title">متابعة طلبك<\/h1>/);
+    // v9.1 b-portal (تغيير مقصود، B91-06): العنوان والكارت بعامية بسيطة
+    assert.match(login, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/);
     const pl = read('public/assets/js/public/portal-login.js');
-    assert.match(pl, /قدّمت طلبك من الموقع ولم تراسلنا على واتساب بعد؟/, 'website-only submitters are told how to get a new link');
+    assert.match(pl, /قدّمتي من الموقع ومش لاقية الرابط؟/, 'website-only submitters are told how to get a new link');
     assert.ok(!visibleStrings(pl).some((s) => /عميل|عملاء/.test(s.text)));
     const t = await startTestApp({ seed: 'none' });
     try {
       const html = (await t.client().get('/portal')).body;
-      assert.match(html, /<span>متابعة طلبك<\/span>/, 'site nav label');
-      assert.match(html, /<a href="\/portal">متابعة طلبك<\/a>/, 'footer label');
+      // v9.1 b-site (B91-07): نفس الاسم في القائمة والتذييل بكلام بسيط
+      assert.match(html, /<span>تابعي طلبك<\/span>/, 'site nav label');
+      assert.match(html, /<a href="\/portal">تابعي طلبك<\/a>/, 'footer label');
       assert.ok(!html.includes('بوابة العملاء'));
+      const home = (await t.client().get('/')).body;
+      assert.match(home, /ضيّعت رابط طلبي، أعمل إيه؟/);
     } finally {
       await t.close();
     }
@@ -130,10 +139,12 @@ describe('v9 frontend fixes — terminology', () => {
   test('route titles are the sidebar labels (one name per page): «المستفيدون», «ملف المستفيد/ة», «إسناداتي»', () => {
     assert.equal(routeTitle('/clients'), 'المستفيدون');
     assert.equal(routeTitle('/clients/:id'), 'ملف المستفيد/ة');
-    assert.equal(routeTitle('/my'), 'إسناداتي');
+    // v9.1 l-home (L-01): /my أصبحت «اليوم»، وقائمة الإسنادات انتقلت إلى /my/assignments «إسناداتي»
+    assert.equal(routeTitle('/my'), 'اليوم');
+    assert.equal(routeTitle('/my/assignments'), 'إسناداتي');
     for (const role of ['admin', 'case_manager', 'lawyer']) {
       for (const g of navGroups({ role }, { demo: true })) {
-        for (const item of g.items) assert.equal(item.label, routeTitle(item.href), `${role} ${item.href}`);
+        for (const item of g.items) assert.equal(item.label, routeTitle(item.href, role), `${role} ${item.href}`); // v9.1 l-home: lawyerTitle للمحامي
       }
     }
     const staff = navGroups({ role: 'admin' }, { demo: true }).flatMap((g) => g.items.map((i) => i.label));
@@ -142,13 +153,17 @@ describe('v9 frontend fixes — terminology', () => {
   });
 
   test('the lawyer portal calls its work «إسنادات», never «ملفاتي»', () => {
+    // v9.1 l-home (L-01): القائمة (الحالية/السابقة) في صفحة «إسناداتي» (assignments.js)، و«اليوم» يربط بالسابقة
     const home = read('public/assets/js/app/pages/lawyer/home.js');
-    const strings = visibleStrings(home).map((s) => s.text).join('\n');
+    const list = read('public/assets/js/app/pages/lawyer/assignments.js');
+    const strings = visibleStrings(home + '\n' + list).map((s) => s.text).join('\n');
     assert.ok(!/ملفاتي(?! المستمرة)/.test(strings), 'no «ملفاتي» except «ملفاتي المستمرة»');
     for (const s of ['الإسنادات الحالية', 'الإسنادات السابقة', 'إسناداتي']) assert.ok(strings.includes(s), s);
-    assert.match(read('public/assets/js/app/pages/lawyer/assignment.js'), /ctx\.setTitle\(`إسناد \$\{view\.case\.code\}`\)/);
+    // v9.1 l-work (L-04/L-08): عنوان الشريط العلوي كود الملف كاملًا بلا بادئة «إسناد»
+    assert.match(read('public/assets/js/app/pages/lawyer/assignment.js'), /ctx\.setTitle\(view\.case\.code\)/);
     const lawyerNav = navGroups({ role: 'lawyer' }, {}).flatMap((g) => g.items.map((i) => i.label));
-    assert.equal(lawyerNav[0], 'إسناداتي');
+    assert.equal(lawyerNav[0], 'اليوم'); // v9.1 l-home (L-01)
+    assert.equal(lawyerNav[1], 'إسناداتي');
   });
 
   test('shared labels: queue sections and the merge action have one name on every page', () => {

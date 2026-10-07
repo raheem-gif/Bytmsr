@@ -2,6 +2,7 @@
 
 import { h, mount } from '../lib/h.js';
 import { loading, errorState, pageHeader, emptyState, button, closeAllModals } from '../lib/ui.js';
+import { prefetchGet } from '../lib/api.js'; // v9.1 l-home (L-07)
 
 let routes = [];
 let config = null;
@@ -21,6 +22,8 @@ function compile(def) {
 
 /**
  * يسجل المسارات. كل مسار: { path: '/cases/:id', load: () => import(...), roles?: [...], title?, guard?(ctx) }
+ * v9.1 l-home (اختيارية): css: [...] أوراق تُحمَّل قبل العرض، prefetch(ctx) → Promise في ctx.prefetched،
+ * prefetchGet(ctx) → مسار GET يُطلب مبكرًا، skeleton(ctx) → عنصر يُعرض أثناء التحميل، lawyerTitle.
  */
 export function defineRoutes(defs) {
   routes = defs.map(compile);
@@ -89,6 +92,72 @@ export function reload() {
   return render({ keepScroll: true });
 }
 
+// ───────── v9.1 l-home (L-07): أوراق الأنماط الخاصة بصفحات الإدارة تُحمّل عند الحاجة ─────────
+// الترتيب الأصلي في app.html يحفظ تتابع القواعد (cascade): تُدرج الورقة قبل أول ورقة تليها في هذا الترتيب.
+export const CSS_ORDER = [
+  'v9-site', 'app', 'pages-a', 'pages-b', 'pages-c', 'pages-d', 'v9-practice', 'v9-platform', 'v9-accounts',
+  'v9-programs', 'v9-ai', 'v9-messaging', 'v9-fixes',
+];
+const cssLoads = new Map(); // الاسم ← Promise
+let versionsCache = null;
+/** أرقام إصدار الأوراق المؤجلة يكتبها الخادم في كتلة بيانات JSON (لا تُنفَّذ؛ متوافقة مع CSP) داخل صفحة /app */
+function assetVersions() {
+  if (versionsCache) return versionsCache;
+  try {
+    versionsCache = JSON.parse(document.getElementById('bm-assets')?.textContent || '{}') || {};
+  } catch {
+    versionsCache = {};
+  }
+  return versionsCache;
+}
+
+function sheetName(link) {
+  const m = /\/assets\/css\/([\w.-]+?)\.css(?:\?|$)/.exec(link.getAttribute('href') || '');
+  return m ? m[1] : null;
+}
+// الملفان المجمّعان اللذان يرسلهما الخادم بدل أوراق app.html: الأول (v9-site وapp) قبل أوراق الإدارة، والثاني بعدها
+const BUNDLE_ORDER = { 'bundle-a': 1.5, 'bundle-b': 1000 };
+function orderOf(name) {
+  if (name in BUNDLE_ORDER) return BUNDLE_ORDER[name];
+  const i = CSS_ORDER.indexOf(name);
+  return i < 0 ? CSS_ORDER.length : i; // أوراق الإصدار 9.1 وغيرها تأتي بعد الأصلية
+}
+
+/**
+ * يضمن تحميل أوراق أنماط بأسمائها (مثل 'pages-a') ويعيد Promise يُحل بعد تحميلها (أو فشلها، فلا تتعطل الصفحة).
+ * الورقة الموجودة بالفعل في الصفحة لا تُطلب مرة أخرى.
+ */
+export function ensureStyles(names = []) {
+  const list = [...new Set((names || []).filter(Boolean))];
+  if (!list.length) return Promise.resolve();
+  const links = () => [...document.querySelectorAll('link[rel="stylesheet"][href*="/assets/css/"]')];
+  return Promise.all(
+    list.map((name) => {
+      if (cssLoads.has(name)) return cssLoads.get(name);
+      const existing = links().find((l) => sheetName(l) === name || String(l.dataset.sheets || '').split(' ').includes(name));
+      if (existing) {
+        const p = Promise.resolve();
+        cssLoads.set(name, p);
+        return p;
+      }
+      // نفس رقم الإصدار الذي يضيفه الخادم لروابط الصفحة (إن وُجد) ليبقى الملف مخزّنًا للأبد
+      const version = assetVersions().css?.[name] || null;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `/assets/css/${name}.css${version ? `?v=${version}` : ''}`;
+      const p = new Promise((resolve) => {
+        link.addEventListener('load', () => resolve(), { once: true });
+        link.addEventListener('error', () => resolve(), { once: true });
+      });
+      const next = links().find((l) => orderOf(sheetName(l)) > orderOf(name));
+      if (next) next.before(link);
+      else document.head.appendChild(link);
+      cssLoads.set(name, p);
+      return p;
+    }),
+  ).then(() => undefined);
+}
+
 function staticPage(title, text, iconName) {
   const home = config ? config.defaultPath() : '/';
   return h(
@@ -147,11 +216,31 @@ async function render({ keepScroll = false } = {}) {
     return;
   }
 
-  config.setTitle(route.title || '');
-  if (!keepScroll) mount(outlet, loading());
+  // v9.1 l-home: عنوان خاص بالمحامي إن وُجد (مثل «حسابي» بدل «حسابي والأمان»)
+  config.setTitle((ctx.user?.role === 'lawyer' && route.lawyerTitle) || route.title || '');
+  if (!keepScroll) mount(outlet, (route.skeleton && route.skeleton(ctx)) || loading());
 
   try {
-    const mod = await route.load();
+    // v9.1 l-home (L-07): بيانات الصفحة تُطلب بالتوازي مع تحميل وحدتها (prefetch)، وأوراق الأنماط المؤجلة قبل العرض
+    if (route.prefetch) {
+      try {
+        ctx.prefetched = route.prefetch(ctx) || null;
+        if (ctx.prefetched && ctx.prefetched.catch) ctx.prefetched.catch(() => {});
+      } catch {
+        ctx.prefetched = null;
+      }
+    }
+    // prefetchGet(ctx) → مسار GET تطلبه الصفحة نفسها: يبدأ الآن ويأخذه أول api.get بنفس الرابط
+    if (route.prefetchGet) {
+      try {
+        const p = route.prefetchGet(ctx);
+        if (p) prefetchGet(p);
+      } catch {
+        /* بلا طلب مبكر */
+      }
+    }
+    const css = [...(route.css || []), ...((config.extraCss && config.extraCss(ctx)) || [])];
+    const [mod] = await Promise.all([route.load(), ensureStyles(css)]);
     if (seq !== renderSeq) return;
     const node = await mod.default(ctx);
     finish(node || h('div'));

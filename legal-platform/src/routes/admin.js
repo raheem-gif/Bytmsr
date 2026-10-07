@@ -3,6 +3,7 @@ import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
+import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
@@ -107,12 +108,17 @@ export function registerAdminRoutes(router, app) {
     const url = app.clients.portalUrl(token);
     let message = null;
     if (ctx.body.send) {
-      const absolute = url.startsWith('http') ? url : `${ctx.req.headers.origin || ''}${url}`;
+      // v9.1 b-site (B91-10): نفس كلام رسائل المستفيد/ة البسيط («دي صفحة طلبك…») بصيغة المخاطبة الصحيحة.
+      // v9.1 fixes: الرابط لا يُحفظ في نص الرسالة: {portal_link} في نص واتساب يُستبدل عند الإرسال الفعلي برابط
+      // بنطاق رقمها، والنص المحفوظ (للإدارة وصفحة المتابعة) بلا رابط
+      const w = app.engine.clientWords({ clientId: c.id });
+      const waText = app.engine.fillClientText(CLIENT_TEXTS.portal_link_message, { first_name: w.first_name, org_name: app.settings.get('org_name') }, w.form);
       message = app.engine.sendToClient({
         client_id: c.id,
-        body: `يمكنكم متابعة ملفاتكم لدى ${app.settings.get('org_name')} ورفع المستندات المطلوبة من خلال الرابط الخاص بكم: ${absolute}`,
+        body: app.engine.withoutLinkLines(waText),
         channel: 'whatsapp',
         author: u,
+        meta: { wa_text: waText, portal_link_sent: true },
       });
     }
     app.activity.log({ client_id: c.id, actor: u, type: 'client.portal_link', summary: ctx.body.send ? 'أُرسل للعميل رابط البوابة الخاص به' : 'أُنشئ رابط بوابة جديد للعميل' });

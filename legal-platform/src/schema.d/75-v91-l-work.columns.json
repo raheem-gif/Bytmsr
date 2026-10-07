@@ -1,0 +1,8 @@
+[
+  ["info_requests", "requested_due_at", "TEXT"],
+  ["info_requests", "duplicate_of_id", "INTEGER"],
+  ["info_requests", "items", "TEXT"],
+  ["info_requests", "client_ref", "TEXT"],
+  ["info_requests", "extension_applied_at", "TEXT"],
+  ["opinions", "client_steps", "TEXT"]
+]

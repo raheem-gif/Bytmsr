@@ -13,6 +13,8 @@ import { LEGAL_AREAS, DEFAULT_SETTINGS, GOVERNORATES } from './constants.js';
 import { normalizePhone, v, badRequest } from './util.js';
 import { publicWhatsAppDigits, isPlaceholderWhatsApp } from './channels/whatsapp.js';
 import { assetVersion, sendBody } from './http.js';
+// v9.1 (B91-11): رسم الوحدات بأرقام إصدار ثابتة وروابط modulepreload
+import { setPublicRoot, preloadClosure } from './site-assets.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -23,7 +25,7 @@ const FALLBACK = {
 };
 
 /** أجزاء HTML يولّدها الخادم نفسه؛ وحدها تُدرج دون تهريب بصيغة {{{key}}} (أي مفتاح آخر يُهرَّب دائمًا) */
-const RAW_KEYS = new Set(['header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark']);
+const RAW_KEYS = new Set(['header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone']);
 
 /** الحد الأقصى لأطوال حقول الموقع (نفس حدود بطاقة الإعدادات في الواجهة) */
 const SITE_TEXT_FIELDS = [
@@ -96,111 +98,79 @@ export const SITE_PAGES = [
 /** مسارات لا تُفهرس */
 export const ROBOTS_DISALLOW = ['/app', '/p/', '/api/', '/setup', '/webhooks/'];
 
-// ───────────── مجالات الخدمة ─────────────
-// areas: أكواد المجالات القانونية بالترتيب المفضل؛ يُستخدم أول كود معرّف في LEGAL_AREAS لرابط «قدّم طلبًا».
+// ───────────── «بنساعد في إيه؟» (الإصدار 9.1 — B91-07): كلام يومي ومثال من كلام المستفيدة نفسها ─────────────
+// areas: كود المجال القانوني لرابط /intake?area=…؛ «حاجة تانية» بلا مجال (← /intake). seo: الاسم القانوني لوسوم البحث.
 export const SERVICES = [
+  { key: 'inheritance', icon: 'scroll', title: 'ورث', example: 'جوزي اتوفى، وعايزة أعرف نصيبي ونصيب العيال', areas: ['INH'], seo: 'المواريث وإعلام الوراثة' },
+  { key: 'pensions', icon: 'landmark', title: 'معاش', example: 'عايزة أطلّع معاش جوزي أو تكافل وكرامة', areas: ['PEN'], seo: 'المعاشات و«تكافل وكرامة»' },
+  { key: 'alimony', icon: 'wallet', title: 'نفقة', example: 'أبو العيال مش بيصرف عليهم', areas: ['FAM'], seo: 'النفقة' },
+  { key: 'custody', icon: 'heart', title: 'حضانة ورؤية', example: 'عايزين ياخدوا مني العيال', areas: ['FAM'], seo: 'الحضانة والرؤية' },
+  { key: 'housing', icon: 'home', title: 'سكن وإيجار', example: 'عايزين يطلّعوني من الشقة', areas: ['PRP'], seo: 'السكن والإيجار' },
+  { key: 'guardianship', icon: 'shieldCheck', title: 'فلوس الأيتام', example: 'محتاجة أصرف فلوس العيال اللي في البنك أو البريد', areas: ['GRD'], seo: 'الولاية على المال والنيابة الحسبية' },
+  { key: 'documents', icon: 'fileText', title: 'ورق رسمي', example: 'مش عارفة أطلّع شهادة الوفاة أو القيد العائلي', areas: ['ADM'], seo: 'استخراج المستندات الرسمية' },
+  { key: 'other', icon: 'message', title: 'حاجة تانية', example: 'احكيلنا برضه، وإحنا نوجّهك', areas: [], seo: null },
+];
+
+/** أسماء المجالات بكلام يومي (لنموذج الطلب عبر بيانات الصفحة bm-public) */
+export const PLAIN_AREAS = {
+  INH: 'ورث',
+  FAM: 'نفقة وحضانة وجواز وطلاق',
+  GRD: 'فلوس الأيتام',
+  PEN: 'معاش وتكافل وكرامة',
+  PRP: 'سكن وإيجار وملكية',
+  CIV: 'عقود وفلوس وتعويضات',
+  LAB: 'شغل ومرتب',
+  CRM: 'قضية جنائية',
+  COM: 'تجارة وشركات',
+  TAX: 'ضرائب',
+  ADM: 'ورق رسمي ومصالح حكومية',
+  GEN: 'حاجة تانية',
+};
+
+// ───────────── الأسئلة الشائعة (B91-07): خمسة أسئلة بكلام بسيط، نفس المصدر للصفحة ولـ JSON-LD ─────────────
+// a(ctx): الإجابة حسب إعدادات المؤسسة الحالية — ctx = { wa: يوجد رقم واتساب، otp: الدخول بالكود متاح، review, min, max }
+// عدد الأيام بمعدوده الصحيح بالعامية: «يوم» / «يومين» / «3 أيام» … «10 أيام» / «11 يوم» / «14 يوم»
+export function daysWord(n) {
+  const k = Math.max(0, Math.round(Number(n) || 0));
+  if (k === 1) return 'يوم';
+  if (k === 2) return 'يومين';
+  const r = k % 100;
+  return r >= 3 && r <= 10 ? `${k} أيام` : `${k} يوم`;
+}
+const workDays = (n) => `${daysWord(n)} شغل`;
+export const FAQ = [
   {
-    key: 'inheritance',
-    icon: 'scroll',
-    title: 'المواريث وإعلام الوراثة',
-    text: 'استخراج إعلام الوراثة وحصر التركة، وقسمة الميراث بالتراضي أو أمام المحكمة، وحماية أنصبة الأبناء القُصّر.',
-    areas: ['INH'],
+    q: 'الخدمة بفلوس؟',
+    a: () => 'لأ. الاستشارة مجانية، ومحدش من المحامين يطلب منك فلوس. لو قضيتك محتاجة رسوم حكومية أو مصاريف محكمة، هنقولك عليها الأول، ومش هنعمل حاجة غير بموافقتك.',
   },
   {
-    key: 'alimony',
-    icon: 'wallet',
-    title: 'النفقة',
-    text: 'نفقة الزوجة والأبناء ونفقة العدة والمتعة، وطلب زيادة النفقة، وتنفيذ الأحكام عن طريق بنك ناصر الاجتماعي.',
-    areas: ['FAM'],
+    q: 'مين هيشوف بياناتي؟',
+    a: () => 'فريق المؤسسة بس. المحامي مش بيشوف رقمك ولا رسايلك، بيشوف الحكاية والورق اللي محتاجه عشان يدرس مشكلتك. ومش بنبيع ولا بنشارك بياناتك مع حد.',
+    more: { href: '/privacy#summary', label: 'اقري سياسة الخصوصية' },
   },
   {
-    key: 'custody',
-    icon: 'heart',
-    title: 'الحضانة والرؤية',
-    text: 'إثبات الحضانة ومسكن الحضانة وأجرها، وتنظيم الرؤية بما يحقق مصلحة الطفل الفضلى.',
-    areas: ['FAM'],
+    q: 'الرد بياخد قد إيه؟',
+    a: (c) => `فريقنا بيقرا طلبك غالبًا خلال ${workDays(c.review)}. المحامي بيدرس المشكلة غالبًا ${c.min < c.max ? `من ${c.min} لحد ${daysWord(c.max)}` : `في ${daysWord(c.max)}`}، حسب المشكلة والورق. وهنقولك على كل خطوة ${c.wa ? 'على واتساب وعلى صفحة طلبك' : 'على صفحة طلبك'}.`,
   },
   {
-    key: 'guardianship',
-    icon: 'shieldCheck',
-    title: 'الولاية على المال والنيابة الحسبية',
-    text: 'إجراءات الوصاية على أموال القُصّر، وصرف مستحقاتهم، واستئذان النيابة الحسبية في التصرفات اللازمة.',
-    areas: ['GRD', 'FAM'],
+    q: 'محتاجة ورق إيه؟',
+    a: () => 'مش لازم أي ورق عشان تبعتي طلبك، احكيلنا مشكلتك بس. لو عندك ورق زي شهادة الوفاة أو عقد الإيجار، صوّريه وابعتيه، وهنقولك لو محتاجين حاجة تانية.',
   },
   {
-    key: 'pensions',
-    icon: 'landmark',
-    title: 'المعاشات و«تكافل وكرامة»',
-    text: 'معاش الأرملة والأبناء من التأمينات الاجتماعية، والتظلم من رفض دعم «تكافل وكرامة» أو إيقافه.',
-    areas: ['PEN', 'LAB', 'ADM'],
-  },
-  {
-    key: 'housing',
-    icon: 'home',
-    title: 'السكن والإيجار',
-    text: 'نزاعات الإيجار القديم والجديد، ودعاوى الإخلاء، وحق الأسرة في مسكن الزوجية أو مسكن الحضانة.',
-    areas: ['PRP'],
-  },
-  {
-    key: 'labour',
-    icon: 'briefcase',
-    title: 'العمل',
-    text: 'الأجور والمستحقات المتأخرة، والفصل التعسفي، ومكافأة نهاية الخدمة، والتأمين على العاملين.',
-    areas: ['LAB'],
-  },
-  {
-    key: 'documents',
-    icon: 'fileText',
-    title: 'استخراج المستندات',
-    text: 'التوجيه في استخراج شهادات الوفاة والميلاد والقيد العائلي وبطاقات الرقم القومي والمستندات اللازمة لملفك.',
-    areas: ['ADM', 'GEN'],
+    q: 'ضيّعت رابط طلبي، أعمل إيه؟',
+    a: (c) =>
+      c.otp
+        ? 'ادخلي على «تابعي طلبك» واكتبي رقمك اللي عليه واتساب، هيوصلك كود. أو كلمينا وقولي رقم طلبك، وهنبعتلك الرابط بعد ما نتأكد إنك صاحبة الطلب.'
+        : 'كلمينا وقولي رقم طلبك، وهنبعتلك الرابط بعد ما نتأكد إنك صاحبة الطلب.',
+    more: { href: '/portal', label: 'تابعي طلبك' },
   },
 ];
 
-// ───────────── الأسئلة الشائعة (تُعرض في الصفحة وفي JSON-LD من نفس المصدر) ─────────────
-export const FAQ = [
-  {
-    q: 'من يمكنه التقدم بطلب إلى برنامج الدعم القانوني؟',
-    a: 'يخدم البرنامج في المقام الأول الأرامل، وأولياء أمور الأيتام والأوصياء عليهم، والأسر المستفيدة من برامج المؤسسة. ويمكن لغيرهم من الأسر الأولى بالرعاية التقدم كذلك، ويُنظر في كل طلب بحسب ظروفه وأولوية الحالة.',
-  },
-  {
-    q: 'هل الخدمة مجانية؟',
-    a: 'تقدّم المؤسسة الاستشارة والمتابعة القانونية دون مقابل لمستفيديها وللأسر التي تنطبق عليها شروط البرنامج، ويتحدد الاستحقاق النهائي بعد مراجعة الطلب. أما الرسوم الحكومية أو القضائية التي قد تلزم لبعض الإجراءات فنوضحها لك مسبقًا قبل اتخاذ أي خطوة.',
-  },
-  {
-    q: 'ما المستندات التي أحتاج إليها لتقديم الطلب؟',
-    a: 'لا يلزمك أي مستند لتقديم الطلب؛ يكفي أن تشرح مشكلتك. وإن كانت لديك صور مستندات متعلقة بالمسألة، مثل شهادة الوفاة أو عقد الإيجار أو حكم سابق، فإرفاقها يساعدنا على دراسة حالتك أسرع، وسنخبرك بما قد ينقص بعد المراجعة.',
-  },
-  {
-    q: 'متى يصلني الرد؟',
-    a: 'يراجع فريقنا الطلبات بحسب ترتيب ورودها وأولوية كل حالة، ونتواصل معك بعد المراجعة الأولى لإبلاغك بالخطوة التالية. ويختلف وقت إعداد الرأي القانوني بحسب طبيعة المسألة واكتمال المعلومات والمستندات.',
-  },
-  {
-    q: 'هل سيعرف المحامي رقم هاتفي أو يقرأ محادثاتي؟',
-    a: 'لا. لا يطّلع المحامي على رقم هاتفك ولا على محادثاتك مع المؤسسة، وإنما يرى فقط ما يتيحه له فريق المؤسسة من وقائع ومستندات لازمة لدراسة حالتك، ويمر كل تواصل معك عبر قنوات المؤسسة الرسمية.',
-  },
-  {
-    q: 'هل تتولون رفع الدعاوى والحضور أمام المحاكم؟',
-    a: 'نبدأ بالاستشارة ودراسة الحالة. فإذا احتاجت المسألة إلى إجراء أمام محكمة أو جهة حكومية، تقرر المؤسسة إمكانية متابعتها من خلال محامي البرنامج بحسب طبيعة الحالة والإمكانات المتاحة، ونوضح لك ذلك قبل اتخاذ أي خطوة.',
-  },
-  {
-    q: 'لا أعرف نوع مشكلتي القانونية، فماذا أفعل؟',
-    a: 'لا بأس. اختر «لست متأكدًا» في نموذج الطلب، أو اكتب لنا عبر واتساب بكلماتك، وسيتولى فريقنا تصنيف المسألة وتوجيهها إلى المختص.',
-  },
-  {
-    q: 'كيف أتابع طلبي بعد إرساله؟',
-    a: 'تحصل فور الإرسال على رقم طلب ورابط متابعة خاص بك، تتابع من خلاله الردود وترفع المستندات الإضافية. ويمكنك كذلك المتابعة عبر واتساب بذكر رقم الطلب. وإن فقدت الرابط فراسلنا أو اتصل بنا واذكر رقم طلبك لنرسل لك رابطًا جديدًا.',
-    more: { href: '/portal', label: 'متابعة طلبك' },
-  },
-  {
-    q: 'هل يمكنني التقدم بطلب نيابةً عن قريبة أو جارة؟',
-    a: 'نعم، بشرط موافقة صاحبة الشأن على مشاركة بياناتها معنا، ويُفضَّل أن يكون رقم التواصل رقمها أو رقمًا تستطيع الرد عليه. وقد نطلب التحدث إليها مباشرة قبل اتخاذ أي إجراء.',
-  },
-  {
-    q: 'كيف أطلب حذف بياناتي؟',
-    a: 'يمكنك طلب حذف بياناتك في أي وقت عبر واتساب أو الهاتف أو بزيارة مقر المؤسسة، وتجد الخطوات وما يترتب على الطلب في صفحة «حذف البيانات».',
-    more: { href: '/data-deletion', label: 'خطوات حذف البيانات' },
-  },
+/** «من نخدم» (انتقلت من الصفحة الرئيسية إلى «عن البرنامج») */
+export const AUDIENCE = [
+  { icon: 'user', title: 'الأرامل', text: 'في الورث والمعاش والنفقة والسكن، وكل الورق اللي بيحتاجه وفاة الزوج.' },
+  { icon: 'users', title: 'أولياء أمور الأيتام والأوصياء', text: 'الأم الحاضنة أو الوصي، في فلوس الأيتام وحقوقهم في الورث والمعاش والنفقة.' },
+  { icon: 'home', title: 'أسر المؤسسة', text: 'الأسر المستفيدة من برامج المؤسسة التانية، لما تواجه مشكلة قانونية.' },
 ];
 
 // ───────────── برامج المؤسسة الأخرى ─────────────
@@ -250,6 +220,8 @@ const ICONS = {
   gavel: ['M14.5 12.5l-8 8a2.12 2.12 0 1 1-3-3l8-8', 'M16 16l6-6', 'M8 8l6-6', 'M9 7l8 8', 'M21 11l-8-8'],
   trash: ['M3 6h18', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'],
   sparkle: ['M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z'],
+  message: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+  mic: ['M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z', 'M19 10v2a7 7 0 0 1-14 0v-2', 'M12 19v3'],
 };
 
 /** أيقونة SVG خطية كنص HTML (زخرفية: مخفية عن قارئات الشاشة). */
@@ -333,6 +305,7 @@ export function renderTemplate(text, view) {
 export function registerSite(app) {
   const { config } = app;
   const pub = config.publicDir;
+  setPublicRoot(pub); // v9.1: أرقام إصدار CSS/JS تُحسب بمسارات نسبية ثابتة
   const templateCache = new Map(); // file → { mtimeMs, text }
 
   function readTemplate(file) {
@@ -402,6 +375,26 @@ export function registerSite(app) {
     return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : '';
   }
 
+  /**
+   * v9.1 (B91-11): بيانات الصفحة العامة المضمّنة في <script type="application/json" id="bm-public"> (لا تُنفَّذ، ولا تحتاج CSP)
+   * فتقرأها صفحات الطلب والمتابعة فورًا (words.js → publicData()) بدل انتظار /api/meta. ≤ 3 كيلوبايت.
+   */
+  function publicBlock(ps) {
+    return {
+      org_name: ps.org_name,
+      site_name: ps.site_name,
+      phone: ps.org_phone,
+      phone_e164: ps.org_phone_e164,
+      whatsapp_digits: ps.whatsapp_digits,
+      office_hours: ps.office_hours,
+      portal_otp_enabled: !!app.messaging?.portalOtpAvailable?.(),
+      governorates: GOVERNORATES,
+      areas: LEGAL_AREAS.map((a) => ({ code: a.code, label: PLAIN_AREAS[a.code] || a.label })),
+      setup_required: !!app.system?.isSetupMode?.(),
+      demo: !!config.demo,
+    };
+  }
+
   function areaCodeFor(service) {
     const codes = new Set(LEGAL_AREAS.map((a) => a.code));
     return service.areas.find((c) => codes.has(c)) || '';
@@ -409,12 +402,11 @@ export function registerSite(app) {
 
   // ───────────── الأجزاء المشتركة ─────────────
 
+  // v9.1 (B91-07): كلام بسيط في القائمة؛ «عن البرنامج» والسياسات في «روابط مهمة» بالتذييل
   const NAV = [
-    { href: '/#services', label: 'خدماتنا' },
-    { href: '/#how', label: 'كيف نعمل' },
-    { href: '/#faq', label: 'أسئلة شائعة' },
-    { href: '/about', label: 'عن البرنامج', path: '/about' },
-    { href: '/#contact', label: 'تواصل معنا' },
+    { href: '/#services', label: 'بنساعد في إيه' },
+    { href: '/#how', label: 'إزاي بنشتغل' },
+    { href: '/#faq', label: 'أسئلة' },
   ];
 
   function headerHtml(ps, current) {
@@ -424,7 +416,7 @@ export function registerSite(app) {
     return `<header class="pub-header" data-pub-header>
   <div class="pub-container pub-header-inner">
     <a class="pub-brand" href="/" aria-label="${esc(ps.site_name)} — الصفحة الرئيسية">
-      <span class="pub-logo">${brandSvg({ size: 30 })}</span>
+      <span class="pub-logo">${brandSvg({ size: 26 })}</span>
       <span class="pub-brand-text"><strong>${esc(ps.program_name || ps.org_name)}</strong><span>${esc(ps.org_legal_name || ps.org_name)}</span></span>
     </a>
     <button class="pub-menu-toggle" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu>
@@ -432,11 +424,25 @@ export function registerSite(app) {
     </button>
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية">
       ${links}
-      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>متابعة طلبك</span></a>
-      <a class="pub-btn pub-btn-gold pub-nav-cta" href="/intake" data-cta="intake"${current === '/intake' ? ' aria-current="page"' : ''}>${iconSvg('send', 18, 'pub-flip')}<span>قدّم طلبك</span></a>
+      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>تابعي طلبك</span></a>
+      <a class="pub-btn pub-btn-gold pub-nav-cta" href="/intake" data-cta="intake"${current === '/intake' ? ' aria-current="page"' : ''}>${iconSvg('message', 18)}<span>احكيلنا مشكلتك</span></a>
     </nav>
   </div>
 </header>`;
+  }
+
+  /** زرا الاتصال في البطل والتواصل: [واتساب] (إن وُجد رقم) و[اتصال]؛ بلا واتساب يأخذ «اتصال» العرض كله */
+  function contactButtonsHtml(ps, wa) {
+    const out = [];
+    if (wa) {
+      out.push(
+        `<a class="pub-btn pub-btn-whatsapp" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp">${iconSvg('whatsapp', 20)}<span>واتساب</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`,
+      );
+    }
+    if (ps.org_phone) {
+      out.push(`<a class="pub-btn pub-btn-call" href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}">${iconSvg('phone', 20)}<span>اتصال</span></a>`);
+    }
+    return out.length ? `<div class="pub-contact-buttons${out.length === 1 ? ' is-single' : ''}">${out.join('')}</div>` : '';
   }
 
   function contactListHtml(ps, wa) {
@@ -444,25 +450,25 @@ export function registerSite(app) {
     if (ps.org_address) {
       items.push(
         `<li>${iconSvg('mapPin', 20)}<span><span class="pub-contact-label">العنوان</span>${esc(ps.org_address)}` +
-          (ps.map_url ? ` <a href="${esc(ps.map_url)}" target="_blank" rel="noopener noreferrer">عرض على الخريطة<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>` : '') +
+          (ps.map_url ? ` <a href="${esc(ps.map_url)}" target="_blank" rel="noopener noreferrer">افتحي الخريطة<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>` : '') +
           '</span></li>',
       );
     }
     if (ps.org_phone) {
       items.push(
-        `<li>${iconSvg('phone', 20)}<span><span class="pub-contact-label">الهاتف</span><a href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></span></li>`,
+        `<li>${iconSvg('phone', 20)}<span><span class="pub-contact-label">التليفون</span><a href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></span></li>`,
       );
     }
     if (wa) {
       items.push(
-        `<li>${iconSvg('whatsapp', 20)}<span><span class="pub-contact-label">واتساب</span><a href="${esc(wa)}" target="_blank" rel="noopener noreferrer">راسلنا على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></span></li>`,
+        `<li>${iconSvg('whatsapp', 20)}<span><span class="pub-contact-label">واتساب</span><a href="${esc(wa)}" target="_blank" rel="noopener noreferrer">ابعتيلنا على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></span></li>`,
       );
     }
     if (ps.org_email) {
       items.push(`<li>${iconSvg('mail', 20)}<span><span class="pub-contact-label">البريد الإلكتروني</span><a href="mailto:${esc(ps.org_email)}" dir="ltr" class="pub-ltr">${esc(ps.org_email)}</a></span></li>`);
     }
     if (ps.office_hours) {
-      items.push(`<li>${iconSvg('clock', 20)}<span><span class="pub-contact-label">مواعيد العمل</span>${esc(ps.office_hours)}</span></li>`);
+      items.push(`<li>${iconSvg('clock', 20)}<span><span class="pub-contact-label">مواعيدنا</span>${esc(ps.office_hours)}</span></li>`);
     }
     return `<ul class="pub-contact-list">${items.join('')}</ul>`;
   }
@@ -488,20 +494,20 @@ export function registerSite(app) {
         <span class="pub-brand-text"><strong>${esc(ps.program_name || ps.org_name)}</strong><span>${esc(ps.org_legal_name || ps.org_name)}</span></span>
       </a>
       ${ps.org_registration ? `<p class="pub-footer-reg">${esc(ps.org_registration)}</p>` : ''}
-      <p>برنامج يقدّم المشورة والمتابعة القانونية للأرامل والأيتام وأسرهم، بإشراف فريق المؤسسة وبمشاركة محامين مختصين.</p>
+      <p class="pub-footer-desktop">بنساعد الأرامل وأسر الأيتام في مشاكلهم القانونية مجانًا، مع محامين متطوعين ومتعاونين، وفريق المؤسسة بيراجع كل حاجة.</p>
       ${socialHtml(ps)}
     </div>
-    <nav class="pub-footer-col" aria-label="روابط الموقع">
+    <nav class="pub-footer-col pub-footer-desktop" aria-label="روابط الموقع">
       <h2>روابط</h2>
       <ul>
         <li><a href="/">الصفحة الرئيسية</a></li>
         <li><a href="/about">عن البرنامج</a></li>
-        <li><a href="/intake" data-cta="intake">قدّم طلبك</a></li>
-        <li><a href="/portal">متابعة طلبك</a></li>
-        <li><a href="/#faq">أسئلة شائعة</a></li>
+        <li><a href="/intake" data-cta="intake">احكيلنا مشكلتك</a></li>
+        <li><a href="/portal">تابعي طلبك</a></li>
+        <li><a href="/#faq">أسئلة</a></li>
       </ul>
     </nav>
-    <nav class="pub-footer-col" aria-label="السياسات">
+    <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات">
       <h2>السياسات</h2>
       <ul>
         <li><a href="/privacy">سياسة الخصوصية</a></li>
@@ -509,11 +515,23 @@ export function registerSite(app) {
         <li><a href="/data-deletion">حذف البيانات</a></li>
       </ul>
     </nav>
-    <div class="pub-footer-col pub-footer-contact">
+    <div class="pub-footer-col pub-footer-contact pub-footer-desktop">
       <h2>تواصل معنا</h2>
       ${contactListHtml(ps, wa)}
     </div>
   </div>
+  <!-- الموبايل (B91-07): «روابط مهمة» مطوية في سطر واحد -->
+  <details class="pub-footer-more">
+    <summary><span>روابط مهمة</span>${iconSvg('chevronDown', 20, 'pub-faq-chevron')}</summary>
+    <ul>
+      <li><a href="/about">عن البرنامج</a></li>
+      <li><a href="/privacy">سياسة الخصوصية</a></li>
+      <li><a href="/terms">شروط الاستخدام</a></li>
+      <li><a href="/data-deletion">حذف البيانات</a></li>
+      <li><a href="/app">دخول فريق العمل والمحامين</a></li>
+    </ul>
+  </details>
+  ${ps.org_phone ? `<p class="pub-footer-call">للمساعدة: <a href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></p>` : ''}
   <div class="pub-footer-bottom">
     <div class="pub-container pub-footer-bottom-inner">
       <span>© ${year} ${esc(ps.org_legal_name || ps.org_name)}. جميع الحقوق محفوظة.</span>
@@ -523,26 +541,52 @@ export function registerSite(app) {
 </footer>`;
   }
 
+  // v9.1 (B91-07): كل مربع رابط كامل (≥ 56px) إلى /intake?area=… — «حاجة تانية» إلى /intake
   function servicesHtml() {
     return SERVICES.map((s) => {
       const code = areaCodeFor(s);
       const href = code ? `/intake?area=${encodeURIComponent(code)}` : '/intake';
       return `<li class="pub-service" id="service-${s.key}">
-  <span class="pub-service-icon">${iconSvg(s.icon, 26)}</span>
-  <h3>${esc(s.title)}</h3>
-  <p>${esc(s.text)}</p>
-  <a class="pub-service-link" href="${href}" data-cta="intake">قدّم طلبًا في هذا المجال<span class="pub-sr">: ${esc(s.title)}</span>${iconSvg('arrowLeft', 16)}</a>
+  <a class="pub-tile-link" href="${href}" data-cta="intake">
+    <span class="pub-service-icon">${iconSvg(s.icon, 24)}</span>
+    <span class="pub-tile-text"><strong>${esc(s.title)}</strong><span>${esc(s.example)}</span></span>
+  </a>
 </li>`;
     }).join('\n');
   }
 
-  function faqHtml() {
-    return FAQ.map(
-      (f, i) => `<details class="pub-faq-item"${i === 0 ? ' open' : ''}>
+  /** سياق إجابات الأسئلة من إعدادات المؤسسة الحالية (واتساب، الدخول بالكود، المدد التقريبية) */
+  function faqContext(ps) {
+    const s = app.settings.all();
+    const n = (k, d) => (Number.isFinite(Number(s[k])) && Number(s[k]) > 0 ? Math.round(Number(s[k])) : d);
+    return {
+      wa: !!ps.whatsapp_digits,
+      otp: !!app.messaging?.portalOtpAvailable?.(),
+      review: n('portal_eta_review_days', 2),
+      min: n('portal_eta_study_min_days', 7),
+      max: n('portal_eta_study_max_days', 14),
+    };
+  }
+
+  /** الأسئلة الخمسة بإجاباتها الحالية (نفس المصدر للصفحة ولـ JSON-LD) */
+  function faqItems(ps) {
+    const ctx = faqContext(ps);
+    return FAQ.map((f) => ({ q: f.q, a: typeof f.a === 'function' ? f.a(ctx) : String(f.a), more: f.more || null }));
+  }
+
+  function faqHtml(ps) {
+    return faqItems(ps)
+      .map(
+        (f) => `<details class="pub-faq-item">
   <summary><span>${esc(f.q)}</span>${iconSvg('chevronDown', 20, 'pub-faq-chevron')}</summary>
   <div class="pub-faq-body"><p>${esc(f.a)}</p>${f.more ? `<p><a href="${f.more.href}">${esc(f.more.label)}</a></p>` : ''}</div>
 </details>`,
-    ).join('\n');
+      )
+      .join('\n');
+  }
+
+  function audienceHtml() {
+    return AUDIENCE.map((a) => `<li><span class="pub-tile">${iconSvg(a.icon, 24)}</span><h3>${esc(a.title)}</h3><p>${esc(a.text)}</p></li>`).join('');
   }
 
   function programsHtml() {
@@ -586,7 +630,7 @@ export function registerSite(app) {
       areaServed: { '@type': 'Country', name: 'مصر' },
       availableLanguage: 'ar',
       parentOrganization: { '@id': orgId },
-      knowsAbout: SERVICES.map((s) => s.title),
+      knowsAbout: SERVICES.filter((s) => s.seo).map((s) => s.seo),
     };
     const page = {
       '@type': 'WebPage',
@@ -603,7 +647,7 @@ export function registerSite(app) {
       graph.push({
         '@type': 'FAQPage',
         '@id': `${base}${pagePath}#faq`,
-        mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+        mainEntity: faqItems(ps).map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
       });
     }
     return jsonForScript({ '@context': 'https://schema.org', '@graph': graph });
@@ -638,6 +682,9 @@ export function registerSite(app) {
       '<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />',
       '<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png" />',
       `<script type="application/ld+json">${jsonLd(ps, base, pagePath, { title, description, faq })}</script>`,
+      // v9.1 (B91-11): خط عربي مستضاف محليًا (الوزن العادي يُحمّل مبكرًا) وبيانات الصفحة دون طلب /api/meta
+      '<link rel="preload" href="/assets/fonts/plex-arabic-400.woff2" as="font" type="font/woff2" crossorigin />',
+      `<script type="application/json" id="bm-public">${jsonForScript(publicBlock(ps))}</script>`,
     ]
       .filter(Boolean)
       .join('\n    ');
@@ -654,11 +701,51 @@ export function registerSite(app) {
       .replace(/&amp;/g, '&');
   }
 
+  /**
+   * v9.1 (B91-11): أنماط الشاشة الأولى (بين @critical-start و@critical-end في public-site.css) مضغوطة بأرقام إصدار الخطوط،
+   * تُضمَّن في <head> الصفحات التي تضع <!--site:critical-css--> فتُرسم الشاشة الأولى دون انتظار ملف الأنماط.
+   */
+  // كتل مسماة (/* @critical-start:legal */) تُضاف للكتل العامة في الصفحات التي تطلبها (<!--site:critical-css:legal-->):
+  // الصفحات القانونية وصفحة 404 (تُفتح غالبًا لأول مرة من رابط واتساب مقطوع) ترسم عنوانها و«بالمختصر» دون انتظار الملف.
+  const criticalCache = new Map(); // الاسم ← { key, css }
+  function criticalCss(name = '') {
+    const file = path.join(pub, 'assets/css/public-site.css');
+    let st;
+    try {
+      st = fs.statSync(file);
+    } catch {
+      return '';
+    }
+    const key = `${st.size}-${st.mtimeMs}`;
+    const hit = criticalCache.get(name);
+    if (hit && hit.key === key) return hit.css;
+    const text = fs.readFileSync(file, 'utf8');
+    let css = '';
+    for (const m of text.matchAll(/@critical-start(?::([a-z0-9-]+))?[^*]*\*\/([\s\S]*?)\/\*\s*@critical-end\s*\*\//g)) {
+      if (!m[1] || m[1] === name) css += m[2];
+    }
+    css = css
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([{};,>])\s*/g, '$1')
+      .replace(/:\s+/g, ':')
+      .replace(/;}/g, '}')
+      .replace(/url\("?(\/assets\/[^")?#]+)"?\)/g, (m, url) => {
+        const v = assetVersion(path.join(pub, url));
+        return v ? `url("${url}?v=${v}")` : m;
+      })
+      .replace(/<\/?style/gi, '')
+      .trim();
+    criticalCache.set(name, { key, css });
+    return css;
+  }
+
   /** يبني الصفحة كاملة من القالب: القيم، الرأس، التذييل، ووسوم SEO. */
   function renderPage(file, req, pagePath, extra = {}) {
     const ps = publicSettings();
     const base = baseUrl(req);
-    const greeting = `مرحبًا ${ps.org_name}، أود الحصول على استشارة قانونية.`;
+    // v9.1 (B91-12): الرسالة الجاهزة بكلامها هي، بسيطة ومحايدة (تصلح للأم والأب)
+    const greeting = 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.';
     const wa = waLink(ps.whatsapp_digits, greeting);
     const view = {
       ...ps,
@@ -667,25 +754,44 @@ export function registerSite(app) {
       whatsapp_url: wa,
       // للنصوص البديلة في القوالب (<!--#if no_whatsapp-->) حين لا يوجد رقم واتساب فعلي بعد
       no_whatsapp: wa ? '' : '1',
-      whatsapp_deletion_url: waLink(ps.whatsapp_digits, `مرحبًا ${ps.org_name}، أطلب حذف بياناتي الشخصية المسجلة لديكم.`),
+      whatsapp_deletion_url: waLink(ps.whatsapp_digits, 'السلام عليكم، ده «طلب حذف بياناتي» من عندكم. اسمي: '),
       org_phone_href: ps.org_phone_e164 || ps.org_phone,
       header: headerHtml(ps, pagePath),
       footer: footerHtml(ps, wa),
       contact_list: contactListHtml(ps, wa),
       socials: socialHtml(ps),
       services: servicesHtml(),
-      faq: faqHtml(),
+      faq: faqHtml(ps),
       programs: programsHtml(),
       brand_mark: brandSvg({ size: 120 }),
+      // v9.1 (B91-07/B91-15): أجزاء الصفحة الرئيسية الجديدة
+      audience: audienceHtml(),
+      contact_buttons: contactButtonsHtml(ps, wa),
+      icon_check: iconSvg('check', 20),
+      icon_lock: iconSvg('lock', 20),
+      icon_wallet: iconSvg('wallet', 20),
+      icon_whatsapp: iconSvg('whatsapp', 20),
+      icon_phone: iconSvg('phone', 20),
+      office_hours_line: ps.office_hours ? `بنرد ${ps.office_hours}` : '',
       ...extra,
     };
     let html = renderTemplate(readTemplate(file), view);
+    // v9.1 (B91-11): لا طلبات لخطوط جوجل من صفحات المستفيدين (الخط مستضاف في /assets/fonts) — يحمي من أي قالب قديم
+    html = html.replace(/[ \t]*<link[^>]+href="https:\/\/fonts\.(?:googleapis|gstatic)\.com[^"]*"[^>]*>\s*\n?/g, '');
     const title = decodeEntities((/<title>([\s\S]*?)<\/title>/.exec(html) || [])[1] || ps.site_name).trim();
     const description = decodeEntities((/<meta name="description" content="([^"]*)"/.exec(html) || [])[1] || ps.org_tagline).trim();
     // إن عرّف القالب وسم robots بنفسه لا نضيف وسمًا ثانيًا
     const noindex = extra.noindex && !/<meta name="robots"/.test(html);
     const head = headTags(ps, base, pagePath, { title, description, noindex, faq: pagePath === '/' });
-    return versionAssets(html.replace('<!--site:head-->', () => head));
+    html = html.replace('<!--site:head-->', () => head);
+    // v9.1 (B91-11): تعليقات القوالب للمطورين لا تُرسل لهاتف المستفيدة (بايتات بلا فائدة على باقة محدودة)
+    html = html.replace(/<!--(?!site:)[\s\S]*?-->\s*/g, '');
+    // <!--site:critical-css--> (الكتل العامة) أو <!--site:critical-css:legal--> (العامة + كتل «legal»)
+    html = html.replace(/<!--site:critical-css(?::([a-z0-9-]+))?-->/, (m, name) => {
+      const css = criticalCss(name || '');
+      return css ? `<style>${css}</style>` : '';
+    });
+    return versionAssets(html);
   }
 
   /**
@@ -694,7 +800,26 @@ export function registerSite(app) {
    * الأيقونات وصور المشاركة تبقى بروابطها الثابتة (وسوم SEO).
    */
   function versionAssets(html) {
-    return html.replace(/\b(href|src)="(\/assets\/[^"?#]+\.(?:css|js))"/g, (m, attr, url) => {
+    // v9.1 (B91-11): الخطوط أيضًا، وروابط modulepreload لكل ما تستورده وحدة الصفحة فتُنزَّل كلها معًا من أول رحلة للخادم
+    const entries = [];
+    let out = html.replace(/<script type="module" src="(\/assets\/js\/[^"?#]+\.js)"/g, (m, url) => {
+      entries.push(url);
+      return m;
+    });
+    if (entries.length) {
+      const seen = new Set(entries);
+      const links = [];
+      for (const url of entries) {
+        for (const dep of preloadClosure(path.join(pub, url), pub)) {
+          const bare = dep.split('?')[0];
+          if (seen.has(bare)) continue;
+          seen.add(bare);
+          links.push(`<link rel="modulepreload" href="${dep}" />`);
+        }
+      }
+      if (links.length) out = out.replace(/(\s*)<script type="module" src="/, (m, ws) => `${ws}${links.join(ws)}${m}`);
+    }
+    return out.replace(/\b(href|src)="(\/assets\/[^"?#]+\.(?:css|js|woff2))"/g, (m, attr, url) => {
       const v = assetVersion(path.join(pub, url));
       return v ? `${attr}="${url}?v=${v}"` : m;
     });
@@ -722,7 +847,7 @@ export function registerSite(app) {
    * أو إن كان optIn ولم يحتوِ القالب على {{{header}}}. pagePath هو المسار الظاهر في canonical والقائمة،
    * ولصفحات الروابط الخاصة (/p/<رمز>) يُمرَّر مسار عام بلا الرمز حتى لا يُكتب الرمز في وسوم الصفحة.
    */
-  function servePage(req, res, file, pagePath, { optIn = false, noindex = false, noStore = false } = {}) {
+  function servePage(req, res, file, pagePath, { optIn = false, noindex = false, noStore = false, headExtra = '' } = {}) {
     let html;
     try {
       if (optIn && !readTemplate(file).includes('{{{header}}}')) return false;
@@ -731,6 +856,8 @@ export function registerSite(app) {
       if (e && e.code === 'ENOENT') return false; // يعود للمعالجة الافتراضية (404)
       throw e;
     }
+    // (إصلاح 9.1) وسوم إضافية في <head> لهذا الطلب وحده (مثل preload لبيانات صفحة المتابعة)
+    if (headExtra) html = html.replace('</head>', `${headExtra}\n  </head>`);
     sendHtml(req, res, html, { noStore });
     return true;
   }
@@ -782,7 +909,7 @@ export function registerSite(app) {
   // يُخدم من public/sw.js بعد حقن رقم إصدار يتغير مع أي تعديل في الملفات الثابتة وقائمة الملفات المطلوب تخزينها مسبقًا.
   const PRECACHE_EXT = new Set(['.js', '.css', '.svg', '.png', '.woff2', '.ico']);
   // ملفات الموقع العام وصورة المشاركة لا تحتاجها المنصة
-  const PRECACHE_SKIP = [/^\/assets\/js\/public\//, /^\/assets\/css\/public-site\.css$/, /^\/assets\/img\/og-image\.png$/];
+  const PRECACHE_SKIP = [/^\/assets\/js\/public\//, /^\/assets\/css\/public-(?:site|ui)\.css$/, /^\/assets\/img\/og-image\.png$/, /^\/assets\/fonts\/[^/]+\.txt$/];
 
   function listAssets() {
     const root = path.join(pub, 'assets');
@@ -820,7 +947,14 @@ export function registerSite(app) {
     }
     return {
       version: `${app.version || '0'}-${hash.digest('hex').slice(0, 12)}`,
-      precache: assets.filter((a) => !PRECACHE_SKIP.some((re) => re.test(a.url))).map((a) => a.url),
+      // v9.1 l-home (L-07): بنفس أرقام الإصدار التي تطلبها صفحة /app (?v=…) حتى تُخدم من المخزن دون الشبكة
+      precache: assets
+        .filter((a) => !PRECACHE_SKIP.some((re) => re.test(a.url)))
+        .map((a) => {
+          if (!/\.(?:css|js|woff2)$/.test(a.url)) return a.url;
+          const ver = assetVersion(path.join(pub, a.url));
+          return ver ? `${a.url}?v=${ver}` : a.url;
+        }),
     };
   }
 
@@ -870,6 +1004,6 @@ export function registerSite(app) {
     };
   });
 
-  app.site = { baseUrl, publicSettings, renderPage, registerPage, servePage, validateSettings: validateSiteSettings, SERVICES, FAQ, PROGRAMS };
+  app.site = { baseUrl, publicSettings, publicBlock, faqItems, renderPage, registerPage, servePage, validateSettings: validateSiteSettings, SERVICES, FAQ, PROGRAMS };
   return app.site;
 }

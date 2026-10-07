@@ -391,14 +391,26 @@ describe('Outbound replies use the client\'s channel; WhatsApp is simulated with
     }
   });
 
-  test('a website client who switches to WhatsApp is answered on WhatsApp; staff may still force the website channel', async () => {
+  // v9.1 b-site (B91-01): رسالة واتساب من نفس الرقم بلا رقم الطلب وكود التأكيد لا تثبت أن صاحب الرقم هو مقدّم الطلب؛
+  // الرد يبقى في صفحة المتابعة حتى تؤكد الإدارة الهوية (أو ترسل المستفيدة الرسالة الجاهزة بالكود)، ثم يصل على واتساب
+  test('a website client who switches to WhatsApp is answered on WhatsApp once the number is confirmed; staff may still force the website channel', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
       const web = await webIntake(t, { phone: '01022200033' });
       await sendWa(t, { from: '201022200033', text: 'أنا كملت هنا على واتساب.' });
       const admin = await t.login('admin');
-      const it = (await inbox(admin)).items[0];
-      assert.equal(it.code, web.reference);
+      // v9.1 fixes: رسالة صاحب الرقم بلا كود التأكيد لا تُضاف لطلب الموقع غير المؤكد (حامل رابطه قد يكون شخصًا آخر):
+      // تفتح طلبًا خاصًا بها يُرد عليه على واتساب مباشرة
+      const items = (await inbox(admin)).items;
+      assert.equal(items.length, 2);
+      const own = items.find((x) => x.code !== web.reference);
+      assert.equal(own.first_channel, 'whatsapp');
+      assert.equal((await admin.post(`/api/admin/intakes/${own.id}/reply`, { body: 'أهلًا' })).body.channel, 'whatsapp');
+      const it = items.find((x) => x.code === web.reference);
+      const before = await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'تمام، سنكمل هنا.' });
+      assert.equal(before.body.channel, 'website');
+      assert.equal((await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'x', channel: 'whatsapp' })).status, 400);
+      assert.equal((await admin.post(`/api/admin/intakes/${it.id}/confirm-identity`, {})).status, 200);
       const r = await admin.post(`/api/admin/intakes/${it.id}/reply`, { body: 'تمام، سنكمل هنا.' });
       assert.equal(r.body.channel, 'whatsapp');
       assert.equal(r.body.status, 'simulated');

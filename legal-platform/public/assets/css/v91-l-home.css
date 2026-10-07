@@ -1,0 +1,1147 @@
+/* ==========================================================================
+   الإصدار 9.1 — مسار l-home: «اليوم» للمحامي، هيكل الهاتف (رجوع، شريط سفلي، الإشعارات، الخروج)،
+   الدخول والتفعيل على الهاتف، التحقق بخطوتين على نفس الهاتف، وبطاقة التنبيهات في «حسابي».
+   كل قواعد الهيكل مقيدة بـ .is-lawyer أو .lh-* فلا يتغير شيء في واجهة الإدارة.
+   ========================================================================== */
+
+/* سطر الإصدار في القائمة الجانبية (كان في v9-platform.css الذي صار يُحمَّل لصفحات الإدارة فقط) */
+.sidebar-version {
+  margin-block-start: 4px;
+  font-size: 11px;
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+
+/* ───────────── «اليوم» ───────────── */
+
+.lh-today {
+  gap: 16px;
+}
+
+.lh-today-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lh-date {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.lh-h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--gray-900);
+}
+
+.lh-h1:focus {
+  outline: none;
+}
+
+.lh-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--warning-100);
+  color: var(--warning-700);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lh-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--link, var(--primary-700));
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.lh-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.lh-main,
+.lh-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .lh-cols {
+    grid-template-columns: minmax(0, 720px) 320px;
+    justify-content: start;
+    align-items: start;
+  }
+}
+
+.lh-card-title {
+  margin: 0;
+  padding: 12px 16px 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.lh-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 4px;
+}
+
+.lh-rows > li + li .lh-row {
+  border-block-start: 1px solid var(--border);
+}
+
+.lh-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding-inline: 4px 12px;
+  flex-wrap: wrap;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.lh-row.is-leaving {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+
+.lh-row-main {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.lh-row-main:hover {
+  background: var(--gray-50);
+}
+
+.lh-row-main:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.lh-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.lh-dot-red { background: var(--danger-600); }
+.lh-dot-amber { background: var(--warning-500); }
+.lh-dot-teal { background: var(--primary-500); }
+
+.lh-row-text,
+.lh-line-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 2px;
+}
+
+.lh-row-title,
+.lh-line-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lh-row-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* النص الحر وحده يُختصر بنقاط في نهايته؛ الأكواد والفواصل لا تُقطع أبدًا */
+.lh-sub-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lh-sep {
+  flex: none;
+  white-space: pre;
+}
+
+.lh-code {
+  flex: none;
+  white-space: nowrap;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+.lh-line-title.is-parts {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.lh-chev {
+  color: var(--gray-400);
+  flex: 0 0 auto;
+  display: inline-grid;
+}
+
+.lh-row-btn.btn {
+  --btn-h: 44px;
+  min-width: 64px;
+  flex: 0 0 auto;
+}
+
+.lh-row-state {
+  flex: 1 0 100%;
+  padding: 0 34px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning-700);
+}
+
+.lh-row-state.is-failed {
+  color: var(--danger-700);
+}
+
+.lh-more {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-block-start: 1px solid var(--border);
+  background: none;
+  color: var(--primary-700);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-end-start-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+}
+
+.lh-toast-undo {
+  min-height: 36px;
+  padding-inline: 12px;
+  border: 1px solid var(--border-strong, var(--gray-300));
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary-700);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.lh-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lh-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.lh-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.lh-list > li + li {
+  border-block-start: 1px solid var(--border);
+}
+
+.lh-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.lh-line .lh-line-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.lh-line:hover {
+  background: var(--gray-50);
+}
+
+.lh-status-word {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.lh-status-word.is-returned { color: var(--danger-700); }
+.lh-status-word.is-assigned { color: var(--info-700); }
+
+.lh-history {
+  align-self: flex-start;
+}
+
+.lh-muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.lh-pay {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--gray-900);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lh-pay > span:first-of-type {
+  flex: 1 1 auto;
+}
+
+.lh-pay > .icon {
+  color: var(--accent-700);
+}
+
+.lh-empty,
+.lh-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 20px 16px;
+}
+
+.lh-empty > .icon {
+  color: var(--success-600);
+}
+
+.lh-empty p,
+.lh-error p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--gray-800);
+}
+
+.lh-empty-btn.btn,
+.lh-error .btn {
+  --btn-h: 48px;
+}
+
+/* بطاقة «جهّز هاتفك في دقيقة» */
+.lh-setup {
+  padding-block-end: 12px;
+}
+
+.lh-setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px;
+}
+
+.lh-setup-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding-inline: 8px;
+}
+
+.lh-setup-item + .lh-setup-item {
+  border-block-start: 1px solid var(--border);
+}
+
+.lh-check {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--success-600);
+  flex: 0 0 auto;
+}
+
+.lh-check-empty {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gray-300);
+  border-radius: 50%;
+}
+
+.lh-setup-text {
+  flex: 1 1 auto;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.lh-setup-item.is-done .lh-setup-text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--gray-300);
+}
+
+.lh-setup-inline:empty {
+  display: none;
+}
+
+.lh-inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 16px 8px;
+  padding: 12px;
+  background: var(--surface-2, var(--gray-50));
+  border-radius: 12px;
+}
+
+.lh-inline-form label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.lh-inline-form .input {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.lh-inline-form .btn {
+  --btn-h: 48px;
+}
+
+.lh-how-title {
+  margin: 8px 16px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.lh-how {
+  margin: 0 16px;
+  padding-inline-start: 18px;
+  color: var(--gray-700);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.lh-setup-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 16px 0;
+}
+
+.lh-setup-actions .btn {
+  --btn-h: 48px;
+  flex: 1 1 0;
+}
+
+/* صفوف التحميل الرمادية */
+@keyframes lh-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.lh-sk,
+.lh-sk-row {
+  background: var(--gray-100);
+  border-radius: 10px;
+  animation: lh-pulse 1.2s ease-in-out infinite;
+}
+
+.lh-sk-date { width: 120px; height: 14px; margin-block-end: 8px; }
+.lh-sk-h1 { width: 210px; height: 24px; }
+
+.lh-loading.lh-now {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.lh-sk-row {
+  height: 48px;
+}
+
+/* شاشة الإقلاع للمحامي: هيكل «اليوم» بدل مؤشر التحميل */
+.lh-boot {
+  min-height: 100vh;
+}
+
+/* (L-07) شاشة الإقلاع بخط النظام: لا تطلب ملف الخط قبل أن يظهر محتوى حقيقي — على HTTP/1.1 البطيء كل طلب يأخذ
+   اتصالًا من ستة، وطلبات الخطوط تتقدّم على وحدات الصفحة. صفحة الدخول تبقى بخطها (يُحمَّل مسبقًا لمن لا يحمل جلسة). */
+.boot-splash,
+.lh-boot {
+  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+}
+
+.lh-boot-bar {
+  height: var(--topbar-h);
+  background: rgba(255, 255, 255, 0.94);
+  border-block-end: 1px solid var(--border);
+}
+
+.lh-boot .content {
+  max-width: 760px;
+}
+
+/* «إسناداتي» */
+.lh-page-h1 {
+  margin-block-end: -4px;
+}
+
+.lh-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.lh-due.is-overdue {
+  color: var(--danger-700);
+  font-weight: 600;
+}
+
+/* ───────────── هيكل المحامي ───────────── */
+
+.is-lawyer .topbar-title {
+  display: flex;
+  align-items: center;
+}
+
+.lh-title-code {
+  direction: ltr;
+  unicode-bidi: isolate;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.lh-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* زر الخروج في أسفل القائمة (الهاتف والحاسوب) */
+.lh-drawer-foot {
+  padding: 8px 12px;
+  border-block-start: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lh-drawer-logout {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.92;
+}
+
+.lh-drawer-logout:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lh-logout-warn p {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+  color: var(--warning-700);
+  font-weight: 500;
+}
+
+/* الشريط السفلي: يظهر على الهاتف فقط */
+.lh-bottom-nav {
+  display: none;
+}
+
+.lh-tab-badge {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: var(--danger-700);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1024px) {
+  /* صورة الحساب تبقى على الشاشات الواسعة فقط */
+  .is-lawyer .user-chip {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .is-lawyer .topbar {
+    gap: 4px;
+    padding-inline: 8px;
+  }
+
+  .is-lawyer .topbar .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .is-lawyer .topbar-logout {
+    display: none;
+  }
+
+  .is-lawyer .topbar-title {
+    font-size: 16px;
+  }
+
+  /* الإشعارات لوحة بعرض الشاشة (لا تخرج عن حافتها) */
+  .is-lawyer .dropdown.lh-notif-panel {
+    position: fixed;
+    inset-block-start: 64px;
+    inset-inline: 8px;
+    width: auto;
+    max-height: calc(100dvh - 80px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .is-lawyer .dropdown.lh-notif-panel[hidden] {
+    display: none;
+  }
+
+  .is-lawyer .lh-notif-panel .dropdown-body {
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .is-lawyer .lh-notif-panel .notif-title,
+  .is-lawyer .lh-notif-panel .notif-body {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .is-lawyer .lh-notif-panel .dropdown-foot .btn {
+    --btn-h: 44px;
+  }
+
+  .is-lawyer .lh-bottom-nav {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-block-end: env(safe-area-inset-bottom, 0px);
+    background: rgba(255, 255, 255, 0.97);
+    border-block-start: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(8, 42, 51, 0.06);
+  }
+
+  .is-lawyer .lh-tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    border: 0;
+    background: none;
+    color: var(--gray-600);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .is-lawyer .lh-tab-icon {
+    position: relative;
+    display: inline-grid;
+  }
+
+  .is-lawyer .lh-tab.is-active {
+    color: var(--primary-700);
+  }
+
+  .is-lawyer .lh-tab.is-active .lh-tab-icon::after {
+    content: '';
+    position: absolute;
+    inset-inline: -10px;
+    inset-block-end: -4px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--primary-700);
+  }
+
+  .is-lawyer .content {
+    padding-block-end: calc(56px + 24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* صفحات التفاصيل (شريط إجراءاتها الخاص) ولوحة المفاتيح المفتوحة: لا شريط سفلي */
+  .is-lawyer.lh-detail .lh-bottom-nav,
+  .is-lawyer.lh-keyboard .lh-bottom-nav,
+  .is-lawyer.lh-typing .lh-bottom-nav,
+  .is-lawyer.drawer-open .lh-bottom-nav {
+    display: none;
+  }
+
+  .is-lawyer.lh-detail .content,
+  .is-lawyer.lh-keyboard .content {
+    padding-block-end: 48px;
+  }
+
+  /* التنبيهات المنبثقة أسفل الشاشة فوق الشريط السفلي، بسطرين على الأكثر */
+  .lh-lawyer-ui .toast-region {
+    inset-block-start: auto;
+    inset-block-end: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lh-lawyer-ui .toast-msg {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .lh-today {
+    gap: 14px;
+  }
+
+  .lh-row {
+    padding-inline: 0 10px;
+  }
+
+  .lh-row-main {
+    padding-inline: 12px 6px;
+    gap: 10px;
+  }
+}
+
+/* زر «رجوع» بدل القائمة في صفحات التفاصيل */
+.is-lawyer .topbar-menu.lh-back {
+  display: inline-grid;
+}
+
+/* ───────────── الدخول والتفعيل على الهاتف (L-10) ───────────── */
+
+@media (max-width: 640px) {
+  .lh-login .login-hero,
+  .lh-login .login-pitch,
+  .lh-login .auth-pitch {
+    display: none;
+  }
+}
+
+/* (إصلاح 9.1، L-07) شاشة الدخول بوزنين فقط (400 و700): ما كان 600 (العناوين الصغيرة والأزرار) صار 700،
+   فلا يُنزَّل ملف الخط 600 (≈46 KB) على شبكة بطيئة قبل الدخول */
+.login-page :is(.field-label, .btn, .lh-forgot, .demo-name, .badge, .field-error) {
+  font-weight: 700;
+}
+
+.lh-forgot {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 44px;
+  color: var(--link, var(--primary-700));
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.lh-remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.lh-remember input,
+.lh-pledge input {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--primary-700);
+}
+
+.lh-pledge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding-block: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.lh-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lh-sheet-actions .btn {
+  --btn-h: 48px;
+}
+
+.lh-reset-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block-start: 12px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+}
+
+.lh-reset-form .input {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.lh-copy-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────────── التحقق بخطوتين على نفس الهاتف (L-11) ───────────── */
+
+.lh-2fa-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lh-2fa-phone .btn {
+  --btn-h: 52px;
+}
+
+.lh-2fa-key {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  word-spacing: 0.3em;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lh-2fa-tip {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.lh-2fa-other summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary-700);
+}
+
+/* ───────────── «حسابي»: التنبيهات (L-06) وتنبيهات الجهاز (L-20) ───────────── */
+
+.lh-alerts-card .lh-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.lh-switch {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--gray-300);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.lh-switch::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: inset-inline-start 0.15s;
+}
+
+.lh-switch:checked {
+  background: var(--primary-700);
+}
+
+.lh-switch:checked::after {
+  inset-inline-start: 25px;
+}
+
+.lh-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lh-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.lh-alerts-card .lh-fine {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.lh-alerts-card .field .input {
+  min-height: 48px;
+}
+
+.lh-alerts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 8px;
+}
+
+.lh-alerts-actions .btn {
+  --btn-h: 44px;
+}
+
+.lh-remember-note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.lh-keep {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* الإشعارات للمحامي: مجموعات حسب اليوم وعناوين بسطرين */
+.lh-notif-day {
+  margin: 0;
+  padding: 10px 16px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-2, var(--gray-50));
+  border-block-end: 1px solid var(--border);
+}
+
+.lh-notif-clamp .notif-title,
+.lh-notif-clamp .notif-body {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.lh-account-logout {
+  display: flex;
+  justify-content: center;
+  padding-block: 8px 16px;
+}
+
+.lh-account-logout .btn {
+  --btn-h: 48px;
+  min-width: 200px;
+}
+
+.lh-copy-row .btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ───────── مراجعة l-home ───────── */
+
+/* «اليوم» على الهاتف بترتيب المواصفة: مطلوب الآن ← قادم ← عملي الجاري ← المستحقات
+   (على الحاسوب: عمود رئيسي 720px وعمود جانبي 320px لـ«قادم» والمستحقات) */
+@media (max-width: 1023px) {
+  .lh-cols {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lh-cols > .lh-main,
+  .lh-cols > .lh-side {
+    display: contents;
+  }
+
+  .lh-cols .lh-now,
+  .lh-cols .lh-setup,
+  .lh-cols .lh-empty {
+    order: 1;
+  }
+
+  .lh-cols .lh-upcoming {
+    order: 2;
+  }
+
+  .lh-cols .lh-work {
+    order: 3;
+  }
+
+  .lh-cols .lh-pay {
+    order: 4;
+  }
+}
+
+/* بعد تفعيل التنبيهات من بطاقة «جهّز هاتفك»: تأكيد وزر «جرّب التنبيه» */
+.lh-alerts-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 4px 16px 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--success-50, #ecf8f0);
+  color: var(--success-700, #1d6b3a);
+  font-weight: 600;
+}
+
+.lh-alerts-done > span {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 640px) {
+  /* لوحة الإشعارات تنتهي فوق الشريط السفلي فيبقى «عرض الكل» ظاهرًا (في صفحات التفاصيل لا شريط سفلي) */
+  .is-lawyer:not(.lh-detail) .dropdown.lh-notif-panel {
+    max-height: calc(100dvh - 64px - 56px - 16px - env(safe-area-inset-bottom, 0px));
+  }
+
+  /* أهداف لمس ≥ 44px في صفحات المحامي وشاشات الدخول على الهاتف */
+  .lh-login .input,
+  .lh-lawyer-ui .acc-page .input,
+  .lh-lawyer-ui .acc-page .select,
+  .lh-forgot-sheet .input,
+  .lh-reauth-sheet .input,
+  .lh-lawyer-ui .lh-inline-form .input {
+    min-height: 48px;
+  }
+
+  .lh-login .input-action,
+  .lh-lawyer-ui .acc-page .input-action,
+  .lh-reauth-sheet .input-action {
+    inset-block: 2px;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .lh-lawyer-ui .acc-page .btn,
+  .lh-lawyer-ui .lh-notif-page .btn,
+  .lh-forgot-sheet .btn,
+  .lh-reauth-sheet .btn,
+  .lh-logout-sheet .btn {
+    --btn-h: 44px;
+    min-width: 44px;
+  }
+
+  .lh-lawyer-ui .lh-notif-page .seg {
+    min-height: 44px;
+  }
+}

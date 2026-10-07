@@ -4,10 +4,68 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { nowIso, addHours, parseJson, badRequest, notFound, cairoYear, truncate } from '../util.js';
+// v9.1 b-site (B91-01/B91-10): قاعدة القناة الواحدة وتأكيد الرقم بنقرة واحدة وصياغة رسائل المستفيد/ة
+import { sha256, latinDigits, normalizePhone, addressName, addressForm, genderize } from '../util.js';
 import { CODE_PREFIX, LABELS } from '../constants.js';
+import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site
 import { parseWebhook, sourceFromReferral } from './whatsapp.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
+// v9.1 b-site: «… وكود التأكيد 482913» في رسالة واتساب الجاهزة من شاشة نجاح الطلب (يقبل الأرقام العربية)
+const CONFIRM_CODE_RE = /كود\s*(?:ال)?تأكيد\s*[:：]?\s*(\d{6})(?!\d)/;
+const CONFIRM_MAX_FAILURES = 5;
+/** القنوات التي تثبت أن صاحب الطلب هو صاحب الرقم: واتساب، أو سجلت الإدارة الطلب من مكالمة أو حضور شخصي */
+const CONFIRMING_CHANNELS = new Set(['whatsapp', 'phone', 'walk_in']);
+/** رسالة الخطأ عند إرسال الإدارة عبر واتساب لطلب رقمه غير مؤكد (B91-01) */
+export const UNCONFIRMED_WHATSAPP_ERROR = 'رقم هذا الطلب غير مؤكد. أكّدوا هوية المستفيد/ة أولًا ثم أعيدوا الإرسال.';
+
+// ───────────── v9.1 fixes: روابط صفحة المتابعة لا تُحفظ في نص الرسالة أبدًا ─────────────
+/** متغير الرابط في نص واتساب: يُستبدل برابط جديد عند الإرسال الفعلي فقط (dispatch)، ولا يُحفظ الرابط في قاعدة البيانات */
+export const PORTAL_LINK_VAR = '{portal_link}';
+/**
+ * النص المحفوظ (يظهر للإدارة وفي صفحة المتابعة): بلا الرابط ولا عنوانه.
+ * «صفحة طلبك: {portal_link}» ← يُحذف السطر؛ «صوّري الورقة وابعتيها هنا، أو من صفحتك: {portal_link}» ← «صوّري الورقة وابعتيها هنا.»
+ */
+export function withoutLinkLines(text) {
+  const lines = String(text ?? '').split('\n');
+  const out = [];
+  for (const line of lines) {
+    const at = line.indexOf(PORTAL_LINK_VAR);
+    if (at < 0) {
+      out.push(line);
+      continue;
+    }
+    let before = line.slice(0, at);
+    const after = line.slice(at + PORTAL_LINK_VAR.length).replace(/\{portal_link\}/g, '').trim();
+    const colon = Math.max(before.lastIndexOf(':'), before.lastIndexOf('：'));
+    if (colon >= 0) before = before.slice(0, colon);
+    // عنوان الرابط («أو من صفحتك» / «التفاصيل») بعد آخر فاصل جملة يُحذف معه
+    const sep = Math.max(before.lastIndexOf('،'), before.lastIndexOf('.'), before.lastIndexOf(','));
+    const keep = (sep >= 0 ? before.slice(0, sep) : '').trim();
+    const rest = [keep ? `${keep}.` : '', after].filter(Boolean).join(' ');
+    if (rest) out.push(rest);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * رسالة تأكيد الرقم الجاهزة («السلام عليكم، ده رقم طلبي REQ-… وكود التأكيد 123456») ليست من وقائع الطلب:
+ * تُحذف من النص قبل التحليل والملخص والمعاينة. يعيد ما كتبته المستفيدة غير ذلك (أو '' إن لم تكتب شيئًا آخر).
+ */
+export function stripIdentityConfirm(text) {
+  let s = latinDigits(String(text ?? ''));
+  s = s.replace(
+    /(?:السلام\s+عليكم(?:\s+ورحمة\s+الله(?:\s+وبركاته)?)?\s*[،,.!]*\s*)?(?:(?:ده|دا|هذا|هذه)\s+)?(?:رقم\s+طلبي\s*[:：]?\s*)?REQ-\d{4}-\d{5}\s*[،,]?\s*(?:و\s*)?كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)\s*[.،]?/gi,
+    ' ',
+  );
+  s = s.replace(/كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g, ' ');
+  return s.replace(/[ \t]+/g, ' ').replace(/^\s*[،,.!]+\s*/, '').trim();
+}
+/** نص رسالة واردة كما يدخل التحليل والوقائع: رسالة تأكيد الرقم بلا رقم الطلب والكود */
+export function factsText(body, meta) {
+  const m = typeof meta === 'string' ? parseJson(meta, {}) : meta || {};
+  return m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? '');
+}
 
 /**
  * طلب لا يُثبت أن مقدّمه صاحب رقم الهاتف، فلا يظهر في رابط البوابة الكامل لصاحب الرقم
@@ -72,8 +130,118 @@ export function createEngine(app) {
   }
 
   // طلب أنشأه نموذج الموقع برقم عميل مسجل ولم تتحقق الإدارة بعد من أن المرسل صاحب الرقم
-  const UNVERIFIED_SQL = "COALESCE(json_extract(source_detail, '$.phone_match_unverified'), 0) = 1";
   const isUnverifiedIntake = (i) => !!i && !!parseJson(i.source_detail, {}).phone_match_unverified;
+
+  // ───────────── v9.1 b-site (B91-01): قاعدة القناة الواحدة لكل رسالة صادرة ─────────────
+  // «القصة» = الطلب وما تفرع عنه (الملف والملف المستمر). القصة «مؤكدة» إذا بدأت من واتساب أو مكالمة أو حضور شخصي،
+  // أو أكدت الإدارة الهوية، أو كتبها صاحب رابط بوابة كامل، أو أرسلت المستفيدة من نفس الرقم رسالة واتساب فيها رقم الطلب
+  // وكود التأكيد. القصة المؤكدة تصلها الرسائل على واتساب (وتبقى في صفحة المتابعة)، وغير المؤكدة في صفحة المتابعة فقط.
+
+  /** طلب القصة (من الطلب نفسه أو من الملف أو الملف المستمر) أو null */
+  function storyIntake({ intakeId = null, caseId = null, matterId = null } = {}) {
+    if (intakeId) {
+      const i = db.get('SELECT * FROM intakes WHERE id = ?', intakeId);
+      if (i) return i;
+    }
+    let cid = caseId;
+    if (!cid && matterId) cid = db.value('SELECT case_id FROM matters WHERE id = ?', matterId) ?? null;
+    if (cid) {
+      const iid = db.value('SELECT intake_id FROM cases WHERE id = ?', cid);
+      if (iid) return db.get('SELECT * FROM intakes WHERE id = ?', iid) || null;
+    }
+    return null;
+  }
+
+  /** هل رقم الهاتف هوية موثّقة لهذا العميل؟ (واتساب أو سجلته الإدارة، أو طلب بنفس الرقم أُكدت هويته) */
+  function phoneVerifiedFor(clientId, phone) {
+    if (!phone) return false;
+    if (app.messaging?.verifiedClientForPhone) return app.messaging.verifiedClientForPhone(phone)?.id === clientId;
+    const ident = db.get("SELECT channels FROM client_identities WHERE kind = 'phone' AND value = ? AND client_id = ?", phone, clientId);
+    const chans = parseJson(ident?.channels, []);
+    return !!ident && (!chans.length || chans.some((c) => c !== 'website'));
+  }
+
+  /** الرقم الذي تُرسل إليه رسائل القصة: رقم التواصل في الطلب إن كان من أرقام العميل، وإلا رقمه الأساسي */
+  function storyPhone(clientId, intake) {
+    const p = intake?.contact_phone ? normalizePhone(intake.contact_phone) : null;
+    if (p && db.get("SELECT 1 FROM client_identities WHERE client_id = ? AND kind = 'phone' AND value = ?", clientId, p)) return p;
+    return app.clients.primaryPhone(clientId);
+  }
+
+  /** هل القصة مؤكدة؟ (انظر أعلاه). بلا طلب: يكفي أن يكون الرقم هوية موثّقة للعميل */
+  function isStoryConfirmed({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
+    const intake = storyIntake({ intakeId, caseId, matterId });
+    if (intake) {
+      if (isPortalUnverifiedIntake(intake)) return false;
+      const sd = parseJson(intake.source_detail, {});
+      if (CONFIRMING_CHANNELS.has(intake.first_channel) || sd.identity_confirmed_at || sd.sender_verified) return true;
+    }
+    const cid = clientId ?? intake?.client_id;
+    return !!cid && phoneVerifiedFor(cid, storyPhone(cid, intake));
+  }
+
+  /** تأكيد القصة (يستخدمه زر «تأكيد الهوية» ورسالة واتساب فيها رقم الطلب وكود التأكيد) */
+  function confirmStory(intake, via, actor = null) {
+    const sd = parseJson(intake.source_detail, {});
+    delete sd.phone_match_unverified;
+    sd.identity_confirmed_at = nowIso();
+    sd.identity_confirmed_via = via;
+    if (actor?.id) {
+      sd.identity_confirmed_by = actor.id;
+      sd.identity_confirmed_by_name = actor.name;
+    }
+    delete sd.confirm_hash; // الكود استُخدم مرة واحدة
+    db.update('intakes', intake.id, { source_detail: JSON.stringify(sd), updated_at: nowIso() });
+    return sd;
+  }
+
+  /**
+   * كود التأكيد في رسالة واتساب من نفس الرقم: يعيد 'confirmed' أو 'wrong' أو 'locked' أو null (لا كود أو لا ينطبق).
+   * 5 أكواد خاطئة تقفل التأكيد بالرسالة (أرقام الطلبات متسلسلة فلا يُسمح بالتخمين) وتُنبَّه الإدارة.
+   */
+  function tryConfirmCode(intake, senderPhone, text) {
+    const m = CONFIRM_CODE_RE.exec(latinDigits(String(text || '')));
+    if (!m || !intake) return null;
+    if (normalizePhone(intake.contact_phone || '') !== normalizePhone(senderPhone || '')) return null;
+    const sd = parseJson(intake.source_detail, {});
+    if (!isPortalUnverifiedIntake(intake)) return null; // مؤكدة بالفعل
+    if (sd.confirm_locked_at) return 'locked';
+    const fresh = sd.confirm_hash && (!sd.confirm_expires_at || sd.confirm_expires_at > nowIso());
+    // البصمة المفتاحية الحالية، مع قبول البصمة القديمة (sha256) للأكواد الصادرة قبل التحديث حتى تنتهي صلاحيتها
+    if (fresh && (app.integrations.hmac('intake-confirm', m[1]) === sd.confirm_hash || sha256(m[1]) === sd.confirm_hash)) {
+      confirmStory(intake, 'whatsapp_ref');
+      // v9.1 fixes: الرسالة تثبت أن صاحب الرقم هو من أرسلها، لا أن المتصفح الذي يحمل رابط الموقع هو صاحب الرقم
+      // (أي شخص يعرف الرقم يستطيع تقديم طلب به ثم استدراج صاحبة الرقم لإرسال الرسالة الجاهزة). روابط الموقع
+      // التي صدرت لهذا الطلب قبل التأكيد تُلغى، والرابط الجديد يصلها في رد واتساب على رقمها فقط.
+      const revoked = app.clients.revokePortalTokens(intake.client_id, { intakeId: intake.id });
+      app.activity.log({
+        intake_id: intake.id,
+        client_id: intake.client_id,
+        actor: { kind: 'client' },
+        type: 'identity.confirmed',
+        summary: `أكّدت المستفيدة رقمها برسالة واتساب فيها رقم الطلب وكود التأكيد${revoked ? ' (أُلغي رابط الموقع القديم ووصلها رابط جديد على واتساب)' : ''}`,
+        data: { via: 'whatsapp_ref', revoked_links: revoked },
+      });
+      return 'confirmed';
+    }
+    const failures = (Number(sd.confirm_failures) || 0) + 1;
+    sd.confirm_failures = failures;
+    if (failures >= CONFIRM_MAX_FAILURES) {
+      sd.confirm_locked_at = nowIso();
+      delete sd.confirm_hash;
+    }
+    db.update('intakes', intake.id, { source_detail: JSON.stringify(sd) });
+    if (failures >= CONFIRM_MAX_FAILURES) {
+      app.notifications.notifyStaff({
+        type: 'identity.confirm_locked',
+        title: `توقف تأكيد الرقم برسالة واتساب في الطلب ${intake.code}`,
+        body: `وصلت ${CONFIRM_MAX_FAILURES} رسائل بكود تأكيد غير صحيح. اتصلوا بالمستفيد/ة وتأكدوا من هويته/ها ثم اضغطوا «تأكيد الهوية».`,
+        link: `#/inbox/${intake.id}`,
+      });
+      return 'locked';
+    }
+    return 'wrong';
+  }
 
   /**
    * verifiedSender: المرسل أثبت ملكية الرقم (واتساب) أو دخل برابط بوابة العميل الكامل.
@@ -99,8 +267,11 @@ export function createEngine(app) {
     if (refIntake) return { intake: refIntake, caseRow: refIntake.case_id ? db.get('SELECT * FROM cases WHERE id = ?', refIntake.case_id) : null };
     const skipUnverified = verifiedSender ? 1 : 0;
     // صاحب رابط البوابة الكامل (رمز واتساب أو رابط من الإدارة) لا يرى الطلبات غير الموثّقة في صفحته،
-    // فلا تُوجَّه رسالته إليها أيضًا (وإلا وصلت لرابط مقدّم طلب الموقع الذي ربما أخطأ في كتابة رقمه)
-    const skipSql = portalSender ? portalUnverifiedSql() : UNVERIFIED_SQL;
+    // فلا تُوجَّه رسالته إليها أيضًا (وإلا وصلت لرابط مقدّم طلب الموقع الذي ربما أخطأ في كتابة رقمه).
+    // v9.1 fixes: ونفس القاعدة لصاحب الرقم على واتساب: طلب الموقع غير المؤكد صدر له رابط قبل التأكيد، فلا تُوجَّه إليه
+    // رسائل صاحب الرقم تلقائيًا (وإلا ردّت عليها الإدارة في صفحة المتابعة فقرأها حامل رابط الموقع). يبقى ذكر رقم الطلب
+    // صراحة (refIntake أعلاه) وتأكيده بالكود أو من الإدارة.
+    const skipSql = portalUnverifiedSql();
     const openIntake = db.get(
       `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
          AND NOT (? = 1 AND ${skipSql})
@@ -219,13 +390,32 @@ export function createEngine(app) {
         let identityConflict = null;
         let mentionedRef = null;
         let refToUnverified = null;
-        const m = REF_RE.exec(text);
+        let confirmOutcome = null; // v9.1 b-site: نتيجة كود التأكيد في رسالة واتساب
+        let confirmedIntake = null;
+        // v9.1 b-site: رقم الطلب يُقبل بالأرقام العربية أيضًا («REQ-٢٠٢٦-٠٠٠٢٩») مثل كود التأكيد
+        const m = REF_RE.exec(latinDigits(text));
+        // v9.1 fixes: رسالة تأكيد الرقم الجاهزة (رقم الطلب + كود التأكيد) تُعلَّم فلا تدخل وقائع الطلب ولا تحليله ولا معاينته
+        const confirmLike = msg.channel === 'whatsapp' && !!m && CONFIRM_CODE_RE.test(latinDigits(text));
         if (m && !verifiedSender) mentionedRef = `REQ-${m[1]}-${m[2]}`;
         if (m && verifiedSender) {
-          const ref = db.get('SELECT * FROM intakes WHERE code = ?', `REQ-${m[1]}-${m[2]}`);
+          let ref = db.get('SELECT * FROM intakes WHERE code = ?', `REQ-${m[1]}-${m[2]}`);
           if (ref) {
             const refClient = ref.client_id ? app.clients.get(ref.client_id) : null;
-            if (refClient && refClient.id === client.id) {
+            // v9.1 b-site (B91-01): رقم الطلب + كود التأكيد من نفس الرقم عبر واتساب = إثبات ملكية الرقم (مثل رمز الدخول)
+            if (refClient && refClient.id === client.id && msg.channel === 'whatsapp') {
+              confirmOutcome = tryConfirmCode(ref, msg.from_phone, text);
+              if (confirmOutcome === 'confirmed') {
+                ref = db.get('SELECT * FROM intakes WHERE id = ?', ref.id);
+                confirmedIntake = ref;
+              }
+            }
+            if (refClient && refClient.id === client.id && isPortalUnverifiedIntake(ref)) {
+              // v9.1 fixes: صاحب الرقم يذكر رقم طلب موقع لم يتأكد (بلا كود صحيح): أرقام الطلبات متسلسلة وقد يكون شخص آخر
+              // قدّم الطلب برقمه ويحمل رابطه. لا تُضاف رسالته إلى ذلك الطلب (وإلا ردّت الإدارة عليها في صفحة الموقع فقرأها
+              // حامل الرابط)، ولا يُعاد فتحه؛ تُنبَّه الإدارة لتؤكد الهوية من صفحة الطلب إن كان هو مقدّمه.
+              refToUnverified = ref;
+              mentionedRef = ref.code;
+            } else if (refClient && refClient.id === client.id) {
               // نستخدم الطلب المذكور فقط إذا كان ما زال حيًا؛ أما المنتهي فلا نُلحق به الرسالة حتى لا تُدفن في ملف مغلق
               const refCase = ref.case_id ? db.get('SELECT status FROM cases WHERE id = ?', ref.case_id) : null;
               if (['new', 'in_review', 'awaiting_client'].includes(ref.status) || (refCase && refCase.status !== 'closed')) {
@@ -235,8 +425,6 @@ export function createEngine(app) {
                 db.update('intakes', ref.id, { status: 'in_review', updated_at: nowIso() });
                 refIntake = db.get('SELECT * FROM intakes WHERE id = ?', ref.id);
               }
-              // صاحب الرقم يذكر رقم طلب أُنشئ من الموقع برقمه: غالبًا هو نفسه يستكمل عبر واتساب، لكن التأكيد للإدارة
-              if (refIntake && isUnverifiedIntake(refIntake)) refToUnverified = refIntake;
             } else if (refClient) {
               // رقم مختلف يذكر رقم طلب لعميل آخر: لا ندمج تلقائيًا حماية للخصوصية، ونطلب تحقق الإدارة
               identityConflict = { intake_id: ref.id, intake_code: ref.code, client_code: refClient.code };
@@ -307,8 +495,13 @@ export function createEngine(app) {
         if (msg.referral) meta.referral = msg.referral;
         if (identityConflict) meta.identity_conflict = identityConflict;
         if (mentionedRef) meta.mentioned_ref = mentionedRef; // للمراجعة اليدوية فقط، دون ربط تلقائي
+        if (confirmLike) meta.identity_confirm = confirmOutcome || 'unmatched';
         if (msg.context_id) meta.reply_to = msg.context_id;
         if (msg.info_request_id) meta.info_request_id = msg.info_request_id;
+        // v9.1 b-portal: بيانات منظمة لرسالة من صفحة المتابعة (سؤال على رد، رد على موعد، طلب مكالمة…)
+        if (msg.extra_meta && typeof msg.extra_meta === 'object') {
+          for (const [k, val] of Object.entries(msg.extra_meta)) if (val !== undefined && !(k in meta)) meta[k] = val;
+        }
         // نعتمد وقت الاستلام في الخادم للترتيب، ونحفظ توقيت المزوّد للرجوع إليه
         if (msg.timestamp) meta.provider_timestamp = msg.timestamp;
         const messageId = db.insert('messages', {
@@ -386,11 +579,12 @@ export function createEngine(app) {
             link: `#/inbox/${intake.id}`,
           });
         }
-        if (refToUnverified) {
+        // v9.1 b-site: تأكيد تلقائي بالكود ← ملاحظة في سجل الطلب (أعلاه) بدل تنبيه الإدارة
+        if (refToUnverified && !confirmedIntake) {
           app.notifications.notifyStaff({
             type: 'identity.ref_from_owner',
             title: `صاحب الرقم ذكر الطلب ${refToUnverified.code} عبر ${LABELS.channel[msg.channel]}`,
-            body: 'الطلب أُنشئ من الموقع برقم غير موثّق. راجع المحادثة وأكّد هوية المرسل من صفحة الطلب إن كان هو مقدّم الطلب.',
+            body: 'الطلب أُنشئ من الموقع ورقمه غير مؤكد، فلم تُضف الرسالة إليه (قد يكون شخص آخر قدّمه بهذا الرقم). إن كان المرسل هو مقدّم الطلب فأكّدوا هويته من صفحة الطلب.',
             link: `#/inbox/${refToUnverified.id}`,
           });
         }
@@ -401,7 +595,8 @@ export function createEngine(app) {
             body: truncate(text, 140),
             link: `#/inbox/${intake.id}`,
           });
-        } else if (caseRow) {
+        } else if (caseRow && !msg.skip_staff_notice) {
+          // (v9.1 b-portal: رسائل صفحة المتابعة المنظمة ترسل إشعارها المحدد بنفسها بدل هذا الإشعار العام)
           const pending = Number(
             db.value("SELECT COUNT(*) FROM info_requests WHERE case_id = ? AND status = 'sent_to_client'", caseRow.id),
           );
@@ -425,8 +620,20 @@ export function createEngine(app) {
           message_id: messageId,
           created_intake: createdIntake,
           document_ids: documentIds,
+          // v9.1 b-site: الطلب الذي تأكد رقمه بهذه الرسالة (رقم الطلب + كود التأكيد)
+          confirmed_intake: confirmedIntake,
+          confirm_outcome: confirmOutcome,
+          identity_confirm: confirmLike,
         };
       });
+      // v9.1 b-site (B91-01): ردّ واتساب فوري بعد تأكيد الرقم برابط صفحتها (نطاق الرقم نفسه، مثل الدخول برمز)
+      if (result.confirmed_intake && !result.duplicate) {
+        try {
+          engine.sendConfirmationReply(result.client, result.confirmed_intake, msg.from_phone);
+        } catch (e) {
+          app.log('confirmation reply failed', e);
+        }
+      }
 
       if (result.survey) {
         // شكر العميل على تقييمه (وطلب تعليقه إن كان التقييم منخفضًا) بعد حفظ التقييم
@@ -437,9 +644,19 @@ export function createEngine(app) {
         }
         return result;
       }
+      if (!result.duplicate && msg.reply?.id && app.portal?.onButtonReply) {
+        // v9.1 b-portal: زر «هحضر / مش هقدر» في تذكير الجلسة على واتساب = نفس رد صفحة المتابعة
+        try {
+          app.portal.onButtonReply(result, msg);
+        } catch (e) {
+          app.log('event button reply failed', e);
+        }
+      }
       if (!result.duplicate) {
         // تحليل الذكاء الاصطناعي للطلبات التي لم تتحول بعد إلى ملفات (مؤجل قليلًا لتجميع الرسائل المتتابعة)
-        if (result.intake && !result.caseRow && result.intake.status !== 'converted') {
+        // (v9.1 fixes: رسالة تأكيد الرقم وحدها لا تضيف وقائع، فلا تعيد التحليل)
+        const onlyConfirm = result.identity_confirm && !stripIdentityConfirm(msg.text).replace(/[\s،,.!؟?]/g, '') && !(msg.attachments || []).length;
+        if (result.intake && !result.caseRow && result.intake.status !== 'converted' && !onlyConfirm) {
           app.ai.scheduleIntakeAnalysis(result.intake.id);
         }
         // تنزيل وسائط واتساب في الخلفية
@@ -516,21 +733,39 @@ export function createEngine(app) {
     },
 
     // ===================== الإرسال الموحد =====================
-    /** اختيار القناة: نرد على العميل من حيث يتواصل في هذا الملف تحديدًا، ثم من حيث تواصل آخر مرة */
-    pickChannel(clientId, requested = 'auto', { intakeId = null, caseId = null } = {}) {
-      const phone = app.clients.primaryPhone(clientId);
+    // v9.1 b-site (B91-01): قاعدة واحدة لكل رسالة صادرة (رد الإدارة، طلب معلومة، الرد النهائي، مستند، أتمتة):
+    // القصة المؤكدة ← واتساب (وتبقى في صفحة المتابعة)، وغير المؤكدة ← صفحة المتابعة فقط ولا يصل الرقم أي شيء.
+    isStoryConfirmed,
+    storyPhone,
+    confirmStory,
+
+    /**
+     * اختيار القناة: 'whatsapp' للقصة المؤكدة التي لها رقم، وإلا 'website'.
+     * طلب واتساب صراحة لقصة غير مؤكدة يُرفض (400) — زر «تأكيد الهوية» يرفع المنع.
+     */
+    pickChannel(clientId, requested = 'auto', { intakeId = null, caseId = null, matterId = null } = {}) {
+      if (requested && !['auto', 'whatsapp', 'website'].includes(requested)) throw badRequest('قناة الإرسال غير مدعومة');
+      if (requested === 'website') return 'website';
+      const intake = storyIntake({ intakeId, caseId, matterId });
+      const phone = storyPhone(clientId, intake);
+      const confirmed = isStoryConfirmed({ clientId, intakeId, caseId, matterId });
       if (requested === 'whatsapp') {
         if (!phone) throw badRequest('لا يوجد رقم هاتف مسجل لهذا العميل للإرسال عبر واتساب');
+        if (!confirmed) throw badRequest(UNCONFIRMED_WHATSAPP_ERROR);
         return 'whatsapp';
       }
-      if (requested === 'website') return 'website';
-      if (requested && requested !== 'auto') throw badRequest('قناة الإرسال غير مدعومة');
-      const scoped = (col, id) =>
-        id ? db.get(`SELECT channel FROM messages WHERE ${col} = ? AND client_id = ? AND direction = 'in' ORDER BY id DESC LIMIT 1`, id, clientId) : null;
-      const last = scoped('case_id', caseId) || scoped('intake_id', intakeId) || lastInbound(clientId);
-      if (last?.channel === 'website') return 'website';
-      if (phone) return 'whatsapp';
-      return 'website';
+      return confirmed && phone ? 'whatsapp' : 'website';
+    },
+
+    /** وصف القناة لصندوق الرد في صفحات الإدارة: «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد» */
+    channelHint({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
+      const confirmed = !!clientId && isStoryConfirmed({ clientId, intakeId, caseId, matterId });
+      const phone = clientId ? storyPhone(clientId, storyIntake({ intakeId, caseId, matterId })) : null;
+      return {
+        confirmed,
+        whatsapp: confirmed && !!phone,
+        text: confirmed && phone ? 'واتساب + صفحة المتابعة' : confirmed ? 'صفحة المتابعة فقط — لا يوجد رقم واتساب' : 'صفحة المتابعة فقط — الرقم غير مؤكد',
+      };
     },
 
     /** هل نحن داخل نافذة الـ 24 ساعة منذ آخر رسالة واتساب من العميل؟ */
@@ -549,15 +784,18 @@ export function createEngine(app) {
      * attachments: معرفات مستندات تُرفق بالرسالة (تظهر للعميل في البوابة وللإدارة في المحادثة).
      * @returns {object} صف الرسالة
      */
-    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [] }) {
+    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [], unconfirmed = null }) {
       if (!body || !String(body).trim()) throw badRequest('نص الرسالة فارغ');
       const client = app.clients.require(client_id);
-      // الرسائل الآلية (تذكير بجلسة/فاتورة/مستند) تُرسل عبر واتساب متى توفر رقم، لأن البوابة لا تُنبّه العميل
-      const ch =
-        automated && (!channel || channel === 'auto') && app.clients.primaryPhone(client.id)
-          ? 'whatsapp'
-          : engine.pickChannel(client.id, channel, { intakeId: intake_id, caseId: case_id });
-      const to = ch === 'whatsapp' ? app.clients.primaryPhone(client.id) : null;
+      const story = { clientId: client.id, intakeId: intake_id, caseId: case_id, matterId: matter_id };
+      // v9.1 b-site (B91-01): الرسائل الآلية لقصة غير مؤكدة لا تصل الرقم أبدًا. التذكيرات تُتخطى ({ skipped: 'unconfirmed' })
+      // ويُبلَّغ المستدعي، وما سواها (unconfirmed: 'portal') يُتاح في صفحة المتابعة فقط.
+      if (automated && channel !== 'website' && !isStoryConfirmed(story)) {
+        if ((unconfirmed || 'skip') === 'skip') return { skipped: 'unconfirmed', id: null, channel: null, status: 'skipped' };
+        channel = 'website';
+      }
+      const ch = engine.pickChannel(client.id, channel || 'auto', story);
+      const to = ch === 'whatsapp' ? storyPhone(client.id, storyIntake(story)) : null;
       const row = engine.record({ client_id: client.id, intake_id, case_id, matter_id, channel: ch, to, body, author, automated, rule, meta, attachments });
       if (intake_id) db.update('intakes', intake_id, { last_message_at: row.created_at, unread_count: 0, updated_at: row.created_at });
       return row;
@@ -646,10 +884,12 @@ export function createEngine(app) {
           wamid = await app.whatsapp.sendDocument(msg.to_address, { mediaId, filename: doc.filename, caption: wa.caption || null });
           via = 'document';
         } else if (wa.type === 'buttons' && inWindow && Array.isArray(wa.buttons) && wa.buttons.length) {
-          wamid = await app.whatsapp.sendButtons(msg.to_address, wa.text || msg.body, wa.buttons, { footer: wa.footer });
+          wamid = await app.whatsapp.sendButtons(msg.to_address, renderLinks(msg, wa.text || meta.wa_text || msg.body), wa.buttons, { footer: wa.footer });
           via = 'interactive';
         } else if (inWindow && !wa.force_template) {
-          wamid = await app.whatsapp.sendText(msg.to_address, secret?.text || msg.body);
+          // v9.1 b-site: meta.wa_text = نص واتساب (مثل طلب المستند مع «صوّري الورقة وابعتيها هنا» ورابط صفحتها)،
+          // ونص الرسالة نفسه هو ما يظهر في صفحة المتابعة. (v9.1 fixes: {portal_link} يُستبدل برابط جديد هنا فقط)
+          wamid = await app.whatsapp.sendText(msg.to_address, secret?.text || renderLinks(msg, meta.wa_text || msg.body));
           via = 'session';
         } else {
           const plan = app.messaging?.templatePlan ? app.messaging.templatePlan(msg, meta, secret?.vars || {}) : legacyPlan(msg);
@@ -708,6 +948,74 @@ export function createEngine(app) {
       for (const r of rows) await engine.dispatch(r.id);
       return rows.length;
     },
+
+    // ───────────── v9.1 b-site (B91-10): كلمات رسائل المستفيد/ة ─────────────
+    /**
+     * متغيرات المخاطبة لرسالة: { first_name, form, ref } — الاسم بالكنية («أم محمد») والصيغة ('f' افتراضيًا، 'm' لـ«أبو …»
+     * أو لما حددته الإدارة في address_form) ورقم الطلب REQ (الرقم الوحيد الذي تراه المستفيدة).
+     */
+    clientWords({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
+      const client = clientId ? app.clients.get(clientId) : null;
+      const intake = storyIntake({ intakeId, caseId, matterId });
+      const name = client?.name || intake?.contact_name || '';
+      const form = addressForm({ name, address_form: client?.address_form });
+      return { first_name: addressName(name), form, ref: intake?.code || null };
+    },
+
+    /**
+     * ملء نص رسالة للمستفيد/ة: {متغير} من القيم، ثم رموز النوع {ي}/{ة}. «أهلًا يا {first_name}» بلا اسم ← «أهلًا بيكي».
+     * المتغيرات غير المعروفة تبقى كما هي.
+     */
+    fillClientText(template, values = {}, form = 'f') {
+      let t = String(template ?? '');
+      // (بلا اسم: «شكرًا على رأيك يا {first_name}.» ← «شكرًا على رأيك.» بلا مسافة قبل علامة الترقيم)
+      if (!values.first_name) t = t.replace(/(أهلًا|أهلا|مرحبًا)\s+يا\s+\{first_name\}/g, '$1 بيك{ي}').replace(/[ \t]*يا\s+\{first_name\}/g, '').replace(/[ \t]*\{first_name\}/g, '');
+      t = t.replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined && values[k] !== null && values[k] !== '' ? String(values[k]) : m));
+      return genderize(t, form);
+    },
+
+    /**
+     * رابط صفحة المتابعة لرسالة واتساب: نطاق الرقم نفسه مثل الدخول برمز (لا تظهر فيه قصص غير مؤكدة).
+     * v9.1 fixes: رابط مطلق فقط (PUBLIC_BASE_URL)، وإلا null ولا يُصدر رابط (رابط «/p/…» نسبي لا يُفتح من واتساب).
+     * يُستدعى عند الإرسال الفعلي فقط (renderLinks / templatePlan) فلا يُحفظ الرابط في نص الرسالة.
+     */
+    messageLink(clientId, phone) {
+      if (!clientId || !config.publicBaseUrl) return null;
+      if (app.clients.messageLink) return app.clients.messageLink(clientId, phone);
+      const token = app.clients.issuePortalToken(clientId, { phone: phone || null, days: config.portalOtpTokenDays || 30 });
+      return app.clients.portalUrl(token);
+    },
+
+    /** رابط صفحة المتابعة لقصة بعينها (على رقم القصة) — للقوالب التي تحتوي {portal_link} (عند الإرسال الفعلي فقط) */
+    storyLink({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
+      return engine.messageLink(clientId, storyPhone(clientId, storyIntake({ intakeId, caseId, matterId })));
+    },
+
+    withoutLinkLines,
+    renderLinks: (msg, text) => renderLinks(msg, text),
+
+    /** الرد الفوري بعد تأكيد الرقم برسالة واتساب (رقم الطلب + كود التأكيد) */
+    sendConfirmationReply(client, intake, phone) {
+      const to = normalizePhone(phone || intake.contact_phone || '') || storyPhone(client.id, intake);
+      const words = engine.clientWords({ clientId: client.id, intakeId: intake.id });
+      // v9.1 fixes: {portal_link} يبقى متغيرًا في نص واتساب ويُصدر الرابط عند الإرسال؛ النص المحفوظ بلا سطر الرابط
+      const text = engine.fillClientText(
+        CLIENT_TEXTS.confirm_reply,
+        { first_name: words.first_name, ref: intake.code, org_name: app.settings.get('org_name') || 'بيوت مصر' },
+        words.form,
+      );
+      return engine.record({
+        client_id: client.id,
+        intake_id: intake.id,
+        case_id: intake.case_id || null,
+        channel: 'whatsapp',
+        to,
+        body: withoutLinkLines(text),
+        automated: true,
+        rule: 'identity_confirm',
+        meta: text.includes(PORTAL_LINK_VAR) ? { wa_text: text } : {},
+      });
+    },
   };
 
   /**
@@ -721,14 +1029,15 @@ export function createEngine(app) {
       const doc = wa.document_id ? app.documents.get(wa.document_id) : null;
       if (!doc) return null;
       const org = app.settings.get('org_name') || 'بيوت مصر';
-      const ref = msg.case_id ? db.value('SELECT code FROM cases WHERE id = ?', msg.case_id) : msg.matter_id ? db.value('SELECT code FROM matters WHERE id = ?', msg.matter_id) : null;
+      // v9.1 b-site (B91-10): صياغة بسيطة بلا أكواد الملفات الداخلية
+      const words = engine.clientWords({ clientId: msg.client_id, intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
       return engine.record({
         client_id: msg.client_id,
         intake_id: msg.intake_id,
         case_id: msg.case_id,
         matter_id: msg.matter_id,
         channel: 'website',
-        body: `أتحنا لكم المستند «${doc.title || doc.filename}»${ref ? ` الخاص بملفكم رقم ${ref}` : ''}، ويمكنكم تنزيله من صفحة متابعة طلبكم. — ${org}`,
+        body: engine.fillClientText(CLIENT_TEXTS.document_fallback, { title: doc.title || doc.filename, org_name: org }, words.form),
         author: msg.author_user_id ? { id: msg.author_user_id } : null,
         automated: !!msg.automated,
         meta: { portal_fallback_for: msg.id },
@@ -738,6 +1047,17 @@ export function createEngine(app) {
       app.log('document portal fallback failed', err);
       return null;
     }
+  }
+
+  /**
+   * v9.1 fixes: نص واتساب عند الإرسال الفعلي: {portal_link} ← رابط جديد بنطاق رقم الرسالة (لا يُحفظ في قاعدة البيانات)،
+   * وبلا رابط مطلق (PUBLIC_BASE_URL غير مضبوط) يُحذف سطر الرابط بدل إرسال «/p/…» لا يُفتح.
+   */
+  function renderLinks(msg, text) {
+    const s = String(text ?? '');
+    if (!s.includes(PORTAL_LINK_VAR)) return s;
+    const link = msg?.client_id ? engine.messageLink(msg.client_id, msg.to_address) : null;
+    return link ? s.split(PORTAL_LINK_VAR).join(link) : withoutLinkLines(s);
   }
 
   /** القالب الافتراضي القديم من الإعدادات: متغير واحد يحمل نص الرسالة */

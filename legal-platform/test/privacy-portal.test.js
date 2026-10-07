@@ -101,11 +101,17 @@ test('website first, then WhatsApp from the same phone continues the same intake
   try {
     const sub = await t.client().post('/api/public/intake', { name: 'سارة', phone: '01044444444', description: 'لدي مشكلة في الإيجار القديم وصاحب البيت يريد طردي.', consent: true });
     await t.client().post('/webhooks/whatsapp', waPayload({ from: '201044444444', name: 'سارة', text: `رقم طلبي ${sub.body.reference} وأريد الإكمال هنا` }));
-    const intake = t.app.db.get('SELECT * FROM intakes WHERE code = ?', sub.body.reference);
-    assert.deepEqual(JSON.parse(intake.channels).sort(), ['website', 'whatsapp']);
-    assert.equal(Number(t.app.db.value('SELECT COUNT(*) FROM intakes')), 1);
-    // الرد بعد رسالة واتساب يذهب لواتساب
+    let intake = t.app.db.get('SELECT * FROM intakes WHERE code = ?', sub.body.reference);
+    // v9.1 fixes: رقم الطلب وحده (أرقام متسلسلة) لا يثبت أن صاحب الرقم هو مقدّم الطلب: رسالته لا تُضاف لطلب الموقع غير المؤكد
+    assert.deepEqual(JSON.parse(intake.channels).sort(), ['website']);
     const admin = await t.login('admin');
+    const before = await admin.post(`/api/admin/intakes/${intake.id}/reply`, { body: 'أهلًا بك' });
+    assert.equal(before.body.channel, 'website');
+    // رسالة شاشة النجاح الجاهزة (رقم الطلب + كود التأكيد) تؤكد الرقم وتكمل نفس الطلب، وبعدها تصل الردود على واتساب
+    const code = /كود التأكيد (\d{6})/.exec(decodeURIComponent(sub.body.confirm_url.split('?text=')[1]))[1];
+    await t.client().post('/webhooks/whatsapp', waPayload({ from: '201044444444', name: 'سارة', text: `السلام عليكم، ده رقم طلبي ${sub.body.reference} وكود التأكيد ${code}` }));
+    intake = t.app.db.get('SELECT * FROM intakes WHERE code = ?', sub.body.reference);
+    assert.deepEqual(JSON.parse(intake.channels).sort(), ['website', 'whatsapp']);
     const reply = await admin.post(`/api/admin/intakes/${intake.id}/reply`, { body: 'أهلًا بك' });
     assert.equal(reply.body.channel, 'whatsapp');
     assert.equal(reply.body.status, 'simulated');

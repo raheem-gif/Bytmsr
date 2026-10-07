@@ -96,6 +96,11 @@ export function createIntegrations(app) {
     spec: INTEGRATION_SPEC,
     keySource: master.source,
 
+    /** بصمة مفتاحية (HMAC-SHA256 بمفتاح المنصة) لقيم قصيرة كأكواد التأكيد: لا تُعكس من نسخة احتياطية لقاعدة البيانات وحدها */
+    hmac(purpose, value) {
+      return crypto.createHmac('sha256', master.key).update(`${purpose}:${value}`).digest('hex');
+    },
+
     /** القيم الفعلية المستخدمة (البيئة أولًا ثم المخزن ثم الافتراضي). للاستخدام داخل الخادم فقط. */
     get(name) {
       const s = spec(name);

@@ -6,15 +6,11 @@
     <title>شروط الاستخدام — {{site_name}}</title>
     <meta name="description" content="شروط استخدام خدمة {{program_name}} المجانية في {{org_legal_name}}: طبيعة الخدمة والاستحقاق، وحدود العلاقة مع المحامي، والتزامات المستفيد، وعدم ضمان النتائج." />
     <!--site:head-->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Noto+Kufi+Arabic:wght@600;700;800&amp;display=swap" />
-    <link rel="stylesheet" href="/assets/css/app.css" />
-    <link rel="stylesheet" href="/assets/css/public-site.css" />
+    <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+  <body class="site pub v91">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -27,14 +23,25 @@
             </ol>
           </nav>
           <h1 id="page-title">شروط استخدام الخدمة</h1>
+          <div class="pub-summary" id="summary">
+            <h2>بالمختصر</h2>
+            <ul>
+              <li>{{{icon_check}}}<span>الخدمة مجانية، ومحدش يطلب منك فلوس.</span></li>
+              <li>{{{icon_check}}}<span>إحنا بننصحك، والحكم في الآخر للمحكمة.</span></li>
+              <li>{{{icon_check}}}<span>مش بنعمل حاجة فيها فلوس عليكي غير بموافقتك.</span></li>
+              <li>{{{icon_check}}}<span>قولي الحقيقة في طلبك عشان نقدر نساعدك صح.</span></li>
+            </ul>
+          </div>
           <p>تنظّم هذه الشروط استخدامك لخدمة {{program_name}} التي تقدّمها {{org_legal_name}} عبر الموقع وواتساب وغيرهما من قنوات المؤسسة.</p>
           <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>
         </div>
       </section>
 
+      <!-- B91-11: العنوان و«بالمختصر» مرسومان من الأنماط المضمّنة؛ الملف الكامل هنا فلا يؤخر أول رسم -->
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
       <div class="pub-container pub-doc-layout">
-        <details class="pub-toc" open>
-          <summary>محتويات الصفحة</summary>
+        <details class="pub-toc">
+          <summary><span>محتويات الصفحة</span><svg class="pub-icon pub-faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
           <ol>
             <li><a href="#accept">القبول بالشروط</a></li>
             <li><a href="#service">طبيعة الخدمة</a></li>

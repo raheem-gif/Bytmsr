@@ -199,6 +199,8 @@ export default async function render(ctx) {
       hint: 'سيرسل النظام تذكيرًا آليًا للمستفيد/ة عبر واتساب قبل الموعد.',
       full: true,
     },
+    // v9.1 b-portal (B91-13): ما تحضره معها، يظهر لها في صفحة المتابعة (الافتراضي: بطاقتك الشخصية وأي ورق يخص القضية)
+    { name: 'client_note', label: 'هاتي معاكي (للمستفيد/ة، بند في كل سطر)', type: 'textarea', rows: 2, maxLength: 400, placeholder: 'بطاقتك الشخصية\nشهادات ميلاد الأولاد', hint: 'اختياري. ويمكن كتابة «المحامي هيقابلك عند…». لا تكتب اسم المحامي.' },
     forEdit && { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 3, maxLength: 5000 },
     { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 3000 },
   ];
@@ -217,6 +219,7 @@ export default async function render(ctx) {
           starts_at: v.starts_at,
           location: v.location || null,
           client_attendance_required: Boolean(v.client_attendance_required),
+          client_note: v.client_note || null, // v9.1 b-portal
           notes: v.notes || null,
         }),
     });
@@ -238,6 +241,7 @@ export default async function render(ctx) {
           location: v.location || null,
           status: v.status,
           client_attendance_required: Boolean(v.client_attendance_required),
+          client_note: v.client_note || null, // v9.1 b-portal
           outcome: v.outcome || null,
           notes: v.notes || null,
         }),
@@ -327,6 +331,10 @@ export default async function render(ctx) {
               })
             : null,
           e.status === 'scheduled' && past && badge('مضى موعده ولم تُسجَّل نتيجته', 'warning', { icon: 'alert' }),
+          // v9.1 b-portal (B91-13): ردها من صفحة المتابعة أو زر واتساب
+          e.client_response === 'yes' && badge('ردّت: هتحضر', 'success', { icon: 'checkCircle' }),
+          e.client_response === 'no' && badge('ردّت: مش هتقدر تحضر', 'warning', { icon: 'alert' }),
+          e.client_response === 'question' && badge('عندها سؤال على الموعد', 'info', { icon: 'message' }),
         ),
         e.outcome && h('div.mt-2', textBlock('ما تم', e.outcome, { iconName: 'checkCircle' })),
         e.notes && h('div.mt-2', textBlock('ملاحظات', e.notes)),
@@ -341,7 +349,7 @@ export default async function render(ctx) {
     const pendingReminders = events.filter((e) => e.reminder_pending_approval && e.status === 'scheduled').length;
     return h(
       'div.stack',
-      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل له بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
+      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل للمستفيد/ة بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
       pendingReminders > 0 &&
         alertBox('أضاف المحامي مواعيد يلزم فيها حضور المستفيد/ة أو عدّلها، ولن يُرسل تذكيرها للمستفيد/ة قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير المستفيد/ة».', 'warning', {
           title: 'تذكيرات بانتظار الاعتماد',
@@ -561,6 +569,14 @@ export default async function render(ctx) {
             'div.stack-sm',
             statusBadge('invoice_status', i.status),
             i.reminder_count > 0 && h('span.cell-sub', `تذكيرات آلية: ${i.reminder_count}`),
+            // v9.1 b-portal (B91-18): موافقة المستفيد/ة أو ردها من صفحة المتابعة (التذكير الآلي لا يُرسل قبل موافقتها)
+            i.client_response === 'cannot_pay'
+              ? badge('طلبت إعفاء: «مش قادرة أدفع»', 'warning', { icon: 'alert' })
+              : i.client_agreed_at
+                ? h('span.cell-sub', `وافقت المستفيدة ${date(i.client_agreed_at)}`)
+                : i.client_response === 'question'
+                  ? h('span.cell-sub', 'عندها سؤال على المبلغ (في الرسائل)')
+                  : ['unpaid', 'partially_paid'].includes(i.status) && !(i.paid_amount > 0) && h('span.cell-sub', 'لم توافق المستفيدة بعد — لا تذكير آلي'),
           ),
       },
       {
@@ -865,7 +881,8 @@ export default async function render(ctx) {
         }),
       ),
       messageComposer({
-        hint: 'بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».',
+        // v9.1 b-site (B91-01): «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
+        hint: `${d.reply_channel ? `تصل الرسالة: ${d.reply_channel.text}. ` : ''}بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».`,
         // (v9) ردود جاهزة بمتغيرات الملف (كود الاستشارة الأصلية إن وُجدت)، واقتراح رد بالذكاء الاصطناعي
         quickReplies: {
           client_name: d.client?.name || undefined,

@@ -1,17 +1,20 @@
-// بوابة المحامي — الملفات المستمرة: التمثيل القضائي والعمل القانوني المستمر المسند للمحامي.
-// تُصدِّر أيضًا أدوات عرض صغيرة تستخدمها صفحتا «إسناداتي» و«ملف مستمر».
+// بوابة المحامي — الملفات المستمرة (الإصدار 9.1 — مسار l-court).
+// قائمة واحدة من البطاقات (هاتفًا وحاسوبًا): الكود، العنوان، المحكمة ورقم الدعوى في سطر، الجلسة القادمة،
+// وتنبيه «جلسة بلا نتيجة» حين تنتظر جلسة انعقدت تسجيل نتيجتها.
+// تُصدِّر أيضًا أدوات عرض صغيرة تستخدمها صفحات المحامي الأخرى (الواجهة ثابتة):
+//   bidiText(text), eventDateBox(iso, {muted}), lawsuitRef(m, {prefix}), nextEventText(iso), matterCard(m, {compact})
 
-import { h, frag } from '../../../lib/h.js';
+import { h } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { calendarParts, dateTime, relative, time, dayLabel, num, orgName } from '../../../lib/fmt.js';
-import { pageHeader, card, table, statusBadge, badge, codeTag, ltr, emptyState, errorState, alertBox, icon } from '../../../lib/ui.js';
+import { calendarParts, dateTime, relative, time, dayLabel, num } from '../../../lib/fmt.js';
+import { card, badge, codeTag, ltr, emptyState, errorState, icon } from '../../../lib/ui.js';
+import { count, matterStatus } from '../../words.js';
 
 // ───────────── أدوات مشتركة لصفحات المحامي ─────────────
 
 /**
  * نص عربي قد يحتوي مصطلحًا لاتينيًا بين قوسين (مثل اسم مكتب محاماة بالإنجليزية):
  * يُعزل الجزء اللاتيني باتجاه LTR ولا يُكسر بين سطرين حتى لا تنقلب الأقواس.
- * المسميات الثابتة في LABELS عربية خالصة، فهذه الدالة احتياط للنصوص الحرة فقط.
  */
 export function bidiText(text) {
   const s = String(text ?? '');
@@ -24,12 +27,7 @@ export function bidiText(text) {
 /** مربع تاريخ صغير (اليوم والشهر) لبطاقات الجلسات. */
 export function eventDateBox(iso, { muted = false } = {}) {
   const p = calendarParts(iso);
-  return h(
-    'div.event-date',
-    { class: muted && 'pc-date-muted', 'aria-hidden': 'true' },
-    h('span.d', p.day),
-    h('span.m', p.month),
-  );
+  return h('div.event-date', { class: muted && 'pc-date-muted', 'aria-hidden': 'true' }, h('span.d', p.day), h('span.m', p.month));
 }
 
 /** «رقم 1874 لسنة 2026» مع عزل الأرقام (prefix=false يحذف كلمة «رقم»). */
@@ -40,113 +38,67 @@ export function lawsuitRef(m, { prefix = true } = {}) {
 
 /** الموعد القادم بصيغة مختصرة: «اليوم، 10:00 ص — بعد 3 ساعات». */
 export function nextEventText(iso) {
-  if (!iso) return h('span.muted', 'لا يوجد موعد قادم مسجل');
-  return h(
-    'span.pc-next',
-    h('time', { datetime: iso, title: dateTime(iso) }, `${dayLabel(iso)}، ${time(iso)}`),
-    h('span.pc-next-rel', relative(iso)),
-  );
+  if (!iso) return h('span.muted', 'لا توجد جلسة قادمة مسجلة');
+  return h('span.pc-next', h('time', { datetime: iso, title: dateTime(iso) }, `${dayLabel(iso)}، ${time(iso)}`), h('span.pc-next-rel', relative(iso)));
 }
 
-/** بطاقة ملف مستمر مختصرة (للجوال وللعمود الجانبي). */
+/** بطاقة ملف مستمر مختصرة (للقوائم والصفحة الرئيسية). */
 export function matterCard(m, { compact = false } = {}) {
+  const pendingN = Number(m.pending_outcomes) || 0;
   return h(
-    'a.pc-item-card',
+    'a.pc-item-card.lc-matter-card',
     { href: `#/my/matters/${encodeURIComponent(m.id)}`, 'aria-label': `فتح الملف المستمر ${m.code}: ${m.title}` },
-    h(
-      'div.pc-item-head',
-      codeTag(m.code),
-      !compact && statusBadge('matter_kind', m.kind),
-      m.status !== 'open' && statusBadge('matter_status', m.status),
-    ),
+    h('div.pc-item-head', codeTag(m.code), m.status !== 'open' && badge(matterStatus(m.status), m.status === 'closed' ? 'neutral' : 'warning')),
     h('div.pc-item-title', m.title),
     h(
       'div.pc-item-meta',
       m.court && h('span', icon('scale', { size: 14 }), m.court),
       !compact && m.lawsuit_number && h('span', icon('fileText', { size: 14 }), lawsuitRef(m)),
     ),
+    pendingN ? h('div.lc-card-alert', icon('alert', { size: 14 }), pendingN > 1 ? `${count(pendingN, 'hearing')} بلا نتيجة` : 'جلسة بلا نتيجة — سجّل النتيجة') : null,
     h(
       'div.pc-item-foot',
       h('span', icon('calendar', { size: 14 }), nextEventText(m.next_event_at)),
-      Number(m.open_tasks) > 0 && badge(`مهام مفتوحة: ${num(m.open_tasks)}`, 'info', { icon: 'check' }),
+      Number(m.open_tasks) > 0 && badge(count(m.open_tasks, 'task'), 'info', { icon: 'check' }),
     ),
   );
 }
 
 // ───────────── الصفحة ─────────────
 
-const CRUMBS = [{ label: 'بوابة المحامي', href: '#/my' }, { label: 'الملفات المستمرة' }];
-
 export default async function render(ctx) {
   let rows;
   try {
     rows = await api.get('/lawyer/matters');
   } catch (err) {
-    return frag(pageHeader({ title: 'الملفات المستمرة', breadcrumbs: CRUMBS }), card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.lc-page', h('h1.page-title', 'الملفات المستمرة'), card({ body: errorState(err, () => ctx.reload()) }));
   }
   rows = Array.isArray(rows) ? rows : [];
   const open = rows.filter((m) => m.status !== 'closed');
   const closed = rows.filter((m) => m.status === 'closed');
+  // ما يحتاج تسجيل نتيجة أولًا، ثم الأقرب جلسةً
+  open.sort((a, b) => (Number(b.pending_outcomes) > 0) - (Number(a.pending_outcomes) > 0) || String(a.next_event_at || '9').localeCompare(String(b.next_event_at || '9')));
 
-  const header = pageHeader({
-    title: 'الملفات المستمرة',
-    subtitle: 'ملفات التمثيل القضائي والعمل القانوني المستمر المسندة إليك بصفتك المحامي المسؤول.',
-    breadcrumbs: CRUMBS,
-  });
-
-  const note = alertBox(
-    `سجّل الجلسات والمواعيد والمهام الإجرائية أولًا بأول. تتولى ${orgName()} التواصل مع المستفيد/ة، ويرسل النظام له تذكيرًا آليًا قبل أي موعد يلزم حضوره فيه.`,
-    'info',
-    { icon: 'zap' },
-  );
+  const header = h('header.lc-head', h('h1.page-title.lc-title', 'الملفات المستمرة'));
 
   if (!rows.length) {
-    return frag(
+    return h(
+      'div.lc-page',
       header,
-      note,
       card({
-        body: emptyState(
-          'عندما تتحول استشارة إلى تمثيل أمام القضاء أو عمل قانوني مستمر وتسنده الإدارة إليك، سيظهر الملف هنا.',
-          null,
-          { icon: 'gavel', title: 'لا توجد ملفات مستمرة مسندة إليك' },
-        ),
+        body: emptyState('عندما تسند إليك الإدارة تمثيلًا أمام القضاء أو عملًا قانونيًا مستمرًا يظهر الملف هنا.', null, { icon: 'gavel', title: 'لا توجد ملفات مستمرة مسندة إليك' }),
       }),
     );
   }
 
-  const go = (m) => ctx.navigate(`/my/matters/${m.id}`);
-  const columns = [
-    {
-      key: 'code',
-      label: 'الملف',
-      render: (m) => h('div.pc-cell-stack', codeTag(m.code), h('span.cell-title', m.title)),
-      className: 'col-wide',
-    },
-    { key: 'kind', label: 'النوع', render: (m) => statusBadge('matter_kind', m.kind) },
-    { key: 'court', label: 'المحكمة / رقم الدعوى', render: (m) => h('div.pc-cell-stack', h('span', m.court || '—'), m.lawsuit_number && h('span.cell-sub', lawsuitRef(m))) },
-    { key: 'next', label: 'الموعد القادم', render: (m) => nextEventText(m.next_event_at) },
-    { key: 'tasks', label: 'مهام مفتوحة', align: 'center', render: (m) => (Number(m.open_tasks) ? badge(num(m.open_tasks), 'info') : h('span.muted', '0')) },
-    { key: 'status', label: 'الحالة', render: (m) => statusBadge('matter_status', m.status) },
-  ];
-
-  const block = (list, title, emptyText) =>
-    card({
-      title,
-      subtitle: list.length ? `عدد الملفات: ${num(list.length)}` : null,
-      icon: 'gavel',
-      flush: true,
-      body: list.length
-        ? frag(
-            h('div.pc-only-desktop', table({ columns, rows: list, onRowClick: go, caption: title })),
-            h('ul.pc-card-list.pc-only-mobile', list.map((m) => h('li', matterCard(m)))),
-          )
-        : h('div.card-body', emptyState(emptyText, null, { compact: true, icon: 'gavel' })),
-    });
-
-  return frag(
+  const list = (items) => h('ul.lc-matter-list', items.map((m) => h('li', matterCard(m))));
+  return h(
+    'div.lc-page.lc-matters',
     header,
-    note,
-    block(open, 'الملفات الجارية', 'لا توجد ملفات جارية حاليًا'),
-    closed.length ? block(closed, 'ملفات منتهية', '') : null,
+    open.length ? list(open) : card({ body: emptyState('لا توجد ملفات جارية حاليًا.', null, { compact: true, icon: 'gavel' }) }),
+    closed.length
+      ? h('details.lc-details.lc-closed', h('summary', h('span', `ملفات منتهية (${num(closed.length)})`), icon('chevronDown', { size: 18, className: 'lc-chev' })), h('div.lc-details-body', list(closed)))
+      : null,
   );
 }
+

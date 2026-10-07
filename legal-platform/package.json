@@ -1,6 +1,6 @@
 {
   "name": "bayout-masr-legal-platform",
-  "version": "9.0.0",
+  "version": "9.1.0",
   "description": "منصة بيوت مصر لتشغيل وإدارة إنتاج الخدمة القانونية — Intake Engine موحد، شبكة محامين، صلاحيات دقيقة، محاسبة، أتمتة، ومعرفة مؤسسية.",
   "private": true,
   "type": "module",

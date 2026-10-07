@@ -792,7 +792,7 @@ export function createPractice(app) {
     if (types.includes('event')) {
       const rows = db.all(
         `SELECT e.id, e.kind, e.title, e.starts_at, e.location, e.status, e.client_attendance_required, m.id AS matter_id, m.code AS matter_code,
-           m.responsible_lawyer_id, m.court
+           m.responsible_lawyer_id, m.court, e.client_note, e.client_text_approved, e.client_response
          FROM matter_events e JOIN matters m ON m.id = e.matter_id
          WHERE e.starts_at >= ? AND e.starts_at < ? AND e.status != 'cancelled' ${lid ? 'AND m.responsible_lawyer_id = ?' : ''}
          ORDER BY e.starts_at`,
@@ -815,6 +815,11 @@ export function createPractice(app) {
           ref: { kind: 'matter', id: e.matter_id, code: e.matter_code },
           link: isLawyer ? `#/my/matters/${e.matter_id}` : `#/matters/${e.matter_id}`,
           lawyer: isLawyer ? null : e.responsible_lawyer_id ? { id: e.responsible_lawyer_id, name: lname(e.responsible_lawyer_id) } : null,
+          // v9.1 l-court: جلسة انعقدت وما زالت «مجدولة» بلا نتيجة (زر «سجّل النتيجة» في تقويم المحامي)
+          needs_outcome: e.status === 'scheduled' && ['hearing', 'expert'].includes(e.kind) && e.starts_at <= t,
+          event_id: e.id,
+          // v9.1 fixes: لقاء وعدت به الإدارة المستفيد/ة وحضورها المتوقع (بلا نص الملاحظة ولا ردها الحرفي)
+          ...(app.matters?.lawyerClientFacts ? app.matters.lawyerClientFacts(e) : {}),
         });
       }
     }
@@ -946,7 +951,28 @@ export function createPractice(app) {
     forLawyer(query, lawyer) {
       const { from, to } = rangeOf(query);
       const types = parseTypes(query.types).filter((x) => x !== 'invoice');
-      return { from, to, types, items: calendarItems({ from, to, types }, lawyer), overdue: overdueItems(lawyer, { types }) };
+      // v9.1 l-court (L-15): الجلسات التي انعقدت خلال 30 يومًا وما زالت «مجدولة» بلا نتيجة، أيًا كان الشهر المعروض
+      const pending = types.includes('event')
+        ? app.matters.pendingOutcomesForLawyer(lawyer, { days: 30 }).map((e) => ({
+            uid: `event-${e.id}`,
+            type: 'event',
+            kind: e.kind,
+            title: e.title,
+            starts_at: e.starts_at,
+            all_day: false,
+            status: e.status,
+            overdue: false,
+            location: e.location,
+            client_attendance_required: !!e.client_attendance_required,
+            ref: { kind: 'matter', id: e.matter_id, code: e.matter_code },
+            link: `#/my/matters/${e.matter_id}?outcome=${e.id}`,
+            lawyer: null,
+            needs_outcome: true,
+            event_id: e.id,
+            matter_id: e.matter_id,
+          }))
+        : [];
+      return { from, to, types, items: calendarItems({ from, to, types }, lawyer), overdue: overdueItems(lawyer, { types }), pending_outcomes: pending };
     },
 
     feedStatus(user, ctx) {
@@ -1083,7 +1109,9 @@ export function createPractice(app) {
   const search = {
     staff(qRaw) {
       const q = v.str(qRaw, 'نص البحث', { max: 100 }) || '';
-      if (q.replace(/\s/g, '').length < 2) return { q, groups: [], total: 0 };
+      // v9.1 b-portal (B91-21): رقم الطلب القصير («29» أو «29/2026») ← REQ-<السنة>-00029 أولًا
+      const shortRefs = app.portal?.shortRefCodes ? app.portal.shortRefCodes(q) : [];
+      if (q.replace(/\s/g, '').length < 2 && !shortRefs.length) return { q, groups: [], total: 0 };
       const like = likeNorm(q);
       const codeLike = `%${q.trim().toUpperCase().replace(/[%_]/g, '')}%`;
       const digits = latinDigits(q).replace(/\D/g, '');
@@ -1133,6 +1161,16 @@ export function createPractice(app) {
         like,
         ...(phoneQuery ? [`%${phoneCore}%`] : []),
       );
+      if (shortRefs.length) {
+        // المطابقة التامة لرقم الطلب القصير تتصدر النتائج (السنة الحالية ثم السابقة)
+        const exact = shortRefs.map((code) => db.get('SELECT i.id, i.code, i.title, i.status, i.contact_name, i.created_at FROM intakes i WHERE i.code = ?', code)).filter(Boolean);
+        for (const x of exact.reverse()) {
+          const at = intakes.findIndex((i) => i.id === x.id);
+          if (at >= 0) intakes.splice(at, 1);
+          intakes.unshift(x);
+        }
+        intakes.splice(6);
+      }
       if (intakes.length) {
         groups.push({
           key: 'intakes',
