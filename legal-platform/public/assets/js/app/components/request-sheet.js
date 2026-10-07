@@ -61,6 +61,16 @@ function keepSlashWords(text) {
     .map((part) => (part.includes('/') ? h('span.lw-nowrap', part) : part));
 }
 
+/** يمرّر جسم اللوحة حتى يظهر العنصر كاملًا فوق زر الإرسال الثابت أسفلها */
+function revealAboveFooter(el) {
+  const body = el.closest('.modal-body');
+  if (!body) return;
+  const footer = body.querySelector('.lw-req-footer');
+  const limit = footer ? footer.getBoundingClientRect().top : body.getBoundingClientRect().bottom;
+  const over = el.getBoundingClientRect().bottom - limit + 8;
+  if (over > 0) body.scrollBy({ top: over });
+}
+
 /** نص قصير مرئي لطلب قائم بلا تجاوز السطرين */
 function clip(text, n = 140) {
   const s = String(text || '').replace(/\s+/g, ' ').trim();
@@ -168,7 +178,10 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
               onClick: (e) => send(e.currentTarget, { duplicate_of_id: hit.id }, 'سيصلك الرد نفسه عند وصوله، دون سؤال المستفيد/ة مرة أخرى.'),
             });
         mount(el, icon('alert', { size: 16 }), h('span', `يشبه طلبًا قائمًا: «${shown}». اضغط «أحتاج هذا أيضًا» بدل إرسال طلب جديد.`), join);
+        const appeared = el.hidden;
         el.hidden = false;
+        // يظهر كاملًا مع زره فوق زر الإرسال الثابت (مرة واحدة عند ظهوره، لا مع كل حرف)
+        if (appeared) requestAnimationFrame(() => revealAboveFooter(el));
       } else el.hidden = true;
     };
     return { el, check };

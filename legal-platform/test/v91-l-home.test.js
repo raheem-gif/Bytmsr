@@ -447,6 +447,23 @@ describe('l-home: fast boot (/api/meta ETag, /app page, CSP, service worker)', (
     // سكربت الإقلاع المبكر (عادي، async) لمن يحمل جلسة فقط، بعد كتلة البيانات التي يقرؤها
     assert.match(withSid, /<script type="application\/json" id="bm-assets">[^<]+<\/script>\s*<script src="\/assets\/js\/app\/boot-early\.js\?v=[\w-]+" async fetchpriority="high"><\/script>/);
     assert.equal(html.includes('boot-early.js'), false, 'no early boot script before login');
+    assert.equal(/rel="preload" href="\/assets\/fonts\//.test(withSid), false, 'with a session the font is not preloaded (the page waits for modules and data, not the font)');
+    // جدول boot-early.js (سكربت عادي) يطابق LAWYER_DATA في routes.js: نفس المسارات ونفس روابط البيانات
+    const early = read('public/assets/js/app/boot-early.js');
+    const routesSrc = read('public/assets/js/app/routes.js');
+    for (const [route, api] of [
+      ['/my/assignments/:id', '/lawyer/assignments/'],
+      ['/my/assignments/:id/write', '/lawyer/assignments/'],
+      ['/my/matters', '/lawyer/matters'],
+      ['/my/matters/:id', '/lawyer/matters/'],
+      ['/my/statement', '/lawyer/statement'],
+    ]) {
+      assert.ok(routesSrc.includes(`'${route}': (`) && routesSrc.includes(api), `routes.js LAWYER_DATA has ${route}`);
+      assert.ok(early.includes(`'${api}`), `boot-early.js asks the session for ${api}`);
+    }
+    assert.match(early, /page = role === 'lawyer' \? '\/lawyer\/today' : null/);
+    assert.match(read('public/assets/js/app/main.js'), /page = role === 'lawyer' \? '\/lawyer\/today' : null/);
+    assert.equal(/\bimport\b|\bexport\b/.test(early.replace(/\/\/[^\n]*/g, '')), false, 'boot-early.js is a classic script');
     assert.equal(preload(withSid, 'app/pages/login.js'), false, 'with a session the login screen is not preloaded');
     assert.equal(preload(withSid, 'lib/pwa.js'), false, 'pwa.js loads after the first screen');
     // تلميح الجلسة وما تستورده صفحات المحامي (لرابط إشعار مباشر)
@@ -501,6 +518,9 @@ describe('l-home: fast boot (/api/meta ETag, /app page, CSP, service worker)', (
     assert.ok(withUser.meta.constants.LEGAL_AREAS);
     assert.equal(withUser.meta_etag, withUser.meta_version);
     assert.equal(ok(await c.get('/api/auth/session')).meta, undefined, 'no payload unless asked');
+    // page=…: بيانات صفحة المحامي مع الجلسة — لمحامٍ بجلسة صالحة ولمسارات GET محددة فقط
+    assert.equal(ok(await c.get('/api/auth/session?page=%2Flawyer%2Ftoday')).page, undefined, 'staff get no lawyer page data');
+    assert.equal((await (await fetch(`${t.base}/api/auth/session?page=%2Flawyer%2Ftoday`)).json()).page, undefined, 'no session, no page data (and no 401)');
     // Brotli لمن يقبله (Node fetch يفك الضغط تلقائيًا؛ نطلب بـ http الخام لنرى الترويسة)
     const http = await import('node:http');
     const zlib = await import('node:zlib');
@@ -534,6 +554,34 @@ describe('l-home: fast boot (/api/meta ETag, /app page, CSP, service worker)', (
     for (const [, subset, range] of ranges) {
       if (subset === 'arabic') assert.match(range, /^U\+0020, U\+00A0, U\+0600-06FF/);
       else assert.match(range, /^U\+0000-001F, U\+0021-0029, U\+002B-009F, U\+00A1-00FF,.* U\+2000-2025, U\+2027-206F/);
+    }
+  });
+
+  test('/api/auth/session?page=…: the lawyer page data comes with the session, same answer and same permissions as the direct request', async () => {
+    const admin = await t.login('admin');
+    const a = await createLawyer(admin, { name: 'محامي الإقلاع' });
+    const b = await createLawyer(admin, { name: 'محامٍ آخر' });
+    const kase = await newCase(admin, { title: 'ملف رابط الإشعار' });
+    const asg = await assign(admin, kase.id, { lawyer_id: a.id, role: 'lead', due_at: new Date(Date.now() + 3 * 864e5).toISOString() });
+    const la = await t.login(a.username);
+    const lb = await t.login(b.username);
+    const s = ok(await la.get(`/api/auth/session?page=${encodeURIComponent(`/lawyer/assignments/${asg.id}`)}`));
+    assert.equal(s.user.username, a.username);
+    assert.equal(s.page.path, `/lawyer/assignments/${asg.id}`);
+    assert.equal(s.page.status, 200);
+    assert.equal(s.page.body.assignment.id, asg.id);
+    assert.deepEqual(Object.keys(s.page.body).sort(), Object.keys(ok(await la.get(`/api/lawyer/assignments/${asg.id}`))).sort());
+    const today = ok(await la.get('/api/auth/session?page=%2Flawyer%2Ftoday')).page;
+    assert.equal(today.status, 200);
+    assert.ok(Array.isArray(today.body.actions));
+    // محامٍ آخر: نفس رفض الطلب المباشر (لا تسريب عبر الجلسة)
+    const other = ok(await lb.get(`/api/auth/session?page=${encodeURIComponent(`/lawyer/assignments/${asg.id}`)}`)).page;
+    const direct = await lb.get(`/api/lawyer/assignments/${asg.id}`);
+    assert.equal(other.status, direct.status);
+    assert.ok(other.status >= 400 && other.body.error && !other.body.assignment);
+    // مسارات خارج القائمة لا تُنفَّذ
+    for (const p of ['/admin/cases', '/lawyer/assignments', `/lawyer/assignments/${asg.id}/open`, '/lawyer/../admin/cases', 'lawyer/today']) {
+      assert.equal(ok(await la.get(`/api/auth/session?page=${encodeURIComponent(p)}`)).page, undefined, p);
     }
   });
 

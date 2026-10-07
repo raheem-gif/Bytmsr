@@ -26,6 +26,27 @@ export function registerLawyerHomeRoutes(router, app) {
     return app.lawyerToday.forLawyer(u);
   }));
 
+  // ── بيانات صفحة المحامي مع /api/auth/session?page=… (L-07) ──
+  // رابط إشعار يُفتح على شبكة بطيئة: الجلسة وmeta وبيانات الصفحة في طلب واحد. المعالج نفسه (بصلاحياته نفسها) يُستدعى
+  // داخليًا، لمسارات GET محددة فقط ولمحامٍ بجلسة صالحة فقط — فلا يصل لأحد ما لا يصله بطلبه المباشر، ولا 401 لجلسة منتهية.
+  const PAGE_PREFETCH = /^\/lawyer\/(?:today|statement|matters|matters\/\d+|assignments\/\d+)$/;
+  const stubRes = () => ({ statusCode: 200, headersSent: false, writableEnded: false, setHeader() {}, getHeader() {}, removeHeader() {}, hasHeader: () => false });
+  app.sessionPageData = async (ctx, page) => {
+    if (!ctx.user || ctx.user.role !== 'lawyer' || typeof page !== 'string' || !PAGE_PREFETCH.test(page)) return undefined;
+    const m = router.match('GET', `/api${page}`);
+    if (!m || m.methodNotAllowed) return undefined;
+    const sub = { ...ctx, res: stubRes(), params: m.params, query: {}, body: {}, status: 200, streamed: false, text: undefined };
+    try {
+      const body = await m.route.handler(sub);
+      if (sub.streamed || sub.text !== undefined) return undefined;
+      return { path: page, status: sub.status || 200, body: body === undefined ? { ok: true } : body };
+    } catch (err) {
+      if (err && err.status && err.status < 500) return { path: page, status: err.status, body: { error: err.message, code: err.code, details: err.details } };
+      app.log('session page prefetch failed', err);
+      return undefined; // تطلبها الصفحة بنفسها
+    }
+  };
+
   // ── تنبيهات واتساب (L-06) ──
   router.post('/api/account/alerts/test', L((ctx, u) => app.lawyerAlerts.sendTest(u)));
 
@@ -223,6 +244,8 @@ export function renderAppHtml(app, { withShell = true } = {}) {
   else {
     html = html.replace(/ data-session-only="1"/g, '');
     html = html.replace(/^[ \t]*<link rel="modulepreload" href="\/assets\/js\/app\/pages\/login\.js" \/>\r?\n/m, '');
+    // والخط لا يُحمَّل مسبقًا: الصفحة تظهر بعد وحداتها وبياناتها، وعامل الخدمة يخزّنه لكل فتح لاحق
+    html = html.replace(/^[ \t]*<link rel="preload" href="\/assets\/fonts\/[^"]+" as="font"[^>]*>\r?\n/m, '');
   }
   // 1) أوراق الأنماط المحلية بترتيبها ← ملفان مجمّعان
   const sheetRe = /^[ \t]*<link rel="stylesheet" href="\/assets\/css\/([\w.-]+)\.css" \/>[ \t]*\r?\n/gm;

@@ -524,6 +524,13 @@
   min-height: 100vh;
 }
 
+/* (L-07) شاشة الإقلاع بخط النظام: لا تطلب ملف الخط قبل أن يظهر محتوى حقيقي — على HTTP/1.1 البطيء كل طلب يأخذ
+   اتصالًا من ستة، وطلبات الخطوط تتقدّم على وحدات الصفحة. صفحة الدخول تبقى بخطها (يُحمَّل مسبقًا لمن لا يحمل جلسة). */
+.boot-splash,
+.lh-boot {
+  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+}
+
 .lh-boot-bar {
   height: var(--topbar-h);
   background: rgba(255, 255, 255, 0.94);

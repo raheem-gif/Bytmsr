@@ -2,11 +2,11 @@
 // الدخول على خطوتين، شاشات الإلزام (كلمة مرور مؤقتة / تفعيل التحقق بخطوتين)، ثم الهيكل والموجّه.
 
 import { h, mount } from '../lib/h.js';
-import { api, prefetchGet, clearPrefetched } from '../lib/api.js';
+import { api, putEarlyResult, clearPrefetched } from '../lib/api.js';
 import { setMeta, getMeta } from '../lib/fmt.js';
 import { errorState, toast, closeAllModals, alertBox } from '../lib/ui.js';
 import { startRouter, stopRouter, parseHash, matchRoute } from './router.js';
-import { defaultPath, roleCss, todaySkeleton, putEarly, clearEarly } from './routes.js'; // v9.1 l-home: putEarly/clearEarly
+import { defaultPath, roleCss, todaySkeleton } from './routes.js';
 // v9.1 l-home (L-07): هيكل التطبيق (shell.js وما يستورده) يُحمَّل بعد التحقق من الجلسة لا قبل عرض شاشة الدخول
 const loadShell = () => import('./shell.js');
 
@@ -233,34 +233,44 @@ async function boot() {
   const cached = cachedMeta();
   if (cached) setMeta(cached.meta);
   const hasLink = LINK_RE.test(window.location.hash) || /^#\/(invite|reset)\/?$/.test(window.location.hash);
-  const known = !hasLink && (store.get(ROLE_KEY) || sessionHint());
-  // بلا نسخة meta على الجهاز: تأتي مع /api/auth/session في الطلب نفسه — كاملة لمن سبق دخوله (أو يحمل كعكة جلسة)،
+  const role = store.get(ROLE_KEY);
+  const known = !hasLink && Boolean(role || sessionHint());
+  const { path: hashPath, query: hashQuery } = parseHash();
+  const target = known ? matchRoute(hashPath) : null;
+  // بيانات الصفحة المطلوبة (رابط إشعار، أو «اليوم») تأتي مع الجلسة في الطلب نفسه — الخادم يرسلها لمحامٍ بجلسة صالحة فقط
+  let page = null;
+  if (known && role !== 'staff') {
+    if (hashPath === '/' || hashPath === '/my') page = role === 'lawyer' ? '/lawyer/today' : null;
+    else if (target && target.route.prefetchGet) {
+      try {
+        page = target.route.prefetchGet({ params: target.params, query: hashQuery, path: hashPath }) || null;
+      } catch {
+        page = null;
+      }
+    }
+  }
+  // بلا نسخة meta على الجهاز: تأتي مع /api/auth/session أيضًا — كاملة لمن سبق دخوله (أو يحمل كعكة جلسة)،
   // وصغيرة لشاشة الدخول (والخادم يرسل الكاملة إن وجد جلسة صالحة). رابط الدعوة: النسخة الصغيرة وحدها.
-  const sessionReq = hasLink ? null : api.get('/auth/session', cached ? undefined : { meta: known ? 'full' : 'login' });
+  // (الرابط نفسه يطلبه app/boot-early.js أول الصفحة لمن يحمل جلسة، فيأخذ api.get رده بدل طلب جديد)
+  const sessionQuery = {};
+  if (!cached) sessionQuery.meta = known ? 'full' : 'login';
+  if (page) sessionQuery.page = page;
+  const sessionReq = hasLink
+    ? null
+    : api.get('/auth/session', Object.keys(sessionQuery).length ? sessionQuery : undefined).then((res) => {
+        if (res && res.page && res.page.path === page) putEarlyResult(res.page.path, res.page.status, res.page.body);
+        return res;
+      });
   if (sessionReq) sessionReq.catch(() => {});
   const metaReq = cached ? null : sessionReq ? sessionReq.then(metaFromSession) : fetchMeta(null, { part: 'login' });
   if (metaReq) metaReq.catch(() => {});
-  // سبق الدخول من هذا الجهاز: هيكل التطبيق ووحدة الصفحة المطلوبة (رابط إشعار مثلًا) وبياناتها تُطلب بالتوازي مع التحقق من الجلسة
+  // سبق الدخول من هذا الجهاز: هيكل التطبيق ووحدة الصفحة المطلوبة (وكل ما تستورده) تُطلب بالتوازي مع التحقق من الجلسة
   if (known) {
-    const { path, query } = parseHash();
-    const target = matchRoute(path);
-    if (target && target.route.prefetchGet) {
-      try {
-        const p = target.route.prefetchGet({ params: target.params, query, path });
-        if (p) prefetchGet(p);
-      } catch {
-        /* بلا طلب مبكر */
-      }
-    }
     loadShell().catch(() => {});
     if (target && target.route.load) {
       preloadRouteModules(target.route);
       target.route.load().catch(() => {});
     }
-  }
-  // «اليوم» مبكرًا للمحامي على صفحته الرئيسية
-  if (!hasLink && store.get(ROLE_KEY) === 'lawyer' && /^\/?(my)?\/?$/.test(window.location.hash.replace(/^#/, '') || '/')) {
-    putEarly('today', api.get('/lawyer/today', undefined, { background: true }));
   }
   try {
     if (metaReq) setMeta(await metaReq);
@@ -305,12 +315,8 @@ async function boot() {
     }
     currentUser = null;
   }
-  if (currentUser && currentUser.role !== 'lawyer') clearEarly();
   if (currentUser) proceed(currentUser);
-  else {
-    clearEarly();
-    showLogin().then(loadFullMetaSoon);
-  }
+  else showLogin().then(loadFullMetaSoon); // showLogin يمسح الطلبات المبكرة
 }
 
 /** بعد التحقق من الهوية: شاشة الإلزام إن وُجد قيد، وإلا التطبيق */
@@ -464,7 +470,7 @@ async function enterApp(user, { fromLogin = false } = {}) {
 
 /** v9.1 l-home: ما يُحفظ على الجهاز من بيانات المستخدم يُمسح عند تسجيل الخروج (نسخة «اليوم» تحمل عناوين الملفات) */
 function clearUserCaches(user) {
-  clearEarly();
+  clearPrefetched();
   store.remove(LAST_USER_KEY);
   try {
     const keys = [];

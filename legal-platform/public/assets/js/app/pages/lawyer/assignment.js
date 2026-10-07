@@ -470,6 +470,10 @@ export default async function render(ctx) {
           ),
         );
       } else parts.push(h('p.lw-muted', closed() ? 'أُغلق الملف دون رأي منك.' : 'لم تقدّم رأيًا في هذا الملف.'));
+      // نص بقي على هذا الجهاز ولم يعد يمكن حفظه (قُدّم الرأي من جهاز آخر أو أُغلق الملف): ينسخه المحامي أو يحذفه
+      const local = store ? store.load() : null;
+      const shownBody = latest ? latest.body : '';
+      if (local && local.body && local.body.trim() && local.body !== shownBody) parts.push(orphanNote(local));
     }
     const shownId = editable() ? draft && draft.id : (([...ops].reverse().find((o) => o.status !== 'draft' && o.status !== 'superseded')) || {}).id;
     const older = [...ops].filter((o) => o.id !== shownId).reverse();
@@ -493,6 +497,34 @@ export default async function render(ctx) {
       );
     }
     return frag(parts);
+  }
+
+  function orphanNote(local) {
+    const copy = async () => {
+      let done = false;
+      try {
+        await navigator.clipboard.writeText(local.body);
+        done = true;
+      } catch {
+        done = false;
+      }
+      toast(done ? 'نُسخ النص؛ يمكنك لصقه حيث تريد.' : 'تعذر النسخ تلقائيًا.', done ? 'success' : 'warning');
+    };
+    const drop = safe(async () => {
+      const ok = await confirmDialog({ title: 'حذف النص من هذا الجهاز؟', message: 'لن يمكن استعادته بعد الحذف.', confirmLabel: 'احذفه', cancelLabel: 'تراجع', danger: true });
+      if (!ok) return;
+      store.clear();
+      mount(hosts.mine, minePane());
+    });
+    return h(
+      'div.lw-mine-orphan',
+      h('p.lw-mine-local', icon('alert', { size: 16 }), h('span', `على هذا الجهاز نص لم يصل للمنصة (${count(wordCount(local.body), 'word')}) ولم يعد يمكن حفظه هنا.`)),
+      h(
+        'div.lw-mine-orphan-actions',
+        button('انسخ النص', { variant: 'secondary', size: 'sm', icon: 'copy', onClick: copy }),
+        button('احذفه من الجهاز', { variant: 'ghost', size: 'sm', icon: 'x', onClick: drop }),
+      ),
+    );
   }
 
   // ───────────── «الطلبات» ─────────────
@@ -612,6 +644,7 @@ export default async function render(ctx) {
             ? button('أحتاج هذا أيضًا', {
                 variant: 'secondary',
                 size: 'sm',
+                className: 'lw-already-btn', // ≥ 44px
                 onClick: safe(async (e) => {
                   setBusy(e.currentTarget, true);
                   try {

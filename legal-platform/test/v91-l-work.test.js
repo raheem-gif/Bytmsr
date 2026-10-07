@@ -463,7 +463,10 @@ describe('review fixes (l-work)', () => {
     assert.match(sheet, /suggestCache\.delete\(base\)/);
     assert.ok(asg.includes('طلبت مهلة حتى'));
     assert.ok(asg.includes('سيصلك الرد نفسه عند وصوله'));
+    assert.ok(asg.includes('ولم يعد يمكن حفظه هنا') && asg.includes('احذفه من الجهاز'), 'an orphaned device copy can be copied or deleted');
     assert.match(read('public/assets/js/app/main.js'), /syncPendingDrafts\(user\)/);
+    // الصفحة تتوقف حين تُزال دون تغيّر الرابط (الخروج): لا حفظ ولا نسخة بعده، ولا يبقى منع التمرير
+    assert.match(write, /new MutationObserver\(\(\) => \{\s*if \(wasConnected && !root\.isConnected\) dispose\(\);/);
   });
 });
 

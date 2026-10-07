@@ -73,12 +73,28 @@ export function prefetchGet(path, query) {
   promise.catch(() => {});
   map[url] = { promise, at: Date.now() };
 }
+/**
+ * رد جاهز لطلب GET (مثل بيانات الصفحة التي تصل مع /api/auth/session?page=…) يأخذه أول api.get بالمسار نفسه.
+ * @param {string} path مسار نسبي إلى /api (مثل '/lawyer/matters/2')
+ * @param {number} status
+ * @param {any} body
+ */
+export function putEarlyResult(path, status, body) {
+  if (typeof path !== 'string' || !path.startsWith('/')) return;
+  earlyGets()[buildUrl(path)] = { result: { status: Number(status) || 200, body }, at: Date.now() };
+}
 function takeEarlyGet(url) {
   const map = earlyGets();
   const hit = map[url];
   if (!hit) return null;
   delete map[url];
-  return Date.now() - hit.at < EARLY_GET_MAX_MS && hit.promise ? hit.promise : null;
+  if (Date.now() - hit.at >= EARLY_GET_MAX_MS) return null;
+  if (hit.result) {
+    // يُعالج كأي رد من الشبكة (الأخطاء والجلسة المنتهية بالمسار نفسه)
+    const { status, body } = hit.result;
+    return Promise.resolve(new Response(status === 204 ? null : JSON.stringify(body ?? null), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } }));
+  }
+  return hit.promise || null;
 }
 /** يلغي الطلبات المبكرة (عند تسجيل الدخول أو الخروج: لا يأخذ مستخدم ردًا طُلب قبل جلسته) */
 export function clearPrefetched() {

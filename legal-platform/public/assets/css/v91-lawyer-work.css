@@ -602,6 +602,24 @@ details[open] > summary .lw-chev {
 .lw-mine-card .btn {
   min-height: 48px;
 }
+/* نص بقي على الجهاز بعد تقديم الرأي من جهاز آخر */
+.lw-mine-orphan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--warning-100);
+}
+.lw-mine-orphan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lw-mine-orphan-actions .btn {
+  min-height: 44px;
+}
 
 /* «الطلبات» */
 .lw-req-cta {
@@ -912,9 +930,15 @@ body.lw-kb-open .lw-actionbar {
   flex-shrink: 0;
   margin-top: 3px;
 }
-/* زر «أحتاج هذا أيضًا» داخل التنبيه نفسه، في سطر مستقل تحت النص */
+/* زر «أحتاج هذا أيضًا» داخل التنبيه نفسه، في سطر مستقل تحت النص (request-sheet.js يمرّره فوق زر الإرسال الثابت) */
 .lw-dup {
   flex-wrap: wrap;
+}
+/* حالة الحفظ تبدو 36px ومساحة لمسها 44px (تعيد المحاولة عند الخطأ) */
+.lw-savechip::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
 }
 .lw-dup > span:not(.lw-already-joined) {
   flex: 1 1 calc(100% - 30px);
@@ -1205,6 +1229,7 @@ body.lw-kb-open .lw-actionbar {
   font-weight: 500;
 }
 .lw-savechip {
+  position: relative;
   flex: 0 1 auto;
   max-width: 62%;
   min-height: 36px;
@@ -1489,7 +1514,7 @@ body.lw-kb-open .lw-actionbar {
   border-bottom: 1px solid var(--border);
 }
 .lw-ref-tab {
-  min-height: 40px;
+  min-height: 44px;
   padding: 4px 10px;
   border: 0;
   border-radius: 8px;

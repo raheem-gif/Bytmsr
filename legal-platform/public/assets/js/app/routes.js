@@ -2,29 +2,6 @@
 
 import { defineRoutes } from './router.js';
 
-// ───────── v9.1 l-home (L-07): طلبات مبكرة أثناء الإقلاع ─────────
-// تبدأ قبل اكتمال التحقق من الجلسة ثم تأخذها الصفحة بدل طلب جديد (مثل «اليوم» للمحامي بالتوازي مع /api/auth/session).
-// هنا لا في وحدة مستقلة: طلب أقل على شبكة بطيئة.
-const earlyPending = new Map(); // المفتاح ← { promise, at }
-const EARLY_MAX_AGE_MS = 15000;
-/** يسجل طلبًا مبكرًا (Promise) بمفتاح */
-export function putEarly(key, promise) {
-  if (!promise) return;
-  promise.catch(() => {}); // لا رفض غير معالج إن لم تأخذه صفحة
-  earlyPending.set(key, { promise, at: Date.now() });
-}
-/** يأخذ الطلب المبكر مرة واحدة (أو null إن لم يوجد أو قدُم) */
-export function takeEarly(key) {
-  const e = earlyPending.get(key);
-  earlyPending.delete(key);
-  if (!e || Date.now() - e.at > EARLY_MAX_AGE_MS) return null;
-  return e.promise;
-}
-/** يلغي كل الطلبات المبكرة (عند تسجيل الخروج أو تغيّر المستخدم) */
-export function clearEarly() {
-  earlyPending.clear();
-}
-
 export const STAFF = ['admin', 'case_manager'];
 export const ADMIN = ['admin'];
 export const LAWYER = ['lawyer'];
@@ -78,7 +55,8 @@ export const routes = [
     load: () => import('./pages/lawyer/home.js'),
     roles: LAWYER,
     title: 'اليوم',
-    prefetch: () => takeEarly('today') || import('../lib/api.js').then(({ api }) => api.get('/lawyer/today')),
+    // عند فتح المنصة على «اليوم» تصل بياناته مع /api/auth/session (?page=/lawyer/today) فيأخذها api.get دون طلب جديد
+    prefetch: () => import('../lib/api.js').then(({ api }) => api.get('/lawyer/today')),
     skeleton: () => todaySkeleton(),
   },
   { path: '/my/assignments', load: () => import('./pages/lawyer/assignments.js'), roles: LAWYER, title: 'إسناداتي' },

@@ -900,6 +900,13 @@ export default async function render(ctx) {
   destroyFns.push(() => mq.removeEventListener('change', onMq));
   document.body.classList.add('lw-writing');
   destroyFns.push(() => document.body.classList.remove('lw-writing'));
+  // أُزيلت الصفحة دون تغيّر الرابط (الخروج يستبدل التطبيق بشاشة الدخول): نتوقف فورًا — لا حفظ ولا نسخة بعد الخروج،
+  // ولا يبقى منع تمرير الصفحة (lw-writing) على شاشة الدخول
+  const detachWatch = new MutationObserver(() => {
+    if (wasConnected && !root.isConnected) dispose();
+  });
+  detachWatch.observe(document.body, { childList: true, subtree: true });
+  destroyFns.push(() => detachWatch.disconnect());
 
   function cleanup() {
     clearTimeout(backupTimer);

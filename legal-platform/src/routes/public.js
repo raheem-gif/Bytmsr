@@ -90,13 +90,18 @@ export function registerPublicRoutes(router, app) {
   // v9.1 l-home: meta_version = ETag الحالي لـ /api/meta (تتخطى الواجهة طلب meta إن طابق نسختها المحفوظة)
   // ?meta=full|login (جهاز بلا نسخة meta محفوظة): الحمولة نفسها في الرد مع ETag لها — طلب واحد بدل اثنين على شبكة بطيئة.
   // من لديه جلسة صالحة يأخذ النسخة الكاملة دائمًا (سيدخل التطبيق مباشرة).
-  router.get('/api/auth/session', (ctx) => {
+  // ?page=/lawyer/…: بيانات صفحة المحامي المطلوبة في الرابط مع الجلسة (app.sessionPageData — مسار l-home)
+  router.get('/api/auth/session', async (ctx) => {
     const full = buildMeta(ctx);
     const out = { user: ctx.user ? app.auth.publicUser(ctx.user) : null, meta_version: metaVersion(full) };
     const want = ctx.query?.meta;
     if (want === 'full' || want === 'login') {
       out.meta = want === 'login' && !ctx.user ? loginMeta(full) : full;
       out.meta_etag = out.meta === full ? out.meta_version : metaVersion(out.meta);
+    }
+    if (ctx.query?.page && ctx.user && app.sessionPageData) {
+      const page = await app.sessionPageData(ctx, String(ctx.query.page));
+      if (page) out.page = page;
     }
     return out;
   });
