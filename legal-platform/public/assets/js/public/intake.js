@@ -8,8 +8,10 @@
 // بيانات المؤسسة من كتلة bm-public المضمّنة في الصفحة (بلا طلب /api/meta)، وإلا من /api/meta.
 
 import { h, svg, mount } from '../lib/h.js';
-import { captureAttribution, getAttribution, whatsappUrl, initSiteChrome, savedCard, rememberPortal, forgetSaved } from './common.js';
-import { addressName, addressForm, genderize, countWord, publicData } from './words.js';
+// v9.2 مراجعة: menu.js وsaved.js مباشرة (محمّلان من الصفحة الرئيسية)، وwords.js وcommon.js بعد أول شاشة (loadExtras):
+// أول سؤال يحتاج 6 طلبات جديدة فقط على نت 3G بطيء (الموبايل يفتح 6 اتصالات بالموقع في نفس الوقت)
+import { captureAttribution, initSiteChrome } from './menu.js';
+import { savedCard, rememberPortal, forgetSaved } from './saved.js';
 import { draftStore, clearAllDrafts } from './drafts.js';
 import { TOPICS, QUESTIONS, UNKNOWN, CALLBACK_WHEN, topicByKey, flowFor, sanitizeAnswers, infer, waPrefill } from './topics.js';
 import { PICTOS } from './pictos.js';
@@ -27,11 +29,30 @@ const loadRecorder = () =>
   }));
 let U = null;
 let uploadLoading = null;
+// فشل التحميل (نت متقطع) لا يُحفظ: «حاولي تاني» تحمّل من جديد
 const loadUpload = () =>
-  (uploadLoading ??= import('./upload.js').then((m) => {
-    U = m;
-    return m;
-  }));
+  (uploadLoading ??= import('./upload.js').then(
+    (m) => (U = m),
+    (e) => {
+      uploadLoading = null;
+      throw e;
+    },
+  ));
+// صيغة الكلام (شاشة «وصلنا طلبك») ومصدر الزيارة (الإرسال): تُحمّل في الخلفية بعد أول شاشة، ويُنتظران قبل الإرسال
+let W = null;
+let C = null;
+let extrasLoading = null;
+const loadExtras = () =>
+  (extrasLoading ??= Promise.all([import('./words.js'), import('./common.js')]).then(
+    ([w, c]) => {
+      W = w;
+      C = c;
+    },
+    (e) => {
+      extrasLoading = null;
+      throw e;
+    },
+  ));
 
 const MIN_CHARS = 10; // حروف بلا مسافات، حين لا توجد رسالة صوتية
 const MAX_DESC = 5000;
@@ -243,8 +264,23 @@ function fromMeta(m) {
   };
 }
 
+/** بيانات الصفحة المضمّنة bm-public (نفس publicData في words.js، دون تحميله قبل أول سؤال) */
+function pageData() {
+  try {
+    return JSON.parse(document.getElementById('bm-public')?.textContent || 'null');
+  } catch {
+    return null;
+  }
+}
+
+/** رابط واتساب بنص جاهز (نفس whatsappUrl في common.js): الرقم التوضيحي ليس رقم المؤسسة */
+function whatsappUrl(digits, text) {
+  const d = String(digits || '').replace(/\D/g, '');
+  return d.length < 8 || d.length > 15 || d === '201000000000' ? null : `https://wa.me/${d}?text=${encodeURIComponent(text)}`;
+}
+
 async function loadMeta() {
-  const p = publicData();
+  const p = pageData();
   if (p && p.org_name && Array.isArray(p.governorates) && Array.isArray(p.areas)) return fromPublic(p);
   const res = await fetch('/api/meta', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
   if (!res.ok) throw new Error('meta');
@@ -447,7 +483,9 @@ function paintListen() {
   const resume = !speakingNow && on && firstAfterLoad;
   btn.setAttribute('aria-pressed', String(speakingNow || resume));
   btn.classList.toggle('is-on', speakingNow || resume);
-  btn.setAttribute('aria-label', speakingNow ? 'وقّفي الصوت' : 'اسمعي الكلام اللي في الصفحة');
+  // الاسم المسموع = الكلمة المكتوبة على الزر («اسمعي السؤال» لازم تكون جوه الاسم)، وأثناء الكلام «وقّفي الصوت»
+  if (speakingNow) btn.setAttribute('aria-label', 'وقّفي الصوت');
+  else btn.removeAttribute('aria-label');
   btn.querySelector('span').textContent = speakingNow ? COPY.listenStop : resume ? COPY.listenResume : COPY.listen;
 }
 
@@ -1020,6 +1058,7 @@ function phoneScreen() {
 
   // «إمتى يناسبك نكلمك؟» (مسار المكالمة فقط) — «أي وقت» مختار من الأول
   let whenBox = null;
+  let whenChips = [];
   if (cb) {
     if (!CALLBACK_WHEN[state.callback]) state.callback = 'any';
     const chips = Object.entries(CALLBACK_WHEN).map(([k, w]) =>
@@ -1038,6 +1077,7 @@ function phoneScreen() {
         h('span', w.label),
       ),
     );
+    whenChips = chips;
     whenBox = h('fieldset.bmf-when', h('legend', COPY.when), h('div.bmf-when-chips', chips));
   }
 
@@ -1147,7 +1187,7 @@ function phoneScreen() {
       legal_area: topicArea() || '',
       description: String(state.description || '').trim(),
       documents,
-      attribution: getAttribution(),
+      attribution: C.getAttribution(),
       topic: state.topic || null,
       answers: sanitizeAnswers(state.topic, state.answers),
       callback: cb ? state.callback || 'any' : null,
@@ -1179,7 +1219,8 @@ function phoneScreen() {
     state.phone = phoneInput.value;
     setBusy(true);
     try {
-      await loadUpload();
+      // شاشة «وصلنا طلبك» تحتاج words.js: لا نرسل قبل ما يكون جاهز (وإلا وصل الطلب وما ظهرش رقمه)
+      await Promise.all([loadUpload(), loadExtras()]);
     } catch {
       setBusy(false);
       err.show(MSG.net);
@@ -1248,6 +1289,8 @@ function phoneScreen() {
     { text: title, el: heading },
     { text: sub, el: subEl },
     whenBox && { text: COPY.when, el: whenBox },
+    // [مراجعة] الاختيارات نفسها كمان («الصبح»، «الضهر»، «أي وقت»): من غير قراية
+    ...whenChips.map((c) => ({ text: c.textContent, el: c })),
     { text: consentText, el: consentLine },
     { text: cb ? COPY.sendCb : COPY.send, el: submit },
   ];
@@ -1321,9 +1364,9 @@ function showSuccess(res, name, sent = {}) {
     heading.focus();
     return;
   }
-  const form = addressForm(name);
-  const g = (s) => genderize(s, form);
-  const who = addressName(name);
+  const form = W.addressForm(name);
+  const g = (s) => W.genderize(s, form);
+  const who = W.addressName(name);
   const portal = res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
   const confirmUrl = typeof res.confirm_url === 'string' && /^https:\/\/wa\.me\/\d+\?text=/.test(res.confirm_url) ? res.confirm_url : null;
   const callback = res.callback && CALLBACK_WHEN[res.callback] ? res.callback : null;
@@ -1514,7 +1557,7 @@ function showSuccess(res, name, sent = {}) {
     h('h2', { id: 'bmf-next-title' }, 'هيحصل إيه بعد كده؟'),
     h(
       'ol',
-      h('li', callback ? 'هنكلمك ونسمع مشكلتك.' : `فريقنا هيقرا طلبك — غالبًا خلال ${countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
+      h('li', callback ? 'هنكلمك ونسمع مشكلتك.' : `فريقنا هيقرا طلبك — غالبًا خلال ${W.countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
       h('li', 'ممكن نطلب منك ورقة أو معلومة.'),
       step3,
     ),
@@ -1573,7 +1616,7 @@ function showSuccess(res, name, sent = {}) {
 
 /** «كمان سؤالين»: المحافظة (الأكثر طلبًا + «محافظة تانية») ثم الصفة لو مش معروفة من الإجابات. كل ضغطة تتسجل فورًا */
 function aboutCard(res, portal, form, answers) {
-  const g = (s) => genderize(s, form);
+  const g = (s) => W.genderize(s, form);
   const token = (/\/p\/([A-Za-z0-9_-]{20,100})/.exec(portal) || [])[1];
   if (!token) return null;
   const quick = (Array.isArray(res.about_governorates) ? res.about_governorates : []).filter((x) => x !== OTHER_GOV && (org.governorates || []).includes(x)).slice(0, 6);
@@ -1652,11 +1695,11 @@ function aboutCard(res, portal, form, answers) {
         },
         OTHER_GOV,
       );
-      mount(body, h('p.bmf-about-q', g('إنت{ي} من أنهي محافظة؟')), h('div.bmf-about-tiles', tiles, other), select, skip());
+      mount(body, h('p.bmf-about-q', { tabindex: '-1' }, g('إنت{ي} من أنهي محافظة؟')), h('div.bmf-about-tiles', tiles, other), select, skip());
     } else if (step === 'rel') {
       mount(
         body,
-        h('p.bmf-about-q', 'انتي…؟'),
+        h('p.bmf-about-q', { tabindex: '-1' }, 'انتي…؟'),
         h(
           'div.bmf-about-tiles',
           RELATIONS.map((r) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { relation: r.value }) }, r.label)),
@@ -1664,9 +1707,14 @@ function aboutCard(res, portal, form, answers) {
         skip(),
       );
     } else {
-      mount(body, h('p.bmf-note', { role: 'status' }, 'لحظة…'));
-      Promise.all(pending).then(() => mount(body, h('p.bmf-sent', { role: 'status' }, ic('check', 22), h('span', failed ? g('ما اتسجلش. مش مشكلة، تقدر{ي} تقول{ي}لنا بعدين.') : 'شكرًا، كده تمام.'))));
+      mount(body, h('p.bmf-note', { role: 'status', tabindex: '-1' }, 'لحظة…'));
+      Promise.all(pending).then(() => {
+        mount(body, h('p.bmf-sent', { role: 'status', tabindex: '-1' }, ic('check', 22), h('span', failed ? g('ما اتسجلش. مش مشكلة، تقدر{ي} تقول{ي}لنا بعدين.') : 'شكرًا، كده تمام.')));
+        body.firstChild.focus({ preventScroll: true });
+      });
     }
+    // بعد كل إجابة: التركيز على السؤال التالي (لا يضيع لأول الصفحة مع لوحة المفاتيح وقارئ الشاشة)
+    if (i) body.firstChild.focus({ preventScroll: true });
   }
   paint();
   return card;
@@ -1842,6 +1890,19 @@ function entryScreen() {
   return state.topic ? firstScreenOf(state.topic) : 'topic';
 }
 
+/**
+ * v9.2 مراجعة: مسودة قديمة على الموبايل وضغطت دلوقتي مربع موضوع تاني (أو «إحنا نكلمك») في الصفحة الرئيسية:
+ * الضغطة الجديدة هي اللي تفتح (مش سؤال الموضوع القديم)، والكلام والتسجيلات والصور والرقم يفضلوا من المسودة.
+ */
+function tappedOverDraft(screen) {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === 'callback') return state.cbDirect ? screen : entryScreen();
+  const t = topicByKey(params.get('topic'));
+  if (!t || (t.key === state.topic && !state.callbackMode)) return screen;
+  Object.assign(state, { topic: null, answers: t.key === state.topic ? state.answers : {}, callback: null, callbackMode: false, cbDirect: false });
+  return entryScreen();
+}
+
 // ───────── التهيئة ─────────
 
 async function init() {
@@ -1861,7 +1922,7 @@ async function init() {
     return;
   }
   const restored = await restoreDraft();
-  const first = restored || entryScreen();
+  const first = restored ? tappedOverDraft(restored) : entryScreen();
   try {
     // نحن نرجع لأول الصفحة مع كل شاشة؛ استعادة المتصفح لمكان التمرير القديم تنزل شاشة النجاح أو الشاشة لتحت
     history.scrollRestoration = 'manual';
@@ -1870,8 +1931,11 @@ async function init() {
     /* لا شيء */
   }
   show(first, { push: false, focus: false, speak: false });
-  // نجهّز وحدة التصوير والإرسال في الخلفية بعد ظهور الشاشة الأولى
-  setTimeout(() => loadUpload().catch(() => {}), 0);
+  // نجهّز وحدة التصوير والإرسال (وصيغة الكلام ومصدر الزيارة) في الخلفية بعد ظهور الشاشة الأولى
+  setTimeout(() => {
+    loadUpload().catch(() => {});
+    loadExtras().catch(() => {});
+  }, 0);
 }
 
 init();

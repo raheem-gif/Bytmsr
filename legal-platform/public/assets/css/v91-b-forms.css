@@ -1474,7 +1474,7 @@ body.pub .bmf-select {
   gap: 4px 12px;
   margin-top: -6px;
 }
-.bmf-phone-row:not(:has(:not([hidden]))) {
+.bmf-phone-row:not(:has(> :not([hidden]))) {
   display: none;
 }
 .bmf-phone-ok {
@@ -1732,9 +1732,6 @@ body.pub .bmf-listen {
 }
 
 @media (max-width: 360px) {
-  .bmf-answer {
-    min-height: 104px;
-  }
   .bmf-topic-chip {
     max-width: 46%;
   }

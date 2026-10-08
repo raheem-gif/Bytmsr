@@ -8,7 +8,7 @@ import { label, areaOptions, options, governorateOptions, cairoToday, toLatinDig
 import { modal, form, field, button, asyncButton, badge, icon, alertBox, toast, choiceTiles, errorMessage, uid } from '../../lib/ui.js';
 import { programSelect } from './program-picker.js';
 import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
-import { openCallNote } from './call-note.js';
+import { openCallNote, isSkeletonReply } from './call-note.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -39,6 +39,12 @@ export function acceptToast(res) {
   else text = 'أُرسلت الأسئلة — الطلب بانتظار ردها';
   toast(`${text}${sim}`, 'success', 6000);
   for (const w of res.warnings || []) toast(w.text, 'warning', 9000);
+}
+
+/** أول متغير لم يُملأ في نص سيصلها ({portal_link} مسموح: يُستبدل عند الإرسال) */
+export function unfilledVar(text) {
+  for (const m of String(text || '').matchAll(/\{(\w+)\}/g)) if (m[1] !== 'portal_link') return m[0];
+  return null;
 }
 
 /** يقسم نص «سؤال الأسئلة» حول قائمة الأسئلة المرقمة حتى يُعاد بناؤه عند تعديلها */
@@ -121,7 +127,7 @@ export async function openStorySheet(opts = {}) {
 
   const warnings = p.warnings || [];
   const warnBox = warnings.length
-    ? h('ul.pa-sheet-warnings', { 'aria-label': 'تنبيهات قبل القرار' }, warnings.map((w) => h('li', { class: `is-${w.code}` }, icon('alert', { size: 15 }), h('span', w.text))))
+    ? h('ul.pa-sheet-warnings', { 'aria-label': 'تنبيهات قبل القرار' }, warnings.map((w) => h('li', { class: `is-${w.code}` }, icon(w.code === 'local' ? 'info' : 'alert', { size: 15 }), h('span', w.text))))
     : null;
 
   // «اتصل بها» داخل الورقة حين يكون الهاتف هو الطريق إليها (رقم غير مؤكد أو رسائل صوتية فقط)
@@ -242,10 +248,14 @@ export async function openStorySheet(opts = {}) {
     };
   }
 
-  function replyBlock(reply, { checkbox, sourceLine, withPicker } = {}) {
+  function replyBlock(reply, { checkbox, sourceLine: sourceLine0, withPicker } = {}) {
+    let sourceLine = sourceLine0;
     const id = uid('sheet-reply');
     const ta = h('textarea.input.pa-sheet-reply', { id, rows: 6, maxlength: 4000, dir: 'auto' });
     ta.value = (reply && reply.text) || '';
+    // مسودة فيها التحية والتوقيع فقط: تُكتب الرسالة بينهما قبل الإرسال
+    const skeleton = isSkeletonReply(ta.value);
+    if (skeleton && !sourceLine) sourceLine = 'لا توجد مسودة رد: اكتب الرد بين التحية والتوقيع، أو اختر ردًا جاهزًا.';
     const send = h('input', { type: 'checkbox', checked: !reply || reply.send !== false });
     const wrap = field(checkbox.textLabel, ta, { hint: sourceLine || null, full: true });
     const sync = () => {
@@ -261,6 +271,25 @@ export async function openStorySheet(opts = {}) {
     return {
       el: h('div.pa-sheet-replybox', h('label.check', send, h('span', checkbox.label)), wrap, tools),
       get: () => ({ send: send.checked, text: ta.value.trim() }),
+      /** خطأ قبل الإرسال: نص فارغ أو متغير لم يُملأ (مثل {client_name}) */
+      check() {
+        if (!send.checked) {
+          wrap.setError('');
+          return true;
+        }
+        const t = ta.value.trim();
+        const v = unfilledVar(t);
+        const msg = !t
+          ? 'اكتب نص الرسالة أو ألغِ الإرسال'
+          : v
+            ? `الرسالة فيها متغير لم يُملأ: ${v} — اكتب بدلها الكلمة المناسبة`
+            : skeleton && isSkeletonReply(t)
+              ? 'الرسالة فيها التحية والتوقيع فقط — اكتب الرد بينهما أو ألغِ الإرسال'
+              : '';
+        wrap.setError(msg);
+        if (msg) ta.focus();
+        return !msg;
+      },
       send,
       ta,
       wrap,
@@ -379,6 +408,7 @@ export async function openStorySheet(opts = {}) {
       reply,
       validate() {
         let ok = main.validate();
+        if (!reply.check()) ok = false;
         if (clientForm && !clientForm.validate()) ok = false;
         if (matterForm && !matterForm.validate()) ok = false;
         if (clientForm) {
@@ -484,15 +514,13 @@ export async function openStorySheet(opts = {}) {
     return {
       el: frag(f.el, reply.el),
       reply,
-      validate: () => {
+      validate: ({ phone = false } = {}) => {
         const ok = f.validate();
-        const r = reply.get();
-        if (r.send && !r.text) {
-          reply.wrap.setError('اكتب نص الرسالة أو ألغِ «إرسال»');
-          return false;
+        if (phone) {
+          reply.wrap.setError('');
+          return ok;
         }
-        reply.wrap.setError('');
-        return ok;
+        return reply.check() && ok;
       },
       showError: (err) => f.showError(err),
       payload() {
@@ -603,8 +631,10 @@ export async function openStorySheet(opts = {}) {
           return false;
         }
         err.hidden = true;
-        if (!msg.value.trim()) {
-          msgWrap.setError('نص الرسالة فارغ');
+        const v = unfilledVar(msg.value);
+        if (!msg.value.trim() || v) {
+          msgWrap.setError(v ? `الرسالة فيها متغير لم يُملأ: ${v} — اكتب بدلها الكلمة المناسبة` : 'نص الرسالة فارغ');
+          msg.focus();
           return false;
         }
         msgWrap.setError('');
@@ -704,7 +734,8 @@ export async function openStorySheet(opts = {}) {
 
   async function deliverByPhone() {
     const cur = current();
-    if (!cur.validate()) return false;
+    mount(alertHost);
+    if (!cur.validate({ phone: true })) return false;
     let noteId = opts.callNoteId || null;
     if (!noteId) {
       const r = await openCallNote({

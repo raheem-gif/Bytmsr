@@ -32,7 +32,7 @@ import {
   richText,
   errorMessage,
 } from '../../../lib/ui.js';
-import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus } from './inbox.js';
+import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus, replaceQuery } from './inbox.js';
 import { pickClient } from './clients.js';
 import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 import { programSelect } from '../../components/program-picker.js';
@@ -212,14 +212,28 @@ export default async function render(ctx) {
     }
     if (it.status === 'handled_internally' || it.status === 'archived') {
       const handled = it.status === 'handled_internally';
+      // v9.2: نوع الإغلاق (رد بمعلومة · توجيه لجهة أخرى · تعذّر الوصول إليها) والجهة الموجَّهة إليها
+      const kind = handled ? it.resolution_kind : null;
+      const title = !handled
+        ? 'الطلب مؤرشف'
+        : kind === 'unreachable'
+          ? 'أُغلق الطلب: تعذّر الوصول إليها'
+          : kind === 'referral'
+            ? 'أُغلق الطلب بتوجيهها لجهة أخرى'
+            : 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ';
       return alertBox(
         h(
           'div.pa-alert-row',
-          h('span', h('span.pa-alert-label', handled ? 'ملخص ما تم: ' : 'سبب الأرشفة: '), it.resolution_note || '—'),
+          h(
+            'span.pa-closed-lines',
+            h('span', h('span.pa-alert-label', handled ? 'ملخص ما تم: ' : 'سبب الأرشفة: '), it.resolution_note || '—'),
+            kind && h('span.small', h('span.pa-alert-label', 'نوع الإغلاق: '), label('resolution_kind', kind)),
+            kind === 'referral' && it.referral_to && h('span.small', h('span.pa-alert-label', 'الجهة: '), it.referral_to),
+          ),
           button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen }),
         ),
         handled ? 'success' : 'info',
-        { title: handled ? 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ' : 'الطلب مؤرشف', icon: handled ? 'checkCircle' : 'info' },
+        { title, icon: handled ? 'checkCircle' : 'info' },
       );
     }
     const opt = (cls, iconName, title, text, onClick) =>
@@ -462,7 +476,9 @@ export default async function render(ctx) {
     const att = prop.call_attempts || { count: 0, items: [], can_close_unreachable: false };
 
     const actions = [];
-    if (view === 'blocked' && voiceMissing > 0) {
+    if (view === 'awaiting') {
+      // سُئلت بالفعل: لا «اعمله طلب» بنفس المسار؛ يُعاد التلخيص تلقائيًا عندما ترد، ويبقى اختيار مسار آخر متاحًا
+    } else if (view === 'blocked' && voiceMissing > 0) {
       actions.push(button('اسمع الرسالة الصوتية', { variant: 'primary', icon: 'mic', className: 'pa-prop-primary', onClick: goToVoice }));
       if (callFirst) actions.push(asyncButton('اتصل بها', () => callHer(prop.actions.call_script), { icon: 'phone' }));
     } else if (callFirst) {
@@ -484,7 +500,7 @@ export default async function render(ctx) {
     } else {
       actions.push(asyncButton(rec ? `اعمله طلب: ${label('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary' }));
     }
-    actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: 'ghost', icon: 'list' }));
+    actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: view === 'awaiting' ? 'secondary' : 'ghost', icon: 'list' }));
     if (view === 'stale' || view === 'collecting') actions.push(asyncButton('حدّث الملخص الآن', summarizeNow, { variant: 'ghost', icon: 'refresh' }));
 
     const trackBlock = rec
@@ -514,6 +530,7 @@ export default async function render(ctx) {
             h('span.pa-story-line-text', { dir: 'auto' }, prop.one_line),
           ),
         trackBlock,
+        view === 'awaiting' && h('p.pa-prop-why', icon('clock', { size: 14 }), ' ', 'سألناها وننتظر ردها؛ عندما ترد يُعاد التلخيص تلقائيًا.'),
         warningsList(prop.warnings),
         h('div.pa-prop-actions', actions),
         att.count > 0 && h('div.pa-prop-attempts', h('p.small', attemptsCountText(att.count)), attemptsList(att.items || [])),
@@ -851,6 +868,31 @@ export default async function render(ctx) {
       if (m.meta && m.meta.referral && m.meta.referral.headline) {
         node.after(h('div.pa-msg-flag.is-start.is-info', icon('flag', { size: 14 }), h('span', `وصلت عبر إعلان: «${m.meta.referral.headline}»`)));
       }
+      // v9.2 (admin-ai): علامات القصة داخل المحادثة
+      const meta = m.meta || {};
+      const tags = [];
+      const wa = meta.wa || {};
+      if (m.direction === 'out' && wa.type === 'list') {
+        const rows = (wa.sections || []).flatMap((x) => x.rows || []).map((r) => r.title);
+        if (rows.length) tags.push(badge(`القائمة: ${rows.join(' · ')}`, 'muted', { icon: 'list', className: 'pa-msg-list' }));
+      }
+      if (m.direction === 'in') {
+        if (meta.topic_prefill) tags.push(badge('اختارت الموضوع من الموقع', 'info', { icon: 'globe' }));
+        else if (meta.topic) tags.push(badge('اختارت من القائمة', 'info', { icon: 'list' }));
+        if (meta.story_done) tags.push(badge('أنهت حكايتها', 'success', { icon: 'check' }));
+        if (meta.call_note) tags.push(badge('مكالمة — كتبتها الإدارة', 'primary', { icon: 'phone' }));
+      }
+      const bubble = node.querySelector('.msg-bubble');
+      if (tags.length && bubble) bubble.append(h('div.pa-msg-tags', tags));
+      // نص كل رسالة صوتية منها تحت فقاعتها
+      if (m.direction === 'in') {
+        const audios = [...node.querySelectorAll('audio')];
+        const audioDocs = (m.documents || []).filter((x) => voiceByDoc.has(x.id));
+        audioDocs.forEach((doc, k) => {
+          const ed = voiceEditorFor(doc, audios[k]);
+          if (ed) node.after(h('div.pa-msg-voice', ed));
+        });
+      }
     });
     const scroller = h('div.pa-chat-scroll', thread);
     requestAnimationFrame(() => {
@@ -927,6 +969,9 @@ export default async function render(ctx) {
         'ul.pc-docs.doc-ai-docs',
         allDocs.map((doc) => {
           const name = doc.title || doc.filename || 'مستند';
+          const isAudio = String(doc.mime || '').startsWith('audio/');
+          // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
+          const player = isAudio && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` });
           return h(
             'li.pc-doc',
             h('span.pc-doc-icon', icon('fileText', { size: 18 })),
@@ -938,9 +983,10 @@ export default async function render(ctx) {
                 'span.pc-doc-meta',
                 [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
               ),
-              // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
-              String(doc.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` }),
+              player,
               docAiBadge(analyses, doc.id),
+              // v9.2: نص الرسالة الصوتية (تكتبه الإدارة) تحت المشغل نفسه
+              isAudio && voiceEditorFor(doc, player),
             ),
             h(
               'div.pc-doc-actions',
@@ -1492,6 +1538,24 @@ export default async function render(ctx) {
   }
 
   const identityEl = identityBlock();
+  const VIEW_TONES = { callback: 'info', collecting: 'info', blocked: 'warning', stale: 'warning', ready: 'success', awaiting: 'neutral' };
+
+  // v9.2: ‎?focus=voice‎ (أول رسالة صوتية لم تُكتب) · ‎?focus=call‎ (تسجيل المكالمة) · ‎?focus=chat‎ (المحادثة) — مرة واحدة
+  const focusKind = ctx.query && ['voice', 'call', 'chat'].includes(ctx.query.focus) ? ctx.query.focus : null;
+  if (focusKind) {
+    replaceQuery(`/inbox/${it.id}`, {});
+    setTimeout(() => {
+      if (focusKind === 'voice') goToVoice();
+      else if (focusKind === 'call' && isOpen) callHer(prop && prop.actions ? prop.actions.call_script : null).catch((err) => toast(errorMessage(err), 'danger'));
+      else {
+        const chat = document.getElementById('pa-conversation');
+        if (chat) {
+          chat.scrollIntoView({ block: 'start' });
+          chat.focus({ preventScroll: true });
+        }
+      }
+    }, 80);
+  }
   // عنوان واحد ثابت لكل الحالات («الطلب REQ-…» كعنوان المتصفح)، والموضوع تحته: لا يتبدل العنوان بين اسم المرسل
   // وموضوع الطلب بحسب حالته
   const header = pageHeader({
@@ -1515,6 +1579,9 @@ export default async function render(ctx) {
       statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
       it.kind && badge(label('intake_kind', it.kind), 'neutral'),
       it.legal_area && badge(areaLabel(it.legal_area), 'primary'),
+      // v9.2: الموضوع الذي اختارته (قائمة واتساب أو الموقع) وحالة القصة
+      story && story.topic_label && badge(`الموضوع: ${story.topic_label}`, 'neutral', { icon: 'list' }),
+      isOpen && story && story.view && story.view !== 'decided' && badge(label('story_view', story.view), VIEW_TONES[story.view] || 'neutral', { className: 'pa-view-badge' }),
       h('span.small.muted', { title: dateTime(it.created_at) }, `وصل ${relative(it.created_at)}`),
     ],
     actions: [
@@ -1531,7 +1598,9 @@ export default async function render(ctx) {
       h(
         'div.detail-main',
         identityEl && withId(identityEl, 'pa-identity'),
-        withId(decisionCard(), 'pa-decision'),
+        // v9.2: الطلب المفتوح يبدأ بـ «تحويل القصة إلى طلب» (أو «طلبت مكالمة»)، والقرار اليدوي داخلها
+        prop ? withId(proposalCard(), 'pa-proposal') : withId(decisionCard(), 'pa-decision'),
+        webFormCard(),
         withId(conversationCard(), 'pa-conversation'),
         allDocs.length ? withId(documentsCard(), 'pa-documents') : null,
         analyses && docAiResultsCard(analyses, allDocs),

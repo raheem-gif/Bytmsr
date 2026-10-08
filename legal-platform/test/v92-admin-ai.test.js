@@ -1699,3 +1699,125 @@ describe('v9.2 stories — privacy, side effects, safety', () => {
     });
   });
 });
+
+// ───────────── T26 — واجهة الإدارة (فحوص ثابتة بلا متصفح) ─────────────
+describe('v9.2 stories — staff UI (static checks)', () => {
+  const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const COMPONENTS = ['story-sheet.js', 'voice-transcript.js', 'call-note.js', 'story-settings.js', 'split-dialog.js'];
+
+  test('T26 the five components exist with no inline script/eval/innerHTML; intake-detail keeps the asserted strings; icons defined; the v9.2 CSS section has no hex colours', () => {
+    for (const f of COMPONENTS) {
+      const src = read(`public/assets/js/app/components/${f}`);
+      assert.ok(src.length > 1000, f);
+      assert.doesNotMatch(src, /<script|innerHTML\s*=|outerHTML\s*=|insertAdjacentHTML|\beval\(|new Function\(/, f);
+    }
+    for (const f of ['public/app.html']) assert.doesNotMatch(read(f), /<script(?![^>]*\bsrc=)[^>]*>/, `${f}: CSP script-src 'self' — no inline script`);
+    const detail = read('public/assets/js/app/pages/admin/intake-detail.js');
+    for (const s of [
+      "h('audio.doc-audio-player', { controls: true, preload: 'metadata'",
+      'button(MERGE_LABEL',
+      'title: `الطلب ${it.code}`',
+      'api.patch(`/admin/documents/${doc.id}`, { title: v.title })',
+      "button('تسمية'",
+      'export const GENERIC_DOC_NAME',
+    ]) assert.ok(detail.includes(s), s);
+    const ui = read('public/assets/js/lib/ui.js');
+    const block = /const ICONS = \{([\s\S]*?)\n\};/.exec(ui)[1];
+    for (const n of ['mic', 'grid', 'list', 'phone-off', 'split']) assert.match(block, new RegExp(`^ {2}'?${n}'?: \\[`, 'm'), n);
+    const css = read('public/assets/css/v9-messaging.css');
+    const at = css.indexOf('v9.2 القصص (admin-ai)');
+    assert.ok(at > 0, 'the «v9.2 القصص» section is appended to v9-messaging.css');
+    const sec = css.slice(css.lastIndexOf('/*', at));
+    assert.ok(sec.length > 2000);
+    assert.doesNotMatch(sec, /#[0-9a-fA-F]{3,8}\b/, 'tokens only — no hex colours');
+    assert.doesNotMatch(sec, /rgba?\(\s*\d/, 'tokens only — no literal rgb()');
+  });
+
+  test('T26 staff copy (§6.4) is wired: inbox cards, proposal, sheet, call note, transcript, split, settings, simulator', () => {
+    const has = (f, list) => {
+      const src = read(f);
+      for (const s of list) assert.ok(src.includes(s), `${f}: «${s}»`);
+    };
+    has('public/assets/js/app/pages/admin/inbox.js', [
+      "'aria-label': 'طريقة العرض'", "'بطاقات'", "'قائمة'", "'aria-label': 'حالة القصة'", "VIEW_KEY = 'bm.inbox.view'", "q.sort = 'triage'",
+      'طلبت مكالمة', 'جاهزة للقرار', 'القصة لسه بتتكتب', 'وصل جديد بعد الملخص', 'بانتظار ردها', 'رسائل صوتية لم تُكتب',
+      'لا توجد قصص جاهزة للقرار الآن.', 'لا توجد قصص تُكتب الآن.', 'لا توجد طلبات مكالمة الآن.',
+      'لم تحكِ مشكلتها بعد — الوقت المناسب: ', 'تُلخَّص تلقائيًا بعد', 'اتلخّصت ', 'سألناها ', 'فيها رسالة صوتية لم تُكتب', 'تعذّر تنزيل رسالة صوتية',
+      'المقترح: ', ' لم تُكتب', 'الموضوع: ', 'رقم غير مؤكد', 'محاولات الاتصال: ', 'ملخص مبدئي', "'اقتراح'",
+      "'سجّل المكالمة'", "'لم ترد'", "'اسمع الرسالة الصوتية'", "'لخّصها الآن'", "'حلّل الآن'", "'اتصل بها'", "label('story_track_action', track)", "'فتح الطلب'",
+      // القائمة القديمة باقية
+      'لم يُحدَّد موضوع الطلب بعد', 'عرض المزيد', 'تسجيل طلب يدوي',
+    ]);
+    has('public/assets/js/app/pages/admin/intake-detail.js', [
+      "'تحويل القصة إلى طلب'", "'اقتراح الذكاء الاصطناعي — القرار لك'", "'المقترح: '", "'ليه؟ '", '`اعمله طلب: ${', "'إرسال لصفحتها فقط'", "'اختيار مسار آخر'",
+      "'حدّث الملخص الآن'", "'قرار يدوي'", "title: 'طلبت مكالمة'", ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.', "'إغلاق: تعذّر الوصول إليها'",
+      'يُغلق الطلب بعد 3 محاولات في يومين مختلفين على الأقل.', 'أضافت بعد الإرسال: ', "'اختارت من القائمة'", "'اختارت الموضوع من الموقع'", "'أنهت حكايتها'",
+      "'مكالمة — كتبتها الإدارة'", '`القائمة: ${', "'كل الرسائل الصوتية مكتوبة — سيُحدَّث الملخص خلال دقيقة'", "'حدّث الآن'", "'كل الرسائل الصوتية مكتوبة — حُدِّث الملخص'",
+      "['voice', 'call', 'chat'].includes(ctx.query.focus)",
+    ]);
+    has('public/assets/js/app/components/story-sheet.js', [
+      "title: 'اعمله طلب'", "'تحويل وإصدار كود الملف'", "'فتح الملف والملف المستمر'", "'إرسال الرد وإغلاق الطلب'", "'إغلاق الطلب دون رسالة'", "'إرسال التوجيه وإغلاق الطلب'",
+      "'إرسال الأسئلة'", "'بلّغتها في مكالمة — أغلق بدون رسالة'", "'مقترح'", "'ليه؟ '", 'وصلت رسائل جديدة من المستفيدة بعد فتح الاقتراح. راجعها ثم حاول مرة أخرى، أو تابع رغم ذلك.',
+      "'مراجعة الرسائل'", "'متابعة رغم ذلك'", "'سبق إرسال أسئلة لم تُجب بعد'", "' (إرسال تجريبي)'", 'اختر الآن المحامي', 'أُرسلت الأسئلة — الطلب بانتظار ردها',
+      "'سؤال المحامي المقترح'", "'ملخص الوقائع للمحامين'", "'الملف المستمر'", "'يُفحص تعارض المصالح تلقائيًا'", 'سيُفتح ملف استشارة وملف مستمر مرتبط به في خطوة واحدة.',
+      "'رجّعها للنص التلقائي'", "'الرسالة كما ستصلها'", "'مسودة من الذكاء الاصطناعي — راجعها قبل الإرسال'", '`من الردود الجاهزة: ${', 'force: true', 'story_rev: rev.value',
+    ]);
+    has('public/assets/js/app/components/call-note.js', [
+      "title: 'تسجيل المكالمة'", 'قل: معاكي ${orgName()} بخصوص طلب رقم ${refNumber(code)}. اتأكد إنك بتكلمها هي قبل أي تفاصيل، ولا تذكر الموضوع لغيرها.', "'قل لها:'",
+      "'ما قالته المستفيدة في المكالمة'", "'اكتب كلامها كما قالته قدر الإمكان، بلا تحليل. لا تكتب أرقامًا لا تحتاجها.'",
+      "'اسألها: الرقم ده عليه واتساب؟ لو أكدت أنها صاحبته علّم تأكيد الهوية.'", "'تأكدت أثناء المكالمة أنها صاحبة الرقم المسجل (تأكيد الهوية)'", "'حفظ وتلخيص'",
+      "'حُفظت المكالمة — جارٍ تلخيص الطلب'", 'client_ref: clientRef', "'no_answer', 'busy', 'wrong_number', 'someone_else'",
+    ]);
+    has('public/assets/js/app/components/voice-transcript.js', [
+      "'اكتب ما قالته المستفيدة بكلامها'", "'حفظ النص'", "'الرسالة مش مفهومة'", '`كتبتها ${by} `', '`غير مفهومة — ${by}`', "'تعديل'", "'السرعة:'", "'1.25×'", "'1.5×'", "'حُفظ النص'",
+      'e.ctrlKey || e.metaKey', 'api.put(`/admin/voice-notes/',
+    ]);
+    has('public/assets/js/app/components/split-dialog.js', [
+      "'طلب جديد من رسائل هذا الملف'", "'اختر الرسائل التي تخص المشكلة الجديدة. ستُنقل من محادثة الملف إلى الطلب الجديد ويُلخَّص.'", "'اعمل طلب جديد'", '`أُنشئ الطلب ${',
+      "api.post('/admin/messages/split'",
+    ]);
+    has('public/assets/js/app/components/story-settings.js', [
+      "title: 'القصص الواردة على واتساب'", "'متى يلخّص الذكاء الاصطناعي القصة، والرسائل الآلية التي تصل المستفيدة.'", "'مدة السكوت قبل التلخيص (بالدقائق)'",
+      "'إرسال ترحيب بقائمة المواضيع لأول رسالة على واتساب'", "'إرسال «وصلتنا حكايتك» ورقم الطلب عندما تكتمل القصة'", 'قرار مفتوح 11', "'الرقم الذي نتصل منه بالمستفيدات'",
+      "'يظهر لها بعد طلب المكالمة حتى ترد عليه. اتركه فارغًا لاستخدام رقم المؤسسة.'", "'نتصل خلال (أيام عمل)'", "toast('تم الحفظ'", "el.id = 'stories'",
+    ]);
+    has('public/assets/js/app/pages/admin/settings.js', ["import { storySettingsCard } from '../../components/story-settings.js';", 'siteSettingsCard(settings),\n    storySettingsCard(settings),']);
+    has('public/assets/js/app/pages/admin/simulator.js', ["'إرسال رسالة صوتية تجريبية'", "'إرسال صورة ورقة'", "'خلاص'", "'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.'", "sendQuick('list_reply'"]);
+    has('public/assets/js/app/pages/admin/case-detail.js', ["'اعمل منها طلب جديد'", 'onSplit', 'c.brief_draft']);
+    has('public/assets/js/app/pages/admin/matter-detail.js', ['onSplit: (msg) => openSplitDialog(']);
+  });
+
+  test('T26 helpers: unfilled variables and greeting-only drafts are caught before sending; the split list keeps her recent inbound messages only', async () => {
+    const { unfilledVar } = await import('../public/assets/js/app/components/story-sheet.js');
+    const { isSkeletonReply, refNumber } = await import('../public/assets/js/app/components/call-note.js');
+    const { splittable } = await import('../public/assets/js/app/components/split-dialog.js');
+    assert.equal(unfilledVar('أهلًا {client_name}، …'), '{client_name}');
+    assert.equal(unfilledVar('شوفي صفحتك: {portal_link}'), null, '{portal_link} is filled at send time');
+    assert.equal(isSkeletonReply('أهلًا يا عادل،\n\n— مؤسسة بيوت مصر'), true);
+    assert.equal(isSkeletonReply('أهلًا بيكي،\n\n— مؤسسة بيوت مصر'), true);
+    assert.equal(isSkeletonReply('أهلًا بيكي، لاستخراج إعلام الوراثة نرجو تجهيز شهادة الوفاة.\n— مؤسسة بيوت مصر'), false);
+    assert.equal(refNumber('REQ-2026-00029'), '29');
+    const now = Date.parse('2026-10-08T10:00:00Z');
+    const msgs = [
+      { id: 1, direction: 'in', created_at: '2026-10-07T10:00:00Z', meta: {} },
+      { id: 2, direction: 'out', created_at: '2026-10-07T11:00:00Z', meta: {} },
+      { id: 3, direction: 'in', created_at: '2026-08-01T10:00:00Z', meta: {} },
+      { id: 4, direction: 'in', created_at: '2026-10-07T12:00:00Z', meta: { call_note: true } },
+    ];
+    assert.deepEqual(splittable(msgs, now).map((m) => m.id), [1]);
+  });
+
+  test('T26 drafts never carry {client_name} when her name may not be used (WhatsApp profile name) — «أهلًا بيكي» instead', async () => {
+    await withApp(async (t) => {
+      const p = newPhone();
+      wa(t, p, INFO_STORY, { name: 'Samsung' });
+      t.app.ai.cancelTimers();
+      const i = intakeOf(t, p);
+      const filled = t.app.stories.fill('أهلًا {client_name}، نرجو تجهيز شهادة الوفاة. — {org_name}', rowOf(t, i.id));
+      assert.doesNotMatch(filled, /\{client_name\}|Samsung/);
+      assert.match(filled, /^أهلًا بيكي، نرجو تجهيز شهادة الوفاة/);
+      const w = await webIntake(t, { name: 'أم ريم' });
+      assert.match(t.app.stories.fill('أهلًا {client_name}، تمام.', rowOf(t, w.id)), /^أهلًا أم ريم، تمام\.$/);
+    });
+  });
+});

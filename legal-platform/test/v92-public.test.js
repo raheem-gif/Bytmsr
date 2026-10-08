@@ -669,6 +669,74 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
   });
 });
 
+// ───────────────────────── مراجعة 9.2: أخطاء وُجدت في المراجعة (اختبار لكل إصلاح) ─────────────────────────
+
+describe('v9.2 public — review fixes', () => {
+  const intake = read('public/assets/js/public/intake.js');
+  const formsCss = read('public/assets/css/v91-b-forms.css');
+
+  test('R1. cold /intake from the home page needs ≤ 6 new files (one round on HTTP/1.1): words.js and common.js load after the first screen and before sending', () => {
+    setPublicRoot(PUB);
+    const bare = (u) => u.split('?')[0];
+    const intakeAll = ['/assets/js/public/intake.js', ...preloadClosure(path.join(PUB, 'assets/js/public/intake.js'), PUB).map(bare)];
+    const landingAll = new Set(['/assets/js/public/landing.js', ...preloadClosure(path.join(PUB, 'assets/js/public/landing.js'), PUB).map(bare)]);
+    assert.ok(!intakeAll.some((u) => /\/(words|common)\.js$/.test(u)), intakeAll.join(' '));
+    // ملفات لم تحمّلها الصفحة الرئيسية + v91-b-forms.css (public-site.css والخطوط محمّلة منها)
+    const fresh = intakeAll.filter((u) => !landingAll.has(u)).length + 1;
+    assert.ok(fresh <= 6, `${fresh} new requests before the first question`);
+    assert.ok(!/^import [^\n]*'\.\/(?:words|common)\.js'/m.test(intake));
+    // شاشة النجاح تحتاج words.js: الإرسال ينتظره (مع upload.js) قبل POST، وفشله = «ما اتبعتش… جربي تاني»
+    const send = intake.indexOf('await Promise.all([loadUpload(), loadExtras()]);');
+    assert.ok(send > 0 && send < intake.indexOf("U.sendWithProgress('/api/public/intake'"));
+    assert.match(intake, /loadExtras\(\)\.catch\(\(\) => \{\}\);/, 'loaded in the background after the first screen');
+    // تحميل فشل على نت متقطع لا يُحفظ: «حاولي تاني» تحمّل من جديد
+    assert.match(intake, /\(e\) => \{\s*uploadLoading = null;\s*throw e;/);
+    assert.match(intake, /\(e\) => \{\s*extrasLoading = null;\s*throw e;/);
+    assert.match(intake, /attribution: C\.getAttribution\(\),/);
+    // نسخة whatsappUrl المحلية ترفض الرقم التوضيحي زي common.js
+    assert.match(intake, /d === '201000000000' \? null/);
+  });
+
+  test('R2. a draft on the phone never overrides a new tap on the home page (another topic, or «إحنا نكلمك»)', () => {
+    assert.match(intake, /const first = restored \? tappedOverDraft\(restored\) : entryScreen\(\);/);
+    const fn = intake.slice(intake.indexOf('function tappedOverDraft('), intake.indexOf('// ───────── التهيئة'));
+    assert.match(fn, /params\.get\('mode'\) === 'callback'\) return state\.cbDirect \? screen : entryScreen\(\);/);
+    assert.match(fn, /answers: t\.key === state\.topic \? state\.answers : \{\}/, 'answers of the old topic are dropped');
+    assert.ok(!/description|voiceEls|phone/.test(fn), 'her words, recordings and number stay');
+  });
+
+  test('R3. «كمان سؤالين»: after each answer the focus moves to the next question (not back to the top of the page)', () => {
+    const card = intake.slice(intake.indexOf('function aboutCard('), intake.indexOf('// ───────── الموقع قيد التجهيز'));
+    assert.match(card, /h\('p\.bmf-about-q', \{ tabindex: '-1' \}/);
+    assert.match(card, /if \(i\) body\.firstChild\.focus\(\{ preventScroll: true \}\);/);
+  });
+
+  test('R4. the in-flow listen button is named by its visible words («اسمعي السؤال» included); R5. the call-back time choices are read aloud', () => {
+    assert.ok(!intake.includes('اسمعي الكلام اللي في الصفحة'));
+    assert.match(intake, /if \(speakingNow\) btn\.setAttribute\('aria-label', 'وقّفي الصوت'\);\s*else btn\.removeAttribute\('aria-label'\);/);
+    assert.match(intake, /\.\.\.whenChips\.map\(\(c\) => \(\{ text: c\.textContent, el: c \}\)\),/);
+  });
+
+  test('R6. answer tiles stay ≥ 112px tall on every width (spec P8); only «مش عارفة» is 64px', () => {
+    const css = formsCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    let alone = 0;
+    for (const m of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+      const sels = m[1].split(',').map((s) => s.trim());
+      const h = /min-height:\s*(\d+)px/.exec(m[2]);
+      if (!h || !sels.includes('.bmf-answer')) continue;
+      // قاعدة .bmf-answer وحدها (في أي عرض شاشة، حتى داخل @media) لا تنزل عن 112px
+      if (sels.length === 1) {
+        alone += 1;
+        assert.ok(Number(h[1]) >= 112, `.bmf-answer min-height ${h[1]}px`);
+      }
+    }
+    assert.ok(alone >= 1);
+    assert.match(css, /\.bmf-answer\.bmf-dontknow \{[^}]*min-height: 64px;/);
+    // R7. صف «الرقم مظبوط / اسمعي رقمك» يختفي لما كل أولاده مخفيين (الأبناء المباشرين، مش أيقونة جوه سطر مخفي)
+    assert.match(css, /\.bmf-phone-row:not\(:has\(> :not\(\[hidden\]\)\)\) \{\s*display: none;/);
+  });
+});
+
 // ───────────────────────── بيانات العرض ─────────────────────────
 
 describe('v9.2 public — demo data', () => {

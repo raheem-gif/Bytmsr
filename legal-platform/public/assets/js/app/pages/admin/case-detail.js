@@ -48,6 +48,7 @@ import { partiesCard } from '../../components/parties.js'; // v9 practice
 import { quickReplyPicker, bindQuickReplyShortcuts, insertAtCursor } from '../../components/quick-replies.js'; // v9 messaging
 import { aiReplyButton } from '../../components/ai-reply.js'; // v9 ai
 import { docAiButton, docAiPanel } from '../../components/doc-ai.js'; // v9 ai
+import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
 
@@ -140,9 +141,10 @@ export function textBlock(title, text, { meta, iconName, tone, dir = 'auto' } = 
 
 /**
  * محادثة العميل مع وسوم إضافية: الرسائل الآلية، الرسائل المرتبطة بطلب، وإعادة محاولة الرسائل الفاشلة.
+ * v9.2 (admin-ai): onSplit(message) يضيف لكل رسالة واردة منها (آخر 30 يومًا) «اعمل منها طلب جديد» — للإدارة فقط.
  * @returns {HTMLElement} غلاف قابل للتمرير
  */
-export function messageThread(messages = [], { onRetry, inLabel = 'المستفيد/ة', outLabel = 'المؤسسة' } = {}) {
+export function messageThread(messages = [], { onRetry, inLabel = 'المستفيد/ة', outLabel = 'المؤسسة', onSplit } = {}) {
   const thread = chatThread(messages, { inLabel, outLabel, emptyText: 'لا توجد رسائل بعد' });
   const bubbles = thread.querySelectorAll('.msg');
   messages.forEach((m, i) => {
@@ -163,6 +165,9 @@ export function messageThread(messages = [], { onRetry, inLabel = 'المستف�
           onRetry && asyncButton('إعادة المحاولة', () => onRetry(m), { size: 'sm', variant: 'danger', icon: 'refresh' }),
         ),
       );
+    }
+    if (onSplit && m.direction === 'in' && !meta.call_note && (m.case_id || m.matter_id) && Date.now() - Date.parse(m.created_at || 0) <= 30 * 24 * 3600 * 1000) {
+      extras.push(button('اعمل منها طلب جديد', { variant: 'link', size: 'sm', icon: 'split', className: 'pa-split-action', onClick: () => onSplit(m) }));
     }
     if (extras.length) bubble.append(h('div.pb-msg-extra', extras));
   });
@@ -1571,7 +1576,8 @@ export default async function render(ctx) {
         values: {
           role,
           fee_mode: 'agreement',
-          brief: counsel ? `${label('counsel_kind', counsel.kind)}: ${counsel.description || ''}` : '',
+          // v9.2: سؤال المحامي المقترح عند تحويل القصة (brief_draft) هو نص التكليف الافتراضي لأول محامٍ أساسي
+          brief: counsel ? `${label('counsel_kind', counsel.kind)}: ${counsel.description || ''}` : !activeLead && role === 'lead' && c.brief_draft ? c.brief_draft : '',
         },
         footer: false,
       },
@@ -2645,6 +2651,8 @@ export default async function render(ctx) {
           await api.post(`/admin/messages/${m.id}/retry`);
           await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'conversation' });
         },
+        // v9.2 (admin-ai): مشكلة جديدة كتبتها هنا ← طلب جديد يُلخَّص
+        onSplit: (m) => openSplitDialog({ messages: data.messages, preselectId: m.id }),
       }),
       messageComposer({
         // v9.1 b-site (B91-01): «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»

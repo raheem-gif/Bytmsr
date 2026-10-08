@@ -458,7 +458,66 @@ lawyer.
 ### Administration: from a story to a ready request
 
 <!-- v92:admin-ai -->
-_(filled in by the admin-ai lane.)_
+- **A story, then one summary.** Consecutive WhatsApp messages form one story in state `collecting` («القصة لسه بتتكتب…»)
+  until it is finished: 10 quiet minutes (`story_quiet_minutes`), a whole-message done word («خلاص», «بس كده»…), or staff
+  «لخّصها الآن». Website, phone, walk-in and email requests are ready on arrival. A finished story is summarised **once**
+  (Claude, or the local analyser) into a one-line summary, a recommended **track** (`consultation` | `matter` | `internal` |
+  `refer` | `need_info`) with a reason, and a prefilled draft for every track. Greetings, thanks, stickers, codes, done words,
+  list/button replies and canned call-back lines are not facts (`story_rev` does not move). Schema 78 (`story_*`
+  counters, `voice_transcripts`, `call_attempts`, `clients.name_source`, `cases.brief_draft`) is additive; pre-9.2 rows are
+  "ready and analysed", so an upgrade triggers no AI call and no automated message.
+- **Inbox triage cards** (`#/inbox`, «طريقة العرض»: «بطاقات» by default, «قائمة» = the 9.1 list; the choice is kept in
+  `localStorage` `bm.inbox.view`). Cards mode uses `sort=triage`: call-back requests first, then ready and voice-blocked
+  stories together (priority, then oldest ready first), then «وصل جديد بعد الملخص», then collecting, then awaiting her.
+  One SQL `CASE` (`STORY_VIEW_SQL`) drives the views, filters (`story=callback|ready|collecting|stale|awaiting|voice`),
+  counts and order. Each card: state ribbon, one line, «المقترح: …», «1 لم تُكتب», «رقم غير مؤكد», «محاولات الاتصال: n»,
+  and one primary action (سجّل المكالمة · اسمع الرسالة الصوتية · لخّصها الآن · حلّل الآن · اتصل بها · the track action).
+  The list stays phone-free.
+- **Request page.** First card «تحويل القصة إلى طلب»: summary, «المقترح: …» + «ليه؟» + confidence, warnings
+  (unconfirmed number, out of the 24 h window, untyped or failed voice, voice-only, other open request, local analyser,
+  stale, collecting), primary «اعمله طلب: …», «اختيار مسار آخر», «حدّث الملخص الآن», and a collapsed «قرار يدوي» with the
+  9.1 options. The **story sheet** («اعمله طلب», `components/story-sheet.js`) is one prefilled form per track and one
+  submit: `POST /api/admin/intakes/:id/accept` with `story_rev` (compare-and-set). A 409 `story_changed` shows «مراجعة
+  الرسائل» / «متابعة رغم ذلك» (`force`) inside the sheet; every button is disabled while in flight, so double clicks never
+  duplicate. Drafts with an unfilled variable or only a greeting and signature are refused before sending; names come only
+  from the website form or staff («أهلًا بيكي» otherwise), never from the WhatsApp profile.
+- **Phone first when WhatsApp cannot reach her.** For an unconfirmed website number (track internal/refer/need_info) or a
+  voice-only story the primary action is «اتصل بها»: the call-note dialog shows the opening line («قل: معاكي … بخصوص طلب
+  رقم 29…») and the drafted reply under «قل لها:»; «إرسال لصفحتها فقط» is secondary. Call-back-only requests get a «طلبت
+  مكالمة» card: «سجّل المكالمة» (`POST …/call-note`: a staff-entered `phone` message, ready + summarised at once; the
+  number stays unconfirmed unless staff tick «تأكيد الهوية»), «لم ترد» (`POST …/call-attempt`: لم ترد · مشغول · رقم خطأ ·
+  ردّ شخص آخر), and «إغلاق: تعذّر الوصول إليها» after 3 attempts on 2 different days (`handled_internally` +
+  `resolution_kind='unreachable'`, never archive). «بلّغتها في مكالمة — أغلق بدون رسالة» closes internal/refer with
+  `deliver:'phone'` and a call note.
+- **Voice notes are typed by staff** (`components/voice-transcript.js`): under each voice bubble and in «مستندات الطلب», a
+  player with 1×/1.25×/1.5×, «اكتب ما قالته المستفيدة بكلامها», «حفظ النص» / «الرسالة مش مفهومة» (Ctrl+Enter),
+  `PUT /api/admin/voice-notes/:documentId/transcript`. No audio is ever sent to Claude; an untyped voice story is never
+  sent to Claude. `?focus=voice` lands in the first untyped note.
+- **Split** (`components/split-dialog.js`): «اعمل منها طلب جديد» under her messages on a case or court-file conversation
+  moves the chosen messages (≤ 20, ≤ 30 days) and their documents to a new summarised request
+  (`POST /api/admin/messages/split`, idempotent on `client_ref`; refused when a document is visible to a lawyer).
+- **Settings** «القصص الواردة على واتساب» (`#/settings?section=stories`): quiet minutes, WhatsApp welcome list (8 topic
+  rows), «وصلتنا حكايتك» + request number, call-back number and days. Welcome and ack are **off by default** (on in the
+  demo only); a readiness item in `/system` warns when WhatsApp is connected and the ack is off and links to the toggle.
+  Automated story messages are fixed texts (never AI), `session_only` (never a template, silently skipped outside the
+  24 h window and not counted as failures), `keep_unread`, WhatsApp-first stories only, never to legacy conversations,
+  greeting-only stories, simulated numbers or a client with another open request.
+- **Simulator**: voice note, photo and «خلاص» buttons, the welcome list rows as buttons, the story state after each send.
+- **Cost**: Claude once per finished story (+1 per later batch); a local preview while she writes; a daily cap of 6
+  automatic runs per request (call notes count; «حلّل الآن»/«لخّصها الآن» bypass it, rate-limited); ≤ 3 attempts per
+  revision 10 minutes apart; ≤ 2 concurrent automatic Claude calls.
+- **Security**: every new endpoint is staff-only on the server (settings admin-only) and audited (`ai.story_accepted`
+  security event; activity log for the rest); `POST …/reply` ignores client `meta`. Transcripts, call notes, call attempts,
+  `form_answers` and `brief_draft` are staff-only (never in lawyer views or her page; included in the admin full export).
+- **Demo stories** (phones 01092000201–206): أم مروان (pension, transcript typed by منى السيد, consultation), أم كريم
+  (custody hearing at «محكمة الأسرة بالمطرية», matter, untyped voice note), سعاد (inheritance certificate, quick reply),
+  أم سارة (surgery costs, referral to the foundation's programmes), منى ع. (other, ask her first), أم حسن (still
+  collecting; ready a few minutes after start).
+- **Open decisions (admin-ai)**: turning on the welcome and the ack (after changing the privacy wording «كل رد يصلك
+  يراجعه شخص مختص» to exclude fixed automated messages); the 10-minute quiet period and done words; who returns call-backs,
+  from which number and how fast; outside referral bodies (none shipped); the daily Claude cap (6); the 3-attempts / 2-days
+  rule before «تعذّر الوصول إليها». Deferred to 9.3: speech-to-text drafts, referral and done-word editors, a dashboard
+  «جاهزة للقرار» tile, merging two open requests (9.2 only warns).
 
 ### The foundation's colours («ألوان المؤسسة»)
 

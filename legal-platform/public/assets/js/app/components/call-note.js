@@ -16,6 +16,19 @@ export function newClientRef() {
   return `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * مسودة رد «فارغة»: تحية وتوقيع فقط (المحلل المحلي لا يكتب ردًا حين لا يجد ردًا جاهزًا مناسبًا).
+ * لا تُعرض كنص «قل لها:»، ولا تُرسل قبل أن تكتب الإدارة الرد.
+ */
+export function isSkeletonReply(text) {
+  const body = String(text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !/^—/.test(l))
+    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''));
+  return body.join('').replace(/[^\p{L}]/gu, '').length < 3;
+}
+
 /** رقم الطلب كما تسمعه المستفيدة («طلب رقم 29») */
 export function refNumber(code) {
   const m = /^[A-Z]+-\d{4}-0*(\d+)$/.exec(String(code || ''));
@@ -48,7 +61,7 @@ export function openCallNote({ intake, script = null } = {}) {
       subtitle: intake.code,
       body: frag(
         h('div.pa-call-script', icon('phone', { size: 18 }), h('p', intake.callIntro || callIntroText(intake.code))),
-        script && h('div.pa-call-say', h('strong', 'قل لها:'), h('p.pa-call-say-text', { dir: 'auto' }, script)),
+        script && !isSkeletonReply(script) && h('div.pa-call-say', h('strong', 'قل لها:'), h('p.pa-call-say-text', { dir: 'auto' }, script)),
         intake.phone && h('p.pa-call-phone', h('span', 'رقمها: '), h('a', { href: `tel:${intake.phone}` }, ltr(intake.phone))),
         wrap,
         confirmCb &&

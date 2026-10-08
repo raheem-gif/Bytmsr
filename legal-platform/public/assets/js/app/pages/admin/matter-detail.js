@@ -26,6 +26,7 @@ import {
   progressBar,
 } from '../../../lib/ui.js';
 import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
+import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
 import { docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js'; // v9 ai: تحليل المستندات
 import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
@@ -878,6 +879,7 @@ export default async function render(ctx) {
             await api.post(`/admin/messages/${msg.id}/retry`);
             await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'messages' });
           },
+          onSplit: (msg) => openSplitDialog({ messages, preselectId: msg.id }), // v9.2 admin-ai
         }),
       ),
       messageComposer({

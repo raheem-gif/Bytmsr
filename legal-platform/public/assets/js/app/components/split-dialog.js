@@ -66,6 +66,11 @@ export function openSplitDialog({ messages = [], preselectId = null, onDone } = 
   }
   sync();
 
+  // الرسالة التي ضُغط عليها ظاهرة ومحددة عند الفتح (القائمة بترتيب المحادثة، وهي غالبًا الأحدث)
+  requestAnimationFrame(() => {
+    const on = items.find((li) => li.querySelector('input:checked'));
+    if (on) on.scrollIntoView({ block: 'nearest' });
+  });
   return new Promise((resolve) => {
     modal({
       sheet: true,

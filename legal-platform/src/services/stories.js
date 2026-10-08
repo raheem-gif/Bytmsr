@@ -304,7 +304,10 @@ export function createStories(app) {
     fill(template, intake, extra = {}) {
       const w = svc.words(intake);
       const values = { hello: w.hello, ref_no: w.ref_no, org_name: w.org_name, org_phone: w.org_phone, office_hours: w.office_hours, first_name: w.first_name, client_name: w.first_name, ref: w.ref_number, request_code: intake?.code, ...extra };
-      return app.engine.fillClientText(String(template ?? ''), values, w.form);
+      let text = String(template ?? '');
+      // [S-31] رد جاهز يبدأ «أهلًا {client_name}» واسمها غير مسموح (اسم ملف واتساب): «أهلًا بيك{ي}» بدل متغير يمنع الإرسال
+      if (!w.first_name && !extra.client_name) text = text.replace(/أهل(?:ًا|اً|ا)\s*(?:يا\s*)?\{client_name\}/g, '{hello}').replace(/\s*\{client_name\}/g, '');
+      return app.engine.fillClientText(text, values, w.form);
     },
 
     /**
