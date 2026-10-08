@@ -6,6 +6,30 @@ import { getMeta, toLatinDigits } from '../../../lib/fmt.js';
 import { pageHeader, card, form, kv, badge, button, toast } from '../../../lib/ui.js';
 import { usersAdminSection } from '../../components/account-admin.js';
 import { siteSettingsCard } from '../../components/site-settings.js';
+import { brandSettingsCard } from '../../components/brand-settings.js'; // v9.2 ألوان المؤسسة
+import { storySettingsCard } from '../../components/story-settings.js'; // v9.2 القصص الواردة على واتساب (admin-ai)
+
+/**
+ * v9.2: ‎#/settings?section=<id>‎ يمرّر الصفحة إلى البطاقة التي تحمل هذا المعرّف ويضع التركيز على عنوانها
+ * (‎section=brand‎ لألوان المؤسسة، ‎section=stories‎ لإعدادات القصص، وأي بطاقة أخرى بمعرّف).
+ */
+function focusSection(section) {
+  if (typeof section !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(section)) return;
+  let tries = 0;
+  const go = () => {
+    const el = document.getElementById(section);
+    if (!el || !el.isConnected) {
+      tries += 1;
+      if (tries < 60) setTimeout(go, 50);
+      return;
+    }
+    const heading = el.querySelector('h2, h3') || el;
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    el.scrollIntoView({ block: 'start' });
+    heading.focus({ preventScroll: true });
+  };
+  setTimeout(go, 0);
+}
 
 /** حالة واتساب: «متصل» فقط بعد اختبار اتصال ناجح لبيانات الاعتماد الحالية (يحسبها الخادم في whatsapp_status) */
 function waStatusBadge(integ) {
@@ -188,6 +212,8 @@ export default async function render(ctx) {
   // ───────────── المستخدمون (وحدة accounts: الحسابات، الدعوات المعلقة، سياسة الأمان) ─────────────
   const usersSection = usersAdminSection({ me });
 
+  focusSection(ctx.query && ctx.query.section); // v9.2
+
   return frag(
     pageHeader({
       title: 'الإعدادات والمستخدمون',
@@ -195,7 +221,9 @@ export default async function render(ctx) {
       breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الإعدادات والمستخدمون' }],
     }),
     card({ title: 'إعدادات المؤسسة', subtitle: 'تظهر للمستفيدين في الموقع وصفحة المتابعة ورسائل واتساب', icon: 'settings', body: orgForm.el }),
+    me.role === 'admin' ? brandSettingsCard({ user: me }) : null, // v9.2: بعد «إعدادات المؤسسة»، لمدير النظام وحده
     siteSettingsCard(settings),
+    storySettingsCard(settings),
     integrationsCard,
     usersSection,
   );

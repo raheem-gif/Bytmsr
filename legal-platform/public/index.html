@@ -15,32 +15,20 @@
     {{{header}}}
 
     <main id="main" tabindex="-1">
-      <!-- الشاشة الأولى (B91-07): مجاني وسري قبل أي شيء، وزر واحد أساسي -->
-      <section class="pub-hero" aria-labelledby="hero-title">
-        <div class="pub-container pub-hero-inner">
-          <div class="pub-hero-main" data-hero>
-            <h1 id="hero-title">حقُّك لن يضيع، <em>ونحن معك</em> حتى تصل إليه</h1>
-            <p class="pub-hero-sub">مساعدة قانونية للأرامل وأسر الأيتام، من {{org_name}}.</p>
-            <ul class="pub-hero-checks">
-              <li>{{{icon_check}}}<span><b>مجانًا.</b> محدش هيطلب منك فلوس.</span></li>
-              <li>{{{icon_check}}}<span><b>سرّي.</b> المحامي مش بيشوف رقمك.</span></li>
-              <li>{{{icon_check}}}<span>مش لازم تعرفي أي كلام قانوني.</span></li>
-            </ul>
-            <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake" data-cta="intake" data-hero-cta>احكيلنا مشكلتك</a>
-            {{{contact_buttons}}}
-            <!--#if office_hours_line--><p class="pub-hero-hours">{{office_hours_line}}</p><!--/if office_hours_line-->
-          </div>
-          <div class="pub-hero-art" aria-hidden="true">{{{brand_mark}}}</div>
+      <!-- v9.2 (P4): الشاشة الأولى = السؤال + 8 مربعات بصورة وكلمة + «إحنا نكلمك / واتساب / طلبك فين؟». كلام محايد (أسماء لا أفعال) -->
+      <section id="start" class="pub-start" aria-labelledby="start-title" data-prefetch="{{prefetch_urls}}" data-say-intro="أهلًا بيكم. مشكلتكم في إيه؟ اضغطوا على الصورة." data-say-outro="{{start_say_outro}}">
+        <div class="pub-container">
+          <div class="pub-start-head"><h1 id="start-title"><span class="pub-sr">مساعدة قانونية مجانية من {{org_name}}. </span>مشكلتك في إيه؟</h1>
+            <button type="button" class="pub-listen" id="start-listen" hidden aria-pressed="false" aria-label="اسمعوا الكلام اللي في الصفحة"><svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg><span>بالصوت</span></button>
+            <p class="pub-start-badge">{{{icon_lock}}}<b>مجاني وسرّي</b></p></div>
+          {{{start_tiles}}}
+          {{{ways_tiles}}}
+          <p class="pub-start-trust">{{{icon_lock}}}<span><b>مجاني وسرّي.</b> المحامي مش بيشوف رقمك.</span></p>
+          <!--#if office_hours_line--><p class="pub-start-hours">{{office_hours_line}}</p><!--/if office_hours_line-->
         </div>
       </section>
 
       <link rel="stylesheet" href="/assets/css/public-site.css" />
-      <div class="pub-container pub-returning-wrap" data-returning-wrap>
-        <a class="pub-returning" href="/portal" data-returning>
-          <span><strong>قدّمتي طلب قبل كده؟</strong> تابعيه من هنا</span>
-          <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-        </a>
-      </div>
 
       <!-- 1) بنساعد في إيه؟ -->
       <section id="services" class="pub-section" aria-labelledby="services-title">
@@ -118,11 +106,19 @@
           <div class="pub-panel">
             <h2 id="contact-title" class="pub-h2">كلمينا</h2>
             {{{contact_list}}}
+            <!-- v9.2: زرا الاتصال وواتساب (كانا في البطل) هنا في «كلمينا» -->
+            {{{contact_buttons}}}
           </div>
           <div class="pub-final-cta">
             <h2 id="final-title">جاهزين نسمعك</h2>
             <p>برسالة صوتية أو كتابة. مش لازم تعرفي أي كلام قانوني.</p>
+            <!-- v9.2: مكالمة مجانية لمن لا تريد أن تحكي هنا، ومتابعة طلب قديم (كانت تحت الشاشة الأولى في 9.1) -->
+            <a class="pub-btn pub-btn-outline" href="/intake?mode=callback" data-cta="intake">{{{icon_phone}}}<span>سيبي رقمك وإحنا نكلمك</span></a>
             <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
+            <a class="pub-returning" href="/portal">
+              <span><strong>قدّمتي طلب قبل كده؟</strong> تابعيه من هنا</span>
+              <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            </a>
           </div>
         </div>
       </section>

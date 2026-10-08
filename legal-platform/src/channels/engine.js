@@ -9,6 +9,10 @@ import { sha256, latinDigits, normalizePhone, addressName, addressForm, genderiz
 import { CODE_PREFIX, LABELS } from '../constants.js';
 import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site
 import { parseWebhook, sourceFromReferral } from './whatsapp.js';
+// v9.2 (admin-ai): حالة القصة والموضوع وكلمة «خلاص» والرسائل الآلية للقصص
+import { normalizeArabic, conflict } from '../util.js';
+import { STORY_AUTO_RULES } from '../constants.js';
+import { topicByKey, topicFromWaPrefill } from '../../public/assets/js/public/topics.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
 // v9.1 b-site: «… وكود التأكيد 482913» في رسالة واتساب الجاهزة من شاشة نجاح الطلب (يقبل الأرقام العربية)
@@ -64,7 +68,83 @@ export function stripIdentityConfirm(text) {
 /** نص رسالة واردة كما يدخل التحليل والوقائع: رسالة تأكيد الرقم بلا رقم الطلب والكود */
 export function factsText(body, meta) {
   const m = typeof meta === 'string' ? parseJson(meta, {}) : meta || {};
+  // v9.2 (S-07/S-08): «عايزة حد يكلمني — الصبح» جملة جاهزة وليست من وقائع الطلب
+  if (isCannedCallback(m, body)) return '';
   return m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? '');
+}
+
+// ───────────── v9.2 (admin-ai): القصة — ما يُعد «وقائع» وما يعني «خلصت حكايتي» ─────────────
+
+/**
+ * طلب مكالمة بلا حكاية: الجملة الجاهزة من الموقع («عايزة حد يكلمني — الصبح» / «محتاجين حد يكلمنا — …»)
+ * أو من زر «اطلبي مكالمة» في صفحة المتابعة. لا تُحلَّل ولا تُعد من الوقائع.
+ */
+export function isCannedCallback(meta, body) {
+  const m = typeof meta === 'string' ? parseJson(meta, {}) : meta || {};
+  return m?.callback_canned === true || (!!m?.callback && /^(عايزة? حد يكلمني|محتاجين حد يكلمنا) — /.test(String(body ?? '')));
+}
+
+/** توحيد كلمة «خلاص» للمقارنة: حروف ومسافات فقط، وبلا «شكرا» في أولها أو آخرها */
+function doneKey(text) {
+  return normalizeArabic(String(text ?? ''))
+    .replace(/[^\p{L}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^شكرا(?:\s+|$)/, '')
+    .replace(/(?:^|\s+)شكرا$/, '')
+    .trim();
+}
+
+/** هل الرسالة كلها كلمة «خلاص» (أو ما يشبهها من الإعدادات)؟ «خلاص جوزي طلقني» ليست كذلك (مطابقة الرسالة كاملة فقط) */
+export function isDoneWord(text, words) {
+  const k = doneKey(text);
+  if (!k) return false;
+  if ((k.match(/\p{L}/gu) || []).length > 25) return false;
+  return (Array.isArray(words) ? words : []).some((w) => doneKey(w) === k);
+}
+
+// تحيات وافتتاحيات وشكر لا تضيف وقائع (بعد normalizeArabic؛ الأطول أولًا)
+const NON_STORY_PHRASES = [
+  'السلام عليكم ورحمه الله وبركاته', 'السلام عليكم ورحمه الله', 'السلام عليكم', 'سلام عليكم', 'وعليكم السلام ورحمه الله وبركاته',
+  'وعليكم السلام', 'صباح الخير', 'مساء الخير', 'صباح النور', 'مساء النور', 'اهلا وسهلا', 'اهلا', 'مرحبا', 'ازيكم', 'ازيك',
+  'لو سمحتوا', 'لو سمحتي', 'لو سمحت', 'ممكن سؤال', 'استفسار', 'عايزه اعرف اكتر', 'عايز اعرف اكتر', 'عاوزه اعرف اكتر', 'عاوز اعرف اكتر',
+  'شكرا جزيلا', 'شكرا', 'متشكرين', 'متشكره', 'متشكر', 'ربنا يخليكم', 'ربنا يخليك', 'جزاكم الله خيرا', 'جزاكم الله خير',
+].sort((a, b) => b.length - a.length);
+
+/** نص الرسالة بعد حذف التحيات والشكر وكلمات «خلاص» وأرقام الطلبات وأكواد التأكيد والملصقات والرموز */
+export function storyWords(text, doneWords = []) {
+  let s = latinDigits(String(text ?? ''))
+    .replace(/REQ-\d{4}-\d{5}/gi, ' ')
+    .replace(/كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g, ' ')
+    .replace(/\[ملصق\]/g, ' ');
+  s = ` ${normalizeArabic(s).replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()} `;
+  const phrases = [...NON_STORY_PHRASES, ...(Array.isArray(doneWords) ? doneWords.map(doneKey).filter(Boolean) : [])].sort((a, b) => b.length - a.length);
+  for (const p of phrases) {
+    const needle = ` ${p} `;
+    while (s.includes(needle)) s = s.replace(needle, ' ');
+  }
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * [R2-A3] هل تضيف هذه الرسالة الواردة شيئًا إلى القصة (فترفع story_rev)؟
+ * نعم: مرفق صوت/صورة/مستند/فيديو أو موقع جغرافي، أو حرف واحد على الأقل بعد حذف التحيات والشكر و«خلاص» والأكواد.
+ * لا أبدًا: كود التأكيد وحده، طلب المكالمة الجاهز، «خلاص»، موضوع اختارته من القائمة أو من رسالة الموقع الجاهزة،
+ * أزرار evt:/svy:/topic:، والرد على موعد أو مصاريف.
+ * ctx: { meta, confirmOnly, doneWords }
+ */
+export function isFactual(msg, text, ctx = {}) {
+  const meta = ctx.meta || {};
+  const replyId = String(msg?.reply?.id || '');
+  if (ctx.confirmOnly) return false;
+  if (isCannedCallback(meta, text)) return false;
+  if (meta.story_done || meta.topic_prefill) return false;
+  if (/^(evt|svy|topic):/.test(replyId)) return false;
+  if (meta.invoice_response || meta.event_response) return false;
+  const kinds = (msg?.attachments || []).map((a) => a?.kind || (/^audio\//.test(String(a?.mime || '')) ? 'audio' : /^image\//.test(String(a?.mime || '')) ? 'image' : 'document'));
+  if (kinds.some((k) => ['audio', 'image', 'document', 'video'].includes(k))) return true;
+  if (msg?.type === 'location') return true;
+  return /\p{L}/u.test(storyWords(meta.identity_confirm ? stripIdentityConfirm(text) : text, ctx.doneWords));
 }
 
 /**
@@ -319,10 +399,15 @@ export function createEngine(app) {
     receive(msg) {
       if (!LABELS.channel[msg.channel]) throw badRequest('قناة غير معروفة');
       const text = String(msg.text ?? '').slice(0, 20000);
+      // v9.2 [R2-A6/S-28]: كلام المستفيدة كما سجلته الإدارة (مكالمة، أو رسائل نُقلت إلى طلب جديد): بلا مطابقة استبيان
+      // ولا رقم طلب ولا كود تأكيد، وبلا غير مقروء ولا قنوات ولا «رسالة جديدة»؛ ومفتاح منع التكرار إلزامي
+      const staffEntry = msg.staff_entry === true;
+      if (staffEntry && !msg.external_id) throw badRequest('مفتاح منع التكرار مطلوب');
+      const doneWords = app.settings?.get('story_done_words');
       const result = db.tx(() => {
         if (msg.external_id) {
           const dup = db.get('SELECT id, intake_id, case_id, client_id FROM messages WHERE channel = ? AND external_id = ?', msg.channel, msg.external_id);
-          if (dup) return { duplicate: true, message_id: dup.id };
+          if (dup) return { duplicate: true, message_id: dup.id, intake_id: dup.intake_id ?? null };
         }
         const t = nowIso();
         // 1) تحديد العميل
@@ -332,6 +417,8 @@ export function createEngine(app) {
           client = app.clients.require(msg.portal_client_id);
         } else {
           if (!msg.from_phone && !msg.from_email) throw badRequest('لا يمكن تحديد المرسل: رقم الهاتف أو البريد مطلوب');
+          // v9.2 [R2-B21]: مصدر الاسم (اسم ملف واتساب لا يُستخدم في الرسائل الآلية: غالبًا اسم ابنها أو «Samsung»)
+          const prior = msg.from_phone ? app.clients.findByPhone(msg.from_phone) : null;
           const r = app.clients.resolveOrCreate({
             phone: msg.from_phone,
             email: msg.from_email,
@@ -343,6 +430,11 @@ export function createEngine(app) {
           });
           client = r.client;
           createdClient = r.created;
+          if (msg.contact_name && client.name === msg.contact_name && (createdClient || (prior && !prior.name))) {
+            const source = msg.channel === 'whatsapp' ? 'whatsapp_profile' : msg.channel === 'website' ? 'website' : 'staff';
+            db.run('UPDATE clients SET name_source = ? WHERE id = ?', source, client.id);
+            client = app.clients.get(client.id);
+          }
         }
 
         // المرسل موثّق: واتساب يثبت ملكية الرقم، ورابط البوابة الكامل يصدره الموظفون للعميل نفسه.
@@ -351,7 +443,7 @@ export function createEngine(app) {
 
         // 1-ب) رد على استبيان الرضا (زر أو رقم من 1 إلى 5 أو تعليق بعد تقييم منخفض):
         // يُسجَّل تقييمًا في ملفه بدل أن يفتح طلبًا جديدًا أو يُنبّه الإدارة برسالة «جديدة»
-        const surveyMatch = app.messaging?.matchSurveyReply?.(client, msg, text, { verifiedSender });
+        const surveyMatch = staffEntry ? null : app.messaging?.matchSurveyReply?.(client, msg, text, { verifiedSender });
         if (surveyMatch) {
           const sc = surveyMatch.caseRow;
           const smeta = { survey_id: surveyMatch.survey.id, survey_reply: surveyMatch.kind };
@@ -393,7 +485,7 @@ export function createEngine(app) {
         let confirmOutcome = null; // v9.1 b-site: نتيجة كود التأكيد في رسالة واتساب
         let confirmedIntake = null;
         // v9.1 b-site: رقم الطلب يُقبل بالأرقام العربية أيضًا («REQ-٢٠٢٦-٠٠٠٢٩») مثل كود التأكيد
-        const m = REF_RE.exec(latinDigits(text));
+        const m = staffEntry ? null : REF_RE.exec(latinDigits(text));
         // v9.1 fixes: رسالة تأكيد الرقم الجاهزة (رقم الطلب + كود التأكيد) تُعلَّم فلا تدخل وقائع الطلب ولا تحليله ولا معاينته
         const confirmLike = msg.channel === 'whatsapp' && !!m && CONFIRM_CODE_RE.test(latinDigits(text));
         if (m && !verifiedSender) mentionedRef = `REQ-${m[1]}-${m[2]}`;
@@ -475,6 +567,11 @@ export function createEngine(app) {
             contact_name: msg.contact_name || client.name || null,
             contact_phone: msg.from_phone || app.clients.primaryPhone(client.id),
             governorate: msg.governorate || client.governorate || null,
+            // v9.2: قصة واتساب «تُكتب» حتى تكتمل (سكوت أو «خلاص» أو «لخّصها الآن»)؛ الموقع والإدارة قصة كاملة من البداية
+            story_state: msg.channel === 'whatsapp' ? 'collecting' : 'ready',
+            story_ready_at: msg.channel === 'whatsapp' ? null : t,
+            story_ready_via: msg.channel === 'whatsapp' ? null : msg.channel === 'website' ? 'website' : 'staff_entry',
+            topic: topicByKey(msg.topic)?.key || null,
             created_at: t,
             updated_at: t,
           });
@@ -504,6 +601,27 @@ export function createEngine(app) {
         }
         // نعتمد وقت الاستلام في الخادم للترتيب، ونحفظ توقيت المزوّد للرجوع إليه
         if (msg.timestamp) meta.provider_timestamp = msg.timestamp;
+        // ── v9.2 (admin-ai): الموضوع من قائمة واتساب أو من رسالة الموقع الجاهزة، و«خلاص»، والوسائط ──
+        const listTopic = /^topic:([a-z_]+)$/.exec(String(msg.reply?.id || ''))?.[1] || null;
+        if (listTopic && topicByKey(listTopic)?.key === listTopic) meta.topic = listTopic;
+        else if (!staffEntry && msg.channel === 'whatsapp' && createdIntake) {
+          const pre = topicFromWaPrefill(text);
+          if (pre) {
+            meta.topic = pre;
+            meta.topic_prefill = true;
+          }
+        }
+        if (!staffEntry && !msg.reply?.id && isDoneWord(text, doneWords)) meta.story_done = true;
+        if ((msg.attachments || []).length) {
+          meta.media = msg.attachments.map((a) => ({
+            kind: a.kind || (/^audio\//.test(String(a.mime || '')) ? 'audio' : /^image\//.test(String(a.mime || '')) ? 'image' : 'document'),
+            media_id: a.media_id || null,
+            mime: a.mime || null,
+          }));
+        }
+        // رسالة تأكيد الرقم وحدها (رقم الطلب + الكود بلا كلام آخر) لا تضيف وقائع
+        const confirmOnly = confirmLike && !stripIdentityConfirm(text).replace(/[\s،,.!؟?]/g, '') && !(msg.attachments || []).length;
+        const factual = isFactual(msg, text, { meta, confirmOnly, doneWords });
         const messageId = db.insert('messages', {
           client_id: client.id,
           intake_id: intake?.id ?? null,
@@ -536,28 +654,51 @@ export function createEngine(app) {
         }
 
         // 6) تحديث العدادات والحالة
+        let storyOpen = false;
         if (intake) {
           const chans = parseJson(intake.channels, []);
           if (!chans.includes(msg.channel)) chans.push(msg.channel);
+          const status =
+            intake.status === 'awaiting_client' ||
+            (msg.target_intake_id && ['handled_internally', 'archived'].includes(intake.status) && !isUnverifiedIntake(intake))
+              ? 'in_review'
+              : intake.status;
           db.update('intakes', intake.id, {
             last_message_at: t,
-            last_inbound_at: t,
-            last_channel: msg.channel,
-            channels: JSON.stringify(chans),
-            unread_count: (intake.unread_count || 0) + 1,
+            // v9.2 [S-28]: ما تسجله الإدارة لا يغيّر قنوات المستفيدة ولا «غير المقروء» ولا وقت آخر رسالة منها
+            last_inbound_at: staffEntry ? undefined : t,
+            last_channel: staffEntry ? undefined : msg.channel,
+            channels: staffEntry ? undefined : JSON.stringify(chans),
+            unread_count: staffEntry ? undefined : (intake.unread_count || 0) + 1,
             // رسالة البوابة تعيد طلبًا منتهيًا للفرز، إلا إذا كان طلبًا غير موثّق الهوية فيبقى كما أغلقته الإدارة
-            status:
-              intake.status === 'awaiting_client' ||
-              (msg.target_intake_id && ['handled_internally', 'archived'].includes(intake.status) && !isUnverifiedIntake(intake))
-                ? 'in_review'
-                : intake.status,
+            status,
             updated_at: t,
           });
+          storyOpen = !caseRow && ['new', 'in_review', 'awaiting_client'].includes(status);
+          // v9.2 [R2-A3]: رسالة تضيف وقائع ترفع رقم مراجعة القصة؛ وعلى طلب قائم تعيد القصة إلى «تُكتب» (إلا ما سجلته الإدارة)
+          if (factual && storyOpen) {
+            if (staffEntry) {
+              db.run(
+                "UPDATE intakes SET story_rev = story_rev + 1, analysis_attempts = 0, story_state = 'ready', story_ready_at = ?, story_ready_via = 'staff_entry' WHERE id = ?",
+                t,
+                intake.id,
+              );
+            } else if (createdIntake) {
+              db.run('UPDATE intakes SET story_rev = story_rev + 1, analysis_attempts = 0 WHERE id = ?', intake.id);
+            } else {
+              db.run("UPDATE intakes SET story_rev = story_rev + 1, analysis_attempts = 0, story_state = 'collecting', story_ready_at = NULL WHERE id = ?", intake.id);
+            }
+          }
+          // v9.2: الموضوع الذي اختارته من القائمة (أو من رسالة الموقع الجاهزة) تلميح للإدارة والتحليل، ومجاله إن لم يُحدد
+          if (meta.topic && storyOpen) {
+            const tp = topicByKey(meta.topic);
+            db.run('UPDATE intakes SET topic = ?, legal_area = COALESCE(legal_area, ?) WHERE id = ?', tp.key, tp.area || null, intake.id);
+          }
         }
-        if (caseRow) {
+        if (caseRow && !staffEntry) {
           db.run('UPDATE cases SET unread_count = unread_count + 1, updated_at = ? WHERE id = ?', t, caseRow.id);
         }
-        if (!createdIntake) {
+        if (!createdIntake && !staffEntry) {
           app.activity.log({
             intake_id: intake?.id,
             case_id: caseRow?.id,
@@ -624,6 +765,16 @@ export function createEngine(app) {
           confirmed_intake: confirmedIntake,
           confirm_outcome: confirmOutcome,
           identity_confirm: confirmLike,
+          // v9.2 (admin-ai): ما تحتاجه stories.afterInbound بعد الحفظ
+          story: {
+            factual,
+            open: storyOpen,
+            done: !!meta.story_done,
+            topic: meta.topic || null,
+            topic_prefill: !!meta.topic_prefill,
+            staff_entry: staffEntry,
+            mentioned_ref: meta.mentioned_ref || null,
+          },
         };
       });
       // v9.1 b-site (B91-01): ردّ واتساب فوري بعد تأكيد الرقم برابط صفحتها (نطاق الرقم نفسه، مثل الدخول برمز)
@@ -653,22 +804,25 @@ export function createEngine(app) {
         }
       }
       if (!result.duplicate) {
-        // تحليل الذكاء الاصطناعي للطلبات التي لم تتحول بعد إلى ملفات (مؤجل قليلًا لتجميع الرسائل المتتابعة)
-        // (v9.1 fixes: رسالة تأكيد الرقم وحدها لا تضيف وقائع، فلا تعيد التحليل)
-        const onlyConfirm = result.identity_confirm && !stripIdentityConfirm(msg.text).replace(/[\s،,.!؟?]/g, '') && !(msg.attachments || []).length;
-        if (result.intake && !result.caseRow && result.intake.status !== 'converted' && !onlyConfirm) {
-          app.ai.scheduleIntakeAnalysis(result.intake.id);
-        }
-        // تنزيل وسائط واتساب في الخلفية
+        // تنزيل وسائط واتساب في الخلفية (عينات المحاكي في الوضع التجريبي تُحفظ فورًا)
         const pendingMedia = (msg.attachments || []).filter((a) => a.media_id);
         if (pendingMedia.length) engine.fetchWhatsAppMedia(result, pendingMedia).catch((e) => app.log('media', e));
+        // v9.2 [R2-A14]: القصة (العدادات، «خلاص»، الترحيب، جدولة الملخص) بعد الحفظ؛ لا تُسقط استقبال الرسالة أبدًا.
+        // (تحل محل app.ai.scheduleIntakeAnalysis المباشر: الجدولة الآن في app.stories حسب حالة القصة وقواعد التكلفة)
+        try {
+          app.stories?.afterInbound(result, msg);
+        } catch (e) {
+          app.log('stories.afterInbound failed', e);
+        }
       }
       return result;
     },
 
     async fetchWhatsAppMedia(result, items) {
       for (const a of items) {
-        if (!app.whatsapp.configured) {
+        // v9.2 (A92-22): عينات المحاكي في الوضع التجريبي فقط (رسالة صوتية وصورة ورقة) من ملفات البيانات التجريبية
+        const sim = config.demo ? /^SIM-SAMPLE-(VOICE|PHOTO)$/.exec(String(a.media_id || '')) : null;
+        if (!sim && !app.whatsapp.configured) {
           db.run(
             "UPDATE messages SET meta = json_set(meta, '$.pending_media', json(?)) WHERE id = ?",
             JSON.stringify(items.map((x) => ({ media_id: x.media_id, kind: x.kind, mime: x.mime }))),
@@ -677,10 +831,19 @@ export function createEngine(app) {
           return;
         }
         try {
-          const { buffer, mime } = await app.whatsapp.downloadMedia(a.media_id);
-          const ext = { image: 'jpg', audio: 'ogg', video: 'mp4', document: 'pdf' }[a.kind] || 'bin';
+          let file;
+          if (sim) {
+            const voice = sim[1] === 'VOICE';
+            const name = voice ? 'v91-voice-note.webm' : 'v91-death-certificate.jpg';
+            const buffer = fs.readFileSync(new URL(`../seed-assets/${name}`, import.meta.url));
+            file = { filename: voice ? `audio-${a.media_id}.webm` : `image-${a.media_id}.jpg`, mime: voice ? 'audio/webm' : 'image/jpeg', buffer };
+          } else {
+            const { buffer, mime } = await app.whatsapp.downloadMedia(a.media_id);
+            const ext = { image: 'jpg', audio: 'ogg', video: 'mp4', document: 'pdf' }[a.kind] || 'bin';
+            file = { filename: a.filename || `${a.kind}-${a.media_id}.${ext}`, mime: a.mime || mime, buffer };
+          }
           app.documents.save(
-            { filename: a.filename || `${a.kind}-${a.media_id}.${ext}`, mime: a.mime || mime, buffer },
+            file,
             {
               client_id: result.client.id,
               intake_id: result.intake?.id,
@@ -689,8 +852,19 @@ export function createEngine(app) {
             },
             { kind: 'client' },
           );
+          // v9.2 [R2-A2]: نجح التنزيل (أو إعادة المحاولة) ← لم تعد الرسالة «معلقة» ولا «فاشلة»
+          db.run("UPDATE messages SET meta = json_remove(meta, '$.media_failed', '$.pending_media') WHERE id = ?", result.message_id);
         } catch (e) {
           app.log('whatsapp media download failed', e);
+          // v9.2 [R2-A2]: فشل تنزيل الوسائط يجعل القصة «فيها رسالة صوتية لم تُسمع» بدل أن تُحلَّل ناقصة
+          db.run("UPDATE messages SET meta = json_set(meta, '$.media_failed', 1) WHERE id = ?", result.message_id);
+        }
+        if (result.intake?.id) {
+          try {
+            app.stories?.recompute(result.intake.id);
+          } catch (e) {
+            app.log('stories.recompute failed', e);
+          }
         }
       }
     },
@@ -784,7 +958,7 @@ export function createEngine(app) {
      * attachments: معرفات مستندات تُرفق بالرسالة (تظهر للعميل في البوابة وللإدارة في المحادثة).
      * @returns {object} صف الرسالة
      */
-    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [], unconfirmed = null }) {
+    sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [], unconfirmed = null, keep_unread = false }) {
       if (!body || !String(body).trim()) throw badRequest('نص الرسالة فارغ');
       const client = app.clients.require(client_id);
       const story = { clientId: client.id, intakeId: intake_id, caseId: case_id, matterId: matter_id };
@@ -797,7 +971,8 @@ export function createEngine(app) {
       const ch = engine.pickChannel(client.id, channel || 'auto', story);
       const to = ch === 'whatsapp' ? storyPhone(client.id, storyIntake(story)) : null;
       const row = engine.record({ client_id: client.id, intake_id, case_id, matter_id, channel: ch, to, body, author, automated, rule, meta, attachments });
-      if (intake_id) db.update('intakes', intake_id, { last_message_at: row.created_at, unread_count: 0, updated_at: row.created_at });
+      // v9.2 (S-11): الرسائل الآلية للقصص (ترحيب، «وصلتنا حكايتك») لا تجعل رسالتها «مقروءة» عند الإدارة
+      if (intake_id) db.update('intakes', intake_id, { last_message_at: row.created_at, unread_count: keep_unread ? undefined : 0, updated_at: row.created_at });
       return row;
     },
 
@@ -835,10 +1010,20 @@ export function createEngine(app) {
       for (const docId of docIds) {
         db.run('INSERT OR IGNORE INTO message_attachments (message_id, document_id, created_at) VALUES (?, ?, ?)', id, docId, t);
       }
+      // v9.2 [R2-A20]: الرسائل الآلية لقصة بدأت من المحاكي (wamid.SIM.…) لا تُرسل لميتا أبدًا حتى مع ضبط واتساب
+      const simulatedStory =
+        channel === 'whatsapp' &&
+        automated &&
+        STORY_AUTO_RULES.includes(rule) &&
+        !!intake_id &&
+        !!db.get(
+          "SELECT 1 FROM messages WHERE id = (SELECT MIN(id) FROM messages WHERE intake_id = ? AND direction = 'in') AND external_id LIKE 'wamid.SIM.%'",
+          intake_id,
+        );
       if (channel === 'whatsapp') {
         if (!to) {
           db.update('messages', id, { status: 'failed', error: 'لا يوجد رقم هاتف مسجل لهذا العميل للإرسال عبر واتساب' });
-        } else if (!app.whatsapp.configured) {
+        } else if (!app.whatsapp.configured || simulatedStory) {
           db.update('messages', id, { status: 'simulated', sent_at: t });
         } else if (engine.dryRun) {
           // معاينة (مثل «كم رسالة ستُرسل لو شُغلت القواعد الآن؟»): تُسجَّل داخل معاملة تُلغى، ولا تُرسل أبدًا
@@ -860,6 +1045,11 @@ export function createEngine(app) {
       const meta = parseJson(msg.meta, {});
       const wa = meta.wa || {};
       const inWindow = engine.inWindow(msg.client_id);
+      // v9.2 [R2-A19]: رسالة آلية للقصة خارج نافذة الـ 24 ساعة لا تتحول لقالب أبدًا: تفشل بهدوء (بلا تنبيه للإدارة ولا إعادة)
+      if (wa.session_only && !inWindow) {
+        db.update('messages', msg.id, { status: 'failed', error: 'انتهت نافذة الـ 24 ساعة قبل الإرسال؛ لم تُرسل الرسالة الآلية' });
+        return;
+      }
       try {
         let wamid;
         let via;
@@ -883,6 +1073,10 @@ export function createEngine(app) {
           const mediaId = await app.whatsapp.uploadMedia({ buffer: fs.readFileSync(abs), mime: doc.mime, filename: doc.filename });
           wamid = await app.whatsapp.sendDocument(msg.to_address, { mediaId, filename: doc.filename, caption: wa.caption || null });
           via = 'document';
+        } else if (wa.type === 'list' && inWindow && Array.isArray(wa.sections) && wa.sections.length) {
+          // v9.2 (A92-05): قائمة المواضيع (ترحيب واتساب) داخل النافذة فقط
+          wamid = await app.whatsapp.sendList(msg.to_address, { header: wa.header, text: wa.text || msg.body, footer: wa.footer, button: wa.button, sections: wa.sections });
+          via = 'interactive';
         } else if (wa.type === 'buttons' && inWindow && Array.isArray(wa.buttons) && wa.buttons.length) {
           wamid = await app.whatsapp.sendButtons(msg.to_address, renderLinks(msg, wa.text || meta.wa_text || msg.body), wa.buttons, { footer: wa.footer });
           via = 'interactive';
@@ -935,6 +1129,8 @@ export function createEngine(app) {
       if (!msg || msg.direction !== 'out') throw notFound('الرسالة غير موجودة');
       if (msg.status !== 'failed') throw badRequest('يمكن إعادة إرسال الرسائل الفاشلة فقط');
       if (parseJson(msg.meta, {}).wa?.type === 'otp') throw badRequest('لا يُعاد إرسال رموز الدخول؛ يطلب العميل رمزًا جديدًا من صفحة البوابة');
+      // v9.2 [R2-A19]: الرسائل الآلية المرتبطة بالنافذة (ترحيب، «وصلتنا حكايتك») لا يُعاد إرسالها
+      if (parseJson(msg.meta, {}).wa?.session_only) throw conflict('رسالة آلية مرتبطة بنافذة الـ 24 ساعة؛ لا يُعاد إرسالها');
       db.update('messages', msg.id, { status: 'queued', error: null });
       if (!app.whatsapp.configured) db.update('messages', msg.id, { status: 'simulated', sent_at: nowIso() });
       else engine.dispatch(msg.id).catch((e) => app.log('dispatch', e));

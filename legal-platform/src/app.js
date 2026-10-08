@@ -49,6 +49,11 @@ import { createLawyerToday } from './services/lawyer-today.js';
 import { createLawyerAlerts } from './services/lawyer-alerts.js';
 import { createWebPush } from './services/web-push.js';
 import { registerLawyerHomeRoutes } from './routes/lawyer-home.js';
+// v9.2 (admin-ai): القصص الواردة ونصوص الرسائل الصوتية
+import { createStories } from './services/stories.js';
+import { createVoice } from './services/voice.js';
+import { createBrand } from './brand.js';
+import { registerBrandRoutes } from './routes/brand.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -65,6 +70,7 @@ export function createApp(config, { logger = console } = {}) {
   app.db = new Db(config.dbPath);
   app.events = createEvents(app.log);
   app.settings = createSettings(app);
+  app.brand = createBrand(app); // v9.2 ألوان المؤسسة
   // ── البنية المشتركة (الإصدار 9) ──
   app.audit = createAudit(app);
   app.jobs = createJobs(app);
@@ -77,6 +83,7 @@ export function createApp(config, { logger = console } = {}) {
   app.notifications = createNotifications(app);
   app.auth = createAuth(app);
   app.documents = createDocuments(app);
+  app.voice = createVoice(app); // v9.2: نصوص الرسائل الصوتية (تكتبها الإدارة)
   app.clients = createClients(app);
   app.whatsapp = createWhatsApp(config, app.log, app);
   app.engine = createEngine(app);
@@ -98,6 +105,7 @@ export function createApp(config, { logger = console } = {}) {
   app.messaging = createMessaging(app);
   app.practice = createPractice(app);
   app.programs = createPrograms(app);
+  app.stories = createStories(app); // v9.2: القصص الواردة ← ملخص ومسار مقترح ← طلب بنقرة
   // v9.1 l-home
   app.lawyerToday = createLawyerToday(app);
   app.webPush = createWebPush(app);
@@ -107,6 +115,9 @@ export function createApp(config, { logger = console } = {}) {
     // حد لكل رقم هاتف أيًا كان عنوان IP: يمنع إغراق رقم عميل بطلبات (وتكلفة التحليل الآلي لها)
     publicIntakePhone: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 10 }),
     portal: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 }),
+    // v9.2 [R2-A15]: «لخّصها الآن» وتسجيل المكالمة ومحاولاتها والإغلاق ونقل الرسائل (60 في الساعة لكل موظف)، ونصوص الرسائل الصوتية (120)
+    storyNow: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 }),
+    transcript: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 120 }),
   };
 
   // ربط الأحداث بين الوحدات (داخل نفس المعاملة)
@@ -130,6 +141,7 @@ export function createApp(config, { logger = console } = {}) {
   registerAiRoutes(router, app);
   registerProgramsRoutes(router, app);
   registerLawyerHomeRoutes(router, app); // v9.1 l-home
+  registerBrandRoutes(router, app); // v9.2
   registerSite(app);
   app.router = router;
 
@@ -342,6 +354,7 @@ export function createApp(config, { logger = console } = {}) {
     new Promise((resolve) => {
       if (timer) clearInterval(timer);
       app.ai.cancelTimers();
+      app.stories?.cancelTimers(); // v9.2: مؤقتات «السكوت» للقصص
       const done = () => {
         try {
           app.db.close();

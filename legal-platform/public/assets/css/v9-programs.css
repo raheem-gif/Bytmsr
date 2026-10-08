@@ -674,7 +674,7 @@
 
 .pr-table .pr-total th,
 .pr-table .pr-total td {
-  background: #eef6f7;
+  background: var(--primary-50);
   font-weight: 700;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -850,7 +850,7 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: #eef6f7;
+  background: var(--primary-50);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -885,7 +885,7 @@
   margin: 0 0 12px;
   padding: 8px 12px;
   border-inline-start: 4px solid var(--accent-500);
-  background: #fbf7ee;
+  background: var(--accent-50);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }

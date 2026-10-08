@@ -13,6 +13,7 @@
 //     eventResponse(client, intakeId, id, body, o)  «هحضر / مش هقدر أحضر / عندي سؤال»
 //     invoiceResponse(client, intakeId, number, body, o)  «موافقة / عندي سؤال / مش قادرة أدفع»
 //     callback(client, intakeId, body, o)           «اطلبي مكالمة» (مرتين في اليوم على الأكثر)
+//     about(client, intakeId, body, o)              v9.2 «كمان سؤالين» بعد الإرسال (المحافظة والصفة)
 //     onButtonReply(result, msg)                    زر «هحضر / مش هقدر» في رسالة واتساب التفاعلية
 //     officeOpen(schedule, iso)                     هل المؤسسة تعمل الآن؟ (true/false/null)
 //   }
@@ -21,7 +22,9 @@
 //   export spokenRef(code) → '29' من REQ-2026-00029
 
 import * as U from '../util.js';
-import { LABELS } from '../constants.js';
+import { LABELS, GOVERNORATES } from '../constants.js';
+// v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
+import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
 
@@ -248,7 +251,10 @@ export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {
 
 const STUDY_DAYS = ['يوم', 'يومين', 'أيام', 'يوم'];
 const WORK_DAYS = ['يوم شغل', 'يومين شغل', 'أيام شغل', 'يوم شغل'];
-const WHEN_LABEL = { morning: 'الصبح', noon: 'الضهر', any: 'أي وقت' };
+const WHEN_LABEL = Object.fromEntries(Object.entries(CALLBACK_WHEN).map(([k, x]) => [k, x.label]));
+// v9.2 «كمان سؤالين»: الصفة كما في نموذج 9.1
+const ABOUT_RELATIONS = ['widow', 'orphan_guardian', 'divorced', 'other'];
+const BAD_LINK = 'الرابط غير صالح أو انتهت صلاحيته. تواصل معنا لإرسال رابط جديد.';
 /** سطر مكان اللقاء في ملاحظة الجلسة («المحامي هيقابلك قدام باب القاعة…») */
 export const MEET_RE = /(هيقابل|هتقابل|هنقابل|هنستنا|هيستنا|نتقابل|مكان اللقا|ميعاد اللقا)/;
 /** مفتاح منع التكرار من الصفحة: نفس الإرسال بعد انقطاع النت لا يُسجَّل مرتين */
@@ -886,6 +892,41 @@ export function createPortalV91(app, { scopeOf, inList }) {
         body: 'اتصلوا على رقمها المسجل في الطلب، والمكالمة نفسها فرصة لتأكيد هويتها.',
         link: res.caseRow ? `#/cases/${res.caseRow.id}` : res.intake ? `#/inbox/${res.intake.id}` : null,
       });
+      return { ok: true };
+    },
+
+    /**
+     * v9.2 public: «كمان سؤالين — لو تحبي» على شاشة النجاح. رابط الطلب الواحد فقط (الرابط الذي يصدر عند الإرسال).
+     * المحافظة تُكتب على الطلب فقط إن كانت فاضية (الرقم غير موثّق: لا نلمس بيانات صاحب الرقم)، والصفة تبقى
+     * بيانات «ذكرتها مقدّمة الطلب» حتى تعتمدها الإدارة. لا واتساب ولا إشعار.
+     */
+    about(client, intakeId, body = {}, { phone = null } = {}) {
+      if (!intakeId) throw notFound(BAD_LINK);
+      const sc = scopeOf(client, intakeId, { phone });
+      const intake = sc.intake || null;
+      if (!intake || intake.client_id !== client.id) throw notFound(BAD_LINK);
+      const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+      const given = (k) => b[k] !== undefined && b[k] !== null && b[k] !== '';
+      if (!given('governorate') && !given('relation')) throw badRequest('مفيش حاجة تتسجل.');
+      const governorate = given('governorate') ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
+      const relation = given('relation') ? v.oneOf(b.relation, ABOUT_RELATIONS, 'الصفة') : null;
+      const t = nowIso();
+      db.tx(() => {
+        if (governorate) db.run('UPDATE intakes SET governorate = ? WHERE id = ? AND governorate IS NULL', governorate, intake.id);
+        const fresh = db.get('SELECT form_answers FROM intakes WHERE id = ?', intake.id);
+        const fa = parseJson(fresh?.form_answers, null) || { v: 1 };
+        fa.about = { ...(fa.about && typeof fa.about === 'object' ? fa.about : {}), ...(governorate ? { governorate } : {}), ...(relation ? { relation } : {}), at: t };
+        db.update('intakes', intake.id, { form_answers: JSON.stringify(fa) });
+      });
+      if (relation && app.practice?.beneficiary?.savePublic) {
+        // نضيف الصفة لما ذكرته في النموذج (عدد الأطفال المستنتج مثلًا) ولا نمسحه، وتبقى بانتظار اعتماد الإدارة
+        const prev = db.get('SELECT data FROM beneficiary_submissions WHERE intake_id = ?', intake.id);
+        const data = { ...parseJson(prev?.data, {}), relation };
+        app.practice.beneficiary.savePublic(intake, client, data, { createdClient: false });
+        db.run('UPDATE beneficiary_submissions SET applied_at = NULL WHERE intake_id = ?', intake.id);
+      }
+      const parts = [governorate && 'المحافظة', relation && 'الصفة'].filter(Boolean).join('، ');
+      app.activity.log({ intake_id: intake.id, client_id: client.id, actor: { kind: 'client' }, type: 'client.about', summary: `أضافت بيانات عنها: ${parts}`, data: { governorate, relation } });
       return { ok: true };
     },
 

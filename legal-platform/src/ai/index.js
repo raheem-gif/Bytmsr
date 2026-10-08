@@ -9,6 +9,8 @@ import {
   periodOf, isValidPeriod, arabicPeriod, arabicDate, arabicTime, cairoDayKey, v, latinDigits,
 } from '../util.js';
 import { LABELS, LEGAL_AREAS } from '../constants.js';
+import { STORY_TRACKS } from '../constants.js'; // v9.2 (admin-ai)
+import { topicByKey } from '../../public/assets/js/public/topics.js'; // v9.2: الموضوع الذي اختارته
 import * as H from './heuristic.js';
 import {
   createAnthropicProvider, AiUnavailable, estimateCostMicroUsd, priceFor, documentBlockFor,
@@ -16,6 +18,7 @@ import {
 } from './anthropic.js';
 import { buildIndex, similarityRatio, tokens } from './text.js';
 import { factsText } from '../channels/engine.js'; // v9.1 fixes: رسالة تأكيد الرقم ليست من وقائع الطلب
+import { normalizePhone } from '../util.js'; // v9.2 (admin-ai)
 
 // مسميات أحداث الأمان الخاصة بالذكاء الاصطناعي تُضاف لمسميات سجل الأمان (مثل وحدة الرسائل)
 if (LABELS.security_event && LABELS.ai_security_event) {
@@ -79,10 +82,125 @@ function lawyerReason(reason) {
   return LAWYER_SAFE_REASON.test(String(reason)) ? String(reason) : LAWYER_GENERIC_REASON;
 }
 
+// ───────────── v9.2 (admin-ai): تنظيف مسودات «ماذا يصير الطلب» (A92-13) ─────────────
+// أكواد الملفات الداخلية لا تصل للمستفيدة (رقم الطلب REQ هو الرقم الوحيد الذي تعرفه)
+const INTERNAL_CODE = /\b(?:CL|INH|FAM|GRD|PEN|PRP|CIV|LAB|CRM|COM|TAX|ADM|GEN|MTR|KR)-\d{3,}(?:-\d{3,})?\b/g;
+// [R2-A21] لا روابط في أي مسودة (رابط صفحتها يُضاف عند الإرسال فقط من {portal_link})
+const URL_LIKE = /(?:https?:\/\/\S+|www\.\S+|wa\.me\/\S*)/gi;
+export const STORY_CAP_REASON = 'بلغ الطلب حد التحليل التلقائي بـ Claude خلال 24 ساعة؛ اضغط «حلّل الآن» لاستخدام Claude';
+
+function tidy(s) {
+  return String(s ?? '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+function noUrls(s) {
+  return typeof s === 'string' ? tidy(s.replace(URL_LIKE, '')) : s;
+}
+/** نص موجه لها: بلا أكواد داخلية ولا روابط ولا أي رقم هاتف غير رقم المؤسسة */
+function forHer(s, orgPhone) {
+  if (typeof s !== 'string') return s;
+  const org = orgPhone ? normalizePhone(orgPhone) : null;
+  const t = latinDigits(s)
+    .replace(URL_LIKE, '')
+    .replace(INTERNAL_CODE, '')
+    .replace(PHONE_LIKE, (m) => {
+      const p = normalizePhone(m);
+      return p && org && p === org ? m : '';
+    });
+  return tidy(t);
+}
+const clipOrNull = (x, n) => (x === null || x === undefined || String(x).trim() === '' ? null : clip(x, n));
+
+/**
+ * توحيد مخرجات «ماذا يصير الطلب» من Claude أو المحلل المحلي: مسار صالح (وإلا مسار المحلل المحلي لنفس النص)،
+ * قص الأطوال، إخفاء الهواتف والأرقام القومية فيما يخص المحامي، حذف الأكواد والروابط والأرقام الأجنبية مما يخصها،
+ * وحقول كل مسار فقط. ctx: { fallback: () => مخرجات المحلل المحلي, orgPhone, storyRev, voice, preview, questionsFor }
+ */
+export function normalizeStory(raw, ctx = {}) {
+  const o = { ...(raw || {}) };
+  let local = null;
+  const loc = () => (local || (local = ctx.fallback ? ctx.fallback() : null));
+  if (o.blocked) {
+    o.recommended_track = null;
+  } else if (!STORY_TRACKS.includes(o.recommended_track)) {
+    const l = loc();
+    o.recommended_track = l?.recommended_track ?? null;
+    o.track_reason = o.track_reason || l?.track_reason || null;
+    o.track_confidence = Number.isFinite(Number(o.track_confidence)) && o.track_confidence !== null && o.track_confidence !== undefined ? o.track_confidence : l?.track_confidence ?? null;
+    if (!o.request_draft || typeof o.request_draft !== 'object') o.request_draft = l?.request_draft || null;
+    if (l?.blocked && !o.blocked) o.blocked = l.blocked;
+    if (!o.reply_source && l?.reply_source) o.reply_source = l.reply_source;
+  }
+  if (!o.one_line) o.one_line = loc()?.one_line || o.title || '';
+  o.one_line = clip(o.one_line, 160);
+  o.track_reason = o.track_reason ? clip(o.track_reason, 300) : null;
+  o.track_confidence = o.track_confidence === null || o.track_confidence === undefined ? null : Math.max(0, Math.min(1, Number(o.track_confidence) || 0));
+  const d = { ...(o.request_draft && typeof o.request_draft === 'object' ? o.request_draft : {}) };
+  const track = o.recommended_track;
+  const draft = {
+    title: clip(d.title || o.title || '', 200),
+    facts_for_lawyer: noUrls(maskSensitive(clip(d.facts_for_lawyer || o.summary || '', 6000))),
+    internal_note: clipOrNull(d.internal_note, 2000),
+    brief_for_lawyer: ['consultation', 'matter'].includes(track) ? noUrls(maskSensitive(clipOrNull(d.brief_for_lawyer, 1000))) : null,
+    matter: null,
+    questions_for_her: [],
+    reply_to_her: null,
+    referral_target: null,
+    resolution_note: null,
+  };
+  if (track === 'matter') {
+    const m = d.matter && typeof d.matter === 'object' ? d.matter : {};
+    draft.matter = {
+      kind: m.kind === 'ongoing' ? 'ongoing' : 'litigation',
+      court: noUrls(maskSensitive(clipOrNull(m.court, 150))),
+      opponent: noUrls(maskSensitive(clipOrNull(m.opponent, 200))),
+      next_hearing_text: noUrls(maskSensitive(clipOrNull(m.next_hearing_text, 200))),
+    };
+  }
+  if (track === 'need_info') {
+    let qs = (Array.isArray(d.questions_for_her) ? d.questions_for_her : []).map((q) => forHer(String(q ?? ''), ctx.orgPhone)).filter(Boolean).map((q) => clip(q, 160));
+    if (!qs.length && ctx.questionsFor) qs = ctx.questionsFor(o.legal_area);
+    draft.questions_for_her = qs.slice(0, 3);
+  }
+  if (track === 'internal' || track === 'refer') {
+    draft.reply_to_her = d.reply_to_her ? clip(forHer(d.reply_to_her, ctx.orgPhone), 1000) || null : null;
+    draft.resolution_note = clipOrNull(noUrls(d.resolution_note), 500);
+    if (track === 'refer') draft.referral_target = clipOrNull(noUrls(d.referral_target), 200);
+  }
+  o.request_draft = draft;
+  if (!['internal', 'refer'].includes(track)) delete o.reply_source;
+  o.story_rev = ctx.storyRev ?? o.story_rev ?? 0;
+  if (ctx.voice) o.voice = { total: ctx.voice.total || 0, done: ctx.voice.done || 0, missing: ctx.voice.missing || 0 };
+  o.preview = !!ctx.preview;
+  o.blocked = o.blocked || null;
+  return o;
+}
+
 export function createAi(app) {
   const { db, config } = app;
   const timers = new Map();
   const indexCache = new Map();
+  // v9.2 [R2-A15/A10]: تحليل تلقائي واحد لكل طلب في الوقت نفسه (وإعادة واحدة إن تغيرت القصة أثناءه)،
+  // وحد عام لاستدعاءات Claude التلقائية المتزامنة
+  const inflight = new Set();
+  const rerun = new Set();
+  const CLAUDE_AUTO_CONCURRENCY = 2;
+  let claudeRunning = 0;
+  const claudeQueue = [];
+  async function withClaudeSlot(fn) {
+    if (claudeRunning >= CLAUDE_AUTO_CONCURRENCY) await new Promise((resolve) => claudeQueue.push(resolve));
+    claudeRunning += 1;
+    try {
+      return await fn();
+    } finally {
+      claudeRunning -= 1;
+      const next = claudeQueue.shift();
+      if (next) next();
+    }
+  }
 
   // ───────────── الإعدادات الحية ─────────────
   function readConfig() {
@@ -232,7 +350,12 @@ export function createAi(app) {
     return { provider: anthropic };
   }
 
-  async function run(method, args, fallback, meta = {}) {
+  async function run(method, args, fallback, meta = {}, { forceLocal = false, reason = null } = {}) {
+    // v9.2: forceLocal = المحلل المحلي حتى مع Claude (قصة بلا كلام كافٍ، أو بلوغ الحد اليومي للطلب)
+    if (forceLocal) {
+      recordUsage({ ...meta, provider: 'heuristic', model: HEURISTIC_MODEL, ok: true, fallback: !!reason, fallback_reason: reason });
+      return { output: fallback(), provider: 'heuristic', model: HEURISTIC_MODEL, ...(reason ? { fallback_reason: reason } : {}) };
+    }
     const a = active();
     if (a.provider) {
       try {
@@ -606,6 +729,50 @@ export function createAi(app) {
     return out;
   }
 
+  // ───────────── v9.2 (admin-ai): نص القصة وسياق المسار ─────────────
+  /** نص القصة كما يدخل التحليل (app.stories.storyText)، أو نص الإصدار 9.1 إن لم تتوفر الخدمة */
+  function storyOf(intake) {
+    if (app.stories?.storyText) return app.stories.storyText(intake.id);
+    const msgs = db.all("SELECT body, meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id", intake.id);
+    const docs = db.all('SELECT filename FROM documents WHERE intake_id = ?', intake.id);
+    let text = msgs.map((m) => factsText(m.body, m.meta)).filter((x) => x.trim()).join('\n');
+    if (docs.length) text += `\n[مرفقات مرسلة: ${docs.map((d) => d.filename).join('، ')}]`;
+    return { clientText: text, contextText: text, voice: { total: 0, done: 0, missing: 0 }, meaningfulLetters: H.meaningfulLetters(text), blocked: null, hasMedia: docs.length > 0 };
+  }
+  /** سياق المسار للمحلل المحلي: المحافظة والموضوع والرسائل الصوتية ودليل التوجيه والردود الجاهزة */
+  function trackCtx(intake, st) {
+    let quickReplies = [];
+    try {
+      quickReplies = db.all('SELECT id, title, body, usage_count FROM quick_replies ORDER BY usage_count DESC, id LIMIT 200');
+    } catch {
+      quickReplies = [];
+    }
+    const referrals = app.settings.get('story_referrals');
+    return {
+      governorate: intake.governorate,
+      topic: intake.topic || null,
+      topicArea: topicByKey(intake.topic)?.area || null,
+      voice: st.voice,
+      referrals: Array.isArray(referrals) ? referrals : [],
+      quickReplies,
+      meaningfulLetters: st.meaningfulLetters,
+      blocked: st.blocked || null,
+    };
+  }
+  /** [R2-A1] كل نتيجة محفوظة (عدا الملخص المبدئي) تقدّم analyzed_rev ولا ترجعه أبدًا (MAX) */
+  function markAnalyzed(intakeId, rev, track) {
+    db.run('UPDATE intakes SET analyzed_rev = MAX(analyzed_rev, ?), ai_track = ? WHERE id = ?', rev, track || null, intakeId);
+  }
+  /** اقتراح محجوب: يُستبدل آخر اقتراح محجوب في مكانه بدل إضافة صف جديد */
+  function storeBlocked(intakeId, output, actor) {
+    const last = db.get("SELECT id, output FROM ai_suggestions WHERE entity_type = 'intake' AND entity_id = ? AND kind = 'intake_analysis' ORDER BY id DESC LIMIT 1", intakeId);
+    if (last && parseJson(last.output, {}).blocked) {
+      db.update('ai_suggestions', last.id, { provider: 'heuristic', model: HEURISTIC_MODEL, output: JSON.stringify(output), created_by: actor?.id ?? null, created_at: nowIso() });
+      return svc.suggestion(last.id);
+    }
+    return store('intake', intakeId, 'intake_analysis', { output, provider: 'heuristic', model: HEURISTIC_MODEL }, actor);
+  }
+
   const svc = {
     reconfigure() {
       cfg = readConfig();
@@ -768,41 +935,141 @@ export function createAi(app) {
 
     precedents,
 
-    scheduleIntakeAnalysis(intakeId, delayMs = anthropic ? 4000 : 300) {
+    /**
+     * جدولة تحليل تلقائي لطلب (مؤجل قليلًا لتجميع الرسائل المتتابعة). مؤقت واحد لكل طلب: الأحدث يحل محل السابق.
+     * opts.preview: ملخص مبدئي محلي فقط (v9.2: أثناء كتابة القصة مع Claude). عند انتهاء المؤقت يُتحقق أن الطلب ما زال مفتوحًا.
+     */
+    scheduleIntakeAnalysis(intakeId, delayMs = anthropic ? 4000 : 300, opts = {}) {
       clearTimeout(timers.get(intakeId));
       const t = setTimeout(() => {
         timers.delete(intakeId);
-        svc.analyzeIntake(intakeId).catch((e) => app.log('ai analyze', e));
+        let i = null;
+        try {
+          i = db.get('SELECT status FROM intakes WHERE id = ?', intakeId);
+        } catch {
+          return; // قاعدة البيانات أُغلقت
+        }
+        if (!i || !['new', 'in_review', 'awaiting_client'].includes(i.status)) return;
+        const job = opts.preview ? Promise.resolve().then(() => svc.previewIntake(intakeId)) : svc.runAuto(intakeId, opts);
+        job.catch((e) => app.log('ai analyze', e));
       }, delayMs);
       t.unref?.();
       timers.set(intakeId, t);
     },
-    cancelTimers() {
-      for (const t of timers.values()) clearTimeout(t);
-      timers.clear();
+    /** إلغاء المؤقتات: كلها، أو مؤقتات طلب واحد (ومعها مؤقت «السكوت» للقصة) */
+    cancelTimers(intakeId = null) {
+      if (intakeId === null || intakeId === undefined) {
+        for (const t of timers.values()) clearTimeout(t);
+        timers.clear();
+      } else {
+        clearTimeout(timers.get(intakeId));
+        timers.delete(intakeId);
+      }
+      app.stories?.clearQuietTimers?.(intakeId);
+    },
+    /** هل هناك تحليل تلقائي مجدول لهذا الطلب؟ (للاختبارات وصحة النظام) */
+    hasTimer(intakeId) {
+      return timers.has(intakeId);
     },
 
-    /** تحليل طلب وارد: تلخيص، تصنيف، وقائع، نواقص، مسائل مقترحة، وحالات مشابهة */
-    async analyzeIntake(intakeId, actor = null) {
+    /**
+     * v9.2 [R2-A1/A10/A15]: تحليل تلقائي: محاولة محسوبة على رقم مراجعة القصة (حتى 3، بينها 10 دقائق عبر المهمة الدورية)،
+     * وتحليل واحد لكل طلب في الوقت نفسه (طلب أثناء التشغيل = إعادة واحدة بعده إن تغيرت القصة).
+     */
+    async runAuto(intakeId, opts = {}) {
+      if (inflight.has(intakeId)) {
+        rerun.add(intakeId);
+        return null;
+      }
+      inflight.add(intakeId);
+      try {
+        db.run('UPDATE intakes SET analysis_attempted_at = ?, analysis_attempts = analysis_attempts + 1 WHERE id = ?', nowIso(), intakeId);
+        return await svc.analyzeIntake(intakeId, null, { ...opts, auto: true, counted: true });
+      } finally {
+        inflight.delete(intakeId);
+        if (rerun.delete(intakeId)) {
+          try {
+            app.stories?.scheduleAnalysis?.(intakeId, 'rerun');
+          } catch (e) {
+            app.log('ai rerun', e);
+          }
+        }
+      }
+    },
+
+    /** عدد تحليلات Claude التلقائية (ومنها بعد تسجيل مكالمة) لهذا الطلب خلال 24 ساعة: هل بلغ الحد؟ */
+    capReached(intakeId) {
+      const max = Math.max(1, Number(app.settings.get('story_auto_ai_max_per_day')) || 6);
+      const since = new Date(Date.parse(nowIso()) - 24 * 3600 * 1000).toISOString();
+      const n = Number(
+        db.value(
+          "SELECT COUNT(*) FROM ai_usage WHERE feature = 'intake_analysis' AND provider = 'anthropic' AND entity_type = 'intake' AND entity_id = ? AND user_id IS NULL AND created_at >= ?",
+          intakeId,
+          since,
+        ),
+      );
+      return n >= max;
+    },
+
+    /** آخر تحليل كامل للطلب، وإلا الملخص المبدئي (preview: true) — للقائمة والتفاصيل فقط */
+    latestStory(intakeId) {
+      const full = svc.latest('intake', intakeId, 'intake_analysis');
+      if (full) return full;
+      const pre = svc.latest('intake', intakeId, 'intake_preview');
+      return pre ? { ...pre, output: { ...pre.output, preview: true } } : null;
+    },
+
+    /**
+     * تحليل طلب وارد: تلخيص، تصنيف، وقائع، نواقص، مسائل مقترحة، حالات مشابهة — و(v9.2) ماذا يصير الطلب ومسوداته.
+     * opts: { auto: تحليل تلقائي (يُحسب على الحد اليومي ولا يستدعي Claude لقصة بلا كلام كافٍ)، forceLocal، counted }
+     * كل نتيجة محفوظة (كاملة أو محجوبة أو بديل محلي) تقدّم analyzed_rev إلى رقم مراجعة القصة وقت القراءة (MAX).
+     */
+    async analyzeIntake(intakeId, actor = null, opts = {}) {
       const intake = db.get('SELECT * FROM intakes WHERE id = ?', intakeId);
       if (!intake) throw notFound('الطلب غير موجود');
-      // v9.1 fixes: رسالة تأكيد الرقم الجاهزة (رقم الطلب + كود التأكيد) تُحذف من النص فلا تصير «وقائع» تصل المحامين
-      const msgs = db.all("SELECT body, meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id", intakeId);
-      const docs = db.all('SELECT filename FROM documents WHERE intake_id = ?', intakeId);
-      let text = msgs
-        .map((m) => factsText(m.body, m.meta))
-        .filter((s) => s.trim())
-        .join('\n');
-      if (docs.length) text += `\n[مرفقات مرسلة: ${docs.map((d) => d.filename).join('، ')}]`;
-      const ctx = { governorate: intake.governorate };
-      const result = await run('analyzeIntake', { text, governorate: intake.governorate }, () => H.analyzeIntake(text, ctx), {
-        feature: 'intake_analysis',
-        entity_type: 'intake',
-        entity_id: intakeId,
-        user_id: actor?.id ?? null,
-      });
-      result.output.similar = svc.similar(text, { scope: 'staff', limit: 10, area: result.output.legal_area });
+      const snapshotRev = Number(intake.story_rev) || 0;
+      if (!opts.counted) db.run('UPDATE intakes SET analysis_attempted_at = ?, analysis_attempts = analysis_attempts + 1 WHERE id = ?', nowIso(), intakeId);
+      const st = storyOf(intake);
+      const ctx = trackCtx(intake, st);
+      const local = () => H.analyzeIntake(st.clientText, ctx);
+      const norm = (out, extra = {}) =>
+        normalizeStory(out, { fallback: local, orgPhone: app.settings.get('org_phone'), storyRev: snapshotRev, voice: st.voice, questionsFor: H.questionsFor, ...extra });
+      const meta = { feature: 'intake_analysis', entity_type: 'intake', entity_id: intakeId, user_id: actor?.id ?? null };
+      if (st.blocked) {
+        // [R2-A1d] قصة محجوبة (رسالة صوتية لم تُكتب، تنزيل فشل، طلب مكالمة بلا حكاية): اقتراح محلي واحد يُستبدل في مكانه،
+        // بلا سجل استهلاك ولا نشاط «حلل الذكاء الاصطناعي» ولا Claude
+        const output = norm(local());
+        output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: output.legal_area });
+        const sug = storeBlocked(intakeId, output, actor);
+        markAnalyzed(intakeId, snapshotRev, null);
+        return sug;
+      }
+      let forceLocal = !!opts.forceLocal;
+      let reason = null;
+      const a = active();
+      if (a.provider && opts.auto && !forceLocal) {
+        // [R2-A3] لا Claude لقصة تحية فقط (أقل من 25 حرفًا بلا صوت أو صورة أو مستند)؛ [R2-A15] الحد اليومي لكل طلب
+        if (st.meaningfulLetters < 25 && !st.hasMedia) forceLocal = true;
+        else if (svc.capReached(intakeId)) {
+          forceLocal = true;
+          reason = STORY_CAP_REASON;
+        }
+      }
+      const words = app.stories?.words ? app.stories.words(intake) : { form: 'f' };
+      const args = {
+        text: st.contextText,
+        governorate: intake.governorate,
+        channel: LABELS.channel[intake.first_channel] || intake.first_channel,
+        topic: topicByKey(intake.topic)?.staff || null,
+        form: words.form,
+        voice: st.voice,
+      };
+      const exec = () => run('analyzeIntake', args, local, meta, { forceLocal, reason });
+      const result = a.provider && opts.auto && !forceLocal ? await withClaudeSlot(exec) : await exec();
+      result.output = norm(result.output);
+      result.output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: result.output.legal_area });
       const sug = store('intake', intakeId, 'intake_analysis', result, actor);
+      markAnalyzed(intakeId, snapshotRev, result.output.recommended_track);
       app.activity.log({
         intake_id: intakeId,
         client_id: intake.client_id,
@@ -834,7 +1101,34 @@ export function createAi(app) {
       if (['high', 'urgent'].includes(result.output.urgency) && intake.priority === 'normal' && intake.status !== 'converted') {
         db.update('intakes', intakeId, { priority: result.output.urgency, updated_at: nowIso() });
       }
+      // v9.2 [R2-A10]: قصة عاجلة جاهزة ← تنبيه واحد للإدارة
+      try {
+        app.stories?.urgentCheck(intakeId);
+      } catch (e) {
+        app.log('stories.urgentCheck failed', e);
+      }
       return sug;
+    },
+
+    /**
+     * v9.2 [R2-A16]: ملخص مبدئي محلي أثناء كتابة القصة (نوع intake_preview، صف واحد لكل طلب): بلا سجل استهلاك ولا نشاط
+     * ولا تنبيه تشابه ولا تغيير أولوية، ولا يقدّم analyzed_rev.
+     */
+    previewIntake(intakeId) {
+      const intake = db.get('SELECT * FROM intakes WHERE id = ?', intakeId);
+      if (!intake) throw notFound('الطلب غير موجود');
+      const st = storyOf(intake);
+      const ctx = trackCtx(intake, st);
+      const local = () => H.analyzeIntake(st.clientText, ctx);
+      const output = normalizeStory(local(), { fallback: local, orgPhone: app.settings.get('org_phone'), storyRev: Number(intake.story_rev) || 0, voice: st.voice, preview: true, questionsFor: H.questionsFor });
+      output.similar = { total: 0, items: [] };
+      const prev = db.get("SELECT id FROM ai_suggestions WHERE entity_type = 'intake' AND entity_id = ? AND kind = 'intake_preview' ORDER BY id DESC LIMIT 1", intakeId);
+      if (prev) {
+        db.update('ai_suggestions', prev.id, { provider: 'heuristic', model: HEURISTIC_MODEL, output: JSON.stringify(output), created_at: nowIso() });
+        return svc.suggestion(prev.id);
+      }
+      const id = db.insert('ai_suggestions', { entity_type: 'intake', entity_id: intakeId, kind: 'intake_preview', provider: 'heuristic', model: HEURISTIC_MODEL, output: JSON.stringify(output), created_by: null, created_at: nowIso() });
+      return svc.suggestion(id);
     },
 
     async suggestIssuesForCase(caseId, actor) {

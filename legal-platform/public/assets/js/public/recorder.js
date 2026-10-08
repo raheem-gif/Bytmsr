@@ -2,7 +2,7 @@
 //
 // API (ثابت؛ يستخدمه نموذج الطلب وصفحة المتابعة):
 //   voiceRecorder({ maxSeconds = 180, onChange(blobOrNull, { seconds }), address = 'f'|'m', whatsappUrl = null,
-//                   variant = 'big'|'compact', initial = { blob, seconds } | null }) → HTMLElement
+//                   variant = 'big'|'compact', initial = { blob, seconds } | null, permissionHint = null }) → HTMLElement
 //     الحالات: جاهز ← (تنبيه إذن الميكروفون) ← يسجّل (زر «خلّصت» + عدّاد «0:12 من 3:00») ← مسجّلة (اسمعيها / امسحيها)
 //     ورفض الإذن أو عدم الدعم: رسالة بديلة (الكتابة، أو واتساب إن كان مضبوطًا) ولا يُكسر شيء.
 //     العنصر يحمل أيضًا: getBlob() · getSeconds() · setRecording({ blob, seconds }) · reset() · stop() · setDisabled(bool)
@@ -281,7 +281,7 @@ export async function blobToUpload(blob, filename = 'رسالة-صوتية') {
  * مسجّل رسالة صوتية واحدة.
  * @returns {HTMLElement}
  */
-export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whatsappUrl = null, variant = 'big', initial = null } = {}) {
+export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whatsappUrl = null, variant = 'big', initial = null, permissionHint = null } = {}) {
   ensureFormsStyles();
   const t = COPY[address === 'm' ? 'm' : 'f'];
   const max = Math.max(5, Math.min(600, Number(maxSeconds) || 180));
@@ -546,7 +546,8 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
       } else if (note) {
         parts.push(h('p.bmf-rec-note', { role: 'status' }, note));
       } else if (big && !asked && !micGranted) {
-        parts.push(h('p.bmf-rec-hint', t.permission));
+        // v9.2: نموذج الطلب يمرر تنبيهًا أوضح («اختاري أول اختيار…») يُقرأ بصوت
+        parts.push(h('p.bmf-rec-hint', permissionHint || t.permission));
       }
     } else if (state === 'recording') {
       parts.push(

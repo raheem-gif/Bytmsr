@@ -27,6 +27,33 @@
 }
 
 :root {
+  /* v9.2 «ألوان المؤسسة»: الدرجات الافتراضية (= 9.1). ألوان المؤسسة تأتي من كتلة <style id="bm-theme"> في <head> وتغلب هذه القيم */
+  /* @brand-defaults-start */
+  --primary-900: #082a33;
+  --primary-800: #0b3a46;
+  --primary-700: #0f4c5c;
+  --primary-600: #145d6f;
+  --primary-500: #1b7187;
+  --primary-300: #7fb3c0;
+  --primary-200: #b9d7de;
+  --primary-100: #dcecef;
+  --primary-50: #eef6f7;
+  --accent-800: #634510;
+  --accent-700: #7a5518;
+  --accent-600: #9a6e22;
+  --accent-500: #b8862e;
+  --accent-400: #c99a45;
+  --accent-300: #dcbd84;
+  --accent-100: #f6ecd8;
+  --accent-50: #fbf7ee;
+  --primary-300-rgb: 127 179 192;
+  --primary-500-rgb: 27 113 135;
+  --primary-700-rgb: 15 76 92;
+  --primary-900-rgb: 8 42 51;
+  --accent-500-rgb: 184 134 46;
+  /* @brand-defaults-end */
+  /* النص الوحيد المسموح فوق accent-300/400/500 */
+  --on-accent: var(--primary-900);
   --pub-font: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, sans-serif;
   --pub-font-head: var(--pub-font);
   --pub-ink: #142129;
@@ -34,10 +61,10 @@
   --pub-cream: #fbf8f2;
   --pub-cream-2: #f5efe2;
   --pub-line: #e6dfd0;
-  --pub-teal: #0f4c5c;
-  --pub-teal-deep: #082a33;
-  --pub-gold: #b8862e;
-  --pub-gold-soft: #dcbd84;
+  --pub-teal: var(--primary-700);
+  --pub-teal-deep: var(--primary-900);
+  --pub-gold: var(--accent-500);
+  --pub-gold-soft: var(--accent-300);
   --pub-ok: #1d7a46;
   --pub-warn: #9a5b00;
   --pub-warn-bg: #fff8ea;
@@ -143,7 +170,7 @@ body.pub p {
 /* الروابط النصية فقط (:where لا يرفع الأولوية)؛ الأزرار (.btn من مكتبة المكونات و.pub-btn وأزرار صفحة المتابعة .bp-btn
    وصفوفها .bp-row) تحتفظ بألوانها — وإلا صار «افتحي صفحة طلبك» و«واتساب» نصًا تركوازيًا على خلفية تركوازية/خضراء */
 body.pub a:where(:not(.btn):not(.pub-btn):not(.bp-btn):not(.bp-row):not(.skip-link):not(.pub-tile-link)) {
-  color: #145d6f;
+  color: var(--primary-600);
   text-underline-offset: 3px;
 }
 
@@ -164,7 +191,7 @@ body.pub .skip-link {
   z-index: 200;
   transform: translateY(-200%);
   background: var(--pub-gold);
-  color: var(--pub-teal-deep);
+  color: var(--on-accent);
   border-radius: 10px;
   padding: 10px 16px;
   font-weight: 700;
@@ -235,77 +262,15 @@ body.pub a.pub-btn {
   text-decoration: none;
 }
 
-.pub-btn-lg,
-.pub-btn-primary {
-  min-height: var(--tap-primary);
-  padding: 12px 28px;
-  font-size: 19px;
-  border-radius: 16px;
-}
-
-/* الزر الأساسي: عرض كامل على الهاتف */
-.pub-btn-primary {
-  width: 100%;
-}
-
 body.pub .pub-btn-gold {
   background: var(--pub-gold);
-  color: var(--pub-teal-deep);
+  color: var(--on-accent);
+  border-color: var(--accent-600);
 }
 
 body.pub .pub-btn-gold:hover {
-  background: #c99a45;
-  color: var(--pub-teal-deep);
-}
-
-body.pub .pub-btn-teal {
-  background: var(--pub-teal);
-  color: #fff;
-}
-
-body.pub .pub-btn-teal:hover {
-  background: #0b3a46;
-  color: #fff;
-}
-
-body.pub .pub-btn-whatsapp {
-  background: var(--pub-whatsapp);
-  color: #fff;
-}
-
-body.pub .pub-btn-whatsapp:hover {
-  background: #0a6345;
-  color: #fff;
-}
-
-body.pub .pub-btn-outline {
-  background: #fff;
-  color: var(--pub-teal);
-  border-color: var(--pub-teal);
-}
-
-body.pub .pub-btn-outline:hover {
-  color: var(--pub-teal);
-  background: #eef6f7;
-}
-
-body.pub .pub-btn-light,
-body.pub .pub-btn-call {
-  background: transparent;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.85);
-}
-
-body.pub .pub-btn-light:hover,
-body.pub .pub-btn-call:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-.pub-cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  background: var(--accent-400);
+  color: var(--on-accent);
 }
 
 /* ───────────── الرأس ───────────── */
@@ -390,7 +355,7 @@ body.pub .pub-nav-link {
 
 body.pub .pub-nav-link:hover,
 body.pub .pub-nav-link[aria-current="page"] {
-  background: #eef6f7;
+  background: var(--primary-50);
   color: var(--pub-teal);
 }
 
@@ -446,7 +411,7 @@ body.pub .pub-nav-portal {
     padding: 12px var(--pub-gutter) 20px;
     background: #fff;
     border-block-end: 1px solid var(--pub-line);
-    box-shadow: 0 18px 30px rgba(8, 42, 51, 0.12);
+    box-shadow: 0 18px 30px rgb(var(--primary-900-rgb) / 0.12);
     max-height: calc(100vh - var(--pub-header-h));
     overflow-y: auto;
   }
@@ -468,78 +433,489 @@ body.pub .pub-nav-portal {
   }
 }
 
-/* ───────────── البطل (الصفحة الرئيسية — B91-07) ───────────── */
+/* ───────────── الشاشة الأولى (v9.2 — P5): «مشكلتك في إيه؟» + 8 مربعات بصورة وكلمة + طرق تانية ───────────── */
+/* محسوبة لمساحة 360×512 (موبايل 360×640 ناقص شريط العنوان وأزرار أندرويد): الرأس 52 + 10 + العنوان 64 + المربعات.
+   ألوان العلامة: أزواج العقد فقط (§3.2). حدود المربعات p500 (≥ 3:1 على الأبيض لأي لونين تختارهما المؤسسة) */
 
-.pub-hero {
-  position: relative;
-  color: #fff;
-  background:
-    var(--pub-pattern),
-    radial-gradient(circle at 8% 92%, rgba(184, 134, 46, 0.3), transparent 42%),
-    linear-gradient(165deg, var(--pub-teal) 0%, var(--pub-teal-deep) 100%);
-  overflow: hidden;
+.pub-start {
+  background: var(--pub-cream);
+  padding-block: 10px;
 }
 
-.pub-hero-inner {
+.pub-start-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  padding-block: 56px 64px;
+  column-gap: 10px;
+  min-height: 64px;
 }
 
-.pub-hero-main {
-  max-width: 640px;
+/* سطر العنوان بارتفاع ثابت (44px) فظهور زر «بالصوت» لا يحرّك أي شيء */
+body.pub .pub-start-head h1 {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 26px;
+  line-height: 1.3;
 }
 
-body.pub .pub-hero h1 {
+.pub-start-badge {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--primary-700);
+}
+
+.pub-start-badge .pub-icon {
+  width: 16px;
+  height: 16px;
+}
+
+body.pub .pub-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--primary-700);
+  background: #fff;
+  color: var(--primary-700);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+body.pub .pub-listen[aria-pressed="true"] {
+  background: var(--primary-700);
   color: #fff;
-  font-size: clamp(26px, 4.6vw, 46px);
-  line-height: 1.45;
 }
 
-.pub-hero h1 em {
-  font-style: normal;
-  color: var(--pub-gold-soft);
-}
-
-.pub-hero-sub {
-  margin-block-start: 8px !important;
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.pub-hero-checks {
+.pub-pick {
   list-style: none;
-  margin: 12px 0 16px;
+  margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  --tile-h: 76px;
+}
+
+@supports (height: 100svh) {
+  .pub-pick {
+    --tile-h: clamp(76px, calc((100svh - 212px) / 4), 140px);
+  }
+}
+
+.pub-pick > li {
+  min-width: 0;
+}
+
+/* المحتوى يبدأ من مسافة ثابتة أعلى المربع (لا توسيط حسب المحتوى): وصول الصفحة على دفعات أو تبدّل الخط
+   لا يحرّك الصورة ولا الكلمة (إزاحة الشاشة الأولى = 0) */
+body.pub .pub-pick-tile {
+  --pic: clamp(48px, calc(var(--tile-h) * 0.42), 60px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 17px;
-  line-height: 1.5;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  height: 100%;
+  min-height: var(--tile-h);
+  padding: max(4px, calc((var(--tile-h) - var(--pic) - 34px) / 2)) 6px 4px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--primary-500);
+  color: var(--pub-ink);
+  text-decoration: none;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.pub-hero-checks li {
+body.pub .pub-pick-tile:active {
+  background: var(--primary-50);
+  color: var(--primary-900);
+}
+
+body.pub .pub-pick-tile:has(small) {
+  padding-top: max(4px, calc((var(--tile-h) - var(--pic) - 52px) / 2));
+}
+
+.pub-pick-tile .pub-pic {
+  width: var(--pic);
+  height: var(--pic);
+  flex-shrink: 0;
+}
+
+.pub-pick-tile b,
+.pub-pick-tile small {
+  display: block;
+  width: 100%;
+}
+
+.pub-pick-tile b {
+  font-size: 19px;
+  line-height: 24px;
+  font-weight: 700;
+}
+
+.pub-pick-tile small {
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--pub-ink-soft);
+}
+
+/* مربع أقصر من 90px (شاشة قصيرة): صورة 40px وكلمة 18px */
+@media (max-height: 571px) {
+  body.pub .pub-pick-tile {
+    --pic: 40px;
+  }
+
+  .pub-pick-tile b {
+    font-size: 18px;
+  }
+
+  /* «حاجة تانية / أو مش عارفين» بسطرين: صورة أصغر حتى لا يطول صفها */
+  body.pub .pub-pick-tile:has(small) {
+    --pic: 30px;
+  }
+}
+
+@media (min-width: 700px) {
+  .pub-pick {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    --tile-h: 150px;
+  }
+}
+
+/* الصور: أصناف pictos.js — pa/pb تعبئة بألوان العلامة، pl زينة فقط، po خط لمعنى لا يجوز أن يبهت */
+.pub-pic .pa {
+  fill: var(--primary-700);
+}
+
+.pub-pic .pb {
+  fill: var(--accent-600);
+}
+
+.pub-pic .pl {
+  fill: var(--primary-300);
+}
+
+.pub-pic .pw {
+  fill: #fff;
+}
+
+.pub-pic .po {
+  fill: none;
+  stroke: var(--primary-700);
+  stroke-width: 2.5;
+}
+
+/* «إحنا نكلمك» · «واتساب» · «طلبك فين؟» (أو «صفحة طلبك» على موبايلها) */
+.pub-pick-ways {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pub-pick-ways[data-n="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pub-pick-ways > li {
+  position: relative;
+  min-width: 0;
+}
+
+body.pub .pub-pick-way {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 64px;
+  padding: 6px 4px 2px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.pub-hero-checks .pub-icon {
-  margin-block-start: 2px;
-  color: var(--pub-gold-soft);
+.pub-pick-way .pub-pic {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
-.pub-hero-checks b {
+.pub-pick-way b {
+  display: block;
+  width: 100%;
+  line-height: 20px;
+}
+
+body.pub .pub-pick-way--callback {
+  background: var(--primary-700);
+  border-color: var(--primary-700);
   color: #fff;
 }
 
+body.pub .pub-pick-way--wa {
+  background: var(--pub-whatsapp);
+  border-color: var(--pub-whatsapp);
+  color: #fff;
+}
+
+body.pub .pub-pick-way--follow {
+  background: var(--accent-50);
+  border-color: var(--accent-600);
+  color: var(--accent-700);
+}
+
+.pub-pick-way--callback .pa,
+.pub-pick-way--wa .pa {
+  fill: #fff;
+}
+
+.pub-pick-way--callback .pb {
+  fill: var(--accent-300);
+}
+
+.pub-pick-way--wa .pw {
+  fill: var(--pub-whatsapp);
+}
+
+.pub-start-trust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 10px !important;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--pub-ink-soft);
+}
+
+.pub-start-trust .pub-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--primary-700);
+}
+
+.pub-start-trust b {
+  color: var(--pub-ink);
+}
+
+.pub-start-hours {
+  margin-block-start: 2px !important;
+  font-size: var(--text-meta);
+  color: var(--pub-ink-soft);
+}
+
+/* التركيز 3px بالأساسي 700، والكلام المقروء الآن بإطار 4px بالثاني 600 */
+body.pub .pub-start :focus-visible,
+body.pub .pub-head-contact:focus-visible {
+  outline: 3px solid var(--primary-700);
+  outline-offset: 2px;
+}
+
+body.pub .is-speaking {
+  outline: 4px solid var(--accent-600);
+  outline-offset: 2px;
+}
+
+/* زر التواصل في الرأس (موبايل فقط): واتساب، وإلا الاتصال */
+.pub-head-contact {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --pub-gutter: 16px;
+    /* 51 + خط سفلي 1px = رأس 52px */
+    --pub-header-h: 51px;
+  }
+
+  .pub-header-inner {
+    gap: 10px;
+  }
+
+  .pub-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .pub-brand-text span {
+    display: none;
+  }
+
+  body.pub .pub-head-contact {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    border: 2px solid var(--primary-700);
+    background: #fff;
+    color: var(--primary-700);
+  }
+
+  body.pub .pub-head-contact--wa {
+    background: var(--pub-whatsapp);
+    border-color: var(--pub-whatsapp);
+    color: #fff;
+  }
+
+  .pub-menu-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  body.pub .pub-pick-way {
+    min-height: 56px;
+    padding-top: 2px;
+  }
+}
+
+/* @critical-end */
+
+/* «صفحة طلبك» (يضعها landing.js مكان «طلبك فين؟» على موبايلها) */
+body.pub .pub-pick-way--saved {
+  background: var(--primary-800);
+  border-color: var(--primary-800);
+  color: #fff;
+}
+
+.pub-pick-way--saved .pa {
+  fill: #fff;
+}
+
+.pub-pick-way--saved .pw {
+  fill: var(--primary-800);
+}
+
+.pub-pick-way--saved .po {
+  stroke: #fff;
+}
+
+
+/* (يضيفه landing.js بعد التحميل) «مش موبايلك؟ امسحي»: ✕ بمساحة لمس 48×48 في ركن مربع «صفحة طلبك» (لا سطر تحت الشاشة) */
+body.pub .pub-pick-ways .pub-saved-forget {
+  position: absolute;
+  inset-block-start: -6px;
+  inset-inline-end: -10px;
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  display: grid;
+  place-items: start end;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pub-pick-ways .pub-saved-forget span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-800);
+  background: #fff;
+  color: var(--primary-800);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+
+/* الأزرار الثانوية (ليست في الشاشة الأولى؛ خارج الأنماط المضمّنة) */
+.pub-btn-lg,
+.pub-btn-primary {
+  min-height: var(--tap-primary);
+  padding: 12px 28px;
+  font-size: 19px;
+  border-radius: 16px;
+}
+
+/* الزر الأساسي: عرض كامل على الهاتف */
+.pub-btn-primary {
+  width: 100%;
+}
+
+body.pub .pub-btn-teal {
+  background: var(--pub-teal);
+  color: #fff;
+}
+
+body.pub .pub-btn-teal:hover {
+  background: var(--primary-800);
+  color: #fff;
+}
+
+body.pub .pub-btn-whatsapp {
+  background: var(--pub-whatsapp);
+  color: #fff;
+}
+
+body.pub .pub-btn-whatsapp:hover {
+  background: #0a6345;
+  color: #fff;
+}
+
+body.pub .pub-btn-outline {
+  background: #fff;
+  color: var(--pub-teal);
+  border-color: var(--pub-teal);
+}
+
+body.pub .pub-btn-outline:hover {
+  color: var(--pub-teal);
+  background: var(--primary-50);
+}
+
+body.pub .pub-btn-light,
+body.pub .pub-btn-call {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+body.pub .pub-btn-light:hover,
+body.pub .pub-btn-call:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.pub-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+
+/* v9.2: زرا «واتساب» و«اتصال» في «كلمينا» (كانا على خلفية البطل الغامقة) */
 .pub-contact-buttons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-block-start: 12px;
+  margin-block-start: 14px;
 }
 
 .pub-contact-buttons.is-single {
@@ -552,29 +928,13 @@ body.pub .pub-hero h1 {
   padding-inline: 12px;
 }
 
-.pub-hero-hours {
-  margin-block-start: 10px !important;
-  font-size: var(--text-meta);
-  color: rgba(255, 255, 255, 0.9);
+body.pub .pub-contact-buttons .pub-btn-call {
+  background: #fff;
+  color: var(--primary-700);
+  border-color: var(--primary-700);
 }
 
-.pub-hero-art {
-  display: grid;
-  place-items: center;
-  color: var(--pub-gold-soft);
-  opacity: 0.9;
-}
-
-.pub-hero-art .pub-mark-svg {
-  width: min(280px, 100%);
-  height: auto;
-}
-
-/* بطاقة «قدّمتي طلب قبل كده؟» وبطاقة «عندك طلب عندنا» (صفحة محفوظة على الموبايل — B91-06) */
-.pub-returning-wrap {
-  padding-block: 14px 0;
-}
-
+/* «قدّمتي طلب قبل كده؟» (في «كلمينا») وبطاقة «عندك طلب عندنا» (صفحة الطلب) — B91-06 */
 body.pub .pub-returning {
   display: flex;
   align-items: center;
@@ -625,56 +985,12 @@ body.pub .pub-saved-forget {
   padding: 0;
   border: 0;
   background: none;
-  color: #145d6f;
+  color: var(--primary-600);
   font-size: var(--text-meta);
   text-decoration: underline;
   cursor: pointer;
 }
 
-/* الشاشة الأولى على الموبايل */
-@media (max-width: 900px) {
-  .pub-hero-inner {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    padding-block: 36px 40px;
-  }
-
-  .pub-hero-art {
-    display: none;
-  }
-}
-
-@media (max-width: 600px) {
-  :root {
-    --pub-gutter: 16px;
-    --pub-header-h: 56px;
-  }
-
-  .pub-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
-
-  .pub-brand-text span {
-    display: none;
-  }
-
-  .pub-hero-inner {
-    padding-block: 20px 24px;
-  }
-
-  body.pub .pub-hero h1 {
-    font-size: 26px;
-    line-height: 1.4;
-  }
-
-  .pub-hero-sub {
-    font-size: 17px;
-  }
-}
-
-/* @critical-end */
 
 /* ───────────── الأقسام ───────────── */
 
@@ -701,7 +1017,7 @@ body.pub .pub-saved-forget {
   display: inline-block;
   font-weight: 700;
   font-size: 15px;
-  color: #7a5518;
+  color: var(--accent-700);
   margin-block-end: 8px;
 }
 
@@ -747,7 +1063,7 @@ body.pub .pub-tile-link {
 
 body.pub .pub-tile-link:hover {
   border-color: var(--pub-teal);
-  box-shadow: 0 8px 20px rgba(8, 42, 51, 0.08);
+  box-shadow: 0 8px 20px rgb(var(--primary-900-rgb) / 0.08);
 }
 
 .pub-service-icon {
@@ -756,7 +1072,7 @@ body.pub .pub-tile-link:hover {
   border-radius: 13px;
   display: grid;
   place-items: center;
-  background: #eef6f7;
+  background: var(--primary-50);
   color: var(--pub-teal);
 }
 
@@ -802,7 +1118,7 @@ body.pub .pub-tile-link:hover {
   place-items: center;
   font-weight: 700;
   font-size: 18px;
-  color: var(--pub-teal-deep);
+  color: var(--on-accent);
   background: var(--pub-gold-soft);
 }
 
@@ -831,8 +1147,8 @@ body.pub .pub-tile-link:hover {
 }
 
 .pub-panel-gold {
-  background: linear-gradient(160deg, #fbf7ee, #fff 70%);
-  border-color: #f6ecd8;
+  background: linear-gradient(160deg, var(--accent-50), #fff 70%);
+  border-color: var(--accent-100);
 }
 
 body.pub .pub-panel h2,
@@ -870,7 +1186,7 @@ body.pub .pub-panel h3 {
 }
 
 .pub-check-list.is-neutral .pub-icon {
-  color: #7a5518;
+  color: var(--accent-700);
 }
 
 .pub-panel-link {
@@ -890,9 +1206,9 @@ body.pub .pub-panel h3 {
   border-radius: 16px;
   display: grid;
   place-items: center;
-  background: #fbf7ee;
-  color: #7a5518;
-  border: 1px solid #f6ecd8;
+  background: var(--accent-50);
+  color: var(--accent-700);
+  border: 1px solid var(--accent-100);
 }
 
 /* الأسئلة */
@@ -911,8 +1227,8 @@ body.pub .pub-panel h3 {
 }
 
 .pub-faq-item[open] {
-  border-color: #b9d7de;
-  box-shadow: 0 8px 22px rgba(8, 42, 51, 0.06);
+  border-color: var(--primary-200);
+  box-shadow: 0 8px 22px rgb(var(--primary-900-rgb) / 0.06);
 }
 
 .pub-faq-item summary {
@@ -1003,7 +1319,7 @@ body.pub .pub-faq-body a {
   display: block;
   font-size: 15px;
   font-weight: 700;
-  color: #7a5518;
+  color: var(--accent-700);
 }
 
 body.pub .pub-contact-list a {
@@ -1042,12 +1358,12 @@ body.pub .pub-social {
   font-size: 15px;
   text-decoration: none;
   color: var(--pub-teal);
-  background: #eef6f7;
-  border: 1px solid #dcecef;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-100);
 }
 
 body.pub .pub-social:hover {
-  background: #dcecef;
+  background: var(--primary-100);
 }
 
 /* برامج المؤسسة (في «عن البرنامج») */
@@ -1404,7 +1720,7 @@ body.pub .pub-summary p {
 }
 
 body.pub .pub-summary a {
-  color: #145d6f;
+  color: var(--primary-600);
   font-weight: 700;
 }
 
@@ -1506,7 +1822,7 @@ body.pub .pub-doc h2 {
   font-size: 22px;
   margin-block-end: 12px;
   padding-block-end: 8px;
-  border-block-end: 2px solid #f6ecd8;
+  border-block-end: 2px solid var(--accent-100);
 }
 
 body.pub .pub-doc h3 {
@@ -1543,8 +1859,8 @@ body.pub .pub-doc h3 {
   padding: 16px 18px;
   margin-block: 16px;
   border-radius: 16px;
-  background: #eef6f7;
-  border: 1px solid #dcecef;
+  background: var(--primary-50);
+  border: 1px solid var(--primary-100);
   border-inline-start: 4px solid var(--pub-teal);
 }
 
@@ -1554,13 +1870,13 @@ body.pub .pub-doc h3 {
 }
 
 .pub-callout-gold {
-  background: #fbf7ee;
-  border-color: #f6ecd8;
+  background: var(--accent-50);
+  border-color: var(--accent-100);
   border-inline-start-color: var(--pub-gold);
 }
 
 .pub-callout-gold .pub-icon {
-  color: #7a5518;
+  color: var(--accent-700);
 }
 
 .pub-callout p {
@@ -1643,7 +1959,7 @@ body.pub .pub-doc h3 {
   inset-inline-start: 17px;
   inset-block: 40px 4px;
   width: 2px;
-  background: #dcecef;
+  background: var(--primary-100);
 }
 
 .pub-timeline strong {
@@ -1772,8 +2088,8 @@ body.pub .intake-card {
 .benef-section {
   grid-column: 1 / -1;
   border-radius: 18px;
-  border: 1px solid var(--accent-100, #f6ecd8);
-  background: var(--accent-50, #fbf7ee);
+  border: 1px solid var(--accent-100);
+  background: var(--accent-50);
 }
 
 .benef-section > summary {
@@ -1798,8 +2114,8 @@ body.pub .intake-card {
   display: grid;
   place-items: center;
   background: #fff;
-  color: var(--accent-700, #7a5518);
-  border: 1px solid var(--accent-100, #f6ecd8);
+  color: var(--accent-700);
+  border: 1px solid var(--accent-100);
 }
 
 .benef-summary-text {
@@ -1820,7 +2136,7 @@ body.pub .intake-card {
 
 .benef-chevron {
   margin-block-start: 10px;
-  color: var(--accent-700, #7a5518);
+  color: var(--accent-700);
   transition: transform 0.2s ease;
 }
 
@@ -1847,7 +2163,7 @@ body.pub .intake-card {
 
 .benef-note .icon {
   margin-block-start: 4px;
-  color: var(--primary-700, #0f4c5c);
+  color: var(--primary-700);
 }
 
 .wizard .benef-body {
@@ -1890,7 +2206,7 @@ body.pub .success-card .success-title {
   inset-inline-start: 17px;
   inset-block: 38px 2px;
   width: 2px;
-  background: var(--primary-100, #dcecef);
+  background: var(--primary-100);
 }
 
 .success-step-num {
@@ -1901,9 +2217,9 @@ body.pub .success-card .success-title {
   display: grid;
   place-items: center;
   font-weight: 700;
-  background: var(--primary-50, #eef6f7);
-  color: var(--primary-700, #0f4c5c);
-  border: 1px solid var(--primary-100, #dcecef);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  border: 1px solid var(--primary-100);
 }
 
 .success-steps li.is-done .success-step-num {

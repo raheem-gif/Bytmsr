@@ -1,4 +1,4 @@
-# Beyoot Misr Legal Support Platform — Complete Brief (version 9.1, pre-launch)
+# Beyoot Misr Legal Support Platform — Complete Brief (version 9.2, pre-launch)
 
 > **Purpose of this file.** This is a full, plain-language description of a software platform that was built for
 > «مؤسسة بيوت مصر لدعم الأرامل والأيتام» (Beyoot Misr Foundation for Supporting Widows and Orphans).
@@ -412,6 +412,90 @@ explanation. Lawyers get concise professional Arabic.
 
 ---
 
+## الإصدار 9.2 — Version 9.2: picture tiles, stories turned into requests, the foundation's colours
+
+The user asked for three things (in Egyptian Arabic): (1) the moment people open the site they should see **squares to
+pick from** — "the simplest thing in the world", assuming people who may not read well; (2) the site in **the
+foundation's colours**; (3) for the administration, **AI that pulls the story a beneficiary tells on WhatsApp or on the
+website, summarises it and turns it into a request** — a consultation, a court matter or whatever fits. Three lanes built
+these in parallel. The privacy model is unchanged: an unconfirmed website number never receives WhatsApp, lawyers never
+see phone numbers or raw conversations, and AI text is always reviewed by staff before it reaches a beneficiary or a
+lawyer.
+
+### Public site: picture tiles first
+
+<!-- v92:public -->
+- **First screen (`/`)**: one question («مشكلتك في إيه؟») and **8 picture tiles** in the order ورث، معاش، فلوس الأيتام،
+  نفقة، حضانة ورؤية، سكن وإيجار، ورق رسمي، حاجة تانية (with «أو مش عارفين»), then a ways row: **«إحنا نكلمك»** (free
+  call-back: one tap + the number), «واتساب» (real number only), «طلبك فين؟» (replaced in the same box by «صفحة طلبك» with
+  a 48×48 ✕ when her page is saved on the phone). Tiles, the «مجاني وسرّي» badge and a header WhatsApp/phone button fit a
+  360×512 visible area without scrolling. First-screen wording is gender-neutral (nouns; neutral plural when spoken);
+  everything after the first tap is feminine Egyptian. Tile colours come from the brand scale through contract pairs only
+  (tile edge `primary-500`, pressed `primary-700` on `primary-100`).
+- **Tile-led form (`/intake`)**: 1–2 picture questions per topic (one tap; a full-width «مش عارفة» tile records `unknown`),
+  then the story screen (voice first; text and photos optional), then the phone screen. **No consent checkbox**: a consent
+  line above the send button (`consent_v = 1`; open decision for the legal adviser). Name optional; governorate and
+  relation asked after sending («كمان سؤالين», `POST /api/portal/:token/about`, single-request links only, never touches
+  the client row). Double-tap safe (450 ms guard, one recorded tap per screen). Phone back = previous screen. In
+  Facebook/Instagram in-app browsers the story screen leads with «ابعتي رسالة صوتية على واتساب».
+- **Call-back-only requests** (`/intake?mode=callback`): number + time (morning/noon/any) + optional topic. Stored as a canned,
+  non-factual message («عايزة حد يكلمني — الصبح», or «محتاجين حد يكلمنا — …» with no name), `meta.callback_canned`,
+  activity + staff notification `client.callback`. The success screen promises when and from which number we call
+  (`callback_from_number` or `org_phone`, `callback_eta_days`) and how she will recognise us («طلب رقم 29»). B91-01 holds:
+  the number stays unconfirmed, staff replies stay on her page.
+- **Listening aid**: «بالصوت»/«اسمعي» appears only when an Arabic voice exists; once switched on, every same-document screen
+  change reads itself (H1, sub-line, answers, consent line); never speaks without a tap; a voice that never starts hides
+  the button.
+- **Data contract**: `intakes.form_answers` = `{v, topic, answers, callback, story, entry, inferred, consent_v, about}`;
+  `topics.js` is the single topic source for the browser and the server (`staffLines()` under «اختيارات ضغطت عليها في الموقع
+  (قد تكون غير دقيقة)»). Lawyers never see it.
+- **Budgets**: `/` ≤ 14 KB br (critical CSS ≤ 12 KB, zero render-blocking requests, zero box shift of the tiles), landing JS
+  ≤ 4 KB br, `/intake` static closure ≤ 32 KB br without `recorder.js` (prefetched from `/` while she decides), `listen.js`
+  ≤ 3.5 KB br. A CSS-only «الصفحة بتحمّل ببطء» block with phone/WhatsApp appears after 8 s if the form module never runs.
+- **Demo**: «أم يوسف» (ورث, call-back الصبح, no story), «أم ريم» (سكن وإيجار, eviction threat, text story) and a no-name
+  call-back from the home «إحنا نكلمك» tile.
+
+### Administration: from a story to a ready request
+
+<!-- v92:admin-ai -->
+_(filled in by the admin-ai lane.)_
+
+### The foundation's colours («ألوان المؤسسة»)
+
+<!-- v92:colours -->
+- **What the admin sees.** Settings → «ألوان المؤسسة» (admins only; direct link `#/settings?section=brand`, which
+  scrolls to the card and focuses its heading). Two colours: the main colour (main buttons, page headers, staff sidebar)
+  and the second colour (the «احكيلنا مشكلتك» button and highlighted tiles), each with a colour picker and a hex field
+  (accepts `#abc`, upper case and Arabic-Indic digits). A live preview shows a mini public header, the «ورث» and «معاش»
+  tiles with their pictures, the «ابعتي» button and a sidebar strip with a count badge.
+- **Colours from the logo, without uploading it.** «اختر صورة الشعار لاقتراح الألوان» reads a picture on the admin's own
+  device (shrunk to 200×200; files over 15 MB are refused) and offers up to 4 colours under each field. Nothing is
+  uploaded or stored — the logo itself is not part of 9.2 (deferred).
+- **Readable text for any choice.** The server and the preview generate all shades (17 steps plus 5 RGB triplets) with
+  the same pure module (`public/assets/js/lib/brand-color.js`, an OKLCH ladder fitted to the 9.1 palette) and guarantee
+  a 29-pair contrast contract (WCAG AA: 4.5:1 for text, 3:1 for edges and icons — including the tile border `p500` on
+  white). When the admin's colour had to be darkened or lightened, a box says so with both values before saving. Tested
+  on 644 colour pairs, including pure white, pure black and fluorescent yellow.
+- **Where it shows.** Every public page (home and tiles, request form, follow-up page, legal pages, 404) and the staff
+  and lawyer app `/app` get one inline block `<style id="bm-theme">html:root{…}</style>` (about 520 bytes) in the page
+  head, so the colours are right from the first paint with no extra request; the browser bar colour follows. The
+  admin's own page restyles without reloading. A lawyer whose phone has the app cached sees the new colours from the
+  next open, and the service worker does not change, so no "update available" prompt appears.
+- **Default unchanged.** With no setting, no block is emitted and pages render exactly as in 9.1 (teal `#0f4c5c`,
+  gold `#b8862e`). «رجوع للألوان الأصلية» (with confirmation) removes the setting. A corrupted setting never breaks a
+  page: the defaults are used.
+- **Security.** `GET/PUT/DELETE /api/admin/brand…` are admin-only with the usual CSRF checks; every change is in the
+  security log («تعديل ألوان المؤسسة» / «إرجاع ألوان المؤسسة الأصلية»). The block is inserted only after its shape is
+  checked (`html:root{--name:#hex;…}`) on the server and in the browser, and written with `textContent`. The generic
+  settings PATCH cannot change the colours. A launch-readiness item «ألوان المؤسسة» is informational only.
+- **Stylesheets.** All brand colour literals became tokens (`--primary-*`, `--accent-*`, `rgb(var(--…-rgb) / a)`); the
+  default values live only in two marked blocks (`app.css`, `public-site.css`). Text on the gold colour uses
+  `--on-accent` (this fixed the white step number on gold in the follow-up page tracker, which was 3.24:1). The test
+  `test/v92-colours.test.js` fails on any brand literal outside those blocks and on any text/background pair outside
+  the contrast contract.
+
+---
+
 ## 7. Privacy & security design (summary)
 
 - All permissions are enforced on the server for every request; anything a user may not see returns "not found".
@@ -538,6 +622,32 @@ no WhatsApp message is really sent: outgoing messages, portal login codes and la
     use "forgot password?" by WhatsApp.
 11. **(9.1) "Remember me" for lawyers**: decide all lawyers / only with two-step login / off in the security policy.
     (Setting the `SESSION_TTL_HOURS` environment variable turns the feature off; `render.yaml` does not set it.)
+12. **(9.2) The foundation's real colours.** Nothing public gave them, so the platform keeps its teal and gold. An admin
+    sets them in a minute in Settings → «ألوان المؤسسة» (colour suggestions can be taken from a picture of the logo).
+13. **(9.2) WhatsApp welcome list and the «وصلتنا حكايتك» acknowledgement.** Both are off by default in code (the
+    acknowledgement is on in the demo); the launch-readiness page flags the acknowledgement while it is off. Decide
+    decision 22 (privacy wording) first.
+14. **(9.2) When a WhatsApp story counts as finished:** 10 quiet minutes, or a "done" word such as «خلاص».
+15. **(9.2) Call-back requests:** who returns them, from which number (`callback_from_number`, default the foundation's
+    phone) and how fast (`callback_eta_days`, default 1 day). The site now promises both, plus "if you don't answer we'll
+    call again".
+16. **(9.2) Tile order on the home page** is a hypothesis; review it after 3 months of `form_answers.topic` / `entry`
+    data.
+17. **(9.2) Outside referral bodies:** none are shipped, and no phone numbers are invented; the foundation supplies its
+    own list.
+18. **(9.2) Daily cap of automatic Claude runs per story** (default 6).
+19. **(9.2) A recorded human voice greeting** instead of the phone's synthetic voice for «اسمعي» (not in 9.2).
+20. **(9.2) Release gate for the tile home page:** a picture-recognition test (ISO 9186 style) with printed tile cards
+    and at least 8 beneficiaries; every tile must reach 66% correct recognition or be redrawn before production switches
+    to the tile home. Moderated usability tests (U1–U10) with 5–8 beneficiaries before launch.
+21. **(9.2) Consent by action:** the foundation's legal adviser confirms that the line above the send button
+    («لما تضغطي "ابعتي طلبك"، بتوافقي…», also read aloud) is sufficient consent under Law 151/2020; if not, the checkbox
+    returns (`consent_v` 2).
+22. **(9.2) Privacy wording:** before turning on the welcome list or the acknowledgement, privacy policy §7 («كل رد
+    يصلك يراجعه شخص مختص ويعتمده قبل إرساله») must add "except fixed automatic messages such as the confirmation that
+    your request arrived".
+23. **(9.2) Unreachable requests:** the minimum number of failed call attempts before closing a request as
+    «تعذّر الوصول إليها» (default 3 attempts on at least 2 different days).
 
 ---
 

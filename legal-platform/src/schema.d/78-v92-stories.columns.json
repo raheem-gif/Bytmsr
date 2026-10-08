@@ -1,0 +1,23 @@
+[
+  ["intakes", "story_state", "TEXT NOT NULL DEFAULT 'ready'"],
+  ["intakes", "story_rev", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "analyzed_rev", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "story_ready_at", "TEXT"],
+  ["intakes", "story_ready_via", "TEXT"],
+  ["intakes", "topic", "TEXT"],
+  ["intakes", "welcome_sent_at", "TEXT"],
+  ["intakes", "story_ack_sent_at", "TEXT"],
+  ["intakes", "ai_track", "TEXT"],
+  ["intakes", "decided_track", "TEXT"],
+  ["intakes", "resolution_kind", "TEXT"],
+  ["intakes", "referral_to", "TEXT"],
+  ["intakes", "analysis_attempted_at", "TEXT"],
+  ["intakes", "analysis_attempts", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "decided_at", "TEXT"],
+  ["intakes", "voice_missing", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "story_letters", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "media_failed", "INTEGER NOT NULL DEFAULT 0"],
+  ["intakes", "notices_sent", "TEXT"],
+  ["clients", "name_source", "TEXT"],
+  ["cases", "brief_draft", "TEXT"]
+]

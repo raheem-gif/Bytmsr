@@ -8,6 +8,9 @@ import { sha256, parseJson, addDays, nowIso } from '../util.js'; // v9.1 b-forms
 import { sha256 as metaHash } from '../util.js'; // v9.1 l-home
 import { sourceFromWebAttribution, isPortalUnverifiedIntake } from '../channels/engine.js';
 import { verifySignature, publicWhatsAppDigits, isPlaceholderWhatsApp } from '../channels/whatsapp.js';
+// v9.2 public: مصدر واحد لمواضيع الطلب (الموقع والخادم والإدارة)
+import { topicByKey, sanitizeAnswers, infer, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
+import { addressForm } from '../util.js';
 
 const DEMO_ACCOUNTS = [
   { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
@@ -24,6 +27,15 @@ const MAX_INTAKE_DOCS = 5;
 const MAX_INTAKE_AUDIO = 3;
 const VOICE_ONLY_TEXT = '[رسالة صوتية]';
 const SUBMISSION_RE = /^[A-Za-z0-9_-]{16,64}$/;
+// v9.2 public (§3.3): من أين بدأ الطلب، وأي شكل للنموذج
+const ENTRIES = ['home_tile', 'home_callback', 'intake_tiles', 'direct'];
+const MODES = ['form', 'guided', 'tiles', 'callback'];
+const NAME_MSG = 'اكتبي اسمك كامل، أو سيبيه فاضي.';
+const MAX_AUDIO_SECONDS = 600;
+// المحافظات الأكثر طلبًا تُكمَّل من هذه القائمة حتى 6، ثم «محافظة تانية»
+const QUICK_GOVERNORATES = ['القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'الشرقية', 'الدقهلية'];
+const OTHER_GOVERNORATE = 'محافظة تانية';
+const nonSpace = (s) => String(s || '').replace(/\s/gu, '').length;
 
 export function registerPublicRoutes(router, app) {
   const { config } = app;
@@ -141,10 +153,35 @@ export function registerPublicRoutes(router, app) {
   // v9.1 b-forms: ردّ نموذج الطلب. رابط المتابعة مقصور على هذا الطلب وحده، وكود التأكيد (6 أرقام عشوائية،
   // يُخزَّن مُجزّأً 30 يومًا) يُرسل مع رقم الطلب في رسالة واتساب جاهزة فيثبت أن مقدّمة الطلب صاحبة الرقم (B91-01).
   // إعادة الإرسال بنفس submission_id (انقطع النت بعد وصول الطلب) تُصدر رابطًا وكودًا جديدين لنفس الطلب ولا تنشئ طلبًا ثانيًا.
+  // v9.2 public: رقم المكالمة الذي سيظهر لها («من الرقم ده»): callback_from_number، وإلا تليفون المؤسسة
+  function callbackFrom() {
+    const own = String(app.settings.get('callback_from_number') || '').trim();
+    return own || String(app.settings.get('org_phone') || '').trim() || null;
+  }
+  function callbackEtaDays() {
+    const n = Math.round(Number(app.settings.get('callback_eta_days')));
+    return Number.isFinite(n) && n >= 1 ? Math.min(5, n) : 1;
+  }
+  // [R2-B28] «إنتي من أنهي محافظة؟»: أكثر 6 محافظات طلبًا في آخر سنة (التعادل بترتيب القائمة)، تُكمَّل من القائمة الثابتة
+  function aboutGovernorates() {
+    const since = addDays(nowIso(), -365);
+    const rows = db.all('SELECT governorate AS g, COUNT(*) AS n FROM intakes WHERE governorate IS NOT NULL AND created_at >= ? GROUP BY governorate', since);
+    const count = new Map(rows.filter((r) => GOVERNORATES.includes(r.g)).map((r) => [r.g, Number(r.n)]));
+    const top = [...count.keys()].sort((a, b) => count.get(b) - count.get(a) || GOVERNORATES.indexOf(a) - GOVERNORATES.indexOf(b)).slice(0, 6);
+    for (const g of QUICK_GOVERNORATES) if (top.length < 6 && !top.includes(g)) top.push(g);
+    return [...top, OTHER_GOVERNORATE];
+  }
+  function v92Fields(current) {
+    const fa = parseJson(current?.form_answers, null);
+    const callback = fa && CALLBACK_WHEN[fa.callback] ? fa.callback : null;
+    return { callback, callback_from: callbackFrom(), callback_eta_days: callbackEtaDays(), about_governorates: aboutGovernorates() };
+  }
+
   function intakeResponse(intake, clientId) {
     const s = app.settings.all();
     const digits = waDigits();
     const current = db.get('SELECT * FROM intakes WHERE id = ?', intake.id) || intake;
+    const extra = v92Fields(current);
     if (!isPortalUnverifiedIntake(current)) {
       // v9.1 fixes: إعادة الإرسال بنفس submission_id بعد تأكيد الرقم (بالكود أو من الإدارة) لا تُصدر رابطًا ولا كودًا جديدًا:
       // الطلب صار قصة صاحبة الرقم، ورابطها يصلها على واتساب. (حامل submission_id أثبت أنه المتصفح الذي أرسل الطلب، لا صاحب الرقم)
@@ -155,6 +192,7 @@ export function registerPublicRoutes(router, app) {
         whatsapp_url: null,
         confirmed: true,
         eta_review_days: Math.max(1, Number(s.portal_eta_review_days) || 2),
+        ...extra,
       };
     }
     // رابط الموقع «موقع فقط» دائمًا (portal.scopeOf): لا يعرض رسائل واتساب صاحب الرقم ولا يتسع بعد تأكيد الرقم
@@ -176,83 +214,150 @@ export function registerPublicRoutes(router, app) {
       whatsapp_url: digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : null,
       // «فريقنا هيقرا طلبك — غالبًا خلال يومين شغل» في شاشة «وصلنا طلبك»
       eta_review_days: Math.max(1, Number(s.portal_eta_review_days) || 2),
+      // v9.2 public: بطاقة «هنكلمك» و«كمان سؤالين»
+      ...extra,
     };
   }
+
+  /**
+   * v9.2 public (§3.3): استقبال طلب الموقع. الاسم اختياري؛ الموضوع وإجابات الصور ووقت المكالمة اختيارية.
+   * طلب مكالمة بلا حكاية مقبول (body = «عايزة حد يكلمني — الصبح» أو «محتاجين حد يكلمنا — …» بلا اسم).
+   * يُستدعى من المسار، ومن بيانات العرض التجريبية (seed-v92-public.js) بنفس القواعد دون حدود المعدل.
+   */
+  function submitIntake(b, { limits = true } = {}) {
+    if (b.website) return { status: 200, body: { reference: null, ok: true } }; // حقل فخ للبرامج الآلية
+    if (b.consent !== true) throw badRequest('لازم توافقي عشان نقدر نساعدك.');
+    // الاسم اختياري: «سيبيه فاضي» = لا يُرسل أصلًا (النموذج لا يرسله فاضيًا)؛ أما إن أُرسل فحرفان على الأقل
+    let name = null;
+    if (b.name !== undefined && b.name !== null) {
+      const raw = typeof b.name === 'string' ? b.name.trim() : '';
+      if (raw.length < 2 || raw.length > 120) throw badRequest(NAME_MSG, { fields: { name: NAME_MSG } });
+      name = raw;
+    }
+    const phone = v.phone(b.phone, 'رقم الموبايل', { required: true, egyptianMobile: true });
+    // v9.2: الموضوع (مفتاح أو اسم قديم، وإلا بلا موضوع بصمت) وإجابات الصور (كائن فقط) ووقت المكالمة
+    const topic = topicByKey(b.topic);
+    if (b.answers !== undefined && b.answers !== null && (typeof b.answers !== 'object' || Array.isArray(b.answers))) throw badRequest('اختيارات غير صالحة.');
+    const answers = sanitizeAnswers(topic?.key, b.answers || {});
+    const callback = b.callback === undefined || b.callback === null || b.callback === '' ? null : v.oneOf(b.callback, Object.keys(CALLBACK_WHEN), 'الوقت المناسب');
+    const entry = ENTRIES.includes(b.entry) ? b.entry : 'direct';
+    const consentV = Number.isInteger(b.consent_v) && b.consent_v >= 1 && b.consent_v <= 99 ? b.consent_v : null;
+    // v9.1 b-forms: معرّف إرسال عشوائي من المتصفح؛ إعادة المحاولة بعد انقطاع النت لا تنشئ طلبًا ثانيًا
+    const submission = typeof b.submission_id === 'string' && SUBMISSION_RE.test(b.submission_id) ? b.submission_id : null;
+    let externalId = submission ? `web-intake:${submission}` : null;
+    const already = () => {
+      if (!externalId) return null;
+      const m = db.get("SELECT intake_id, client_id FROM messages WHERE channel = 'website' AND external_id = ?", externalId);
+      if (!m) return null;
+      const it = m.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', m.intake_id) : null;
+      // نفس المعرّف ونفس الرقم فقط (المعرّف سر لا يعرفه إلا متصفح مقدّمة الطلب)؛ رقم مختلف = طلب جديد مستقل
+      if (it && it.contact_phone === phone && m.client_id) return { intake: it, clientId: m.client_id };
+      externalId = null;
+      return null;
+    };
+    const prev = already();
+    if (prev) return { status: 201, body: intakeResponse(prev.intake, prev.clientId) };
+    if (limits) app.limiters.publicIntakePhone.hit(`phone:${phone}`);
+    const email = v.email(b.email, 'البريد الإلكتروني');
+    const governorate = b.governorate ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
+    const codes = LEGAL_AREAS.map((a) => a.code);
+    let area = b.legal_area ? v.oneOf(b.legal_area, codes, 'نوع المشكلة') : null;
+    if (!area && topic?.area && codes.includes(topic.area)) area = topic.area;
+    // v9.1 b-forms: حتى 5 صور/مستندات و3 رسائل صوتية؛ الرسالة الصوتية تغني عن الكتابة،
+    // وبدونها يكفي وصف من 10 حروف («جوزي مات ومعاش» مقبول)، أو طلب مكالمة (v9.2)
+    const files = b.documents == null ? [] : Array.isArray(b.documents) ? b.documents : badRequestFiles();
+    const audioCount = files.filter((f) => app.documents.isAudio(f || {})).length;
+    if (files.length - audioCount > MAX_INTAKE_DOCS) throw badRequest('تقدري تبعتي لحد 5 صور دلوقتي. الباقي ابعتيه بعدين من صفحتك.');
+    if (audioCount > MAX_INTAKE_AUDIO) throw badRequest('تقدري تبعتي لحد 3 رسايل صوتية.');
+    // v9.2: مدة الرسالة الصوتية كما سجّلها المتصفح (0–600 ثانية) تصل لحفظ المستند
+    const attachments = files.map((f) => {
+      if (!f || typeof f !== 'object') return f;
+      const { seconds, ...rest } = f;
+      const n = Number(seconds);
+      return app.documents.isAudio(f) && seconds !== undefined && seconds !== null && Number.isFinite(n) ? { ...rest, seconds: Math.max(0, Math.min(MAX_AUDIO_SECONDS, n)) } : rest;
+    });
+    let description = v.str(b.description, 'وصف المشكلة', { max: 10000 }) || '';
+    if (!audioCount && nonSpace(description) < MIN_DESC_CHARS && !callback) {
+      throw badRequest('سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.', { fields: { description: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.' } });
+    }
+    const hasText = nonSpace(description) > 0;
+    const story = audioCount && hasText ? 'both' : audioCount ? 'voice' : hasText ? 'text' : 'none';
+    const hasStory = story !== 'none';
+    const when = callback ? CALLBACK_WHEN[callback].label : '';
+    // [S-25] بلا اسم لا نعرف إن كانت هي أو هو: جملة محايدة
+    const callbackLine = callback ? `${name ? `${addressForm({ name }) === 'm' ? 'عايز' : 'عايزة'} حد يكلمني — ` : 'محتاجين حد يكلمنا — '}${when}` : '';
+    if (!description) description = audioCount ? VOICE_ONLY_TEXT : callbackLine;
+    const mode = MODES.includes(b.mode) ? b.mode : 'form';
+    // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء.
+    // v9.2: ما يُستنتج من الإجابات (الصفة، عدد الأطفال، السكن) وما ترسله صراحةً يغلب عليه
+    const inferred = infer(answers);
+    let beneficiary = null;
+    if (app.practice) {
+      const explicit = app.practice.beneficiary.validatePublic(b.beneficiary);
+      const fromAnswers = {};
+      for (const k of ['relation', 'children_count', 'housing']) if (inferred[k] !== undefined) fromAnswers[k] = inferred[k];
+      const implied = Object.keys(fromAnswers).length ? app.practice.beneficiary.validatePublic(fromAnswers) : null;
+      const merged = { ...(implied || {}), ...(explicit || {}) };
+      beneficiary = Object.keys(merged).length ? merged : null;
+    }
+    const attribution = sourceFromWebAttribution(b.attribution || {});
+    attribution.detail = { ...attribution.detail, intake_mode: mode };
+    const r = app.engine.receive({
+      channel: 'website',
+      from_phone: phone,
+      from_email: email,
+      contact_name: name,
+      governorate,
+      text: description,
+      attachments,
+      external_id: externalId,
+      attribution,
+      legal_area_hint: area,
+      force_new_intake: true,
+      intake_kind: 'consultation',
+      topic: topic?.key || null,
+      extra_meta: callback ? { callback, callback_canned: !hasStory } : undefined,
+    });
+    if (r.duplicate) {
+      // سباق نادر: نفس الإرسال وصل مرتين في نفس اللحظة
+      const again = already();
+      if (!again) throw new Error('public intake duplicate without a matching intake');
+      return { status: 201, body: intakeResponse(again.intake, again.clientId) };
+    }
+    // الرابط مقصور على هذا الطلب الجديد وحده: رقم الهاتف في نموذج الموقع غير موثّق،
+    // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
+    if (!r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
+    // v9.2 (§3.3): اختيارات الصور كما ضغطت عليها (تقرأها الإدارة والتحليل تحت «قد تكون غير دقيقة»)
+    const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV };
+    db.update('intakes', r.intake.id, { form_answers: JSON.stringify(formAnswers) });
+    if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
+    if (callback) {
+      const form = name ? addressForm({ name }) : null;
+      const summary = !name
+        ? `طُلبت مكالمة (${when}) من نموذج الموقع`
+        : `${form === 'm' ? 'طلب المستفيد' : 'طلبت المستفيدة'} مكالمة (${when}) من نموذج الموقع`;
+      app.activity.log({ intake_id: r.intake.id, client_id: r.client.id, actor: { kind: 'client' }, type: 'client.callback', summary, data: { when: callback, source: 'website', story } });
+      app.notifications.notifyStaff({
+        type: 'client.callback',
+        title: `طلب مكالمة (${when}) — الطلب ${r.intake.code}`,
+        body: hasStory
+          ? 'اتصلوا على رقمها المسجل في الطلب، والمكالمة نفسها فرصة لتأكيد هويتها.'
+          : 'طلب جديد من الموقع بدون حكاية. اتصلوا عليها واسمعوا مشكلتها، ثم سجّلوا ما قالته من «تسجيل المكالمة» في صفحة الطلب.',
+        link: `#/inbox/${r.intake.id}`,
+      });
+    }
+    return { status: 201, body: intakeResponse(r.intake, r.client.id) };
+  }
+  // بيانات العرض التجريبية تمر بنفس القواعد (seed-v92-public.js)
+  app.publicIntake = (body, o = {}) => submitIntake(body || {}, { limits: false, ...o });
 
   router.post(
     '/api/public/intake',
     (ctx) => {
       app.limiters.publicIntake.hit(`intake:${ctx.ip}`);
-      const b = ctx.body;
-      if (b.website) return { reference: null, ok: true }; // حقل فخ للبرامج الآلية
-      if (b.consent !== true) throw badRequest('لازم توافقي عشان نقدر نساعدك.');
-      const name = v.str(b.name, 'الاسم', { required: true, min: 2, max: 120 });
-      const phone = v.phone(b.phone, 'رقم الموبايل', { required: true, egyptianMobile: true });
-      // v9.1 b-forms: معرّف إرسال عشوائي من المتصفح؛ إعادة المحاولة بعد انقطاع النت لا تنشئ طلبًا ثانيًا
-      const submission = typeof b.submission_id === 'string' && SUBMISSION_RE.test(b.submission_id) ? b.submission_id : null;
-      let externalId = submission ? `web-intake:${submission}` : null;
-      const already = () => {
-        if (!externalId) return null;
-        const m = db.get("SELECT intake_id, client_id FROM messages WHERE channel = 'website' AND external_id = ?", externalId);
-        if (!m) return null;
-        const it = m.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', m.intake_id) : null;
-        // نفس المعرّف ونفس الرقم فقط (المعرّف سر لا يعرفه إلا متصفح مقدّمة الطلب)؛ رقم مختلف = طلب جديد مستقل
-        if (it && it.contact_phone === phone && m.client_id) return { intake: it, clientId: m.client_id };
-        externalId = null;
-        return null;
-      };
-      const prev = already();
-      if (prev) {
-        ctx.status = 201;
-        return intakeResponse(prev.intake, prev.clientId);
-      }
-      app.limiters.publicIntakePhone.hit(`phone:${phone}`);
-      const email = v.email(b.email, 'البريد الإلكتروني');
-      const governorate = b.governorate ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
-      const area = b.legal_area ? v.oneOf(b.legal_area, LEGAL_AREAS.map((a) => a.code), 'نوع المشكلة') : null;
-      // v9.1 b-forms: حتى 5 صور/مستندات و3 رسائل صوتية؛ الرسالة الصوتية تغني عن الكتابة،
-      // وبدونها يكفي وصف من 10 حروف («جوزي مات ومعاش» مقبول)
-      const files = b.documents == null ? [] : Array.isArray(b.documents) ? b.documents : badRequestFiles();
-      const audioCount = files.filter((f) => app.documents.isAudio(f || {})).length;
-      if (files.length - audioCount > MAX_INTAKE_DOCS) throw badRequest('تقدري تبعتي لحد 5 صور دلوقتي. الباقي ابعتيه بعدين من صفحتك.');
-      if (audioCount > MAX_INTAKE_AUDIO) throw badRequest('تقدري تبعتي لحد 3 رسايل صوتية.');
-      let description = v.str(b.description, 'وصف المشكلة', { max: 10000 }) || '';
-      if (!audioCount && description.replace(/\s/gu, '').length < MIN_DESC_CHARS) {
-        throw badRequest('سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.', { fields: { description: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.' } });
-      }
-      if (!description) description = VOICE_ONLY_TEXT;
-      const mode = b.mode === 'guided' ? 'guided' : 'form';
-      // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء
-      const beneficiary = app.practice ? app.practice.beneficiary.validatePublic(b.beneficiary) : null;
-      const attribution = sourceFromWebAttribution(b.attribution || {});
-      attribution.detail = { ...attribution.detail, intake_mode: mode };
-      const r = app.engine.receive({
-        channel: 'website',
-        from_phone: phone,
-        from_email: email,
-        contact_name: name,
-        governorate,
-        text: description,
-        attachments: files,
-        external_id: externalId,
-        attribution,
-        legal_area_hint: area,
-        force_new_intake: true,
-        intake_kind: 'consultation',
-      });
-      if (r.duplicate) {
-        // سباق نادر: نفس الإرسال وصل مرتين في نفس اللحظة
-        const again = already();
-        if (!again) throw new Error('public intake duplicate without a matching intake');
-        ctx.status = 201;
-        return intakeResponse(again.intake, again.clientId);
-      }
-      // الرابط مقصور على هذا الطلب الجديد وحده: رقم الهاتف في نموذج الموقع غير موثّق،
-      // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
-      if (!r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
-      if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
-      ctx.status = 201;
-      return intakeResponse(r.intake, r.client.id);
+      const out = submitIntake(ctx.body || {}, { limits: true });
+      if (out.status !== 200) ctx.status = out.status;
+      return out.body;
     },
     { limit: 60 * 1024 * 1024 },
   );
@@ -294,6 +399,12 @@ export function registerPublicRoutes(router, app) {
     const { client, intakeId, phone } = portalAccess(ctx);
     app.limiters.portal.hit(`portal:${client.id}`);
     return app.portal.callback(client, intakeId, ctx.body || {}, { phone });
+  });
+  // v9.2 public: «كمان سؤالين — لو تحبي» بعد الإرسال (المحافظة والصفة). روابط الطلب الواحد فقط (رابط شاشة النجاح)
+  router.post('/api/portal/:token/about', (ctx) => {
+    const { client, intakeId, phone } = portalAccess(ctx);
+    app.limiters.portal.hit(`portal:${client.id}`);
+    return app.portal.about(client, intakeId, ctx.body || {}, { phone });
   });
   router.post(
     '/api/portal/:token/requests/:id/reply',

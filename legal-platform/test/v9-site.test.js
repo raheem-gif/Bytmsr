@@ -8,6 +8,7 @@ import { startTestApp } from './helpers.js';
 import { ok, createLawyer, LAWYER_PASSWORD } from './lane-b-kit.test.js';
 import { DEFAULT_SETTINGS, LEGAL_AREAS } from '../src/constants.js';
 import { SERVICES, FAQ, ROBOTS_DISALLOW, SITE_PAGES, esc, safeUrl, renderTemplate } from '../src/site.js';
+import { TOPICS, topicByKey, infer } from '../public/assets/js/public/topics.js'; // v9.2 (تغيير مقصود): مصدر واحد للمواضيع
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const PUB = path.join(ROOT, 'public');
@@ -111,19 +112,21 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.ok(!about.some((n) => n['@type'] === 'FAQPage'));
   });
 
-  test('landing page content: services by area link to defined legal-area codes, FAQ rendered, contact block from settings, foundation programmes', async () => {
+  test('landing page content: services by topic link to topics with defined legal-area codes, FAQ rendered, contact block from settings, foundation programmes', async () => {
     const html = (await t.client().get('/')).body;
     const codes = new Set(LEGAL_AREAS.map((a) => a.code));
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}"[\\s\\S]*?href="([^"]+)"`).exec(html);
       assert.ok(m, `service ${s.key} rendered`);
-      const area = new URL(m[1], 'http://x').searchParams.get('area');
-      if (!s.areas.length) {
-        assert.equal(m[1], '/intake', 'v9.1: «حاجة تانية» opens the form without an area');
+      // v9.2 (تغيير مقصود): الروابط بالموضوع (?topic=) ومجال كل موضوع معرّف في المنصة («حاجة تانية» بلا مجال)
+      const topic = topicByKey(new URL(m[1], 'http://x').searchParams.get('topic')); // v9.2 (تغيير مقصود)
+      assert.ok(topic, `service ${s.key} links to a known topic (${m[1]})`); // v9.2 (تغيير مقصود)
+      if (topic.key === 'other') {
+        assert.equal(topic.area, null, '«حاجة تانية» has no area'); // v9.2 (تغيير مقصود)
         continue;
       }
-      assert.ok(area && codes.has(area), `service ${s.key} links to a defined area (${area})`);
-      assert.equal(area, s.areas.find((c) => codes.has(c)));
+      assert.ok(topic.area && codes.has(topic.area), `service ${s.key} → topic ${topic.key} with a defined area (${topic.area})`); // v9.2 (تغيير مقصود)
+      assert.equal(topic.area, s.areas.find((c) => codes.has(c))); // v9.2 (تغيير مقصود)
     }
     assert.equal((html.match(/class="pub-faq-item"/g) || []).length, FAQ.length);
     assert.match(html, /01211114662/);
@@ -413,9 +416,14 @@ describe('v9 site — website intake with the optional family (beneficiary) sect
     const src = fs.readFileSync(path.join(PUB, 'assets/js/public/intake.js'), 'utf8');
     assert.match(src, /areaCodes\.has\(/, 'a topic sends its area only when the platform defines it');
     assert.match(src, /areaCodes = new Set\(\(meta\.areas \|\| \[\]\)\.map/);
-    for (const k of ['relation', 'children_count']) assert.ok(src.includes(k), k);
+    // v9.2 (تغيير مقصود): المواضيع من topics.js، والصفة وعدد الأطفال من إجابات الصور أو الاستنتاج (infer) لا من أسئلة نصية
+    assert.match(src, /from '\.\/topics\.js'/); // v9.2 (تغيير مقصود)
+    for (const k of ['answers', 'topic', 'infer(']) assert.ok(src.includes(k), k); // v9.2 (تغيير مقصود)
+    assert.deepEqual(infer({ 'inh.deceased': 'husband', children: '3' }), { relation: 'widow', children_count: 3 }); // v9.2 (تغيير مقصود)
+    assert.equal(infer({ 'rent.home': 'rented_old' }).housing, 'rented_old'); // v9.2 (تغيير مقصود): السكن يُسأل بالصور
+    assert.equal(TOPICS.length, 8); // v9.2 (تغيير مقصود)
     for (const v of ['widow', 'orphan_guardian', 'divorced', 'other']) assert.ok(src.includes(`'${v}'`), v);
-    for (const gone of ['foundation_file_number', 'monthly_income_band', 'email', "'rented_old'", 'beneficiary.housing']) assert.ok(!src.includes(gone), `${gone} is no longer asked on the public form`);
+    for (const gone of ['foundation_file_number', 'monthly_income_band', 'email', 'beneficiary.housing']) assert.ok(!src.includes(gone), `${gone} is no longer asked on the public form`); // v9.2 (تغيير مقصود): rented_old يأتي من rent.home
     // شاشة النجاح تحل محل النموذج وعنوانه، فعنوانها h1 (عنوان رئيسي واحد للصفحة)
     assert.match(src, /h\('h1#success-title/);
   });

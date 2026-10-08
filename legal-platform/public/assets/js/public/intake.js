@@ -1,15 +1,30 @@
-// v9.1 b-forms — «احكيلنا مشكلتك»: طلب الدعم القانوني في 3 خطوات قصيرة (B91-04/05/17).
-//   1) المشكلة: رسالة صوتية أولًا (حتى 3)، أو كتابة بكلامها العادي، والموضوع اختياري.
-//   2) الورق: «صوّري ورقة» أولًا ثم «من الموبايل»، والصور تُصغَّر على الموبايل.
-//   3) إزاي نوصلّك: الاسم والموبايل والمحافظة وسؤالين اختياريين والموافقة، ثم إرسال بنسبة ظاهرة وإعادة محاولة.
-// المسودة (النصوص والصور والتسجيلات) تبقى على الموبايل لو اتقفلت الصفحة، وتُمسح بعد الإرسال.
+// v9.2 public — «احكيلنا مشكلتك» بالصور (P8): سؤال واحد في كل شاشة، والإجابة بضغطة على صورة.
+//   الموضوع (8 مربعات) ← سؤال أو اتنين بالصور (وكل سؤال فيه «مش عارفة») ← «احكيلنا» (صوت أولًا) ← رقم الموبايل.
+//   «إحنا نكلمك» (?mode=callback): شاشة الرقم وحدها، والموضوع اختياري — مكالمة مجانية بلا حكاية.
+// كل شاشة لها مكان في سجل المتصفح (زر الرجوع في الموبايل = الشاشة السابقة)، والعنوان يأخذ التركيز.
+// «اسمعي» (listen.js) يقرأ كل شاشة جديدة لو شغّلته مرة، ولا يتكلم أبدًا بلا ضغطة.
+// الضغطة المزدوجة لا تجاوب سؤالين: الضغطات تُهمل 450ms بعد ظهور الشاشة، وبعد أول ضغطة مسجّلة حتى الشاشة التالية.
+// المسودة (النصوص والإجابات والصور والتسجيلات) تبقى على الموبايل لو اتقفلت الصفحة، وتُمسح بعد الإرسال.
 // بيانات المؤسسة من كتلة bm-public المضمّنة في الصفحة (بلا طلب /api/meta)، وإلا من /api/meta.
 
 import { h, svg, mount } from '../lib/h.js';
 import { captureAttribution, getAttribution, whatsappUrl, initSiteChrome, savedCard, rememberPortal, forgetSaved } from './common.js';
 import { addressName, addressForm, genderize, countWord, publicData } from './words.js';
-import { voiceRecorder, blobToUpload, canRecord, clock } from './recorder.js';
-// upload.js (التصوير والإرسال) يُحمَّل بعد ظهور الخطوة الأولى حتى لا يزاحمها على نت ضعيف
+import { draftStore, clearAllDrafts } from './drafts.js';
+import { TOPICS, QUESTIONS, UNKNOWN, CALLBACK_WHEN, topicByKey, flowFor, sanitizeAnswers, infer, waPrefill } from './topics.js';
+import { PICTOS } from './pictos.js';
+
+// [R2-B23] الصفحة اشتغلت: نشيل «الصفحة بتحمّل ببطء» قبل أي انتظار
+document.querySelector('[data-slow]')?.remove();
+
+// recorder.js (التسجيل) وupload.js (التصوير والإرسال) يُحمّلان بعد ظهور الشاشة الأولى حتى لا يزاحماها على نت ضعيف
+let R = null;
+let recorderLoading = null;
+const loadRecorder = () =>
+  (recorderLoading ??= import('./recorder.js').then((m) => {
+    R = m;
+    return m;
+  }));
 let U = null;
 let uploadLoading = null;
 const loadUpload = () =>
@@ -17,7 +32,6 @@ const loadUpload = () =>
     U = m;
     return m;
   }));
-import { draftStore, clearAllDrafts } from './drafts.js';
 
 const MIN_CHARS = 10; // حروف بلا مسافات، حين لا توجد رسالة صوتية
 const MAX_DESC = 5000;
@@ -25,45 +39,87 @@ const MAX_PHOTOS = 5;
 const MAX_VOICES = 3;
 const MAX_VOICE_SECONDS = 180;
 const DRAFT_KEY = 'intake';
+// [R2-B3] الضغطة المزدوجة: مهلة بعد ظهور الشاشة، ووقت إظهار الضغطة قبل الانتقال
+const TAP_GUARD_MS = 450;
+const PRESS_MS = 150;
+const ABOUT_DELAY_MS = 15000;
+const CONSENT_V = 1; // [R2-B6] نص الموافقة الذي رأته (سطر فوق زر الإرسال، بلا مربع)
+// [R2-B14] متصفح فيسبوك/إنستجرام داخل التطبيق: الميكروفون والصوت والتخزين غير مضمونة
+const IN_APP_RE = /FBAN|FBAV|FB_IAB|Instagram|; wv\)/;
 
-// الموضوع: كلام الناس ← مجال الإدارة. يُقبل المجال فقط إن كان معرّفًا في بيانات المنصة (areaCodes)
-const TOPICS = [
-  { key: 'inh', label: 'ورث', area: 'INH' },
-  { key: 'pen', label: 'معاش', area: 'PEN' },
-  { key: 'alimony', label: 'نفقة ومصاريف العيال', area: 'FAM' },
-  { key: 'custody', label: 'حضانة ورؤية', area: 'FAM' },
-  { key: 'rent', label: 'سكن وإيجار', area: 'PRP' },
-  { key: 'guardianship', label: 'فلوس الأيتام والوصاية', area: 'GRD' },
-  { key: 'papers', label: 'ورق رسمي', area: 'ADM' },
-  { key: 'other', label: 'حاجة تانية / مش عارفة', area: null },
-];
-const QUICK_GOVS = ['القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'الشرقية', 'الدقهلية'];
-// بيانات الأسرة الاختيارية: الصفة وعدد الأطفال فقط (الخادم ما زال يقبل الباقي من قنوات أخرى)
+// «كمان سؤالين» بعد الإرسال: الصفة (نفس قيم 9.1)
 const RELATIONS = [
   { value: 'widow', label: 'أرملة' },
   { value: 'orphan_guardian', label: 'وصية على أيتام' },
   { value: 'divorced', label: 'مطلقة' },
   { value: 'other', label: 'غير كده' },
 ];
-const CHILDREN = [
-  { value: 0, label: 'لأ' },
-  { value: 1, label: '1' },
-  { value: 2, label: '2' },
-  { value: 3, label: '3' },
-  { value: 4, label: '4 أو أكتر' },
-];
+const OTHER_GOV = 'محافظة تانية';
 
 const MSG = {
   problem: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.',
-  name: 'اكتبي اسمك.',
+  name: 'اكتبي اسمك كامل، أو سيبيه فاضي.',
   phoneEmpty: 'اكتبي رقم موبايلك.',
   phoneBad: 'الرقم ده مش مظبوط. اكتبيه كده: 01012345678',
-  consent: 'لازم توافقي عشان نقدر نساعدك.',
   net: 'ما اتبعتش. اتأكدي إن النت شغال وجربي تاني.',
 };
 
+const COPY = {
+  topicH1: 'مشكلتك في إيه؟',
+  trust: 'مجاني وسرّي. المحامي مش بيشوف رقمك.',
+  storyH1: 'احكيلنا مشكلتك',
+  storySubMic: 'اضغطي على الميكروفون واتكلمي بكلامك العادي. احكي كل حاجة، حتى لو أكتر من مشكلة.',
+  storySubText: 'اكتبي جملة أو اتنين بكلامك العادي. احكي كل حاجة، حتى لو أكتر من مشكلة.',
+  storyOther: 'أي مشكلة، وإحنا نوجّهك.',
+  micHint: 'اختاري أول اختيار: "السماح…" (Allow)',
+  writeInstead: 'اكتبي بدل الصوت',
+  okNext: 'كده تمام — كمّلي',
+  next: 'التالي',
+  moreVoice: 'سجّلي رسالة كمان',
+  photo: 'صوّري ورقة',
+  photoFirst: 'صوّري ورقة (لو عندك)',
+  photoHint: 'زي شهادة الوفاة أو عقد. ممكن تبعتيه بعدين.',
+  callbackBtn: 'مش عارفة تحكي؟ سيبي رقمك وإحنا نكلمك',
+  inAppWa: 'ابعتي رسالة صوتية على واتساب',
+  inAppOr: 'أو سجّلي هنا',
+  phoneH1: 'رقم موبايلك',
+  phoneSub: 'عشان نكلمك ونبعتلك الرد.',
+  cbH1: 'إحنا نكلمك',
+  cbSub: 'اكتبي رقمك، وإحنا نتصل بيكي ببلاش.',
+  cbTopics: 'الموضوع (لو تحبي)',
+  cbCallUs: 'أو اتصلي إنتي: ',
+  closed: 'مقفولين دلوقتي',
+  phoneOk: 'الرقم مظبوط',
+  phoneHear: 'اسمعي رقمك',
+  forgot: 'مش فاكرة رقمك؟',
+  forgotText: 'ابعتيلنا على واتساب من موبايلك، وإحنا ناخد الرقم منها',
+  openWa: 'افتحي واتساب',
+  when: 'إمتى يناسبك نكلمك؟',
+  nameLabel: 'اسمك (لو تحبي)',
+  namePh: 'زي: أم محمد أو أبو محمد',
+  consent: 'لما تضغطي "ابعتي طلبك"، بتوافقي إن المؤسسة تستخدم كلامك ورقمك عشان تساعدك بس.',
+  consentCb: 'لما تضغطي "اطلبي مكالمة"، بتوافقي إن المؤسسة تستخدم رقمك وكلامك عشان تساعدك بس.',
+  more: 'اعرفي أكتر',
+  send: 'ابعتي طلبك',
+  sendCb: 'اطلبي مكالمة',
+  sumLabel: 'مشكلتك: ',
+  sumText: 'كتابة',
+  sumCb: 'هنسمعها منك في المكالمة',
+  edit: 'تعديل',
+  listen: 'اسمعي',
+  listenStop: 'وقّفي',
+  listenResume: 'اسمعي السؤال',
+};
+// أوقات المكالمة بصورها
+const WHEN_PICTO = { morning: 'sunrise', noon: 'sun', any: 'clock' };
+
 const root = document.getElementById('intake-root');
 const store = draftStore(DRAFT_KEY);
+const page = {
+  orgPhone: root?.dataset.orgPhone || '',
+  orgPhoneHref: root?.dataset.orgPhoneHref || '',
+  closed: root?.dataset.officeClosed === '1',
+};
 let org = {};
 let areaCodes = new Set();
 
@@ -74,7 +130,7 @@ const PATHS = {
   arrowLeft: ['M19 12H5', 'M12 19l-7-7 7-7'],
   check: ['M20 6 9 17l-5-5'],
   whatsapp: ['M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21', 'M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1'],
-  phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z'],
+  phone: ['M5 2h3.5l2 5-2.6 1.6a12 12 0 0 0 7.5 7.5L17 13.5l5 2V19a2 2 0 0 1-2 2A18 18 0 0 1 3 4a2 2 0 0 1 2-2z'],
   shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', 'M9 12l2 2 4-4'],
   share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
   copy: ['M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
@@ -82,6 +138,9 @@ const PATHS = {
   refresh: ['M23 4v6h-6', 'M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'],
   home: ['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10'],
   send: ['M22 2 11 13', 'M22 2l-7 20-4-9-9-4 20-7z'],
+  pencil: ['M12 20h9', 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'],
+  camera: ['M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z', 'M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
+  speaker: ['M11 5 6 9H2v6h4l5 4z', 'M15.5 8.5a5 5 0 0 1 0 7', 'M19 5a10 10 0 0 1 0 14'],
 };
 function ic(name, size = 20, cls = '') {
   return svg(
@@ -89,6 +148,13 @@ function ic(name, size = 20, cls = '') {
     { class: `bmf-ic bmf-ic-${name} ${cls}`.trim(), width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' },
     PATHS[name].map((d) => svg('path', { d })),
   );
+}
+
+/** صورة موضوع أو إجابة (رسومات ثابتة من pictos.js، زخرفية: الكلمة بجانبها هي الاسم) */
+function pic(id, cls = 'pub-pic') {
+  const el = svg('svg', { class: cls, viewBox: '0 0 48 48', 'aria-hidden': 'true', focusable: 'false' });
+  el.innerHTML = PICTOS[id] || '';
+  return el;
 }
 
 function newSubmissionId() {
@@ -120,13 +186,28 @@ function toLatinDigits(v) {
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0));
 }
 function normalizeEgPhone(input) {
-  let d = toLatinDigits(input).replace(/[\s\-().\u200e\u200f\u202a-\u202e]/g, '');
+  let d = toLatinDigits(input).replace(/[\s\-().‎‏‪-‮]/g, '');
   if (d.startsWith('+')) d = d.slice(1);
   if (!/^\d+$/.test(d)) return null;
   if (d.startsWith('0020')) d = d.slice(4);
   else if (d.startsWith('20') && d.length === 12) d = d.slice(2);
   if (/^1[0125]\d{8}$/.test(d)) d = `0${d}`;
   return /^01[0125]\d{8}$/.test(d) ? d : null;
+}
+
+/** 0:45 · 3:00 (نفس عدّاد المسجّل، دون تحميله قبل الحاجة) */
+function clock(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** هل يستطيع هذا المتصفح التسجيل؟ (نفس فحص recorder.js، دون تحميله) */
+function canRecordHere() {
+  try {
+    return !!(window.isSecureContext !== false && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof window.MediaRecorder === 'function');
+  } catch {
+    return false;
+  }
 }
 
 // ───────── بيانات المؤسسة ─────────
@@ -172,10 +253,11 @@ async function loadMeta() {
 
 const orgName = () => org.org_name || 'مؤسسة بيوت مصر';
 const waLink = (text) => whatsappUrl(org.whatsapp_digits, text);
-const greetingWa = () => waLink(`السلام عليكم ${orgName()}، عايزة أحكيلكم مشكلتي.`);
+const greetingWa = () => waLink(waPrefill(null, orgName()));
+const topicWa = () => waLink(waPrefill(state.topic, orgName()));
 
-function contactLine() {
-  const wa = greetingWa();
+/** «تحبي تحكيلنا على واتساب؟ افتحي واتساب» (بنص جاهز للموضوع)، وإلا رقم التليفون */
+function contactLine(wa = greetingWa()) {
   if (wa) {
     return h('p.bmf-contact', 'تحبي تحكيلنا على واتساب؟ ', h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, 'افتحي واتساب'));
   }
@@ -191,16 +273,16 @@ function contactLine() {
 // ───────── حالة الطلب ─────────
 
 const state = {
-  step: 1,
-  description: '',
+  screen: 'topic', // topic | q:<سؤال> | story | phone | done
   topic: null,
+  answers: {},
+  callback: null, // morning | noon | any (شاشة «إحنا نكلمك» فقط)
+  callbackMode: false,
+  cbDirect: false, // دخلت من «إحنا نكلمك» مباشرة (?mode=callback): بلا أسئلة ولا حكاية
+  entry: 'direct',
+  description: '',
   name: '',
   phone: '',
-  governorate: null,
-  govOther: false,
-  relation: null,
-  children: null,
-  consent: false,
   sid: newSubmissionId(),
   sentFp: null, // بصمة آخر إرسال فشل والنت مقطوع (يمكن يكون وصل الخادم)
 };
@@ -233,21 +315,27 @@ function ensurePicker() {
 const voices = () => voiceEls.filter((el) => el.getBlob()).map((el) => ({ blob: el.getBlob(), seconds: el.getSeconds() }));
 const photos = () => (picker ? picker.getFiles() : []);
 const topicArea = () => {
-  const t = TOPICS.find((x) => x.key === state.topic);
+  const t = topicByKey(state.topic);
   return t && t.area && areaCodes.has(t.area) ? t.area : null;
+};
+const firstScreenOf = (key) => {
+  const f = flowFor(key);
+  return f.length ? `q:${f[0]}` : 'story';
 };
 
 function draftObject() {
   return {
-    step: state.step,
-    description: state.description,
+    v: 2,
+    screen: state.screen,
     topic: state.topic,
+    answers: state.answers,
+    callback: state.callback,
+    callbackMode: state.callbackMode,
+    cbDirect: state.cbDirect,
+    entry: state.entry,
+    description: state.description,
     name: state.name,
     phone: state.phone,
-    governorate: state.governorate,
-    govOther: state.govOther,
-    relation: state.relation,
-    children: state.children,
     sid: state.sid,
     sentFp: state.sentFp,
     voices: voices().map((v) => ({ kind: 'audio', blob: v.blob, seconds: v.seconds })),
@@ -256,12 +344,19 @@ function draftObject() {
 }
 
 function meaningful() {
-  return nonSpace(state.description) > 0 || voices().length > 0 || photos().length > 0 || state.name.trim() || state.phone.trim();
+  return (
+    nonSpace(state.description) > 0 ||
+    voices().length > 0 ||
+    photos().length > 0 ||
+    state.name.trim() ||
+    state.phone.trim() ||
+    Object.keys(state.answers).length > 0
+  );
 }
 
 function changed({ now = false } = {}) {
   builtBody = null;
-  if (state.step > 3) return;
+  if (state.screen === 'done') return;
   // لا نكتب مسودة فاضية (زيارة بلا كتابة)، ونمسحها لو اتمسح كل شيء
   if (!meaningful()) {
     store.clear();
@@ -273,11 +368,112 @@ function changed({ now = false } = {}) {
 
 // الموبايل قد يقفل الصفحة في الخلفية: نكتب المسودة فورًا عند إخفائها
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden' && !sending && state.step <= 3) store.flush();
+  if (document.visibilityState === 'hidden' && !sending && state.screen !== 'done') store.flush();
 });
 window.addEventListener('pagehide', () => {
-  if (!sending && state.step <= 3) store.flush();
+  if (!sending && state.screen !== 'done') store.flush();
 });
+
+// ───────── «اسمعي» (listen.js) ─────────
+
+let L = null; // الوحدة بعد التأكد من وجود صوت عربي
+let speakingNow = false;
+let firstAfterLoad = true; // أول شاشة بعد فتح الصفحة: لا كلام بلا ضغطة
+if ('speechSynthesis' in window) {
+  import('./listen.js')
+    .then(async (m) => {
+      if (!(await m.canListen())) return;
+      L = m;
+      paintListen();
+    })
+    .catch(() => {});
+}
+
+function listenFail(why) {
+  speakingNow = false;
+  if (why === 'not-allowed') {
+    firstAfterLoad = true; // يحتاج ضغطة: الزر «اسمعي السؤال» والسماع ما زال شغالًا
+  } else if (why) {
+    // صوت عربي مذكور لكنه غير محمّل على الموبايل: نخفي الزر ونطفي السماع
+    L?.setListen(false);
+    L = null;
+  }
+  paintListen();
+}
+
+function speakItems(items) {
+  if (!L) return;
+  speakingNow = true;
+  paintListen();
+  L.speak(items, {
+    onEnd: () => {
+      speakingNow = false;
+      paintListen();
+    },
+    onFail: listenFail,
+  });
+}
+
+function speakScreen(view) {
+  if (!L || !view) return;
+  firstAfterLoad = false;
+  speakItems(typeof view.say === 'function' ? view.say() : view.say || []);
+}
+
+/** زر «اسمعي» في رأس كل شاشة: مخفي حتى يتأكد وجود صوت عربي */
+function listenButton() {
+  const btn = h('button.bmf-listen', { type: 'button', hidden: true, 'aria-pressed': 'false' }, ic('speaker', 20), h('span'));
+  btn.addEventListener('click', () => {
+    if (!L) return;
+    if (speakingNow) {
+      L.stop();
+      L.setListen(false);
+      speakingNow = false;
+      paintListen();
+      return;
+    }
+    L.setListen(true);
+    speakScreen(current);
+  });
+  return btn;
+}
+
+function paintListen() {
+  const btn = current?.listen;
+  if (!btn) return;
+  btn.hidden = !L;
+  if (!L) return;
+  const on = L.listenOn();
+  const resume = !speakingNow && on && firstAfterLoad;
+  btn.setAttribute('aria-pressed', String(speakingNow || resume));
+  btn.classList.toggle('is-on', speakingNow || resume);
+  btn.setAttribute('aria-label', speakingNow ? 'وقّفي الصوت' : 'اسمعي الكلام اللي في الصفحة');
+  btn.querySelector('span').textContent = speakingNow ? COPY.listenStop : resume ? COPY.listenResume : COPY.listen;
+}
+
+// أي ضغطة توقف الكلام الجاري (الشاشة التالية تبدأ قراءتها بنفسها)
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    if (!L || !speakingNow || e.target.closest?.('.bmf-listen')) return;
+    L.stop();
+    speakingNow = false;
+    paintListen();
+  },
+  true,
+);
+
+// ───────── الضغطة المزدوجة [R2-B3] ─────────
+
+let screenShownAt = 0;
+let tapLocked = false;
+const tapOk = () => !tapLocked && performance.now() - screenShownAt >= TAP_GUARD_MS;
+function pressThen(btn, fn) {
+  tapLocked = true;
+  btn.classList.add('is-pressed');
+  btn.setAttribute('aria-pressed', 'true');
+  setTimeout(fn, PRESS_MS);
+}
 
 // ───────── عناصر مشتركة ─────────
 
@@ -290,35 +486,31 @@ function errorLine() {
   return el;
 }
 
-function pressable(cls, { label, pressed, onToggle }) {
-  return h(
-    `button.${cls}`,
-    { type: 'button', 'aria-pressed': String(!!pressed), onClick: onToggle },
-    ic('check', 16),
-    h('span', label),
-  );
-}
+const trustLine = () => h('p.bmf-trust', ic('lock', 18), h('span', COPY.trust));
 
-function header(step, title, sub) {
-  const heading = h('h1.bmf-title', { tabindex: '-1', id: `bmf-step-${step}-title` }, title);
-  return {
-    heading,
-    el: h(
-      'div.bmf-head',
-      h('p.bmf-trust', ic('lock', 18), h('span', 'مجاني وسرّي. المحامي مش بيشوف رقمك.')),
-      h(
-        'div.bmf-steprow',
-        step > 1 && h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', 'رجوع')),
-        h('ol.bmf-steps', { 'aria-hidden': 'true' }, [1, 2, 3].map((n) => h('li', { class: n <= step && 'is-on' }))),
-        h('span.bmf-stepno', `خطوة ${step} من 3`),
-      ),
-      heading,
-      sub && h('p.bmf-sub', sub),
+/** رأس الشاشة: «رجوع» + شارة الموضوع + «2 من 4»، ثم العنوان وزر «اسمعي»، ثم السطر الشارح */
+function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }) {
+  const heading = h('h1.bmf-title', { tabindex: '-1', id: 'bmf-screen-title' }, title);
+  const listen = listenButton();
+  const t = topicByKey(state.topic);
+  const subEl = sub ? h('p.bmf-sub', sub) : null;
+  const el = h(
+    'div.bmf-head',
+    trust && trustLine(),
+    h(
+      'div.bmf-qbar',
+      h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', 'رجوع')),
+      t && state.screen !== 'topic' && h('span.bmf-topic-chip', { role: 'img', 'aria-label': `الموضوع: ${t.label}` }, pic(t.picto, 'pub-pic bmf-chip-pic'), h('span', { 'aria-hidden': 'true' }, t.label)),
+      total ? h('span.bmf-stepno', `${idx} من ${total}`) : null,
     ),
-  };
+    before,
+    h('div.bmf-headrow', heading, listen),
+    subEl,
+  );
+  return { el, heading, listen, subEl };
 }
 
-// بطاقة «عندك طلب عندنا» (B91-06) من saved.js المشترك مع الصفحة الرئيسية؛ تُبنى مرة واحدة وتبقى فوق الخطوات
+// بطاقة «عندك طلب عندنا» (B91-06) من saved.js المشترك مع الصفحة الرئيسية؛ تُبنى مرة واحدة وتبقى فوق الشاشات
 let savedEl;
 function topCards() {
   if (savedEl === undefined) {
@@ -335,45 +527,137 @@ function topCards() {
   return [savedEl, banner];
 }
 
-// ───────── الخطوات ─────────
+// ───────── الشاشات ─────────
 
-let current = null; // { el, heading }
+let current = null; // { el, heading, listen, say }
 
-function show(step, { focus = true, push = true } = {}) {
-  if (step > 1 && !U) {
-    loadUpload().then(() => show(step, { focus, push }), () => errorView(() => window.location.reload()));
-    return;
-  }
-  state.step = step;
-  if (push && history.state?.bmfStep !== step) {
+function build(screen) {
+  if (screen === 'story') return storyScreen();
+  if (screen === 'phone') return phoneScreen();
+  if (screen.startsWith('q:') && QUESTIONS[screen.slice(2)]) return questionScreen(screen.slice(2));
+  return topicScreen();
+}
+
+function show(screen, { focus = true, push = true, speak = true } = {}) {
+  if (push && history.state?.bmfScreen !== screen) {
     try {
-      history.pushState({ bmfStep: step }, '', window.location.href);
+      history.pushState({ bmfScreen: screen, bmfDepth: (Number(history.state?.bmfDepth) || 0) + 1 }, '', window.location.href);
     } catch {
       /* لا شيء */
     }
   }
-  const view = step === 1 ? stepProblem() : step === 2 ? stepPapers() : stepContact();
+  state.screen = screen;
+  if (L && speakingNow) {
+    L.stop();
+    speakingNow = false;
+  }
+  const view = build(screen);
   current = view;
+  screenShownAt = performance.now();
+  tapLocked = false;
   mount(root, topCards(), view.el, honeypot);
   changed();
+  paintListen();
   if (focus) {
     view.heading.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  // [R2-B5] شاشة جديدة بعد ضغطة والسماع شغال: تُقرأ وحدها
+  if (speak && L && L.listenOn()) speakScreen(view);
+  // التسجيل يُجهَّز من أول سؤال (ليس من الشاشة الأولى ولا شاشة «إحنا نكلمك»)
+  if (screen === 'story' || screen.startsWith('q:')) loadRecorder().catch(() => {});
 }
 
+const go = (screen) => show(screen);
+
 function goBack() {
-  if (history.state?.bmfStep > 1) history.back();
-  else show(Math.max(1, state.step - 1), { push: false });
+  if (Number(history.state?.bmfDepth) > 0) history.back();
+  else if (state.screen !== 'topic' && !state.cbDirect) show('topic');
+  else window.location.href = '/';
 }
 
 window.addEventListener('popstate', (e) => {
-  if (state.step > 3) return; // بعد الإرسال لا نرجع للنموذج
-  const step = e.state?.bmfStep || 1;
-  if (step !== state.step) show(step, { push: false });
+  if (state.screen === 'done') return; // بعد الإرسال لا نرجع للنموذج
+  const screen = e.state?.bmfScreen;
+  if (screen && screen !== state.screen) show(screen, { push: false });
 });
 
-// ═════ الخطوة 1: احكيلنا مشكلتك ═════
+// ═════ الموضوع ═════
+
+function topicTile(t, onPick) {
+  return h(
+    'button.bmf-topic',
+    { type: 'button', 'aria-pressed': String(state.topic === t.key), onClick: (e) => onPick(t, e.currentTarget) },
+    pic(t.picto),
+    h('b', t.label),
+    t.sub && h('small', t.sub),
+  );
+}
+
+function topicScreen() {
+  const { el: head, heading, listen } = chrome({ title: COPY.topicH1 });
+  const tiles = TOPICS.map((t) =>
+    topicTile(t, (topic, btn) => {
+      if (!tapOk()) return;
+      pressThen(btn, () => {
+        if (state.topic !== topic.key) state.answers = {};
+        state.topic = topic.key;
+        state.entry = 'intake_tiles';
+        state.callbackMode = false;
+        state.callback = null;
+        go(firstScreenOf(topic.key));
+      });
+    }),
+  );
+  const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', h('div.bmf-topics', tiles), h('div.bmf-actions', contactLine())));
+  const say = () => [{ text: COPY.topicH1, el: heading }, ...tiles.map((b, i) => ({ text: TOPICS[i].say, el: b }))];
+  return { el, heading, listen, say };
+}
+
+// ═════ أسئلة الصور ═════
+
+function questionScreen(qid) {
+  const q = QUESTIONS[qid];
+  const flow = flowFor(state.topic);
+  const { el: head, heading, listen, subEl } = chrome({ title: q.h1, sub: q.sub, idx: flow.indexOf(qid) + 1, total: flow.length + 2 });
+  const tile = (a, cls) =>
+    h(
+      `button.bmf-answer${cls}`,
+      {
+        type: 'button',
+        'aria-pressed': String(state.answers[qid] === a.value),
+        onClick: (e) => {
+          if (!tapOk()) return;
+          const btn = e.currentTarget;
+          pressThen(btn, () => {
+            state.answers[qid] = a.value;
+            changed({ now: true });
+            const i = flow.indexOf(qid);
+            go(i >= 0 && i + 1 < flow.length ? `q:${flow[i + 1]}` : 'story');
+          });
+        },
+      },
+      pic(a.picto),
+      h('span', a.label),
+    );
+  const tiles = q.answers.map((a) => tile(a, ''));
+  const dontKnow = tile(UNKNOWN, '.bmf-dontknow');
+  const el = h(
+    'section.bmf-step',
+    { 'aria-labelledby': heading.id },
+    head,
+    h('div.bmf-body', h('fieldset.bmf-answers-set', h('legend.pub-sr', q.h1), h('div.bmf-answers', tiles), dontKnow)),
+  );
+  const say = () => [
+    { text: q.h1, el: heading },
+    q.sub && { text: q.sub, el: subEl },
+    ...tiles.map((b, i) => ({ text: q.answers[i].label, el: b })),
+    { text: UNKNOWN.label, el: dontKnow },
+  ];
+  return { el, heading, listen, say };
+}
+
+// ═════ «احكيلنا» ═════
 
 function stopRecordings() {
   const live = voiceEls.filter((el) => el.isRecording());
@@ -398,10 +682,12 @@ function stopRecordings() {
   });
 }
 
+let onVoicesChanged = null;
 function addRecorder(initial = null) {
-  const el = voiceRecorder({
+  const el = R.voiceRecorder({
     maxSeconds: MAX_VOICE_SECONDS,
-    whatsappUrl: greetingWa(),
+    whatsappUrl: topicWa() || greetingWa(),
+    permissionHint: COPY.micHint,
     initial,
     onChange: () => {
       el.dispatchEvent(new Event('bmf-recorded'));
@@ -414,6 +700,7 @@ function addRecorder(initial = null) {
       }
       changed({ now: true });
       paintVoices();
+      onVoicesChanged?.();
     },
   });
   voiceEls.push(el);
@@ -424,121 +711,198 @@ let voicesBox = null;
 let clearProblemError = null;
 function paintVoices() {
   if (!voicesBox) return;
+  if (!R) {
+    mount(voicesBox, h('p.bmf-loading-line', { role: 'status' }, 'لحظة…'));
+    return;
+  }
   if (!voiceEls.length) addRecorder();
-  const all = voiceEls.every((el) => el.getBlob());
-  const more =
-    all && voiceEls.length < MAX_VOICES && canRecord()
-      ? h(
-          'button.bmf-btn.bmf-btn-text.bmf-more-voice',
-          {
-            type: 'button',
-            onClick: () => {
-              const el = addRecorder();
-              paintVoices();
-              el.querySelector('.bmf-rec-start')?.click();
-            },
-          },
-          'سجّلي رسالة كمان',
-        )
-      : null;
   // إعادة تركيب العناصر تُفقدها التركيز (زر «اسمعيها» بعد «خلّصت» مثلًا): نعيده لنفس الزر
   const active = document.activeElement;
-  mount(voicesBox, voiceEls, more);
+  mount(voicesBox, voiceEls);
   if (active && active !== document.activeElement && active.isConnected && voicesBox.contains(active)) active.focus({ preventScroll: true });
 }
 
-function stepProblem() {
-  const { el: head, heading } = header(1, 'احكيلنا مشكلتك', 'بكلامك العادي. مش لازم تعرفي أي كلام قانوني.');
+function storyScreen() {
+  const t = topicByKey(state.topic);
+  const flow = flowFor(state.topic);
+  const mic = canRecordHere();
+  const sub = `${!t || t.key === 'other' ? `${COPY.storyOther} ` : ''}${mic ? COPY.storySubMic : COPY.storySubText}`;
+  const { el: head, heading, listen, subEl } = chrome({ title: COPY.storyH1, sub, idx: flow.length + 1, total: flow.length + 2, trust: true });
   const err = errorLine();
-  const canVoice = canRecord();
   voicesBox = h('div.bmf-voices');
   paintVoices();
+  if (!R) {
+    loadRecorder()
+      .then(() => {
+        if (state.screen === 'story') {
+          paintVoices();
+          paint();
+        }
+      })
+      .catch(() => {});
+  }
 
+  let typing = !mic || nonSpace(state.description) > 0;
+  let photosOpen = photos().length > 0;
   const ta = h('textarea.bmf-textarea', {
     id: 'bmf-desc',
     rows: 4,
     maxlength: MAX_DESC,
     value: state.description,
-    placeholder: 'مثلًا: جوزي اتوفى من 8 شهور، وعايزة أطلّع معاشه ونصيبنا في الشقة.',
-    'aria-labelledby': 'bmf-desc-label',
+    placeholder: (t || TOPICS[TOPICS.length - 1]).placeholder,
+    'aria-label': 'اكتبي مشكلتك هنا',
   });
+  const taWrap = h('div.bmf-field', ta);
   clearProblemError = () => {
     err.show('');
     ta.removeAttribute('aria-invalid');
   };
+  const write = h(
+    'button.bmf-btn.bmf-btn-outline.bmf-btn-block.bmf-write',
+    {
+      type: 'button',
+      onClick: () => {
+        typing = true;
+        paint();
+        ta.focus();
+      },
+    },
+    ic('pencil', 20),
+    h('span', COPY.writeInstead),
+  );
+  const nextLabel = h('span');
+  const next = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-go', { type: 'button' }, nextLabel, ic('arrowLeft', 20));
+  const moreVoice = h(
+    'button.bmf-btn.bmf-btn-text.bmf-more-voice',
+    {
+      type: 'button',
+      onClick: () => {
+        const el = addRecorder();
+        paintVoices();
+        paint();
+        el.querySelector('.bmf-rec-start')?.click();
+      },
+    },
+    COPY.moreVoice,
+  );
+  const photoLabel = h('span');
+  const photoBox = h('div.bmf-photos');
+  const photoBtn = h(
+    'button.bmf-btn.bmf-btn-text.bmf-photo-btn',
+    {
+      type: 'button',
+      onClick: async () => {
+        photosOpen = true;
+        paint();
+        try {
+          await loadUpload();
+        } catch {
+          return;
+        }
+        onPhotosChanged = paint;
+        mount(photoBox, ensurePicker());
+        paint();
+      },
+    },
+    ic('camera', 20),
+    photoLabel,
+  );
+  const photoHint = h('p.bmf-hint', COPY.photoHint);
+  const cbBtn = h(
+    'button.bmf-btn.bmf-btn-outline.bmf-btn-block.bmf-cb-btn',
+    {
+      type: 'button',
+      onClick: async () => {
+        await stopRecordings();
+        state.description = ta.value;
+        state.callbackMode = true;
+        state.callback = state.callback || 'any';
+        go('phone');
+      },
+    },
+    ic('phone', 20),
+    h('span', COPY.callbackBtn),
+  );
+  const waLine = contactLine(topicWa() || greetingWa());
+  // [R2-B14] داخل فيسبوك/إنستجرام: واتساب أولًا والتسجيل تحته
+  const waStory = topicWa();
+  const inApp = IN_APP_RE.test(navigator.userAgent || '') && !!waStory;
+  const inAppBox = inApp
+    ? h(
+        'div.bmf-inapp',
+        h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: waStory, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', COPY.inAppWa)),
+        h('p.bmf-or', COPY.inAppOr),
+      )
+    : null;
+
   ta.addEventListener('input', () => {
     state.description = ta.value;
     clearProblemError();
     changed();
+    paint();
   });
 
-  const tiles = h(
-    'div.bmf-tiles',
-    TOPICS.map((t) =>
-      pressable('bmf-tile', {
-        label: t.label,
-        pressed: state.topic === t.key,
-        onToggle: (e) => {
-          state.topic = state.topic === t.key ? null : t.key;
-          tiles.querySelectorAll('.bmf-tile').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-          if (state.topic) e.currentTarget.setAttribute('aria-pressed', 'true');
-          changed();
-        },
-      }),
-    ),
-  );
+  // [R2-B13] بعد التسجيل: زر ذهبي واحد «كده تمام — كمّلي»، و«سجّلي رسالة كمان» و«صوّري ورقة» أزرار نصية صغيرة تحته
+  function paint() {
+    const hasVoice = voices().length > 0;
+    const chars = nonSpace(ta.value);
+    const told = hasVoice || chars >= MIN_CHARS;
+    taWrap.hidden = !typing;
+    write.hidden = typing || !mic || hasVoice;
+    next.hidden = !hasVoice && chars === 0;
+    nextLabel.textContent = hasVoice ? COPY.okNext : COPY.next;
+    const allRecorded = voiceEls.length > 0 && voiceEls.every((x) => x.getBlob());
+    moreVoice.hidden = !(hasVoice && allRecorded && voiceEls.length < MAX_VOICES && mic);
+    const showPhoto = hasVoice || chars >= 1 || photosOpen;
+    photoBtn.hidden = !showPhoto || photosOpen;
+    photoHint.hidden = !showPhoto;
+    photoLabel.textContent = hasVoice ? COPY.photo : COPY.photoFirst;
+    photoBox.hidden = !photosOpen;
+    cbBtn.hidden = told;
+    if (waLine) waLine.hidden = told;
+  }
+  onVoicesChanged = paint;
+  if (photosOpen && U) {
+    onPhotosChanged = paint;
+    mount(photoBox, ensurePicker());
+  }
+  paint();
 
-  const next = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button' }, h('span', 'التالي'), ic('arrowLeft', 20));
   next.addEventListener('click', async () => {
     await stopRecordings();
     state.description = ta.value;
     if (!voices().length && nonSpace(state.description) < MIN_CHARS) {
       err.show(MSG.problem);
+      typing = true;
+      paint();
       ta.setAttribute('aria-invalid', 'true');
       ta.focus();
       return;
     }
-    show(2);
+    await picker?.ready();
+    state.callbackMode = false;
+    state.callback = null;
+    go('phone');
   });
 
   const el = h(
     'section.bmf-step',
     { 'aria-labelledby': heading.id },
     head,
-    h(
-      'div.bmf-body',
-      voicesBox,
-      canVoice || greetingWa() ? h('p.bmf-or', { id: 'bmf-desc-label' }, 'أو اكتبي هنا') : h('label.bmf-label', { id: 'bmf-desc-label', htmlFor: 'bmf-desc' }, 'اكتبي مشكلتك هنا'),
-      ta,
-      h('fieldset.bmf-group', h('legend', 'الموضوع عن إيه؟ (لو تعرفي)'), tiles),
-      h('div.bmf-actions', err, next, contactLine()),
-    ),
+    h('div.bmf-body', inAppBox, voicesBox, write, taWrap, h('div.bmf-actions', err, next, moreVoice, photoBtn, photoHint, photoBox, cbBtn, waLine)),
   );
-  return { el, heading };
+  const say = () => [
+    { text: COPY.storyH1, el: heading },
+    { text: sub, el: subEl },
+    inApp && { text: COPY.inAppWa, el: inAppBox.firstChild },
+    voicesBox.querySelector('.bmf-rec-hint') && { text: COPY.micHint, el: voicesBox.querySelector('.bmf-rec-hint') },
+    !write.hidden && { text: COPY.writeInstead, el: write },
+    !cbBtn.hidden && { text: COPY.callbackBtn, el: cbBtn },
+  ];
+  return { el, heading, listen, say };
 }
 
-// ═════ الخطوة 2: الورق ═════
-
-function stepPapers() {
-  const { el: head, heading } = header(2, 'عندك ورق يخص المشكلة؟', 'زي شهادة الوفاة أو عقد أو حكم. مش لازم دلوقتي، تقدري تبعتيه بعدين.');
-  const next = h('button.bmf-btn.bmf-btn-lg.bmf-btn-block', { type: 'button' });
-  const paintNext = () => {
-    const has = photos().length > 0;
-    next.className = `bmf-btn bmf-btn-lg bmf-btn-block ${has ? 'bmf-btn-gold' : 'bmf-btn-outline'}`;
-    mount(next, h('span', has ? 'التالي' : 'مفيش ورق دلوقتي — التالي'), ic('arrowLeft', 20));
-  };
-  ensurePicker();
-  onPhotosChanged = paintNext;
-  paintNext();
-  next.addEventListener('click', async () => {
-    await picker.ready();
-    show(3);
-  });
-  const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', picker, h('div.bmf-actions', next)));
-  return { el, heading };
-}
-
-// ═════ الخطوة 3: إزاي نوصلّك ═════
+// ═════ رقم الموبايل (و«إحنا نكلمك») ═════
 
 function problemSummary() {
   const v = voices();
@@ -547,9 +911,8 @@ function problemSummary() {
   if (v.length === 1) parts.push(`رسالة صوتية (${clock(total)})`);
   else if (v.length === 2) parts.push(`رسالتين صوتيتين (${clock(total)})`);
   else if (v.length > 2) parts.push(`${v.length} رسايل صوتية (${clock(total)})`);
-  const text = String(state.description || '').trim();
-  if (text) parts.push(v.length ? 'وكلام مكتوب' : `«${text.length > 40 ? `${text.slice(0, 40)}…` : text}»`);
-  return parts.join(' ');
+  if (nonSpace(state.description)) parts.push(v.length ? 'وكلام مكتوب' : COPY.sumText);
+  return parts.join(' ') || COPY.sumCb;
 }
 
 function field({ id, label, hint, input }) {
@@ -557,7 +920,7 @@ function field({ id, label, hint, input }) {
   const hintEl = hint ? h('p.bmf-hint', { id: `${id}-hint` }, hint) : null;
   input.id = id;
   input.setAttribute('aria-describedby', [hintEl && `${id}-hint`, `${id}-err`].filter(Boolean).join(' '));
-  const wrap = h('div.bmf-field', h('label.bmf-label', { htmlFor: id }, label), input, hintEl, err);
+  const wrap = h('div.bmf-field', label && h('label.bmf-label', { htmlFor: id }, label), input, hintEl, err);
   wrap.setError = (msg) => {
     mount(err, msg ? [ic('alert', 18), h('span', msg)] : []);
     err.hidden = !msg;
@@ -567,128 +930,172 @@ function field({ id, label, hint, input }) {
   return wrap;
 }
 
-function stepContact() {
-  const { el: head, heading } = header(3, 'إزاي نوصلّك؟');
+function phoneScreen() {
+  const cb = state.callbackMode;
+  const flow = flowFor(state.topic);
+  const total = state.cbDirect ? 0 : flow.length + 2;
+  const title = cb ? COPY.cbH1 : COPY.phoneH1;
+  const sub = cb ? COPY.cbSub : COPY.phoneSub;
+  // الملخص في سطر واحد فوق العنوان (مسار الحكاية فقط)
+  const summary = state.cbDirect
+    ? null
+    : h(
+        'p.bmf-summary-line',
+        h('strong', COPY.sumLabel),
+        h('span', problemSummary()),
+        ' — ',
+        h('button.bmf-btn.bmf-btn-text.bmf-edit', { type: 'button', onClick: () => go('story'), 'aria-label': 'تعديل المشكلة' }, COPY.edit),
+      );
+  const { el: head, heading, listen, subEl } = chrome({ title, sub, idx: total, total, trust: true, before: summary });
   const err = errorLine();
   const status = h('div.bmf-send-status');
 
-  const summary = h(
-    'ul.bmf-summary',
-    { 'aria-label': 'طلبك لحد دلوقتي' },
-    h(
-      'li',
-      h('span.bmf-summary-text', h('strong', 'مشكلتك: '), problemSummary()),
-      h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(1), 'aria-label': 'تعديل المشكلة' }, 'تعديل'),
-    ),
-    h(
-      'li',
-      h('span.bmf-summary-text', h('strong', 'الورق: '), photos().length ? U.photosText(photos().length) : 'مفيش دلوقتي'),
-      h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(2), 'aria-label': 'تعديل الورق' }, 'تعديل'),
-    ),
+  const phoneInput = h('input.bmf-input.bmf-phone-big', {
+    type: 'tel',
+    inputmode: 'numeric',
+    autocomplete: 'tel-national',
+    enterkeyhint: 'next',
+    dir: 'ltr',
+    maxlength: 20,
+    placeholder: '01xxxxxxxxx',
+    value: state.phone,
+    'aria-label': 'رقم موبايلك',
+  });
+  const phoneField = field({ id: 'bmf-phone', input: phoneInput });
+  const okLine = h('p.bmf-phone-ok', { hidden: true }, ic('check', 18), h('span', COPY.phoneOk));
+  const hear = h(
+    'button.bmf-btn.bmf-btn-text.bmf-hear',
+    {
+      type: 'button',
+      hidden: true,
+      onClick: () => {
+        const d = normalizeEgPhone(phoneInput.value);
+        if (L && d) speakItems([{ text: L.spellPhone(d), el: phoneInput }]);
+      },
+    },
+    ic('speaker', 18),
+    h('span', COPY.phoneHear),
   );
+  const paintPhone = () => {
+    const raw = toLatinDigits(phoneInput.value).replace(/\D/g, '');
+    const good = !!normalizeEgPhone(phoneInput.value);
+    okLine.hidden = !good;
+    hear.hidden = !good || !L;
+    if (good) phoneField.setError('');
+    else if (raw.length >= 11) phoneField.setError(MSG.phoneBad);
+  };
+  phoneInput.addEventListener('input', () => {
+    state.phone = phoneInput.value;
+    phoneField.setError('');
+    paintPhone();
+    changed();
+  });
+  phoneInput.addEventListener('blur', () => submit.scrollIntoView?.({ block: 'nearest' }));
+  paintPhone();
 
-  const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', maxlength: 120, value: state.name });
-  const nameField = field({ id: 'bmf-name', label: 'اسمك', hint: 'أو الاسم اللي تحبي نناديكي بيه، زي «أم محمد»', input: nameInput });
+  // [R2-B16] «مش فاكرة رقمك؟»: من واتساب على موبايلها ناخد الرقم (المسودة تفضل)
+  const waNum = topicWa() || greetingWa();
+  let forgot = null;
+  if (waNum) {
+    const panel = h(
+      'div.bmf-forgot-panel',
+      { hidden: true },
+      h('p.bmf-card-text', COPY.forgotText),
+      h('a.bmf-btn.bmf-btn-wa.bmf-btn-block', { href: waNum, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 20), h('span', COPY.openWa)),
+    );
+    const btn = h(
+      'button.bmf-btn.bmf-btn-text.bmf-forgot',
+      {
+        type: 'button',
+        'aria-expanded': 'false',
+        onClick: () => {
+          panel.hidden = !panel.hidden;
+          btn.setAttribute('aria-expanded', String(!panel.hidden));
+        },
+      },
+      COPY.forgot,
+    );
+    forgot = h('div.bmf-forgot-wrap', btn, panel);
+  }
+
+  // «إمتى يناسبك نكلمك؟» (مسار المكالمة فقط) — «أي وقت» مختار من الأول
+  let whenBox = null;
+  if (cb) {
+    if (!CALLBACK_WHEN[state.callback]) state.callback = 'any';
+    const chips = Object.entries(CALLBACK_WHEN).map(([k, w]) =>
+      h(
+        'button.bmf-when-chip',
+        {
+          type: 'button',
+          'aria-pressed': String(state.callback === k),
+          onClick: () => {
+            state.callback = k;
+            chips.forEach((c, i) => c.setAttribute('aria-pressed', String(Object.keys(CALLBACK_WHEN)[i] === k)));
+            changed();
+          },
+        },
+        pic(WHEN_PICTO[k]),
+        h('span', w.label),
+      ),
+    );
+    whenBox = h('fieldset.bmf-when', h('legend', COPY.when), h('div.bmf-when-chips', chips));
+  }
+
+  // «الموضوع (لو تحبي)»: من «إحنا نكلمك» مباشرة فقط — اختيار واحد، ومفيش حاجة إجبارية
+  let topicsBox = null;
+  if (cb && state.cbDirect) {
+    let lastTap = 0;
+    const chips = TOPICS.map((t) =>
+      h(
+        'button.bmf-topic-chip-btn',
+        {
+          type: 'button',
+          'aria-pressed': String(state.topic === t.key),
+          onClick: () => {
+            const now = performance.now();
+            if (now - screenShownAt < TAP_GUARD_MS || now - lastTap < TAP_GUARD_MS) return;
+            lastTap = now;
+            state.topic = state.topic === t.key ? null : t.key;
+            state.answers = {};
+            chips.forEach((c, i) => c.setAttribute('aria-pressed', String(state.topic === TOPICS[i].key)));
+            changed();
+          },
+        },
+        pic(t.picto),
+        h('span', t.label),
+      ),
+    );
+    topicsBox = h('fieldset.bmf-topic-chips', h('legend', COPY.cbTopics), h('div.bmf-topic-chips-row', chips));
+  }
+
+  const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', enterkeyhint: 'done', maxlength: 120, value: state.name, placeholder: COPY.namePh });
+  const nameField = field({ id: 'bmf-name', label: COPY.nameLabel, input: nameInput });
   nameInput.addEventListener('input', () => {
     state.name = nameInput.value;
     nameField.setError('');
     changed();
   });
 
-  const phoneInput = h('input.bmf-input', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', maxlength: 20, placeholder: '01XXXXXXXXX', value: state.phone });
-  const phoneField = field({ id: 'bmf-phone', label: 'رقم موبايلك', hint: 'يفضّل يكون عليه واتساب.', input: phoneInput });
-  phoneInput.addEventListener('input', () => {
-    state.phone = phoneInput.value;
-    phoneField.setError('');
-    changed();
-  });
+  // [R2-B6] الموافقة بالفعل: سطر فوق زر الإرسال (يُقرأ بصوت)، بلا مربع
+  const consentText = cb ? COPY.consentCb : COPY.consent;
+  const consentLine = h('p.bmf-consent-line', h('span', consentText), ' ', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, COPY.more));
+  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button' }, h('span', cb ? COPY.sendCb : COPY.send), ic('send', 20, 'bmf-flip'));
 
-  // المحافظة: أشهر 6 كأزرار، و«محافظة تانية» تفتح القائمة كاملة
-  const govs = org.governorates || [];
-  const quick = QUICK_GOVS.filter((g) => govs.includes(g));
-  const select = h(
-    'select.bmf-select',
-    { id: 'bmf-gov', 'aria-label': 'اختاري المحافظة' },
-    h('option', { value: '' }, 'اختاري المحافظة'),
-    govs.map((g) => h('option', { value: g, selected: state.governorate === g }, g)),
-  );
-  select.value = state.governorate && !quick.includes(state.governorate) ? state.governorate : '';
-  const govChips = h('div.bmf-chips');
-  const paintGov = () => {
-    const otherOn = state.govOther || (state.governorate && !quick.includes(state.governorate));
-    mount(
-      govChips,
-      quick.map((g) =>
-        pressable('bmf-chip', {
-          label: g,
-          pressed: state.governorate === g,
-          onToggle: () => {
-            state.governorate = state.governorate === g ? null : g;
-            state.govOther = false;
-            paintGov();
-            changed();
-          },
-        }),
-      ),
-      pressable('bmf-chip', {
-        label: 'محافظة تانية',
-        pressed: otherOn,
-        onToggle: () => {
-          state.govOther = !otherOn;
-          if (!state.govOther && state.governorate && !quick.includes(state.governorate)) state.governorate = null;
-          if (state.govOther && quick.includes(state.governorate)) state.governorate = null;
-          paintGov();
-          changed();
-          if (state.govOther) select.focus();
-        },
-      }),
+  // تحت زر «اطلبي مكالمة»: رقمنا لمن تحب تتصل بنفسها، و«مقفولين دلوقتي» خارج المواعيد
+  let under = null;
+  const tel = page.orgPhone || org.phone;
+  if (cb && tel) {
+    under = h(
+      'div.bmf-under-send',
+      h('p', COPY.cbCallUs, h('a', { href: `tel:${page.orgPhoneHref || org.phone_e164 || tel}`, dir: 'ltr', class: 'bmf-ltr' }, tel)),
+      page.closed && h('p.bmf-closed', COPY.closed),
     );
-    select.hidden = !otherOn;
-    select.value = otherOn && state.governorate ? state.governorate : '';
-  };
-  select.addEventListener('change', () => {
-    state.governorate = select.value || null;
-    changed();
-  });
-  paintGov();
-
-  const choiceGroup = (legend, list, key) => {
-    const box = h('div.bmf-chips');
-    const paint = () =>
-      mount(
-        box,
-        list.map((o) =>
-          pressable('bmf-chip', {
-            label: o.label,
-            pressed: state[key] === o.value,
-            onToggle: () => {
-              state[key] = state[key] === o.value ? null : o.value;
-              paint();
-              changed();
-            },
-          }),
-        ),
-      );
-    paint();
-    return h('fieldset.bmf-group', h('legend', legend), box);
-  };
-
-  const consentCb = h('input', { type: 'checkbox', id: 'bmf-consent', checked: state.consent });
-  const consentLabel = h('label.bmf-consent', { htmlFor: 'bmf-consent' }, consentCb, h('span', 'موافقة إن المؤسسة تستخدم بياناتي عشان تساعدني بس.'));
-  const consentErr = h('p.bmf-error', { id: 'bmf-consent-err', hidden: true });
-  consentCb.setAttribute('aria-describedby', 'bmf-consent-err');
-  consentCb.addEventListener('change', () => {
-    state.consent = consentCb.checked;
-    consentLabel.classList.remove('is-invalid');
-    consentErr.hidden = true;
-  });
-
-  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button' }, h('span', 'إرسال الطلب'), ic('send', 20, 'bmf-flip'));
+  }
 
   function validate() {
     const problems = [];
     const name = nameInput.value.trim();
-    if (name.length < 2) {
+    if (name && name.length < 2) {
       nameField.setError(MSG.name);
       problems.push([MSG.name, nameInput]);
     }
@@ -699,12 +1106,6 @@ function stepContact() {
     } else if (!normalizeEgPhone(rawPhone)) {
       phoneField.setError(MSG.phoneBad);
       problems.push([MSG.phoneBad, phoneInput]);
-    }
-    if (!consentCb.checked) {
-      consentLabel.classList.add('is-invalid');
-      mount(consentErr, ic('alert', 18), h('span', MSG.consent));
-      consentErr.hidden = false;
-      problems.push([MSG.consent, consentCb]);
     }
     if (problems.length) {
       err.show(problems[0][0]);
@@ -736,24 +1137,27 @@ function stepContact() {
     const documents = [];
     for (const f of photos()) documents.push(await U.fileToUpload(f));
     const vs = voices();
-    for (let i = 0; i < vs.length; i += 1) documents.push(await blobToUpload(vs[i].blob, `رسالة-صوتية-${i + 1}`));
+    if (vs.length) await loadRecorder();
+    for (let i = 0; i < vs.length; i += 1) documents.push({ ...(await R.blobToUpload(vs[i].blob, `رسالة-صوتية-${i + 1}`)), seconds: Math.round(vs[i].seconds || 0) });
     const payload = {
-      name: nameInput.value.trim(),
+      // الاسم اختياري: فاضي = لا يُرسل
+      name: nameInput.value.trim() || undefined,
       phone: normalizeEgPhone(phoneInput.value) || toLatinDigits(phoneInput.value).trim(),
-      governorate: state.governorate || '',
+      governorate: '',
       legal_area: topicArea() || '',
       description: String(state.description || '').trim(),
       documents,
       attribution: getAttribution(),
-      mode: new URLSearchParams(window.location.search).get('mode') === 'guided' ? 'guided' : 'form',
+      topic: state.topic || null,
+      answers: sanitizeAnswers(state.topic, state.answers),
+      callback: cb ? state.callback || 'any' : null,
+      entry: state.entry,
+      mode: cb ? 'callback' : 'tiles',
       consent: true,
+      consent_v: CONSENT_V,
       website: honeypotInput.value,
       submission_id: state.sid,
     };
-    const beneficiary = {};
-    if (state.relation) beneficiary.relation = state.relation;
-    if (Number.isInteger(state.children)) beneficiary.children_count = state.children;
-    if (Object.keys(beneficiary).length) payload.beneficiary = beneficiary;
     // بصمة المحتوى بدون معرّف الإرسال
     const fp = fingerprint(JSON.stringify({ ...payload, submission_id: undefined }));
     return { payload, fp };
@@ -763,8 +1167,8 @@ function stepContact() {
   function setBusy(busy) {
     sending = busy;
     submit.disabled = busy;
-    [nameInput, phoneInput, consentCb, select].forEach((x) => (x.disabled = busy));
-    current?.el.querySelectorAll('.bmf-chip, .bmf-summary button, .bmf-back').forEach((b) => (b.disabled = busy));
+    [nameInput, phoneInput].forEach((x) => (x.disabled = busy));
+    current?.el.querySelectorAll('.bmf-when-chip, .bmf-topic-chip-btn, .bmf-edit, .bmf-back').forEach((b) => (b.disabled = busy));
   }
 
   async function send() {
@@ -774,6 +1178,13 @@ function stepContact() {
     state.name = nameInput.value;
     state.phone = phoneInput.value;
     setBusy(true);
+    try {
+      await loadUpload();
+    } catch {
+      setBusy(false);
+      err.show(MSG.net);
+      return;
+    }
     const progress = U.uploadProgress({ text: 'بنبعت طلبك…' });
     mount(status, progress);
     let res;
@@ -800,18 +1211,20 @@ function stepContact() {
         ),
       );
       if (e && e.details && e.details.fields && e.details.fields.description) {
-        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => show(1) }, 'ارجعي للمشكلة'));
+        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => go('story') }, 'ارجعي للمشكلة'));
       }
+      if (e && e.details && e.details.fields && e.details.fields.name) nameField.setError(MSG.name);
       return;
     }
     sending = false;
     failedOffline = false;
+    const sent = { answers: { ...state.answers }, callbackMode: cb };
     // الطلب وصل: نمسح المسودة، لكن لا نؤخر شاشة «وصلنا طلبك» أكثر من ثانيتين لو التخزين بطيء
     // (لو ما اتمسحتش، إعادة إرسالها بنفس submission_id ترجع نفس الطلب ولا تكرره)
     await Promise.race([store.clear().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
     voiceEls.forEach((v) => v.destroy());
     voiceEls = [];
-    showSuccess(res || {}, nameInput.value.trim());
+    showSuccess(res || {}, nameInput.value.trim(), sent);
   }
   submit.addEventListener('click', send);
   retrySend = send;
@@ -822,22 +1235,23 @@ function stepContact() {
     head,
     h(
       'div.bmf-body',
-      summary,
-      nameField,
       phoneField,
-      h('fieldset.bmf-group', h('legend', 'ساكنة فين؟ (اختياري)'), govChips, select),
-      h(
-        'section.bmf-optional',
-        { 'aria-label': 'سؤالين اختياريين' },
-        h('p.bmf-optional-title', 'سؤالين اختياريين يساعدونا نفهم ظروفك'),
-        choiceGroup('انتي:', RELATIONS, 'relation'),
-        choiceGroup('عندك أطفال تحت 18 سنة؟', CHILDREN, 'children'),
-      ),
-      h('div.bmf-field', consentLabel, h('p.bmf-consent-more', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, 'اعرفي أكتر')), consentErr),
-      h('div.bmf-actions', err, submit, status),
+      h('div.bmf-phone-row', okLine, hear),
+      forgot,
+      whenBox,
+      topicsBox,
+      nameField,
+      h('div.bmf-actions', consentLine, err, submit, status, under),
     ),
   );
-  return { el, heading };
+  const say = () => [
+    { text: title, el: heading },
+    { text: sub, el: subEl },
+    whenBox && { text: COPY.when, el: whenBox },
+    { text: consentText, el: consentLine },
+    { text: cb ? COPY.sendCb : COPY.send, el: submit },
+  ];
+  return { el, heading, listen, say };
 }
 
 // ───────── رجوع النت بعد فشل الإرسال ─────────
@@ -849,7 +1263,7 @@ function hideToast() {
   toastEl = null;
 }
 window.addEventListener('online', () => {
-  if (!failedOffline || sending || state.step !== 3 || !retrySend) return;
+  if (!failedOffline || sending || state.screen !== 'phone' || !retrySend) return;
   hideToast();
   toastEl = h(
     'div.bmf-toast',
@@ -860,17 +1274,27 @@ window.addEventListener('online', () => {
   document.body.append(toastEl);
 });
 
-// ───────── شاشة «وصلنا طلبك» (B91-05) ─────────
+// ───────── شاشة «وصلنا طلبك» (B91-05؛ v9.2: الترتيب [R2-B9/B17/B18]) ─────────
 
 function refNumber(ref) {
   const m = /^REQ-\d{4}-0*(\d+)$/.exec(String(ref || ''));
   return m ? m[1] : '';
 }
 
-function showSuccess(res, name) {
-  state.step = 4;
+/** «خلال يوم شغل» · «خلال يومين شغل» · «خلال 3 أيام شغل» */
+function etaWords(n) {
+  const k = Math.min(5, Math.max(1, Math.round(Number(n) || 1)));
+  return k === 1 ? 'خلال يوم شغل' : k === 2 ? 'خلال يومين شغل' : `خلال ${k} أيام شغل`;
+}
+
+function showSuccess(res, name, sent = {}) {
+  state.screen = 'done';
   hideToast();
-  // زر الرجوع في الموبايل يخرج من الصفحة مباشرة (بدل ضغطتين بلا أي تغيير على خطوتي 2 و3 المحفوظتين في السجل)
+  if (L && speakingNow) {
+    L.stop();
+    speakingNow = false;
+  }
+  // زر الرجوع في الموبايل يخرج من الصفحة مباشرة (بدل ضغطات بلا أي تغيير على الشاشات المحفوظة في السجل)
   const doneUrl = window.location.pathname + window.location.search;
   const markDone = () => {
     try {
@@ -879,7 +1303,7 @@ function showSuccess(res, name) {
       /* لا شيء */
     }
   };
-  const depth = Number(history.state?.bmfStep) || 1;
+  const depth = (Number(history.state?.bmfDepth) || 0) + 1;
   if (depth > 1) {
     window.addEventListener('popstate', markDone, { once: true });
     try {
@@ -902,7 +1326,9 @@ function showSuccess(res, name) {
   const who = addressName(name);
   const portal = res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
   const confirmUrl = typeof res.confirm_url === 'string' && /^https:\/\/wa\.me\/\d+\?text=/.test(res.confirm_url) ? res.confirm_url : null;
+  const callback = res.callback && CALLBACK_WHEN[res.callback] ? res.callback : null;
   document.title = `وصلنا طلبك — ${org.site_name || orgName()}`;
+  const num = refNumber(ref);
 
   // نحفظ صفحة الطلب على هذا الموبايل (B91-06)؛ طلب جديد من نفس الموبايل يلغي «امسحي» السابقة
   const savedHere = portal ? rememberPortal({ url: portal, ref }, { force: true }) : false;
@@ -912,11 +1338,47 @@ function showSuccess(res, name) {
   // (إصلاح 9.1، B91-01) الخطوة 3 لا تعد بواتساب إلا لو بعتت رقم الطلب فعلًا
   const step3 = h('li');
   const paintStep3 = (sent) =>
-    mount(step3, `محامي هيدرس مشكلتك، وهنبعتلك الرد ${!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')}.`);
+    mount(
+      step3,
+      callback && confirmUrl && !sent
+        ? g('ولو بعت{ي}لنا على واتساب، هنبعتلك هناك كمان.')
+        : `محامي هيدرس مشكلتك، وهنبعتلك الرد ${!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')}.`,
+    );
   paintStep3(false);
 
-  // البطاقة أ: تأكيد الرقم برسالة واتساب واحدة
+  // [R2-B9] بطاقة «هنكلمك»: إمتى، ومن أنهي رقم (كبير ومن الشمال لليمين)، وإزاي تعرف إنه إحنا
+  let cbCard = null;
+  let cbText = '';
+  if (callback) {
+    const when = callback === 'any' ? '' : ` ${CALLBACK_WHEN[callback].label}`;
+    const from = String(res.callback_from || '').trim();
+    const lead = `هنكلمك ${etaWords(res.callback_eta_days)}${when}`;
+    const rest = g(`أول ما ترد{ي} هنقولك "طلب رقم ${num}" عشان تعرف{ي} إنه إحنا. لو ما رديت{ي}ش هنكلمك تاني.`);
+    cbText = `${lead}${from ? `، من الرقم ده: ${from}` : ''}. ${rest}`;
+    const numEl = from ? h('span.bmf-cb-num', { dir: 'ltr' }, from) : null;
+    const hearNum = from
+      ? h(
+          'button.bmf-btn.bmf-btn-text.bmf-hear',
+          { type: 'button', hidden: !L, onClick: () => L && speakItems([{ text: L.spellPhone(from), el: numEl }]) },
+          ic('speaker', 18),
+          h('span', g('اسمع{ي} الرقم')),
+        )
+      : null;
+    cbCard = h(
+      'section.bmf-card.bmf-cb-card',
+      { 'aria-label': 'هنكلمك' },
+      h('p.bmf-card-text', ic('phone', 20), h('span', `${lead}${from ? '، من الرقم ده:' : '.'}`)),
+      numEl,
+      hearNum,
+      h('p.bmf-card-text', rest),
+      org.office_hours && h('p.bmf-note', `بنرد ${org.office_hours}`),
+    );
+  }
+
+  // البطاقة أ: تأكيد الرقم برسالة واتساب واحدة (في طلب المكالمة: بطاقة ثانوية بعد «هنكلمك»)
   let cardA = null;
+  let cardAText = '';
+  let reveal = () => {};
   if (confirmUrl) {
     // صفحتها تعرض رسالة التأكيد نفسها مرة تانية لو ما بعتتهاش (portal-ui.js: bm_wa_confirm، 30 يومًا كالكود)
     try {
@@ -927,6 +1389,7 @@ function showSuccess(res, name) {
     let clicked = false;
     let away = false;
     const body = h('div.bmf-card-body');
+    cardAText = callback ? g('لو عندك واتساب على الرقم ده، ابعت{ي}لنا الرسالة دي عشان نبعتلك كمان هناك') : g('ابعت{ي}لنا رقم طلبك على واتساب، عشان نقدر نرد عليك{ي} هناك.');
     const paintA = (sent) => {
       if (sent) paintStep3(true);
       return mount(
@@ -937,8 +1400,8 @@ function showSuccess(res, name) {
               h('a.bmf-btn.bmf-btn-text', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) }, g('لسه ما بعت{ي}هاش؟ ابعت{ي}ها تاني')),
             ]
           : [
-              h('p.bmf-kicker', 'خطوة أخيرة مهمة'),
-              h('p.bmf-card-text', g('ابعت{ي}لنا رقم طلبك على واتساب، عشان نقدر نرد عليك{ي} هناك.')),
+              callback ? h('p.bmf-kicker', cardAText) : h('p.bmf-kicker', 'خطوة أخيرة مهمة'),
+              !callback && h('p.bmf-card-text', g('ابعت{ي}لنا رقم طلبك على واتساب، عشان نقدر نرد عليك{ي} هناك.')),
               h(
                 'a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block.bmf-confirm',
                 { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) },
@@ -952,12 +1415,15 @@ function showSuccess(res, name) {
     document.addEventListener('visibilitychange', () => {
       if (!clicked) return;
       if (document.visibilityState === 'hidden') away = true;
-      else if (away) paintA(true);
+      else if (away) {
+        paintA(true);
+        reveal(); // رجعت من واتساب: وقت «كمان سؤالين»
+      }
     });
-    cardA = h('section.bmf-card.is-gold', { 'aria-label': 'تأكيد الرقم على واتساب' }, body);
+    cardA = h('section.bmf-card', { class: callback ? 'is-outline' : 'is-gold', 'aria-label': 'تأكيد الرقم على واتساب' }, body);
   }
 
-  // البطاقة ب: احفظي صفحة طلبك
+  // البطاقة ب: صفحة طلبها — مطوية تحت «صفحة طلبك» (والمربع في الصفحة الرئيسية يرجّعها كمان)
   let cardB = null;
   if (portal) {
     const shareText = `صفحة طلبي عند ${orgName()}: ${portal}`;
@@ -1018,22 +1484,26 @@ function showSuccess(res, name) {
       g('مش موبايلك؟ امسح{ي}ها'),
     );
     cardB = h(
-      'section.bmf-card',
-      { 'aria-labelledby': 'bmf-save-title' },
-      h('h2', { id: 'bmf-save-title' }, g('احفظ{ي} صفحة طلبك')),
-      h('p.bmf-card-text', g('من الصفحة دي هتعرف{ي} كل جديد، وتبعت{ي} الورق.')),
+      'details.bmf-details',
+      h('summary', 'صفحة طلبك'),
       h(
-        'a.bmf-btn.bmf-btn-block.bmf-open-portal',
-        { href: portal, class: confirmUrl ? 'bmf-btn-outline' : 'bmf-btn-primary bmf-btn-lg' },
-        h('span', g('افتح{ي} صفحة طلبك')),
-        ic('arrowLeft', 20),
+        'section.bmf-card',
+        { 'aria-labelledby': 'bmf-save-title' },
+        h('h2', { id: 'bmf-save-title' }, g('احفظ{ي} صفحة طلبك')),
+        h('p.bmf-card-text', g('من الصفحة دي هتعرف{ي} كل جديد، وتبعت{ي} الورق.')),
+        h(
+          'a.bmf-btn.bmf-btn-block.bmf-open-portal',
+          { href: portal, class: confirmUrl ? 'bmf-btn-outline' : 'bmf-btn-primary bmf-btn-lg' },
+          h('span', g('افتح{ي} صفحة طلبك')),
+          ic('arrowLeft', 20),
+        ),
+        shareBtn,
+        copyBtn,
+        live,
+        h('p.bmf-note', g('ابعت{ي}ه لنفسك بس، مش لحد تاني.')),
+        savedLine,
+        forget,
       ),
-      shareBtn,
-      copyBtn,
-      live,
-      h('p.bmf-note', g('ابعت{ي}ه لنفسك بس، مش لحد تاني.')),
-      savedLine,
-      forget,
     );
   }
 
@@ -1044,13 +1514,12 @@ function showSuccess(res, name) {
     h('h2', { id: 'bmf-next-title' }, 'هيحصل إيه بعد كده؟'),
     h(
       'ol',
-      h('li', `فريقنا هيقرا طلبك — غالبًا خلال ${countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
+      h('li', callback ? 'هنكلمك ونسمع مشكلتك.' : `فريقنا هيقرا طلبك — غالبًا خلال ${countWord(days, ['يوم', 'يومين', 'أيام', 'يوم'])} شغل.`),
       h('li', 'ممكن نطلب منك ورقة أو معلومة.'),
       step3,
     ),
   );
 
-  const num = refNumber(ref);
   // رقم واحد تقوله في التليفون (B91-21): «طلب رقم 29» بدل تعليمتين متتاليتين بقيمتين مختلفتين
   const fine = h(
     'div.bmf-fine',
@@ -1060,23 +1529,147 @@ function showSuccess(res, name) {
       h('p', g('لو حد طلب منك فلوس باسمنا، بلغ{ي}نا فورًا: '), h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone)),
   );
 
+  // «كمان سؤالين — لو تحبي»: بعد ما ترجع من واتساب أو بعد 15 ثانية
+  const about = portal ? aboutCard(res, portal, form, sent.answers || {}) : null;
+  if (about) {
+    let shown = false;
+    reveal = () => {
+      if (shown) return;
+      shown = true;
+      about.hidden = false;
+    };
+    setTimeout(reveal, ABOUT_DELAY_MS);
+  }
+
+  const listen = listenButton();
   mount(
     root,
     h(
       'section.bmf-success',
       { 'aria-labelledby': 'success-title' },
       h('span.bmf-done-icon', ic('check', 36)),
-      heading,
+      h('div.bmf-headrow', heading, listen),
       h('p.bmf-thanks', who ? `شكرًا يا ${who}.` : 'شكرًا.'),
       h('p.bmf-reassure', ic('shield', 20), h('span', 'الخدمة مجانية، ومحدش هيطلب منك فلوس.')),
+      cbCard,
       cardA,
-      cardB,
       next,
+      cardB,
+      about,
       fine,
     ),
   );
+  const spoken = () => (L && num ? `وصلنا طلبك. رقم طلبك ${L.numberWords(num)}.` : 'وصلنا طلبك.');
+  current = {
+    heading,
+    listen,
+    say: () => [{ text: spoken(), el: heading }, cbText && { text: cbText, el: cbCard }, cardAText && { text: cardAText, el: cardA }],
+  };
+  paintListen();
   window.scrollTo({ top: 0, behavior: 'instant' });
   heading.focus({ preventScroll: true });
+  if (L && L.listenOn()) speakScreen(current);
+}
+
+/** «كمان سؤالين»: المحافظة (الأكثر طلبًا + «محافظة تانية») ثم الصفة لو مش معروفة من الإجابات. كل ضغطة تتسجل فورًا */
+function aboutCard(res, portal, form, answers) {
+  const g = (s) => genderize(s, form);
+  const token = (/\/p\/([A-Za-z0-9_-]{20,100})/.exec(portal) || [])[1];
+  if (!token) return null;
+  const quick = (Array.isArray(res.about_governorates) ? res.about_governorates : []).filter((x) => x !== OTHER_GOV && (org.governorates || []).includes(x)).slice(0, 6);
+  const steps = ['gov'];
+  // الصفة معروفة من الإجابات (جوزي اتوفى…) أو الكلام لراجل: لا نسأل
+  if (!infer(answers).relation && form !== 'm') steps.push('rel');
+  const body = h('div.bmf-about-body');
+  const card = h('section.bmf-card.bmf-about-card', { hidden: true, 'aria-labelledby': 'bmf-about-title' }, h('h2', { id: 'bmf-about-title' }, 'كمان سؤالين — لو تحبي'), body);
+  let failed = false;
+  const post = (data) => {
+    const once = () =>
+      fetch(`/api/portal/${token}/about`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then((r) => {
+        if (!r.ok && r.status >= 500) throw new Error('retry');
+        if (!r.ok) failed = true;
+      });
+    return once()
+      .catch(() => once())
+      .catch(() => {
+        failed = true;
+      });
+  };
+  const pending = [];
+  let i = 0;
+  let shownAt = 0;
+  let locked = false;
+  const choose = (btn, data) => {
+    if (locked || performance.now() - shownAt < TAP_GUARD_MS) return;
+    locked = true;
+    btn.classList.add('is-pressed');
+    btn.setAttribute('aria-pressed', 'true');
+    pending.push(post(data));
+    setTimeout(() => {
+      i += 1;
+      paint();
+    }, PRESS_MS);
+  };
+  const skip = () =>
+    h(
+      'button.bmf-btn.bmf-btn-text.bmf-skip',
+      {
+        type: 'button',
+        onClick: () => {
+          i += 1;
+          paint();
+        },
+      },
+      'تخطي',
+    );
+  function paint() {
+    shownAt = performance.now();
+    locked = false;
+    const step = steps[i];
+    if (step === 'gov') {
+      const select = h(
+        'select.bmf-select',
+        { 'aria-label': g('اختار{ي} المحافظة'), hidden: true },
+        h('option', { value: '' }, g('اختار{ي} المحافظة')),
+        (org.governorates || []).map((x) => h('option', { value: x }, x)),
+      );
+      select.addEventListener('change', () => select.value && choose(select, { governorate: select.value }));
+      const tiles = quick.map((x) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { governorate: x }) }, x));
+      const other = h(
+        'button.bmf-about-tile',
+        {
+          type: 'button',
+          'aria-pressed': 'false',
+          onClick: () => {
+            select.hidden = false;
+            select.focus();
+          },
+        },
+        OTHER_GOV,
+      );
+      mount(body, h('p.bmf-about-q', g('إنت{ي} من أنهي محافظة؟')), h('div.bmf-about-tiles', tiles, other), select, skip());
+    } else if (step === 'rel') {
+      mount(
+        body,
+        h('p.bmf-about-q', 'انتي…؟'),
+        h(
+          'div.bmf-about-tiles',
+          RELATIONS.map((r) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { relation: r.value }) }, r.label)),
+        ),
+        skip(),
+      );
+    } else {
+      mount(body, h('p.bmf-note', { role: 'status' }, 'لحظة…'));
+      Promise.all(pending).then(() => mount(body, h('p.bmf-sent', { role: 'status' }, ic('check', 22), h('span', failed ? g('ما اتسجلش. مش مشكلة، تقدر{ي} تقول{ي}لنا بعدين.') : 'شكرًا، كده تمام.'))));
+    }
+  }
+  paint();
+  return card;
 }
 
 // ───────── الموقع قيد التجهيز ─────────
@@ -1112,6 +1705,13 @@ function errorView(retry) {
 
 // ───────── استعادة المسودة ─────────
 
+/** الشاشة المحفوظة إن كانت صالحة لهذا الموضوع، وإلا أقرب شاشة صالحة */
+function validScreen(screen) {
+  if (screen === 'phone' || screen === 'story') return screen;
+  if (typeof screen === 'string' && screen.startsWith('q:') && flowFor(state.topic).includes(screen.slice(2))) return screen;
+  return state.topic ? firstScreenOf(state.topic) : 'topic';
+}
+
 async function restoreDraft() {
   let d = null;
   try {
@@ -1119,21 +1719,31 @@ async function restoreDraft() {
   } catch {
     d = null;
   }
-  if (!d) return false;
+  if (!d) return null;
   const vs = Array.isArray(d.voices) ? d.voices.filter((v) => v && v.blob instanceof Blob) : [];
   const ps = Array.isArray(d.photos) ? d.photos.filter((p) => p && p.blob instanceof Blob) : [];
-  const meaningful = nonSpace(d.description) > 0 || vs.length || ps.length || String(d.name || '').trim() || String(d.phone || '').trim();
-  if (!meaningful) return false;
+  const ans = d.answers && typeof d.answers === 'object' ? d.answers : {};
+  const meaningfulDraft = nonSpace(d.description) > 0 || vs.length || ps.length || String(d.name || '').trim() || String(d.phone || '').trim() || Object.keys(ans).length;
+  if (!meaningfulDraft) return null;
   for (const k of ['description', 'name', 'phone']) if (typeof d[k] === 'string') state[k] = d[k].slice(0, MAX_DESC);
-  if (TOPICS.some((t) => t.key === d.topic)) state.topic = d.topic;
-  if (typeof d.governorate === 'string' && (org.governorates || []).includes(d.governorate)) state.governorate = d.governorate;
-  state.govOther = !!d.govOther;
-  if (RELATIONS.some((r) => r.value === d.relation)) state.relation = d.relation;
-  if (CHILDREN.some((c) => c.value === d.children)) state.children = d.children;
+  const t = topicByKey(d.topic);
+  if (t) state.topic = t.key;
+  state.answers = sanitizeAnswers(state.topic, ans);
+  if (CALLBACK_WHEN[d.callback]) state.callback = d.callback;
+  state.callbackMode = !!d.callbackMode;
+  state.cbDirect = !!d.cbDirect;
+  if (typeof d.entry === 'string') state.entry = d.entry;
   if (typeof d.sid === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(d.sid)) state.sid = d.sid;
   if (typeof d.sentFp === 'string' && d.sentFp.length <= 40) state.sentFp = d.sentFp;
   voiceEls = [];
-  for (const v of vs.slice(0, MAX_VOICES)) addRecorder({ blob: v.blob, seconds: Number(v.seconds) || 0 });
+  if (vs.length) {
+    try {
+      await loadRecorder();
+      for (const v of vs.slice(0, MAX_VOICES)) addRecorder({ blob: v.blob, seconds: Number(v.seconds) || 0 });
+    } catch {
+      /* التسجيل يتعمل تاني */
+    }
+  }
   if (ps.length) {
     await loadUpload();
     ensurePicker().setFiles(
@@ -1147,7 +1757,9 @@ async function restoreDraft() {
       }),
     );
   }
-  const step = [1, 2, 3].includes(d.step) ? d.step : 1;
+  // مسودة 9.1 (خطوات): 1 و2 ← «احكيلنا» (الصور فيها الآن)، 3 ← رقم الموبايل
+  const screen = d.v === 2 ? validScreen(d.screen) : d.step === 3 ? 'phone' : 'story';
+  // [R2-B19] بلا اسم الموضوع (ابنها ممكن يكون ماسك الموبايل)
   banner = h(
     'section.bmf-banner',
     { role: 'status' },
@@ -1161,21 +1773,21 @@ async function restoreDraft() {
         {
           type: 'button',
           onClick: async () => {
+            // من الأول: الإجابات ووقت المكالمة والتسجيلات والصور تتمسح من الموبايل
             await store.clear();
             voiceEls.forEach((v) => v.destroy());
             voiceEls = [];
             picker = null;
-            Object.assign(state, { description: '', topic: null, name: '', phone: '', governorate: null, govOther: false, relation: null, children: null, consent: false, sid: newSubmissionId(), sentFp: null });
-            preselectArea();
+            Object.assign(state, { description: '', topic: null, answers: {}, callback: null, callbackMode: false, cbDirect: false, name: '', phone: '', sid: newSubmissionId(), sentFp: null });
             banner = null;
-            show(1, { push: false });
+            show(entryScreen(), { push: false });
           },
         },
         'ابدئي من الأول',
       ),
     ),
   );
-  return step;
+  return screen;
 }
 
 function dismissBanner() {
@@ -1184,23 +1796,50 @@ function dismissBanner() {
   current?.heading.focus();
 }
 
-// ?topic=custody (مفاتيح بطاقات «بنساعد في إيه؟» في الصفحة الرئيسية) يحدد الموضوع بدقة حين يشترك موضوعان في مجال واحد
-const TOPIC_ALIASES = { inheritance: 'inh', pensions: 'pen', housing: 'rent', documents: 'papers' };
-
-function preselectArea() {
+// ?topic=custody (مربعات الشاشة الأولى و«بنساعد في إيه؟») أو اسم قديم (inheritance…) يحدد الموضوع بدقة حين يشترك موضوعان في مجال واحد
+function preselectTopic() {
   if (state.topic) return;
   const params = new URLSearchParams(window.location.search);
-  const rawTopic = String(params.get('topic') || '').toLowerCase();
-  const byTopic = TOPICS.find((x) => x.key === (TOPIC_ALIASES[rawTopic] || rawTopic));
+  const byTopic = topicByKey(params.get('topic'));
   if (byTopic && (!byTopic.area || areaCodes.has(byTopic.area))) {
     state.topic = byTopic.key;
     return;
   }
-  // ?area=INH من بطاقات المجالات (يُقبل فقط إن كان مجالًا معرّفًا)
+  // ?area=INH من روابط قديمة (يُقبل فقط إن كان مجالًا معرّفًا)
   const area = String(params.get('area') || '').toUpperCase();
   if (!area || !areaCodes.has(area)) return;
   const t = TOPICS.find((x) => x.area === area);
   if (t) state.topic = t.key;
+}
+
+/** من أين بدأت؟ مربع في الصفحة الرئيسية، «إحنا نكلمك» فيها، أو رابط مباشر (لإعادة ترتيب المربعات بعد 3 شهور) */
+function entryFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('entry') === 'home_callback') return 'home_callback';
+  if (params.get('topic') || params.get('area')) {
+    try {
+      const r = new URL(document.referrer);
+      if (r.origin === window.location.origin && r.pathname === '/') return 'home_tile';
+    } catch {
+      /* بلا مصدر */
+    }
+  }
+  return 'direct';
+}
+
+/** أول شاشة حسب الرابط */
+function entryScreen() {
+  const params = new URLSearchParams(window.location.search);
+  state.entry = entryFromUrl();
+  if (params.get('mode') === 'callback') {
+    // [R2-B2] «إحنا نكلمك»: شاشة الرقم مباشرة — بلا أسئلة ولا حكاية
+    state.cbDirect = true;
+    state.callbackMode = true;
+    state.callback = state.callback || 'any';
+    return 'phone';
+  }
+  preselectTopic();
+  return state.topic ? firstScreenOf(state.topic) : 'topic';
 }
 
 // ───────── التهيئة ─────────
@@ -1221,27 +1860,17 @@ async function init() {
     preparingView();
     return;
   }
-  const step = await restoreDraft();
-  preselectArea();
+  const restored = await restoreDraft();
+  const first = restored || entryScreen();
   try {
-    // نحن نرجع لأول الصفحة مع كل خطوة؛ استعادة المتصفح لمكان التمرير القديم تنزل شاشة النجاح أو الخطوة لتحت
+    // نحن نرجع لأول الصفحة مع كل شاشة؛ استعادة المتصفح لمكان التمرير القديم تنزل شاشة النجاح أو الشاشة لتحت
     history.scrollRestoration = 'manual';
-    history.replaceState({ bmfStep: 1 }, '', window.location.href);
+    history.replaceState({ bmfScreen: first, bmfDepth: 0 }, '', window.location.href);
   } catch {
     /* لا شيء */
   }
-  if (step && step > 1) {
-    // نعيد بناء سجل الخطوات حتى يعمل زر الرجوع في الموبايل
-    for (let s = 2; s <= step; s += 1) {
-      try {
-        history.pushState({ bmfStep: s }, '', window.location.href);
-      } catch {
-        /* لا شيء */
-      }
-    }
-  }
-  show(step || 1, { push: false, focus: false });
-  // نجهّز وحدة التصوير والإرسال في الخلفية بعد ظهور الخطوة الأولى
+  show(first, { push: false, focus: false, speak: false });
+  // نجهّز وحدة التصوير والإرسال في الخلفية بعد ظهور الشاشة الأولى
   setTimeout(() => loadUpload().catch(() => {}), 0);
 }
 

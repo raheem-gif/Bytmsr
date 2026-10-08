@@ -605,7 +605,7 @@ details[open] > summary .lc-chev {
     padding: 10px var(--gutter, 16px);
     background: rgba(255, 255, 255, 0.97);
     border-top: 1px solid var(--border);
-    box-shadow: 0 -6px 18px rgba(8, 42, 51, 0.08);
+    box-shadow: 0 -6px 18px rgb(var(--primary-900-rgb) / 0.08);
   }
 
   .lc-bottom-bar .btn {

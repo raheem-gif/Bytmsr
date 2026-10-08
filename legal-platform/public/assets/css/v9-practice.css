@@ -9,7 +9,7 @@
   --v9p-task: #c2620c;
   --v9p-assignment: #2563eb;
   --v9p-invoice: #8b5cf6;
-  --v9p-bar: var(--primary-500, #1b7187);
+  --v9p-bar: var(--primary-500);
 }
 
 .v9p-page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }

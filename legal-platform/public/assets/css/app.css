@@ -33,6 +33,10 @@
   --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
+  /* v9.2 «ألوان المؤسسة»: هذه الكتلة وحدها (ومثيلتها في public-site.css) تعرّف درجات اللونين، وقيمها = LEGACY في
+     public/assets/js/lib/brand-color.js. الألوان المضبوطة من الإعدادات تصل في <style id="bm-theme">html:root{…}</style>
+     (أولوية أعلى من :root) فلا يتغير هذا الملف. لا تضف لونًا للعلامة خارج الكتلة: اختبار v92-colours يرفضه. */
+  /* @brand-defaults-start */
   /* الأساسي: أزرق مخضر عميق */
   --primary-900: #082a33;
   --primary-800: #0b3a46;
@@ -44,14 +48,26 @@
   --primary-100: #dcecef;
   --primary-50: #eef6f7;
 
-  /* الثانوي: ذهبي دافئ (للزخرفة والحدود؛ النص يستخدم -700) */
+  /* الثانوي: ذهبي دافئ (للزخرفة والحدود؛ النص يستخدم -700، والنص فوق -300/-400/-500 هو --on-accent) */
   --accent-800: #634510;
   --accent-700: #7a5518;
   --accent-600: #9a6e22;
   --accent-500: #b8862e;
+  --accent-400: #c99a45;
   --accent-300: #dcbd84;
   --accent-100: #f6ecd8;
   --accent-50: #fbf7ee;
+
+  /* ثلاثيات RGB لاستخدام rgb(var(--x-rgb) / شفافية) */
+  --primary-300-rgb: 127 179 192;
+  --primary-500-rgb: 27 113 135;
+  --primary-700-rgb: 15 76 92;
+  --primary-900-rgb: 8 42 51;
+  --accent-500-rgb: 184 134 46;
+  /* @brand-defaults-end */
+
+  /* مشتقة من الدرجات (خارج الكتلة): النص الوحيد المسموح فوق accent-300/400/500، ولون الروابط */
+  --on-accent: var(--primary-900);
 
   /* المحايد */
   --gray-900: #16202a;
@@ -90,7 +106,7 @@
   --text-soft: #677583;
   --border: #dfe5ea;
   --border-strong: #c6ced6;
-  --link: #145d6f;
+  --link: var(--primary-600);
 
   --radius-sm: 6px;
   --radius: 10px;
@@ -98,8 +114,8 @@
   --radius-xl: 20px;
   --shadow-sm: 0 1px 2px rgba(16, 32, 42, 0.06);
   --shadow: 0 1px 3px rgba(16, 32, 42, 0.08), 0 4px 12px rgba(16, 32, 42, 0.05);
-  --shadow-lg: 0 12px 40px rgba(8, 42, 51, 0.18);
-  --focus-ring: 0 0 0 3px rgba(184, 134, 46, 0.55);
+  --shadow-lg: 0 12px 40px rgb(var(--primary-900-rgb) / 0.18);
+  --focus-ring: 0 0 0 3px rgb(var(--accent-500-rgb) / 0.55);
 
   --sidebar-w: 272px;
   --topbar-h: 64px;
@@ -370,7 +386,7 @@ html[dir="rtl"] .icon-dir {
   z-index: 200;
   transform: translateY(-200%);
   background: var(--accent-500);
-  color: var(--gray-900);
+  color: var(--on-accent);
   border: 0;
   border-radius: var(--radius-sm);
   padding: 8px 14px;
@@ -410,8 +426,8 @@ html[dir="rtl"] .icon-dir {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
-  color: var(--primary-900);
+  background: linear-gradient(135deg, var(--accent-400), var(--accent-500));
+  color: var(--on-accent);
   flex-shrink: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
@@ -521,7 +537,7 @@ html[dir="rtl"] .icon-dir {
   padding-inline: 6px;
   border-radius: 999px;
   background: var(--accent-500);
-  color: var(--primary-900);
+  color: var(--on-accent);
   font-size: 11.5px;
   font-weight: 700;
   display: inline-grid;
@@ -761,7 +777,7 @@ html[dir="rtl"] .icon-dir {
 }
 
 .notif-item.is-unread:hover {
-  background: #e4f0f2;
+  background: var(--primary-100);
 }
 
 .notif-icon {
@@ -1028,7 +1044,9 @@ html[dir="rtl"] .icon-dir {
 
 .btn-accent {
   background: var(--accent-500);
-  color: var(--gray-900);
+  color: var(--on-accent);
+  /* v9.2: حافة ظاهرة فلا يعتمد شكل الزر على درجة اللون الثاني (حد شفاف أصلًا في .btn: بلا إزاحة) */
+  border-color: var(--accent-600);
 }
 
 .btn-accent:hover:not(:disabled) {
@@ -1115,7 +1133,7 @@ html[dir="rtl"] .icon-dir {
 }
 
 .btn-accent.is-loading::after {
-  border-color: var(--gray-900);
+  border-color: var(--on-accent);
   border-inline-end-color: transparent;
 }
 
@@ -1277,6 +1295,11 @@ html[dir="rtl"] .icon-dir {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   min-width: 0;
+}
+
+/* v9.2: بطاقة تُفتح بالرابط مباشرة (‎#/settings?section=brand‎) لا يغطي الشريط العلوي الثابت عنوانها */
+.card[id] {
+  scroll-margin-block-start: calc(var(--topbar-h) + 16px);
 }
 
 .card-header {
@@ -1757,7 +1780,7 @@ button.stat-card:hover {
 .input:focus {
   outline: none;
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgba(27, 113, 135, 0.18);
+  box-shadow: 0 0 0 3px rgb(var(--primary-500-rgb) / 0.18);
 }
 
 .input:disabled,
@@ -2813,7 +2836,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   gap: 6px;
   padding: 16px;
   background: #efeae2;
-  background-image: radial-gradient(rgba(15, 76, 92, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(rgb(var(--primary-700-rgb) / 0.05) 1px, transparent 1px);
   background-size: 18px 18px;
   border-radius: var(--radius-lg);
   min-width: 0;
@@ -2874,7 +2897,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .msg-auto .msg-bubble {
-  background: #fdf6e7;
+  background: var(--accent-50);
   box-shadow: 0 1px 1px rgba(16, 32, 42, 0.1), inset 0 0 0 1px var(--accent-100);
 }
 
@@ -2951,11 +2974,11 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   max-width: 100%;
   padding: 4px 10px;
   border-radius: 8px;
-  background: rgba(15, 76, 92, 0.07);
+  background: rgb(var(--primary-700-rgb) / 0.07);
   color: var(--primary-800);
   font-size: 13px;
   text-decoration: none;
-  border: 1px solid rgba(15, 76, 92, 0.12);
+  border: 1px solid rgb(var(--primary-700-rgb) / 0.12);
 }
 
 .doc-chip span {
@@ -2965,7 +2988,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 a.doc-chip:hover {
-  background: rgba(15, 76, 92, 0.13);
+  background: rgb(var(--primary-700-rgb) / 0.13);
 }
 
 .msg-foot {
@@ -3196,7 +3219,7 @@ a.doc-chip:hover {
   padding: 48px;
   color: #fff;
   background:
-    radial-gradient(circle at 15% 85%, rgba(184, 134, 46, 0.28), transparent 45%),
+    radial-gradient(circle at 15% 85%, rgb(var(--accent-500-rgb) / 0.28), transparent 45%),
     linear-gradient(160deg, var(--primary-700) 0%, var(--primary-900) 100%);
   overflow: hidden;
 }
@@ -3472,8 +3495,8 @@ a.doc-chip:hover {
   overflow: hidden;
   color: #fff;
   background:
-    radial-gradient(circle at 10% 90%, rgba(184, 134, 46, 0.3), transparent 40%),
-    radial-gradient(circle at 90% 10%, rgba(127, 179, 192, 0.18), transparent 40%),
+    radial-gradient(circle at 10% 90%, rgb(var(--accent-500-rgb) / 0.3), transparent 40%),
+    radial-gradient(circle at 90% 10%, rgb(var(--primary-300-rgb) / 0.18), transparent 40%),
     linear-gradient(165deg, var(--primary-700) 0%, var(--primary-900) 100%);
 }
 
@@ -3491,9 +3514,9 @@ a.doc-chip:hover {
   gap: 8px;
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  /* v9.2: نص — الذهبي الفاتح فوق الخلفية الغامقة مضمون 3:1 فقط (صف N4 للأيقونات)، فالنص أبيض مباشرة على الخلفية (T1/T3) */
   border: 1px solid rgba(255, 255, 255, 0.14);
-  color: var(--accent-300);
+  color: #fff;
   font-size: 13.5px;
   font-weight: 600;
 }
@@ -3525,8 +3548,8 @@ a.doc-chip:hover {
 }
 
 .hero .btn-accent:hover:not(:disabled) {
-  background: #c99a45;
-  color: var(--gray-900);
+  background: var(--accent-400);
+  color: var(--on-accent);
 }
 
 .hero-card {

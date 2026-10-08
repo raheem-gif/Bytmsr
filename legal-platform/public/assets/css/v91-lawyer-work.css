@@ -763,7 +763,7 @@ details[open] > summary .lw-chev {
   min-height: 64px;
   background: rgba(255, 255, 255, 0.97);
   border-top: 1px solid var(--border);
-  box-shadow: 0 -4px 16px rgba(8, 42, 51, 0.08);
+  box-shadow: 0 -4px 16px rgb(var(--primary-900-rgb) / 0.08);
 }
 .lw-actionbar .btn {
   min-height: 48px;
@@ -1574,7 +1574,7 @@ body.lw-kb-open .lw-actionbar {
     background: var(--surface);
   }
   .lw-write .lw-write-toolbar {
-    box-shadow: 0 -4px 14px rgba(8, 42, 51, 0.06);
+    box-shadow: 0 -4px 14px rgb(var(--primary-900-rgb) / 0.06);
   }
   body.lw-writing {
     overflow: hidden;

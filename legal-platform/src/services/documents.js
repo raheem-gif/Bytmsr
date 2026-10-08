@@ -104,7 +104,7 @@ export function createDocuments(app) {
      * حفظ ملف مرفوع (base64 من الواجهة أو Buffer من واتساب).
      * links: { client_id, intake_id, case_id, matter_id, message_id, info_request_id, title }
      */
-    save({ filename, mime, data_base64, buffer }, links, uploader) {
+    save({ filename, mime, data_base64, buffer, seconds }, links, uploader) {
       const original = sanitizeFilename(filename);
       const realMime = resolveMime(original, mime);
       if (!realMime) throw badRequest(`نوع الملف «${original}» غير مدعوم. الأنواع المسموح بها: PDF، الصور، Word، Excel، النصوص، والرسائل الصوتية`);
@@ -140,6 +140,18 @@ export function createDocuments(app) {
         uploaded_by_user_id: uploader?.id ?? null,
         created_at: nowIso(),
       });
+      // v9.2 (admin-ai): رسالة صوتية من المستفيدة ← «لم تُكتب بعد» حتى تكتب الإدارة ما قالته (مدتها من الواجهة أو من ملف Ogg)
+      if (realMime.startsWith('audio/') && uploader?.kind === 'client' && app.voice?.onAudioSaved) {
+        let secs = seconds === undefined || seconds === null || seconds === '' ? NaN : Number(seconds);
+        if (!Number.isFinite(secs) && realMime === 'audio/ogg') secs = app.voice.oggDurationSeconds?.(buf) ?? NaN;
+        app.voice.onAudioSaved({
+          documentId: id,
+          intakeId: links.intake_id ?? null,
+          caseId: links.case_id ?? null,
+          messageId: links.message_id ?? null,
+          seconds: Number.isFinite(secs) ? Math.min(600, Math.max(0, secs)) : null,
+        });
+      }
       return id;
     },
 

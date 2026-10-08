@@ -1298,6 +1298,17 @@ export function createSystem(app) {
         );
       } else add('whatsapp', 'ok', 'واتساب مضبوط ومتصل', `${wa.runtime.label} — آخر اختبار ناجح يوم ${arabicDate(wa.last_test.tested_at)}.`);
       add('ai', ai.configured ? 'ok' : 'info', ai.configured ? 'Claude مضبوط' : 'الذكاء الاصطناعي: المحلل المحلي', ai.runtime.label || '', '#/integrations');
+      // v9.2 «ألوان المؤسسة»: المستوى ok في الحالتين (لا يؤثر في جاهزية الإطلاق)؛ السطر التالي لبند story_ack (H-A2)
+      const brandItem = app.brand?.readiness?.() || { title: 'ألوان المؤسسة: الألوان الأصلية للمنصة', detail: '', href: '#/settings?section=brand' };
+      add('brand', 'ok', brandItem.title, brandItem.detail, brandItem.href);
+      // v9.2 [R2-B21] (H-A2): «وصلتنا حكايتك» متوقفة افتراضيًا؛ تحذير فقط حين يكون واتساب متصلًا فعلًا
+      add(
+        'story_ack',
+        app.whatsapp?.configured && !app.settings.get('story_ack_enabled') ? 'warning' : 'ok',
+        app.settings.get('story_ack_enabled') ? 'تأكيد وصول الحكاية مفعّل' : 'المستفيدات على واتساب لا يصلهن تأكيد وصول حكايتهن',
+        app.settings.get('story_ack_enabled') ? 'تصل المستفيدة رسالة ثابتة برقم طلبها عندما تكتمل قصتها.' : 'فعّل «وصلتنا حكايتك» من الإعدادات ← القصص الواردة على واتساب (بعد مراجعة سياسة الخصوصية).',
+        '#/settings?section=stories',
+      );
       if (memoryDb) add('backup', 'warning', 'قاعدة بيانات في الذاكرة', 'لا يمكن النسخ الاحتياطي لقاعدة بيانات في الذاكرة.');
       else if (!backups.enabled) add('backup', 'warning', 'النسخ الاحتياطي التلقائي متوقف', 'فعّل النسخ الاحتياطي اليومي من هذه الصفحة.');
       else if (!backups.last) add('backup', 'warning', 'لا توجد نسخة احتياطية بعد', 'أنشئ نسخة احتياطية الآن وتأكد من نسخها خارج الخادم دوريًا.');

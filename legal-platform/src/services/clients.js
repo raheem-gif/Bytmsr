@@ -148,6 +148,8 @@ export function createClients(app) {
         address_form: body.address_form !== undefined ? (body.address_form === 'm' || body.address_form === 'f' ? body.address_form : body.address_form === '' || body.address_form === null ? null : v.oneOf(body.address_form, ['f', 'm'], 'طريقة المخاطبة')) : undefined,
         updated_at: nowIso(),
       };
+      // v9.2 [R2-B21]: اسم غيّرته الإدارة صالح للرسائل الآلية («أهلًا يا …»)، بخلاف اسم ملف واتساب
+      if (patch.name !== undefined && patch.name !== c.name) patch.name_source = 'staff';
       db.update('clients', c.id, patch);
       app.activity.log({ client_id: c.id, actor, type: 'client.updated', summary: 'تم تحديث بيانات العميل' });
       return svc.get(c.id);

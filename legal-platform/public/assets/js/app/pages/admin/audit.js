@@ -45,6 +45,7 @@ const GROUP_LABELS = {
   ai: 'الذكاء الاصطناعي',
   program: 'البرامج والتمويل',
   print: 'الطباعة',
+  brand: 'ألوان المؤسسة', // v9.2
 };
 const FILTER_KEYS = ['q', 'type', 'severity', 'user_id', 'from', 'to'];
 
