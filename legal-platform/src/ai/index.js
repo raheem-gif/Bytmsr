@@ -99,6 +99,18 @@ function tidy(s) {
 function noUrls(s) {
   return typeof s === 'string' ? tidy(s.replace(URL_LIKE, '')) : s;
 }
+/**
+ * [بوابة 9.2 S7] نص للمحامي (وقائع/سؤال المحامي): فوق إخفاء الهواتف والأرقام القومية والروابط، لا كود تأكيد الرقم
+ * ولا رقم الطلب ولا رقم البيت واسم الشارع («12 شارع النصر» ← «[عنوان مخفي]»؛ الحي/المدينة تبقى للاختصاص).
+ */
+const CONFIRM_CODE_LIKE = /(?:و\s*)?كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g;
+const REQ_CODE_LIKE = /\bREQ-\d{4}-\d{3,}\b/gi;
+const STREET_LIKE = /\d{1,5}\s*(?:شارع|ش\.)\s*[^\s،,.\n]+/g;
+function forLawyer(s) {
+  if (typeof s !== 'string') return s;
+  const t = latinDigits(s).replace(CONFIRM_CODE_LIKE, ' ').replace(REQ_CODE_LIKE, '').replace(STREET_LIKE, '[عنوان مخفي]');
+  return noUrls(maskSensitive(t.replace(/[ \t]+([.،,؛])/g, '$1')));
+}
 /** نص موجه لها: بلا أكواد داخلية ولا روابط ولا أي رقم هاتف غير رقم المؤسسة */
 function forHer(s, orgPhone) {
   if (typeof s !== 'string') return s;
@@ -142,9 +154,9 @@ export function normalizeStory(raw, ctx = {}) {
   const track = o.recommended_track;
   const draft = {
     title: clip(d.title || o.title || '', 200),
-    facts_for_lawyer: noUrls(maskSensitive(clip(d.facts_for_lawyer || o.summary || '', 6000))),
+    facts_for_lawyer: forLawyer(clip(d.facts_for_lawyer || o.summary || '', 6000)),
     internal_note: clipOrNull(d.internal_note, 2000),
-    brief_for_lawyer: ['consultation', 'matter'].includes(track) ? noUrls(maskSensitive(clipOrNull(d.brief_for_lawyer, 1000))) : null,
+    brief_for_lawyer: ['consultation', 'matter'].includes(track) ? forLawyer(clipOrNull(d.brief_for_lawyer, 1000)) : null,
     matter: null,
     questions_for_her: [],
     reply_to_her: null,
@@ -187,6 +199,8 @@ export function createAi(app) {
   // وحد عام لاستدعاءات Claude التلقائية المتزامنة
   const inflight = new Set();
   const rerun = new Set();
+  // [بوابة 9.2 S4/R2] التحليل الجاري لكل طلب (تلقائي أو بطلب الإدارة): نقرة ثانية أو زميل آخر ينضم إليه بدل تحليل موازٍ
+  const running = new Map();
   const CLAUDE_AUTO_CONCURRENCY = 2;
   let claudeRunning = 0;
   const claudeQueue = [];
@@ -982,10 +996,15 @@ export function createAi(app) {
         return null;
       }
       inflight.add(intakeId);
-      try {
+      const job = (async () => {
         db.run('UPDATE intakes SET analysis_attempted_at = ?, analysis_attempts = analysis_attempts + 1 WHERE id = ?', nowIso(), intakeId);
-        return await svc.analyzeIntake(intakeId, null, { ...opts, auto: true, counted: true });
+        return svc.analyzeIntake(intakeId, null, { ...opts, auto: true, counted: true });
+      })();
+      running.set(intakeId, job);
+      try {
+        return await job;
       } finally {
+        if (running.get(intakeId) === job) running.delete(intakeId);
         inflight.delete(intakeId);
         if (rerun.delete(intakeId)) {
           try {
@@ -995,6 +1014,54 @@ export function createAi(app) {
           }
         }
       }
+    },
+
+    /**
+     * [بوابة 9.2 S4/R2/S6] تحليل تطلبه الإدارة («حلّل الآن»، «لخّصها الآن»، بعد تسجيل مكالمة أو نقل رسائل):
+     * تحليل واحد لكل طلب في الوقت نفسه — نقرة أثناء تحليل جارٍ (تلقائي أو من زميل) تنتظره وتعيد نتيجته بدل استدعاء Claude
+     * مرة ثانية، ثم يُحلَّل فقط إن وصل جديد بعده. reuseRecentMs: لا تحليل جديد إن كان آخر تحليل كامل لنفس مراجعة القصة
+     * أحدث من هذه المدة. لا ينتظر طابور التحليل التلقائي العام (opts.noSlot) حتى لا تتعلق نافذة الموظف خلف التحليلات المتراكمة.
+     */
+    async analyzeByStaff(intakeId, actor = null, { reuseRecentMs = 0, ...opts } = {}) {
+      const upToDate = (maxAgeMs) => {
+        const i = db.get('SELECT story_rev, analyzed_rev FROM intakes WHERE id = ?', intakeId);
+        const last = svc.latest('intake', intakeId, 'intake_analysis');
+        if (!i || !last || Number(i.analyzed_rev) < Number(i.story_rev)) return null;
+        return maxAgeMs && Date.parse(nowIso()) - Date.parse(last.created_at) < maxAgeMs ? last : null;
+      };
+      for (let k = 0; k < 3 && running.has(intakeId); k += 1) {
+        try {
+          await running.get(intakeId);
+        } catch {
+          /* فشل التحليل الجاري: نحاول بأنفسنا */
+        }
+        const fresh = upToDate(5 * 60 * 1000);
+        if (fresh) return fresh;
+      }
+      if (reuseRecentMs) {
+        const recent = upToDate(reuseRecentMs);
+        if (recent) return recent;
+      }
+      inflight.add(intakeId);
+      const job = svc.analyzeIntake(intakeId, actor, { ...opts, noSlot: true });
+      running.set(intakeId, job);
+      try {
+        return await job;
+      } finally {
+        if (running.get(intakeId) === job) running.delete(intakeId);
+        inflight.delete(intakeId);
+        if (rerun.delete(intakeId)) {
+          try {
+            app.stories?.scheduleAnalysis?.(intakeId, 'rerun');
+          } catch (e) {
+            app.log('ai rerun', e);
+          }
+        }
+      }
+    },
+    /** هل يجري الآن تحليل لهذا الطلب؟ (للاختبارات) */
+    isRunning(intakeId) {
+      return running.has(intakeId);
     },
 
     /** عدد تحليلات Claude التلقائية (ومنها بعد تسجيل مكالمة) لهذا الطلب خلال 24 ساعة: هل بلغ الحد؟ */
@@ -1065,7 +1132,11 @@ export function createAi(app) {
         voice: st.voice,
       };
       const exec = () => run('analyzeIntake', args, local, meta, { forceLocal, reason });
-      const result = a.provider && opts.auto && !forceLocal ? await withClaudeSlot(exec) : await exec();
+      const result = a.provider && opts.auto && !forceLocal && !opts.noSlot ? await withClaudeSlot(exec) : await exec();
+      // [بوابة 9.2 R4] بُتّ في الطلب أثناء انتظار المزوّد (قرار، تحويل، إغلاق): لا اقتراح جديد ولا نشاط ولا أولوية على طلب انتهى
+      const OPEN_NOW = ['new', 'in_review', 'awaiting_client'];
+      const nowRow = db.get('SELECT status, priority FROM intakes WHERE id = ?', intakeId);
+      if (OPEN_NOW.includes(intake.status) && (!nowRow || !OPEN_NOW.includes(nowRow.status))) return null;
       result.output = norm(result.output);
       result.output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: result.output.legal_area });
       const sug = store('intake', intakeId, 'intake_analysis', result, actor);
@@ -1098,7 +1169,7 @@ export function createAi(app) {
         }
       }
       // رفع الأولوية تلقائيًا للحالات العاجلة (قرار قابل للتعديل من الإدارة)
-      if (['high', 'urgent'].includes(result.output.urgency) && intake.priority === 'normal' && intake.status !== 'converted') {
+      if (['high', 'urgent'].includes(result.output.urgency) && (nowRow?.priority ?? intake.priority) === 'normal' && (nowRow?.status ?? intake.status) !== 'converted') {
         db.update('intakes', intakeId, { priority: result.output.urgency, updated_at: nowIso() });
       }
       // v9.2 [R2-A10]: قصة عاجلة جاهزة ← تنبيه واحد للإدارة

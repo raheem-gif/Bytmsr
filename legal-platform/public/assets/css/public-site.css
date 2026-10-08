@@ -434,7 +434,9 @@ body.pub .pub-nav-portal {
 }
 
 /* ───────────── الشاشة الأولى (v9.2 — P5): «مشكلتك في إيه؟» + 8 مربعات بصورة وكلمة + طرق تانية ───────────── */
-/* محسوبة لمساحة 360×512 (موبايل 360×640 ناقص شريط العنوان وأزرار أندرويد): الرأس 52 + 10 + العنوان 64 + المربعات.
+/* محسوبة لمساحة 360×512 (موبايل 360×640 ناقص شريط العنوان وأزرار أندرويد): الرأس 52 + 10 + العنوان 64 + 4 صفوف
+   مربعات + 3×8 + 6 + الطرق التانية 56 = 212 + 4 صفوف، والصف الأخير («حاجة تانية / أو مش عارفين») أطول بـ 8px تقريبًا:
+   فالمربع = (100svh − 236px) / 4 وأقله 72px (بوابة الدمج G3: كان 212 وأقله 76، فنزل صف «إحنا نكلمك» لـ 534 من 512).
    ألوان العلامة: أزواج العقد فقط (§3.2). حدود المربعات p500 (≥ 3:1 على الأبيض لأي لونين تختارهما المؤسسة) */
 
 .pub-start {
@@ -502,12 +504,12 @@ body.pub .pub-listen[aria-pressed="true"] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  --tile-h: 76px;
+  --tile-h: 72px;
 }
 
 @supports (height: 100svh) {
   .pub-pick {
-    --tile-h: clamp(76px, calc((100svh - 212px) / 4), 140px);
+    --tile-h: clamp(72px, calc((100svh - 236px) / 4), 140px);
   }
 }
 
@@ -570,19 +572,26 @@ body.pub .pub-pick-tile:has(small) {
   color: var(--pub-ink-soft);
 }
 
-/* مربع أقصر من 90px (شاشة قصيرة): صورة 40px وكلمة 18px */
-@media (max-height: 571px) {
+/* مربع أقصر من 90px (شاشة قصيرة، الطول أقل من 596px): صورة 40px وكلمة 18px، والمحتوى كله في 72px
+   (حد 2 + 3 + صورة 40 + 2 + سطر 20 + 3 + حد 2)؛ «حاجة تانية / أو مش عارفين» بصورة 30px في 80px */
+@media (max-height: 595px) and (max-width: 699px) {
   body.pub .pub-pick-tile {
     --pic: 40px;
+    padding-block: 3px;
+  }
+
+  body.pub .pub-pick-tile:has(small) {
+    --pic: 30px;
+    padding-block: 3px;
   }
 
   .pub-pick-tile b {
     font-size: 18px;
+    line-height: 20px;
   }
 
-  /* «حاجة تانية / أو مش عارفين» بسطرين: صورة أصغر حتى لا يطول صفها */
-  body.pub .pub-pick-tile:has(small) {
-    --pic: 30px;
+  .pub-pick-tile small {
+    line-height: 16px;
   }
 }
 
@@ -1638,7 +1647,8 @@ body.pub .pub-staff-link {
   padding: 0;
   list-style: none;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.8);
+  /* 90% مثل فقرة البطل: 80% كانت تنزل عن 4.5:1 فوق الأساسي 700 لبعض ألوان المؤسسة (#ff0000 → 3.8:1) */
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .pub-crumbs li + li::before {
@@ -1663,13 +1673,14 @@ body.pub .pub-page-hero h1 {
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* أبيض على بطل الأساسي 700→800 (زوجا العقد T1/T2): الثاني 300 عليه قد ينزل عن 4.5:1 بألوان مؤسسة أخرى */
 .pub-updated {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   margin-block-start: 12px !important;
   font-size: 15px !important;
-  color: var(--pub-gold-soft) !important;
+  color: #fff !important;
 }
 
 /* «بالمختصر» (B91-15): أعلى كل صفحة سياسة، تحت العنوان مباشرة */

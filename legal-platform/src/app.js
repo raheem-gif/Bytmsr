@@ -118,6 +118,8 @@ export function createApp(config, { logger = console } = {}) {
     // v9.2 [R2-A15]: «لخّصها الآن» وتسجيل المكالمة ومحاولاتها والإغلاق ونقل الرسائل (60 في الساعة لكل موظف)، ونصوص الرسائل الصوتية (120)
     storyNow: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 }),
     transcript: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 120 }),
+    // [بوابة 9.2 S4] «حلّل الآن» (يتجاوز الحد اليومي للقصة): 60 في الساعة لكل موظف
+    analyzeNow: new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 }),
   };
 
   // ربط الأحداث بين الوحدات (داخل نفس المعاملة)

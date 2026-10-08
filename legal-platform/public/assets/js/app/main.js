@@ -18,6 +18,15 @@ let currentUser = null;
 const LINK_RE = /^#\/(invite|reset)\/([A-Za-z0-9_-]{20,200})\/?$/;
 const LINK_STORE = 'bm_account_link';
 
+// v9.2 (بوابة G2): ألوان المؤسسة في meta من الخادم ≠ كتلة الألوان في الصفحة (صفحة قديمة من مخزن عامل الخدمة) ←
+// تُستبدل الكتلة الآن وتُحدَّث النسخة المخزنة (الوحدة تُحمَّل فقط عند الاختلاف). فقط لـ meta جاءت من الخادم الآن.
+function syncTheme(meta) {
+  const want = (meta && meta.brand && meta.brand.v) || '';
+  const have = document.getElementById('bm-theme')?.dataset.v || '';
+  if (meta && want !== have) import('./theme-sync.js').then((m) => m.syncBrandTheme(meta)).catch(() => {});
+  return meta;
+}
+
 function splash(text) {
   return h('div.boot-splash', { role: 'status' }, h('span.spinner.spinner-lg', { 'aria-hidden': 'true' }), h('span', text));
 }
@@ -193,7 +202,7 @@ function loadFullMeta() {
   if (!fullMetaReq) {
     fullMetaReq = fetchMeta(null).then(
       (meta) => {
-        if (meta) setMeta(meta);
+        if (meta) setMeta(syncTheme(meta));
         return getMeta();
       },
       (err) => {
@@ -328,7 +337,7 @@ async function boot() {
     }
   }
   try {
-    if (metaReq) setMeta(await metaReq);
+    if (metaReq) setMeta(syncTheme(await metaReq));
   } catch (err) {
     mount(root, h('div.boot-splash', errorState(err, boot)));
     if (err.status === 0) retryBootWhenOnline(); // v9.1 l-work (L-03)
@@ -351,7 +360,7 @@ async function boot() {
     // نسخة meta على الجهاز قديمة: نجلب الجديدة قبل العرض (رحلة إضافية فقط عند تغيّر الإعدادات أو الإصدار)
     if (cached && res && res.meta_version && res.meta_version !== cached.etag) {
       const fresh = await fetchMeta(cached.etag);
-      if (fresh) setMeta(fresh);
+      if (fresh) setMeta(syncTheme(fresh));
     }
   } catch (err) {
     // v9.1 l-home (L-01): المحامي بلا اتصال يفتح «اليوم» من آخر نسخة على جهازه (تُمسح عند تسجيل الخروج)؛
@@ -519,7 +528,7 @@ async function enterApp(user, { fromLogin = false } = {}) {
   // v9.1 l-home: meta تختلف قليلًا حسب الدور (مثل ai.claude للمحامي): بعد دخول جديد تُراجع نسخة الجهاز في الخلفية (304 غالبًا)
   if (fromLogin && !getMeta()?.partial) {
     const c = cachedMeta();
-    if (c) fetchMeta(c.etag).then((fresh) => fresh && currentUser === user && setMeta(fresh)).catch(() => {});
+    if (c) fetchMeta(c.etag).then((fresh) => fresh && currentUser === user && setMeta(syncTheme(fresh))).catch(() => {});
   }
   if (shell) shell.destroy();
   shell = createShell({ user, meta: getMeta(), onLogout: logout });

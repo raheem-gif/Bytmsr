@@ -280,13 +280,17 @@ export function registerPublicRoutes(router, app) {
     if (!audioCount && nonSpace(description) < MIN_DESC_CHARS && !callback) {
       throw badRequest('سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.', { fields: { description: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.' } });
     }
+    // v9.2 (بوابة الدمج K3): كلمتين كتبتهم ثم «مش عارفة تحكي؟ سيبي رقمك» (أقل من 10 حروف بلا صوت) ليسا حكاية:
+    // الطلب طلب مكالمة بلا حكاية (الجملة الجاهزة أولًا، ثم كلماتها كما هي للموظفين فقط، خارج الوقائع والتحليل)
+    const shortNote = callback && !audioCount && nonSpace(description) < MIN_DESC_CHARS ? description.trim() : '';
+    if (callback && !audioCount && nonSpace(description) < MIN_DESC_CHARS) description = '';
     const hasText = nonSpace(description) > 0;
     const story = audioCount && hasText ? 'both' : audioCount ? 'voice' : hasText ? 'text' : 'none';
     const hasStory = story !== 'none';
     const when = callback ? CALLBACK_WHEN[callback].label : '';
     // [S-25] بلا اسم لا نعرف إن كانت هي أو هو: جملة محايدة
     const callbackLine = callback ? `${name ? `${addressForm({ name }) === 'm' ? 'عايز' : 'عايزة'} حد يكلمني — ` : 'محتاجين حد يكلمنا — '}${when}` : '';
-    if (!description) description = audioCount ? VOICE_ONLY_TEXT : callbackLine;
+    if (!description) description = audioCount ? VOICE_ONLY_TEXT : shortNote ? `${callbackLine}\n${shortNote}` : callbackLine;
     const mode = MODES.includes(b.mode) ? b.mode : 'form';
     // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء.
     // v9.2: ما يُستنتج من الإجابات (الصفة، عدد الأطفال، السكن) وما ترسله صراحةً يغلب عليه
@@ -329,7 +333,10 @@ export function registerPublicRoutes(router, app) {
     if (!r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
     // v9.2 (§3.3): اختيارات الصور كما ضغطت عليها (تقرأها الإدارة والتحليل تحت «قد تكون غير دقيقة»)
     const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV };
-    db.update('intakes', r.intake.id, { form_answers: JSON.stringify(formAnswers) });
+    // v9.2 (بوابة الدمج K1): اسم الطلب = ما كتبه هذا الإرسال وحده. الرقم المكتوب في الموقع غير مثبت، فطلب بلا اسم
+    // على رقم عميل موجود لا يرث اسم صاحب الرقم (وإلا عرضته صفحة /p/… والردود الجاهزة لمن كتب الرقم: «أهلًا يا رامي»).
+    // الموظفون يرون اسم ملف العميل كما هو (intakes.list: contact_name || client_name).
+    db.update('intakes', r.intake.id, { form_answers: JSON.stringify(formAnswers), contact_name: name });
     if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
     if (callback) {
       const form = name ? addressForm({ name }) : null;

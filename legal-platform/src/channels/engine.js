@@ -65,12 +65,23 @@ export function stripIdentityConfirm(text) {
   s = s.replace(/كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g, ' ');
   return s.replace(/[ \t]+/g, ' ').replace(/^\s*[،,.!]+\s*/, '').trim();
 }
+/**
+ * [بوابة 9.2 K8] رسالة واتساب الجاهزة من شاشة «وصلنا طلبك» للمتابعة («مرحبًا {المؤسسة}، رقم طلبي REQ-… وأريد استكمال
+ * طلبي عبر واتساب.») ليست من وقائع الطلب ولا تصلح ملخصًا. تُحذف ويبقى ما كتبته بعدها؛ نص بلا هذه الجملة يعود كما هو.
+ */
+const FOLLOWUP_PREFILL_RE = /(?:مرحب(?:ًا|اً|ا)[ \t]+[^،,\n]{1,60}[،,][ \t]*)?رقم[ \t]+طلبي[ \t]*[:：]?[ \t]*(?:REQ-\d{4}-\d{5}[ \t]*)?(?:و[ \t]*)?[أا]ريد[ \t]+استكمال[ \t]+طلبي[ \t]+عبر[ \t]+واتساب[ \t]*[.،]?/gi;
+export function stripFollowupPrefill(text) {
+  const s = String(text ?? '');
+  if (!/استكمال[ \t]+طلبي/.test(s)) return s;
+  const out = latinDigits(s).replace(FOLLOWUP_PREFILL_RE, ' ');
+  return out === latinDigits(s) ? s : out.replace(/[ \t]+/g, ' ').replace(/^\s*[،,.!]+\s*/, '').trim();
+}
 /** نص رسالة واردة كما يدخل التحليل والوقائع: رسالة تأكيد الرقم بلا رقم الطلب والكود */
 export function factsText(body, meta) {
   const m = typeof meta === 'string' ? parseJson(meta, {}) : meta || {};
   // v9.2 (S-07/S-08): «عايزة حد يكلمني — الصبح» جملة جاهزة وليست من وقائع الطلب
   if (isCannedCallback(m, body)) return '';
-  return m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? '');
+  return stripFollowupPrefill(m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? ''));
 }
 
 // ───────────── v9.2 (admin-ai): القصة — ما يُعد «وقائع» وما يعني «خلصت حكايتي» ─────────────
@@ -113,7 +124,7 @@ const NON_STORY_PHRASES = [
 
 /** نص الرسالة بعد حذف التحيات والشكر وكلمات «خلاص» وأرقام الطلبات وأكواد التأكيد والملصقات والرموز */
 export function storyWords(text, doneWords = []) {
-  let s = latinDigits(String(text ?? ''))
+  let s = latinDigits(stripFollowupPrefill(text))
     .replace(/REQ-\d{4}-\d{5}/gi, ' ')
     .replace(/كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g, ' ')
     .replace(/\[ملصق\]/g, ' ');
@@ -263,6 +274,10 @@ export function createEngine(app) {
   /** تأكيد القصة (يستخدمه زر «تأكيد الهوية» ورسالة واتساب فيها رقم الطلب وكود التأكيد) */
   function confirmStory(intake, via, actor = null) {
     const sd = parseJson(intake.source_detail, {});
+    // [بوابة 9.2 S2] تأكد الرقم: الاسم الذي كتبته في نموذج الموقع صار اسمها فعلًا (يُستخدم في رسائلها الآلية)
+    if (intake.client_id && intake.contact_name) {
+      db.run("UPDATE clients SET name_source = 'website' WHERE id = ? AND name_source = 'website_unverified' AND name = ?", intake.client_id, intake.contact_name);
+    }
     delete sd.phone_match_unverified;
     sd.identity_confirmed_at = nowIso();
     sd.identity_confirmed_via = via;
@@ -431,7 +446,9 @@ export function createEngine(app) {
           client = r.client;
           createdClient = r.created;
           if (msg.contact_name && client.name === msg.contact_name && (createdClient || (prior && !prior.name))) {
-            const source = msg.channel === 'whatsapp' ? 'whatsapp_profile' : msg.channel === 'website' ? 'website' : 'staff';
+            // [بوابة 9.2 S2] اسم كتبه نموذج الموقع والرقم غير مؤكد: لا يُخاطَب به صاحب الرقم على واتساب حتى يتأكد الرقم
+            // (confirmStory يرفعه إلى 'website')، فقد يكون كتبه شخص آخر استخدم رقمه
+            const source = msg.channel === 'whatsapp' ? 'whatsapp_profile' : msg.channel === 'website' ? 'website_unverified' : 'staff';
             db.run('UPDATE clients SET name_source = ? WHERE id = ?', source, client.id);
             client = app.clients.get(client.id);
           }
@@ -564,9 +581,11 @@ export function createEngine(app) {
             source_detail: JSON.stringify(attribution.detail || {}),
             campaign: attribution.campaign || null,
             legal_area: msg.legal_area_hint || null,
-            contact_name: msg.contact_name || client.name || null,
+            // [بوابة 9.2 S1/K1] طلب موقع بلا اسم برقم مسجل: لا نأخذ اسم صاحب الرقم ولا محافظته (لا تظهر لمقدّمة الطلب
+            // في صفحتها ولا في المسودات، ولا تُسقط إجابة «كمان سؤالين»)؛ المرسل غير الموثّق لا يرث شيئًا من ملف العميل
+            contact_name: msg.contact_name || (verifiedSender ? client.name : null) || null,
             contact_phone: msg.from_phone || app.clients.primaryPhone(client.id),
-            governorate: msg.governorate || client.governorate || null,
+            governorate: msg.governorate || (verifiedSender ? client.governorate : null) || null,
             // v9.2: قصة واتساب «تُكتب» حتى تكتمل (سكوت أو «خلاص» أو «لخّصها الآن»)؛ الموقع والإدارة قصة كاملة من البداية
             story_state: msg.channel === 'whatsapp' ? 'collecting' : 'ready',
             story_ready_at: msg.channel === 'whatsapp' ? null : t,
@@ -601,6 +620,8 @@ export function createEngine(app) {
         }
         // نعتمد وقت الاستلام في الخادم للترتيب، ونحفظ توقيت المزوّد للرجوع إليه
         if (msg.timestamp) meta.provider_timestamp = msg.timestamp;
+        // [بوابة 9.2 S3] رسالة موقع من صاحب رابط بوابة كامل (أثبت ملكية الرقم): تبقى موثّقة إن نُقلت لاحقًا إلى طلب جديد
+        if (msg.channel === 'website' && verifiedSender && !staffEntry) meta.sender_verified = true;
         // ── v9.2 (admin-ai): الموضوع من قائمة واتساب أو من رسالة الموقع الجاهزة، و«خلاص»، والوسائط ──
         const listTopic = /^topic:([a-z_]+)$/.exec(String(msg.reply?.id || ''))?.[1] || null;
         if (listTopic && topicByKey(listTopic)?.key === listTopic) meta.topic = listTopic;
@@ -1153,7 +1174,14 @@ export function createEngine(app) {
     clientWords({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
       const client = clientId ? app.clients.get(clientId) : null;
       const intake = storyIntake({ intakeId, caseId, matterId });
-      const name = client?.name || intake?.contact_name || '';
+      // [بوابة 9.2 S1/S2] قصة موقع رقمها غير مؤكد: الاسم الذي كتبته مقدّمة الطلب فقط (لا اسم صاحب الرقم ولا صيغته)؛
+      // واسم كتبه نموذج موقع غير مؤكد لا يُخاطَب به صاحب الرقم في قصة مؤكدة
+      if (intake && isPortalUnverifiedIntake(intake)) {
+        const typed = intake.contact_name || '';
+        return { first_name: addressName(typed), form: addressForm({ name: typed }), ref: intake.code || null };
+      }
+      const usable = client?.name && client.name_source !== 'website_unverified' ? client.name : '';
+      const name = usable || (client?.name_source === 'website_unverified' ? '' : intake?.contact_name || '');
       const form = addressForm({ name, address_form: client?.address_form });
       return { first_name: addressName(name), form, ref: intake?.code || null };
     },

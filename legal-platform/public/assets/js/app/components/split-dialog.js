@@ -10,17 +10,22 @@ import { newClientRef } from './call-note.js';
 const MAX = 20;
 const DAYS_30 = 30 * 24 * 3600 * 1000;
 
-/** رسائل المستفيدة الواردة التي يمكن نقلها (آخر 30 يومًا، ليست مكالمة سجلتها الإدارة) */
-export function splittable(messages = [], now = Date.now()) {
-  return messages.filter((m) => m && m.direction === 'in' && !(m.meta && m.meta.call_note) && now - Date.parse(m.created_at || 0) <= DAYS_30);
+/**
+ * رسائل المستفيدة الواردة التي يمكن نقلها (آخر 30 يومًا، ليست مكالمة سجلتها الإدارة).
+ * [بوابة 9.2 G6] splitAfter: وقت فتح الملف — حكايتها الأصلية التي فُتح منها الملف لا تُعرض (الخادم يرفضها أيضًا).
+ */
+export function splittable(messages = [], now = Date.now(), splitAfter = null) {
+  return messages.filter(
+    (m) => m && m.direction === 'in' && !(m.meta && m.meta.call_note) && now - Date.parse(m.created_at || 0) <= DAYS_30 && !(splitAfter && String(m.created_at || '') <= String(splitAfter)),
+  );
 }
 
 /**
- * @param {{messages:Array, preselectId?:number, onDone?:(res:{intake:{id:number, code:string}})=>void}} opts
+ * @param {{messages:Array, preselectId?:number, splitAfter?:string|null, onDone?:(res:{intake:{id:number, code:string}})=>void}} opts
  * @returns {Promise<{intake:{id:number, code:string}}|null>}
  */
-export function openSplitDialog({ messages = [], preselectId = null, onDone } = {}) {
-  const list = splittable(messages).slice(-60);
+export function openSplitDialog({ messages = [], preselectId = null, onDone, splitAfter = null } = {}) {
+  const list = splittable(messages, Date.now(), splitAfter).slice(-60);
   const chosen = new Set(preselectId != null && list.some((m) => m.id === preselectId) ? [preselectId] : []);
   const clientRef = newClientRef();
   const note = h('p.field-error', { role: 'alert', hidden: true });

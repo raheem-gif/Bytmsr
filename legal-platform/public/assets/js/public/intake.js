@@ -897,7 +897,8 @@ function storyScreen() {
     photoLabel.textContent = hasVoice ? COPY.photo : COPY.photoFirst;
     photoBox.hidden = !photosOpen;
     cbBtn.hidden = told;
-    if (waLine) waLine.hidden = told;
+    // داخل فيسبوك/إنستجرام زر واتساب الكبير فوق أصلًا: سطر واتساب تاني تحت تكرار
+    if (waLine) waLine.hidden = told || inApp;
   }
   onVoicesChanged = paint;
   if (photosOpen && U) {
@@ -949,7 +950,9 @@ function problemSummary() {
   if (v.length === 1) parts.push(`رسالة صوتية (${clock(total)})`);
   else if (v.length === 2) parts.push(`رسالتين صوتيتين (${clock(total)})`);
   else if (v.length > 2) parts.push(`${v.length} رسايل صوتية (${clock(total)})`);
-  if (nonSpace(state.description)) parts.push(v.length ? 'وكلام مكتوب' : COPY.sumText);
+  // كلمتين قبل «سيبي رقمك» (أقل من 10 حروف بلا صوت) مش حكاية: هنسمعها منها في المكالمة (والخادم يسجلها طلب مكالمة)
+  const typed = nonSpace(state.description);
+  if (typed && (v.length || typed >= MIN_CHARS)) parts.push(v.length ? 'وكلام مكتوب' : COPY.sumText);
   return parts.join(' ') || COPY.sumCb;
 }
 
@@ -1392,12 +1395,15 @@ function showSuccess(res, name, sent = {}) {
   // [R2-B9] بطاقة «هنكلمك»: إمتى، ومن أنهي رقم (كبير ومن الشمال لليمين)، وإزاي تعرف إنه إحنا
   let cbCard = null;
   let cbText = '';
+  let cbSay = () => cbText;
   if (callback) {
     const when = callback === 'any' ? '' : ` ${CALLBACK_WHEN[callback].label}`;
     const from = String(res.callback_from || '').trim();
     const lead = `هنكلمك ${etaWords(res.callback_eta_days)}${when}`;
     const rest = g(`أول ما ترد{ي} هنقولك "طلب رقم ${num}" عشان تعرف{ي} إنه إحنا. لو ما رديت{ي}ش هنكلمك تاني.`);
     cbText = `${lead}${from ? `، من الرقم ده: ${from}` : ''}. ${rest}`;
+    // المسموع: الرقم رقمًا رقمًا (الصوت يقرا «01211114662» رقمًا واحدًا كبيرًا لا يُفهم)؛ المكتوب كما هو
+    cbSay = () => `${lead}${from ? `، من الرقم ده: ${L ? L.spellPhone(from) : from}` : ''}. ${rest}`;
     const numEl = from ? h('span.bmf-cb-num', { dir: 'ltr' }, from) : null;
     const hearNum = from
       ? h(
@@ -1574,12 +1580,19 @@ function showSuccess(res, name, sent = {}) {
 
   // «كمان سؤالين — لو تحبي»: بعد ما ترجع من واتساب أو بعد 15 ثانية
   const about = portal ? aboutCard(res, portal, form, sent.answers || {}) : null;
+  // ظهر الكارت والسماع شغال: الزر يبقى «اسمعي السؤال»، وضغطة واحدة تقرا الكارت الجديد وحده (لا الصفحة كلها من الأول)
+  let aboutFresh = false;
   if (about) {
     let shown = false;
     reveal = () => {
       if (shown) return;
       shown = true;
       about.hidden = false;
+      if (L && L.listenOn()) {
+        aboutFresh = true;
+        firstAfterLoad = true;
+      }
+      paintListen();
     };
     setTimeout(reveal, ABOUT_DELAY_MS);
   }
@@ -1606,7 +1619,14 @@ function showSuccess(res, name, sent = {}) {
   current = {
     heading,
     listen,
-    say: () => [{ text: spoken(), el: heading }, cbText && { text: cbText, el: cbCard }, cardAText && { text: cardAText, el: cardA }],
+    say: () => {
+      const aboutItems = about ? about.sayItems() : [];
+      if (aboutFresh && aboutItems.length) {
+        aboutFresh = false;
+        return aboutItems;
+      }
+      return [{ text: spoken(), el: heading }, cbText && { text: cbSay(), el: cbCard }, cardAText && { text: cardAText, el: cardA }, ...aboutItems];
+    },
   };
   paintListen();
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1624,7 +1644,23 @@ function aboutCard(res, portal, form, answers) {
   // الصفة معروفة من الإجابات (جوزي اتوفى…) أو الكلام لراجل: لا نسأل
   if (!infer(answers).relation && form !== 'm') steps.push('rel');
   const body = h('div.bmf-about-body');
-  const card = h('section.bmf-card.bmf-about-card', { hidden: true, 'aria-labelledby': 'bmf-about-title' }, h('h2', { id: 'bmf-about-title' }, 'كمان سؤالين — لو تحبي'), body);
+  // العنوان على عدد الأسئلة فعلًا (سؤال واحد لما الصفة معروفة أو الكلام لراجل) وبنوع الخطاب
+  const title = steps.length > 1 ? 'كمان سؤالين — لو تحبي' : g('سؤال كمان — لو تحب{ي}');
+  const titleEl = h('h2', { id: 'bmf-about-title' }, title);
+  const card = h('section.bmf-card.bmf-about-card', { hidden: true, 'aria-labelledby': 'bmf-about-title' }, titleEl, body);
+  // «اسمعي»: العنوان، والسؤال الحالي، وكل اختيار، و«تخطي» (أو «شكرًا، كده تمام.») — لمن لا تقرأ
+  card.sayItems = () => {
+    if (card.hidden) return [];
+    const items = [{ text: title, el: titleEl }];
+    for (const el of body.querySelectorAll('.bmf-about-q, .bmf-about-tile, .bmf-skip, .bmf-sent')) {
+      if (!el.hidden && el.textContent.trim()) items.push({ text: el.textContent.trim(), el });
+    }
+    return items;
+  };
+  // بعد كل ضغطة والسماع شغال: السؤال التالي يتقري لوحده (زي باقي الشاشات)
+  const readNext = () => {
+    if (L && L.listenOn() && !card.hidden) speakItems(card.sayItems().slice(1));
+  };
   let failed = false;
   const post = (data) => {
     const once = () =>
@@ -1699,7 +1735,7 @@ function aboutCard(res, portal, form, answers) {
     } else if (step === 'rel') {
       mount(
         body,
-        h('p.bmf-about-q', { tabindex: '-1' }, 'انتي…؟'),
+        h('p.bmf-about-q', { tabindex: '-1' }, 'إنتي…؟'),
         h(
           'div.bmf-about-tiles',
           RELATIONS.map((r) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { relation: r.value }) }, r.label)),
@@ -1711,10 +1747,12 @@ function aboutCard(res, portal, form, answers) {
       Promise.all(pending).then(() => {
         mount(body, h('p.bmf-sent', { role: 'status', tabindex: '-1' }, ic('check', 22), h('span', failed ? g('ما اتسجلش. مش مشكلة، تقدر{ي} تقول{ي}لنا بعدين.') : 'شكرًا، كده تمام.')));
         body.firstChild.focus({ preventScroll: true });
+        readNext();
       });
     }
     // بعد كل إجابة: التركيز على السؤال التالي (لا يضيع لأول الصفحة مع لوحة المفاتيح وقارئ الشاشة)
     if (i) body.firstChild.focus({ preventScroll: true });
+    if (i && step) readNext();
   }
   paint();
   return card;

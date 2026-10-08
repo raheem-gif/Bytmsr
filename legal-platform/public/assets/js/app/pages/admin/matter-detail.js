@@ -3,7 +3,7 @@
 
 import { h, frag } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, options, money, date, dateTime, relative, calendarParts, weekday, time, cairoToday } from '../../../lib/fmt.js';
+import { label, options, money, date, dateTime, relative, calendarParts, weekday, time, cairoToday, localPhone } from '../../../lib/fmt.js';
 import {
   icon,
   button,
@@ -171,7 +171,7 @@ export default async function render(ctx) {
         'div.stack',
         kv([
           ['المستفيد/ة', d.client ? inline(h('a', { href: `#/clients/${d.client.id}` }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
-          ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(d.client.phone), copyButton(d.client.phone, '')) : null],
+          ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(localPhone(d.client.phone)), copyButton(localPhone(d.client.phone), '')) : null],
           ['المحامي المسؤول', d.responsible_lawyer ? h('a', { href: `#/lawyers/${d.responsible_lawyer.id}` }, d.responsible_lawyer.name) : h('span.muted', 'لم يُحدَّد بعد')],
           [
             'الاستشارة الأصلية',
@@ -879,7 +879,8 @@ export default async function render(ctx) {
             await api.post(`/admin/messages/${msg.id}/retry`);
             await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'messages' });
           },
-          onSplit: (msg) => openSplitDialog({ messages, preselectId: msg.id }), // v9.2 admin-ai
+          onSplit: (msg) => openSplitDialog({ messages, preselectId: msg.id, splitAfter: (d.case && d.case.created_at) || m.created_at }), // v9.2 admin-ai (+بوابة G6)
+          splitAfter: (d.case && d.case.created_at) || m.created_at,
         }),
       ),
       messageComposer({

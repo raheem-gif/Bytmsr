@@ -45,10 +45,60 @@
 - **«ألوان المؤسسة»** في «الإعدادات» (لمدير النظام وحده، والرابط المباشر `#/settings?section=brand`): لونان فقط — «اللون الأساسي» (الأزرار الرئيسية ورأس الصفحات والقائمة الجانبية) و«اللون الثاني» (زر «احكيلنا مشكلتك» والمربعات المميزة) — بمنتقي ألوان وحقل كود (`#abc` و`ABCDEF` والأرقام العربية مقبولة)، ومعاينة حية (رأس الموقع، مربعا «ورث» و«معاش» بصورهما، زر «ابعتي»، شريط القائمة الجانبية بعدّاده).
 - **لا تعرف الكود؟** «اختر صورة الشعار لاقتراح الألوان»: الصورة تُقرأ على جهاز المدير وحده (تُصغَّر إلى 200×200، وما فوق 15 ميجابايت يُرفض) وتظهر حتى 4 ألوان مقترحة تحت كل حقل. **الصورة لا تُرفع ولا تُحفظ.**
 - **الكتابة تبقى واضحة دائمًا**: الخادم والمعاينة يولّدان كل الدرجات (17 درجة + 5 ثلاثيات RGB) بنفس الوحدة `public/assets/js/lib/brand-color.js` (سلّم OKLCH مطابق لألوان 9.1)، ويضمنان **29 زوج تباين** (WCAG AA: 4.5 للنص و3 للحواف والأيقونات، ومنها حافة المربعات `p500` على الأبيض ≥ 3:1). إن احتاج لون المدير تعديلًا يظهر صندوق «عدّلنا الدرجة حتى تبقى الكتابة واضحة» بالقيمتين قبل الحفظ.
-- **«حفظ الألوان»** يغيّر الموقع (`/`، `/intake`، `/portal`، `/p/<رمز>`، الصفحات القانونية، 404) والمنصة `/app` من أول رسم: كتلة واحدة `<style id="bm-theme">html:root{…}</style>` في رأس الصفحة (نحو 520 بايت، بلا أي طلب إضافي)، ولون شريط المتصفح `theme-color`، وصفحة المدير نفسها تتلوّن دون إعادة تحميل. محامٍ فتح التطبيق المثبت قبل التغيير يرى الألوان الجديدة من الفتح التالي، ولا يظهر له «يتوفر إصدار أحدث» (عامل الخدمة لا يتغير).
+- **«حفظ الألوان»** يغيّر الموقع (`/`، `/intake`، `/portal`، `/p/<رمز>`، الصفحات القانونية، 404) والمنصة `/app` من أول رسم: كتلة واحدة `<style id="bm-theme">html:root{…}</style>` في رأس الصفحة (نحو 520 بايت، بلا أي طلب إضافي)، ولون شريط المتصفح `theme-color`، وصفحة المدير نفسها تتلوّن دون إعادة تحميل. ونسخة `/app` المخزنة على هواتف الموظفين والمحامين تأخذ الألوان الجديدة من **أول إعادة تحميل**: الحفظ يحدّث النسخة المخزنة على جهاز المدير، وعند فتح المنصة تقارن كل نسخة كتلة الألوان فيها بما يقوله الخادم في `/api/meta` (`brand.v`) وتستبدلها إن اختلفت (`public/assets/js/app/theme-sync.js`)، دون «يتوفر إصدار أحدث» (عامل الخدمة لا يتغير).
 - **الألوان الأصلية كما هي حرفيًا**: بلا ضبط لا تُضاف أي كتلة ولا يتغير شيء في شكل 9.1 (الأزرق المخضر `#0f4c5c` والذهبي `#b8862e`). «رجوع للألوان الأصلية» (بتأكيد) يحذف الضبط. صف إعدادات تالف لا يُسقط أي صفحة (تعود الألوان الأصلية).
 - **أمان**: المسارات `GET/PUT/DELETE /api/admin/brand…` لمدير النظام وحده، وكل تعديل في سجل الأمان («تعديل ألوان المؤسسة» / «إرجاع ألوان المؤسسة الأصلية»)، والكتلة لا تُدرج إلا بعد التحقق من شكلها (`html:root{--x:#hex;…}`) في الخادم وفي المتصفح، وتُكتب بـ `textContent` لا `innerHTML`. `PATCH /api/admin/settings` العام لا يغيّر الألوان. بند «ألوان المؤسسة» في قائمة جاهزية الإطلاق (`/system`) للمعلومة فقط.
 - **أوراق الأنماط**: كل ألوان العلامة صارت متغيرات (`--primary-*`، `--accent-*`، `rgb(var(--…-rgb) / شفافية)`)، وقيمها الافتراضية في كتلتين فقط `/* @brand-defaults-start … end */` (في `app.css` و`public-site.css`)، والنص فوق الذهبي `--on-accent` (أصلح رقم الخطوة الأبيض على الذهبي في صفحة المتابعة، كان 3.24:1)، وحافة `--accent-600` لأزرار اللون الثاني. اختبار `test/v92-colours.test.js` يرفض أي لون علامة حرفي خارج الكتلتين وأي زوج نص/خلفية خارج عقد التباين.
+
+### ما أصلحته بوابة الدمج قبل الإصدار
+
+بعد المسارات الثلاثة جُرّبت 9.2 كاملةً (رحلات مستفيدات وإدارة في المتصفح على 360 و390 و1366، وفحص أمان وخصوصية، وانحدار، ومراجعة لغة وإتاحة)، وأُصلح ما وُجد قبل الإصدار:
+
+- **الاسم في طلب الموقع هو ما كُتب في الطلب نفسه فقط**: طلب بلا اسم على رقم مسجل لا يرث اسم صاحب الرقم ولا محافظته، لا في صفحتها `/p/<رمز>` ولا في المسودات ولا في الرسائل الآلية («أهلًا بيكي» بدلًا منه). واسم عميل أُنشئ من نموذج موقع رقمه غير مؤكد (`name_source='website_unverified'`) لا يُستخدم في أي رسالة واتساب حتى يتأكد الرقم.
+- **«اعمل منها طلب جديد»** لا تنقل رسائل وصلت قبل فتح الملف، ولا رسائل من ملفين مختلفين، ولا رسائل موقع من ملف رقمه غير مؤكد. والطلب الجديد يحتفظ بتأكيد رقم المرسِلة، فيظهر في صفحتها الكاملة وتصلها ردود الإدارة.
+- **طلب مكالمة بكلمتين** (أقل من 10 حروف بلا صوت) يبقى «طلبت مكالمة» بلا حكاية: الجملة الجاهزة ثم كلماتها في سطر للموظفين فقط، خارج الوقائع والتحليل.
+- **بعد «سجّل المكالمة»** لا تعود البطاقة تقول «اتصل بها»، بل تعرض إجراء المسار، ونص المكالمة يحذف جمل الشات («ابعتي»، «صوّري»، الروابط).
+- **ما يصل للمحامي** (`facts_for_lawyer`/`brief_for_lawyer`) يُحذف منه كود التأكيد ورقم الطلب، ويصير رقم البيت واسم الشارع «[عنوان مخفي]».
+- **التحليل**: الضغط مرتين على «لخّصها الآن»، أو ضغط زميلين معًا، يشترك في تحليل واحد جارٍ. ونتيجة تحليل انتهى بعد أن قررت الإدارة الطلب تُهمل. وحفظ نص الرسالة الصوتية نفسه مرة ثانية لا يغيّر شيئًا. أما تعديل النص في طلب مُقرَّر أو ملف فيُسجَّل في النشاط.
+- **للموظفين**: الرقم يظهر بالصيغة المحلية `01XXXXXXXXX` (روابط الاتصال `tel:` تبقى `+20`)، وصيغة المذكر («اتصل به»، «رقمه غير مؤكد») حين تقول «طريقة المخاطبة» ذلك. وعلى شاشات 640px وأضيق صار كل زر ورابط اتصال 44px على الأقل.
+- **للمستفيدات**: المربعات تتسع لشاشة 360×512 مع صف «طرق تانية» (ارتفاع `clamp(72px, (100svh − 236px)/4, 140px)`). الزر أثناء القراءة صار «إيقاف الصوت». بطاقة «كمان سؤالين» (أو «سؤال كمان» حين يبقى سؤال واحد) تُقرأ بالصوت، ورقم المكالمة يُنطق رقمًا رقمًا. رابط التخطي صار «انتقال إلى المحتوى». داخل متصفح فيسبوك/إنستجرام يبقى زر واتساب واحد كبير. وصورة «مش عارفة» أُعيد رسمها (كتفان مرفوعان وكفّان مفتوحتان).
+- **الألوان**: نسخة `/app` المخزنة في عامل الخدمة تأخذ الألوان الجديدة من أول إعادة تحميل. والنص الأبيض على رأس الصفحات القانونية بقي واضحًا مع أي لون (`.pub-updated` أبيض، و`.pub-crumbs` بنسبة 90%).
+
+### الإعدادات الجديدة، والقرارات المفتوحة، والمؤجَّل إلى 9.3
+
+| الإعداد | الافتراضي | أين |
+|---|---|---|
+| `brand_colors` | لا شيء (ألوان 9.1 كما هي) | الإعدادات ← «ألوان المؤسسة» (مدير النظام) |
+| `story_quiet_minutes` | 10 دقائق | الإعدادات ← «القصص الواردة على واتساب» |
+| `story_welcome_enabled` (ترحيب بقائمة المواضيع) | **متوقف** | نفس البطاقة |
+| `story_ack_enabled` («وصلتنا حكايتك» ورقم الطلب) | **متوقف** (مفعّل في البيانات التجريبية فقط) | نفس البطاقة؛ بند تحذير في «جاهزية الإطلاق» |
+| `callback_from_number` | فارغ = هاتف المؤسسة | نفس البطاقة؛ يظهر للمستفيدة بعد «إحنا نكلمك» |
+| `callback_eta_days` | 1 يوم عمل (1–5) | نفس البطاقة؛ يظهر للمستفيدة أيضًا |
+| `story_done_words`، `story_auto_ai_max_per_day` (6)، `story_referrals` | قيم افتراضية | بلا شاشة في 9.2 |
+
+ما يضبطه مسؤول التشغيل قبل الإطلاق (ومنه تعديل جملة المراجعة البشرية في سياسة الخصوصية قبل تفعيل أي رسالة آلية) في [`DEPLOY.md`](DEPLOY.md) «ما الجديد تشغيليًا في 9.2».
+
+**قرارات مفتوحة للمؤسسة** (تفصيلها في `PLATFORM-BRIEF.md` §11، البنود 12–24):
+- ألوان المؤسسة الحقيقية.
+- تفعيل الترحيب و«وصلتنا حكايتك» (بعد تعديل نص الخصوصية).
+- مدة السكوت (10 دقائق) وكلمات «خلاص».
+- من يرد على طلبات المكالمة، ومن أي رقم، وخلال كم يوم.
+- ترتيب المربعات: يُراجع بعد 3 شهور من بيانات `form_answers`.
+- جهات التوجيه الخارجية: لا يُشحن منها شيء ولا تُخترع أرقام.
+- الحد اليومي لتحليلات Claude (6).
+- تحية مسجلة بصوت إنسان بدل صوت الهاتف.
+- **اختبار التعرف على صور المربعات** مع 8 مستفيدات على الأقل (66% لكل مربع) واختبارات استخدام قبل فتح الصفحة الرئيسية للجمهور.
+- **الموافقة بالفعل**: يقرر المستشار القانوني إن كان سطر الموافقة فوق زر «ابعتي طلبك» يكفي بموجب القانون 151 لسنة 2020.
+- عدد المحاولات قبل «تعذّر الوصول إليها» (3 محاولات في يومين).
+- صياغات تركتها المراجعة للمؤسسة: «وصية على أيتام»، و«احك{ي} لنا» في رسائل واتساب، وتحذير «كل رسائلها صوتية»، وترتيب طلبات المكالمة (الأقدم أولًا الآن).
+
+**مؤجَّل إلى 9.3** (مصمَّم ولم يُبنَ):
+- مسودات تحويل الكلام إلى نص من Google Speech-to-Text. جدول النصوص بلا قيد على الحالة، فتضيف 9.3 `queued`/`auto_draft`/`failed` دون إعادة بناء.
+- رفع الشعار وعرضه، وألوان أيقونة الموقع والتطبيق وصورة المشاركة.
+- قيم ألوان افتراضية من متغيرات البيئة `BRAND_*`.
+- محرر دليل التوجيه وكلمات «خلاص».
+- بطاقة «جاهزة للقرار» في لوحة المتابعة، وقسم «من إحنا».
+- دمج طلبين مفتوحين لنفس المستفيدة (9.2 تنبّه فقط).
 
 ---
 
@@ -124,8 +174,9 @@ PORT=4000 DATA_DIR=/tmp/bm-data npm start    # another port / data folder
 
 | الرابط | الوصف |
 |---|---|
-| `http://localhost:3000/` | الموقع العام للمستفيدين (الخدمات، كيف نعمل، الأسئلة الشائعة، التواصل) |
-| `/intake` | «احكيلنا مشكلتك»: الطلب في 3 خطوات قصيرة برسالة صوتية أو كتابة، وتصوير الورق، ومسودة محفوظة على الموبايل |
+| `http://localhost:3000/` | الموقع العام للمستفيدين: منذ 9.2 تفتح على «مشكلتك في إيه؟» و8 مربعات بالصور وصف «إحنا نكلمك · واتساب · طلبك فين؟»، وتحتها الخدمات وكيف نعمل والأسئلة الشائعة والتواصل |
+| `/intake` | «احكيلنا مشكلتك»: سؤال أو اتنين بالصور حسب الموضوع (`/intake?topic=inh`…)، ثم الحكاية برسالة صوتية أو كتابة وتصوير الورق، ثم الرقم؛ ومسودة محفوظة على الموبايل |
+| `/intake?mode=callback` | (9.2) «إحنا نكلمك»: الرقم ووقت المكالمة فقط، والمؤسسة تتصل |
 | `/portal` | «تابعي طلبك»: الصفحة المحفوظة على هذا الموبايل، أو الدخول برمز من 6 أرقام يصل على واتساب، أو الاتصال بالمؤسسة |
 | `/p/<رمز>` | صفحة المتابعة الخاصة بالمستفيد/ة في شاشة واحدة (تُعطى فور تقديم الطلب أو من الإدارة) |
 | `/about` · `/privacy` · `/terms` · `/data-deletion` | عن البرنامج، سياسة الخصوصية، شروط الاستخدام، حذف البيانات (مطلوبة لمراجعة تطبيق ميتا) |
@@ -165,6 +216,22 @@ PORT=4000 DATA_DIR=/tmp/bm-data npm start    # another port / data folder
 | أم ياسين وسماح عبد الرحمن | طلبان من الموقع برسالة صوتية (والأول بصورة ورقة فقط بلا كتابة) في صندوق الوارد |
 
 وفي القوالب قالب `portal_update` «قيد المراجعة» لدى ميتا، وتعليمات دفع تجريبية في الإعدادات.
+
+**قصص الإصدار 9.2 في البيانات التجريبية** (أرقام وهمية؛ كلها عبر نفس خدمات التشغيل — `src/seed-v92-public.js` و`src/seed-v92-stories.js`). «وصلتنا حكايتك» مفعّلة في البيانات التجريبية وحدها، والترحيب متوقف كما في الإنتاج. ادخل بـ `manager` وافتح «صندوق الوارد» (عرض «بطاقات»):
+
+| الرقم | ما تجربه |
+|---|---|
+| `01092000101` (أم يوسف) | من الموقع: ورث (جوزي · إعلام الوراثة «مش عارفة»)، طلبت مكالمة الصبح بلا حكاية ← بطاقة «طلبت مكالمة»: «لم ترد» ثم «سجّل المكالمة» |
+| `01092000102` (أم ريم) | من الموقع: سكن وإيجار (إيجار قديم · فيه حد عايز يطلّعها) بحكاية مكتوبة؛ سطور «اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة)» |
+| `01092000103` (بلا اسم) | «إحنا نكلمك» من الصفحة الرئيسية، أي وقت: «محتاجين حد يكلمنا — أي وقت» |
+| `01092000201` (أم مروان) | واتساب: معاش، رسالة صوتية كتبت نصها منى السيد وصورة ورقة ← المقترح «استشارة» |
+| `01092000202` (أم كريم) | واتساب: حضانة أمام «محكمة الأسرة بالمطرية» ← «قضية / ملف مستمر»، ورسالة صوتية لم تُكتب («اسمع الرسالة الصوتية») |
+| `01092000203` (سعاد) | واتساب: إعلام وراثة ← «ترد الإدارة» برد المؤسسة الجاهز في الموضوع نفسه |
+| `01092000204` (أم سارة) | واتساب: مصاريف عملية ← «توجيه لجهة أخرى» (برامج المؤسسة الأخرى) |
+| `01092000205` (منى ع.) | واتساب: «حاجة تانية» ← «نسألها الأول» |
+| `01092000206` (أم حسن) | واتساب: «القصة لسه بتتكتب…»، تكتمل بعد دقائق من التشغيل (أو «لخّصها الآن») |
+
+جرّب أيضًا: «محاكي واتساب» (رسالة صوتية تجريبية، صورة ورقة، «خلاص»، قائمة المواضيع)، و«اعمل منها طلب جديد» تحت رسائل ملف مفتوح، و«الإعدادات ← ألوان المؤسسة» ثم افتح `/` و`/app`.
 
 ---
 
@@ -229,11 +296,13 @@ npm run restore -- <file.db | export.tar.gz> --yes                 # restore (se
 - **افتراضيًا «محلل محلي»** بقواعد عربية بلا إنترنت (يفهم العامية المصرية الشائعة): تصنيف، عنوان، ملخص، وقائع، نواقص، مسائل، أولوية، وبحث تشابه.
 - **مع Claude** (`ANTHROPIC_API_KEY` أو صفحة التكاملات؛ النموذج الافتراضي `claude-opus-5-5`): مخرجات JSON منظمة، والعودة تلقائيًا للمحلل المحلي عند أي تعذر.
 - **الاستهلاك والتكلفة** لكل استدعاء، و**سقف إنفاق شهري**: عند بلوغه يعود النظام للمحلل المحلي ويُخطَر مديرو النظام (وتحذير عند 80%).
+- **(9.2) من الحكاية إلى طلب**: رسائل واتساب المتتالية (أو طلب الموقع، أو مكالمة سجّلها الفريق) قصة واحدة تُلخَّص مرة واحدة حين تكتمل، مع **مسار مقترح من خمسة** (استشارة، قضية / ملف مستمر، ترد الإدارة، توجيه لجهة أخرى، نسألها الأول) ومسودة لكل مسار تراجعها الإدارة في ورقة «اعمله طلب» وتعتمدها بنقرة. لا يُرسل أي صوت إلى Claude: الفريق يكتب نص الرسائل الصوتية. التفاصيل في [الإصدار 9.2](#الإصدار-92).
 - **ردود مقترحة** للإدارة على المستفيد/ة، و**تحليل المستندات** (نوعه، وقائعه، ملاحظاته، الناقص المرتبط به)، و**الاسترشاد بالمعرفة المعتمدة المجهّلة** في مسودة المحامي والنسخة الموجهة للمستفيد/ة. لا يُرسل أي مستند لخدمة خارجية دون تفعيل Claude، وتُحذف أرقام الهواتف من نتائج التحليل المحفوظة.
 
 ### 6) الموقع العام والصفحات القانونية وتطبيق الهاتف
 
 - صفحات `public/*.html` **قوالب يولّدها الخادم** (`src/site.js`) من إعدادات المؤسسة: رأس وتذييل مشتركان، وسوم Open Graph وTwitter وJSON-LD (NGO وLegalService وFAQPage)، وروابط مطلقة من `PUBLIC_BASE_URL`. بيانات التواصل تُعدَّل من الإعدادات وتُتحقق في الخادم، وإفراغ أي حقل اختياري يخفيه.
+- **(9.2) الصفحة الرئيسية مربعات بالصور** (8 مواضيع + «إحنا نكلمك» + واتساب + «طلبك فين؟») من مصدر واحد للمواضيع `public/assets/js/public/topics.js` يقرؤه الخادم والمتصفح وقائمة واتساب والتحليل، وصور `pictos.js`، وزر «بالصوت» (`listen.js`)، وألوان من «ألوان المؤسسة» بأزواج تباين مضمونة.
 - **صفحة المتابعة `/p/<رمز>`** بنفس رأس الموقع وتذييله، مع `Referrer-Policy: no-referrer` و`noindex` وعدم التخزين، ولا يُكتب الرمز في وسوم الصفحة.
 - الصفحات القانونية: سياسة الخصوصية (ومنها الإفصاح عن الذكاء الاصطناعي تحت إشراف بشري)، شروط الاستخدام، وحذف البيانات.
 - **المنصة `/app` تطبيق هاتف (PWA)**: عامل خدمة بنطاق `/app` يخزّن الملفات الثابتة وصفحة `/app` نفسها (بلا بيانات شخصية) والخطوط فقط (لا `/api` ولا `/p/` ولا `/portal`)، ويستقبل تنبيهات الجهاز للمحامين (9.1)، وتنبيه «يتوفر إصدار أحدث» عند النشر.
@@ -265,7 +334,7 @@ npm run restore -- <file.db | export.tar.gz> --yes                 # restore (se
 2. **معالج الإعداد الأول** — افتح رابط `/setup#token=…` المطبوع في سجل التشغيل، وراجع ملف المؤسسة (ومنه رقم واتساب المؤسسة، أو اتركه فارغًا إن لم يكن جاهزًا)، وأنشئ حساب مدير النظام. بدائل بلا متصفح: `ADMIN_USERNAME`/`ADMIN_PASSWORD` قبل أول تشغيل، أو `npm run admin -- --username director`.
 3. **التكاملات** — من `/app#/integrations`: بيانات WhatsApp Cloud API (رمز الوصول، Phone Number ID، سر التطبيق، رمز التحقق، رقم المؤسسة) ثم رابط Webhook في ميتا `https://<domain>/webhooks/whatsapp` مع الاشتراك في `messages`، واعتماد القوالب وربطها بأغراضها (ومنها في 9.1 `portal_update` — «في جديد في طلبك» بلا تفاصيل، يُستخدم خارج نافذة الـ 24 ساعة حين لا يوجد قالب أنسب — و`lawyer_alert` لتنبيهات المحامين؛ انظر `DEPLOY.md` §5.4)؛ ومفتاح Claude وسقف الإنفاق (اختياري). بدونهما تعمل المنصة بوضع المحاكاة والمحلل المحلي.
 4. **النسخ الاحتياطي** — تأكد من النسخة اليومية في `/app#/system`، ونزّل نسخة واحفظها خارج الخادم مع `APP_SECRET` (أو `data/.secret-key`)، وجرّب `npm run restore` مرة على جهاز آخر.
-5. **قبل استقبال أول مستفيدة** — راجع «جاهزية الإطلاق» في صحة النظام وقائمة التحقق في `DEPLOY.md` §9: التحقق بخطوتين لحسابات إدارة النظام، دعوة فريق الإدارة والمحامين (لكل شخص حسابه)، وتجربة المسار كاملًا من `/intake` حتى وصول الرد.
+5. **قبل استقبال أول مستفيدة** — راجع «جاهزية الإطلاق» في صحة النظام وقائمة التحقق في `DEPLOY.md` §9: التحقق بخطوتين لحسابات إدارة النظام، دعوة فريق الإدارة والمحامين (لكل شخص حسابه)، وتجربة المسار كاملًا من `/intake` حتى وصول الرد. **ومنذ 9.2**: «ألوان المؤسسة»، و«الرقم الذي نتصل منه بالمستفيدات» و«نتصل خلال» (تعد بهما شاشة «إحنا نكلمك» حرفيًا)، والترحيب و«وصلتنا حكايتك» متوقفان حتى تُعدَّل جملة المراجعة البشرية في سياسة الخصوصية (`DEPLOY.md` «ما الجديد تشغيليًا في 9.2»).
 
 ---
 
@@ -280,6 +349,7 @@ npm run restore -- <file.db | export.tar.gz> --yes                 # restore (se
 - **رابط اشتراك التقويم** يُلغى تلقائيًا مع «إنهاء كل الجلسات» وإلغاء التحقق بخطوتين (فقدان الهاتف) وتسجيل الخروج من الأجهزة الأخرى وتغيير الدور أو إيقاف الحساب، ويرى مدير النظام حالته في صفحة الحساب ويستطيع إلغاءه.
 - مرفقات المستفيد/ة ومستندات الاستشارة لا تظهر للمحامي المسؤول عن الملف المستمر إلا إذا أتاحتها الإدارة صراحة، ونصوص المواعيد التي يكتبها المحامي لا تصل للمستفيد/ة قبل اعتماد الإدارة، ولا تدخل حالة قاعدة المعرفة قبل مراجعة الإخفاء واعتمادها.
 - كل حدث حساس في **سجل الأمان** بتسمية عربية (`LABELS.security_event`، ويتحقق اختبار من أن لكل نوع يُسجَّل في `src/` و`scripts/` تسمية).
+- **إضافات 9.2**: نصوص الرسائل الصوتية وملاحظات المكالمات ومحاولات الاتصال واختيارات الصور (`form_answers`) ومسودة سؤال المحامي (`brief_draft`) للإدارة وحدها (لا تظهر للمحامي ولا في صفحتها)؛ ما يصل للمحامي من الوقائع بلا أكواد ولا رقم بيت أو شارع؛ كل نص من الذكاء الاصطناعي يمر بورقة «اعمله طلب» قبل الإرسال؛ الرسائل الآلية للقصص نصوص ثابتة داخل نافذة الـ24 ساعة ولمن بدأت على واتساب فقط؛ مسار الرد يتجاهل `meta` من المتصفح؛ وكل مسار جديد بصلاحية الإدارة على الخادم ومسجَّل.
 - **إضافات 9.1** (تفصيلها في [الخصوصية في 9.1](#الخصوصية-في-91-القاعدة-لم-تتغير)): لا واتساب لرقم موقع غير مؤكد، والتأكيد من الرقم نفسه فقط؛ الرسائل الصوتية خارج «كل المستندات» للمحامي؛ تنبيهات المحامي على واتساب والجهاز بلا بيانات مستفيدين ولا تُرسل ليلًا؛ وصفحة المتابعة لا تحمل أي كود داخلي (`INH-`/`MTR-`/`CL-`) ولا اسم محامٍ.
 
 ---
@@ -302,7 +372,8 @@ legal-platform/
 │   ├── site.js                server-rendered public site, SEO/JSON-LD, robots/sitemap, service worker
 │   ├── site-assets.js         (9.1) versioned JS/CSS graph: ?v= on every import, modulepreload lists
 │   ├── app-page-assets.js     (9.1) /app page: bundled and lazy staff stylesheets
-│   ├── seed.js                demo scenario (built through the real services) + seed-v91-*.js, seed-assets/
+│   ├── brand.js               (9.2) «ألوان المؤسسة»: generated colour scale, inline bm-theme block, readiness item
+│   ├── seed.js                demo scenario (built through the real services) + seed-v91-*.js, seed-v92-*.js, seed-assets/
 │   ├── channels/              engine.js (unified intake, channel rule, WhatsApp confirmation) · whatsapp.js
 │   ├── ai/                    index.js · anthropic.js · heuristic.js · redact.js · text.js
 │   ├── services/              cases, intakes, requests, opinions, visibility, matters, accounting, lawyers,
@@ -311,9 +382,10 @@ legal-platform/
 │   │                          integrations, accounts (+ accounts-seed), messaging (+ messaging-seed),
 │   │                          practice (+ practice-lib), programs, system-tar,
 │   │                          (9.1) portal-v91, lawyer-today, lawyer-alerts, web-push, lawyer-pay,
-│   │                          lawyer-copy, matters-court, v91-l-work
+│   │                          lawyer-copy, matters-court, v91-l-work,
+│   │                          (9.2) stories (story state, proposal, accept, call notes, split), voice (transcripts)
 │   └── routes/                public · admin · lawyer · lawyer-home (9.1) · system · accounts · messaging ·
-│                              practice · ai · programs
+│                              practice · ai · programs · brand (9.2)
 ├── scripts/                   admin.js · backup.js · restore.js · reset-demo.js
 ├── public/
 │   ├── *.html                 public-site templates (index, intake, about, privacy, terms, data-deletion,
@@ -323,30 +395,33 @@ legal-platform/
 │       ├── fonts/             (9.1) self-hosted IBM Plex Sans Arabic woff2 subsets + OFL.txt
 │       ├── css/               app.css, public-site.css, pages-*.css, v9-<module>.css, v91-<lane>.css
 │       └── js/
-│           ├── lib/           h.js (DOM) · ui.js (components, icons, sheets) · api.js · fmt.js (Arabic formatting) · pwa.js
+│           ├── lib/           h.js (DOM) · ui.js (components, icons, sheets) · api.js · fmt.js (Arabic formatting) · pwa.js ·
+│           │                  brand-color.js (9.2: OKLCH colour generator shared by server and preview)
 │           ├── public/        common.js · landing.js · menu.js · words.js · intake.js · recorder.js · upload.js ·
-│           │                  drafts.js · saved.js · portal-login.js · portal.js · portal-ui.js · setup.js
+│           │                  drafts.js · saved.js · portal-login.js · portal.js · portal-ui.js · setup.js ·
+│           │                  (9.2) topics.js (single topic catalogue, also imported by src/) · pictos.js · listen.js · nomodule.js
 │           └── app/           main.js · boot-early.js · router.js · routes.js · shell.js · lawyer-shell.js ·
-│               │              lh-reauth.js · words.js · notif.js
+│               │              lh-reauth.js · words.js · notif.js · theme-sync.js (9.2)
 │               ├── pages/     admin/*, lawyer/* (home «اليوم», assignments, assignment, write, matter,
 │               │              matters, calendar, statement), account, login, auth-flows, notifications, print
 │               └── components/  account-admin, two-factor, qr, password, quick-replies, send-document,
 │                                ai-reply, ai-usage, doc-ai, beneficiary, parties, outcome, search,
 │                                program-picker, print-button, site-settings,
-│                                (9.1) draft-store, doc-viewer, request-sheet, text-diff, outcome-sheet, outbox
+│                                (9.1) draft-store, doc-viewer, request-sheet, text-diff, outcome-sheet, outbox,
+│                                (9.2) story-sheet, voice-transcript, call-note, split-dialog, story-settings, brand-settings
 └── test/                      HTTP integration tests (node:test): smoke, lane-a-*, lane-b-*, privacy-*, review-fixes,
-                               v9-*, v91-* …
+                               v9-*, v91-*, v92-* …
 ```
 
 - بدون اعتماديات تشغيل؛ الحزمة الوحيدة الاختيارية `@anthropic-ai/sdk` لـ Claude. الواجهات JavaScript بلا أطر عمل، عربية من اليمين إلى اليسار.
 - الأموال بالقرش أعدادًا صحيحة، والتواريخ UTC وتُعرض بتوقيت القاهرة، والأرقام والأعداد بمطابقة العدد والمعدود (`count()` و`arabicCount()`).
-- كل وحدة في الإصدار 9 تضيف جداولها في `src/schema.d/` وتسمياتها وإعداداتها تحت علامتها في `src/constants.js` (`<labels:…>`, `<settings:…>`) وحقولها في `/api/meta` عبر `app.metaProviders`؛ ومسارات 9.1 كذلك (`schema.d/72-…` إلى `77-…`، وبياناتها التجريبية في `src/seed-v91-*.js` تحت علامات `<seed:v91-…>` في `src/seed.js`).
+- كل وحدة في الإصدار 9 تضيف جداولها في `src/schema.d/` وتسمياتها وإعداداتها تحت علامتها في `src/constants.js` (`<labels:…>`, `<settings:…>`) وحقولها في `/api/meta` عبر `app.metaProviders`؛ ومسارات 9.1 كذلك (`schema.d/72-…` إلى `77-…`، وبياناتها التجريبية في `src/seed-v91-*.js` تحت علامات `<seed:v91-…>` في `src/seed.js`). ومسارات 9.2 كذلك: `schema.d/78-v92-stories` (القصص) و`79-v92-public` (`form_answers`)، و`<labels:v92-stories>`/`<settings:v92-stories>`، و`src/seed-v92-*.js`؛ والألوان في صف الإعدادات `brand_colors` وحده (لا جدول).
 - نصوص المستفيدين في 9.1 من قواعد واحدة في الخادم والواجهة (`src/util.js` = `public/assets/js/public/words.js`): الاسم بالكنية، رموز `{ي}`/`{ة}` حسب طريقة المخاطبة، الساعة كما تُقال («10 الصبح»)، وشرح الكلمة القانونية أول مرة؛ ونصوص المحامين في `public/assets/js/app/words.js`.
 
 ## الاختبارات
 
 ```bash
-npm test                                                   # all suites (node:test, serial) — 648 tests pass at 9.1.0
+npm test                                                   # all suites (node:test, serial) — 809 tests pass at 9.2.0
 node --disable-warning=ExperimentalWarning --test test/v9-integration.test.js   # one file
 ```
 
@@ -354,16 +429,21 @@ node --disable-warning=ExperimentalWarning --test test/v9-integration.test.js   
 
 ملفات `test/v91-*.test.js` تغطي الإصدار 9.1 بمسار لكل ملف: `v91-b-forms` (نموذج الطلب والرسائل الصوتية والمسودة)، `v91-b-portal` (صفحة المتابعة والورق والرد والجلسة والمصاريف والمكالمة)، `v91-b-site` (قاعدة القناة الواحدة وتأكيد الرقم وصياغة الرسائل والموقع الأسرع)، `v91-l-home` («اليوم» وتنبيهات واتساب والجهاز وتذكّر الجهاز والتحميل السريع)، `v91-l-work` (صفحة الإسناد ووضع الكتابة والطلبات)، `v91-l-court` (نتيجة الجلسة وصندوق الصادر و«مستحقاتي»)، و`v91-fixes-*` لإصلاحات المراجعة النهائية.
 
-ملفات `test/v92-*.test.js` تغطي الإصدار 9.2، ومنها `v92-colours` (مولّد الألوان على 644 زوجًا وعقد التباين، وفحص كل أوراق الأنماط: لا لون علامة حرفي خارج كتلتي `@brand-defaults` ولا زوج نص/خلفية خارج العقد، وكتلة الألوان في كل الصفحات و`/app`، والصلاحيات وسجل الأمان وجاهزية الإطلاق، وصف إعدادات تالف لا يُسقط صفحة).
+ملفات `test/v92-*.test.js` تغطي الإصدار 9.2:
+- `v92-public`: الشاشة الأولى (السؤال والمربعات الثمانية وصف «طرق تانية» وكلام محايد)، مصدر المواضيع الواحد `topics.js`، عقد `POST /api/public/intake` (الاسم الاختياري، الإجابات، طلب المكالمة، `form_answers`، الموافقة بالفعل)، «كمان سؤالين»، قاعدة القناة الواحدة، ميزانيات الحجم (`/` ≤ 14 KB br)، «بالصوت»، الشبكة الضعيفة، وCSP بلا سكربتات مضمّنة.
+- `v92-admin-ai`: حالة القصة (التجميع، «خلاص»، مدة السكوت)، التحليل مرة واحدة والحدود والتكلفة، المسارات الخمسة والمسودات، `accept` بالمقارنة والتبديل، ملاحظات المكالمة ومحاولاتها و«تعذّر الوصول إليها»، نصوص الرسائل الصوتية، النقل إلى طلب جديد، الرسائل الآلية ونافذة الـ24 ساعة، وفحص عميق لكل مسارات المحامي (لا رقم ولا محادثة).
+- `v92-colours`: مولّد الألوان على 644 زوجًا وعقد التباين، وفحص كل أوراق الأنماط (لا لون علامة حرفي خارج كتلتي `@brand-defaults` ولا زوج نص/خلفية خارج العقد)، وكتلة الألوان في كل الصفحات و`/app`، والصلاحيات وسجل الأمان وجاهزية الإطلاق، وصف إعدادات تالف لا يُسقط صفحة.
+- `v92-gate-public` و`v92-gate-admin`: إصلاحات بوابة الدمج (الاسم في طلب الموقع، طلب مكالمة بكلمتين، قواعد النقل، تحليل واحد جارٍ، إخفاء العنوان عن المحامي، مقاسات اللمس، تباين رأس الصفحات القانونية، مزامنة الألوان في `/app`، وتطابق رقم الإصدار في `Dockerfile` والوثائق).
 
 ---
 
 ## English summary
 
-**Beyoot Misr Legal Support Platform (v9.1)** — the operating system of the legal-support programme of *Beyoot Misr Foundation for Widows and Orphans* (Cairo, NGO reg. 11108/2020).
+**Beyoot Misr Legal Support Platform (v9.2)** — the operating system of the legal-support programme of *Beyoot Misr Foundation for Widows and Orphans* (Cairo, NGO reg. 11108/2020).
 
+- **v9.2 — picture tiles, stories turned into requests, the foundation's colours.** Beneficiaries (many cannot read well): `/` opens straight onto 8 picture tiles («مشكلتك في إيه؟») plus «إحنا نكلمك» (free call-back: one tap + the number), WhatsApp and «طلبك فين؟», all on one 360×512 phone screen; each tile leads to 1–2 one-tap picture questions (with a full-size «مش عارفة»), then a voice-first story and the number, with consent stated on the send button; an optional «بالصوت» listening aid reads every screen aloud. Staff: a WhatsApp or website story is collected until finished (10 quiet minutes, «خلاص», or «لخّصها الآن»), summarised once (Claude or the local analyser), and given one recommended track (consultation / court matter / staff answers / refer / ask her first) with a draft; staff confirm it in one prefilled sheet («اعمله طلب»). Voice notes are typed by staff (no audio ever goes to Claude); call-back requests get «سجّل المكالمة» / «لم ترد» and a phone-first path when WhatsApp cannot reach her; a new problem inside an open file can be split into a new request. An admin «ألوان المؤسسة» setting generates every shade with guaranteed WCAG AA contrast for the site, the follow-up page and `/app` (default = the 9.1 teal/gold, byte-identical). Automated WhatsApp story messages are off by default; no new env vars or dependencies (see `DEPLOY.md` «ما الجديد تشغيليًا في 9.2»). Deferred to 9.3: speech-to-text drafts, logo upload, referral/done-word editors.
 - **v9.1 — simpler on a phone, same privacy model.** Beneficiaries: a 3-step request with voice notes and camera-first photos and a draft that survives a closed tab; one-tap WhatsApp confirmation of the number (request code + 6-digit code sent from the same number); a one-screen follow-up page with a plain-words tracker, photo-first paper requests, a plain answer summary with numbered steps, a hearing card with «هحضر / مش هقدر أحضر», calm money cards (no reminder before she agrees), a saved page on the phone, and faster pages (self-hosted font, versioned immutable assets, Brotli). Lawyers: an «اليوم» home and bottom navigation, a focused writing mode that never loses text, an in-app document viewer, one request sheet (document, information, extension, question to the administration), returned-opinion compare, a 3-tap hearing outcome from the court corridor with an offline outbox, «مستحقاتي», opt-in WhatsApp and device alerts without beneficiary data, remembered devices and a phone-first first run.
-- **Unified intake** from WhatsApp (Cloud API webhook, signed) and the website (3-step form), plus manual phone/walk-in intakes, into one inbox; identity resolution by phone and reference code with a privacy guard; marketing source tracked separately from channel.
+- **Unified intake** from WhatsApp (Cloud API webhook, signed) and the website (picture-question form since 9.2, or a call-back request), plus staff-entered phone notes and manual phone/walk-in intakes, into one inbox; identity resolution by phone and reference code with a privacy guard; marketing source tracked separately from channel.
 - **Staff decide, lawyers contribute**: AI-assisted triage, cases coded like `INH-2026-00482`, server-enforced per-assignment visibility — lawyers never see beneficiaries' phone numbers or conversations. Matters, automations, per-agreement accounting, anonymised knowledge base.
 - **v9 modules**: first-run setup wizard, encrypted integrations, health page, daily backups / full export / restore CLI · invites, TOTP 2FA, sessions, Arabic-labelled security log · quick replies, WhatsApp templates, portal OTP login, satisfaction surveys · beneficiary profiles, impact report, conflict checks, calendar with ICS feeds, SLA, global search, CSV import/export · AI usage & monthly budget, suggested replies, document analysis, retrieval from approved knowledge · server-rendered public site with SEO/JSON-LD, legal pages, PWA · funding programmes, budgets and alerts, printable invoices/receipts/legal letters.
 - The WhatsApp number comes from Integrations (then Settings); an empty value or the old placeholder `+20 100 000 0000` means "not configured": no `wa.me` link anywhere, phone and portal shown instead.

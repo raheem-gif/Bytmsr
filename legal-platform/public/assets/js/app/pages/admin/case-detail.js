@@ -4,7 +4,7 @@
 
 import { h, frag, mount, clear } from '../../../lib/h.js';
 import { api, ApiError, filesToUploads, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, money, percent, count, hours, date, dateTime, relative, isoToCairoInput, monthLabel } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, money, percent, count, hours, date, dateTime, relative, isoToCairoInput, monthLabel, localPhone } from '../../../lib/fmt.js';
 import {
   icon,
   button,
@@ -760,7 +760,7 @@ export default async function render(ctx) {
       className: 'pb-client-card',
       body: kv([
         ['المستفيد/ة', cl ? inline(h('a', { href: `#/clients/${cl.id}` }, cl.name || 'بدون اسم'), codeTag(cl.code)) : null],
-        ['الهاتف', cl?.phone ? inline(ltr(cl.phone), copyButton(cl.phone, '')) : null],
+        ['الهاتف', cl?.phone ? inline(ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null], // [بوابة 9.2 K9] الصيغة المحلية
         ['قنوات التواصل', chans.size ? chips([...chans].map((ch) => ({ label: label('channel', ch), tone: ch === 'whatsapp' ? 'success' : 'info' }))) : null],
         ['المحافظة', cl?.governorate],
         ['مصدر المستفيد/ة', h('span', label('source', intake?.source || c.source), campaign && h('span.cell-sub.pb-d-block', `الحملة: ${campaign}`))],
@@ -2653,7 +2653,7 @@ export default async function render(ctx) {
           await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'conversation' });
         },
         // v9.2 (admin-ai): مشكلة جديدة كتبتها هنا ← طلب جديد يُلخَّص
-        onSplit: (m) => openSplitDialog({ messages: data.messages, preselectId: m.id }),
+        onSplit: (m) => openSplitDialog({ messages: data.messages, preselectId: m.id, splitAfter: data.case && data.case.created_at }), // [بوابة 9.2 G6]
         splitAfter: data.case && data.case.created_at,
       }),
       messageComposer({

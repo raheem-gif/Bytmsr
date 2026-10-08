@@ -57,7 +57,7 @@ function listenButton() {
       const paint = (on) => {
         btn.setAttribute('aria-pressed', String(on));
         btn.setAttribute('aria-label', on ? 'وقّفوا الصوت' : 'اسمعوا الكلام اللي في الصفحة');
-        if (label) label.textContent = on ? 'وقّف الصوت' : 'بالصوت';
+        if (label) label.textContent = on ? 'إيقاف الصوت' : 'بالصوت'; // اسم لا فعل (S-25): «وقّف» أمر لراجل
       };
       let speaking = false;
       const done = () => {

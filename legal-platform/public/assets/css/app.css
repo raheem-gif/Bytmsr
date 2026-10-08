@@ -466,7 +466,8 @@ html[dir="rtl"] .icon-dir {
 .nav-group-title {
   font-size: 11.5px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  /* v9.2 بوابة G4: ≥ 4.5:1 على الشريط الجانبي (primary-800) لأي لونين للمؤسسة (0.55 كانت 4.1:1 مع بعض الألوان) */
+  color: rgba(255, 255, 255, 0.66);
   padding: 4px 12px 6px;
   letter-spacing: 0;
 }
@@ -2169,6 +2170,12 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   display: block;
   font-weight: 700;
   margin-block-end: 2px;
+}
+
+/* v9.2 بوابة N3: رابط داخل تنبيه ملوّن بلون نص التنبيه نفسه (ثابت ومقروء) لا بلون المؤسسة (primary-600 قد يقل عن 4.5:1 على خلفية التنبيه) */
+.alert a:not(.btn) {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .alert-info { background: var(--info-100); color: var(--info-700); border-color: #c4dbf3; }
@@ -4308,6 +4315,30 @@ html[dir="rtl"] .request-item.is-pending {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* v9.2 بوابة K6/N15: صفحات الإدارة على الهاتف — كل زر صغير أو زر أيقونة أو «تفاصيل» قابلة للفتح هدف لمس ≥ 44px
+   (صفحة الملف، صحة النظام، تفاصيل الطلب، بطاقات القصص). هيكل المحامي له قواعده الخاصة (is-lawyer). */
+@media (max-width: 640px) {
+  .app-shell:not(.is-lawyer) #main .btn:not(.btn-lg) {
+    --btn-h: 44px;
+    min-height: 44px; /* ‎.btn-link يلغي الارتفاع (min-height: auto) */
+  }
+
+  .app-shell:not(.is-lawyer) #main summary,
+  .modal summary {
+    min-height: 44px;
+    padding-block: 10px;
+    box-sizing: border-box;
+  }
+
+  .app-shell:not(.is-lawyer) #main a[href^="tel:"],
+  .pa-story-name {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

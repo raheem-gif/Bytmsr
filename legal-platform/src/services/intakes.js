@@ -1,5 +1,6 @@
 // صندوق الوارد الموحد: فرز الطلبات الواردة من كل القنوات، والرد، والتعامل الداخلي، والتحويل إلى ملف.
 import { nowIso, parseJson, badRequest, notFound, conflict, v } from '../util.js';
+import { addressForm } from '../util.js'; // v9.2 بوابة N6
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
 // v9.2 (admin-ai): حالة القصة (SQL واحد) وترتيب الفرز واختيارات الموقع والمسار المقترح
@@ -91,8 +92,9 @@ export function createIntakes(app) {
            CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
            COALESCE(i.last_message_at, i.created_at) DESC`;
       const rows = db.all(
-        `SELECT i.*, cl.code AS client_code, cl.name AS client_name,
+        `SELECT i.*, cl.code AS client_code, cl.name AS client_name, cl.address_form AS client_address_form,
            (${STORY_VIEW_SQL}) AS story_view,
+           (SELECT json_extract(m.meta, '$.call_note') FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' ORDER BY m.id DESC LIMIT 1) AS last_in_call_note,
            (SELECT COUNT(*) FROM call_attempts ca WHERE ca.intake_id = i.id) AS call_attempts_count,
            (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id AND d.uploaded_by_kind = 'client' AND d.mime LIKE 'audio/%') AS voice_docs,
            (SELECT body FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_message,
@@ -145,7 +147,8 @@ export function createIntakes(app) {
             campaign: r.campaign,
             title: r.title,
             legal_area: r.legal_area,
-            contact_name: r.contact_name || r.client_name,
+            // [بوابة 9.2 S1] طلب موقع غير مؤكد بلا اسم: لا نعرضه باسم صاحب الرقم المسجل
+            contact_name: r.contact_name || (isPortalUnverifiedIntake(r) ? null : r.client_name),
             client_code: r.client_code,
             client_id: r.client_id,
             returning_client: Number(r.client_other_intakes) > 0,
@@ -179,6 +182,8 @@ export function createIntakes(app) {
             form: app.stories ? app.stories.formOf(r) : null,
             topic: r.topic || null,
             identity_unconfirmed: isPortalUnverifiedIntake(r),
+            // [بوابة 9.2 N6] صيغة المخاطبة لنصوص الإدارة («اتصل به/بها»): لرقم غير مؤكد من الاسم الذي كتبه فقط
+            address_form: isPortalUnverifiedIntake(r) ? addressForm({ name: r.contact_name }) : addressForm({ name: r.client_name || r.contact_name, address_form: r.client_address_form }),
           };
         }),
       };

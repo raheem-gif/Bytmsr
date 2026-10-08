@@ -37,6 +37,7 @@ import {
   parseJson,
   v,
 } from '../util.js';
+import { STORY_AUTO_RULES } from '../constants.js'; // v9.2 بوابة K7
 
 // ───────────────────────── ثوابت عامة ─────────────────────────
 
@@ -1240,7 +1241,12 @@ export function createSystem(app) {
       } catch {
         disk = null;
       }
-      const outboxRows = db.all("SELECT status, COUNT(*) AS n FROM messages WHERE direction = 'out' AND status IN ('failed','queued') GROUP BY status");
+      // [بوابة 9.2 K7] رسائل القصة الآلية (ترحيب/طلب الحكاية/«وصلتنا حكايتك») خارج نافذة الـ 24 ساعة تفشل عمدًا ولا يُعاد
+      // إرسالها [R2-A19]: لا تُعد «رسائل صادرة فاشلة» هنا كما لا تُعد في مؤشر لوحة المتابعة
+      const outboxRows = db.all(
+        `SELECT status, COUNT(*) AS n FROM messages WHERE direction = 'out' AND status IN ('failed','queued')
+           AND COALESCE(automation_rule, '') NOT IN (${STORY_AUTO_RULES.map((r) => `'${r}'`).join(', ')}) GROUP BY status`,
+      );
       const outbox = { failed: 0, queued: 0 };
       for (const r of outboxRows) outbox[r.status] = Number(r.n);
       const jobs = app.jobs.list().map((j) => ({ ...j, last_result: parseJson(j.last_result, j.last_result ?? null) }));

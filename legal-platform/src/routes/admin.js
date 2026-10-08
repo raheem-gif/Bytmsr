@@ -35,7 +35,12 @@ export function registerAdminRoutes(router, app) {
     return app.intakes.detail(id(ctx));
   }));
   router.patch('/api/admin/intakes/:id', S((ctx, u) => app.intakes.update(id(ctx), ctx.body, u)));
-  router.post('/api/admin/intakes/:id/analyze', S(async (ctx, u) => app.ai.analyzeIntake(app.intakes.require(id(ctx)).id, u)));
+  // [بوابة 9.2 S4] «حلّل الآن»: يتجاوز الحد اليومي للقصة لكنه محدود بعدد مرات الضغط، ونقرة أثناء تحليل جارٍ تنضم إليه
+  router.post('/api/admin/intakes/:id/analyze', S(async (ctx, u) => {
+    const iid = app.intakes.require(id(ctx)).id;
+    app.limiters.analyzeNow.hit(`analyze:${u.id}`);
+    return app.ai.analyzeByStaff ? app.ai.analyzeByStaff(iid, u) : app.ai.analyzeIntake(iid, u);
+  }));
   // [R2-A13/S-32] meta من الواجهة لا يصل أبدًا لرسالة المستفيدة (لا مستند ولا إخفاء من صفحتها ولا قالب)
   router.post('/api/admin/intakes/:id/reply', S((ctx, u) => {
     const { meta: _ignoredMeta, ...body } = ctx.body;
@@ -67,7 +72,8 @@ export function registerAdminRoutes(router, app) {
     storyLimit(u);
     app.stories.markReady(i.id, 'staff_now', u, { analyze: false });
     app.stories.cancelTimers(i.id);
-    await app.ai.analyzeIntake(i.id, u);
+    // [بوابة 9.2 R2] نقرتان (أو زميلان) = تحليل واحد؛ ولا تحليل جديد لنفس مراجعة القصة خلال 30 ثانية
+    await app.ai.analyzeByStaff(i.id, u, { reuseRecentMs: 30 * 1000 });
     return { story: app.stories.storyOf(i.id), proposal: app.stories.proposal(i.id) };
   }));
   router.post('/api/admin/intakes/:id/accept', S(async (ctx, u) => {

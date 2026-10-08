@@ -484,6 +484,8 @@ export function registerSite(app) {
     const links = NAV.map(
       (n) => `<a class="pub-nav-link" href="${n.href}"${n.path && n.path === current ? ' aria-current="page"' : ''}>${esc(n.label)}</a>`,
     ).join('');
+    // v9.2 (S-25): الشاشة الأولى للصفحة الرئيسية بلا أفعال مؤنثة، ونفس اسم مربع «طلبك فين؟» تحت (مكان واحد = اسم واحد)
+    const followLabel = current === '/' ? 'طلبك فين؟' : 'تابعي طلبك';
     return `<header class="pub-header" data-pub-header>
   <div class="pub-container pub-header-inner">
     <a class="pub-brand" href="/" aria-label="${esc(ps.site_name)} — الصفحة الرئيسية">
@@ -495,7 +497,7 @@ export function registerSite(app) {
     </button>
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية">
       ${links}
-      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>تابعي طلبك</span></a>
+      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>${followLabel}</span></a>
       <a class="pub-btn pub-btn-gold pub-nav-cta" href="/intake" data-cta="intake"${current === '/intake' ? ' aria-current="page"' : ''}>${iconSvg('message', 18)}<span>احكيلنا مشكلتك</span></a>
     </nav>
   </div>

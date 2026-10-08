@@ -14,7 +14,7 @@ import {
   factsText, isCannedCallback, isFactual, isPortalUnverifiedIntake, portalUnverifiedSql, storyWords, PORTAL_LINK_VAR, withoutLinkLines,
 } from '../channels/engine.js';
 import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
-import { questionsFor } from '../ai/heuristic.js';
+import { questionsFor, classify } from '../ai/heuristic.js';
 
 export { isFactual };
 
@@ -63,6 +63,27 @@ export function isSkeletonDraft(text) {
   return body.join('').replace(/[^\p{L}]/gu, '').length < 3;
 }
 
+/**
+ * [بوابة 9.2 G5] مسودة رسالة مكتوبة ← ما يُقال لها في المكالمة: تُحذف جمل المحادثة وحدها (التصوير والإرسال «هنا»، رابط
+ * صفحتها، «ردي علينا») وسطر التوقيع؛ يبقى الكلام نفسه (المستندات، الخطوات، الأسئلة).
+ */
+const CHAT_ONLY_RE = /(?:(?:^|[\s،,])هنا(?=$|[\s.،,؟?!])|ابعت|ابعث|صوّر|صور[يو]|تصوير|أرسل|ارسل|إرسال|وإرسال|رد(?:ّ)?[يو]? علينا|اكتب[يو]?(?:\s|$)|صفحت(?:ك|ها|ه)|صفحة طلب|\{portal_link\}|https?:\/\/|wa\.me)/u;
+export function spokenScript(text) {
+  const out = [];
+  for (const line of String(text || '').split('\n')) {
+    const t = line.trim();
+    if (!t || /^—/.test(t)) {
+      if (!t) out.push('');
+      continue;
+    }
+    // الجمل داخل السطر (تنتهي بنقطة أو علامة استفهام أو تعجب)؛ السؤال المرقّم يبقى إن بقي منه شيء
+    const parts = t.match(/[^.؟?!]+[.؟?!]*/gu) || [t];
+    const keep = parts.filter((x) => !CHAT_ONLY_RE.test(x)).join('').trim();
+    if (keep && /\p{L}/u.test(keep.replace(/^\d+\.\s*/, ''))) out.push(keep);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function createStories(app) {
   const { db } = app;
   const quietTimers = new Map();
@@ -108,7 +129,8 @@ export function createStories(app) {
       topic: t?.key || null,
       topic_label: t?.staff || null,
       entry: f.entry || null,
-      mode: f.mode || null,
+      // [بوابة 9.2 K4] طريقة النموذج محفوظة في source_detail.intake_mode (لا في form_answers)
+      mode: parseJson(i.source_detail, {})?.intake_mode || null,
       callback: f.callback || null,
       callback_label: f.callback && CALLBACK_WHEN[f.callback] ? CALLBACK_WHEN[f.callback].staff : null,
       story: f.story || null,
@@ -296,10 +318,13 @@ export function createStories(app) {
       const i = typeof intake === 'object' ? intake : db.get('SELECT * FROM intakes WHERE id = ?', intake);
       const c = i?.client_id ? app.clients.get(i.client_id) : null;
       let name = '';
-      if (i && isPortalUnverifiedIntake(i)) name = i.contact_name || '';
+      // [بوابة 9.2 S1] رقم غير مؤكد: الاسم الذي كتبته هي فقط، وصيغة المخاطبة منه (لا صيغة صاحب الرقم المسجلة)
+      const unverified = !!i && isPortalUnverifiedIntake(i);
+      if (unverified) name = i.contact_name || '';
+      // [S-31 + بوابة 9.2 S2] 'website_unverified' (اسم من نموذج موقع لم يتأكد رقمه) لا يُستخدم كـ'whatsapp_profile'
       else if (c?.name && (!c.name_source || ['website', 'staff'].includes(c.name_source))) name = c.name;
       const first = addressName(name);
-      const form = addressForm({ name, address_form: c?.address_form });
+      const form = unverified ? addressForm({ name }) : addressForm({ name, address_form: c?.address_form });
       const num = /^REQ-\d{4}-0*(\d+)$/.exec(String(i?.code || ''))?.[1] || '';
       return {
         first_name: first,
@@ -370,6 +395,13 @@ export function createStories(app) {
         return true;
       }
       if (!(Number(i.analyzed_rev) < Number(i.story_rev))) return false;
+      // [بوابة 9.2 S5] الإدارة تكتب الرسائل الصوتية الآن (نص واحد على الأقل كُتب ولم تكتمل بعد): مع Claude ملخص مبدئي فقط
+      // حتى آخر نص — المهمة الدورية (b) ورسائلها لا تتجاوز قاعدة «Claude بعد آخر نص فقط»
+      if (claude && event !== 'transcript' && Number(i.voice_missing) > 0 && db.get("SELECT 1 FROM voice_transcripts WHERE intake_id = ? AND status IN ('confirmed','unclear') LIMIT 1", i.id)) {
+        db.run('UPDATE intakes SET analysis_attempted_at = ? WHERE id = ?', nowIso(), i.id); // المهمة الدورية لا تعيد الجدولة كل دقيقة
+        app.ai.scheduleIntakeAnalysis(i.id, 300, { preview: true });
+        return true;
+      }
       if (event === 'transcript' && claude) {
         // [R2-A15] نصوص الرسائل الصوتية تُكتب متتابعة: تحليل Claude واحد بعد آخرها (60 ثانية) وفقط حين لا يبقى صوت ناقص
         if (Number(i.voice_missing) === 0) app.ai.scheduleIntakeAnalysis(i.id, 60 * 1000);
@@ -654,6 +686,11 @@ export function createStories(app) {
         resolution_kind: r.resolution_kind || null,
         resolution_kind_label: r.resolution_kind ? LABELS.resolution_kind[r.resolution_kind] || r.resolution_kind : null,
         referral_to: r.referral_to || null,
+        // [بوابة 9.2 G5] آخر ما وصل منها مكالمة سجلتها الإدارة (فلا «اتصل بها» مرة أخرى على البطاقة)
+        called:
+          r.last_in_call_note !== undefined
+            ? !!r.last_in_call_note
+            : !!parseJson(db.value("SELECT meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id DESC LIMIT 1", r.id), {})?.call_note,
       };
       if (r.voice_total !== undefined) st.voice.total = Number(r.voice_total) || 0;
       return st;
@@ -772,22 +809,44 @@ export function createStories(app) {
       const warnings = [];
       const add = (code, text) => warnings.push({ code, text });
       if (i.story_view === 'callback') add('callback_only', 'طلبت مكالمة ولم تحكِ مشكلتها بعد — اتصل بها وسجّل المكالمة أولًا.');
-      if (unconfirmed) add('unconfirmed', 'رقمها غير مؤكد: أي رسالة ستظهر في صفحة متابعتها فقط ولن تصلها على واتساب.');
-      else if (hint.whatsapp && !inWindow) add('out_of_window', 'مرّ أكثر من 24 ساعة على آخر رسالة منها: سيصلها على واتساب إشعار بقالب معتمد، والنص كاملًا في صفحتها.');
+      // [بوابة 9.2 N6] نصوص الإدارة بصيغة المخاطَب حين نعرف أنه رجل («أبو …» أو صيغة حددتها الإدارة)؛ وإلا المؤنث كما في المواصفات
+      const male = w.form === 'm';
+      if (unconfirmed) add('unconfirmed', male ? 'رقمه غير مؤكد: أي رسالة ستظهر في صفحة متابعته فقط ولن تصله على واتساب.' : 'رقمها غير مؤكد: أي رسالة ستظهر في صفحة متابعتها فقط ولن تصلها على واتساب.');
+      else if (hint.whatsapp && !inWindow) {
+        // [بوابة 9.2 G16] من لم تكتب لنا على واتساب أصلًا (طلب موقع أُكدت هويته في مكالمة) ليس «مرّ 24 ساعة على آخر رسالة»
+        const wroteOnWa = !!db.get("SELECT 1 FROM messages WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' LIMIT 1", i.client_id);
+        add(
+          'out_of_window',
+          wroteOnWa
+            ? 'مرّ أكثر من 24 ساعة على آخر رسالة منها: سيصلها على واتساب إشعار بقالب معتمد، والنص كاملًا في صفحتها.'
+            : 'لم تراسلنا على واتساب بعد: سيصلها إشعار بقالب معتمد، والنص كاملًا في صفحتها.',
+        );
+      }
       if (st.mediaFailed) add('media_failed', 'تعذّر تنزيل الرسالة الصوتية — اطلبوا منها إعادة إرسالها.');
       if (st.voice.missing > 0) add('voice_missing', `فيها ${arabicCount(st.voice.missing, ['رسالة صوتية واحدة', 'رسالتان صوتيتان', 'رسائل صوتية', 'رسالة صوتية'])} لم تُكتب — الاقتراح مبني على الرسائل المكتوبة فقط.`);
       const voiceOnly = st.voice.total >= 1 && st.typedLetters < 25;
-      if (voiceOnly) add('voice_only', 'كل رسائلها صوتية — غالبًا مش بتقرا؛ الأفضل تكلّمها.');
+      if (voiceOnly) add('voice_only', 'كل رسائلها صوتية، والأفضل أن تكلّمها.');
       const newSince = Math.max(0, (Number(i.story_rev) || 0) - (Number(i.analyzed_rev) || 0));
       if (i.story_view === 'stale' && newSince) add('stale', `وصلت ${arabicCount(newSince, ['رسالة جديدة واحدة', 'رسالتان جديدتان', 'رسائل جديدة', 'رسالة جديدة'])} بعد هذا الملخص.`);
       if (i.story_state === 'collecting' && OPEN.includes(i.status)) add('collecting', 'القصة لسه بتتكتب: ممكن تبعت تفاصيل تانية. يمكنك الانتظار أو المتابعة الآن.');
       if (sug && sug.provider !== 'anthropic') add('local', 'هذا اقتراح المحلل المحلي (بدون Claude) — راجعه بعناية.');
       if (!w.org_phone && /\{org_phone\}/.test(drafts.refer.reply.text)) add('no_org_phone', 'رقم المؤسسة غير مضبوط في الإعدادات، فرسالة التوجيه فيها متغير ناقص.');
       const other = i.client_id ? svc.otherOpen(i) : null;
-      if (other) add('other_open_request', `لها طلب آخر مفتوح (${other.code}) — راجعوا أو ادمجوا قبل القرار.`);
+      if (other) add('other_open_request', `${male ? 'له' : 'لها'} طلب آخر مفتوح (${other.code}) — راجعوا أو ادمجوا قبل القرار.`);
+      // [بوابة 9.2 G5] آخر ما وصل في قصتها مكالمة سجلتها الإدارة: كلّمناها بالفعل، فالخطوة التالية القرار نفسه (لا «اتصل بها» مرة أخرى)
+      const lastIn = db.get("SELECT id, meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id DESC LIMIT 1", i.id);
+      const lastCallNoteId = lastIn && parseJson(lastIn.meta, {}).call_note ? lastIn.id : null;
       // [R2-B7/S-29] الهاتف أولًا حين لا يصلها واتساب (رقم غير مؤكد) أو حين كل رسائلها صوتية
-      const callFirst = (unconfirmed && ['internal', 'refer', 'need_info'].includes(recommended)) || voiceOnly;
+      const callFirst = !lastCallNoteId && ((unconfirmed && ['internal', 'refer', 'need_info'].includes(recommended)) || voiceOnly);
       let sayDraft = recommended === 'need_info' ? numbered : recommended === 'internal' ? drafts.internal.reply.text : recommended === 'refer' ? drafts.refer.reply.text : null;
+      // [بوابة 9.2 N12] رد جاهز من مجال غير موضوعها (ورق رسمي ≠ إعلام وراثة) لا يُقرأ لها في المكالمة (يبقى مسودة في الورقة)
+      const topicArea = topicByKey(i.topic)?.area || null;
+      if (sayDraft && recommended === 'internal' && internalSource === 'quick_reply' && topicArea) {
+        const qrArea = classify(`${internalTitle || ''}\n${draft.reply_to_her || ''}`).area;
+        if (qrArea && qrArea !== 'GEN' && qrArea !== topicArea) sayDraft = null;
+      }
+      // [بوابة 9.2 G5] نص المكالمة بلا جمل المحادثة («ابعتيها هنا»، «صوّري»، رابط صفحتها…) — تُقال بالهاتف لا تُكتب
+      if (sayDraft) sayDraft = spokenScript(sayDraft);
       if (sayDraft && recommended !== 'need_info' && isSkeletonDraft(sayDraft)) sayDraft = null;
       return {
         intake_id: i.id,
@@ -805,7 +864,7 @@ export function createStories(app) {
         fallback_reason: out?._fallback_reason || null,
         track: { recommended, reason: out?.track_reason || null, confidence: out?.track_confidence ?? null, label: recommended ? LABELS.story_track[recommended] : null },
         // phone: للإدارة فقط (الاقتراح جزء من تفاصيل الطلب، لا يصل للمحامين ولا لقائمة الوارد): رقمها للاتصال من بطاقة الفرز
-        identity: { unconfirmed, reply_channel: { text: hint.text, whatsapp: !!hint.whatsapp }, in_window: inWindow, phone: i.contact_phone || (i.client_id ? app.clients.primaryPhone(i.client_id) : null) || null },
+        identity: { unconfirmed, form: w.form, reply_channel: { text: hint.text, whatsapp: !!hint.whatsapp }, in_window: inWindow, phone: i.contact_phone || (i.client_id ? app.clients.primaryPhone(i.client_id) : null) || null },
         form,
         drafts,
         warnings,
@@ -813,6 +872,9 @@ export function createStories(app) {
           primary: callFirst ? 'call' : 'sheet',
           call_intro: svc.callIntro(i),
           call_script: callFirst ? sayDraft : null,
+          // [بوابة 9.2 G5] آخر ما وصل مكالمة سجلتها الإدارة (رقمها) — «بلّغتها في مكالمة» يستخدمها بدل فتح مكالمة جديدة
+          called: !!lastCallNoteId,
+          last_call_note_id: lastCallNoteId,
         },
         call_attempts: svc.attempts(i.id),
       };
@@ -1053,7 +1115,8 @@ export function createStories(app) {
       }
       svc.cancelTimers(i.id);
       try {
-        await app.ai.analyzeIntake(i.id, null, { auto: true });
+        // [بوابة 9.2 S6/R3] محسوب على الحد اليومي (auto) لكن لا ينتظر طابور التحليل التلقائي العام، وينضم لتحليل جارٍ
+        await app.ai.analyzeByStaff(i.id, null, { auto: true });
       } catch (e) {
         app.log('call note analysis failed', e);
       }
@@ -1128,9 +1191,16 @@ export function createStories(app) {
       const prev = db.get("SELECT id, code FROM intakes WHERE client_id = ? AND json_extract(source_detail, '$.split_ref') = ?", clientId, ref);
       if (prev) return { duplicate: true, intake: { id: prev.id, code: prev.code } };
       const since = isoMinus(nowIso(), 30 * 24 * HOUR);
+      // [بوابة 9.2 R6] محادثة ملف واحد: نفس الملف (الملف المستمر يُنسب لملفه)، لا رسائل من ملفين مختلفين لنفس المستفيدة
+      const fileOf = (m) => m.case_id || db.value('SELECT case_id FROM matters WHERE id = ?', m.matter_id) || `m${m.matter_id}`;
+      const file0 = fileOf(msgs[0]);
       for (const m of msgs) {
         if (m.direction !== 'in' || m.client_id !== clientId || !(m.case_id || m.matter_id) || m.created_at < since) throw bad();
+        if (fileOf(m) !== file0) throw bad();
       }
+      // [بوابة 9.2 G6] حكايتها الأصلية التي فُتح منها الملف (قبل إنشائه) لا تُنقل: النقل لمشكلة جديدة وصلت بعد فتح الملف
+      const opened = typeof file0 === 'number' ? db.value('SELECT created_at FROM cases WHERE id = ?', file0) : db.value('SELECT created_at FROM matters WHERE id = ?', msgs[0].matter_id);
+      if (opened && msgs.some((m) => String(m.created_at) <= String(opened))) throw badRequest('اختر رسائل وصلت بعد فتح الملف');
       const docs = db.all(`SELECT id, matter_id FROM documents WHERE message_id IN (${ids.map(() => '?').join(',')})`, ...ids);
       if (docs.length) {
         const granted = db.get(
@@ -1146,7 +1216,16 @@ export function createStories(app) {
       const srcIntake = srcCase?.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', srcCase.intake_id) : null;
       const srcSd = parseJson(srcIntake?.source_detail, {});
       const sd = { split_ref: ref, split_from: { case_id: srcCaseId, matter_id: first.matter_id || null, message_ids: ids }, entered_by: actor.name };
-      for (const k of ['phone_match_unverified', 'identity_confirmed_at', 'identity_confirmed_via', 'sender_verified']) if (srcSd[k] !== undefined) sd[k] = srcSd[k];
+      // [بوابة 9.2 S3] الطلب الجديد يرث توثيق مرسل رسائله: ملف مؤكد (أو رسائل واتساب / رابط بوابة كامل) ← طلب مؤكد تراه
+      // في صفحتها وتصلها الردود؛ أما رسائل موقع من ملف رقمه غير مؤكد فطلب لا تراه أبدًا ← نرفض النقل برسالة واضحة
+      const srcConfirmed = srcIntake ? !isPortalUnverifiedIntake(srcIntake) : true;
+      const msgsVerified = msgs.every((m) => m.channel !== 'website' || parseJson(m.meta, {}).sender_verified === true);
+      if (srcConfirmed || msgsVerified) {
+        sd.sender_verified = true;
+        for (const k of ['identity_confirmed_at', 'identity_confirmed_via']) if (srcSd[k] !== undefined) sd[k] = srcSd[k];
+      } else {
+        throw conflict('رقم هذا الملف غير مؤكد، فلن ترى الطلب الجديد في صفحتها. أكّدوا هويتها من الطلب الأصلي أولًا ثم انقلوا الرسائل.');
+      }
       const doneWords = setting('story_done_words');
       const factualCount = msgs.filter((m) => {
         const meta = parseJson(m.meta, {});
@@ -1199,7 +1278,8 @@ export function createStories(app) {
         return { id, code };
       });
       try {
-        await app.ai.analyzeIntake(created.id, null, { auto: true });
+        // [بوابة 9.2 S6/R3] كما في المكالمة: لا انتظار خلف طابور التحليل التلقائي
+        await app.ai.analyzeByStaff(created.id, null, { auto: true });
       } catch (e) {
         app.log('split analysis failed', e);
       }

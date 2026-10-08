@@ -391,6 +391,7 @@ export default async function render(ctx) {
         unconfirmed: Boolean(it.identity_unconfirmed),
         callIntro: p && p.actions ? p.actions.call_intro : null,
         phone: p && p.identity ? p.identity.phone : null,
+        form: (p && p.identity && p.identity.form) || it.address_form || 'f',
       },
       script: p && p.actions && p.actions.primary === 'call' ? p.actions.call_script : null,
     });
@@ -492,7 +493,7 @@ export default async function render(ctx) {
       if (view === 'callback') {
         actions = [
           asyncButton('سجّل المكالمة', () => logCall(it), btnOpts('phone')),
-          asyncButton('لم ترد', () => logAttempt(it), { icon: 'phone-off', className: 'pa-story-noanswer' }),
+          asyncButton(it.address_form === 'm' ? 'لم يرد' : 'لم ترد', () => logAttempt(it), { icon: 'phone-off', className: 'pa-story-noanswer' }),
         ];
       } else if (view === 'blocked') {
         actions = [button('اسمع الرسالة الصوتية', { ...btnOpts('mic'), href: `#/inbox/${it.id}?focus=voice` })];
@@ -502,8 +503,9 @@ export default async function render(ctx) {
         actions = [];
       } else if (!ai) {
         actions = [asyncButton('حلّل الآن', () => analyzeNow(it), btnOpts('sparkle'))];
-      } else if (it.identity_unconfirmed && ['internal', 'refer', 'need_info'].includes(track)) {
-        actions = [asyncButton('اتصل بها', () => callFirst(it), btnOpts('phone'))];
+      } else if (it.identity_unconfirmed && ['internal', 'refer', 'need_info'].includes(track) && !st.called) {
+        // [بوابة 9.2 G5] بعد «سجّل المكالمة» (آخر ما وصل مكالمة) الخطوة التالية القرار نفسه، لا مكالمة ثانية
+        actions = [asyncButton(it.address_form === 'm' ? 'اتصل به' : 'اتصل بها', () => callFirst(it), btnOpts('phone'))];
       } else if (track) {
         actions = [asyncButton(label('story_track_action', track), () => openSheet(it, { track }), btnOpts(TRACK_ICONS[track] || 'check'))];
       }

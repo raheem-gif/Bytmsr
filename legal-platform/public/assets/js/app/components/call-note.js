@@ -3,7 +3,7 @@
 
 import { h, frag } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label, relative, dateTime, orgName, count } from '../../lib/fmt.js';
+import { label, relative, dateTime, orgName, count, localPhone } from '../../lib/fmt.js';
 import { modal, field, button, icon, toast, confirmDialog, confirmDanger, alertBox, ltr, uid } from '../../lib/ui.js';
 
 /** معرّف جديد لكل فتح للنافذة: نقرتان على «حفظ» = مكالمة واحدة (يتجاهل الخادم التكرار) */
@@ -62,7 +62,8 @@ export function openCallNote({ intake, script = null } = {}) {
       body: frag(
         h('div.pa-call-script', icon('phone', { size: 18 }), h('p', intake.callIntro || callIntroText(intake.code))),
         script && !isSkeletonReply(script) && h('div.pa-call-say', h('strong', 'قل لها:'), h('p.pa-call-say-text', { dir: 'auto' }, script)),
-        intake.phone && h('p.pa-call-phone', h('span', 'رقمها: '), h('a', { href: `tel:${intake.phone}` }, ltr(intake.phone))),
+        // [بوابة 9.2 K9] الرقم بالصيغة المحلية (يُقرأ ويُطلب من أي تليفون)، والرابط بالصيغة الدولية
+        intake.phone && h('p.pa-call-phone', h('span', intake.form === 'm' ? 'رقمه: ' : 'رقمها: '), h('a', { href: `tel:${intake.phone}` }, ltr(localPhone(intake.phone)))),
         wrap,
         confirmCb &&
           h(
@@ -196,7 +197,7 @@ export async function closeUnreachable({ intakeId, attempts }) {
 /** بطاقة «طلبت مكالمة» داخل الطلب (أو جزء منها): التعليمات + الأزرار + المحاولات */
 export function callbackAlert({ phone, when }) {
   return alertBox(
-    h('span', 'اتصل على ', phone ? h('a', { href: `tel:${phone}` }, ltr(phone)) : 'رقمها', when ? ` (${when})` : '', ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.'),
+    h('span', 'اتصل على ', phone ? h('a', { href: `tel:${phone}` }, ltr(localPhone(phone))) : 'رقمها', when ? ` (${when})` : '', ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.'),
     'info',
     { icon: 'phone' },
   );

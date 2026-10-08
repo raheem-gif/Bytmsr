@@ -3,7 +3,7 @@
 
 import { h, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName, label } from '../../../lib/fmt.js';
+import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName, label, localPhone } from '../../../lib/fmt.js';
 import { pageHeader, card, button, asyncButton, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
 
 // v9.2 (admin-ai): حالة القصة بعد الرسالة، ورسائلنا الآلية (قائمة المواضيع تُضغط هنا كما تضغطها المستفيدة)
@@ -268,7 +268,7 @@ export default async function render(ctx) {
       }
     }
     fill({
-      from: phone || randomMobile(),
+      from: phone ? localPhone(phone) : randomMobile(), // [بوابة 9.2 K9] الصيغة المحلية في الحقل
       name: diffCb.checked ? 'قريب صاحب الطلب' : name,
       text: diffCb.checked
         ? `السلام عليكم بخصوص الطلب ${code}، أنا قريب صاحب الطلب وعايز أعرف وصلتوا لإيه؟`

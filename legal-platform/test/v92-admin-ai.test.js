@@ -583,7 +583,7 @@ describe('v9.2 stories — inbox triage, heuristic, schema, seed', () => {
     assert.equal(s4.request_draft.referral_target, refs[0].label);
     const s5 = H.analyzeIntake('السلام عليكم\nعايزة أسأل على حاجة', { ...ctx, topic: 'other' });
     assert.equal(s5.recommended_track, 'need_info');
-    assert.equal(s5.request_draft.questions_for_her[0], 'احك{ي} لنا في جملتين: حصل إيه، ومع مين؟');
+    assert.equal(s5.request_draft.questions_for_her[0], 'احكيلنا في جملتين: حصل إيه، ومع مين؟');
     const voice = H.analyzeIntake('[رسالة صوتية]', { ...ctx, voice: { total: 1, done: 0, missing: 1 }, meaningfulLetters: 0 });
     assert.equal(voice.recommended_track, null);
     assert.equal(voice.blocked, 'voice_untranscribed');

@@ -108,6 +108,11 @@ export function createVoice(app) {
       if (!VOICE_STATUSES.includes(status)) throw badRequest('حالة غير معروفة للرسالة الصوتية');
       const t = nowIso();
       const existing = svc.get(d.id);
+      // [بوابة 9.2 R1/S5] نفس النص ونفس الحالة مرة أخرى (حفظ مكرر): لا مراجعة جديدة للقصة ولا تحليل ولا سجل
+      if (existing && existing.status === status && String(existing.text || '').trim() === String(unclear ? '' : text || '').trim()) {
+        const cur = d.intake_id ? db.get('SELECT story_rev, voice_missing FROM intakes WHERE id = ?', d.intake_id) : null;
+        return { ...item(d, existing), unchanged: true, story: { rev: cur ? Number(cur.story_rev) || 0 : null, voice_missing: cur ? Number(cur.voice_missing) || 0 : null } };
+      }
       if (existing) {
         db.run('UPDATE voice_transcripts SET status = ?, text = ?, updated_by = ?, updated_at = ?, intake_id = ?, case_id = ?, message_id = COALESCE(message_id, ?) WHERE document_id = ?', status, unclear ? null : text, actor?.id ?? null, t, d.intake_id ?? null, d.case_id ?? null, d.message_id ?? null, d.id);
       } else {
@@ -142,8 +147,22 @@ export function createVoice(app) {
         });
         // [R2-A15] محليًا فورًا؛ مع Claude بعد آخر نص (60 ثانية) وفقط حين لا يبقى صوت ناقص، وإلا ملخص مبدئي
         app.stories?.scheduleAnalysis(intake.id, 'transcript');
-      } else if (intake?.case_id) {
-        app.activity.log({ case_id: intake.case_id, actor, type: 'voice.transcribed', summary: `كتب ${actor?.name || 'الإدارة'} نص رسالة صوتية`, data: { document_id: d.id, status } });
+      } else {
+        // [بوابة 9.2 S8] طلب انتهى أو رسالة في ملف فقط: يُحفظ النص بلا مراجعة جديدة، لكن يبقى أثر في سجل الطلب أو الملف
+        const caseId = intake?.case_id || d.case_id || null;
+        const matterId = d.matter_id || null;
+        if (intake || caseId || matterId) {
+          app.activity.log({
+            intake_id: intake?.id ?? null,
+            case_id: caseId,
+            matter_id: matterId,
+            client_id: intake?.client_id ?? d.client_id ?? null,
+            actor,
+            type: 'voice.transcribed',
+            summary: status === 'unclear' ? `علّم ${actor?.name || 'الإدارة'} رسالة صوتية بأنها غير مفهومة` : status === 'confirmed' ? `كتب ${actor?.name || 'الإدارة'} نص رسالة صوتية` : `أعاد ${actor?.name || 'الإدارة'} رسالة صوتية إلى «لم تُكتب بعد»`,
+            data: { document_id: d.id, status, after_decision: !!intake },
+          });
+        }
       }
       const fresh = intake ? db.get('SELECT voice_missing FROM intakes WHERE id = ?', intake.id) : null;
       return { ...item(app.documents.get(d.id), svc.get(d.id)), story: { rev, voice_missing: fresh ? Number(fresh.voice_missing) || 0 : null } };

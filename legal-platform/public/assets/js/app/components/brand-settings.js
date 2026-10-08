@@ -8,6 +8,7 @@ import { api } from '../../lib/api.js';
 import { toLatinDigits, orgName, date as fmtDate, ltr as ltrText } from '../../lib/fmt.js';
 import { card, button, toast, confirmDialog, badge, setBusy } from '../../lib/ui.js';
 import { normHex, buildTheme, previewVars, dominantColors, DEFAULT_PRIMARY, DEFAULT_ACCENT } from '../../lib/brand-color.js';
+import { refreshAppShellCache } from '../theme-sync.js'; // v9.2 بوابة G2
 
 /** نفس فحص الخادم (src/brand.js): لا يُطبَّق على الصفحة إلا متغيرات ألوان بهذا الشكل */
 export const THEME_CSS_RE = /^html:root\{(--[a-z0-9-]+:[#0-9a-f ]+;?)+\}$/;
@@ -381,6 +382,8 @@ export function brandSettingsCard({ user } = {}) {
     try {
       const payload = await api.put('/admin/brand/colors', { primary: state.values.primary, accent: state.values.accent });
       applyThemeToDocument(payload.theme);
+      // [بوابة 9.2 G2] نسخة /app في مخزن عامل الخدمة تُحدَّث قبل رسالة «ظهرت في … المنصة» (وإلا فتحت أول مرة بالألوان القديمة)
+      await refreshAppShellCache();
       showLive(payload);
       toast(T.saved, 'success', 5000);
     } catch (err) {
@@ -397,6 +400,7 @@ export function brandSettingsCard({ user } = {}) {
     try {
       const payload = await api.del('/admin/brand/colors');
       applyThemeToDocument(payload.theme);
+      await refreshAppShellCache(); // [بوابة 9.2 G2]
       showLive(payload);
       toast(T.resetDone, 'success');
     } catch (err) {

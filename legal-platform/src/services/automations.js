@@ -4,6 +4,7 @@ import { nowIso, addDays, parseJson, badRequest, notFound, v, arabicDate, arabic
 import { spokenTime } from '../util.js'; // v9.1 b-site (B91-10)
 import { withClientNote } from './portal-v91.js'; // v9.1 fixes: «هاتي معاكي» المعتمدة في نص التذكير
 import { LABELS, DEFAULT_AUTOMATION_RULES, LEGACY_AUTOMATION_TEMPLATES } from '../constants.js';
+import { STORY_AUTO_RULES } from '../constants.js'; // v9.2 بوابة K7
 
 function fill(template, values) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined && values[k] !== null ? String(values[k]) : m));
@@ -471,6 +472,8 @@ export function createAutomations(app) {
       if (status && LABELS.message_status[status]) {
         where.push('m.status = ?');
         params.push(status);
+        // [بوابة 9.2 K7] فلتر «فاشلة» = ما يمكن إعادة إرساله: رسائل القصة الآلية الفاشلة خارج النافذة لا تُعاد [R2-A19]
+        if (status === 'failed') where.push(`COALESCE(m.automation_rule, '') NOT IN (${STORY_AUTO_RULES.map((r) => `'${r}'`).join(', ')})`);
       }
       return db
         .all(

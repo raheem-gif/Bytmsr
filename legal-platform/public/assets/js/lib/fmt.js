@@ -115,6 +115,14 @@ export function normalizeEgPhone(input) {
   return /^01[0125]\d{8}$/.test(d) ? d : null;
 }
 
+/**
+ * v9.2 (بوابة K9): رقم كما يقرؤه الموظف ويطلبه من أي تليفون («01006057460») بدل الصيغة الدولية المخزنة (+20…).
+ * رقم غير مصري أو غير صالح يُعرض كما هو. رابط tel: يبقى بالصيغة الدولية.
+ */
+export function localPhone(input) {
+  return normalizeEgPhone(input) || String(input ?? '');
+}
+
 /** هل النص رقم موبايل مصري صحيح؟ */
 export function isEgyptianMobile(input) {
   return normalizeEgPhone(input) !== null;

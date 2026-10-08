@@ -32,6 +32,12 @@ const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون �
 export function acceptToast(res) {
   const sim = res.message && res.message.status === 'simulated' ? ' (إرسال تجريبي)' : '';
   let text;
+  // [بوابة 9.2 G15] «(إرسال تجريبي)» يخص الرسالة التي وصلتها، لا اختيار المحامي
+  if (res.track === 'consultation' && sim && res.message) {
+    toast(`تم إنشاء الملف ${res.case?.code || ''} وأُرسلت لها رسالة${sim} — اختر الآن المحامي`, 'success', 6000);
+    for (const w of res.warnings || []) toast(w.text, 'warning', 9000);
+    return;
+  }
   if (res.track === 'consultation') text = `تم إنشاء الملف ${res.case?.code || ''} — اختر الآن المحامي`;
   else if (res.track === 'matter') text = `تم إنشاء الملف ${res.case?.code || ''} والملف المستمر ${res.matter?.code || ''}`;
   else if (res.track === 'internal') text = res.message ? 'أُرسل الرد وأُغلق الطلب' : 'أُغلق الطلب دون رسالة';
@@ -91,6 +97,8 @@ export async function openStorySheet(opts = {}) {
   const channelHint = p.identity && p.identity.reply_channel && p.identity.reply_channel.text ? `يصل الرد: ${p.identity.reply_channel.text}.` : '';
   // رقمها لنافذة المكالمة (من صفحة الطلب، أو من الاقتراح حين تُفتح الورقة من بطاقة الفرز)
   const herPhone = opts.phone || (p.identity && p.identity.phone) || null;
+  // [بوابة 9.2 N6] صيغة المخاطَب في نصوص الإدارة (رجل معروف: «أبو …» أو صيغة حددتها الإدارة)
+  const addrForm = (p.identity && p.identity.form) || 'f';
   // [مراجعة 9.2] رقم غير مؤكد (B91-01): لا خيار «واتساب» يرفضه الخادم بعد الضغط — صفحة المتابعة فقط
   const replyChannels = unconfirmed ? REPLY_CHANNELS.filter((c) => c.value !== 'whatsapp') : REPLY_CHANNELS;
   const forms = new Map();
@@ -139,12 +147,12 @@ export async function openStorySheet(opts = {}) {
     p.actions && p.actions.primary === 'call'
       ? h(
           'div.pa-sheet-call',
-          h('p', icon('phone', { size: 15 }), ' ', unconfirmed ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.' : 'كل رسائلها صوتية — غالبًا مش بتقرا؛ الأفضل تكلّمها.'),
+          h('p', icon('phone', { size: 15 }), ' ', unconfirmed ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.' : 'كل رسائلها صوتية، والأفضل أن تكلّمها.'),
           asyncButton(
-            'اتصل بها',
+            addrForm === 'm' ? 'اتصل به' : 'اتصل بها',
             async () => {
               const r = await openCallNote({
-                intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions.call_intro },
+                intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions.call_intro, form: addrForm },
                 script: p.actions.call_script,
               });
               if (!r) return;
@@ -743,7 +751,7 @@ export async function openStorySheet(opts = {}) {
     let noteId = opts.callNoteId || null;
     if (!noteId) {
       const r = await openCallNote({
-        intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions && p.actions.call_intro },
+        intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions && p.actions.call_intro, form: addrForm },
         script: cur.replyText ? cur.replyText() : null,
       });
       if (!r) return false;

@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday, localPhone } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -368,9 +368,13 @@ export default async function render(ctx) {
     });
   }
 
+  // [بوابة 9.2 N6] أزرار الإدارة بصيغة المخاطَب حين نعرف أنه رجل («أبو …» أو صيغة حددتها الإدارة)
+  const male = Boolean(prop && prop.identity && prop.identity.form === 'm');
+  const CALL_LABEL = male ? 'اتصل به' : 'اتصل بها';
+
   async function callHer(script) {
     const r = await openCallNote({
-      intake: { id: it.id, code: it.code, phone: herPhone, unconfirmed: Boolean(prop && prop.identity && prop.identity.unconfirmed), callIntro: prop && prop.actions && prop.actions.call_intro },
+      intake: { id: it.id, code: it.code, phone: herPhone, unconfirmed: Boolean(prop && prop.identity && prop.identity.unconfirmed), callIntro: prop && prop.actions && prop.actions.call_intro, form: male ? 'm' : 'f' },
       script: script || null,
     });
     if (r) await reloadAndFocus(ctx, '#pa-proposal');
@@ -434,7 +438,7 @@ export default async function render(ctx) {
         h(
           'p.pa-callback-how',
           'اتصل على ',
-          herPhone ? h('a', { href: `tel:${herPhone}` }, ltr(herPhone)) : 'رقمها',
+          herPhone ? h('a', { href: `tel:${herPhone}` }, ltr(localPhone(herPhone))) : 'رقمها', // [بوابة 9.2 K9]
           webForm && webForm.callback_label ? ` (${webForm.callback_label})` : '',
           ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.',
         ),
@@ -484,10 +488,10 @@ export default async function render(ctx) {
       // سُئلت بالفعل: لا «اعمله طلب» بنفس المسار؛ يُعاد التلخيص تلقائيًا عندما ترد، ويبقى اختيار مسار آخر متاحًا
     } else if (view === 'blocked' && voiceMissing > 0) {
       actions.push(button('اسمع الرسالة الصوتية', { variant: 'primary', icon: 'mic', className: 'pa-prop-primary', onClick: goToVoice }));
-      if (callFirst) actions.push(asyncButton('اتصل بها', () => callHer(prop.actions.call_script), { icon: 'phone' }));
+      if (callFirst) actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { icon: 'phone' }));
     } else if (callFirst) {
-      actions.push(asyncButton('اتصل بها', () => callHer(prop.actions.call_script), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }));
-      if (unconf) actions.push(asyncButton('إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe' }));
+      actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }));
+      if (unconf) actions.push(asyncButton(male ? 'إرسال لصفحته فقط' : 'إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe' }));
       else if (rec) actions.push(asyncButton(label('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send' }));
     } else if (!prop.analyzed_at) {
       actions.push(
@@ -554,7 +558,8 @@ export default async function render(ctx) {
       body: h(
         'div.stack-sm',
         webForm.lines && webForm.lines.length ? h('ul.pa-form-lines', webForm.lines.map((x) => h('li', x))) : null,
-        webForm.urgent_hint && badge('قالت إن فيه تهديدًا بالطرد', 'danger', { icon: 'alert' }),
+        // [بوابة 9.2 N7] ضغطة على صورة وليست كلامها (R2-B4): لا «قالت إن…»
+        webForm.urgent_hint && badge('اختارت صورة التهديد بالطرد — تأكدوا منها', 'danger', { icon: 'alert' }),
         aboutBits.length ? h('p.small.muted', `أضافت بعد الإرسال: ${aboutBits.join('، ')}`) : null,
         h('p.field-hint', 'ضغطات على صور وقد تكون غير دقيقة؛ كلامها في المحادثة هو المعتمد.'),
       ),
@@ -1423,7 +1428,7 @@ export default async function render(ctx) {
         kv([
           ['كود المستفيد/ة', h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
           ['الاسم', cl.name || it.contact_name],
-          ['الهاتف', cl.phone ? h('span.row', ltr(cl.phone), copyButton(cl.phone, '')) : null],
+          ['الهاتف', cl.phone ? h('span.row', ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null],
           cl.email && ['البريد', ltr(cl.email)],
           ['المحافظة', cl.governorate || it.governorate],
         ]),

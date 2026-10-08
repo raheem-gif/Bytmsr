@@ -25,6 +25,7 @@ import * as U from '../util.js';
 import { LABELS, GOVERNORATES } from '../constants.js';
 // v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
 import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
+import { isPortalUnverifiedIntake } from '../channels/engine.js';
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
 
@@ -218,10 +219,13 @@ export function clientAnswerFields(app, caseId, body = {}) {
 export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {}) {
   if (!ans?.summary || !String(ans.summary).trim()) return null;
   const client = app.clients.get(caseRow.client_id) || {};
-  const form = addressForm(client);
-  const name = addressName(client.name);
   const org = app.settings.get('org_name') || 'بيوت مصر';
   const intake = caseRow.intake_id ? app.db.get('SELECT * FROM intakes WHERE id = ?', caseRow.intake_id) : null;
+  // v9.2 (بوابة الدمج K1): طلب من الموقع لم تتأكد هوية صاحبه يُقرأ في صفحة من كتب الرقم: نخاطبه بالاسم الذي كتبه هو
+  // (أو «أهلًا بيكي» بلا اسم)، لا باسم ملف صاحب الرقم ولا بنوع خطابه
+  const own = intake && isPortalUnverifiedIntake(intake) ? { name: intake.contact_name || '' } : client;
+  const form = addressForm(own);
+  const name = addressName(own.name);
   const story = { clientId: caseRow.client_id, intakeId: intake?.id ?? null, caseId: caseRow.id };
   // قاعدة القناة الواحدة (B91-01): القصة المؤكدة فقط تأخذ رابطًا على رقمها، وغير المؤكدة تقرأ الرد في صفحتها.
   // v9.1 fixes: الرابط لا يُكتب في نص الرسالة المحفوظ أبدًا: نص واتساب (forWhatsApp) يحمل {portal_link} ويُصدر الرابط

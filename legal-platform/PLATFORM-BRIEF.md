@@ -52,13 +52,22 @@ the people served, currency always «ج.م», correct Arabic number–noun agree
 1. **A beneficiary writes** on WhatsApp or fills the website form — since 9.1 three short steps: tell us the problem
    (a voice note or a sentence or two), photograph any papers, then name, mobile, governorate, two optional questions
    (her relation such as widow, and number of children) and consent. A one-tap button then lets her send the request
-   number on WhatsApp to confirm her number. Each channel is just a "door" into one unified
+   number on WhatsApp to confirm her number. Since 9.2 the website opens straight onto 8 picture tiles: one tap on her
+   problem, one or two picture questions, then her story (voice first) and her number (the name is optional, governorate
+   and relation are asked after sending, and consent is a line on the send button instead of a checkbox) — or
+   «إحنا نكلمك» (just the number, and the foundation calls her). On WhatsApp her consecutive messages are collected into one story until it is
+   finished. Each channel is just a "door" into one unified
    **Intake Engine**: the same person and the same story are recognised across channels; the source (e.g. a Facebook ad,
    Google, a referral partner) is tracked separately from the channel.
 2. **It lands in the unified inbox** («صندوق الوارد الموحد») as a request with a code like `REQ-2026-00024`.
    The AI assistant summarises it, classifies the legal area, lists missing information/documents, suggests the legal
    issues, and warns "this resembles N past cases". A priority score is suggested from the beneficiary's situation.
-3. **Staff triage** it: reply (with ready-made replies or AI-suggested replies), handle it internally if it is simple,
+   Since 9.2 the summary is made once per finished story and comes with **one recommended track** (consultation, court
+   matter, staff answers, refer elsewhere, or ask her first) and a ready draft; inbox triage cards show which stories
+   are ready, which wait for a typed voice note, and which asked for a call.
+3. **Staff triage** it (since 9.2 usually one click: «اعمله طلب» opens a prefilled sheet for the recommended track,
+   which staff edit and confirm; call-back requests are handled by phone with «سجّل المكالمة»): reply (with
+   ready-made replies or AI-suggested replies), handle it internally if it is simple,
    archive it, or **convert it into a file** with an independent code like `INH-2026-00482` linked to the client code
    `CL-00881`. During conversion a **conflict-of-interest check** runs and the file can be linked to a **funding
    programme**.
@@ -422,6 +431,21 @@ these in parallel. The privacy model is unchanged: an unconfirmed website number
 see phone numbers or raw conversations, and AI text is always reviewed by staff before it reaches a beneficiary or a
 lawyer.
 
+**9.2 at a glance** (each item is detailed in the subsections below):
+
+| # | What | Who uses it | Where |
+|---|---|---|---|
+| 1 | **Tile-first home page**: «مشكلتك في إيه؟» + 8 picture tiles + «إحنا نكلمك» / واتساب / «طلبك فين؟», all on one 360×512 phone screen, gender-neutral wording | beneficiaries (often low literacy; fathers, grandfathers and sons too) | `/` |
+| 2 | **Picture-question request form**: 1–2 one-tap picture questions per topic (with «مش عارفة»), then a voice-first story, then the phone number; consent stated on the send button; optional «كمان سؤالين» (governorate, relation) after sending | beneficiaries | `/intake?topic=…` |
+| 3 | **Call-back-only requests** («إحنا نكلمك»): number + preferred time; the success screen says when and from which number the foundation will call | beneficiaries → staff | `/intake?mode=callback` |
+| 4 | **Listening aid** «بالصوت»: once tapped, every screen, answer tile and card is read aloud with the phone's own Arabic voice | beneficiaries who cannot read | `/`, `/intake` |
+| 5 | **Foundation colours** «ألوان المؤسسة»: 2 colours (or suggestions from a logo picture that is never uploaded) → every shade generated with guaranteed WCAG AA contrast | admin | Settings → `#/settings?section=brand` |
+| 6 | **Story → AI summary → recommended track → one-click request**: WhatsApp messages are collected into one story until it is finished, summarised once (Claude or the local analyser), given one of 5 tracks (consultation / court matter / staff answers / refer / ask her first) with a draft, and confirmed by staff in one prefilled sheet «اعمله طلب»; inbox triage cards rank what needs a decision | staff | `#/inbox`, request page |
+| 7 | **Voice notes typed by staff**: no audio ever goes to Claude; an untyped voice story is never summarised by Claude | staff | under each voice note |
+| 8 | **Call notes and call attempts** for call-back requests and for women WhatsApp cannot reach (unconfirmed website numbers, voice-only): «سجّل المكالمة», «لم ترد», «تعذّر الوصول إليها» after 3 attempts on 2 days | staff | inbox card, request page |
+| 9 | **Split**: a new problem written inside an open case/court-file conversation becomes a new request | staff | case and matter pages |
+| 10 | **New settings, automated messages OFF by default**: WhatsApp welcome list and «وصلتنا حكايتك» acknowledgement are built but off until the foundation decides (privacy-policy wording first) | admin | Settings → `#/settings?section=stories` |
+
 ### Public site: picture tiles first
 
 <!-- v92:public -->
@@ -480,7 +504,8 @@ lawyer.
   submit: `POST /api/admin/intakes/:id/accept` with `story_rev` (compare-and-set). A 409 `story_changed` shows «مراجعة
   الرسائل» / «متابعة رغم ذلك» (`force`) inside the sheet; every button is disabled while in flight, so double clicks never
   duplicate. Drafts with an unfilled variable or only a greeting and signature are refused before sending; names come only
-  from the website form or staff («أهلًا بيكي» otherwise), never from the WhatsApp profile.
+  from what she typed in the website form (for that request; in WhatsApp texts only once the number is confirmed) or
+  from staff («أهلًا بيكي» otherwise), never from the WhatsApp profile (see "What the integration gate fixed").
 - **Phone first when WhatsApp cannot reach her.** For an unconfirmed website number (track internal/refer/need_info) or a
   voice-only story the primary action is «اتصل بها»: the call-note dialog shows the opening line («قل: معاكي … بخصوص طلب
   رقم 29…») and the drafted reply under «قل لها:»; «إرسال لصفحتها فقط» is secondary. Call-back-only requests get a «طلبت
@@ -495,7 +520,10 @@ lawyer.
   sent to Claude. `?focus=voice` lands in the first untyped note.
 - **Split** (`components/split-dialog.js`): «اعمل منها طلب جديد» under her messages on a case or court-file conversation
   moves the chosen messages (≤ 20, ≤ 30 days) and their documents to a new summarised request
-  (`POST /api/admin/messages/split`, idempotent on `client_ref`; refused when a document is visible to a lawyer).
+  (`POST /api/admin/messages/split`, idempotent on `client_ref`; refused when a document is visible to a lawyer, for her
+  founding messages from before the file was opened, for messages of two different files, and for website messages of
+  a file whose number is unconfirmed — that request would be invisible to her). The new request keeps the sender's
+  verification, so it shows on her full follow-up page and staff replies reach her.
 - **Settings** «القصص الواردة على واتساب» (`#/settings?section=stories`): quiet minutes, WhatsApp welcome list (8 topic
   rows), «وصلتنا حكايتك» + request number, call-back number and days. Welcome and ack are **off by default** (on in the
   demo only); a readiness item in `/system` warns when WhatsApp is connected and the ack is off and links to the toggle.
@@ -542,8 +570,11 @@ lawyer.
 - **Where it shows.** Every public page (home and tiles, request form, follow-up page, legal pages, 404) and the staff
   and lawyer app `/app` get one inline block `<style id="bm-theme">html:root{…}</style>` (about 520 bytes) in the page
   head, so the colours are right from the first paint with no extra request; the browser bar colour follows. The
-  admin's own page restyles without reloading. A lawyer whose phone has the app cached sees the new colours from the
-  next open, and the service worker does not change, so no "update available" prompt appears.
+  admin's own page restyles without reloading. Staff and lawyers whose phone has `/app` cached
+  by the service worker get the new colours on the first reload: saving refreshes the cached page on the admin's
+  device, and on every open the app compares its colour block (`bm-theme` `data-v`) with `brand.v` in `/api/meta` and
+  swaps it when they differ (`public/assets/js/app/theme-sync.js`). The service worker itself does not change, so no
+  "update available" prompt appears.
 - **Default unchanged.** With no setting, no block is emitted and pages render exactly as in 9.1 (teal `#0f4c5c`,
   gold `#b8862e`). «رجوع للألوان الأصلية» (with confirmation) removes the setting. A corrupted setting never breaks a
   page: the defaults are used.
@@ -556,6 +587,89 @@ lawyer.
   `--on-accent` (this fixed the white step number on gold in the follow-up page tracker, which was 3.24:1). The test
   `test/v92-colours.test.js` fails on any brand literal outside those blocks and on any text/background pair outside
   the contrast contract.
+
+### Settings added in 9.2 (and which are OFF by default)
+
+| Setting (key) | Default | Where / notes |
+|---|---|---|
+| Foundation colours (`brand_colors`) | not set = the 9.1 teal `#0f4c5c` and gold `#b8862e`, pages byte-identical to 9.1 | Settings → «ألوان المؤسسة» (admins only, dedicated endpoints, audited; the generic settings PATCH ignores it) |
+| Quiet minutes before a WhatsApp story counts as finished (`story_quiet_minutes`) | 10 | Settings → «القصص الواردة على واتساب» |
+| WhatsApp welcome list with the 8 topics (`story_welcome_enabled`) | **OFF** | same card |
+| «وصلتنا حكايتك» acknowledgement with the request number (`story_ack_enabled`) | **OFF** in code (ON in the demo only) | same card; a launch-readiness warning while WhatsApp is connected and it is off |
+| Number we call from (`callback_from_number`) | empty = the foundation's phone (`org_phone`) | same card; shown to her verbatim on the call-back success screen |
+| Days within which we call (`callback_eta_days`) | 1 working day (1–5) | same card; also promised on the success screen |
+| Done words (`story_done_words`), daily cap of automatic Claude runs per request (`story_auto_ai_max_per_day` = 6), referral directory (`story_referrals`, only the foundation's own programmes) | defaults | no settings screen in 9.2 (editors deferred) |
+| `stories_since` | the moment 9.2 first started | written once by the migration; automated story messages never reach a conversation older than this |
+
+There are **no new environment variables, no new dependencies and no new required WhatsApp templates** in 9.2 (the
+automated story messages are session-only, never templates). What operators must set before launch is in `DEPLOY.md`
+«ما الجديد تشغيليًا في 9.2»: the colours, the call-back number and days (the site promises both), and — before turning
+on the welcome list or the acknowledgement — the privacy-policy sentence «كل رد يصلك يراجعه شخص مختص ويعتمده قبل
+إرساله» in `public/privacy.html` §7 must be changed to exclude fixed automatic messages.
+
+### What the integration gate fixed before release
+
+After the three lanes, four independent reviewers tested 9.2 end to end (beneficiary and staff journeys in a browser at
+360, 390 and 1366 px, a security/privacy probe, a regression run, and an Arabic copy and accessibility review). Two
+fixers then closed the findings:
+
+- **Privacy — the name on a website request is only what that submission typed.** A website request with no name on a
+  phone number that already belongs to a client no longer inherits the owner's name or governorate (her `/p/` page, the
+  drafts and every automated message say «أهلًا بيكي» instead). A client created from an unconfirmed website form gets
+  `name_source='website_unverified'`: that name is never used in WhatsApp drafts or automated messages until the number
+  is confirmed (then it becomes `website`).
+- **Split rules.** Messages from before the file was opened, from two different files, or website messages of a file
+  whose number is unconfirmed cannot be split; a split request keeps the sender's verification, so it appears on her
+  full follow-up page and staff replies reach her.
+- **Call-back with a couple of words.** A call-back request with no audio and fewer than 10 letters stays a call-back
+  with no story: the canned line, then her words on a new line for staff only, outside facts and analysis.
+- **After a call note** the card shows the track's action instead of «اتصل بها» again, and the spoken call script drops
+  chat-only sentences (send / photograph / links).
+- **Lawyer text.** `facts_for_lawyer` and `brief_for_lawyer` drop confirmation codes and request codes and mask a house
+  number and street («12 شارع النصر» → «[عنوان مخفي]»).
+- **Analysis.** Two clicks (or two colleagues) on «لخّصها الآن» join one running analysis; a result that arrives after
+  staff already decided the request is discarded; re-saving the same transcript changes nothing; transcript edits on
+  decided requests or files are logged; «حلّل الآن» has a per-user limit (60/hour).
+- **Analyser quality.** More Egyptian dispute markers (e.g. «حقي», «يبيعوا», «مش بيدفع») so disputes go to a consultation or
+  court matter rather than «ترد الإدارة»; the «ترد الإدارة» draft comes from the foundation's quick reply in the same legal
+  area as the topic she picked.
+- **Staff UI.** Her number is shown as `01XXXXXXXXX` (`tel:` links keep `+20`); staff labels switch to the masculine form
+  when the address form says so («اتصل به»); on screens ≤ 640 px every staff button, link and summary is ≥ 44 px.
+- **Beneficiary UI.** Tile height `clamp(72px, (100svh − 236px)/4, 140px)` so tiles and the ways row fit 360×512; the
+  button reads «إيقاف الصوت» while speaking; the «كمان سؤالين» card (titled «سؤال كمان» when only one question is
+  left) is read aloud; the call-back number is spoken digit by digit; the skip link reads «انتقال إلى المحتوى»; inside
+  Facebook/Instagram only one big WhatsApp button remains; the «مش عارفة» pictogram was redrawn as a shrug.
+- **Colours.** Cached `/app` pages follow a colour change on the first reload; legal-page headers keep white text for
+  any brand colour.
+
+The gate's own tests are `test/v92-gate-public.test.js` and `test/v92-gate-admin.test.js`.
+
+### Deferred to 9.3 (designed, not built)
+
+- **Google Speech-to-Text** drafts of voice notes (needs a privacy-policy decision first). The transcript table has no
+  status CHECK, so 9.3 can add `queued` / `auto_draft` / `failed` without rebuilding it. In 9.2 staff type every
+  transcript.
+- **Logo upload and display**, and favicon / app-manifest / share-image colours (9.2 only suggests colours from a logo
+  picture on the admin's device).
+- `BRAND_*` environment-variable defaults for the colours.
+- Editors for the referral directory and the done words.
+- A dashboard «جاهزة للقرار» tile, and a «من إحنا» section on the site.
+- Merging two open requests of the same client (9.2 only warns: `other_open_request`).
+
+### Open decisions and known limitations
+
+The foundation's open decisions for 9.2 are items 12–24 of §11 (item 24 lists the wording and ordering questions the
+final review left open). Known limitations left on purpose:
+- Staff wording turns masculine only from a «أبو …» kunya or an address form set by staff; there is no male-first-name
+  detection (it would risk misgendering women), so a man who writes under his own name shows as feminine until staff set
+  the address form.
+- At 320 px width, starting the listening aid wraps the home heading and shifts the tiles down about 24 px while it
+  speaks (360 px and wider are fine).
+- In the inbox triage, call-back requests are ordered oldest first within their group (FIFO), not by the time of day she
+  asked to be called.
+- The tile home page is the only home page in 9.2 (there is no switch back to the 9.1 home), so the picture-recognition
+  test of §11 item 20 has to happen before the public launch.
+
 
 ---
 
@@ -577,6 +691,12 @@ lawyer.
 - Nothing enters the knowledge base without human-reviewed redaction of personal data.
 - Every sensitive action is recorded in the security log.
 - 9.1 additions are listed in section 6.4.
+- 9.2 additions: voice-note transcripts, call notes, call attempts, the website picture answers (`form_answers`) and the
+  draft question for the lawyer (`brief_draft`) are staff-only (never in lawyer views or her page; included in the admin
+  full export); what reaches a lawyer is stripped of codes and of house number and street; every AI draft goes through
+  the editable «اعمله طلب» sheet before it is sent; automated story messages are fixed texts, session-only and
+  WhatsApp-first only, and off by default; the reply route ignores client-supplied `meta`; a website request's name is
+  only what that submission typed; every new endpoint is staff-only on the server and audited.
 
 ---
 
@@ -587,12 +707,19 @@ lawyer.
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- 648 automated tests (`npm test`, all passing at version 9.1.0; 411 at version 9.0), plus the 9.0 browser tour of
-  158 page views and, in 9.1, a browser usability run per lane at phone widths (including a simulated slow 3G network
-  for the beneficiary pages).
+- 809 automated tests (`npm test`, all passing at version 9.2.0; 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+  158 page views and, in 9.1 and 9.2, a browser usability run per lane at phone widths (including a simulated slow 3G
+  network for the beneficiary pages). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
+  360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review.
 - Key folders: `src/` (server: services, routes, channels/WhatsApp, ai/, schema.d/ database extensions,
-  `seed-v91-*.js` demo stories), `public/` (website, staff app, portal, `assets/fonts/`), `scripts/` (admin, backup,
-  restore, demo reset), `test/` (`v91-*.test.js` for the 9.1 lanes).
+  `seed-v91-*.js` and `seed-v92-*.js` demo stories), `public/` (website, staff app, portal, `assets/fonts/`),
+  `scripts/` (admin, backup, restore, demo reset), `test/` (`v91-*.test.js` for the 9.1 lanes, `v92-*.test.js` for 9.2).
+- 9.2 key files: `public/assets/js/public/topics.js` (the single topic catalogue, imported by the browser and by the
+  server for the site, the WhatsApp list and the analyser), `pictos.js` (pictograms), `listen.js` (read-aloud),
+  `src/services/stories.js` (story state, triage view `STORY_VIEW_SQL`, proposal, accept, call notes, split),
+  `src/services/voice.js` (transcripts), `src/brand.js` + `public/assets/js/lib/brand-color.js` (colour generator),
+  `public/assets/js/app/components/story-sheet.js` («اعمله طلب»). Schema: `src/schema.d/78-v92-stories.*` and
+  `79-v92-public.columns.json` (additive only).
 - Main documents in the repository: `README.md` (overview, Arabic), `DEPLOY.md` (deployment guide, Arabic), this file.
 
 ---
@@ -630,6 +757,25 @@ no WhatsApp message is really sent: outgoing messages, portal login codes and la
 | `01093104455` (Mona) | A website request whose number was never confirmed: staff replies and the paper request stay on her page only; no login code and no WhatsApp reminder reach her number. |
 | Um Yassin, Samah | Two website requests sent by voice note (the first with only a photo of a paper and no text) in the inbox. |
 
+**Version 9.2 stories in the demo** (fictional numbers; built with the real services in `src/seed-v92-public.js` and
+`src/seed-v92-stories.js`). The «وصلتنا حكايتك» acknowledgement is on in the demo only; the welcome list stays off as in
+production. Log in as `manager` and open the inbox (cards view):
+
+| Number (who) | What to try |
+|---|---|
+| `01092000101` (أم يوسف) | Website: inheritance (husband; inheritance certificate «مش عارفة»), asked for a morning call, no story → «طلبت مكالمة» card: «لم ترد», then «سجّل المكالمة». |
+| `01092000102` (أم ريم) | Website: housing (old rent; someone wants to evict her) with a written story; the picture answers under «اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة)». |
+| `01092000103` (no name) | «إحنا نكلمك» from the home page, any time: «محتاجين حد يكلمنا — أي وقت». |
+| `01092000201` (أم مروان) | WhatsApp: pension; a voice note typed by منى السيد and a photo of a paper → recommended «استشارة». |
+| `01092000202` (أم كريم) | WhatsApp: custody hearing at «محكمة الأسرة بالمطرية» → «قضية / ملف مستمر»; one untyped voice note. |
+| `01092000203` (سعاد) | WhatsApp: inheritance certificate → «ترد الإدارة» with the foundation's quick reply on that topic. |
+| `01092000204` (أم سارة) | WhatsApp: surgery costs → «توجيه لجهة أخرى» (the foundation's other programmes). |
+| `01092000205` (منى ع.) | WhatsApp: «حاجة تانية» from the topic list → «نسألها الأول». |
+| `01092000206` (أم حسن) | WhatsApp: still «القصة لسه بتتكتب…»; it becomes ready a few minutes after start (or press «لخّصها الآن»). |
+
+Also try the WhatsApp simulator (test voice note, photo, «خلاص», topic list buttons), «اعمل منها طلب جديد» under the
+messages of an open file, and Settings → «ألوان المؤسسة», then open `/` and `/app`.
+
 ---
 
 ## 10. How to run and deploy
@@ -655,6 +801,12 @@ no WhatsApp message is really sent: outgoing messages, portal login codes and la
   the full export when "include keys" is ticked); do not set `SESSION_TTL_HOURS` if you want lawyers' "remember me"
   (`render.yaml` no longer sets it — session length is managed in the security policy).
 - **Claude:** create an API key at console.anthropic.com, paste it in the integrations page, set a monthly budget.
+- **9.2 operations notes:** no new environment variables, dependencies or required WhatsApp templates; the database
+  migration only adds columns and two tables, and every older request is treated as "ready and analysed" (no Claude
+  call and no automated message because of the upgrade). Before launch an admin sets «ألوان المؤسسة», the call-back
+  number and days in Settings → «القصص الواردة على واتساب» (the site promises both to the beneficiary), and keeps the
+  welcome list and the acknowledgement off until the privacy-policy sentence about human review is changed. The
+  scheduler must stay on (job «تلخيص القصص المكتملة», every minute). See `DEPLOY.md` «ما الجديد تشغيليًا في 9.2».
 - Full details: `DEPLOY.md`.
 
 ---
@@ -711,6 +863,12 @@ no WhatsApp message is really sent: outgoing messages, portal login codes and la
     your request arrived".
 23. **(9.2) Unreachable requests:** the minimum number of failed call attempts before closing a request as
     «تعذّر الوصول إليها» (default 3 attempts on at least 2 different days).
+24. **(9.2) Wording and ordering left open by the final review** (each departs from the reviewed spec copy, so the
+    foundation decides): the relation option «وصية على أيتام» (proposed «وصية على العيال»; «وصية» stays ambiguous);
+    «احك{ي} لنا» in the WhatsApp welcome and topic nudge (in Egyptian «احكي» serves both genders); the staff warning
+    «كل رسائلها صوتية — غالبًا مش بتقرا؛ الأفضل تكلّمها.» (colloquial in a staff screen); call-back requests ordered
+    oldest first in the inbox (FIFO) rather than by the time she asked to be called; and whether staff wording should
+    guess a man from his first name (today only a «أبو …» kunya or an address form set by staff does).
 
 ---
 
@@ -729,3 +887,11 @@ no WhatsApp message is really sent: outgoing messages, portal login codes and la
   integration and security pass fixed the remaining findings (for example: the WhatsApp confirmation can never hand
   the holder of a website-request link the phone owner's data, links are built only from `PUBLIC_BASE_URL`, the `portal_update` template text is
   gender-neutral, and the knowledge anonymiser also removes children's names) before the version became 9.1.0.
+- **Version 9.2:** the user asked (in Egyptian Arabic) for picture tiles on entry for low-literacy users, the
+  foundation's colours, and AI that turns a WhatsApp or website story into a request. Three design documents were
+  merged into one spec (two adversarial reviews — one for beneficiaries, one for admin/security — were applied before
+  any code), then three lanes built it in parallel (public tiles and form, admin story-to-request, colours), each with
+  its own review and browser usability run. An integration gate then ran beneficiary and staff journeys, a security and
+  privacy probe, a regression run and an Arabic copy and accessibility review; two fixers closed the findings (most
+  importantly: a website request with no name never shows the phone owner's name, and split requests keep the sender's
+  verification) before the version became 9.2.0.
