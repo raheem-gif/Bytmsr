@@ -138,6 +138,11 @@ export function createDocuments(app) {
         storage_key: rel,
         uploaded_by_kind: uploader?.kind || (uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system'),
         uploaded_by_user_id: uploader?.id ?? null,
+        // v10 b2b-server (L-19، §4.4): ربط ملفات الشركات — رفع الشركة بلا معرّف مستخدم من users أبدًا
+        company_id: links.company_id ?? undefined,
+        company_request_id: links.company_request_id ?? undefined,
+        company_user_id: links.company_user_id ?? undefined,
+        assignment_id: links.assignment_id ?? undefined,
         created_at: nowIso(),
       });
       // v9.2 (admin-ai): رسالة صوتية من المستفيدة ← «لم تُكتب بعد» حتى تكتب الإدارة ما قالته (مدتها من الواجهة أو من ملف Ogg)
@@ -198,6 +203,20 @@ export function createDocuments(app) {
         user.id,
       );
       if (granted) return true;
+      // v10 b2b-server (B10-36، CS-11d): مستند عنصر ذاكرة شركة مُنح لإسناد نشط، حتى 7 أيام بعد إغلاق الملف
+      if (doc.company_id) {
+        const memoryGrant = db.get(
+          `SELECT 1 FROM company_memory_documents md JOIN assignment_memory_grants mg ON mg.memory_id = md.memory_id
+           JOIN assignments a ON a.id = mg.assignment_id JOIN cases c ON c.id = a.case_id
+           WHERE md.document_id = ? AND a.lawyer_id = ? AND a.status != 'withdrawn' AND c.company_id = ?
+             AND (c.closed_at IS NULL OR c.closed_at >= ?)`,
+          doc.id,
+          user.id,
+          doc.company_id,
+          new Date(Date.parse(nowIso()) - 7 * 86400000).toISOString(),
+        );
+        if (memoryGrant) return true;
+      }
       if (doc.matter_id) {
         const m = db.get('SELECT 1 FROM matters WHERE id = ? AND responsible_lawyer_id = ?', doc.matter_id, user.id);
         if (m) return true;

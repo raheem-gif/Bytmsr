@@ -2,8 +2,8 @@
 
 import { h, mount } from '../lib/h.js';
 import { api } from '../lib/api.js';
-import { label, relative, dateTime } from '../lib/fmt.js';
-import { icon, avatar, button, brandMark, loading, emptyState, richText } from '../lib/ui.js';
+import { label, relative, dateTime, staffChrome } from '../lib/fmt.js';
+import { icon, avatar, button, brandMark, loading, emptyState, richText, wordmark } from '../lib/ui.js';
 import { notifIcon, notifTone, markRead, followLink } from './notif.js';
 import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
 import { routeTitle } from './routes.js';
@@ -94,6 +94,8 @@ function writeNavState(state) {
 export function createShell({ user, meta, onLogout }) {
   const settings = (meta && meta.settings) || {};
   const orgName = settings.org_name || 'بيوت مصر';
+  // v10 experience (L-03): اسم المكتب في القائمة الجانبية وعنوان التبويب (وإلا اسم المؤسسة كما في 9.2)
+  const chrome = staffChrome();
   let unread = 0;
   let pollTimer = null;
   let destroyed = false;
@@ -218,8 +220,10 @@ export function createShell({ user, meta, onLogout }) {
       'a.brand',
       { href: '#/' },
       brandMark({ size: 24 }),
-      // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان
-      h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
+      // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان؛ v10: الشعار النصي للمكتب على سطرين
+      chrome.on
+        ? h('span.brand-text', wordmark({ size: 'md', tone: 'dark', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني'))
+        : h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
     ),
     nav,
     h(
@@ -447,7 +451,7 @@ export function createShell({ user, meta, onLogout }) {
     setTitle(t) {
       if (lawyerUi) lawyerUi.renderTitle(titleEl, t);
       else titleEl.textContent = t || '';
-      document.title = t ? `${t} — ${orgName}` : `منصة ${orgName} القانونية`;
+      document.title = chrome.on ? (t ? `${t} — ${chrome.short}` : chrome.short) : t ? `${t} — ${orgName}` : `منصة ${orgName} القانونية`;
     },
     setActive(path) {
       let best = null;

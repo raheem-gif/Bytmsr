@@ -5,7 +5,8 @@
 //   ic(name, size) → <svg>                          أيقونة خطية (phone, whatsapp, camera, image, check, chevron, back, …)
 //   btn(label, { kind: 'primary'|'secondary'|'whatsapp'|'text'|'ghost', icon, href, onClick, type, block, attrs })
 //   toast(text, tone = 'ok'|'info'|'warn')         تنبيه قصير أسفل الشاشة (aria-live)
-//   sheet({ title, body, onClose }) → { close }    لوحة سفلية بسيطة (حوار مع حبس التركيز وEscape)
+//   sheet({ title, body, onClose }) → { close }    لوحة سفلية بسيطة (حوار مع حبس التركيز وEscape)؛ تتبع الإصبع بعد تحميل الحركة
+//   haptic(kind) → اهتزاز خفيف (commit|success|…) بعد تحميل الوحدة في الخلفية، وإلا لا شيء (v10)
 //   getJson(url) / postJson(url, body)              fetch بصيغة JSON؛ الخطأ يحمل status وcode ورسالة الخادم العربية
 //   pageContact() → { phone, phoneHref, waDigits }  رقم المؤسسة وواتساب من رأس الموقع وتذييله (بلا طلب شبكة)
 //   waUrl(digits, text) → رابط wa.me أو null        (الرقم التوضيحي 201000000000 لا يُنتج رابطًا أبدًا)
@@ -80,8 +81,31 @@ export function btn(label, { kind = 'secondary', icon, href, onClick, type = 'bu
   return h('button', { class: cls, type, ...attrs, onClick }, ...kids);
 }
 
+// ───────────── v10 experience: حركة الأوراق والاهتزاز (L-11، X10-M2/M6، CS-32) ─────────────
+// الصفحة تُرسم أولًا بحزمتها الثابتة (h.js، portal-ui.js، portal.js، words.js ≤ 30 KB)، ثم في أول لحظة فراغ تُحمَّل وحدة
+// الورقة والاهتزاز ديناميكيًا؛ قبلها تفتح الأوراق وتُغلق فورًا كما في 9.1. لا تُحمَّل أبدًا مع «توفير البيانات» أو على 2G.
+let SM = null;
+let buzz = null;
+const lite = () => {
+  const c = globalThis.navigator?.connection;
+  return !!c && (c.saveData === true || /2g$/.test(c.effectiveType || ''));
+};
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const warm = () =>
+    Promise.all([import('../lib/sheet-motion.js'), import('../lib/haptics.js')]).then(
+      ([m, hp]) => ((SM = m), (buzz = hp.haptic)),
+      () => {},
+    );
+  const idle = () => (window.requestIdleCallback ? window.requestIdleCallback(warm, { timeout: 4000 }) : setTimeout(warm, 1500));
+  if (!lite()) document.readyState === 'complete' ? idle() : window.addEventListener('load', idle, { once: true });
+  // X10-P3: iOS Safari لا يطبّق :active (ضغط الأزرار) إلا بمستمع touchstart في الصفحة
+  document.addEventListener('touchstart', () => {}, { passive: true });
+}
+/** اهتزاز خفيف عند إجراء تم فعلًا (لا عند الفتح أو الإغلاق أو الكتابة) */
+export const haptic = (kind = 'commit') => (buzz ? buzz(kind) : false);
+
 let toastHost = null;
-/** تنبيه قصير يُقرأ لقارئ الشاشة ويختفي وحده */
+/** تنبيه قصير يُقرأ لقارئ الشاشة ويختفي وحده؛ يدخل من الحافة السفلية ويخرج من نفس المسار (X10-F1) */
 export function toast(text, tone = 'ok', ms = 4000) {
   if (!toastHost || !document.body.contains(toastHost)) {
     toastHost = h('div.bp-toasts', { 'aria-live': 'polite', role: 'status' });
@@ -89,22 +113,50 @@ export function toast(text, tone = 'ok', ms = 4000) {
   }
   const t = h('div.bp-toast', { class: `is-${tone}` }, ic(tone === 'ok' ? 'checkCircle' : 'info', 20), h('span', text));
   toastHost.append(t);
-  setTimeout(() => t.classList.add('is-out'), ms);
-  setTimeout(() => t.remove(), ms + 250);
+  void t.offsetWidth;
+  t.classList.add('is-in');
+  setTimeout(() => {
+    t.classList.add('is-out');
+    t.addEventListener('transitionend', () => t.remove(), { once: true });
+    setTimeout(() => t.remove(), 400);
+  }, ms);
   return t;
 }
 
-/** لوحة سفلية (حوار) بسيطة: العنوان والمحتوى، تُغلق بزر × أو Escape أو بالضغط خارجها */
+// v10 experience (L-64): قفل التمرير عدّاد (لوحة تُغلق وأخرى تُفتح لا تفتح التمرير خلف الباقية)
+let noScroll = 0;
+const scrollLock = (on) => {
+  noScroll = Math.max(0, noScroll + (on ? 1 : -1));
+  document.documentElement.classList.toggle('bp-noscroll', noScroll > 0);
+};
+
+/**
+ * لوحة سفلية (حوار) بسيطة: العنوان والمحتوى، تُغلق بزر × أو Escape أو بالضغط خارجها.
+ * بعد تحميل الحركة: تدخل من أسفل وتتبع الإصبع من المقبض أو الترويسة (رمية أو سحب بعد المنتصف يغلق، والتراجع يبقيها).
+ * close() البرمجي ينفّذ الإغلاق المنطقي فورًا (L-64)؛ الإغلاق الذي يبدؤه المستخدم يمكن إيقافه بالإمساك أثناء الخروج.
+ */
 export function sheet({ title, body, onClose } = {}) {
   const prev = document.activeElement;
   const titleId = `bp-sheet-${Math.random().toString(36).slice(2, 8)}`;
   let closed = false;
-  const close = () => {
+  let motion = null;
+  let exiting = false;
+  const close = (exited = false) => {
     if (closed) return;
     closed = true;
-    wrap.remove();
     document.removeEventListener('keydown', onKey);
-    document.documentElement.classList.remove('bp-noscroll');
+    scrollLock(false);
+    // العقدة المغادرة خارج التفاعل وقارئات الشاشة فورًا، وحركة الخروج تكمل وحدها
+    wrap.inert = true;
+    wrap.setAttribute('aria-hidden', 'true');
+    wrap.classList.add('is-leaving');
+    behind.forEach((c) => (c.inert = false));
+    const m = motion;
+    const rm = () => (m?.destroy(), wrap.remove());
+    if (m && exited !== true) {
+      m.exit('close').then(rm);
+      setTimeout(rm, 700);
+    } else rm();
     try {
       prev?.focus?.();
     } catch {
@@ -112,8 +164,16 @@ export function sheet({ title, body, onClose } = {}) {
     }
     onClose?.();
   };
+  const dismiss = async () => {
+    if (closed || exiting) return;
+    if (!motion) return close();
+    exiting = true;
+    const out = await motion.exit('dismiss', { interruptible: true });
+    exiting = false;
+    if (out) close(true);
+  };
   const onKey = (e) => {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') dismiss();
     if (e.key === 'Tab') {
       const f = [...panel.querySelectorAll('button, a[href], input, textarea, select, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
       if (!f.length) return;
@@ -126,18 +186,23 @@ export function sheet({ title, body, onClose } = {}) {
       }
     }
   };
-  const panel = h(
-    'div.bp-sheet',
-    { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId },
-    h('div.bp-sheet-head', h('h2', { id: titleId }, title), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إغلاق', onClick: close }, ic('x', 22))),
-    h('div.bp-sheet-body', body),
-  );
-  const wrap = h('div.bp-sheet-wrap', { onClick: (e) => e.target === wrap && close() }, panel);
+  const grip = SM ? h('div.bp-sheet-grip', { 'aria-hidden': 'true' }) : null;
+  const head = h('div.bp-sheet-head', h('h2', { id: titleId }, title), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إغلاق', onClick: dismiss }, ic('x', 22)));
+  const panel = h('div.bp-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId }, grip, head, h('div.bp-sheet-body', body));
+  const scrim = h('div.bp-sheet-scrim', { 'aria-hidden': 'true' });
+  const wrap = h('div.bp-sheet-wrap', { onClick: (e) => (e.target === wrap || e.target === scrim) && dismiss() }, scrim, panel);
+  // v10 (مراجعة): الصفحة خلف اللوحة خارج قارئ الشاشة ولوحة المفاتيح (aria-modal وحده لا يكفي في Safari القديم)؛ التنبيهات تبقى مسموعة
+  const behind = [...document.body.children].filter((c) => !c.inert && c !== toastHost && c.tagName !== 'SCRIPT');
+  behind.forEach((c) => (c.inert = true));
   document.body.append(wrap);
-  document.documentElement.classList.add('bp-noscroll');
+  scrollLock(true);
   document.addEventListener('keydown', onKey);
+  if (SM) {
+    motion = SM.attachSheet({ panel, scrim, handles: [grip, head], onDismissed: () => close(true) });
+    motion.enter();
+  }
   requestAnimationFrame(() => (panel.querySelector('button:not(.bp-icon-btn), a[href], input, textarea') || panel.querySelector('button'))?.focus());
-  return { close, panel };
+  return { close: () => close(), panel };
 }
 
 /** خطأ طلب: status = 0 لانقطاع الشبكة، وإلا رمز HTTP مع رسالة الخادم العربية */

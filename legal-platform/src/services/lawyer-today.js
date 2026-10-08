@@ -135,7 +135,7 @@ export function createLawyerToday(app) {
         returnedNotes.set(id, o || null);
       }
       for (const a of assignments) {
-        const base = { assignment_id: a.id, case_code: a.case_code, case_title: a.case_title, due_at: a.due_at || null };
+        const base = { assignment_id: a.id, case_code: a.case_code, case_title: a.case_title, due_at: a.due_at || null, company: !!a.company, company_name: a.company_name || null, review: !!a.review }; // v10 (D6)
         if (a.status === 'returned') {
           const o = returnedNotes.get(a.id);
           actions.push({ kind: 'assignment_returned', at: o?.reviewed_at || a.due_at || t, ...base, notes_count: countNotes(o?.review_note) });
@@ -223,7 +223,7 @@ export function createLawyerToday(app) {
         actions: actions.slice(0, 50),
         upcoming: upcoming.slice(0, 3),
         work: {
-          assignments: assignments.map((a) => ({ id: a.id, case_code: a.case_code, case_title: a.case_title, status: a.status, due_at: a.due_at || null })),
+          assignments: assignments.map((a) => ({ id: a.id, case_code: a.case_code, case_title: a.case_title, status: a.status, due_at: a.due_at || null, company: !!a.company, company_name: a.company_name || null, review: !!a.review })), // v10 (D6)
           matters: matters.map((m) => ({ id: m.id, code: m.code, title: m.title, status: m.status, next_event_at: m.next_event_at || null })),
         },
         pay: payFor(lawyer.id, t),

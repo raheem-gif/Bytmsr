@@ -25,6 +25,7 @@ import {
 } from '../../components/draft-store.js';
 import { diffParagraphs } from '../../components/text-diff.js';
 import { docRow, openDocument, lwIcon } from '../../components/doc-viewer.js';
+import { haptic } from '../../../lib/haptics.js'; // v10 experience (H-E5)
 
 const AI_PLACEHOLDER_RE = /\[يُستكمل/;
 const MIN_SUBMIT_CHARS = 20;
@@ -779,6 +780,7 @@ export default async function render(ctx) {
               left = true;
               saver.destroy();
               cleanup();
+              haptic('success'); // v10 experience (H-E5, X10-M6): الرأي قُدّم
               toast(`قُدّم رأيك (الإصدار ${num(res.version)}). ستصلك النتيجة هنا.`, 'success', 6000);
               ctx.navigate(`${overviewPath}?tab=mine`);
               return undefined;

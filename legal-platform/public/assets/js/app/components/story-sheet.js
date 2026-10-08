@@ -9,6 +9,7 @@ import { modal, form, field, button, asyncButton, badge, icon, alertBox, toast, 
 import { programSelect } from './program-picker.js';
 import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
+import { haptic } from '../../lib/haptics.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -30,6 +31,7 @@ const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون �
 
 /** رسالة تأكيد النجاح بعد القرار (§6.4/A92-19) + « (إرسال تجريبي)» عند المحاكاة */
 export function acceptToast(res) {
+  haptic('success'); // v10 (X10-M6): «اعمله طلب» قُبل (على الحاسوب: لا شيء)
   const sim = res.message && res.message.status === 'simulated' ? ' (إرسال تجريبي)' : '';
   let text;
   // [بوابة 9.2 G15] «(إرسال تجريبي)» يخص الرسالة التي وصلتها، لا اختيار المحامي

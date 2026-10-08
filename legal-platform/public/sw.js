@@ -200,26 +200,26 @@ function offlineResponse() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0f4c5c">
+<meta name="theme-color" content="#0b5a3c">
 <title>لا يوجد اتصال — ${org}</title>
 <style>
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:#f3f5f7;color:#16202a;
     font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;line-height:1.8;font-size:17px}
   main{max-width:440px;width:100%;background:#fff;border:1px solid #dfe5ea;border-radius:20px;padding:32px 24px;text-align:center;
-    box-shadow:0 12px 40px rgba(8,42,51,.08)}
-  .mark{width:72px;height:72px;margin:0 auto 18px;border-radius:18px;background:#0f4c5c;display:grid;place-items:center}
+    box-shadow:0 12px 40px rgba(8,50,33,.08)}
+  .mark{width:72px;height:72px;margin:0 auto 18px;border-radius:18px;background:#0b5a3c;display:grid;place-items:center}
   h1{font-size:22px;margin:0 0 8px}
   p{margin:0 0 12px;color:#4f5d6b}
-  .retry{display:inline-flex;align-items:center;justify-content:center;font-weight:600;margin-top:8px;min-height:48px;padding:10px 28px;border-radius:12px;background:#0f4c5c;color:#fff;text-decoration:none}
-  .retry:focus-visible{outline:3px solid #b8862e;outline-offset:3px}
+  .retry{display:inline-flex;align-items:center;justify-content:center;font-weight:600;margin-top:8px;min-height:48px;padding:10px 28px;border-radius:12px;background:#0b5a3c;color:#fff;text-decoration:none}
+  .retry:focus-visible{outline:3px solid #c9a14a;outline-offset:3px}
   small{display:block;margin-top:16px;color:#677583;font-size:14px}
 </style>
 </head>
 <body>
 <main>
   <div class="mark" aria-hidden="true">
-    <svg width="44" height="44" viewBox="0 0 64 64"><g fill="none" stroke="#dcbd84" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 30 32 10.5 56 30"/><path d="M14.5 25.5V53h35V25.5"/><path d="M32 19.5v27.5"/><path d="M26 47h12"/><path d="M22 27.5c3.5.8 6.8-.2 10-2 3.2 1.8 6.5 2.8 10 2"/><path d="M22 27.5l-3.8 8.5c1 .9 2.3 1.4 3.8 1.4s2.8-.5 3.8-1.4z"/><path d="M42 27.5l-3.8 8.5c1 .9 2.3 1.4 3.8 1.4s2.8-.5 3.8-1.4z"/></g></svg>
+    <svg width="44" height="44" viewBox="0 0 24 24"><g fill="none" stroke="#dabe86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></g></svg>
   </div>
   <h1>لا يوجد اتصال بالإنترنت</h1>
   <p>تعذر فتح منصة ${org} لأن جهازك غير متصل بالشبكة الآن.</p>

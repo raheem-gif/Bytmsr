@@ -2,8 +2,8 @@
 
 import { h } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label } from '../../lib/fmt.js';
-import { form, icon, badge, statusTone, asyncButton, alertBox, avatar, brandMark } from '../../lib/ui.js';
+import { label, staffChrome } from '../../lib/fmt.js';
+import { form, icon, badge, statusTone, asyncButton, alertBox, avatar, brandMark, wordmark } from '../../lib/ui.js';
 
 /**
  * @param {{meta:object, expired?:boolean, onLogin:(user:object)=>void}} opts
@@ -11,6 +11,7 @@ import { form, icon, badge, statusTone, asyncButton, alertBox, avatar, brandMark
 export default function renderLogin({ meta, expired = false, onLogin }) {
   const settings = (meta && meta.settings) || {};
   const org = settings.org_name || 'بيوت مصر';
+  const chrome = staffChrome();
   const year = new Date().getFullYear();
 
   const loginForm = form(
@@ -78,7 +79,10 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
       h(
         'div.brand',
         brandMark({ size: 28 }),
-        h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني')),
+        // v10 experience (L-03): الشعار النصي للمكتب، أو اسم المؤسسة كما في 9.2 حين يُوقف في الإعدادات
+        chrome.on
+          ? h('span.brand-text', wordmark({ size: 'lg', tone: 'dark', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني'))
+          : h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني')),
       ),
       h(
         'div.login-pitch',

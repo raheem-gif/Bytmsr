@@ -317,7 +317,8 @@ async function loadMeta() {
   const pd = publicData();
   if (pd && Object.keys(pd).length && pd.org_name) {
     meta = {
-      org: pd.org_name,
+      // v10 experience (X10-B3 #9): اسم المكتب كما يراه الناس
+      org: pd.brand?.name || pd.org_name,
       phone: pd.phone || '',
       phoneHref: pd.phone_e164 || pd.phone ? `tel:${pd.phone_e164 || pd.phone}` : '',
       wa: pd.whatsapp_digits || '',
@@ -331,7 +332,7 @@ async function loadMeta() {
   try {
     const m = await getJson('/api/meta');
     meta = {
-      org: m.settings?.org_name || m.site?.org_name || '',
+      org: m.brand?.name || m.settings?.org_name || m.site?.org_name || '',
       phone: m.site?.org_phone || '',
       phoneHref: m.site?.org_phone_e164 || m.site?.org_phone ? `tel:${m.site.org_phone_e164 || m.site.org_phone}` : '',
       wa: m.settings?.whatsapp_number_digits || '',

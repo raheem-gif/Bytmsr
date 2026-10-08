@@ -204,6 +204,7 @@ export function createOpinions(app) {
     /** إنشاء/تعديل مسودة الرد على العميل (الصياغة النهائية قد تختلف عن الصياغة المهنية الداخلية) */
     saveClientAnswer(caseId, actor, body) {
       const c = app.cases.requireOpen(caseId);
+      if (c.company_id) throw new ApiError(409, 'هذا ملف طلب شركة؛ يصلها الرد كتسليم من صفحة طلب الشركة.', 'company_case_use_deliverables'); // v10 b2b-server (حارس #12)
       const text = v.str(body.body, 'نص الرد على العميل', { required: true, max: 4000, trim: false });
       const opinionId = v.int(body.opinion_id, 'الرأي المرتبط', { min: 1 });
       if (opinionId) {
@@ -237,6 +238,7 @@ export function createOpinions(app) {
       if (!ans) throw notFound('مسودة الرد غير موجودة');
       if (ans.status === 'sent') throw conflict('تم إرسال هذا الرد بالفعل');
       const c = app.cases.requireOpen(ans.case_id);
+      if (c.company_id) throw new ApiError(409, 'هذا ملف طلب شركة؛ يصلها الرد كتسليم من صفحة طلب الشركة.', 'company_case_use_deliverables'); // v10 b2b-server (حارس #12)
       // v9.1 b-portal (B91-08): مع الخلاصة تصل الرسالة قصيرة (التحية، الخلاصة، الخطوات، رابط صفحتها)، والرد الكامل في صفحتها
       const short = answerMessageText(app, ans, c);
       // v9.1 fixes: نص واتساب وحده يحمل {portal_link} (يُصدر الرابط عند الإرسال الفعلي)؛ النص المحفوظ بلا رابط

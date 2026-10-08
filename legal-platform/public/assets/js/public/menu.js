@@ -79,6 +79,8 @@ export function initMenu() {
 /** سلوك الرأس والتذييل المشترك: القائمة، وروابط البدء تحتفظ بمعاملات الحملة حتى صفحة الطلب. */
 export function initSiteChrome() {
   initMenu();
+  // v10 (X10-P3): iOS Safari لا يطبّق :active (ضغط المربعات والأزرار) إلا بمستمع touchstart في الصفحة
+  document.addEventListener('touchstart', () => {}, { passive: true });
   document.querySelectorAll('a[data-cta="intake"]').forEach((a) => {
     a.setAttribute('href', withCampaignParams(a.getAttribute('href') || '/intake'));
   });

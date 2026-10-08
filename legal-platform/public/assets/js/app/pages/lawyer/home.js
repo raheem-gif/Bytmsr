@@ -10,6 +10,7 @@ import { api } from '../../../lib/api.js';
 import { time, shortDate, money, num, normalizeEgPhone } from '../../../lib/fmt.js';
 import { button, icon, toast, modal, errorMessage, asyncButton } from '../../../lib/ui.js';
 import { withPasswordConfirm, REAUTH_CANCELLED } from '../../lh-reauth.js';
+import { haptic } from '../../../lib/haptics.js'; // v10 experience (H-E5)
 import {
   NAV,
   count,
@@ -275,6 +276,7 @@ export default async function render(ctx) {
       toast(errorMessage(err), 'danger');
       return;
     }
+    haptic('commit'); // v10 experience (H-E5, X10-M6): «تم» سُجّلت
     const t = toast('سُجّلت المهمة منجزة', 'success', 5000);
     const undo = h('button.lh-toast-undo', { type: 'button' }, 'تراجع');
     undo.addEventListener('click', async () => {

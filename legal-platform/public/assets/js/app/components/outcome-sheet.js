@@ -18,6 +18,7 @@ import { api } from '../../lib/api.js';
 import { modal, choiceTiles, icon, toast, confirmDialog, setBusy, uid, errorMessage } from '../../lib/ui.js';
 import { label, options, time, weekday, date, shortDate, isoToCairoDate, cairoToday, cairoInputToIso } from '../../lib/fmt.js';
 import { outboxSend, initOutbox } from './outbox.js';
+import { haptic } from '../../lib/haptics.js';
 
 const BEN = 'المستفيد/ة';
 
@@ -393,6 +394,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
         }
         outcome = 'saved';
         m.close('saved');
+        haptic('success'); // v10 (X10-M6): نتيجة الجلسة حُفظت فعلًا (لا عند الحفظ في الصندوق بلا شبكة)
         const nx = r.data && r.data.next_event ? isoToCairoDate(r.data.next_event.starts_at) : nextKey;
         toast(nx ? `حُفظت النتيجة. الجلسة القادمة: ${shortDay(nx)}.` : 'حُفظت النتيجة.', 'success', 5000);
         if (onSaved) onSaved(r.data);

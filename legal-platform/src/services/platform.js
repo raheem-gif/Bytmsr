@@ -4,17 +4,30 @@ import { nowIso, parseJson } from '../util.js';
 /** سجل الأمان والتدقيق: من فعل ماذا ومتى ومن أين (لا يُعدَّل ولا يُحذف من الواجهة) */
 export function createAudit(app) {
   const { db } = app;
+  // v10 b2b-server (L-20): عمودا الشركة على سجل الأمان. الجدول يُنشأ في schema.d/00-core.sql بعد خطوة .columns.json
+  // على قاعدة بيانات جديدة، فيُضافان هنا (إضافة آمنة تتكرر بلا أثر على قاعدة 9.2 أو 10.0)
+  try {
+    const cols = db.all('PRAGMA table_info(security_events)').map((r) => r.name);
+    for (const col of ['company_id', 'company_user_id']) if (cols.length && !cols.includes(col)) db.raw.exec(`ALTER TABLE security_events ADD COLUMN ${col} INTEGER`);
+    if (cols.length) db.raw.exec('CREATE INDEX IF NOT EXISTS idx_security_events_company ON security_events(company_id, created_at)');
+  } catch (e) {
+    app.log('security_events company columns', e);
+  }
   return {
     /**
      * @param {{actor?:object, type:string, summary:string, severity?:'info'|'warning'|'critical', ip?:string, user_agent?:string, data?:object, ctx?:object}} e
      * ctx: سياق الطلب (يُستخرج منه عنوان IP والمتصفح تلقائيًا)
+     * v10 b2b-server (L-19/L-20): company_id وcompany_user_id اختياريان لأحداث الشركات؛ فاعل الشركة { kind: 'company', name }
+     * بلا id (لا يُكتب معرّف مستخدم شركة في user_id أبدًا)
      */
-    log({ actor = null, type, summary, severity = 'info', ip = null, user_agent = null, data = null, ctx = null }) {
+    log({ actor = null, type, summary, severity = 'info', ip = null, user_agent = null, data = null, ctx = null, company_id = null, company_user_id = null }) {
       try {
         db.insert('security_events', {
           type,
           severity,
-          user_id: actor?.id ?? null,
+          user_id: actor?.kind ? null : actor?.id ?? null, // v10 b2b-server: فاعل بنوع (شركة/نظام) لا يُكتب في user_id
+          company_id: company_id ?? undefined,
+          company_user_id: company_user_id ?? undefined,
           actor_name: actor?.name ?? (actor?.kind ? actor.kind : null),
           ip: ip ?? ctx?.ip ?? null,
           user_agent: (user_agent ?? (ctx?.req?.headers?.['user-agent'] || null))?.slice(0, 300) ?? null,

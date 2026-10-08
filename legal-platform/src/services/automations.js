@@ -37,7 +37,7 @@ export function createAutomations(app) {
   }
 
   /** اسم المؤسسة لتوقيع رسائل العميل الآلية ({org_name}) */
-  const orgName = () => app.settings.get('org_name') || 'بيوت مصر';
+  const orgName = () => app.brand.displayName(); // v10 experience (H-E3): اسم المكتب كما يراه العملاء
 
   // ───────────── v9.1 b-site (B91-01/B91-10) ─────────────
   /**
@@ -119,7 +119,8 @@ export function createAutomations(app) {
       const events = db.all(
         `SELECT e.*, m.code AS matter_code, m.court AS matter_court, m.client_id, m.case_id, c.intake_id FROM matter_events e
          JOIN matters m ON m.id = e.matter_id JOIN cases c ON c.id = m.case_id
-         WHERE e.status = 'scheduled' AND e.client_attendance_required = 1 AND e.starts_at > ? AND e.starts_at <= ? AND m.status != 'closed'`,
+         WHERE e.status = 'scheduled' AND e.client_attendance_required = 1 AND e.starts_at > ? AND e.starts_at <= ? AND m.status != 'closed'
+           AND c.company_id IS NULL`, // v10 b2b-server (حارس #1): لا تذكير واتساب لملفات الشركات
         t,
         until,
       );
@@ -191,7 +192,8 @@ export function createAutomations(app) {
       const invoices = db.all(
         `SELECT i.*, c.intake_id FROM invoices i LEFT JOIN cases c ON c.id = i.case_id
          WHERE i.status IN ('unpaid','partially_paid') AND i.due_at < ? AND i.reminder_count < ?
-           AND (i.client_agreed_at IS NOT NULL OR EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = i.id))`, // v9.1 b-portal (B91-18): لا تذكير بمبلغ لم توافق عليه المستفيدة (دفع جزء منه موافقة)
+           AND (i.client_agreed_at IS NOT NULL OR EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = i.id))
+           AND NOT EXISTS (SELECT 1 FROM clients x WHERE x.id = i.client_id AND x.company_id IS NOT NULL)`, // v9.1 b-portal (B91-18): لا تذكير بمبلغ لم توافق عليه المستفيدة (دفع جزء منه موافقة) · v10 b2b-server (حارس #2)
         t,
         max,
       );
@@ -232,6 +234,7 @@ export function createAutomations(app) {
       const list = db.all(
         `SELECT ir.*, c.code AS case_code, c.client_id, c.intake_id FROM info_requests ir JOIN cases c ON c.id = ir.case_id
          WHERE ir.status = 'sent_to_client' AND ir.sent_at <= ? AND ir.reminder_count < ? AND c.status != 'closed'
+           AND c.company_id IS NULL -- v10 b2b-server (حارس #3): استيضاحات الشركات عبر بوابتها
            -- إذا كتب العميل بعد إرسال الطلب (أو بعد آخر تذكير) فقد يكون ردًا لم تسجله الإدارة بعد: لا نذكّره
            -- (الرسائل المرتبطة صراحة بطلب آخر، كالرد عليه من البوابة، لا تُحتسب)
            AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.client_id = c.client_id AND m.direction = 'in'

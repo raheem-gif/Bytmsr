@@ -361,12 +361,14 @@ export function staffLines(form) {
   return lines;
 }
 
-/** نص واتساب الجاهز لموضوع: «السلام عليكم، عندي مشكلة في الورث.»؛ «حاجة تانية» (أو بلا موضوع) = التحية العامة */
-export function waPrefill(key, orgName) {
+/**
+ * نص واتساب الجاهز لموضوع: «السلام عليكم، عندي مشكلة في الورث.»؛ «حاجة تانية» (أو بلا موضوع) = التحية العامة.
+ * v10 experience (X10-B3 #7): التحية العامة بلا اسم (مثل SITE_GREETING في الخادم) — المعامل الثاني لم يعد يُستخدم.
+ */
+export function waPrefill(key) {
   const t = topicByKey(key);
   if (t && t.wa_phrase) return `${WA_PREFILL}${t.wa_phrase}.`;
-  const org = String(orgName || '').trim() || 'مؤسسة بيوت مصر';
-  return `السلام عليكم ${org}، عايزة أحكيلكم مشكلتي.`;
+  return 'السلام عليكم، عايزة أحكيلكم مشكلتي.';
 }
 
 const norm = (s) =>

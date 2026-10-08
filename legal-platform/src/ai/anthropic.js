@@ -3,6 +3,7 @@
 // كل استدعاء يُبلَّغ عنه عبر onUsage (الرموز، النموذج، زمن الاستجابة، النجاح أو الخطأ) لحساب التكلفة وسقف الإنفاق.
 import { AREA_CODES, LABELS } from '../constants.js';
 import { STORY_TRACKS } from '../constants.js'; // v9.2 (admin-ai)
+import { REQUEST_TYPE_KEYS, B2B_SKILLS, RISK_CODES, EXCLUDED_WORK, DELIVERABLE_KINDS } from '../../public/assets/js/lib/company-catalog.js'; // v10 b2b-server (L-29)
 
 export class AiUnavailable extends Error {
   constructor(message, code = 'unavailable') {
@@ -188,6 +189,155 @@ ${AREA_GUIDE}
 - missing_related: المستندات المرتبطة التي يُستحسن طلبها لاستكمال الإثبات.
 - legible=false إذا تعذرت قراءة معظم المستند.`,
 };
+
+// ───────────── v10 b2b-server (L-29، B10 §10.1/§10.3): خدمة الشركات — نظام منفصل لا يمس SYSTEM_BASE ─────────────
+const SYSTEM_B2B = `أنت مساعد قانوني داخلي لدى «{ORG}»، مكتب محاماة واستشارات يعمل إدارةً قانونية خارجية لشركات مصرية. فريق المكتب يقرر وأنت تقترح فقط.
+- مجال العمل: الممارسة المصرية في القانون التجاري والشركات والعمل وحماية المستهلك وحماية البيانات الشخصية والمنافسة والضرائب والتراخيص.
+- لا تذكر رقم قانون أو مادة إلا إن كنت متأكدًا؛ وإلا فاكتب «يحدد المحامي النص القانوني الحاكم».
+- لا تخترع وقائع ولا مبالغ ولا تواريخ لم ترد في الطلب.
+- اكتب بالعربية الفصحى بلغة الأعمال، وافهم لغة العقود الإنجليزية ويجوز أن تقتبس عناوين البنود الإنجليزية كما هي.
+- الخصوصية: لا تكتب أسماء موظفي الشركة ولا بريدهم ولا هواتفهم في أي نص موجه للمحامي؛ أسماء الأطراف التجارية (الطرف الآخر، المورد، الجهة) مسموحة.
+- ذاكرة الشركة المرفقة تخص هذه الشركة وحدها؛ لا تعممها ولا تفترض وجود شركات أخرى.
+- التزم بالمخطط المطلوب حرفيًا.`;
+
+const PROMPT_COMPANY_TRIAGE = `مهمتك: فرز طلب وارد من شركة عميلة قبل أن يقرر فريق المكتب قبوله أو الاستيضاح أو إرسال عرض سعر.
+- type: نوع الطلب الأنسب من القائمة؛ اختيار الشركة يُحترم ما لم يدل النص بوضوح على نوع آخر. type_confidence من 0 إلى 1 و type_reason جملة واحدة.
+- one_line: سطر واحد (حتى 140 حرفًا) للفريق يصف المطلوب.
+- practice_area و secondary_areas من رموز المجالات؛ skills من قائمة المهارات فقط.
+- urgency و urgency_reason: استند إلى تاريخ اليوم والمواعيد المذكورة (الحاجة قبل، موعد الرد، موعد الإطلاق، موعد التوقيع).
+- deadlines: كل موعد مذكور بتاريخ YYYY-MM-DD أو نص فارغ إن لم يُحدد.
+- risk_flags: من رموز المخاطر فقط مع درجة وملاحظة قصيرة.
+- missing_info: ما ينقص لإبداء الرأي (kind=document للمستندات) مع السبب؛ لا تطلب ما أرفقته الشركة أو ذكرته.
+- excluded_work: نوع العمل المستبعد عادةً من الباقات إن انطبق، وإلا none؛ scope_reason جملة واحدة.
+- effort: الحجم المتوقع وساعات العمل التقديرية.
+- deliverable_kind: شكل التسليم المناسب.
+- brief_for_lawyer: وقائع محايدة والسؤال القانوني الدقيق بلا أي اسم أو وسيلة تواصل لموظفي الشركة.
+- issues: المسائل القانونية مرقمة (حتى 8). questions_for_company: حتى 5 أسئلة استيضاح بلغة أعمال مهذبة.
+- memory_refs: فقط من المراجع المرفقة (M-… و R-…) مع سبب الصلة؛ لا تخترع مراجع.
+- confidence: ثقتك في الفرز كله من 0 إلى 1.`;
+
+PROMPTS.company_triage = PROMPT_COMPANY_TRIAGE;
+PROMPTS.company_deliverable = `مهمتك: تحويل رأي قانوني معتمد كتبه محامي المكتب إلى تسليم تقرؤه إدارة شركة عميلة.
+- summary: خلاصة تنفيذية بلغة الأعمال (حتى 600 حرف): ماذا تفعل الشركة ولماذا، بلا مصطلحات غير ضرورية.
+- recommendations: حتى 8 توصيات عملية قصيرة (حتى 200 حرف لكل منها) بترتيب الأولوية؛ استرشد بخطوات المحامي إن وُجدت.
+- risk_level: low أو medium أو high بحسب الرأي ودرجة المخاطر المرفقة.
+- body: نسخة مقروءة للشركة من الرأي (حتى 8000 حرف) تحافظ على المضمون القانوني دون إضافة.
+- ممنوع ذكر اسم أي محامٍ أو أي رمز داخلي للمكتب أو رقم ملف؛ التسليم يصدر باسم المكتب وحده.
+- لا تضف وقائع أو أرقام مواد لم ترد في الرأي.`;
+
+const B2B_STR_ARR = { type: 'array', items: { type: 'string' } };
+const COMPANY_TRIAGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: [...REQUEST_TYPE_KEYS] },
+    type_confidence: { type: 'number' },
+    type_reason: { type: 'string' },
+    one_line: { type: 'string' },
+    practice_area: { type: 'string', enum: [...AREA_CODES] },
+    secondary_areas: { type: 'array', items: { type: 'string', enum: [...AREA_CODES] } },
+    skills: { type: 'array', items: { type: 'string', enum: B2B_SKILLS.map((x) => x.key) } },
+    urgency: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
+    urgency_reason: { type: 'string' },
+    deadlines: {
+      type: 'array',
+      items: { type: 'object', properties: { label: { type: 'string' }, date: { type: 'string' } }, required: ['label', 'date'], additionalProperties: false },
+    },
+    risk_flags: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { code: { type: 'string', enum: RISK_CODES.map((x) => x.key) }, severity: { type: 'string', enum: ['low', 'medium', 'high'] }, note: { type: 'string' } },
+        required: ['code', 'severity', 'note'],
+        additionalProperties: false,
+      },
+    },
+    missing_info: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { kind: { type: 'string', enum: ['document', 'information'] }, item: { type: 'string' }, why: { type: 'string' } },
+        required: ['kind', 'item', 'why'],
+        additionalProperties: false,
+      },
+    },
+    excluded_work: { type: 'string', enum: [...EXCLUDED_WORK.map((x) => x.key), 'none'] },
+    scope_reason: { type: 'string' },
+    effort: {
+      type: 'object',
+      properties: { size: { type: 'string', enum: ['S', 'M', 'L', 'XL'] }, hours_min: { type: 'number' }, hours_max: { type: 'number' }, reason: { type: 'string' } },
+      required: ['size', 'hours_min', 'hours_max', 'reason'],
+      additionalProperties: false,
+    },
+    senior_review_recommended: { type: 'boolean' },
+    deliverable_kind: { type: 'string', enum: DELIVERABLE_KINDS.map((x) => x.key) },
+    brief_for_lawyer: { type: 'string' },
+    issues: B2B_STR_ARR,
+    questions_for_company: B2B_STR_ARR,
+    memory_refs: {
+      type: 'array',
+      items: { type: 'object', properties: { ref: { type: 'string' }, why: { type: 'string' } }, required: ['ref', 'why'], additionalProperties: false },
+    },
+    confidence: { type: 'number' },
+  },
+  required: [
+    'type', 'type_confidence', 'type_reason', 'one_line', 'practice_area', 'secondary_areas', 'skills', 'urgency', 'urgency_reason', 'deadlines', 'risk_flags',
+    'missing_info', 'excluded_work', 'scope_reason', 'effort', 'senior_review_recommended', 'deliverable_kind', 'brief_for_lawyer', 'issues', 'questions_for_company',
+    'memory_refs', 'confidence',
+  ],
+  additionalProperties: false,
+};
+
+const COMPANY_DELIVERABLE_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    recommendations: B2B_STR_ARR,
+    risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
+    body: { type: 'string' },
+  },
+  required: ['summary', 'recommendations', 'risk_level', 'body'],
+  additionalProperties: false,
+};
+
+/** نص الطلب لـ Claude: بلا أسماء موظفي الشركة ولا بريد ولا هواتف ولا أرقام قومية (B10 §10.1) */
+function companyTriageContent(ctx) {
+  const names = (ctx.names || []).filter(Boolean).sort((a, b) => b.length - a.length);
+  const clean = (text) => {
+    let s = String(text ?? '');
+    s = s.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[بريد إلكتروني]');
+    s = s.replace(/\b[23]\d{13}\b/g, '[رقم قومي]');
+    s = s.replace(/(?:\+|00)?\d[\d\s-]{7,16}\d/g, (m) => {
+      const d = m.replace(/\D/g, '').length;
+      return /^\d{4}-\d{1,2}-\d{1,2}$/.test(m.trim()) || d < 8 || d > 15 ? m : '[رقم هاتف]';
+    });
+    for (const n of names) s = s.split(n).join('[موظف بالشركة]');
+    return s;
+  };
+  const r = ctx.request || {};
+  const fields = Object.entries(ctx.fields || {})
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `- ${k}: ${clean(Array.isArray(v) ? v.join('، ') : v)}`);
+  const memory = (ctx.memory || []).map((m) => `- ${m.ref} (${m.kind}): ${clean(m.title)}${m.summary ? ` — ${clean(m.summary)}` : ''}`);
+  const plan = ctx.plan || {};
+  return [
+    `تاريخ اليوم (القاهرة): ${ctx.today || ''}`,
+    `النوع الذي اختارته الشركة: ${r.type}`,
+    `الأولوية: ${r.priority || 'normal'}${r.urgent_reason ? ` (سبب الاستعجال: ${clean(r.urgent_reason)})` : ''}`,
+    `تحتاجه قبل: ${r.needed_by || 'غير محدد'}`,
+    `الكيان: ${ctx.entityName || 'غير محدد'}`,
+    `أنواع الطلبات المشمولة في الباقة: ${(plan.scope_types || []).join('، ') || '—'}`,
+    `العمل المستبعد من الباقة: ${(plan.excluded_work || []).join('، ') || '—'}`,
+    '',
+    `العنوان: ${clean(r.title)}`,
+    'الوصف:',
+    '"""',
+    clean(r.description),
+    '"""',
+    fields.length ? `حقول الطلب:\n${fields.join('\n')}` : 'حقول الطلب: لا يوجد',
+    (ctx.documents || []).length ? `المستندات المرفقة (العناوين فقط):\n${ctx.documents.map((d) => `- ${clean(d.title || d.filename)}`).join('\n')}` : 'المستندات المرفقة: لا يوجد',
+    memory.length ? `ذاكرة الشركة والطلبات السابقة (المراجع المسموحة فقط):\n${memory.join('\n')}` : 'ذاكرة الشركة: لا يوجد',
+  ].join('\n');
+}
 
 // ───────────── مخططات المخرجات (Structured Outputs) ─────────────
 const ISSUE_ITEM = {
@@ -420,12 +570,14 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
   }
 
   /** طلب واحد بمخرجات JSON منظمة. meta: { feature, entity_type, entity_id, user_id } */
-  async function structured({ meta, feature, content, schema, maxTokens = 16000, effortLevel = eff }) {
+  async function structured({ meta, feature, content, schema, maxTokens = 16000, effortLevel = eff, base = 'b2c' }) {
     const c = await getClient();
     const Anthropic = await loadSdk();
+    // v10 b2b-server (B10 §10.3): base 'b2b' يختار SYSTEM_B2B لطلبات الشركات؛ نظام الأفراد كما هو
+    const baseText = base === 'b2b' ? SYSTEM_B2B : SYSTEM_BASE;
     const system = [
       // الجزء الثابت أولًا مع نقطة تخزين مؤقت، ثم تعليمات الوظيفة (ثابتة لكل وظيفة) بنقطة ثانية
-      { type: 'text', text: SYSTEM_BASE.replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: baseText.replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
       { type: 'text', text: PROMPTS[feature].replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
     ];
     const started = Date.now();
@@ -551,6 +703,45 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
     },
 
     /** طلب صغير حقيقي للتحقق من المفتاح والنموذج والاتصال */
+    /** v10 b2b-server (L-29): فرز طلب شركة — SYSTEM_B2B + PROMPTS.company_triage ومخطط B10 §10.1؛ المعالجة اللاحقة في ai/company.js */
+    async companyTriage({ context }, meta = {}) {
+      const { data, model: m } = await structured({
+        meta,
+        feature: 'company_triage',
+        base: 'b2b',
+        content: companyTriageContent(context || {}),
+        schema: COMPANY_TRIAGE_SCHEMA,
+      });
+      return { ...data, _model: m };
+    },
+
+    /** v10 b2b-server (B10 §10.2، P1): ملخص التسليم من الرأي المعتمد؛ أسماء المحامين تُحذف بعده وتفحصها بوابة الإرسال */
+    async companyDeliverable({ context }, meta = {}) {
+      const ctx = context || {};
+      const names = (ctx.lawyer_names || []).filter(Boolean).sort((a, b) => b.length - a.length);
+      const clean = (text) => names.reduce((t, n) => t.split(n).join(''), String(text ?? ''));
+      const steps = (ctx.client_steps || []).map((x) => `- ${clean(x)}`).join('\n');
+      const { data, model: m } = await structured({
+        meta,
+        feature: 'company_deliverable',
+        base: 'b2b',
+        content: [
+          `نوع الطلب: ${ctx.request?.type || ''}`,
+          `عنوان الطلب: ${clean(ctx.request?.title)}`,
+          `درجة المخاطر المسجلة: ${ctx.risk_level || 'غير محددة'}`,
+          `رموز المخاطر من الفرز: ${(ctx.risk_flags || []).join('، ') || 'لا يوجد'}`,
+          steps ? `خطوات المحامي للشركة:\n${steps}` : 'خطوات المحامي للشركة: لا يوجد',
+          '',
+          'الرأي المعتمد:',
+          '"""',
+          clean(ctx.opinion),
+          '"""',
+        ].join('\n'),
+        schema: COMPANY_DELIVERABLE_SCHEMA,
+      });
+      return { ...data, _model: m };
+    },
+
     async ping(meta = {}) {
       const Anthropic = await loadSdk();
       const started = Date.now();

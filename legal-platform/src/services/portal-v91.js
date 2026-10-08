@@ -168,7 +168,7 @@ export function withClientNote(body, e, form = 'f') {
   let out = String(body);
   const beforeSignature = (text, line) => {
     const parts = text.split('\n');
-    const at = parts.findIndex((p) => /^—\s/.test(p));
+    const at = parts.findIndex((p) => /^\u200f?—\s/.test(p)); // v10: التوقيع اللاتيني يبدأ بـ RLM
     if (at >= 0) parts.splice(at, 0, line);
     else parts.push(line);
     return parts.join('\n');
@@ -219,7 +219,7 @@ export function clientAnswerFields(app, caseId, body = {}) {
 export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {}) {
   if (!ans?.summary || !String(ans.summary).trim()) return null;
   const client = app.clients.get(caseRow.client_id) || {};
-  const org = app.settings.get('org_name') || 'بيوت مصر';
+  const org = app.brand.displayName(); // v10 experience: اسم المكتب في رسائل المستفيدين
   const intake = caseRow.intake_id ? app.db.get('SELECT * FROM intakes WHERE id = ?', caseRow.intake_id) : null;
   // v9.2 (بوابة الدمج K1): طلب من الموقع لم تتأكد هوية صاحبه يُقرأ في صفحة من كتب الرقم: نخاطبه بالاسم الذي كتبه هو
   // (أو «أهلًا بيكي» بلا اسم)، لا باسم ملف صاحب الرقم ولا بنوع خطابه
@@ -250,7 +250,8 @@ export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {
       i++;
     }
   }
-  return genderize(`${head}${list}${tail}`, form).slice(0, 1000);
+  // v10 experience (L-07): سطر التوقيع «— Emam…» يبدأ بـ RLM فيبقى يمين الرسالة (نفس قاعدة engine.fillClientText)
+  return genderize(`${head}${list}${tail}`, form).replace(/^— (?=[A-Za-z])/gm, '\u200f— ').slice(0, 1000);
 }
 
 const STUDY_DAYS = ['يوم', 'يومين', 'أيام', 'يوم'];
@@ -288,7 +289,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const s = app.settings.all();
     const digits = ps ? ps.whatsapp_digits : app.whatsapp?.publicDigits ? app.whatsapp.publicDigits() : '';
     return {
-      org_name: ps?.org_name || s.org_name,
+      org_name: app.brand?.displayName ? app.brand.displayName() : ps?.org_name || s.org_name, // v10: اسم المكتب
       phone: ps?.org_phone || s.org_phone || '',
       phone_e164: ps?.org_phone_e164 || '',
       whatsapp_digits: digits || '',
@@ -950,7 +951,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
         time_spoken: spokenTime(e.starts_at),
         date: spokenDate(e.starts_at),
         location: e.location || e.matter_court || 'المحكمة',
-        org_name: app.settings.get('org_name') || 'بيوت مصر',
+        org_name: app.brand.displayName(), // v10 experience
       };
       const tpl = typeof params.template_day_before === 'string' && params.template_day_before.trim() ? params.template_day_before : DAY_BEFORE_TEMPLATE;
       // (v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة بدل «هاتي بطاقتك» وحدها)

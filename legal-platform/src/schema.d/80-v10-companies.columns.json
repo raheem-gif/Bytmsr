@@ -1,0 +1,18 @@
+[
+  ["clients", "company_id", "INTEGER"],
+  ["cases", "company_id", "INTEGER"],
+  ["cases", "company_request_id", "INTEGER"],
+  ["documents", "company_id", "INTEGER"],
+  ["documents", "company_request_id", "INTEGER"],
+  ["documents", "company_user_id", "INTEGER"],
+  ["documents", "assignment_id", "INTEGER"],
+  ["activity", "company_id", "INTEGER"],
+  ["activity", "company_request_id", "INTEGER"],
+  ["activity", "company_user_id", "INTEGER"],
+  ["knowledge_records", "company_id", "INTEGER"],
+  ["knowledge_records", "scope", "TEXT"],
+  ["lawyers", "skills", "TEXT NOT NULL DEFAULT '[]'"],
+  ["lawyers", "b2b_rate_minor", "INTEGER"],
+  ["lawyers", "name_latin", "TEXT"],
+  ["info_requests", "company_message_id", "INTEGER"]
+]

@@ -16,7 +16,11 @@ import {
   toLatinDigits,
   count,
   dueInfo,
+  getMeta,
 } from './fmt.js';
+// v10 experience (X10-M2/M3): أوراق تتبع الإصبع ونوافذ تتجسّد من الزر الذي فتحها
+import { attachSheet } from './sheet-motion.js';
+import { spring, SPRING, reducedMotion } from './spring.js';
 
 let uidSeq = 0;
 /** معرّف فريد لعناصر الصفحة. */
@@ -51,7 +55,7 @@ export function errorMessage(err) {
 // ───────────────────────── الأيقونات ─────────────────────────
 // رسومات خطية 24×24 (مستوحاة من Feather/Lucide — رخصة MIT/ISC).
 // الصيغة: 'c cx cy r' دائرة، 'r x y w h rx' مستطيل، 'l x1 y1 x2 y2' خط، 'p …' polyline، 'g …' polygon، وغير ذلك path.
-const ICONS = {
+export const ICONS = {
   inbox: ['p 22 12 16 12 14 15 10 15 8 12 2 12', 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'],
   queue: ['g 12 2 2 7 12 12 22 7 12 2', 'p 2 17 12 22 22 17', 'p 2 12 12 17 22 12'],
   briefcase: ['r 2 7 20 14 2', 'M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'],
@@ -123,7 +127,21 @@ const ICONS = {
     'l 22 2 2 22',
   ],
   split: ['M16 3h5v5', 'M8 3H3v5', 'M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3', 'm15 9 6-6'],
+  // v10 experience (L-45) — أيقونات خدمة الشركات لكل المسارات (شبكة Lucide 24 بنفس سُمك الخط)
+  fileSignature: ['M20 19.5v.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8.5L18 5.5', 'M8 18h1', 'M18.42 9.61a2.1 2.1 0 1 1 2.97 2.97L16.95 17 13 18l.99-3.95 4.43-4.44Z'],
+  filePen: ['M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5', 'M14 2v4a2 2 0 0 0 2 2h4', 'M13.38 15.63a1 1 0 1 0-3-3l-5.02 5.01a2 2 0 0 0-.5.86l-.84 2.87a.5.5 0 0 0 .62.62l2.87-.84a2 2 0 0 0 .86-.5z'],
+  fileLock: ['M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v1', 'M14 2v4a2 2 0 0 0 2 2h4', 'r 2 13 8 5 1', 'M8 13v-2a2 2 0 1 0-4 0v2'],
+  userCog: ['c 18 15 3', 'c 9 7 4', 'M10 15H6a4 4 0 0 0-4 4v2', 'm21.7 16.4-.9-.3', 'm15.2 13.9-.9-.3', 'm16.6 18.7.3-.9', 'm19.1 12.2.3-.9', 'm19.6 18.7-.4-1', 'm16.8 12.3-.4-1', 'm14.3 16.6 1-.4', 'm20.7 13.8 1-.4'],
+  megaphone: ['m3 11 18-5v12L3 14v-3z', 'M11.6 16.8a3 3 0 1 1-5.8-1.6'],
+  mailWarning: ['M22 10.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12.5', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7', 'M20 14v4', 'M20 22v.01'],
+  landmark: ['M3 22h18', 'M6 18v-7', 'M10 18v-7', 'M14 18v-7', 'M18 18v-7', 'M12 2l8 5H4z'],
+  truck: ['M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2', 'M15 18H9', 'M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14', 'c 17 18 2', 'c 7 18 2'],
+  calendarClock: ['M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5', 'M16 2v4', 'M8 2v4', 'M3 10h5', 'M17.5 17.5 16 16.3V14', 'c 16 16 6'],
+  helpCircle: ['c 12 12 10', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
+  building: ['M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z', 'M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2', 'M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2', 'M10 6h4', 'M10 10h4', 'M10 14h4', 'M10 18h4'],
+  bookOpen: ['M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z', 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'],
 };
+ICONS.moreHorizontal = ICONS.more;
 ICONS.inboxStack = ICONS.queue;
 ICONS.warning = ICONS.alert;
 ICONS.close = ICONS.x;
@@ -179,6 +197,54 @@ export const iconNames = Object.keys(ICONS);
 /** شعار المؤسسة المصغر (ميزان داخل مربع ذهبي). */
 export function brandMark({ size = 24 } = {}) {
   return h('span.brand-mark', { 'aria-hidden': 'true' }, icon('scale', { size }));
+}
+
+// ───────────────────────── v10 experience: اسم المكتب (X10-B2, §4.1) ─────────────────────────
+// مصدره meta.brand (/api/meta و/api/company/meta كلاهما يحملانه). يُعزل دائمًا بـ <bdi dir="ltr" lang="en"> داخل الجمل
+// العربية، ولا تباعد حروف على العربية حوله.
+const BRAND_FALLBACK = { name: 'Emam Legal and Consultancy', short: 'Emam Legal' };
+function brandNames() {
+  const b = getMeta()?.brand || {};
+  const name = typeof b.name === 'string' && b.name.trim() ? b.name.trim() : BRAND_FALLBACK.name;
+  const short = typeof b.short === 'string' && b.short.trim() ? b.short.trim() : BRAND_FALLBACK.short;
+  return { name, short };
+}
+
+/** سطرا الشعار النصي (نفس قاعدة الخادم src/brand.js): { lead: المختصر، rest: بقية الاسم } أو { lead: الاسم، rest: '' } */
+export function wordmarkParts(name = brandNames().name, short = brandNames().short) {
+  const n = String(name ?? '').replace(/\s+/g, ' ').trim();
+  const sh = String(short ?? '').replace(/\s+/g, ' ').trim();
+  if (sh && n.toLowerCase().startsWith(sh.toLowerCase())) return { lead: n.slice(0, sh.length), rest: n.slice(sh.length).trim() };
+  return { lead: n, rest: '' };
+}
+
+// اسم لاتيني ← dir="ltr" lang="en"؛ وإن كتبت الإدارة اسمًا عربيًا يبقى معزولًا لكن بلغته واتجاهه
+const nameDir = (s) => (/[\u0600-\u06FF]/.test(s) ? { dir: 'rtl', lang: 'ar' } : { dir: 'ltr', lang: 'en' });
+
+/** اسم المكتب داخل جملة عربية: <bdi class="wordmark" dir="ltr" lang="en">…</bdi> (short = الاسم المختصر) */
+export function brandEl({ short = false } = {}) {
+  const b = brandNames();
+  const text = short ? b.short : b.name;
+  return h('bdi.wordmark', nameDir(text), text);
+}
+
+/**
+ * الشعار النصي على سطرين: <bdi class="wordmark wordmark-{size} wordmark-{tone}" dir="ltr" lang="en"><b>{lead}</b> <span>{rest}</span></bdi>
+ * size: 'md' | 'lg'؛ tone: 'light' (على سطح فاتح: نص أخضر) | 'dark' (على سطح غامق: أبيض وذهبي فاتح)؛
+ * descriptor: سطر عربي اختياري تحته (span.wordmark-desc) فيُعاد الكل داخل span.wordmark-lockup.
+ * name/short اختياريان (مثل meta.brand.staff_chrome في /app)؛ الافتراضي meta.brand.
+ */
+export function wordmark({ size = 'md', tone = 'light', descriptor, name, short } = {}) {
+  const b = brandNames();
+  const parts = wordmarkParts(name ?? b.name, short ?? (name != null ? '' : b.short));
+  const mark = h(
+    'bdi.wordmark',
+    { class: [`wordmark-${size === 'lg' ? 'lg' : 'md'}`, `wordmark-${tone === 'dark' ? 'dark' : 'light'}`], ...nameDir(parts.lead + parts.rest) },
+    h('b', parts.lead),
+    parts.rest ? [' ', h('span', parts.rest)] : null,
+  );
+  if (!descriptor) return mark;
+  return h('span.wordmark-lockup', mark, h('span.wordmark-desc', descriptor));
 }
 
 // ───────────────────────── الأزرار ─────────────────────────
@@ -428,9 +494,17 @@ const TOAST_ICONS = { info: 'info', success: 'checkCircle', warning: 'alert', da
 /** رسالة منبثقة أعلى منتصف الشاشة. toast('تم الحفظ', 'success') */
 export function toast(message, tone = 'info', ms = 3500) {
   const region = getToastRegion();
+  // v10 (X10-F1/X10-P4): الخروج من نفس حافة الدخول، والإزالة عند انتهاء الانتقال (لا مؤقت يؤخر التنبيه التالي)
+  let gone = false;
   const close = () => {
+    if (gone) return;
+    gone = true;
+    el.classList.remove('is-shown');
     el.classList.add('is-leaving');
-    setTimeout(() => el.remove(), 200);
+    const done = () => el.remove();
+    // انتقال زر الإغلاق (تمرير/ضغط) يصعد إلى التنبيه: لا يُحسب نهايةً لخروجه
+    el.addEventListener('transitionend', (e) => e.target === el && done());
+    setTimeout(done, 400);
   };
   const el = h(
     'div.toast',
@@ -441,6 +515,8 @@ export function toast(message, tone = 'info', ms = 3500) {
     h('button.toast-close', { type: 'button', 'aria-label': 'إغلاق التنبيه', onClick: close }, icon('x', { size: 16 })),
   );
   region.appendChild(el);
+  void el.offsetWidth; // نقطة البداية (خارج الحافة) تُرسم قبل الدخول
+  el.classList.add('is-shown');
   if (ms > 0) setTimeout(close, tone === 'danger' ? Math.max(ms, 6000) : ms);
   return { close, el };
 }
@@ -448,6 +524,96 @@ export function toast(message, tone = 'info', ms = 3500) {
 // ───────────────────────── النوافذ الحوارية ─────────────────────────
 
 const modalStack = [];
+// v10 experience (L-64): قفل تمرير الصفحة عدّادٌ لا صنف يُزال: نافذة تُغلق ثم أخرى تُفتح (أو ورقتان متراكبتان)
+// لا تفتح التمرير خلف النافذة الباقية. كل نافذة تقفل مرة عند الفتح وتفتح مرة عند إغلاقها المنطقي.
+let scrollLocks = 0;
+function lockScroll() {
+  scrollLocks += 1;
+  document.body.classList.add('has-modal');
+}
+function unlockScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (!scrollLocks) document.body.classList.remove('has-modal');
+}
+// v10 (X10-M2/M3): الحركة في متصفح حقيقي فقط؛ بيئة بلا matchMedia/rAF (اختبارات Node) تُزيل العقدة بمؤقت كما في 9.2
+const canMove = () => typeof globalThis.matchMedia === 'function' && typeof globalThis.requestAnimationFrame === 'function';
+const POP_EXIT = { damping: 1, response: 0.3 };
+
+/**
+ * الحركة المخفّضة: تلاشٍ بالشفافية فقط خلال 150ms (انتقال CSS — نفس مدة قاعدة الحركة المخفّضة العامة في app.css، فلا
+ * يتراكب انتقالان). يبدأ بعد إطار (نقطة البداية مرسومة) ويُزال أثره بعد الانتهاء → { stop(), done }
+ */
+function fadeCss(els, to) {
+  let raf = 0;
+  let timer = 0;
+  let res;
+  const done = new Promise((r) => (res = r));
+  for (const el of els) el.style.transition = 'opacity 150ms ease';
+  raf = requestAnimationFrame(() => {
+    for (const el of els) el.style.opacity = to >= 1 ? '' : String(to);
+    timer = setTimeout(() => {
+      for (const el of els) el.style.transition = '';
+      res(true);
+    }, 160);
+  });
+  return {
+    stop() {
+      globalThis.cancelAnimationFrame?.(raf);
+      clearTimeout(timer);
+      for (const el of els) el.style.transition = '';
+      res(false);
+    },
+    done,
+  };
+}
+
+/**
+ * X10-M3: نافذة تتجسّد من الزر الذي فتحها وتعود إليه: p من 0 إلى 1 → transform: scale(0.94 + 0.06p)، الشفافية p
+ * (وللخلفية المعتمة p)، ومركز التحويل = مركز الزر داخل النافذة (أو منتصفها إن اختفى الزر). نابض SPRING.ui بلا ارتداد؛
+ * فتح جديد أثناء خروج نافذة = نافذة جديدة (لا شيء مقفول). الحركة المخفّضة: شفافية فقط خلال 150ms.
+ * → { in(), out() → Promise (تُحسم حين تكاد تختفي)، stop() }
+ */
+function materialise(dialog, scrim, trigger) {
+  const reduce = reducedMotion();
+  let p = 0;
+  let anim = null;
+  const aim = () => {
+    if (reduce) return; // بلا تحجيم؛ ولا قراءة للتخطيط قبل الشفافية 0 (وإلا بدأ انتقال CSS من 1 إلى 0)
+    const ok = trigger && trigger !== document.body && trigger.isConnected && typeof trigger.getBoundingClientRect === 'function';
+    const t = ok ? trigger.getBoundingClientRect() : null;
+    const r = dialog.getBoundingClientRect();
+    if (!t || !t.width || !r.width) return void (dialog.style.transformOrigin = '');
+    const clamp = (v, max) => Math.round(Math.max(0, Math.min(max, v)));
+    dialog.style.transformOrigin = `${clamp(t.left + t.width / 2 - r.left, r.width)}px ${clamp(t.top + t.height / 2 - r.top, r.height)}px`;
+  };
+  const paint = (v) => {
+    p = v;
+    const rest = v >= 0.999;
+    dialog.style.transform = rest || reduce ? '' : `scale(${(0.94 + 0.06 * v).toFixed(4)})`;
+    dialog.style.opacity = scrim.style.opacity = rest ? '' : String(Math.max(0, v).toFixed(3));
+  };
+  const run = (to, exit) =>
+    new Promise((res) => {
+      anim?.stop();
+      const onUpdate = (v) => (paint(v), exit && v <= 0.04 && res(true));
+      // rest بوحدة p (0..1): الافتراضي 0.5 مصمم للبكسل وكان ينهي الحركة عند منتصفها فتقفز النافذة إلى 1 أو تختفي فجأة
+      anim = reduce ? fadeCss([dialog, scrim], to) : spring({ from: p, to, ...(exit ? POP_EXIT : SPRING.ui), rest: 0.002, onUpdate });
+      anim.done.then(res);
+    });
+  return {
+    in() {
+      aim();
+      paint(0);
+      return run(1, false);
+    },
+    out() {
+      if (!trigger || !trigger.isConnected) dialog.style.transformOrigin = '';
+      return run(0, true);
+    },
+    stop: () => anim?.stop(),
+  };
+}
+
 const FOCUSABLE =
   'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
@@ -467,6 +633,11 @@ function focusablesIn(root) {
  *  subtitle         سطر ثانوي تحت العنوان (مثل «عنوان الجلسة · الأربعاء 7 أكتوبر 9:30 ص»).
  *  beforeClose(reason) يُستدعى قبل إغلاق يبدؤه المستخدم ('dismiss' زر ✕، 'escape'، 'backdrop'، 'swipe')؛
  *                   إن أعاد false (أو Promise<false>) تبقى النافذة مفتوحة — لتأكيد «تجاهل ما أدخلته؟».
+ *
+ * (v10 experience — L-12/L-64) الإغلاق البرمجي (handle.close()، أزرار الإجراءات، إرسال النموذج، closeAllModals) ينفّذ
+ * الإغلاق المنطقي فورًا وبالتزامن: إرجاع التركيز، رفع inert عن الصفحة، onClose(reason)، وفك قفل التمرير (عدّاد).
+ * العقدة المغادرة تأخذ في اللحظة نفسها inert وaria-hidden="true" و.is-leaving، وتخرج من مكدس النوافذ ومن معالجة Esc،
+ * ثم تُزال بعد انتهاء حركة الخروج (closeAllModals: فورًا بلا حركة). beforeClose للإغلاق الذي يبدؤه المستخدم فقط.
  */
 export function modal({ title, body, actions = [], size = 'md', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose } = {}) {
   const titleId = uid('modal-title');
@@ -474,21 +645,35 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   let closed = false;
   let busy = false;
   let asking = false;
+  // v10 (X10-M2/M3): motion = ورقة الهاتف (attachSheet)، pop = تجسّد النافذة من زرها؛ exiting = خروج يبدؤه المستخدم جارٍ
+  let motion = null;
+  let pop = null;
+  let exiting = false;
 
-  /** إغلاق يبدؤه المستخدم: يمر على beforeClose أولًا */
+  /** beforeClose(reason) → true = أغلق (يقبل Promise) */
+  async function mayClose(reason) {
+    if (closed || busy || asking) return false;
+    if (!beforeClose) return true;
+    asking = true;
+    try {
+      return (await beforeClose(reason)) !== false;
+    } catch {
+      return false;
+    } finally {
+      asking = false;
+    }
+  }
+
+  /** إغلاق يبدؤه المستخدم: يمر على beforeClose أولًا. على الهاتف تخرج الورقة من نفس مسارها، ومن يمسكها أثناء
+   *  الخروج يوقفه فتبقى مفتوحة (L-12)؛ الإغلاق المنطقي بعد خروجها فقط. */
   async function requestDismiss(reason) {
-    if (closed || busy || asking) return;
-    if (beforeClose) {
-      asking = true;
-      let ok = true;
-      try {
-        ok = (await beforeClose(reason)) !== false;
-      } catch {
-        ok = false;
-      } finally {
-        asking = false;
-      }
-      if (!ok) return;
+    if (exiting || !(await mayClose(reason)) || closed) return;
+    if (motion) {
+      exiting = true;
+      const out = await motion.exit(reason, { interruptible: true });
+      exiting = false;
+      if (out) close(reason, { exited: true });
+      return;
     }
     close(reason);
   }
@@ -509,37 +694,21 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
     bodyEl,
     footer,
   );
-  const backdrop = h('div.modal-backdrop', { class: sheet && 'modal-backdrop-sheet' }, dialog);
+  // v10 (X10-M2): الخلفية المعتمة طبقة مستقلة تتغير شفافيتها مع موضع الورقة (لا تُعتّم الورقة نفسها)
+  const scrim = h('div.modal-scrim', { 'aria-hidden': 'true' });
+  const backdrop = h('div.modal-backdrop', { class: sheet && 'modal-backdrop-sheet' }, scrim, dialog);
   const handle = { close, el: dialog, body: bodyEl, requestDismiss };
 
-  // السحب لأسفل من المقبض أو الترويسة يغلق الورقة (بعد beforeClose)
-  if (sheet && dismissible) {
-    let startY = null;
-    let dy = 0;
-    const header = dialog.querySelector('.modal-header');
-    const onStart = (e) => {
-      if (e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
-      startY = e.touches ? e.touches[0].clientY : null;
-      dy = 0;
-    };
-    const onMove = (e) => {
-      if (startY == null || !e.touches) return;
-      dy = Math.max(0, e.touches[0].clientY - startY);
-      dialog.style.transform = dy ? `translateY(${dy}px)` : '';
-    };
-    const onEnd = () => {
-      if (startY == null) return;
-      startY = null;
-      dialog.style.transform = '';
-      if (dy > 80) requestDismiss('swipe');
-      dy = 0;
-    };
-    for (const el of [grip, header]) {
-      el.addEventListener('touchstart', onStart, { passive: true });
-      el.addEventListener('touchmove', onMove, { passive: true });
-      el.addEventListener('touchend', onEnd);
-      el.addEventListener('touchcancel', onEnd);
-    }
+  // v10 (X10-M2): على الهاتف تتبع الورقة الإصبع 1:1 من المقبض أو الترويسة؛ رمية سريعة أو سحب بعد المنتصف يغلقها
+  // (بعد beforeClose)، والتراجع يبقيها. يُقرَّر عند الفتح (≤ 640px) وفي متصفح حقيقي فقط.
+  if (sheet && canMove() && globalThis.matchMedia('(max-width: 640px)').matches) {
+    motion = attachSheet({
+      panel: dialog,
+      scrim,
+      handles: dismissible ? [grip, dialog.querySelector('.modal-header')] : [],
+      canDismiss: (reason) => !exiting && mayClose(reason),
+      onDismissed: (reason) => close(reason, { exited: true }),
+    });
   }
 
   const buttons = actions.map((a) => {
@@ -604,21 +773,38 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   }
 
   let downOnBackdrop = false;
-  backdrop.addEventListener('mousedown', (e) => (downOnBackdrop = e.target === backdrop));
+  const outside = (e) => e.target === backdrop || e.target === scrim;
+  backdrop.addEventListener('mousedown', (e) => (downOnBackdrop = outside(e)));
   backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop && downOnBackdrop && dismissible && !busy) requestDismiss('backdrop');
+    if (outside(e) && downOnBackdrop && dismissible && !busy) requestDismiss('backdrop');
   });
 
-  function close(reason = 'close') {
+  /**
+   * الإغلاق المنطقي (L-12/L-64) فوري دائمًا: التركيز، inert، onClose، القفل. exited: الورقة خرجت بإيماءة المستخدم فعلًا؛
+   * instant: بلا حركة (تغيّر الصفحة). وإلا تكمل حركة الخروج المرئية وحدها والعقدة لا تلتقط لمسًا.
+   */
+  function close(reason = 'close', { instant = false, exited = false } = {}) {
     if (closed) return;
     closed = true;
     document.removeEventListener('keydown', onKey, true);
     const idx = modalStack.indexOf(handle);
     if (idx >= 0) modalStack.splice(idx, 1);
     inerted.forEach((el) => (el.inert = false));
+    // L-64: العقدة المغادرة خارج التفاعل وقارئات الشاشة فورًا، وحركة الخروج المرئية تكمل وحدها
+    backdrop.inert = true;
+    backdrop.setAttribute('aria-hidden', 'true');
     backdrop.classList.add('is-leaving');
-    setTimeout(() => backdrop.remove(), 150);
-    if (!modalStack.length) document.body.classList.remove('has-modal');
+    const remove = () => {
+      motion?.destroy();
+      pop?.stop();
+      backdrop.remove();
+    };
+    if (instant || exited) remove();
+    else if (motion || pop) {
+      (motion ? motion.exit(reason, { interruptible: false }) : pop.out()).then(remove);
+      setTimeout(remove, 700); // تبويب في الخلفية لا يرسم إطارات: لا تبقى العقدة معلّقة
+    } else setTimeout(remove, 150);
+    unlockScroll();
     if (previousFocus && previousFocus.isConnected && typeof previousFocus.focus === 'function') {
       previousFocus.focus({ preventScroll: true });
     }
@@ -627,8 +813,14 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
 
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(backdrop);
-  document.body.classList.add('has-modal');
+  lockScroll();
   modalStack.push(handle);
+  // v10: الدخول من نفس مسار الخروج — الورقة من أسفل الشاشة، والنافذة من الزر الذي فتحها (X10-M3)
+  if (motion) motion.enter();
+  else if (canMove()) {
+    pop = materialise(dialog, scrim, previousFocus);
+    pop.in();
+  }
 
   // الورقة السفلية لا تفتح لوحة المفاتيح تلقائيًا (أول ما فيها اختيار لا كتابة) إلا لعنصر عليه autofocus
   const firstField = sheet ? bodyEl.querySelector('[autofocus]') : bodyEl.querySelector('[autofocus], input:not([type=hidden]):not([disabled]), select, textarea');
@@ -638,7 +830,8 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
 
 /** يغلق كل النوافذ المفتوحة (يُستدعى عند التنقل بين الصفحات). */
 export function closeAllModals() {
-  [...modalStack].reverse().forEach((m) => m.close('navigation'));
+  // v10 (L-12): فوري بلا حركة خروج (تغيّر الصفحة)
+  [...modalStack].reverse().forEach((m) => m.close('navigation', { instant: true }));
 }
 
 /** نافذة تأكيد تعيد Promise<boolean>. */
@@ -662,6 +855,51 @@ export function confirmDialog({ title = 'تأكيد الإجراء', message, co
 /** تأكيد لإجراء خطِر (زر أحمر). */
 export function confirmDanger(opts = {}) {
   return confirmDialog({ confirmLabel: 'نعم، متابعة', ...opts, danger: true });
+}
+
+// ───────────── v10 experience (L-64, CO-19): لا يضيع نص مكتوب بإيماءة ─────────────
+/** نصوص نافذة «تجاهل ما كتبتموه؟» (الجمع لبوابة الشركات، والمفرد لفريق العمل) */
+export const DISCARD_COPY = Object.freeze({
+  plural: Object.freeze({ title: 'تجاهل ما كتبتموه؟', discard: 'تجاهل', keep: 'متابعة الكتابة' }),
+  singular: Object.freeze({ title: 'تجاهل ما كتبته؟', discard: 'تجاهل', keep: 'متابعة الكتابة' }),
+});
+
+/**
+ * يسأل قبل إغلاق ورقة فيها نص مكتوب: [«تجاهل»] [«متابعة الكتابة»] → Promise<boolean> (true = تجاهل وأغلق).
+ * Esc أو ✕ أو الخلفية = متابعة الكتابة. copy: { title, discard, keep, message } أو { singular: true } لصيغة المفرد.
+ */
+export function confirmDiscard(copy = {}) {
+  const c = { ...(copy && copy.singular ? DISCARD_COPY.singular : DISCARD_COPY.plural), ...(copy || {}) };
+  return new Promise((resolve) => {
+    let result = false;
+    modal({
+      title: c.title,
+      size: 'sm',
+      className: 'modal-discard',
+      body: c.message ? h('p.confirm-message', c.message) : null,
+      actions: [
+        { label: c.discard, variant: 'danger', onClick: () => { result = true; } },
+        { label: c.keep, variant: 'secondary', onClick: () => { result = false; } },
+      ],
+      onClose: () => resolve(result),
+    });
+  });
+}
+
+/**
+ * beforeClose جاهز لورقة فيها حقل نصي: يغلق مباشرة إن لم يتغير شيء، وإلا يسأل confirmDiscard.
+ * modal({ sheet: true, beforeClose: discardGuard(() => ta.value.trim() !== '') })
+ */
+export function discardGuard(isDirty, copy) {
+  return async () => {
+    let dirty = false;
+    try {
+      dirty = !!isDirty();
+    } catch {
+      dirty = false;
+    }
+    return dirty ? confirmDiscard(copy) : true;
+  };
 }
 
 /**
@@ -1224,6 +1462,22 @@ export function form(fields, opts = {}) {
   } = opts;
   const api = {};
   const controls = fields.filter(Boolean).map((spec) => buildControl(spec, api));
+  // v10 (X10-F2): «كافئ مبكرًا، عاقب متأخرًا» — المرور بحقل فارغ لا يلوّنه بالأحمر (الإلزامي الفارغ يُنبَّه عند الإرسال)؛
+  // الخطأ يظهر عند مغادرة حقل فيه قيمة غير صحيحة، ويختفي مع الضغطة التي تصلحه.
+  for (const c of controls) {
+    const el = c.wrap && c.focusEl?.();
+    if (!el || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || /^(checkbox|radio|file)$/.test(el.type || '')) continue;
+    let touched = false;
+    el.addEventListener('blur', () => {
+      if (!touched && isEmptyValue(c.get())) return;
+      touched = true;
+      c.wrap.setError(c.check() || '');
+    });
+    el.addEventListener('input', () => {
+      touched = true;
+      if (c.wrap.classList.contains('has-error')) c.wrap.setError(c.check() || '');
+    });
+  }
   const grid = h('div.form-grid', { class: columns === 1 && 'form-grid-1' }, controls.map((c) => c.wrap));
   const alert = h('div.alert.alert-danger.form-alert', { role: 'alert', hidden: true });
   let submitBtn = null;
@@ -1948,4 +2202,70 @@ export function avatar(name, { size = 'md' } = {}) {
   let hash = 0;
   for (const ch of String(name || '')) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return h('span.avatar', { class: [`avatar-${size}`, `avatar-c${hash % 6}`], 'aria-hidden': 'true', title: name || '' }, initials);
+}
+
+// ───────────────────────── v10 experience: مكونات مشتركة للبوابات (X10-K5) ─────────────────────────
+
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
+
+/**
+ * «أين وصل الطلب؟» بلغة بصرية واحدة: ol.step-tracker بخطوات منجزة/حالية/قادمة.
+ * steps = [{ title, at?, hint? }] — at: تاريخ ISO (يُعرض بتوقيت القاهرة) أو نص جاهز؛ hint يظهر تحت الخطوة الحالية فقط.
+ * current: رقم الخطوة الحالية بالعدّ من صفر (0 = الأولى)؛ current = steps.length يعني اكتملت كلها (بلا خطوة حالية).
+ * state: 'normal' | 'waiting' — waiting = نقطة كهرمانية للخطوة الحالية (بانتظار ردكم/موافقتكم) دون الرجوع خطوة.
+ * note: سطر إضافي تحت الخطوة الحالية (مثل «بانتظار ردكم»). label: aria-label للقائمة.
+ * قارئات الشاشة: « (اكتملت)» للمنجزة و« (المرحلة الحالية)» للحالية، وaria-current="step".
+ */
+export function stepTracker(steps = [], { current = 0, state = 'normal', note, label } = {}) {
+  const list = Array.isArray(steps) ? steps : [];
+  const cur = Math.max(0, Math.min(Math.trunc(Number(current) || 0), list.length));
+  const waiting = state === 'waiting' && cur < list.length;
+  return h(
+    'ol.step-tracker',
+    { 'aria-label': label || null, class: waiting && 'has-waiting' },
+    list.map((s, i) => {
+      const done = i < cur;
+      const isCur = i === cur;
+      const wait = isCur && waiting;
+      const at = s && s.at ? (ISO_RE.test(String(s.at)) ? dateTime(s.at) : String(s.at)) : '';
+      return h(
+        'li.step-tracker-step',
+        { class: [done && 'is-done', isCur && 'is-current', wait && 'is-waiting'], 'aria-current': isCur ? 'step' : null },
+        h('span.step-tracker-dot', { 'aria-hidden': 'true' }, done ? icon('check', { size: 14 }) : h('span.num', String(i + 1))),
+        h(
+          'span.step-tracker-text',
+          h('span.step-tracker-title', s?.title ?? ''),
+          at ? h('span.step-tracker-at.num', at) : null,
+          isCur && s?.hint ? h('span.step-tracker-hint', s.hint) : null,
+          isCur && note ? h('span.step-tracker-note', wait ? icon('clock', { size: 14 }) : null, h('span', note)) : null,
+          h('span.sr-only', done ? ' (اكتملت)' : isCur ? ' (المرحلة الحالية)' : ''),
+        ),
+      );
+    }),
+  );
+}
+
+/**
+ * صف قائمة بأسلوب iOS: ارتفاع ≥ 56px، ضغط بتعتيم فقط (بلا تصغير)، سهم في نهاية السطر.
+ * href ← <a class="k-row">، onClick وحده ← <button type="button" class="k-row">، بلا أيهما ← <div class="k-row">.
+ * icon: اسم أيقونة أو عنصر؛ badges: عنصر أو مصفوفة؛ trailing: نص أو عنصر في نهاية السطر (لا تضع زرًا داخل صف رابط/زر:
+ * لصف بزر إجراء اترك href/onClick فارغين). chevron: يظهر افتراضيًا للصف القابل للضغط. dimOnly=false يضيف تصغير الضغط.
+ */
+export function kRow({ icon: iconName, title, sub, badges, trailing, href, onClick, dimOnly = true, chevron, className } = {}) {
+  const tag = href ? 'a' : typeof onClick === 'function' ? 'button' : 'div';
+  const showChevron = chevron ?? tag !== 'div';
+  return h(
+    `${tag}.k-row`,
+    {
+      href: tag === 'a' ? href : null,
+      type: tag === 'button' ? 'button' : null,
+      onClick: typeof onClick === 'function' ? onClick : null,
+      class: [!dimOnly && 'k-row-scale', className],
+    },
+    iconName ? h('span.k-row-icon', { 'aria-hidden': 'true' }, typeof iconName === 'string' ? icon(iconName, { size: 22 }) : iconName) : null,
+    h('span.k-row-main', h('span.k-row-title', title ?? ''), sub ? h('span.k-row-sub', sub) : null),
+    badges ? h('span.k-row-badges', badges) : null,
+    trailing != null && trailing !== '' ? h('span.k-row-trailing', trailing) : null,
+    showChevron ? h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 })) : null,
+  );
 }

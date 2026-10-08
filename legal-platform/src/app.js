@@ -54,6 +54,17 @@ import { createStories } from './services/stories.js';
 import { createVoice } from './services/voice.js';
 import { createBrand } from './brand.js';
 import { registerBrandRoutes } from './routes/brand.js';
+// v10 b2b-server: خدمة الشركات (حسابات منفصلة، بوابة /company، مسارات فريق المكتب)
+import { createEmail } from './services/email.js';
+import { createCompanies } from './services/companies.js';
+import { createCompanyBilling } from './services/company-billing.js';
+import { createCompanyNotify } from './services/company-notify.js';
+import { createCompanyAuth } from './company-auth.js';
+import { registerCompanyRoutes } from './routes/company.js';
+import { registerAdminCompanyRoutes } from './routes/admin-companies.js';
+import { createCompanyDocGate } from './services/company-doc-gate.js'; // v10 b2b-server (L-56)
+import { createCompanyMemory } from './services/company-memory.js';
+import { createCompanyRequests } from './services/company-requests.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -106,6 +117,15 @@ export function createApp(config, { logger = console } = {}) {
   app.practice = createPractice(app);
   app.programs = createPrograms(app);
   app.stories = createStories(app); // v9.2: القصص الواردة ← ملخص ومسار مقترح ← طلب بنقرة
+  // v10 b2b-server: البريد، الشركات، الباقات والاستخدام، إشعارات البوابة، ودخول مستخدمي الشركات (جهة منفصلة عن users)
+  app.email = createEmail(app);
+  app.companies = createCompanies(app);
+  app.companyBilling = createCompanyBilling(app);
+  app.companyNotify = createCompanyNotify(app);
+  app.companyAuth = createCompanyAuth(app);
+  app.companyDocGate = createCompanyDocGate(app); // v10 b2b-server: بوابة المستندات، الذاكرة، طلبات الشركات
+  app.companyMemory = createCompanyMemory(app);
+  app.companyRequests = createCompanyRequests(app);
   // v9.1 l-home
   app.lawyerToday = createLawyerToday(app);
   app.webPush = createWebPush(app);
@@ -144,6 +164,8 @@ export function createApp(config, { logger = console } = {}) {
   registerProgramsRoutes(router, app);
   registerLawyerHomeRoutes(router, app); // v9.1 l-home
   registerBrandRoutes(router, app); // v9.2
+  registerCompanyRoutes(router, app); // v10 b2b-server: /api/company/* وصفحة /company
+  registerAdminCompanyRoutes(router, app); // v10 b2b-server: مسارات فريق المكتب لخدمة الشركات
   registerSite(app);
   app.router = router;
 
@@ -212,9 +234,11 @@ export function createApp(config, { logger = console } = {}) {
       user: null,
       status: 200,
     };
+    let releaseGate = null; // v10 b2b-server (L-27): حارس قبل قراءة الجسم (≤ 4 أجسام رفع في الوقت نفسه)
     try {
       checkCsrf(req, pathname);
       ctx.user = app.auth.userFromRequest(ctx);
+      if (m.route.opts.gate) releaseGate = m.route.opts.gate(ctx);
       if (!['GET', 'HEAD'].includes(req.method)) {
         const raw = await readBody(req, m.route.opts.limit || DEFAULT_LIMIT);
         ctx.rawBody = raw;
@@ -244,6 +268,8 @@ export function createApp(config, { logger = console } = {}) {
         return;
       }
       sendError(res, err, app.log);
+    } finally {
+      if (typeof releaseGate === 'function') releaseGate();
     }
   }
 
@@ -317,7 +343,7 @@ export function createApp(config, { logger = console } = {}) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
       '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الصفحة غير موجودة</title>' +
-        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0f4c5c}</style></head>' +
+        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b5a3c}</style></head>' + // v10 experience: H-E4
         '<body><main><h1>الصفحة غير موجودة</h1><p>تأكد من الرابط أو عد إلى <a href="/">الصفحة الرئيسية</a>.</p></main></body></html>',
     );
     return true;

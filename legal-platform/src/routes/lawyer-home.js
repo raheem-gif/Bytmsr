@@ -124,6 +124,8 @@ import('../site-assets.js')
 
 // أوراق الأنماط الأساسية في app.html تُجمع في ملفين (قبل أوراق الإدارة المؤجلة وبعدها في ترتيبها الأصلي) فتصل
 // بطلبين بدل عشرة على شبكة HTTP/1.1 بطيئة (6 اتصالات فقط لكل خادم)، وكل ملف برقم إصدار من محتواه (immutable).
+/** v10: تهريب نص لإدراجه في سمة أو عنوان HTML */
+const escHtml = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const BUNDLE_A = new Set(['v9-site', 'app']);
 const bundles = new Map(); // الاسم ← { key, version, body }
 
@@ -318,7 +320,15 @@ export function renderAppHtml(app, { withShell = true } = {}) {
   // وبيانات الصفحة ووحداتها قبل وصول شجرة وحدات التطبيق؛ أول الرأس حتى يأخذ اتصالًا قبل بقية الملفات (ستة فقط على HTTP/1.1)
   // v9.2 «ألوان المؤسسة»: لون شريط المتصفح، وكتلة الألوان المضمّنة (لا شيء للألوان الأصلية) قبل كتلة البيانات؛
   // ETag الصفحة يتبع HTML فيتغير مع الألوان، وعامل الخدمة لا يتغير (فلا تنبيه «يتوفر إصدار أحدث» بسبب الألوان)
-  html = html.replace('<meta name="theme-color" content="#0f4c5c" />', () => `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0f4c5c'}" />`);
+  html = html.replace('<meta name="theme-color" content="#0b5a3c" />', () => `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0b5a3c'}" />`);
+  // v10 experience (L-03): اسم المكتب المختصر في عنوان التبويب واسم أيقونة الهاتف ما دام brand_in_staff_app مفعّلًا
+  // (إيقافه يترك أسماء 9.2 كما هي في app.html)
+  if (app.brand?.staffChromeOn?.()) {
+    const short = escHtml(app.brand.staffChromeName().short);
+    html = html
+      .replace('<meta name="apple-mobile-web-app-title" content="بيوت مصر" />', () => `<meta name="apple-mobile-web-app-title" content="${short}" />`)
+      .replace('<title>منصة بيوت مصر القانونية</title>', () => `<title>${short}</title>`);
+  }
   const themeStyle = app.brand?.headStyle?.() || '';
   const top = [themeStyle, `<script type="application/json" id="bm-assets">${data}</script>`].filter(Boolean);
   if (withShell && fs.existsSync(path.join(pub, 'assets/js/app/boot-early.js'))) {

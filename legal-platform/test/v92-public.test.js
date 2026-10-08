@@ -13,7 +13,7 @@ import { genderize } from '../src/util.js';
 import { preloadClosure, transformAsset, setPublicRoot } from '../src/site-assets.js';
 import * as T from '../public/assets/js/public/topics.js';
 import { PICTOS } from '../public/assets/js/public/pictos.js';
-import { LEGACY } from '../public/assets/js/lib/brand-color.js';
+import { LEGACY, hexToRgb } from '../public/assets/js/lib/brand-color.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const PUB = path.join(ROOT, 'public');
@@ -50,7 +50,8 @@ describe('v9.2 public — the tile-first home page', () => {
     const main = html.slice(html.indexOf('<main'));
     assert.ok(main.indexOf('<section id="start"') >= 0 && main.indexOf('<section id="start"') === main.indexOf('<section'), '#start is the first section');
     const start = startOf(html);
-    assert.match(start, /<h1 id="start-title"><span class="pub-sr">مساعدة قانونية مجانية من [^<]+\. <\/span>مشكلتك في إيه؟<\/h1>/);
+    // v10 experience (intended, X10-B3 #5): the brand inside the SR prefix is a <bdi lang="en">
+    assert.match(start, /<h1 id="start-title"><span class="pub-sr">مساعدة قانونية مجانية من <bdi class="wordmark" dir="ltr" lang="en">[^<]+<\/bdi>\. <\/span>مشكلتك في إيه؟<\/h1>/);
     assert.match(start, /<p class="pub-start-badge"><svg[\s\S]*?<\/svg><b>مجاني وسرّي<\/b><\/p>/);
     const tiles = [...start.matchAll(/<a class="pub-pick-tile" id="tile-([a-z]+)" href="([^"]+)" data-cta="intake" data-topic="([a-z]+)" data-say="([^"]+)">(<svg class="pub-pic" viewBox="0 0 48 48" aria-hidden="true" focusable="false">[\s\S]*?<\/svg>)<b>([^<]+)<\/b>(<small>[^<]*<\/small>)?<\/a>/g)];
     assert.equal(tiles.length, 8);
@@ -209,8 +210,10 @@ describe('v9.2 public — the topic catalogue and the pictograms', () => {
       assert.equal(T.waPrefill(t.key), `السلام عليكم، عندي مشكلة ${t.wa_phrase}.`);
       assert.equal(T.topicFromWaPrefill(T.waPrefill(t.key)), t.key);
     }
-    assert.equal(T.waPrefill('other', 'مؤسسة بيوت مصر'), 'السلام عليكم مؤسسة بيوت مصر، عايزة أحكيلكم مشكلتي.');
-    assert.equal(T.topicFromWaPrefill(T.waPrefill('other', 'مؤسسة بيوت مصر')), null);
+    // v10 experience (intended, X10-B3 #7): the generic greeting carries no name (like the server SITE_GREETING)
+    assert.equal(T.waPrefill('other', 'مؤسسة بيوت مصر'), 'السلام عليكم، عايزة أحكيلكم مشكلتي.');
+    assert.equal(T.waPrefill(null), 'السلام عليكم، عايزة أحكيلكم مشكلتي.');
+    assert.equal(T.topicFromWaPrefill(T.waPrefill('other')), null);
     assert.equal(T.topicFromWaPrefill('السلام عليكم'), null);
     assert.equal(T.topicFromWaPrefill(`${T.waPrefill('inh')} وجوزي اتوفى`), null);
   });
@@ -499,7 +502,7 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
 
   test('10. copy: the §5.2 strings are where they belong; banned words are absent; the first screen addresses nobody as a woman only', async () => {
     const has = (src, list, where) => list.forEach((s) => assert.ok(src.includes(s), `${where}: ${s}`));
-    has(index, ['مشكلتك في إيه؟', 'مساعدة قانونية مجانية من {{org_name}}. ', 'مجاني وسرّي', '<b>مجاني وسرّي.</b> المحامي مش بيشوف رقمك.', 'سيبي رقمك وإحنا نكلمك', 'بالصوت', 'اسمعوا الكلام اللي في الصفحة', 'أهلًا بيكم. مشكلتكم في إيه؟ اضغطوا على الصورة.'], 'index.html');
+    has(index, ['مشكلتك في إيه؟', 'مساعدة قانونية مجانية من {{{brand_inline}}}. ' /* v10 experience (intended): X10-B3 #5 */, 'مجاني وسرّي', '<b>مجاني وسرّي.</b> المحامي مش بيشوف رقمك.', 'سيبي رقمك وإحنا نكلمك', 'بالصوت', 'اسمعوا الكلام اللي في الصفحة', 'أهلًا بيكم. مشكلتكم في إيه؟ اضغطوا على الصورة.'], 'index.html');
     // v9.2 بوابة الدمج (تغيير مقصود، N5): «وقّف الصوت» أمر لراجل على الشاشة الأولى (S-25) ← الاسم «إيقاف الصوت»
     has(landing, ['بالصوت', 'إيقاف الصوت', 'اسمعوا الكلام اللي في الصفحة', 'وقّفوا الصوت', 'صفحة طلبك', 'مش موبايلك؟ امسحي'], 'landing.js');
     has(site, ['إحنا نكلمك', 'واتساب', 'طلبك فين؟', 'واتساب (يفتح في نافذة جديدة)', 'اتصال بالتليفون', 'إحنا نكلمكم ببلاش: اضغطوا هنا، واكتبوا الرقم.', 'ابعتولنا على واتساب، كتابة أو رسالة صوتية.', 'طلبك فين: لو بعتولنا طلب قبل كده.', 'ولو عايزين إحنا نكلمكم ببلاش، اضغطوا "إحنا نكلمك".', 'أو ابعتولنا على واتساب.', 'أو اعرفوا طلبكم وصل لفين.'], 'site.js');
@@ -624,7 +627,7 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     const decl = Object.fromEntries([...blocks[0][1].matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim().toLowerCase()]));
     for (const [k, v] of Object.entries(LEGACY.primary)) assert.equal(decl[`--primary-${k}`], v, k);
     for (const [k, v] of Object.entries(LEGACY.accent)) assert.equal(decl[`--accent-${k}`], v, k);
-    assert.equal(decl['--primary-700-rgb'], '15 76 92');
+    assert.equal(decl['--primary-700-rgb'], hexToRgb(LEGACY.primary[700]).join(' ')); // v10 experience (intended): follows the default scale
     assert.match(pubCss, /--on-accent: var\(--primary-900\);/);
     assert.match(pubCss, /\.pa \{\s*fill: var\(--primary-700\);/);
     assert.match(pubCss, /\.pb \{\s*fill: var\(--accent-600\);/);

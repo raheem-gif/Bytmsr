@@ -510,6 +510,7 @@ export function createIntakes(app) {
       const i = svc.require(id);
       if (!i.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
       const target = app.clients.require(clientId);
+      if (target.company_id) throw Object.assign(conflict('هذا حساب داخلي لشركة عميلة؛ لا يُربط بطلب فرد.'), { code: 'company_client' }); // v10 b2b-server (حارس #11)
       if (target.id === i.client_id) return app.clients.get(target.id);
       return app.clients.merge(target.id, i.client_id, actor);
     },

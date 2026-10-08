@@ -73,7 +73,7 @@
   margin-block-start: 4px;
   font-size: 11px;
   opacity: 0.75;
-  letter-spacing: 0.02em;
+  letter-spacing: 0; /* v10 (X10-T1): لا تباعد حروف على العربية */
 }
 
 /* ───────────── معالج الإعداد الأول (/setup) ───────────── */

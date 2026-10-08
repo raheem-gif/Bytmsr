@@ -6,8 +6,8 @@
 // تعتمد على: h.js، portal-ui.js (هذا المسار)، words.js (b-site)، upload.js وrecorder.js وdrafts.js (b-forms).
 
 import { h, mount } from '../lib/h.js';
-import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, forgetThisPhone, SAVED_KEY, SAVED_OFF_KEY, savedWaConfirm, WA_CONFIRM_KEY } from './portal-ui.js';
-import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord, withoutPortalLinks } from './words.js';
+import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, forgetThisPhone, SAVED_KEY, SAVED_OFF_KEY, savedWaConfirm, WA_CONFIRM_KEY, haptic } from './portal-ui.js';
+import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord, withoutPortalLinks, brandName } from './words.js';
 
 // (إصلاح 9.1، B91-11/B91-20) الكاميرا والتسجيل ومسودات الإرسال (upload.js وrecorder.js وdrafts.js ≈ 18 KB مضغوطة)
 // تُحمَّل أول مرة تفتح فيها صفحة فيها إرسال (#request و#messages)، لا مع الصفحة الرئيسية على نت ضعيف.
@@ -169,7 +169,8 @@ function contact() {
   const c = state.data?.home?.contact || {};
   const fallback = pageContact();
   return {
-    org: c.org_name || 'المؤسسة',
+    // v10 experience (X10-B3 #8): الاسم المختصر للمكتب (عنوان الصفحة واسم المرسل في الرسائل)
+    org: brandName({ short: true }) || c.org_name || 'المؤسسة',
     phone: c.phone || fallback.phone,
     tel: c.phone_e164 || c.phone ? `tel:${c.phone_e164 || c.phone}` : fallback.phoneHref,
     wa: c.whatsapp_digits !== undefined ? c.whatsapp_digits : fallback.waDigits,
@@ -662,6 +663,7 @@ function requestView(id) {
       errBox,
       onDone: async () => {
         await draft.clear();
+        haptic('success'); // v10 (X10-M6): الورق وصل فعلًا
         toast(isDoc ? 'وصلنا الورق. شكرًا!' : 'وصلنا ردّك. شكرًا!');
         await refresh();
       },
@@ -970,6 +972,7 @@ function eventView(id) {
     state.busy = true;
     try {
       await postJson(`${API}/events/${e.id}/response`, { answer });
+      if (answer !== 'question') haptic('commit'); // v10 (X10-M6): «هحضر» / «مش هقدر»
       e.client_response = answer;
       editing = false;
       toast(answer === 'yes' ? 'تمام، عرّفنا الفريق.' : answer === 'no' ? 'تمام، هنكلمك بخصوص الميعاد.' : g('تمام. اكتب{ي} سؤالك وهنرد عليك{ي}.'));
@@ -1074,6 +1077,7 @@ async function invoiceAnswer(i, answer) {
   state.busy = true;
   try {
     await postJson(`${API}/invoices/${encodeURIComponent(i.number)}/response`, { answer });
+    if (answer === 'agree') haptic('commit'); // v10 (X10-M6): «موافقة»
     toast(answer === 'agree' ? 'تمام، وصلتنا موافقتك.' : 'وصلنا. هنكلمك ونشوف إزاي نساعدك.');
     await refresh();
   } catch (err) {
@@ -1094,7 +1098,7 @@ function bubble(m) {
   return h(
     'li.bp-bubble',
     { class: mine ? 'is-mine' : 'is-ours' },
-    h('p.bp-bubble-who', mine ? s('إنتي') : contact().org, h('span.bp-bubble-ch', ` · ${CHANNEL[m.channel] || ''}`)),
+    h('p.bp-bubble-who', mine ? s('إنتي') : h('bdi', /[؀-ۿ]/.test(contact().org) ? null : { dir: 'ltr', lang: 'en' }, contact().org), h('span.bp-bubble-ch', ` · ${CHANNEL[m.channel] || ''}`)),
     body ? h('p.bp-bubble-text', { dir: 'auto' }, rich(body)) : null,
     (m.documents || []).map((d) =>
       /^audio\//.test(d.mime || '')
@@ -1374,7 +1378,7 @@ function render({ from } = {}) {
   // بلا تمرير ناعم (public-site.css يجعله ناعمًا للروابط الداخلية): الانتقال بين الصفحات فوري
   const jump = (top) => window.scrollTo({ top, left: 0, behavior: 'instant' });
   if (state.view === 'home') {
-    document.title = `صفحتك — ${contact().org}`;
+    document.title = `صفحتك — ${brandName() || contact().org}`;
     if (from && from !== 'home') requestAnimationFrame(() => jump(state.homeScroll || 0));
   } else if (from !== undefined || state.view === 'messages') {
     requestAnimationFrame(() => jump(state.view === 'messages' ? document.documentElement.scrollHeight : 0));

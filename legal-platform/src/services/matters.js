@@ -448,6 +448,7 @@ export function createMatters(app) {
     // ===== الفواتير والمدفوعات والمصروفات =====
     addInvoice(matterId, body, actor) {
       const m = svc.require(matterId);
+      if (db.get('SELECT 1 FROM cases WHERE id = ? AND company_id IS NOT NULL', m.case_id)) throw Object.assign(conflict('هذا ملف شركة؛ تكاليفه في «الباقة والتكاليف» بصفحة الشركة.'), { code: 'company_case_use_billing' }); // v10 b2b-server (حارس #16)
       const t = nowIso();
       const id = db.insert('invoices', {
         number: nextInvoiceNumber(t),

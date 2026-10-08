@@ -29,28 +29,28 @@
 :root {
   /* v9.2 «ألوان المؤسسة»: الدرجات الافتراضية (= 9.1). ألوان المؤسسة تأتي من كتلة <style id="bm-theme"> في <head> وتغلب هذه القيم */
   /* @brand-defaults-start */
-  --primary-900: #082a33;
-  --primary-800: #0b3a46;
-  --primary-700: #0f4c5c;
-  --primary-600: #145d6f;
-  --primary-500: #1b7187;
-  --primary-300: #7fb3c0;
-  --primary-200: #b9d7de;
-  --primary-100: #dcecef;
-  --primary-50: #eef6f7;
-  --accent-800: #634510;
-  --accent-700: #7a5518;
-  --accent-600: #9a6e22;
-  --accent-500: #b8862e;
-  --accent-400: #c99a45;
-  --accent-300: #dcbd84;
-  --accent-100: #f6ecd8;
+  --primary-900: #083221;
+  --primary-800: #0a452e;
+  --primary-700: #0b5a3c;
+  --primary-600: #0b6b48;
+  --primary-500: #0a7f55;
+  --primary-300: #7cb999;
+  --primary-200: #b7dac7;
+  --primary-100: #dbeee3;
+  --primary-50: #eef7f2;
+  --accent-800: #5f4711;
+  --accent-700: #745818;
+  --accent-600: #937123;
+  --accent-500: #c9a14a;
+  --accent-400: #d3ab57;
+  --accent-300: #dabe86;
+  --accent-100: #f6ecd9;
   --accent-50: #fbf7ee;
-  --primary-300-rgb: 127 179 192;
-  --primary-500-rgb: 27 113 135;
-  --primary-700-rgb: 15 76 92;
-  --primary-900-rgb: 8 42 51;
-  --accent-500-rgb: 184 134 46;
+  --primary-300-rgb: 124 185 153;
+  --primary-500-rgb: 10 127 85;
+  --primary-700-rgb: 11 90 60;
+  --primary-900-rgb: 8 50 33;
+  --accent-500-rgb: 201 161 74;
   /* @brand-defaults-end */
   /* النص الوحيد المسموح فوق accent-300/400/500 */
   --on-accent: var(--primary-900);
@@ -83,7 +83,12 @@
   --input-h: 52px;
   --row-h: 56px;
   --bar-h: 64px;
-  --pub-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.06' stroke-width='1.5'%3E%3Cpath d='M40 4 76 40 40 76 4 40Z'/%3E%3Cpath d='M40 20 60 40 40 60 20 40Z'/%3E%3C/g%3E%3C/svg%3E");
+  /* v10 (X10-P1): الضغط يبدأ مع لمس الإصبع ويظهر في الإطار الأول */
+  --press-scale: 0.97;
+  --press-dim: rgb(0 0 0 / 0.06);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-press: 80ms;
+  --dur-release: 200ms;
 }
 
 /* ───────────── أساسيات (الصفحات التي لا تحمّل app.css) ───────────── */
@@ -102,6 +107,10 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+  }
+
   html {
     scroll-behavior: auto;
   }
@@ -279,8 +288,17 @@ body.pub .pub-btn-gold:hover {
   position: sticky;
   inset-block-start: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.97);
+  background: #ffffffdb;
+  -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  backdrop-filter: saturate(1.8) blur(20px);
   border-block-end: 1px solid var(--pub-line);
+}
+
+/* 200 % تكبير على هاتف 360px (≈ 180px): العلامة وحدها في الرأس (اسمها في aria-label) فلا يتراكب الاسم والأزرار */
+@media (max-width: 299px) {
+  .pub-header .pub-wordmark {
+    display: none;
+  }
 }
 
 .pub-header-inner {
@@ -312,25 +330,25 @@ body.pub .pub-brand {
   color: var(--pub-gold-soft);
 }
 
-.pub-brand-text {
+/* v10 experience (X10-B2): اسم المكتب على سطرين دائمًا بخط النظام (لاتيني، 0 بايت خطوط) */
+.pub-wordmark {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  line-height: 1.35;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.1;
+  color: var(--primary-900);
+  white-space: nowrap;
 }
 
-.pub-brand-text strong {
+.pub-wordmark b {
   font-size: 17px;
-  font-weight: 700;
-  white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
-.pub-brand-text span {
+.pub-wordmark span {
   font-size: 15px;
-  color: var(--pub-ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 400;
+  color: var(--primary-700);
 }
 
 .pub-nav {
@@ -543,6 +561,18 @@ body.pub .pub-pick-tile:active {
   color: var(--primary-900);
 }
 
+/* v10 (X10-P2): المربعات تنضغط مع الإصبع (التمرير يلغي الضغط). انتقالات الضغط في الجزء غير الحرج (حد 12 KB:
+   الخطوتان 1 و2 من ترتيب EXP-8) — قبل وصوله يقفز الضغط بلا انتقال */
+body.pub .pub-pick-tile:active,
+body.pub .pub-pick-way:active {
+  transform: scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+}
+
+body.pub .pub-pick-way:active {
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+}
+
 body.pub .pub-pick-tile:has(small) {
   padding-top: max(4px, calc((var(--tile-h) - var(--pic) - 52px) / 2));
 }
@@ -675,9 +705,9 @@ body.pub .pub-pick-way {
 }
 
 body.pub .pub-pick-way--callback {
-  background: var(--primary-700);
-  border-color: var(--primary-700);
-  color: #fff;
+  background: var(--accent-500);
+  border-color: var(--accent-600);
+  color: var(--on-accent);
 }
 
 body.pub .pub-pick-way--wa {
@@ -693,12 +723,12 @@ body.pub .pub-pick-way--follow {
 }
 
 .pub-pick-way--callback .pa,
-.pub-pick-way--wa .pa {
-  fill: #fff;
+.pub-pick-way--callback .pb {
+  fill: var(--on-accent);
 }
 
-.pub-pick-way--callback .pb {
-  fill: var(--accent-300);
+.pub-pick-way--wa .pa {
+  fill: #fff;
 }
 
 .pub-pick-way--wa .pw {
@@ -763,10 +793,6 @@ body.pub .is-speaking {
     width: 36px;
     height: 36px;
     border-radius: 10px;
-  }
-
-  .pub-brand-text span {
-    display: none;
   }
 
   body.pub .pub-head-contact {
@@ -1523,7 +1549,26 @@ body.pub .pub-brand-light {
   color: #fff;
 }
 
-body.pub .pub-brand-light .pub-brand-text span {
+/* v10: على التذييل الغامق: السطر الأول أبيض والثاني ذهبي فاتح، وتحتهما اسم البرنامج بالعربية */
+.pub-brand-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.pub .pub-brand-light .pub-wordmark,
+body.pub .pub-brand-light .pub-wordmark b {
+  color: #fff;
+}
+
+body.pub .pub-brand-light .pub-wordmark span {
+  color: var(--accent-300);
+}
+
+.pub-brand-desc {
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -1635,7 +1680,8 @@ body.pub .pub-staff-link {
 /* @critical-start:legal — العنوان و«بالمختصر» يُضمّنان في <head> الصفحات القانونية وصفحة 404 (مع الكتلة العامة أعلاه) */
 .pub-page-hero {
   color: #fff;
-  background: var(--pub-pattern), linear-gradient(165deg, var(--pub-teal) 0%, var(--pub-teal-deep) 100%);
+  /* v10 (X10 §10): النقش هنا وحده (كان متغيرًا في :root العام فيدخل أنماط الصفحة الرئيسية بلا حاجة) */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.06' stroke-width='1.5'%3E%3Cpath d='M40 4 76 40 40 76 4 40Z'/%3E%3Cpath d='M40 20 60 40 40 60 20 40Z'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(165deg, var(--pub-teal) 0%, var(--pub-teal-deep) 100%);
   padding-block: 40px 44px;
 }
 
@@ -2438,6 +2484,134 @@ body.pub .success-card .success-title {
 
   .benef-body {
     padding: 0 14px 14px;
+  }
+}
+
+/* ==========================================================================
+   v10 experience — الضغط والمواد والإتاحة (خارج الجزء الحرج: يصل مع الملف بعد الرسم الأول)
+   ========================================================================== */
+
+:root {
+  --ease-in-mirror: cubic-bezier(0.8, 0, 0.8, 0.2);
+  --dur-fade: 150ms;
+}
+
+/* (X10-P2) بقية ما يُضغط في الموقع العام: يبدأ مع الإصبع، ويُلغيه التمرير (ومعها انتقالا مربعات الصفحة الرئيسية) */
+body.pub .pub-pick-tile,
+body.pub .pub-pick-way,
+.pub-btn,
+body.pub .pub-tile-link,
+body.pub .pub-returning,
+.pub-menu-toggle,
+.pub-head-contact,
+body.pub .pub-listen {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    transform var(--dur-release) var(--ease-out),
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pub-btn:active:not(:disabled),
+body.pub .pub-tile-link:active,
+body.pub .pub-returning:active,
+.pub-menu-toggle:active,
+.pub-head-contact:active,
+body.pub .pub-listen:active {
+  transform: scale(var(--press-scale));
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+  transition-duration: var(--dur-press);
+}
+
+/* 200 % تكبير على هاتف 360px (≈ 180px): العلامة فوق الاسم في التذييل فلا يخرج الاسم عن الشاشة */
+@media (max-width: 299px) {
+  body.pub .pub-footer .pub-brand {
+    flex-wrap: wrap;
+  }
+}
+
+/* «دخول فريق العمل» و«دخول الشركات» في سطر التذييل الأخير (الموبايل: داخل «روابط مهمة») */
+.pub-footer-logins {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+}
+
+/* (X10-L2) رأس الصفحة «كروم» شفاف؛ بلا دعم للتمويه يبقى شبه معتم كما في 9.2 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .pub-header {
+    background: rgb(255 255 255 / 0.97);
+  }
+}
+
+/* ألوان مؤسسة مخصصة (#bm-theme): الرأس صلب — المولّد يضمن الدرجة 700 على الأبيض لا على «كروم» شفاف فوق التذييل الغامق */
+html:has(#bm-theme) .pub-header {
+  background: #fff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* (X10-L3) حافة الرأس تظهر بعد التمرير فقط؛ بلا دعم يبقى الخط الثابت (نفس السماكة: لا إزاحة) */
+@supports (animation-timeline: scroll()) {
+  .pub-header {
+    border-block-end-color: transparent;
+    animation: pub-chrome-edge linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 24px;
+  }
+
+  @keyframes pub-chrome-edge {
+    to {
+      border-block-end-color: var(--pub-line);
+      box-shadow: 0 1px 0 rgb(16 32 42 / 0.04), 0 8px 24px -16px rgb(var(--primary-900-rgb) / 0.22);
+    }
+  }
+}
+
+/* (X10-A1) الحركة المخفّضة: التحويلات تقفز، أما الشفافية والألوان فتتلاشى في 150ms (يغلب قاعدة الجزء الحرج: بعدها) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity, color, background-color, border-color, box-shadow !important;
+    transition-duration: 150ms !important;
+  }
+}
+
+/* (X10-A2) شفافية أقل: رأس معتم */
+@media (prefers-reduced-transparency: reduce) {
+  .pub-header {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* (X10-A3) تباين أعلى وألوان النظام القسرية */
+@media (prefers-contrast: more) {
+  :root {
+    --press-dim: rgb(0 0 0 / 0.12);
+  }
+
+  .pub-header {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--pub-ink);
+  }
+
+  body.pub .pub-btn-outline {
+    border-color: currentColor;
+  }
+}
+
+@media (forced-colors: active) {
+  body.pub .pub-pick-tile:active,
+  .pub-btn:active {
+    outline: 2px solid Highlight;
   }
 }
 

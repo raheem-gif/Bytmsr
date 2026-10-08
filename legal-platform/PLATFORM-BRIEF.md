@@ -1,4 +1,4 @@
-# Beyoot Misr Legal Support Platform — Complete Brief (version 9.2, pre-launch)
+# Beyoot Misr Legal Support Platform — Complete Brief (version 10.0, pre-launch)
 
 > **Purpose of this file.** This is a full, plain-language description of a software platform that was built for
 > «مؤسسة بيوت مصر لدعم الأرامل والأيتام» (Beyoot Misr Foundation for Supporting Widows and Orphans).
@@ -421,6 +421,114 @@ explanation. Lawyers get concise professional Arabic.
 
 ---
 
+## الإصدار 10.0 — Version 10.0: Apple-style design, royal green and gold, «Emam Legal and Consultancy», and company accounts
+
+The user asked for two things: (1) apply an Apple-style design skill with the colours **royal green** and **gold**, and
+name the website **«Emam Legal and Consultancy»** — only in the user experience, not everywhere; (2) a second kind of
+account for **companies**, for which the firm acts as their outsourced in-house counsel ("Virtual In-House Counsel as a
+Service"): a company legal portal where they submit legal requests and follow them, backed by the same lawyer network,
+AI, knowledge and workflow engine as the beneficiary service.
+
+### Design system, colours and the brand name
+<!-- v10:experience -->
+**Brand = settings, one accessor, user experience only.** `brand_name` («Emam Legal and Consultancy», ≤ 60) and
+`brand_short_name` («Emam Legal», ≤ 24) live in `<settings:site>`; `brand_in_staff_app` (default on) decides whether the
+`/app` chrome shows them. Server code reads them only through `app.brand.displayName()` / `shortName()` /
+`wordmarkParts()` / `staffChromeName()` (`src/brand.js`); names are validated with `isPlainName()` (no `\p{Cc}\p{Cf}`,
+no `<>`), which the company lane reuses for company, entity and user names. `/api/meta.brand = {name, short,
+staff_chrome:{name, short}}`; `fmt.orgName()` returns the brand first, so every client-facing `{org_name}` fill (quick
+replies, automation previews, call script, OTP, portal texts) carries it. HTML isolates the Latin name in `<bdi dir="ltr"
+lang="en">`; WhatsApp texts never carry isolate characters — a signature line «— Emam…» gets a leading U+200F in
+`engine.fillClientText()` so it stays right-aligned. Where it shows: public header/footer lockup (stacked, system font),
+public `<title>` «… — Emam Legal and Consultancy», share tags, JSON-LD `WebSite`/`LegalService`, `/p/…` and `/portal`,
+the PWA names (`/manifest.webmanifest`, `/company.webmanifest`, served dynamically with ETag), the offline page, and the
+`/app` login, sidebar wordmark and tab title «… — Emam Legal». Never: the legal entity (© line, privacy, terms,
+`Organization.name`, printed letterheads) stays on `org_legal_name`, and staff/lawyer body copy is unchanged. Turning
+`brand_in_staff_app` off restores the exact 9.2 names in `/app` only (J6). TOTP issuer for new enrolments: «Emam Legal».
+
+**Colours.** Defaults `#0b5a3c` / `#c9a14a` through the unchanged generator: the X10-C1 scale verbatim, 0 adjustments,
+29/29 contrast pairs; `LEGACY` now holds that scale, so a fresh install has no `bm-theme` block and a saved custom colour
+still wins. Category badges are outlined and status badges filled; scrims use `--scrim` (brand p900 at 48 %); the
+«إحنا نكلمك» tile is gold. Gold is never body text (gold text = `--accent-700`); the audit found gold only on icons,
+stars and list markers. One mark everywhere: the scales glyph (favicon.svg/ico, 192/512/maskable/apple-touch PNGs,
+og-image 1200×630, 233 KB, rendered once with Playwright from `scratchpad/v10-pw-experience/icons-render.mjs`).
+
+**Shared kit (frozen API, used by the company lanes).** `lib/spring.js` (closed-form springs with Apple's
+damping/response, `project()`, `rubberband()`, reduced motion forces damping 1), `lib/sheet-motion.js`
+(`attachSheet({panel, scrim, handles, canDismiss, onDismissed})` → `{enter, exit(reason,{velocity, interruptible}),
+destroy}`: 1:1 finger tracking with a 6 px slop, rubber band upward, flick ≥ 800 px/s dismisses, reversal ≤ −150 px/s
+stays, otherwise `y + project(v) > H/2`; a finger that rested > 100 ms before lifting carries no momentum; a grab
+freezes any running motion), `lib/haptics.js` (`haptic('commit'|'success'|'warning'|'error')`, silent no-op without
+`navigator.vibrate`). `lib/ui.js` adds `wordmark()`, `brandEl()`, `stepTracker()` (0-based `current`, `waiting`
+state), `kRow()` (`<a>`/`<button>`/`<div>`), `confirmDiscard()`/`discardGuard()`, 14 icons, and `v10-experience.css`
+(tokens `--press-*`, `--ease-*`, `--dur-*`, `--mat-chrome`, `--t-*`; `.k-chrome`, `.k-tabbar`, `.k-row`, `.k-list`,
+`.step-tracker`, `.wordmark*`, `.num`, the ready `.k-solid-chrome` fallback; no colour literals).
+
+**Motion semantics.** `ui.modal()` keeps its signature. Phone sheets (≤ 640 px) use `attachSheet` (grip 44 px + header
+are the handles, `touch-action:none`); desktop dialogs materialise from their trigger (`scale(.94→1)` + opacity, origin
+= the trigger's centre) and return to it. The dimming is its own layer (`.modal-scrim`, `.bp-sheet-scrim`).
+**Programmatic closes** (`handle.close()`, action buttons, form submit, `closeAllModals()`) run the logical close at once
+(focus, `inert`, `onClose`, scroll-lock counter) while the leaving node is `inert`, `aria-hidden`, `.is-leaving`
+(`pointer-events:none`); **user dismissals** (✕, Escape, backdrop, swipe) run `beforeClose` (may be async) and are
+interruptible: a grab during the exit cancels it. Toasts enter and leave along their anchored edge (top for staff,
+bottom for the lawyer phone shell and the portal) and are removed on `transitionend`. `ui.form()` validates on blur once
+a field holds a value and re-checks on input while an error shows; the intake phone field does the same. The
+beneficiary sheet (`portal-ui.js`) opens instantly as in 9.1 and, on the first idle moment after paint, imports
+`sheet-motion.js` + `haptics.js` dynamically (never with `saveData` or a `2g`/`slow-2g` connection, CS-32), so the
+`/p/` static closure stays `h.js, portal-ui.js, portal.js, words.js`; while it is open the page behind it is `inert`
+(aria-modal alone is not honoured by older Safari).
+
+**Press, materials, type, accessibility.** Press feedback starts on pointer-down (`:active` scale .97, dim-only for
+full-width rows; one passive `touchstart` listener per surface so iOS applies `:active`): `/app` and company selectors
+in `v10-experience.css`, the home tiles in the critical CSS (their transitions in the non-critical part), the rest of the
+public site, `/intake` (`v91-b-forms.css`) and the portal (`v91-portal.css`). Frosted chrome (`--mat-chrome` + `saturate
+blur(20px)`) on the public header, `/app` topbar, lawyer bottom bar and portal bar, with an opaque `@supports` fallback;
+the header edge appears only after scrolling (`animation-timeline: scroll()`, non-critical). **With custom colours
+(a `#bm-theme` block) every chrome bar is solid white** (`html:has(#bm-theme) …`): the generator guarantees p700 on white
+(4.5:1), not on translucent chrome over dark content — a hostile but contract-valid pair fell to 3.9:1 there; the royal
+green default keeps 5.97:1 worst case and stays frosted. For the same reason the gold second line of the `/app` login
+lockup (a300 on p700: 4.6:1 by default, down to 3.3:1 for custom colours) turns white with custom colours. Reduced motion keeps
+opacity/colour cross-fades at 150 ms and snaps transforms (9.2's «kill everything» rule replaced in `app.css` and in the
+non-critical public CSS); reduced transparency and more contrast make the chrome opaque; forced colours add borders.
+Inputs are 16 px on touch; `.sidebar-version` has no letter-spacing; counters, codes and amounts use tabular numbers.
+Haptics only on real commits: intake send success/error (`haptics.js` loaded after the first screen, so a cold
+`/intake` still needs ≤ 6 new files), portal reply/RSVP/«موافقة», hearing outcome saved, «اعمله طلب», lawyer task «تم»
+and opinion submitted.
+
+**Budgets (measured).** Critical CSS 12,183 B of 12,288 (EXP-8 fallback steps 1–2 applied: both tile press transitions
+moved out of the critical block); `/` 10.8 KB br; landing closure 3.1 KB br; `/intake` closure 29.3 KB br; `/p/`
+closure 27.8 KB gzip with the same 4 files; `spring.js` ≤ 1 KB br, `sheet-motion.js` ≤ 1.8 KB br, `haptics.js` ≤ 0.3 KB
+br, `v10-experience.css` ≤ 4 KB br; no motion module in the `/` or `/intake` static closures.
+
+**Verification (Playwright, `scratchpad/v10-pw-experience/`).** V1 press: first changed frame 14–17 ms, scale 0.97
+within 100 ms, back within 200 ms, a 30 px drag cancels the click (headless Chromium never sets `:active` from CDP touch
+events, so the press itself is a pointer press). V2 sheets (lawyer logout sheet, a `beforeClose` sheet, the portal
+call-back sheet after the idle import): 0.00 px tracking error, rubber band on the formula, flick dismissed in ~305 ms,
+reversal stays, slow drag past half dismisses, grabs during enter and ✕-exit freeze, `beforeClose → false` springs back.
+V3 reduced motion: no transform on any frame. V4/V5: opaque chrome, `currentColor` badge outline. V6 contrast walk on
+`/`, `/intake`, `/p/`, `/app#/inbox`, `/app#/my`: 0 failures and 0 regressions against a 9.2 baseline server. V7 slow 3G
+(2000 ms RTT, 50 KB/s, 4× CPU): tiles visible in ~2.4 s at 390×844 and 360×640, zero tile shift. V8 haptics: exactly
+one `success` per intake send, 0 on typing/scrolling/sheets, 0 console errors without the API. V9: the lockup never
+wraps, the RLM signature renders right-aligned, 200 % zoom at 360 px has no horizontal scroll on `/`, `/intake`, `/p/`,
+`/app#/my`. V10 (4× CPU): `/privacy` scroll, an `/app` sheet drag and an `/app#/inbox` touch scroll at 390: p95
+16.7–16.8 ms (a mouse-wheel run with the pointer resting over the cards measures 33 ms on 9.2 and 10.0 alike — `:hover`
+restyle, which a phone never does). Review step: the V6 walk repeated with two hostile custom pairs on both servers
+(0 regressions), keyboard/screen-reader checks of the three sheet kinds (role, labelled title, named ✕, hidden grip,
+inert background, Tab trapped, Escape closes, focus returns), tap targets at 360/390 (no new target < 44 px), J6.
+<!-- /v10:experience -->
+
+### Company accounts, requests, legal memory, SLA and e-mail (server)
+<!-- v10:b2b-server -->
+<!-- /v10:b2b-server -->
+
+### The Company Legal Portal `/company`
+<!-- v10:b2b-portal -->
+<!-- /v10:b2b-portal -->
+
+### The company desk in `/app` and what lawyers see
+<!-- v10:b2b-staff -->
+<!-- /v10:b2b-staff -->
+
 ## الإصدار 9.2 — Version 9.2: picture tiles, stories turned into requests, the foundation's colours
 
 The user asked for three things (in Egyptian Arabic): (1) the moment people open the site they should see **squares to
@@ -707,7 +815,7 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- 809 automated tests (`npm test`, all passing at version 9.2.0; 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+- 809 automated tests (`npm test`, all passing at version 10.0.0; 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
   158 page views and, in 9.1 and 9.2, a browser usability run per lane at phone widths (including a simulated slow 3G
   network for the beneficiary pages). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
   360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review.
@@ -895,3 +1003,8 @@ messages of an open file, and Settings → «ألوان المؤسسة», then o
   privacy probe, a regression run and an Arabic copy and accessibility review; two fixers closed the findings (most
   importantly: a website request with no name never shows the phone owner's name, and split requests keep the sender's
   verification) before the version became 9.2.0.
+- **Version 10.0:** the user asked for an Apple-style design in royal green and gold, the name «Emam Legal and
+  Consultancy» in the user experience only, and company accounts for an outsourced in-house counsel service. Three
+  design documents (experience, B2B server, B2B UX) were merged into one spec, revised after a client/operations critique
+  and a security critique, then built by four lanes (experience, b2b-server, b2b-portal, b2b-staff) followed by an
+  integration gate.

@@ -7,13 +7,24 @@ export function registerBrandRoutes(router, app) {
   const A = (fn) => (ctx) => fn(ctx, requireAdmin(ctx));
   // v9.2 (بوابة G2): ألوان المؤسسة الحالية في /api/meta (لا شيء للألوان الأصلية: meta كما في 9.1 حرفيًا). تتغير بها
   // نسخة meta (ETag)، فتجلبها المنصة عند الفتح وتقارنها بكتلة الألوان في صفحة /app المخزنة (app/theme-sync.js).
+  // v10 experience (§4.1): brand يحمل دائمًا اسم المكتب { name, short, staff_chrome:{name, short} } (L-03)، وتُضاف إليه
+  // { v, css, theme_color } للألوان المخصصة وحدها (كما في 9.2: لا كتلة ألوان للافتراضية).
   app.metaProviders?.push(() => {
+    const brand = {};
+    try {
+      brand.name = app.brand.displayName();
+      brand.short = app.brand.shortName();
+      brand.staff_chrome = app.brand.staffChromeName();
+    } catch {
+      /* بلا اسم: الواجهة تعود لاسم المؤسسة */
+    }
     try {
       const t = app.brand.theme();
-      return t.legacy || !t.css ? {} : { brand: { v: t.v, css: t.css, theme_color: t.primary[700] } };
+      if (!t.legacy && t.css) Object.assign(brand, { v: t.v, css: t.css, theme_color: t.primary[700] });
     } catch {
-      return {};
+      /* الألوان الأصلية */
     }
+    return Object.keys(brand).length ? { brand } : {};
   });
   router.get('/api/admin/brand', A(() => app.brand.payload()));
   router.put('/api/admin/brand/colors', A((ctx, u) => app.brand.setColors(ctx.body, u, ctx)));

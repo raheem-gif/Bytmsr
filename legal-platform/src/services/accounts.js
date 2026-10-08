@@ -1149,3 +1149,6 @@ export function createAccounts(app) {
 
   return svc;
 }
+
+// v10 b2b-server: نفس المفتاح الرئيسي لأسرار التحقق بخطوتين لمستخدمي الشركات (src/company-auth.js، الغرض 'company-totp')
+export { loadMasterKey };

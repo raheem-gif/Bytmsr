@@ -106,15 +106,19 @@ export function createVisibility(app) {
 
     /** الصلاحيات المقترحة افتراضيًا (تعدلها الإدارة قبل الحفظ) */
     defaultGrants(caseId, role, { issueIds = null, documentIds = null } = {}) {
+      // v10 b2b-server (B10-35): اسم الشركة ظاهر للمحامي في ملفات الشركات (للتعارض والسياق)
+      const companyCase = !!db.get('SELECT 1 FROM cases WHERE id = ? AND company_id IS NOT NULL', caseId);
       const allIssues = db.all("SELECT id FROM case_issues WHERE case_id = ? AND status = 'active'", caseId).map((r) => r.id);
       // v9.1 b-forms: الرسائل الصوتية لا تدخل أبدًا في «كل المستندات» (قد تحتوي بيانات تواصل)؛ تُتاح فقط باختيار صريح
       const allDocs = db.all("SELECT id FROM documents WHERE case_id = ? AND mime NOT LIKE 'audio/%'", caseId).map((r) => r.id);
       if (role === 'lead' || role === 'co_counsel') {
-        return { facts: true, client_name: false, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
+        return { facts: true, client_name: companyCase, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
       }
+      // v10 b2b-server: مراجع ملف الشركة يحتاج المسائل والمستندات كالمحامي الأساسي
+      if (companyCase && role === 'reviewer') return { facts: true, client_name: true, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
       return {
         facts: true,
-        client_name: false,
+        client_name: companyCase,
         issue_ids: issueIds ?? [],
         document_ids: documentIds ?? [],
         opinion_assignment_ids: [],
@@ -185,6 +189,9 @@ export function createVisibility(app) {
      * واسم المستفيد/ة ما لم يُتح له الاسم (src/ai/redact.js، نفس أداة قاعدة المعرفة).
      */
     beneficiaryTextCleaner(caseId, g) {
+      // v10 b2b-server (L-57): ملف شركة ← أسماء مستخدمي الشركة وبريدهم وهواتفهم تُحذف دائمًا (حتى مع منحة الاسم)
+      const companyId = db.value('SELECT company_id FROM cases WHERE id = ?', caseId);
+      if (companyId && app.companyRequests) return app.companyRequests.lawyerRedactor(companyId);
       const names = [];
       if (!g.client_name) {
         const row = db.get('SELECT cl.name, c.client_id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ?', caseId);
@@ -391,7 +398,7 @@ export function createVisibility(app) {
           created_at: r.created_at,
         }));
 
-      return {
+      const view = {
         assignment: {
           id: a.id,
           role: a.role,
@@ -437,6 +444,8 @@ export function createVisibility(app) {
           can_request: !closed && ACTIVE_ASSIGNMENT.includes(a.status) && a.status !== 'approved',
         },
       };
+      // v10 b2b-server (§4.7، L-57): ملف شركة ← كتلة «سياق الشركة» بالحقول المسموحة فقط، وكل نص يمر بالمنقّي
+      return c.company_id && app.companyRequests ? app.companyRequests.lawyerView(view, a, c, g) : { ...view, company: null };
     },
 
     /** قائمة ملفات المحامي */
@@ -448,7 +457,8 @@ export function createVisibility(app) {
       const t = nowIso();
       return db
         .all(
-          `SELECT a.*, c.code AS case_code, c.title AS case_title, c.legal_area, c.priority, c.status AS case_status,
+          `SELECT a.*, c.code AS case_code, c.title AS case_title, c.legal_area, c.priority, c.status AS case_status, c.company_id,
+             (SELECT co.name FROM companies co WHERE co.id = c.company_id AND EXISTS (SELECT 1 FROM assignment_grants g WHERE g.assignment_id = a.id AND g.resource = 'client_name')) AS company_name,
              (SELECT COUNT(*) FROM info_requests ir WHERE ir.assignment_id = a.id AND ir.status IN ('pending_admin','sent_to_client','client_replied')) AS open_info_requests,
              (SELECT COUNT(*) FROM info_requests ir WHERE ir.assignment_id = a.id AND ir.status = 'shared') AS shared_info_requests,
              (SELECT COUNT(*) FROM info_requests ir WHERE ir.case_id = a.case_id AND ir.status = 'shared'
@@ -479,6 +489,10 @@ export function createVisibility(app) {
           shared_info_requests: Number(r.shared_info_requests),
           unseen_shared_info_requests: Number(r.unseen_shared_info_requests),
           open_counsel_requests: Number(r.open_counsel_requests),
+          // v10 b2b-server (D6): ملف شركة، واسمها فقط مع منحة الاسم، ودور المراجعة
+          company: !!r.company_id,
+          company_name: r.company_name || null,
+          review: r.role === 'reviewer',
         }));
     },
   };

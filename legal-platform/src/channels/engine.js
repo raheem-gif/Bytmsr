@@ -206,6 +206,17 @@ export function createEngine(app) {
   // قيم سرية للإرسال الفعلي فقط (مثل رمز الدخول) لا تُحفظ في قاعدة البيانات: معرف الرسالة ← { text, vars }
   const secrets = new Map();
 
+  /**
+   * v10 b2b-server (حارس #19، L-33، CS-8): عميل داخلي لشركة لا تصله رسائل واتساب أو البوابة. الإرسال الآلي يُتخطى بلا خطأ
+   * (ويُسجَّل مرة واحدة لكل قاعدة وعميل) فلا يوقف قاعدة أتمتة لبقية العملاء؛ والإرسال التفاعلي 409 company_client.
+   */
+  function companyClientSkip(client, { automated, rule }) {
+    if (!automated) throw Object.assign(conflict('هذا حساب داخلي لشركة عميلة؛ تواصلوا معها من صفحة طلب الشركة.'), { code: 'company_client' });
+    const r = db.run('INSERT OR IGNORE INTO automation_runs (rule_key, dedupe_key, entity_type, entity_id, result, created_at) VALUES (?, ?, ?, ?, ?, ?)', 'company_client_skip', `${rule || 'auto'}:${client.id}`, 'client', client.id, 'skipped_company_client', nowIso());
+    if (r.changes) app.log?.(`engine: skipped automated message for company client ${client.id} (${rule || 'auto'})`);
+    return { skipped: 'company_client', status: 'skipped', id: null, channel: null };
+  }
+
   function nextIntakeCode(iso) {
     const y = cairoYear(iso);
     const n = db.nextCounter(`intake:${y}`, 1);
@@ -982,6 +993,7 @@ export function createEngine(app) {
     sendToClient({ client_id, intake_id = null, case_id = null, matter_id = null, body, channel = 'auto', author = null, automated = false, rule = null, meta = {}, attachments = [], unconfirmed = null, keep_unread = false }) {
       if (!body || !String(body).trim()) throw badRequest('نص الرسالة فارغ');
       const client = app.clients.require(client_id);
+      if (client.company_id) return companyClientSkip(client, { automated, rule }); // v10 b2b-server (حارس #19، L-33): لا واتساب للشركات
       const story = { clientId: client.id, intakeId: intake_id, caseId: case_id, matterId: matter_id };
       // v9.1 b-site (B91-01): الرسائل الآلية لقصة غير مؤكدة لا تصل الرقم أبدًا. التذكيرات تُتخطى ({ skipped: 'unconfirmed' })
       // ويُبلَّغ المستدعي، وما سواها (unconfirmed: 'portal') يُتاح في صفحة المتابعة فقط.
@@ -1195,7 +1207,8 @@ export function createEngine(app) {
       // (بلا اسم: «شكرًا على رأيك يا {first_name}.» ← «شكرًا على رأيك.» بلا مسافة قبل علامة الترقيم)
       if (!values.first_name) t = t.replace(/(أهلًا|أهلا|مرحبًا)\s+يا\s+\{first_name\}/g, '$1 بيك{ي}').replace(/[ \t]*يا\s+\{first_name\}/g, '').replace(/[ \t]*\{first_name\}/g, '');
       t = t.replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined && values[k] !== null && values[k] !== '' ? String(values[k]) : m));
-      return genderize(t, form);
+      // v10 experience (H-E2, L-07): سطر توقيع «— Emam …» يبدأ بـ RLM فيبقى يمين الرسالة (لا عزل داخل متغيرات واتساب)
+      return genderize(t, form).replace(/^— (?=[A-Za-z])/gm, '‏— ');
     },
 
     /**
@@ -1225,7 +1238,7 @@ export function createEngine(app) {
       // v9.1 fixes: {portal_link} يبقى متغيرًا في نص واتساب ويُصدر الرابط عند الإرسال؛ النص المحفوظ بلا سطر الرابط
       const text = engine.fillClientText(
         CLIENT_TEXTS.confirm_reply,
-        { first_name: words.first_name, ref: intake.code, org_name: app.settings.get('org_name') || 'بيوت مصر' },
+        { first_name: words.first_name, ref: intake.code, org_name: app.brand.displayName() }, // v10 experience (H-E2)
         words.form,
       );
       return engine.record({
@@ -1252,7 +1265,7 @@ export function createEngine(app) {
       if (existing) return existing;
       const doc = wa.document_id ? app.documents.get(wa.document_id) : null;
       if (!doc) return null;
-      const org = app.settings.get('org_name') || 'بيوت مصر';
+      const org = app.brand.displayName(); // v10 experience (H-E2)
       // v9.1 b-site (B91-10): صياغة بسيطة بلا أكواد الملفات الداخلية
       const words = engine.clientWords({ clientId: msg.client_id, intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
       return engine.record({
