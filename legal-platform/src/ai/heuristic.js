@@ -426,18 +426,50 @@ export function meaningfulLetters(text) {
   return (padded.match(/\p{L}/gu) || []).length;
 }
 
-/** أقرب رد جاهز لسؤال إجرائي: كلمات عنوانه موجودة في كلامها (نصف كلمات العنوان على الأقل، وكلمتان) */
-function bestQuickReply(text, quickReplies = []) {
+/**
+ * أقرب رد جاهز لسؤال إجرائي:
+ * (1) كلمات عنوانه موجودة في كلامها (نصف كلمات العنوان على الأقل، وكلمتان)؛ وإلا
+ * (2) [مراجعة 9.2] رد جاهز من نفس مجالها القانوني (تصنيف عنوانه ونصه) — الأكثر كلمات مشتركة ثم الأكثر استخدامًا.
+ * بدون (2) كان أغلب «ترد الإدارة» بلا مسودة رد («أهلًا…» والتوقيع فقط) مع أن للمؤسسة ردًا جاهزًا للموضوع نفسه
+ * (معاش الأرملة، إعلام الوراثة، نزاع الإيجار…). الرد يُعرض للإدارة لتراجعه قبل أي إرسال.
+ */
+function bestQuickReply(text, quickReplies = [], area = null) {
   const have = new Set(tokens(text));
   let best = null;
+  let near = null;
   for (const q of quickReplies || []) {
     const tt = [...new Set(tokens(q.title || ''))];
     if (!tt.length) continue;
     const hit = tt.filter((x) => have.has(x)).length;
     const score = hit / tt.length;
     if (hit >= 2 && score >= 0.5 && (!best || score > best.score || (score === best.score && (q.usage_count || 0) > (best.q.usage_count || 0)))) best = { q, score };
+    if (!best && area && area !== 'GEN' && classify(`${q.title || ''}\n${q.body || ''}`).area === area) {
+      const bt = new Set(tokens(`${q.title || ''} ${q.body || ''}`));
+      const shared = [...have].filter((x) => bt.has(x)).length + hit * 2;
+      if (!near || shared > near.shared || (shared === near.shared && (q.usage_count || 0) > (near.q.usage_count || 0))) near = { q, shared };
+    }
   }
-  return best ? best.q : null;
+  return best ? best.q : near ? near.q : null;
+}
+
+// تحيات وافتتاحيات لا تصلح «سطرًا واحدًا» للقصة (بعد normalizeArabic)
+const LINE_OPENERS = /^(?:(?:السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|سلام عليكم|وعليكم السلام|صباح الخير|مساء الخير|اهلا(?: وسهلا)?|مرحبا(?: بيكم)?|ازيكم|ازيك|لو سمحت(?:ي|وا)?|بعد اذنك(?:م)?|بخصوص(?: الطلب| طلبي)?)[\s،,.!؟?:-]*)+/u;
+
+/**
+ * [مراجعة 9.2] السطر الواحد على بطاقة القصة: أول جملة فيها كلام حقيقي، بلا التحية في أولها ولا رقم الطلب
+ * (لا «مرحبًا بيوت مصر» ولا «السلام عليكم بخصوص الطلب REQ-…» كملخص).
+ */
+function storyLine(candidates, fallback) {
+  for (const raw of candidates) {
+    const noCodes = String(raw || '').replace(/REQ-\d{4}-\d{5}/gi, ' ').replace(/\s+/g, ' ').trim();
+    const norm = n(noCodes);
+    const m = LINE_OPENERS.exec(norm);
+    // نحذف من النص الأصلي بقدر كلمات التحية (normalizeArabic لا يغيّر عدد الكلمات)
+    const drop = m ? m[0].trim().split(/\s+/).filter(Boolean).length : 0;
+    const rest = drop ? noCodes.split(/\s+/).slice(drop).join(' ').replace(/^[\s،,.!؟?:-]+/, '') : noCodes;
+    if (meaningfulLetters(rest) >= 12) return truncate(rest, 140);
+  }
+  return truncate(fallback || '', 140);
 }
 
 /** أول «محكمة …» في كلامها (حتى 4 كلمات) كما كتبتها — لا «المحكمة» وحدها */
@@ -457,7 +489,7 @@ export function recommendTrack(text, base, ctx = {}) {
   const letters = Number.isFinite(ctx.meaningfulLetters) ? ctx.meaningfulLetters : meaningfulLetters(text);
   const voice = ctx.voice || { total: 0, done: 0, missing: 0 };
   const facts = base.facts || [];
-  const oneLine = truncate(facts[0] || base.title || '', 140);
+  const oneLine = storyLine([...facts, ...sentences(text).filter((x) => !/^\[[^\]]*\]$/.test(x.trim()))], facts[0] || base.title || '');
   const draft = (over = {}) => ({
     title: base.title,
     facts_for_lawyer: `${base.summary}${facts.length ? `\nالوقائع كما وردت:\n${facts.map((f) => `• ${f}`).join('\n')}` : ''}`,
@@ -530,7 +562,7 @@ export function recommendTrack(text, base, ctx = {}) {
   // 5) رد الإدارة: سؤال إجرائي بلا نزاع
   const clientLetters = (String(text || '').match(/\p{L}/gu) || []).length;
   if (any(norm, forms, INFO_QUESTION) && !any(norm, forms, DISPUTE) && clientLetters <= 400) {
-    const qr = bestQuickReply(text, ctx.quickReplies);
+    const qr = bestQuickReply(text, ctx.quickReplies, base.legal_area !== 'GEN' ? base.legal_area : ctx.topicArea || null);
     return out('internal', 'سؤال إجرائي بلا نزاع واضح؛ يكفيه رد بمعلومة أو توجيه.', 0.5, {
       reply_to_her: qr ? qr.body : null,
       resolution_note: `استفسار عن ${base.title}: أُجيبت بالخطوات والمستندات المطلوبة.`,

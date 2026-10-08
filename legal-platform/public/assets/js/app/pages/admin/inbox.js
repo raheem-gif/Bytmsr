@@ -378,9 +378,22 @@ export default async function render(ctx) {
     });
   }
 
-  async function logCall(it, script = null, callIntro = null) {
-    const { openCallNote } = await callMod();
-    const r = await openCallNote({ intake: { id: it.id, code: it.code, unconfirmed: Boolean(it.identity_unconfirmed), callIntro }, script });
+  /**
+   * «سجّل المكالمة» / «اتصل بها» من البطاقة: الاقتراح (للإدارة فقط) يعطي سطر المكالمة ورقمها للاتصال —
+   * القائمة نفسها تبقى بلا أرقام هواتف (S-22)، والرقم يظهر فقط في نافذة المكالمة.
+   */
+  async function logCall(it, proposal = null) {
+    const [{ openCallNote }, p] = await Promise.all([callMod(), proposal ? Promise.resolve(proposal) : api.get(`/admin/intakes/${it.id}/proposal`)]);
+    const r = await openCallNote({
+      intake: {
+        id: it.id,
+        code: it.code,
+        unconfirmed: Boolean(it.identity_unconfirmed),
+        callIntro: p && p.actions ? p.actions.call_intro : null,
+        phone: p && p.identity ? p.identity.phone : null,
+      },
+      script: p && p.actions && p.actions.primary === 'call' ? p.actions.call_script : null,
+    });
     if (r) await load();
   }
 
@@ -391,8 +404,7 @@ export default async function render(ctx) {
   }
 
   async function callFirst(it) {
-    const p = await api.get(`/admin/intakes/${it.id}/proposal`);
-    await logCall(it, p.actions && p.actions.call_script, p.actions && p.actions.call_intro);
+    await logCall(it, await api.get(`/admin/intakes/${it.id}/proposal`));
   }
 
   async function summarizeNow(it) {

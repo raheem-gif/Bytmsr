@@ -894,7 +894,8 @@ describe('v9.2 stories — accept (one click)', () => {
       assert.equal(pr.track.recommended, 'internal');
       assert.equal(pr.actions.primary, 'call');
       assert.match(pr.actions.call_intro, /اتأكد إنك بتكلمها هي/);
-      assert.ok(pr.actions.call_script);
+      // [مراجعة 9.2] بلا رد جاهز في هذه القاعدة: المسودة تحية وتوقيع فقط فلا تُقرأ لها كنص مكالمة (انظر R2 للرد الجاهز)
+      assert.equal(pr.actions.call_script, null);
       assert.ok(pr.warnings.some((x) => x.code === 'unconfirmed'));
       const msgsBefore = Number(t.app.db.value('SELECT COUNT(*) FROM messages'));
       const bad = await admin.post(`/api/admin/intakes/${w.id}/accept`, { track: 'internal', story_rev: pr.story.rev, resolution_note: 'رد', reply: { send: true, text: pr.drafts.internal.reply.text.replace('\n\n', '\nجهزي الورق.\n'), channel: 'whatsapp' } });
@@ -1819,5 +1820,107 @@ describe('v9.2 stories — staff UI (static checks)', () => {
       const w = await webIntake(t, { name: 'أم ريم' });
       assert.match(t.app.stories.fill('أهلًا {client_name}، تمام.', rowOf(t, w.id)), /^أهلًا أم ريم، تمام\.$/);
     });
+  });
+});
+
+// ───────────── مراجعة 9.2 (admin-ai): أخطاء وجدتها المراجعة واختبارات الاستخدام ─────────────
+describe('v9.2 stories — review fixes', () => {
+  const QR_PEN = { id: 901, title: 'مستندات صرف معاش الأرملة والأيتام', body: 'أهلًا {client_name}، لصرف المعاش نرجو تجهيز: شهادة الوفاة، وقسيمة الزواج، وشهادات ميلاد الأبناء، وبطاقة الرقم القومي، ثم التوجه لمكتب التأمينات التابع لجهة عمل المتوفى.', usage_count: 3 };
+  const QR_INH = { id: 902, title: 'المستندات المطلوبة لإعلام الوراثة', body: 'لاستخراج إعلام الوراثة: شهادة وفاة المورث، وبطاقات الورثة، واسما شاهدين.', usage_count: 9 };
+  const PEN_INFO = 'زوجي الله يرحمه توفى من 8 شهور وكان شغال في شركة خاصة ومأمن عليه، ولحد دلوقتي معرفتش أصرف المعاش ليا وللعيال. التأمينات بتطلب ورق كتير ومش فاهمة أعمل إيه.';
+
+  test('R1 the card one-liner skips greetings and request codes («مرحبًا بيوت مصر», «السلام عليكم بخصوص الطلب REQ-…»)', () => {
+    const a = H.analyzeIntake('مرحبًا بيوت مصر\nجوزي اتوفى من سنة ومش عارفة أصرف المعاش بتاعه', {});
+    assert.doesNotMatch(a.one_line, /^مرحب/);
+    assert.match(a.one_line, /جوزي اتوفى/);
+    const b = H.analyzeIntake('السلام عليكم بخصوص الطلب REQ-2026-00020\nعايزة أعرف وصلتوا لإيه في موضوع ورث جدي', {});
+    assert.doesNotMatch(b.one_line, /REQ-|السلام عليكم/);
+    assert.match(b.one_line, /ورث جدي/);
+    const c = H.analyzeIntake('السلام عليكم، جوزي اتوفى وأهله واخدين الشقة', {});
+    assert.match(c.one_line, /^جوزي اتوفى/, 'the greeting at the start of a real sentence is dropped');
+  });
+
+  test('R2 «ترد الإدارة» gets a drafted reply from a same-topic quick reply (not a greeting-only skeleton); none from another topic', () => {
+    const a = H.analyzeIntake(PEN_INFO, { quickReplies: [QR_INH, QR_PEN] });
+    assert.equal(a.recommended_track, 'internal');
+    assert.equal(a.reply_source?.id, QR_PEN.id, 'pension question → pension documents reply');
+    assert.match(a.request_draft.reply_to_her, /لصرف المعاش/);
+    const b = H.analyzeIntake(PEN_INFO, { quickReplies: [QR_INH] });
+    assert.equal(b.recommended_track, 'internal');
+    assert.equal(b.reply_source, null, 'an inheritance reply is never drafted for a pension question');
+  });
+
+  test('R3 unconfirmed website story on «ترد الإدارة»: call script = the drafted reply; a greeting-only draft is never a script; her number is in the staff proposal (not in the inbox list)', async () => {
+    await withApp(async (t) => {
+      const admin = await t.login('admin');
+      const at = new Date().toISOString();
+      for (const q of [QR_PEN, QR_INH]) t.app.db.insert('quick_replies', { title: q.title, body: q.body, category: 'general', usage_count: q.usage_count, created_at: at, updated_at: at });
+      const w = await webIntake(t, { name: 'وفاء عبد الستار', description: PEN_INFO });
+      await t.app.ai.runAuto(w.id);
+      const pr = ok(await admin.get(`/api/admin/intakes/${w.id}/proposal`));
+      assert.equal(pr.track.recommended, 'internal');
+      assert.equal(pr.actions.primary, 'call');
+      assert.match(pr.actions.call_script, /لصرف المعاش/, 'the script carries the drafted reply');
+      assert.doesNotMatch(pr.actions.call_script, /\{client_name\}/);
+      assert.equal(pr.identity.phone, e164(w.phone), 'staff can call her from the triage card');
+      const list = ok(await admin.get('/api/admin/intakes?scope=open&sort=triage'));
+      const digits = w.phone.slice(1);
+      assert.ok(list.items.some((x) => x.id === w.id));
+      assert.doesNotMatch(JSON.stringify(list), new RegExp(digits), 'the inbox list stays phone-free (S-22)');
+      // the drafted reply can go to her page as is (one click from «إرسال لصفحتها فقط»)
+      const r = ok(await admin.post(`/api/admin/intakes/${w.id}/accept`, { track: 'internal', story_rev: pr.story.rev, resolution_note: pr.drafts.internal.resolution_note, reply: { send: true, text: pr.drafts.internal.reply.text, channel: 'website' } }));
+      assert.equal(r.message.channel, 'website');
+      // greeting-only: no script
+      const w2 = await webIntake(t, { description: 'عايزة أعرف ينفع أعمل توكيل لأخويا وأنا برة مصر وإيه المطلوب' });
+      await t.app.ai.runAuto(w2.id);
+      const pr2 = ok(await admin.get(`/api/admin/intakes/${w2.id}/proposal`));
+      if (pr2.track.recommended === 'internal' && !pr2.drafts.internal.reply.source) assert.equal(pr2.actions.call_script, null);
+    });
+  });
+
+  test('R4 accept without story_rev is refused (the «new messages since you opened it» check needs it) unless forced', async () => {
+    await withApp(async (t) => {
+      const admin = await t.login('admin');
+      const s = await readyStory(t);
+      const pr = ok(await admin.get(`/api/admin/intakes/${s.id}/proposal`));
+      const bad = await admin.post(`/api/admin/intakes/${s.id}/accept`, { track: 'consultation', case: pr.drafts.consultation.case });
+      assert.equal(bad.status, 400);
+      assert.equal(rowOf(t, s.id).decided_track, null, 'nothing decided');
+      assert.equal(rowOf(t, s.id).status, 'new');
+      const forced = ok(await admin.post(`/api/admin/intakes/${s.id}/accept`, { track: 'consultation', force: true, case: pr.drafts.consultation.case }));
+      assert.ok(forced.case && forced.case.id);
+    });
+  });
+
+  test('R5 «الرقم الذي نتصل منه» is stored in the local format she sees on the site', async () => {
+    await withApp(async (t) => {
+      const admin = await t.login('admin');
+      ok(await admin.patch('/api/admin/settings', { callback_from_number: ' +20 121 111-4662 ' }));
+      assert.equal(t.app.settings.get('callback_from_number'), '01211114662');
+      ok(await admin.patch('/api/admin/settings', { callback_from_number: '٠١٠٠١٢٣٤٥٦٧' }));
+      assert.equal(t.app.settings.get('callback_from_number'), '01001234567');
+      assert.equal((await admin.patch('/api/admin/settings', { callback_from_number: '<b>123</b>' })).status, 400);
+      ok(await admin.patch('/api/admin/settings', { callback_from_number: '' }));
+      assert.equal(t.app.settings.get('callback_from_number'), '');
+    });
+  });
+
+  test('R6 UI: the call dialog from a triage card gets her number from the proposal; no «واتساب» reply option for an unconfirmed number; phone-size tap targets', () => {
+    const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+    const inbox = read('public/assets/js/app/pages/admin/inbox.js');
+    assert.match(inbox, /phone: p && p\.identity \? p\.identity\.phone : null/);
+    const sheet = read('public/assets/js/app/components/story-sheet.js');
+    assert.match(sheet, /unconfirmed \? REPLY_CHANNELS\.filter\(\(c\) => c\.value !== 'whatsapp'\)/);
+    assert.match(sheet, /const herPhone = opts\.phone \|\| \(p\.identity && p\.identity\.phone\)/);
+    const css = read('public/assets/css/v9-messaging.css');
+    const v92 = css.slice(css.indexOf('v9.2 القصص'));
+    assert.match(v92, /\.pa-story-sheet \.input,[\s\S]*?min-height: 44px/);
+    assert.match(v92, /\.pa-prop-card \.pa-prop-primary,[\s\S]*?--btn-h: 48px/);
+    assert.match(v92, /\.pa-sheet-phone \{[^}]*min-height: 44px/, '«بلّغتها في مكالمة» link button ≥ 44px');
+    assert.match(v92, /\.pa-page-inbox \.btn,[\s\S]*?\.pa-page-intake \.input \{\s*min-height: 44px/);
+    // «اعمل منها طلب جديد» only on messages that arrived after the case was opened (not on the story the case came from)
+    const caseDetail = read('public/assets/js/app/pages/admin/case-detail.js');
+    assert.match(caseDetail, /splitAfter: data\.case && data\.case\.created_at/);
+    assert.match(caseDetail, /!\(splitAfter && String\(m\.created_at \|\| ''\) <= String\(splitAfter\)\)/);
   });
 });

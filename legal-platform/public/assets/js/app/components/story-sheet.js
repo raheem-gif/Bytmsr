@@ -89,6 +89,10 @@ export async function openStorySheet(opts = {}) {
   const rev = { value: Number(p.story && p.story.rev) || 0 };
   const unconfirmed = Boolean(p.identity && p.identity.unconfirmed);
   const channelHint = p.identity && p.identity.reply_channel && p.identity.reply_channel.text ? `يصل الرد: ${p.identity.reply_channel.text}.` : '';
+  // رقمها لنافذة المكالمة (من صفحة الطلب، أو من الاقتراح حين تُفتح الورقة من بطاقة الفرز)
+  const herPhone = opts.phone || (p.identity && p.identity.phone) || null;
+  // [مراجعة 9.2] رقم غير مؤكد (B91-01): لا خيار «واتساب» يرفضه الخادم بعد الضغط — صفحة المتابعة فقط
+  const replyChannels = unconfirmed ? REPLY_CHANNELS.filter((c) => c.value !== 'whatsapp') : REPLY_CHANNELS;
   const forms = new Map();
   let handle = null;
   let finished = null;
@@ -140,7 +144,7 @@ export async function openStorySheet(opts = {}) {
             'اتصل بها',
             async () => {
               const r = await openCallNote({
-                intake: { id: intakeId, code: p.code, phone: opts.phone, unconfirmed, callIntro: p.actions.call_intro },
+                intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions.call_intro },
                 script: p.actions.call_script,
               });
               if (!r) return;
@@ -159,7 +163,7 @@ export async function openStorySheet(opts = {}) {
     label: 'قناة الرد',
     type: 'select',
     placeholder: false,
-    options: REPLY_CHANNELS,
+    options: replyChannels,
     hint: channelHint || null,
   });
 
@@ -739,7 +743,7 @@ export async function openStorySheet(opts = {}) {
     let noteId = opts.callNoteId || null;
     if (!noteId) {
       const r = await openCallNote({
-        intake: { id: intakeId, code: p.code, phone: opts.phone, unconfirmed, callIntro: p.actions && p.actions.call_intro },
+        intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions && p.actions.call_intro },
         script: cur.replyText ? cur.replyText() : null,
       });
       if (!r) return false;

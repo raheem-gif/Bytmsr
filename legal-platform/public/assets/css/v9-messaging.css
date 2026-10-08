@@ -1305,6 +1305,8 @@
 
 .pa-story-sheet .modal-footer .pa-sheet-phone {
   --btn-h: 44px;
+  /* [مراجعة 9.2] زر بشكل رابط: ارتفاعه الافتراضي 31px، والهدف ≥ 44px */
+  min-height: 44px;
   order: -1;
   flex-basis: 100%;
   justify-content: flex-start;
@@ -1538,6 +1540,46 @@
 
   .pa-sheet-q .input,
   .pa-issue-add .input {
+    min-height: 44px;
+  }
+
+  /* [مراجعة 9.2] حقول الأوراق (المجال، العنوان، الأولوية…) ≥ 44px، والزر الأساسي ≥ 48px حتى داخل البطاقة والنوافذ */
+  .pa-story-sheet .input,
+  .pa-call-sheet .input,
+  .pa-split-sheet .input,
+  .pa-stset .input {
+    min-height: 44px;
+  }
+
+  .pa-prop-card .pa-prop-primary,
+  .pa-call-sheet .modal-footer .btn-primary,
+  .pa-split-sheet .modal-footer .btn-primary,
+  .pa-stset .btn-primary {
+    --btn-h: 48px;
+  }
+
+  /* [مراجعة 9.2] صفحتا صندوق الوارد والطلب على الهاتف: كل زر وحقل ≥ 44px والزر الأساسي ≥ 48px
+     (ومنها أزرار 9.1 في رأس الصفحة والتبويبات ومحرر الرد والمستندات وبطاقة التحليل) */
+  .pa-page-inbox .btn,
+  .pa-page-intake .btn,
+  .pa-page-inbox .seg,
+  .pa-page-inbox .input,
+  .pa-page-intake .input {
+    min-height: 44px;
+  }
+
+  .pa-page-inbox .btn-primary,
+  .pa-page-intake .btn-primary {
+    min-height: 48px;
+  }
+
+  /* المحاكي (صفحة تجريبية للإدارة) على الهاتف: نفس أهداف اللمس */
+  .pa-page-simulator .btn {
+    --btn-h: 44px;
+    min-height: 44px;
+  }
+
+  .pa-page-simulator .input {
     min-height: 44px;
   }
 }

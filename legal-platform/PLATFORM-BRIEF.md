@@ -516,7 +516,11 @@ lawyer.
 - **Open decisions (admin-ai)**: turning on the welcome and the ack (after changing the privacy wording «كل رد يصلك
   يراجعه شخص مختص» to exclude fixed automated messages); the 10-minute quiet period and done words; who returns call-backs,
   from which number and how fast; outside referral bodies (none shipped); the daily Claude cap (6); the 3-attempts / 2-days
-  rule before «تعذّر الوصول إليها». Deferred to 9.3: speech-to-text drafts, referral and done-word editors, a dashboard
+  rule before «تعذّر الوصول إليها». Review notes: the call dialog shows her number (from the staff-only proposal,
+  `identity.phone`, also when opened from an inbox card; the list itself stays phone-free); the local analyser drafts the
+  «ترد الإدارة» reply from the foundation's quick reply on the same legal topic (reviewed in the sheet before sending), a
+  greeting-only draft is never a call script, and the card one-liner skips greetings and request codes; `accept` requires
+  `story_rev` unless forced; `callback_from_number` is stored in the local format she sees. Deferred to 9.3: speech-to-text drafts, referral and done-word editors, a dashboard
   «جاهزة للقرار» tile, merging two open requests (9.2 only warns).
 
 ### The foundation's colours («ألوان المؤسسة»)

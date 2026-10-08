@@ -144,7 +144,7 @@ export function textBlock(title, text, { meta, iconName, tone, dir = 'auto' } = 
  * v9.2 (admin-ai): onSplit(message) يضيف لكل رسالة واردة منها (آخر 30 يومًا) «اعمل منها طلب جديد» — للإدارة فقط.
  * @returns {HTMLElement} غلاف قابل للتمرير
  */
-export function messageThread(messages = [], { onRetry, inLabel = 'المستفيد/ة', outLabel = 'المؤسسة', onSplit } = {}) {
+export function messageThread(messages = [], { onRetry, inLabel = 'المستفيد/ة', outLabel = 'المؤسسة', onSplit, splitAfter = null } = {}) {
   const thread = chatThread(messages, { inLabel, outLabel, emptyText: 'لا توجد رسائل بعد' });
   const bubbles = thread.querySelectorAll('.msg');
   messages.forEach((m, i) => {
@@ -166,7 +166,8 @@ export function messageThread(messages = [], { onRetry, inLabel = 'المستف�
         ),
       );
     }
-    if (onSplit && m.direction === 'in' && !meta.call_note && (m.case_id || m.matter_id) && Date.now() - Date.parse(m.created_at || 0) <= 30 * 24 * 3600 * 1000) {
+    // [مراجعة 9.2] splitAfter: لا تظهر على رسائل حكايتها الأصلية التي فُتح منها الملف (قبل إنشائه)، بل على ما وصل بعده
+    if (onSplit && m.direction === 'in' && !meta.call_note && (m.case_id || m.matter_id) && Date.now() - Date.parse(m.created_at || 0) <= 30 * 24 * 3600 * 1000 && !(splitAfter && String(m.created_at || '') <= String(splitAfter))) {
       extras.push(button('اعمل منها طلب جديد', { variant: 'link', size: 'sm', icon: 'split', className: 'pa-split-action', onClick: () => onSplit(m) }));
     }
     if (extras.length) bubble.append(h('div.pb-msg-extra', extras));
@@ -2653,6 +2654,7 @@ export default async function render(ctx) {
         },
         // v9.2 (admin-ai): مشكلة جديدة كتبتها هنا ← طلب جديد يُلخَّص
         onSplit: (m) => openSplitDialog({ messages: data.messages, preselectId: m.id }),
+        splitAfter: data.case && data.case.created_at,
       }),
       messageComposer({
         // v9.1 b-site (B91-01): «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»

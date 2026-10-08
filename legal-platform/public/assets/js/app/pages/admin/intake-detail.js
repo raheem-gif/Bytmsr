@@ -382,7 +382,11 @@ export default async function render(ctx) {
 
   function goToVoice() {
     const ta = firstMissingVoice();
-    if (!ta) return;
+    if (!ta) {
+      // [مراجعة 9.2] لا ملف صوتي يمكن سماعه هنا (تنزيله من واتساب لم يكتمل أو فشل): لا نترك الزر بلا أثر
+      toast(story && story.media_failed ? 'تعذّر تنزيل الرسالة الصوتية — اطلبوا منها إعادة إرسالها، أو اتصلوا بها.' : 'الرسالة الصوتية لم تصل بعد إلى المنصة — حاولوا بعد دقائق، أو اتصلوا بها.', 'warning', 8000);
+      return;
+    }
     ta.closest('.pa-vt').scrollIntoView({ block: 'center', behavior: 'smooth' });
     ta.focus({ preventScroll: true });
   }

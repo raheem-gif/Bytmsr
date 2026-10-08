@@ -439,11 +439,14 @@ export function registerAdminRoutes(router, app) {
     }
     if (b.callback_from_number !== undefined) {
       const raw = String(latinDigits(b.callback_from_number ?? '')).trim();
+      let shown = '';
       if (raw) {
         const p = normalizePhone(raw);
         if (!p || !p.startsWith('+20')) throw badRequest('اكتب رقمًا مصريًا صحيحًا أو اتركه فارغًا');
+        // [مراجعة 9.2] يُحفظ بالصيغة المحلية المعروضة لها في الموقع («01211114662») لا كما كُتب (مسافات، رموز، +20)
+        shown = `0${p.slice(3)}`;
       }
-      out.callback_from_number = raw;
+      out.callback_from_number = shown;
     }
     if (b.callback_eta_days !== undefined) out.callback_eta_days = v.int(b.callback_eta_days, 'نتصل خلال (أيام عمل)', { required: true, min: 1, max: 5 });
     return out;

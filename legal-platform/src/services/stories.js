@@ -50,6 +50,19 @@ function lettersOf(text, doneWords) {
   return (storyWords(String(text || '').replace(/\[[^\]]*\]/g, ' '), doneWords).match(/\p{L}/gu) || []).length;
 }
 
+/**
+ * [مراجعة 9.2] مسودة رد بلا كلام: التحية والتوقيع فقط («أهلًا يا هبة،\n\n— المؤسسة»)، كما يكتبها الاقتراح حين لا يجد
+ * المحلل ردًا جاهزًا. لا تُقرأ لها في المكالمة (call_script) — نفس قاعدة الواجهة isSkeletonReply.
+ */
+export function isSkeletonDraft(text) {
+  const body = String(text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !/^—/.test(l))
+    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''));
+  return body.join('').replace(/[^\p{L}]/gu, '').length < 3;
+}
+
 export function createStories(app) {
   const { db } = app;
   const quietTimers = new Map();
@@ -774,7 +787,8 @@ export function createStories(app) {
       if (other) add('other_open_request', `لها طلب آخر مفتوح (${other.code}) — راجعوا أو ادمجوا قبل القرار.`);
       // [R2-B7/S-29] الهاتف أولًا حين لا يصلها واتساب (رقم غير مؤكد) أو حين كل رسائلها صوتية
       const callFirst = (unconfirmed && ['internal', 'refer', 'need_info'].includes(recommended)) || voiceOnly;
-      const sayDraft = recommended === 'need_info' ? numbered : recommended === 'internal' ? drafts.internal.reply.text : recommended === 'refer' ? drafts.refer.reply.text : null;
+      let sayDraft = recommended === 'need_info' ? numbered : recommended === 'internal' ? drafts.internal.reply.text : recommended === 'refer' ? drafts.refer.reply.text : null;
+      if (sayDraft && recommended !== 'need_info' && isSkeletonDraft(sayDraft)) sayDraft = null;
       return {
         intake_id: i.id,
         code: i.code,
@@ -790,7 +804,8 @@ export function createStories(app) {
         one_line: out?.one_line || out?.title || null,
         fallback_reason: out?._fallback_reason || null,
         track: { recommended, reason: out?.track_reason || null, confidence: out?.track_confidence ?? null, label: recommended ? LABELS.story_track[recommended] : null },
-        identity: { unconfirmed, reply_channel: { text: hint.text, whatsapp: !!hint.whatsapp }, in_window: inWindow },
+        // phone: للإدارة فقط (الاقتراح جزء من تفاصيل الطلب، لا يصل للمحامين ولا لقائمة الوارد): رقمها للاتصال من بطاقة الفرز
+        identity: { unconfirmed, reply_channel: { text: hint.text, whatsapp: !!hint.whatsapp }, in_window: inWindow, phone: i.contact_phone || (i.client_id ? app.clients.primaryPhone(i.client_id) : null) || null },
         form,
         drafts,
         warnings,
@@ -821,7 +836,8 @@ export function createStories(app) {
       if (i0.status === 'converted') throw conflict('هذا الطلب تحول بالفعل إلى ملف', { case_id: i0.case_id });
       if (!OPEN.includes(i0.status)) throw conflict('تم البت في هذا الطلب بالفعل');
       if (!i0.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
-      const revSeen = body.story_rev === undefined || body.story_rev === null ? Number(i0.story_rev) : v.int(body.story_rev, 'رقم مراجعة القصة', { min: 0 });
+      // [مراجعة 9.2] رقم المراجعة إلزامي (إلا مع «متابعة رغم ذلك»): بدونه تسقط مقارنة «وصلت رسائل جديدة بعد فتح الاقتراح»
+      const revSeen = body.story_rev === undefined || body.story_rev === null ? (force ? Number(i0.story_rev) : v.int(null, 'رقم مراجعة القصة', { required: true, min: 0 })) : v.int(body.story_rev, 'رقم مراجعة القصة', { min: 0 });
       const suggestionId = body.suggestion_id ? v.int(body.suggestion_id, 'الاقتراح', { min: 1 }) : null;
       // ── 1) التحقق قبل أي كتابة ──
       if (deliver === 'phone') {
