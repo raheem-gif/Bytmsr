@@ -9,14 +9,28 @@
     <link rel="stylesheet" href="/assets/css/public-site.css" />
     <link rel="stylesheet" href="/assets/css/v91-b-forms.css" />
     <script type="module" src="/assets/js/public/intake.js"></script>
+    <script nomodule src="/assets/js/public/nomodule.js"></script>
   </head>
   <body class="site pub v91 bmf-page">
-    <a class="skip-link" href="#main">تخطَّ إلى المحتوى</a>
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" class="site-main bmf-main" tabindex="-1">
-      <div class="bmf-intake" id="intake-root">
+      <!-- v9.2: بيانات شاشة «إحنا نكلمك» (التليفون، واتساب، مقفولين دلوقتي؟) من الخادم -->
+      <div class="bmf-intake" id="intake-root" data-org-phone="{{org_phone}}" data-org-phone-href="{{org_phone_href}}" data-wa="{{whatsapp_digits}}"<!--#if office_closed--> data-office-closed="1"<!--/if office_closed-->>
         <div class="bmf-loading" role="status"><span class="bmf-spinner" aria-hidden="true"></span><span>لحظة…</span></div>
+        <!-- v9.2 [R2-B23]: النت بطيء والصفحة ما فتحتش بعد 8 ثواني؟ تظهر بالـ CSS وحده (بلا JavaScript)، وأول سطر في intake.js يشيلها -->
+        <div class="bmf-card bmf-slow" data-slow>
+          <p class="bmf-card-text">الصفحة بتحمّل ببطء. تقدري تكلمينا على طول:</p>
+          <!--#if whatsapp_url--><a class="bmf-btn bmf-btn-wa bmf-btn-lg bmf-btn-block" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer">{{{icon_whatsapp}}}<span>واتساب</span></a><!--/if whatsapp_url-->
+          <!--#if org_phone--><a class="bmf-btn bmf-btn-outline bmf-btn-lg bmf-btn-block" href="tel:{{org_phone_href}}">{{{icon_phone}}}<span>اتصال: </span><span class="bmf-ltr" dir="ltr">{{org_phone}}</span></a><!--/if org_phone-->
+          {{{contact_list}}}
+        </div>
+        <!-- v9.2 (P9): متصفح قديم لا يشغّل الوحدات: nomodule.js يشيل «لحظة…» ويُظهر طرق التواصل -->
+        <div class="bmf-card" data-fallback hidden>
+          <p class="bmf-card-text">الصفحة دي مش شغالة على الموبايل ده. كلمينا على طول:</p>
+          {{{contact_list}}}
+        </div>
         <noscript>
           <div class="bmf-card">
             <h1>احكيلنا مشكلتك</h1>

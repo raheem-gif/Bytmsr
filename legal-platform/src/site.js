@@ -15,6 +15,9 @@ import { publicWhatsAppDigits, isPlaceholderWhatsApp } from './channels/whatsapp
 import { assetVersion, sendBody } from './http.js';
 // v9.1 (B91-11): رسم الوحدات بأرقام إصدار ثابتة وروابط modulepreload
 import { setPublicRoot, preloadClosure } from './site-assets.js';
+// v9.2 public: مصدر واحد للمواضيع (الشاشة الأولى، «بنساعد في إيه؟»، النموذج، الإدارة) وصورها
+import { TOPICS } from '../public/assets/js/public/topics.js';
+import { PICTOS } from '../public/assets/js/public/pictos.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -24,8 +27,11 @@ const FALLBACK = {
   site_program_name: 'الدعم القانوني',
 };
 
+/** v9.1 (B91-12): رسالة واتساب الجاهزة في الموقع، بسيطة ومحايدة (تصلح للأم والأب) */
+const SITE_GREETING = 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.';
+
 /** أجزاء HTML يولّدها الخادم نفسه؛ وحدها تُدرج دون تهريب بصيغة {{{key}}} (أي مفتاح آخر يُهرَّب دائمًا) */
-const RAW_KEYS = new Set(['header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone']);
+const RAW_KEYS = new Set(['header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone', 'start_tiles', 'ways_tiles', 'header_contact']);
 
 /** الحد الأقصى لأطوال حقول الموقع (نفس حدود بطاقة الإعدادات في الواجهة) */
 const SITE_TEXT_FIELDS = [
@@ -98,18 +104,19 @@ export const SITE_PAGES = [
 /** مسارات لا تُفهرس */
 export const ROBOTS_DISALLOW = ['/app', '/p/', '/api/', '/setup', '/webhooks/'];
 
-// ───────────── «بنساعد في إيه؟» (الإصدار 9.1 — B91-07): كلام يومي ومثال من كلام المستفيدة نفسها ─────────────
-// areas: كود المجال القانوني لرابط /intake?area=…؛ «حاجة تانية» بلا مجال (← /intake). seo: الاسم القانوني لوسوم البحث.
-export const SERVICES = [
-  { key: 'inheritance', icon: 'scroll', title: 'ورث', example: 'جوزي اتوفى، وعايزة أعرف نصيبي ونصيب العيال', areas: ['INH'], seo: 'المواريث وإعلام الوراثة' },
-  { key: 'pensions', icon: 'landmark', title: 'معاش', example: 'عايزة أطلّع معاش جوزي أو تكافل وكرامة', areas: ['PEN'], seo: 'المعاشات و«تكافل وكرامة»' },
-  { key: 'alimony', icon: 'wallet', title: 'نفقة', example: 'أبو العيال مش بيصرف عليهم', areas: ['FAM'], seo: 'النفقة' },
-  { key: 'custody', icon: 'heart', title: 'حضانة ورؤية', example: 'عايزين ياخدوا مني العيال', areas: ['FAM'], seo: 'الحضانة والرؤية' },
-  { key: 'housing', icon: 'home', title: 'سكن وإيجار', example: 'عايزين يطلّعوني من الشقة', areas: ['PRP'], seo: 'السكن والإيجار' },
-  { key: 'guardianship', icon: 'shieldCheck', title: 'فلوس الأيتام', example: 'محتاجة أصرف فلوس العيال اللي في البنك أو البريد', areas: ['GRD'], seo: 'الولاية على المال والنيابة الحسبية' },
-  { key: 'documents', icon: 'fileText', title: 'ورق رسمي', example: 'مش عارفة أطلّع شهادة الوفاة أو القيد العائلي', areas: ['ADM'], seo: 'استخراج المستندات الرسمية' },
-  { key: 'other', icon: 'message', title: 'حاجة تانية', example: 'احكيلنا برضه، وإحنا نوجّهك', areas: [], seo: null },
-];
+// ───────────── «بنساعد في إيه؟» (الإصدار 9.1 — B91-07؛ v9.2: من topics.js) ─────────────
+// كلام يومي ومثال من كلام المستفيدة نفسها. key: معرّف المربع القديم (id="service-…")، topic: مفتاح الموضوع لرابط
+// /intake?topic=… (حضانة ورؤية تفتح الحضانة لا النفقة رغم أن المجال واحد). seo: الاسم القانوني لوسوم البحث.
+const SERVICE_ICONS = { inheritance: 'scroll', pensions: 'landmark', guardianship: 'shieldCheck', alimony: 'wallet', custody: 'heart', housing: 'home', documents: 'fileText', other: 'message' };
+export const SERVICES = TOPICS.map((t) => ({
+  key: t.service_key,
+  topic: t.key,
+  icon: SERVICE_ICONS[t.service_key] || 'message',
+  title: t.label,
+  example: t.example,
+  areas: t.area ? [t.area] : [],
+  seo: t.seo,
+}));
 
 /** أسماء المجالات بكلام يومي (لنموذج الطلب عبر بيانات الصفحة bm-public) */
 export const PLAIN_AREAS = {
@@ -395,11 +402,6 @@ export function registerSite(app) {
     };
   }
 
-  function areaCodeFor(service) {
-    const codes = new Set(LEGAL_AREAS.map((a) => a.code));
-    return service.areas.find((c) => codes.has(c)) || '';
-  }
-
   // ───────────── الأجزاء المشتركة ─────────────
 
   // v9.1 (B91-07): كلام بسيط في القائمة؛ «عن البرنامج» والسياسات في «روابط مهمة» بالتذييل
@@ -409,22 +411,93 @@ export function registerSite(app) {
     { href: '/#faq', label: 'أسئلة' },
   ];
 
+  /**
+   * v9.2 [R2-B1]: زر تواصل 44×44 في رأس كل صفحة عامة على الموبايل (≤ 600px) قبل زر القائمة:
+   * واتساب إن وُجد رقم فعلي، وإلا الاتصال إن وُجد تليفون، وإلا لا شيء. يختفي على الشاشات الأكبر (القائمة فيها التواصل).
+   */
+  function headerContactHtml(ps, wa) {
+    if (wa) {
+      return `<a class="pub-head-contact pub-head-contact--wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب (يفتح في نافذة جديدة)">${iconSvg('whatsapp', 22)}</a>`;
+    }
+    if (ps.org_phone) {
+      return `<a class="pub-head-contact" href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" aria-label="اتصال بالتليفون">${iconSvg('phone', 22)}</a>`;
+    }
+    return '';
+  }
+
+  /** v9.2: صورة موضوع/إجابة (SVG داخلي من pictos.js، زخرفية: الكلمة بجانبها هي الاسم) */
+  function pictoHtml(id, cls = 'pub-pic') {
+    return `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${PICTOS[id] || ''}</svg>`;
+  }
+
+  /** v9.2 (P3): الشاشة الأولى — 8 مربعات بصورة وكلمة، كل واحد رابط مباشر لأول سؤال في موضوعه */
+  function startTilesHtml() {
+    return `<ul class="pub-pick" id="start-tiles">${TOPICS.map(
+      (t) =>
+        `<li><a class="pub-pick-tile" id="tile-${t.key}" href="/intake?topic=${t.key}" data-cta="intake" data-topic="${t.key}" data-say="${esc(t.say)}">${pictoHtml(t.picto)}<b>${esc(t.label)}</b>${t.sub ? `<small>${esc(t.sub)}</small>` : ''}</a></li>`,
+    ).join('')}</ul>`;
+  }
+
+  // v9.2 [R2-B2]: صف «طرق تانية» بكلام محايد (أسماء لا أفعال): «إحنا نكلمك» دائمًا، «واتساب» برقم فعلي فقط، «طلبك فين؟»
+  const WAY_SAY = {
+    callback: 'إحنا نكلمكم ببلاش: اضغطوا هنا، واكتبوا الرقم.',
+    whatsapp: 'ابعتولنا على واتساب، كتابة أو رسالة صوتية.',
+    follow: 'طلبك فين: لو بعتولنا طلب قبل كده.',
+  };
+  function waysTilesHtml(ps, wa) {
+    const items = [
+      `<li><a class="pub-pick-way pub-pick-way--callback" href="/intake?mode=callback&amp;entry=home_callback" data-cta="intake" data-say="${esc(WAY_SAY.callback)}">${pictoHtml('callme')}<b>إحنا نكلمك</b></a></li>`,
+    ];
+    if (wa) {
+      items.push(
+        `<li><a class="pub-pick-way pub-pick-way--wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-say="${esc(WAY_SAY.whatsapp)}">${pictoHtml('whatsapp')}<b>واتساب</b><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></li>`,
+      );
+    }
+    items.push(`<li data-follow><a class="pub-pick-way pub-pick-way--follow" href="/portal" data-say="${esc(WAY_SAY.follow)}">${pictoHtml('follow')}<b>طلبك فين؟</b></a></li>`);
+    return `<ul class="pub-pick-ways" data-n="${items.length}">${items.join('')}</ul>`;
+  }
+
+  /** ما يُقال بعد المربعات حين يُضغط «بالصوت» (الأجزاء الموجودة فقط، بصيغة الجمع المحايدة) */
+  function startOutro(wa) {
+    return ['ولو عايزين إحنا نكلمكم ببلاش، اضغطوا "إحنا نكلمك".', wa ? 'أو ابعتولنا على واتساب.' : '', 'أو اعرفوا طلبكم وصل لفين.'].filter(Boolean).join(' ');
+  }
+
+  /** روابط ملفات نموذج الطلب (نفس أرقام الإصدار في صفحة /intake) لتحميلها مسبقًا وهي تختار */
+  function prefetchUrls() {
+    const urls = [];
+    const add = (rel) => {
+      const v = assetVersion(path.join(pub, rel));
+      if (v) urls.push(`${rel}?v=${v}`);
+    };
+    add('/assets/js/public/intake.js');
+    try {
+      urls.push(...preloadClosure(path.join(pub, '/assets/js/public/intake.js'), pub));
+    } catch {
+      /* بلا تحميل مسبق */
+    }
+    add('/assets/css/v91-b-forms.css');
+    return urls.join(' ');
+  }
+
   function headerHtml(ps, current) {
+    const wa = waLink(ps.whatsapp_digits, SITE_GREETING);
     const links = NAV.map(
       (n) => `<a class="pub-nav-link" href="${n.href}"${n.path && n.path === current ? ' aria-current="page"' : ''}>${esc(n.label)}</a>`,
     ).join('');
+    // v9.2 (S-25): الشاشة الأولى للصفحة الرئيسية بلا أفعال مؤنثة، ونفس اسم مربع «طلبك فين؟» تحت (مكان واحد = اسم واحد)
+    const followLabel = current === '/' ? 'طلبك فين؟' : 'تابعي طلبك';
     return `<header class="pub-header" data-pub-header>
   <div class="pub-container pub-header-inner">
     <a class="pub-brand" href="/" aria-label="${esc(ps.site_name)} — الصفحة الرئيسية">
       <span class="pub-logo">${brandSvg({ size: 26 })}</span>
       <span class="pub-brand-text"><strong>${esc(ps.program_name || ps.org_name)}</strong><span>${esc(ps.org_legal_name || ps.org_name)}</span></span>
     </a>
-    <button class="pub-menu-toggle" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu>
+    ${headerContactHtml(ps, wa)}<button class="pub-menu-toggle" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu>
       ${iconSvg('menu', 22, 'pub-menu-open')}${iconSvg('x', 22, 'pub-menu-close')}<span class="pub-sr">القائمة</span>
     </button>
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية">
       ${links}
-      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>تابعي طلبك</span></a>
+      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>${followLabel}</span></a>
       <a class="pub-btn pub-btn-gold pub-nav-cta" href="/intake" data-cta="intake"${current === '/intake' ? ' aria-current="page"' : ''}>${iconSvg('message', 18)}<span>احكيلنا مشكلتك</span></a>
     </nav>
   </div>
@@ -541,11 +614,10 @@ export function registerSite(app) {
 </footer>`;
   }
 
-  // v9.1 (B91-07): كل مربع رابط كامل (≥ 56px) إلى /intake?area=… — «حاجة تانية» إلى /intake
+  // v9.1 (B91-07): كل مربع رابط كامل (≥ 56px). v9.2: إلى /intake?topic=… (نفس مفاتيح مربعات الشاشة الأولى)
   function servicesHtml() {
     return SERVICES.map((s) => {
-      const code = areaCodeFor(s);
-      const href = code ? `/intake?area=${encodeURIComponent(code)}` : '/intake';
+      const href = `/intake?topic=${encodeURIComponent(s.topic)}`;
       return `<li class="pub-service" id="service-${s.key}">
   <a class="pub-tile-link" href="${href}" data-cta="intake">
     <span class="pub-service-icon">${iconSvg(s.icon, 24)}</span>
@@ -660,7 +732,7 @@ export function registerSite(app) {
     return [
       `<link rel="canonical" href="${esc(canonical)}" />`,
       noindex ? '<meta name="robots" content="noindex, follow" />' : '',
-      '<meta name="theme-color" content="#0f4c5c" />',
+      `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0f4c5c'}" />${app.brand?.headStyle?.() || ''}`,
       '<meta name="format-detection" content="telephone=no" />',
       `<meta property="og:type" content="website" />`,
       `<meta property="og:site_name" content="${esc(ps.site_name)}" />`,
@@ -745,8 +817,9 @@ export function registerSite(app) {
     const ps = publicSettings();
     const base = baseUrl(req);
     // v9.1 (B91-12): الرسالة الجاهزة بكلامها هي، بسيطة ومحايدة (تصلح للأم والأب)
-    const greeting = 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.';
-    const wa = waLink(ps.whatsapp_digits, greeting);
+    const wa = waLink(ps.whatsapp_digits, SITE_GREETING);
+    // v9.2: المؤسسة مقفولة الآن؟ (null = لا جدول مضبوط: لا نقول «مقفولين» بلا معلومة)
+    const open = app.portal?.officeOpen ? app.portal.officeOpen(app.settings.get('office_hours_schedule')) : null;
     const view = {
       ...ps,
       base_url: base,
@@ -773,6 +846,13 @@ export function registerSite(app) {
       icon_whatsapp: iconSvg('whatsapp', 20),
       icon_phone: iconSvg('phone', 20),
       office_hours_line: ps.office_hours ? `بنرد ${ps.office_hours}` : '',
+      // v9.2 public (P3): الشاشة الأولى بالمربعات، وزر التواصل في الرأس، والتحميل المسبق لنموذج الطلب
+      start_tiles: startTilesHtml(),
+      ways_tiles: waysTilesHtml(ps, wa),
+      header_contact: headerContactHtml(ps, wa),
+      start_say_outro: startOutro(wa),
+      prefetch_urls: file === 'index.html' ? prefetchUrls() : '',
+      office_closed: open === false ? '1' : '',
       ...extra,
     };
     let html = renderTemplate(readTemplate(file), view);

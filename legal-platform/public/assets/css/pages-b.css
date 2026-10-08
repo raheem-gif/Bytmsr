@@ -1198,7 +1198,7 @@ html[dir="rtl"] .pb-step-pill {
   gap: 4px;
   padding: 1px 8px;
   border-radius: 999px;
-  background: rgba(15, 76, 92, 0.08);
+  background: rgb(var(--primary-700-rgb) / 0.08);
   color: var(--primary-800);
   font-size: 11.5px;
   font-weight: 600;

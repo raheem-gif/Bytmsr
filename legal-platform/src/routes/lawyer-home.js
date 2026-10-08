@@ -316,7 +316,11 @@ export function renderAppHtml(app, { withShell = true } = {}) {
   const data = JSON.stringify(info).replace(/</g, '\\u003c');
   // كتلة البيانات أول الرأس (يقرؤها boot-early.js فور تنفيذه)، ثم — لمن يحمل جلسة — سكربت صغير (async) يبدأ طلب الجلسة
   // وبيانات الصفحة ووحداتها قبل وصول شجرة وحدات التطبيق؛ أول الرأس حتى يأخذ اتصالًا قبل بقية الملفات (ستة فقط على HTTP/1.1)
-  const top = [`<script type="application/json" id="bm-assets">${data}</script>`];
+  // v9.2 «ألوان المؤسسة»: لون شريط المتصفح، وكتلة الألوان المضمّنة (لا شيء للألوان الأصلية) قبل كتلة البيانات؛
+  // ETag الصفحة يتبع HTML فيتغير مع الألوان، وعامل الخدمة لا يتغير (فلا تنبيه «يتوفر إصدار أحدث» بسبب الألوان)
+  html = html.replace('<meta name="theme-color" content="#0f4c5c" />', () => `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0f4c5c'}" />`);
+  const themeStyle = app.brand?.headStyle?.() || '';
+  const top = [themeStyle, `<script type="application/json" id="bm-assets">${data}</script>`].filter(Boolean);
   if (withShell && fs.existsSync(path.join(pub, 'assets/js/app/boot-early.js'))) {
     top.push(`<script src="${versioned('/assets/js/app/boot-early.js')}" async fetchpriority="high"></script>`);
   }

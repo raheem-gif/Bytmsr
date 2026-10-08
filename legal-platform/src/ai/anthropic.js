@@ -2,6 +2,7 @@
 // عند أي تعذر (غياب الحزمة، خطأ شبكة، رفض، تجاوز سقف الإنفاق) يعود النظام تلقائيًا إلى المحلل المحلي دون إيقاف العمل.
 // كل استدعاء يُبلَّغ عنه عبر onUsage (الرموز، النموذج، زمن الاستجابة، النجاح أو الخطأ) لحساب التكلفة وسقف الإنفاق.
 import { AREA_CODES, LABELS } from '../constants.js';
+import { STORY_TRACKS } from '../constants.js'; // v9.2 (admin-ai)
 
 export class AiUnavailable extends Error {
   constructor(message, code = 'unavailable') {
@@ -124,7 +125,31 @@ ${AREA_GUIDE}
 - information_sufficient = true فقط إذا كانت الوقائع كافية لإبداء رأي مبدئي.
 - secondary_areas: مجالات أخرى قد تستدعي رأي متخصص (مثل الولاية على المال في تركة فيها قاصرون، أو المعاش بعد وفاة الزوج، أو الأثر الضريبي).
 - urgency: urgent عند حبس أو تنفيذ وشيك؛ high عند جلسة أو مهلة قريبة أو طرد من السكن أو انقطاع مورد رزق الأسرة.
-- confidence بين 0 و 1.`,
+- confidence بين 0 و 1.
+- one_line: سطر واحد للإدارة (حتى 140 حرفًا) يحكي القصة بلغة بسيطة بلا أسماء ولا أرقام، مثل: «أرملة يرفض أهل زوجها إعطاء أولادها نصيبهم في الشقة».
+- recommended_track: ماذا يصير هذا الطلب؟
+  consultation: مسألة قانونية تحتاج رأيًا مكتوبًا من محامٍ (الاختيار المعتاد).
+  matter: دعوى قائمة أو جلسة محددة أو حكم يحتاج تنفيذًا أو طعنًا، أو تمثيل مستمر أمام محكمة أو جهة.
+  internal: سؤال إجرائي بسيط تجيب عنه الإدارة بمعلومة عامة أو توجيه (أين تذهب وما الأوراق المطلوبة) دون رأي في حقها.
+  refer: طلب خارج الدعم القانوني (مساعدة مالية أو علاج أو عمل…) أو جهة أخرى أنسب.
+  need_info: لا يمكن فهم المشكلة أو اختيار مسار من الرسائل. لا تخترها لمجرد نقص مستندات أو تفاصيل؛ مكانها missing_info.
+  عند الشك بين consultation وinternal اختر consultation.
+- track_reason: جملة واحدة للإدارة (حتى 25 كلمة) تشرح سبب الاختيار. track_confidence بين 0 و 1.
+- request_draft: مسودة تراجعها الإدارة قبل أي إرسال أو إتاحة:
+  title: عنوان الملف المقترح.
+  facts_for_lawyer: الوقائع بصياغة محايدة مرتبة زمنيًا لمحامٍ، بلا اسم المستفيدة أو أسماء أطفالها أو أرقام هواتف أو رقم قومي أو عنوان تفصيلي أو مصدر وصولها.
+  internal_note: ظروف اجتماعية أو حساسة تفيد الإدارة فقط، أو null.
+  brief_for_lawyer: لـ consultation وmatter: السؤال المحدد المطلوب من المحامي في سطرين؛ وإلا null.
+  matter: لـ matter فقط: kind (litigation للتمثيل أمام القضاء، ongoing لعمل قانوني مستمر) والمحكمة والخصم (بصفته أو اسمه كما ورد) وموعد الجلسة كما ورد نصًا؛ وإلا null.
+  questions_for_her: لـ need_info فقط: من سؤال إلى ثلاثة أسئلة قصيرة (حتى 100 حرف) بالعامية المصرية البسيطة بصيغة المخاطبة المحددة، سؤال واحد في كل عنصر؛ وإلا [].
+  reply_to_her: لـ internal وrefer فقط: رسالة واتساب حتى 600 حرف بالعامية المصرية البسيطة بصيغة المخاطبة المحددة، تبدأ حرفيًا بـ «{hello}،» وتنتهي بـ «— {org_name}». في internal: معلومة إجرائية عامة فقط (فين تروح، إيه الورق، الخطوة الجاية) بلا مدد قانونية ولا أرقام مواد ولا وعد بنتيجة؛ وإن لم تكن متأكدًا من المعلومة فاختر consultation. في refer: الجهة المناسبة بوصفها العام، واكتب {org_phone} إن احتاجت أن تكلم المؤسسة، ولا تكتب رقم هاتف لأي جهة أخرى ولا أي رابط. وإلا null.
+  referral_target: لـ refer فقط: اسم الجهة أو البرنامج بوصف عام؛ وإلا null.
+  resolution_note: لـ internal وrefer فقط: سطر داخلي يلخص ما سيتم؛ وإلا null.
+- استثناء من قاعدة اللغة: questions_for_her وreply_to_her فقط بالعامية المصرية لأنها موجهة للمستفيدة مباشرة، بلا أكواد داخلية ولا أسماء محامين. {hello} و{org_name} و{org_phone} و{ref_no} متغيرات يملؤها النظام فاكتبها كما هي.
+- الرسائل الصوتية: «(رسالة صوتية — نص كتبته الإدارة)» كلام المستفيدة كما سمعته الإدارة؛ «[رسالة صوتية غير مفهومة]» سمعتها الإدارة ولم تفهم منها كلامًا؛ «[رسالة صوتية لم تُكتب بعد]» تعني أن جزءًا من القصة غير معروف: أضف إلى missing_info بند «محتوى الرسالة الصوتية التي لم تُسمع بعد» ولا تخمّن محتواها.
+- «(مكالمة — كتبتها الإدارة)» ما قالته المستفيدة في مكالمة هاتفية كما كتبته الإدارة.
+- «— رسالة من المؤسسة:» أسئلة أرسلتها الإدارة؛ الوقائع تؤخذ من كلام المستفيدة فقط.
+- اختيارات النموذج ضغطات على صور وقد تكون خاطئة؛ كلامها هو المعتمد، ولا تُنقل للمحامي كوقائع.`,
 
   issues: `مهمتك: اقتراح المسائل القانونية التي يجب على المحامي بحثها في هذا الملف، مرتبة حسب الأهمية، بحد أقصى 7 مسائل.
 صغ كل مسألة سؤالًا قانونيًا قابلًا للبحث لا إجابة. ${AREA_GUIDE}`,
@@ -176,7 +201,32 @@ const ISSUE_ITEM = {
   additionalProperties: false,
 };
 
-const ANALYSIS_SCHEMA = {
+// v9.2 (A92-11): ماذا يصير الطلب ومسوداته (تراجعها الإدارة قبل أي إرسال أو إتاحة)
+const NULL_STR = { anyOf: [{ type: 'string' }, { type: 'null' }] };
+const MATTER_DRAFT = {
+  type: 'object',
+  properties: { kind: { type: 'string', enum: ['litigation', 'ongoing'] }, court: NULL_STR, opponent: NULL_STR, next_hearing_text: NULL_STR },
+  required: ['kind', 'court', 'opponent', 'next_hearing_text'],
+  additionalProperties: false,
+};
+const REQUEST_DRAFT = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    facts_for_lawyer: { type: 'string' },
+    internal_note: NULL_STR,
+    brief_for_lawyer: NULL_STR,
+    matter: { anyOf: [MATTER_DRAFT, { type: 'null' }] },
+    questions_for_her: { type: 'array', items: { type: 'string' } },
+    reply_to_her: NULL_STR,
+    referral_target: NULL_STR,
+    resolution_note: NULL_STR,
+  },
+  required: ['title', 'facts_for_lawyer', 'internal_note', 'brief_for_lawyer', 'matter', 'questions_for_her', 'reply_to_her', 'referral_target', 'resolution_note'],
+  additionalProperties: false,
+};
+
+export const ANALYSIS_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string', description: 'عنوان قصير ومحدد للحالة (حتى 12 كلمة)' },
@@ -198,10 +248,16 @@ const ANALYSIS_SCHEMA = {
     suggested_issues: { type: 'array', items: ISSUE_ITEM },
     urgency: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
     specialist_hint: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    one_line: { type: 'string', description: 'سطر واحد للإدارة يحكي القصة (حتى 140 حرفًا)' },
+    recommended_track: { type: 'string', enum: STORY_TRACKS },
+    track_reason: { type: 'string' },
+    track_confidence: { type: 'number' },
+    request_draft: REQUEST_DRAFT,
   },
   required: [
     'title', 'summary', 'legal_area', 'confidence', 'secondary_areas', 'facts', 'missing_info',
     'information_sufficient', 'suggested_issues', 'urgency', 'specialist_hint',
+    'one_line', 'recommended_track', 'track_reason', 'track_confidence', 'request_draft',
   ],
   additionalProperties: false,
 };
@@ -415,11 +471,20 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
     model,
     effort: eff,
 
-    async analyzeIntake({ text, governorate }, meta = {}) {
+    async analyzeIntake({ text, governorate, channel = null, topic = null, form = 'f', voice = null }, meta = {}) {
+      // v9.2 (A92-11): القناة والموضوع الذي اختارته وصيغة مخاطبتها وعدد الرسائل الصوتية (لا يُرسل أي صوت أبدًا)
+      const v = voice || { total: 0, done: 0, missing: 0 };
+      const header = [
+        `المحافظة المعروفة: ${governorate || 'غير معروفة'}`,
+        `القناة: ${channel || 'غير معروفة'}`,
+        `الموضوع الذي اختارته: ${topic || 'لم تختر'}`,
+        `صيغة مخاطبتها: ${form === 'm' ? 'مذكر' : 'مؤنث'}`,
+        `الرسائل الصوتية: ${v.total} (مكتوبة ${v.done}، لم تُكتب ${v.missing})`,
+      ].join('\n');
       const { data, model: m } = await structured({
         meta,
         feature: 'intake_analysis',
-        content: `المحافظة المعروفة: ${governorate || 'غير معروفة'}\n\nرسائل المستفيد:\n"""\n${text}\n"""`,
+        content: `${header}\n\nرسائل المستفيد بترتيب وصولها:\n"""\n${text}\n"""`,
         schema: ANALYSIS_SCHEMA,
       });
       return { ...data, _model: m };

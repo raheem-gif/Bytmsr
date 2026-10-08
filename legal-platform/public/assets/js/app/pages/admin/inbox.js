@@ -8,6 +8,7 @@ import {
   pageHeader,
   card,
   button,
+  asyncButton,
   badge,
   statusBadge,
   icon,
@@ -92,11 +93,50 @@ const TABS = [
   { key: 'all', label: 'الكل', count: (c) => Object.values(c).reduce((s, n) => s + (Number(n) || 0), 0) },
 ];
 
+// v9.2 (admin-ai) — القصص: طريقة العرض (بطاقات الفرز أو القائمة) وتصفية حسب حالة القصة
+const VIEW_KEY = 'bm.inbox.view';
+const STORY_FILTERS = [
+  { key: '', label: 'الكل' },
+  { key: 'callback', label: 'طلبت مكالمة' },
+  { key: 'ready', label: 'جاهزة للقرار' },
+  { key: 'collecting', label: 'القصة لسه بتتكتب' },
+  { key: 'stale', label: 'وصل جديد بعد الملخص' },
+  { key: 'awaiting', label: 'بانتظار ردها' },
+  { key: 'voice', label: 'رسائل صوتية لم تُكتب' },
+];
+const STORY_EMPTY = {
+  ready: 'لا توجد قصص جاهزة للقرار الآن.',
+  collecting: 'لا توجد قصص تُكتب الآن.',
+  callback: 'لا توجد طلبات مكالمة الآن.',
+};
+/** ألوان شارة المسار المقترح (نفس story-sheet.js؛ هنا حتى لا تُحمَّل الورقة قبل الحاجة) */
+const TRACK_TONES = { consultation: 'primary', matter: 'accent', internal: 'success', refer: 'neutral', need_info: 'warning' };
+const TRACK_ICONS = { consultation: 'briefcase', matter: 'gavel', internal: 'send', refer: 'send', need_info: 'message' };
+const MINUTES = ['دقيقة واحدة', 'دقيقتين', 'دقائق', 'دقيقة'];
+
+function readView() {
+  try {
+    const v = window.localStorage.getItem(VIEW_KEY);
+    return v === 'list' ? 'list' : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
+function saveView(v) {
+  try {
+    window.localStorage.setItem(VIEW_KEY, v);
+  } catch {
+    /* تخزين المتصفح غير متاح: يبقى الاختيار لهذه الزيارة فقط */
+  }
+}
+
 function apiQuery(state, offset = 0) {
   const q = { channel: state.channel, source: state.source, area: state.area, priority: state.priority, q: state.q, limit: PAGE, offset };
   if (state.tab === 'all') q.scope = 'all';
   else if (state.tab === 'open') q.scope = 'open';
   else q.status = state.tab;
+  if (state.story && state.tab === 'open') q.story = state.story;
+  if (state.view === 'cards') q.sort = 'triage';
   return q;
 }
 
@@ -108,7 +148,10 @@ export default async function render(ctx) {
     source: ctx.query.source || '',
     area: ctx.query.area || '',
     priority: PRIORITY_FILTERS.some((p) => p.value === ctx.query.priority) ? ctx.query.priority : '',
+    story: STORY_FILTERS.some((f) => f.key && f.key === ctx.query.story) ? ctx.query.story : '',
+    view: readView(),
   };
+  if (state.tab !== 'open') state.story = '';
   let data = await api.get('/admin/intakes', apiQuery(state));
   let items = data.items || [];
   let seq = 0;
@@ -117,9 +160,19 @@ export default async function render(ctx) {
   const resultInfo = h('p.pa-result-info', { 'aria-live': 'polite' });
   const listHost = h('div');
   const moreHost = h('div.pa-more');
+  const storyBar = h('div.pa-story-filters', { role: 'group', 'aria-label': 'حالة القصة' });
+  const viewSwitch = h('div.segmented.pa-viewswitch', { role: 'group', 'aria-label': 'طريقة العرض' });
 
   function syncUrl() {
-    replaceQuery('/inbox', { status: state.tab === 'open' ? '' : state.tab, q: state.q, channel: state.channel, source: state.source, area: state.area, priority: state.priority });
+    replaceQuery('/inbox', {
+      status: state.tab === 'open' ? '' : state.tab,
+      story: state.story,
+      q: state.q,
+      channel: state.channel,
+      source: state.source,
+      area: state.area,
+      priority: state.priority,
+    });
   }
 
   function hasFilters() {
@@ -141,10 +194,65 @@ export default async function render(ctx) {
     );
   }
 
+  function drawStoryBar() {
+    storyBar.hidden = state.tab !== 'open';
+    const sc = data.story_counts || {};
+    mount(
+      storyBar,
+      STORY_FILTERS.map((f) =>
+        h(
+          'button.pa-sf',
+          {
+            type: 'button',
+            class: f.key && `pa-sf-${f.key}`,
+            'aria-pressed': String(state.story === f.key),
+            onClick: () => {
+              if (state.story === f.key) return;
+              state.story = f.key;
+              drawStoryBar();
+              load();
+            },
+          },
+          f.key === 'callback' ? icon('phone', { size: 14 }) : f.key === 'voice' ? icon('mic', { size: 14 }) : null,
+          f.key ? `${f.label} (${Number(sc[f.key]) || 0})` : f.label,
+        ),
+      ),
+    );
+  }
+
+  function drawViewSwitch() {
+    mount(
+      viewSwitch,
+      [
+        ['cards', 'بطاقات', 'grid'],
+        ['list', 'قائمة', 'list'],
+      ].map(([v, text, ic]) =>
+        h(
+          'button.seg',
+          {
+            type: 'button',
+            'aria-pressed': String(state.view === v),
+            onClick: () => {
+              if (state.view === v) return;
+              state.view = v;
+              saveView(v);
+              drawViewSwitch();
+              load();
+            },
+          },
+          icon(ic, { size: 16 }),
+          text,
+        ),
+      ),
+    );
+  }
+
   function setTab(key) {
     if (state.tab === key) return;
     state.tab = key;
+    if (key !== 'open') state.story = '';
     drawTabs();
+    drawStoryBar();
     load();
   }
 
@@ -159,9 +267,10 @@ export default async function render(ctx) {
       data = res;
       items = append ? items.concat(res.items || []) : res.items || [];
       drawTabs();
+      drawStoryBar();
       drawList();
       if (append) {
-        const next = listHost.querySelectorAll('.pa-irow')[before];
+        const next = listHost.querySelectorAll(state.view === 'cards' ? '.pa-story-name' : '.pa-irow')[before];
         if (next) next.focus();
       }
     } catch (err) {
@@ -231,6 +340,9 @@ export default async function render(ctx) {
               h('span.pa-count', { title: 'عدد المرفقات' }, icon('paperclip', { size: 14 }), h('span', String(it.documents_count)), h('span.sr-only', 'مرفقات')),
             ai && ai.similar_count > 0 && badge(similarText(ai.similar_count), 'info', { icon: 'sparkle', title: 'حسب تحليل الذكاء الاصطناعي لملفات المؤسسة السابقة' }),
             ai && ai.missing_count > 0 && badge(`نواقص: ${ai.missing_count}`, 'warning', { title: 'معلومات أو مستندات ناقصة يقترحها الذكاء الاصطناعي' }),
+            // v9.2: حالة القصة والمسار المقترح في القائمة أيضًا
+            it.story && it.story.view && it.story.view !== 'decided' && h('span.pa-irow-story', { class: `is-${it.story.view}` }, label('story_view', it.story.view)),
+            ai && ai.track && OPEN_STATUSES.includes(it.status) && badge(`المقترح: ${label('story_track', ai.track)}`, TRACK_TONES[ai.track] || 'neutral', { icon: 'sparkle' }),
           ),
         ),
         h(
@@ -240,6 +352,183 @@ export default async function render(ctx) {
             h('span.pa-unread', { title: count(it.unread_count, ['رسالة غير مقروءة', 'رسالتان غير مقروءتين', 'رسائل غير مقروءة', 'رسالة غير مقروءة']) }, String(it.unread_count), h('span.sr-only', ' غير مقروءة')),
           it.case_id && h('span.pa-irow-case', icon('briefcase', { size: 13 }), 'له ملف'),
         ),
+      ),
+    );
+  }
+
+  // ───────────── v9.2 بطاقات الفرز (A92-17) ─────────────
+  const sheetMod = () => import('../../components/story-sheet.js');
+  const callMod = () => import('../../components/call-note.js');
+
+  function afterDecision(res) {
+    if (res && res.next) ctx.navigate(res.next);
+    else load();
+  }
+
+  async function openSheet(it, extra = {}) {
+    const { openStorySheet } = await sheetMod();
+    await openStorySheet({
+      intakeId: it.id,
+      name: it.contact_name || null,
+      userId: ctx.user && ctx.user.id,
+      onDone: afterDecision,
+      onCalled: () => load(),
+      onReview: () => ctx.navigate(`/inbox/${it.id}?focus=chat`),
+      ...extra,
+    });
+  }
+
+  /**
+   * «سجّل المكالمة» / «اتصل بها» من البطاقة: الاقتراح (للإدارة فقط) يعطي سطر المكالمة ورقمها للاتصال —
+   * القائمة نفسها تبقى بلا أرقام هواتف (S-22)، والرقم يظهر فقط في نافذة المكالمة.
+   */
+  async function logCall(it, proposal = null) {
+    const [{ openCallNote }, p] = await Promise.all([callMod(), proposal ? Promise.resolve(proposal) : api.get(`/admin/intakes/${it.id}/proposal`)]);
+    const r = await openCallNote({
+      intake: {
+        id: it.id,
+        code: it.code,
+        unconfirmed: Boolean(it.identity_unconfirmed),
+        callIntro: p && p.actions ? p.actions.call_intro : null,
+        phone: p && p.identity ? p.identity.phone : null,
+        form: (p && p.identity && p.identity.form) || it.address_form || 'f',
+      },
+      script: p && p.actions && p.actions.primary === 'call' ? p.actions.call_script : null,
+    });
+    if (r) await load();
+  }
+
+  async function logAttempt(it) {
+    const { openCallAttempt } = await callMod();
+    const a = await openCallAttempt({ intakeId: it.id, code: it.code });
+    if (a) await load();
+  }
+
+  async function callFirst(it) {
+    await logCall(it, await api.get(`/admin/intakes/${it.id}/proposal`));
+  }
+
+  async function summarizeNow(it) {
+    const r = await api.post(`/admin/intakes/${it.id}/story/ready`, {});
+    await load();
+    await openSheet(it, { proposal: r.proposal });
+  }
+
+  async function analyzeNow(it) {
+    await api.post(`/admin/intakes/${it.id}/analyze`);
+    toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
+    await load();
+  }
+
+  function ribbon(it, view) {
+    const st = it.story || {};
+    const ai = it.ai || null;
+    const quiet = Number(st.quiet_minutes) || 10;
+    const line = (b, text) => h('div.pa-story-ribbon', { class: `is-${view}` }, b, text ? h('span.pa-story-ribbon-text', text) : null);
+    switch (view) {
+      case 'callback':
+        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد — الوقت المناسب: ${(it.form && it.form.callback_label) || 'أي وقت'}`);
+      case 'collecting':
+        return line(
+          h('span.badge.badge-info.pa-story-live', h('span.pa-live-dot', { 'aria-hidden': 'true' }), h('span', 'القصة لسه بتتكتب…')),
+          `آخر رسالة ${relative(it.last_message_at || it.created_at)} — تُلخَّص تلقائيًا بعد ${count(quiet, MINUTES)} بلا رسائل`,
+        );
+      case 'blocked':
+        return line(badge(st.media_failed ? 'تعذّر تنزيل رسالة صوتية' : 'فيها رسالة صوتية لم تُكتب', 'warning', { icon: 'mic' }), null);
+      case 'stale':
+        return line(badge(`وصل جديد بعد الملخص (${Number(st.new_since_summary) || 0})`, 'warning', { icon: 'refresh' }), null);
+      case 'awaiting':
+        return line(badge('بانتظار ردها', 'neutral', { icon: 'clock' }), it.last_direction === 'out' && it.last_message_at ? `سألناها ${relative(it.last_message_at)}` : null);
+      case 'decided':
+        return line(badge('تم القرار', 'muted', { icon: 'checkCircle' }), st.resolution_kind_label || label('intake_status', it.status));
+      default:
+        return line(badge('جاهزة للقرار', 'success', { icon: 'checkCircle' }), ai && ai.analyzed_at ? `اتلخّصت ${relative(ai.analyzed_at)}` : null);
+    }
+  }
+
+  function storyCard(it) {
+    const st = it.story || {};
+    const ai = it.ai || null;
+    const open = OPEN_STATUSES.includes(it.status);
+    const view = st.view || (open ? 'ready' : 'decided');
+    const at = it.last_message_at || it.created_at;
+    const nameId = `pa-story-${it.id}`;
+    const voiceMissing = st.voice ? Number(st.voice.missing) || 0 : 0;
+    const form = it.form || null;
+
+    // سطر واحد: ملخص الذكاء الاصطناعي، أو اختياراتها في الموقع لطلب المكالمة
+    let summary;
+    if (view === 'callback' && form && form.lines && form.lines.length) {
+      const lines = form.lines.filter((x) => !/^طلبت مكالمة/.test(x));
+      summary = h('p.pa-story-line.is-form', { title: form.title || '' }, icon('globe', { size: 14 }), h('span', lines.length ? lines.join(' · ') : 'لم تختر موضوعًا'));
+    } else if (ai && (ai.one_line || ai.title)) {
+      summary = h(
+        'p.pa-story-line',
+        h('span.pa-ai-mark', icon('sparkle', { size: 14 }), h('span.pa-ai-tag', 'اقتراح')),
+        ai.preview && badge('ملخص مبدئي', 'muted'),
+        h('span.pa-story-line-text', { dir: 'auto' }, ai.one_line || ai.title),
+      );
+    } else {
+      summary = h('p.pa-story-line.is-empty', it.title || (it.last_message ? h('span', { dir: 'auto' }, it.last_message) : 'لم يُحدَّد موضوع الطلب بعد'));
+    }
+
+    const urgent = (ai && ['high', 'urgent'].includes(ai.urgency) ? ai.urgency : null) || (['high', 'urgent'].includes(it.priority) ? it.priority : null);
+    const chipsRow = h(
+      'div.pa-story-chips',
+      ai && ai.track && open && badge(`المقترح: ${label('story_track', ai.track)}`, TRACK_TONES[ai.track] || 'neutral', { icon: 'sparkle', className: 'pa-story-track' }),
+      urgent && statusBadge('priority', urgent, { icon: 'flag', dot: false }),
+      voiceMissing > 0 && badge(`${voiceMissing} لم تُكتب`, 'warning', { icon: 'mic', className: 'pa-story-voice', title: 'رسائل صوتية لم تكتبها الإدارة بعد' }),
+      st.topic_label && badge(`الموضوع: ${st.topic_label}`, 'neutral'),
+      it.documents_count > 0 && h('span.pa-count', { title: 'عدد المرفقات' }, icon('paperclip', { size: 14 }), h('span', String(it.documents_count)), h('span.sr-only', 'مرفقات')),
+      it.identity_unconfirmed && badge('رقم غير مؤكد', 'warning', { icon: 'shield' }),
+      view !== 'callback' && form && form.callback && badge(`طلبت مكالمة (${form.callback_label || 'أي وقت'})`, 'info', { icon: 'phone' }),
+      Number(st.call_attempts) > 0 && badge(`محاولات الاتصال: ${st.call_attempts}`, 'neutral', { icon: 'phone-off' }),
+    );
+
+    // الزر الأساسي حسب حالة القصة والمسار
+    const btnOpts = (ic) => ({ variant: 'primary', icon: ic, className: 'pa-story-primary' });
+    let actions = [];
+    if (open) {
+      const track = ai && ai.track;
+      if (view === 'callback') {
+        actions = [
+          asyncButton('سجّل المكالمة', () => logCall(it), btnOpts('phone')),
+          asyncButton(it.address_form === 'm' ? 'لم يرد' : 'لم ترد', () => logAttempt(it), { icon: 'phone-off', className: 'pa-story-noanswer' }),
+        ];
+      } else if (view === 'blocked') {
+        actions = [button('اسمع الرسالة الصوتية', { ...btnOpts('mic'), href: `#/inbox/${it.id}?focus=voice` })];
+      } else if (view === 'collecting') {
+        actions = [asyncButton('لخّصها الآن', () => summarizeNow(it), btnOpts('sparkle'))];
+      } else if (view === 'awaiting') {
+        actions = [];
+      } else if (!ai) {
+        actions = [asyncButton('حلّل الآن', () => analyzeNow(it), btnOpts('sparkle'))];
+      } else if (it.identity_unconfirmed && ['internal', 'refer', 'need_info'].includes(track) && !st.called) {
+        // [بوابة 9.2 G5] بعد «سجّل المكالمة» (آخر ما وصل مكالمة) الخطوة التالية القرار نفسه، لا مكالمة ثانية
+        actions = [asyncButton(it.address_form === 'm' ? 'اتصل به' : 'اتصل بها', () => callFirst(it), btnOpts('phone'))];
+      } else if (track) {
+        actions = [asyncButton(label('story_track_action', track), () => openSheet(it, { track }), btnOpts(TRACK_ICONS[track] || 'check'))];
+      }
+    }
+    actions.push(button('فتح الطلب', { variant: 'ghost', icon: 'chevronLeft', href: `#/inbox/${it.id}`, className: 'pa-story-open' }));
+
+    return h(
+      'li',
+      h(
+        'article.pa-story',
+        { class: [`is-${view}`, it.unread_count > 0 && 'is-unread'], 'aria-labelledby': nameId, dataset: { id: String(it.id), view } },
+        h(
+          'div.pa-story-head',
+          channelIcons(it.channels && it.channels.length ? it.channels : [it.first_channel], { size: 15 }),
+          h('a.pa-story-name', { id: nameId, href: `#/inbox/${it.id}` }, it.contact_name || 'بدون اسم'),
+          codeTag(it.code, { className: 'pa-story-code' }),
+          it.unread_count > 0 && h('span.pa-unread', { title: count(it.unread_count, ['رسالة غير مقروءة', 'رسالتان غير مقروءتين', 'رسائل غير مقروءة', 'رسالة غير مقروءة']) }, String(it.unread_count), h('span.sr-only', ' غير مقروءة')),
+          h('time.pa-story-time', { datetime: at, title: dateTime(at) }, relative(at)),
+        ),
+        ribbon(it, view),
+        summary,
+        chipsRow,
+        h('div.pa-story-actions', actions),
       ),
     );
   }
@@ -262,14 +551,17 @@ export default async function render(ctx) {
         : null;
       const text = hasFilters()
         ? 'لا توجد طلبات تطابق البحث أو الفلاتر المختارة'
-        : state.tab === 'open'
-          ? 'لا توجد طلبات مفتوحة تنتظر الفرز الآن'
-          : 'لا توجد طلبات في هذه الحالة';
+        : state.story && STORY_EMPTY[state.story]
+          ? STORY_EMPTY[state.story]
+          : state.tab === 'open'
+            ? 'لا توجد طلبات مفتوحة تنتظر الفرز الآن'
+            : 'لا توجد طلبات في هذه الحالة';
       mount(listHost, card({ body: emptyState(text, clear, { icon: 'inbox' }) }));
       mount(moreHost);
       return;
     }
-    mount(listHost, card({ flush: true, body: h('ul.pa-ilist', { 'aria-label': 'الطلبات الواردة' }, items.map(row)) }));
+    if (state.view === 'cards') mount(listHost, h('ul.pa-stories', { 'aria-label': 'قصص المستفيدات حسب الأولوية' }, items.map(storyCard)));
+    else mount(listHost, card({ flush: true, body: h('ul.pa-ilist', { 'aria-label': 'الطلبات الواردة' }, items.map(row)) }));
     mount(
       moreHost,
       items.length < total &&
@@ -383,6 +675,8 @@ export default async function render(ctx) {
   }
 
   drawTabs();
+  drawStoryBar();
+  drawViewSwitch();
   drawList();
 
   const header = pageHeader({
@@ -400,5 +694,14 @@ export default async function render(ctx) {
     ],
   });
 
-  return h('div.pa-page.pa-page-inbox', header, h('div.pa-tabs-wrap', tabBar), filtersHost, resultInfo, listHost, moreHost);
+  return h(
+    'div.pa-page.pa-page-inbox',
+    header,
+    h('div.pa-tabs-wrap', tabBar),
+    filtersHost,
+    h('div.pa-inbox-bar', storyBar, viewSwitch),
+    resultInfo,
+    listHost,
+    moreHost,
+  );
 }

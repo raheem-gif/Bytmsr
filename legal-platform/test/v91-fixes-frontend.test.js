@@ -20,6 +20,7 @@ import { GENERIC_DOC_NAME } from '../public/assets/js/app/pages/admin/intake-det
 import { paramSentence } from '../public/assets/js/app/pages/admin/automations.js';
 import { clientSummary } from '../src/ai/heuristic.js';
 import { stripJsCommentLines, preloadClosure, transformAsset, setPublicRoot } from '../src/site-assets.js';
+import { LEGACY } from '../public/assets/js/lib/brand-color.js'; // v9.2 (تغيير مقصود): --bp-teal → var(--primary-700)
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = path.join(ROOT, 'public');
@@ -72,7 +73,12 @@ describe('v9.1 fixes — portal link-buttons keep their colours (contrast ≥ 4.
 
   test('primary and WhatsApp buttons: white on their background ≥ 4.5; secondary/text teal on white ≥ 4.5', () => {
     const css = read('public/assets/css/v91-portal.css');
-    const v = (name) => new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`).exec(css)?.[1];
+    // v9.2 (تغيير مقصود): --bp-teal صار var(--primary-700) (ألوان المؤسسة)؛ يُحل إلى قيمته الافتراضية LEGACY.primary[700]
+    const LEGACY_VARS = { 'primary-700': LEGACY.primary[700], 'primary-900': LEGACY.primary[900], 'primary-50': LEGACY.primary[50], 'accent-500': LEGACY.accent[500] };
+    const v = (name) => {
+      const m = new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6}|var\\(--([a-z0-9-]+)\\))`).exec(css);
+      return m ? (m[2] ? LEGACY_VARS[m[2]] : m[1]) : undefined;
+    };
     const teal = v('bp-teal');
     const wa = v('bp-wa');
     assert.ok(teal && wa, 'tokens found');

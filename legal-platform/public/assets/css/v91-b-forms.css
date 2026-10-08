@@ -29,13 +29,13 @@
   --bmf-line: #d9d2c3;
   --bmf-line-soft: #e9e3d6;
   --bmf-cream: #fbf8f2;
-  --bmf-teal: #0f4c5c;
-  --bmf-teal-deep: #082a33;
-  --bmf-teal-soft: #eef6f7;
-  --bmf-gold: #b8862e;
-  --bmf-gold-hover: #c99a45;
-  --bmf-gold-ink: #6b4a10;
-  --bmf-gold-soft: #fff8ea;
+  --bmf-teal: var(--primary-700);
+  --bmf-teal-deep: var(--primary-900);
+  --bmf-teal-soft: var(--primary-50);
+  --bmf-gold: var(--accent-500);
+  --bmf-gold-hover: var(--accent-400);
+  --bmf-gold-ink: var(--accent-800);
+  --bmf-gold-soft: var(--accent-50);
   --bmf-green: #1d7a46;
   --bmf-green-soft: #edf7f1;
   --bmf-wa: #0e7a55;
@@ -104,7 +104,7 @@ body.bmf-page .skip-link {
   z-index: 200;
   transform: translateY(-200%);
   background: var(--bmf-gold);
-  color: var(--bmf-teal-deep);
+  color: var(--on-accent);
   border-radius: 10px;
   padding: 10px 16px;
   font-weight: 700;
@@ -189,16 +189,17 @@ a.bmf-btn.bmf-btn-text {
   color: #fff;
 }
 .bmf-btn.bmf-btn-primary:hover:not(:disabled) {
-  background: #0b3a46;
+  background: var(--primary-800);
   color: #fff;
 }
 .bmf-btn.bmf-btn-gold {
   background: var(--bmf-gold);
-  color: var(--bmf-teal-deep);
+  color: var(--on-accent);
+  border-color: var(--accent-600);
 }
 .bmf-btn.bmf-btn-gold:hover:not(:disabled) {
   background: var(--bmf-gold-hover);
-  color: var(--bmf-teal-deep);
+  color: var(--on-accent);
 }
 .bmf-btn.bmf-btn-wa {
   background: var(--bmf-wa);
@@ -217,7 +218,7 @@ a.bmf-btn.bmf-btn-text {
 .bmf-btn.bmf-btn-outline {
   background: #fff;
   color: var(--bmf-teal);
-  border-color: #b9d7de;
+  border-color: var(--primary-200);
 }
 .bmf-btn.bmf-btn-outline:hover:not(:disabled) {
   border-color: var(--bmf-teal);
@@ -278,7 +279,7 @@ html[dir="rtl"] .bmf-flip {
   -webkit-tap-highlight-color: transparent;
 }
 .bmf-rec-start:hover:not(:disabled) {
-  background: #0b3a46;
+  background: var(--primary-800);
 }
 .bmf-rec-start:disabled {
   opacity: 0.7;
@@ -419,7 +420,7 @@ html[dir="rtl"] .bmf-flip {
   min-height: 48px;
   min-width: 48px;
   padding: 6px 14px;
-  border: 2px solid #b9d7de;
+  border: 2px solid var(--primary-200);
   border-radius: 12px;
   background: #fff;
   color: var(--bmf-teal);
@@ -445,7 +446,7 @@ html[dir="rtl"] .bmf-flip {
   border-radius: 14px;
   background: #fff;
   color: var(--bmf-teal);
-  border: 2px solid #b9d7de;
+  border: 2px solid var(--primary-200);
 }
 .bmf-rec--compact .bmf-rec-start-icon {
   width: auto;
@@ -502,7 +503,7 @@ html[dir="rtl"] .bmf-flip {
 .bmf-pick--compact .bmf-pick-camera {
   background: #fff;
   color: var(--bmf-teal);
-  border-color: #b9d7de;
+  border-color: var(--primary-200);
 }
 .bmf-pick.is-busy .bmf-pick-status::before {
   content: "";
@@ -592,7 +593,7 @@ html[dir="rtl"] .bmf-flip {
   height: 44px;
   border: 0;
   border-end-start-radius: 12px;
-  background: rgba(8, 42, 51, 0.78);
+  background: rgb(var(--primary-900-rgb) / 0.78);
   color: #fff;
   cursor: pointer;
 }
@@ -810,7 +811,7 @@ html[dir="rtl"] .bmf-flip {
 .bmf-input:focus,
 .bmf-select:focus {
   border-color: var(--bmf-teal);
-  outline: 3px solid rgba(184, 134, 46, 0.45);
+  outline: 3px solid rgb(var(--accent-500-rgb) / 0.45);
   outline-offset: 0;
 }
 .bmf-input[aria-invalid="true"],
@@ -1017,7 +1018,7 @@ html[dir="rtl"] .bmf-flip {
   padding: 12px 14px;
   border-radius: 16px;
   background: var(--bmf-teal-soft);
-  border: 1px solid #b9d7de;
+  border: 1px solid var(--primary-200);
   font-size: 17px;
 }
 .bmf-banner p {
@@ -1070,7 +1071,7 @@ html[dir="rtl"] .bmf-flip {
   background: var(--bmf-teal-deep);
   color: #fff;
   font-size: 17px;
-  box-shadow: 0 10px 30px rgba(8, 42, 51, 0.3);
+  box-shadow: 0 10px 30px rgb(var(--primary-900-rgb) / 0.3);
 }
 .bmf-toast p {
   flex: 1 1 180px;
@@ -1271,5 +1272,467 @@ body.pub .bmf-select {
   .bmf-progress-fill,
   .bmf-btn {
     transition: none;
+  }
+}
+
+/* ───────────── v9.2 — النموذج بالصور (P9): سؤال واحد في كل شاشة، والإجابة بضغطة ─────────────
+   ألوان العلامة بأزواج العقد فقط (§3.2): حدود المربعات p500، المضغوط p700 على p100 بإطار 3px p700،
+   شارة الموضوع p700 على p50، والكلام المقروء الآن بإطار 4px a600. */
+
+.bmf-qbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+}
+.bmf-qbar .bmf-stepno {
+  margin-inline-start: auto;
+}
+.bmf-topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 2px 12px 2px 10px;
+  border-radius: 999px;
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.bmf-topic-chip span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bmf-chip-pic {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+.bmf-headrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bmf-headrow > h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.bmf-listen {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--primary-700);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-700);
+  font-family: var(--bmf-font);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bmf-listen.is-on {
+  background: var(--primary-700);
+  color: #fff;
+}
+
+/* شاشة الموضوع: نفس المربعات الثمانية */
+.bmf-topics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.bmf-topic,
+.bmf-answer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 96px;
+  padding: 8px 6px;
+  border: 2px solid var(--primary-500);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--bmf-ink);
+  font-family: var(--bmf-font);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.bmf-topic .pub-pic,
+.bmf-answer .pub-pic {
+  width: 48px;
+  height: 48px;
+  flex: none;
+}
+.bmf-topic small {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--bmf-soft);
+}
+.bmf-answers-set {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.bmf-answers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.bmf-answer {
+  min-height: 112px;
+}
+/* «مش عارفة»: مربع كامل العرض بصورته، 64px */
+.bmf-answer.bmf-dontknow {
+  flex-direction: row;
+  gap: 10px;
+  min-height: 64px;
+}
+.bmf-answer.bmf-dontknow .pub-pic {
+  width: 40px;
+  height: 40px;
+}
+.bmf-topic[aria-pressed="true"],
+.bmf-answer[aria-pressed="true"],
+.bmf-when-chip[aria-pressed="true"],
+.bmf-topic-chip-btn[aria-pressed="true"],
+.bmf-about-tile[aria-pressed="true"],
+.bmf-topic.is-pressed,
+.bmf-answer.is-pressed,
+.bmf-about-tile.is-pressed {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  border: 3px solid var(--primary-700);
+}
+
+/* «احكيلنا» */
+.bmf-loading-line {
+  font-size: 16px;
+  color: var(--bmf-soft);
+}
+.bmf-inapp {
+  display: grid;
+  gap: 10px;
+}
+.bmf-photo-btn,
+.bmf-more-voice {
+  justify-self: center;
+}
+.bmf-photos {
+  display: grid;
+  gap: 10px;
+}
+.bmf-cb-btn {
+  margin-top: 4px;
+}
+
+/* رقم الموبايل و«إحنا نكلمك» */
+.bmf-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--bmf-soft);
+}
+.bmf-summary-line strong {
+  color: var(--bmf-ink);
+}
+.bmf-summary-line .bmf-btn-text {
+  min-height: 44px;
+  padding-inline: 6px;
+}
+.bmf-input.bmf-phone-big {
+  height: 60px;
+  font-size: 28px;
+  letter-spacing: 2px;
+  text-align: left;
+  border-color: var(--primary-500);
+}
+.bmf-phone-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: -6px;
+}
+.bmf-phone-row:not(:has(> :not([hidden]))) {
+  display: none;
+}
+.bmf-phone-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bmf-green);
+}
+.bmf-forgot-wrap {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.bmf-forgot-panel {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 2px solid var(--bmf-line-soft);
+}
+.bmf-when,
+.bmf-topic-chips {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.bmf-when legend,
+.bmf-topic-chips legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.bmf-when-chips {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.bmf-when-chip,
+.bmf-topic-chip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: 4px 8px;
+  border: 2px solid var(--primary-500);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--bmf-ink);
+  font-family: var(--bmf-font);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.bmf-when-chip {
+  flex-direction: column;
+  gap: 2px;
+  min-height: 64px;
+}
+.bmf-when-chip .pub-pic,
+.bmf-topic-chip-btn .pub-pic {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+/* «الموضوع (لو تحبي)»: شرائح صغيرة تلتف (اختيار واحد، ومفيش حاجة إجبارية) */
+.bmf-topic-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bmf-topic-chip-btn {
+  min-height: 44px;
+  padding: 2px 10px 2px 8px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+.bmf-topic-chip-btn .pub-pic {
+  width: 24px;
+  height: 24px;
+}
+.bmf-consent-line {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--bmf-soft);
+}
+.bmf-consent-line a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+}
+.bmf-under-send {
+  display: grid;
+  gap: 2px;
+  font-size: 17px;
+  text-align: center;
+}
+.bmf-under-send a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  font-weight: 700;
+  font-size: 19px;
+}
+.bmf-closed {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bmf-amber);
+}
+
+/* «وصلنا طلبك»: «هنكلمك» أولًا، ثم واتساب، و«صفحة طلبك» مطوية، و«كمان سؤالين» بعد ما ترجع */
+.bmf-success .bmf-headrow {
+  justify-content: center;
+}
+.bmf-success .bmf-headrow > h1 {
+  flex: 0 1 auto;
+}
+.bmf-cb-card {
+  background: var(--primary-50);
+  color: var(--primary-900);
+  border-color: var(--primary-200);
+}
+.bmf-cb-card .bmf-card-text {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.bmf-cb-num {
+  justify-self: center;
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1.2;
+  color: var(--primary-700);
+}
+.bmf-cb-card .bmf-hear {
+  justify-self: center;
+}
+.bmf-card.is-outline {
+  background: #fff;
+  border-color: var(--primary-200);
+}
+.bmf-card.is-outline .bmf-kicker {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--bmf-ink);
+}
+.bmf-details {
+  border-radius: 18px;
+  border: 2px solid var(--bmf-line-soft);
+  background: #fff;
+}
+.bmf-details > summary {
+  display: list-item;
+  min-height: 56px;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-700);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.bmf-details > .bmf-card {
+  border: 0;
+  padding-top: 0;
+}
+.bmf-about-card {
+  border-color: var(--accent-300);
+}
+.bmf-about-body {
+  display: grid;
+  gap: 10px;
+}
+.bmf-about-q {
+  font-size: 19px;
+  font-weight: 700;
+}
+.bmf-about-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.bmf-about-tile {
+  min-height: 52px;
+  padding: 6px 8px;
+  border: 2px solid var(--primary-500);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--bmf-ink);
+  font-family: var(--bmf-font);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.bmf-skip {
+  justify-self: start;
+}
+
+/* صفحات الموقع العام تعيد خط الأزرار للوراثة (body.pub button { font: inherit }): نعيد الوزن والحجم */
+body.pub .bmf-topic,
+body.pub .bmf-answer {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+body.pub .bmf-when-chip,
+body.pub .bmf-about-tile {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+body.pub .bmf-topic-chip-btn,
+body.pub .bmf-listen {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* الكلام المقروء الآن («اسمعي») */
+.is-speaking {
+  outline: 4px solid var(--accent-600) !important;
+  outline-offset: 2px;
+}
+
+/* [R2-B23] النت بطيء: يظهر بالـ CSS وحده بعد 8 ثواني لو ما اشتغلتش الصفحة (intake.js يشيله أول ما يشتغل) */
+.bmf-slow {
+  visibility: hidden;
+  opacity: 0;
+  margin-top: 12px;
+  animation: bmf-slow-in 0s 8s forwards;
+}
+@keyframes bmf-slow-in {
+  to {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+.bmf-slow .pub-contact-list {
+  margin: 0;
+}
+
+@media (max-width: 360px) {
+  .bmf-topic-chip {
+    max-width: 46%;
   }
 }

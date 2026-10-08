@@ -249,6 +249,7 @@ export const LABELS = {
     specialist_needed: 'الحاجة إلى متخصص آخر',
     reply: 'الردود المقترحة على المستفيد',
     document_analysis: 'تحليل المستندات',
+    track: 'نوع الطلب المقترح', // v9.2: ماذا يصير الطلب (استشارة / قضية / رد الإدارة / توجيه / نسألها الأول)
   },
   ai_verdict: {
     accepted: 'صحيح / مقبول',
@@ -270,6 +271,10 @@ export const LABELS = {
     lawyer_alert: 'تنبيه للمحامي على واتساب (بلا بيانات مستفيدين)',
     // v9.1 b-site (B91-01): الرد الآلي بعد أن تؤكد المستفيدة رقمها برسالة واتساب فيها رقم الطلب وكود التأكيد
     identity_confirm: 'رد تأكيد رقم المستفيد/ة على واتساب',
+    // v9.2 — رسائل آلية ثابتة لقصص واتساب (متوقفة افتراضيًا؛ تُفعَّل من الإعدادات ← القصص الواردة على واتساب)
+    story_welcome: 'ترحيب وقائمة المواضيع على واتساب',
+    story_topic_nudge: 'طلب الحكاية بعد اختيار الموضوع',
+    story_ack: 'تأكيد وصول الحكاية ورقم الطلب',
   },
   actor_kind: {
     staff: 'الإدارة',
@@ -313,6 +318,8 @@ export const LABELS = {
   },
   // <labels:accounts>
   security_event: {
+    'brand.colors_updated': 'تعديل ألوان المؤسسة',
+    'brand.colors_reset': 'إرجاع ألوان المؤسسة الأصلية',
     'auth.login': 'تسجيل دخول ناجح',
     'auth.login_failed': 'محاولة دخول فاشلة',
     'auth.lockout': 'إيقاف مؤقت للدخول بعد محاولات فاشلة',
@@ -638,7 +645,32 @@ export const LABELS = {
   ai_security_event: {
     'ai.connection_test': 'اختبار الاتصال بخدمة Claude',
     'ai.budget_exceeded': 'تجاوز إنفاق الذكاء الاصطناعي السقف الشهري',
+    'ai.story_accepted': 'اعتماد الإدارة لاقتراح الذكاء الاصطناعي في طلب وارد', // v9.2
   },
+  // <labels:v92-stories> — القصص الواردة: حالة القصة، المسار المقترح، نصوص الرسائل الصوتية، محاولات الاتصال
+  story_state: { collecting: 'القصة لسه بتتكتب', ready: 'جاهزة للقرار' },
+  story_view: {
+    callback: 'طلبت مكالمة',
+    collecting: 'القصة لسه بتتكتب',
+    blocked: 'فيها رسالة صوتية لم تُكتب',
+    stale: 'وصل جديد بعد الملخص',
+    ready: 'جاهزة للقرار',
+    awaiting: 'بانتظار ردها',
+    decided: 'تم القرار',
+  },
+  story_ready_via: { quiet: 'بعد فترة بلا رسائل', client_done: 'كتبت «خلاص»', website: 'من نموذج الموقع', staff_entry: 'سجلتها الإدارة', staff_now: 'بطلب من الإدارة' },
+  story_track: { consultation: 'استشارة', matter: 'قضية / ملف مستمر', internal: 'ترد الإدارة', refer: 'توجيه لجهة أخرى', need_info: 'نسألها الأول' },
+  story_track_long: {
+    consultation: 'ملف استشارة — يكتب فيه محامٍ رأيًا',
+    matter: 'ملف مستمر — قضية أمام المحكمة أو عمل قانوني مستمر',
+    internal: 'ترد الإدارة بنفسها بمعلومة أو توجيه',
+    refer: 'خارج نطاقنا — نوجّهها لجهة مناسبة',
+    need_info: 'محتاجين نسألها قبل القرار',
+  },
+  story_track_action: { consultation: 'اعمله استشارة', matter: 'افتح ملف قضية', internal: 'رد وأغلق الطلب', refer: 'وجّه وأغلق الطلب', need_info: 'اسألها' },
+  voice_status: { pending: 'لم تُكتب بعد', confirmed: 'مكتوبة', unclear: 'غير مفهومة' },
+  resolution_kind: { answered: 'رد بمعلومة أو توجيه', referral: 'توجيه لجهة أخرى', unreachable: 'تعذّر الوصول إليها' },
+  call_outcome: { no_answer: 'لم ترد', busy: 'مشغول', wrong_number: 'رقم خطأ', someone_else: 'ردّ شخص آخر' },
   // <labels:site>
   // <labels:programs>
   program_status: {
@@ -804,7 +836,25 @@ export const CLIENT_TEXTS = {
   survey_ask_comment: 'متأسفين إن تجربتك ما كانتش كويسة. قول{ي} لنا في رسالة واحدة إيه اللي ما عجبك{ي}ش، وهنكلمك. — {org_name}',
   survey_comment_thanks: 'شكرًا، وصلتنا ملاحظتك وهنتابعها معاك{ي}. — {org_name}',
   portal_link_message: 'أهلًا يا {first_name}، دي صفحة طلبك عند {org_name}. منها تعرف{ي} كل جديد وتبعت{ي} الورق: {portal_link}',
+  // v9.2 — قصص واتساب: {hello} = «أهلًا يا {الاسم}» (اسم من الموقع أو الإدارة فقط) أو «أهلًا بيك{ي}»،
+  // و{ref_no} = «طلب رقم 29» (لا REQ-… في رسائل واتساب). نصوص ثابتة لا يكتبها الذكاء الاصطناعي.
+  story_welcome:
+    '{hello}، ده الدعم القانوني في {org_name}. الاستشارة ببلاش وكلامك سر عندنا.\nاختار{ي} موضوعك من الزرار اللي تحت، أو احكيلنا على طول بالكتابة أو برسالة صوتية.\nولما تخلّص{ي} ابعت{ي} كلمة «خلاص»، أو اصبر{ي} شوية.',
+  story_welcome_header: '{org_name} — الدعم القانوني',
+  story_welcome_button: 'اختار{ي} الموضوع',
+  story_welcome_section: 'مواضيع بنساعد فيها',
+  story_welcome_footer: 'مش لازم تختار{ي} — اكتب{ي} أو سجّل{ي} على طول',
+  story_topic_nudge: 'تمام. احكيلنا حصل إيه بالكتابة أو برسالة صوتية، ولما تخلّص{ي} ابعت{ي} «خلاص»، أو اصبر{ي} شوية.',
+  story_ack: '{hello}. وصلتنا حكايتك، وده {ref_no}.\nفريقنا هيشوفها ويرد عليك{ي} هنا.\nلو افتكرت{ي} حاجة تانية ابعت{ي}ها في أي وقت.\n— {org_name}',
+  story_ack_closed: '\nإحنا شغالين {office_hours}، وهنرد أول ما نرجع.',
+  story_accepted: '{hello}، {ref_no} اتسجّل، والمحامي هيدرس مشكلتك. هنبعت لك أي جديد هنا.\n— {org_name}',
+  story_accepted_matter: '{hello}، {ref_no} اتسجّل، والمحامي هيتابع قضيتك. هنبعت لك أي جديد هنا.\n— {org_name}',
+  story_questions: '{hello}، بخصوص {ref_no}: عشان نقدر نساعدك محتاجين نعرف:\n{questions}\nرد{ي} علينا هنا بالكتابة أو برسالة صوتية.\n— {org_name}',
 };
+
+// v9.2 — مسارات الطلب التي يقترحها الذكاء الاصطناعي وتعتمدها الإدارة، وقواعد الرسائل الآلية للقصص
+export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
+export const STORY_AUTO_RULES = ['story_welcome', 'story_topic_nudge', 'story_ack'];
 
 export const DEFAULT_SETTINGS = {
   org_name: 'مؤسسة بيوت مصر',
@@ -884,6 +934,27 @@ export const DEFAULT_SETTINGS = {
   // مهلة عدم النشاط: 14 يومًا مع التحقق بخطوتين و3 أيام بدونه (لا تتجاوز أقصى عمر). الإدارة لا تتأثر.
   lawyer_remember_days_2fa: 30,
   lawyer_remember_days: 7,
+  // <settings:v92-stories>
+  // القصة «جاهزة» بعد هذه الدقائق بلا رسائل منها، أو عندما تكتب كلمة من story_done_words (الرسالة كلها)
+  story_quiet_minutes: 10,
+  story_done_words: ['خلاص', 'خلصت', 'بس كده', 'بس كدا', 'كده خلاص', 'كدا خلاص', 'هو ده', 'هو دا', 'ده كل حاجة', 'دا كل حاجة', 'تمام كده'],
+  // رسائل آلية ثابتة على واتساب: متوقفة افتراضيًا (قرار للمؤسسة بعد مراجعة سياسة الخصوصية — قرار مفتوح 11)
+  story_welcome_enabled: false,
+  story_ack_enabled: false,
+  // تحليلات Claude التلقائية لكل طلب خلال 24 ساعة («حلّل الآن» و«لخّصها الآن» لا تُحسب)
+  story_auto_ai_max_per_day: 6,
+  // [R2-B9] الرقم الذي نتصل منه بالمستفيدات (فارغ = رقم المؤسسة org_phone)، ونتصل خلال كم يوم عمل
+  callback_from_number: '',
+  callback_eta_days: 1,
+  // دليل التوجيه لما هو خارج الدعم القانوني (لا أرقام لجهات خارجية: تضيفها الإدارة). الكلمات بعد normalizeArabic.
+  story_referrals: [
+    {
+      key: 'foundation_programs',
+      label: 'برامج المؤسسة الأخرى (مساعدات، علاج، كسوة…)',
+      keywords: ['مساعده ماليه', 'مساعده في المصاريف', 'اعانه', 'شنطه رمضان', 'كرتونه', 'مصاريف عمليه', 'كسوه', 'جهاز العروسه', 'عايزه شغل', 'محتاجه شغل', 'محتاجه فلوس'],
+      reply: '{hello}، طلبك ده مش من شغل الدعم القانوني، بس المؤسسة عندها برامج تانية ممكن تساعدك فيه. كلّم{ي} المؤسسة على {org_phone} واسأل{ي} عن البرنامج المناسب.\n— {org_name}',
+    },
+  ],
 };
 
 export const CODE_PREFIX = {

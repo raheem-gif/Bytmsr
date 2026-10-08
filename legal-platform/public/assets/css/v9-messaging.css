@@ -735,3 +735,851 @@
     margin-block-end: 0;
   }
 }
+
+/* ==========================================================================
+   v9.2 القصص (admin-ai): بطاقات الفرز في صندوق الوارد، «تحويل القصة إلى طلب»، ورقة «اعمله طلب»،
+   نصوص الرسائل الصوتية، المكالمات، نقل رسالة إلى طلب جديد، إعدادات القصص، والمحاكي.
+   رموز ألوان فقط (لا ألوان ثابتة) — فتنطبق «ألوان المؤسسة» على صفحات الإدارة أيضًا؛ وأزواج النص/الخلفية من العقد.
+   ========================================================================== */
+
+/* ─── صندوق الوارد: طريقة العرض وحالة القصة ─── */
+.pa-inbox-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-block: 4px 10px;
+}
+
+.pa-story-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pa-sf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pa-sf:hover {
+  border-color: var(--primary-500);
+}
+
+.pa-sf:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.pa-sf[aria-pressed="true"] {
+  border-color: var(--primary-700);
+  background: var(--primary-700);
+  color: var(--surface);
+}
+
+.pa-viewswitch {
+  flex-shrink: 0;
+}
+
+.pa-irow-story {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ─── بطاقات القصص ─── */
+.pa-stories {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.pa-stories > li {
+  min-width: 0;
+}
+
+.pa-story {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.pa-story.is-callback {
+  border-inline-start-color: var(--info-600);
+}
+
+.pa-story.is-ready {
+  border-inline-start-color: var(--success-600);
+}
+
+.pa-story.is-blocked,
+.pa-story.is-stale {
+  border-inline-start-color: var(--warning-500);
+}
+
+.pa-story.is-collecting {
+  border-inline-start-color: var(--primary-300);
+}
+
+.pa-story-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.pa-story-name {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.pa-story-name:hover {
+  text-decoration: underline;
+}
+
+.pa-story.is-unread .pa-story-name {
+  font-weight: 800;
+}
+
+.pa-story-code {
+  font-size: 12px;
+}
+
+.pa-story-time {
+  margin-inline-start: auto;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.pa-story-ribbon {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pa-story-ribbon-text {
+  min-width: 0;
+}
+
+.pa-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pa-live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pa-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-live-dot {
+    animation: none;
+  }
+}
+
+.pa-story-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.pa-story-line-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pa-story-line.is-empty {
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+.pa-story-line.is-form {
+  align-items: center;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.pa-ai-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-700);
+}
+
+.pa-story-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pa-story-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.pa-story-actions .btn {
+  --btn-h: 44px;
+}
+
+.pa-story-actions .pa-story-primary {
+  --btn-h: 48px;
+  flex: 1 1 auto;
+}
+
+/* ─── «تحويل القصة إلى طلب» و«طلبت مكالمة» داخل الطلب ─── */
+.pa-prop-card .pa-prop-track p,
+.pa-prop-oneline {
+  margin: 0;
+}
+
+.pa-prop-track {
+  display: grid;
+  gap: 6px;
+}
+
+.pa-prop-label {
+  color: var(--text-muted);
+}
+
+.pa-prop-why {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.pa-prop-why.is-empty {
+  font-style: normal;
+}
+
+.pa-prop-warnings,
+.pa-sheet-warnings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.pa-prop-warnings > li,
+.pa-sheet-warnings > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--warning-100);
+  color: var(--warning-700);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.pa-prop-warnings > li.is-local,
+.pa-sheet-warnings > li.is-local {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.pa-prop-warnings > li > svg,
+.pa-sheet-warnings > li > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.pa-prop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pa-prop-actions .btn {
+  --btn-h: 44px;
+}
+
+.pa-prop-actions .pa-prop-primary {
+  --btn-h: 48px;
+}
+
+.pa-manual {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.pa-callback-how {
+  margin: 0;
+  line-height: 1.8;
+}
+
+.pa-attempts-count {
+  margin: 0;
+  font-weight: 600;
+}
+
+.pa-call-attempts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pa-call-attempts > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pa-prop-attempts {
+  display: grid;
+  gap: 4px;
+}
+
+.pa-prop-attempts p {
+  margin: 0;
+}
+
+.pa-form-lines {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.pa-closed-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ─── علامات القصة داخل المحادثة ─── */
+.pa-msg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.pa-msg-voice {
+  align-self: flex-start;
+  width: min(92%, 560px);
+  margin-block: 0 6px;
+}
+
+/* ─── نص الرسالة الصوتية ─── */
+.pa-vt {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.pa-vt.is-pending {
+  border-style: solid;
+  border-color: var(--warning-500);
+}
+
+.pc-doc-text .pa-vt {
+  margin-top: 6px;
+}
+
+.pa-vt-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.pa-vt-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.pa-vt-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pa-vt-speed .input {
+  width: auto;
+  min-height: 36px;
+  padding-block: 2px;
+}
+
+.pa-vt-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.pa-vt-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.pa-vt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pa-vt-edit .field-hint {
+  margin: 0;
+}
+
+/* ─── ورقة «اعمله طلب» ─── */
+.pa-sheet-oneline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.pa-sheet-oneline > svg {
+  flex-shrink: 0;
+  color: var(--accent-700);
+}
+
+.pa-sheet-why {
+  margin: 6px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.pa-sheet-call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.pa-sheet-call p {
+  flex: 1 1 220px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.pa-sheet-warnings {
+  margin-bottom: 10px;
+}
+
+.pa-sheet-alert:empty {
+  display: none;
+}
+
+.pa-sheet-alert {
+  margin-bottom: 10px;
+}
+
+.pa-sheet-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.pa-sheet-replybox {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.pa-sheet-replybox .field.is-off {
+  opacity: 0.6;
+}
+
+.pa-sheet-tools {
+  display: flex;
+  gap: 8px;
+}
+
+.pa-sheet-questions {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding-inline-start: 22px;
+}
+
+.pa-sheet-track .pa-fieldset + .field,
+.pa-sheet-track .pa-fieldset + .pa-sheet-replybox {
+  margin-top: 12px;
+}
+
+.pa-sheet-q {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pa-sheet-q .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pa-sheet-more {
+  margin-top: 12px;
+}
+
+.pa-story-sheet .modal-footer .btn {
+  --btn-h: 48px;
+}
+
+.pa-story-sheet .modal-footer .pa-sheet-phone {
+  --btn-h: 44px;
+  /* [مراجعة 9.2] زر بشكل رابط: ارتفاعه الافتراضي 31px، والهدف ≥ 44px */
+  min-height: 44px;
+  order: -1;
+  flex-basis: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+}
+
+@media (min-width: 641px) {
+  .modal-sheet.pa-story-sheet {
+    max-width: 720px;
+  }
+
+  .modal-sheet.pa-split-sheet {
+    max-width: 560px;
+  }
+}
+
+/* ─── المكالمة: «تسجيل المكالمة» و«لم ترد» ─── */
+.pa-call-script {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--primary-50);
+  color: var(--primary-700);
+  font-weight: 600;
+  line-height: 1.8;
+}
+
+.pa-call-script > svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.pa-call-script p {
+  margin: 0;
+}
+
+.pa-call-say {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-inline-start: 4px solid var(--accent-500);
+  border-radius: var(--radius);
+  background: var(--accent-50);
+  color: var(--accent-800);
+}
+
+.pa-call-say-text {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.8;
+}
+
+.pa-call-phone {
+  margin: 0 0 10px;
+}
+
+.pa-call-identity {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pa-call-outcomes {
+  display: grid;
+  gap: 8px;
+}
+
+.pa-call-outcomes .btn {
+  --btn-h: 52px;
+  justify-content: flex-start;
+  font-size: 15.5px;
+}
+
+.pa-call-sheet .modal-footer .btn {
+  --btn-h: 48px;
+}
+
+/* ─── «اعمل منها طلب جديد» ─── */
+.pa-split-list {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  max-height: 50vh;
+  margin: 0 0 8px;
+  padding: 0;
+  overflow: auto;
+}
+
+.pa-split-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.pa-split-check {
+  align-items: flex-start;
+}
+
+.pa-split-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pa-split-body {
+  overflow-wrap: anywhere;
+}
+
+.pa-split-docs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.pa-split-sheet .modal-footer .btn {
+  --btn-h: 48px;
+}
+
+/* ─── المحاكي: رسائل سريعة وردودنا الآلية ─── */
+.pa-sim-quick {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.pa-sim-quick p,
+.pa-sim-story {
+  margin: 0;
+}
+
+.pa-sim-story {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pa-sim-replies {
+  display: grid;
+  gap: 8px;
+}
+
+.pa-sim-reply {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.pa-sim-reply-head,
+.pa-sim-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pa-sim-reply-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.pa-toast-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+/* ─── الهاتف: صف واحد للبطاقات، وأهداف لمس ≥ 44px ─── */
+@media (max-width: 640px) {
+  .pa-stories {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-sf,
+  .pa-viewswitch .seg {
+    min-height: 44px;
+  }
+
+  /* حالة القصة في سطر واحد يُمرَّر أفقيًا داخل نفسه، فتظهر البطاقات أسرع */
+  .pa-story-filters {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .pa-sf {
+    flex-shrink: 0;
+  }
+
+  .pa-story-actions .btn,
+  .pa-prop-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .pa-vt-actions .btn,
+  .pa-sim-rows .btn,
+  .pa-sim-quick .btn {
+    --btn-h: 44px;
+  }
+
+  .pa-vt-speed .input {
+    min-height: 44px;
+  }
+
+  .pa-msg-voice {
+    width: 100%;
+  }
+
+  /* أزرار صغيرة داخل الأوراق والبطاقات: هدف لمس ≥ 44px على الهاتف */
+  .pa-story-sheet .btn,
+  .pa-call-sheet .btn,
+  .pa-split-sheet .btn,
+  .pa-vt .btn,
+  .pa-prop-card .btn,
+  .pa-stset .btn,
+  .pa-split-action {
+    --btn-h: 44px;
+  }
+
+  .pa-sheet-q .input,
+  .pa-issue-add .input {
+    min-height: 44px;
+  }
+
+  /* [مراجعة 9.2] حقول الأوراق (المجال، العنوان، الأولوية…) ≥ 44px، والزر الأساسي ≥ 48px حتى داخل البطاقة والنوافذ */
+  .pa-story-sheet .input,
+  .pa-call-sheet .input,
+  .pa-split-sheet .input,
+  .pa-stset .input {
+    min-height: 44px;
+  }
+
+  .pa-prop-card .pa-prop-primary,
+  .pa-call-sheet .modal-footer .btn-primary,
+  .pa-split-sheet .modal-footer .btn-primary,
+  .pa-stset .btn-primary {
+    --btn-h: 48px;
+  }
+
+  /* [مراجعة 9.2] صفحتا صندوق الوارد والطلب على الهاتف: كل زر وحقل ≥ 44px والزر الأساسي ≥ 48px
+     (ومنها أزرار 9.1 في رأس الصفحة والتبويبات ومحرر الرد والمستندات وبطاقة التحليل) */
+  .pa-page-inbox .btn,
+  .pa-page-intake .btn,
+  .pa-page-inbox .seg,
+  .pa-page-inbox .input,
+  .pa-page-intake .input {
+    min-height: 44px;
+  }
+
+  .pa-page-inbox .btn-primary,
+  .pa-page-intake .btn-primary {
+    min-height: 48px;
+  }
+
+  /* المحاكي (صفحة تجريبية للإدارة) على الهاتف: نفس أهداف اللمس */
+  .pa-page-simulator .btn {
+    --btn-h: 44px;
+    min-height: 44px;
+  }
+
+  .pa-page-simulator .input {
+    min-height: 44px;
+  }
+}

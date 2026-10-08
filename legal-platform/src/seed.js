@@ -9,6 +9,8 @@ import { seedWorkDemo } from './seed-v91-l-work.js'; // v9.1 l-work
 import { seedFormsDemo } from './seed-v91-b-forms.js'; // v9.1 b-forms
 import { seedSiteDemo } from './seed-v91-b-site.js'; // v9.1 b-site
 import { seedPortalDemo } from './seed-v91-b-portal.js'; // v9.1 b-portal
+import { seedStoriesDemo } from './seed-v92-stories.js'; // v9.2 admin-ai
+import { seedPublicDemo } from './seed-v92-public.js'; // v9.2 public
 
 const HOUR = 3600 * 1000;
 
@@ -1020,6 +1022,9 @@ export async function seedDemo(app) {
     // <seed:v91-b-forms> طلبان من نموذج الموقع الجديد برسالة صوتية (وصورة ورقة)، كما ترسلهما أغلب المستفيدات
     seedFormsDemo(app, { at });
 
+    // <seed:v92-stories> قصص واتساب: جاهزة بكل مسار (استشارة، قضية، رد الإدارة، توجيه، نسألها الأول) وقصة تُكتب الآن
+    const v92Stories = await seedStoriesDemo(app, { at, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
+
     // <seed:v91-b-site> طلب من الموقع تأكد رقمه بنقرة واحدة على واتساب، وطلب رقمه غير مؤكد (صفحة المتابعة فقط)
     seedSiteDemo(app, { at, manager });
 
@@ -1031,6 +1036,7 @@ export async function seedDemo(app) {
 
     // <seed:v91-b-portal> رد نهى بخلاصة وخطوات، «هاتي معاكي» لجلستها، طلب ورق ببندين لسامية، وتعليمات الدفع
     seedPortalDemo(app, { manager });
+    seedPublicDemo(app, { at });
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;
@@ -1039,6 +1045,8 @@ export async function seedDemo(app) {
       await app.ai.analyzeIntake(r.id);
     }
     app.automations.runAll();
+    // v9.2 [R2-A15] (آخر خطوة): كل قصة تجريبية جاهزة ومحلَّلة، عدا القصة التي «تُكتب الآن» عمدًا
+    await app.stories.settleSeed({ except: [v92Stories.story6Id] });
   } finally {
     setClock(null);
     app.ai.cancelTimers();

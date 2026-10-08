@@ -3,7 +3,7 @@
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
-import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday } from '../../../lib/fmt.js';
+import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday, localPhone } from '../../../lib/fmt.js';
 import {
   pageHeader,
   card,
@@ -32,13 +32,17 @@ import {
   richText,
   errorMessage,
 } from '../../../lib/ui.js';
-import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus } from './inbox.js';
+import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus, replaceQuery } from './inbox.js';
 import { pickClient } from './clients.js';
 import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 import { programSelect } from '../../components/program-picker.js';
 import { MERGE_LABEL } from '../../labels.js';
 // v9: ردود جاهزة واقتراح رد بالذكاء الاصطناعي في محرر الرد، وتحليل المستندات (أدوات مشتركة مع صفحة الملف)
 import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
+// v9.2 (admin-ai): القصة ← اقتراح ← طلب بنقرة؛ نصوص الرسائل الصوتية؛ المكالمات
+import { openStorySheet, TRACK_TONES } from '../../components/story-sheet.js';
+import { voiceTranscriptEditor, voiceLeftText } from '../../components/voice-transcript.js';
+import { openCallNote, openCallAttempt, attemptsList, closeUnreachable, attemptsCountText } from '../../components/call-note.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
 /** (إصلاح 9.1) اسم عام لا يقول ما في الورقة: «ورقة 1»، «ورقة-2.jpg»، «صورة 3»، «IMG_2041.jpg» */
@@ -96,6 +100,16 @@ export default async function render(ctx) {
   const isOpen = OPEN.includes(it.status);
   const aiTitle = out && out.title;
   ctx.setTitle(`الطلب ${it.code}`);
+  // v9.2 (admin-ai): حالة القصة واقتراح المسار والرسائل الصوتية ومحاولات الاتصال
+  const story = d.story || null;
+  const prop = isOpen ? d.proposal || null : null;
+  const webForm = d.form || null;
+  const voiceNotes = d.voice_notes || [];
+  const voiceByDoc = new Map(voiceNotes.map((n) => [n.document_id, n]));
+  const localAi = !(d.ai_status && d.ai_status.provider === 'anthropic');
+  const callNotes = (d.messages || []).filter((m) => m.direction === 'in' && m.meta && m.meta.call_note);
+  const lastCallNoteId = callNotes.length ? callNotes[callNotes.length - 1].id : null;
+  const herPhone = (cl && cl.phone) || it.contact_phone || null;
 
   const base = `/admin/intakes/${it.id}`;
   // رقم من نموذج الموقع يطابق عميلًا مسجلًا دون إثبات أن المرسل صاحبه
@@ -198,14 +212,28 @@ export default async function render(ctx) {
     }
     if (it.status === 'handled_internally' || it.status === 'archived') {
       const handled = it.status === 'handled_internally';
+      // v9.2: نوع الإغلاق (رد بمعلومة · توجيه لجهة أخرى · تعذّر الوصول إليها) والجهة الموجَّهة إليها
+      const kind = handled ? it.resolution_kind : null;
+      const title = !handled
+        ? 'الطلب مؤرشف'
+        : kind === 'unreachable'
+          ? 'أُغلق الطلب: تعذّر الوصول إليها'
+          : kind === 'referral'
+            ? 'أُغلق الطلب بتوجيهها لجهة أخرى'
+            : 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ';
       return alertBox(
         h(
           'div.pa-alert-row',
-          h('span', h('span.pa-alert-label', handled ? 'ملخص ما تم: ' : 'سبب الأرشفة: '), it.resolution_note || '—'),
+          h(
+            'span.pa-closed-lines',
+            h('span', h('span.pa-alert-label', handled ? 'ملخص ما تم: ' : 'سبب الأرشفة: '), it.resolution_note || '—'),
+            kind && h('span.small', h('span.pa-alert-label', 'نوع الإغلاق: '), label('resolution_kind', kind)),
+            kind === 'referral' && it.referral_to && h('span.small', h('span.pa-alert-label', 'الجهة: '), it.referral_to),
+          ),
           button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen }),
         ),
         handled ? 'success' : 'info',
-        { title: handled ? 'تعاملت الإدارة مع الطلب داخليًا دون إسناده لمحامٍ' : 'الطلب مؤرشف', icon: handled ? 'checkCircle' : 'info' },
+        { title, icon: handled ? 'checkCircle' : 'info' },
       );
     }
     const opt = (cls, iconName, title, text, onClick) =>
@@ -286,6 +314,293 @@ export default async function render(ctx) {
       toast('تمت أرشفة الطلب', 'success');
       await reloadAndFocus(ctx, '#pa-decision');
     }
+  }
+
+  // ───────────── v9.2 (admin-ai): «تحويل القصة إلى طلب» (A92-18) ─────────────
+  const MINUTES = ['دقيقة واحدة', 'دقيقتين', 'دقائق', 'دقيقة'];
+
+  function storyRibbon(view) {
+    const st = story || {};
+    const quiet = Number(st.quiet_minutes) || 10;
+    const line = (b, text) => h('div.pa-story-ribbon', { class: `is-${view}` }, b, text ? h('span.pa-story-ribbon-text', text) : null);
+    switch (view) {
+      case 'callback':
+        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد — الوقت المناسب: ${(webForm && webForm.callback_label) || 'أي وقت'}`);
+      case 'collecting':
+        return line(
+          h('span.badge.badge-info.pa-story-live', h('span.pa-live-dot', { 'aria-hidden': 'true' }), h('span', 'القصة لسه بتتكتب…')),
+          `آخر رسالة ${relative(it.last_inbound_at || it.last_message_at || it.created_at)} — تُلخَّص تلقائيًا بعد ${count(quiet, MINUTES)} بلا رسائل`,
+        );
+      case 'blocked':
+        return line(badge(st.media_failed ? 'تعذّر تنزيل رسالة صوتية' : 'فيها رسالة صوتية لم تُكتب', 'warning', { icon: 'mic' }), null);
+      case 'stale':
+        return line(badge(`وصل جديد بعد الملخص (${Number(st.new_since_summary) || 0})`, 'warning', { icon: 'refresh' }), null);
+      case 'awaiting':
+        return line(badge('بانتظار ردها', 'neutral', { icon: 'clock' }), null);
+      default:
+        return line(badge('جاهزة للقرار', 'success', { icon: 'checkCircle' }), prop && prop.analyzed_at ? `اتلخّصت ${relative(prop.analyzed_at)}` : null);
+    }
+  }
+
+  function sheet(extra = {}) {
+    return openStorySheet({
+      intakeId: it.id,
+      proposal: prop,
+      name: it.contact_name || (cl && cl.name) || null,
+      staff: d.staff,
+      userId: ctx.user && ctx.user.id,
+      callNoteId: lastCallNoteId,
+      phone: herPhone,
+      onDone: (res) => {
+        if (res && res.next && res.next !== `#/inbox/${it.id}`) ctx.navigate(res.next);
+        else reloadAndFocus(ctx, '#pa-decision');
+      },
+      onCalled: () => reloadAndFocus(ctx, '#pa-proposal'),
+      onReview: async () => {
+        await ctx.reload();
+        const chat = document.getElementById('pa-conversation');
+        if (chat) {
+          chat.scrollIntoView({ block: 'start' });
+          chat.focus({ preventScroll: true });
+        }
+      },
+      ...extra,
+    });
+  }
+
+  // [بوابة 9.2 N6] أزرار الإدارة بصيغة المخاطَب حين نعرف أنه رجل («أبو …» أو صيغة حددتها الإدارة)
+  const male = Boolean(prop && prop.identity && prop.identity.form === 'm');
+  const CALL_LABEL = male ? 'اتصل به' : 'اتصل بها';
+
+  async function callHer(script) {
+    const r = await openCallNote({
+      intake: { id: it.id, code: it.code, phone: herPhone, unconfirmed: Boolean(prop && prop.identity && prop.identity.unconfirmed), callIntro: prop && prop.actions && prop.actions.call_intro, form: male ? 'm' : 'f' },
+      script: script || null,
+    });
+    if (r) await reloadAndFocus(ctx, '#pa-proposal');
+  }
+
+  function firstMissingVoice() {
+    return document.querySelector('#pa-conversation .pa-vt.is-pending textarea') || document.querySelector('.pa-vt.is-pending textarea');
+  }
+
+  function goToVoice() {
+    const ta = firstMissingVoice();
+    if (!ta) {
+      // [مراجعة 9.2] لا ملف صوتي يمكن سماعه هنا (تنزيله من واتساب لم يكتمل أو فشل): لا نترك الزر بلا أثر
+      toast(story && story.media_failed ? 'تعذّر تنزيل الرسالة الصوتية — اطلبوا منها إعادة إرسالها، أو اتصلوا بها.' : 'الرسالة الصوتية لم تصل بعد إلى المنصة — حاولوا بعد دقائق، أو اتصلوا بها.', 'warning', 8000);
+      return;
+    }
+    ta.closest('.pa-vt').scrollIntoView({ block: 'center', behavior: 'smooth' });
+    ta.focus({ preventScroll: true });
+  }
+
+  async function summarizeNow() {
+    await api.post(`${base}/story/ready`, {});
+    toast('حُدِّث الملخص', 'success');
+    await reloadAndFocus(ctx, '#pa-proposal');
+  }
+
+  function manualDecision() {
+    const opt = (cls, iconName, title, text, onClick) =>
+      h('button.pa-decide-opt', { type: 'button', class: cls, onClick }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
+    return h(
+      'details.pa-details.pa-manual',
+      { id: 'pa-manual' },
+      h('summary', 'قرار يدوي'),
+      h(
+        'div.pa-decide',
+        opt('is-primary', 'briefcase', 'تحويل إلى ملف قانوني', 'يحتاج دراسة محامٍ: يصدر له كود ملف مستقل ويُسند إلى فريق.', () => sheet({ track: 'consultation' })),
+        opt('', 'checkCircle', 'تعامل داخلي دون محامٍ', 'استفسار بسيط ترد عليه الإدارة مباشرة دون إسناده لمحامٍ.', openHandle),
+        opt('is-muted', 'x', 'أرشفة', 'رسالة غير جدية أو مكررة أو خارج نطاق الخدمة. يمكن إعادة فتحها لاحقًا.', openArchive),
+      ),
+    );
+  }
+
+  function warningsList(list) {
+    if (!list || !list.length) return null;
+    return h(
+      'ul.pa-prop-warnings',
+      { 'aria-label': 'تنبيهات' },
+      list.map((w) => h('li', { class: `is-${w.code}` }, icon(w.code === 'local' ? 'info' : 'alert', { size: 15 }), h('span', w.text))),
+    );
+  }
+
+  function callbackCard() {
+    const att = (prop && prop.call_attempts) || { count: 0, days: 0, can_close_unreachable: false, items: [] };
+    return card({
+      title: 'طلبت مكالمة',
+      subtitle: 'لم تحكِ مشكلتها بعد — اسمعها في المكالمة',
+      icon: 'phone',
+      className: 'pa-prop-card pa-callback-card',
+      body: h(
+        'div.stack-sm',
+        h(
+          'p.pa-callback-how',
+          'اتصل على ',
+          herPhone ? h('a', { href: `tel:${herPhone}` }, ltr(localPhone(herPhone))) : 'رقمها', // [بوابة 9.2 K9]
+          webForm && webForm.callback_label ? ` (${webForm.callback_label})` : '',
+          ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.',
+        ),
+        warningsList((prop && prop.warnings ? prop.warnings : []).filter((w) => w.code !== 'callback_only' && w.code !== 'local')),
+        h(
+          'div.pa-prop-actions',
+          asyncButton('سجّل المكالمة', () => callHer(null), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }),
+          asyncButton(
+            'لم ترد',
+            async () => {
+              const a = await openCallAttempt({ intakeId: it.id, code: it.code });
+              if (a) await reloadAndFocus(ctx, '#pa-proposal');
+            },
+            { icon: 'phone-off', className: 'pa-prop-noanswer' },
+          ),
+          att.can_close_unreachable &&
+            asyncButton(
+              'إغلاق: تعذّر الوصول إليها',
+              async () => {
+                const r = await closeUnreachable({ intakeId: it.id, attempts: att });
+                if (r) await reloadAndFocus(ctx, '#pa-decision');
+              },
+              { variant: 'danger', icon: 'x' },
+            ),
+        ),
+        att.count > 0 && h('p.small.pa-attempts-count', attemptsCountText(att.count)),
+        attemptsList(att.items || []),
+        !att.can_close_unreachable && h('p.field-hint', 'يُغلق الطلب بعد 3 محاولات في يومين مختلفين على الأقل.'),
+        manualDecision(),
+      ),
+    });
+  }
+
+  function proposalCard() {
+    const view = (story && story.view) || 'ready';
+    if (view === 'callback') return callbackCard();
+    const rec = prop.track && prop.track.recommended;
+    const reason = prop.track && prop.track.reason;
+    const conf = prop.track && prop.track.confidence;
+    const unconf = Boolean(prop.identity && prop.identity.unconfirmed);
+    const callFirst = Boolean(prop.actions && prop.actions.primary === 'call');
+    const voiceMissing = prop.voice ? Number(prop.voice.missing) || 0 : 0;
+    const att = prop.call_attempts || { count: 0, items: [], can_close_unreachable: false };
+
+    const actions = [];
+    if (view === 'awaiting') {
+      // سُئلت بالفعل: لا «اعمله طلب» بنفس المسار؛ يُعاد التلخيص تلقائيًا عندما ترد، ويبقى اختيار مسار آخر متاحًا
+    } else if (view === 'blocked' && voiceMissing > 0) {
+      actions.push(button('اسمع الرسالة الصوتية', { variant: 'primary', icon: 'mic', className: 'pa-prop-primary', onClick: goToVoice }));
+      if (callFirst) actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { icon: 'phone' }));
+    } else if (callFirst) {
+      actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }));
+      if (unconf) actions.push(asyncButton(male ? 'إرسال لصفحته فقط' : 'إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe' }));
+      else if (rec) actions.push(asyncButton(label('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send' }));
+    } else if (!prop.analyzed_at) {
+      actions.push(
+        asyncButton(
+          'حلّل الآن',
+          async () => {
+            await api.post(`${base}/analyze`);
+            toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
+            await reloadAndFocus(ctx, '#pa-proposal');
+          },
+          { variant: 'primary', icon: 'sparkle', className: 'pa-prop-primary' },
+        ),
+      );
+    } else {
+      actions.push(asyncButton(rec ? `اعمله طلب: ${label('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary' }));
+    }
+    actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: view === 'awaiting' ? 'secondary' : 'ghost', icon: 'list' }));
+    if (view === 'stale' || view === 'collecting') actions.push(asyncButton('حدّث الملخص الآن', summarizeNow, { variant: 'ghost', icon: 'refresh' }));
+
+    const trackBlock = rec
+      ? h(
+          'div.pa-prop-track',
+          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), TRACK_TONES[rec] || 'neutral', { icon: 'sparkle' })),
+          reason && h('p.pa-prop-why', h('strong', 'ليه؟ '), reason),
+          conf != null &&
+            conf > 0 &&
+            progressBar(Math.round(conf * 100), 100, conf >= 0.7 ? 'success' : conf >= 0.5 ? 'warning' : 'danger', { label: `درجة الثقة ${percent(conf)}` }),
+        )
+      : h('p.pa-prop-why.is-empty', reason || 'لم يقترح الذكاء الاصطناعي مسارًا بعد — اختر المسار بنفسك.');
+
+    return card({
+      title: 'تحويل القصة إلى طلب',
+      subtitle: 'اقتراح الذكاء الاصطناعي — القرار لك',
+      icon: 'sparkle',
+      className: 'pa-prop-card',
+      body: h(
+        'div.stack-sm',
+        storyRibbon(view),
+        prop.one_line &&
+          h(
+            'p.pa-story-line.pa-prop-oneline',
+            h('span.pa-ai-mark', icon('sparkle', { size: 14 }), h('span.pa-ai-tag', 'اقتراح')),
+            prop.preview && badge('ملخص مبدئي', 'muted'),
+            h('span.pa-story-line-text', { dir: 'auto' }, prop.one_line),
+          ),
+        trackBlock,
+        view === 'awaiting' && h('p.pa-prop-why', icon('clock', { size: 14 }), ' ', 'سألناها وننتظر ردها؛ عندما ترد يُعاد التلخيص تلقائيًا.'),
+        warningsList(prop.warnings),
+        h('div.pa-prop-actions', actions),
+        att.count > 0 && h('div.pa-prop-attempts', h('p.small', attemptsCountText(att.count)), attemptsList(att.items || [])),
+        manualDecision(),
+      ),
+    });
+  }
+
+  function webFormCard() {
+    if (!webForm || !(webForm.lines && webForm.lines.length) && !webForm.about) return null;
+    const about = webForm.about;
+    const aboutBits = about ? [about.governorate && `المحافظة ${about.governorate}`, about.relation_label && `الصفة ${about.relation_label}`].filter(Boolean) : [];
+    return card({
+      title: webForm.title || 'اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة)',
+      icon: 'globe',
+      className: 'pa-form-card',
+      body: h(
+        'div.stack-sm',
+        webForm.lines && webForm.lines.length ? h('ul.pa-form-lines', webForm.lines.map((x) => h('li', x))) : null,
+        // [بوابة 9.2 N7] ضغطة على صورة وليست كلامها (R2-B4): لا «قالت إن…»
+        webForm.urgent_hint && badge('اختارت صورة التهديد بالطرد — تأكدوا منها', 'danger', { icon: 'alert' }),
+        aboutBits.length ? h('p.small.muted', `أضافت بعد الإرسال: ${aboutBits.join('، ')}`) : null,
+        h('p.field-hint', 'ضغطات على صور وقد تكون غير دقيقة؛ كلامها في المحادثة هو المعتمد.'),
+      ),
+    });
+  }
+
+  // نص كل رسالة صوتية: بعد الحفظ تُحدَّث الصفحة (الملخص المحلي يُعاد خلال لحظات)
+  async function onVoiceSaved(res) {
+    const left = res && res.story ? Number(res.story.voice_missing) || 0 : 0;
+    const docId = res && res.document_id;
+    if (left > 0) toast(voiceLeftText(left), 'success');
+    else if (localAi || !isOpen) toast(isOpen ? 'كل الرسائل الصوتية مكتوبة — حُدِّث الملخص' : 'حُفظ النص', 'success');
+    else {
+      const t = toast(
+        h(
+          'span.pa-toast-row',
+          h('span', 'كل الرسائل الصوتية مكتوبة — سيُحدَّث الملخص خلال دقيقة'),
+          button('حدّث الآن', {
+            variant: 'link',
+            size: 'sm',
+            onClick: async () => {
+              t.close();
+              try {
+                await summarizeNow();
+              } catch (err) {
+                toast(errorMessage(err), 'danger');
+              }
+            },
+          }),
+        ),
+        'success',
+        10000,
+      );
+    }
+    setTimeout(() => reloadAndFocus(ctx, docId ? `#pa-conversation .pa-vt[data-doc="${docId}"] .pa-vt-edit-btn` : '#pa-proposal'), localAi && isOpen ? 900 : 150);
+  }
+
+  function voiceEditorFor(doc, audioEl) {
+    const note = voiceByDoc.get(doc.id);
+    if (!note) return null;
+    return voiceTranscriptEditor(note, { audio: audioEl || null, onSaved: onVoiceSaved });
   }
 
   // ───────────── التحويل إلى ملف ─────────────
@@ -562,6 +877,31 @@ export default async function render(ctx) {
       if (m.meta && m.meta.referral && m.meta.referral.headline) {
         node.after(h('div.pa-msg-flag.is-start.is-info', icon('flag', { size: 14 }), h('span', `وصلت عبر إعلان: «${m.meta.referral.headline}»`)));
       }
+      // v9.2 (admin-ai): علامات القصة داخل المحادثة
+      const meta = m.meta || {};
+      const tags = [];
+      const wa = meta.wa || {};
+      if (m.direction === 'out' && wa.type === 'list') {
+        const rows = (wa.sections || []).flatMap((x) => x.rows || []).map((r) => r.title);
+        if (rows.length) tags.push(badge(`القائمة: ${rows.join(' · ')}`, 'muted', { icon: 'list', className: 'pa-msg-list' }));
+      }
+      if (m.direction === 'in') {
+        if (meta.topic_prefill) tags.push(badge('اختارت الموضوع من الموقع', 'info', { icon: 'globe' }));
+        else if (meta.topic) tags.push(badge('اختارت من القائمة', 'info', { icon: 'list' }));
+        if (meta.story_done) tags.push(badge('أنهت حكايتها', 'success', { icon: 'check' }));
+        if (meta.call_note) tags.push(badge('مكالمة — كتبتها الإدارة', 'primary', { icon: 'phone' }));
+      }
+      const bubble = node.querySelector('.msg-bubble');
+      if (tags.length && bubble) bubble.append(h('div.pa-msg-tags', tags));
+      // نص كل رسالة صوتية منها تحت فقاعتها
+      if (m.direction === 'in') {
+        const audios = [...node.querySelectorAll('audio')];
+        const audioDocs = (m.documents || []).filter((x) => voiceByDoc.has(x.id));
+        audioDocs.forEach((doc, k) => {
+          const ed = voiceEditorFor(doc, audios[k]);
+          if (ed) node.after(h('div.pa-msg-voice', ed));
+        });
+      }
     });
     const scroller = h('div.pa-chat-scroll', thread);
     requestAnimationFrame(() => {
@@ -638,6 +978,9 @@ export default async function render(ctx) {
         'ul.pc-docs.doc-ai-docs',
         allDocs.map((doc) => {
           const name = doc.title || doc.filename || 'مستند';
+          const isAudio = String(doc.mime || '').startsWith('audio/');
+          // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
+          const player = isAudio && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` });
           return h(
             'li.pc-doc',
             h('span.pc-doc-icon', icon('fileText', { size: 18 })),
@@ -649,9 +992,10 @@ export default async function render(ctx) {
                 'span.pc-doc-meta',
                 [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
               ),
-              // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
-              String(doc.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` }),
+              player,
               docAiBadge(analyses, doc.id),
+              // v9.2: نص الرسالة الصوتية (تكتبه الإدارة) تحت المشغل نفسه
+              isAudio && voiceEditorFor(doc, player),
             ),
             h(
               'div.pc-doc-actions',
@@ -1084,7 +1428,7 @@ export default async function render(ctx) {
         kv([
           ['كود المستفيد/ة', h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
           ['الاسم', cl.name || it.contact_name],
-          ['الهاتف', cl.phone ? h('span.row', ltr(cl.phone), copyButton(cl.phone, '')) : null],
+          ['الهاتف', cl.phone ? h('span.row', ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null],
           cl.email && ['البريد', ltr(cl.email)],
           ['المحافظة', cl.governorate || it.governorate],
         ]),
@@ -1203,6 +1547,24 @@ export default async function render(ctx) {
   }
 
   const identityEl = identityBlock();
+  const VIEW_TONES = { callback: 'info', collecting: 'info', blocked: 'warning', stale: 'warning', ready: 'success', awaiting: 'neutral' };
+
+  // v9.2: ‎?focus=voice‎ (أول رسالة صوتية لم تُكتب) · ‎?focus=call‎ (تسجيل المكالمة) · ‎?focus=chat‎ (المحادثة) — مرة واحدة
+  const focusKind = ctx.query && ['voice', 'call', 'chat'].includes(ctx.query.focus) ? ctx.query.focus : null;
+  if (focusKind) {
+    replaceQuery(`/inbox/${it.id}`, {});
+    setTimeout(() => {
+      if (focusKind === 'voice') goToVoice();
+      else if (focusKind === 'call' && isOpen) callHer(prop && prop.actions ? prop.actions.call_script : null).catch((err) => toast(errorMessage(err), 'danger'));
+      else {
+        const chat = document.getElementById('pa-conversation');
+        if (chat) {
+          chat.scrollIntoView({ block: 'start' });
+          chat.focus({ preventScroll: true });
+        }
+      }
+    }, 80);
+  }
   // عنوان واحد ثابت لكل الحالات («الطلب REQ-…» كعنوان المتصفح)، والموضوع تحته: لا يتبدل العنوان بين اسم المرسل
   // وموضوع الطلب بحسب حالته
   const header = pageHeader({
@@ -1226,6 +1588,9 @@ export default async function render(ctx) {
       statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
       it.kind && badge(label('intake_kind', it.kind), 'neutral'),
       it.legal_area && badge(areaLabel(it.legal_area), 'primary'),
+      // v9.2: الموضوع الذي اختارته (قائمة واتساب أو الموقع) وحالة القصة
+      story && story.topic_label && badge(`الموضوع: ${story.topic_label}`, 'neutral', { icon: 'list' }),
+      isOpen && story && story.view && story.view !== 'decided' && badge(label('story_view', story.view), VIEW_TONES[story.view] || 'neutral', { className: 'pa-view-badge' }),
       h('span.small.muted', { title: dateTime(it.created_at) }, `وصل ${relative(it.created_at)}`),
     ],
     actions: [
@@ -1242,7 +1607,9 @@ export default async function render(ctx) {
       h(
         'div.detail-main',
         identityEl && withId(identityEl, 'pa-identity'),
-        withId(decisionCard(), 'pa-decision'),
+        // v9.2: الطلب المفتوح يبدأ بـ «تحويل القصة إلى طلب» (أو «طلبت مكالمة»)، والقرار اليدوي داخلها
+        prop ? withId(proposalCard(), 'pa-proposal') : withId(decisionCard(), 'pa-decision'),
+        webFormCard(),
         withId(conversationCard(), 'pa-conversation'),
         allDocs.length ? withId(documentsCard(), 'pa-documents') : null,
         analyses && docAiResultsCard(analyses, allDocs),

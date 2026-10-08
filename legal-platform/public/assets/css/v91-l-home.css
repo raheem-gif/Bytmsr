@@ -712,7 +712,7 @@
     padding-block-end: env(safe-area-inset-bottom, 0px);
     background: rgba(255, 255, 255, 0.97);
     border-block-start: 1px solid var(--border);
-    box-shadow: 0 -4px 16px rgba(8, 42, 51, 0.06);
+    box-shadow: 0 -4px 16px rgb(var(--primary-900-rgb) / 0.06);
   }
 
   .is-lawyer .lh-tab {

@@ -1,12 +1,18 @@
 // صندوق الوارد الموحد: فرز الطلبات الواردة من كل القنوات، والرد، والتعامل الداخلي، والتحويل إلى ملف.
 import { nowIso, parseJson, badRequest, notFound, conflict, v } from '../util.js';
+import { addressForm } from '../util.js'; // v9.2 بوابة N6
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
+// v9.2 (admin-ai): حالة القصة (SQL واحد) وترتيب الفرز واختيارات الموقع والمسار المقترح
+import { STORY_VIEW_SQL, STORY_TRIAGE_RANK_SQL } from './stories.js';
+import { STORY_TRACKS, STORY_AUTO_RULES } from '../constants.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
 // v9.1 fixes: معاينة آخر رسالة في صندوق الوارد تتخطى رسالة تأكيد الرقم (رقم الطلب + كود التأكيد) والرد الآلي عليها
-const PREVIEW_SQL = "json_extract(m.meta, '$.identity_confirm') IS NULL AND COALESCE(m.automation_rule, '') != 'identity_confirm'";
+// (v9.2 [R2-A19]: ولا الرسائل الآلية للقصص — الترحيب و«احكيلنا» و«وصلتنا حكايتك» — حتى تبقى آخر رسالة منها ظاهرة)
+const PREVIEW_SQL = `json_extract(m.meta, '$.identity_confirm') IS NULL AND COALESCE(m.automation_rule, '') != 'identity_confirm' AND COALESCE(m.automation_rule, '') NOT IN (${STORY_AUTO_RULES.map((r) => `'${r}'`).join(', ')})`;
+const STORY_FILTERS = ['callback', 'collecting', 'ready', 'stale', 'awaiting', 'blocked', 'voice'];
 
 export function createIntakes(app) {
   const { db } = app;
@@ -18,7 +24,7 @@ export function createIntakes(app) {
       return i;
     },
 
-    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0 } = {}) {
+    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0, story, track, sort } = {}) {
       const where = ['1=1'];
       const params = [];
       // شروط الفلاتر غير الحالة (تُستخدم أيضًا لحساب عدد كل حالة ضمن نفس الفلاتر)
@@ -60,20 +66,44 @@ export function createIntakes(app) {
           fParams.push(...refs);
         }
       }
+      // v9.2 [R2-A11]: المسار المقترح (من آخر تحليل كامل)
+      if (track && STORY_TRACKS.includes(track)) {
+        fWhere.push('i.ai_track = ?');
+        fParams.push(track);
+      }
       where.push(...fWhere.slice(1));
       params.push(...fParams);
+      // v9.2 [R2-A11]: حالة القصة من نفس تعريف SQL (لا يُعاد حسابها من نص الرسائل)
+      if (story && STORY_FILTERS.includes(story)) {
+        if (story === 'voice') where.push('i.voice_missing > 0');
+        else {
+          where.push(`(${STORY_VIEW_SQL}) = ?`);
+          params.push(story);
+        }
+      }
       const base = `FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id WHERE ${where.join(' AND ')}`;
+      // [R2-B8] ترتيب الفرز: طلبات المكالمة، ثم الجاهزة والمحجوبة معًا، ثم الأولوية، ثم الأقدم اكتمالًا أولًا
+      const order =
+        sort === 'triage'
+          ? `${STORY_TRIAGE_RANK_SQL},
+           CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+           COALESCE(i.story_ready_at, i.last_inbound_at, i.created_at) ASC, i.id ASC`
+          : `CASE i.status WHEN 'new' THEN 0 WHEN 'in_review' THEN 1 WHEN 'awaiting_client' THEN 2 ELSE 3 END,
+           CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+           COALESCE(i.last_message_at, i.created_at) DESC`;
       const rows = db.all(
-        `SELECT i.*, cl.code AS client_code, cl.name AS client_name,
+        `SELECT i.*, cl.code AS client_code, cl.name AS client_name, cl.address_form AS client_address_form,
+           (${STORY_VIEW_SQL}) AS story_view,
+           (SELECT json_extract(m.meta, '$.call_note') FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' ORDER BY m.id DESC LIMIT 1) AS last_in_call_note,
+           (SELECT COUNT(*) FROM call_attempts ca WHERE ca.intake_id = i.id) AS call_attempts_count,
+           (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id AND d.uploaded_by_kind = 'client' AND d.mime LIKE 'audio/%') AS voice_docs,
            (SELECT body FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_message,
            (SELECT direction FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_direction,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id) AS messages_count,
            (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id) AS documents_count,
            (SELECT COUNT(*) FROM intakes o WHERE o.client_id = i.client_id AND o.id != i.id) AS client_other_intakes
          ${base}
-         ORDER BY CASE i.status WHEN 'new' THEN 0 WHEN 'in_review' THEN 1 WHEN 'awaiting_client' THEN 2 ELSE 3 END,
-           CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
-           COALESCE(i.last_message_at, i.created_at) DESC
+         ORDER BY ${order}
          LIMIT ? OFFSET ?`,
         ...params,
         Math.min(Number(limit) || 100, 500),
@@ -86,11 +116,25 @@ export function createIntakes(app) {
           .all(`SELECT i.status, COUNT(*) AS n FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id WHERE ${fWhere.join(' AND ')} GROUP BY i.status`, ...fParams)
           .map((r) => [r.status, Number(r.n)]),
       );
+      // v9.2: عدد الطلبات المفتوحة في كل حالة قصة ضمن نفس الفلاتر (يطابق مجموع فلتر story=… لكل حالة)
+      const storyCounts = { callback: 0, collecting: 0, ready: 0, stale: 0, awaiting: 0, blocked: 0, voice: 0 };
+      for (const r of db.all(
+        `SELECT (${STORY_VIEW_SQL}) AS v, COUNT(*) AS n, SUM(i.voice_missing > 0) AS voice FROM intakes i LEFT JOIN clients cl ON cl.id = i.client_id
+         WHERE ${fWhere.join(' AND ')} AND i.status IN ('new','in_review','awaiting_client') GROUP BY v`,
+        ...fParams,
+      )) {
+        if (r.v in storyCounts) storyCounts[r.v] = Number(r.n);
+        storyCounts.voice += Number(r.voice) || 0;
+      }
       return {
         total,
         counts,
+        story_counts: storyCounts,
         items: rows.map((r) => {
-          const ai = app.ai.latest('intake', r.id, 'intake_analysis');
+          // v9.2: آخر تحليل كامل، وإلا الملخص المبدئي أثناء كتابة القصة (preview)
+          const ai = app.ai.latestStory ? app.ai.latestStory(r.id) : app.ai.latest('intake', r.id, 'intake_analysis');
+          const story = app.stories ? app.stories.view(r) : null;
+          if (story) story.voice.total = Number(r.voice_docs) || 0;
           return {
             id: r.id,
             code: r.code,
@@ -103,7 +147,8 @@ export function createIntakes(app) {
             campaign: r.campaign,
             title: r.title,
             legal_area: r.legal_area,
-            contact_name: r.contact_name || r.client_name,
+            // [بوابة 9.2 S1] طلب موقع غير مؤكد بلا اسم: لا نعرضه باسم صاحب الرقم المسجل
+            contact_name: r.contact_name || (isPortalUnverifiedIntake(r) ? null : r.client_name),
             client_code: r.client_code,
             client_id: r.client_id,
             returning_client: Number(r.client_other_intakes) > 0,
@@ -123,8 +168,22 @@ export function createIntakes(app) {
                   similar_count: ai.output.similar?.total || 0,
                   missing_count: (ai.output.missing_info || []).length,
                   provider: ai.provider,
+                  // v9.2: سطر القصة والمسار المقترح وسببه
+                  one_line: ai.output.one_line || null,
+                  track: ai.output.recommended_track || null,
+                  track_label: ai.output.recommended_track ? LABELS.story_track[ai.output.recommended_track] : null,
+                  track_reason: ai.output.track_reason || null,
+                  preview: !!ai.output.preview,
+                  blocked: ai.output.blocked || null,
+                  analyzed_at: ai.created_at,
                 }
               : null,
+            story,
+            form: app.stories ? app.stories.formOf(r) : null,
+            topic: r.topic || null,
+            identity_unconfirmed: isPortalUnverifiedIntake(r),
+            // [بوابة 9.2 N6] صيغة المخاطبة لنصوص الإدارة («اتصل به/بها»): لرقم غير مؤكد من الاسم الذي كتبه فقط
+            address_form: isPortalUnverifiedIntake(r) ? addressForm({ name: r.contact_name }) : addressForm({ name: r.client_name || r.contact_name, address_form: r.client_address_form }),
           };
         }),
       };
@@ -180,7 +239,8 @@ export function createIntakes(app) {
           i.id,
         )
         .map((m) => mapMessage(m, docsByMessage));
-      const ai = app.ai.latest('intake', i.id, 'intake_analysis');
+      // v9.2: آخر تحليل كامل، وإلا الملخص المبدئي (preview) أثناء كتابة القصة
+      const ai = app.ai.latestStory ? app.ai.latestStory(i.id) : app.ai.latest('intake', i.id, 'intake_analysis');
       const sd = parseJson(i.source_detail, {});
       // v9.1 b-forms: مُجزّأ كود التأكيد لا يغادر الخادم (6 أرقام فقط يسهل تخمينها من المُجزّأ)
       delete sd.confirm_hash;
@@ -222,6 +282,16 @@ export function createIntakes(app) {
         case: i.case_id ? db.get('SELECT id, code, title, status FROM cases WHERE id = ?', i.case_id) : null,
         activity: app.activity.forIntake(i.id),
         staff: db.all("SELECT id, name, role FROM users WHERE role IN ('admin','case_manager') AND active = 1 ORDER BY name"),
+        // v9.2 (admin-ai): القصة واختيارات الموقع والاقتراح والرسائل الصوتية ومحاولات الاتصال
+        ...(app.stories
+          ? {
+              story: app.stories.storyOf(i.id),
+              form: app.stories.formOf(i),
+              proposal: app.stories.proposal(i.id),
+              voice_notes: app.voice ? app.voice.listForIntake(i.id) : [],
+              call_attempts: app.stories.attempts(i.id).items,
+            }
+          : {}),
       };
     },
 
@@ -253,7 +323,8 @@ export function createIntakes(app) {
       return svc.require(i.id);
     },
 
-    reply(id, body, actor) {
+    /** [R2-A13/S-32] meta معامل داخلي رابع (أسئلة «نسألها الأول» من stories.accept)؛ body.meta من المسار يُتجاهل دائمًا */
+    reply(id, body, actor, { meta } = {}) {
       const i = svc.require(id);
       const text = v.str(body.body, 'نص الرد', { required: true, max: 4000 });
       const msg = app.engine.sendToClient({
@@ -263,6 +334,7 @@ export function createIntakes(app) {
         body: text,
         channel: body.channel || 'auto',
         author: actor,
+        ...(meta && typeof meta === 'object' ? { meta } : {}),
       });
       // الرد أول إجراء فرز: «قيد الفرز» ويُسند الفرز لمن رد إن لم يكن مسندًا
       if (OPEN_STATUSES.includes(i.status)) svc.startTriage(i.id, actor);

@@ -242,7 +242,8 @@ export function createAnalytics(app) {
           week,
         ),
         overdue_invoices: q("SELECT COUNT(*) FROM invoices WHERE status IN ('unpaid','partially_paid') AND due_at < ?", t),
-        failed_messages: q("SELECT COUNT(*) FROM messages WHERE direction = 'out' AND status = 'failed'"),
+        // v9.2 [R2-A19]: الرسائل الآلية للقصص خارج نافذة الـ 24 ساعة تفشل بهدوء ولا تُعاد، فلا تُحسب هنا
+        failed_messages: q("SELECT COUNT(*) FROM messages WHERE direction = 'out' AND status = 'failed' AND COALESCE(automation_rule, '') NOT IN ('story_welcome', 'story_topic_nudge', 'story_ack')"),
         similar_alerts: db.all(
           `SELECT a.intake_id, a.summary, a.created_at, i.code FROM activity a JOIN intakes i ON i.id = a.intake_id
            WHERE a.type = 'ai.similar_alert' AND i.status IN ('new','in_review','awaiting_client') ORDER BY a.id DESC LIMIT 5`,
@@ -385,7 +386,8 @@ export function createPortal(app) {
            WHERE client_id = ? AND (intake_id IN (${I}) OR case_id IN (${C}) OR matter_id IN (${M})${orphan.sql})
              ${sc.websiteOnly ? "AND channel = 'website'" : ''}
              AND (direction = 'in' OR status IN ('sent','delivered','read','simulated'))
-             AND COALESCE(automation_rule, '') != 'portal_otp'
+             AND COALESCE(automation_rule, '') NOT IN ('portal_otp', 'story_welcome', 'story_topic_nudge')
+             AND json_extract(meta, '$.call_note') IS NULL
            ORDER BY id DESC LIMIT 100`,
           client.id,
           ...orphan.params,
@@ -469,6 +471,7 @@ export function createPortal(app) {
     eventResponse: (...a) => v91.eventResponse(...a),
     invoiceResponse: (...a) => v91.invoiceResponse(...a),
     callback: (...a) => v91.callback(...a),
+    about: (...a) => v91.about(...a), // v9.2 «كمان سؤالين»
     onButtonReply: (...a) => v91.onButtonReply(...a),
     dayBeforeReminder: (...a) => v91.dayBeforeReminder(...a),
     // B91-21: «29» أو «29/2026» ← REQ-<السنة>-00029 (بحث الإدارة في صندوق الوارد والبحث الشامل)

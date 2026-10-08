@@ -3,8 +3,12 @@
 
 import { h, mount } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
-import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName } from '../../../lib/fmt.js';
-import { pageHeader, card, button, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
+import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName, label, localPhone } from '../../../lib/fmt.js';
+import { pageHeader, card, button, asyncButton, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
+
+// v9.2 (admin-ai): حالة القصة بعد الرسالة، ورسائلنا الآلية (قائمة المواضيع تُضغط هنا كما تضغطها المستفيدة)
+const VIEW_TONES = { callback: 'info', collecting: 'info', blocked: 'warning', stale: 'warning', ready: 'success', awaiting: 'neutral', decided: 'muted' };
+const QUICK_TEXT = { voice: 'رسالة صوتية تجريبية', photo: 'صورة ورقة', done: 'خلاص' };
 
 const INH_CLIENT_PHONE = '+201012345678';
 
@@ -115,6 +119,46 @@ export default async function render(ctx) {
     toast('جُهزت الرسالة — راجعها ثم اضغط «إرسال عبر المحاكي»', 'info', 2500);
   }
 
+  /** رسالة سريعة بنفس الرقم والاسم: رسالة صوتية، صورة ورقة، «خلاص»، أو اختيار من قائمة المواضيع */
+  async function sendQuick(kind, extra = {}, shown = '') {
+    const v = f.getValues();
+    f.clearErrors();
+    if (!v.from || !normalizeEgPhone(v.from)) {
+      f.setErrors({ from: 'اكتب رقم موبايل مصري صحيح للمرسل أولًا' });
+      return;
+    }
+    const body = { from: v.from, name: v.name || undefined, kind, ...extra };
+    mount(previewPre, JSON.stringify(webhookPreview({ ...v, text: body.text || '' }), null, 2));
+    const res = await api.post('/admin/simulate/whatsapp', body);
+    showResult(res, { from: v.from, text: shown || body.text || '' });
+  }
+
+  function repliesBlock(res) {
+    const replies = res.replies || [];
+    if (!replies.length) return null;
+    return h(
+      'div.pa-sim-replies',
+      h('h3.pa-mini-h', 'ردّنا الآلي على هذه الرسالة'),
+      replies.map((r) => {
+        const rows = r.wa && r.wa.type === 'list' ? (r.wa.sections || []).flatMap((x) => x.rows || []) : [];
+        return h(
+          'div.pa-sim-reply',
+          h('div.pa-sim-reply-head', badge(r.rule ? label('automation_rule', r.rule) : 'رسالة', 'muted', { icon: 'zap' }), r.status && badge(label('message_status', r.status), r.status === 'failed' ? 'danger' : 'neutral')),
+          h('p.pa-sim-reply-body', { dir: 'auto' }, r.body || ''),
+          rows.length
+            ? h(
+                'div.pa-sim-rows',
+                { role: 'group', 'aria-label': 'اختيارات القائمة — اضغط كما تضغط المستفيدة' },
+                rows.map((row) =>
+                  asyncButton(row.title, () => sendQuick('list_reply', { reply_id: row.id }, row.title), { size: 'sm', className: 'pa-sim-row', title: row.description || '' }),
+                ),
+              )
+            : null,
+        );
+      }),
+    );
+  }
+
   function showResult(res, v) {
     const entry = { at: new Date().toISOString(), from: v.from, text: v.text, res };
     history.unshift(entry);
@@ -145,6 +189,11 @@ export default async function render(ctx) {
         body: h(
           'div.stack',
           alertBox(text, tone, { title }),
+          res.story_view &&
+            h('p.pa-sim-story', h('span', 'حالة القصة الآن: '), badge(res.story_view_label || label('story_view', res.story_view), VIEW_TONES[res.story_view] || 'neutral', { className: 'pa-sim-view' })),
+          res.welcome_enabled === false && res.intake_id && h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.')),
+          repliesBlock(res),
+          res.intake_id && h('div.pa-sim-quick', h('p.small.muted', 'تكمل نفس المستفيدة:'), quickButtons()),
           h(
             'div.btn-group',
             res.intake_id && button('فتح الطلب في صندوق الوارد', { variant: 'primary', icon: 'inbox', href: `#/inbox/${res.intake_id}` }),
@@ -219,7 +268,7 @@ export default async function render(ctx) {
       }
     }
     fill({
-      from: phone || randomMobile(),
+      from: phone ? localPhone(phone) : randomMobile(), // [بوابة 9.2 K9] الصيغة المحلية في الحقل
       name: diffCb.checked ? 'قريب صاحب الطلب' : name,
       text: diffCb.checked
         ? `السلام عليكم بخصوص الطلب ${code}، أنا قريب صاحب الطلب وعايز أعرف وصلتوا لإيه؟`
@@ -345,6 +394,17 @@ export default async function render(ctx) {
     ),
   });
 
+  // v9.2: رسائل سريعة بنفس الرقم (قصة من عدة رسائل كما تكتبها المستفيدة)
+  function quickButtons() {
+    return h(
+      'div.btn-group',
+      asyncButton('إرسال رسالة صوتية تجريبية', () => sendQuick('voice', {}, QUICK_TEXT.voice), { icon: 'mic', className: 'pa-sim-voice' }),
+      asyncButton('إرسال صورة ورقة', () => sendQuick('photo', {}, QUICK_TEXT.photo), { icon: 'fileText', className: 'pa-sim-photo' }),
+      asyncButton('خلاص', () => sendQuick('text', { text: 'خلاص' }, QUICK_TEXT.done), { icon: 'check', className: 'pa-sim-done' }),
+    );
+  }
+  const quickBar = h('div.pa-sim-quick', h('p.small.muted', 'رسائل أخرى بنفس الرقم والاسم أعلاه:'), quickButtons());
+
   const previewCard = h(
     'details.pa-details.pa-preview',
     h('summary', 'عرض شكل الـ Webhook المرسل (صيغة Meta)'),
@@ -367,7 +427,7 @@ export default async function render(ctx) {
       h(
         'div.detail-main',
         presetsCard,
-        card({ title: 'رسالة واتساب واردة', icon: 'whatsapp', body: h('div.stack', f.el, previewCard) }),
+        card({ title: 'رسالة واتساب واردة', icon: 'whatsapp', body: h('div.stack', f.el, quickBar, previewCard) }),
         resultHost,
       ),
       h('div.detail-side', pipelineCard, prodCard),

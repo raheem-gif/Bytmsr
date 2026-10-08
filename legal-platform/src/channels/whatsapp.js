@@ -112,6 +112,8 @@ export function parseWebhook(payload) {
         const media = ['image', 'document', 'audio', 'video', 'sticker'].includes(m.type) ? m[m.type] : null;
         messages.push({
           channel: 'whatsapp',
+          // v9.2: نوع رسالة ميتا (text / audio / image / location / interactive …) — «الموقع الجغرافي» من وقائع القصة
+          type: m.type || null,
           external_id: m.id,
           from_phone: normalizePhone(m.from),
           contact_name: names.get(m.from) || null,
@@ -384,6 +386,40 @@ export function createWhatsApp(config, log, app = null) {
           body: { text: String(bodyText).slice(0, 1024) },
           ...(footer ? { footer: { text: String(footer).slice(0, 60) } } : {}),
           action: { buttons: buttons.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: String(b.id).slice(0, 256), title: String(b.title).slice(0, 20) } })) },
+        },
+      });
+    },
+
+    /**
+     * v9.2 — رسالة قائمة تفاعلية (داخل النافذة فقط): حتى 10 صفوف إجمالًا، عنوان الصف 24 حرفًا والوصف 72،
+     * الزر 20، عنوان القسم 24، الرأس والتذييل 60، والنص 1024 (حدود ميتا).
+     */
+    sendList(toE164, { header, text, footer, button, sections }) {
+      let left = 10;
+      const secs = (Array.isArray(sections) ? sections : [])
+        .slice(0, 10)
+        .map((s) => {
+          const rows = (Array.isArray(s.rows) ? s.rows : []).slice(0, Math.max(0, left));
+          left -= rows.length;
+          return {
+            title: String(s.title || '').slice(0, 24),
+            rows: rows.map((r) => ({
+              id: String(r.id).slice(0, 200),
+              title: String(r.title).slice(0, 24),
+              ...(r.description ? { description: String(r.description).slice(0, 72) } : {}),
+            })),
+          };
+        })
+        .filter((s) => s.rows.length);
+      return sendMessage({
+        to: to(toE164),
+        type: 'interactive',
+        interactive: {
+          type: 'list',
+          ...(header ? { header: { type: 'text', text: String(header).slice(0, 60) } } : {}),
+          body: { text: String(text).slice(0, 1024) },
+          ...(footer ? { footer: { text: String(footer).slice(0, 60) } } : {}),
+          action: { button: String(button).slice(0, 20), sections: secs },
         },
       });
     },

@@ -182,7 +182,7 @@ export function createMatters(app) {
         client: client ? { id: client.id, code: client.code, name: client.name, phone: app.clients.primaryPhone(client.id) } : null,
         // v9.1 b-site (B91-01): أين تصل رسائل هذا الملف؟ (تلميح صندوق الرد)
         reply_channel: app.engine?.channelHint ? app.engine.channelHint({ clientId: m.client_id, caseId: m.case_id, matterId: m.id }) : null,
-        case: db.get('SELECT id, code, title, status, legal_area FROM cases WHERE id = ?', m.case_id),
+        case: db.get('SELECT id, code, title, status, legal_area, created_at FROM cases WHERE id = ?', m.case_id), // created_at: v9.2 بوابة G6
         responsible_lawyer: m.responsible_lawyer_id ? { id: m.responsible_lawyer_id, name: app.cases.lawyerName(m.responsible_lawyer_id) } : null,
         events: db
           .all('SELECT * FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id)

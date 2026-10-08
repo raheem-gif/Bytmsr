@@ -18,13 +18,13 @@
   background: var(--surface, #fff);
   color: var(--text, #16202a);
   border: 1px solid var(--border, #dfe5ea);
-  border-inline-start: 4px solid var(--accent-500, #b8862e);
-  box-shadow: var(--shadow-lg, 0 12px 40px rgba(8, 42, 51, 0.18));
+  border-inline-start: 4px solid var(--accent-500);
+  box-shadow: var(--shadow-lg);
   animation: pwa-banner-in 0.25s ease-out;
 }
 
 .pwa-banner-update {
-  border-inline-start-color: var(--primary-600, #145d6f);
+  border-inline-start-color: var(--primary-600);
 }
 
 .pwa-banner-icon {
@@ -34,8 +34,8 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: var(--primary-50, #eef6f7);
-  color: var(--primary-700, #0f4c5c);
+  background: var(--primary-50);
+  color: var(--primary-700);
 }
 
 .pwa-banner-text {

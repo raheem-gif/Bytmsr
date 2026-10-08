@@ -1,10 +1,13 @@
 // مسارات الإدارة (مدير النظام ومديرو الحالات). الإجراءات المالية وإدارة الحسابات لمدير النظام فقط.
 import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
-import { v, badRequest, notFound, randomToken, nowIso, normalizePhone } from '../util.js';
+import { v, badRequest, notFound, conflict, randomToken, nowIso, normalizePhone } from '../util.js';
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
 import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
+// v9.2 (admin-ai): القصص الواردة، المكالمات، نصوص الرسائل الصوتية
+import { latinDigits } from '../util.js';
+import { topicByKey } from '../../public/assets/js/public/topics.js';
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
 
@@ -32,8 +35,17 @@ export function registerAdminRoutes(router, app) {
     return app.intakes.detail(id(ctx));
   }));
   router.patch('/api/admin/intakes/:id', S((ctx, u) => app.intakes.update(id(ctx), ctx.body, u)));
-  router.post('/api/admin/intakes/:id/analyze', S(async (ctx, u) => app.ai.analyzeIntake(app.intakes.require(id(ctx)).id, u)));
-  router.post('/api/admin/intakes/:id/reply', S((ctx, u) => app.intakes.reply(id(ctx), ctx.body, u)));
+  // [بوابة 9.2 S4] «حلّل الآن»: يتجاوز الحد اليومي للقصة لكنه محدود بعدد مرات الضغط، ونقرة أثناء تحليل جارٍ تنضم إليه
+  router.post('/api/admin/intakes/:id/analyze', S(async (ctx, u) => {
+    const iid = app.intakes.require(id(ctx)).id;
+    app.limiters.analyzeNow.hit(`analyze:${u.id}`);
+    return app.ai.analyzeByStaff ? app.ai.analyzeByStaff(iid, u) : app.ai.analyzeIntake(iid, u);
+  }));
+  // [R2-A13/S-32] meta من الواجهة لا يصل أبدًا لرسالة المستفيدة (لا مستند ولا إخفاء من صفحتها ولا قالب)
+  router.post('/api/admin/intakes/:id/reply', S((ctx, u) => {
+    const { meta: _ignoredMeta, ...body } = ctx.body;
+    return app.intakes.reply(id(ctx), body, u);
+  }));
   router.post('/api/admin/intakes/:id/handle-internally', S((ctx, u) => app.intakes.handleInternally(id(ctx), ctx.body, u)));
   router.post('/api/admin/intakes/:id/archive', S((ctx, u) => app.intakes.archive(id(ctx), ctx.body, u)));
   router.post('/api/admin/intakes/:id/reopen', S((ctx, u) => app.intakes.reopen(id(ctx), u)));
@@ -50,13 +62,84 @@ export function registerAdminRoutes(router, app) {
   router.post('/api/admin/intakes/:id/link-client', S((ctx, u) => app.intakes.linkClient(id(ctx), v.int(ctx.body.client_id, 'العميل', { required: true, min: 1 }), u)));
   router.post('/api/admin/intakes/:id/ai-feedback', S((ctx, u) => app.intakes.aiFeedback(id(ctx), ctx.body, u)));
 
+  // ===== v9.2 (admin-ai): القصة ← اقتراح ← طلب بنقرة (§6.2) =====
+  const storyLimit = (u) => app.limiters.storyNow.hit(`story:${u.id}`);
+  router.get('/api/admin/intakes/:id/proposal', S((ctx) => app.stories.proposal(app.intakes.require(id(ctx)).id)));
+  // «لخّصها الآن»: القصة جاهزة الآن + تحليل فوري (لا يُحسب على الحد اليومي؛ محدود بعدد مرات الضغط)
+  router.post('/api/admin/intakes/:id/story/ready', S(async (ctx, u) => {
+    const i = app.intakes.require(id(ctx));
+    if (!['new', 'in_review', 'awaiting_client'].includes(i.status)) throw conflict('تم البت في هذا الطلب بالفعل');
+    storyLimit(u);
+    app.stories.markReady(i.id, 'staff_now', u, { analyze: false });
+    app.stories.cancelTimers(i.id);
+    // [بوابة 9.2 R2] نقرتان (أو زميلان) = تحليل واحد؛ ولا تحليل جديد لنفس مراجعة القصة خلال 30 ثانية
+    await app.ai.analyzeByStaff(i.id, u, { reuseRecentMs: 30 * 1000 });
+    return { story: app.stories.storyOf(i.id), proposal: app.stories.proposal(i.id) };
+  }));
+  router.post('/api/admin/intakes/:id/accept', S(async (ctx, u) => {
+    const r = await app.stories.accept(id(ctx), ctx.body, u);
+    app.audit.log({
+      actor: u,
+      ctx,
+      type: 'ai.story_accepted',
+      summary: `اعتماد قرار الطلب ${r.intake.code}: ${LABELS.story_track[r.track]}${r.case ? ` (${r.case.code})` : ''}`,
+      data: { intake_id: r.intake.id, track: r.track, case_id: r.case?.id ?? null, matter_id: r.matter?.id ?? null, message_id: r.message?.id ?? null, deliver: ctx.body?.deliver || 'message' },
+    });
+    return r;
+  }));
+  router.post('/api/admin/intakes/:id/call-note', S(async (ctx, u) => {
+    storyLimit(u);
+    const r = await app.stories.callNote(id(ctx), ctx.body, u);
+    if (!r.duplicate) ctx.status = 201;
+    return r;
+  }));
+  router.post('/api/admin/intakes/:id/call-attempt', S((ctx, u) => {
+    storyLimit(u);
+    const r = app.stories.callAttempt(id(ctx), ctx.body, u);
+    if (!r.duplicate) ctx.status = 201;
+    return r;
+  }));
+  router.post('/api/admin/intakes/:id/close-unreachable', S((ctx, u) => {
+    storyLimit(u);
+    return app.stories.closeUnreachable(id(ctx), u);
+  }));
+  router.post('/api/admin/messages/split', S(async (ctx, u) => {
+    storyLimit(u);
+    const r = await app.stories.split(ctx.body, u);
+    if (!r.duplicate) ctx.status = 201;
+    return r;
+  }));
+  // نص رسالة صوتية تكتبه الإدارة (أو «الرسالة مش مفهومة»)
+  router.put('/api/admin/voice-notes/:documentId/transcript', S((ctx, u) => {
+    app.limiters.transcript.hit(`transcript:${u.id}`);
+    return app.voice.save(id(ctx, 'documentId'), ctx.body, u);
+  }));
+
   // محاكي واتساب للعرض التجريبي: يبني Webhook مطابقًا لصيغة Meta ويمرره على نفس المسار الحقيقي
   router.post('/api/admin/simulate/whatsapp', S((ctx) => {
     if (!app.config.demo) throw notFound('المحاكي متاح في الوضع التجريبي فقط');
     const b = ctx.body;
     const phone = v.phone(b.from, 'رقم المرسل', { required: true });
-    const text = v.str(b.text, 'نص الرسالة', { required: true, max: 4000 });
+    // v9.2 (A92-22): رسالة نصية، أو رسالة صوتية تجريبية، أو صورة ورقة، أو اختيار موضوع من قائمة الترحيب
+    const kind = v.oneOf(b.kind || 'text', ['text', 'voice', 'photo', 'list_reply'], 'نوع الرسالة', { required: true });
+    const text = v.str(b.text, 'نص الرسالة', { required: kind === 'text', max: 4000 });
     const msg = { from: phone.replace(/^\+/, ''), id: `wamid.SIM.${randomToken(12)}`, timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: text } };
+    if (kind === 'voice') {
+      delete msg.text;
+      msg.type = 'audio';
+      msg.audio = { id: 'SIM-SAMPLE-VOICE', mime_type: 'audio/webm' };
+    } else if (kind === 'photo') {
+      delete msg.text;
+      msg.type = 'image';
+      msg.image = { id: 'SIM-SAMPLE-PHOTO', mime_type: 'image/jpeg', ...(text ? { caption: text } : {}) };
+    } else if (kind === 'list_reply') {
+      const key = /^topic:([a-z_]+)$/.exec(String(b.reply_id || ''))?.[1];
+      const topic = key ? topicByKey(key) : null;
+      if (!topic || topic.key !== key) throw badRequest('اختيار القائمة غير معروف');
+      delete msg.text;
+      msg.type = 'interactive';
+      msg.interactive = { type: 'list_reply', list_reply: { id: `topic:${topic.key}`, title: topic.wa_title } };
+    }
     if (b.ad && b.ad.platform) {
       const platform = v.oneOf(b.ad.platform, ['facebook', 'instagram'], 'منصة الإعلان', { required: true });
       msg.referral = {
@@ -72,13 +155,24 @@ export function registerAdminRoutes(router, app) {
       entry: [{ id: 'SIM', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { display_phone_number: 'SIM', phone_number_id: 'SIM' }, contacts: [{ profile: { name: v.str(b.name, 'اسم المرسل', { max: 100 }) || 'عميل' }, wa_id: msg.from }], messages: [msg] } }] }],
     };
     const result = app.engine.handleWhatsAppWebhook(payload);
-    const row = app.db.get('SELECT intake_id, case_id FROM messages WHERE channel = ? AND external_id = ?', 'whatsapp', msg.id);
+    const row = app.db.get('SELECT id, intake_id, case_id FROM messages WHERE channel = ? AND external_id = ?', 'whatsapp', msg.id);
+    // v9.2: ردودنا الآلية على هذه الرسالة (الترحيب بالقائمة، «احكيلنا»، «وصلتنا حكايتك») وحالة القصة
+    const replies = row?.intake_id
+      ? app.db
+          .all("SELECT id, body, automation_rule, status, meta FROM messages WHERE intake_id = ? AND direction = 'out' AND id > ? ORDER BY id", row.intake_id, row.id)
+          .map((m) => ({ id: m.id, body: m.body, rule: m.automation_rule, status: m.status, wa: JSON.parse(m.meta || '{}').wa || null }))
+      : [];
+    const story = row?.intake_id ? app.stories.storyOf(row.intake_id) : null;
     return {
       ...result,
       intake_id: row?.intake_id ?? null,
       case_id: row?.case_id ?? null,
       intake_code: row?.intake_id ? app.db.value('SELECT code FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
       case_code: row?.case_id ? app.db.value('SELECT code FROM cases WHERE id = ?', row.case_id) ?? null : null,
+      replies,
+      story_view: story?.view || null,
+      story_view_label: story?.view ? LABELS.story_view[story.view] : null,
+      welcome_enabled: !!app.settings.get('story_welcome_enabled'),
     };
   }));
 
@@ -319,6 +413,51 @@ export function registerAdminRoutes(router, app) {
   router.patch('/api/admin/users/:id', A((ctx, u) =>
     app.accounts.audited(id(ctx), u, ctx, () => app.lawyers.updateStaff(id(ctx), ctx.body, u), { temporaryPassword: ctx.body.temporary_password !== false }),
   ));
+  /** v9.2: التحقق من إعدادات القصص الواردة والمكالمات */
+  function storySettings(b) {
+    const out = {};
+    if (b.story_quiet_minutes !== undefined) {
+      const n = Number(latinDigits(b.story_quiet_minutes));
+      if (!Number.isInteger(n) || n < 2 || n > 120) throw badRequest('اكتب مدة بين 2 و120 دقيقة');
+      out.story_quiet_minutes = n;
+    }
+    for (const k of ['story_welcome_enabled', 'story_ack_enabled']) if (b[k] !== undefined) out[k] = v.bool(b[k]);
+    if (b.story_auto_ai_max_per_day !== undefined) out.story_auto_ai_max_per_day = v.int(b.story_auto_ai_max_per_day, 'حد التحليل التلقائي بـ Claude لكل طلب', { required: true, min: 1, max: 50 });
+    if (b.story_done_words !== undefined) {
+      const list = b.story_done_words;
+      if (!Array.isArray(list) || list.length > 20) throw badRequest('كلمات «خلاص»: 20 كلمة على الأكثر');
+      out.story_done_words = list.map((w) => v.str(w, 'كلمة «خلاص»', { required: true, max: 30 }));
+    }
+    if (b.story_referrals !== undefined) {
+      const list = b.story_referrals;
+      if (!Array.isArray(list) || list.length > 20) throw badRequest('دليل التوجيه: 20 جهة على الأكثر');
+      out.story_referrals = list.map((r, k) => {
+        if (!r || typeof r !== 'object') throw badRequest(`جهة التوجيه رقم ${k + 1} غير صالحة`);
+        const kws = r.keywords === undefined ? [] : r.keywords;
+        if (!Array.isArray(kws) || kws.length > 30) throw badRequest('الكلمات الدالة: 30 كلمة على الأكثر لكل جهة');
+        return {
+          key: v.str(r.key, 'مفتاح الجهة', { required: true, max: 40 }),
+          label: v.str(r.label, 'اسم الجهة', { required: true, max: 100 }),
+          keywords: kws.map((x) => v.str(x, 'كلمة دالة', { required: true, max: 40 })),
+          reply: v.str(r.reply, 'رسالة التوجيه', { max: 1000 }) || '',
+        };
+      });
+    }
+    if (b.callback_from_number !== undefined) {
+      const raw = String(latinDigits(b.callback_from_number ?? '')).trim();
+      let shown = '';
+      if (raw) {
+        const p = normalizePhone(raw);
+        if (!p || !p.startsWith('+20')) throw badRequest('اكتب رقمًا مصريًا صحيحًا أو اتركه فارغًا');
+        // [مراجعة 9.2] يُحفظ بالصيغة المحلية المعروضة لها في الموقع («01211114662») لا كما كُتب (مسافات، رموز، +20)
+        shown = `0${p.slice(3)}`;
+      }
+      out.callback_from_number = shown;
+    }
+    if (b.callback_eta_days !== undefined) out.callback_eta_days = v.int(b.callback_eta_days, 'نتصل خلال (أيام عمل)', { required: true, min: 1, max: 5 });
+    return out;
+  }
+
   router.get('/api/admin/settings', A((ctx) => ({
     settings: app.settings.all(),
     integrations: {
@@ -356,6 +495,8 @@ export function registerAdminRoutes(router, app) {
       out.whatsapp_display_number = s ?? '';
     }
     if (b.default_assignment_days !== undefined) out.default_assignment_days = v.int(b.default_assignment_days, 'المدة الافتراضية للرد', { required: true, min: 1, max: 60 });
+    // v9.2 (admin-ai): إعدادات القصص الواردة (تحقق صريح قبل الحلقة العامة)
+    Object.assign(out, storySettings(b));
     if (b.similarity_threshold !== undefined) out.similarity_threshold = v.num(b.similarity_threshold, 'حد التشابه', { required: true, min: 0.05, max: 0.9 });
     // بقية الإعدادات المعرفة في DEFAULT_SETTINGS (التي تضيفها وحدات الإصدار 9) تُتحقق حسب نوع قيمتها الافتراضية
     // (v9 accounts) مفاتيح سياسة الأمان لا تُحفظ من هنا مباشرة بل عبر app.accounts.updatePolicy

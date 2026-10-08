@@ -30,9 +30,11 @@ const OPEN_INTAKE = ['new', 'in_review', 'awaiting_client'];
 const SLA_CHANNELS = ['whatsapp', 'website'];
 // حد التنبيهات المستقلة في التشغيل الواحد لمهمة مستوى الخدمة (الباقي في تنبيه مجمّع واحد)
 const SLA_INDIVIDUAL_ALERTS = 10;
-// أول رد بشري: رسالة صادرة غير آلية كتبها مستخدم من الإدارة ولم يفشل إرسالها
-const FIRST_RESPONSE_SQL = `(SELECT MIN(fr.created_at) FROM messages fr WHERE fr.intake_id = i.id AND fr.direction = 'out'
-  AND fr.automated = 0 AND fr.author_user_id IS NOT NULL AND fr.status != 'failed')`;
+// أول رد بشري: رسالة صادرة غير آلية كتبها مستخدم من الإدارة ولم يفشل إرسالها،
+// أو (v9.2 [R2-A7]) مكالمة سجّلت فيها الإدارة ما قالته المستفيدة (محاولات الاتصال الفاشلة لا تُحسب)
+const FIRST_RESPONSE_SQL = `(SELECT MIN(fr.created_at) FROM messages fr WHERE fr.intake_id = i.id AND (
+  (fr.direction = 'out' AND fr.automated = 0 AND fr.author_user_id IS NOT NULL AND fr.status != 'failed')
+  OR (fr.direction = 'in' AND json_extract(fr.meta, '$.call_note') = 1)))`;
 const LEVEL_RANK = { high: 0, review: 1, info: 2 };
 // صيغ عدّ الصفوف بالرفع («أُضيف صفان»، «تصدير 5 صفوف»)
 const ROW_FORMS = ['صف واحد', 'صفان', 'صفوف', 'صفًا'];

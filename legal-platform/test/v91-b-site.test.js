@@ -410,17 +410,17 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     return m[1];
   };
 
-  test('landing: free and private on the first screen, one CTA «احكيلنا مشكلتك», no conditional «للمستحقين», plain-word tiles to /intake?area=', async () => {
+  test('landing: free and private on the first screen, no conditional «للمستحقين», plain-word tiles to /intake?topic=', async () => {
     const html = await get('/');
-    const hero = /<section class="pub-hero"[\s\S]*?<\/section>/.exec(html)[0];
-    assert.ok(hero.includes('مجانًا.') && hero.includes('المحامي مش بيشوف رقمك'));
-    assert.match(hero, /class="pub-btn pub-btn-gold pub-btn-primary" href="\/intake" data-cta="intake" data-hero-cta>احكيلنا مشكلتك</);
+    // v9.2 (تغيير مقصود): الشاشة الأولى صارت #start (مربعات الصور) بدل pub-hero، وبلا زر ذهبي واحد
+    const start = /<section id="start"[\s\S]*?<\/section>/.exec(html)[0];
+    assert.ok(start.includes('مجاني') && start.includes('المحامي مش بيشوف رقمك')); // v9.2 (تغيير مقصود): #start بدل pub-hero
     assert.ok(!html.includes('للمستحقين'));
     assert.equal(SERVICES.length, 8);
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}">\\s*<a class="pub-tile-link" href="([^"]+)"`).exec(html);
       assert.ok(m, s.key);
-      assert.equal(m[1], s.areas.length ? `/intake?area=${s.areas[0]}` : '/intake');
+      assert.equal(m[1], `/intake?topic=${s.topic}`); // v9.2 (تغيير مقصود): روابط بالموضوع لا بالمجال
       assert.ok(html.includes(s.example), s.key);
     }
     // لا شيء غير تفاعلي بشكل زر أو شريحة
@@ -673,7 +673,9 @@ describe('v9.1 b-site review — copy agreement, one number, Arabic digits, cold
       assert.equal(decodeURIComponent(wa[1]), 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.');
       const del = (await t.client().get('/data-deletion')).body;
       assert.ok(del.includes('ابعتي الطلب على واتساب') && !del.includes('أرسل الطلب عبر واتساب'));
-      assert.ok(decodeURIComponent(/wa\.me\/\d+\?text=([^"]+)"/.exec(del)[1]).startsWith('السلام عليكم، ده «طلب حذف بياناتي»'), 'the prefill carries the phrase the page tells her to send');
+      // v9.2 (تغيير مقصود): زر واتساب في رأس كل صفحة (R2-B1) يسبق زر الحذف، فنقرأ رابط الصفحة نفسها داخل <main>
+      const delMain = del.slice(del.indexOf('<main'));
+      assert.ok(decodeURIComponent(/wa\.me\/\d+\?text=([^"]+)"/.exec(delMain)[1]).startsWith('السلام عليكم، ده «طلب حذف بياناتي»'), 'the prefill carries the phrase the page tells her to send');
       assert.ok(!home.includes('أود الحصول'));
     } finally {
       await t.close();

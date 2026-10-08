@@ -2,7 +2,8 @@
 // هذا «مساعد بسيط» كما في المرحلة الأولى من المنظومة؛ عند ضبط مفتاح Claude يُستخدم نموذج لغوي بدلًا منه.
 import { normalizeArabic, truncate, latinDigits } from '../util.js';
 import { LEGAL_AREAS, LABELS } from '../constants.js';
-import { wordForms, sentences } from './text.js';
+import { wordForms, sentences, tokens } from './text.js';
+import { topicByKey } from '../../public/assets/js/public/topics.js'; // v9.2: مجال الموضوع الذي اختارته
 
 const n = normalizeArabic;
 
@@ -369,7 +370,7 @@ export function analyzeIntake(text, ctx = {}) {
   if (URGENT.some((k) => c.norm.includes(n(k)))) urgency = 'urgent';
   else if (HIGH.some((k) => c.norm.includes(n(k)))) urgency = 'high';
   const missing = missingInfo(area, c.norm, c.forms, { text, governorate: ctx.governorate });
-  return {
+  const base = {
     title: makeTitle(area, c.norm, c.forms),
     summary: truncate(summary, 900),
     legal_area: area,
@@ -382,6 +383,204 @@ export function analyzeIntake(text, ctx = {}) {
     urgency,
     specialist_hint: c.secondary.length ? `قد يحتاج الملف أيضًا إلى رأي في: ${c.secondary.map((a) => AREA_LABEL[a]).join('، ')}` : null,
   };
+  // v9.2 (A92-12): ماذا يصير الطلب؟ (استشارة / قضية / رد الإدارة / توجيه / نسألها الأول) ومسودة لكل مسار
+  return { ...base, ...recommendTrack(text, base, { ...ctx, classified: c }) };
+}
+
+// ───────────────────────── v9.2 (admin-ai): المسار المقترح للطلب ومسوداته (A92-12) ─────────────────────────
+
+// [بوابة 9.2 G7] «معايا حكم نفقة» = حكم صادر يحتاج تنفيذًا (كلمة «حكم» وحدها تُطابق ككلمة، لا داخل «محكمة»)
+const COURT_PENDING = ['حكم', 'حكم نفقه', 'جلسه', 'الجلسه', 'رافع عليا', 'رافعه عليا', 'رافعين عليا', 'رفع عليا', 'رفعت عليا', 'رفعوا عليا', 'رفعو عليا', 'قضيه مرفوعه', 'دعوي مرفوعه', 'اتعلنت', 'جالي اعلان', 'اعلان من المحكمه', 'الحكم', 'حكم المحكمه', 'استئناف', 'تنفيذ الحكم', 'محضر تنفيذ', 'رقم الدعوي', 'الدائره'];
+const FUTURE_INTENT = ['ارفع قضيه', 'ارفع دعوي', 'نرفع قضيه', 'عايزه اعمل قضيه'];
+const INFO_QUESTION = ['ازاي', 'اطلع', 'استخرج', 'اعمل ايه', 'ايه الورق', 'الورق المطلوب', 'الاوراق المطلوبه', 'المستندات المطلوبه', 'فين اروح', 'اروح فين', 'منين', 'استفسار', 'عايزه اعرف', 'محتاجه اعرف', 'ينفع'];
+const DISPUTE = ['رافض', 'رافضين', 'مش راضي', 'مش راضيين', 'مانع', 'مانعين', 'طردني', 'طردوني', 'يطردنا', 'واخد', 'واخدين', 'خدوا', 'ضربني', 'بيهددني', 'خلاف', 'مشاكل', 'حرمني', 'حرمونا', 'كلوا حق', 'اكل حق', 'نصيبي', 'نصيب العيال', 'قطعوا', 'وقفوا',
+  // [بوابة 9.2 G7] حق يُنازَع عليه: «عايزة أعرف حقي وحق ولادي»، «إخواته عايزين يبيعوا الشقة»، «طليقي مش بيدفع»
+  'حقي', 'حق ولادي', 'حق العيال', 'حق عيالي', 'حقنا', 'يبيعوا', 'باعوا', 'مش بيدفع', 'مبيدفعش', 'مش بيصرف', 'مبيصرفش'];
+// [بوابة 9.2 G7] طرف آخر بعينه + فعل منه = نزاع وليس سؤالًا إجرائيًا («إخواته عايزين…»، «صاحب البيت بيقول…»)
+const OPPONENTS = ['اخواته', 'اخواتها', 'اخوات جوزي', 'اهله', 'اهل جوزي', 'اهلها', 'طليقي', 'جوزي السابق', 'صاحب البيت', 'صاحب الشقه', 'صاحب العماره', 'المالك', 'حماتي', 'ام جوزي', 'عم العيال', 'عمهم', 'ابو العيال'];
+const OPPONENT_ACTS = ['عايزين', 'عاوزين', 'عايز', 'عاوز', 'بيقول', 'بيقولوا', 'رافض', 'رافضين', 'مش بيدفع', 'مبيدفعش', 'مش بيصرف', 'باعوا', 'يبيعوا', 'خدوا', 'واخدين', 'واخد', 'طردونا', 'يطلعونا', 'يطلعوني', 'هيطلعونا', 'مانعين', 'منعونا', 'سايبنا'];
+// [R2-A21] مصاريف الأطفال من أبيهم (نفقة) ليست «مساعدة» تُوجَّه لبرامج أخرى
+const FAMILY_SUPPORT = ['ابو العيال', 'ابوهم', 'طليقي', 'جوزي السابق', 'نفقه', 'مصاريف العيال', 'مش بيصرف'];
+
+// أسئلة «نسألها الأول» حسب المجال ({ي}/{ة} تُملأ حسب صيغة المخاطبة لاحقًا)
+const QUESTIONS_BY_AREA = {
+  GEN: ['احكيلنا في جملتين: حصل إيه، ومع مين؟'],
+  INH: ['مين اللي اتوفى، وإمتى؟', 'إعلام الوراثة طلع ولا لسه؟'],
+  PEN: ['المعاش ده عن مين؟ وإمتى اتوفى؟', 'قدّمت{ي} على المعاش قبل كده؟ ولو قدّمت{ي} قالولك إيه؟'],
+  FAM: ['المشكلة مع مين بالظبط؟ (أبو العيال، أهله، …)', 'فيه قضية مرفوعة قبل كده؟'],
+  GRD: ['فلوس العيال دي فين؟ في البنك ولا ورث لسه ما اتقسمش؟', 'فيه حد متعيّن وصي على العيال؟'],
+  PRP: ['البيت ده إيجار ولا ملك؟ وباسم مين؟', 'حد طالب منكم تسيبوا البيت؟'],
+  ADM: ['إيه الورقة اللي عايزين نطلّعها بالظبط؟', 'روحت{ي} فين قبل كده وقالولك إيه؟'],
+};
+const QUESTIONS_OTHER = ['احكيلنا في جملتين: حصل إيه، ومع مين؟', 'فيه ورق معاك{ي} يخص المشكلة؟ صوّر{ي}ه وابعت{ي}ه هنا.'];
+
+/** أسئلة قصيرة لها (حتى 3) حسب المجال؛ المجال غير المعروف يبدأ بسؤال «حصل إيه» */
+export function questionsFor(area) {
+  if (!area || area === 'GEN') return QUESTIONS_BY_AREA.GEN.slice();
+  return (QUESTIONS_BY_AREA[area] || QUESTIONS_OTHER).slice(0, 3);
+}
+
+/** عدد الحروف «ذات المعنى» في نص (بلا [ … ] والتحيات وكلمات «خلاص») */
+export function meaningfulLetters(text) {
+  const s = n(String(text || '').replace(/\[[^\]]*\]/g, ' '))
+    .replace(/[^\p{L}\s]/gu, ' ')
+    .replace(/\s+/g, ' ');
+  let padded = ` ${s.trim()} `;
+  for (const p of ['السلام عليكم ورحمه الله وبركاته', 'السلام عليكم ورحمه الله', 'السلام عليكم', 'وعليكم السلام', 'صباح الخير', 'مساء الخير', 'لو سمحتي', 'لو سمحت', 'ممكن', 'شكرا', 'اهلا', 'ازيك', 'خلاص']) {
+    while (padded.includes(` ${p} `)) padded = padded.replace(` ${p} `, ' ');
+  }
+  return (padded.match(/\p{L}/gu) || []).length;
+}
+
+/**
+ * أقرب رد جاهز لسؤال إجرائي:
+ * (1) كلمات عنوانه موجودة في كلامها (نصف كلمات العنوان على الأقل، وكلمتان)؛ وإلا
+ * (2) [مراجعة 9.2] رد جاهز من نفس مجالها القانوني (تصنيف عنوانه ونصه) — الأكثر كلمات مشتركة ثم الأكثر استخدامًا.
+ * بدون (2) كان أغلب «ترد الإدارة» بلا مسودة رد («أهلًا…» والتوقيع فقط) مع أن للمؤسسة ردًا جاهزًا للموضوع نفسه
+ * (معاش الأرملة، إعلام الوراثة، نزاع الإيجار…). الرد يُعرض للإدارة لتراجعه قبل أي إرسال.
+ */
+function bestQuickReply(text, quickReplies = [], area = null) {
+  const have = new Set(tokens(text));
+  let best = null;
+  let near = null;
+  for (const q of quickReplies || []) {
+    const tt = [...new Set(tokens(q.title || ''))];
+    if (!tt.length) continue;
+    const hit = tt.filter((x) => have.has(x)).length;
+    const score = hit / tt.length;
+    if (hit >= 2 && score >= 0.5 && (!best || score > best.score || (score === best.score && (q.usage_count || 0) > (best.q.usage_count || 0)))) best = { q, score };
+    if (!best && area && area !== 'GEN' && classify(`${q.title || ''}\n${q.body || ''}`).area === area) {
+      const bt = new Set(tokens(`${q.title || ''} ${q.body || ''}`));
+      const shared = [...have].filter((x) => bt.has(x)).length + hit * 2;
+      if (!near || shared > near.shared || (shared === near.shared && (q.usage_count || 0) > (near.q.usage_count || 0))) near = { q, shared };
+    }
+  }
+  return best ? best.q : near ? near.q : null;
+}
+
+// تحيات وافتتاحيات لا تصلح «سطرًا واحدًا» للقصة (بعد normalizeArabic)
+const LINE_OPENERS = /^(?:(?:السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|سلام عليكم|وعليكم السلام|صباح الخير|مساء الخير|اهلا(?: وسهلا)?|مرحبا(?: بيكم)?|ازيكم|ازيك|لو سمحت(?:ي|وا)?|بعد اذنك(?:م)?|بخصوص(?: الطلب| طلبي)?)[\s،,.!؟?:-]*)+/u;
+
+/**
+ * [مراجعة 9.2] السطر الواحد على بطاقة القصة: أول جملة فيها كلام حقيقي، بلا التحية في أولها ولا رقم الطلب
+ * (لا «مرحبًا بيوت مصر» ولا «السلام عليكم بخصوص الطلب REQ-…» كملخص).
+ */
+function storyLine(candidates, fallback) {
+  for (const raw of candidates) {
+    const noCodes = String(raw || '').replace(/REQ-\d{4}-\d{5}/gi, ' ').replace(/\s+/g, ' ').trim();
+    const norm = n(noCodes);
+    const m = LINE_OPENERS.exec(norm);
+    // نحذف من النص الأصلي بقدر كلمات التحية (normalizeArabic لا يغيّر عدد الكلمات)
+    const drop = m ? m[0].trim().split(/\s+/).filter(Boolean).length : 0;
+    const rest = drop ? noCodes.split(/\s+/).slice(drop).join(' ').replace(/^[\s،,.!؟?:-]+/, '') : noCodes;
+    if (meaningfulLetters(rest) >= 12) return truncate(rest, 140);
+  }
+  return truncate(fallback || '', 140);
+}
+
+/** أول «محكمة …» في كلامها (حتى 4 كلمات) كما كتبتها — لا «المحكمة» وحدها */
+function courtOf(text) {
+  const m = /(?:^|[\s،,.(«"])(محكم[ةه](?:[ \t]+[^\s،,.؛:«»()"]+){1,3})/u.exec(String(text || ''));
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * المسار المقترح (أول قاعدة تنطبق): محجوب (رسالة صوتية لم تُكتب / لا حكاية بعد) ← توجيه ← نسألها الأول ← قضية ← رد الإدارة ← استشارة.
+ * ctx: { governorate, topic, voice: {missing, done, total}, referrals, quickReplies, meaningfulLetters, blocked }
+ */
+export function recommendTrack(text, base, ctx = {}) {
+  const c = ctx.classified || classify(text);
+  const norm = c.norm;
+  const forms = c.forms;
+  const letters = Number.isFinite(ctx.meaningfulLetters) ? ctx.meaningfulLetters : meaningfulLetters(text);
+  const voice = ctx.voice || { total: 0, done: 0, missing: 0 };
+  const facts = base.facts || [];
+  const oneLine = storyLine([...facts, ...sentences(text).filter((x) => !/^\[[^\]]*\]$/.test(x.trim()))], facts[0] || base.title || '');
+  const draft = (over = {}) => ({
+    title: base.title,
+    facts_for_lawyer: `${base.summary}${facts.length ? `\nالوقائع كما وردت:\n${facts.map((f) => `• ${f}`).join('\n')}` : ''}`,
+    internal_note: null,
+    brief_for_lawyer: null,
+    matter: null,
+    questions_for_her: [],
+    reply_to_her: null,
+    referral_target: null,
+    resolution_note: null,
+    ...over,
+  });
+  const out = (track, reason, confidence, over = {}, extra = {}) => ({
+    one_line: oneLine,
+    recommended_track: track,
+    track_reason: reason,
+    track_confidence: confidence,
+    request_draft: draft(over),
+    ...extra,
+  });
+  const brief = `المطلوب: رأي مبدئي في: ${base.suggested_issues?.[0]?.title || base.title}، مع المستندات اللازمة والخطوات العملية للمستفيدة.`;
+
+  // 1) محجوب: لا قرار قبل سماع القصة
+  const blocked = ctx.blocked || (voice.missing > 0 && letters < 60 ? 'voice' : null);
+  if (blocked === 'no_story') {
+    return out(null, 'طلبت مكالمة ولم تحكِ مشكلتها بعد — اتصل بها وسجّل المكالمة أولًا.', 0, {}, {
+      blocked: 'no_story',
+      one_line: 'طلبت مكالمة ولم تحكِ مشكلتها بعد',
+      missing_info: [{ item: 'حكاية المستفيدة (تُسمع في المكالمة)', kind: 'information' }, ...(base.missing_info || [])].slice(0, 8),
+    });
+  }
+  if (blocked === 'media_failed') {
+    return out(null, 'تعذّر تنزيل الرسالة الصوتية — اطلبوا منها إعادة إرسالها.', 0, {}, { blocked: 'media_failed', one_line: facts.length ? oneLine : 'رسالة صوتية تعذّر تنزيلها' });
+  }
+  if (blocked) return out(null, 'القصة في رسالة صوتية لم تُكتب بعد — اسمعها أولًا.', 0, {}, { blocked: 'voice_untranscribed', one_line: facts.length ? oneLine : 'رسالة صوتية لم تُكتب بعد' });
+
+  // 2) توجيه: طلب خارج الدعم القانوني (إلا نفقة الأطفال وما يشبهها)
+  const topScore = Math.max(0, ...Object.values(c.scores || {}).map((x) => x.score));
+  const familySupport = ['alimony', 'custody'].includes(ctx.topic) || any(norm, forms, FAMILY_SUPPORT);
+  if (!familySupport && topScore < 4) {
+    for (const r of Array.isArray(ctx.referrals) ? ctx.referrals : []) {
+      const kws = (Array.isArray(r?.keywords) ? r.keywords : []).map((k) => n(String(k)).trim()).filter(Boolean);
+      if (kws.some((k) => norm.includes(k))) {
+        // [بوابة 9.2 G14] بلا أقواس متداخلة (اسم الجهة نفسه فيه أقواس)
+        return out('refer', `طلبها خارج الدعم القانوني — الأنسب: ${r.label}.`, 0.55, {
+          referral_target: r.label || null,
+          reply_to_her: r.reply || null,
+          resolution_note: `وُجّهت إلى: ${r.label}`,
+        }, { reply_source: { kind: 'referral_directory', key: r.key || null, title: r.label || null } });
+      }
+    }
+  }
+
+  // 3) نسألها الأول: الرسائل قليلة ولا توضح المشكلة
+  const topicArea = ctx.topicArea || topicByKey(ctx.topic)?.area || null;
+  if (letters < 25 || (base.legal_area === 'GEN' && letters < 120 && !ctx.topic)) {
+    return out('need_info', 'الرسائل قليلة ولا توضح المشكلة بعد.', 0.6, { questions_for_her: questionsFor(topicArea || base.legal_area) });
+  }
+
+  // 4) قضية: دعوى قائمة أو جلسة أو حكم (لا مجرد نية رفع قضية)
+  const pending = any(norm, forms, COURT_PENDING);
+  if (pending) {
+    const sent = sentences(text).find((s) => n(s).includes('جلسه'));
+    return out('matter', 'ذكرت قضية قائمة أو جلسة أو حكمًا، فتحتاج متابعة أمام المحكمة.', 0.6, {
+      brief_for_lawyer: brief,
+      matter: { kind: 'litigation', court: courtOf(text), opponent: null, next_hearing_text: sent ? truncate(sent, 120) : null },
+    }, any(norm, forms, ['جلسه']) && !['high', 'urgent'].includes(base.urgency) ? { urgency: 'high' } : {});
+  }
+  void FUTURE_INTENT; // نية رفع قضية وحدها ← استشارة (القاعدة 6)
+
+  // 5) رد الإدارة: سؤال إجرائي بلا نزاع — [بوابة 9.2 G7] ولا نفقة/مصاريف عيال من أبيهم، ولا طرف آخر يفعل شيئًا ضدها
+  // («عايزة أعرف حقي» أو «أعمل إيه» في نزاع ليس سؤالًا يُغلق برد واحد)
+  const clientLetters = (String(text || '').match(/\p{L}/gu) || []).length;
+  const dispute = any(norm, forms, DISPUTE) || familySupport || (any(norm, forms, OPPONENTS) && any(norm, forms, OPPONENT_ACTS));
+  if (any(norm, forms, INFO_QUESTION) && !dispute && clientLetters <= 400) {
+    // [بوابة 9.2 N12] الرد الجاهز «الأقرب» من مجال الموضوع الذي اختارته (ورق رسمي ≠ إعلام وراثة لمجرد ذكر «وفاة»)
+    const qr = bestQuickReply(text, ctx.quickReplies, topicArea || (base.legal_area !== 'GEN' ? base.legal_area : null));
+    return out('internal', 'سؤال إجرائي بلا نزاع واضح؛ يكفيه رد بمعلومة أو توجيه.', 0.5, {
+      reply_to_her: qr ? qr.body : null,
+      resolution_note: `استفسار عن ${base.title}: أُجيبت بالخطوات والمستندات المطلوبة.`,
+    }, { reply_source: qr ? { kind: 'quick_reply', id: qr.id, title: qr.title } : null });
+  }
+
+  // 6) استشارة (المعتاد)
+  return out('consultation', `مسألة ${AREA_LABEL[base.legal_area] || 'قانونية'} تحتاج رأي محامٍ.`, Math.round((Number(base.confidence) || 0.3) * 0.8 * 100) / 100, { brief_for_lawyer: brief });
 }
 
 /** مسودة أولية منظمة للمحامي (تعتمد فقط على ما أُتيح له) */
