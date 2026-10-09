@@ -1,7 +1,7 @@
 // المحلل المحلي (بدون إنترنت): قواعد عربية لتصنيف الطلب واستخراج الوقائع والمعلومات الناقصة واقتراح المسائل.
 // هذا «مساعد بسيط» كما في المرحلة الأولى من المنظومة؛ عند ضبط مفتاح Claude يُستخدم نموذج لغوي بدلًا منه.
 import { normalizeArabic, truncate, latinDigits } from '../util.js';
-import { LEGAL_AREAS, LABELS } from '../constants.js';
+import { LEGAL_AREAS, LABELS, DEFAULT_SETTINGS } from '../constants.js';
 import { wordForms, sentences, tokens } from './text.js';
 import { topicByKey } from '../../public/assets/js/public/topics.js'; // v9.2: مجال الموضوع الذي اختارته
 
@@ -429,6 +429,11 @@ export function meaningfulLetters(text) {
   for (const p of ['السلام عليكم ورحمه الله وبركاته', 'السلام عليكم ورحمه الله', 'السلام عليكم', 'وعليكم السلام', 'صباح الخير', 'مساء الخير', 'لو سمحتي', 'لو سمحت', 'ممكن', 'شكرا', 'اهلا', 'ازيك', 'خلاص']) {
     while (padded.includes(` ${p} `)) padded = padded.replace(` ${p} `, ' ');
   }
+  // v10 experience: اسم المكتب و«إمام» ليسا كلامًا عن المشكلة
+  padded = padded.toLowerCase();
+  for (const p of brandWords()) {
+    while (padded.includes(` ${p} `)) padded = padded.replace(` ${p} `, ' ');
+  }
   return (padded.match(/\p{L}/gu) || []).length;
 }
 
@@ -458,6 +463,34 @@ function bestQuickReply(text, quickReplies = [], area = null) {
   return best ? best.q : near ? near.q : null;
 }
 
+// v10 experience (X10-B3 #12): الناس سيكتبون «مرحبا إمام» أو «السلام عليكم» واسم المكتب: اسم المكتب (الكامل والمختصر،
+// كما في الإعدادات الحالية عبر setBrandNames، وإلا الافتراضي) و«إمام» تُحذف مع التحية من أول السطر.
+let brandSource = () => [DEFAULT_SETTINGS.brand_name, DEFAULT_SETTINGS.brand_short_name];
+/** يضبط مصدر أسماء المكتب الحالية (تستدعيه src/brand.js) */
+export function setBrandNames(fn) {
+  if (typeof fn === 'function') brandSource = fn;
+}
+const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** أسماء المكتب بعد normalizeArabic وبحروف صغيرة، الأطول أولًا (+ «امام») */
+function brandWords() {
+  let names = [];
+  try {
+    names = brandSource() || [];
+  } catch {
+    names = [];
+  }
+  return [...new Set([...names, 'إمام'].map((x) => n(String(x || '')).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
+}
+/** يحذف اسم المكتب من أول نص (بعد التحية) — يعيد عدد الكلمات المحذوفة */
+function brandLead(norm) {
+  const low = norm.toLowerCase();
+  for (const w of brandWords()) {
+    const m = new RegExp(`^${escRe(w)}(?=$|[\\s،,.!؟?:-])[\\s،,.!؟?:-]*`, 'u').exec(low);
+    if (m) return { len: m[0].length, words: w.split(/\s+/).length };
+  }
+  return null;
+}
+
 // تحيات وافتتاحيات لا تصلح «سطرًا واحدًا» للقصة (بعد normalizeArabic)
 const LINE_OPENERS = /^(?:(?:السلام عليكم(?: ورحمه الله(?: وبركاته)?)?|سلام عليكم|وعليكم السلام|صباح الخير|مساء الخير|اهلا(?: وسهلا)?|مرحبا(?: بيكم)?|ازيكم|ازيك|لو سمحت(?:ي|وا)?|بعد اذنك(?:م)?|بخصوص(?: الطلب| طلبي)?)[\s،,.!؟?:-]*)+/u;
 
@@ -471,7 +504,15 @@ function storyLine(candidates, fallback) {
     const norm = n(noCodes);
     const m = LINE_OPENERS.exec(norm);
     // نحذف من النص الأصلي بقدر كلمات التحية (normalizeArabic لا يغيّر عدد الكلمات)
-    const drop = m ? m[0].trim().split(/\s+/).filter(Boolean).length : 0;
+    let drop = m ? m[0].trim().split(/\s+/).filter(Boolean).length : 0;
+    // v10: ثم اسم المكتب إن جاء بعد التحية («مرحبا إمام، …»)
+    const afterGreeting = m ? norm.slice(m[0].length) : norm;
+    const b = m ? brandLead(afterGreeting) : null;
+    if (b) {
+      drop += b.words;
+      const again = LINE_OPENERS.exec(afterGreeting.slice(b.len));
+      if (again) drop += again[0].trim().split(/\s+/).filter(Boolean).length;
+    }
     const rest = drop ? noCodes.split(/\s+/).slice(drop).join(' ').replace(/^[\s،,.!؟?:-]+/, '') : noCodes;
     if (meaningfulLetters(rest) >= 12) return truncate(rest, 140);
   }
@@ -723,8 +764,9 @@ const stopEnd = (s) => String(s || '').replace(/[.،؛!\s]+$/u, '');
  *   next_event?:{kind_label:string,title:string,date:string,time:string,location?:string,attendance:boolean}|null}} c
  */
 export function suggestReplies(c) {
-  const org = c.org_name || 'بيوت مصر';
-  const sign = `— ${org}`;
+  // v10 experience: الاسم يأتي من المستدعي (اسم المكتب) — لا اسم ثابت هنا
+  const org = String(c.org_name || '').trim();
+  const sign = org ? `— ${org}` : '';
   const ref = `${REF[c.kind] || 'طلبكم رقم'} ${c.code}`;
   const out = [];
   const add = (tone, text) => out.push({ tone, text: text.trim() });

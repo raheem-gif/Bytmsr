@@ -5,11 +5,40 @@
 import { createHash } from 'node:crypto';
 import { DEFAULT_PRIMARY, DEFAULT_ACCENT, LEGACY, normHex, buildTheme, themeCss, checkContract } from '../public/assets/js/lib/brand-color.js';
 import { ApiError, badRequest, nowIso } from './util.js';
+import { DEFAULT_SETTINGS } from './constants.js';
+import { setBrandNames } from './ai/heuristic.js';
+
+// ───────────── v10 experience (L-02/L-03): اسم المكتب كما يراه العملاء ─────────────
+// مصدر واحد لاسم الواجهة: brand_name / brand_short_name في الإعدادات. لا يُكتب الاسم حرفيًا في أي مكان آخر من src/.
+// الكيان القانوني (الخصوصية، الشروط، ©، JSON-LD Organization، المطبوعات) يبقى على org_legal_name.
+export const BRAND_DEFAULT_NAME = DEFAULT_SETTINGS.brand_name;
+export const BRAND_DEFAULT_SHORT = DEFAULT_SETTINGS.brand_short_name;
+/** رموز التحكم وكل محارف التنسيق غير المرئية (اتجاه، عزل، صفرية العرض، BOM) والأقواس الزاوية (CS-26) */
+const NOT_PLAIN_RE = /[\p{Cc}\p{Cf}<>]/u;
+export const PLAIN_NAME_ERROR = 'اكتب الاسم بحروف عادية بلا رموز تحكم أو أقواس';
+/** اسم بحروف عادية: بلا رموز تحكم ولا محارف تنسيق غير مرئية ولا < > (يُعاد استخدامه لأسماء الشركات ومستخدميها) */
+export function isPlainName(s) {
+  return typeof s === 'string' && !NOT_PLAIN_RE.test(s);
+}
+/** مسافات متتالية ← مسافة واحدة، وبلا مسافات في الطرفين (بعد التحقق بـ isPlainName) */
+export function collapseSpaces(s) {
+  return String(s ?? '').replace(/\s+/g, ' ').trim();
+}
+/**
+ * سطرا الشعار النصي: lead = الاسم المختصر و rest = بقية الاسم حين يبدأ الاسم الكامل بالمختصر (دون مراعاة حالة الأحرف)،
+ * وإلا { lead: الاسم كاملًا، rest: '' }. مع الافتراضي: السطر الأول = الاسم المختصر والثاني = بقية الاسم.
+ */
+export function wordmarkParts(name = BRAND_DEFAULT_NAME, short = BRAND_DEFAULT_SHORT) {
+  const n = collapseSpaces(name);
+  const sh = collapseSpaces(short);
+  if (sh && n.toLowerCase().startsWith(sh.toLowerCase())) return { lead: n.slice(0, sh.length), rest: n.slice(sh.length).trim() };
+  return { lead: n, rest: '' };
+}
 
 export const BRAND_SETTING = 'brand_colors';
 /** شكل الكتلة المضمّنة المسموح وحده (يُتحقق منه قبل إدراجها في أي صفحة، وفي المتصفح قبل التطبيق الحي) */
 export const THEME_CSS_RE = /^html:root\{(--[a-z0-9-]+:[#0-9a-f ]+;?)+\}$/;
-export const HEX_ERROR = 'اكتب اللون بصيغة ‎#RRGGBB‎، مثل ‎#0f4c5c‎';
+export const HEX_ERROR = 'اكتب اللون بصيغة ‎#RRGGBB‎، مثل ‎#0b5a3c‎';
 export const UNREADABLE_ERROR = 'تعذّر تجهيز ألوان مقروءة من هذا الاختيار. جرّب لونًا آخر.';
 const ADJUSTED_SUFFIX = ' (عُدّلت الدرجة لوضوح الكتابة)';
 
@@ -180,5 +209,56 @@ export function createBrand(app) {
     };
   }
 
-  return { inputs, theme, headStyle, themeColor, payload, setColors, resetColors, readiness, defaults: () => ({ ...DEFAULTS }) };
+  // ───── v10 experience: اسم المكتب (قيمة مفرغة أو غير صالحة في القاعدة ← الافتراضي) ─────
+  function nameSetting(key, fallback) {
+    try {
+      const raw = app.settings.get(key);
+      if (typeof raw !== 'string' || !isPlainName(raw)) return fallback;
+      return collapseSpaces(raw) || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  /** الاسم الكامل كما يراه العملاء (brand_name) */
+  const displayName = () => nameSetting('brand_name', BRAND_DEFAULT_NAME);
+  /** الاسم المختصر للمساحات الضيقة (brand_short_name) */
+  const shortName = () => nameSetting('brand_short_name', BRAND_DEFAULT_SHORT);
+  // المحلل المحلي يحذف اسم المكتب الحالي من التحية («مرحبا إمام…») — X10-B3 #12
+  setBrandNames(() => [displayName(), shortName()]);
+  /** اسم المؤسسة (الإعداد org_name) كما في 9.2 */
+  const orgName = () => nameSetting('org_name', DEFAULT_SETTINGS.org_name);
+  /**
+   * L-03: اسم واجهة /app (الدخول، القائمة الجانبية، عنوان التبويب، PWA، صفحة عدم الاتصال): اسم المكتب ما دام
+   * brand_in_staff_app مفعّلًا، وإلا اسم المؤسسة للحالتين كما في 9.2. نص الصفحات الداخلية لا يتغير.
+   */
+  function staffChromeOn() {
+    try {
+      return app.settings.get('brand_in_staff_app') !== false;
+    } catch {
+      return true;
+    }
+  }
+  function staffChromeName() {
+    if (staffChromeOn()) return { name: displayName(), short: shortName() };
+    const org = orgName();
+    return { name: org, short: org };
+  }
+
+  return {
+    inputs,
+    theme,
+    headStyle,
+    themeColor,
+    payload,
+    setColors,
+    resetColors,
+    readiness,
+    defaults: () => ({ ...DEFAULTS }),
+    displayName,
+    shortName,
+    wordmarkParts: (name = displayName(), short = shortName()) => wordmarkParts(name, short),
+    staffChromeName,
+    staffChromeOn,
+    isPlainName,
+  };
 }

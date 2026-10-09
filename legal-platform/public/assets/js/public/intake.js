@@ -54,6 +54,16 @@ const loadExtras = () =>
     },
   ));
 
+// v10 experience (X10-M6): اهتزاز خفيف عند نجاح الإرسال أو فشله فقط (لا عند الفتح أو الكتابة أو التمرير). يُحمَّل في الخلفية
+// بعد أول شاشة مثل words.js — لا يزيد ملفات الشاشة الأولى (اختبار R1: ≤ 6)؛ بدونه (أو على iOS) لا شيء ولا أخطاء
+let haptic = () => false;
+let hapticsLoading = null;
+const loadHaptics = () =>
+  (hapticsLoading ??= import('../lib/haptics.js').then(
+    (m) => (haptic = m.haptic),
+    () => (hapticsLoading = null),
+  ));
+
 const MIN_CHARS = 10; // حروف بلا مسافات، حين لا توجد رسالة صوتية
 const MAX_DESC = 5000;
 const MAX_PHOTOS = 5;
@@ -237,6 +247,7 @@ function fromPublic(p) {
   return {
     org_name: p.org_name,
     site_name: p.site_name,
+    brand: p.brand || null,
     phone: p.phone,
     phone_e164: p.phone_e164,
     whatsapp_digits: p.whatsapp_digits,
@@ -254,6 +265,7 @@ function fromMeta(m) {
   return {
     org_name: site.org_name || s.org_name,
     site_name: site.site_name,
+    brand: m.brand || null,
     phone: site.org_phone,
     phone_e164: site.org_phone_e164,
     whatsapp_digits: s.whatsapp_number_digits,
@@ -287,10 +299,11 @@ async function loadMeta() {
   return fromMeta(await res.json());
 }
 
-const orgName = () => org.org_name || 'مؤسسة بيوت مصر';
+// v10 experience (X10-B3 #7): اسم المكتب كما يراه الناس (العنوان المختصر، ورسالة المشاركة بالاسم الكامل)
+const brandName = () => org.brand?.name || org.site_name || org.org_name || '';
 const waLink = (text) => whatsappUrl(org.whatsapp_digits, text);
-const greetingWa = () => waLink(waPrefill(null, orgName()));
-const topicWa = () => waLink(waPrefill(state.topic, orgName()));
+const greetingWa = () => waLink(waPrefill(null));
+const topicWa = () => waLink(waPrefill(state.topic));
 
 /** «تحبي تحكيلنا على واتساب؟ افتحي واتساب» (بنص جاهز للموضوع)، وإلا رقم التليفون */
 function contactLine(wa = greetingWa()) {
@@ -1025,13 +1038,24 @@ function phoneScreen() {
     if (good) phoneField.setError('');
     else if (raw.length >= 11) phoneField.setError(MSG.phoneBad);
   };
+  // v10 (X10-F2) «كافئ مبكرًا، عاقب متأخرًا»: رقم ناقص أو غلط يُنبَّه عند ترك الخانة (لا أثناء الكتابة)، وخطأ «الرقم ده مش
+  // مظبوط» الظاهر يفضل لحد الضغطة اللي تصلحه؛ خطأ «اكتبي رقمك» يختفي أول ما تبدأ تكتب.
+  let phoneMsg = '';
+  const showPhoneErr = phoneField.setError;
+  phoneField.setError = (m) => {
+    phoneMsg = m || '';
+    showPhoneErr(m);
+  };
   phoneInput.addEventListener('input', () => {
     state.phone = phoneInput.value;
-    phoneField.setError('');
+    if (phoneMsg !== MSG.phoneBad || !phoneInput.value.trim()) phoneField.setError('');
     paintPhone();
     changed();
   });
-  phoneInput.addEventListener('blur', () => submit.scrollIntoView?.({ block: 'nearest' }));
+  phoneInput.addEventListener('blur', () => {
+    if (phoneInput.value.trim() && !normalizeEgPhone(phoneInput.value)) phoneField.setError(MSG.phoneBad);
+    submit.scrollIntoView?.({ block: 'nearest' });
+  });
   paintPhone();
 
   // [R2-B16] «مش فاكرة رقمك؟»: من واتساب على موبايلها ناخد الرقم (المسودة تفضل)
@@ -1245,6 +1269,7 @@ function phoneScreen() {
         store.save(draftObject());
       }
       const msg = network ? MSG.net : U.friendlyError(e);
+      haptic('error');
       mount(
         status,
         h(
@@ -1269,6 +1294,7 @@ function phoneScreen() {
     voiceEls.forEach((v) => v.destroy());
     voiceEls = [];
     showSuccess(res || {}, nameInput.value.trim(), sent);
+    haptic('success'); // نفس الإطار الذي تظهر فيه «وصلنا طلبك»
   }
   submit.addEventListener('click', send);
   retrySend = send;
@@ -1373,7 +1399,8 @@ function showSuccess(res, name, sent = {}) {
   const portal = res.portal_url ? new URL(res.portal_url, window.location.origin).href : null;
   const confirmUrl = typeof res.confirm_url === 'string' && /^https:\/\/wa\.me\/\d+\?text=/.test(res.confirm_url) ? res.confirm_url : null;
   const callback = res.callback && CALLBACK_WHEN[res.callback] ? res.callback : null;
-  document.title = `وصلنا طلبك — ${org.site_name || orgName()}`;
+  // v10 (§6.2): عناوين الصفحات العامة تنتهي باسم المكتب الكامل
+  document.title = brandName() ? `وصلنا طلبك — ${brandName()}` : 'وصلنا طلبك';
   const num = refNumber(ref);
 
   // نحفظ صفحة الطلب على هذا الموبايل (B91-06)؛ طلب جديد من نفس الموبايل يلغي «امسحي» السابقة
@@ -1475,7 +1502,7 @@ function showSuccess(res, name, sent = {}) {
   // البطاقة ب: صفحة طلبها — مطوية تحت «صفحة طلبك» (والمربع في الصفحة الرئيسية يرجّعها كمان)
   let cardB = null;
   if (portal) {
-    const shareText = `صفحة طلبي عند ${orgName()}: ${portal}`;
+    const shareText = brandName() ? `صفحة طلبي عند ${brandName()}: ${portal}` : `صفحة طلبي: ${portal}`;
     const shareHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
     const live = h('span.bmf-sr', { 'aria-live': 'polite' });
     const copyBtn = h('button.bmf-btn.bmf-btn-text', { type: 'button' }, ic('copy', 18), h('span', 'نسخ الرابط'));
@@ -1769,7 +1796,7 @@ function preparingView() {
       'section.bmf-card',
       { role: 'status' },
       h('h1', 'الموقع قيد التجهيز'),
-      h('p.bmf-card-text', `بنجهّز استقبال الطلبات على موقع ${orgName()}. ممكن تكلمينا دلوقتي وهنساعدك.`),
+      h('p.bmf-card-text', 'بنجهّز استقبال الطلبات على موقع ', h('bdi', /[\u0600-\u06FF]/.test(brandName()) ? { dir: 'rtl', lang: 'ar' } : { dir: 'ltr', lang: 'en' }, brandName()), '. ممكن تكلمينا دلوقتي وهنساعدك.'),
       wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', 'كلمينا على واتساب')),
       phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}` }, ic('phone', 20), h('span', 'اتصلي بينا: '), h('span.bmf-ltr', phone)),
     ),
@@ -1973,6 +2000,7 @@ async function init() {
   setTimeout(() => {
     loadUpload().catch(() => {});
     loadExtras().catch(() => {});
+    loadHaptics();
   }, 0);
 }
 

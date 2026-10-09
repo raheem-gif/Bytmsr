@@ -9,7 +9,7 @@
   margin-block-start: 4px;
   font-size: 11px;
   opacity: 0.75;
-  letter-spacing: 0.02em;
+  letter-spacing: 0; /* v10 (X10-T1): لا تباعد حروف على العربية */
 }
 
 /* ───────────── «اليوم» ───────────── */
@@ -773,6 +773,7 @@
   .lh-lawyer-ui .toast-region {
     inset-block-start: auto;
     inset-block-end: calc(88px + env(safe-area-inset-bottom, 0px));
+    --toast-from: 12px; /* v10 (X10-F1): مثبّت أسفل الشاشة فيدخل من أسفل */
   }
 
   .lh-lawyer-ui .toast-msg {

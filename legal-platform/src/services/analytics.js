@@ -40,7 +40,7 @@ export function createAnalytics(app) {
            (SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') AS team,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in') AS inbound
          FROM intakes i LEFT JOIN cases c ON c.id = i.case_id
-         WHERE i.created_at >= ? AND i.created_at < ?`,
+         WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL`, // v10 b2b-server (حارس #8)
         start,
         end,
       );
@@ -187,7 +187,7 @@ export function createAnalytics(app) {
           `SELECT c.legal_area, COUNT(*) AS cases, SUM(c.status = 'closed') AS closed,
              SUM((SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') > 1) AS multi,
              SUM(c.matter_id IS NOT NULL) AS matters
-           FROM cases c GROUP BY c.legal_area ORDER BY cases DESC`,
+           FROM cases c WHERE c.company_id IS NULL GROUP BY c.legal_area ORDER BY cases DESC`, // v10 b2b-server (حارس #8)
         )
         .map((r) => ({ ...r, label: AREA[r.legal_area], cases: Number(r.cases), closed: Number(r.closed), multi: Number(r.multi), matters: Number(r.matters) }));
     },
@@ -202,8 +202,8 @@ export function createAnalytics(app) {
         out.push({
           week_start: s.slice(0, 10),
           intakes: Number(db.value('SELECT COUNT(*) FROM intakes WHERE created_at >= ? AND created_at < ?', s, e)),
-          cases: Number(db.value('SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ?', s, e)),
-          closed: Number(db.value('SELECT COUNT(*) FROM cases WHERE closed_at >= ? AND closed_at < ?', s, e)),
+          cases: Number(db.value('SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ? AND company_id IS NULL', s, e)), // v10 b2b-server (حارس #8)
+          closed: Number(db.value('SELECT COUNT(*) FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL', s, e)),
         });
       }
       return out;
@@ -223,8 +223,8 @@ export function createAnalytics(app) {
           today: q('SELECT COUNT(*) FROM intakes WHERE created_at >= ?', addDays(t, -1)),
           urgent: q("SELECT COUNT(*) FROM intakes WHERE status IN ('new','in_review','awaiting_client') AND priority IN ('high','urgent')"),
         },
-        cases: Object.fromEntries(db.all('SELECT status, COUNT(*) AS n FROM cases GROUP BY status').map((r) => [r.status, Number(r.n)])),
-        open_cases: q("SELECT COUNT(*) FROM cases WHERE status != 'closed'"),
+        cases: Object.fromEntries(db.all('SELECT status, COUNT(*) AS n FROM cases WHERE company_id IS NULL GROUP BY status').map((r) => [r.status, Number(r.n)])), // v10 b2b-server (حارس #8)
+        open_cases: q("SELECT COUNT(*) FROM cases WHERE status != 'closed' AND company_id IS NULL"),
         pending_decisions: {
           info_requests: queue.info_requests.length,
           client_replies: queue.client_replies.length,
@@ -257,10 +257,11 @@ export function createAnalytics(app) {
         })(),
         month: {
           period,
-          cases_opened: q('SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ?', period),
-          cases_closed: q('SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ?', period),
-          lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE period = ? AND status != 'void'", period)),
-          pro_bono: q("SELECT COUNT(*) FROM billable_events WHERE period = ? AND treatment IN ('pro_bono','csr')", period),
+          // v10 b2b-server (حارس #8، #27): ملخص الشهر للأفراد فقط — عمل الشركات المدفوع خارج تكلفة المحامين والعمل التطوعي
+          cases_opened: q('SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL', period),
+          cases_closed: q('SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL', period),
+          lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL)", period)),
+          pro_bono: q("SELECT COUNT(*) FROM billable_events b WHERE b.period = ? AND b.treatment IN ('pro_bono','csr') AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = b.case_id AND cx.company_id IS NOT NULL)", period),
         },
         weekly: svc.weeklyVolume(),
         ai: app.ai.status(),

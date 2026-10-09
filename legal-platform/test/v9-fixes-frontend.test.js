@@ -93,7 +93,7 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
     assert.match(index, /قدّمتي طلب قبل كده؟<\/strong> تابعيه من هنا/);
     const login = read('public/portal-login.html');
     assert.ok(!/بوابة العملاء/.test(login), 'no «بوابة العملاء» on the beneficiary-facing login page');
-    assert.match(login, /<title>متابعة طلبك — \{\{org_name\}\}<\/title>/);
+    assert.match(login, /<title>متابعة طلبك — \{\{brand_name\}\}<\/title>/); // v10 experience (intended, X10-B3 #3): the brand in the title
     // v9.1 b-portal (تغيير مقصود، B91-06): العنوان والكارت بعامية بسيطة
     assert.match(login, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/);
     const pl = read('public/assets/js/public/portal-login.js');
@@ -115,10 +115,14 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
 });
 
 describe('v9 frontend fixes — terminology', () => {
+  // v10 (intended): exact v10 strings where «العملاء» means the firm's clients/the people who see the brand (spec copy), not beneficiaries
+  const V10_CLIENT_WORDS = [/اسم المكتب كما يراه العملاء/, /^'الشركات العميلة'$/, /^'مثل: بيانات عملاء، أسعار، خطط منتج\.'$/]; // v10: +2 company spec strings (audit group «الشركات العميلة», nda hint) (intended)
+  V10_CLIENT_WORDS.push(/^'شركة عميلة'$/, /^'كل طلبات الشركات العميلة مرتبة حسب أقرب موعد\.'$/); // v10: +2 b2b-staff spec strings (route title STF-0, queue subtitle U10-S04) (intended)
+  V10_CLIENT_WORDS.push(/^`هذا حساب داخلي لشركة عميلة — \$\{co\.name\}`$/); // v10: +1 b2b-staff spec string (shadow client, STF-10) (intended)
   test('no visible «عميل/عملاء» string anywhere in the SPA, the public scripts or the public HTML', () => {
     const hits = [];
     for (const f of walk(JS)) {
-      for (const s of visibleStrings(fs.readFileSync(f, 'utf8'))) if (/عميل|عملاء/.test(s.text)) hits.push(`${path.relative(ROOT, f)}:${s.line} ${s.text.slice(0, 80)}`);
+      for (const s of visibleStrings(fs.readFileSync(f, 'utf8'))) if (/عميل|عملاء/.test(s.text) && !V10_CLIENT_WORDS.some((re) => re.test(s.text))) hits.push(`${path.relative(ROOT, f)}:${s.line} ${s.text.slice(0, 80)}`);
     }
     for (const f of fs.readdirSync(PUB).filter((x) => x.endsWith('.html'))) {
       const html = fs.readFileSync(path.join(PUB, f), 'utf8').replace(/<!--[\s\S]*?-->/g, '');

@@ -8,6 +8,7 @@ import { usersAdminSection } from '../../components/account-admin.js';
 import { siteSettingsCard } from '../../components/site-settings.js';
 import { brandSettingsCard } from '../../components/brand-settings.js'; // v9.2 ألوان المؤسسة
 import { storySettingsCard } from '../../components/story-settings.js'; // v9.2 القصص الواردة على واتساب (admin-ai)
+import { b2bSettingsCard, companyPlansCard } from '../../components/company-b2b-settings.js'; // v10 b2b-staff (STF-9، U10-S22/S23)
 
 /**
  * v9.2: ‎#/settings?section=<id>‎ يمرّر الصفحة إلى البطاقة التي تحمل هذا المعرّف ويضع التركيز على عنوانها
@@ -224,6 +225,8 @@ export default async function render(ctx) {
     me.role === 'admin' ? brandSettingsCard({ user: me }) : null, // v9.2: بعد «إعدادات المؤسسة»، لمدير النظام وحده
     siteSettingsCard(settings),
     storySettingsCard(settings),
+    me.role === 'admin' ? b2bSettingsCard() : null, // v10 b2b-staff: «خدمة الشركات» (section=b2b)
+    me.role === 'admin' ? companyPlansCard() : null, // v10 b2b-staff: «باقات الشركات» (section=plans)
     integrationsCard,
     usersSection,
   );

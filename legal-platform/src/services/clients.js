@@ -6,6 +6,9 @@ import { CODE_PREFIX } from '../constants.js';
 
 export function createClients(app) {
   const { db, config } = app;
+  // v10 b2b-server (حراس #9–#11): العميل الداخلي لشركة عميلة لا يُدمج ولا تُضاف له هوية ولا رابط بوابة أفراد
+  const isCompanyClient = (id) => !!db.get('SELECT 1 FROM clients WHERE id = ? AND company_id IS NOT NULL', Number(id) || 0);
+  const companyClientError = () => Object.assign(conflict('هذا حساب داخلي لشركة عميلة؛ يُدار من صفحة الشركة.'), { code: 'company_client' });
 
   function nextCode() {
     const n = db.nextCounter('client', 1);
@@ -59,6 +62,7 @@ export function createClients(app) {
 
     /** ربط هوية (هاتف/بريد) بالعميل؛ يرفض إن كانت مرتبطة بعميل آخر */
     addIdentity(clientId, kind, value, channel = null) {
+      if (isCompanyClient(clientId)) throw companyClientError(); // v10 b2b-server (حارس #10)
       const val = kind === 'phone' ? normalizePhone(value) : String(value || '').trim().toLowerCase();
       if (!val) throw badRequest(kind === 'phone' ? 'رقم الهاتف غير صالح' : 'القيمة غير صالحة');
       const existing = db.get('SELECT * FROM client_identities WHERE kind = ? AND value = ?', kind, val);
@@ -163,6 +167,7 @@ export function createClients(app) {
       const other = svc.get(otherId);
       if (!other) throw notFound('العميل المراد دمجه غير موجود');
       if (other.id === target.id) throw conflict('العميلان مدموجان بالفعل في ملف واحد');
+      if (target.company_id || other.company_id) throw companyClientError(); // v10 b2b-server (حارس #10)
       db.tx(() => {
         db.run('UPDATE client_identities SET client_id = ? WHERE client_id = ?', target.id, other.id);
         for (const t of ['intakes', 'cases', 'messages', 'documents', 'matters', 'invoices', 'portal_tokens']) {
@@ -186,7 +191,7 @@ export function createClients(app) {
 
     list({ q, limit = 100, offset = 0 } = {}) {
       const params = [];
-      let where = 'c.merged_into IS NULL';
+      let where = 'c.merged_into IS NULL AND c.company_id IS NULL'; // v10 b2b-server (حارس #9): العملاء الداخليون للشركات لا يظهرون
       if (q) {
         const query = String(q).trim();
         const like = `%${query}%`;
@@ -223,6 +228,8 @@ export function createClients(app) {
       const c = svc.require(clientId);
       return {
         client: c,
+        // v10 b2b-server: العميل الداخلي لشركة عميلة (لا يُستخدم مباشرة)
+        company: c.company_id ? db.get('SELECT id, name FROM companies WHERE id = ?', c.company_id) || null : null,
         identities: svc.identities(c.id),
         active_portal_links: svc.activePortalLinks(c.id),
         intakes: db.all(
@@ -255,6 +262,7 @@ export function createClients(app) {
      * وبدونه يشمل كل ملفات العميل (رابط ترسله الإدارة لرقم موثّق).
      */
     issuePortalToken(clientId, { intakeId = null, days = null, phone = null } = {}) {
+      if (isCompanyClient(clientId)) throw companyClientError(); // v10 b2b-server (حارس #10): الشركات تدخل من /company
       const token = randomToken(24);
       const t = nowIso();
       const ttl = Number(days) > 0 ? Number(days) : config.portalTokenDays;

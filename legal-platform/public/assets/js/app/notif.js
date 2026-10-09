@@ -18,9 +18,28 @@ const EXACT = {
   'message.failed': ['alert', 'danger'], // تعذر إرسال رسالة واتساب
   'package.exhausted': ['wallet', 'warning'],
   payout: ['wallet', null],
+  // v10 b2b-staff (STF-0): خدمة الشركات — التصعيد والتأخر وتعذّر بدء العمل أحمر، ويقترب الموعد برتقالي
+  'company_request.escalated': ['alert', 'danger'],
+  'company_request.sla_late': ['alert', 'danger'],
+  'company_request.plan_error': ['alert', 'danger'],
+  'company_request.sla_at_risk': ['clock', 'warning'],
+  'company_request.accepted_low_rating': ['star', 'danger'],
+  'company_request.memory_pending': ['bookOpen', null],
+  'company.renewal': ['calendarClock', null],
+  'company.trial_ending': ['clock', 'warning'],
+  'company.suspended': ['building', 'warning'],
+  'company.subscription_ended': ['building', 'warning'],
+  'company.invite_conflict': ['mailWarning', 'warning'],
+  'company.manager_reassigned': ['userCog', null],
+  'email.failed': ['alert', 'warning'],
 };
 
 const TYPE_ICONS = [
+  // v10 b2b-staff (STF-0): قبل القواعد العامة (وإلا يطابق /request/ أيقونة الرسائل). 'queue' هو رسم inboxStack نفسه
+  // (ICONS.inboxStack = ICONS.queue في ui.js)، والاسم الأصلي يُبقي فحص الأيقونات الثابت في v9-integration صالحًا
+  [/^company_request\./, 'queue'],
+  [/^company\./, 'building'],
+  [/^email\./, 'mail'],
   [/intake/, 'inbox'],
   [/info_request|request/, 'message'],
   [/opinion|answer/, 'fileText'],

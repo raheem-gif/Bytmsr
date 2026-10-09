@@ -204,7 +204,7 @@ export function registerPublicRoutes(router, app) {
     sd.confirm_expires_at = addDays(nowIso(), 30);
     if (!Number.isInteger(sd.confirm_failures)) sd.confirm_failures = 0;
     db.update('intakes', intake.id, { source_detail: JSON.stringify(sd) });
-    const text = `مرحبًا ${s.org_name}، رقم طلبي ${intake.code} وأريد استكمال طلبي عبر واتساب.`;
+    const text = `مرحبًا ${app.brand.displayName()}، رقم طلبي ${intake.code} وأريد استكمال طلبي عبر واتساب.`; // v10 experience (CS-25)
     const confirmText = `السلام عليكم، ده رقم طلبي ${intake.code} وكود التأكيد ${code}`;
     return {
       reference: intake.code,

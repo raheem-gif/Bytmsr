@@ -10,6 +10,8 @@ const INCLUDED = ['included_monthly', 'included_quota', 'package_credit'];
 
 /** حساب موقوف قبل بداية الفترة (الحسابات القديمة بلا تاريخ إيقاف تُعامل كموقوفة من قبل) */
 const endedBefore = (lw, start) => !lw.active && (!lw.deactivated_at || lw.deactivated_at < start);
+// v10 b2b-server (حارس #27، L-59): شرط «ليس من ملفات الشركات» على أي جدول فيه case_id (ملخص الأفراد وعدّاد المسؤولية المجتمعية)
+const NOT_COMPANY = (alias) => `NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = ${alias}.case_id AND cx.company_id IS NOT NULL)`;
 
 /** التحقق من اتفاق المحامي وتوحيده (المبالغ بالجنيه) */
 export function validateAgreement(input) {
@@ -113,14 +115,18 @@ export function createAccounting(app) {
         if (!a || a.status !== 'approved') return null;
         const lw = lawyerRow(a.lawyer_id);
         const ag = lw.agreement;
-        const c = db.get('SELECT code FROM cases WHERE id = ?', a.case_id);
+        const c = db.get('SELECT code, company_id FROM cases WHERE id = ?', a.case_id);
         const t = nowIso();
         const period = periodOf(t);
         let treatment;
         let amount = 0;
         let notional = 0;
         let ledgerKind = 'fee';
-        if (a.fee_mode === 'pro_bono') {
+        if (c?.company_id) {
+          // v10 b2b-server (L-59، حارس #26): عمل الشركات مدفوع دائمًا — لا تطوع ولا مسؤولية مجتمعية ولا رصيد باقة المحامي
+          treatment = 'payable';
+          amount = a.fee_mode === 'custom' ? a.fee_amount_minor || 0 : Number(lw.b2b_rate_minor) || (ag.type === 'per_case' ? toMinor(ag.rate) || 0 : 0);
+        } else if (a.fee_mode === 'pro_bono') {
           treatment = 'pro_bono';
           notional = toMinor(ag.notional_value ?? ag.rate ?? 0) || 0;
         } else if (a.fee_mode === 'custom') {
@@ -506,21 +512,22 @@ export function createAccounting(app) {
       const pStart = periodRange(p).start;
       const rows = lawyers.map((lw) => {
         const ag = parseJson(lw.agreement, {});
-        const ev = db.all('SELECT treatment, COUNT(*) AS n, SUM(amount_minor) AS amt, SUM(notional_minor) AS nv FROM billable_events WHERE lawyer_id = ? AND period = ? GROUP BY treatment', lw.id, p);
+        // v10 b2b-server (حارس #27، L-59): ملخص الأفراد — عمل الشركات المدفوع خارج هذه الأرقام (يبقى في كشف الحساب والدفعات)
+        const ev = db.all(`SELECT treatment, COUNT(*) AS n, SUM(amount_minor) AS amt, SUM(notional_minor) AS nv FROM billable_events b WHERE lawyer_id = ? AND period = ? AND ${NOT_COMPANY('b')} GROUP BY treatment`, lw.id, p);
         const byTreatment = Object.fromEntries(ev.map((r) => [r.treatment, Number(r.n)]));
         const events = ev.reduce((s, r) => s + Number(r.n), 0);
-        const periodAmount = Number(db.value("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE lawyer_id = ? AND period = ? AND status != 'void'", lw.id, p));
-        const unpaid = Number(db.value("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE lawyer_id = ? AND status = 'accrued'", lw.id));
+        const periodAmount = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND period = ? AND status != 'void' AND ${NOT_COMPANY('e')}`, lw.id, p));
+        const unpaid = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND status = 'accrued' AND ${NOT_COMPANY('e')}`, lw.id));
         const notional = ev.reduce((s, r) => s + Number(r.nv || 0), 0);
         const needsClosing =
           ['monthly', 'monthly_quota'].includes(ag.type) && !endedBefore(lw, pStart) && !db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', `monthly:${lw.id}:${p}`);
         let csr = null;
         if (ag.type === 'csr') {
           const range = ag.csr_period === 'month' ? [p, p] : [`${p.slice(0, 4)}-01`, `${p.slice(0, 4)}-12`];
-          const used = Number(db.value("SELECT COUNT(*) FROM billable_events WHERE lawyer_id = ? AND treatment = 'csr' AND period BETWEEN ? AND ?", lw.id, range[0], range[1]));
+          const used = Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE lawyer_id = ? AND treatment = 'csr' AND period BETWEEN ? AND ? AND ${NOT_COMPANY('b')}`, lw.id, range[0], range[1])); // v10 (#27)
           const hours = Number(
             db.value(
-              "SELECT COALESCE(SUM(a.hours_spent), 0) FROM billable_events b JOIN assignments a ON a.id = b.assignment_id WHERE b.lawyer_id = ? AND b.treatment = 'csr' AND b.period BETWEEN ? AND ?",
+              `SELECT COALESCE(SUM(a.hours_spent), 0) FROM billable_events b JOIN assignments a ON a.id = b.assignment_id WHERE b.lawyer_id = ? AND b.treatment = 'csr' AND b.period BETWEEN ? AND ? AND ${NOT_COMPANY('b')}`,
               lw.id,
               range[0],
               range[1],
@@ -551,7 +558,7 @@ export function createAccounting(app) {
         period_amount: rows.reduce((s, r) => s + r.period_amount, 0),
         unpaid_balance: rows.reduce((s, r) => s + r.unpaid_balance, 0),
         events: rows.reduce((s, r) => s + r.events, 0),
-        pro_bono_events: Number(db.value("SELECT COUNT(*) FROM billable_events WHERE period = ? AND treatment IN ('pro_bono','csr')", p)),
+        pro_bono_events: Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE period = ? AND treatment IN ('pro_bono','csr') AND ${NOT_COMPANY('b')}`, p)), // v10 (#27)
         contribution_value: rows.reduce((s, r) => s + r.contribution_value, 0),
         paid_in_period: fromMinor(
           Number(
@@ -561,7 +568,7 @@ export function createAccounting(app) {
       };
       // تكلفة الملفات المغلقة خلال الفترة وأنواع الملفات الأكثر استهلاكًا للموارد
       const { start, end } = periodRange(p);
-      const closed = db.all('SELECT id, code, title, legal_area FROM cases WHERE closed_at >= ? AND closed_at < ?', start, end);
+      const closed = db.all('SELECT id, code, title, legal_area FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL', start, end); // v10 (#27): تكلفة ملفات الأفراد فقط
       const caseCosts = closed.map((c) => ({ ...c, ...svc.caseCost(c.id), team_size: Number(db.value('SELECT COUNT(*) FROM billable_events WHERE case_id = ?', c.id)) }));
       const byArea = {};
       for (const c of caseCosts) {

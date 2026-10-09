@@ -105,7 +105,7 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.match(html, /<meta name="robots" content="noindex, nofollow" \/>/);
     assert.equal((html.match(/<meta name="robots"/g) || []).length, 1, 'a single robots tag');
     assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);
-    assert.match(html, /<title>متابعة طلبك — مؤسسة بيوت مصر<\/title>/);
+    assert.match(html, /<title>متابعة طلبك — Emam Legal and Consultancy<\/title>/); // v10 experience (intended): brand title
     assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/portal" \/>/);
     // (إصلاحات الإطلاق) روابط CSS/JS تحمل رقم إصدار الملف ?v=… للتخزين الطويل في المتصفح
     assert.match(html, /<script type="module" src="\/assets\/js\/public\/portal\.js(\?v=[A-Za-z0-9_-]+)?"><\/script>/);

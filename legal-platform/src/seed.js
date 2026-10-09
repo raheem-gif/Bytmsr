@@ -11,6 +11,7 @@ import { seedSiteDemo } from './seed-v91-b-site.js'; // v9.1 b-site
 import { seedPortalDemo } from './seed-v91-b-portal.js'; // v9.1 b-portal
 import { seedStoriesDemo } from './seed-v92-stories.js'; // v9.2 admin-ai
 import { seedPublicDemo } from './seed-v92-public.js'; // v9.2 public
+import { seedB2bDemo } from './seed-v10-b2b.js'; // v10 b2b-server
 
 const HOUR = 3600 * 1000;
 
@@ -1037,6 +1038,10 @@ export async function seedDemo(app) {
     // <seed:v91-b-portal> رد نهى بخلاصة وخطوات، «هاتي معاكي» لجلستها، طلب ورق ببندين لسامية، وتعليمات الدفع
     seedPortalDemo(app, { manager });
     seedPublicDemo(app, { at });
+
+    // <seed:v10-b2b> خدمة الشركات: الباقات، شركة النيل للأغذية (Growth) وتك سوليوشنز (Starter، تجريبية) ومستخدموهما،
+    // وطلباتهما (NFD-0001…0006، TSL-0001…0003) والذاكرة القانونية والتكاليف — قبل تشغيل الأتمتة (حراس الأفراد #1–#3، #19)
+    await seedB2bDemo(app, { at, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

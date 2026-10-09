@@ -54,13 +54,16 @@ function lettersOf(text, doneWords) {
  * [مراجعة 9.2] مسودة رد بلا كلام: التحية والتوقيع فقط («أهلًا يا هبة،\n\n— المؤسسة»)، كما يكتبها الاقتراح حين لا يجد
  * المحلل ردًا جاهزًا. لا تُقرأ لها في المكالمة (call_script) — نفس قاعدة الواجهة isSkeletonReply.
  */
-export function isSkeletonDraft(text) {
-  const body = String(text || '')
+export function isSkeletonDraft(text, names = []) {
+  // v10 experience: سطر التوقيع قد يبدأ بـ RLM («‏— Emam…»)، واسم المكتب و«إمام» ليسا كلامًا
+  let body = String(text || '')
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !/^—/.test(l))
-    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''));
-  return body.join('').replace(/[^\p{L}]/gu, '').length < 3;
+    .filter((l) => l && !/^\u200f?—/.test(l))
+    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''))
+    .join(' ');
+  for (const nm of [...names, 'إمام'].filter(Boolean).sort((a, b) => String(b).length - String(a).length)) body = body.split(String(nm)).join(' ');
+  return body.replace(/[^\p{L}]/gu, '').length < 3;
 }
 
 /**
@@ -72,7 +75,7 @@ export function spokenScript(text) {
   const out = [];
   for (const line of String(text || '').split('\n')) {
     const t = line.trim();
-    if (!t || /^—/.test(t)) {
+    if (!t || /^\u200f?—/.test(t)) {
       if (!t) out.push('');
       continue;
     }
@@ -332,7 +335,7 @@ export function createStories(app) {
         hello: genderize(first ? `أهلًا يا ${first}` : 'أهلًا بيك{ي}', form),
         ref_no: num ? `طلب رقم ${num}` : '',
         ref_number: num,
-        org_name: setting('org_name') || 'مؤسسة بيوت مصر',
+        org_name: app.brand.displayName(), // v10 experience: اسم المكتب (يغذي نصوص واتساب ونص المكالمة)
         org_phone: setting('org_phone') || '',
         office_hours: setting('office_hours') || '',
       };
@@ -847,7 +850,7 @@ export function createStories(app) {
       }
       // [بوابة 9.2 G5] نص المكالمة بلا جمل المحادثة («ابعتيها هنا»، «صوّري»، رابط صفحتها…) — تُقال بالهاتف لا تُكتب
       if (sayDraft) sayDraft = spokenScript(sayDraft);
-      if (sayDraft && recommended !== 'need_info' && isSkeletonDraft(sayDraft)) sayDraft = null;
+      if (sayDraft && recommended !== 'need_info' && isSkeletonDraft(sayDraft, [app.brand.displayName(), app.brand.shortName()])) sayDraft = null;
       return {
         intake_id: i.id,
         code: i.code,

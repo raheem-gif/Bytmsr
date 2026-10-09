@@ -3,7 +3,7 @@
 
 import { h, frag } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label, relative, dateTime, orgName, count, localPhone } from '../../lib/fmt.js';
+import { label, relative, dateTime, orgName, count, localPhone, getMeta } from '../../lib/fmt.js';
 import { modal, field, button, icon, toast, confirmDialog, confirmDanger, alertBox, ltr, uid } from '../../lib/ui.js';
 
 /** معرّف جديد لكل فتح للنافذة: نقرتان على «حفظ» = مكالمة واحدة (يتجاهل الخادم التكرار) */
@@ -21,12 +21,16 @@ export function newClientRef() {
  * لا تُعرض كنص «قل لها:»، ولا تُرسل قبل أن تكتب الإدارة الرد.
  */
 export function isSkeletonReply(text) {
-  const body = String(text || '')
+  // v10 experience (X10-B3 #12): التوقيع قد يبدأ بـ RLM («‏— Emam…»)، واسم المكتب و«إمام» ليسا كلامًا
+  let body = String(text || '')
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !/^—/.test(l))
-    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''));
-  return body.join('').replace(/[^\p{L}]/gu, '').length < 3;
+    .filter((l) => l && !/^‏?—/.test(l))
+    .map((l) => l.replace(/^أهل(?:ًا|اً|ا)[^،,]*[،,]?/, ''))
+    .join(' ');
+  const b = getMeta().brand || {};
+  for (const nm of [b.name, b.short, 'إمام'].filter(Boolean).sort((x, y) => y.length - x.length)) body = body.split(nm).join(' ');
+  return body.replace(/[^\p{L}]/gu, '').length < 3;
 }
 
 /** رقم الطلب كما تسمعه المستفيدة («طلب رقم 29») */

@@ -1,0 +1,464 @@
+/* v10 b2b-staff (L-44) — مكتب خدمة الشركات في /app ولمسات الشركات عند المحامين.
+   رموز الألوان فقط (لا قيم لونية مباشرة؛ اختبار L1). يُربط في app.html بعد v10-experience.css ويدخل bundle-b.
+   البادئات: cq- (قائمة الطلبات)، cr- (صفحة الطلب)، cs- (أوراق الشركات)، co- داخل .cs-preview-card (معاينة كما تراه الشركة). */
+
+/* ───────────── قائمة «طلبات الشركات» ───────────── */
+.cq-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cq-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cq-info { margin: 0; color: var(--text-muted); font: var(--t-footnote); }
+.cq-flag-filter { display: flex; align-items: center; gap: 8px; margin: 0; }
+.cq-list { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.cq-group { display: flex; flex-direction: column; gap: 10px; }
+.cq-group-title { display: flex; align-items: center; gap: 8px; margin: 0; font: var(--t-headline); }
+.cq-group-count {
+  min-width: 26px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  font: var(--t-footnote);
+  text-align: center;
+}
+.cq-group-escalated .cq-group-count,
+.cq-group-late .cq-group-count,
+.cq-group-plan_error .cq-group-count { background: var(--danger-100); color: var(--danger-700); }
+.cq-group-at_risk .cq-group-count { background: var(--warning-100); color: var(--warning-700); }
+.cq-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.cq-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.cq-card.is-escalated, .cq-card.is-late, .cq-card.is-plan_error { border-inline-start-color: var(--danger-600); }
+.cq-card.is-at_risk { border-inline-start-color: var(--warning-500); }
+.cq-card.is-new { border-inline-start-color: var(--info-600); }
+.cq-card.is-needs { border-inline-start-color: var(--primary-600); }
+.cq-card.is-unread { background: color-mix(in srgb, var(--info-100) 30%, var(--surface)); }
+.cq-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.cq-company { font-weight: 700; color: var(--text); }
+.cq-card-badges { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-inline-start: auto; }
+.cq-card-title { margin: 0; font: var(--t-headline); overflow-wrap: anywhere; }
+.cq-card-title a { color: inherit; text-decoration: none; }
+.cq-card-title a:hover { text-decoration: underline; }
+.cq-card-sla, .cq-flags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cq-flags:empty { display: none; }
+.cq-sla .num, .cr-when .num { font-variant-numeric: tabular-nums; }
+.cq-sla-due { color: inherit; opacity: 0.85; }
+.cq-ai { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--radius); background: var(--surface-2); }
+.cq-ai-line, .cq-ai-sub { margin: 0; display: flex; gap: 6px; align-items: flex-start; }
+.cq-ai-line { font: var(--t-footnote); color: var(--text); }
+.cq-ai-sub { font: var(--t-caption); color: var(--text-muted); padding-inline-start: 20px; }
+.cq-card-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+.cq-meta { flex: 1 1 200px; color: var(--text-muted); font: var(--t-footnote); }
+.cq-hint { color: var(--text-muted); font: var(--t-caption); }
+.cq-primary { min-height: 44px; }
+.cq-cell-req { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0; }
+.cq-cell-req a { overflow-wrap: anywhere; }
+.cq-cell-st, .cq-health { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ───────────── صفحة «طلب شركة» ───────────── */
+.cr-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cr-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cr-company-link { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.cr-status { color: var(--text-muted); font: var(--t-footnote); }
+.cr-handler { display: flex; flex-direction: column; gap: 4px; font: var(--t-footnote); color: var(--text-muted); min-width: 200px; }
+.cr-when .kv dd { display: flex; flex-direction: column; gap: 4px; }
+.cr-sees {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font: var(--t-footnote);
+}
+.cr-sees q { color: var(--text); }
+.cr-pauses { margin: 0; padding-inline-start: 18px; font: var(--t-caption); color: var(--text-muted); }
+.cr-banners { display: flex; flex-direction: column; gap: 10px; }
+.cr-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.cr-banner > svg { flex-shrink: 0; margin-top: 2px; }
+.cr-banner .btn { flex-shrink: 0; }
+.cr-banner-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cr-banner-text p { margin: 0; }
+.cr-banner.is-danger { border-color: var(--danger-100); background: color-mix(in srgb, var(--danger-100) 45%, var(--surface)); }
+.cr-banner.is-danger > svg { color: var(--danger-700); }
+.cr-banner.is-warning { border-color: var(--warning-100); background: color-mix(in srgb, var(--warning-100) 45%, var(--surface)); }
+.cr-banner.is-warning > svg { color: var(--warning-700); }
+.cr-banner.is-info { border-color: var(--info-100); background: color-mix(in srgb, var(--info-100) 45%, var(--surface)); }
+.cr-banner.is-info > svg { color: var(--info-700); }
+.cr-banner.is-success { border-color: var(--success-100); background: color-mix(in srgb, var(--success-100) 45%, var(--surface)); }
+.cr-banner.is-success > svg { color: var(--success-700); }
+.cr-banner.is-neutral { background: var(--surface-2); }
+.cr-stars { color: var(--accent-700); }
+.cr-oneline { margin: 0; font: var(--t-headline); }
+.cr-disagree { display: flex; gap: 6px; margin: 0; color: var(--info-700); }
+.cr-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-inline-start: 6px; }
+.cr-sub { display: flex; flex-direction: column; gap: 6px; }
+.cr-sub-title { margin: 0; font: var(--t-footnote); font-weight: 700; color: var(--text); }
+.cr-risks, .cr-refs, .cr-missing, .cr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cr-questions { margin: 0; padding-inline-start: 20px; }
+.cr-missing .check { min-height: 32px; }
+.cr-scope { padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); display: flex; flex-direction: column; gap: 4px; }
+.cr-scope p { margin: 0; display: flex; gap: 6px; align-items: flex-start; }
+.cr-scope.is-ok > p > svg { color: var(--success-700); }
+.cr-scope.is-out { background: color-mix(in srgb, var(--warning-100) 45%, var(--surface)); }
+.cr-scope.is-out > p > svg { color: var(--warning-700); }
+.cr-scope-note { font: var(--t-footnote); color: var(--text-muted); }
+.cr-triage-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cr-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 6px; border-top: 1px solid var(--border); }
+.cr-hint { display: inline-flex; gap: 4px; align-items: center; color: var(--text-muted); font: var(--t-footnote); }
+.cr-triage-done > summary, .cr-log > summary { cursor: pointer; list-style-position: inside; }
+.cr-desc p { margin: 4px 0 0; white-space: pre-wrap; }
+.cr-submitter { padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+.cr-private { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: var(--warning-700); font: var(--t-footnote); }
+.cr-docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cr-doc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 36px; }
+.cr-doc-name { font-weight: 600; overflow-wrap: anywhere; }
+.cr-doc-meta { color: var(--text-muted); font: var(--t-caption); }
+.cr-msgs { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cr-msg { max-width: min(680px, 92%); padding: 10px 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); }
+.cr-msg p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cr-msg.is-in { align-self: flex-start; background: var(--surface-2); }
+.cr-msg.is-out { align-self: flex-end; border-color: var(--primary-200); background: color-mix(in srgb, var(--primary-50) 70%, var(--surface)); }
+.cr-msg.is-status { align-self: center; background: var(--surface-2); border-style: dashed; }
+.cr-msg.is-note { align-self: stretch; max-width: none; border-color: var(--warning-100); background: color-mix(in srgb, var(--warning-100) 40%, var(--surface)); }
+.cr-msg-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font: var(--t-footnote); }
+.cr-msg-head time { margin-inline-start: auto; }
+.cr-msg-items { margin: 6px 0 0; padding-inline-start: 20px; }
+.cr-unavailable { display: flex; gap: 6px; align-items: flex-start; color: var(--warning-700); font: var(--t-footnote); }
+.cr-composer { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cr-composer.is-note textarea { background: color-mix(in srgb, var(--warning-100) 35%, var(--surface)); }
+.cr-composer-actions { display: flex; justify-content: flex-end; }
+.cr-composer-err:empty { display: none; }
+.cr-docs-reviewed { font: var(--t-footnote); }
+.cr-case { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0; }
+.cr-grants { display: inline-flex; gap: 6px; align-items: center; }
+
+/* ───────────── أوراق الشركات ───────────── */
+@media (min-width: 641px) {
+  .modal-sheet.cs-sheet { max-width: 620px; }
+  .modal-sheet.cs-sheet-lg { max-width: 920px; }
+  .modal-sheet.cs-sheet-xl { max-width: 1180px; }
+}
+.cs-body { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.cs-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.cs-sheet-xl .cs-two { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); }
+.cs-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cs-aside { position: sticky; top: 0; }
+@media (max-width: 900px) {
+  .cs-two, .cs-sheet-xl .cs-two { grid-template-columns: minmax(0, 1fr); }
+  .cs-aside { position: static; }
+}
+.cs-alert:empty { display: none; }
+.cs-section { display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.cs-section:last-child { border-bottom: 0; }
+.cs-section-title { margin: 0; font: var(--t-headline); }
+.cs-due-line { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); }
+.cs-note { margin: 0; color: var(--text-muted); font: var(--t-footnote); display: flex; gap: 6px; align-items: flex-start; }
+.cs-warn { display: flex; gap: 6px; align-items: flex-start; color: var(--warning-700); }
+.cs-quota { margin: 0; }
+.cs-lawyer-warn {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warning-100) 45%, var(--surface));
+  color: var(--warning-700);
+  font: var(--t-footnote);
+}
+.cs-people { grid-column: 1 / -1; }
+.cs-people:empty { display: none; }
+.cs-checklist { display: flex; flex-direction: column; gap: 6px; }
+.cs-checklist .check { min-height: 36px; align-items: center; }
+.cs-parties { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cs-party { display: grid; grid-template-columns: minmax(0, 1fr) 160px 44px; gap: 8px; width: 100%; }
+.cs-team { display: flex; flex-direction: column; gap: 14px; }
+.cs-fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }
+.cs-fieldset legend { font-weight: 700; margin-bottom: 6px; }
+.cs-lawyers { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 8px; }
+.cs-lawyer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.cs-lawyer.is-on { border-color: var(--primary-600); box-shadow: inset 0 0 0 1px var(--primary-600); background: color-mix(in srgb, var(--primary-50) 70%, var(--surface)); }
+.cs-lawyer input { margin-top: 4px; accent-color: var(--primary-700); }
+.cs-lawyer-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cs-lawyer-skills { display: flex; flex-wrap: wrap; gap: 4px; }
+.cs-lawyer-why, .cs-lawyer-rate { font: var(--t-caption); color: var(--text-muted); }
+.cs-excluded summary { cursor: pointer; color: var(--text-muted); font: var(--t-footnote); }
+.cs-preview { display: flex; gap: 6px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); font: var(--t-footnote); }
+.cs-matches { margin: 0; padding-inline-start: 18px; }
+.cs-items { margin: 0 0 8px; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 6px; }
+.cs-item { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 6px; align-items: center; }
+.cs-sla { display: flex; gap: 6px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--info-100) 45%, var(--surface)); color: var(--info-700); font: var(--t-footnote); }
+.cs-basis { align-self: flex-start; }
+.cs-plan { display: flex; flex-direction: column; gap: 8px; }
+.cs-plan-box { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-inline-start: 28px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); }
+.cs-plan-box p { margin: 0; }
+.cs-radio { min-height: 36px; align-items: center; }
+.cs-fill { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); }
+.cs-ai-note { display: flex; gap: 6px; align-items: center; margin: 0; color: var(--info-700); font: var(--t-footnote); }
+.cs-files { display: flex; flex-direction: column; gap: 10px; }
+.cs-sub { margin: 0 0 4px; font: var(--t-footnote); font-weight: 700; }
+.cs-checks { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.cs-gates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cs-gates li { display: flex; gap: 8px; align-items: flex-start; font: var(--t-footnote); }
+.cs-gates li > svg { flex-shrink: 0; margin-top: 2px; }
+.cs-gates .is-ok > svg { color: var(--success-700); }
+.cs-gates .is-bad { color: var(--danger-700); }
+.cs-gates .is-wait { color: var(--text-muted); }
+.cs-office { font: var(--t-footnote); }
+.cs-override { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--warning-100) 40%, var(--surface)); }
+.modal.is-busy .modal-body { opacity: 0.7; }
+
+/* ───────────── معاينة «كما تراه الشركة» داخل مكتب الفريق (مكونات lib/company-ui.js) ───────────── */
+.cs-preview-card { min-width: 0; }
+.cs-preview-card .co-card,
+.cs-preview-card .co-deliverable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.cs-preview-card .co-card-attention { border-inline-start: 4px solid var(--warning-500); }
+.cs-preview-card .co-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cs-preview-card .co-card-title, .cs-preview-card .co-deliverable-title { margin: 0; font: var(--t-headline); }
+.cs-preview-card .co-card-label { margin: 4px 0 0; font: var(--t-footnote); font-weight: 700; }
+.cs-preview-card .co-card-sub, .cs-preview-card .co-card-meta, .cs-preview-card .co-card-foot, .cs-preview-card .co-card-time { margin: 0; color: var(--text-muted); font: var(--t-footnote); }
+.cs-preview-card .co-card-foot { display: flex; gap: 6px; align-items: center; }
+.cs-preview-card .co-pre, .cs-preview-card .co-quote-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cs-preview-card .co-quote-amount { margin: 0; font: var(--t-title2, var(--t-headline)); }
+.cs-preview-card .co-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cs-preview-card .co-clar-items, .cs-preview-card .co-recs { margin: 0; padding-inline-start: 20px; }
+.cs-preview-card .co-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cs-preview-card .co-file { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cs-preview-card .co-file-type { font: var(--t-caption); padding: 2px 6px; border-radius: 6px; background: var(--gray-100); }
+.cs-preview-card .co-file-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.cs-preview-card .co-badges, .cs-preview-card .co-risk { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cs-preview-card .co-risk-label { font: var(--t-footnote); color: var(--text-muted); }
+.cs-preview-card .co-details summary { cursor: pointer; font: var(--t-footnote); }
+.co-team { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary-700); }
+.co-team-mark { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--primary-50); color: var(--primary-700); }
+
+/* شريحة الموعد في عمود «المواعيد» الضيق تلتف ولا تُقص */
+.cr-when .cq-sla, .cr-when .cq-sla > span { white-space: normal; overflow: visible; text-overflow: clip; height: auto; }
+.cq-col-co, .cq-col-sla { white-space: nowrap; }
+.cq-cell-req a { min-width: 200px; display: inline-block; }
+.cr-col-title { min-width: 200px; }
+.cr-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cr-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.cr-row:last-child { border-bottom: 0; }
+.cr-row-num { color: var(--text-muted); font: var(--t-footnote); }
+.cr-row-main { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cr-row-main strong { overflow-wrap: anywhere; }
+.cr-row-main .muted { font: var(--t-footnote); }
+.cs-quote .cs-two > .cs-col:last-child,
+.cs-clarify .cs-two > .cs-col:last-child { position: sticky; top: 0; }
+@media (max-width: 900px) {
+  .cs-quote .cs-two > .cs-col:last-child,
+  .cs-clarify .cs-two > .cs-col:last-child { position: static; }
+}
+
+/* ───────────── الشركات: الإضافة وشروط الباقة (STF-7، U10-S20/S23) ───────────── */
+.cs-prefix { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; font: var(--t-footnote); min-height: 20px; }
+.cs-prefix > span { display: inline-flex; align-items: center; gap: 4px; }
+.cs-prefix-ok { color: var(--success-700); font-weight: 600; }
+.cs-prefix-bad { color: var(--danger-700); font-weight: 600; }
+.cs-prefix-muted { color: var(--text-muted); }
+.cs-prefix-preview { color: var(--text-muted); }
+.cs-terms { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cs-terms .check-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 12px; }
+.cs-sla-grid .table-wrap { overflow-x: auto; }
+.cs-sla-table { width: 100%; border-collapse: collapse; font: var(--t-footnote); }
+.cs-sla-table th, .cs-sla-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: start; vertical-align: middle; }
+.cs-sla-table thead th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.cs-sla-table.is-edit .input { min-width: 72px; max-width: 120px; min-height: 44px; }
+.cs-sla-table.is-edit .select-wrap .input { max-width: none; min-width: 150px; }
+.cs-sla-err .field-error { margin: 0; }
+.cs-terms-view { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cs-terms-line { margin: 0; }
+.cs-terms-line.muted { color: var(--text-muted); font: var(--t-footnote); }
+.cs-plan-terms { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cs-invite { display: flex; flex-direction: column; gap: 8px; }
+.cs-invite-link { display: flex; gap: 8px; align-items: center; }
+.cs-invite-link .input { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+.cs-created-line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0; color: var(--text-muted); }
+tr.is-late > td:first-child { box-shadow: inset -4px 0 0 var(--danger-600); }
+tr.is-at-risk > td:first-child { box-shadow: inset -4px 0 0 var(--warning-500); }
+
+/* ───────────── صفحة الشركة (STF-8، U10-S21) ───────────── */
+.cd-page .tablist { overflow-x: auto; scrollbar-width: thin; }
+.cd-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .cd-grid { grid-template-columns: minmax(0, 1fr); } }
+.cd-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cd-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cd-actions .btn-sm { min-height: 36px; }
+.cd-security { display: flex; flex-direction: column; gap: 8px; }
+.cd-security .btn { justify-content: flex-start; min-height: 44px; }
+.cd-pod { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cd-pod-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr) 44px; gap: 8px; align-items: center; }
+@media (max-width: 720px) { .cd-pod-row { grid-template-columns: minmax(0, 1fr) 44px; } }
+.cd-total { margin: 0; padding: 10px 16px; border-top: 1px solid var(--border); text-align: end; }
+.cd-cycle .input { min-height: 36px; padding-block: 4px; }
+tr.is-voided > td { color: var(--text-muted); }
+.is-struck { text-decoration: line-through; }
+.cs-usage { padding: 12px 14px; border-radius: var(--radius-lg); border: 1px dashed var(--border-strong); }
+.cs-preview-card .co-meter { display: grid; gap: 8px; }
+.cs-preview-card .co-meter-line { margin: 0; font-weight: 600; }
+.cs-preview-card .co-meter-note { display: flex; gap: 6px; align-items: flex-start; margin: 0; color: var(--warning-700); font: var(--t-footnote); }
+.cs-preview-card .co-meter .progress.tone-danger .progress-bar { background: var(--danger-600); }
+.cs-memory .co-memory-form { display: flex; flex-direction: column; gap: 12px; }
+.cs-memory .co-memory-notice { margin: 0; color: var(--warning-700); font: var(--t-footnote); }
+
+/* ───────────── إعدادات خدمة الشركات والبريد (STF-9، U10-S22…S24) ───────────── */
+.cs-hours { display: flex; flex-direction: column; gap: 10px; }
+.cs-days { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.cs-day { min-height: 44px; align-items: center; }
+.cs-times { display: flex; gap: 12px; flex-wrap: wrap; }
+.cs-time { display: inline-flex; align-items: center; gap: 8px; }
+.cs-time .input { width: 140px; min-height: 44px; }
+.cs-hours-box { margin-inline-start: 28px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); }
+.cs-holidays { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-hol-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cs-hol-add .input { width: 180px; min-height: 44px; }
+.es-providers { display: flex; flex-direction: column; gap: 4px; }
+
+/* ───────────── صفحات المحرك لملفات الشركات (STF-10، U10-S10/S02) ───────────── */
+.cd-company-banner { margin-block-end: 16px; }
+.cd-company-close { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font: var(--t-footnote); }
+.cd-company-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; color: var(--text-muted); }
+.cd-company-line a { font-weight: 600; }
+.cd-shadow { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.cd-shadow p { margin: 0; font: var(--t-headline); }
+.cd-dash-strip { margin-block: 16px; }
+.cd-dash-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .cd-dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ───────────── المحامي: ملفات الشركات (STF-11، U10-L01…L05) ───────────── */
+.lh-co-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font: var(--t-caption);
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.lh-co { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.lh-co-name { color: var(--text-muted); font: var(--t-footnote); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-inline { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lh-filter-chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px 0; }
+.lh-filter-chips .chip-toggle { min-height: 44px; }
+.lw-co { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; background: var(--surface); }
+.lw-co-name { margin: 0 0 4px; font: var(--t-headline); }
+.lw-co-line { display: flex; align-items: center; gap: 6px; margin: 4px 0; color: var(--text); font: var(--t-footnote); }
+.lw-co-sub { margin: 12px 0 6px; font: var(--t-footnote); font-weight: 700; }
+.lw-co-list { display: flex; flex-direction: column; gap: 6px; }
+.lw-co-item { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.lw-co-item > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer; list-style: none; font: var(--t-footnote); }
+.lw-co-item > summary::-webkit-details-marker { display: none; }
+.lw-co-item[open] > summary .lw-chev { transform: rotate(180deg); }
+.lw-co-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+.lw-co-body p { margin: 0; }
+.lw-co-dl { margin: 0; display: grid; gap: 4px; }
+.lw-co-kv { display: grid; grid-template-columns: minmax(110px, 40%) minmax(0, 1fr); gap: 8px; font: var(--t-footnote); }
+.lw-co-kv dt { color: var(--text-muted); }
+.lw-co-kv dd { margin: 0; overflow-wrap: anywhere; }
+.lw-co-warn { display: flex; gap: 6px; align-items: flex-start; margin: 0 0 8px; color: var(--warning-700); font: var(--t-footnote); }
+.lw-co-hint { display: flex; gap: 6px; align-items: center; }
+.lw-wf-row { position: relative; }
+.lw-wf-del { min-height: 44px; padding-inline: 10px; }
+.lw-wf-add { position: relative; min-height: 48px; cursor: pointer; }
+.lw-wf-add .file-native { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* b2b-staff build-2 (STF-12): أهداف اللمس على الهاتف داخل نوافذ الشركات ومنتقي الدورة — ≥ 44px والزر الرئيسي ≥ 48px */
+@media (max-width: 640px), (pointer: coarse) {
+  .cs-sheet .btn,
+  .cs-sheet .input:not(textarea),
+  .cd-cycle .input { min-height: 44px; }
+  .cs-sheet .btn-primary { min-height: 48px; }
+}
+
+/* b2b-staff review: قائمة الشركات تتسع لعرض 1366 (نهاية التجربة تحت الحالة؛ لا حد أدنى لعرض اسم الشركة) */
+.cq-cell-co a { min-width: 0; }
+.cq-trial { font: var(--t-caption); }
+.cq-col-num { white-space: nowrap; }
+
+/* b2b-staff review: أهداف اللمس على الهاتف في شاشات خدمة الشركات كلها — ≥ 44px (الأزرار المقسّمة، الفلاتر، المختارات، صفوف الاختيار) */
+@media (max-width: 640px), (pointer: coarse) {
+  .cq-page .seg,
+  .cr-page .seg,
+  .cs-sheet .seg,
+  .cq-page .filter-bar .input,
+  .cr-page .input:not(textarea),
+  .cs-sheet .chip-toggle,
+  .cs-sheet label.check,
+  .cs-sheet .cs-radio,
+  .cr-missing label.check,
+  .cq-page label.check,
+  [id='b2b'] .input:not(textarea),
+  [id='b2b'] label.check,
+  [id='plans'] .input:not(textarea),
+  [id='plans'] label.check,
+  .es-card .input:not(textarea),
+  .es-outbox .input:not(textarea),
+  .es-card label.check { min-height: 44px; }
+  .cs-sheet label.check,
+  .cq-page label.check,
+  .cr-missing label.check,
+  [id='b2b'] label.check,
+  [id='plans'] label.check,
+  .es-card label.check { display: flex; align-items: center; }
+}
+
+/* b2b-staff review: في أوراق الشركات الطويلة على الهاتف كان المقبض (44px) ينكمش داخل عمود flex إلى 8px، ومع هامشه السالب
+   تعلو الترويسة فوق حافة الورقة ويُقص العنوان. المقبض والترويسة والتذييل لا ينكمشون؛ الجسم وحده يُمرَّر. */
+.cs-sheet > .modal-grip,
+.cs-sheet > .modal-header,
+.cs-sheet > .modal-footer { flex-shrink: 0; }
+.cs-sheet > .modal-body { min-height: 0; }
+
+/* gate J-13: شارة الشركة ورمز طلبها على بطاقات «قرارات الإدارة» */
+.pa-co-chip { text-decoration: none; display: inline-flex; }
+.pa-co-chip:hover .badge { text-decoration: underline; }
+
+/* gate K7: على هاتف المحامي تظهر التنبيهات أسفل الشاشة؛ وأثناء نافذة أو ورقة مفتوحة تنتقل لأعلى الشاشة حتى لا تغطي أزرارها */
+@media (max-width: 640px) {
+  html.lh-lawyer-ui body.has-modal .toast-region {
+    inset-block-start: calc(12px + env(safe-area-inset-top, 0px));
+    inset-block-end: auto;
+    --toast-from: -12px;
+  }
+}

@@ -10,6 +10,7 @@ import { api } from '../../../lib/api.js';
 import { time, shortDate, money, num, normalizeEgPhone } from '../../../lib/fmt.js';
 import { button, icon, toast, modal, errorMessage, asyncButton } from '../../../lib/ui.js';
 import { withPasswordConfirm, REAUTH_CANCELLED } from '../../lh-reauth.js';
+import { haptic } from '../../../lib/haptics.js'; // v10 experience (H-E5)
 import {
   NAV,
   count,
@@ -20,6 +21,7 @@ import {
   assignmentStatus,
   matterStatus,
   monthName,
+  companyParts, // v10 b2b-staff (U10-L01)
 } from '../../words.js';
 
 const CACHE_TTL_MS = 24 * 3600 * 1000;
@@ -76,7 +78,8 @@ function subLine(parts) {
   const out = [];
   parts.forEach((p, i) => {
     if (i) out.push(h('span.lh-sep', { 'aria-hidden': 'true' }, ' · '));
-    if (p && typeof p === 'object' && p.code) out.push(h('bdi.lh-code', { dir: 'ltr' }, p.code));
+    if (p && typeof p === 'object' && p.chip) out.push(h('span.lh-co-chip', p.chip)); // v10 b2b-staff (U10-L01): «شركة»
+    else if (p && typeof p === 'object' && p.code) out.push(h('bdi.lh-code', { dir: 'ltr' }, p.code));
     else if (p && typeof p === 'object' && p.keep) out.push(h('span.lh-keep', String(p.keep)));
     else out.push(h('span.lh-sub-text', String(p)));
   });
@@ -275,6 +278,7 @@ export default async function render(ctx) {
       toast(errorMessage(err), 'danger');
       return;
     }
+    haptic('commit'); // v10 experience (H-E5, X10-M6): «تم» سُجّلت
     const t = toast('سُجّلت المهمة منجزة', 'success', 5000);
     const undo = h('button.lh-toast-undo', { type: 'button' }, 'تراجع');
     undo.addEventListener('click', async () => {
@@ -358,7 +362,7 @@ export default async function render(ctx) {
             href = `#/my/matters/${u.matter_id}`;
           } else {
             title = `موعد تسليم رأيك ${when(u.at)}`;
-            sub = [{ code: u.case_code }, clip(u.case_title, 22)].filter(Boolean);
+            sub = [{ code: u.case_code }, ...companyParts(u), clip(u.case_title, 22)].filter(Boolean); // v10 b2b-staff
             href = `#/my/assignments/${u.assignment_id}`;
           }
           return h('li', h('a.lh-line', { href }, h('span.lh-line-text', h('span.lh-line-title', title), h('span.lh-row-sub', subLine(sub))), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 }))));
@@ -373,7 +377,7 @@ export default async function render(ctx) {
     const mts = work.matters || [];
     const lines = [
       ...asg.map((a) =>
-        h('li', h('a.lh-line', { href: `#/my/assignments/${a.id}` }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: a.case_code }, clip(a.case_title, 22)]))), h('span.lh-status-word', { class: `is-${a.status}` }, assignmentStatus(a.status)))),
+        h('li', h('a.lh-line', { href: `#/my/assignments/${a.id}` }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: a.case_code }, ...companyParts(a), clip(a.case_title, 22)]))), h('span.lh-status-word', { class: `is-${a.status}` }, assignmentStatus(a.status)))), // v10 b2b-staff: «شركة»
       ),
       ...mts.map((m) =>
         h('li', h('a.lh-line', { href: `#/my/matters/${m.id}` }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: m.code }, clip(m.title, 22)]))), h('span.lh-status-word', matterStatus(m.status)))),

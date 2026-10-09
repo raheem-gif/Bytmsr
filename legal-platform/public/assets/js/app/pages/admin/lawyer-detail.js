@@ -41,6 +41,10 @@ import {
   PAID_TYPES,
 } from './lawyers.js';
 import { accountSecurityCard } from '../../components/account-admin.js';
+import { B2B_SKILLS } from '../../../lib/company-catalog.js'; // v10 b2b-staff (STF-11، L-56)
+
+/** v10 b2b-staff (L-56): تلميح «الاسم بالإنجليزية» — يفحص به الخادم التسليمات والملفات قبل وصولها للشركات */
+export const NAME_LATIN_HINT = 'يُستخدم للتأكد من عدم ظهور اسمك في ملفات الشركات وتسليماتها.';
 
 const ACTIVE_ASSIGNMENT = ['assigned', 'in_progress', 'returned'];
 
@@ -442,6 +446,46 @@ export default async function render(ctx) {
     ),
   });
 
+  // v10 b2b-staff (STF-11): «خدمة الشركات» — الاسم بالإنجليزية (P0، فحص التسليمات)، مهارات طلبات الشركات وسعرها (P1)
+  const companyCard = card({
+    title: 'خدمة الشركات',
+    icon: 'building',
+    actions: isAdmin
+      ? button('تعديل', {
+          size: 'sm',
+          icon: 'edit',
+          onClick: async () => {
+            const res = await formDialog({
+              title: 'خدمة الشركات',
+              fields: [
+                { name: 'name_latin', label: 'الاسم بالإنجليزية', ltr: true, maxLength: 80, placeholder: 'Tarek El-Naggar', hint: NAME_LATIN_HINT },
+                { name: 'skills', label: 'مهارات طلبات الشركات', type: 'multiselect', options: B2B_SKILLS.map((x) => ({ value: x.key, label: x.label })) },
+                { name: 'b2b_rate', label: 'سعر طلبات الشركات', type: 'money', min: 0, hint: 'أتعاب المحامي عن طلب شركة متوسط الحجم؛ يظهر للإدارة عند اختيار المحامي.' },
+              ],
+              values: { name_latin: l.name_latin || '', skills: l.skills || [], b2b_rate: l.b2b_rate },
+              onSubmit: (v) => {
+                if (v.name_latin && !/^[A-Za-z][A-Za-z .'-]*$/.test(v.name_latin)) {
+                  const e = new Error('الاسم بالإنجليزية يُكتب بحروف لاتينية ومسافات فقط');
+                  e.details = { fields: { name_latin: 'حروف لاتينية ومسافات فقط، مثل Tarek El-Naggar' } };
+                  throw e;
+                }
+                return api.patch(`/admin/lawyers/${encodeURIComponent(l.id)}`, { name_latin: v.name_latin || null, skills: v.skills || [], b2b_rate: v.b2b_rate ?? null });
+              },
+            });
+            if (res) {
+              toast('حُفظت بيانات خدمة الشركات', 'success');
+              ctx.reload();
+            }
+          },
+        })
+      : null,
+    body: kv([
+      ['الاسم بالإنجليزية', l.name_latin ? h('bdi', { dir: 'ltr', lang: 'en' }, l.name_latin) : h('span.muted', 'غير مسجل — سجّله ليُفحص في ملفات التسليم')],
+      ['مهارات طلبات الشركات', (l.skills || []).length ? chips((l.skills || []).map((k) => ({ label: B2B_SKILLS.find((x) => x.key === k)?.label || k }))) : h('span.muted', 'لم تُحدَّد')],
+      ['سعر طلبات الشركات', l.b2b_rate != null ? money(l.b2b_rate) : h('span.muted', 'لم يُحدَّد')],
+    ]),
+  });
+
   const agreementBody = [
     h('div.pd-agreement-head', statusBadge('agreement_type', ag.type, { dot: false })),
     h('p.pd-agreement-text', describeAgreement(ag)),
@@ -486,6 +530,7 @@ export default async function render(ctx) {
     l.active && l.invite_pending && alertBox('لم يفعّل المحامي حسابه بعد من رابط الدعوة، ولن يظهر ضمن المقترحين عند الإسناد حتى يفعّله. يمكنك إعادة إرسال الدعوة من بطاقة «الحساب والأمان».', 'info', { title: 'بانتظار قبول الدعوة' }),
     metricsCard,
     h('div.pd-detail-top', profileCard, agreementCard),
+    companyCard, // v10 b2b-staff
     // وحدة الحسابات: حالة الدخول والدعوة والتحقق بخطوتين والجلسات (لمدير النظام)
     isAdmin ? accountSecurityCard({ userId: l.id, me: ctx.user }) : null,
     card({ body: tabsEl, className: 'pd-tabs-card' }),

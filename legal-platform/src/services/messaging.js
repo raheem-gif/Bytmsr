@@ -98,7 +98,7 @@ export function fillVars(template, values) {
 
 export function createMessaging(app) {
   const { db } = app;
-  const orgName = () => app.settings.get('org_name') || 'بيوت مصر';
+  const orgName = () => app.brand.displayName(); // v10 experience (H-E3): اسم المكتب كما يراه العملاء
 
   // مفتاح تجزئة رموز الدخول: من APP_SECRET إن ضُبط، وإلا مفتاح عشوائي لعمر العملية (الرمز صالح 10 دقائق فقط)
   const otpKey = process.env.APP_SECRET && String(process.env.APP_SECRET).length >= 16
@@ -625,6 +625,8 @@ export function createMessaging(app) {
       if (!doc.client_id) throw badRequest('المستند غير مرتبط بعميل، فلا يمكن إرساله');
       const client = app.clients.get(doc.client_id);
       if (!client) throw notFound('العميل غير موجود');
+      // v10 b2b-server (حارسا #17 و#25): مستند شركة أو ملف شركة لا يُرسل على واتساب أو بوابة الأفراد
+      if (client.company_id || doc.company_id || (doc.case_id && db.get('SELECT 1 FROM cases WHERE id = ? AND company_id IS NOT NULL', doc.case_id))) throw Object.assign(conflict('هذا مستند شركة؛ يصلها مع رسالة أو تسليم من صفحة طلب الشركة.'), { code: 'company_document' });
       const requested = v.oneOf(body.channel || 'auto', ['auto', 'whatsapp', 'website'], 'قناة الإرسال', { required: true });
       const caption = v.str(body.caption, 'النص المرافق', { max: 1000 });
       const phone = app.clients.primaryPhone(client.id);
@@ -871,7 +873,7 @@ export function createMessaging(app) {
       const rows = db.all(
         `SELECT a.id AS answer_id, a.sent_at, c.id AS case_id, c.code, c.client_id, c.intake_id, c.matter_id
          FROM client_answers a JOIN cases c ON c.id = a.case_id
-         WHERE a.status = 'sent' AND a.sent_at <= ? AND a.sent_at >= ?
+         WHERE a.status = 'sent' AND a.sent_at <= ? AND a.sent_at >= ? AND c.company_id IS NULL -- v10 b2b-server (حارس #24)
            AND a.id = (SELECT MAX(x.id) FROM client_answers x WHERE x.case_id = a.case_id AND x.status = 'sent')
            AND NOT EXISTS (SELECT 1 FROM case_surveys s WHERE s.case_id = c.id)`,
         cutoff,

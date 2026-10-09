@@ -1,0 +1,2014 @@
+/* ==========================================================================
+   v10 — بوابة الشركات /company: أنماط الصفحات التي تُحمَّل عند الحاجة (الدخول والروابط وشاشة الإلزام، طلب جديد، الرفع
+   على مراحل). تُحمَّل قبل عرض هذه الشاشات (ensureStyles) فتبقى أوراق أول رسم لـ«المتابعة» ضمن 25 كيلوبايت (§8.4).
+   نفس قواعد v10-company.css: رموز ألوان فقط، ولا ذهبي إلا زر «طلب جديد».
+   ========================================================================== */
+
+/* ───────────── الدخول والروابط ───────────── */
+.co-auth {
+  display: grid;
+  min-height: 100vh;
+}
+
+.co-auth-panel {
+  display: none;
+}
+
+.co-auth-main {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
+}
+
+.co-auth-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.co-auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 20px;
+  text-align: center;
+}
+
+.co-auth-brand .wordmark-lg {
+  align-items: center;
+}
+
+.co-auth-mark {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--primary-700);
+  color: var(--surface);
+}
+
+.co-auth-promise {
+  margin: 0;
+  font-size: 15px;
+  color: var(--primary-700);
+}
+
+.co-auth-portal {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.co-auth-title {
+  margin: 0 0 12px;
+  font: var(--t-title2);
+  text-align: center;
+  outline: none;
+}
+
+.co-auth-sub,
+.co-auth-email {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.co-auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.co-auth-form .btn-lg {
+  min-height: 48px;
+}
+
+.co-auth-form .input {
+  min-height: 44px;
+}
+
+.co-auth .input-action {
+  width: auto;
+  min-width: 52px;
+  padding-inline: 8px;
+  font: 600 13px / 1 var(--font);
+  color: var(--primary-700);
+}
+
+.co-auth .input-group-action .input[dir="ltr"] {
+  padding-left: 64px;
+}
+
+.co-auth-error {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--danger-700);
+  font-weight: 600;
+}
+
+.co-auth-error[hidden] {
+  display: none;
+}
+
+.co-auth-links {
+  margin: 0;
+  text-align: center;
+}
+
+.co-auth-links a,
+.co-auth-staff a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.co-auth-staff {
+  margin: 8px 0 0;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+  text-align: center;
+  font-size: 14px;
+}
+
+.co-auth-loading {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.co-otp {
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.co-terms {
+  gap: 4px;
+}
+
+.co-terms-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-inline-start: 30px;
+}
+
+.co-gate-wizard {
+  text-align: start;
+}
+
+@media (min-width: 1024px) {
+  .co-auth {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .co-auth-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: linear-gradient(160deg, var(--primary-800), var(--primary-900));
+    color: var(--surface);
+  }
+
+  .co-auth-panel-in {
+    display: grid;
+    gap: 20px;
+    max-width: 420px;
+  }
+
+  .co-auth-panel .co-auth-promise {
+    color: var(--primary-100);
+    font-size: 17px;
+  }
+
+  .co-auth-lines {
+    display: grid;
+    gap: 14px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 17px;
+  }
+
+  .co-auth-lines li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .co-auth-main {
+    align-items: center;
+  }
+
+  .co-auth-card .co-auth-brand .co-auth-mark,
+  .co-auth-card .co-auth-brand .wordmark,
+  .co-auth-card .co-auth-brand .co-auth-promise {
+    display: none;
+  }
+}
+
+/* ───────────── طلب جديد (U10-28…40) ───────────── */
+.co-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 1024px) {
+  .co-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+.co-type-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--gray-900);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.co-type-tile:hover {
+  border-color: var(--primary-300);
+}
+
+.co-type-tile:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.co-type-tile .icon {
+  width: 28px;
+  height: 28px;
+  color: var(--primary-700);
+}
+
+.co-type-tile-label {
+  font: var(--t-headline);
+}
+
+.co-type-tile-sub {
+  font: var(--t-footnote);
+  color: var(--gray-600);
+}
+
+.co-type-tile .badge {
+  margin-block-start: auto;
+}
+
+.co-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-block-end: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--info-100);
+  border-radius: var(--radius-lg);
+  background: var(--info-100);
+}
+
+.co-draft p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.co-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.co-draft-actions .btn {
+  min-height: 44px;
+}
+
+.co-nr-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .co-nr-grid {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .co-nr-aside {
+    position: sticky;
+    inset-block-start: calc(var(--k-chrome-h) + 16px);
+  }
+}
+
+.co-nr-step-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.co-nr-typeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 12px;
+  font-weight: 600;
+}
+
+.co-nr-form {
+  display: grid;
+  gap: 14px;
+}
+
+.co-nr-form .field {
+  margin: 0;
+}
+
+.co-nr-form .input,
+.co-nr-form select.input {
+  min-height: 44px;
+}
+
+.co-type-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.co-more summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--primary-700);
+  cursor: pointer;
+}
+
+.co-more-body {
+  display: grid;
+  gap: 14px;
+  padding-block-start: 8px;
+}
+
+.field-note {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--info-700);
+}
+
+.field-note[hidden] {
+  display: none;
+}
+
+.co-hint-warning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--warning-700);
+}
+
+.co-hint-warning[hidden] {
+  display: none;
+}
+
+.co-urgency .choice-tile {
+  min-height: 64px;
+  align-items: flex-start;
+  text-align: start;
+}
+
+.co-summary {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.co-summary-title {
+  margin: 0;
+  font: var(--t-headline);
+}
+
+.co-summary p {
+  margin: 0;
+}
+
+.co-summary-strong {
+  font-weight: 700;
+}
+
+.co-summary-muted {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.co-send-error {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--danger-700);
+  font-weight: 600;
+}
+
+.co-send-error[hidden] {
+  display: none;
+}
+
+.co-nr-bar {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  margin-inline: -16px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--mat-chrome-solid);
+  border-block-start: 1px solid var(--border);
+}
+
+.co-nr-bar .btn {
+  min-height: 48px;
+}
+
+@media (min-width: 1024px) {
+  .co-nr-bar {
+    position: static;
+    margin-inline: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+}
+
+.co-watchers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.co-watcher-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.co-done {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 560px;
+  margin: 24px auto;
+  text-align: center;
+}
+
+.co-done-icon {
+  color: var(--success-700);
+}
+
+.co-done-code {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.co-done p {
+  margin: 0;
+}
+
+.co-done-next {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  text-align: start;
+}
+
+.co-done-next p {
+  margin: 4px 0;
+}
+
+.co-done-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.co-done-actions .btn {
+  min-height: 48px;
+}
+
+/* ───────────── الرفع على مراحل ───────────── */
+.co-uploader {
+  display: grid;
+  gap: 8px;
+}
+
+.co-up-zone {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  text-align: center;
+}
+
+.co-up-zone.is-dragover {
+  border-color: var(--primary-500);
+  background: var(--primary-50);
+}
+
+.co-up-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.co-up-btn {
+  min-height: 48px;
+  cursor: pointer;
+}
+
+/* الحقل الأصلي مخفي: حلقة التركيز على زره الظاهر */
+.co-up-btn.is-focus {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+.co-up-drop {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.co-up-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.co-up-another[hidden] {
+  display: none;
+}
+
+.co-up-error {
+  margin: 0;
+  color: var(--danger-700);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.co-up-error[hidden] {
+  display: none;
+}
+
+.co-up-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.co-up-list[hidden] {
+  display: none;
+}
+
+.co-up-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.co-up-item.is-failed {
+  border-color: var(--danger-100);
+  background: var(--danger-100);
+}
+
+.co-up-icon {
+  color: var(--gray-500);
+}
+
+.co-up-main {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.co-up-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.co-up-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.co-up-state.is-done {
+  color: var(--success-700);
+}
+
+.co-up-state.is-failed {
+  color: var(--danger-700);
+}
+
+.co-up-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  overflow: hidden;
+}
+
+.co-up-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary-600);
+}
+
+.co-up-remove {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.co-up-remove:hover {
+  background: var(--gray-100);
+}
+
+.co-up-progress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.co-up-progress:empty {
+  display: none;
+}
+
+/* خطوتا طلب جديد على الهاتف (شاشة لكل خطوة)، وصفحة واحدة على الحاسوب */
+@media (max-width: 1023px) {
+  .co-nr[data-step="1"] .co-nr-s2,
+  .co-nr[data-step="1"] .co-nr-aside,
+  .co-nr[data-step="2"] .co-nr-s1,
+  .co-nr[data-step="2"] .co-nr-next,
+  .co-desk-only {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .co-nr-next,
+  .co-phone-only {
+    display: none;
+  }
+}
+
+.co-nr-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.co-nr-main > .co-section {
+  margin: 0;
+}
+
+/* ───────────── معالج التحقق بخطوتين على الهاتف نفسه (شاشة الإلزام وحسابي والأمان؛ نفس شكل منصة الفريق L-11) ───────────── */
+.lh-2fa-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lh-2fa-phone .btn {
+  --btn-h: 52px;
+}
+
+.lh-2fa-key {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  word-spacing: 0.3em;
+  padding: 10px 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lh-2fa-tip {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.lh-2fa-other summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary-700);
+}
+
+/* ───────────── صفحة الطلب (U10-42…U10-58) ─────────────
+   الحاسوب: عمودان 8/4 والجانب ثابت تحت الشريط. الهاتف: عمود واحد بالترتيب — الرأس، الوعد، بطاقة الإجراء، «أين وصل
+   طلبكم؟»، التسليمات، المحادثة، التفاصيل، المستندات، الذاكرة (العمودان display: contents فيرتّبهما order). */
+.co-req-head {
+  display: grid;
+  gap: 8px;
+  margin-block-end: 16px;
+}
+
+.co-req-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.co-req-head .co-h1 {
+  overflow-wrap: anywhere;
+}
+
+.co-req-grid {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.co-req-main,
+.co-req-aside {
+  display: contents;
+}
+
+.co-req-promise { order: 1; margin-block-end: 16px; }
+.co-state-note { order: 1; }
+.co-req-action { order: 2; }
+.co-req-tracker { order: 3; }
+.co-req-deliverables { order: 4; }
+.co-req-messages { order: 5; }
+.co-req-details { order: 6; }
+.co-req-documents { order: 7; }
+.co-req-memory { order: 8; }
+
+.co-req-block:focus {
+  outline: none;
+}
+
+.co-req-action:focus-visible,
+.co-req-block:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .co-req-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .co-req-main,
+  .co-req-aside {
+    display: block;
+    min-width: 0;
+  }
+
+  .co-req-aside {
+    position: sticky;
+    top: calc(var(--k-chrome-h, 64px) + 16px);
+  }
+}
+
+.co-req .co-promise {
+  margin: 0 0 16px;
+}
+
+.co-state-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-block-end: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+}
+
+.co-state-note p {
+  margin: 0;
+}
+
+.co-state-note.is-success .icon {
+  color: var(--success-700);
+}
+
+.co-action-more {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: -8px 0 16px;
+  font-size: 14px;
+}
+
+.co-muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.co-older summary {
+  margin-block: 4px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.co-desc {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.co-desc.is-folded {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  overflow: hidden;
+}
+
+/* قائمة «⋯» */
+.co-menu-anchor {
+  position: relative;
+}
+
+.co-more-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.co-pop-menu {
+  inset-inline-end: 0;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 32px));
+}
+
+/* تُوضع بجوار زرها بإحداثيات الشاشة (page-kit menuButton) فلا تقصّها الجداول القابلة للتمرير */
+.co-pop-menu.is-fixed {
+  position: fixed;
+  inset: auto;
+}
+
+.co-menu-item[disabled] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* المستندات */
+.co-docs {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-doc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.co-doc-main {
+  display: grid;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.co-doc-name {
+  overflow-wrap: anywhere;
+}
+
+.co-doc-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* المحادثة: فريقكم القانوني في البداية، والشركة في النهاية */
+.co-conversation {
+  display: grid;
+  gap: 12px;
+}
+
+.co-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.co-thread-day {
+  align-self: center;
+  margin-block: 6px 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.co-thread-day span {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--gray-100);
+}
+
+.co-msg {
+  display: flex;
+  max-width: min(86%, 560px);
+  min-width: 0;
+}
+
+.co-msg-team {
+  align-self: flex-start;
+}
+
+.co-msg-company {
+  align-self: flex-end;
+}
+
+.co-msg-bubble {
+  display: grid;
+  gap: 4px;
+  min-width: min(140px, 100%);
+  max-width: 100%;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.co-msg-team .co-msg-bubble {
+  border-start-start-radius: 4px;
+}
+
+.co-msg-company .co-msg-bubble {
+  border-color: var(--primary-100, var(--border));
+  border-start-end-radius: 4px;
+  background: var(--primary-50);
+}
+
+.co-msg-clar .co-msg-bubble {
+  border-inline-start: 4px solid var(--warning-500);
+}
+
+.co-msg.is-failed .co-msg-bubble {
+  border-color: var(--danger-600);
+}
+
+.co-msg-meta {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-800);
+}
+
+.co-msg-author {
+  color: var(--gray-800);
+}
+
+.co-msg-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.co-msg-items {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.co-msg-tag,
+.co-msg-answered {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.co-msg-answered {
+  color: var(--success-700);
+}
+
+.co-msg-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.co-msg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.co-msg-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.co-msg-state.is-failed {
+  color: var(--danger-700);
+}
+
+.co-msg-status {
+  align-self: center;
+  display: grid;
+  justify-items: center;
+  max-width: 92%;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.co-msg-status p {
+  margin: 0;
+}
+
+.co-composer {
+  display: grid;
+  gap: 8px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+}
+
+.co-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.co-composer-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.co-composer-note {
+  margin-block-start: 4px;
+}
+
+/* الأوراق */
+.co-sheet-body {
+  display: grid;
+  gap: 14px;
+}
+
+.co-sheet-lead {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.co-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.co-check-block {
+  display: grid;
+  gap: 4px;
+}
+
+.co-decision summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.co-decision-body {
+  display: grid;
+  gap: 12px;
+  margin-block-start: 12px;
+}
+
+/* التقييم بالنجوم (U10-49) */
+.co-rating {
+  display: grid;
+  gap: 6px;
+}
+
+.co-stars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.co-star {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.co-star.is-on {
+  color: var(--warning-700);
+}
+
+.co-star.is-on .icon {
+  fill: currentColor;
+}
+
+.co-star:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 1px;
+}
+
+.co-stars-caption {
+  margin-inline-start: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
+/* ───────────── الذاكرة القانونية (U10-59…U10-66) ───────────── */
+.co-mem-search {
+  margin-block-end: 16px;
+}
+
+.co-mem-kinds {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 1024px) {
+  .co-mem-kinds {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+.co-mem-kind {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.co-mem-kind:hover {
+  border-color: var(--primary-300);
+}
+
+.co-mem-kind:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 2px;
+}
+
+.co-mem-kind-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.co-mem-kind-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+}
+
+.co-mem-kind-title {
+  font-weight: 700;
+}
+
+.co-mem-kind-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.co-mem-kind-line.is-warn {
+  color: var(--warning-700);
+}
+
+.co-mem-kind-chev {
+  color: var(--text-muted);
+}
+
+.co-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.co-mem-select {
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 260px;
+}
+
+.co-cell-stack {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.co-mem-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: -6px 8px;
+}
+
+.co-mem-prov {
+  margin-block-end: 16px;
+  font-size: 14px;
+}
+
+.co-mem-dates {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-mem-dates li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.co-mem-dates li.is-warn {
+  color: var(--warning-700);
+  font-weight: 700;
+}
+
+.co-mem-date-icon {
+  display: grid;
+  color: var(--text-muted);
+}
+
+.co-mem-dates li.is-warn .co-mem-date-icon {
+  color: var(--warning-700);
+}
+
+.co-mem-reminder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-block-start: 12px;
+  font-size: 14px;
+}
+
+.co-mem-form {
+  max-width: 760px;
+}
+
+.co-memory-form {
+  display: grid;
+  gap: 14px;
+}
+
+.co-memory-notice {
+  margin: 0;
+  color: var(--warning-700);
+  font-weight: 700;
+}
+
+.co-memory-notice:empty {
+  display: none;
+}
+
+/* المواعيد المهمة: جدول أعمال بالشهر */
+.co-agenda-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+
+.co-agenda-row:hover {
+  background: var(--gray-50);
+}
+
+.co-agenda-row:focus-visible {
+  outline: 2px solid var(--primary-600);
+}
+
+.co-agenda-day {
+  display: grid;
+  justify-items: center;
+  flex: 0 0 56px;
+  padding: 4px 0;
+  border-radius: var(--radius);
+  background: var(--primary-50);
+  color: var(--primary-800);
+}
+
+.co-agenda-num {
+  font: var(--t-title2);
+  line-height: 1.1;
+}
+
+.co-agenda-wd {
+  font-size: 12px;
+}
+
+.co-agenda-icon {
+  display: grid;
+  color: var(--text-muted);
+}
+
+.co-agenda-text {
+  display: grid;
+  min-width: 0;
+}
+
+.co-agenda-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* الأطراف المتعاملة */
+.co-cps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-cp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.co-cp-icon {
+  display: grid;
+  color: var(--primary-700);
+}
+
+.co-cp-main {
+  display: grid;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.co-cp-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* ───────────── الفريق (U10-67…U10-70) ───────────── */
+.co-member {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.co-member-text {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.co-member-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.co-member-email {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.co-team-rows {
+  display: grid;
+  gap: 0;
+}
+
+.co-team-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 0;
+  border-block-end: 1px solid var(--border);
+}
+
+.co-team-row:last-child {
+  border-block-end: 0;
+}
+
+.co-team-main {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.co-team-meta {
+  font-size: 13px;
+}
+
+.co-copy-once {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
+.co-copy-once p {
+  margin: 0;
+}
+
+.co-sheet-menu .k-row.is-danger {
+  color: var(--danger-700);
+}
+
+.co-switch input {
+  width: 22px;
+  height: 22px;
+}
+
+/* ───────────── الباقة والاستخدام (U10-71) ───────────── */
+.co-plan-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .co-plan-top {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+}
+
+.co-plan-card {
+  display: grid;
+  gap: 8px;
+}
+
+.co-plan-card p {
+  margin: 0;
+}
+
+.co-plan-price {
+  font: var(--t-title2);
+}
+
+.co-contracting {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.co-plan-card .co-contracting {
+  margin: 4px 0 0;
+}
+
+.co-checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.co-checks .icon {
+  flex: 0 0 auto;
+  margin-block-start: 3px;
+  color: var(--success-700);
+}
+
+.co-checks.is-out .icon {
+  color: var(--danger-700);
+}
+
+.co-plan-types {
+  margin-block-start: 12px;
+}
+
+.co-plan-types summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.co-plan-types .co-checks {
+  margin-block-start: 8px;
+}
+
+.co-plan-foot {
+  margin-block-start: 10px;
+  font-size: 13px;
+}
+
+/* جداول «الباقة والاستخدام» على الهاتف: صفوف بطاقات مكدسة (table({ stack: true })) بدل تمرير أفقي يخفي عمود التسليم
+   والمبلغ — نفس قواعد v9-fixes.css التي لا تُحمَّل في /company */
+@media (max-width: 640px) {
+  .co-page .table-wrap.table-stack {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .co-page .table-stack table,
+  .co-page .table-stack tbody,
+  .co-page .table-stack tr,
+  .co-page .table-stack td {
+    display: block;
+    width: 100%;
+  }
+  /* رؤوس الأعمدة تصير تسمية كل خلية (data-label)؛ الرأس المخفي لا يوسّع الصفحة عند التكبير 200% */
+  .co-page .table-stack thead {
+    display: none;
+  }
+  .co-page .table-stack tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    margin-block-end: 10px;
+    background: var(--surface);
+  }
+  .co-page .table-stack .table td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 6px 0;
+    border: 0;
+    text-align: start;
+    min-width: 0;
+    max-width: none;
+  }
+  .co-page .table-stack .table td + td {
+    border-block-start: 1px dashed var(--border);
+  }
+  .co-page .table-stack td[data-label]:not([data-label=''])::before {
+    content: attr(data-label);
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .co-page .table-stack td > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: end;
+  }
+  .co-page .table-stack td:first-child {
+    display: block;
+    font-weight: 700;
+  }
+  .co-page .table-stack td[data-label]:first-child::before {
+    content: none;
+  }
+}
+
+/* رابط كود الطلب في جدول «التكاليف الإضافية المعتمدة»: هدف لمس كامل على الهاتف (≥ 44px) */
+@media (max-width: 1023px) {
+  .co-plan .table td a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+.co-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .co-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.co-stat {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
+.co-stat-num {
+  font: var(--t-title2);
+}
+
+.co-stat-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.co-usage {
+  display: grid;
+  gap: 14px;
+}
+
+.co-usage-lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-inline-start: 18px;
+}
+
+.co-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.co-bar {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.co-bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  overflow: hidden;
+}
+
+.co-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary-600);
+}
+
+tr.is-voided td {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* ───────────── الإشعارات (U10-74) ───────────── */
+.co-notif-page .co-notif-page-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.co-notif-ic {
+  display: grid;
+  flex: 0 0 auto;
+  color: var(--primary-700);
+}
+
+.co-notif-body {
+  color: var(--gray-700);
+  font-size: 14px;
+}
+
+/* ───────────── حسابي والأمان (U10-75) ───────────── */
+.co-account-form {
+  display: grid;
+  gap: 14px;
+}
+
+.co-readonly {
+  display: block;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--gray-700);
+}
+
+.co-2fa {
+  display: grid;
+  gap: 10px;
+}
+
+.co-2fa p {
+  margin: 0;
+}
+
+.co-devices {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.co-device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.co-device-icon {
+  display: grid;
+  color: var(--text-muted);
+}
+
+.co-device-main {
+  display: grid;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.co-device-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.co-account-logout {
+  margin-block-end: 16px;
+}
+
+/* ───────────── الترحيب (U10-19) ───────────── */
+.co-welcome {
+  display: flex;
+  justify-content: center;
+}
+
+.co-welcome-card {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 640px;
+  padding: 24px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.co-welcome-card p {
+  margin: 0;
+}
+
+.co-welcome-brand {
+  display: flex;
+  justify-content: center;
+}
+
+.co-welcome-progress {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.co-welcome-plan {
+  color: var(--primary-800);
+  font-weight: 700;
+}
+
+.co-welcome-form {
+  display: grid;
+  gap: 12px;
+}
+
+.co-welcome-row {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.co-welcome-row legend {
+  padding-inline: 4px;
+  font-weight: 700;
+}
+
+.co-welcome-entity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0;
+  border-block-end: 1px solid var(--border);
+}
+
+.co-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.co-welcome-copy {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-welcome-copy li {
+  display: grid;
+  gap: 6px;
+}
+
+@media (min-width: 1024px) {
+  .co-welcome-card {
+    padding: 32px;
+  }
+}
+
+/* ───────────── الهاتف: أهداف لمس ≥ 44px في عناصر صفحات build-2، وتكبير 200% على 360 (عرض 180) بلا تمرير أفقي ───────────── */
+@media (max-width: 1023px) {
+  .co-page .co-seg-btn,
+  .co-page .chip-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .co-msg-docs .doc-chip {
+    min-height: 44px;
+  }
+
+  .co-account .input-action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 340px) {
+  .co-page .btn,
+  .co-page .co-badge,
+  .co-page .badge {
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    text-align: start;
+  }
+
+  .co-quote-amount {
+    overflow-wrap: anywhere;
+  }
+}
+
+.co-doc .co-file-actions,
+.co-cp .co-file-actions {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.co-page .co-card > *,
+.co-page .co-file > * {
+  min-width: 0;
+}
+
+.co-page .co-file-actions {
+  flex-wrap: wrap;
+}
+
+/* gate J-10: على الهاتف لا صندوق تمرير داخلي للمحادثة (أحدث الرسائل ظاهرة، والأقدم خلف «عرض الرسائل الأقدم») */
+.co-thread-more-wrap {
+  align-self: center;
+}
+
+@media (max-width: 1023px) {
+  .co-thread {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* gate C-07: على الهاتف حقول الدخول وطلب جديد 48 بكسل كبقية الحقول (v10-company.css) */
+@media (pointer: coarse) {
+  .co-auth-form .input,
+  .co-nr-form .input,
+  .co-nr-form select.input {
+    min-height: 48px;
+  }
+}

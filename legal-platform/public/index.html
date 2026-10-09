@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>الدعم القانوني للأرامل والأيتام وأسرهم — {{org_name}}</title>
+    <title>الدعم القانوني للأرامل والأيتام وأسرهم — {{brand_name}}</title>
     <meta name="description" content="مساعدة قانونية مجانية وسرية للأرامل وأسر الأيتام من {{org_legal_name}}: الورث والمعاش والنفقة والحضانة والسكن وفلوس الأيتام والورق الرسمي. احكيلنا مشكلتك برسالة صوتية أو كتابة." />
     <!--site:head-->
     <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم -->
@@ -18,7 +18,7 @@
       <!-- v9.2 (P4): الشاشة الأولى = السؤال + 8 مربعات بصورة وكلمة + «إحنا نكلمك / واتساب / طلبك فين؟». كلام محايد (أسماء لا أفعال) -->
       <section id="start" class="pub-start" aria-labelledby="start-title" data-prefetch="{{prefetch_urls}}" data-say-intro="أهلًا بيكم. مشكلتكم في إيه؟ اضغطوا على الصورة." data-say-outro="{{start_say_outro}}">
         <div class="pub-container">
-          <div class="pub-start-head"><h1 id="start-title"><span class="pub-sr">مساعدة قانونية مجانية من {{org_name}}. </span>مشكلتك في إيه؟</h1>
+          <div class="pub-start-head"><h1 id="start-title"><span class="pub-sr">مساعدة قانونية مجانية من {{{brand_inline}}}. </span>مشكلتك في إيه؟</h1>
             <button type="button" class="pub-listen" id="start-listen" hidden aria-pressed="false" aria-label="اسمعوا الكلام اللي في الصفحة"><svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg><span>بالصوت</span></button>
             <p class="pub-start-badge">{{{icon_lock}}}<b>مجاني وسرّي</b></p></div>
           {{{start_tiles}}}

@@ -146,7 +146,7 @@ export function registerAdminRoutes(router, app) {
         source_url: platform === 'instagram' ? 'https://www.instagram.com/p/sim' : 'https://fb.me/sim-ad',
         source_type: 'ad',
         source_id: v.str(b.ad.ad_id, 'رقم الإعلان', { max: 60 }) || `ad-${platform}-${randomToken(4)}`,
-        headline: v.str(b.ad.headline, 'عنوان الإعلان', { max: 150 }) || `استشارة قانونية مجانية من ${app.settings.get('org_name') || DEFAULT_SETTINGS.org_name}`,
+        headline: v.str(b.ad.headline, 'عنوان الإعلان', { max: 150 }) || `استشارة قانونية مجانية من ${app.brand.displayName()}`, // v10 experience (H-E3)
         ctwa_clid: randomToken(10),
       };
     }
@@ -206,7 +206,7 @@ export function registerAdminRoutes(router, app) {
       // v9.1 fixes: الرابط لا يُحفظ في نص الرسالة: {portal_link} في نص واتساب يُستبدل عند الإرسال الفعلي برابط
       // بنطاق رقمها، والنص المحفوظ (للإدارة وصفحة المتابعة) بلا رابط
       const w = app.engine.clientWords({ clientId: c.id });
-      const waText = app.engine.fillClientText(CLIENT_TEXTS.portal_link_message, { first_name: w.first_name, org_name: app.settings.get('org_name') }, w.form);
+      const waText = app.engine.fillClientText(CLIENT_TEXTS.portal_link_message, { first_name: w.first_name, org_name: app.brand.displayName() }, w.form); // v10 experience (H-E3)
       message = app.engine.sendToClient({
         client_id: c.id,
         body: app.engine.withoutLinkLines(waText),
@@ -504,6 +504,7 @@ export function registerAdminRoutes(router, app) {
     const policyKeys = app.accounts?.POLICY_KEYS || [];
     for (const [k, val] of Object.entries(b)) {
       if (k in out || !(k in DEFAULT_SETTINGS) || policyKeys.includes(k)) continue;
+      if (/^(?:b2b_|company_)/.test(k)) continue; // v10 b2b-server (حارس #23): إعدادات الشركات من PUT /api/admin/b2b/settings فقط
       const def = DEFAULT_SETTINGS[k];
       if (typeof def === 'number') out[k] = v.num(val, k, { required: true, min: -1e9, max: 1e9 });
       else if (typeof def === 'boolean') out[k] = v.bool(val);

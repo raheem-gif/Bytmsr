@@ -713,7 +713,7 @@ html[dir="rtl"] .pd-hbar-fill {
 .pd-template {
   padding: 10px 12px;
   border-radius: 12px;
-  background: #eef7f2;
+  background: #eef7f2; /* @brand-exempt — success tint of the template preview */
   border: 1px solid #cfe7da;
 }
 

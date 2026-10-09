@@ -37,37 +37,39 @@
      public/assets/js/lib/brand-color.js. الألوان المضبوطة من الإعدادات تصل في <style id="bm-theme">html:root{…}</style>
      (أولوية أعلى من :root) فلا يتغير هذا الملف. لا تضف لونًا للعلامة خارج الكتلة: اختبار v92-colours يرفضه. */
   /* @brand-defaults-start */
-  /* الأساسي: أزرق مخضر عميق */
-  --primary-900: #082a33;
-  --primary-800: #0b3a46;
-  --primary-700: #0f4c5c;
-  --primary-600: #145d6f;
-  --primary-500: #1b7187;
-  --primary-300: #7fb3c0;
-  --primary-200: #b9d7de;
-  --primary-100: #dcecef;
-  --primary-50: #eef6f7;
+  /* الأساسي: أخضر ملكي */
+  --primary-900: #083221;
+  --primary-800: #0a452e;
+  --primary-700: #0b5a3c;
+  --primary-600: #0b6b48;
+  --primary-500: #0a7f55;
+  --primary-300: #7cb999;
+  --primary-200: #b7dac7;
+  --primary-100: #dbeee3;
+  --primary-50: #eef7f2;
 
-  /* الثانوي: ذهبي دافئ (للزخرفة والحدود؛ النص يستخدم -700، والنص فوق -300/-400/-500 هو --on-accent) */
-  --accent-800: #634510;
-  --accent-700: #7a5518;
-  --accent-600: #9a6e22;
-  --accent-500: #b8862e;
-  --accent-400: #c99a45;
-  --accent-300: #dcbd84;
-  --accent-100: #f6ecd8;
+  /* الثانوي: ذهبي (للزخرفة والحدود؛ النص يستخدم -700، والنص فوق -300/-400/-500 هو --on-accent) */
+  --accent-800: #5f4711;
+  --accent-700: #745818;
+  --accent-600: #937123;
+  --accent-500: #c9a14a;
+  --accent-400: #d3ab57;
+  --accent-300: #dabe86;
+  --accent-100: #f6ecd9;
   --accent-50: #fbf7ee;
 
   /* ثلاثيات RGB لاستخدام rgb(var(--x-rgb) / شفافية) */
-  --primary-300-rgb: 127 179 192;
-  --primary-500-rgb: 27 113 135;
-  --primary-700-rgb: 15 76 92;
-  --primary-900-rgb: 8 42 51;
-  --accent-500-rgb: 184 134 46;
+  --primary-300-rgb: 124 185 153;
+  --primary-500-rgb: 10 127 85;
+  --primary-700-rgb: 11 90 60;
+  --primary-900-rgb: 8 50 33;
+  --accent-500-rgb: 201 161 74;
   /* @brand-defaults-end */
 
   /* مشتقة من الدرجات (خارج الكتلة): النص الوحيد المسموح فوق accent-300/400/500، ولون الروابط */
   --on-accent: var(--primary-900);
+  /* v10 experience (X10-C4): خلفية معتمة للنوافذ والأوراق والقائمة الجانبية (تتبع ألوان المؤسسة، لا لون ثابت) */
+  --scrim: rgb(var(--primary-900-rgb) / 0.48);
 
   /* المحايد */
   --gray-900: #16202a;
@@ -931,7 +933,7 @@ html[dir="rtl"] .icon-dir {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(8, 30, 38, 0.5);
+    background: var(--scrim);
     z-index: 70;
   }
 
@@ -1191,7 +1193,8 @@ html[dir="rtl"] .icon-dir {
 .badge-warning { --tone-bg: var(--warning-100); --tone-fg: var(--warning-700); }
 .badge-danger { --tone-bg: var(--danger-100); --tone-fg: var(--danger-700); }
 .badge-accent { --tone-bg: var(--accent-100); --tone-fg: var(--accent-700); }
-.badge-primary { --tone-bg: var(--primary-100); --tone-fg: var(--primary-700); }
+/* v10 experience (X10-C4, L-10): العلامة خضراء، فالشارة الفئوية «primary» محدّدة لا مملوءة (الحالة مملوءة، الفئة محدّدة) */
+.badge-primary { --tone-bg: var(--surface); --tone-fg: var(--primary-700); box-shadow: inset 0 0 0 1px var(--primary-300); }
 
 .chips {
   display: flex;
@@ -2309,12 +2312,15 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(8, 30, 38, 0.55);
-  animation: fade-in 0.15s ease;
+  /* v10 (X10-M2/M3): التعتيم طبقة مستقلة (.modal-scrim) تتغير شفافيتها مع الحركة؛ الدخول والخروج في ui.js */
+  background: none;
 }
 
-.modal-backdrop.is-leaving {
-  animation: fade-out 0.15s ease forwards;
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--scrim);
 }
 
 .modal {
@@ -2326,7 +2332,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   background: var(--surface);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
-  animation: pop-in 0.18s ease;
 }
 
 .modal:focus {
@@ -2460,20 +2465,52 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
     max-height: calc(100dvh - 24px);
     border-radius: 18px 18px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0);
-    transition: transform 0.12s ease;
   }
 
+  /* v10 (X10-M2): المقبض هدف لمس بارتفاع 44px (الشريط المرئي 40×4 كما هو) يتداخل مع أعلى الترويسة، وكلاهما يُسحب
+     بالإصبع (touch-action: none) — لا انتقال CSS على الورقة: النابض في ui.js يتبع الإصبع */
   .modal-sheet .modal-grip {
     display: block;
-    width: 40px;
-    height: 4px;
-    margin: 8px auto 0;
-    border-radius: 2px;
-    background: var(--gray-300);
+    height: 44px;
+    margin-block-end: -32px;
+    background: linear-gradient(var(--gray-300), var(--gray-300)) 50% 8px / 40px 4px no-repeat;
+  }
+
+  .modal-sheet .modal-grip,
+  .modal-sheet .modal-header {
+    touch-action: none;
+  }
+
+  .modal-sheet .modal-header {
+    position: relative;
   }
 
   .modal-sheet .modal-footer {
     border-radius: 0;
+  }
+
+  /* gate K6: في كل ورقة طويلة على الهاتف (لا أوراق الشركات وحدها) لا ينكمش المقبض والترويسة والتذييل داخل عمود flex
+     فيُقص العنوان تحت حافة الورقة؛ الجسم وحده يُمرَّر */
+  .modal-sheet > .modal-grip,
+  .modal-sheet > .modal-header,
+  .modal-sheet > .modal-footer {
+    flex-shrink: 0;
+  }
+
+  .modal-sheet > .modal-body {
+    min-height: 0;
+  }
+}
+
+/* gate K6: أزرار المقاطع (.seg) وحقول التصفية القديمة بهدف لمس 44px على شاشات اللمس */
+@media (pointer: coarse) {
+  .seg {
+    min-height: 44px;
+  }
+
+  .filter-bar .input,
+  .filter-bar select.input {
+    min-height: 44px;
   }
 }
 
@@ -2548,19 +2585,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   color: var(--text-muted);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes fade-out {
-  to { opacity: 0; }
-}
-
-@keyframes pop-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
+/* (v10: ‎@keyframes fade-in/fade-out/pop-in أُزيلت — دخول النوافذ وخروجها نوابض في ui.js، X10-M3) */
 
 /* ==========================================================================
    Toast — أعلى المنتصف
@@ -2598,7 +2623,17 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
   line-height: 1.6;
-  animation: toast-in 0.2s ease;
+  /* v10 (X10-F1): يدخل من حافته المثبّت عليها (12px + شفافية) ويخرج من نفس المسار بمنحنى معكوس */
+  opacity: 0;
+  transform: translateY(var(--toast-from, -12px));
+  transition:
+    transform var(--dur-release, 200ms) var(--ease-out, ease-out),
+    opacity var(--dur-release, 200ms) var(--ease-out, ease-out);
+}
+
+.toast.is-shown {
+  opacity: 1;
+  transform: none;
 }
 
 .toast > .icon {
@@ -2607,7 +2642,9 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .toast.is-leaving {
-  animation: fade-out 0.2s ease forwards;
+  opacity: 0;
+  transform: translateY(var(--toast-from, -12px));
+  transition-timing-function: var(--ease-in-mirror, ease-in);
 }
 
 .toast-success { --toast-fg: var(--success-700); }
@@ -2637,9 +2674,15 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   background: var(--gray-100);
 }
 
-@keyframes toast-in {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: none; }
+/* gate K7: هدف لمس 44×44 حول زر إغلاق التنبيه (الشكل المرئي 28px كما هو) */
+.toast-close {
+  position: relative;
+}
+
+.toast-close::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 
 /* ==========================================================================
@@ -3301,7 +3344,8 @@ a.doc-chip:hover {
 
 .login-foot {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  /* v10 (مراجعة): 0.6 كان 4.39:1 فوق الوهج الذهبي على الأخضر الملكي (9.2: 4.94) — 0.72 مثل .brand-sub */
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .login-main {
@@ -3396,8 +3440,31 @@ a.doc-chip:hover {
   color: var(--text-muted);
 }
 
+/* (v10 gate C-14) تكبير 200% على شاشة 360 (≈180 بكسل CSS): بطاقات الحسابات التجريبية تلتف بدل أن تخرج عن الشاشة */
+@media (max-width: 279.98px) {
+  .demo-panel {
+    padding: 14px 12px;
+  }
+
+  .demo-item {
+    flex-wrap: wrap;
+  }
+
+  .demo-cred .mono {
+    overflow-wrap: anywhere;
+  }
+}
+
 .login-back {
   font-size: 14px;
+  /* (v10 gate C-14) مساحة لمس 44 بكسل دون أن يتغير موضع النص (الهامش السالب يعوض الارتفاع الزائد)؛
+     كتلة نصية لا flex حتى يلتف الاسم مع الجملة على الشاشات الضيقة */
+  display: inline-block;
+  min-height: 44px;
+  padding: 10px 8px;
+  margin-block: -10px;
+  line-height: 24px;
+  text-align: center;
 }
 
 @media (max-width: 900px) {
@@ -4307,15 +4374,39 @@ html[dir="rtl"] .request-item.is-pending {
    الحركة المخفضة والطباعة
    ========================================================================== */
 
+/* v10 (X10-A1): الحركة المخفّضة لا «تقتل كل شيء»: التحويلات والحركات تقفز، أما الشفافية والألوان فتتلاشى في 150ms
+   (النوابض في JS تُفرض عليها damping = 1، والأوراق والنوافذ تتلاشى بلا انزلاق — ui.js) */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+  }
+
   *,
   *::before,
   *::after {
+    scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+    transition-property: opacity, color, background-color, border-color, box-shadow !important;
+    transition-duration: 150ms !important;
   }
+}
+
+/* v10 (X10-T1): iOS يكبّر الصفحة عند التركيز في حقل أصغر من 16px — حقول الهاتف واللمس 16px */
+@media (max-width: 640px), (pointer: coarse) {
+  .input,
+  select.input,
+  textarea.input {
+    font-size: 16px;
+  }
+}
+
+/* v10 (X10-T1): أرقام بعرض ثابت للعدادات والأكواد والأعمدة الرقمية */
+.code-tag,
+.bell-count,
+.table td.align-end,
+.char-count {
+  font-variant-numeric: tabular-nums;
 }
 
 /* v9.2 بوابة K6/N15: صفحات الإدارة على الهاتف — كل زر صغير أو زر أيقونة أو «تفاصيل» قابلة للفتح هدف لمس ≥ 44px

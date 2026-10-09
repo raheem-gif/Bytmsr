@@ -1,4 +1,4 @@
-// بطاقة «الموقع العام وبيانات التواصل» في صفحة الإعدادات (وحدة الموقع): اسم البرنامج والاسم الرسمي والإشهار
+// بطاقة «الموقع العام وبيانات التواصل» في صفحة الإعدادات (وحدة الموقع): اسم المكتب (v10)، اسم البرنامج والاسم الرسمي والإشهار
 // والعنوان والهاتف والبريد وروابط التواصل ومواعيد العمل. تظهر في الموقع العام وسياسة الخصوصية وبيانات SEO.
 
 import { h } from '../../lib/h.js';
@@ -7,6 +7,8 @@ import { toLatinDigits } from '../../lib/fmt.js';
 import { card, form, toast, button } from '../../lib/ui.js';
 
 export const SITE_SETTING_KEYS = [
+  'brand_name',
+  'brand_short_name',
   'site_program_name',
   'org_legal_name',
   'org_registration',
@@ -17,6 +19,10 @@ export const SITE_SETTING_KEYS = [
   'org_instagram_url',
   'office_hours',
 ];
+
+// v10 experience (§4.1): نفس فحص الخادم (isPlainName في src/brand.js): لا رموز تحكم ولا محارف تنسيق غير مرئية ولا أقواس
+const NOT_PLAIN_RE = /[\p{Cc}\p{Cf}<>]/u;
+const PLAIN_NAME_ERROR = 'اكتب الاسم بحروف عادية بلا رموز تحكم أو أقواس';
 
 function fieldError(name, msg) {
   const e = new Error(msg);
@@ -43,6 +49,24 @@ function checkUrl(name, value, domains) {
 export function siteSettingsCard(settings = {}) {
   const f = form(
     [
+      // v10 experience (EXP-1, L-02/L-03): اسم المكتب في واجهات العملاء فقط؛ الاسم القانوني يبقى في «ملف المؤسسة»
+      {
+        name: 'brand_name',
+        label: 'اسم المكتب كما يراه العملاء',
+        required: true,
+        maxLength: 60,
+        ltr: true,
+        placeholder: 'Emam Legal and Consultancy',
+        hint: 'يظهر في رأس الموقع وعناوين الصفحات وتوقيع الرسائل وبوابة الشركات. الاسم القانوني للجهة في «ملف المؤسسة».',
+      },
+      { name: 'brand_short_name', label: 'الاسم المختصر', required: true, maxLength: 24, ltr: true, placeholder: 'Emam Legal', hint: 'للمساحات الضيقة: أيقونة الهاتف وعنوان التبويب.' },
+      {
+        name: 'brand_in_staff_app',
+        type: 'checkbox',
+        label: 'إظهار اسم المكتب في منصة فريق العمل والمحامين',
+        full: true,
+        hint: 'عند إيقافه تبقى صفحة الدخول والقائمة الجانبية باسم المؤسسة كما كانت.',
+      },
       { name: 'site_program_name', label: 'اسم البرنامج على الموقع', required: true, maxLength: 60, hint: 'يظهر في رأس الموقع وعناوين الصفحات، مثل «الدعم القانوني»' },
       { name: 'org_legal_name', label: 'الاسم الرسمي الكامل للمؤسسة', required: true, maxLength: 200 },
       { name: 'org_registration', label: 'بيانات الإشهار', maxLength: 200, full: true, hint: 'مثل: مشهرة برقم 11108 لسنة 2020 — وزارة التضامن الاجتماعي' },
@@ -54,7 +78,7 @@ export function siteSettingsCard(settings = {}) {
       { name: 'org_instagram_url', label: 'حساب إنستجرام', ltr: true, maxLength: 300, placeholder: 'https://www.instagram.com/…', hint: 'اختياري' },
     ],
     {
-      values: settings,
+      values: { ...settings, brand_in_staff_app: settings.brand_in_staff_app !== false },
       submitLabel: 'حفظ بيانات الموقع',
       submitIcon: 'check',
       onSubmit: async (v, api2) => {
@@ -65,9 +89,11 @@ export function siteSettingsCard(settings = {}) {
         if (rawPhone && (digits.length < 8 || digits.length > 15)) throw fieldError('org_phone', 'أدخل رقم هاتف صحيحًا مثل 01211114662');
         checkUrl('org_facebook_url', v.org_facebook_url, ['facebook.com', 'fb.com']);
         checkUrl('org_instagram_url', v.org_instagram_url, ['instagram.com']);
+        for (const k of ['brand_name', 'brand_short_name']) if (NOT_PLAIN_RE.test(String(v[k] ?? ''))) throw fieldError(k, PLAIN_NAME_ERROR);
         const body = {};
         for (const k of SITE_SETTING_KEYS) body[k] = v[k] == null ? '' : String(v[k]).trim();
         body.org_phone = phone;
+        body.brand_in_staff_app = v.brand_in_staff_app !== false;
         const saved = await api.patch('/admin/settings', body);
         if (saved) api2.setValues(saved);
         toast('تم حفظ بيانات الموقع العام — تظهر للزوار فورًا', 'success', 4000);

@@ -182,6 +182,7 @@ export function createPractice(app) {
     /** البطاقة كاملة للإدارة: البيانات + درجة الاحتياج وأسبابها + ما ذكره مقدمو الطلبات ولم يُعتمد بعد */
     view(clientId, { intakeId = null } = {}) {
       const c = app.clients.require(clientId);
+      if (c.company_id) throw notFound('العميل غير موجود'); // v10 b2b-server (حارس #7): لا بطاقة مستفيد لحساب شركة
       const profile = mapProfile(profileRow(c.id));
       const year = cairoYearNow();
       const pending = db
@@ -215,6 +216,7 @@ export function createPractice(app) {
 
     save(clientId, body, actor) {
       const c = app.clients.require(clientId);
+      if (c.company_id) throw notFound('العميل غير موجود'); // v10 b2b-server (حارس #7)
       const data = validateBeneficiary(body);
       const t = nowIso();
       const existing = db.get('SELECT * FROM beneficiary_profiles WHERE client_id = ?', c.id);
@@ -243,6 +245,7 @@ export function createPractice(app) {
 
     verify(clientId, actor) {
       const c = app.clients.require(clientId);
+      if (c.company_id) throw notFound('العميل غير موجود'); // v10 b2b-server (حارس #7)
       let row = db.get('SELECT * FROM beneficiary_profiles WHERE client_id = ?', c.id);
       if (!row) {
         // بطاقة عميل مكرر دُمج قبل إضافة نقل البطاقات عند الدمج: تُنقل للعميل الأساسي ثم تُؤكَّد
@@ -1066,7 +1069,7 @@ export function createPractice(app) {
       const types = isLawyer ? ['event', 'task', 'assignment'] : ['event', 'task', 'assignment', 'invoice'];
       const items = calendarItems({ from: addDays(t, -60), to: addDays(t, 400), types }, user);
       const base = feedBaseUrl(ctx);
-      const org = app.settings.get('org_name') || 'بيوت مصر';
+      const org = app.brand.shortName(); // v10 experience (H-E3): اسم التقويم بالاسم المختصر
       const events = items.map((it) => {
         const code = it.ref?.code ? ` (${it.ref.code})` : '';
         let summary;
@@ -1142,7 +1145,7 @@ export function createPractice(app) {
       const clients = db.all(
         `SELECT c.id, c.code, c.name, c.governorate,
            (SELECT value FROM client_identities x WHERE x.client_id = c.id AND x.kind = 'phone' ORDER BY x.id LIMIT 1) AS phone
-         FROM clients c WHERE c.merged_into IS NULL AND ${cWhere} ORDER BY c.id DESC LIMIT 6`,
+         FROM clients c WHERE c.merged_into IS NULL AND c.company_id IS NULL AND ${cWhere} ORDER BY c.id DESC LIMIT 6`, // v10 b2b-server (حارس #5)
         ...cParams,
       );
       if (clients.length) {
@@ -1447,6 +1450,8 @@ export function createPractice(app) {
       }
       const cF = [];
       const cP = [];
+      iF.push('cl.company_id IS NULL'); // v10 b2b-server (حارس #4): تقرير الأثر للأفراد فقط
+      cF.push('c.company_id IS NULL'); // v10 b2b-server (حارس #4، #27)
       if (area) {
         cF.push('c.legal_area = ?');
         cP.push(area);
@@ -1583,10 +1588,8 @@ export function createPractice(app) {
 
       // المحامون المتطوعون وبرامج المسؤولية المجتمعية: القيمة التقديرية للساعات والاستشارات
       const vParams = [from, to];
-      let vJoin = '';
-      if (area || governorate) {
-        vJoin = ' JOIN cases c ON c.id = b.case_id JOIN clients cl ON cl.id = c.client_id';
-      }
+      // v10 b2b-server (حارس #27): الربط بالملف دائمًا ليُستبعد عمل الشركات المدفوع (c.company_id IS NULL ضمن cF)
+      const vJoin = ' JOIN cases c ON c.id = b.case_id JOIN clients cl ON cl.id = c.client_id';
       const vol = db.get(
         `SELECT COUNT(*) AS n, COALESCE(SUM(b.notional_minor), 0) AS notional, COUNT(DISTINCT b.lawyer_id) AS lawyers,
            COALESCE(SUM((SELECT a.hours_spent FROM assignments a WHERE a.id = b.assignment_id)), 0) AS hours
@@ -1726,7 +1729,7 @@ export function createPractice(app) {
            (SELECT COUNT(*) FROM intakes WHERE client_id = c.id) AS n_intakes, (SELECT COUNT(*) FROM cases WHERE client_id = c.id) AS n_cases,
            p.relation, p.children_count, p.children, p.monthly_income_band, p.housing, p.employment, p.has_disability,
            p.foundation_file_number, p.is_foundation_beneficiary, p.data_source, p.verified_at, p.notes AS p_notes, p.client_id AS has_profile
-         FROM clients c LEFT JOIN beneficiary_profiles p ON p.client_id = c.id WHERE c.merged_into IS NULL ORDER BY c.id`,
+         FROM clients c LEFT JOIN beneficiary_profiles p ON p.client_id = c.id WHERE c.merged_into IS NULL AND c.company_id IS NULL ORDER BY c.id`, // v10 b2b-server (حارس #6)
       );
       const year = cairoYearNow();
       return {
@@ -1816,6 +1819,7 @@ export function createPractice(app) {
           { label: 'المسترد شهريًا (ج.م)', value: (r) => egp(r.recovered_monthly_minor) },
           { label: 'مصدر العميل', value: (r) => (r.source ? LABELS.source[r.source] || r.source : '') },
           { label: 'الملف المستمر', key: 'matter_code' },
+          { label: 'الشركة', value: (r) => (r.company_id ? db.value('SELECT name FROM companies WHERE id = ?', r.company_id) || '' : '') }, // v10 b2b-server (حارس #6)
         ],
       };
     },

@@ -31,6 +31,25 @@ export function createKnowledge(app) {
     return names;
   }
 
+  // v10 b2b-server (L-30، CS-33): أسماء تُخفى في سجل ملف شركة — مستخدموها وكياناتها وأطرافها واسمها
+  function companyNames(co) {
+    const names = [co.name, co.legal_name];
+    for (const r of db.all('SELECT name FROM company_users WHERE company_id = ?', co.id)) names.push(r.name);
+    for (const r of db.all('SELECT name FROM company_entities WHERE company_id = ?', co.id)) names.push(r.name);
+    for (const r of db.all('SELECT name FROM company_counterparties WHERE company_id = ?', co.id)) names.push(r.name);
+    return names.filter(Boolean);
+  }
+  /** رموز الطلبات والشركة وأرقام سجلها وبطاقتها الضريبية وبريد مستخدميها */
+  function companyCodes(co, text) {
+    let s = String(text || '');
+    s = s.replace(new RegExp(`\\b${co.prefix}-\\d{3,6}\\b`, 'g'), '[رقم طلب]').replace(/\bCO-\d{3,6}\b/g, '[رقم شركة]');
+    for (const x of [co.commercial_registry, co.tax_id, ...db.all('SELECT commercial_registry, tax_id FROM company_entities WHERE company_id = ?', co.id).flatMap((e) => [e.commercial_registry, e.tax_id])]) {
+      if (x && String(x).length >= 4) s = s.split(String(x)).join('[رقم سجل]');
+    }
+    for (const r of db.all('SELECT email FROM company_users WHERE company_id = ?', co.id)) if (r.email) s = s.split(r.email).join('[بريد إلكتروني]');
+    return s;
+  }
+
   function mapRecord(r) {
     return {
       ...r,
@@ -52,13 +71,26 @@ export function createKnowledge(app) {
       const c = db.get('SELECT * FROM cases WHERE id = ?', caseId);
       if (!c) return null;
       const existing = db.get('SELECT * FROM knowledge_records WHERE case_id = ?', caseId);
-      if (existing && existing.status !== 'pending_review') return mapRecord(existing);
+      // v10 b2b-server (L-30، حارس #28): سجل ملف شركة نطاقه «الشركة» دائمًا ولا يُعتمد للاستخدام العام؛ يُعاد بناؤه بنطاقه
+      const co = c.company_id ? db.get('SELECT * FROM companies WHERE id = ?', c.company_id) : null;
+      if (existing && existing.status !== 'pending_review' && !(co && existing.status === 'company_only')) return mapRecord(existing);
       const names = knownNames(caseId);
+      if (co) {
+        names.push(...companyNames(co));
+        // gate J-24: سجل ملف الشركة لا يحتفظ باسم المحامي بالإنجليزية ولا باسم مستخدمه (يصل للشركة في التسليمات بهذه الصيغ)
+        for (const l of db.all('SELECT DISTINCT u.username, l.name_latin FROM assignments a JOIN users u ON u.id = a.lawyer_id LEFT JOIN lawyers l ON l.user_id = u.id WHERE a.case_id = ?', caseId)) {
+          for (const n of [l.name_latin, l.username]) {
+            if (!n || String(n).length < 3) continue;
+            const t = String(n).trim();
+            names.push(t, t.toLowerCase(), t.replace(/\b\p{L}/gu, (x) => x.toUpperCase()));
+          }
+        }
+      }
       const counts = {};
       const R = (text) => {
         const r = redact(text || '', { names });
         for (const [k, n] of Object.entries(r.counts)) counts[k] = (counts[k] || 0) + n;
-        return r.text;
+        return co ? companyCodes(co, r.text) : r.text;
       };
       const intake = c.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null;
       const facts = R(c.facts_shared || c.facts_internal || intake?.summary || '');
@@ -120,6 +152,16 @@ export function createKnowledge(app) {
         redaction_report: JSON.stringify({ method: 'heuristic', counts, reviewed: false }),
         updated_at: t,
       };
+      // v10 b2b-server (L-30): النطاق والشركة والحالة تُحسب هنا وتُكتب في الإدراج والتحديث معًا؛ بلا إشعار «بانتظار المراجعة»
+      if (co) {
+        row.scope = 'company';
+        row.company_id = co.id;
+        row.status = 'company_only';
+        row.usage = 'none';
+        if (existing) db.update('knowledge_records', existing.id, row);
+        else db.insert('knowledge_records', { case_id: caseId, ...row, created_at: t });
+        return svc.get(db.value('SELECT id FROM knowledge_records WHERE case_id = ?', caseId));
+      }
       let id;
       if (existing) {
         db.update('knowledge_records', existing.id, row);
@@ -224,6 +266,8 @@ export function createKnowledge(app) {
 
     approve(id, body, actor) {
       const r = svc.get(id);
+      // v10 b2b-server (L-30): معرفة ملفات الشركات لا تُعتمد للاستخدام العام في 10.0
+      if (r.scope === 'company' || r.company_id) throw Object.assign(conflict('هذه حالة من ملف شركة؛ لا تُعتمد في المعرفة العامة.'), { code: 'company_knowledge_not_shareable' });
       const usage = v.oneOf(body.usage, ['knowledge', 'knowledge_training'], 'نطاق الاستخدام', { required: true });
       if (!body.confirm_redaction) throw badRequest('يجب تأكيد مراجعة إخفاء البيانات الشخصية قبل الاعتماد');
       if (!r.facts || r.facts.trim().length < 20) throw conflict('لا يمكن اعتماد سجل بلا وقائع كافية');
@@ -272,7 +316,7 @@ export function createKnowledge(app) {
     /** تصدير الحالات المعتمدة للتدريب/التقييم (مجهلة فقط) */
     exportTraining() {
       return db
-        .all("SELECT * FROM knowledge_records WHERE status = 'approved' AND usage = 'knowledge_training' ORDER BY id")
+        .all("SELECT * FROM knowledge_records WHERE status = 'approved' AND usage = 'knowledge_training' AND (scope IS NULL OR scope = 'global') ORDER BY id") // v10 (L-30)
         .map(mapRecord)
         .map((r) => ({
           id: r.id,

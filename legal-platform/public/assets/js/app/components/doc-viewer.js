@@ -61,10 +61,16 @@ export function viewUrl(id) {
   return `${downloadUrl(id)}?inline=1`;
 }
 
-export function downloadDocument(d) {
+/**
+ * v10 b2b-portal (L-42): urlFor(doc, { inline }) يبني رابط العرض/التنزيل (بوابة الشركات: /api/company/documents/:id/download).
+ * الافتراضي روابط المنصة كما هي.
+ */
+export const defaultUrlFor = (d, { inline = false } = {}) => (inline ? viewUrl(d.id) : downloadUrl(d.id));
+
+export function downloadDocument(d, { urlFor = defaultUrlFor } = {}) {
   // بلا سمة download: الخادم يرسل Content-Disposition: attachment للتنزيل الصريح فقط
   const a = document.createElement('a');
-  a.href = downloadUrl(d.id);
+  a.href = urlFor(d, { inline: false });
   a.rel = 'noopener';
   a.hidden = true;
   document.body.append(a);
@@ -75,17 +81,19 @@ export function downloadDocument(d) {
 /** فتح المستند للقراءة دون تنزيله */
 export function openDocument(d, opts = {}) {
   const k = docKind(d);
+  const urlFor = opts.urlFor || defaultUrlFor;
   if (k === 'image') return openImageViewer(d, opts);
   if (k === 'pdf') {
-    window.open(viewUrl(d.id), '_blank', 'noopener');
+    if (urlFor === defaultUrlFor) window.open(viewUrl(d.id), '_blank', 'noopener');
+    else window.open(urlFor(d, { inline: true }), '_blank', 'noopener');
     return null;
   }
-  downloadDocument(d);
+  downloadDocument(d, { urlFor });
   return null;
 }
 
 /** قائمة ⋯ للمستند: «تنزيل على الهاتف» (+ «تحليل المستند» مع Claude فقط) */
-export function docMenu(d, { claude = false, onAnalyze } = {}) {
+export function docMenu(d, { claude = false, onAnalyze, urlFor = defaultUrlFor } = {}) {
   let m = null;
   const item = (label, hint, iconName, fn) =>
     h(
@@ -100,7 +108,7 @@ export function docMenu(d, { claude = false, onAnalyze } = {}) {
     sheet: true, className: 'lw-sheet',
     body: h(
       'div.lw-menu',
-      item('تنزيل على الهاتف', 'يبقى الملف في التنزيلات؛ احذفه بعد الانتهاء.', 'download', () => downloadDocument(d)),
+      item('تنزيل على الهاتف', 'يبقى الملف في التنزيلات؛ احذفه بعد الانتهاء.', 'download', () => downloadDocument(d, { urlFor })),
       claude && onAnalyze ? item('تحليل المستند', null, 'sparkle', () => onAnalyze(d)) : null,
     ),
   });
@@ -111,7 +119,7 @@ export function docMenu(d, { claude = false, onAnalyze } = {}) {
  * عارض الصور داخل التطبيق: خلفية داكنة، الصورة بعرض الشاشة، وتكبير الإصبعين الأصلي في المتصفح.
  * زر الرجوع في الهاتف يغلقه أيضًا، وموضع التمرير في الصفحة لا يتغير.
  */
-export function openImageViewer(d, { claude = false, onAnalyze } = {}) {
+export function openImageViewer(d, { claude = false, onAnalyze, urlFor = defaultUrlFor } = {}) {
   const scrollY = window.scrollY;
   const status = h('p.lw-viewer-status', { role: 'status' }, 'جارٍ الفتح…');
   const img = h('img.lw-viewer-img', { alt: docName(d), decoding: 'async' });
@@ -121,9 +129,9 @@ export function openImageViewer(d, { claude = false, onAnalyze } = {}) {
     img.classList.add('is-loaded');
   });
   img.addEventListener('error', () => {
-    mount(status, 'تعذر فتح الصورة. ', button('تنزيل', { variant: 'link', size: 'sm', onClick: () => downloadDocument(d) }));
+    mount(status, 'تعذر فتح الصورة. ', button('تنزيل', { variant: 'link', size: 'sm', onClick: () => downloadDocument(d, { urlFor }) }));
   });
-  img.src = viewUrl(d.id);
+  img.src = urlFor(d, { inline: true });
 
   let pushed = false;
   let popped = false;
@@ -152,7 +160,7 @@ export function openImageViewer(d, { claude = false, onAnalyze } = {}) {
   // «رجوع» في بداية الشريط، و⋯ في نهايته (بدل زر الإغلاق الافتراضي)
   const header = handle.el.querySelector('.modal-header');
   const back = h('button.lw-viewer-back', { type: 'button', onClick: () => handle.close('back-button') }, icon('arrowRight', { size: 20 }), h('span', 'رجوع'));
-  const more = h('button.lw-viewer-more', { type: 'button', 'aria-label': 'خيارات المستند', onClick: () => docMenu(d, { claude, onAnalyze }) }, icon('more', { size: 22 }));
+  const more = h('button.lw-viewer-more', { type: 'button', 'aria-label': 'خيارات المستند', onClick: () => docMenu(d, { claude, onAnalyze, urlFor }) }, icon('more', { size: 22 }));
   if (header) {
     header.prepend(back);
     header.append(more);
@@ -173,17 +181,17 @@ export function openImageViewer(d, { claude = false, onAnalyze } = {}) {
  * @param {object} d مستند من publicView
  * @param {{claude?:boolean, onAnalyze?:(d)=>void, source?:boolean}} [opts]
  */
-export function docRow(d, { claude = false, onAnalyze, source = true } = {}) {
+export function docRow(d, { claude = false, onAnalyze, source = true, urlFor = defaultUrlFor, sourceLabel } = {}) {
   const k = docKind(d);
   const name = docName(d);
-  const meta = [d.size ? formatBytes(d.size) : null, source ? SOURCE[d.uploaded_by_kind] : null].filter(Boolean).join(' · ');
+  const meta = [d.size ? formatBytes(d.size) : null, source ? sourceLabel || SOURCE[d.uploaded_by_kind] : null].filter(Boolean).join(' · ');
   const iconNode = k === 'image' ? lwIcon('image') : icon('fileText', { size: 20 });
   const open = h(
     'button.lw-doc-open',
     {
       type: 'button',
       'aria-label': k === 'doc' ? `تنزيل ${name}` : `عرض ${name}`,
-      onClick: () => openDocument(d, { claude, onAnalyze }),
+      onClick: () => openDocument(d, { claude, onAnalyze, urlFor }),
     },
     h('span.lw-doc-icon', { 'aria-hidden': 'true' }, iconNode),
     h(
@@ -194,7 +202,7 @@ export function docRow(d, { claude = false, onAnalyze, source = true } = {}) {
   );
   const more = h(
     'button.lw-doc-more',
-    { type: 'button', 'aria-label': `خيارات ${name}`, onClick: () => docMenu(d, { claude, onAnalyze }) },
+    { type: 'button', 'aria-label': `خيارات ${name}`, onClick: () => docMenu(d, { claude, onAnalyze, urlFor }) },
     icon('more', { size: 22 }),
   );
   return h('li.lw-doc', { dataset: { docId: d.id, kind: k } }, open, more);

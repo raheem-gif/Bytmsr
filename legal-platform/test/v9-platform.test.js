@@ -301,7 +301,7 @@ test('platform: integrations API — admin only, secrets never returned, env sou
     assert.equal((await manager.post('/api/admin/integrations/whatsapp/test')).status, 403);
 
     let data = ok(await admin.get('/api/admin/integrations'));
-    assert.deepEqual(data.items.map((i) => i.name).sort(), ['anthropic', 'whatsapp']);
+    assert.deepEqual(data.items.map((i) => i.name).sort(), ['anthropic', 'email', 'whatsapp']); // v10: +1 company e-mail integration (intended, SRV-13)
     assert.match(data.webhook_url, /\/webhooks\/whatsapp$/);
     assert.ok(['env', 'file', 'ephemeral'].includes(data.key_source));
 

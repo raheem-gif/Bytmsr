@@ -3,6 +3,7 @@ import { nowIso, periodOf, periodRange, isValidPeriod, parseJson, badRequest, no
 import { LABELS, LEGAL_AREAS, AREA_CODES } from '../constants.js';
 import { hashPassword, passwordProblem } from '../auth.js';
 import { validateAgreement, describeAgreement } from './accounting.js';
+import { B2B_SKILLS } from '../../public/assets/js/lib/company-catalog.js'; // v10 b2b-server
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -109,6 +110,10 @@ export function createLawyers(app) {
       agreement_text: describeAgreement(ag),
       package_remaining: ag.type === 'package' ? r.package_remaining : null,
       notes: r.notes,
+      // v10 b2b-server (L-56، STF-11): الاسم بالإنجليزية لفحص التسليمات، ومهارات وسعر طلبات الشركات
+      name_latin: r.name_latin || null,
+      skills: parseJson(r.skills, []),
+      b2b_rate: r.b2b_rate_minor === null || r.b2b_rate_minor === undefined ? null : fromMinor(r.b2b_rate_minor),
       last_login_at: r.last_login_at,
       created_at: r.created_at,
       metrics: m,
@@ -121,7 +126,7 @@ export function createLawyers(app) {
     list({ period, area, active } = {}) {
       const p = isValidPeriod(period) ? period : periodOf(nowIso());
       const rows = db.all(
-        "SELECT u.*, l.title, l.specialties, l.bar_number, l.bar_level, l.firm, l.capacity, l.agreement, l.package_remaining, l.notes FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer' ORDER BY u.active DESC, u.name",
+        "SELECT u.*, l.title, l.specialties, l.bar_number, l.bar_level, l.firm, l.capacity, l.agreement, l.package_remaining, l.notes, l.name_latin, l.skills, l.b2b_rate_minor FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.role = 'lawyer' ORDER BY u.active DESC, u.name",
       );
       let list = rows.map((r) => mapLawyer(r, p));
       if (area && AREA_CODES.includes(area)) list = list.filter((l) => l.specialties.includes(area));
@@ -143,7 +148,7 @@ export function createLawyers(app) {
     detail(id, period) {
       const p = isValidPeriod(period) ? period : periodOf(nowIso());
       const r = db.get(
-        "SELECT u.*, l.title, l.specialties, l.bar_number, l.bar_level, l.firm, l.capacity, l.agreement, l.package_remaining, l.notes FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.id = ? AND u.role = 'lawyer'",
+        "SELECT u.*, l.title, l.specialties, l.bar_number, l.bar_level, l.firm, l.capacity, l.agreement, l.package_remaining, l.notes, l.name_latin, l.skills, l.b2b_rate_minor FROM users u JOIN lawyers l ON l.user_id = u.id WHERE u.id = ? AND u.role = 'lawyer'",
         id,
       );
       if (!r) throw notFound('المحامي غير موجود');
@@ -211,6 +216,18 @@ export function createLawyers(app) {
       if (body.firm !== undefined) lawyerPatch.firm = v.str(body.firm, 'مكتب المحاماة', { max: 150 });
       if (body.capacity !== undefined) lawyerPatch.capacity = v.int(body.capacity, 'الطاقة الاستيعابية', { required: true, min: 1, max: 1000 });
       if (body.notes !== undefined) lawyerPatch.notes = v.str(body.notes, 'ملاحظات', { max: 3000 });
+      // v10 b2b-server (§4.6، L-56): الاسم بالإنجليزية (حروف لاتينية ومسافات و . - ') ومهارات وسعر طلبات الشركات
+      if (body.name_latin !== undefined) {
+        const nl = v.str(body.name_latin, 'الاسم بالإنجليزية', { max: 80 });
+        if (nl && !/^[A-Za-z][A-Za-z .'-]*$/.test(nl)) throw badRequest('الاسم بالإنجليزية يُكتب بحروف لاتينية ومسافات فقط (مثل Tarek El-Naggar)', { fields: { name_latin: 'حروف لاتينية ومسافات فقط' } });
+        lawyerPatch.name_latin = nl ? nl.replace(/\s+/g, ' ') : null;
+      }
+      if (body.skills !== undefined) {
+        const keys = B2B_SKILLS.map((x) => x.key);
+        if (!Array.isArray(body.skills) || body.skills.some((k) => !keys.includes(k))) throw badRequest('مهارات طلبات الشركات غير صالحة');
+        lawyerPatch.skills = JSON.stringify([...new Set(body.skills)]);
+      }
+      if (body.b2b_rate !== undefined) lawyerPatch.b2b_rate_minor = v.money(body.b2b_rate, 'سعر طلبات الشركات', { max: 10000000 });
       let newPackage = null;
       let leavingMonthly = null;
       if (body.agreement !== undefined) {

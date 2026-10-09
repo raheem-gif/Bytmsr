@@ -92,7 +92,7 @@ describe('v9.2 colours — generator (brand-color.js)', () => {
   });
 
   test('G5 a pair one step off the default is within 5/255 of LEGACY on every step, with no adjustments', () => {
-    const t = B.buildTheme('#0f4c5d', '#b8862f');
+    const t = B.buildTheme('#0b5a3d', '#c9a14b'); // v10 experience (intended): one step off the new default pair (was #0f4c5d/#b8862f)
     assert.deepEqual(t.adjustments, []);
     for (const k of B.PRIMARY_STEPS) assert.ok(rgbDist(t.primary[k], B.LEGACY.primary[k]) <= 5, `primary ${k}: ${t.primary[k]} vs ${B.LEGACY.primary[k]}`);
     for (const k of B.ACCENT_STEPS) assert.ok(rgbDist(t.accent[k], B.LEGACY.accent[k]) <= 5, `accent ${k}: ${t.accent[k]} vs ${B.LEGACY.accent[k]}`);
@@ -144,8 +144,8 @@ describe('v9.2 colours — generator (brand-color.js)', () => {
 
 // ───────────────────────── فحص أوراق الأنماط ─────────────────────────
 // 25 لونًا للعلامة (درجات 9.1 وما شابهها) و5 ثلاثيات RGB: لا تظهر إلا داخل كتلتي @brand-defaults.
-const BRAND_HEX = ['#0f4c5c', '#145d6f', '#1b7187', '#0b3a46', '#082a33', '#7fb3c0', '#b9d7de', '#dcecef', '#eef6f7', '#e4f0f2', '#e7f1f3', '#d6e8ec', '#cfe1e5', '#5d8591', '#b8862e', '#c99a45', '#9a6e22', '#7a5518', '#634510', '#6b4a10', '#dcbd84', '#f6ecd8', '#f3e2bf', '#fbf7ee', '#fdf6e7'];
-const BRAND_RGB = ['15, ?76, ?92', '184, ?134, ?46', '27, ?113, ?135', '127, ?179, ?192', '8, ?42, ?51'];
+const BRAND_HEX = ['#0f4c5c', '#145d6f', '#1b7187', '#0b3a46', '#082a33', '#7fb3c0', '#b9d7de', '#dcecef', '#eef6f7', '#e4f0f2', '#e7f1f3', '#d6e8ec', '#cfe1e5', '#5d8591', '#b8862e', '#c99a45', '#9a6e22', '#7a5518', '#634510', '#6b4a10', '#dcbd84', '#f6ecd8', '#f3e2bf', '#fbf7ee', '#fdf6e7', /* v10 experience: the green/gold scale (the 9.x teal stays listed so a stale literal still fails) */ '#eef7f2', '#dbeee3', '#b7dac7', '#7cb999', '#0a7f55', '#0b6b48', '#0b5a3c', '#0a452e', '#083221', '#f6ecd9', '#dabe86', '#d3ab57', '#c9a14a', '#937123', '#745818', '#5f4711'];
+const BRAND_RGB = ['15, ?76, ?92', '184, ?134, ?46', '27, ?113, ?135', '127, ?179, ?192', '8, ?42, ?51', '11, ?90, ?60', '201, ?161, ?74', '10, ?127, ?85', '124, ?185, ?153', '8, ?50, ?33']; // v10: + green/gold
 const HEX_RE = new RegExp(`(?:${BRAND_HEX.join('|')})(?![0-9a-f])`, 'i');
 const RGB_RE = new RegExp(`rgba?\\(\\s*(?:${BRAND_RGB.map((s) => s.replace(/, \?/g, '\\s*,?\\s*')).join('|')})\\b`, 'i');
 const BRAND_VAR_DECL = /(?:^|[\s;{])(--(?:primary|accent)-\d+(?:-rgb)?)\s*:/g;
@@ -478,17 +478,17 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
 
   const pages = () => ['/', '/intake', '/portal', portalPath, '/privacy', '/no-such-page-v92'];
 
-  test('I1 default colours: no theme block on any public page or /app, theme-color stays #0f4c5c', async () => {
+  test('I1 default colours: no theme block on any public page or /app, theme-color stays the default p700 (v10: B.DEFAULT_PRIMARY)', async () => {
     for (const p of pages()) {
       const r = await anon.get(p);
       assert.ok([200, 404].includes(r.status), `${p} ${r.status}`);
       assert.doesNotMatch(r.body, /id="bm-theme"/, p);
-      assert.equal(themeColorOf(r.body), '#0f4c5c', p);
+      assert.equal(themeColorOf(r.body), B.DEFAULT_PRIMARY, p); // v10 experience (intended): green default
     }
     const app = await admin.get('/app');
     assert.equal(app.status, 200);
     assert.doesNotMatch(app.body, /id="bm-theme"/);
-    assert.equal(themeColorOf(app.body), '#0f4c5c');
+    assert.equal(themeColorOf(app.body), B.DEFAULT_PRIMARY); // v10 experience (intended)
     const g = ok(await admin.get('/api/admin/brand'));
     assert.equal(g.inputs.source, 'default');
     assert.equal(g.theme.v, 'default');
@@ -580,7 +580,7 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
     const rowData = JSON.parse(t.app.db.get("SELECT data FROM security_events WHERE type = 'brand.colors_updated' ORDER BY id DESC LIMIT 1").data);
     assert.deepEqual(rowData.to, { primary: '#6a1b9a', accent: '#f9a825' });
     // اللون الأصلي = حذف الصف
-    const def = ok(await admin.put('/api/admin/brand/colors', { primary: '#0F4C5C', accent: 'b8862e' }));
+    const def = ok(await admin.put('/api/admin/brand/colors', { primary: '#0B5A3C', accent: 'c9a14a' })); // v10 experience (intended): the new default pair, still case + missing #
     assert.equal(def.inputs.source, 'default');
     assert.equal(t.app.db.get("SELECT COUNT(*) AS n FROM settings WHERE key = 'brand_colors'").n, 0);
     assert.doesNotMatch((await anon.get('/')).body, /id="bm-theme"/);
@@ -625,7 +625,7 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
         const r = await anon.get(p);
         assert.equal(r.status, 200, `${p} with ${raw}`);
         assert.doesNotMatch(r.body, /id="bm-theme"/, `${p} with ${raw}`);
-        assert.equal(themeColorOf(r.body), '#0f4c5c');
+        assert.equal(themeColorOf(r.body), B.DEFAULT_PRIMARY); // v10 experience (intended)
       }
       const app = await admin.get('/app');
       assert.equal(app.status, 200);
@@ -671,7 +671,7 @@ describe('v9.2 colours — settings card (static)', () => {
       'تم حفظ ألوان المؤسسة، وظهرت في الموقع والمنصة.',
       'رجوع للألوان الأصلية',
       'الرجوع للألوان الأصلية؟',
-      'ستعود ألوان الموقع والمنصة إلى الأزرق المخضر والذهبي.',
+      'ستعود ألوان الموقع والمنصة إلى الأخضر الملكي والذهبي.', // v10 experience (intended): the default pair is green/gold
       'عادت الألوان الأصلية.',
       'تعذّر تجهيز ألوان مقروءة من هذا الاختيار. جرّب لونًا آخر.',
     ]) assert.ok(src.includes(s), s);

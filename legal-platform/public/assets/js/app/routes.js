@@ -45,6 +45,11 @@ export const routes = [
   { path: '/system', load: () => import('./pages/admin/system.js'), roles: ADMIN, title: 'صحة النظام والنسخ الاحتياطي' },
   { path: '/audit', load: () => import('./pages/admin/audit.js'), roles: ADMIN, title: 'سجل الأمان' },
   { path: '/data', load: () => import('./pages/admin/data.js'), roles: ADMIN, title: 'استيراد وتصدير البيانات' },
+  // ── v10 b2b-staff (STF-0): خدمة الشركات ──
+  { path: '/company-requests', load: () => import('./pages/admin/company-requests.js'), roles: STAFF, title: 'طلبات الشركات' },
+  { path: '/company-requests/:id', load: () => import('./pages/admin/company-request.js'), roles: STAFF, title: 'طلب شركة' },
+  { path: '/companies', load: () => import('./pages/admin/companies.js'), roles: STAFF, title: 'الشركات العميلة' },
+  { path: '/companies/:id', load: () => import('./pages/admin/company-detail.js'), roles: STAFF, title: 'شركة عميلة' },
 
   // ── بوابة المحامي ──
   // «الإسناد» ما تكلّف به الإدارة المحامي؛ «الملف» ملف المؤسسة نفسه

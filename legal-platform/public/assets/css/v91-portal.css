@@ -26,6 +26,8 @@
   --bp-wa: #157a3f;
   --bp-err: #b42318;
   --bp-bar-h: 64px;
+  /* v10 experience (X10-C4): نفس تعريف app.css (الصفحة لا تحمّل app.css) */
+  --scrim: rgb(var(--primary-900-rgb) / 0.48);
   --bp-radius: 18px;
   font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, sans-serif;
   background: var(--bp-cream);
@@ -1240,10 +1242,37 @@ body.pub .bp-viewtitle:focus-visible {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(8, 20, 26, 0.5);
   display: flex;
   align-items: flex-end;
   justify-content: center;
+}
+
+/* v10 (X10-M2): التعتيم طبقة مستقلة تتبع موضع اللوحة (شفافيتها فقط)، والعقدة المغادرة لا تلتقط لمسًا (L-64) */
+.bp-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--scrim);
+}
+
+.bp-sheet-wrap.is-leaving {
+  pointer-events: none;
+}
+
+/* مقبض السحب (يظهر بعد تحميل الحركة): هدف لمس بارتفاع 44px، والشريط المرئي 40×4 */
+.bp-sheet-grip {
+  height: 44px;
+  margin: -14px -16px -30px;
+  background: linear-gradient(#cfc7b8, #cfc7b8) 50% 8px / 40px 4px no-repeat;
+}
+
+.bp-sheet-grip,
+.bp-sheet-head {
+  touch-action: none;
+}
+
+.bp-sheet-head {
+  position: relative;
 }
 
 .bp-sheet {
@@ -1320,11 +1349,23 @@ body.pub .bp-viewtitle:focus-visible {
   font-size: 17px;
   line-height: 1.5;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  transition: opacity 0.2s ease;
+  /* v10 (X10-F1): يدخل من الحافة السفلية (12px + شفافية) ويخرج من نفس المسار بمنحنى معكوس */
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    transform var(--dur-release, 200ms) var(--ease-out, ease-out),
+    opacity var(--dur-release, 200ms) var(--ease-out, ease-out);
+}
+
+.bp-toast.is-in {
+  opacity: 1;
+  transform: none;
 }
 
 .bp-toast.is-out {
   opacity: 0;
+  transform: translateY(12px);
+  transition-timing-function: var(--ease-in-mirror, ease-in);
 }
 
 .bp-toast .bp-ic {
@@ -1345,7 +1386,7 @@ body.pub .bp-viewtitle:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .bp-toast {
-    transition: none;
+    transform: none !important;
   }
 }
 
@@ -1524,5 +1565,135 @@ body.pub .bp-viewtitle:focus-visible {
     gap: 6px;
     padding-inline: 6px;
     font-size: 17px;
+  }
+}
+
+/* (v10 gate C-17) تكبير 200% على شاشة 360 (≈180 بكسل CSS) أو خط كبير جدًا: الزران يلتفان لسطرين بدل أن يُقص
+   «اكتبيلنا» خارج الشاشة (الحد الأدنى لعرض كل زر هو نصه كاملًا)، والشارات في صفوف الأقسام تلتف داخلها. */
+.bp-bar-btns {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 279.98px) {
+  /* الشريط في آخر الصفحة بدل أن يغطي أكثر من نصف الشاشة مع رأس الصفحة (وفي الرأس زر الاتصال)؛
+     portal.js يجعل --bp-bar-space صفرًا حين لا يكون الشريط ثابتًا */
+  .bp-bar {
+    position: static;
+    padding-top: 4px;
+    box-shadow: none;
+  }
+
+  .bp-bar .bp-hours {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .bp-bar-btns {
+    gap: 6px;
+  }
+
+  .bp-bar-btns > * {
+    min-height: 44px;
+  }
+
+  /* صف القسم يلتف: الأيقونة والعنوان في السطر الأول، والشارة والسهم تحتهما حين لا يتسع السطر */
+  .bp-row {
+    flex-wrap: wrap;
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+
+  .bp-row-main {
+    flex: 1 1 4em;
+  }
+
+  .bp-row > .bp-pill {
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+/* ═════════════ v10 experience — ضغط فوري، شريط «كروم»، أرقام بعرض ثابت، تفضيلات الإتاحة ═════════════
+   الرموز (--press-*, --ease-out, --dur-*) من public-site.css (المحمّل قبل هذا الملف). */
+
+/* (X10-P2) الأزرار تنضغط مع الإصبع؛ صفوف القوائم تُعتّم فقط (صفوف iOS تُضاء ولا تنكمش) */
+.bp-btn,
+.bp-icon-btn,
+.bp-choices button,
+.bp-row {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    transform var(--dur-release, 200ms) var(--ease-out, ease-out),
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.bp-btn:active:not(:disabled),
+.bp-icon-btn:active,
+.bp-choices button:active {
+  transform: scale(var(--press-scale, 0.97));
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+  transition-duration: var(--dur-press, 80ms);
+}
+
+.bp-row:active {
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+}
+
+/* (X10-L2) الشريط السفلي «كروم»: المحتوى يمر تحته؛ بلا دعم للتمويه يبقى أبيض */
+.bp-bar {
+  background: rgb(255 255 255 / 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bp-bar {
+    background: #fff;
+  }
+}
+
+/* ألوان مؤسسة مخصصة (#bm-theme): الشريط صلب (عقد التباين للأبيض لا للشفاف) */
+html:has(#bm-theme) .bp-bar {
+  background: #fff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* (X10-T1) المبالغ والأكواد بأرقام بعرض ثابت */
+.bp-inv-amount,
+.bp-code {
+  font-variant-numeric: tabular-nums;
+}
+
+/* (X10-A2/A3) شفافية أقل أو تباين أعلى: شريط معتم؛ والألوان القسرية: حدود للوحة والتنبيه */
+@media (prefers-reduced-transparency: reduce) {
+  .bp-bar {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .bp-bar {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--bp-ink);
+  }
+}
+
+@media (forced-colors: active) {
+  .bp-sheet,
+  .bp-toast {
+    border: 1px solid CanvasText;
+  }
+
+  .bp-btn:active {
+    outline: 2px solid Highlight;
   }
 }

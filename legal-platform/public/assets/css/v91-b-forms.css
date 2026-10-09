@@ -1736,3 +1736,59 @@ body.pub .bmf-listen {
     max-width: 46%;
   }
 }
+
+/* ───────────── v10 experience (X10-P2/T1/A3): ضغط فوري مع الإصبع، أرقام بعرض ثابت، تباين أعلى ─────────────
+   الرموز (--press-*, --ease-out, --dur-*) من public-site.css؛ الحركة المخفّضة تُبقي التعتيم وحده (--press-scale: 1). */
+.bmf-btn,
+.bmf-topic,
+.bmf-answer,
+.bmf-topic-chip-btn,
+.bmf-about-tile,
+.bmf-when-chip {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    transform var(--dur-release, 200ms) var(--ease-out, ease-out),
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.bmf-btn:active:not(:disabled),
+.bmf-topic:active,
+.bmf-answer:active,
+.bmf-topic-chip-btn:active:not(:disabled),
+.bmf-about-tile:active,
+.bmf-when-chip:active:not(:disabled) {
+  transform: scale(var(--press-scale, 0.97));
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+  transition-duration: var(--dur-press, 80ms);
+}
+
+.bmf-stepno,
+.bmf-phone-big {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-contrast: more) {
+  .bmf-btn.bmf-btn-outline {
+    border-color: currentColor;
+  }
+}
+
+/* v10 experience (X10-T1/V9): 200 % تكبير على هاتف 360px (≈ 180px) — صفّا الرأس يلتفّان بدل الخروج عن الشاشة */
+@media (max-width: 299px) {
+  .bmf-qbar,
+  .bmf-headrow {
+    flex-wrap: wrap;
+  }
+
+  .bmf-headrow > h1 {
+    flex-basis: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .bmf-topic-chip {
+    max-width: 100%;
+  }
+}

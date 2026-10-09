@@ -1,0 +1,644 @@
+/* ==========================================================================
+   v10 experience — نظام التصميم المشترك بأسلوب أبل لـ /app (فريق العمل والمحامون) وبوابة الشركات /company
+   يُحمَّل بعد app.css (آخر ورقة في app.html، وفي company.html بعد app.css). بلا ألوان ثابتة في القواعد: الألوان
+   رموز فقط (القيم الحرفية مسموحة داخل تعريف خاصية مخصصة في :root وحده). لا انتقال على «كل الخصائص»، ولا تباعد حروف على العربية.
+   المحتوى: رموز الضغط والحركة والمواد والخط (X10-P1/L1/T1) · ضغط فوري عند لمس الأزرار والصفوف (X10-P2) · مادة الشريط
+   العلوي والسفلي (X10-L2) وحافته عند التمرير (X10-L3) · مكونات البوابة .k-chrome .k-tabbar .k-row .step-tracker
+   .wordmark (X10-K) · الحركة المخفّضة والشفافية المخفّضة والتباين العالي والألوان القسرية (X10-A) · .k-solid-chrome.
+   ========================================================================== */
+
+:root {
+  /* الضغط: تصغير + تعتيم يعمل على أي خلفية (الحركة المخفّضة تُبقي التعتيم وحده) */
+  --press-scale: 0.97;
+  --press-scale-icon: 0.94;
+  --press-dim: rgb(0 0 0 / 0.06);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-mirror: cubic-bezier(0.8, 0, 0.8, 0.2);
+  --dur-press: 80ms;
+  --dur-release: 200ms;
+  --dur-fade: 150ms;
+  /* المواد: «كروم» شفاف يمر المحتوى تحته (الشريط العلوي والسفلي فقط)؛ الأوراق والنوافذ صلبة دائمًا */
+  --mat-chrome: rgb(255 255 255 / 0.85);
+  --mat-chrome-solid: rgb(255 255 255 / 0.97);
+  --mat-blur: saturate(180%) blur(20px);
+  --chrome-edge: 0 1px 0 rgb(16 32 42 / 0.04), 0 8px 24px -16px rgb(var(--primary-900-rgb) / 0.22);
+  /* الخط (X10-T1): العربية بلا تباعد حروف أبدًا؛ التدرج بالوزن والحجم والسطر */
+  --t-display: 700 clamp(26px, 6.4vw, 34px) / 1.3 var(--font);
+  --t-title1: 700 24px / 1.35 var(--font);
+  --t-title2: 700 20px / 1.4 var(--font);
+  --t-headline: 600 17px / 1.5 var(--font);
+  --t-body: 400 15px / 1.7 var(--font);
+  --t-callout: 400 15px / 1.6 var(--font);
+  --t-footnote: 500 13px / 1.55 var(--font);
+  --t-caption: 500 12px / 1.5 var(--font);
+  --wordmark-font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --k-chrome-h: 56px;
+  --k-tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  :root {
+    --t-title1: 700 21px / 1.35 var(--font);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --k-chrome-h: 64px;
+  }
+}
+
+.t-display { font: var(--t-display); }
+.t-title1 { font: var(--t-title1); }
+.t-title2 { font: var(--t-title2); }
+.t-headline { font: var(--t-headline); }
+.t-body { font: var(--t-body); }
+.t-callout { font: var(--t-callout); }
+.t-footnote { font: var(--t-footnote); }
+.t-caption { font: var(--t-caption); }
+
+/* أرقام بعرض ثابت (مبالغ، عدادات، مواعيد في الجداول، رموز) */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────────── الضغط (X10-P1/P2): يبدأ عند لمس الإصبع، يظهر في الإطار الأول، ويُلغيه التمرير ───────────── */
+
+.btn,
+.icon-btn,
+.choice-tile,
+.tab,
+.chip:is(a, button),
+.copy-btn,
+.lh-tab,
+.nav-link,
+.k-tab {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    transform var(--dur-release) var(--ease-out),
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.btn:active:not(:disabled):not([aria-disabled="true"]),
+.choice-tile:active,
+.tab:active,
+.chip:is(a, button):active,
+.copy-btn:active:not(:disabled),
+.lh-tab:active,
+.nav-link:active,
+.k-tab:active {
+  transform: scale(var(--press-scale));
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+  transition-duration: var(--dur-press);
+}
+
+.icon-btn:active:not(:disabled) {
+  transform: scale(var(--press-scale-icon));
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+  transition-duration: var(--dur-press);
+}
+
+/* الصفوف بعرض الشاشة: تعتيم فقط (صفوف iOS تُضاء ولا تنكمش) */
+.k-row:is(a, button),
+.lh-row-main,
+.table tr.is-clickable > td {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.k-row:is(a, button):active,
+.lh-row-main:active,
+.table tr.is-clickable:active > td {
+  background-image: linear-gradient(var(--press-dim), var(--press-dim));
+}
+
+.k-row.k-row-scale:active {
+  transform: scale(var(--press-scale));
+}
+
+/* ───────────── المواد (X10-L2): الشريط العلوي والسفلي «كروم» يمر المحتوى تحته ───────────── */
+
+.topbar,
+.is-lawyer .lh-bottom-nav,
+.k-chrome,
+.k-tabbar {
+  background: var(--mat-chrome);
+  -webkit-backdrop-filter: var(--mat-blur);
+  backdrop-filter: var(--mat-blur);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar,
+  .is-lawyer .lh-bottom-nav,
+  .k-chrome,
+  .k-tabbar {
+    background: var(--mat-chrome-solid);
+  }
+}
+
+/* حافة الشريط تظهر بعد التمرير فقط (X10-L3)؛ بلا دعم يبقى الخط الثابت كما في 9.2 */
+@supports (animation-timeline: scroll()) {
+  .topbar,
+  .k-chrome {
+    border-block-end-color: transparent;
+    animation: k-chrome-edge linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 24px;
+  }
+
+  @keyframes k-chrome-edge {
+    to {
+      border-block-end-color: var(--border);
+      box-shadow: var(--chrome-edge);
+    }
+  }
+}
+
+/* الحل الصلب الجاهز (CO-23): يُفعَّل بإضافة .k-solid-chrome إلى <html> إن ثقل التمويه على هاتف ضعيف.
+   وصلب دائمًا مع ألوان مؤسسة مخصصة (كتلة #bm-theme): المولّد يضمن الدرجة 700 على الأبيض (4.5:1) لا على «كروم» شفاف
+   فوق محتوى غامق (ألوان معادية تنزل إلى 3.9:1) — الأخضر الملكي الافتراضي يبقى شفافًا (5.97:1 في أسوأ حالة) */
+.k-solid-chrome .topbar,
+.k-solid-chrome .is-lawyer .lh-bottom-nav,
+.k-solid-chrome .k-chrome,
+.k-solid-chrome .k-tabbar,
+html:has(#bm-theme) .topbar,
+html:has(#bm-theme) .is-lawyer .lh-bottom-nav,
+html:has(#bm-theme) .k-chrome,
+html:has(#bm-theme) .k-tabbar {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ───────────── النوافذ (L-64): العقدة المغادرة لا تلتقط لمسًا ───────────── */
+
+.modal-backdrop.is-leaving {
+  pointer-events: none;
+}
+
+.modal-discard .modal-body:empty {
+  display: none;
+}
+
+/* ───────────── اسم المكتب (X10-B2): خط النظام للاتينية، عزل الاتجاه، سطران دائمًا ───────────── */
+
+.wordmark {
+  font-family: var(--wordmark-font);
+  unicode-bidi: isolate;
+  white-space: nowrap;
+}
+
+.wordmark-md,
+.wordmark-lg {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.wordmark-md b,
+.wordmark-lg b {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.wordmark-md span,
+.wordmark-lg span {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.wordmark-lg b {
+  font-size: 22px;
+}
+
+.wordmark-lg span {
+  font-size: 17px;
+}
+
+.wordmark-light b {
+  color: var(--primary-900);
+}
+
+.wordmark-light span {
+  color: var(--primary-700);
+}
+
+.wordmark-dark b {
+  color: var(--surface);
+}
+
+.wordmark-dark span {
+  color: var(--accent-300);
+}
+
+/* الذهبي 300 نصًّا على خلفية غامقة: 4.6:1 على الدرجة 700 (لوحة الدخول) بالألوان الافتراضية، وليس ضمن عقد التباين لألوان
+   مخصصة (حتى 3.3:1 على 700) — معها يصير السطر الثاني والوصف أبيضين على أي خلفية غامقة (الأبيض مضمون على 700/800/900) */
+html:has(#bm-theme) .wordmark-dark span,
+html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
+  color: var(--surface);
+}
+
+.wordmark-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wordmark-desc {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.wordmark-dark + .wordmark-desc {
+  color: var(--accent-300);
+}
+
+/* ───────────── بوابة الشركات: الشريط العلوي (.k-chrome) ───────────── */
+
+.k-chrome {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 30;
+  height: var(--k-chrome-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 16px;
+  border-block-end: 1px solid var(--border);
+}
+
+.k-chrome-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.k-chrome-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+@media (min-width: 1024px) {
+  .k-chrome {
+    padding-inline: 24px;
+  }
+}
+
+/* ───────────── بوابة الشركات: شريط التبويب السفلي على الهاتف (.k-tabbar) ───────────── */
+
+.k-tabbar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 40;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  height: var(--k-tabbar-h);
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+  border-block-start: 1px solid var(--border);
+}
+
+.k-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-600);
+  font: 600 12px / 1.3 var(--font);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.k-tab .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.k-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.k-tab.is-active,
+.k-tab[aria-current="page"] {
+  color: var(--primary-700);
+}
+
+.k-tab:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+  border-radius: var(--radius);
+}
+
+.k-tab-badge {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: calc(50% + 6px);
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: var(--danger-700);
+  color: var(--surface);
+  font: 700 11px / 18px var(--font);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+body.k-keyboard .k-tabbar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .k-tabbar {
+    display: none;
+  }
+}
+
+/* ───────────── صف القائمة (.k-row) وقائمته (.k-list) ───────────── */
+
+.k-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.k-list > .k-row + .k-row,
+.k-list > li + li > .k-row {
+  border-block-start: 1px solid var(--border);
+}
+
+.k-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  border: 0;
+  background-color: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+}
+
+.k-row:is(a, button) {
+  cursor: pointer;
+}
+
+.k-row:is(a, button):focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+.k-row-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  color: var(--primary-700);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.k-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.k-row-title {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.k-row-sub {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.k-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 0 1 auto;
+}
+
+.k-row-trailing {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.k-row-chevron {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--gray-400);
+}
+
+/* ───────────── «أين وصل الطلب؟» (.step-tracker) ───────────── */
+
+.step-tracker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step-tracker-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-block-end: 16px;
+}
+
+.step-tracker-step:last-child {
+  padding-block-end: 0;
+}
+
+.step-tracker-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 13px;
+  inset-block: 30px 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--gray-200);
+}
+
+.step-tracker-step.is-done:not(:last-child)::before {
+  background: var(--success-600);
+}
+
+.step-tracker-dot {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  font: 700 13px / 1 var(--font);
+  color: var(--gray-600);
+  background: var(--gray-100);
+  box-shadow: inset 0 0 0 1px var(--gray-300);
+}
+
+.step-tracker-step.is-done .step-tracker-dot {
+  color: var(--surface);
+  background: var(--success-600);
+  box-shadow: none;
+}
+
+.step-tracker-step.is-current .step-tracker-dot {
+  color: var(--surface);
+  background: var(--primary-700);
+  box-shadow: 0 0 0 4px rgb(var(--primary-500-rgb) / 0.18);
+}
+
+.step-tracker-step.is-waiting .step-tracker-dot {
+  color: var(--gray-900);
+  background: var(--warning-500);
+  box-shadow: 0 0 0 4px var(--warning-100);
+}
+
+.step-tracker-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-block-start: 3px;
+}
+
+.step-tracker-title {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.step-tracker-step.is-done .step-tracker-title {
+  color: var(--text-muted);
+}
+
+.step-tracker-step.is-current .step-tracker-title {
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.step-tracker-at,
+.step-tracker-hint {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.step-tracker-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--warning-700);
+}
+
+/* ───────────── تفضيلات الإتاحة (X10-A) ───────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-scale: 1;
+    --press-scale-icon: 1;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar,
+  .is-lawyer .lh-bottom-nav,
+  .k-chrome,
+  .k-tabbar {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: var(--gray-400);
+    --press-dim: rgb(0 0 0 / 0.12);
+  }
+
+  .topbar,
+  .is-lawyer .lh-bottom-nav,
+  .k-chrome,
+  .k-tabbar {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--gray-900);
+  }
+
+  .badge-primary {
+    box-shadow: inset 0 0 0 1px currentColor;
+  }
+
+  .btn-ghost {
+    border-color: currentColor;
+  }
+}
+
+@media (forced-colors: active) {
+  .modal,
+  .toast,
+  .k-chrome,
+  .k-tabbar,
+  .k-list {
+    border: 1px solid CanvasText;
+  }
+
+  .btn:active,
+  .k-row:active {
+    outline: 2px solid Highlight;
+  }
+
+  .step-tracker-dot {
+    border: 1px solid CanvasText;
+  }
+}

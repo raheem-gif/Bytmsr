@@ -867,6 +867,7 @@ export function createPrograms(app) {
      */
     linkCase(caseId, programId, actor, { confirm = false, move = false, force = false } = {}) {
       const c = app.cases.require(caseId);
+      if (c.company_id) throw Object.assign(conflict('ملفات الشركات عمل مدفوع لا يُربط ببرامج التمويل.'), { code: 'company_case_no_program' }); // v10 b2b-server (حارس #18)
       const p = svc.require(v.int(programId, 'البرنامج', { required: true, min: 1 }));
       if (c.program_id === p.id) return { ...svc.forCase(c.id), unchanged: true, warnings: [] };
       if (p.status === 'closed') throw conflict(`البرنامج ${p.code} مغلق ولا يقبل ربط ملفات جديدة`, { reason: 'program_closed' });

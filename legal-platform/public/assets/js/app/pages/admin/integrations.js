@@ -22,6 +22,7 @@ import {
   errorState,
   errorMessage,
 } from '../../../lib/ui.js';
+import { emailSettingsCard } from '../../components/email-settings.js'; // v10 b2b-staff (STF-9، U10-S24)
 
 const SOURCE_TONE = { env: 'info', db: 'success', default: 'neutral' };
 const ICONS = { whatsapp: 'whatsapp', anthropic: 'sparkle' };
@@ -340,8 +341,9 @@ export default async function render() {
   const host = h('div.page.pf-page');
   async function load() {
     let data;
+    let companies = 0; // v10 b2b-staff: تنبيه البريد الأحمر حين توجد شركات والإرسال صندوق صادر فقط
     try {
-      data = await api.get('/admin/integrations');
+      [data, companies] = await Promise.all([api.get('/admin/integrations'), api.get('/admin/b2b/overview', null, { background: true }).then((o) => Number(o?.companies?.total) || 0).catch(() => 0)]);
     } catch (err) {
       mount(host, pageHeader({ title: 'التكاملات' }), errorState(err, load));
       return;
@@ -356,7 +358,7 @@ export default async function render() {
       h(
         'div.stack',
         keyAlert(data),
-        h('div.pf-integrations-grid', data.items.map((item) => integrationCard(item, data, load))),
+        h('div.pf-integrations-grid', data.items.map((item) => (item.name === 'email' ? emailSettingsCard(item, data, { reload: load, companies }) : integrationCard(item, data, load)))),
         guides(data),
         h(
           'p.pf-muted',

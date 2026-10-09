@@ -549,7 +549,9 @@ describe('v9.2 gate (admin) — system health, phone formatting, colours and cop
 
   test('G2 /api/meta carries the brand version that /app embeds (none for the default colours), and /app re-syncs a stale cached shell', async () => {
     const meta0 = ok(await t.client().get('/api/meta'));
-    assert.equal(meta0.brand, undefined, 'default colours: meta unchanged from 9.1');
+    // v10 experience (intended): meta.brand now always carries the brand name ({name, short, staff_chrome}); no colour block for the defaults
+    assert.equal(meta0.brand?.v, undefined, 'default colours: no theme version in meta');
+    assert.equal(meta0.brand?.css, undefined, 'default colours: no theme css in meta');
     ok(await admin.put('/api/admin/brand/colors', { primary: '#1b5e20', accent: '#ff9800' }));
     const meta = ok(await t.client().get('/api/meta'));
     const html = await (await fetch(`${t.base}/app`)).text();
@@ -558,7 +560,7 @@ describe('v9.2 gate (admin) — system health, phone formatting, colours and cop
     assert.equal(meta.brand.v, v);
     assert.match(meta.brand.css, /^html:root\{/);
     ok(await admin.del('/api/admin/brand/colors'));
-    assert.equal(ok(await t.client().get('/api/meta')).brand, undefined);
+    assert.equal(ok(await t.client().get('/api/meta')).brand?.v, undefined); // v10: brand name stays, theme goes
     const main = read('public/assets/js/app/main.js');
     assert.match(main, /setMeta\(syncTheme\(fresh\)\)/);
     assert.match(main, /import\('\.\/theme-sync\.js'\)/);

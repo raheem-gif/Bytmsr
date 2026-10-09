@@ -45,6 +45,15 @@ function caseLink(r, tab) {
   );
 }
 
+/** gate J-13: شارة الشركة ورمز طلبها على بطاقات ملفات الشركات (يُعرف الطرف قبل فتح النافذة) */
+export function companyChip(r) {
+  const cr = r && r.company_request;
+  if (!cr) return null;
+  return h('a.pa-co-chip', { href: `#/company-requests/${cr.id}` }, badge([cr.company_name, cr.code].filter(Boolean).join(' · '), 'info', { icon: 'building' }));
+}
+/** gate J-13: الطرف الآخر في طلبات المعلومات — الشركة أو المستفيد/ة */
+export const whoOf = (r) => (r && r.company_request ? 'الشركة' : 'المستفيد/ة');
+
 function quote(text, cls = '') {
   return h('blockquote.pa-quote', { class: cls, dir: 'auto' }, richText(text || ''));
 }
@@ -60,6 +69,26 @@ export default async function render(ctx) {
 
   // ───────────── طلبات المعلومات ─────────────
   async function approveInfo(r) {
+    // v10 b2b-staff (STF-4، U10-S13): ملف طلب شركة — يصل الاستيضاح للشركة عبر بوابتها، لا قناة للمستفيد/ة
+    if (r.company_request) {
+      const co = await formDialog({
+        title: 'موافقة وإرسال للشركة',
+        intro: 'يصل إلى: الشركة (عبر بوابتها). يتوقف موعد التسليم حتى ترد الشركة. لا تذكر اسم المحامي؛ الشركة لا ترى أسماء المحامين.',
+        size: 'lg',
+        submitLabel: 'إرسال للشركة',
+        values: { client_message: r.question },
+        fields: [
+          { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'}) — ${r.company_request.code}`, value: r.question, full: true },
+          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+        ],
+        onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message }),
+      });
+      if (co) {
+        toast('أُرسل الطلب للشركة عبر بوابتها', 'success');
+        await reloadAndFocus(ctx, '#pa-q-info_requests');
+      }
+      return;
+    }
     const res = await formDialog({
       title: 'موافقة وإرسال للمستفيد/ة',
       intro: 'صِغ الطلب بلغة واضحة للمستفيد/ة. يُرسل من قناة المؤسسة مع رقم الملف، ولا يظهر للمستفيد/ة اسم المحامي أو بياناته.',
@@ -121,8 +150,11 @@ export default async function render(ctx) {
     const docs = Array.isArray(r.documents) ? r.documents : [];
     let sharedDocs = 0;
     const res = await formDialog({
-      title: 'إتاحة رد المستفيد/ة للمحامي',
-      intro: `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
+      title: r.company_request ? 'إتاحة رد الشركة للمحامي' : 'إتاحة رد المستفيد/ة للمحامي',
+      // v10 b2b-staff (STF-4، L-57): على ملف شركة ينقّي الخادم الرد قبل وصوله للمحامي
+      intro: r.company_request
+        ? `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط. تُحذف أسماء موظفي الشركة وبياناتهم تلقائيًا قبل وصول الرد إلى المحامي.`
+        : `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
       size: 'lg',
       submitLabel: 'إتاحة للمحامي',
       values: {
@@ -130,11 +162,11 @@ export default async function render(ctx) {
         document_ids: Array.isArray(r.document_ids) ? r.document_ids : docs.map((d) => d.id),
       },
       fields: [
-        { type: 'static', label: 'المطلوب من المستفيد/ة', value: r.client_message || r.question, full: true },
+        { type: 'static', label: `المطلوب من ${whoOf(r)}`, value: r.client_message || r.question, full: true },
         { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 6 },
         docs.length > 0 && {
           name: 'document_ids',
-          label: 'مرفقات المستفيد/ة التي تُتاح مع الرد',
+          label: `مرفقات ${whoOf(r)} التي تُتاح مع الرد`,
           type: 'checkboxes',
           options: docs.map((d) => ({ value: d.id, label: d.title || d.filename || `مستند #${d.id}` })),
           hint: 'ألغِ اختيار أي مرفق لا يحتاجه المحامي. لإتاحة مستندات أخرى أو إتاحة الرد لأعضاء آخرين في الفريق افتح الملف.',
@@ -143,7 +175,8 @@ export default async function render(ctx) {
       onSubmit: (v) => {
         const ids = v.document_ids || [];
         sharedDocs = ids.length;
-        return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids });
+        // v10 b2b-staff (review): على ملف شركة لا طلب متابعة آلي (لا يصل بوابتها)؛ الباقي يُطلب بـ«سؤال للشركة»
+        return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids, ...(r.company_request ? { request_rest: false } : {}) });
       },
     });
     if (res) {
@@ -188,7 +221,7 @@ export default async function render(ctx) {
       render: (rows) =>
         list(rows, (r) =>
           item({
-            head: [caseLink(r, 'requests'), statusBadge('info_request_kind', r.kind), r.duplicate_of_id ? badge('طلب مكرر', 'warning', { icon: 'link' }) : null],
+            head: [caseLink(r, 'requests'), companyChip(r), statusBadge('info_request_kind', r.kind), r.duplicate_of_id ? badge('طلب مكرر', 'warning', { icon: 'link' }) : null],
             body: quote(r.question),
             foot: [h('span', icon('user', { size: 14 }), r.requested_by_name || 'الإدارة'), when(r.created_at)],
             actions: [
@@ -210,11 +243,11 @@ export default async function render(ctx) {
       render: (rows) =>
         list(rows, (r) =>
           item({
-            head: [caseLink(r, 'requests'), statusBadge('info_request_kind', r.kind)],
+            head: [caseLink(r, 'requests'), companyChip(r), statusBadge('info_request_kind', r.kind)],
             body: h(
               'div.stack-sm',
               h('p.small.muted', 'المطلوب: ', r.client_message || r.question),
-              r.client_reply ? quote(r.client_reply, 'is-client') : h('p.small.muted', 'أرسل المستفيد/ة مستندًا دون نص.'),
+              r.client_reply ? quote(r.client_reply, 'is-client') : h('p.small.muted', r.company_request ? 'أرسلت الشركة مستندًا دون نص.' : 'أرسل المستفيد/ة مستندًا دون نص.'),
               Array.isArray(r.documents) && r.documents.length > 0
                 ? h(
                     'div.pb-doc-chips',
@@ -235,7 +268,7 @@ export default async function render(ctx) {
                 icon('user', { size: 14 }),
                 r.assignment_id ? `طلبه: ${r.requested_by_name || 'محامٍ'}` : `أنشأته الإدارة${r.requested_by_name ? ` (${r.requested_by_name})` : ''}`,
               ),
-              when(r.replied_at, 'رد المستفيد/ة '),
+              when(r.replied_at, `رد ${whoOf(r)} `),
             ],
             actions: r.assignment_id
               ? [

@@ -232,6 +232,17 @@ const INTEGRATION_RULES = {
       return Number.isFinite(n) && n >= 0 && n <= 100000 ? null : 'سقف الإنفاق رقم بالدولار من 0 إلى 100000';
     },
   },
+  // v10 b2b-server (CS-4): لا CR/LF/NUL في أي قيمة تصل ترويسة أو أمرًا، والمنافذ والتشفير من القائمة فقط
+  email: {
+    provider: (s) => (['outbox', 'smtp'].includes(s) ? null : 'اختر طريقة الإرسال من القائمة'),
+    smtp_host: (s) => (/^[A-Za-z0-9.-]{1,253}$/.test(s) ? null : 'اسم خادم SMTP غير صالح، مثل smtp.example.com'),
+    smtp_port: (s) => (['25', '465', '587', '2525'].includes(s) ? null : 'المنافذ المسموحة: 25 أو 465 أو 587 أو 2525'),
+    smtp_security: (s) => (['starttls', 'tls'].includes(s) ? null : 'اختر STARTTLS أو TLS'),
+    smtp_user: (s) => (/[\r\n\0]/.test(s) || s.length > 254 ? 'اسم المستخدم غير صالح' : null),
+    smtp_password: (s) => (/[\r\n\0]/.test(s) ? 'كلمة المرور تحتوي على رموز غير مسموحة' : null),
+    from_address: (s) => (s.length <= 254 && /^[^\s"'<>()[\],;:\\@]+@[^\s"'<>()[\],;:\\@]+\.[^\s"'<>()[\],;:\\@]+$/.test(s) ? null : 'عنوان المرسل غير صالح، مثل legal@example.com'),
+    from_name: (s) => (/[\p{Cc}\p{Cf}<>]/u.test(s) || s.length > 80 ? 'اكتب اسم المرسل بحروف عادية بلا رموز تحكم أو أقواس (80 حرفًا على الأكثر)' : null),
+  },
 };
 
 function normalizeIntegrationValue(name, key, raw) {
@@ -243,6 +254,8 @@ function normalizeIntegrationValue(name, key, raw) {
   if (name === 'whatsapp' && (key === 'phone_number_id' || key === 'waba_id')) s = s.replace(/\s/g, '');
   if (name === 'anthropic' && (key === 'effort' || key === 'provider')) s = s.toLowerCase();
   if (name === 'anthropic' && key === 'monthly_budget_usd') s = String(Number(s));
+  if (name === 'email' && key === 'smtp_password') s = String(raw); // v10 b2b-server: كلمة المرور كما كُتبت
+  if (name === 'email' && ['provider', 'smtp_security', 'smtp_host', 'from_address'].includes(key)) s = s.toLowerCase(); // v10 b2b-server
   return s;
 }
 
@@ -326,7 +339,7 @@ export function createSystem(app) {
     res.setHeader('Cache-Control', 'no-store');
     res.end(
       '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الصفحة غير موجودة</title>' +
-        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0f4c5c}</style></head>' +
+        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b5a3c}</style></head>' + // v10 experience: H-E4
         '<body><main><h1>الصفحة غير موجودة</h1><p>تأكد من الرابط أو عد إلى <a href="/">الصفحة الرئيسية</a>.</p></main></body></html>',
     );
   }
@@ -490,7 +503,7 @@ export function createSystem(app) {
   // ───────── التكاملات ─────────
 
   function testTarget(name) {
-    return name === 'whatsapp' ? app.whatsapp : name === 'anthropic' ? app.ai : null;
+    return name === 'whatsapp' ? app.whatsapp : name === 'anthropic' ? app.ai : name === 'email' ? app.email : null; // v10 b2b-server: email
   }
 
   /**
@@ -499,7 +512,7 @@ export function createSystem(app) {
    */
   function credFingerprint(name) {
     const eff = app.integrations.get(name);
-    const parts = name === 'whatsapp' ? [eff.token, eff.phone_number_id] : [eff.api_key, eff.model];
+    const parts = name === 'whatsapp' ? [eff.token, eff.phone_number_id] : name === 'email' ? [eff.provider, eff.smtp_host, eff.smtp_port, eff.smtp_user, eff.smtp_password, eff.from_address] : [eff.api_key, eff.model]; // v10 b2b-server
     return sha256(`bm-cred-fp|${name}|${parts.map((x) => x || '').join('|')}`).slice(0, 16);
   }
 
@@ -547,7 +560,7 @@ export function createSystem(app) {
       label: st.label,
       fields,
       undecryptable: !!st.undecryptable,
-      configured: name === 'whatsapp' ? !!(eff.token && eff.phone_number_id) : !!eff.api_key,
+      configured: name === 'whatsapp' ? !!(eff.token && eff.phone_number_id) : name === 'email' ? eff.provider === 'smtp' && !!eff.smtp_host && !!eff.from_address : !!eff.api_key, // v10 b2b-server: email
       test_available: typeof testTarget(name)?.test === 'function',
       last_test: lastTest(name),
       updated_at: meta?.updated_at || null,
@@ -1117,6 +1130,7 @@ export function createSystem(app) {
       const patch = cleanIntegrationPatch(name, raw, { allowClear: true });
       if (!Object.keys(patch).length) throw badRequest('لم تُرسل أي قيم لتحديثها');
       app.integrations.set(name, patch, actor, ctx);
+      if (name === 'email') app.audit?.log({ actor, ctx, type: 'email.settings_updated', severity: 'warning', summary: 'تحديث إعدادات البريد الإلكتروني', data: { fields: Object.keys(patch) } }); // v10 b2b-server
       const item = integrationItem(name);
       const spec = INTEGRATION_SPEC[name].fields;
       const warnings = Object.keys(patch)
@@ -1144,7 +1158,7 @@ export function createSystem(app) {
         const timeout = new Promise((_, reject) => {
           timer = setTimeout(() => reject(new Error('انتهت مهلة الاختبار (30 ثانية) دون رد من الخدمة')), 30000);
         });
-        result = normalizeTestResult(await Promise.race([Promise.resolve().then(() => target.test()), timeout]));
+        result = normalizeTestResult(await Promise.race([Promise.resolve().then(() => (name === 'email' ? target.test(actor) : target.test())), timeout])); // v10 b2b-server: البريد يرسل التجربة لبريد المدير
       } catch (e) {
         const msg = String(e?.message || e || '');
         result = { ok: false, message: AR_RE.test(msg) ? msg.slice(0, 500) : `تعذر الاتصال: ${msg.slice(0, 300)}`, details: null };
@@ -1304,6 +1318,8 @@ export function createSystem(app) {
         );
       } else add('whatsapp', 'ok', 'واتساب مضبوط ومتصل', `${wa.runtime.label} — آخر اختبار ناجح يوم ${arabicDate(wa.last_test.tested_at)}.`);
       add('ai', ai.configured ? 'ok' : 'info', ai.configured ? 'Claude مضبوط' : 'الذكاء الاصطناعي: المحلل المحلي', ai.runtime.label || '', '#/integrations');
+      // v10 b2b-server (B10-59 → P0، CO-2، L-62): البريد والرابط العام والجهة المتعاقدة — حمراء متى وُجدت شركة
+      for (const it of app.email?.readiness?.() || []) add(it.key, it.level, it.title, it.detail, it.href);
       // v9.2 «ألوان المؤسسة»: المستوى ok في الحالتين (لا يؤثر في جاهزية الإطلاق)؛ السطر التالي لبند story_ack (H-A2)
       const brandItem = app.brand?.readiness?.() || { title: 'ألوان المؤسسة: الألوان الأصلية للمنصة', detail: '', href: '#/settings?section=brand' };
       add('brand', 'ok', brandItem.title, brandItem.detail, brandItem.href);

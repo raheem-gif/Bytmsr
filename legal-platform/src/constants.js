@@ -38,6 +38,7 @@ export const LABELS = {
     phone: 'مكالمة هاتفية',
     walk_in: 'حضور شخصي',
     email: 'بريد إلكتروني',
+    company_portal: 'بوابة الشركة', // v10 b2b-server
   },
   source: {
     facebook_ad: 'إعلان ممول على فيسبوك',
@@ -250,6 +251,11 @@ export const LABELS = {
     reply: 'الردود المقترحة على المستفيد',
     document_analysis: 'تحليل المستندات',
     track: 'نوع الطلب المقترح', // v9.2: ماذا يصير الطلب (استشارة / قضية / رد الإدارة / توجيه / نسألها الأول)
+    // v10 b2b-server: فرز طلبات الشركات
+    company_type: 'نوع طلب الشركة',
+    urgency: 'درجة الاستعجال',
+    scope: 'داخل الباقة أو خارجها',
+    effort: 'حجم العمل المتوقع',
   },
   ai_verdict: {
     accepted: 'صحيح / مقبول',
@@ -282,6 +288,7 @@ export const LABELS = {
     client: 'المستفيد/ة',
     system: 'النظام',
     ai: 'الذكاء الاصطناعي',
+    company: 'الشركة', // v10 b2b-server: مستخدم بوابة شركة عميلة (لا معرّف مستخدم في السجل، L-19)
   },
   // ── الإصدار 9: كل وحدة تضيف مجموعات تسمياتها تحت علامتها فقط (تعديلات موضعية) ──
   // <labels:platform>
@@ -583,6 +590,8 @@ export const LABELS = {
     reply: 'الردود المقترحة على المستفيد',
     document_analysis: 'تحليل المستندات',
     connection_test: 'اختبار الاتصال',
+    company_triage: 'فرز طلبات الشركات', // v10 b2b-server
+    company_deliverable: 'ملخص تسليم لشركة', // v10 b2b-server
   },
   ai_provider: {
     anthropic: 'Claude (Anthropic)',
@@ -622,6 +631,14 @@ export const LABELS = {
     birth_certificate: 'شهادة ميلاد',
     guardianship_order: 'قرار وصاية أو ولاية على المال',
     pension_document: 'مستند معاش أو تأمينات',
+    // v10 b2b-server: مستندات الشركات
+    commercial_contract: 'عقد تجاري',
+    nda: 'اتفاقية سرية',
+    employment_contract: 'عقد عمل',
+    legal_notice: 'إنذار أو مطالبة',
+    corporate_document: 'مستند شركة (نظام أساسي، قرار، سجل)',
+    licence_permit: 'ترخيص أو تصريح',
+    marketing_material: 'مادة إعلانية',
     other: 'مستند آخر',
   },
   ai_fact_kind: {
@@ -725,6 +742,330 @@ export const LABELS = {
     struck: 'شُطبت',
     no_session: 'لم تنعقد',
     other: 'سبب آخر',
+  },
+  // <labels:v10-b2b> — خدمة الشركات (الإدارة القانونية الخارجية). تسميات فريق المكتب؛ نصوص البوابة في كتالوج الشركات وwords.js
+  company_status: {
+    trial: 'فترة تجريبية',
+    active: 'نشطة',
+    past_due: 'متأخرة السداد',
+    suspended: 'موقوفة (اطلاع فقط)',
+    ended: 'انتهى الاشتراك',
+  },
+  // L-50: دور الشركة الأعلى «مدير البوابة»؛ «مدير العلاقة» هو موظف المكتب المسؤول عن الشركة
+  company_user_role: {
+    company_admin: 'مدير البوابة',
+    member: 'عضو',
+    viewer: 'اطلاع فقط',
+  },
+  company_user_state: {
+    active: 'نشط',
+    invite_pending: 'دعوة لم تُقبل بعد',
+    locked: 'مقفل مؤقتًا',
+    inactive: 'موقوف',
+  },
+  company_request_type: {
+    contract_review: 'مراجعة عقد قبل التوقيع',
+    contract_drafting: 'إعداد عقد',
+    nda: 'اتفاقية سرية (NDA)',
+    employment: 'مسألة عمالية / موظف',
+    marketing_review: 'مراجعة حملة تسويقية',
+    legal_notice: 'إنذار أو مطالبة وصلت للشركة',
+    board_resolution: 'قرار مجلس إدارة / جمعية',
+    supplier_issue: 'مشكلة مع مورد',
+    compliance_question: 'سؤال امتثال',
+    renewal_followup: 'متابعة تجديد عقد أو ترخيص',
+    dispute: 'بدء نزاع',
+    other: 'طلب آخر',
+  },
+  company_request_status: {
+    submitted: 'جديد — بانتظار الفرز',
+    awaiting_company: 'بانتظار الشركة',
+    in_progress: 'جارٍ العمل',
+    delivered: 'سُلِّم — بانتظار اعتماد الشركة',
+    closed: 'مغلق',
+    declined: 'اعتذرنا عنه',
+    cancelled: 'ألغته الشركة',
+  },
+  company_waiting_on: {
+    info: 'معلومة أو مستند من الشركة',
+    quote: 'موافقة الشركة على عرض سعر',
+    overage: 'موافقة الشركة على تكلفة إضافية',
+  },
+  // مراحل الطلب كما تراها الشركة (نفس STAGES في public/assets/js/lib/company-catalog.js)
+  company_stage: {
+    received: 'قيد الدراسة',
+    needs_you: 'بانتظار ردكم',
+    approval: 'بانتظار موافقتكم',
+    working: 'جارٍ العمل',
+    final_review: 'مراجعة نهائية',
+    delivered: 'تم التسليم — بانتظار اعتمادكم',
+    closed: 'مكتمل',
+    declined: 'اعتذرنا عن الطلب',
+    cancelled: 'ملغى',
+  },
+  company_quote_status: {
+    sent: 'بانتظار الموافقة',
+    approved: 'تمت الموافقة',
+    rejected: 'مرفوض',
+    expired: 'انتهت صلاحيته',
+    withdrawn: 'سُحب',
+  },
+  company_quote_kind: {
+    out_of_scope: 'عمل خارج الباقة',
+    overage: 'طلب إضافي فوق الباقة',
+  },
+  company_quote_basis: {
+    fixed: 'مبلغ ثابت',
+    capped: 'بحد أقصى',
+  },
+  company_deliverable_kind: {
+    memo: 'مذكرة رأي قانوني',
+    reviewed_contract: 'عقد مُراجَع بالملاحظات',
+    draft_document: 'مستند مُعَد',
+    letter: 'خطاب أو رد على إنذار',
+    resolution: 'نموذج قرار',
+    checklist: 'قائمة إجراءات',
+    other: 'تسليم آخر',
+  },
+  company_deliverable_status: {
+    draft: 'مسودة',
+    released: 'أُرسل للشركة',
+    withdrawn: 'سُحب',
+  },
+  company_memory_kind: {
+    contract: 'عقد',
+    template: 'نموذج معتمد',
+    licence: 'ترخيص أو تصريح',
+    resolution: 'قرار مجلس أو جمعية',
+    position: 'موقف معتمد من الإدارة',
+    person: 'مفوَّض بالتوقيع أو التمثيل',
+    policy: 'سياسة داخلية',
+    dispute: 'نزاع',
+    key_date: 'موعد مهم',
+  },
+  // حالات عناصر الذاكرة (اتحاد حالات كل الأنواع؛ التسمية حسب النوع في الكتالوج)
+  company_memory_status: {
+    draft: 'مسودة',
+    under_review: 'قيد المراجعة',
+    active: 'سارٍ',
+    expired: 'منتهٍ',
+    terminated: 'مُنهى',
+    renewed: 'مُجدَّد',
+    retired: 'متوقف العمل به',
+    renewal_in_progress: 'قيد التجديد',
+    cancelled: 'مُلغى',
+    superseded: 'حلّ محله أحدث',
+    revoked: 'أُلغي',
+    threatened: 'محتمل',
+    settled: 'انتهى بتسوية',
+    won: 'صدر لصالح الشركة',
+    lost: 'صدر ضد الشركة',
+    closed: 'منتهٍ',
+    done: 'تم',
+  },
+  company_memory_access: {
+    all: 'كل فريق الشركة',
+    admins: 'مديرو البوابة فقط',
+  },
+  company_entity_relation: {
+    parent: 'الشركة الأم',
+    subsidiary: 'تابعة',
+    affiliate: 'شقيقة',
+    branch: 'فرع',
+  },
+  company_counterparty_kind: {
+    supplier: 'مورد',
+    customer: 'عميل',
+    partner: 'شريك',
+    landlord: 'مؤجر',
+    regulator: 'جهة رقابية',
+    employee: 'موظف',
+    other: 'أخرى',
+  },
+  company_plan_period: {
+    monthly: 'شهرية',
+    quarterly: 'ربع سنوية',
+    annual: 'سنوية',
+  },
+  company_plan_tier: {
+    starter: 'Starter',
+    growth: 'Growth',
+    enterprise: 'Enterprise',
+    custom: 'شروط خاصة',
+  },
+  company_overage_policy: {
+    approve: 'بموافقة الشركة على تكلفة إضافية',
+    bill: 'تُضاف تكلفة إضافية تلقائيًا',
+    block: 'لا يبدأ العمل حتى الدورة التالية',
+  },
+  company_senior_review: {
+    always: 'مراجعة ثانية مستقلة لكل طلب',
+    high_risk: 'مراجعة ثانية مستقلة للطلبات عالية المخاطر',
+    never: 'بلا مراجعة ثانية مستقلة',
+  },
+  company_quota_kind: {
+    included: 'ضمن الباقة',
+    overage: 'تكلفة إضافية',
+    out_of_scope: 'خارج الباقة',
+    free: 'دون احتساب',
+  },
+  company_charge_kind: {
+    subscription: 'اشتراك الباقة',
+    out_of_scope: 'عمل خارج الباقة',
+    overage: 'طلب إضافي فوق الباقة',
+    expense: 'مصروفات',
+    adjustment: 'تسوية',
+  },
+  company_sla_state: {
+    on_track: 'في الموعد',
+    at_risk: 'يقترب موعده',
+    late: 'متأخر',
+    paused: 'متوقف لحين رد الشركة',
+    met: 'سُلِّم في الموعد',
+    missed: 'سُلِّم بعد الموعد',
+  },
+  company_sla_phase: {
+    first_response: 'أول رد',
+    confirm: 'تأكيد الموعد',
+    delivery: 'التسليم',
+  },
+  company_pod_role: {
+    preferred_lead: 'مفضل كمحامٍ رئيسي',
+    preferred_reviewer: 'مفضل للمراجعة',
+    excluded: 'مستبعد لهذه الشركة',
+  },
+  b2b_skill: {
+    contracts: 'العقود',
+    corporate_governance: 'حوكمة الشركات',
+    employment: 'علاقات العمل',
+    ip: 'الملكية الفكرية',
+    data_protection: 'حماية البيانات',
+    consumer_marketing: 'حماية المستهلك والتسويق',
+    regulatory: 'التراخيص والامتثال',
+    disputes: 'النزاعات',
+    real_estate: 'العقارات',
+    tax: 'الضرائب',
+    competition: 'المنافسة',
+    banking_finance: 'البنوك والتمويل',
+  },
+  company_risk: {
+    tight_deadline: 'موعد ضيق',
+    high_value: 'قيمة مرتفعة',
+    unlimited_liability: 'مسؤولية غير محدودة',
+    exclusivity_non_compete: 'حصرية أو عدم منافسة',
+    auto_renewal_trap: 'تجديد تلقائي يصعب إيقافه',
+    termination_penalty: 'غرامة إنهاء',
+    personal_data: 'بيانات شخصية',
+    regulatory_exposure: 'تعرض رقابي',
+    government_counterparty: 'طرف حكومي',
+    foreign_law_or_forum: 'قانون أو محكمة أجنبية',
+    litigation_threat: 'تهديد بالتقاضي',
+    employee_termination_risk: 'مخاطر إنهاء خدمة موظف',
+    consumer_claims: 'شكاوى المستهلكين',
+    ip_ownership: 'ملكية فكرية',
+    missing_contract: 'لا يوجد عقد مكتوب',
+    other: 'أخرى',
+  },
+  company_risk_level: {
+    low: 'منخفضة',
+    medium: 'متوسطة',
+    high: 'مرتفعة',
+  },
+  company_excluded_work: {
+    litigation: 'تمثيل أمام المحاكم',
+    arbitration: 'تحكيم',
+    mna: 'استحواذ واندماج',
+    criminal: 'جنائي',
+    debt_collection: 'تحصيل ديون',
+    due_diligence: 'فحص قانوني نافٍ للجهالة',
+    other_excluded: 'عمل خارج الباقة',
+  },
+  company_visibility: {
+    company: 'كل فريق الشركة',
+    private: 'المرسل ومديرو البوابة فقط',
+  },
+  legal_form: {
+    llc: 'ذات مسؤولية محدودة',
+    jsc: 'مساهمة',
+    sole: 'منشأة فردية',
+    branch: 'فرع',
+    partnership: 'شركة أشخاص',
+    other: 'أخرى',
+  },
+  email_status: {
+    queued: 'في الانتظار',
+    sending: 'جارٍ الإرسال',
+    sent: 'أُرسلت',
+    simulated: 'في صندوق الصادر فقط (لم تُرسل)',
+    failed: 'تعذّر الإرسال',
+    skipped: 'لم تُرسل',
+  },
+  email_purpose: {
+    invite: 'دعوة للانضمام',
+    reset: 'رابط تعيين كلمة المرور',
+    request_update: 'تحديث على طلب',
+    clarification: 'سؤال من الفريق القانوني',
+    quote: 'عرض سعر',
+    deliverable: 'تسليم جاهز للمراجعة',
+    renewal: 'موعد يقترب في الذاكرة القانونية',
+    security: 'تنبيه أمني',
+    security_old_email: 'إشعار للبريد السابق بعد تغييره',
+    charge_added: 'تكلفة إضافية',
+    staff_alert: 'تنبيه لفريق المكتب',
+    trial: 'الفترة التجريبية',
+    test: 'رسالة تجربة',
+  },
+  // أحداث سجل الأمان لخدمة الشركات (L-20: البادئات company. وcompany_auth. وemail. فقط) — تُدمج في security_event
+  company_security_event: {
+    'company.created': 'إنشاء شركة عميلة',
+    'company.updated': 'تعديل بيانات شركة عميلة',
+    'company.status_changed': 'تغيير حالة شركة عميلة',
+    'company.subscription_changed': 'تغيير باقة أو اشتراك شركة',
+    'company.plan_saved': 'حفظ باقة شركات',
+    'company.settings_updated': 'تعديل إعدادات خدمة الشركات',
+    'company.user_invited': 'دعوة مستخدم شركة',
+    'company.user_invite_resent': 'إعادة إصدار دعوة مستخدم شركة',
+    'company.user_updated': 'تعديل بيانات مستخدم شركة',
+    'company.user_role_changed': 'تغيير دور مستخدم شركة',
+    'company.user_deactivated': 'إيقاف حساب مستخدم شركة',
+    'company.user_reactivated': 'إعادة تفعيل حساب مستخدم شركة',
+    'company.user_email_changed': 'تغيير بريد مستخدم شركة',
+    'company.invite_conflict': 'دعوة لبريد مسجل لدى شركة أخرى',
+    'company.entity_override': 'تجاوز حد الكيانات في الباقة',
+    'company.conflict_acknowledged': 'المتابعة رغم تعارض مصالح محتمل',
+    'company.quota_free': 'طلب شركة دون احتساب من الباقة',
+    'company.quota_released': 'إرجاع طلب مشمول إلى رصيد الباقة',
+    'company.quote_sent': 'إرسال عرض سعر لشركة',
+    'company.quote_withdrawn': 'سحب عرض سعر',
+    'company.quote_approved': 'موافقة شركة على عرض سعر',
+    'company.quote_rejected': 'رفض شركة لعرض سعر',
+    'company.deliverable_released_override': 'إرسال تسليم لشركة مع تجاوز ضوابط الإرسال',
+    'company.deliverable_withdrawn': 'سحب تسليم أُرسل لشركة',
+    'company.memory_purged': 'حذف نهائي لعنصر من الذاكرة القانونية لشركة',
+    'company.charge_created': 'إضافة تكلفة على شركة',
+    'company.charge_voided': 'إلغاء تكلفة على شركة',
+    'company.charges_exported': 'تصدير تكاليف الشركات',
+    'company_auth.login': 'دخول مستخدم شركة',
+    'company_auth.login_failed': 'محاولة دخول فاشلة لبوابة الشركات',
+    'company_auth.lockout': 'إيقاف مؤقت لدخول مستخدم شركة',
+    'company_auth.rate_limited': 'تجاوز حد محاولات دخول بوابة الشركات',
+    'company_auth.logout': 'خروج مستخدم شركة',
+    'company_auth.invite_accepted': 'قبول دعوة بوابة الشركات',
+    'company_auth.2fa_enabled': 'تفعيل التحقق بخطوتين لمستخدم شركة',
+    'company_auth.2fa_disabled': 'إلغاء التحقق بخطوتين لمستخدم شركة',
+    'company_auth.2fa_failed': 'رمز تحقق غير صحيح لمستخدم شركة',
+    'company_auth.2fa_recovery_used': 'دخول مستخدم شركة برمز استرداد',
+    'company_auth.2fa_reset_by_staff': 'إلغاء التحقق بخطوتين لمستخدم شركة بواسطة الإدارة',
+    'company_auth.recovery_codes_regenerated': 'إصدار رموز استرداد جديدة لمستخدم شركة',
+    'company_auth.password_changed': 'تغيير كلمة مرور مستخدم شركة',
+    'company_auth.reset_requested': 'طلب استعادة كلمة مرور من بوابة الشركات',
+    'company_auth.reset_link_issued': 'إصدار رابط تعيين كلمة مرور لمستخدم شركة',
+    'company_auth.password_reset': 'تعيين كلمة مرور مستخدم شركة عبر الرابط',
+    'company_auth.sessions_revoked': 'إنهاء جلسات مستخدم شركة',
+    'company_auth.session_revoked': 'إنهاء جلسة لمستخدم شركة',
+    'company_auth.unlocked': 'رفع الإيقاف المؤقت عن مستخدم شركة',
+    'email.settings_updated': 'تعديل إعدادات البريد الإلكتروني',
+    'email.test_sent': 'إرسال رسالة بريد تجريبية',
   },
 };
 
@@ -840,7 +1181,7 @@ export const CLIENT_TEXTS = {
   // و{ref_no} = «طلب رقم 29» (لا REQ-… في رسائل واتساب). نصوص ثابتة لا يكتبها الذكاء الاصطناعي.
   story_welcome:
     '{hello}، ده الدعم القانوني في {org_name}. الاستشارة ببلاش وكلامك سر عندنا.\nاختار{ي} موضوعك من الزرار اللي تحت، أو احكيلنا على طول بالكتابة أو برسالة صوتية.\nولما تخلّص{ي} ابعت{ي} كلمة «خلاص»، أو اصبر{ي} شوية.',
-  story_welcome_header: '{org_name} — الدعم القانوني',
+  story_welcome_header: 'الدعم القانوني — {org_name}', // v10 experience (L-07): لا يبدأ السطر باسم لاتيني
   story_welcome_button: 'اختار{ي} الموضوع',
   story_welcome_section: 'مواضيع بنساعد فيها',
   story_welcome_footer: 'مش لازم تختار{ي} — اكتب{ي} أو سجّل{ي} على طول',
@@ -892,7 +1233,7 @@ export const DEFAULT_SETTINGS = {
   // مدة الاحتفاظ بأحداث سجل الأمان العادية (الأحداث الحرجة والتحذيرات تُحفظ ضعف المدة)
   security_audit_retention_days: 365,
   // اسم الجهة الظاهر في تطبيق المصادقة (حروف لاتينية لضمان التوافق مع كل التطبيقات)
-  security_totp_issuer: 'Beyoot Misr',
+  security_totp_issuer: 'Emam Legal', // v10 experience (L-04): للتسجيلات الجديدة فقط
   // <settings:messaging>
   // دخول بوابة العملاء برمز يصل عبر واتساب على صفحة /portal
   portal_otp_enabled: true,
@@ -913,6 +1254,11 @@ export const DEFAULT_SETTINGS = {
   // v9.1 b-site (B91-07/B91-12): بكلام يومي لأنه يظهر بعد «بنرد …» في الصفحة الرئيسية (قرار مفتوح للمؤسسة)
   // («لحد» لا «لـ»: «لـ» قبل رقم تنفصل في آخر السطر على الموبايل)
   office_hours: 'من السبت للخميس، من 10 الصبح لحد 4 العصر',
+  // v10: اسم المكتب كما يراه العملاء (الواجهة فقط؛ الكيان القانوني في org_legal_name)
+  brand_name: 'Emam Legal and Consultancy',
+  brand_short_name: 'Emam Legal',
+  // v10 experience (L-03): إظهار اسم المكتب في واجهة /app (الدخول والقائمة وعنوان التبويب)؛ إيقافه يعيد اسم المؤسسة كما في 9.2
+  brand_in_staff_app: true,
   // <settings:programs>
   // عتبات تنبيه استهلاك ميزانية البرامج (نسب مئوية؛ يُرسل كل تنبيه مرة واحدة لكل برنامج)
   program_alert_thresholds: [80, 100],
@@ -955,6 +1301,38 @@ export const DEFAULT_SETTINGS = {
       reply: '{hello}، طلبك ده مش من شغل الدعم القانوني، بس المؤسسة عندها برامج تانية ممكن تساعدك فيه. كلّم{ي} المؤسسة على {org_phone} واسأل{ي} عن البرنامج المناسب.\n— {org_name}',
     },
   ],
+  // <settings:v10-b2b> — خدمة الشركات. لا تُحفظ من PATCH /api/admin/settings العام (حارس #23)، بل من
+  // PUT /api/admin/b2b/settings (مدير النظام، بتحقق وسجل). company_* و b2b_* كلها هنا.
+  b2b_enabled: true,
+  // مواعيد العمل لمستوى الخدمة: null = نفس مواعيد العمل العامة office_hours_schedule (CO-11)؛ كائن = مواعيد للشركات فقط
+  b2b_business_hours: null,
+  b2b_holidays: [],
+  // نافذة الطلبات العاجلة (بتوقيت القاهرة، ترقيم getDay): الساعة «calendar» تعمل داخلها فقط (L-53)
+  b2b_urgent_hours: { days: [0, 1, 2, 3, 4, 5, 6], from: '08:00', to: '22:00' },
+  b2b_auto_close_days: 7,
+  b2b_revision_window_days: 30,
+  b2b_reminder_after_hours: 16,
+  b2b_max_reminders: 2,
+  b2b_quote_valid_days: 14,
+  b2b_trial_days: 14,
+  b2b_ended_readonly_days: 90,
+  b2b_memory_remind_days: { contract: [60, 30, 7], licence: [90, 30, 7], key_date: [14, 3, 1], dispute: [7, 1], person: [30, 7], other: [30, 7] },
+  // رابط شروط الخدمة للشركات (https أو فارغ) يظهر عند قبول الدعوة (L-49)
+  b2b_terms_url: '',
+  // المساحة المتاحة لملفات كل شركة (ميجابايت) وعدد الملفات في اليوم (L-27)
+  b2b_storage_mb: 2048,
+  b2b_files_per_day: 200,
+  // الاحتفاظ: صندوق البريد الصادر، والإشعارات المقروءة في البوابة (CS-30)
+  b2b_outbox_retention_days: 90,
+  b2b_notifications_retention_days: 180,
+  company_session_idle_hours: 12,
+  company_session_max_hours: 72,
+  // «تذكر هذا الجهاز» (P1): لا تُقرأ إلا بعد تفعيل الميزة (CO-21)
+  company_remember_days: 14,
+  company_remember_days_2fa: 30,
+  company_invite_valid_hours: 72,
+  company_reset_valid_minutes: 60,
+  company_email_max_per_hour: 20,
 };
 
 export const CODE_PREFIX = {
@@ -962,4 +1340,6 @@ export const CODE_PREFIX = {
   intake: 'REQ',
   matter: 'MTR',
   invoice: 'INV',
+  company: 'CO', // v10 b2b-server
+  quote: 'Q', // v10 b2b-server: عروض الأسعار {prefix}-Q-NNN لكل شركة
 };

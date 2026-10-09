@@ -15,6 +15,9 @@ import { publicWhatsAppDigits, isPlaceholderWhatsApp } from './channels/whatsapp
 import { assetVersion, sendBody } from './http.js';
 // v9.1 (B91-11): رسم الوحدات بأرقام إصدار ثابتة وروابط modulepreload
 import { setPublicRoot, preloadClosure } from './site-assets.js';
+// v10 experience: اسم المكتب (تحقق الحروف العادية وسطرا الشعار النصي)
+import { isPlainName, collapseSpaces, PLAIN_NAME_ERROR, wordmarkParts } from './brand.js';
+import { DEFAULT_PRIMARY } from '../public/assets/js/lib/brand-color.js';
 // v9.2 public: مصدر واحد للمواضيع (الشاشة الأولى، «بنساعد في إيه؟»، النموذج، الإدارة) وصورها
 import { TOPICS } from '../public/assets/js/public/topics.js';
 import { PICTOS } from '../public/assets/js/public/pictos.js';
@@ -25,16 +28,22 @@ import { PICTOS } from '../public/assets/js/public/pictos.js';
 const FALLBACK = {
   org_legal_name: 'مؤسسة بيوت مصر لدعم الأرامل والأيتام',
   site_program_name: 'الدعم القانوني',
+  // v10 experience (L-02): اسم المكتب كما يراه العملاء — قيمة مفرغة تعرض الافتراضي
+  brand_name: DEFAULT_SETTINGS.brand_name,
+  brand_short_name: DEFAULT_SETTINGS.brand_short_name,
 };
 
 /** v9.1 (B91-12): رسالة واتساب الجاهزة في الموقع، بسيطة ومحايدة (تصلح للأم والأب) */
 const SITE_GREETING = 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.';
 
 /** أجزاء HTML يولّدها الخادم نفسه؛ وحدها تُدرج دون تهريب بصيغة {{{key}}} (أي مفتاح آخر يُهرَّب دائمًا) */
-const RAW_KEYS = new Set(['header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone', 'start_tiles', 'ways_tiles', 'header_contact']);
+const RAW_KEYS = new Set(['brand_inline', 'header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone', 'start_tiles', 'ways_tiles', 'header_contact']);
 
 /** الحد الأقصى لأطوال حقول الموقع (نفس حدود بطاقة الإعدادات في الواجهة) */
 const SITE_TEXT_FIELDS = [
+  // v10 experience (§4.1): اسم المكتب والاسم المختصر — حروف عادية فقط (isPlainName)
+  ['brand_name', 'اسم المكتب كما يراه العملاء', 60, true, 'plain'],
+  ['brand_short_name', 'الاسم المختصر', 24, true, 'plain'],
   ['site_program_name', 'اسم البرنامج على الموقع', 60, true],
   ['org_legal_name', 'الاسم الرسمي الكامل للمؤسسة', 200, true],
   ['org_registration', 'بيانات الإشهار', 200, false],
@@ -76,7 +85,14 @@ export function validateSiteSettings(body = {}) {
       fields[key] = e.message;
     }
   };
-  for (const [key, label, max, required] of SITE_TEXT_FIELDS) take(key, (x) => v.str(x, label, { required, max }) ?? '');
+  for (const [key, label, max, required, kind] of SITE_TEXT_FIELDS) {
+    take(key, (x) => {
+      // v10 (CS-26): رموز التحكم ومحارف التنسيق غير المرئية تُرفض قبل القص (trim يزيل بعضها بصمت)
+      if (kind === 'plain' && typeof x === 'string' && !isPlainName(x)) throw badRequest(PLAIN_NAME_ERROR);
+      const s = v.str(x, label, { required, max }) ?? '';
+      return kind === 'plain' ? collapseSpaces(s) : s;
+    });
+  }
   take('org_phone', (x) => {
     const s = v.str(x, 'هاتف المؤسسة', { max: 30 });
     if (s === null) return '';
@@ -102,7 +118,7 @@ export const SITE_PAGES = [
 ];
 
 /** مسارات لا تُفهرس */
-export const ROBOTS_DISALLOW = ['/app', '/p/', '/api/', '/setup', '/webhooks/'];
+export const ROBOTS_DISALLOW = ['/app', '/p/', '/api/', '/setup', '/webhooks/', '/company']; // v10: + بوابة الشركات
 
 // ───────────── «بنساعد في إيه؟» (الإصدار 9.1 — B91-07؛ v9.2: من topics.js) ─────────────
 // كلام يومي ومثال من كلام المستفيدة نفسها. key: معرّف المربع القديم (id="service-…")، topic: مفتاح الموضوع لرابط
@@ -242,17 +258,30 @@ export function iconSvg(name, size = 22, cls = '') {
   );
 }
 
-/** شعار المؤسسة: بيت يحتضن ميزان العدالة (نفس رسم public/assets/img/favicon.svg). */
+/** v10 experience (X10-C5): العلامة = ميزان العدالة (نفس رسم ICONS.scale في المنصة وpublic/assets/img/favicon.svg). */
 export function brandSvg({ size = 40, stroke = 'currentColor', label = '' } = {}) {
   const a11y = label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true" focusable="false"';
   return (
-    `<svg class="pub-mark-svg" width="${size}" height="${size}" viewBox="0 0 64 64" ${a11y}>` +
-    `<g fill="none" stroke="${stroke}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">` +
-    '<path d="M8 30 32 10.5 56 30"/><path d="M14.5 25.5V53h35V25.5"/><path d="M32 19.5v27.5"/><path d="M26 47h12"/>' +
-    '<path d="M22 27.5c3.5.8 6.8-.2 10-2 3.2 1.8 6.5 2.8 10 2"/>' +
-    '<path d="M22 27.5l-3.8 8.5c1 .9 2.3 1.4 3.8 1.4s2.8-.5 3.8-1.4z"/><path d="M42 27.5l-3.8 8.5c1 .9 2.3 1.4 3.8 1.4s2.8-.5 3.8-1.4z"/>' +
+    `<svg class="pub-mark-svg" width="${size}" height="${size}" viewBox="0 0 24 24" ${a11y}>` +
+    `<g fill="none" stroke="${stroke}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">` +
+    '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>' +
+    '<path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>' +
     '</g></svg>'
   );
+}
+
+/**
+ * v10 experience (X10-B2): اسم المكتب على سطرين دائمًا (المختصر ثم بقية الاسم) بخط النظام، معزول الاتجاه وبلغته
+ * (<bdi class="pub-wordmark" dir="ltr" lang="en">)؛ اسم عربي تكتبه الإدارة يبقى معزولًا بلغته واتجاهه.
+ */
+export function wordmarkHtml(name, short, cls = 'pub-wordmark') {
+  const { lead, rest } = wordmarkParts(name, short);
+  return `<bdi class="${cls}" ${nameDirAttrs(`${lead}${rest}`)}><b>${esc(lead)}</b>${rest ? ` <span>${esc(rest)}</span>` : ''}</bdi>`;
+}
+
+/** v10 (مراجعة): اتجاه الاسم ولغته لقارئ الشاشة — لاتيني ltr/en، واسم عربي تكتبه الإدارة rtl/ar */
+export function nameDirAttrs(name) {
+  return /[\u0600-\u06FF]/.test(String(name || '')) ? 'dir="rtl" lang="ar"' : 'dir="ltr" lang="en"';
 }
 
 // ───────────── أدوات ─────────────
@@ -353,6 +382,9 @@ export function registerSite(app) {
     };
     const orgName = pick('org_name') || DEFAULT_SETTINGS.org_name;
     const programName = pick('site_program_name');
+    // v10 experience (L-02/L-08): اسم المكتب من مصدر واحد (app.brand) لكل العناوين ووسوم المشاركة
+    const brandName = app.brand?.displayName ? app.brand.displayName() : pick('brand_name');
+    const brandShort = app.brand?.shortName ? app.brand.shortName() : pick('brand_short_name');
     const address = pick('org_address');
     const phone = pick('org_phone');
     const phoneE164 = normalizePhone(phone) || '';
@@ -361,7 +393,12 @@ export function registerSite(app) {
       org_name: orgName,
       org_tagline: pick('org_tagline'),
       program_name: programName,
-      site_name: programName ? `${programName} — ${orgName}` : orgName,
+      // v10: عنوان الموقع = اسم المكتب (كان «الدعم القانوني — مؤسسة بيوت مصر»)
+      site_name: brandName,
+      brand_name: brandName,
+      brand_short: brandShort,
+      // مفتاح خام (RAW_KEYS): الاسم معزول الاتجاه ومعلَّم بالإنجليزية داخل الجمل العربية (X10-B2)
+      brand_inline: `<bdi class="wordmark" ${nameDirAttrs(brandName)}>${esc(brandName)}</bdi>`,
       org_legal_name: pick('org_legal_name'),
       org_registration: pick('org_registration'),
       org_address: address,
@@ -390,6 +427,7 @@ export function registerSite(app) {
     return {
       org_name: ps.org_name,
       site_name: ps.site_name,
+      brand: { name: ps.brand_name, short: ps.brand_short },
       phone: ps.org_phone,
       phone_e164: ps.org_phone_e164,
       whatsapp_digits: ps.whatsapp_digits,
@@ -488,9 +526,9 @@ export function registerSite(app) {
     const followLabel = current === '/' ? 'طلبك فين؟' : 'تابعي طلبك';
     return `<header class="pub-header" data-pub-header>
   <div class="pub-container pub-header-inner">
-    <a class="pub-brand" href="/" aria-label="${esc(ps.site_name)} — الصفحة الرئيسية">
+    <a class="pub-brand" href="/" aria-label="${esc(ps.brand_name)} — الصفحة الرئيسية">
       <span class="pub-logo">${brandSvg({ size: 26 })}</span>
-      <span class="pub-brand-text"><strong>${esc(ps.program_name || ps.org_name)}</strong><span>${esc(ps.org_legal_name || ps.org_name)}</span></span>
+      ${wordmarkHtml(ps.brand_name, ps.brand_short)}
     </a>
     ${headerContactHtml(ps, wa)}<button class="pub-menu-toggle" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu>
       ${iconSvg('menu', 22, 'pub-menu-open')}${iconSvg('x', 22, 'pub-menu-close')}<span class="pub-sr">القائمة</span>
@@ -557,14 +595,24 @@ export function registerSite(app) {
     return out.length ? `<div class="pub-socials">${out.join('')}</div>` : '';
   }
 
+  /** v10 (مراجعة): رابط «دخول الشركات» فقط حين تكون خدمة الشركات مفعّلة وصفحة البوابة موجودة (لا رابط إلى 404) */
+  function companyPortalOpen() {
+    try {
+      return app.settings.get('b2b_enabled') !== false && app.pageHandlers.has('/company') && fs.existsSync(path.join(pub, 'company.html'));
+    } catch {
+      return false;
+    }
+  }
+
   function footerHtml(ps, wa) {
     const year = new Date().getFullYear();
+    const company = companyPortalOpen();
     return `<footer class="pub-footer">
   <div class="pub-container pub-footer-grid">
     <div class="pub-footer-about">
       <a class="pub-brand pub-brand-light" href="/">
         <span class="pub-logo">${brandSvg({ size: 30 })}</span>
-        <span class="pub-brand-text"><strong>${esc(ps.program_name || ps.org_name)}</strong><span>${esc(ps.org_legal_name || ps.org_name)}</span></span>
+        <span class="pub-brand-lockup">${wordmarkHtml(ps.brand_name, ps.brand_short)}${ps.program_name ? `<span class="pub-brand-desc">${esc(ps.program_name)}</span>` : ''}</span>
       </a>
       ${ps.org_registration ? `<p class="pub-footer-reg">${esc(ps.org_registration)}</p>` : ''}
       <p class="pub-footer-desktop">بنساعد الأرامل وأسر الأيتام في مشاكلهم القانونية مجانًا، مع محامين متطوعين ومتعاونين، وفريق المؤسسة بيراجع كل حاجة.</p>
@@ -602,13 +650,14 @@ export function registerSite(app) {
       <li><a href="/terms">شروط الاستخدام</a></li>
       <li><a href="/data-deletion">حذف البيانات</a></li>
       <li><a href="/app">دخول فريق العمل والمحامين</a></li>
+      ${company ? '<li><a href="/company">دخول الشركات</a></li>' : ''}
     </ul>
   </details>
   ${ps.org_phone ? `<p class="pub-footer-call">للمساعدة: <a href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></p>` : ''}
   <div class="pub-footer-bottom">
     <div class="pub-container pub-footer-bottom-inner">
       <span>© ${year} ${esc(ps.org_legal_name || ps.org_name)}. جميع الحقوق محفوظة.</span>
-      <a href="/app" class="pub-staff-link">دخول فريق العمل والمحامين</a>
+      <span class="pub-footer-logins"><a href="/app" class="pub-staff-link">دخول فريق العمل والمحامين</a>${company ? '<a href="/company" class="pub-staff-link">دخول الشركات</a>' : ''}</span>
     </div>
   </div>
 </footer>`;
@@ -678,8 +727,9 @@ export function registerSite(app) {
     const org = {
       '@type': 'NGO',
       '@id': orgId,
+      // v10 (L-08): الكيان القانوني باسمه الرسمي، واسم المكتب الذي يراه الناس اسمًا بديلًا
       name: ps.org_legal_name || ps.org_name,
-      alternateName: ps.org_name,
+      alternateName: ps.brand_name || ps.org_name,
       url: `${base}/`,
       logo: `${base}/assets/img/icon-512.png`,
       description: ps.org_registration || undefined,
@@ -691,7 +741,8 @@ export function registerSite(app) {
     const service = {
       '@type': 'LegalService',
       '@id': `${base}/#legal-support`,
-      name: ps.site_name,
+      name: ps.brand_name,
+      brand: { '@type': 'Brand', name: ps.brand_name },
       description: ps.org_tagline || undefined,
       url: `${base}/`,
       image: `${base}/assets/img/og-image.png`,
@@ -711,7 +762,7 @@ export function registerSite(app) {
       name: title,
       description,
       inLanguage: 'ar-EG',
-      isPartOf: { '@type': 'WebSite', '@id': `${base}/#website`, url: `${base}/`, name: ps.site_name, inLanguage: 'ar-EG', publisher: { '@id': orgId } },
+      isPartOf: { '@type': 'WebSite', '@id': `${base}/#website`, url: `${base}/`, name: ps.brand_name, inLanguage: 'ar-EG', publisher: { '@id': orgId } },
       about: { '@id': `${base}/#legal-support` },
     };
     const graph = [org, service, page];
@@ -728,14 +779,14 @@ export function registerSite(app) {
   function headTags(ps, base, pagePath, { title, description, noindex, faq }) {
     const canonical = `${base}${pagePath}`;
     const image = `${base}/assets/img/og-image.png`;
-    const imageAlt = `${ps.site_name}: ${ps.org_tagline || 'دعم قانوني للأرامل والأيتام وأسرهم'}`;
+    const imageAlt = `${ps.brand_name}: ${ps.org_tagline || 'دعم قانوني للأرامل والأيتام وأسرهم'}`;
     return [
       `<link rel="canonical" href="${esc(canonical)}" />`,
       noindex ? '<meta name="robots" content="noindex, follow" />' : '',
-      `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0f4c5c'}" />${app.brand?.headStyle?.() || ''}`,
+      `<meta name="theme-color" content="${app.brand?.themeColor?.() || DEFAULT_PRIMARY}" />${app.brand?.headStyle?.() || ''}`,
       '<meta name="format-detection" content="telephone=no" />',
       `<meta property="og:type" content="website" />`,
-      `<meta property="og:site_name" content="${esc(ps.site_name)}" />`,
+      `<meta property="og:site_name" content="${esc(ps.brand_name)}" />`,
       `<meta property="og:locale" content="ar_EG" />`,
       `<meta property="og:title" content="${esc(title)}" />`,
       `<meta property="og:description" content="${esc(description)}" />`,
@@ -1050,7 +1101,8 @@ export function registerSite(app) {
     const body = src
       .replace("'__SW_VERSION__'", () => JSON.stringify(version))
       .replace('[/*__PRECACHE__*/]', () => JSON.stringify(precache))
-      .replace("'__ORG_NAME__'", () => jsonForScript(ps.org_name));
+      // v10 experience (L-03): صفحة «لا يوجد اتصال» باسم واجهة المنصة (المكتب، أو المؤسسة حين يُوقف)
+      .replace("'__ORG_NAME__'", () => jsonForScript(app.brand?.staffChromeName ? app.brand.staffChromeName().short : ps.org_name));
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
     // يجب أن يتحقق المتصفح من وجود إصدار جديد في كل مرة
@@ -1059,6 +1111,59 @@ export function registerSite(app) {
     res.end(req.method === 'HEAD' ? undefined : body);
     return true;
   });
+
+  // ───────────── v10 experience (L-40, X10-B5): ملفا PWA ديناميكيان ─────────────
+  // /manifest.webmanifest (فريق العمل والمحامون، نطاق /app) و/company.webmanifest (بوابة الشركات، نطاق /company).
+  // القالب = public/manifest.webmanifest (أسماء 9.2 تبقى حين يُوقف brand_in_staff_app)، ولون الشريط = الدرجة 700 الحالية.
+  function manifestFor(kind) {
+    let tpl;
+    try {
+      tpl = JSON.parse(fs.readFileSync(path.join(pub, 'manifest.webmanifest'), 'utf8'));
+    } catch {
+      return null;
+    }
+    const theme = app.brand?.themeColor?.() || DEFAULT_PRIMARY;
+    if (kind === 'company') {
+      const short = app.brand.shortName();
+      const { shortcuts, ...rest } = tpl; // eslint-disable-line no-unused-vars
+      return {
+        ...rest,
+        id: '/company',
+        name: `${short} — إدارتكم القانونية`,
+        short_name: short,
+        description: 'Your Virtual Legal Department — بوابة الشركات',
+        start_url: '/company#/',
+        scope: '/company',
+        theme_color: theme,
+      };
+    }
+    const out = { ...tpl, theme_color: theme };
+    if (app.brand?.staffChromeOn?.() !== false) {
+      const short = app.brand.staffChromeName().short;
+      out.name = `${short} — منصة فريق العمل والمحامين`;
+      out.short_name = short;
+      out.description = 'منصة فريق العمل والمحامين لمتابعة الطلبات والملفات.';
+    }
+    return out;
+  }
+  for (const [route, kind] of [['/manifest.webmanifest', 'app'], ['/company.webmanifest', 'company']]) {
+    app.pageHandlers.set(route, (req, res) => {
+      const m = manifestFor(kind);
+      if (!m) return false;
+      const body = `${JSON.stringify(m, null, 2)}\n`;
+      const etag = `W/"mf-${crypto.createHash('sha256').update(body).digest('base64url').slice(0, 16)}"`;
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('ETag', etag);
+      if (String(req.headers['if-none-match'] || '').split(',').some((x) => x.trim() === etag)) {
+        res.statusCode = 304;
+        res.end();
+        return true;
+      }
+      sendBody(res, 200, body, { req });
+      return true;
+    });
+  }
 
   // ───────────── /api/meta ─────────────
   // تُضاف تحت المفتاح site حتى لا تتعارض مع settings الأساسية

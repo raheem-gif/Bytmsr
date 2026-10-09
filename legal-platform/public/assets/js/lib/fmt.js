@@ -24,9 +24,25 @@ export function settings() {
   return META.settings || {};
 }
 
-/** اسم المؤسسة كما في الإعدادات (يُستخدم بدل كتابة الاسم نصًا ثابتًا في الواجهة). */
+/**
+ * الاسم الذي يُوقَّع به كل ما يصل للعملاء ({org_name} في الردود السريعة ومعاينات الأتمتة ونص المكالمة):
+ * v10 experience (CO-14): اسم المكتب من meta.brand أولًا، وإلا اسم المؤسسة كما في الإعدادات.
+ */
 export function orgName() {
-  return META.settings?.org_name || 'بيوت مصر';
+  return getMeta().brand?.name || META.settings?.org_name || 'بيوت مصر';
+}
+
+/**
+ * v10 experience (L-03): اسم واجهة /app (الدخول، القائمة الجانبية، عنوان التبويب، شاشات الحساب) من meta.brand.staff_chrome.
+ * on = اسم المكتب ظاهر في منصة الفريق (brand_in_staff_app)؛ وإلا { on:false } باسم المؤسسة كما في 9.2.
+ * @returns {{on:boolean, name:string, short:string}}
+ */
+export function staffChrome() {
+  const b = getMeta().brand || {};
+  const sc = b.staff_chrome || null;
+  const org = META.settings?.org_name || 'بيوت مصر';
+  const on = !!(sc && sc.name && b.name && sc.name === b.name);
+  return on ? { on, name: sc.name, short: sc.short || sc.name } : { on: false, name: org, short: org };
 }
 
 /** المسمى العربي من LABELS[group][key]، وإلا المفتاح نفسه أو «—». */

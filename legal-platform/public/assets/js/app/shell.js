@@ -2,8 +2,8 @@
 
 import { h, mount } from '../lib/h.js';
 import { api } from '../lib/api.js';
-import { label, relative, dateTime } from '../lib/fmt.js';
-import { icon, avatar, button, brandMark, loading, emptyState, richText } from '../lib/ui.js';
+import { label, relative, dateTime, staffChrome } from '../lib/fmt.js';
+import { icon, avatar, button, brandMark, loading, emptyState, richText, wordmark } from '../lib/ui.js';
 import { notifIcon, notifTone, markRead, followLink } from './notif.js';
 import { createSearch } from './components/search.js'; // v9 practice: البحث الشامل Ctrl/⌘+K
 import { routeTitle } from './routes.js';
@@ -41,6 +41,8 @@ export function navGroups(user, meta) {
         navItem('/calendar', 'calendar'),
       ],
     },
+    // v10 b2b-staff (H-S2): خدمة الشركات — العدد على «طلبات الشركات» من /admin/b2b/overview مع دورة الإشعارات
+    { title: 'خدمة الشركات', items: [navItem('/company-requests', 'inboxStack', { coBadge: true }), navItem('/companies', 'building')] },
     {
       title: 'الشبكة والمالية والبرامج',
       items: [navItem('/lawyers', 'scale'), isAdmin && navItem('/accounting', 'wallet'), navItem('/programs', 'book'), navItem('/conflicts', 'shieldCheck')],
@@ -94,6 +96,8 @@ function writeNavState(state) {
 export function createShell({ user, meta, onLogout }) {
   const settings = (meta && meta.settings) || {};
   const orgName = settings.org_name || 'بيوت مصر';
+  // v10 experience (L-03): اسم المكتب في القائمة الجانبية وعنوان التبويب (وإلا اسم المؤسسة كما في 9.2)
+  const chrome = staffChrome();
   let unread = 0;
   let pollTimer = null;
   let destroyed = false;
@@ -102,6 +106,7 @@ export function createShell({ user, meta, onLogout }) {
   // ── الشريط الجانبي ──
   const navLinks = [];
   const navCounts = [];
+  let coBadgeEl = null; // v10 b2b-staff (H-S2): عدد «طلبات الشركات» التي تحتاج الفريق
   const groups = navGroups(user, meta);
   const navState = readNavState(); // { [عنوان المجموعة]: true مفتوحة | false مطوية } باختيار المستخدم
   const groupCtl = []; // { title, el, links, set(open), userSet }
@@ -140,8 +145,9 @@ export function createShell({ user, meta, onLogout }) {
           'ul',
           { id: listId, 'aria-labelledby': titleId },
           g.items.map((item) => {
-            const countEl = item.notif ? h('span.nav-count', { hidden: true, 'aria-hidden': 'true' }) : null;
-            if (countEl) navCounts.push(countEl);
+            const countEl = item.notif || item.coBadge ? h('span.nav-count', { hidden: true, 'aria-hidden': 'true' }) : null;
+            if (countEl && item.notif) navCounts.push(countEl);
+            if (countEl && item.coBadge) coBadgeEl = countEl; // v10 b2b-staff (H-S2)
             const a = h(
               'a.nav-link',
               { href: `#${item.href}`, dataset: { path: item.href } },
@@ -218,8 +224,10 @@ export function createShell({ user, meta, onLogout }) {
       'a.brand',
       { href: '#/' },
       brandMark({ size: 24 }),
-      // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان
-      h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
+      // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان؛ v10: الشعار النصي للمكتب على سطرين
+      chrome.on
+        ? h('span.brand-text', wordmark({ size: 'md', tone: 'dark', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني'))
+        : h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
     ),
     nav,
     h(
@@ -382,6 +390,18 @@ export function createShell({ user, meta, onLogout }) {
     } catch {
       /* يُعاد المحاولة في الدورة التالية؛ 401 يُعالج عبر auth:expired */
     }
+    // v10 b2b-staff (H-S2): عدد «طلبات الشركات» (جديدة + تحتاج الفريق + متأخرة) — طلب خلفية مع نفس الدورة
+    if (coBadgeEl && !destroyed) {
+      try {
+        const o = await api.get('/admin/b2b/overview', undefined, { background: true });
+        const n = Math.max(0, Number(o && o.badge) || 0);
+        coBadgeEl.textContent = n > 99 ? '99+' : String(n);
+        coBadgeEl.hidden = n === 0;
+        coBadgeEl.closest('a')?.setAttribute('aria-label', n ? `طلبات الشركات، تحتاج إجراءً: ${n}` : 'طلبات الشركات');
+      } catch {
+        /* الدورة التالية */
+      }
+    }
   }
 
   async function openItem(n) {
@@ -447,7 +467,7 @@ export function createShell({ user, meta, onLogout }) {
     setTitle(t) {
       if (lawyerUi) lawyerUi.renderTitle(titleEl, t);
       else titleEl.textContent = t || '';
-      document.title = t ? `${t} — ${orgName}` : `منصة ${orgName} القانونية`;
+      document.title = chrome.on ? (t ? `${t} — ${chrome.short}` : chrome.short) : t ? `${t} — ${orgName}` : `منصة ${orgName} القانونية`;
     },
     setActive(path) {
       let best = null;

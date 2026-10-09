@@ -3,7 +3,7 @@
 
 import { h, mount } from '../lib/h.js';
 import { api, putEarlyResult, clearPrefetched, sessionUntil, onUserActivity } from '../lib/api.js';
-import { setMeta, getMeta } from '../lib/fmt.js';
+import { setMeta, getMeta, staffChrome } from '../lib/fmt.js';
 import { errorState, toast, closeAllModals, alertBox } from '../lib/ui.js';
 import { startRouter, stopRouter, parseHash, matchRoute } from './router.js';
 import { defaultPath, roleCss, todaySkeleton } from './routes.js';
@@ -416,7 +416,8 @@ async function showLogin({ expired = false, message = null, username = null } = 
   currentUser = null;
   teardownApp();
   clearPrefetched(); // v9.1 l-home: لا يأخذ من يدخل بعدها ردًا طُلب قبل جلسته
-  document.title = `تسجيل الدخول — منصة ${orgName()} القانونية`;
+  // v10 experience (L-03): «تسجيل الدخول — Emam Legal»، أو عنوان 9.2 حين يُوقف اسم المكتب في منصة الفريق
+  document.title = staffChrome().on ? `تسجيل الدخول — ${staffChrome().short}` : `تسجيل الدخول — منصة ${orgName()} القانونية`;
   try {
     const { default: renderLogin } = await import('./pages/login.js');
     const el = renderLogin({
@@ -643,6 +644,9 @@ window.addEventListener('auth:expired', () => {
   sessionEnded(); // (إصلاح 9.1) لا يُفتح «اليوم» المحفوظ دون اتصال بعد انتهاء الجلسة
   showLogin({ expired: true });
 });
+
+// v10 (X10-P3): iOS Safari لا يطبّق :active (الضغط الفوري على الأزرار والصفوف) إلا بمستمع touchstart في الصفحة
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 // فتح رابط دعوة/إعادة تعيين في نفس التبويب بعد تحميل المنصة
 window.addEventListener('hashchange', () => {

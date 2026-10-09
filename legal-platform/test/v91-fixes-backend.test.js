@@ -284,7 +284,7 @@ describe('Court hearings: neutral next title, meeting promise and attendance for
       const rem = (await outbox(admin)).filter((x) => x.automation_rule === 'hearing_reminder' && x.matter_id === m.id);
       assert.equal(rem.length, 1);
       assert.match(rem[0].body, /هاتي معاكي: بطاقتك الشخصية، شهادات ميلاد يوسف ومريم/);
-      assert.match(rem[0].body, /المحامي هيقابلك عند باب المحكمة الساعة 8:30\n— /);
+      assert.match(rem[0].body, /المحامي هيقابلك عند باب المحكمة الساعة 8:30\n\u200f?— /); // v10 experience (intended, L-07): Latin signature lines start with RLM
       // ردها من صفحتها: كلامها هي في محادثتها، والمحامي يعرف الحضور
       const token = tokenOf(ok(await admin.post(`/api/admin/clients/${k.clientId}/portal-link`, {})).url);
       ok(await t.client().post(`/api/portal/${token}/events/${ev.id}/response`, { answer: 'yes' }));

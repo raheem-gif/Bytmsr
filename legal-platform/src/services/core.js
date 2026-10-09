@@ -43,6 +43,10 @@ export function createActivity(app) {
         type: e.type,
         summary: e.summary,
         data: JSON.stringify(e.data || {}),
+        // v10 b2b-server (L-20): ربط اختياري بالشركة وطلبها ومستخدمها (فاعل الشركة { kind: 'company' } بلا معرّف مستخدم)
+        company_id: e.company_id ?? undefined,
+        company_request_id: e.company_request_id ?? undefined,
+        company_user_id: e.company_user_id ?? undefined,
         created_at: nowIso(),
       });
     },

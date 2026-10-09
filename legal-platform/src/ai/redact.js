@@ -74,11 +74,21 @@ function tolerantName(name) {
 }
 
 /**
+ * gate K12/J-21: رقم «يشبه الهاتف» فعلًا — يبدأ بـ + أو 00 أو 0، أو رقم محمول مصري دولي بلا + (2010…)؛
+ * رقم فاتورة أو قيد مثل 20261234567 ليس هاتفًا (يُستخدم مع strictPhones في نصوص ملفات الشركات)
+ */
+function phoneShaped(t) {
+  const d = t.replace(/[\s-]/g, '');
+  return /^(?:\+|00|0)/.test(d) || /^201[0125]\d{8}$/.test(d);
+}
+
+/**
  * @param {string} text
- * @param {{ names?: string[] }} opts أسماء معروفة (العميل، المحامون) تُخفى أينما وردت
+ * @param {{ names?: string[], strictPhones?: boolean }} opts أسماء معروفة (العميل، المحامون) تُخفى أينما وردت؛
+ *   strictPhones: لا يُعد هاتفًا إلا ما يشبه الهاتف (ملفات الشركات: أرقام الفواتير والقيود تبقى)
  * @returns {{ text: string, counts: object }}
  */
-export function redact(text, { names = [] } = {}) {
+export function redact(text, { names = [], strictPhones = false } = {}) {
   if (!text) return { text: text || '', counts: {} };
   const counts = {};
   const bump = (k, by = 1) => (counts[k] = (counts[k] || 0) + by);
@@ -104,6 +114,7 @@ export function redact(text, { names = [] } = {}) {
     const digits = t.replace(/\D/g, '').length;
     // التواريخ (2026-11-15) والأرقام القصيرة ليست هواتف
     if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(t) || /^\d{1,2}-\d{1,2}-\d{4}$/.test(t) || digits < 8 || digits > 15) return m;
+    if (strictPhones && !phoneShaped(t)) return m;
     bump('phones');
     return '[رقم هاتف]';
   });
@@ -127,7 +138,9 @@ export function redact(text, { names = [] } = {}) {
   }
   for (const nm of [...variants].sort((a, b) => b.length - a.length)) {
     // (v9.1 fixes: ومع حرف العطف أو الجر الملتصق: «يوسف ومريم» ← «[اسم] و[اسم]»)
-    const re = new RegExp(`(^[وفبل]?|[^\\p{L}][وفبل]?)${tolerantName(nm)}(?=$|[^\\p{L}])`, 'gu');
+    // gate K2/J-04: الاسم الأول وحده يقبل حرف العطف (و/ف) فقط، لا حرف الجر الملتصق (ل/ب): «لدينا» ليست «ل» + «دينا»
+    const clitic = /\s/.test(nm) ? '[وفبل]?' : '[وف]?';
+    const re = new RegExp(`(^${clitic}|[^\\p{L}]${clitic})${tolerantName(nm)}(?=$|[^\\p{L}])`, 'gu');
     s = s.replace(re, (m, pre) => {
       bump('names');
       return `${pre}[اسم]`;
@@ -137,7 +150,9 @@ export function redact(text, { names = [] } = {}) {
   // اسم يلي صلة قرابة أو لقبًا: «أخويا محمود» ← «أخويا [اسم]»
   // الصلة أو اللقب يجب أن يكون كلمة مستقلة (وإلا اعتُبرت «الحكم.» لقب «م.»)
   // الحركات والتنوين (\p{M}) جزء من الكلمة حتى لا تنقسم «أبناءً» إلى «أبناء» + «ً»
-  const kinRe = new RegExp(`(^|[^\\p{L}\\p{M}])((?:[وف]?${KIN})|${ABBR})\\s+(?!\\[)([\\p{L}\\p{M}]{3,})(\\s+(?!\\[)(?:عبد\\s*)?[\\p{L}\\p{M}]{3,})?`, 'gu');
+  // gate K2/J-03: اللقب المختصر («م.») لا يُعد لقبًا بعد نقطة أو حرف مختصر آخر — نهاية «ش.م.م.» و«ش.ذ.م.م.» صيغة شركة —
+  // والاسم بعد اللقب على السطر نفسه (لا يبتلع سطرًا تاليًا مثل «الطرف الآخر:»)
+  const kinRe = new RegExp(`(^|[^\\p{L}\\p{M}.])((?:[وف]?${KIN})|(?<!\\p{L}\\.\\s?)${ABBR})[^\\S\\n]+(?!\\[)([\\p{L}\\p{M}]{3,})([^\\S\\n]+(?!\\[)(?:عبد[^\\S\\n]*)?[\\p{L}\\p{M}]{3,})?`, 'gu');
   s = s.replace(kinRe, (m, pre, kin, first, second) => {
     // لا نخفي الكلمات العامة التي تلي صلة القرابة
     const isCommon = (w) => COMMON_AFTER_KIN.test(stripMarks(w));

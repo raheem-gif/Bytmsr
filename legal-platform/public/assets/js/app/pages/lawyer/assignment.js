@@ -13,6 +13,7 @@ import { count, deadline, requestStatus, counselStatus } from '../../words.js';
 import { docRow, openDocument } from '../../components/doc-viewer.js';
 import { openRequestSheet } from '../../components/request-sheet.js';
 import { createDraftStore, wordCount, parseReviewNotes } from '../../components/draft-store.js';
+import { filesToUploads } from '../../../lib/api.js'; // v10 b2b-staff: ملفات العمل (U10-L05)
 
 const EDITABLE = ['assigned', 'in_progress', 'returned'];
 const SEGMENTS = [
@@ -21,6 +22,112 @@ const SEGMENTS = [
   { key: 'requests', label: 'الطلبات' },
 ];
 const PRIVACY_LINE = 'تصل طلباتك للإدارة، وهي التي تتواصل مع المستفيد/ة.';
+// ───────────── v10 b2b-staff (STF-11، U10-L03…L06): ملفات عمل الشركات ─────────────
+// المحامي يرى من الشركة ما يتيحه الخادم فقط (§4.7): الاسم والكيان ونوع الطلب والأولوية ولغة التسليم والموعد والمراجعة
+// النهائية، وعناصر الذاكرة الممنوحة بحقولها الآمنة (lawyer_fields) — لا أسماء مستخدمي الشركة ولا بريد ولا هاتف ولا كود طلب.
+export const COMPANY_PRIVACY_LINE = 'تصل طلباتك للإدارة، وهي التي تتواصل مع الشركة عبر بوابتها.';
+export const COMPANY_NO_CONTEXT = 'لم تُشارك معك عناصر من ذاكرة الشركة.';
+export const SENIOR_REVIEW_LINE = 'يراجع عملك مراجع نهائي قبل تسليمه للشركة.';
+/** gate J-07/K10: المراجع النهائي نفسه لا يُقال له «يراجع عملك»؛ وموعد الشركة سياق لا أمر (موعده هو في رأس الصفحة) */
+export const REVIEWER_LINE = 'أنت المراجع النهائي لهذا العمل قبل تسليمه للشركة.';
+export const COMPANY_DUE_LABEL = 'موعد تسليم الإدارة للشركة';
+export const WORK_FILES_WARNING = 'احذف اسمك من خصائص ملف Word ومن أسماء التعديلات المتتبَّعة، أو أرفق PDF.';
+const OUTPUT_LANG = { ar: 'العربية', en: 'English', both: 'العربية والإنجليزية' };
+const PRIORITY_WORD = { urgent: 'أولوية عاجلة', high: 'أولوية مرتفعة', normal: 'أولوية عادية', low: 'أولوية منخفضة' };
+/** تسميات الحقول للمحامي (صياغة محايدة بدل «صفة شركتكم») */
+const LAWYER_FIELD_LABEL = { our_role: 'صفة الشركة' };
+/** النصوص الموجهة للمستفيد/ة في ورقة «ماذا تحتاج؟» تصبح للشركة في ملف الشركة (U10-L06) */
+const COMPANY_SUBS = [[/المستفيد\/ة/g, 'الشركة']];
+
+/**
+ * قسم «سياق الشركة» (U10-L03) من view.company فقط. fields = memoryFields من الكتالوج (للتسميات)، onOpen لفتح مستند.
+ * @param {object} co view.company
+ */
+export function companyContextSection(co, { fields = () => [], role = null, closed = false } = {}) {
+  if (!co) return null;
+  const ctxItems = Array.isArray(co.context) ? co.context : [];
+  const typeLine = [co.request_type_label, PRIORITY_WORD[co.priority] || null, co.output_language ? `لغة التسليم: ${OUTPUT_LANG[co.output_language] || co.output_language}` : null].filter(Boolean);
+  const optLabel = (spec, v) => {
+    if (spec.kind === 'bool') return v ? 'نعم' : 'لا';
+    const o = (spec.options || []).find((x) => String(x.key ?? x.value) === String(v));
+    if (o) return o.label;
+    if (Array.isArray(v)) return v.join('، ');
+    return String(v);
+  };
+  const dateText = (k) => (k ? deadline(`${String(k).slice(0, 10)}T10:00:00Z`).split('،')[0] : '');
+  const lineOf = (m) => {
+    const d = m.data || {};
+    const parts = [m.kind_label, m.title];
+    if (m.kind === 'contract') {
+      if (m.dates?.end_date) parts.push(`حتى ${dateText(m.dates.end_date)}`);
+      if (d.renewal_type === 'auto') parts.push(`يتجدد تلقائيًا${d.notice_days != null ? ` (إخطار ${count(d.notice_days, 'day')})` : ''}`);
+    } else if (m.kind === 'position' && d.decision) parts.push(String(d.decision).slice(0, 120));
+    else if (m.kind === 'template' && d.version) parts.push(`الإصدار ${d.version}`);
+    return parts.filter(Boolean).join(' · ');
+  };
+  const itemNode = (m) => {
+    const specs = fields(m.kind) || [];
+    const data = m.data || {};
+    const rows = Object.keys(data).map((k) => {
+      const spec = specs.find((x) => x.key === k) || { key: k, label: k };
+      const v = data[k];
+      const shown = spec.kind === 'date' ? dateText(v) : optLabel(spec, v);
+      return h('div.lw-co-kv', h('dt', LAWYER_FIELD_LABEL[k] || spec.label), h('dd', { dir: 'auto' }, shown));
+    });
+    const docs = Array.isArray(m.documents) ? m.documents : [];
+    return h(
+      'details.lw-co-item',
+      h('summary', h('span', { dir: 'auto' }, lineOf(m)), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+      h(
+        'div.lw-co-body',
+        m.summary ? h('p.pre', { dir: 'auto' }, m.summary) : null,
+        rows.length ? h('dl.lw-co-dl', rows) : null,
+        m.dates && (m.dates.notice_deadline || m.dates.next_date) ? h('p.lw-muted', m.dates.notice_deadline ? `آخر موعد للإخطار: ${dateText(m.dates.notice_deadline)}` : `الموعد التالي: ${dateText(m.dates.next_date)}`) : null,
+        docs.length ? h('ul.lw-docs.is-tight', docs.map((x) => docRow(x, { source: false }))) : null,
+      ),
+    );
+  };
+  return h(
+    'section.lw-sec.lw-co',
+    h('div.lw-sec-head', h('h2.lw-sec-title', icon('building', { size: 18 }), 'سياق الشركة')),
+    h('p.lw-co-name', [co.name, co.entity].filter(Boolean).join(' · ') || 'شركة عميلة'),
+    typeLine.length ? h('p.lw-co-line', typeLine.join(' · ')) : null,
+    co.delivery_due_at && !closed ? h('p.lw-co-line', icon('calendar', { size: 16 }), `${COMPANY_DUE_LABEL}: ${deadline(co.delivery_due_at)}`) : null,
+    role === 'reviewer'
+      ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), REVIEWER_LINE)
+      : co.requires_senior_review
+        ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), SENIOR_REVIEW_LINE)
+        : null,
+    ctxItems.length
+      ? h('div.lw-co-mem', h('h3.lw-co-sub', `من ذاكرة الشركة (${num(ctxItems.length)})`), h('div.lw-co-list', ctxItems.map(itemNode)))
+      : h('p.lw-muted', COMPANY_NO_CONTEXT),
+  );
+}
+
+/** يحوّل نصوص ورقة «ماذا تحتاج؟» من المستفيد/ة إلى الشركة (U10-L06) ويضيف «يصل إلى الشركة عبر الإدارة» */
+function companySheetCopy(root) {
+  if (!root) return;
+  const fix = () => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      let t = n.nodeValue;
+      for (const [re, to] of COMPANY_SUBS) t = t.replace(re, to);
+      if (t !== n.nodeValue) n.nodeValue = t;
+    }
+    for (const tile of root.querySelectorAll('.lw-tile[data-kind="document"], .lw-tile[data-kind="information"]')) {
+      const txt = tile.querySelector('.lw-tile-text');
+      if (txt && !txt.querySelector('.lw-tile-sub')) txt.append(h('span.lw-tile-sub', 'يصل إلى الشركة عبر الإدارة'));
+    }
+  };
+  fix();
+  const mo = new MutationObserver(() => {
+    if (!root.isConnected) return mo.disconnect();
+    mo.disconnect();
+    fix();
+    mo.observe(root, { childList: true, subtree: true, characterData: true });
+  });
+  mo.observe(root, { childList: true, subtree: true, characterData: true });
+}
 const KIND_CHIP = { document: 'مستند', information: 'معلومة', extension: 'مهلة', admin_question: 'سؤال للإدارة' };
 const KIND_HINTS = {
   second_opinion: 'رأي مستقل من محامٍ آخر في نفس المسائل للتحقق من النتيجة.',
@@ -114,6 +221,15 @@ export default async function render(ctx) {
   }
 
   ctx.setTitle(view.case.code);
+  // v10 b2b-staff (U10-L03): تسميات حقول الذاكرة الممنوحة من الكتالوج (تُحمَّل لملفات الشركات فقط)
+  let memoryFields = () => [];
+  if (view.company) {
+    try {
+      ({ memoryFields } = await import('../../../lib/company-catalog-fields.js'));
+    } catch {
+      /* تبقى التسميات بمفاتيحها */
+    }
+  }
   const claude = !!(view.ai && view.ai.claude);
   const user = ctx.user || {};
   const store = user.id ? createDraftStore({ userId: user.id, assignmentId: id, code: view.case.code }) : null;
@@ -301,7 +417,9 @@ export default async function render(ctx) {
   }
 
   function factsNode() {
-    const who = view.client_label
+    const who = view.company // v10 b2b-staff: ملف شركة — لا «المستفيد/ة»
+      ? null
+      : view.client_label
       ? h('p.lw-client', 'المستفيد/ة: ', h('strong', view.client_label))
       : h('p.lw-client.is-muted', 'اسم المستفيد/ة محجوب للخصوصية.');
     if (!view.facts_granted) return section('الوقائع', frag(who, h('p.lw-muted', 'لم تُتح لك الإدارة ملخص الوقائع في هذا الإسناد.')));
@@ -382,7 +500,7 @@ export default async function render(ctx) {
       )
       .catch((err) => toast(errorMessage(err), 'danger'));
   };
-  const rowOpts = (d) => ({ claude: claude && d.granted !== false, onAnalyze: analyzeDoc });
+  const rowOpts = (d) => ({ claude: claude && d.granted !== false, onAnalyze: analyzeDoc, sourceLabel: view.company && d.uploaded_by_kind === 'client' ? 'من الشركة' : undefined }); // v10 b2b-staff
 
   function docsNode() {
     const docs = view.documents || [];
@@ -427,7 +545,8 @@ export default async function render(ctx) {
   }
 
   function filePane() {
-    return frag(briefNode(), factsNode(), issuesNode(), docsNode(), teamNode(), feeLine());
+    // v10 b2b-staff (U10-L03): «سياق الشركة» أول أقسام «الملف» في ملفات الشركات
+    return frag(view.company ? companyContextSection(view.company, { fields: memoryFields, role: view.assignment && view.assignment.role, closed: closed() }) : null, briefNode(), factsNode(), issuesNode(), docsNode(), teamNode(), feeLine());
   }
 
   // ───────────── «رأيي» ─────────────
@@ -496,7 +615,52 @@ export default async function render(ctx) {
         ),
       );
     }
+    if (view.company) parts.push(workFilesNode()); // v10 b2b-staff (U10-L05)
     return frag(parts);
+  }
+
+  /** «ملفات العمل» (U10-L05، D3): عقد بالتعديلات أو مسودة — لا تصل للشركة أبدًا؛ الحذف حتى اعتماد الرأي */
+  function workFilesNode() {
+    const files = view.work_files || [];
+    const approved = view.assignment.status === 'approved';
+    const input = h('input.file-native', { type: 'file', multiple: true, accept: '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp', 'aria-label': 'إرفاق ملف عمل' });
+    input.addEventListener(
+      'change',
+      safe(async () => {
+        const picked = [...input.files];
+        input.value = '';
+        if (!picked.length) return;
+        if (files.length + picked.length > 5) return toast('حتى 5 ملفات عمل لكل إسناد.', 'warning');
+        await api.post(`${base}/work-files`, { files: await filesToUploads(picked) });
+        toast('أُرفق ملف العمل. تراه الإدارة فقط.', 'success');
+        await refresh(['mine']);
+      }),
+    );
+    const del = (d) =>
+      safe(async () => {
+        const ok = await confirmDialog({ title: 'حذف ملف العمل', message: `حذف «${d.title || d.filename}»؟`, confirmLabel: 'احذف', cancelLabel: 'تراجع', danger: true });
+        if (!ok) return;
+        await api.del(`/lawyer/work-files/${encodeURIComponent(d.id)}`);
+        toast('حُذف ملف العمل.', 'success');
+        await refresh(['mine']);
+      });
+    return h(
+      'section.lw-sec.lw-workfiles',
+      h('div.lw-sec-head', h('h2.lw-sec-title', icon('paperclip', { size: 18 }), `ملفات العمل (${num(files.length)})`)),
+      h('p.lw-co-warn', icon('alert', { size: 16 }), h('span', WORK_FILES_WARNING)),
+      files.length
+        ? h(
+            'ul.lw-docs.is-tight',
+            files.map((d) => {
+              const row = docRow(d, { source: false });
+              row.classList.add('lw-wf-row');
+              if (!approved && !closed()) row.append(h('button.lw-link.is-danger.lw-wf-del', { type: 'button', onClick: del(d), 'aria-label': `حذف ${d.title || d.filename}` }, 'حذف'));
+              return row;
+            }),
+          )
+        : h('p.lw-muted', 'لا ملفات عمل بعد. تصل للإدارة وحدها، ولا تراها الشركة.'),
+      !approved && !closed() && files.length < 5 ? h('label.btn.btn-secondary.lw-wf-add', input, icon('upload', { size: 18 }), h('span', 'إرفاق ملف (عقد بالتعديلات، مسودة…)')) : null,
+    );
   }
 
   function orphanNote(local) {
@@ -637,7 +801,7 @@ export default async function render(ctx) {
       r.items && r.items.length ? h('ul.lw-items', r.items.map((x) => h('li', { dir: 'auto' }, x))) : null,
       h(
         'div.lw-reqrow-foot',
-        h('span.lw-muted', `طُلب ${shortDate(r.sent_at)}`),
+        h('span.lw-muted', view.company ? `سُئلت الشركة في ${shortDate(r.sent_at)}` : `طُلب ${shortDate(r.sent_at)}`), // v10 b2b-staff (U10-L06): لا اسم شخص
         r.joined
           ? h('span.lw-joined', icon('checkCircle', { size: 16 }), 'طلبته — سيصلك الرد')
           : canRequest()
@@ -673,16 +837,16 @@ export default async function render(ctx) {
       .map((x) => x.node());
     return frag(
       canRequest() ? button('اطلب', { variant: 'primary', icon: 'plus', block: true, className: 'lw-req-cta', onClick: () => openSheet() }) : null,
-      h('p.lw-privacy', icon('shield', { size: 16 }), h('span', PRIVACY_LINE)),
+      h('p.lw-privacy', icon('shield', { size: 16 }), h('span', view.company ? COMPANY_PRIVACY_LINE : PRIVACY_LINE)),
       section('طلباتك', ownRows.length ? h('ul.lw-reqs', ownRows) : h('p.lw-muted', 'لم ترسل طلبات في هذا الملف بعد.')),
-      already.length ? section('مطلوب بالفعل من المستفيد/ة', h('ul.lw-reqs', already.map(alreadyRow))) : null,
+      already.length ? section(view.company ? 'مطلوب بالفعل من الشركة' : 'مطلوب بالفعل من المستفيد/ة', h('ul.lw-reqs', already.map(alreadyRow))) : null,
       sharedOthers.length ? section('ردود متاحة لك', h('ul.lw-reqs', sharedOthers.map(infoRow))) : null,
     );
   }
 
   function openSheet(opts = {}) {
     if (!canRequest()) return;
-    openRequestSheet({
+    const sheet = openRequestSheet({
       base,
       view,
       ...opts,
@@ -692,6 +856,7 @@ export default async function render(ctx) {
       },
       onCounsel: openCounselDialog,
     });
+    if (view.company && sheet && sheet.el) companySheetCopy(sheet.el); // v10 b2b-staff (U10-L06)
   }
 
   // ───────────── طلب مساعدة محامٍ آخر (النافذة القائمة دون التنبيه التمهيدي) ─────────────

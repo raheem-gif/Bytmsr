@@ -165,6 +165,8 @@ export function createRequests(app) {
       if (ADMIN_ONLY_KINDS.includes(r.kind) || r.duplicate_of_id) throw conflict('هذا الطلب لا يُرسل للمستفيد/ة');
       if (r.status !== 'pending_admin') throw conflict('تم البت في هذا الطلب بالفعل');
       const c = app.cases.requireOpen(r.case_id);
+      // v10 b2b-server (حارس #14، B10-26): ملف شركة ← استيضاح في بوابة الشركة (لا رسالة واتساب ولا صف messages)
+      if (c.company_id && app.companyRequests) return app.companyRequests.clarificationFromInfo(r, c, actor, body);
       const clientMessage = v.str(body.client_message, 'نص الرسالة للعميل', { required: true, max: 3000 });
       // v9.1 b-portal (B91-03): البنود المطلوبة كما راجعتها الإدارة (بند في كل سطر، ≤ 5) ← صف «صوّري» لكل بند في صفحتها
       const editedItems = r.kind === 'document' && body.items !== undefined && app.portal?.itemsInput ? app.portal.itemsInput(body.items) : undefined;
@@ -237,6 +239,7 @@ export function createRequests(app) {
     clientReplyFromPortal(id, client, body) {
       const r = requireIr(id);
       const c = app.cases.require(r.case_id);
+      if (c.company_id) throw notFound('الطلب غير موجود'); // v10 b2b-server (حارس #15): الشركة ترد من بوابتها
       if (c.client_id !== client.id) throw notFound('الطلب غير موجود');
       if (!['sent_to_client', 'client_replied'].includes(r.status)) throw conflict('هذا الطلب لم يعد بانتظار الرد');
       const text = v.str(body.body, 'الرد', { max: 5000 }) || '';
@@ -295,7 +298,9 @@ export function createRequests(app) {
       const r = requireIr(id);
       if (!['pending_admin', 'sent_to_client', 'client_replied'].includes(r.status)) throw conflict('لا يمكن إتاحة هذا الطلب في حالته الحالية');
       const c = app.cases.requireOpen(r.case_id);
-      const response = v.str(body.response_text, 'الرد المتاح للمحامي', { required: true, max: 10000 });
+      let response = v.str(body.response_text, 'الرد المتاح للمحامي', { required: true, max: 10000 });
+      // v10 b2b-server (L-57، CS-11a): رد الشركة يُنقّى على الخادم من أسماء موظفيها وبريدهم وهواتفهم قبل وصوله للمحامي
+      if (c.company_id && app.companyRequests) response = app.companyRequests.lawyerRedactor(c.company_id)(response);
       const docIds = v.ids(body.document_ids, 'المستندات');
       for (const did of docIds) {
         const d = db.get('SELECT id FROM documents WHERE id = ? AND case_id = ?', did, c.id);
@@ -333,7 +338,9 @@ export function createRequests(app) {
       // v9.1 fixes: طلب ورق أجابت المستفيدة عن بعض بنوده: البنود التي لم تصل بعد (لا صورة ولا «مش لاقية») تبقى مطلوبة منها
       // في طلب متابعة يظهر في صفحتها «لسه محتاجين: …» (افتراضيًا؛ request_rest: false يوقفه)، بدل أن تختفي بصمت
       const restItems = svc.neededItems(r);
-      const requestRest = restItems.length > 0 && (body.request_rest === undefined || body.request_rest === null ? true : v.bool(body.request_rest));
+      // gate K3: ملف شركة ← لا متابعة «لسه محتاجين» آلية أبدًا (صف «website» لعميل الظل لا يصل الشركة ولا يوقف مستوى الخدمة،
+      // وملفات الشركة لا ترتبط ببند بعينه). ما بقي ناقصًا يطلبه الفريق من الشركة باستيضاح جديد من صفحة الطلب («سؤال للشركة»).
+      const requestRest = !c.company_id && restItems.length > 0 && (body.request_rest === undefined || body.request_rest === null ? true : v.bool(body.request_rest));
       let followUpId = null;
       const sharedTitle = (code) =>
         r.kind === 'admin_question'
@@ -549,7 +556,7 @@ export function createRequests(app) {
     queue() {
       const t = nowIso();
       const caseCols = 'c.code AS case_code, c.title AS case_title, c.id AS case_id';
-      return {
+      const out = {
         info_requests: db.all(
           `SELECT r.*, ${caseCols}, u.name AS requested_by_name FROM info_requests r JOIN cases c ON c.id = r.case_id
            LEFT JOIN users u ON u.id = r.requested_by WHERE r.status = 'pending_admin' ORDER BY r.id`,
@@ -592,7 +599,7 @@ export function createRequests(app) {
            LEFT JOIN users u ON u.id = i.proposed_by_user_id WHERE i.status = 'proposed' AND c.status != 'closed' ORDER BY i.id`,
         ),
         approved_unanswered: db.all(
-          `SELECT ${caseCols}, c.updated_at FROM cases c WHERE c.status = 'approved' ORDER BY c.updated_at`,
+          `SELECT ${caseCols}, c.updated_at FROM cases c WHERE c.status = 'approved' AND c.company_id IS NULL ORDER BY c.updated_at`, // v10 b2b-server: الشركات تُسلَّم من طلب الشركة
         ),
         overdue_assignments: db.all(
           `SELECT a.id, a.due_at, a.role, a.status, u.name AS lawyer_name, ${caseCols} FROM assignments a
@@ -610,6 +617,20 @@ export function createRequests(app) {
            ORDER BY m.id DESC LIMIT 20`,
         ),
       };
+      // v10 b2b-server (§4.6): عناصر ملفات الشركات تحمل company_request {id, code} (الموافقة ترسل للشركة عبر بوابتها)
+      const companyOf = new Map();
+      for (const list of Object.values(out)) {
+        for (const it of list) {
+          if (!it.case_id) continue;
+          if (!companyOf.has(it.case_id)) {
+            // gate J-13: واسم الشركة (شارة على بطاقات «قرارات الإدارة»)
+            const cr = db.get('SELECT r.id, r.code, co.name AS company_name FROM cases c JOIN company_requests r ON r.id = c.company_request_id JOIN companies co ON co.id = r.company_id WHERE c.id = ? AND c.company_id IS NOT NULL', it.case_id);
+            companyOf.set(it.case_id, cr ? { id: cr.id, code: cr.code, company_name: cr.company_name } : null);
+          }
+          if (companyOf.get(it.case_id)) it.company_request = companyOf.get(it.case_id);
+        }
+      }
+      return out;
     },
   };
   return svc;

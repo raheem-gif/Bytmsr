@@ -19,6 +19,8 @@ import {
 import { buildIndex, similarityRatio, tokens } from './text.js';
 import { factsText } from '../channels/engine.js'; // v9.1 fixes: رسالة تأكيد الرقم ليست من وقائع الطلب
 import { normalizePhone } from '../util.js'; // v9.2 (admin-ai)
+import { ApiError } from '../util.js'; // v10 b2b-server
+import { createCompanyAi } from './company.js'; // v10 b2b-server (SRV-7): فرز طلبات الشركات
 
 // مسميات أحداث الأمان الخاصة بالذكاء الاصطناعي تُضاف لمسميات سجل الأمان (مثل وحدة الرسائل)
 if (LABELS.security_event && LABELS.ai_security_event) {
@@ -254,7 +256,7 @@ export function createAi(app) {
             model: cfg.model,
             effort: cfg.effort,
             log: app.log,
-            orgName: () => app.settings?.get('org_name'),
+            orgName: () => app.brand.displayName(), // v10 experience (H-E3)
             onUsage: (rec) => recordUsage(rec),
           })
         : null;
@@ -412,7 +414,8 @@ export function createAi(app) {
       .all(
         `SELECT c.id, c.code, c.title, c.legal_area, c.status, c.outcome, c.facts_shared, c.facts_internal, i.summary AS intake_summary,
            (SELECT substr(group_concat(m.body, ' '), 1, 3000) FROM messages m WHERE m.intake_id = c.intake_id AND m.direction = 'in' AND json_extract(m.meta, '$.identity_confirm') IS NULL) AS client_text
-         FROM cases c LEFT JOIN intakes i ON i.id = c.intake_id`,
+         FROM cases c LEFT JOIN intakes i ON i.id = c.intake_id
+         WHERE c.company_id IS NULL`, // v10 b2b-server (حارس #20): ملفات الشركات خارج «الحالات المشابهة» للأفراد
       )
       .map((r) => ({
         id: r.id,
@@ -434,7 +437,7 @@ export function createAi(app) {
     const key = `kn:${sig.c}:${sig.u}`;
     if (indexCache.get('kn')?.key === key) return indexCache.get('kn').index;
     const docs = db
-      .all("SELECT id, title, legal_area, facts, issues, final_answer FROM knowledge_records WHERE status = 'approved' AND usage != 'none'")
+      .all("SELECT id, title, legal_area, facts, issues, final_answer FROM knowledge_records WHERE status = 'approved' AND usage != 'none' AND (scope IS NULL OR scope = 'global')") // v10 (#21)
       .map((r) => ({
         id: r.id,
         type: 'knowledge',
@@ -456,7 +459,7 @@ export function createAi(app) {
     if (!hits.length) return [];
     const rows = db.all(
       `SELECT id, title, legal_area, issues, documents_requested, final_answer FROM knowledge_records
-       WHERE status = 'approved' AND usage != 'none' AND id IN (${hits.map(() => '?').join(',')})`,
+       WHERE status = 'approved' AND usage != 'none' AND (scope IS NULL OR scope = 'global') AND id IN (${hits.map(() => '?').join(',')})`,
       ...hits.map((x) => x.id),
     );
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -540,7 +543,7 @@ export function createAi(app) {
   }
 
   function replyContext(kind, id) {
-    const org = app.settings.get('org_name') || 'بيوت مصر';
+    const org = app.brand.displayName(); // v10 experience (H-E3)
     const base = { org_name: org, org_address: app.settings.get('org_address') || null };
     let ctx;
     let lawyerIds = [];
@@ -975,6 +978,7 @@ export function createAi(app) {
       if (intakeId === null || intakeId === undefined) {
         for (const t of timers.values()) clearTimeout(t);
         timers.clear();
+        svc.companyAi?.cancelTimers(); // v10 b2b-server
       } else {
         clearTimeout(timers.get(intakeId));
         timers.delete(intakeId);
@@ -1224,6 +1228,8 @@ export function createAi(app) {
      */
     async draftForAssignment(assignmentId, lawyer) {
       const a = app.visibility.requireAssignment(assignmentId, lawyer);
+      // v10 b2b-server (L-29، CS-35، حارس #30): لا مسودات آلية على ملفات الشركات حتى يُبنى draft_b2b
+      if (db.get('SELECT 1 FROM cases WHERE id = ? AND company_id IS NOT NULL', a.case_id)) throw new ApiError(409, 'المسودة الآلية غير متاحة في ملفات الشركات بعد؛ اكتب الرأي مباشرة.', 'company_case_no_ai_draft');
       const view = app.visibility.assignmentView(assignmentId, lawyer);
       const facts = view.facts || '';
       const similar = svc.similar(`${view.case.title}\n${facts}`, { scope: 'lawyer', limit: 3, area: view.case.legal_area }).items;
@@ -1272,7 +1278,7 @@ export function createAi(app) {
       const op = db.get('SELECT * FROM opinions WHERE id = ? AND case_id = ?', opinionId, caseId);
       if (!op) throw notFound('الرأي غير موجود');
       const client = app.clients.get(c.client_id);
-      const args = { clientName: client?.name, caseCode: c.code, opinion: op.body, orgName: app.settings.get('org_name') };
+      const args = { clientName: client?.name, caseCode: c.code, opinion: op.body, orgName: app.brand.displayName() }; // v10 experience (H-E3)
       const sources = precedents(`${c.title}\n${c.facts_shared || ''}`, { area: c.legal_area, limit: 3 });
       const docIds = db.all('SELECT id FROM documents WHERE case_id = ?', c.id).map((r) => r.id);
       const result = await run(
@@ -1638,6 +1644,12 @@ export function createAi(app) {
     const s = svc.status();
     return { ai: { provider: s.provider, model: s.model, label: s.label, budget_exceeded: !!s.budget.exceeded, budget_warning: !!s.budget.warning } };
   });
+
+  // v10 b2b-server (SRV-7): فرز طلبات الشركات بنفس run()/store() وسقف الإنفاق؛ سياق الشركة لا يشارك فهارس الأفراد (CS-13)
+  svc.companyAi = createCompanyAi(app, { run, store, active });
+  svc.triageCompanyRequest = (requestId, actor = null, opts = {}) => svc.companyAi.triage(requestId, actor, opts);
+  svc.scheduleCompanyTriage = (requestId, opts = {}) => svc.companyAi.schedule(requestId, opts);
+  svc.companyContext = (companyId, opts = {}) => svc.companyAi.companyContext(companyId, opts);
 
   return svc;
 }

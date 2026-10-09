@@ -109,9 +109,11 @@ export function createCases(app) {
       return status;
     },
 
-    list({ status, area, lawyer_id, q, priority, manager_id, scope, limit = 100, offset = 0 } = {}) {
+    list({ status, area, lawyer_id, q, priority, manager_id, scope, line = 'all', limit = 100, offset = 0 } = {}) {
       const where = ['1=1'];
       const params = [];
+      if (line === 'b2c') where.push('c.company_id IS NULL'); // v10 b2b-server: الأفراد · الشركات
+      else if (line === 'b2b') where.push('c.company_id IS NOT NULL');
       if (status && ENUMS.case_status.includes(status)) {
         where.push('c.status = ?');
         params.push(status);
@@ -140,7 +142,7 @@ export function createCases(app) {
       const t = nowIso();
       const sql = `FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE ${where.join(' AND ')}`;
       const rows = db.all(
-        `SELECT c.*, cl.code AS client_code, cl.name AS client_name, m.name AS manager_name,
+        `SELECT c.*, cl.code AS client_code, cl.name AS client_name, m.name AS manager_name, (SELECT co.name FROM companies co WHERE co.id = c.company_id) AS company_name,
            (SELECT u.name FROM assignments a JOIN users u ON u.id = a.lawyer_id WHERE a.case_id = c.id AND a.role = 'lead' AND a.status != 'withdrawn' ORDER BY a.id DESC LIMIT 1) AS lead_name,
            (SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') AS team_size,
            (SELECT COUNT(*) FROM info_requests r WHERE r.case_id = c.id AND r.status IN ('pending_admin','client_replied')) AS pending_info,
@@ -180,6 +182,8 @@ export function createCases(app) {
           created_at: r.created_at,
           closed_at: r.closed_at,
           outcome: r.outcome,
+          company_id: r.company_id ?? null, // v10 b2b-server
+          company_name: r.company_name ?? null,
         })),
       };
     },
@@ -308,6 +312,14 @@ export function createCases(app) {
           case_manager_name: c.case_manager_id ? db.value('SELECT name FROM users WHERE id = ?', c.case_manager_id) ?? null : null,
         },
         client: client ? { ...client, phone: app.clients.primaryPhone(client.id), identities: app.clients.identities(client.id) } : null,
+        // v10 b2b-server: ملف طلب شركة (الإغلاق وإعادة الفتح والرسائل من صفحة الطلب)
+        company: c.company_id
+          ? (() => {
+              const co = db.get('SELECT id, name FROM companies WHERE id = ?', c.company_id);
+              const rq = c.company_request_id ? db.get('SELECT id, code, status FROM company_requests WHERE id = ?', c.company_request_id) : null;
+              return co ? { id: co.id, name: co.name, request: rq ? { id: rq.id, code: rq.code, status: rq.status, status_label: LABELS.company_request_status?.[rq.status] || rq.status } : null } : null;
+            })()
+          : null,
         intake: intake
           ? { id: intake.id, code: intake.code, source: intake.source, campaign: intake.campaign, first_channel: intake.first_channel, channels: parseJson(intake.channels, []), source_detail: (({ confirm_hash, ...rest }) => rest)(parseJson(intake.source_detail, {})), created_at: intake.created_at }
           : null,
@@ -340,6 +352,7 @@ export function createCases(app) {
       const c = svc.require(caseId);
       const patch = { updated_at: nowIso() };
       if (body.title !== undefined) patch.title = v.str(body.title, 'عنوان الملف', { required: true, max: 200 });
+      if (patch.title && c.company_id && app.companyRequests) patch.title = app.companyRequests.lawyerRedactor(c.company_id)(patch.title); // v10 b2b-server review (INV-B5): عنوان ملف الشركة يصل المحامين
       if (body.facts_internal !== undefined) patch.facts_internal = v.str(body.facts_internal, 'الوقائع الداخلية', { max: 20000 });
       if (body.facts_shared !== undefined) patch.facts_shared = v.str(body.facts_shared, 'ملخص الوقائع للمحامي', { max: 20000 });
       if (body.priority !== undefined) patch.priority = v.oneOf(body.priority, ENUMS.priority, 'الأولوية', { required: true });
@@ -491,11 +504,14 @@ export function createCases(app) {
       // (v9 accounts) حساب أُنشئ بدعوة لم تُقبل: لا يستطيع الدخول ولا الاطلاع على الإسناد، فتسري المدة دون أن يعلم
       if (lawyer.invite_pending) throw conflict('لم يفعّل هذا المحامي حسابه من رابط الدعوة بعد، فلا يمكنه الاطلاع على الإسناد. أعد إرسال الدعوة إليه أو اختر محاميًا آخر.');
       const role = v.oneOf(body.role, ENUMS.assignment_role, 'الدور', { required: true });
-      const feeMode = v.oneOf(body.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب') || 'agreement';
-      const feeMinor = feeMode === 'custom' ? v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true }) : null;
+      // v10 b2b-server (B10 §8.4): ملف شركة — استبعاد المحامي (409)، الموعد من موعد التسليم، وسعر طلبات الشركات
+      const b2b = c.company_id && app.companyRequests ? app.companyRequests.assignDefaults(c, lawyerId, role, body) : null;
+      const feeMode = v.oneOf(body.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب') || b2b?.fee_mode || 'agreement';
+      const feeMinor = feeMode === 'custom' ? (b2b?.fee_mode === 'custom' && !body.fee_mode ? b2b.fee_amount_minor : v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true })) : null;
       const settings = app.settings.all();
-      const dueAt = v.iso(body.due_at, 'موعد التسليم') || addDays(nowIso(), Number(settings.default_assignment_days) || 3);
-      const brief = v.str(body.brief, 'السؤال المطلوب تحديدًا', { max: 5000 });
+      const dueAt = v.iso(body.due_at, 'موعد التسليم') || b2b?.due_at || addDays(nowIso(), Number(settings.default_assignment_days) || 3);
+      let brief = v.str(body.brief, 'السؤال المطلوب تحديدًا', { max: 5000 });
+      if (brief && c.company_id && app.companyRequests) brief = app.companyRequests.lawyerRedactor(c.company_id)(brief); // v10 b2b-server review (INV-B5): المطلوب من المحامي بلا بيانات موظفي الشركة
       if (role === 'lead') {
         const lead = db.get("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead' AND status != 'withdrawn'", c.id);
         if (lead) throw conflict('يوجد محامٍ أساسي بالفعل لهذا الملف. اسحب الإسناد الحالي أو أعد فتح مهمته، أو اختر دورًا آخر.');
@@ -514,7 +530,8 @@ export function createCases(app) {
       if (open >= lawyer.capacity) warnings.push(`تنبيه: الإسنادات المفتوحة لدى هذا المحامي (${open}) بلغت طاقته المحددة (${lawyer.capacity}) أو تجاوزتها.`);
       const specs = parseJson(lawyer.specialties, []);
       const neededArea = body.specialty || c.legal_area;
-      if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات المحامي المسجلة لا تشمل «${AREA[neededArea]}».`);
+      // gate J-23: التنبيه يسمّي المحامي ودوره (يُسند الأساسي والمراجع معًا من ورقة القبول)
+      if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات ${lawyer.name} (${LABELS.assignment_role[role] || role}) المسجلة لا تشمل «${AREA[neededArea]}».`);
 
       const t = nowIso();
       const assignmentId = db.tx(() => {
@@ -547,6 +564,7 @@ export function createCases(app) {
         }
         const grants = body.grants ?? app.visibility.defaultGrants(c.id, role);
         app.visibility.setGrants(id, grants, actor);
+        if (c.company_id && app.companyRequests) app.companyRequests.onAssignmentCreated(id, c, body, actor); // v10 b2b-server: منح الذاكرة (L-57)
         return id;
       });
 
@@ -691,6 +709,7 @@ export function createCases(app) {
     // ===== المحادثة مع العميل =====
     sendMessage(caseId, body, actor) {
       const c = svc.require(caseId);
+      if (c.company_id) throw Object.assign(conflict('هذا ملف طلب شركة؛ راسلوا الشركة من صفحة طلبها.'), { code: 'company_case_use_thread' }); // v10 b2b-server (حارس #13)
       const text = v.str(body.body, 'نص الرسالة', { required: true, max: 4000 });
       const msg = app.engine.sendToClient({
         client_id: c.client_id,
@@ -707,8 +726,10 @@ export function createCases(app) {
     },
 
     // ===== الإغلاق =====
-    close(caseId, body, actor) {
+    close(caseId, body, actor, opts = {}) {
       const c = svc.requireOpen(caseId);
+      // v10 b2b-server (L-65، حارس #29): ملف الشركة يُغلق من صفحة طلبها فقط
+      if (c.company_id && !opts.viaCompanyRequest) throw Object.assign(conflict('هذا ملف طلب شركة؛ يُغلق من صفحة طلب الشركة.', { company_request_id: c.company_request_id }), { code: 'company_case_use_request' });
       const outcome = v.oneOf(body.outcome, ENUMS.case_outcome, 'نتيجة الملف', { required: true });
       const note = v.str(body.note, 'ملاحظة الإغلاق', { max: 3000 });
       // v9 practice: قيمة الأثر المتحقق (اختيارية) تُتحقق قبل أي تعديل
@@ -753,8 +774,9 @@ export function createCases(app) {
       return svc.require(c.id);
     },
 
-    reopen(caseId, body, actor) {
+    reopen(caseId, body, actor, opts = {}) {
       const c = svc.require(caseId);
+      if (c.company_id && !opts.viaCompanyRequest) throw Object.assign(conflict('هذا ملف طلب شركة؛ يُعاد فتحه من صفحة طلب الشركة.', { company_request_id: c.company_request_id }), { code: 'company_case_use_request' }); // v10 (#29)
       if (c.status !== 'closed') throw conflict('الملف ليس مغلقًا');
       const t = nowIso();
       db.tx(() => {

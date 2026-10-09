@@ -37,6 +37,20 @@ export const INTEGRATION_SPEC = {
       monthly_budget_usd: { label: 'سقف الإنفاق الشهري بالدولار (0 = بلا سقف)', env: 'AI_MONTHLY_BUDGET_USD', cfg: () => process.env.AI_MONTHLY_BUDGET_USD || '', default: '0' },
     },
   },
+  // v10 b2b-server (L-32، CO-2): بريد الشركات — صندوق صادر فقط (افتراضي) أو SMTP بلا اعتماديات. كلمة مرور SMTP مشفرة بمفتاح .secret-key
+  email: {
+    label: 'البريد الإلكتروني (رسائل بوابة الشركات)',
+    fields: {
+      provider: { label: 'طريقة الإرسال', env: 'EMAIL_PROVIDER', cfg: () => process.env.EMAIL_PROVIDER || '', default: 'outbox', options: { outbox: 'بلا إرسال — صندوق صادر فقط', smtp: 'SMTP' } },
+      smtp_host: { label: 'خادم SMTP', env: 'SMTP_HOST', cfg: () => process.env.SMTP_HOST || '', code: true },
+      smtp_port: { label: 'المنفذ (25 أو 465 أو 587 أو 2525)', env: 'SMTP_PORT', cfg: () => process.env.SMTP_PORT || '', default: '587', code: true },
+      smtp_security: { label: 'التشفير', env: 'SMTP_SECURITY', cfg: () => process.env.SMTP_SECURITY || '', default: 'starttls', options: { starttls: 'STARTTLS', tls: 'TLS' } },
+      smtp_user: { label: 'اسم المستخدم', env: 'SMTP_USER', cfg: () => process.env.SMTP_USER || '', code: true },
+      smtp_password: { label: 'كلمة المرور', secret: true, env: 'SMTP_PASSWORD', cfg: () => process.env.SMTP_PASSWORD || '' },
+      from_address: { label: 'عنوان المرسل', env: 'EMAIL_FROM', cfg: () => process.env.EMAIL_FROM || '', code: true },
+      from_name: { label: 'اسم المرسل (اتركه فارغًا لاسم المكتب)', env: 'EMAIL_FROM_NAME', cfg: () => process.env.EMAIL_FROM_NAME || '' },
+    },
+  },
 };
 
 function loadKey(config) {

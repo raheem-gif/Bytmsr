@@ -195,7 +195,34 @@ export const ACTION_ORDER = Object.freeze([
  * @returns {{title:string, sub:Array<string|{code:string}>, tone:'red'|'amber'|'teal', button?:{label:string, kind:'primary'|'secondary'}, chevron?:boolean}}
  * عناصر sub: النص العادي (يُختصر بنقاط عند الضيق)، و{code} داخل <bdi dir=ltr> لا يُقطع أبدًا، و{keep} نص لا يُقطع (موعد/عدد).
  */
+/**
+ * v10 b2b-staff (U10-L01): ملف عمل لشركة — بعد كود الملف شارة «شركة» واسم الشركة إن أُتيح للمحامي.
+ * لا اسم مستخدم من الشركة ولا كود طلبها ولا الباقة (INV-B5).
+ */
+export const COMPANY_CHIP = 'شركة';
+export function companyParts(a) {
+  if (!a || !a.company) return [];
+  return [{ chip: COMPANY_CHIP }, a.company_name || null].filter(Boolean);
+}
+/** مراجعة نهائية على ملف شركة (U10-L01): «مراجعة نهائية: {عنوان الملف}» وزر «راجِع» */
+const isCompanyReview = (a) => !!(a && a.company && (a.review || a.role === 'reviewer'));
+
 export function actionCopy(a, now = Date.now()) {
+  const out = actionCopyBase(a, now);
+  if (!a || !a.company || !out) return out;
+  // v10 b2b-staff: الشارة بعد الكود مباشرة، والمراجعة النهائية بعنوانها وزرها
+  const sub = [...out.sub];
+  const at = sub.findIndex((x) => x && typeof x === 'object' && x.code);
+  sub.splice(at >= 0 ? at + 1 : 0, 0, ...companyParts(a));
+  const res = { ...out, sub };
+  if (isCompanyReview(a) && /^assignment_(new|due_soon|overdue)$/.test(a.kind)) {
+    res.title = `${a.kind === 'assignment_overdue' ? 'مراجعة نهائية متأخرة' : 'مراجعة نهائية'}: ${a.case_title || a.case_code || ''}`;
+    res.button = { label: 'راجِع', kind: 'primary' };
+  }
+  return res;
+}
+
+function actionCopyBase(a, now = Date.now()) {
   const code = (c) => (c ? { code: c } : null);
   const keep = (t) => (t ? { keep: t } : null);
   const clean = (arr) => arr.filter((x) => x != null && x !== '');

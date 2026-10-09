@@ -13,13 +13,14 @@ import { TOPICS, topicByKey, infer } from '../public/assets/js/public/topics.js'
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const PUB = path.join(ROOT, 'public');
 
+// v10 experience (intended, L-02/L-08): عناوين الصفحات تنتهي باسم المكتب كما يراه الناس (site_name = brand_name)
 const PAGES = [
-  ['/', /الدعم القانوني للأرامل والأيتام وأسرهم — مؤسسة بيوت مصر/],
-  ['/intake', /احكيلنا مشكلتك — الدعم القانوني — مؤسسة بيوت مصر/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
-  ['/about', /عن برنامج الدعم القانوني — مؤسسة بيوت مصر/],
-  ['/privacy', /سياسة الخصوصية — الدعم القانوني — مؤسسة بيوت مصر/],
-  ['/terms', /شروط الاستخدام — الدعم القانوني — مؤسسة بيوت مصر/],
-  ['/data-deletion', /طلب حذف البيانات — الدعم القانوني — مؤسسة بيوت مصر/],
+  ['/', /الدعم القانوني للأرامل والأيتام وأسرهم — Emam Legal and Consultancy/],
+  ['/intake', /احكيلنا مشكلتك — Emam Legal and Consultancy/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
+  ['/about', /عن برنامج الدعم القانوني — Emam Legal and Consultancy/],
+  ['/privacy', /سياسة الخصوصية — Emam Legal and Consultancy/],
+  ['/terms', /شروط الاستخدام — Emam Legal and Consultancy/],
+  ['/data-deletion', /طلب حذف البيانات — Emam Legal and Consultancy/],
 ];
 
 function titleOf(html) {
@@ -234,7 +235,7 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     assert.equal(DEFAULT_SETTINGS.org_name, 'مؤسسة بيوت مصر');
     assert.ok(meta.settings.privacy_notice);
     const s = meta.site;
-    assert.equal(s.site_name, 'الدعم القانوني — مؤسسة بيوت مصر');
+    assert.equal(s.site_name, 'Emam Legal and Consultancy'); // v10 experience (intended): site_name = brand_name
     assert.equal(s.org_full_name, 'مؤسسة بيوت مصر لدعم الأرامل والأيتام');
     assert.match(s.org_registration, /11108 لسنة 2020/);
     assert.match(s.org_address, /مدينة نصر/);
@@ -279,7 +280,10 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     assert.match(del, /href="mailto:legal@beyootmisr\.org\?subject=/);
     assert.ok(del.includes('الأحد إلى الخميس &lt;b&gt;9–5&lt;/b&gt;'));
     assert.ok(!del.includes('<b>9–5</b>'));
-    assert.match(titleOf((await t.client().get('/privacy')).body), /برنامج الدعم القانوني — مؤسسة بيوت مصر/);
+    // v10 experience (intended): العنوان ينتهي باسم المكتب، واسم البرنامج المعدّل يظهر في وصف الصفحة
+    const priv = (await t.client().get('/privacy')).body;
+    assert.match(titleOf(priv), /سياسة الخصوصية — Emam Legal and Consultancy/);
+    assert.match(metaContent(priv, 'name', 'description'), /برنامج برنامج الدعم القانوني في/);
     // دفاع إضافي: قيمة غير آمنة وصلت للقاعدة بطريق آخر (استيراد/استعادة) لا تُعرض أبدًا
     t.app.settings.set('org_instagram_url', 'javascript:alert(1)');
     assert.equal(ok(await t.client().get('/api/meta')).site.org_instagram_url, '', 'javascript: URL must never be exposed');
@@ -482,7 +486,7 @@ describe('v9 site — PWA for staff and lawyers', () => {
     const src = r.body;
     assert.ok(!src.includes('__SW_VERSION__') && !src.includes('__PRECACHE__') && !src.includes('__ORG_NAME__'), 'placeholders replaced');
     const version = /const VERSION = "([^"]+)";/.exec(src)[1];
-    assert.match(version, /^9\.\d+\.\d+-[0-9a-f]{12}$/);
+    assert.match(version, /^\d+\.\d+\.\d+-[0-9a-f]{12}$/); // v10 experience (intended): any major version (10.0.0)
     const precache = JSON.parse(/const PRECACHE = (\[[^\n]*\]);/.exec(src)[1]);
     assert.ok(precache.length > 10);
     assert.ok(precache.every((p) => p.startsWith('/assets/')), 'only static assets are precached');

@@ -519,7 +519,7 @@ describe('accounts: two-factor authentication and two-step login', () => {
     assert.match(setup.secret, /^[A-Z2-7]{32}$/);
     assert.deepEqual(setup.secret_groups.join(''), setup.secret);
     assert.ok(setup.secret_groups.every((g) => g.length === 4));
-    assert.match(setup.otpauth_uri, /^otpauth:\/\/totp\/Beyoot%20Misr:admin\?secret=[A-Z2-7]{32}&issuer=Beyoot%20Misr/);
+    assert.match(setup.otpauth_uri, /^otpauth:\/\/totp\/Emam%20Legal:admin\?secret=[A-Z2-7]{32}&issuer=Emam%20Legal/); // v10 experience (intended, L-04/CS-25): new default issuer
     assert.ok(decodeQr(encodeQr(setup.otpauth_uri).modules).text === setup.otpauth_uri, 'the QR code encodes the otpauth URI');
     secret = setup.secret;
     const row = t.app.db.get('SELECT * FROM user_2fa WHERE user_id = 1');

@@ -46,6 +46,9 @@ const GROUP_LABELS = {
   program: 'البرامج والتمويل',
   print: 'الطباعة',
   brand: 'ألوان المؤسسة', // v9.2
+  company: 'الشركات العميلة', // v10 b2b-server
+  company_auth: 'دخول الشركات', // v10 b2b-server
+  email: 'البريد الإلكتروني', // v10 b2b-server
 };
 const FILTER_KEYS = ['q', 'type', 'severity', 'user_id', 'from', 'to'];
 

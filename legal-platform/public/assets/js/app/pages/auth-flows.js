@@ -4,8 +4,8 @@
 //  - شاشات الإلزام بعد الدخول: تغيير كلمة المرور المؤقتة، وتفعيل التحقق بخطوتين لحسابات «إدارة النظام».
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label, dateTime, count } from '../../lib/fmt.js';
-import { form, button, alertBox, loading, brandMark, icon, toast, errorMessage, copyButton } from '../../lib/ui.js';
+import { label, dateTime, count, staffChrome } from '../../lib/fmt.js';
+import { form, button, alertBox, loading, brandMark, icon, toast, errorMessage, copyButton, wordmark, brandEl } from '../../lib/ui.js';
 import { attachStrength, passwordProblem, PASSWORD_HINT } from '../components/password.js';
 import { twoFactorWizard } from '../components/two-factor.js';
 
@@ -13,7 +13,9 @@ import { twoFactorWizard } from '../components/two-factor.js';
 export const PLEDGE_REQUIRED = 'يلزم الإقرار بسرية بيانات المستفيدين لتفعيل الحساب.';
 
 function orgOf(meta) {
-  return (meta && meta.settings && meta.settings.org_name) || 'بيوت مصر';
+  // v10 experience (L-03): عناوين التبويب باسم المكتب المختصر حين يظهر في منصة الفريق، وإلا اسم المؤسسة كما في 9.2
+  const c = staffChrome();
+  return c.on ? c.short : (meta && meta.settings && meta.settings.org_name) || 'بيوت مصر';
 }
 
 function fieldError(name, msg) {
@@ -27,9 +29,11 @@ function screen(meta, { wide = false } = {}, ...children) {
   const cardEl = h('main.auth-card', { class: wide && 'auth-card-wide', tabindex: '-1' }, children);
   return h(
     'div.auth-screen',
-    h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
+    staffChrome().on
+      ? h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', wordmark({ size: 'md', tone: 'light', name: staffChrome().name, short: staffChrome().short }), h('span', 'منصة الدعم القانوني')))
+      : h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
     cardEl,
-    h('a.auth-back', { href: '/' }, `العودة إلى موقع ${orgOf(meta)}`),
+    staffChrome().on ? h('a.auth-back', { href: '/' }, 'العودة إلى موقع ', brandEl()) : h('a.auth-back', { href: '/' }, `العودة إلى موقع ${orgOf(meta)}`),
   );
 }
 

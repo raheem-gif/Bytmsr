@@ -277,7 +277,7 @@ export function withoutPortalLinks(text) {
 let PUBLIC = null;
 
 /**
- * بيانات الصفحة العامة دون طلب شبكة: { org_name, site_name, phone, phone_e164, whatsapp_digits, office_hours,
+ * بيانات الصفحة العامة دون طلب شبكة: { org_name, site_name, brand: { name, short } (v10), phone, phone_e164, whatsapp_digits, office_hours,
  * portal_otp_enabled, governorates, areas: [{code, label}], setup_required, demo }. كائن فارغ إن لم توجد.
  */
 export function publicData() {
@@ -289,6 +289,15 @@ export function publicData() {
     PUBLIC = {};
   }
   return PUBLIC;
+}
+
+/**
+ * v10 experience (X10-B3): اسم المكتب كما يراه الناس من بيانات الصفحة (bm-public.brand)، وإلا site_name/org_name.
+ * short = الاسم المختصر للمساحات الضيقة (عنوان التبويب، اسم المرسل في الرسائل).
+ */
+export function brandName({ short = false } = {}, data = publicData()) {
+  const b = (data && data.brand) || {};
+  return (short ? b.short : '') || b.name || (data && (data.site_name || data.org_name)) || '';
 }
 
 /** «بنرد من السبت إلى الخميس…» أو '' إن لم تُضبط مواعيد العمل */
