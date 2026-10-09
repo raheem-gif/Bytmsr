@@ -255,7 +255,9 @@ describe('v9.1 b-forms — intake page and capture modules (static)', () => {
   test('the page is light: no Google Fonts, no component library CSS, own stylesheet', () => {
     assert.ok(!/fonts\.googleapis|fonts\.gstatic/.test(html));
     assert.ok(!html.includes('/assets/css/app.css'));
-    assert.match(html, /<title>احكيلنا مشكلتك — \{\{site_name\}\}<\/title>/);
+    // v11 gate-public (intended: G11-05 + r2 S16): العنوان مفتاح {{intake_title}}، ونص «خيري» نفسه في site.js (intakeView)
+    assert.match(html, /<title>\{\{intake_title\}\}<\/title>/);
+    assert.ok(read('src/site.js').includes('`احكيلنا مشكلتك — ${ps.site_name}`'));
     assert.match(html, /href="\/assets\/css\/v91-b-forms\.css"/);
     for (const src of [intake, recorder, upload, drafts]) assert.ok(!/from '\.\.\/lib\/ui\.js'|from '\.\.\/lib\/api\.js'/.test(src), 'no ui.js/api.js on the public form');
   });
@@ -299,7 +301,9 @@ describe('v9.1 b-forms — intake page and capture modules (static)', () => {
     }
     assert.match(intake, /const MIN_CHARS = 10;/);
     assert.match(intake, /submission_id: state\.sid/, 'retries reuse one submission id');
-    assert.match(intake, /draftStore\(DRAFT_KEY\)/);
+    // v11 gate-public (intended: L11-53): مسودة لكل جانب؛ مسودة «خيري» بنفس مفتاح 10.0
+    assert.match(intake, /draftStore\(keyOf\(SEG\)\)/);
+    assert.match(intake, /const keyOf = \(s\) => \(s === 'paid' \? `\$\{DRAFT_KEY\}-paid` : DRAFT_KEY\);/);
     assert.match(intake, /const DRAFT_KEY = 'intake';/);
     // v9.2 (تغيير مقصود): المسجّل يُحمَّل عند الحاجة (import ديناميكي) ولا يدخل حزمة أول شاشة
     assert.ok(!/^import[^\n]*recorder\.js/m.test(intake), 'no static import of recorder.js');
@@ -307,7 +311,8 @@ describe('v9.1 b-forms — intake page and capture modules (static)', () => {
   });
 
   test('success screen: one-tap WhatsApp confirmation only with confirm_url, save the page to herself, honest steps', () => {
-    for (const s of ['وصلنا طلبك', 'الخدمة مجانية، ومحدش هيطلب منك فلوس.', 'خطوة أخيرة مهمة', 'ابعت{ي} رقم الطلب على واتساب', 'بعت{ي}ها؟ هيوصلك رد مننا على واتساب.', 'احفظ{ي} صفحة طلبك', 'افتح{ي} صفحة طلبك', 'نسخ الرابط', 'اتنسخ', 'ابعت{ي}ه لنفسك بس، مش لحد تاني.', 'اتحفظت كمان على الموبايل ده.', 'هيحصل إيه بعد كده؟', 'ممكن نطلب منك ورقة أو معلومة.', "!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')", 'https://wa.me/?text=']) {
+    for (const s of ['وصلنا طلبك', 'الخدمة مجانية، ومحدش هيطلب منك فلوس.', 'خطوة أخيرة مهمة', 'ابعت{ي} رقم الطلب على واتساب', 'بعت{ي}ها؟ هيوصلك رد مننا على واتساب.', 'احفظ{ي} صفحة طلبك', 'افتح{ي} صفحة طلبك', 'نسخ الرابط', 'اتنسخ', 'ابعت{ي}ه لنفسك بس، مش لحد تاني.', 'اتحفظت كمان على الموبايل ده.', 'هيحصل إيه بعد كده؟', 'ممكن نطلب منك ورقة أو معلومة.', "s3page: 'على صفحتك'", "s3sent: 'على واتساب وعلى صفحتك'", "s3wa: 'على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب'", '!confirmUrl ? COPY.s3page : sent ? COPY.s3sent : g(COPY.s3wa)', 'https://wa.me/?text=']) {
+      // v11 gate-public (intended: r2 S16): النصوص في جدول COPY والشاشة تقرؤها بالمفتاح
       assert.ok(intake.includes(s), s);
     }
     assert.match(intake, /\^https:\\\/\\\/wa\\\.me\\\/\\d\+\\\?text=/, 'only a wa.me/<digits> confirm_url is used');
@@ -454,7 +459,9 @@ describe('v9.1 b-forms review — form, success screen and staff dialog details 
   });
 
   test('one spoken number on the success screen: «طلب رقم 29» replaces «قوليه لو كلمتينا» when it exists', () => {
-    assert.match(intake, /num \? '' : g\(' — قول\{ي\}ه لو كلمت\{ي\}نا\.'\)/);
+    // v11 gate-public (intended: r2 S16): نفس النص في COPY.refSay، والشاشة تقرؤه بالمفتاح
+    assert.match(intake, /num \? '' : g\(COPY\.refSay\)/);
+    assert.ok(intake.includes("refSay: ' — قول{ي}ه لو كلمت{ي}نا.'"));
   });
 
   test('a finished voice note clears the step-1 error; focus follows the recorder (خلّصت → اسمعيها)', () => {
