@@ -137,14 +137,20 @@ export function createCompanyBilling(app) {
     if (!p) throw notFound('الباقة غير موجودة');
     return { ...p, terms: parseJson(p.terms, {}) || {} };
   }
-  function planView(p) {
+  function planView(p, { money = true } = {}) {
+    const terms = { ...p.terms };
+    // review (B10 §8.3.1): الأسعار وأرقام الإيراد لمدير النظام فقط؛ مدير الحالات يرى الشروط والأعداد
+    if (!money) {
+      delete terms.price_minor;
+      delete terms.overage_price_minor;
+    }
     return {
       id: p.id,
       key: p.key,
       name: p.name,
       description: p.description || null,
       active: !!p.active,
-      terms: p.terms,
+      terms,
       companies: Number(db.value("SELECT COUNT(*) FROM company_subscriptions WHERE plan_id = ? AND status = 'active'", p.id)),
       updated_at: p.updated_at,
     };
@@ -161,8 +167,8 @@ export function createCompanyBilling(app) {
     cycleOf,
 
     // ===================== الباقات (الإدارة) =====================
-    plans({ all = true } = {}) {
-      return { items: db.all(`SELECT * FROM company_plans ${all ? '' : 'WHERE active = 1'} ORDER BY id`).map((p) => planView({ ...p, terms: parseJson(p.terms, {}) || {} })) };
+    plans({ all = true, money = true } = {}) {
+      return { items: db.all(`SELECT * FROM company_plans ${all ? '' : 'WHERE active = 1'} ORDER BY id`).map((p) => planView({ ...p, terms: parseJson(p.terms, {}) || {} }, { money })) };
     },
     createPlan(body = {}, actor, ctx) {
       const key = v.str(body.key, 'مفتاح الباقة', { required: true, max: 40 });

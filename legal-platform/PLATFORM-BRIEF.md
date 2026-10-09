@@ -519,14 +519,241 @@ inert background, Tab trapped, Escape closes, focus returns), tap targets at 360
 
 ### Company accounts, requests, legal memory, SLA and e-mail (server)
 <!-- v10:b2b-server -->
+**Architecture.** A third principal next to staff/lawyers and beneficiaries: `company_users` (never `users`), session
+cookie `bm_csid` scoped to `Path=/api/company` (HttpOnly, SameSite=Strict, idle 12 h / max 72 h; "remember this
+device" is P1 and not shipped in 10.0 — its two settings exist but nothing reads them), lockout per (account, IP) with the staff policy (5 → 15 min doubling to 4 h; CS-3), TOTP + recovery codes
+encrypted with `.secret-key`. `src/company-auth.js` is the only door: every `/api/company/*` handler except the nine
+auth/meta routes runs `companyAuth.require(ctx, {roles, write})`, takes `company_id` from the session, never reads
+`ctx.user`, and a company cookie alone gets 401 on every `/api/admin|lawyer|account|notifications|documents|print`
+route (route scan in both directions). Reads of requests, memory and counterparties go only through
+`visibleRequestSql(cu)`, `readableMemorySql(cu)`, `visibleCounterpartySql(cu)` (L-51) and downloads through the L-52
+rule; a foreign or invisible id is 404 with the body of "does not exist". Company actions are written with
+`companyActor()`/`SYSTEM_ACTOR` — no company id ever lands in a staff FK column (L-19, runtime test with a lawyer whose
+`users.id` equals a company user id). Services: `companies.js` (companies, entities, users, plans, subscriptions, team,
+lifecycle, overview, B2B settings), `company-requests.js` (staged uploads, 12 request types, submit/list/search,
+triage, accept → shadow-client case + assignments, clarifications, quotes, deliverables + doc gate, close/reopen/
+auto-close, SLA engine on `company-sla.js`), `company-billing.js` (quota per usage cycle, overage, charges, CSV — no
+invoices), `company-memory.js` (memory items, counterparties, reminders, purge), `company-notify.js` (portal
+notifications, `b2b.cleanup`), `email.js` (outbox + hardened SMTP), `company-doc-gate.js` (lawyer names in text and in
+Word/PDF author metadata). One voice both ways: every staff text that reaches the company after acceptance
+(messages, deliverables, clarifications incl. an approved lawyer info request, due-date reason, close note, decline reason,
+deliverable withdrawal reason, the acceptance note) is refused with 409 `lawyer_names` when it names a lawyer of the case;
+every string a lawyer sees on a company case — brief, issues, shared replies, document titles, the case title and the
+per-assignment brief (stored redacted at acceptance, on generic assignment and on title edits, and redacted again when
+read) — passes the company-user redactor (names, e-mails, phones, request codes). Schema `schema.d/80`–`85` is additive and idempotent (G-4 rehearsed in the suite on a real
+9.2 demo database: two starts, `foreign_key_check` empty, saved TOTP issuer kept, no message or AI call caused).
+
+**B2C guards.** The company's shadow client and company cases are invisible to B2C paths: client lists/search/export,
+portal tokens, identities, merge, intake link, beneficiary card (404), WhatsApp (automated sends skipped and logged
+once; interactive 409 `company_client`), client answers/case messages/document sends/programme links/invoices (409
+`company_case_use_*`), automations (hearing/invoice/document reminders, surveys) and every aggregate in analytics,
+practice impact and accounting (guards #1–#30; paid company work is always `payable`, never CSR or pro bono). INV-B7 is
+a byte-identical snapshot test of impact, funnel, areas, spend, dashboard (incl. `month`), clients, intakes, SLA, the
+accounting summary (CSR usage, `pro_bono_events`, closed-case costs) and `cases?line=b2c` before and after adding a
+third company with accepted work.
+
+**Company API (`/api/company/*`, cookie `bm_csid`; A = portal admin, W = admin or member, R = any role incl. viewer).**
+
+| Area | Endpoints |
+|---|---|
+| Public | `GET meta` (ETag; `email_enabled`, `terms_url`, limits, hours text) · `POST auth/login`, `auth/login/2fa`, `auth/logout` · `GET auth/session` · `POST auth/link` (inspect invite/reset), `auth/invite/accept`, `auth/forgot` (same answer always), `auth/reset` |
+| Me (R) | `GET/PATCH me` · `POST me/password` · `POST me/2fa/setup|enable|disable|recovery-codes` · `GET me/sessions` · `POST me/sessions/revoke-others` · `DELETE me/sessions/:sid` |
+| Home (R) | `GET home`, `plan` (prices to A/billing contacts only), `usage`, `colleagues`, `search?q=` (requests + memory + documents, Arabic-normalised), `GET charges` (A or billing contact) |
+| Requests | `POST uploads` (W; one file, 12 MB, 4 in flight) · `GET requests?state=&q=&cursor=` (R) · `POST requests` (W; `client_ref` replay-safe) · `GET requests/:code` (R) · `POST requests/:code/messages`, `/documents` (W) · `POST requests/:code/clarifications/:messageId/reply` (W) · `POST requests/:code/cancel`, `/escalate` (W) · `PUT requests/:code/watchers` (W) · `POST requests/:code/quotes/:number/approve|reject` (A) · `POST requests/:code/deliverables/:id/accept|request-changes` (W) · `GET documents/:id/download` (R, L-52) |
+| Memory | `GET memory?kind=&status=&q=&due_within_days=` (R) · `GET memory/:id` (R) · `POST memory` (A any kind; member contract/template/licence/key_date; 100/day) · `PATCH memory/:id` (A, member own) · `POST memory/:id/documents {upload_ids}` (≤ 5 per call, ≤ 10 per item) · `POST memory/:id/archive` · `GET key-dates?from=&to=&kind=` · `GET counterparties?q=` |
+| Company | `GET/POST entities`, `PATCH entities/:id` (A) · `GET/PATCH profile` (A) · `GET team`, `POST team/invite`, `PATCH team/:uid`, `POST team/:uid/invite|reset-link|sessions/revoke` (A; 20 invites+links/day) · `GET notifications`, `POST notifications/read-all`, `POST notifications/:id/read` (R) |
+
+**Staff API (`/api/admin/*`; S = admin or case manager, A = admin only, L-60).** Companies: `GET companies` S,
+`GET companies/prefix-check` A, `POST companies` A, `GET companies/:id` S, `PATCH companies/:id` A,
+`POST companies/:id/status` A, `GET companies/:id/usage` S (counts; the overage price for A only), `POST companies/:id/entities` S,
+`PATCH company-entities/:id` S, `GET|POST companies/:id/users` S, `PATCH company-users/:uid` S (e-mail change and
+promotion to portal admin: A), `POST company-users/:uid/invite` S, `POST company-users/:uid/reset-link|2fa/reset|unlock|
+sessions/revoke` A, `GET company-plans` S (terms without prices for a case manager), `POST company-plans`, `PATCH company-plans/:id`, `PUT companies/:id/subscription`
+A, `GET|PUT companies/:id/team` S, `GET companies/:id/charges` S, `POST companies/:id/charges`, `POST company-charges/:id/void`,
+`POST company-charges.csv` (one-time download) A. Requests: `GET company-requests` S, `GET|PATCH company-requests/:id` S,
+`GET|POST company-requests/:id/triage` S, `POST …/accept|clarify|messages|decline|close|reopen|escalation/ack` S,
+`GET …/suggest-lawyers` S, `PUT …/memory-links` S, `POST …/memory` S, `POST …/quote` A, `POST company-quotes/:id/withdraw` A,
+`POST …/deliverables`, `POST …/deliverables/prefill`, `POST …/ai/deliverable` S, `PATCH company-deliverables/:id`,
+`GET company-deliverables/:id/precheck`, `POST company-deliverables/:id/release` S, `POST company-deliverables/:id/withdraw` A,
+`PUT assignments/:id/memory-grants` S. Memory: `GET|POST companies/:id/memory` S, `GET|PATCH company-memory/:mid` S,
+`POST company-memory/:mid/documents|archive` S, `DELETE company-memory/:mid?purge=1` A, `GET|POST companies/:id/counterparties` S,
+`PATCH company-counterparties/:cid` S. Operations: `GET b2b/overview` S (`mrr_minor` A only), `GET email-outbox` A,
+`GET|PUT b2b/settings` A, plus `PUT integrations/email` and `POST integrations/email/test` A. Lawyers:
+`POST /api/lawyer/assignments/:id/work-files`, `DELETE /api/lawyer/work-files/:docId` (company cases only, never visible
+to the company); granted memory documents download through `/api/documents/:id/download` until 7 days after the case closes.
+
+**Jobs.** `b2b.triage` 5 min (≤ 3 automatic runs per request per 24 h, from `ai_usage`), `b2b.sla` 5 min (at risk /
+late once per phase+state+due in `company_request_alerts`; late also e-mails the case manager, account manager and
+admins with code + company only), `b2b.reminders` 60 min (clarification/quote reminders after `b2b_reminder_after_hours`
+business hours, ≤ `b2b_max_reminders`; expired quotes; auto-close; trial ending in ≤ 3 days once, trial end → read-only,
+manual subscription past `ends_on` → ended), `b2b.memory` daily after 08:00 Cairo (day read from `job_runs`; one
+transaction per item; every due offset recorded in `company_memory_reminders`, only the newest sent, at most one
+notification per item per run; auto-renew rolls with compare-and-swap on `end_date`; licences/people expire; key dates
+recur), `b2b.cleanup` 15 min (expired staged uploads + files, read notifications, outbox), `email.flush` 1 min with SMTP
+(≤ 50 messages, 20 s budget, one connection + RSET, back-off 1/10/60 min, stale `sending` rows recovered at start-up).
+
+**E-mail.** Provider `outbox` (default; nothing leaves) or `smtp` (`INTEGRATION_SPEC.email`: host, port 25/465/587/2525,
+`starttls`|`tls`, user, password (encrypted), from address, from name; env `EMAIL_PROVIDER`, `EMAIL_FROM`,
+`EMAIL_FROM_NAME`). Zero-dependency client on `node:net`/`node:tls`: STARTTLS mandatory (refused before AUTH),
+`rejectUnauthorized` + TLS ≥ 1.2, RFC 2047 subject/from name, base64 UTF-8 body, address-only `To:`, CR/LF/NUL refused
+in every header input. Secret links live in memory only (`{link}` placeholder stored; lost on restart → `failed`), and
+bodies carry an event line, the request code and a portal link — never a request title, counterparty or legal text.
+Without `PUBLIC_BASE_URL` rows are `skipped` and `meta.email_enabled` is false. Readiness (System page) turns red for
+e-mail, `PUBLIC_BASE_URL` and the contracting entity once a non-ended company exists.
+
+**Settings (`PUT /api/admin/b2b/settings`, A, validated and audited as `company.settings_updated`).** `b2b_enabled`,
+`b2b_business_hours` (null = office hours), `b2b_holidays`, `b2b_urgent_hours`, `b2b_auto_close_days` 7,
+`b2b_revision_window_days` 30, `b2b_reminder_after_hours` 16, `b2b_max_reminders` 2, `b2b_quote_valid_days` 14,
+`b2b_trial_days` 14, `b2b_ended_readonly_days` 90, `b2b_memory_remind_days`, `b2b_terms_url` (https), `b2b_storage_mb`
+2048, `b2b_files_per_day` 200, `b2b_outbox_retention_days` 90, `b2b_notifications_retention_days` 180,
+`company_session_idle_hours` 12, `company_session_max_hours` 72, `company_remember_days` 14/`_2fa` 30 (reserved for P1),
+`company_invite_valid_hours` 72, `company_reset_valid_minutes` 60, `company_email_max_per_hour` 20.
+
+**Demo.** Stage 1: plans Starter/Growth/Enterprise, Nile Foods (Growth, active; mariam admin + billing contact,
+hossam member, dina viewer) and TechSol (Starter trial ending in 10 days; sherif admin, omar member), password
+`Company@2026`. Stage 2: NFD-0001 contract review closed with rating 5 and the Delta contract confirmed in memory
+(notice in 25 days) + a recorded position; NFD-0002 private employment request in progress after a signed
+clarification reply; NFD-0003 urgent legal notice in final review; NFD-0004 awaiting the company; NFD-0005 dispute
+with a fixed 45,000 EGP quote; NFD-0006 new and triaged; TSL-0001 delivered, TSL-0002 in progress, TSL-0003
+auto-closed; an overage charge in the previous cycle; lawyers tarek/yasmine/amr with Latin names, skills and B2B rates.
+
+**Tests.** `test/v10-b2b-server.test.js` (auth, requests, memory, AI context, knowledge, billing, e-mail against
+in-process fake TLS/STARTTLS servers, jobs, the journey, §7.3 items 3–17, G-4), `test/v10-b2b-server-isolation.test.js`
+(route scan, cross- and intra-tenant matrices on the demo, lawyer memory-grant expiry, shadow-client guards, CS-8
+automations, INV-B7 snapshot), `test/v10-b2b-server-sla.test.js` (calendars, business-time arithmetic, DST, pauses,
+preview parity incl. real submits at Thursday 15:59/16:01 and a holiday eve, usage cycles) — 140 tests.
 <!-- /v10:b2b-server -->
 
 ### The Company Legal Portal `/company`
 <!-- v10:b2b-portal -->
+**Front door.** `/company` serves `public/company.html` (platform CSP, no inline script, `noindex`, manifest
+`/company.webmanifest`, no service worker). `company/main.js` boots: storage hygiene, plural error copy
+(`setErrorCopy`), `GET /api/company/meta` ∥ `GET /api/company/auth/session` (and `/home` fired from `company/early.js`),
+then sign-in screens (`pages/login.js`, `pages/link.js`), the restricted gate (`pages/gate.js`) or the routed shell
+(`company/shell.js`: `.k-chrome`, phone `.k-tabbar`, light desktop side nav, bell, user menu, one-search box, the single
+gold «طلب جديد» control). Routes (`company/routes.js`, U10-08 minus billing/activity) lazy-load page modules; build-2
+pages also load `v10-company-pages.css` and show page-shaped skeletons (slow notice after 10 s). Unknown hashes end on
+catch-all routes that render the same U10-82 screen as a forbidden one («لا يمكن عرض هذه الصفحة.»).
+
+**What a company sees — one voice.** Everything the firm writes is authored by «فريقكم القانوني»; the only firm person
+ever named is the account manager («مدير علاقتكم لدينا: …»). Company copy is MSA, plural, verbal-noun buttons, in
+`company/words.js` (entry), `words-flows.js` and `words-pages.js` (lazy); e-mail promises are wrapped `⟦…⟧` and dropped
+when `meta.email_enabled` is false.
+
+| Screen | Module | Highlights |
+|---|---|---|
+| «المتابعة» | `pages/overview.js` | attention rows (alert/clock icons), open requests, plan meter, upcoming dates, quick tiles, setup/intro cards; first-login admins are sent once to `#/welcome` |
+| «الطلبات» | `pages/requests.js` | state segments, member scope, search across all states, type filter in the hash, `before=<code>` paging |
+| «طلب جديد» | `pages/new-request.js` | 12 types, staged uploads (`coUploader`), draft in `ek.co.draft:{userId}`, promise recomputed with the server's `company-sla.js`, quota/urgent lines, `client_ref` |
+| Request `#/requests/<CODE>` | `pages/request.js` | promise box (first response / confirm phase / paused / late + escalate), five-step tracker from `stage`, **one action card** (clarification with per-item «إرفاق»/«غير متوفر لدينا»; quote with confirmation sheet + `haptic('commit')`, capped wording; deliverable with «اعتماد التسليم» ★1–5, pre-checked «حفظ العقد في الذاكرة القانونية», admin «تسجيل قرار الإدارة», or «طلب تعديلات» with the rounds left), versions, thread with optimistic send/retry (Ctrl/⌘+Enter, text kept across session expiry), details, documents (doc-viewer with the company `urlFor`), memory refs, escalation/watchers/cancel/copy-link menu |
+| «الذاكرة القانونية» | `pages/memory*.js`, `calendar.js`, `entities.js`, `counterparties.js` | hub with counts and the 60-day strip, per-kind lists (contracts: chips, entity/counterparty/renewal filters, one badge by priority), item page (dates timeline, documents, linked requests, provenance, request shortcuts `?from=<id>`), add/edit with `coMemoryForm`, agenda calendar, entities (admin add/edit), counterparties |
+| Account pages | `team.js`, `plan.js`, `company.js`, `notifications.js`, `account.js`, `more.js`, `welcome.js` | team (invite with copy-once link only when not e-mailed, `pending_review`, colleague reset by e-mail only / `ask_team`, roles, deactivate, company-wide 2FA), plan & usage (next period start, urgent per cycle, excluded work, contracting entity, SLA table, usage per cycle, approved extra costs for admins/billing), company profile, notifications, my account (2FA via `twoFactorWizard({ base: '/company/me' })`, devices) |
+
+Every sheet with a text field goes through `company/page-kit.js textSheet()` → `beforeClose: discardGuard(dirty)`
+(«تجاهل ما كتبتموه؟»). Browser storage holds only `ek.co.draft:`, `ek.co.return`, `ek.co.setup:`, `ek.co.intro:`,
+`ek.co.view:` keys (L-47). Budgets as served: entry closure 59,437 B br (≤ 60 KB), entry CSS 23,084 B br (≤ 25 KB).
+V10 (50 rows on `#/requests`, 4× CPU): scroll-frame p95 16.7 ms at 390.
+
+**Roles.** «مدير البوابة» (`company_admin`) · «عضو» (`member`) · «اطلاع فقط» (`viewer`) · billing-contact flag. Write
+controls follow the server's `request.can.*` / `memory.can.*`; role-forbidden routes show «هذه الصفحة لمديري البوابة في
+شركتكم.», read-only companies keep downloads and explain the gold control in a sheet.
+
+**Demo — what to try** (password `Company@2026`, `/company`): `mariam@nilefoods.example` — answer NFD-0004's
+clarification (attach to item 1, mark item 2 unavailable → confirm phase), approve NFD-0005's quote (sheet), search
+«الدلتا» and open the Delta file, open «الذاكرة القانونية» → «العقود» (notice badge) → «متابعة التجديد أو الإنهاء», invite
+a colleague; `sherif@techsol.example` — accept TSL-0001 with ★★★★★ (saves the MSA to memory) or request changes;
+`hossam@nilefoods.example` (member) sees who approves quotes and never NFD-0002; `dina@nilefoods.example` (viewer) reads
+only. Tests: `test/v10-b2b-portal.test.js` (45). Playwright: `scratchpad/v10-pw-portal/` (build-1 `verify.mjs`, build-2
+`b2-tasks.mjs`, `b2-sweep.mjs`; review `rv/tasks.mjs`, `rv/fixes.mjs`, `rv/clock/t3clock.mjs`).
+
+**Typing is never lost (U10-81, L-64).** The automatic refresh (back to the tab after a minute, or back online) skips
+the page while a sheet is open, a form route is shown (`keep: true` in `routes.js`: new request, memory add/edit,
+account, welcome), a text field has focus, a textarea holds text or a file is staged (`state.js typingInProgress`). A
+message refused with 401 returns to the composer after sign-in. Row menus («⋯») are placed in viewport coordinates so a
+scrolling table never clips them; the plan page's SLA and extra-costs tables stack into cards on phones.
 <!-- /v10:b2b-portal -->
 
 ### The company desk in `/app` and what lawyers see
 <!-- v10:b2b-staff -->
+**Navigation.** `shell.js navGroups()` adds the staff group «خدمة الشركات» right after «التشغيل اليومي» (admins and
+case managers only): «طلبات الشركات» (`inboxStack`, badge = `GET /api/admin/b2b/overview .badge`, polled with the
+notifications poll as a background request) and «الشركات العميلة» (`building`). Routes (`app/routes.js`, roles
+`STAFF`): `/company-requests` «طلبات الشركات», `/company-requests/:id` «طلب شركة», `/companies` «الشركات العميلة»,
+`/companies/:id` «شركة عميلة». `notif.js` maps every `company_request.*`, `company.*` and `email.failed` type to an icon
+(escalation, SLA late and plan error → `alert`/danger; at risk → `clock`/warning; renewal → `calendarClock`). All
+desk CSS is `public/assets/css/v10-desk.css` (tokens only, linked after `v10-experience.css`).
+
+**Queue and request page (STF-1…6).** `pages/admin/company-requests.js` groups cards escalated → late → plan error →
+at risk → new → needs the team → working → awaiting the company → closed, one primary action per card (`primaryActionOf`,
+quotes are admin-only), list mode remembered in `localStorage bm.coq.view`, SLA chip with tabular numbers and the phase.
+`pages/admin/company-request.js`: handler select (PATCH with `rev`), «المواعيد» with the company-facing promise sentence,
+flag banners (`plan_error` → accept sheet prefilled from the saved plan; `memory_pending` → the shared memory sheet),
+triage card + plan check, request as submitted (`coRequestFields`), submitter (staff only), conversation with the doc
+gate's 409s inline, work section (case link, team, memory grants without `person` items), deliverables, quotes and
+charges (A), activity. Sheets in `components/`: `company-accept-sheet.js` (every U10-S12 409 handled in place, server
+redaction `warnings[]`, live employee-name detection, `haptic('success')`), `company-clarify-sheet.js`,
+`company-quote-sheet.js` (fixed/capped only, start plan), `company-deliverable-sheet.js` (deterministic prefill, live
+precheck debounced 600 ms incl. file-author lines, Office/PDF checkbox, send disabled until every gate passes),
+`company-memory-grants.js`. Every sheet with text passes `beforeClose: discardGuard(…, {singular:true})` (L-64), and
+every "as the company sees it" preview renders with the portal's own `lib/company-ui.js` (`coClarificationCard`,
+`coQuoteCard`, `coDeliverableCard`, `promiseText`).
+
+**Companies (STF-7/8).** `pages/admin/companies.js` lists companies sorted by health (late → at risk → awaiting) with
+the «مدير العلاقة» column; «إضافة شركة» (A) has a live prefix check (`GET /api/admin/companies/prefix-check`, KR and
+system codes reserved, preview «أول طلب: XXX-0001»), plan or custom terms through `components/company-plan-terms.js`
+(`termsEditor`: included requests, **urgent requests per cycle**, users/entities, overage policy, SLA grid per
+priority, size factors, second review, revision rounds — no hourly rate; minor units on the wire), the account manager
+select of active admins/case managers, and the first portal admin; the result view shows name conflicts and the invite
+(or the copy-once link when e-mail is not configured). `pages/admin/company-detail.js` tabs: overview (status change A,
+usage meter via `coUsageMeter`, SLA health, open requests, renewals, account manager + internal notes A), requests,
+users (invite, edit; **e-mail change and promotion to «مدير البوابة» are admin-only and render disabled with «للمدير
+فقط» for case managers**, e-mail change confirmation «سيُرسل إشعار أمني إلى البريد القديم ويُسجَّل خروج المستخدم من
+كل الأجهزة.»; security actions A), entities & counterparties (override beyond the plan A with a reason), plan & costs
+(A: subscription change with the terms editor, charges add/void/replace-lower, CSV export through the one-time
+download link), legal memory (`openMemoryItem`/`createMemoryItem` reuse the portal's `coMemoryForm` with
+`staff: true`, internal notes, «حفظ وتأكيد» for items under review — also used from the request page for
+`memory_pending` — archive, purge A with typed-name confirmation and the backups sentence), preferred team, log (A,
+security events matching the company).
+
+**Settings and e-mail (STF-9).** `components/company-b2b-settings.js`: «خدمة الشركات» (`#/settings?section=b2b`; terms
+URL, business hours inherit/override, urgent hours, holidays, follow-up timings, memory reminders, storage, sessions,
+retention → `PUT /api/admin/b2b/settings`) and «باقات الشركات» (`section=plans`). `components/email-settings.js`:
+the integrations card «البريد الإلكتروني» (outbox or SMTP with host, port 25/465/587/2525, STARTTLS/TLS, user,
+password, sender; «إرسال رسالة تجربة إلى بريدي»; red note when companies exist and the provider is the outbox) and the
+automations tab «صادر البريد» (read-only, no bodies).
+
+**Engine pages (STF-10).** `case-detail.js`: a company case shows the banner «ملف عمل لطلب شركة — {company} · {code}»
+with «فتح طلب الشركة»; no «رسالة للمستفيد/ة», WhatsApp composer, beneficiary card, programme field, client-answer
+composer, send-document button, or generic «إغلاق الملف»/«إعادة فتح الملف» (L-65) — opinion review stays.
+`client-detail.js`: a shadow client renders one line and «فتح صفحة الشركة». `cases.js`: «شركة» badge and the
+«الأفراد · الشركات» filter (`line=b2c|b2b`). `dashboard.js`: the «خدمة الشركات» strip (hidden without companies; MRR
+for admins only; no overdue invoices).
+
+**Lawyers (STF-11).** `words.js actionCopy` adds a «شركة» chip and the company name after the case code; a reviewer on
+a company case reads «مراجعة نهائية: …» with «راجِع». `assignments.js`: chip and the «طلبات الشركات» filter.
+`assignment.js`: «سياق الشركة» first in «الملف» (reads only the §4.7 keys; granted memory items show only
+`lawyer_fields`), company privacy line, «سُئلت الشركة في {date}», the request sheet's copy switched to the company
+(scoped text substitution — `request-sheet.js` is not a v10 file), and «ملفات العمل» (≤ 5, with the author-name
+warning). `write.js`: company skeleton «الخلاصة التنفيذية · المخاطر الرئيسية ودرجتها · التوصيات · التحليل القانوني»
+(+ «التعديلات المقترحة على البنود» for contract types — the deterministic prefill reads «الخلاصة التنفيذية»), steps
+labelled «خطوات للشركة», the hint «تصيغ الإدارة التسليم النهائي للشركة…», «سياق الشركة» in the writing reference, and
+no AI draft entry on company assignments (L-29). `lawyer-detail.js`: «خدمة الشركات» card — «الاسم بالإنجليزية»
+(`name_latin`, checked by the doc gate), B2B skills and «سعر طلبات الشركات».
+
+**Review fixes.** The accept sheet's employee check now finds first names and two-part names on Arabic word boundaries
+(the same variants the server redacts) and removes whole words only; memory grants saved in a session reopen with the
+saved items (the server does not return an assignment's grants yet); a company case hides the impact card and speaks of
+«الشركة» throughout the info-request flow, and sharing a company reply never creates the automatic follow-up (it never
+reaches the portal — use «سؤال للشركة»); company sheets keep their grip/header on tall phone sheets; every control on the
+desk screens and sheets is ≥ 44 px on phones; the urgent clock reads «س» (not «س عمل»); the companies table fits 1366.
+
+**Tests.** `test/v10-b2b-staff.test.js` (41 tests, incl. one regression test per review finding): routes/nav/notification icons, CSS tokens, queue grouping and
+primary actions, sheet copy and discard guards, previews through `company-ui.js`, companies/plan terms/company page/
+settings/e-mail copy and admin gates, case-page company branch (no B2C controls, no generic close/reopen), lawyer
+pages' allow-list of `company` keys and no AI draft, plus demo-backed contract checks of every staff/lawyer response
+the pages read (create company with editor terms, case-manager 403s, B2B settings, outbox, integrations, cases line
+filter, shadow client, lawyer profile, lawyer view whitelist with granted memory). Playwright twins of T13–T18, T21,
+T22 and the lawyer DOM privacy scans live in `scratchpad/v10-pw-staff/`.
 <!-- /v10:b2b-staff -->
 
 ## الإصدار 9.2 — Version 9.2: picture tiles, stories turned into requests, the foundation's colours

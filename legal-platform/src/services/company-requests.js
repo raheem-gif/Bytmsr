@@ -781,8 +781,9 @@ export function createCompanyRequests(app) {
       if (used + approx > storageMb * 1024 * 1024) throw new ApiError(409, COMPANY_TEXT.storage_full, 'storage_full');
       const name = cleanLine(file.name ?? file.filename, 150) || 'ملف';
       let storageKey = null;
+      let out;
       try {
-        return db.tx(() => {
+        out = db.tx(() => {
           const docId = app.documents.save(
             { filename: name, mime: m.mime, data_base64: b64 },
             { client_id: company.client_id, company_id: company.id, company_user_id: cu.id, title: cleanLine(body.title || name, 200) },
@@ -799,6 +800,9 @@ export function createCompanyRequests(app) {
         if (storageKey) unlinkStored(storageKey);
         throw e;
       }
+      // review (L-48): كل مسار يكتب نشاطًا — رفع مرحلي بلا طلب بعد (الفاعل بلا معرّف مستخدم، L-19)
+      app.activity.log({ actor: { kind: 'company' }, company_id: company.id, company_user_id: cu.id, type: 'company_upload.staged', summary: `رفعت ${company.name} ملفًا مرحليًا`, data: { upload_id: out.upload_id, size: out.size, mime: out.mime, by: companyActor(cu, company).name } });
+      return out;
     },
 
     /** حذف الملفات المرحلية المنتهية غير المستخدمة وملفاتها (b2b.cleanup) */
@@ -1621,6 +1625,8 @@ export function createCompanyRequests(app) {
         if (!r.accepted_at) throw conflict('يُحدَّد موعد التسليم عند بدء العمل');
         const due = v.iso(body.delivery_due_at, 'موعد التسليم', { required: true });
         const reason = v.str(body.due_reason, 'سبب تعديل الموعد', { required: true, max: 300 });
+        const nameErr = lawyerNameError(r, { due_reason: reason }); // يصل الشركة في إشعار تعديل الموعد
+        if (nameErr) throw nameErr;
         if (due !== r.delivery_due_at) {
           patch.delivery_due_at = due;
           patch.delivery_due_reason = reason;
@@ -1782,6 +1788,30 @@ export function createCompanyRequests(app) {
     };
   }
 
+  /**
+   * review (INV-B4، INV-B11، CS-12): كل نص يكتبه الفريق ويصل الشركة (استيضاح، سبب اعتذار، ملاحظة إغلاق، سبب تعديل الموعد،
+   * سبب سحب تسليم، ملاحظة القبول) يمر بحارس أسماء المحامين نفسه الذي يمر به نص الرسائل والتسليمات — بلا تجاوز.
+   * يعيد ApiError 409 lawyer_names أو null. extraLawyerIds: محامون سيُسندون الآن (ملاحظة القبول).
+   */
+  function lawyerNameError(r, texts, { extraLawyerIds = [] } = {}) {
+    const gate = app.companyDocGate;
+    if (!gate) return null;
+    const lawyers = [...gate.caseLawyers(r.case_id)];
+    for (const lid of extraLawyerIds) {
+      if (lawyers.some((x) => x.id === Number(lid))) continue;
+      const l = db.get('SELECT u.id, u.name, u.username, l.name_latin FROM users u LEFT JOIN lawyers l ON l.user_id = u.id WHERE u.id = ?', Number(lid) || 0);
+      if (l) lawyers.push(l);
+    }
+    if (!lawyers.length) return null;
+    const hits = [];
+    for (const [field, value] of Object.entries(texts || {})) {
+      if (!value) continue;
+      for (const name of gate.findLawyerNames(String(value), lawyers)) hits.push({ field, name });
+    }
+    if (!hits.length) return null;
+    return new ApiError(409, `النص يذكر اسم ${hits[0].name}. فريقكم القانوني هو صاحب الرسالة أمام الشركة؛ احذف أسماء المحامين.`, 'lawyer_names', { lawyer_names: hits });
+  }
+
   // ═════════════════════════ SRV-8: القبول ← ملف في المحرك (B10-24) ═════════════════════════
   const PARTY_ROLES = ['opponent', 'related', 'witness'];
   function lawyerOk(lawyerId, field) {
@@ -1919,7 +1949,22 @@ export function createCompanyRequests(app) {
     const warnings = [];
     const brief = red(input.brief);
     const issues = input.issues.map(red);
-    if (brief !== input.brief || issues.some((x, i) => x !== input.issues[i])) warnings.push('حُذفت من ملخص المحامي أو مسائله بيانات تخص موظفي الشركة (أسماء أو بريد أو هاتف). راجع النص قبل الإسناد.');
+    // review (INV-B5، L-57): عنوان الملف و«المطلوب من المحامي» لكل إسناد يصلان المحامي أيضًا (القوائم، «اليوم»، التقويم، الإشعار)
+    const caseTitle = red(input.caseTitle);
+    let briefsChanged = false;
+    for (const role of ['lead', 'reviewer']) {
+      const a = input.assign[role];
+      if (!a?.brief) continue;
+      const clean = red(a.brief);
+      if (clean !== a.brief) briefsChanged = true;
+      a.brief = clean;
+    }
+    if (brief !== input.brief || caseTitle !== input.caseTitle || briefsChanged || issues.some((x, i) => x !== input.issues[i])) {
+      warnings.push('حُذفت من ملخص المحامي أو مسائله بيانات تخص موظفي الشركة (أسماء أو بريد أو هاتف). راجع النص قبل الإسناد.');
+    }
+    // review (INV-B4، INV-B11): الملاحظة للشركة لا تذكر المحامين المسندين
+    const noteErr = lawyerNameError(r, { note_to_company: input.note }, { extraLawyerIds: ['lead', 'reviewer'].map((x) => input.assign[x]?.lawyer_id).filter(Boolean) });
+    if (noteErr) throw noteErr;
     // الاحتساب من الباقة (حتمي؛ L-28)
     const terms = termsOf(company.id);
     const sc = svc.scopeCheck(r, company, { type: input.type });
@@ -1984,7 +2029,7 @@ export function createCompanyRequests(app) {
         client_id: company.client_id,
         intake_id: null,
         legal_area: input.area,
-        title: input.caseTitle,
+        title: caseTitle,
         facts_internal: renderedRequest(r, input.type),
         facts_shared: brief,
         status: 'new',
@@ -2230,6 +2275,9 @@ export function createCompanyRequests(app) {
     const red = lawyerRedactor(c.company_id);
     const out = { ...view };
     if (out.facts) out.facts = red(out.facts);
+    // review (INV-B5): عنوان الملف و«المطلوب منك» قد يعدّلهما الفريق بعد القبول
+    if (out.case) out.case = { ...out.case, title: red(out.case.title) };
+    if (out.assignment) out.assignment = { ...out.assignment, brief: red(out.assignment.brief) };
     out.issues = (out.issues || []).map((i) => ({ ...i, title: red(i.title), details: red(i.details) }));
     out.documents = (out.documents || []).map((d) => ({ ...d, title: red(d.title), filename: red(d.filename) }));
     out.info_requests = (out.info_requests || []).map((x) => ({ ...x, response_text: red(x.response_text), question: red(x.question), documents: (x.documents || []).map((d) => ({ ...d, title: red(d.title), filename: red(d.filename) })) }));
@@ -2328,6 +2376,8 @@ export function createCompanyRequests(app) {
     const company = companyOf(r.company_id);
     const message = v.str(body.client_message, 'نص الرسالة للشركة', { required: true, max: 3000 });
     const items = body.items !== undefined ? itemsFrom(body.items) : parseJson(ir.items, []) || [];
+    const nameErr = lawyerNameError(r, { client_message: message, ...Object.fromEntries(items.map((x, i) => [`items.${i}`, x.label])) });
+    if (nameErr) throw nameErr;
     const t = nowIso();
     db.tx(() => {
       const mid = db.insert('company_messages', {
@@ -2369,6 +2419,8 @@ export function createCompanyRequests(app) {
     checkRev(r, body);
     const text = v.str(body.body, 'نص الاستيضاح', { required: true, min: 5, max: 3000 });
     const items = itemsFrom(body.items);
+    const nameErr = lawyerNameError(r, { body: text, ...Object.fromEntries(items.map((x, i) => [`items.${i}`, x.label])) });
+    if (nameErr) throw nameErr;
     if (r.case_id && ['in_progress', 'delivered'].includes(r.status)) {
       app.requests.createInfoByStaff(r.case_id, actor, { kind: items.length ? 'document' : 'information', question: text, client_message: text, items: items.map((x) => x.label) });
       activity(getById(r.id), actor, { type: 'company_request.clarify', summary: `استيضاح من الفريق على ${r.code} أثناء العمل` });
@@ -2702,6 +2754,7 @@ export function createCompanyRequests(app) {
       for (const k of saved) unlinkStored(k);
       throw e;
     }
+    activity(r, actor, { type: 'company_deliverable.updated', summary: `تعديل مسودة التسليم ${d.version} على ${r.code}`, data: { deliverable_id: d.id, fields: Object.keys(f), documents: body.document_ids !== undefined || body.files !== undefined } }); // review (L-48)
     return { deliverable: deliverableView(deliverableById(d.id), { staff: true }), precheck: precheck(d.id) };
   }
   /** الفحص المسبق (D12 + file_authors): نفس بوابة الإرسال */
@@ -2773,6 +2826,8 @@ export function createCompanyRequests(app) {
     if (d.decision === 'accepted') throw new ApiError(409, 'اعتمدت الشركة هذا التسليم؛ لا يُسحب.', 'deliverable_state');
     const reason = v.str(body.reason, 'سبب السحب', { required: true, max: 500 });
     const r = getById(d.request_id);
+    const nameErr = lawyerNameError(r, { reason }); // يصل الشركة في إشعار السحب
+    if (nameErr) throw nameErr;
     const t = nowIso();
     db.tx(() => {
       db.update('company_deliverables', d.id, { status: 'withdrawn', withdrawn_at: t, withdraw_reason: reason, updated_at: t });
@@ -2925,6 +2980,8 @@ export function createCompanyRequests(app) {
     const kind = v.oneOf(body.kind, ['out_of_scope', 'conflict', 'not_legal', 'duplicate', 'other'], 'سبب الاعتذار', { required: true });
     const reason = v.str(body.reason_for_company, 'السبب كما تقرؤه الشركة', { required: true, min: 5, max: 1000 });
     const note = v.str(body.note, 'ملاحظة داخلية', { max: 2000 });
+    const nameErr = lawyerNameError(r, { reason_for_company: reason });
+    if (nameErr) throw nameErr;
     const t = nowIso();
     db.tx(() => {
       db.run("UPDATE company_quotes SET status = 'withdrawn', updated_at = ? WHERE request_id = ? AND status = 'sent'", t, r.id);
@@ -2946,6 +3003,8 @@ export function createCompanyRequests(app) {
     if (!['in_progress', 'delivered'].includes(r.status)) throw new ApiError(409, 'يُغلق الطلب بعد بدء العمل عليه؛ قبل ذلك استخدم «الاعتذار».', 'invalid_transition');
     const outcome = v.oneOf(body.outcome, Object.keys(CLOSE_OUTCOME), 'نتيجة الإغلاق', { required: true });
     const note = v.str(body.note_for_company, 'ملاحظة للشركة', { max: 1000 });
+    const nameErr = lawyerNameError(r, { note_for_company: note });
+    if (nameErr) throw nameErr;
     const t = nowIso();
     db.tx(() => {
       casUpdate(r, { status: 'closed', resolution: 'staff_closed', resolution_kind: outcome, resolution_note: note, waiting_on: null, closed_at: t, ...resumePatch(r, t) }, { actor });

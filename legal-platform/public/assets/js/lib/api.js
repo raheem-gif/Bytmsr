@@ -20,7 +20,7 @@ export class ApiError extends Error {
    * @param {{status?:number, code?:string, details?:any}} [info]
    */
   constructor(message, { status = 0, code = 'network_error', details } = {}) {
-    super(message || GENERIC_ERROR);
+    super(message || genericError);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
@@ -28,10 +28,23 @@ export class ApiError extends Error {
   }
 }
 
+// v10 b2b-portal (CO-14): بوابة الشركات تستبدل جمل الأخطاء العامة (المفرد في /app) بجمل الجمع لأسلوب الأعمال
+let genericError = GENERIC_ERROR;
+let serverError = 'حدث خطأ في الخادم، حاول مرة أخرى بعد قليل';
+/** setErrorCopy({ generic, 400, 401, …, 500 }): نصوص الأخطاء العامة لهذه الصفحة (الافتراضي كما هو لـ /app) */
+export function setErrorCopy(map = {}) {
+  for (const [k, v] of Object.entries(map || {})) {
+    if (typeof v !== 'string' || !v) continue;
+    if (k === 'generic') genericError = v;
+    else if (k === '500') serverError = v;
+    else if (/^\d{3}$/.test(k)) STATUS_MESSAGES[k] = v;
+  }
+}
+
 function fallbackMessage(status) {
   if (STATUS_MESSAGES[status]) return STATUS_MESSAGES[status];
-  if (status >= 500) return 'حدث خطأ في الخادم، حاول مرة أخرى بعد قليل';
-  return GENERIC_ERROR;
+  if (status >= 500) return serverError;
+  return genericError;
 }
 
 // ───────── (إصلاح 9.1) نافذة فتح المنصة دون اتصال ─────────
@@ -74,7 +87,8 @@ export function buildUrl(path, query) {
   return url;
 }
 
-const AUTH_QUIET_PATHS = ['/auth/login', '/auth/me', '/auth/session'];
+// v10 b2b-portal: 401 من دخول بوابة الشركات وحالة جلستها إجابة لا انتهاء جلسة (U10-14)
+const AUTH_QUIET_PATHS = ['/auth/login', '/auth/me', '/auth/session', '/company/auth/login', '/company/auth/login/2fa', '/company/auth/session'];
 
 // ───────── v9.1 l-home (L-07): طلب GET مبكر لبيانات الصفحة ─────────
 // يبدأ بالتوازي مع تحميل وحدة الصفحة (رابط إشعار يُفتح على شبكة بطيئة)، ثم يأخذه أول api.get بنفس الرابط بدل طلب جديد
@@ -155,7 +169,7 @@ export async function request(method, path, { query, body, signal, background = 
     res = await (early || fetch(url, init));
   } catch (err) {
     if (err && err.name === 'AbortError') throw err;
-    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+    throw new ApiError(genericError, { status: 0, code: 'network_error' });
   }
 
   let data = null;
@@ -166,7 +180,7 @@ export async function request(method, path, { query, body, signal, background = 
     } catch (err) {
       if (err && err.name === 'AbortError') throw err;
       // رد ناجح انقطع أو تلف أثناء القراءة: خطأ شبكة واضح بدل null تنهار عليه الصفحة
-      if (res.ok) throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+      if (res.ok) throw new ApiError(genericError, { status: 0, code: 'network_error' });
       data = null;
     }
   }
@@ -279,7 +293,7 @@ function saveAs(href, filename) {
 export async function downloadFile(path, body, { mode = 'blob', fallbackName = 'download' } = {}) {
   const ticket = await request('POST', path, { body: body || {} });
   if (!ticket || typeof ticket.url !== 'string' || !ticket.url.startsWith('/api/')) {
-    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'bad_download_ticket' });
+    throw new ApiError(genericError, { status: 0, code: 'bad_download_ticket' });
   }
   if (mode === 'navigate') {
     const name = ticket.filename || fallbackName;
@@ -290,7 +304,7 @@ export async function downloadFile(path, body, { mode = 'blob', fallbackName = '
   try {
     res = await fetch(ticket.url, { credentials: 'same-origin' });
   } catch {
-    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+    throw new ApiError(genericError, { status: 0, code: 'network_error' });
   }
   if (!res.ok) {
     let data = null;
@@ -315,7 +329,7 @@ export async function downloadFile(path, body, { mode = 'blob', fallbackName = '
   try {
     blob = await res.blob();
   } catch {
-    throw new ApiError(GENERIC_ERROR, { status: 0, code: 'network_error' });
+    throw new ApiError(genericError, { status: 0, code: 'network_error' });
   }
   const href = URL.createObjectURL(blob);
   saveAs(href, name);

@@ -568,7 +568,7 @@ export function createAccounting(app) {
       };
       // تكلفة الملفات المغلقة خلال الفترة وأنواع الملفات الأكثر استهلاكًا للموارد
       const { start, end } = periodRange(p);
-      const closed = db.all('SELECT id, code, title, legal_area FROM cases WHERE closed_at >= ? AND closed_at < ?', start, end);
+      const closed = db.all('SELECT id, code, title, legal_area FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL', start, end); // v10 (#27): تكلفة ملفات الأفراد فقط
       const caseCosts = closed.map((c) => ({ ...c, ...svc.caseCost(c.id), team_size: Number(db.value('SELECT COUNT(*) FROM billable_events WHERE case_id = ?', c.id)) }));
       const byArea = {};
       for (const c of caseCosts) {

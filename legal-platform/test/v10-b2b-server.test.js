@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
 import { startTestApp, Client, freezeClock, resetClock } from './helpers.js';
 import { Db } from '../src/db.js';
 import { LABELS, DEFAULT_SETTINGS, CODE_PREFIX } from '../src/constants.js';
@@ -1875,5 +1876,1034 @@ describe('v10 company triage through Claude (SRV-7 P1, fake SDK — never the re
     assert.ok(calls.length > before);
     assert.equal(sug.provider, 'heuristic', 'invalid JSON → heuristic fallback');
     assert.equal(t.app.ai.companyAi.autoRunsLastDay(r.id), 1);
+  });
+});
+
+// ═════════════════════════ SRV-12 … SRV-16: الذاكرة، البريد، المهام، حراس الأفراد، قائمة الأمان، الترقية ═════════════════════════
+import net from 'node:net';
+import tls from 'node:tls';
+import { loadConfig } from '../src/config.js';
+import { createApp } from '../src/app.js';
+import { bootstrap } from '../src/bootstrap.js';
+import { cairoDayKey } from '../src/util.js';
+import { buildMessage, encodeHeader } from '../src/services/email.js';
+import { usageCycle } from '../public/assets/js/lib/company-sla.js';
+
+const DAY = 86400000;
+const dayKey = (offset = 0) => cairoDayKey(new Date(Date.now() + offset * DAY));
+
+/** تطبيق على مجلد ثابت (لإعادة التشغيل على القاعدة نفسها) — بلا خادم HTTP */
+async function persistentApp(dir, config = {}) {
+  const cfg = loadConfig({
+    dataDir: dir,
+    dbPath: path.join(dir, 'test.db'),
+    uploadsDir: path.join(dir, 'uploads'),
+    demo: false,
+    adminUsername: 'admin',
+    adminPassword: 'Admin@2026',
+    schedulerIntervalSeconds: 0,
+    silent: true,
+    whatsapp: { token: '', phoneNumberId: '', verifyToken: 'verify-me', appSecret: '', numberDigits: '201000000001' },
+    ai: { provider: 'heuristic', anthropicApiKey: '' },
+    ...config,
+  });
+  const app = createApp(cfg);
+  await bootstrap(app);
+  return app;
+}
+
+/** شهادة اختبار موقعة ذاتيًا لـ localhost (خادم SMTP وهمي داخل الاختبار فقط؛ صالحة 100 عام) */
+const TEST_CERT = `-----BEGIN CERTIFICATE-----
+MIIBnDCCAUGgAwIBAgIUZ/1HRrpDsW2mmtyho50gy9f52KEwCgYIKoZIzj0EAwIw
+FDESMBAGA1UEAwwJbG9jYWxob3N0MCAXDTI2MTAwODIyMDQzN1oYDzIxMjYwOTE0
+MjIwNDM3WjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwWTATBgcqhkjOPQIBBggqhkjO
+PQMBBwNCAASwzllMt8P4ussIaKlyK9iQoXuJF5ydTJjiG4jWNXLc14IyZCNG6xXM
+j/zVS7xtS/WnebuA4aYrG6zDBHM+QsETo28wbTAdBgNVHQ4EFgQUx2gc8v1K6xQ2
+M5J4aKXUdiGVn9gwHwYDVR0jBBgwFoAUx2gc8v1K6xQ2M5J4aKXUdiGVn9gwDwYD
+VR0TAQH/BAUwAwEB/zAaBgNVHREEEzARgglsb2NhbGhvc3SHBH8AAAEwCgYIKoZI
+zj0EAwIDSQAwRgIhAMedBZrPFUEyGZy4HUJZRd0mAys4TLNwE8U+LDC7LQKnAiEA
+9aree+MVRjGoRkMeYlbaMzTSlV+uxGeNeNftn9lMUQk=
+-----END CERTIFICATE-----`;
+const TEST_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgN/f0vS5V/8b1JowJ
+tyLXuNhA5Hn9g5W6wyow65q+Tj+hRANCAASwzllMt8P4ussIaKlyK9iQoXuJF5yd
+TJjiG4jWNXLc14IyZCNG6xXMj/zVS7xtS/WnebuA4aYrG6zDBHM+QsET
+-----END PRIVATE KEY-----`;
+
+/** خادم SMTP وهمي داخل العملية (node:net/node:tls): mode tls (ضمني) أو starttls؛ يسجل الأوامر والرسائل */
+function fakeSmtp({ mode = 'tls', starttls = true } = {}) {
+  const log = [];
+  const messages = [];
+  const handle = (sock, secure) => {
+    let buf = '';
+    let inData = false;
+    let data = '';
+    const send = (l) => sock.write(`${l}\r\n`);
+    const onLine = (line) => {
+      if (inData) {
+        if (line === '.') {
+          inData = false;
+          messages.push(data);
+          send('250 2.0.0 OK queued as FAKE1');
+        } else data += `${line}\n`;
+        return;
+      }
+      log.push(line);
+      const cmd = line.split(' ')[0].toUpperCase();
+      if (cmd === 'EHLO') {
+        const ext = [];
+        if (!secure && starttls) ext.push('STARTTLS');
+        ext.push('AUTH PLAIN LOGIN');
+        sock.write(`250-fake.example\r\n${ext.map((e, i) => `250${i === ext.length - 1 ? ' ' : '-'}${e}`).join('\r\n')}\r\n`);
+      } else if (cmd === 'STARTTLS') {
+        send('220 2.0.0 Ready');
+        sock.removeAllListeners('data');
+        handle(new tls.TLSSocket(sock, { isServer: true, key: TEST_KEY, cert: TEST_CERT }), true);
+      } else if (cmd === 'AUTH') send(secure ? '235 2.7.0 ok' : '530 5.7.0 must issue STARTTLS first');
+      else if (['MAIL', 'RCPT', 'RSET'].includes(cmd)) send('250 ok');
+      else if (cmd === 'DATA') {
+        inData = true;
+        data = '';
+        send('354 go');
+      } else if (cmd === 'QUIT') {
+        send('221 bye');
+        sock.end();
+      } else send('500 unknown');
+    };
+    sock.on('data', (d) => {
+      buf += d.toString('utf8');
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const l = buf.slice(0, i).replace(/\r$/, '');
+        buf = buf.slice(i + 1);
+        onLine(l);
+      }
+    });
+    sock.on('error', () => {});
+  };
+  const sockets = new Set();
+  const server =
+    mode === 'tls'
+      ? tls.createServer({ key: TEST_KEY, cert: TEST_CERT }, (s) => {
+          sockets.add(s);
+          handle(s, true);
+          s.write('220 fake ESMTP\r\n');
+        })
+      : net.createServer((s) => {
+          sockets.add(s);
+          handle(s, false);
+          s.write('220 fake ESMTP\r\n');
+        });
+  server.on('tlsClientError', () => {});
+  return new Promise((resolve) =>
+    server.listen(0, '127.0.0.1', () =>
+      resolve({
+        port: server.address().port,
+        log,
+        messages,
+        close: () => {
+          for (const s of sockets) s.destroy();
+          server.close();
+        },
+      }),
+    ),
+  );
+}
+const decodeWords = (s) => s.replace(/=\?UTF-8\?B\?([^?]+)\?=\s*/g, (m, b) => Buffer.from(b, 'base64').toString('utf8'));
+
+describe('v10 legal memory (SRV-12, B10-39 … B10-42, L-51, CS-22)', () => {
+  let t;
+  let mariam;
+  let hossam;
+  let dina;
+  let staff;
+  let cm;
+  let nfd;
+  before(async () => {
+    t = await journeyApp();
+    mariam = t.company();
+    await mariam.login('mariam@nilefoods.example');
+    hossam = t.company();
+    await hossam.login('hossam@nilefoods.example');
+    dina = t.company();
+    await dina.login('dina@nilefoods.example');
+    staff = await t.login('admin');
+    cm = await t.login('manager');
+    nfd = companyId(t.app, 'NFD');
+  });
+  after(async () => t && t.close());
+
+  test('per-kind validation and computed dates; member and viewer permissions; staff notes never reach the company', async () => {
+    const bad = await mariam.post('/api/company/memory', { kind: 'contract', title: 'عقد بلا طرف' });
+    assert.equal(bad.status, 400);
+    assert.ok(bad.body.details.fields.counterparty_name);
+    const c = ok(await mariam.post('/api/company/memory', { kind: 'contract', title: 'عقد صيانة خطوط الإنتاج', counterparty_name: 'شركة الصيانة الحديثة', start_date: dayKey(-200), end_date: dayKey(100), renewal_type: 'auto', term_months: 12, notice_days: 60, value: '120000' }), 201).item;
+    assert.equal(c.notice_deadline, dayKey(40), 'notice deadline = end − notice days');
+    assert.equal(c.next_date, dayKey(40));
+    assert.equal(c.value, 120000);
+    assert.equal(c.counterparty.name, 'شركة الصيانة الحديثة');
+    assert.match(c.reminder_text, /^سنذكّركم قبل 60 و30 و7 أيام\.$/);
+    // العضو: العقود والنماذج والتراخيص والمواعيد فقط، ويعدّل ما أضافه هو
+    assert.equal((await hossam.post('/api/company/memory', { kind: 'position', topic: 'x', decision: 'y' })).status, 403);
+    const own = ok(await hossam.post('/api/company/memory', { kind: 'key_date', title: 'تجديد شهادة الأيزو', date: dayKey(50), recurrence: 'yearly' }), 201).item;
+    assert.equal((await hossam.patch(`/api/company/memory/${c.id}`, { title: 'تعديل' })).status, 403);
+    ok(await hossam.patch(`/api/company/memory/${own.id}`, { title: 'تجديد شهادة الأيزو 9001' }));
+    assert.equal((await hossam.post('/api/company/memory', { kind: 'contract', title: 'x', counterparty_name: 'y', access: 'admins' })).status, 403, 'only portal admins choose access');
+    assert.equal((await dina.post('/api/company/memory', { kind: 'key_date', title: 'x', date: dayKey(5) })).status, 403);
+    assert.equal((await mariam.post('/api/company/memory', { kind: 'key_date', title: 'موعد' })).status, 400, 'date required');
+    // ملاحظات الفريق وحقول الإدارة لا تصل الشركة (B10 §7.6)
+    const sv = ok(await cm.patch(`/api/admin/company-memory/${c.id}`, { staff_notes: 'ملاحظة داخلية سرية عن العقد' }));
+    assert.equal(sv.item.staff_notes, 'ملاحظة داخلية سرية عن العقد');
+    const cv = ok(await mariam.get(`/api/company/memory/${c.id}`));
+    const raw = JSON.stringify(cv);
+    for (const k of ['staff_notes', 'matter_id', 'created_by_user_id', 'ملاحظة داخلية']) assert.ok(!raw.includes(k), `company view has no ${k}`);
+    assert.deepEqual(cv.item.created_by, { kind: 'user', name: 'مريم عادل' });
+    const list = ok(await mariam.get('/api/company/memory'));
+    assert.ok(list.counts.contract.total >= 1 && list.counts.contract.soon >= 1);
+    assert.ok(list.items.some((x) => x.id === c.id));
+  });
+
+  test('admins-only items and counterparties from them stay invisible to members by every path (L-51, CS-22, §7.3-11)', async () => {
+    const d = ok(await mariam.post('/api/company/memory', { kind: 'dispute', title: 'نزاع سري مع مورد', counterparty_name: 'مورد الخصومة السرية', forum: 'negotiation', next_event_date: dayKey(10) }), 201).item;
+    assert.equal(d.access, 'admins', 'disputes default to portal admins only');
+    const tpl = ok(await mariam.post('/api/company/memory', { kind: 'template', title: 'نموذج سري', template_kind: 'nda', access: 'admins', upload_ids: [await t.stage(mariam, 'nda.pdf', 'application/pdf', pdfBuf())] }), 201).item;
+    for (const c of [hossam, dina]) {
+      assert.equal((await c.get(`/api/company/memory/${d.id}`)).status, 404);
+      assert.ok(!ok(await c.get('/api/company/memory')).items.some((x) => x.id === d.id || x.id === tpl.id));
+      assert.ok(!ok(await c.get(`/api/company/key-dates?from=${dayKey(0)}&to=${dayKey(60)}`)).items.some((x) => x.memory_id === d.id));
+      assert.ok(!ok(await c.get('/api/company/counterparties')).items.some((x) => x.name === 'مورد الخصومة السرية'), 'CS-22');
+      const s = ok(await c.get(`/api/company/search?q=${encodeURIComponent('الخصومة السرية')}`));
+      assert.equal(s.memory.length, 0);
+    }
+    assert.ok(ok(await mariam.get('/api/company/counterparties')).items.some((x) => x.name === 'مورد الخصومة السرية'));
+    // عنصر لمديري البوابة كإشارة في طلب من عضو ← 400 memory_not_found
+    const r = await hossam.post('/api/company/requests', { type: 'nda', entity_id: t.nfdEntity, description: 'اتفاقية سرية جديدة مع مورد', fields: { counterparty_name: 'مورد', direction: 'mutual', purpose: 'تقييم', template_memory_id: tpl.id } });
+    assert.equal(r.status, 400);
+    assert.equal(r.body.code, 'memory_not_found');
+  });
+
+  test('memory documents by upload_ids (≤ 10 per item), downloadable by the L-52 rule, hidden after archive', async () => {
+    const item = ok(await mariam.post('/api/company/memory', { kind: 'licence', title: 'سجل صناعي', issuer: 'هيئة التنمية الصناعية', end_date: dayKey(120) }), 201).item;
+    const u1 = await t.stage(mariam, 'سجل صناعي.pdf', 'application/pdf', pdfBuf());
+    const u2 = await t.stage(mariam, 'ملحق.pdf', 'application/pdf', pdfBuf());
+    const v = ok(await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: [u1, u2] }), 201);
+    assert.equal(v.documents.length, 2);
+    const docId = v.documents[0].id;
+    assert.equal((await hossam.get(`/api/company/documents/${docId}/download`)).status, 200, 'readable item → document downloadable');
+    const reuse = await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: [u1] });
+    assert.ok([400, 409].includes(reuse.status), 'a used upload is not reusable');
+    // الحد 10 مستندات للعنصر (5 في المرة)
+    const more = [];
+    for (let i = 0; i < 9; i++) more.push(await t.stage(mariam, `ملحق ${i + 1}.pdf`, 'application/pdf', pdfBuf()));
+    assert.equal((await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: more.slice(0, 6) })).status, 400, '≤ 5 per call');
+    ok(await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: more.slice(0, 5) }), 201);
+    ok(await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: more.slice(5, 8) }), 201);
+    const lim = await mariam.post(`/api/company/memory/${item.id}/documents`, { upload_ids: [more[8]] });
+    assert.equal(lim.status, 409);
+    assert.equal(lim.body.code, 'memory_documents_limit');
+    assert.equal(ok(await mariam.get(`/api/company/memory/${item.id}`)).item.can.add_documents, false);
+    assert.equal((await hossam.post(`/api/company/memory/${item.id}/archive`)).status, 403, 'members archive only their own items');
+    ok(await mariam.post(`/api/company/memory/${item.id}/archive`));
+    assert.equal((await hossam.get(`/api/company/documents/${docId}/download`)).status, 404, 'archived item → no download');
+    assert.ok(!ok(await hossam.get('/api/company/memory')).items.some((x) => x.id === item.id));
+    // الفريق يستعيده
+    ok(await cm.post(`/api/admin/company-memory/${item.id}/archive`, { restore: true }));
+    assert.equal((await hossam.get(`/api/company/documents/${docId}/download`)).status, 200);
+  });
+
+  test('memory create is limited to 100 per company per day (CS-24)', async () => {
+    const now = new Date().toISOString();
+    for (let i = 0; i < 100; i++) {
+      t.app.db.run("INSERT INTO company_memory (company_id, kind, title, status, data, tags, access, created_by_kind, created_at, updated_at) VALUES (?, 'key_date', ?, 'active', '{}', '[]', 'all', 'company', ?, ?)", nfd, `موعد ${i}`, now, now);
+    }
+    const r = await mariam.post('/api/company/memory', { kind: 'key_date', title: 'زائد', date: dayKey(3) });
+    assert.equal(r.status, 429);
+    t.app.db.run("DELETE FROM company_memory WHERE company_id = ? AND title LIKE 'موعد %'", nfd);
+  });
+
+  test('purge (admin only): grants → links → reminders → document rows → unshared files → item; shared files kept; audited with counts (CS-18)', async () => {
+    const created = ok(await staff.post(`/api/admin/companies/${nfd}/memory`, { kind: 'contract', title: 'عقد للحذف النهائي', counterparty_name: 'طرف الحذف', files: [file64('a.pdf', 'application/pdf', pdfBuf()), file64('b.pdf', 'application/pdf', pdfBuf())] }), 201);
+    const mid = created.item.id;
+    const [docA, docB] = created.documents.map((d) => d.id);
+    // مستند مشترك مع طلب، وتذكير، ورابط طلب، ومنح لمحامٍ
+    const code = await t.submit(mariam, { type: 'other', entity_id: t.nfdEntity, description: 'طلب يرتبط بعنصر الذاكرة', fields: {} });
+    const rid = t.req(code).id;
+    t.app.db.run('UPDATE documents SET company_request_id = ? WHERE id = ?', rid, docA);
+    t.app.db.run('INSERT INTO company_memory_reminders (memory_id, due_date, offset_days, created_at) VALUES (?, ?, 30, ?)', mid, dayKey(30), new Date().toISOString());
+    ok(await staff.put(`/api/admin/company-requests/${rid}/memory-links`, { memory_ids: [mid] }));
+    const acc = ok(await t.accept(staff, code, { assign: { lead: { lawyer_id: t.lawyers.amr } } }), 201);
+    const asg = t.app.db.value("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead'", acc.case.id);
+    ok(await staff.put(`/api/admin/assignments/${asg}/memory-grants`, { memory_ids: [mid] }));
+    const keyB = t.app.db.value('SELECT storage_key FROM documents WHERE id = ?', docB);
+    const fileB = path.join(t.app.config.uploadsDir, keyB);
+    assert.ok(fs.existsSync(fileB));
+    assert.equal((await cm.del(`/api/admin/company-memory/${mid}?purge=1`)).status, 403, 'case managers cannot purge');
+    assert.equal((await staff.del(`/api/admin/company-memory/${mid}`)).status, 400, 'purge=1 is explicit');
+    const res = ok(await staff.del(`/api/admin/company-memory/${mid}?purge=1`));
+    assert.deepEqual(res.counts, { grants: 1, request_links: 1, reminders: 1, document_links: 2, documents_deleted: 1, documents_kept: 1 });
+    assert.equal(t.app.db.get('SELECT 1 FROM company_memory WHERE id = ?', mid), undefined);
+    assert.ok(t.app.db.get('SELECT 1 FROM documents WHERE id = ?', docA), 'a document shared with a message is detached and kept');
+    assert.equal(t.app.db.get('SELECT 1 FROM documents WHERE id = ?', docB), undefined);
+    assert.ok(!fs.existsSync(fileB), 'the unshared file is unlinked after commit');
+    const ev = t.app.db.get("SELECT * FROM security_events WHERE type = 'company.memory_purged' ORDER BY id DESC LIMIT 1");
+    assert.ok(ev && ev.company_id === nfd);
+    assert.equal(JSON.parse(ev.data).documents_deleted, 1);
+    assert.deepEqual(t.app.db.all('PRAGMA foreign_key_check'), []);
+  });
+});
+
+describe('v10 memory reminders — idempotent across re-runs, restarts and downtime (SRV-12, CS-15)', () => {
+  test('one notification per due offset; a restart sends nothing new; 70 days of downtime → at most one notification per item (auto-renew roll, licence expiry, key-date recurrence)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v10-mem-'));
+    let app = await persistentApp(dir);
+    try {
+      await seedB2bDemo(app);
+      const company = app.db.get("SELECT * FROM companies WHERE prefix = 'NFD'");
+      const cu = app.db.get("SELECT * FROM company_users WHERE email = 'mariam@nilefoods.example'");
+      const mk = (body) => app.companyMemory.create(cu, company, body).item.id;
+      const A = mk({ kind: 'contract', title: 'عقد يتجدد تلقائيًا', counterparty_name: 'المورد أ', start_date: dayKey(-300), end_date: dayKey(25), renewal_type: 'auto', term_months: 12, notice_days: 30 });
+      const B = mk({ kind: 'licence', title: 'ترخيص ينتهي', issuer: 'جهة', end_date: dayKey(40) });
+      const C = mk({ kind: 'key_date', title: 'موعد سنوي', date: dayKey(10), recurrence: 'yearly' });
+      const count = (a, id) => Number(a.db.value("SELECT COUNT(*) FROM company_notifications WHERE type = 'memory.renewal' AND link = ?", `#/memory/item/${id}`));
+      const first = app.companyMemory.runReminders();
+      assert.ok(first.reminded >= 3, JSON.stringify(first));
+      assert.deepEqual([count(app, A), count(app, B), count(app, C)], [1, 1, 1]);
+      // كل المواعيد المستحقة مسجلة (60 و30 لعقد بعد 25 يومًا) ويُرسل أحدثها فقط
+      assert.deepEqual(app.db.all('SELECT offset_days FROM company_memory_reminders WHERE memory_id = ? ORDER BY offset_days', A).map((r) => r.offset_days), [30, 60]);
+      assert.match(app.db.value("SELECT title FROM company_notifications WHERE link = ? ORDER BY id LIMIT 1", `#/memory/item/${A}`), /^موعد يقترب: عقد يتجدد تلقائيًا$/);
+      assert.ok(app.db.get("SELECT 1 FROM email_outbox WHERE purpose = 'renewal'"), 'renewal e-mail queued (important)');
+      app.companyMemory.runReminders();
+      assert.deepEqual([count(app, A), count(app, B), count(app, C)], [1, 1, 1], 'a re-run sends nothing');
+      // إعادة التشغيل على القاعدة نفسها
+      await app.close();
+      app = await persistentApp(dir);
+      app.companyMemory.runReminders();
+      assert.deepEqual([count(app, A), count(app, B), count(app, C)], [1, 1, 1], 'a restart sends nothing');
+      // بوابة «مرة في اليوم» من job_runs
+      freezeClock(`${dayKey(0)}T09:00:00.000Z`);
+      const j1 = (await app.jobs.runDue({ force: true, only: 'b2b.memory' }))[0];
+      const j2 = (await app.jobs.runDue({ force: true, only: 'b2b.memory' }))[0];
+      assert.equal(j1.result.acted, true);
+      assert.equal(j2.result.acted, false, 'the day is read from job_runs');
+      // 70 يومًا بلا تشغيل
+      freezeClock(new Date(Date.now() + 70 * DAY).toISOString());
+      const later = app.companyMemory.runReminders();
+      assert.equal(later.rolled >= 1, true);
+      assert.deepEqual([count(app, A), count(app, B), count(app, C)], [2, 1, 1], 'one roll notice for the contract, none for the others');
+      const a = app.db.get('SELECT * FROM company_memory WHERE id = ?', A);
+      assert.ok(a.end_date > cairoDayKey(new Date(Date.now())), 'rolled past today');
+      assert.ok(JSON.parse(a.data).history.length >= 1);
+      assert.equal(app.db.value('SELECT status FROM company_memory WHERE id = ?', B), 'expired');
+      assert.ok(app.db.value('SELECT start_date FROM company_memory WHERE id = ?', C) > cairoDayKey(new Date()), 'a yearly key date rolls forward');
+      app.companyMemory.runReminders();
+      assert.deepEqual([count(app, A), count(app, B), count(app, C)], [2, 1, 1]);
+    } finally {
+      resetClock();
+      await app.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('v10 company e-mail — outbox, hardened SMTP, flush (SRV-13, L-32, CS-4, CS-17)', () => {
+  let t;
+  let admin;
+  let mariamId;
+  let company;
+  before(async () => {
+    t = await b2bApp({ publicBaseUrl: 'https://legal.example.org' });
+    admin = t.app.db.get("SELECT * FROM users WHERE username = 'admin'");
+    mariamId = cuId(t.app, 'mariam@nilefoods.example');
+    company = t.app.db.get("SELECT * FROM companies WHERE prefix = 'NFD'");
+  });
+  after(async () => t && t.close());
+  const smtpSettings = (patch) => t.app.integrations.set('email', { provider: 'smtp', smtp_host: 'localhost', smtp_user: 'mailer', smtp_password: 'secret-pass', from_address: 'legal@example.com', from_name: '', ...patch }, admin);
+  const queue = () => t.app.email.send('request_update', { to: 'mariam@nilefoods.example', name: 'مريم عادل', company, companyUserId: mariamId, vars: { code: 'NFD-0001' } });
+
+  test('SMTP over TLS (465): AUTH PLAIN, RFC 2047 subject, base64 UTF-8 body, address-only To — then «sent»', async () => {
+    smtpSettings({ smtp_port: '465', smtp_security: 'tls' });
+    const f = await fakeSmtp({ mode: 'tls' });
+    try {
+      const q = queue();
+      assert.equal(q.status, 'queued');
+      const res = await t.app.email.flush({ smtp: { connectPort: f.port, tlsOptions: { ca: TEST_CERT } } });
+      assert.equal(res.sent, 1, JSON.stringify(res));
+      const row = t.app.db.get('SELECT * FROM email_outbox WHERE id = ?', q.id);
+      assert.equal(row.status, 'sent');
+      assert.ok(f.log.some((l) => /^AUTH PLAIN /.test(l)));
+      assert.ok(f.log.includes('MAIL FROM:<legal@example.com>'));
+      assert.ok(f.log.includes('RCPT TO:<mariam@nilefoods.example>'));
+      const msg = f.messages[0];
+      assert.match(msg, /^To: mariam@nilefoods\.example$/m, 'To: carries the address only');
+      const subject = /^Subject: (.+(?:\n .+)*)$/m.exec(msg)[1];
+      assert.equal(decodeWords(subject.replace(/\n /g, '')), 'تحديث على طلبكم — NFD-0001');
+      assert.match(msg, /Content-Transfer-Encoding: base64/);
+      const body = Buffer.from(msg.split('\n\n').slice(1).join('').replace(/\s+/g, ''), 'base64').toString('utf8');
+      assert.match(body, /مرحبًا مريم عادل،/);
+      assert.match(body, /https:\/\/legal\.example\.org\/company#\/requests\/NFD-0001/);
+    } finally {
+      f.close();
+    }
+  });
+
+  test('STARTTLS (587) upgrades before AUTH; a server without STARTTLS → failed with no AUTH sent; a self-signed certificate → failed', async () => {
+    smtpSettings({ smtp_port: '587', smtp_security: 'starttls' });
+    let f = await fakeSmtp({ mode: 'starttls' });
+    try {
+      const q = queue();
+      const res = await t.app.email.flush({ smtp: { connectPort: f.port, tlsOptions: { ca: TEST_CERT } } });
+      assert.equal(res.sent, 1, JSON.stringify(res));
+      assert.ok(f.log.indexOf('STARTTLS') >= 0 && f.log.indexOf('STARTTLS') < f.log.findIndex((l) => l.startsWith('AUTH')), 'STARTTLS before AUTH');
+      assert.equal(t.app.db.value('SELECT status FROM email_outbox WHERE id = ?', q.id), 'sent');
+    } finally {
+      f.close();
+    }
+    f = await fakeSmtp({ mode: 'starttls', starttls: false });
+    try {
+      const q = queue();
+      const transcript = [];
+      await t.app.email.flush({ smtp: { connectPort: f.port, tlsOptions: { ca: TEST_CERT }, transcript } });
+      const row = t.app.db.get('SELECT * FROM email_outbox WHERE id = ?', q.id);
+      assert.equal(row.status, 'failed');
+      assert.match(row.error, /STARTTLS/);
+      assert.ok(!transcript.some((l) => l.startsWith('C: AUTH')), 'no AUTH line sent in clear');
+      assert.ok(!f.log.some((l) => l.startsWith('AUTH')));
+      assert.ok(t.app.db.get("SELECT 1 FROM notifications WHERE type = 'email.failed'"), 'admins told once');
+    } finally {
+      f.close();
+    }
+    smtpSettings({ smtp_port: '465', smtp_security: 'tls' });
+    f = await fakeSmtp({ mode: 'tls' });
+    try {
+      const q = queue();
+      await t.app.email.flush({ smtp: { connectPort: f.port } });
+      const row = t.app.db.get('SELECT * FROM email_outbox WHERE id = ?', q.id);
+      assert.equal(row.status, 'failed');
+      assert.ok(row.error.length <= 200);
+      assert.match(row.error, /certificate|شهادة/i);
+    } finally {
+      f.close();
+    }
+  });
+
+  test('header injection and settings validation: CR/LF/NUL refused everywhere; ports and security from the list only', async () => {
+    const c = t.company();
+    await c.login('mariam@nilefoods.example');
+    const r = await c.patch('/api/company/me', { name: 'مريم\r\nBcc: spy@evil.example' });
+    assert.equal(r.status, 400, 'a name with CRLF never reaches a header');
+    assert.throws(() => buildMessage({ from: 'legal@example.com', to: 'a@b.example', subject: 'x\r\nBcc: y@z.example', text: 'x', messageId: 'm@x' }));
+    assert.throws(() => buildMessage({ from: 'legal@example.com', to: 'Name <a@b.example>', subject: 'x', text: 'x', messageId: 'm@x' }));
+    assert.equal(t.app.email.queue({ to: 'a@b.example', subject: 'x\ny', text: 'x', purpose: 'test' }).status, 'failed');
+    assert.equal(encodeHeader('NFD-0001'), 'NFD-0001');
+    assert.match(encodeHeader('تحديث'), /^=\?UTF-8\?B\?/);
+    const s = await t.login('admin');
+    for (const [k, val] of [['smtp_port', '2526'], ['smtp_security', 'none'], ['from_address', 'Legal <legal@example.com>'], ['smtp_host', 'smtp.example.com\r\nX'], ['from_name', 'Emam‮Legal']]) {
+      const res = await s.put('/api/admin/integrations/email', { values: { [k]: val } });
+      assert.equal(res.status, 400, `${k}=${JSON.stringify(val)}`);
+    }
+    const saved = ok(await s.put('/api/admin/integrations/email', { values: { smtp_password: 'top-secret-1' } }));
+    assert.ok(!JSON.stringify(saved).includes('top-secret-1'), 'the SMTP password is never returned');
+    assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'email.settings_updated'"));
+  });
+
+  test('flush rules: retries with back-off then failed; stale «sending» rows return to the queue at startup, or fail when they held a secret link; old rows purged', async () => {
+    smtpSettings({ smtp_port: '465', smtp_security: 'tls' });
+    t.app.db.run("UPDATE email_outbox SET status = 'simulated' WHERE status = 'queued'");
+    const q = queue();
+    // لا خادم يستمع ← إعادة المحاولة بعد دقيقة (لا فشل نهائي من أول مرة)
+    await t.app.email.flush({ smtp: { connectPort: 1, timeoutMs: 500 } });
+    let row = t.app.db.get('SELECT * FROM email_outbox WHERE id = ?', q.id);
+    assert.equal(row.status, 'queued');
+    assert.equal(row.attempts, 1);
+    assert.ok(row.next_attempt_at > new Date().toISOString());
+    // صف عالق قديم
+    const old = new Date(Date.now() - 20 * 60000).toISOString();
+    const plain = t.app.db.insert('email_outbox', { to_address: 'a@b.example', subject: 's', body_text: 'نص', purpose: 'request_update', status: 'sending', attempts: 1, next_attempt_at: old, created_at: old });
+    const secret = t.app.db.insert('email_outbox', { to_address: 'a@b.example', subject: 's', body_text: 'افتحوا {link}', purpose: 'invite', status: 'sending', attempts: 1, next_attempt_at: old, created_at: old });
+    assert.equal(t.app.email.recoverStale(), 2);
+    assert.equal(t.app.db.value('SELECT status FROM email_outbox WHERE id = ?', plain), 'queued');
+    row = t.app.db.get('SELECT * FROM email_outbox WHERE id = ?', secret);
+    assert.equal(row.status, 'failed');
+    assert.match(row.error, /انتهت صلاحية الرابط/);
+    // الاحتفاظ 90 يومًا
+    const ancient = new Date(Date.now() - 100 * DAY).toISOString();
+    t.app.db.insert('email_outbox', { to_address: 'a@b.example', subject: 's', body_text: 'x', purpose: 'test', status: 'sent', attempts: 1, created_at: ancient });
+    assert.ok(t.app.email.purgeOld() >= 1);
+  });
+
+  test('secret links are never stored outside the demo; without PUBLIC_BASE_URL nothing with a link is sent (skipped)', async () => {
+    smtpSettings({ smtp_port: '465', smtp_security: 'tls' });
+    const c = t.company();
+    await c.login('mariam@nilefoods.example');
+    const inv = ok(await c.post('/api/company/team/invite', { name: 'موظف جديد', email: 'new.user@nilefoods.example', role: 'member' }), 201);
+    assert.equal(inv.invite.emailed, true);
+    assert.equal(inv.invite.url, null, 'e-mailed invites return no URL');
+    const row = t.app.db.get("SELECT * FROM email_outbox WHERE purpose = 'invite' AND to_address = 'new.user@nilefoods.example'");
+    assert.ok(row.body_text.includes('{link}'), 'the stored body holds the placeholder only');
+    assert.ok(!/token=|\/company#\/invite\/[A-Za-z0-9_-]{20,}/.test(row.body_text));
+    assert.ok(t.app.email.secretFor(row.id), 'the link lives in memory until sent');
+    const t2 = await b2bApp();
+    try {
+      t2.app.integrations.set('email', { provider: 'smtp', smtp_host: 'localhost', smtp_port: '465', smtp_security: 'tls', from_address: 'legal@example.com' }, t2.app.db.get("SELECT * FROM users WHERE username = 'admin'"));
+      const r = t2.app.email.send('request_update', { to: 'mariam@nilefoods.example', vars: { code: 'NFD-0001' } });
+      assert.equal(r.status, 'skipped');
+      assert.equal(t2.app.email.enabled(), false);
+      assert.equal((await (await fetch(`${t2.base}/api/company/meta`)).json()).email_enabled, false, 'the portal promises no e-mail (CO-2)');
+    } finally {
+      await t2.close();
+    }
+  });
+});
+
+describe('v10 operations — readiness, outbox, B2B settings and overview (SRV-13)', () => {
+  test('outside the demo with companies: e-mail, PUBLIC_BASE_URL and contracting entity are red; awaiting items carry company_not_emailed', async () => {
+    const t = await b2bApp();
+    try {
+      const s = await t.login('admin');
+      const h = ok(await s.get('/api/admin/system/health'));
+      const byKey = Object.fromEntries((h.checks || h.readiness?.checks || []).map((c) => [c.key, c]));
+      assert.equal(byKey.email?.level, 'danger', JSON.stringify(byKey.email));
+      assert.equal(byKey.b2b_base_url?.level, 'danger');
+      assert.equal(byKey.contracting_entity?.level, 'danger');
+      // استيضاح قبل القبول ← بانتظار الشركة بلا بريد ← العلامة
+      const c = t.company();
+      await c.login('mariam@nilefoods.example');
+      const nfdEntity = t.app.db.value("SELECT id FROM company_entities WHERE company_id = (SELECT id FROM companies WHERE prefix = 'NFD') ORDER BY id LIMIT 1");
+      const code = ok(await c.post('/api/company/requests', { type: 'other', entity_id: nfdEntity, description: 'سؤال عام للفريق القانوني', fields: {} }), 201).request.code;
+      const r = t.app.db.get('SELECT * FROM company_requests WHERE code = ?', code);
+      ok(await s.post(`/api/admin/company-requests/${r.id}/clarify`, { rev: r.rev, body: 'نحتاج تفاصيل أكثر من فضلكم.' }));
+      const item = ok(await s.get('/api/admin/company-requests?status=open')).items.find((x) => x.code === code);
+      assert.ok(item.flags.includes('company_not_emailed'), JSON.stringify(item.flags));
+    } finally {
+      await t.close();
+    }
+  });
+
+  test('e-mail outbox and B2B settings are admin only; settings are validated and audited; overview money for admins only', async () => {
+    const t = await b2bApp();
+    try {
+      t.app.lawyers.createStaff({ role: 'case_manager', username: 'cm2', name: 'مدير حالات', password: 'Manager@2026' });
+      const s = await t.login('admin');
+      const m = await t.login('cm2', 'Manager@2026');
+      assert.equal((await m.get('/api/admin/email-outbox')).status, 403);
+      t.app.email.send('request_update', { to: 'mariam@nilefoods.example', name: 'مريم عادل', vars: { code: 'NFD-0001' } });
+      const out = ok(await s.get('/api/admin/email-outbox?limit=500'));
+      assert.ok(out.items.length >= 1);
+      assert.ok(out.items.every((x) => !('body_text' in x) && x.purpose_label && x.status_label));
+      assert.equal((await m.put('/api/admin/b2b/settings', { b2b_auto_close_days: 10 })).status, 403);
+      assert.equal((await s.put('/api/admin/b2b/settings', { b2b_auto_close_days: 0 })).status, 400);
+      assert.equal((await s.put('/api/admin/b2b/settings', { b2b_terms_url: 'http://insecure.example/terms' })).status, 400);
+      assert.equal((await s.put('/api/admin/b2b/settings', { company_session_idle_hours: 48, company_session_max_hours: 24 })).status, 400);
+      assert.equal((await s.put('/api/admin/b2b/settings', { unknown_key: 1 })).status, 400);
+      const saved = ok(await s.put('/api/admin/b2b/settings', { b2b_auto_close_days: 10, b2b_urgent_hours: { days: [0, 1, 2, 3, 4, 5, 6], from: '00:00', to: '24:00' }, b2b_business_hours: null, b2b_terms_url: 'https://legal.example.org/b2b-terms' }));
+      assert.equal(saved.values.b2b_auto_close_days, 10);
+      assert.equal(t.app.settings.get('b2b_terms_url'), 'https://legal.example.org/b2b-terms');
+      assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'company.settings_updated'"));
+      const om = ok(await m.get('/api/admin/b2b/overview'));
+      assert.ok(!('mrr_minor' in om));
+      assert.equal(om.companies.active + om.companies.trial, 2);
+      const oa = ok(await s.get('/api/admin/b2b/overview'));
+      assert.equal(oa.mrr_minor, 3500000, 'Nile Foods Growth monthly (TechSol is on trial)');
+      assert.ok(Number.isInteger(oa.badge));
+    } finally {
+      await t.close();
+    }
+  });
+});
+
+describe('v10 jobs — SLA alerts, company reminders, trial and subscription lifecycle, cleanup (SRV-13)', () => {
+  let t;
+  let c;
+  let s;
+  before(async () => {
+    t = await journeyApp();
+    c = t.company();
+    await c.login('mariam@nilefoods.example');
+    s = await t.login('admin');
+  });
+  after(async () => t && t.close());
+
+  test('b2b.sla: at risk and late once per (phase, state, due); late also e-mails staff without the request title', async () => {
+    t.app.db.run("UPDATE users SET email = 'admin@firm.example' WHERE username = 'admin'");
+    const code = await t.submit(c, { type: 'other', entity_id: t.nfdEntity, title: 'عنوان سري لا يصل البريد', description: 'سؤال يحتاج ردًا', fields: {} });
+    const r = t.req(code);
+    freezeClock(new Date(Date.parse(r.first_response_due_at) + 3600000).toISOString());
+    try {
+      const out = t.app.companyRequests.runSla();
+      assert.equal(out.late >= 1, true);
+      assert.equal(Number(t.app.db.value("SELECT COUNT(*) FROM company_request_alerts WHERE request_id = ? AND kind = 'sla'", r.id)), 1);
+      assert.ok(t.app.db.get("SELECT 1 FROM notifications WHERE type = 'company_request.sla_late' AND title LIKE ?", `%${code}%`));
+      const mails = t.app.db.all("SELECT * FROM email_outbox WHERE purpose = 'staff_alert' AND subject LIKE ?", `%${code}%`);
+      assert.ok(mails.length >= 1 && mails.every((m) => !m.body_text.includes('عنوان سري') && /تأخر الرد على/.test(m.subject)));
+      t.app.companyRequests.runSla();
+      assert.equal(Number(t.app.db.value("SELECT COUNT(*) FROM company_request_alerts WHERE request_id = ? AND kind = 'sla'", r.id)), 1, 'no repeat');
+    } finally {
+      resetClock();
+    }
+  });
+
+  test('b2b.reminders: an unanswered clarification is reminded after N business hours, at most b2b_max_reminders times', async () => {
+    const code = await t.submit(c, { type: 'other', entity_id: t.nfdEntity, description: 'طلب يحتاج استيضاحًا', fields: {} });
+    const r = t.req(code);
+    ok(await s.post(`/api/admin/company-requests/${r.id}/clarify`, { rev: r.rev, body: 'أرسلوا المستند المطلوب من فضلكم.' }));
+    const count = () => Number(t.app.db.value("SELECT COUNT(*) FROM company_notifications WHERE request_id = ? AND title LIKE 'تذكير:%'", r.id));
+    t.app.companyRequests.remindCompanies();
+    assert.equal(count(), 0, 'not before the business-hours delay');
+    const base = Date.now();
+    try {
+      for (const [days, expected] of [[5, 1], [5, 1], [10, 2], [20, 2]]) {
+        freezeClock(new Date(base + days * DAY).toISOString());
+        t.app.companyRequests.remindCompanies();
+        assert.equal(count(), expected, `after ${days} days`);
+      }
+    } finally {
+      resetClock();
+    }
+  });
+
+  test('b2b.cleanup removes expired staged uploads with their files, read notifications past retention and old outbox rows', async () => {
+    const mariam = t.app.db.get("SELECT * FROM company_users WHERE email = 'mariam@nilefoods.example'");
+    const old = new Date(Date.now() - 200 * DAY).toISOString();
+    t.app.db.insert('company_notifications', { company_user_id: mariam.id, company_id: mariam.company_id, type: 'request.message', title: 'قديم', created_at: old, read_at: old });
+    t.app.db.insert('email_outbox', { to_address: 'a@b.example', subject: 's', body_text: 'x', purpose: 'test', status: 'simulated', attempts: 0, created_at: old });
+    const up = await t.stage(c, 'منتهي.pdf', 'application/pdf', pdfBuf());
+    const doc = t.app.db.get('SELECT d.* FROM company_uploads u JOIN documents d ON d.id = u.document_id WHERE u.id = ?', up);
+    t.app.db.run('UPDATE company_uploads SET expires_at = ? WHERE id = ?', old, up);
+    const res = (await t.app.jobs.runDue({ force: true, only: 'b2b.cleanup' }))[0];
+    assert.ok(res.ok, JSON.stringify(res));
+    assert.ok(res.result.notifications >= 1 && res.result.outbox >= 1 && res.result.uploads >= 1, JSON.stringify(res.result));
+    assert.equal(t.app.db.get('SELECT 1 FROM documents WHERE id = ?', doc.id), undefined);
+    assert.ok(!fs.existsSync(path.join(t.app.config.uploadsDir, doc.storage_key)));
+  });
+
+  test('trial ending in 3 days is notified once; trial end → read-only with notices; a manual subscription past ends_on ends with a staff notice', async () => {
+    const tsl = t.app.db.get("SELECT * FROM companies WHERE prefix = 'TSL'");
+    t.app.db.run('UPDATE companies SET trial_ends_at = ? WHERE id = ?', new Date(Date.now() + 2 * DAY + 3600000).toISOString(), tsl.id);
+    let out = t.app.companies.runLifecycle();
+    assert.equal(out.trial_ending, 1);
+    assert.equal(t.app.companies.runLifecycle().trial_ending, 0, 'once (automation_runs)');
+    const n = t.app.db.get("SELECT * FROM company_notifications WHERE company_id = ? AND type = 'company.trial_ending'", tsl.id);
+    assert.equal(n.title, 'تنتهي الفترة التجريبية خلال 3 أيام');
+    assert.ok(t.app.db.get("SELECT 1 FROM notifications WHERE type = 'company.trial_ending'"));
+    t.app.db.run('UPDATE companies SET trial_ends_at = ? WHERE id = ?', new Date(Date.now() - 3600000).toISOString(), tsl.id);
+    out = t.app.companies.runLifecycle();
+    assert.equal(out.trial_ended, 1);
+    const after = t.app.db.get('SELECT status, status_reason FROM companies WHERE id = ?', tsl.id);
+    assert.deepEqual({ ...after }, { status: 'suspended', status_reason: 'trial_ended' });
+    const sh = t.company();
+    await sh.login('sherif@techsol.example');
+    assert.equal((await sh.post('/api/company/requests', { type: 'other', description: 'طلب في وضع الاطلاع', fields: {} })).status, 403);
+    const nfdId = companyId(t.app, 'NFD');
+    t.app.db.run("UPDATE company_subscriptions SET renews = 'manual', ends_on = ? WHERE company_id = ? AND status = 'active'", dayKey(-1), nfdId);
+    out = t.app.companies.runLifecycle();
+    assert.equal(out.subscriptions_ended, 1);
+    assert.equal(t.app.db.get("SELECT 1 FROM company_subscriptions WHERE company_id = ? AND status = 'active'", nfdId), undefined);
+    assert.ok(t.app.db.get("SELECT 1 FROM notifications WHERE type = 'company.subscription_ended' AND title LIKE 'انتهى اشتراك شركة النيل للأغذية%'"));
+  });
+
+});
+
+describe('v10 security checklist (§7.3 items 3, 4, 5, 9, 12)', () => {
+  let t;
+  before(async () => {
+    t = await startTestApp({ seed: 'demo' });
+  });
+  after(async () => t && t.close());
+  const login = async (email) => {
+    const c = new CompanyClient(t.base);
+    await c.login(email);
+    return c;
+  };
+
+  test('CSRF: a company POST without a JSON content type → 415; a foreign Origin → 403', async () => {
+    const c = await login('mariam@nilefoods.example');
+    const a = await fetch(`${t.base}/api/company/requests`, { method: 'POST', headers: { cookie: c.cookie, 'content-type': 'text/plain' }, body: '{}' });
+    assert.equal(a.status, 415);
+    const b = await fetch(`${t.base}/api/company/requests`, { method: 'POST', headers: { cookie: c.cookie, 'content-type': 'application/json', origin: 'https://evil.example' }, body: '{}' });
+    assert.equal(b.status, 403);
+  });
+
+  test('INV-B3 (L-19): no company user id in staff FK columns; a lawyer whose users.id equals a company user id cannot reach that user’s upload', async () => {
+    const db = t.app.db;
+    assert.equal(Number(db.value('SELECT COUNT(*) FROM documents WHERE company_user_id IS NOT NULL AND uploaded_by_user_id IS NOT NULL')), 0);
+    assert.equal(Number(db.value('SELECT COUNT(*) FROM activity WHERE company_user_id IS NOT NULL AND actor_user_id IS NOT NULL')), 0);
+    assert.equal(Number(db.value("SELECT COUNT(*) FROM activity WHERE actor_kind = 'company' AND actor_user_id IS NOT NULL")), 0);
+    assert.equal(Number(db.value("SELECT COUNT(*) FROM security_events WHERE type LIKE 'company_auth.%' AND user_id IS NOT NULL")), 0);
+    assert.equal(Number(db.value('SELECT COUNT(*) FROM cases WHERE company_id IS NOT NULL AND closed_by IS NOT NULL')), 0, 'company cases are closed by the system actor');
+    // تصادم المعرفات: مستخدم شركة له نفس رقم محامٍ يرفع ملفًا
+    const pair = db.get(
+      "SELECT cu.email, u.username FROM company_users cu JOIN users u ON u.id = cu.id AND u.role = 'lawyer' JOIN companies c ON c.id = cu.company_id WHERE cu.role IN ('company_admin','member') AND cu.active = 1 AND c.status IN ('active','trial') ORDER BY cu.id LIMIT 1",
+    );
+    assert.ok(pair, 'the demo has a company user whose id equals a lawyer id');
+    const c = await login(pair.email);
+    const up = ok(await c.post('/api/company/uploads', { file: { name: 'تصادم.pdf', mime: 'application/pdf', data_base64: pdfBuf().toString('base64') } }), 201).upload_id;
+    const docId = db.value('SELECT document_id FROM company_uploads WHERE id = ?', up);
+    const ent = db.value('SELECT id FROM company_entities WHERE company_id = (SELECT company_id FROM company_users WHERE email = ?) ORDER BY id LIMIT 1', pair.email);
+    ok(await c.post('/api/company/requests', { type: 'other', entity_id: ent, description: 'طلب لاختبار تصادم المعرفات', fields: {}, upload_ids: [up] }), 201);
+    const doc = db.get('SELECT * FROM documents WHERE id = ?', docId);
+    assert.equal(doc.uploaded_by_user_id, null);
+    assert.equal(doc.uploaded_by_kind, 'client');
+    const l = await t.login(pair.username);
+    assert.equal((await l.get(`/api/documents/${docId}/download`)).status, 404);
+    assert.equal(t.app.documents.canAccess(db.get('SELECT * FROM users WHERE username = ?', pair.username), doc), false);
+  });
+
+  test('INV-B4: every company GET of the demo carries no lawyer or staff name (except the account manager on home/profile), no case code and no internal keys', async () => {
+    const db = t.app.db;
+    const staffNames = db.all("SELECT id, name FROM users WHERE role IN ('admin','case_manager','lawyer')");
+    const latin = db.all('SELECT name_latin FROM lawyers WHERE name_latin IS NOT NULL').map((r) => r.name_latin);
+    const caseCodes = db.all('SELECT code FROM cases WHERE company_id IS NOT NULL').map((r) => r.code);
+    const forbiddenKeys = new Set(['case_id', 'assignment_id', 'lawyer_id', 'lawyer_name', 'lead_name', 'handler', 'handler_id', 'staff_notes', 'notes_internal', 'accept_plan', 'triage', 'ai_suggestion_id', 'fee_amount', 'b2b_rate', 'author_user_id', 'created_by_user_id']);
+    const keysOf = (o, out = new Set()) => {
+      if (Array.isArray(o)) o.forEach((x) => keysOf(x, out));
+      else if (o && typeof o === 'object') for (const [k, val] of Object.entries(o)) {
+        out.add(k);
+        keysOf(val, out);
+      }
+      return out;
+    };
+    for (const email of ['mariam@nilefoods.example', 'hossam@nilefoods.example', 'dina@nilefoods.example', 'sherif@techsol.example', 'omar@techsol.example']) {
+      const c = await login(email);
+      const co = db.get('SELECT c.* FROM companies c JOIN company_users u ON u.company_id = c.id WHERE u.email = ?', email);
+      const mgr = db.get('SELECT name FROM users WHERE id = ?', co.account_manager_id).name;
+      const urls = ['/api/company/home', '/api/company/profile', '/api/company/plan', '/api/company/usage', '/api/company/colleagues', '/api/company/entities', '/api/company/notifications', '/api/company/me', '/api/company/memory', '/api/company/key-dates', '/api/company/counterparties', '/api/company/requests?state=all', `/api/company/search?q=${encodeURIComponent('عقد')}`];
+      const list = ok(await c.get('/api/company/requests?state=all'));
+      for (const r of list.items) urls.push(`/api/company/requests/${r.code}`);
+      for (const m of ok(await c.get('/api/company/memory')).items) urls.push(`/api/company/memory/${m.id}`);
+      for (const u of urls) {
+        const res = await c.get(u);
+        assert.equal(res.status, 200, `${email} ${u}`);
+        const raw = JSON.stringify(res.body);
+        for (const s of staffNames) {
+          if (s.name === mgr && /\/(home|profile)$/.test(u)) continue;
+          assert.ok(!raw.includes(s.name), `${email} ${u} leaks staff/lawyer name ${s.name}`);
+        }
+        for (const n of latin) assert.ok(!raw.includes(n), `${u} leaks ${n}`);
+        for (const cc of caseCodes) assert.ok(!raw.includes(cc), `${u} leaks case code ${cc}`);
+        const keys = keysOf(res.body);
+        for (const k of forbiddenKeys) assert.ok(!keys.has(k), `${email} ${u} has internal key ${k}`);
+      }
+    }
+  });
+
+  test('INV-B5: lawyer JSON (today, list, each assignment) never carries a company user name, e-mail or phone, the seeded decision author or the reply signature, nor a request code', async () => {
+    const db = t.app.db;
+    const people = db.all('SELECT name, email, phone FROM company_users').flatMap((u) => [u.name, u.email, u.phone]).filter(Boolean);
+    for (const username of ['tarek', 'yasmine', 'amr']) {
+      const l = await t.login(username);
+      const urls = ['/api/lawyer/today', '/api/lawyer/assignments'];
+      const ids = db.all("SELECT a.id FROM assignments a JOIN cases c ON c.id = a.case_id JOIN users u ON u.id = a.lawyer_id WHERE u.username = ? AND c.company_id IS NOT NULL", username).map((r) => r.id);
+      assert.ok(ids.length >= 1, `${username} works on company cases in the demo`);
+      for (const id of ids) urls.push(`/api/lawyer/assignments/${id}`);
+      for (const u of urls) {
+        const raw = JSON.stringify(ok(await l.get(u)));
+        for (const p of people) assert.ok(!raw.includes(p), `${username} ${u} leaks ${p}`);
+        assert.ok(!raw.includes('مريم'), `${username} ${u} leaks «مريم»`);
+        assert.ok(!/\b(?:NFD|TSL)-\d{4}\b/.test(raw), `${username} ${u} leaks a request code`);
+      }
+    }
+  });
+
+  test('role matrix (L-60, §7.3-12): a case manager gets 403 on every admin-only company route and reaches the staff ones', async () => {
+    const cm = await t.login('manager');
+    const nfd = companyId(t.app, 'NFD');
+    const uid = cuId(t.app, 'hossam@nilefoods.example');
+    const rid = t.app.db.value("SELECT id FROM company_requests WHERE code = 'NFD-0006'");
+    const adminOnly = [
+      ['post', '/api/admin/companies', {}],
+      ['get', '/api/admin/companies/prefix-check?prefix=ABC'],
+      ['patch', `/api/admin/companies/${nfd}`, { name: 'x' }],
+      ['post', `/api/admin/companies/${nfd}/status`, { status: 'suspended' }],
+      ['post', '/api/admin/company-plans', {}],
+      ['patch', `/api/admin/company-plans/${t.app.db.value('SELECT id FROM company_plans LIMIT 1')}`, {}],
+      ['put', `/api/admin/companies/${nfd}/subscription`, {}],
+      ['post', `/api/admin/company-users/${uid}/reset-link`],
+      ['post', `/api/admin/company-users/${uid}/2fa/reset`],
+      ['post', `/api/admin/company-users/${uid}/unlock`],
+      ['post', `/api/admin/company-users/${uid}/sessions/revoke`],
+      ['post', `/api/admin/companies/${nfd}/charges`, { amount: 1, description: 'x' }],
+      ['post', `/api/admin/company-charges/${t.app.db.value('SELECT id FROM company_charges LIMIT 1')}/void`, { reason: 'x' }],
+      ['post', '/api/admin/company-charges.csv', {}],
+      ['post', `/api/admin/company-requests/${rid}/quote`, {}],
+      ['post', `/api/admin/company-quotes/${t.app.db.value('SELECT id FROM company_quotes LIMIT 1')}/withdraw`, {}],
+      ['post', `/api/admin/company-deliverables/${t.app.db.value('SELECT id FROM company_deliverables LIMIT 1')}/withdraw`, { reason: 'x' }],
+      ['del', `/api/admin/company-memory/${t.app.db.value('SELECT id FROM company_memory LIMIT 1')}?purge=1`],
+      ['get', '/api/admin/email-outbox'],
+      ['get', '/api/admin/b2b/settings'],
+      ['put', '/api/admin/b2b/settings', {}],
+    ];
+    for (const [m, u, b] of adminOnly) {
+      const r = await cm[m](u, b);
+      assert.equal(r.status, 403, `${m.toUpperCase()} ${u} → ${r.status}`);
+    }
+    const staffOk = [
+      ['get', '/api/admin/companies'],
+      ['get', `/api/admin/companies/${nfd}`],
+      ['get', `/api/admin/companies/${nfd}/users`],
+      ['get', `/api/admin/companies/${nfd}/memory`],
+      ['get', `/api/admin/companies/${nfd}/counterparties`],
+      ['get', `/api/admin/companies/${nfd}/charges`],
+      ['get', '/api/admin/company-requests'],
+      ['get', `/api/admin/company-requests/${rid}`],
+      ['get', '/api/admin/b2b/overview'],
+      ['get', '/api/admin/company-plans'],
+    ];
+    for (const [m, u] of staffOk) assert.equal((await cm[m](u)).status, 200, `${u}`);
+    // البريد والترقية إلى مدير البوابة لمدير النظام فقط
+    assert.equal((await cm.patch(`/api/admin/company-users/${uid}`, { email: 'x@nilefoods.example' })).status, 403);
+    assert.equal((await cm.patch(`/api/admin/company-users/${uid}`, { role: 'company_admin' })).status, 403);
+  });
+
+  test('CO-6 search on the demo: «الدِّلتا» and «الدلـتا» find NFD-0001, the Delta contract in memory and its file in one call (≤ 200 ms)', async () => {
+    const c = await login('mariam@nilefoods.example');
+    for (const q of ['الدِّلتا', 'الدلـتا']) {
+      const t0 = Date.now();
+      const r = ok(await c.get(`/api/company/search?q=${encodeURIComponent(q)}`));
+      const ms = Date.now() - t0;
+      assert.ok(r.requests.some((x) => x.code === 'NFD-0001'), q);
+      assert.ok(r.memory.some((x) => /الدلتا/.test(x.title)), q);
+      assert.ok(r.documents.some((x) => /الدلتا/.test(`${x.title} ${x.filename}`)), q);
+      assert.ok(ms <= 200, `search took ${ms} ms`);
+    }
+  });
+
+  test('demo seed stage 2 (SRV-15): the story states, memory, charges and lawyers’ Latin names are in place', async () => {
+    const db = t.app.db;
+    const st = Object.fromEntries(db.all('SELECT code, status, waiting_on FROM company_requests').map((r) => [r.code, r]));
+    assert.equal(st['NFD-0001'].status, 'closed');
+    assert.equal(st['NFD-0002'].status, 'in_progress');
+    assert.equal(st['NFD-0003'].status, 'in_progress');
+    assert.equal(st['NFD-0004'].status, 'awaiting_company');
+    assert.equal(st['NFD-0005'].waiting_on, 'quote');
+    assert.equal(st['NFD-0006'].status, 'submitted');
+    assert.equal(st['TSL-0001'].status, 'delivered');
+    assert.equal(st['TSL-0002'].status, 'in_progress');
+    assert.equal(st['TSL-0003'].status, 'closed');
+    assert.equal(db.value("SELECT resolution FROM company_requests WHERE code = 'TSL-0003'"), 'auto_closed');
+    assert.equal(db.value("SELECT visibility FROM company_requests WHERE code = 'NFD-0002'"), 'private');
+    assert.equal(db.value("SELECT rating FROM company_requests WHERE code = 'NFD-0001'"), 5);
+    const delta = db.get("SELECT m.* FROM company_memory m JOIN company_requests r ON r.memory_item_id = m.id WHERE r.code = 'NFD-0001'");
+    assert.equal(delta.status, 'active');
+    assert.ok(delta.reviewed_at);
+    assert.equal(delta.notice_deadline, dayKey(25));
+    assert.match(db.value("SELECT data FROM company_memory WHERE kind = 'position' AND source_request_id = (SELECT id FROM company_requests WHERE code = 'NFD-0001')"), /مريم عادل — مديرة الموارد البشرية/);
+    assert.equal(db.value("SELECT status FROM company_quotes WHERE request_id = (SELECT id FROM company_requests WHERE code = 'NFD-0005')"), 'sent');
+    assert.equal(db.value("SELECT amount_minor FROM company_quotes WHERE request_id = (SELECT id FROM company_requests WHERE code = 'NFD-0005')"), 4500000);
+    assert.ok(db.get("SELECT 1 FROM ai_suggestions WHERE entity_type = 'company_request' AND entity_id = (SELECT id FROM company_requests WHERE code = 'NFD-0006')"), 'NFD-0006 triaged');
+    const ch = db.get("SELECT * FROM company_charges WHERE kind = 'overage'");
+    assert.ok(ch, 'an overage charge exists');
+    const startsOn = db.value("SELECT starts_on FROM company_subscriptions WHERE status = 'active' AND company_id = ?", ch.company_id);
+    assert.ok(ch.period && ch.period < usageCycle(startsOn, new Date()).start, `charged in the previous usage cycle (${ch.period})`);
+    assert.equal(ch.company_id, companyId(t.app, 'NFD'));
+    assert.ok(db.get("SELECT 1 FROM company_notifications WHERE type = 'charge.added'"));
+    assert.deepEqual(db.all("SELECT u.username, l.name_latin FROM lawyers l JOIN users u ON u.id = l.user_id WHERE u.username IN ('tarek','yasmine','amr') ORDER BY u.username").map((r) => `${r.username}:${r.name_latin}`), ['amr:Amr El-Shafei', 'tarek:Tarek El-Naggar', 'yasmine:Yasmine Khalil']);
+    const nfd1Case = db.value("SELECT case_id FROM company_requests WHERE code = 'NFD-0001'");
+    assert.ok(db.all('SELECT treatment FROM billable_events WHERE case_id = ?', nfd1Case).every((b) => b.treatment === 'payable'), 'guard #26 on the CSR lawyer’s agreement');
+    assert.ok(db.get("SELECT 1 FROM company_notifications WHERE type = 'memory.renewal'"), 'b2b.memory ran once');
+    assert.equal(Number(db.value('SELECT COUNT(*) FROM messages m JOIN clients c ON c.id = m.client_id WHERE c.company_id IS NOT NULL')), 0);
+  });
+});
+
+describe('v10 G-4 rehearsal — 10.0 starts twice on a real 9.2 demo database (§7.4)', () => {
+  test('foreign keys clean, schema 80–85 added, saved TOTP issuer kept, brand defaults, no AI call or outgoing message caused by the upgrade', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v10-g4-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'test.db'), zlib.gunzipSync(fs.readFileSync(path.join(ROOT, 'test/fixtures/v10-upgrade/v92-demo.db.gz'))));
+      const raw = new DatabaseSync(path.join(dir, 'test.db'));
+      const before = {
+        messages: Number(raw.prepare('SELECT COUNT(*) AS n FROM messages').get().n),
+        ai: Number(raw.prepare('SELECT COUNT(*) AS n FROM ai_usage').get().n),
+        documents: Number(raw.prepare('SELECT COUNT(*) AS n FROM documents').get().n),
+        activity: Number(raw.prepare('SELECT COUNT(*) AS n FROM activity').get().n),
+        security: Number(raw.prepare('SELECT COUNT(*) AS n FROM security_events').get().n),
+        companiesTable: !!raw.prepare("SELECT 1 FROM sqlite_master WHERE name = 'companies'").get(),
+      };
+      raw.close();
+      assert.ok(before.documents > 0 && before.activity > 0 && before.security > 0, 'a real 9.2 demo database');
+      assert.equal(before.companiesTable, false);
+      for (let i = 0; i < 2; i++) {
+        const app = await persistentApp(dir);
+        try {
+          const db = app.db;
+          assert.deepEqual(db.all('PRAGMA foreign_key_check'), []);
+          for (const tb of ['companies', 'company_requests', 'company_memory', 'company_charges', 'email_outbox', 'company_uploads']) assert.ok(db.get("SELECT 1 FROM sqlite_master WHERE name = ?", tb), tb);
+          assert.equal(app.settings.get('security_totp_issuer'), 'My Firm Saved', 'saved issuer kept');
+          assert.equal(Number(db.value('SELECT COUNT(*) FROM messages')), before.messages, 'no outgoing message');
+          assert.equal(Number(db.value('SELECT COUNT(*) FROM ai_usage')), before.ai, 'no AI call');
+          assert.equal(Number(db.value('SELECT COUNT(*) FROM documents')), before.documents);
+          assert.equal(Number(db.value('SELECT COUNT(*) FROM companies')), 0);
+          assert.equal(db.get("SELECT 1 FROM settings WHERE key = 'brand_colors'"), undefined, 'no saved colours → green/gold defaults');
+          assert.ok(db.all('PRAGMA table_info(security_events)').some((c) => c.name === 'company_id'));
+          assert.match(db.value("SELECT sql FROM sqlite_master WHERE name = 'users'"), /CHECK \(role IN \('admin','case_manager','lawyer'\)\)/);
+        } finally {
+          await app.close();
+        }
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ───────────────────────── review regressions (b2b-server review step) ─────────────────────────
+describe('v10 b2b-server review — lawyer-facing titles and briefs, lawyer names in staff texts, audit rows', () => {
+  let t;
+  let mariam;
+  let staff;
+  before(async () => {
+    t = await journeyApp();
+    mariam = t.company();
+    await mariam.login('mariam@nilefoods.example');
+    staff = await t.login('admin');
+  });
+  after(async () => t && t.close());
+
+  test('INV-B5: the case title and the per-assignment brief reach lawyers without company user names or e-mails (accept, generic assign, later title edit)', async () => {
+    const code = await t.submit(mariam, { type: 'other', entity_id: t.nfdEntity, title: 'سؤال من مريم عادل عن عقد العمل', description: 'سؤال قانوني عن عقد عمل. راسلوا mariam@nilefoods.example', fields: {} });
+    const res = await t.accept(staff, code, { assign: { lead: { lawyer_id: t.lawyers.tarek, brief: 'راجع المطلوب واتصل بمريم عادل على mariam@nilefoods.example إن لزم.' } } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.ok(res.body.warnings.some((w) => /حُذفت/.test(w)), 'staff are warned that text was redacted');
+    const caseId = res.body.case.id;
+    const asg = t.app.db.value("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead'", caseId);
+    const lt = await t.login('tarek');
+    const banned = ['مريم', 'nilefoods'];
+    const view = ok(await lt.get(`/api/lawyer/assignments/${asg}`));
+    for (const b of banned) {
+      assert.ok(!JSON.stringify(view.case).includes(b), `case title has no ${b}`);
+      assert.ok(!JSON.stringify(view.assignment).includes(b), `assignment brief has no ${b}`);
+    }
+    const list = JSON.stringify(ok(await lt.get('/api/lawyer/assignments')));
+    const today = JSON.stringify(ok(await lt.get('/api/lawyer/today')));
+    const notes = JSON.stringify(t.app.db.all('SELECT title, body FROM notifications WHERE user_id = ?', t.lawyers.tarek));
+    for (const b of banned) {
+      assert.ok(!list.includes(b), `assignment list has no ${b}`);
+      assert.ok(!today.includes(b), `/lawyer/today has no ${b}`);
+      assert.ok(!notes.includes(b), `lawyer notifications have no ${b}`);
+    }
+    // تعديل لاحق للعنوان من صفحة الملف، وإسناد من صفحة الملف ببيانات موظفة
+    ok(await staff.patch(`/api/admin/cases/${caseId}`, { title: 'ملف مريم عادل — عقد عمل' }));
+    ok(await staff.post(`/api/admin/cases/${caseId}/assignments`, { lawyer_id: t.lawyers.amr, role: 'reviewer', brief: 'راجع ما كتبه المحامي الأساسي ثم أرسل لمريم عادل عبر mariam@nilefoods.example' }), 201);
+    const la = await t.login('amr');
+    const amrList = JSON.stringify(ok(await la.get('/api/lawyer/assignments')));
+    const amrAsg = t.app.db.value("SELECT id FROM assignments WHERE case_id = ? AND role = 'reviewer'", caseId);
+    const amrView = JSON.stringify(ok(await la.get(`/api/lawyer/assignments/${amrAsg}`)));
+    for (const b of banned) {
+      assert.ok(!amrList.includes(b), `reviewer list has no ${b}`);
+      assert.ok(!amrView.includes(b), `reviewer view has no ${b}`);
+    }
+  });
+
+  test('INV-B4/INV-B11: staff texts that reach the company never name a lawyer of the case (clarify, approved info request, due change, close, decline, accept note) → 409 lawyer_names', async () => {
+    const code = await t.submit(mariam, { type: 'other', entity_id: t.nfdEntity, description: 'سؤال قانوني للاختبار عن لائحة الجزاءات.', fields: {} });
+    // ملاحظة القبول تذكر المحامي الذي يُسند الآن
+    const n1 = await t.accept(staff, code, { note_to_company: 'سيتولى الأستاذ طارق النجار طلبكم.', assign: { lead: { lawyer_id: t.lawyers.tarek } } });
+    assert.equal(n1.status, 409);
+    assert.equal(n1.body.code, 'lawyer_names');
+    assert.equal(t.req(code).status, 'submitted', 'nothing accepted');
+    const res = await t.accept(staff, code, { assign: { lead: { lawyer_id: t.lawyers.tarek } } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const r = () => t.req(code);
+    const cl = await staff.post(`/api/admin/company-requests/${r().id}/clarify`, { rev: r().rev, body: 'يحتاج الأستاذ طارق النجار نسخة اللائحة الحالية.' });
+    assert.equal(cl.status, 409);
+    assert.equal(cl.body.code, 'lawyer_names');
+    // طلب معلومات من المحامي توافق عليه الإدارة: نص الرسالة للشركة
+    const asg = t.app.db.value("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead'", res.body.case.id);
+    const lt = await t.login('tarek');
+    const ir = ok(await lt.post(`/api/lawyer/assignments/${asg}/info-requests`, { kind: 'information', question: 'هل اللائحة معتمدة من مكتب العمل؟' }), 201);
+    const ap = await staff.post(`/api/admin/info-requests/${ir.id}/approve`, { client_message: 'يسأل Tarek El-Naggar: هل اللائحة معتمدة؟' });
+    assert.equal(ap.status, 409);
+    assert.equal(ap.body.code, 'lawyer_names');
+    assert.equal(t.app.db.value('SELECT status FROM info_requests WHERE id = ?', ir.id), 'pending_admin', 'not sent');
+    assert.equal(Number(t.app.db.value("SELECT COUNT(*) FROM company_messages WHERE request_id = ? AND kind = 'clarification'", r().id)), 0);
+    const due = await staff.patch(`/api/admin/company-requests/${r().id}`, { rev: r().rev, delivery_due_at: new Date(Date.now() + 5 * 86400000).toISOString(), due_reason: 'طلب tarek مهلة إضافية' });
+    assert.equal(due.status, 409);
+    assert.equal(due.body.code, 'lawyer_names');
+    const close = await staff.post(`/api/admin/company-requests/${r().id}/close`, { rev: r().rev, outcome: 'resolved', note_for_company: 'أجاب الأستاذ طارق النجار هاتفيًا.' });
+    assert.equal(close.status, 409);
+    const dec = await staff.post(`/api/admin/company-requests/${r().id}/decline`, { rev: r().rev, kind: 'other', reason_for_company: 'اعتذر طارق النجار عن الطلب.' });
+    assert.equal(dec.status, 409);
+    assert.equal(r().status, 'in_progress', 'nothing changed');
+    // النص نفسه بلا اسم يمر
+    ok(await staff.post(`/api/admin/company-requests/${r().id}/clarify`, { rev: r().rev, body: 'يحتاج فريقكم القانوني نسخة اللائحة الحالية.' }));
+    const cv = JSON.stringify(ok(await mariam.get(`/api/company/requests/${code}`)));
+    for (const n of ['طارق', 'Tarek', 'tarek']) assert.ok(!cv.includes(n), `company view has no ${n}`);
+  });
+
+  test('L-48: a staged upload and a deliverable draft edit write activity rows (company actor without a users id)', async () => {
+    const up = await t.stage(mariam, 'مرفق.pdf', 'application/pdf', pdfBuf());
+    const a = t.app.db.get("SELECT * FROM activity WHERE type = 'company_upload.staged' ORDER BY id DESC LIMIT 1");
+    assert.ok(a, 'activity row for the staged upload');
+    assert.equal(a.actor_user_id, null);
+    assert.equal(a.company_user_id, cuId(t.app, 'mariam@nilefoods.example'));
+    assert.equal(JSON.parse(a.data).upload_id, up);
+    const code = await t.submit(mariam, { type: 'other', entity_id: t.nfdEntity, description: 'طلب لتجربة مسودة التسليم.', fields: {} });
+    const res = await t.accept(staff, code, { assign: { lead: { lawyer_id: t.lawyers.amr } } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    const d = ok(await staff.post(`/api/admin/company-requests/${t.req(code).id}/deliverables`, { kind: 'memo', title: 'مذكرة', summary: 'خلاصة أولية للطلب المقدم.' }), 201);
+    ok(await staff.patch(`/api/admin/company-deliverables/${d.deliverable.id}`, { summary: 'خلاصة معدلة للطلب المقدم.' }));
+    assert.ok(t.app.db.get("SELECT 1 FROM activity WHERE type = 'company_deliverable.updated' AND company_request_id = ?", t.req(code).id));
+  });
+});
+
+describe('v10 b2b-server review — invite and reset tokens are hashed, single-use and expire', () => {
+  test('only the SHA-256 of a token is stored; an expired reset link → 410 link_expired; an expired invite → 410 link_expired; a used reset → 410 link_used', async () => {
+    const t = await b2bApp();
+    try {
+      const admin = await t.login('admin');
+      const uid = cuId(t.app, 'hossam@nilefoods.example');
+      const r = ok(await admin.post(`/api/admin/company-users/${uid}/reset-link`));
+      const token = r.reset.url.split('/reset/')[1];
+      const rows = t.app.db.all('SELECT * FROM company_account_tokens');
+      assert.ok(!JSON.stringify(rows).includes(token), 'the raw token is never stored');
+      assert.ok(rows.some((x) => x.token_hash === createHash('sha256').update(token).digest('hex')));
+      const c = t.company('10.8.0.1');
+      freezeClock(new Date(Date.parse(r.reset.expires_at) + 60000).toISOString());
+      const late = await c.post('/api/company/auth/reset', { token, password: 'Nile#Foods2026', password_confirm: 'Nile#Foods2026' });
+      assert.equal(late.status, 410);
+      assert.equal(late.body.code, 'link_expired');
+      resetClock();
+      const r2 = ok(await admin.post(`/api/admin/company-users/${uid}/reset-link`));
+      const tok2 = r2.reset.url.split('/reset/')[1];
+      ok(await c.post('/api/company/auth/reset', { token: tok2, password: 'Nile#Foods2026', password_confirm: 'Nile#Foods2026' }));
+      const used = await t.company('10.8.0.2').post('/api/company/auth/reset', { token: tok2, password: 'Nile#Foods2027', password_confirm: 'Nile#Foods2027' });
+      assert.equal(used.status, 410);
+      assert.equal(used.body.code, 'link_used');
+      const inv = ok(await admin.post(`/api/admin/companies/${companyId(t.app, 'NFD')}/users`, { name: 'كريم سامي', email: 'karim.s@nilefoods.example', role: 'member' }), 201);
+      const itok = inv.invite.url.split('/invite/')[1];
+      freezeClock(new Date(Date.parse(inv.invite.expires_at) + 60000).toISOString());
+      const exp = await t.company('10.8.0.3').post('/api/company/auth/link', { token: itok });
+      assert.equal(exp.status, 410);
+      assert.equal(exp.body.code, 'link_expired');
+    } finally {
+      resetClock();
+      await t.close();
+    }
+  });
+});
+
+describe('v10 b2b-server review — prices and revenue figures are admin-only on staff routes (B10 §8.3.1)', () => {
+  test('a case manager reads usage counts and plan terms without prices; the admin sees them', async () => {
+    const t = await b2bApp();
+    try {
+      const nfd = companyId(t.app, 'NFD');
+      const admin = await t.login('admin');
+      const cm = await t.login('manager');
+      const au = ok(await admin.get(`/api/admin/companies/${nfd}/usage`));
+      const mu = ok(await cm.get(`/api/admin/companies/${nfd}/usage`));
+      assert.ok('overage_price' in au.quota, 'admin sees the overage price');
+      assert.ok(!('overage_price' in mu.quota), 'case manager: counts only');
+      assert.equal(mu.quota.used, au.quota.used);
+      const ap = ok(await admin.get('/api/admin/company-plans'));
+      const mp = ok(await cm.get('/api/admin/company-plans'));
+      assert.ok(ap.items.some((p) => p.terms.price_minor > 0), 'admin sees plan prices');
+      for (const p of mp.items) {
+        assert.ok(!('price_minor' in p.terms) && !('overage_price_minor' in p.terms), `${p.key}: no prices for a case manager`);
+        assert.ok(Array.isArray(p.terms.scope_types) && p.terms.sla, 'the terms a case manager needs are still there');
+      }
+      const detail = JSON.stringify(ok(await cm.get(`/api/admin/companies/${nfd}`)));
+      assert.ok(!/price_minor|"billing":\{/.test(detail), 'company page: no prices or billing for a case manager');
+    } finally {
+      await t.close();
+    }
   });
 });

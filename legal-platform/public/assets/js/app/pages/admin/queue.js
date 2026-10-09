@@ -60,6 +60,26 @@ export default async function render(ctx) {
 
   // ───────────── طلبات المعلومات ─────────────
   async function approveInfo(r) {
+    // v10 b2b-staff (STF-4، U10-S13): ملف طلب شركة — يصل الاستيضاح للشركة عبر بوابتها، لا قناة للمستفيد/ة
+    if (r.company_request) {
+      const co = await formDialog({
+        title: 'موافقة وإرسال للشركة',
+        intro: 'يصل إلى: الشركة (عبر بوابتها). يتوقف موعد التسليم حتى ترد الشركة. لا تذكر اسم المحامي؛ الشركة لا ترى أسماء المحامين.',
+        size: 'lg',
+        submitLabel: 'إرسال للشركة',
+        values: { client_message: r.question },
+        fields: [
+          { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'}) — ${r.company_request.code}`, value: r.question, full: true },
+          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+        ],
+        onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message }),
+      });
+      if (co) {
+        toast('أُرسل الطلب للشركة عبر بوابتها', 'success');
+        await reloadAndFocus(ctx, '#pa-q-info_requests');
+      }
+      return;
+    }
     const res = await formDialog({
       title: 'موافقة وإرسال للمستفيد/ة',
       intro: 'صِغ الطلب بلغة واضحة للمستفيد/ة. يُرسل من قناة المؤسسة مع رقم الملف، ولا يظهر للمستفيد/ة اسم المحامي أو بياناته.',
@@ -121,8 +141,11 @@ export default async function render(ctx) {
     const docs = Array.isArray(r.documents) ? r.documents : [];
     let sharedDocs = 0;
     const res = await formDialog({
-      title: 'إتاحة رد المستفيد/ة للمحامي',
-      intro: `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
+      title: r.company_request ? 'إتاحة رد الشركة للمحامي' : 'إتاحة رد المستفيد/ة للمحامي',
+      // v10 b2b-staff (STF-4، L-57): على ملف شركة ينقّي الخادم الرد قبل وصوله للمحامي
+      intro: r.company_request
+        ? `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط. تُحذف أسماء موظفي الشركة وبياناتهم تلقائيًا قبل وصول الرد إلى المحامي.`
+        : `راجع الرد قبل إتاحته: يرى ${r.requested_by_name || 'المحامي'} النص الذي تكتبه هنا والمرفقات المختارة فقط، فاحذف أي رقم هاتف أو بيانات تواصل لا يحتاجها.`,
       size: 'lg',
       submitLabel: 'إتاحة للمحامي',
       values: {
@@ -143,7 +166,8 @@ export default async function render(ctx) {
       onSubmit: (v) => {
         const ids = v.document_ids || [];
         sharedDocs = ids.length;
-        return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids });
+        // v10 b2b-staff (review): على ملف شركة لا طلب متابعة آلي (لا يصل بوابتها)؛ الباقي يُطلب بـ«سؤال للشركة»
+        return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids, ...(r.company_request ? { request_rest: false } : {}) });
       },
     });
     if (res) {

@@ -534,6 +534,8 @@ const COST_KIND = {
 
 const F_ISSUES = ['مسألة واحدة', 'مسألتين', 'مسائل', 'مسألة'];
 const F_DOCS = ['مستند واحد', 'مستندين', 'مستندات', 'مستندًا'];
+/** v10 b2b-staff (U10-S10): حالات طلب المعلومات على ملف شركة — الطرف الآخر «الشركة» عبر بوابتها */
+export const COMPANY_IR_STATUS = Object.freeze({ sent_to_client: 'أُرسل للشركة — بانتظار ردها', client_replied: 'ردّت الشركة — بانتظار مراجعة الإدارة' });
 
 /**
  * (إصلاح 9.1) رسالة صوتية WebM من MediaRecorder (أندرويد قديم) بلا مدة في رأسها: المشغل يعرض «0:00» حتى نهايتها.
@@ -626,6 +628,12 @@ export default async function render(ctx) {
   const activeTeam = data.assignments.filter((a) => a.status !== 'withdrawn');
   const lead = activeTeam.find((a) => a.role === 'lead') || null;
   const aiStatus = data.ai ? data.ai.status : null;
+  // v10 b2b-staff (STF-10، U10-S10، L-65): ملف عمل لطلب شركة — التواصل والتسليم والإغلاق من صفحة طلب الشركة
+  const company = data.company || null;
+  const companyReqHref = company?.request ? `#/company-requests/${company.request.id}` : company ? `#/companies/${company.id}` : null;
+  const companyLink = (text = 'فتح طلب الشركة') => button(text, { variant: 'secondary', size: 'sm', icon: 'inboxStack', href: companyReqHref });
+  const WHO = company ? 'الشركة' : 'المستفيد/ة'; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
+  const companyLine = (what) => h('p.cd-company-line', icon('building', { size: 16 }), h('span', what), h('a', { href: companyReqHref }, 'فتح طلب الشركة'));
 
   let tabsEl = null;
 
@@ -660,6 +668,14 @@ export default async function render(ctx) {
   // ───────────────────────── الترويسة ─────────────────────────
 
   function headerActions() {
+    // v10 b2b-staff: ملف شركة — لا رسالة للمستفيد/ة ولا إغلاق/إعادة فتح عامين (يُغلق من صفحة طلب الشركة)
+    if (company) {
+      return [
+        button('فتح طلب الشركة', { icon: 'inboxStack', variant: 'primary', href: companyReqHref }),
+        printButton({ kind: 'case-summary', id: c.id, label: 'طباعة ملخص الملف', size: 'md' }),
+        h('span.cd-company-close', icon('lock', { size: 14 }), 'تُغلق من صفحة طلب الشركة'),
+      ];
+    }
     const acts = [button('رسالة للمستفيد/ة', { icon: 'message', onClick: openMessageDialog })];
     if (data.matter) acts.push(button('فتح الملف المستمر', { icon: 'gavel', href: `#/matters/${data.matter.id}` }));
     else {
@@ -699,6 +715,9 @@ export default async function render(ctx) {
   // ───────────────────────── شريط ما يحتاج قرار الإدارة ─────────────────────────
 
   function attentionBar() {
+    if (closed && company) {
+      return alertBox(frag(h('div', `أُغلق ملف العمل في ${date(c.closed_at)} مع إغلاق طلب الشركة.`), h('div', 'إعادة الفتح من صفحة طلب الشركة («إعادة فتح الطلب») خلال مهلة التعديلات.')), 'info', { title: 'الملف مغلق', icon: 'lock' });
+    }
     if (closed) {
       return alertBox(
         frag(
@@ -720,13 +739,14 @@ export default async function render(ctx) {
     const overdue = activeTeam.filter(isOverdue).length;
     if (!activeTeam.length) add('userPlus', 'لم يُسند الملف لأي محامٍ بعد', 'team', 'إسناد محامٍ', () => openAssignDialog());
     if (submitted) add('fileText', `آراء مقدَّمة بانتظار مراجعتك: ${submitted}`, 'opinions', 'مراجعة الآراء');
-    if (pendingInfo) add('mail', `طلبات معلومات بانتظار موافقتك قبل مراسلة المستفيد/ة: ${pendingInfo}`, 'requests', 'عرض الطلبات');
-    if (replied) add('message', `ردود من المستفيد/ة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}`, 'requests', 'عرض الردود');
+    if (pendingInfo) add('mail', company ? `طلبات معلومات بانتظار موافقتك قبل إرسالها للشركة: ${pendingInfo}` : `طلبات معلومات بانتظار موافقتك قبل مراسلة المستفيد/ة: ${pendingInfo}`, 'requests', 'عرض الطلبات');
+    if (replied) add('message', company ? `ردود من الشركة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}` : `ردود من المستفيد/ة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}`, 'requests', 'عرض الردود');
     if (pendingCounsel) add('users', `طلبات مساعدة محامٍ بانتظار قرارك: ${pendingCounsel}`, 'requests', 'عرض الطلبات');
     if (proposed) add('flag', `مسائل اقترحها المحامون بانتظار الاعتماد: ${proposed}`, 'overview', 'عرض المسائل');
     if (overdue) add('clock', `إسنادات تجاوزت موعد التسليم: ${overdue}`, 'team', 'عرض الفريق');
-    if (c.status === 'approved') add('send', 'الرأي معتمد — أعِدّ الرد الموجه للمستفيد/ة وأرسله', 'opinions', 'إعداد الرد');
-    if (c.status === 'answered') add('checkCircle', 'تم الرد على المستفيد/ة — أغلق الملف عند انتهاء المتابعة', null, 'إغلاق الملف', openCloseDialog);
+    if (c.status === 'approved' && company) add('send', 'الرأي معتمد — أعِدّ التسليم للشركة من صفحة طلب الشركة', null, 'فتح طلب الشركة', () => ctx.navigate(companyReqHref.slice(1)));
+    else if (c.status === 'approved') add('send', 'الرأي معتمد — أعِدّ الرد الموجه للمستفيد/ة وأرسله', 'opinions', 'إعداد الرد');
+    if (c.status === 'answered' && !company) add('checkCircle', 'تم الرد على المستفيد/ة — أغلق الملف عند انتهاء المتابعة', null, 'إغلاق الملف', openCloseDialog);
     if (!items.length) return null;
     return h(
       'section.pb-attention',
@@ -753,7 +773,19 @@ export default async function render(ctx) {
     const intake = data.intake;
     const chans = new Set([...(intake?.channels || []), ...((cl?.identities || []).flatMap((i) => i.channels || []))]);
     const campaign = intake?.campaign || c.campaign;
-    const clientCard = card({
+    const clientCard = company
+      ? card({
+          title: 'الشركة',
+          subtitle: 'ملف عمل لطلب شركة — لا مستفيد/ة ولا قنوات واتساب',
+          icon: 'building',
+          className: 'pb-client-card cd-company-card',
+          body: kv([
+            ['الشركة', h('a', { href: `#/companies/${company.id}` }, company.name)],
+            ['الطلب', company.request ? inline(h('a.pb-code-link', { href: companyReqHref }, codeTag(company.request.code)), h('span.small.muted', company.request.status_label || '')) : null],
+            ['التواصل والتسليم', companyLine('من صفحة طلب الشركة فقط.')],
+          ]),
+        })
+      : card({
       title: 'المستفيد/ة ومصدره',
       subtitle: 'للإدارة فقط — لا يُتاح لأي محامٍ مهما كانت صلاحياته',
       icon: 'lock',
@@ -780,7 +812,7 @@ export default async function render(ctx) {
         ['الموعد المستهدف', c.due_at ? inline(h('span', date(c.due_at)), !closed && dueBadge(c.due_at)) : h('span.muted', 'بدون موعد محدد')],
         ['فريق العمل', activeTeam.length ? h('span', `${count(activeTeam.length, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])} — المحامي الأساسي: ${lead ? lead.lawyer_name : 'لم يُحدَّد'}`) : h('span.muted', 'لم يُسند لأي محامٍ بعد')],
         ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}` }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
-        ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })],
+        company ? null : ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })], // v10 b2b-staff: لا برامج تمويل لعمل الشركات
         [
           'المعرفة المؤسسية',
           data.knowledge
@@ -788,7 +820,7 @@ export default async function render(ctx) {
             : h('span.muted', closed ? 'لم يُنشأ سجل' : 'يُنشأ سجل مجهّل تلقائيًا عند الإغلاق'),
         ],
         // (v9 messaging) تقييم العميل للخدمة من استبيان الرضا
-        data.satisfaction && [
+        !company && data.satisfaction && [
           'رضا المستفيد/ة',
           data.satisfaction.rating
             ? h('span.qr-sat', h('span', { 'aria-hidden': 'true' }, stars(data.satisfaction.rating)), h('span', { class: data.satisfaction.low ? 'pb-warn-text' : null }, data.satisfaction.text), data.satisfaction.comment ? h('span.cell-sub.pb-d-block', { dir: 'auto' }, `«${data.satisfaction.comment}»`) : null)
@@ -1117,7 +1149,7 @@ export default async function render(ctx) {
     return h(
       'div.stack-lg',
       h('div.grid-2.pb-facts-grid', factsBlock('internal'), factsBlock('shared')),
-      h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', outcomeCard({ kind: 'case', id: c.id }), aiAnalysisCard(), similarCard())),
+      h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', company ? null : outcomeCard({ kind: 'case', id: c.id }), aiAnalysisCard(), similarCard())),
     );
   }
 
@@ -1825,7 +1857,7 @@ export default async function render(ctx) {
       default:
         states = ['done', 'todo', 'todo', 'todo'];
     }
-    const labels = [r.assignment_id ? 'طلب المحامي' : 'طلب الإدارة', 'موافقة الإدارة والإرسال للمستفيد/ة', 'رد المستفيد/ة', 'مراجعة الإدارة والإتاحة للمحامي'];
+    const labels = [r.assignment_id ? 'طلب المحامي' : 'طلب الإدارة', `موافقة الإدارة والإرسال ${company ? 'للشركة' : 'للمستفيد/ة'}`, `رد ${WHO}`, 'مراجعة الإدارة والإتاحة للمحامي']; // v10 b2b-staff: «الشركة» في ملف الشركة
     return labels.map((l, i) => ({ label: l, state: states[i] }));
   }
 
@@ -1850,11 +1882,11 @@ export default async function render(ctx) {
         acts.push(button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
         acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
       } else if (r.status === 'pending_admin') {
-        acts.push(button('موافقة وإرسال للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r) }));
-        acts.push(button('الرد مباشرة دون سؤال المستفيد/ة', { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
+        acts.push(button(company ? 'موافقة وإرسال للشركة' : 'موافقة وإرسال للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r) })); // v10 b2b-staff
+        acts.push(button(company ? 'الرد مباشرة دون سؤال الشركة' : 'الرد مباشرة دون سؤال المستفيد/ة', { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
         acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
       } else if (r.status === 'sent_to_client') {
-        acts.push(button('تسجيل رد المستفيد/ة', { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) }));
+        if (!company) acts.push(button('تسجيل رد المستفيد/ة', { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) })); // v10 b2b-staff: الشركة ترد من بوابتها
         acts.push(button('إتاحة للمحامي', { size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r) }));
         acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r) }));
       } else if (r.status === 'client_replied') {
@@ -1870,23 +1902,24 @@ export default async function render(ctx) {
       h(
         'div.pb-req-head',
         statusBadge('info_request_kind', r.kind),
-        statusBadge('info_request_status', r.status),
+        // v10 b2b-staff (U10-S10): في ملف الشركة «أُرسل للشركة» و«ردّت الشركة» بدل «المستفيد/ة»
+        company && COMPANY_IR_STATUS[r.status] ? badge(COMPANY_IR_STATUS[r.status], r.status === 'client_replied' ? 'warning' : 'info', { dot: true }) : statusBadge('info_request_status', r.status),
         r.duplicate_of_id && badge('طلب مكرر', 'warning', { icon: 'link', title: `يطلب ما طُلب في الطلب رقم ${r.duplicate_of_id}؛ يصله الرد نفسه عند إتاحته` }), // v9.1 l-work
         r.kind === 'extension' && r.requested_due_at && badge(`حتى ${dateTime(r.requested_due_at)}`, 'accent', { icon: 'clock' }), // v9.1 l-work
         h('span.small.muted', who),
         h('span.small.muted', '·'),
         timeTag(r.created_at, { relative: true }),
-        r.reminder_count > 0 && badge(`تذكيرات آلية للمستفيد/ة: ${r.reminder_count}`, 'accent', { icon: 'zap', title: r.last_reminder_at ? `آخر تذكير: ${dateTime(r.last_reminder_at)}` : null }),
+        r.reminder_count > 0 && badge(`تذكيرات آلية ${company ? 'للشركة' : 'للمستفيد/ة'}: ${r.reminder_count}`, 'accent', { icon: 'zap', title: r.last_reminder_at ? `آخر تذكير: ${dateTime(r.last_reminder_at)}` : null }),
       ),
       showSteps && stepper(irStages(r)),
       h(
         'div.pb-blocks',
         textBlock(r.assignment_id ? 'صياغة المحامي (داخلية)' : 'المطلوب (صياغة داخلية)', r.question, { iconName: 'fileText' }),
-        textBlock('الرسالة التي أُرسلت للمستفيد/ة', r.client_message, {
+        textBlock(`الرسالة التي أُرسلت ${company ? 'للشركة' : 'للمستفيد/ة'}`, r.client_message, { // v10 b2b-staff
           iconName: 'send',
           meta: r.sent_at ? `${r.sent_channel ? `عبر ${label('channel', r.sent_channel)} · ` : ''}${dateTime(r.sent_at)}` : null,
         }),
-        textBlock('رد المستفيد/ة', r.client_reply, { iconName: 'message', meta: r.replied_at ? dateTime(r.replied_at) : null, tone: 'client' }),
+        textBlock(`رد ${WHO}`, r.client_reply, { iconName: 'message', meta: r.replied_at ? dateTime(r.replied_at) : null, tone: 'client' }),
         textBlock('ما أُتيح للمحامي', r.response_text, { iconName: 'shieldCheck', meta: r.shared_at ? dateTime(r.shared_at) : null, tone: 'shared' }),
         textBlock(r.status === 'rejected' ? 'سبب الرفض' : 'ملاحظة الإدارة', r.admin_note, { iconName: 'info', tone: 'note' }),
       ),
@@ -1944,15 +1977,17 @@ export default async function render(ctx) {
     return h(
       'div.stack-lg',
       alertBox(
-        'المحامي لا يتواصل مع المستفيد/ة أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع المستفيد/ة، ثم تراجع الإدارة الرد وتتيحه للمحامي.',
+        company // v10 b2b-staff (U10-S10)
+          ? 'المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة عبر بوابتها، ثم تراجع الإدارة الرد وتتيحه للمحامي بعد حذف أسماء موظفي الشركة وبياناتهم تلقائيًا.'
+          : 'المحامي لا يتواصل مع المستفيد/ة أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع المستفيد/ة، ثم تراجع الإدارة الرد وتتيحه للمحامي.',
         'info',
         { icon: 'shield' },
       ),
       card({
         title: 'طلبات المعلومات والمستندات',
-        subtitle: 'كل طلب يمر بالإدارة قبل أن يصل للمستفيد/ة، وكل رد يمر بها قبل أن يصل للمحامي',
+        subtitle: `كل طلب يمر بالإدارة قبل أن يصل ${company ? 'للشركة' : 'للمستفيد/ة'}، وكل رد يمر بها قبل أن يصل للمحامي`, // v10 b2b-staff
         icon: 'mail',
-        actions: !closed && button('طلب من المستفيد/ة مباشرة', { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog() }),
+        actions: !closed && (company ? companyLink('سؤال للشركة من صفحة الطلب') : button('طلب من المستفيد/ة مباشرة', { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog() })), // v10 b2b-staff
         body: irs.length ? h('div.stack', irs.map(infoRequestCard)) : emptyState('لا توجد طلبات معلومات أو مستندات في هذا الملف', null, { compact: true, icon: 'mail' }),
       }),
       card({
@@ -1998,6 +2033,24 @@ export default async function render(ctx) {
   }
 
   async function openApproveIrDialog(r) {
+    // v10 b2b-staff (STF-4، U10-S13): ملف طلب شركة — الاستيضاح يصل الشركة عبر بوابتها، لا قناة ولا صياغة للمستفيد/ة
+    if (data.company) {
+      const co = await formModal({
+        title: 'موافقة وإرسال الطلب للشركة',
+        intro: 'يصل إلى: الشركة (عبر بوابتها). يتوقف موعد التسليم حتى ترد الشركة. لا تذكر اسم المحامي؛ الشركة لا ترى أسماء المحامين.',
+        before: textBlock(r.assignment_id ? 'صياغة المحامي (لن تراها الشركة)' : 'المطلوب', r.question, { iconName: 'fileText' }),
+        fields: [
+          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+          ...(r.kind === 'document' ? [{ name: 'items', label: 'البنود المطلوبة (بند في كل سطر، حتى 5)', type: 'textarea', rows: 3, maxLength: 1000 }] : []),
+        ],
+        values: { client_message: r.question, items: irItemLines(r) },
+        submitLabel: 'إرسال للشركة',
+        submitIcon: 'send',
+        onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message, ...(r.kind === 'document' ? { items: v.items || '' } : {}) }),
+      });
+      if (co) await refresh('أُرسل الطلب للشركة عبر بوابتها، وسيُبلَّغ المحامي عند إتاحة الرد', { tab: 'requests' });
+      return;
+    }
     const res = await formModal({
       title: 'موافقة وإرسال الطلب للمستفيد/ة',
       intro: 'صِغ السؤال بكلام بسيط مناسب للمستفيد/ة. على واتساب يُضاف تلقائيًا اسم المستفيد/ة ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.',
@@ -2040,19 +2093,22 @@ export default async function render(ctx) {
       size: 'lg',
       intro: direct
         ? 'إن كانت المعلومة متوفرة لدى الإدارة، أجب المحامي مباشرة دون مراسلة المستفيد/ة.'
-        : 'سيرى المحامي نص الرد والمستندات المختارة فقط، ولن يرى رسالة المستفيد/ة الأصلية ولا رقمه.',
+        : data.company // v10 b2b-staff (STF-4، L-57): الخادم ينقّي رد الشركة قبل وصوله للمحامي
+          ? 'سيرى المحامي نص الرد والمستندات المختارة فقط. تُحذف أسماء موظفي الشركة وبياناتهم تلقائيًا قبل وصول الرد إلى المحامي.'
+          : 'سيرى المحامي نص الرد والمستندات المختارة فقط، ولن يرى رسالة المستفيد/ة الأصلية ولا رقمه.',
       before: frag(
         textBlock(r.assignment_id ? 'صياغة المحامي' : 'المطلوب', r.question, { iconName: 'fileText' }),
-        textBlock('رد المستفيد/ة كما ورد', r.client_reply, { iconName: 'message', tone: 'client' }),
+        textBlock(`رد ${WHO} كما ورد`, r.client_reply, { iconName: 'message', tone: 'client' }), // v10 b2b-staff
         !requester && !others.length
           ? alertBox('لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبويب «الفريق والصلاحيات»، أو ألغِ الطلب إن لم يعد مطلوبًا.', 'warning')
           : null,
         linked.length ? alertBox(`يصل الرد نفسه تلقائيًا أيضًا إلى: ${linked.map((a) => a.lawyer_name).join('، ')} (طلبوا الشيء نفسه).`, 'info', { icon: 'link' }) : null, // v9.1 l-work
         // v9.1 fixes: بنود لم يصل لها شيء بعد
-        (r.items_needed || []).length ? alertBox(`لم يصل بعد من المستفيد/ة: ${r.items_needed.join('، ')}.`, 'warning') : null,
+        (r.items_needed || []).length ? alertBox(`لم يصل بعد من ${WHO}: ${r.items_needed.join('، ')}.${company ? ' اطلبه من الشركة بـ«سؤال للشركة» في صفحة طلب الشركة.' : ''}`, 'warning') : null, // v10 b2b-staff
       ),
       fields: [
-        (r.items_needed || []).length > 0 && { name: 'request_rest', type: 'checkbox', label: 'اطلب الباقي من المستفيد/ة (يظهر في صفحتها «لسه محتاجين»)', full: true },
+        // v10 b2b-staff (review): طلب المتابعة الآلي لا يصل بوابة الشركة — في ملف الشركة يُطلب الباقي بـ«سؤال للشركة»
+        (r.items_needed || []).length > 0 && !company && { name: 'request_rest', type: 'checkbox', label: 'اطلب الباقي من المستفيد/ة (يظهر في صفحتها «لسه محتاجين»)', full: true },
         // v9.1 l-work: الموافقة على طلب المهلة تمدّد موعد التسليم في نفس الخطوة
         r.kind === 'extension' && r.requested_due_at && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
         {
@@ -2095,7 +2151,7 @@ export default async function render(ctx) {
           document_ids: v.document_ids || [],
           share_with_assignment_ids: v.share_with_assignment_ids || [],
           approve_extension: !!v.approve_extension, // v9.1 l-work
-          request_rest: (r.items_needed || []).length ? !!v.request_rest : undefined, // v9.1 fixes
+          request_rest: (r.items_needed || []).length ? (company ? false : !!v.request_rest) : undefined, // v9.1 fixes · v10 b2b-staff: لا متابعة آلية لملف شركة
         }),
     });
     if (res) await refresh((res.follow_up_items || []).length ? 'أُتيح الرد للمحامي، وطُلب الباقي من المستفيد/ة' : 'أُتيح الرد للمحامي وأُبلغ به', { tab: 'requests' });
@@ -2217,7 +2273,8 @@ export default async function render(ctx) {
       acts.push(button('اعتماد الرأي', { variant: 'primary', size: 'sm', icon: 'check', onClick: () => openApproveOpinionDialog(o, a) }));
       acts.push(button('إعادة للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReturnOpinionDialog(o, a) }));
     }
-    if (!closed && o.status === 'approved') {
+    if (!closed && o.status === 'approved' && company) acts.push(companyLink('إعداد التسليم من صفحة طلب الشركة'));
+    else if (!closed && o.status === 'approved') {
       acts.push(button('إعداد رد للمستفيد/ة من هذا الرأي', { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ opinion: o, answer: latestDraft() }) }));
     }
     return h(
@@ -2318,6 +2375,8 @@ export default async function render(ctx) {
   }
 
   function renderOpinions() {
+    // v10 b2b-staff (U10-S10): مراجعة الآراء كما هي؛ الرد للشركة تسليمٌ يُعَدّ من صفحة طلب الشركة
+    if (company) return h('div.stack-lg', opinionGroups(), card({ title: 'التسليم للشركة', icon: 'send', body: companyLine('يُعَدّ التسليم من الرأي المعتمد ويُرسل للشركة من صفحة طلب الشركة («إعداد تسليم»).') }));
     return h('div.stack-lg', pipeline(), opinionGroups(), answersCard());
   }
 
@@ -2597,7 +2656,7 @@ export default async function render(ctx) {
             button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}` }),
             // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
             // (يعرض المكوّن نفسه رسالة النجاح والقناة المستخدمة، فلا تُكرر هنا)
-            sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }) }),
+            company ? null : sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }) }), // v10 b2b-staff: المستندات للشركة عبر صفحة الطلب
             // (v9 ai) تحليل نوع المستند ووقائعه وما يثبته؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
             docAiAction(analyses, d),
           ),
@@ -2640,6 +2699,8 @@ export default async function render(ctx) {
   // ───────────────────────── المحادثة ─────────────────────────
 
   function renderConversation() {
+    // v10 b2b-staff (U10-S10): لا محادثة واتساب مع شركة؛ الرسائل في صفحة طلب الشركة
+    if (company) return card({ title: 'المحادثة', icon: 'message', body: companyLine('المحادثة مع الشركة في صفحة طلب الشركة (رسالة للشركة · ملاحظة داخلية).') });
     const failed = data.messages.filter((m) => m.direction === 'out' && m.status === 'failed').length;
     return h(
       'div.stack',
@@ -2943,5 +3004,14 @@ export default async function render(ctx) {
     { active: initialTab, onChange: (key) => syncTab(key), className: 'pb-case-tabs' },
   );
 
-  return frag(header, attentionBar(), summaryCards(), tabsEl);
+  // v10 b2b-staff (U10-S10): شريط ملف الشركة أعلى الصفحة
+  const companyBanner = company
+    ? h(
+        'div.cr-banner.is-info.cd-company-banner',
+        icon('building', { size: 20 }),
+        h('div.cr-banner-text', h('p', `ملف عمل لطلب شركة — ${company.name}${company.request ? ` · ${company.request.code}` : ''}. التواصل مع الشركة والتسليم من صفحة طلب الشركة.`)),
+        button('فتح طلب الشركة', { variant: 'primary', size: 'sm', href: companyReqHref }),
+      )
+    : null;
+  return frag(header, companyBanner, attentionBar(), summaryCards(), tabsEl);
 }

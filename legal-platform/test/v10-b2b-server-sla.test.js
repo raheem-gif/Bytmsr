@@ -299,3 +299,44 @@ describe('v10 SLA — quota per usage cycle (L-28, CS-19)', () => {
     }
   });
 });
+
+describe('v10 SLA — preview parity with a real submit (review, usability task 4)', () => {
+  test('for submits at Thursday 15:59 and 16:01 and on a holiday eve, /plan.promise_preview equals the stored first_response_due_at to the minute (normal, high, urgent)', async () => {
+    const t = await startTestApp({ seed: 'none' });
+    try {
+      await seedB2bDemo(t.app);
+      const db = t.app.db;
+      const nfd = db.get("SELECT * FROM companies WHERE prefix = 'NFD'");
+      // بلا حد للعاجل في هذا الاختبار، حتى يبقى «عاجل» عاجلًا في كل لحظة
+      const sub = t.app.companyBilling.activeSubscription(nfd.id);
+      db.run('UPDATE company_subscriptions SET terms = ? WHERE id = ?', JSON.stringify({ ...sub.terms, urgent_per_month: null }), sub.id);
+      const cookie = await companyLogin(t.base, 'mariam@nilefoods.example');
+      const entity = db.value('SELECT id FROM company_entities WHERE company_id = ? ORDER BY id LIMIT 1', nfd.id);
+      const call = async (method, url, body) => {
+        const res = await fetch(`${t.base}${url}`, { method, headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+        return { status: res.status, body: await res.json() };
+      };
+      const minute = (iso) => String(iso).slice(0, 16);
+      for (const [label, iso, holidays] of [
+        ['Thursday 15:59', local(2026, 10, 8, 15, 59), []],
+        ['Thursday 16:01', local(2026, 10, 8, 16, 1), []],
+        ['holiday eve (Saturday a holiday)', local(2026, 10, 8, 15, 59), ['2026-10-10']],
+      ]) {
+        t.app.settings.set('b2b_holidays', holidays);
+        freezeClock(iso);
+        const plan = await call('GET', '/api/company/plan');
+        assert.equal(plan.status, 200);
+        for (const pr of ['normal', 'high', 'urgent']) {
+          const r = await call('POST', '/api/company/requests', { type: 'other', entity_id: entity, priority: pr, urgent_reason: pr === 'urgent' ? 'موعد توقيع غدًا' : undefined, description: `اختبار تطابق الوعد ${label} ${pr}`, fields: {} });
+          assert.equal(r.status, 201, JSON.stringify(r.body));
+          const stored = db.get('SELECT priority, first_response_due_at FROM company_requests WHERE code = ?', r.body.request.code);
+          assert.equal(stored.priority, pr, `${label} ${pr} kept its priority`);
+          assert.equal(minute(stored.first_response_due_at), minute(plan.body.promise_preview[pr].first_response_by), `${label} ${pr}: preview ${show(plan.body.promise_preview[pr].first_response_by)} vs stored ${show(stored.first_response_due_at)}`);
+          assert.equal(r.body.request.promise.first_response_by, stored.first_response_due_at, `${label} ${pr}: the company view shows the stored date`);
+        }
+      }
+    } finally {
+      await t.close();
+    }
+  });
+});

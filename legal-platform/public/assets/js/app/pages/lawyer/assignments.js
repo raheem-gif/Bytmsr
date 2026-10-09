@@ -24,6 +24,13 @@ function flags(a, { history = false } = {}) {
   return out;
 }
 
+/** v10 b2b-staff (U10-L01/L02): شارة «شركة» واسم الشركة إن أُتيح — بلا أي بيانات من مستخدمي الشركة */
+function companyChip(a) {
+  if (!a.company) return null;
+  return h('span.lh-co', h('span.lh-co-chip', 'شركة'), a.company_name ? h('span.lh-co-name', a.company_name) : null);
+}
+const reviewTitle = (a) => (a.company && (a.review || a.role === 'reviewer') ? `مراجعة نهائية: ${a.case_title}` : a.case_title);
+
 function statusWord(a) {
   return badge(assignmentStatus(a.status), TONE[a.status] || 'neutral');
 }
@@ -38,8 +45,8 @@ function assignmentCard(a, { history = false } = {}) {
   return h(
     'a.pc-item-card',
     { href: `#/my/assignments/${encodeURIComponent(a.id)}`, class: a.overdue && 'is-overdue' },
-    h('div.pc-item-head', codeTag(a.case_code), statusWord(a)),
-    h('div.pc-item-title', a.case_title),
+    h('div.pc-item-head', codeTag(a.case_code), companyChip(a), statusWord(a)),
+    h('div.pc-item-title', reviewTitle(a)),
     h('div.pc-item-meta', h('span', icon('book', { size: 14 }), a.legal_area_label || areaLabel(a.legal_area)), h('span', icon('user', { size: 14 }), bidiText(a.role_label || label('assignment_role', a.role)))),
     (!history && a.due_at) || f.length ? h('div.pc-item-foot', !history && dueLine(a), f) : null,
   );
@@ -53,7 +60,7 @@ function list(rows, ctx, { history = false } = {}) {
     );
   }
   const columns = [
-    { key: 'case', label: 'الملف', className: 'col-wide', render: (a) => h('div.pc-cell-stack', codeTag(a.case_code), h('span.cell-title', a.case_title)) },
+    { key: 'case', label: 'الملف', className: 'col-wide', render: (a) => h('div.pc-cell-stack', h('span.pc-inline', codeTag(a.case_code), companyChip(a)), h('span.cell-title', reviewTitle(a))) },
     { key: 'role', label: 'دوري', render: (a) => h('span.pc-role', bidiText(a.role_label || label('assignment_role', a.role))) },
     { key: 'status', label: 'الحالة', render: (a) => statusWord(a) },
     history
@@ -75,9 +82,21 @@ export default async function render(ctx) {
     return h('div.page', card({ body: errorState(err, () => ctx.reload()) }));
   }
   const rows = Array.isArray(active) ? active : [];
+  // v10 b2b-staff (U10-L02، P1): فلتر «طلبات الشركات» يظهر فقط حين توجد إسنادات شركات
+  let onlyCompany = ctx.query.line === 'b2b';
+  const hasCompany = rows.some((a) => a.company);
+  const activeHost = h('div');
+  const drawActive = () => mount(activeHost, list(onlyCompany ? rows.filter((a) => a.company) : rows, ctx));
+  const chip = hasCompany
+    ? h(
+        'div.lh-filter-chips',
+        h('button.chip-toggle', { type: 'button', 'aria-pressed': String(onlyCompany), class: onlyCompany && 'is-on', onClick: (e) => { onlyCompany = !onlyCompany; e.currentTarget.setAttribute('aria-pressed', String(onlyCompany)); e.currentTarget.classList.toggle('is-on', onlyCompany); drawActive(); } }, icon('building', { size: 14 }), h('span', 'طلبات الشركات')),
+      )
+    : null;
+  drawActive();
   const t = tabs(
     [
-      { key: 'active', label: 'الحالية', icon: 'briefcase', count: rows.length, render: () => list(rows, ctx) },
+      { key: 'active', label: 'الحالية', icon: 'briefcase', count: rows.length, render: () => frag(chip, activeHost) },
       {
         key: 'history',
         label: 'السابقة',

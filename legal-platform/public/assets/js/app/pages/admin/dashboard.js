@@ -104,6 +104,40 @@ function weeklyChart(weeks) {
   return h('figure.pa-chart', legend, h('div.pa-chart-scroll', plot), h('figcaption.pa-chart-cap', 'من الأقدم (يمينًا) إلى الأحدث (يسارًا). القيم فوق الأعمدة.'), tableView);
 }
 
+/**
+ * v10 b2b-staff (STF-10، U10-S02، P1): شريط «خدمة الشركات» من GET /api/admin/b2b/overview — كل رقم يفتح القائمة مفلترة.
+ * لا «مطالبات متأخرة» (الفواتير مؤجلة، L-31)؛ «الاشتراكات الشهرية» لمدير النظام فقط. يختفي تمامًا حين لا توجد شركات.
+ */
+function companyStrip(user) {
+  const host = h('section.cd-dash-strip', { hidden: true, 'aria-label': 'خدمة الشركات' });
+  api
+    .get('/admin/b2b/overview', null, { background: true })
+    .then((o) => {
+      if (!o || !Number(o.companies?.total)) return;
+      const q = o.queue || {};
+      const sla = o.sla || {};
+      host.append(
+        card({
+          title: 'خدمة الشركات',
+          icon: 'building',
+          actions: button('طلبات الشركات', { variant: 'ghost', size: 'sm', href: '#/company-requests' }),
+          body: h(
+            'div.stats-grid.cd-dash-stats',
+            statCard({ label: 'بانتظار الفرز', value: num(q.submitted), icon: 'inboxStack', tone: q.submitted ? 'info' : 'neutral', href: '#/company-requests?status=submitted' }),
+            statCard({ label: 'يقترب موعدها', value: num(sla.at_risk), icon: 'clock', tone: sla.at_risk ? 'warning' : 'neutral', href: '#/company-requests?sla=at_risk' }),
+            statCard({ label: 'متأخرة', value: num(sla.late), icon: 'alert', tone: sla.late ? 'danger' : 'neutral', href: '#/company-requests?sla=late' }),
+            statCard({ label: 'بانتظار الشركات', value: num(q.awaiting_company), icon: 'building', tone: 'neutral', href: '#/company-requests?status=awaiting_company' }),
+            statCard({ label: 'تجديدات خلال 30 يومًا', value: num(o.renewals_30d), icon: 'calendarClock', tone: o.renewals_30d ? 'accent' : 'neutral', href: '#/companies' }),
+            user.role === 'admin' && o.mrr_minor != null ? statCard({ label: 'الاشتراكات الشهرية', value: money(Number(o.mrr_minor) / 100), icon: 'wallet', tone: 'primary', href: '#/companies' }) : null,
+          ),
+        }),
+      );
+      host.hidden = false;
+    })
+    .catch(() => {});
+  return host;
+}
+
 export default async function render(ctx) {
   const d = await api.get('/admin/dashboard');
   const intakes = d.intakes || {};
@@ -396,6 +430,7 @@ export default async function render(ctx) {
     'div.pa-page.pa-page-dashboard',
     header,
     stats,
+    companyStrip(user), // v10 b2b-staff (STF-10، U10-S02): «خدمة الشركات» — مخفي إن لم توجد شركات
     h('div.pa-dash-grid', decisionsCard, capacityCard, eventsCard, casesCard, similarCard, monthCard),
     weeklyCard,
   );

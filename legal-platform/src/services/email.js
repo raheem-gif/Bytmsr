@@ -83,6 +83,7 @@ export class SmtpConnection {
     this.socket = null;
     this.buf = '';
     this.waiters = [];
+    this.early = [];
     this.lines = [];
     this.ext = new Set();
     this.authMethods = new Set();
@@ -114,11 +115,14 @@ export class SmtpConnection {
       if (/^\d{3} /.test(line) || /^\d{3}$/.test(line)) {
         const reply = { code: Number(line.slice(0, 3)), lines: this.lines.splice(0) };
         const w = this.waiters.shift();
+        // رد وصل قبل أن ننتظره (مثل التحية فور الاتصال) يُحفظ حتى يُطلب
         if (w) w.resolve(reply);
+        else this.early.push(reply);
       }
     }
   }
   _read() {
+    if (this.early.length) return Promise.resolve(this.early.shift());
     if (this.closed) return Promise.reject(this.error || new Error('الاتصال مغلق'));
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -153,7 +157,9 @@ export class SmtpConnection {
     return r;
   }
   _connect(useTls, socket = null) {
-    const { host, port } = this.o;
+    const { host } = this.o;
+    // connectPort: للاختبارات فقط (خادم وهمي على منفذ عشوائي) — المنفذ المضبوط نفسه يبقى مقيدًا بـ 25/465/587/2525
+    const port = this.o.connectPort || this.o.port;
     const netImpl = this.o.netImpl || net;
     const tlsImpl = this.o.tlsImpl || tls;
     return new Promise((resolve, reject) => {
@@ -192,6 +198,16 @@ export class SmtpConnection {
     }
   }
   async open() {
+    try {
+      return await this._open();
+    } catch (e) {
+      // لا اتصال معلّق بعد فشل (لا STARTTLS، شهادة مرفوضة، دخول مرفوض…)
+      this.socket?.destroy();
+      this.closed = true;
+      throw e;
+    }
+  }
+  async _open() {
     const { security, port } = this.o;
     if (!SMTP_PORTS.includes(Number(port))) throw new Error('منفذ SMTP غير مسموح (المسموح 25 أو 465 أو 587 أو 2525)');
     if (!['starttls', 'tls'].includes(security)) throw new Error('نوع التشفير يجب أن يكون STARTTLS أو TLS');

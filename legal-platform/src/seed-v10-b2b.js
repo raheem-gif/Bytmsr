@@ -396,6 +396,8 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   });
   when(9, 13);
   h.accept(n2, {
+    delivery_due_at: new Date(realNow + 2 * DAY).toISOString(),
+    due_reason: 'دراسة سجل الحضور قبل أي إجراء',
     brief_for_lawyer: 'إنهاء عقد مندوب مبيعات بسبب الغياب المتكرر دون إذن. المطلوب: الشروط القانونية للفصل والإجراءات والإنذارات اللازمة وتقدير مخاطر المطالبة بالتعويض.',
     issues: ['شروط الفصل للغياب', 'الإنذارات والإجراءات', 'مخاطر التعويض'],
     assign: { lead: { lawyer_id: yasmine.id } },
@@ -489,6 +491,8 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   // ═════ تك سوليوشنز ═════
   // TSL-0003: قرار مجلس لفتح حساب بنكي — سُلِّم ثم أُغلق تلقائيًا قبل 9 أيام (طلب خارج الباقة احتُسب «دون احتساب» للفترة التجريبية)
   when(18, 11);
+  // ترقيم القصة (TSL-0001 الصياغة، TSL-0002 الامتثال، TSL-0003 القرار) مع أن القرار أُرسل أولًا
+  db.setCounter(`company_request:${tsl.id}`, 2);
   const t3 = h.submit(sherif, {
     type: 'board_resolution',
     description: 'نحتاج نموذج قرار مجلس إدارة بفتح حساب بنكي جديد بالدولار وتحديد المفوضين بالتوقيع.',
@@ -509,6 +513,7 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
 
   // TSL-0001: صياغة عقد خدمات برمجية (SaaS MSA) — سُلِّم الإصدار الأول بانتظار قرار الشركة
   when(6, 10);
+  db.setCounter(`company_request:${tsl.id}`, 0);
   const t1 = h.submit(sherif, {
     type: 'contract_drafting',
     description: 'نريد اتفاقية خدمات رئيسية (MSA) لعملاء منصتنا السحابية تشمل مستوى الخدمة وحماية البيانات وحدود المسؤولية.',
@@ -531,6 +536,7 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
     description: 'هل يلزمنا قانون حماية البيانات الشخصية بالحصول على ترخيص لتخزين بيانات عملائنا على خوادم خارج مصر؟',
     fields: { area: 'data_protection' },
   });
+  db.setCounter(`company_request:${tsl.id}`, 3);
   when(2, 12);
   h.accept(t2, {
     brief_for_lawyer: 'سؤال امتثال: تخزين بيانات العملاء الشخصية على خوادم خارج مصر — متطلبات الترخيص والنقل عبر الحدود وفق قانون حماية البيانات الشخصية.',

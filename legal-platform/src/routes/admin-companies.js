@@ -27,10 +27,10 @@ export function registerAdminCompanyRoutes(router, app) {
   router.get('/api/admin/companies/:id', S((ctx, u) => co.staffView(id(ctx), u)));
   router.patch('/api/admin/companies/:id', A((ctx, u) => co.update(id(ctx), ctx.body, u, ctx)));
   router.post('/api/admin/companies/:id/status', A((ctx, u) => co.setStatus(id(ctx), ctx.body, u, ctx)));
-  router.get('/api/admin/companies/:id/usage', S((ctx) => {
+  router.get('/api/admin/companies/:id/usage', S((ctx, u) => {
     const c = co.require(id(ctx));
-    // نظرة الشركة كلها (كمدير البوابة)؛ مبالغ الربحية في 10.1
-    return { quota: billing.quota(c, { prices: true }), usage: billing.usageFor({ role: 'company_admin', company_id: c.id, id: 0 }, c, { cycle: ctx.query.cycle || ctx.query.period || null }) };
+    // نظرة الشركة كلها (كمدير البوابة)؛ مدير الحالات يرى الأعداد فقط والأسعار لمدير النظام (B10 §8.3.1؛ review)
+    return { quota: billing.quota(c, { prices: u.role === 'admin' }), usage: billing.usageFor({ role: 'company_admin', company_id: c.id, id: 0 }, c, { cycle: ctx.query.cycle || ctx.query.period || null }) };
   }));
 
   // الكيانات
@@ -54,7 +54,7 @@ export function registerAdminCompanyRoutes(router, app) {
   router.post('/api/admin/company-users/:uid/sessions/revoke', A((ctx, u) => co.revokeSessions(idParam(ctx.params, 'uid'), { actor: u, ctx })));
 
   // الباقات والاشتراكات (8.1.10–8.1.11)
-  router.get('/api/admin/company-plans', S(() => billing.plans()));
+  router.get('/api/admin/company-plans', S((ctx, u) => billing.plans({ money: u.role === 'admin' }))); // أسعار الباقات لمدير النظام فقط (review)
   router.post('/api/admin/company-plans', A((ctx, u) => {
     ctx.status = 201;
     return billing.createPlan(ctx.body, u, ctx);

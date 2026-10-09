@@ -26,6 +26,7 @@ import {
 import { diffParagraphs } from '../../components/text-diff.js';
 import { docRow, openDocument, lwIcon } from '../../components/doc-viewer.js';
 import { haptic } from '../../../lib/haptics.js'; // v10 experience (H-E5)
+import { companyContextSection } from './assignment.js'; // v10 b2b-staff (U10-L03): «سياق الشركة» في مرجع الكتابة
 
 const AI_PLACEHOLDER_RE = /\[يُستكمل/;
 const MIN_SUBMIT_CHARS = 20;
@@ -53,6 +54,26 @@ export function opinionSkeleton(issues) {
   const lines = ['أولًا: الوقائع المؤثرة', '', 'ثانيًا: التكييف القانوني', '', 'ثالثًا: الرأي في المسائل'];
   for (const i of active) lines.push(`المسألة ${i.number}: ${i.title}`);
   lines.push('', 'رابعًا: التوصيات والخطوات العملية', '', 'خامسًا: المستندات المطلوبة');
+  return lines.join('\n');
+}
+
+/**
+ * v10 b2b-staff (U10-L04، L-58): هيكل رأي ملف الشركة — تعبئة التسليم من الرأي المعتمد تقرأ «الخلاصة التنفيذية».
+ * لعقود المراجعة والصياغة والسرية يُضاف «التعديلات المقترحة على البنود».
+ */
+export const COMPANY_HEADINGS = Object.freeze(['الخلاصة التنفيذية', 'المخاطر الرئيسية ودرجتها', 'التوصيات', 'التحليل القانوني']);
+export const COMPANY_STEPS_LABEL = 'خطوات للشركة';
+export const COMPANY_WRITE_HINT = 'تصيغ الإدارة التسليم النهائي للشركة. لا تذكر اسمك داخل النص أو في الملفات.';
+const CONTRACT_TYPES = ['contract_review', 'contract_drafting', 'nda'];
+export function companyOpinionSkeleton(issues, requestType) {
+  const active = (issues || []).filter((i) => i.status === 'active');
+  const lines = [];
+  COMPANY_HEADINGS.forEach((t, i) => {
+    if (i) lines.push('');
+    lines.push(t);
+    if (t === 'التحليل القانوني') for (const x of active) lines.push(`المسألة ${x.number}: ${x.title}`);
+  });
+  if (CONTRACT_TYPES.includes(requestType)) lines.push('', 'التعديلات المقترحة على البنود');
   return lines.join('\n');
 }
 
@@ -215,10 +236,12 @@ export default async function render(ctx) {
   // خطوات عملية للمستفيد/ة (B91-16) — اختيارية ومطوية
   const stepsTa = h('textarea.input.lw-steps-input', { rows: 4, dir: 'auto', maxlength: 3000, id: uid('lw-steps'), placeholder: 'خطوة في كل سطر' });
   const stepsWarn = h('p.lw-steps-warn', { hidden: true });
+  const isCompany = !!view.company; // v10 b2b-staff (U10-L04)
+  const stepsLabel = isCompany ? COMPANY_STEPS_LABEL : 'خطوات عملية للمستفيد/ة';
   const stepsBox = h(
     'details.lw-steps',
-    h('summary', h('span', 'خطوات عملية للمستفيد/ة (اختياري)'), icon('chevronDown', { size: 18, className: 'lw-chev' })),
-    h('div.lw-steps-body', h('label.sr-only', { htmlFor: stepsTa.id }, 'خطوات عملية للمستفيد/ة'), stepsTa, h('p.field-hint', 'بلغة بسيطة؛ تراجعها الإدارة قبل الإرسال ولا تظهر باسمك.'), stepsWarn),
+    h('summary', h('span', isCompany ? `${COMPANY_STEPS_LABEL} (اختياري، حتى ${MAX_STEPS})` : 'خطوات عملية للمستفيد/ة (اختياري)'), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+    h('div.lw-steps-body', h('label.sr-only', { htmlFor: stepsTa.id }, stepsLabel), stepsTa, h('p.field-hint', isCompany ? 'توصيات عملية بلغة واضحة؛ تراجعها الإدارة قبل التسليم ولا تظهر باسمك.' : 'بلغة بسيطة؛ تراجعها الإدارة قبل الإرسال ولا تظهر باسمك.'), stepsWarn),
   );
 
   const currentValue = () => composite(ta.value, stepsTa.value);
@@ -333,7 +356,7 @@ export default async function render(ctx) {
     import('../../components/doc-ai.js')
       .then((m) => m.openDocAi({ documentId: d.id, scope: 'lawyer', onView: () => openDocument(d) }))
       .catch((err) => toast(errorMessage(err), 'danger'));
-  const docOpts = (d) => ({ claude: claude && d.granted !== false, onAnalyze: analyzeDoc });
+  const docOpts = (d) => ({ claude: claude && d.granted !== false, onAnalyze: analyzeDoc, sourceLabel: view.company && d.uploaded_by_kind === 'client' ? 'من الشركة' : undefined }); // v10 b2b-staff
 
   function briefRef() {
     const issues = (view.issues || []).filter((i) => i.status === 'active');
@@ -347,6 +370,13 @@ export default async function render(ctx) {
           : h('p.lw-muted', 'لا مسائل محددة متاحة لك.'),
       ),
     );
+  }
+  function companyRef() {
+    const host = h('div.lw-co-ref');
+    import('../../../lib/company-catalog-fields.js')
+      .then((m) => mount(host, companyContextSection(view.company, { fields: m.memoryFields })))
+      .catch(() => mount(host, companyContextSection(view.company)));
+    return host;
   }
   function docsRef() {
     const docs = view.documents || [];
@@ -404,6 +434,7 @@ export default async function render(ctx) {
 
   // اللوحة المرجعية على الحاسوب (تبويبات)
   const refTabs = [
+    view.company ? { key: 'company', label: 'سياق الشركة', render: () => companyRef() } : null, // v10 b2b-staff (U10-L03)
     { key: 'brief', label: 'المطلوب والمسائل', render: briefRef },
     returned && notes.length ? { key: 'notes', label: 'ملاحظات الإدارة', render: () => { const host = h('div.lw-notes-host'); notesHosts.push(host); mount(host, notesList()); return host; } } : null,
     { key: 'docs', label: 'المستندات', render: docsRef },
@@ -434,7 +465,7 @@ export default async function render(ctx) {
       title: 'المطلوب والمسائل',
       size: 'md',
       sheet: true, className: 'lw-sheet lw-ref-sheet',
-      body: h('div.lw-ref-sheet-body', briefRef(), h('section.lw-ref-sec', h('h3', 'المستندات'), docsRef())),
+      body: h('div.lw-ref-sheet-body', view.company ? companyRef() : null, briefRef(), h('section.lw-ref-sec', h('h3', 'المستندات'), docsRef())), // v10 b2b-staff
       onClose: () => {
         requestAnimationFrame(() => {
           ta.focus({ preventScroll: true });
@@ -450,7 +481,7 @@ export default async function render(ctx) {
 
   // ───────────── أدوات ⋯ ─────────────
   function insertSkeleton() {
-    const sk = opinionSkeleton(view.issues);
+    const sk = view.company ? companyOpinionSkeleton(view.issues, view.company.request_type) : opinionSkeleton(view.issues); // v10 b2b-staff
     const wasEmpty = !ta.value.trim();
     ta.value = wasEmpty ? sk : `${ta.value.replace(/\s+$/, '')}\n\n${sk}`;
     onEdit();
@@ -548,7 +579,7 @@ export default async function render(ctx) {
         'div.lw-menu',
         item('هيكل الرأي', 'عناوين الرأي والمسائل المتاحة لك', icon('queue', { size: 20 }), insertSkeleton),
         returned ? item('قارن بالإصدار المعاد', `ما تغيّر منذ الإصدار ${num(returned.version)}`, icon('refresh', { size: 20 }), openCompare) : null,
-        claude ? item('مسودة أولية آلية', 'مسودة للمساعدة فقط — راجعها قبل التقديم.', icon('sparkle', { size: 20 }), () => aiDraft(menuBtn)) : null,
+        claude && !view.company ? item('مسودة أولية آلية', 'مسودة للمساعدة فقط — راجعها قبل التقديم.', icon('sparkle', { size: 20 }), () => aiDraft(menuBtn)) : null, // v10 b2b-staff (L-29): لا مسودة آلية لملفات الشركات
         phone ? item('حالات مشابهة اعتمدتها المؤسسة', null, icon('book', { size: 20 }), openSimilarSheet) : null,
       ),
     });
@@ -954,6 +985,7 @@ export default async function render(ctx) {
     bannerHost,
     h('label.sr-only', { htmlFor: taId }, 'نص رأيك'),
     ta,
+    view.company ? h('p.field-hint.lw-co-hint', icon('info', { size: 14 }), COMPANY_WRITE_HINT) : null, // v10 b2b-staff (U10-L04)
     stepsBox,
   );
   mount(scroller, editorCol);

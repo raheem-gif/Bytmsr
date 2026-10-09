@@ -29,6 +29,7 @@ import {
   richText,
 } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
+import { emailOutboxPanel } from '../../components/email-settings.js'; // v10 b2b-staff (STF-9، U10-S24): «صادر البريد»
 
 const RULES = {
   hearing_reminder: {
@@ -221,7 +222,7 @@ export default async function render(ctx) {
   const waConfigured = Boolean(data.whatsapp_configured);
   const validStatuses = options('message_status').map((o) => o.value);
   const outboxState = { status: validStatuses.includes(ctx.query.status) ? ctx.query.status : '' };
-  let activeTab = ctx.query.tab === 'outbox' ? 'outbox' : 'rules';
+  let activeTab = ctx.query.tab === 'outbox' ? 'outbox' : ctx.query.tab === 'email' && isAdmin ? 'email' : 'rules'; // v10 b2b-staff: + «صادر البريد» (A)
 
   function syncUrl() {
     replaceQuery('/automations', { tab: activeTab === 'rules' ? '' : activeTab, status: activeTab === 'outbox' ? outboxState.status : '' });
@@ -591,7 +592,8 @@ export default async function render(ctx) {
     [
       { key: 'rules', label: 'قواعد الأتمتة', icon: 'zap', count: rules.filter((r) => r.enabled).length, render: rulesPanel },
       { key: 'outbox', label: 'صندوق الصادر', icon: 'send', render: outboxPanel },
-    ],
+      isAdmin ? { key: 'email', label: 'صادر البريد', icon: 'mail', render: () => emailOutboxPanel() } : null, // v10 b2b-staff (U10-S24)
+    ].filter(Boolean),
     {
       active: activeTab,
       onChange: (key) => {

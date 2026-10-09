@@ -41,6 +41,8 @@ export function navGroups(user, meta) {
         navItem('/calendar', 'calendar'),
       ],
     },
+    // v10 b2b-staff (H-S2): خدمة الشركات — العدد على «طلبات الشركات» من /admin/b2b/overview مع دورة الإشعارات
+    { title: 'خدمة الشركات', items: [navItem('/company-requests', 'inboxStack', { coBadge: true }), navItem('/companies', 'building')] },
     {
       title: 'الشبكة والمالية والبرامج',
       items: [navItem('/lawyers', 'scale'), isAdmin && navItem('/accounting', 'wallet'), navItem('/programs', 'book'), navItem('/conflicts', 'shieldCheck')],
@@ -104,6 +106,7 @@ export function createShell({ user, meta, onLogout }) {
   // ── الشريط الجانبي ──
   const navLinks = [];
   const navCounts = [];
+  let coBadgeEl = null; // v10 b2b-staff (H-S2): عدد «طلبات الشركات» التي تحتاج الفريق
   const groups = navGroups(user, meta);
   const navState = readNavState(); // { [عنوان المجموعة]: true مفتوحة | false مطوية } باختيار المستخدم
   const groupCtl = []; // { title, el, links, set(open), userSet }
@@ -142,8 +145,9 @@ export function createShell({ user, meta, onLogout }) {
           'ul',
           { id: listId, 'aria-labelledby': titleId },
           g.items.map((item) => {
-            const countEl = item.notif ? h('span.nav-count', { hidden: true, 'aria-hidden': 'true' }) : null;
-            if (countEl) navCounts.push(countEl);
+            const countEl = item.notif || item.coBadge ? h('span.nav-count', { hidden: true, 'aria-hidden': 'true' }) : null;
+            if (countEl && item.notif) navCounts.push(countEl);
+            if (countEl && item.coBadge) coBadgeEl = countEl; // v10 b2b-staff (H-S2)
             const a = h(
               'a.nav-link',
               { href: `#${item.href}`, dataset: { path: item.href } },
@@ -385,6 +389,18 @@ export function createShell({ user, meta, onLogout }) {
       if (!dropdown.hidden) renderDropdown();
     } catch {
       /* يُعاد المحاولة في الدورة التالية؛ 401 يُعالج عبر auth:expired */
+    }
+    // v10 b2b-staff (H-S2): عدد «طلبات الشركات» (جديدة + تحتاج الفريق + متأخرة) — طلب خلفية مع نفس الدورة
+    if (coBadgeEl && !destroyed) {
+      try {
+        const o = await api.get('/admin/b2b/overview', undefined, { background: true });
+        const n = Math.max(0, Number(o && o.badge) || 0);
+        coBadgeEl.textContent = n > 99 ? '99+' : String(n);
+        coBadgeEl.hidden = n === 0;
+        coBadgeEl.closest('a')?.setAttribute('aria-label', n ? `طلبات الشركات، تحتاج إجراءً: ${n}` : 'طلبات الشركات');
+      } catch {
+        /* الدورة التالية */
+      }
     }
   }
 

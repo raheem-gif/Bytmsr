@@ -37,6 +37,23 @@ const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'i
 export default async function render(ctx) {
   const d = await api.get(`/admin/clients/${encodeURIComponent(ctx.params.id)}`);
   const c = d.client;
+  // v10 b2b-staff (STF-10، L-18): العميل الداخلي لشركة عميلة لا يُدار كمستفيد/ة — سطر واحد ورابط صفحة الشركة
+  if (d.company || c.company_id) {
+    const co = d.company || { id: c.company_id, name: c.name };
+    ctx.setTitle(`حساب داخلي — ${co.name}`);
+    return h(
+      'div.page',
+      pageHeader({ title: co.name, breadcrumbs: [{ label: 'المستفيدون', href: '#/clients' }, { label: c.code }] }),
+      card({
+        body: h(
+          'div.cd-shadow',
+          icon('building', { size: 24 }),
+          h('p', `هذا حساب داخلي لشركة عميلة — ${co.name}`),
+          button('فتح صفحة الشركة', { variant: 'primary', icon: 'building', href: `#/companies/${co.id}` }),
+        ),
+      }),
+    );
+  }
   const base = `/admin/clients/${c.id}`;
   const identities = d.identities || [];
   const intakes = d.intakes || [];

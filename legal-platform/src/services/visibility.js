@@ -455,6 +455,11 @@ export function createVisibility(app) {
           ? "(a.status IN ('approved','withdrawn') OR c.status = 'closed') AND a.status != 'withdrawn'"
           : "a.status IN ('assigned','in_progress','submitted','returned') AND c.status != 'closed'";
       const t = nowIso();
+      const reds = new Map(); // v10 b2b-server review: منقٍّ واحد لكل شركة في القائمة
+      const redFor = (companyId) => {
+        if (!reds.has(companyId)) reds.set(companyId, app.companyRequests.lawyerRedactor(companyId));
+        return reds.get(companyId);
+      };
       return db
         .all(
           `SELECT a.*, c.code AS case_code, c.title AS case_title, c.legal_area, c.priority, c.status AS case_status, c.company_id,
@@ -469,6 +474,8 @@ export function createVisibility(app) {
            ORDER BY CASE WHEN a.due_at IS NULL THEN 1 ELSE 0 END, a.due_at, a.id DESC`,
           lawyer.id,
         )
+        // v10 b2b-server review (INV-B5، L-57): عنوان ملف الشركة والمطلوب من المحامي بلا أسماء مستخدمي الشركة وبريدهم وهواتفهم
+        .map((r) => (r.company_id && app.companyRequests ? { ...r, case_title: redFor(r.company_id)(r.case_title), brief: redFor(r.company_id)(r.brief) } : r))
         .map((r) => ({
           id: r.id,
           case_code: r.case_code,

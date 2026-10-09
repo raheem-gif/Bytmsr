@@ -352,6 +352,7 @@ export function createCases(app) {
       const c = svc.require(caseId);
       const patch = { updated_at: nowIso() };
       if (body.title !== undefined) patch.title = v.str(body.title, 'عنوان الملف', { required: true, max: 200 });
+      if (patch.title && c.company_id && app.companyRequests) patch.title = app.companyRequests.lawyerRedactor(c.company_id)(patch.title); // v10 b2b-server review (INV-B5): عنوان ملف الشركة يصل المحامين
       if (body.facts_internal !== undefined) patch.facts_internal = v.str(body.facts_internal, 'الوقائع الداخلية', { max: 20000 });
       if (body.facts_shared !== undefined) patch.facts_shared = v.str(body.facts_shared, 'ملخص الوقائع للمحامي', { max: 20000 });
       if (body.priority !== undefined) patch.priority = v.oneOf(body.priority, ENUMS.priority, 'الأولوية', { required: true });
@@ -509,7 +510,8 @@ export function createCases(app) {
       const feeMinor = feeMode === 'custom' ? (b2b?.fee_mode === 'custom' && !body.fee_mode ? b2b.fee_amount_minor : v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true })) : null;
       const settings = app.settings.all();
       const dueAt = v.iso(body.due_at, 'موعد التسليم') || b2b?.due_at || addDays(nowIso(), Number(settings.default_assignment_days) || 3);
-      const brief = v.str(body.brief, 'السؤال المطلوب تحديدًا', { max: 5000 });
+      let brief = v.str(body.brief, 'السؤال المطلوب تحديدًا', { max: 5000 });
+      if (brief && c.company_id && app.companyRequests) brief = app.companyRequests.lawyerRedactor(c.company_id)(brief); // v10 b2b-server review (INV-B5): المطلوب من المحامي بلا بيانات موظفي الشركة
       if (role === 'lead') {
         const lead = db.get("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead' AND status != 'withdrawn'", c.id);
         if (lead) throw conflict('يوجد محامٍ أساسي بالفعل لهذا الملف. اسحب الإسناد الحالي أو أعد فتح مهمته، أو اختر دورًا آخر.');
