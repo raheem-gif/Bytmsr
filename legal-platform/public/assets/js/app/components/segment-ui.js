@@ -40,6 +40,22 @@ export function segLabel(group, key) {
   return (FALLBACK[group] && FALLBACK[group][key]) || String(key);
 }
 
+/**
+ * v11 gate fix (J-13/V13): اسم صاحب الطلب في نصوص الإدارة حسب نوع الخدمة — «المستفيد/ة» للخيري (ولـ«غير محدد» كما كان قبل 11)،
+ * «العميل/ة» للأفراد والشركات، «الشركة» لملف شركة. للإدارة فقط: نصوص المحامين لا تتغير أبدًا (لا يُكشف النوع للمحامي).
+ * def = المعرّف، li = مع لام الجر، bi = مع الباء، bare = نكرة، acc = نكرة منصوبة.
+ */
+export function clientNoun(segment, { company = false } = {}) {
+  if (company) return { def: 'الشركة', li: 'للشركة', bi: 'بالشركة', bare: 'شركة', acc: 'شركةً' };
+  if (parseSeg(segment) === 'paid') return { def: 'العميل/ة', li: 'للعميل/ة', bi: 'بالعميل/ة', bare: 'عميل/ة', acc: 'عميلًا' };
+  return { def: 'المستفيد/ة', li: 'للمستفيد/ة', bi: 'بالمستفيد/ة', bare: 'مستفيد/ة', acc: 'مستفيدًا' };
+}
+
+/** v11 gate fix (J-13): ضمير المخاطَب في نصوص الإدارة — «ها» للمؤنث، «ه» للمذكر، «هم» لطلب شركة */
+export function pronounOf(form, { company = false } = {}) {
+  return company ? 'هم' : form === 'm' ? 'ه' : 'ها';
+}
+
 /** قيمة صالحة 'charity' | 'paid' أو null */
 export function parseSeg(v) {
   return SEGMENT_VALUES.includes(v) ? v : null;
@@ -114,7 +130,10 @@ export function lineMismatchChip(line) {
 
 /** r2 S8: «وصلت على رقم غير مضبوط (…{last4})» */
 export function unknownLineText(last4) {
-  return `وصلت على رقم غير مضبوط (…${last4 || '????'})`;
+  // v11 gate fix (K13c/J-20): آخر 4 أرقام فقط حين يكون المعرّف أرقامًا (معرّف ميتا الحقيقي)؛ معرّف تجريبي مثل SIM-UNKNOWN
+  // كان يظهر «(…NOWN)» معكوسًا — بلا أرقام نكتفي بـ«وصلت على رقم غير مضبوط»
+  const digits = String(last4 ?? '').trim();
+  return /^[0-9\u0660-\u0669]{1,4}$/.test(digits) ? `وصلت على رقم غير مضبوط (…${digits})` : 'وصلت على رقم غير مضبوط';
 }
 
 export function unknownLineChip(last4) {

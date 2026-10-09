@@ -100,7 +100,7 @@ export function companyLead(ctx) {
   if (X.company?.css && !document.querySelector('link[data-lead-css]')) {
     document.head.append(h('link', { rel: 'stylesheet', href: X.company.css, 'data-lead-css': '' }));
   }
-  if (ctx.brandName()) document.title = `${T.h1} — ${ctx.brandName()}`;
+  // v11 fixer-public (J-14): عنوان التبويب يبقى عنوان الخادم G11-05 «طلب عرض لخدمات الشركات — …» (لا يُستبدل بعنوان الشاشة)
   const sid = ctx.newSubmissionId();
   const input = (attrs) => h('input.bmf-input', { type: 'text', ...attrs });
   const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }), true);

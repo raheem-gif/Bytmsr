@@ -263,6 +263,14 @@ body.pub .pub-nav-cta {
   color: var(--on-tint);
 }
 
+/* v11 fixer-public (K12/J-06، V11-P2): في صفحات البداية فوق 1080px زر الرأس ملوّن خفيف، فزر الصفحة نفسها هو الممتلئ الوحيد */
+@media (min-width: 1081px) {
+  body.pub-landing .pub-nav-cta {
+    background: var(--tint-weak);
+    color: var(--tint);
+  }
+}
+
 .pub-seg-pill-change,
 .pub-nav-gate,
 .pub-head-contact,
@@ -428,28 +436,6 @@ body.pub .pub-pick-tile:has(small) {
   }
 }
 
-@media (min-width: 700px) {
-  .pub-pick {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    --tile-h: 156px;
-  }
-
-  .pub-pick-ways,
-  .pub-pick-ways[data-n="2"] {
-    grid-template-columns: repeat(3, minmax(0, 220px));
-    justify-content: start;
-  }
-
-  .pub-pick-way {
-    flex-direction: row;
-    justify-content: center;
-    gap: 10px;
-    min-height: 52px;
-    padding-block: 4px;
-  }
-}
-
 /* الصور: أصناف pictos.js — pa/pb تعبئة بألوان العلامة، pl زينة فقط، po خط لمعنى لا يجوز أن يبهت */
 .pa {
   fill: var(--primary-700);
@@ -531,6 +517,29 @@ body.pub .pub-pick-way--wa {
 
 .pub-pick-way--wa .pw {
   fill: var(--pub-whatsapp);
+}
+
+/* v11 fixer-public (V7): بعد قواعد الطرق الأساسية حتى لا تغلبها (نفس الخصوصية): طرق 220px تبدأ من اليمين */
+@media (min-width: 700px) {
+  .pub-pick {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    --tile-h: 156px;
+  }
+
+  .pub-pick-ways,
+  .pub-pick-ways[data-n="2"] {
+    grid-template-columns: repeat(3, minmax(0, 220px));
+    justify-content: start;
+  }
+
+  .pub-pick-way {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    min-height: 52px;
+    padding-block: 4px;
+  }
 }
 
 .pub-start-trust {
@@ -2903,6 +2912,8 @@ body.pub .gate-card {
 body.pub .gate-links a {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
   color: var(--label-2);
   font-size: 15px;
@@ -3137,7 +3148,7 @@ body.pub .pub-co-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 60px;
+  min-height: 88px;
   padding: 10px 16px;
   color: var(--label);
   text-decoration: none;
@@ -3160,16 +3171,39 @@ body.pub .pub-co-row {
   line-height: 1.45;
 }
 
-/* سطر فرعي واحد في قائمة المواضيع وحدها (L11-55): ارتفاع الصف ثابت مهما كان الخط (لا إزاحة حين يصل الخط العربي).
-   مراجعة: كانت القاعدة على كل .g-sub فقصّت جمل «التزامنا معكم» (الأتعاب والسرية) بنقاط. */
+/* السطر الفرعي في قائمة المواضيع: حتى سطرين (v11 fixer-public V8/J-16: كان سطرًا واحدًا فقُصّ «…وغيرها» على الهاتف)،
+   والصف بارتفاع سطرين محجوز (10+23.8+43.5+10) فلا يتغير ارتفاعه حين يصل الخط العربي (لا إزاحة، r2 S26) */
 .pub-topic-list .g-sub {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .pub-start--paid .pub-pick-ways {
   margin-top: 14px;
+}
+
+/* v11 fixer-public (J-06): «نتصل بكم» ملوّن خفيف في جانب الأفراد (النموذج services-home)؛ الذهبي الممتلئ لـ«خيري» وحدها (INV-10) */
+body.pub-paid .pub-pick-way--callback {
+  border-color: transparent;
+  background: var(--gold-wash);
+  color: var(--gold-ink);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-500-rgb) / 0.55);
+}
+
+body.pub-paid .pub-pick-way--callback .pa {
+  fill: var(--gold-ink);
+}
+
+body.pub-paid .pub-pick-way--callback .pb {
+  fill: var(--accent-600);
+}
+
+.pub-paid-sub,
+.pub-cross,
+.pub-co-row {
+  text-wrap: pretty;
 }
 
 /* (r2 S26) ارتفاعات محجوزة تسع سطور الخط الاحتياطي: لا يتحرك شيء حين يصل الخط العربي */
@@ -3210,7 +3244,7 @@ body.pub .pub-co-row {
 @media (min-width: 1024px) {
   .pub-paid-hero {
     display: grid;
-    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
     gap: 40px;
     align-items: start;
   }
@@ -3284,6 +3318,14 @@ body.pub .pub-topic-list .g-row:focus-visible {
   .pub-seg-pill-swap {
     display: none;
   }
+
+  /* v11 fixer-public (V11): «تغيير» جزء ثانٍ أهدأ بعد فاصل، لا كلمة بنفس وزن اسم الجانب */
+  .pub-seg-pill-change {
+    padding-inline-start: 8px;
+    border-inline-start: 1px solid var(--separator);
+    color: var(--label-2);
+    font-weight: 500;
+  }
 }
 
 /* «التزامنا معكم»: قائمة مجمّعة واحدة */
@@ -3316,14 +3358,16 @@ body.pub .pub-topic-list .g-row:focus-visible {
   margin-top: 2px;
 }
 
-/* مراجعة (PW-G14، زر مملوء واحد في الشاشة): فوق 1080px يبقى «طلب استشارة» المملوء في الرأس الثابت ظاهرًا دائمًا،
-   فزر نهاية الصفحة (نفس الإجراء ونفس الرابط) يصير ملوّنًا خفيفًا؛ على الهاتف القائمة مطوية فيبقى هو الزر المملوء */
-@media (min-width: 1081px) {
-  body.pub-paid .pub-final-cta .pub-btn-primary,
-  body.pub-paid .pub-final-cta .pub-btn-primary:hover {
-    background: var(--tint-weak);
-    color: var(--tint);
-  }
+/* v11 fixer-public (K12/J-06): زر الرأس صار ملوّنًا خفيفًا في صفحات البداية (الكتلة العامة)، فزر النهاية «طلب استشارة» هو
+   الممتلئ الوحيد؛ وواتساب في «تواصلوا معنا» ملوّن خفيف بجانبه (زر ممتلئ واحد في الشاشة، V11-P2) */
+body.pub-paid #contact .pub-btn-whatsapp {
+  background: var(--ok-weak);
+  color: var(--ok);
+}
+
+body.pub-paid #contact .pub-btn-whatsapp:hover {
+  background: var(--ok);
+  color: var(--on-tint);
 }
 
 /* مراجعة (V11-53): في الألوان القسرية تختفي الخلفيات، فالقوائم المجمّعة وصف «للشركات» تأخذ حافة ولون فواصل من النظام */
@@ -3490,6 +3534,11 @@ body.pub .pub-band-more a {
 /* GP-5 (L11-14، r2 P2): صف الرجوع لـ«خيري» في /intake للأفراد والشركات — تحت عنوان شاشتي الموضوع والرقم */
 .bmf-step > .pub-cross {
   margin-block: 4px 16px;
+}
+
+/* v11 fixer-public (V12): في شاشة الرقم بعد زر الإرسال */
+.bmf-actions + .pub-cross {
+  margin-top: 16px;
 }
 
 /* GP-5 (L11-37): «أو سجّلوا رسالة صوتية» تحت خانة الكتابة في شاشة الموضوع (الكتابة أولًا) */

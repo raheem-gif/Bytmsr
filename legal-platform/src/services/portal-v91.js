@@ -26,6 +26,7 @@ import { LABELS, GOVERNORATES } from '../constants.js';
 // v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
 import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 import { isPortalUnverifiedIntake } from '../channels/engine.js';
+import { paidHours } from '../site-copy-paid.js'; // v11 fixer-public (V2): المواعيد بالفصحى في صفحة الأفراد والشركات
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
 
@@ -311,7 +312,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
         phone_e164: phonePaid ? U.normalizePhone(phonePaid) || '' : ps?.org_phone_e164 || '',
         whatsapp_digits: app.segments.publicDigits('paid') || '',
         whatsapp_prefill: app.segments.publicPrefill('paid'),
-        office_hours: ps?.office_hours || s.office_hours || '',
+        office_hours: paidHours(ps?.office_hours || s.office_hours || ''),
         open_now: officeOpen(s.office_hours_schedule),
       };
     }
@@ -329,6 +330,21 @@ export function createPortalV91(app, { scopeOf, inList }) {
   /** v11 segment-server (S11-16): نوع خدمة القصة في صفحة المتابعة (الملف ثم الطلب؛ ملف الشركة «أفراد وشركات») */
   const storySegment = (st) => (st.kase ? (st.kase.company_id ? 'paid' : st.kase.segment || 'charity') : st.intake ? (st.intake.segment ?? null) : 'charity');
   const toneOfSegment = (seg) => (seg === 'charity' ? 'charity' : seg === 'paid' ? 'paid' : 'neutral');
+  /** v11 fixer-public (K11/J-05): مراحل صفحة الأفراد والشركات بالفصحى بصيغة الجمع (نصوص «خيري» في stageOf كما هي) */
+  const STAGE_PAID = {
+    titles: ['استلمنا طلبكم', 'يراجع فريقنا طلبكم', 'يدرس المحامي طلبكم'],
+    answered: 'وصلكم الرد',
+    done: 'اكتمل الطلب',
+    court: 'قضيتكم أمام المحكمة',
+    waitPaper: 'ننتظر منكم المستندات لنستكمل طلبكم',
+    waitReply: 'ننتظر ردكم لنستكمل طلبكم',
+    lastMsg: 'اطّلعوا على آخر رسالة منا',
+    readAnswer: 'اقرؤوا ردنا على طلبكم',
+    finalReview: 'نراجع الرد قبل إرساله إليكم',
+    noHearing: 'لم يُحدَّد موعد الجلسة بعد',
+  };
+  /** «خلال يوم عمل» · «خلال يومَي عمل» · «خلال 3 أيام عمل» · «خلال 12 يوم عمل» (كما في شاشة «وصلنا طلبكم») */
+  const paidWorkDays = (n) => (n === 1 ? 'خلال يوم عمل' : n === 2 ? 'خلال يومَي عمل' : n <= 10 ? `خلال ${n} أيام عمل` : `خلال ${n} يوم عمل`);
 
   /**
    * هل المؤسسة تعمل الآن بتوقيت القاهرة؟ من office_hours_schedule { days: [0..6 بترقيم getDay], from, to }.
@@ -385,13 +401,17 @@ export function createPortalV91(app, { scopeOf, inList }) {
    * مرحلة القصة بالكلام البسيط (نفس الكلمات في الصفحة وفي رسائل واتساب):
    * received | review | waiting_you | study | final_review | answered | court | done
    */
-  function stageOf(story, { form = 'f', iso = nowIso() } = {}) {
+  function stageOf(story, { form = 'f', iso = nowIso(), tone = 'charity' } = {}) {
     const { intake, kase, matter } = story;
+    // v11 fixer-public (K11/J-05، L11-35): صفحة الأفراد والشركات (نبرة غير «خيري») لا تخلط الفصحى بالعامية في شريط المراحل
+    const T = tone === 'charity' ? null : STAGE_PAID;
     const etaReview = Math.max(1, Number(setting('portal_eta_review_days')) || 2);
     const etaMin = Math.max(1, Number(setting('portal_eta_study_min_days')) || 7);
     const etaMax = Math.max(etaMin, Number(setting('portal_eta_study_max_days')) || 14);
-    const reviewHint = `غالبًا خلال ${arabicCount(etaReview, WORK_DAYS)}`;
-    const studyHint = `ده بياخد غالبًا من ${etaMin} لـ ${arabicCount(etaMax, STUDY_DAYS).replace(/^(\d+) أيام$/, '$1 يوم')}`;
+    const reviewHint = T ? `عادةً ${paidWorkDays(etaReview)}` : `غالبًا خلال ${arabicCount(etaReview, WORK_DAYS)}`;
+    const studyHint = T
+      ? `يستغرق ذلك عادةً من ${etaMin} إلى ${etaMax} ${etaMax >= 3 && etaMax <= 10 ? 'أيام' : 'يومًا'}`
+      : `ده بياخد غالبًا من ${etaMin} لـ ${arabicCount(etaMax, STUDY_DAYS).replace(/^(\d+) أيام$/, '$1 يوم')}`;
     // طلب مننا لسه مستنيين ردها عليه (ورق أو معلومة)
     let waiting = null;
     if (kase) {
@@ -402,7 +422,8 @@ export function createPortalV91(app, { scopeOf, inList }) {
       }
     }
     if (!kase && intake?.status === 'awaiting_client') waiting = 'reply';
-    const waitingHint = waiting ? `مستنيين منك ${waiting === 'paper' ? 'الورق' : 'ردّك'} عشان نكمّل` : null;
+    const waitingHint = waiting ? (T ? (waiting === 'paper' ? T.waitPaper : T.waitReply) : `مستنيين منك ${waiting === 'paper' ? 'الورق' : 'ردّك'} عشان نكمّل`) : null;
+    const lastMsg = () => (T ? T.lastMsg : genderize('شوف{ي} آخر رسالة مننا', form));
 
     let step = 2;
     let key = 'review';
@@ -416,11 +437,11 @@ export function createPortalV91(app, { scopeOf, inList }) {
       if (matter.status === 'closed') {
         key = 'done';
         complete = true;
-        hint = genderize('شوف{ي} آخر رسالة مننا', form);
+        hint = lastMsg();
       } else {
         key = 'court';
         const next = db.get("SELECT starts_at FROM matter_events WHERE matter_id = ? AND status = 'scheduled' AND starts_at >= ? ORDER BY starts_at LIMIT 1", matter.id, iso);
-        hint = next ? `الجلسة الجاية: ${spokenDate(next.starts_at)}` : 'لسه مفيش جلسة متحددة';
+        hint = next ? `${T ? 'الجلسة القادمة' : 'الجلسة الجاية'}: ${spokenDate(next.starts_at)}` : T ? T.noHearing : 'لسه مفيش جلسة متحددة';
       }
     } else if (kase) {
       if (kase.status === 'closed' || kase.status === 'answered') {
@@ -428,16 +449,16 @@ export function createPortalV91(app, { scopeOf, inList }) {
         complete = true;
         if (answerSent) {
           key = 'answered';
-          hint = genderize('اقر{ي} الرد في «ردّنا عليك{ي}»', form);
+          hint = T ? T.readAnswer : genderize('اقر{ي} الرد في «ردّنا عليك{ي}»', form);
         } else {
           key = 'done';
           doneLabel = true;
-          hint = genderize('شوف{ي} آخر رسالة مننا', form);
+          hint = lastMsg();
         }
       } else if (kase.status === 'under_review' || kase.status === 'approved') {
         step = 3;
         key = 'final_review';
-        hint = 'بنراجع الرد قبل ما نبعته لك';
+        hint = T ? T.finalReview : 'بنراجع الرد قبل ما نبعته لك';
       } else if (kase.status === 'assigned' || kase.status === 'in_progress') {
         step = 3;
         key = 'study';
@@ -455,15 +476,15 @@ export function createPortalV91(app, { scopeOf, inList }) {
         key = 'done';
         complete = true;
         doneLabel = true;
-        hint = genderize('شوف{ي} آخر رسالة مننا', form);
+        hint = lastMsg();
       }
     }
     if (waiting && !complete && key !== 'court') {
       key = 'waiting_you';
       hint = waitingHint;
     }
-    const titles = ['استلمنا طلبك', 'فريقنا بيراجع طلبك', 'المحامي بيدرس مشكلتك', doneLabel ? 'الطلب خلص' : 'وصلك الرد'];
-    if (matter) titles.push('قضيتك في المحكمة');
+    const titles = T ? [...T.titles, doneLabel ? T.done : T.answered] : ['استلمنا طلبك', 'فريقنا بيراجع طلبك', 'المحامي بيدرس مشكلتك', doneLabel ? 'الطلب خلص' : 'وصلك الرد'];
+    if (matter) titles.push(T ? T.court : 'قضيتك في المحكمة');
     const steps = titles.map((title, i) => {
       const n = i + 1;
       const state = n < step || (n === step && complete) ? 'done' : n === step ? 'current' : 'next';
@@ -618,11 +639,23 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const isOpenStory = (x) => (x.kase ? x.kase.status !== 'closed' : x.intake ? ['new', 'in_review', 'awaiting_client'].includes(x.intake.status) : false);
     const scoped = !sc.full && sc.intake ? all.find((x) => x.intake?.id === sc.intake.id) : null;
     const latestOpen = [...all].filter(isOpenStory).sort((a, b) => String(b.intake?.created_at || b.kase?.created_at || '').localeCompare(String(a.intake?.created_at || a.kase?.created_at || '')))[0] || null;
-    const tone = scoped ? toneOfSegment(storySegment(scoped)) : latestOpen ? toneOfSegment(storySegment(latestOpen)) : 'charity';
+    // v11 fixer-public (F-B): بلا طلب مفتوح (ملف مغلق، أو طلب موقع لم يتأكد بعد فلا يظهر في رابط العميل) لا نرجع للخيري:
+    // أحدث قصة في الصفحة بأي حالة، ثم نبرة العميل من الخادم (أحدث طلب)؛ «خيري» فقط لمن لا تاريخ له مع الأفراد والشركات
+    const createdOf = (x) => String(x.intake?.created_at || x.kase?.created_at || '');
+    const latestAny = [...all].sort((a, b) => createdOf(b).localeCompare(createdOf(a)))[0] || null;
+    const pick = scoped || latestOpen || latestAny;
+    let tone = pick ? toneOfSegment(storySegment(pick)) : 'charity';
+    if (!pick && app.segments?.clientTone) {
+      try {
+        tone = app.segments.clientTone(client.id) || 'charity';
+      } catch {
+        tone = 'charity';
+      }
+    }
     const setForm = !sc.websiteOnly && (client.address_form === 'm' || client.address_form === 'f');
     const form = tone !== 'charity' && !setForm && !/^(أم|ام|إم)\s/.test(String(displayName).trim()) ? 'm' : form0;
     const storyViews = all.map((s) => {
-      const stage = stageOf(s, { form, iso });
+      const stage = stageOf(s, { form, iso, tone });
       const nextHearing = s.matter
         ? db.get("SELECT starts_at FROM matter_events WHERE matter_id = ? AND status = 'scheduled' AND starts_at >= ? ORDER BY starts_at LIMIT 1", s.matter.id, iso)
         : null;

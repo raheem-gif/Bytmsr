@@ -1437,6 +1437,21 @@ body.pub .bp-viewtitle:focus-visible {
   margin-top: 6px !important;
 }
 
+/* v11 fixer-public (K5، GP-6 P1): شعار المكتب الذهبي الداكن فوق «متابعة طلبك/طلبكم»؛ الصندوق محجوز (width/height) فلا إزاحة */
+.pub-signin-logo {
+  display: block;
+  width: min(52vw, 200px);
+  height: auto;
+  margin: 12px auto 4px;
+}
+
+@media (min-width: 700px) {
+  .pub-signin-logo {
+    width: 240px;
+    margin-top: 24px;
+  }
+}
+
 .bp-login .bp-card h2 {
   font-size: 19px;
   line-height: 1.5;
@@ -1507,6 +1522,31 @@ body.pub .bp-viewtitle:focus-visible {
   align-items: center;
   cursor: pointer;
   font-weight: 700;
+}
+
+/* v11 fixer-public (V16): «للتجربة» يظهر قابلًا للفتح (سهم يدور عند الفتح) لا عنوانًا يتيمًا */
+.bp-demo summary {
+  gap: 10px;
+  list-style: none;
+}
+
+.bp-demo summary::-webkit-details-marker {
+  display: none;
+}
+
+.bp-demo summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.bp-demo[open] summary::after {
+  margin-top: 4px;
+  transform: rotate(-135deg);
 }
 
 .bp-nocode {

@@ -71,6 +71,16 @@ export function byHealth(a, b) {
   return (b.late || 0) - (a.late || 0) || (b.at_risk || 0) - (a.at_risk || 0) || (b.awaiting_company || 0) - (a.awaiting_company || 0) || String(a.name).localeCompare(String(b.name), 'ar');
 }
 
+/**
+ * v11 gate fix (J-20/K13b): «إضافة كشركة عميلة» من طلب عرض شركة يفتح هذه الصفحة بـ ?new=1&name=…&phone=… —
+ * نقرأها لتعبئة ورقة «إضافة شركة» مسبقًا (تعبئة فقط؛ لا يُنشأ شيء دون «إنشاء الشركة»). null حين لا يُطلب فتح الورقة.
+ */
+export function companyPrefill(query = {}) {
+  if (!query || String(query.new) !== '1') return null;
+  const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+  return { name: clean(query.name, 150), phone: clean(query.phone, 20).replace(/[^0-9+\u0660-\u0669\u06f0-\u06f9 -]/g, '') };
+}
+
 export function statusBadgeOf(c) {
   return badge(c.status_label || label('company_status', c.status), STATUS_TONE[c.status] || 'neutral', { dot: true });
 }
@@ -80,6 +90,19 @@ export default async function render(ctx) {
   const isAdmin = user.role === 'admin';
   const state = { status: STATUS.some((s) => s.value === ctx.query.status) ? ctx.query.status : '', q: ctx.query.q || '' };
   let data = await api.get('/admin/companies', { status: state.status, q: state.q });
+  // v11 gate fix (J-20/K13b): ?new=1 يفتح ورقة الإضافة معبأة؛ ثم يُزال من الرابط حتى لا تعود الورقة عند التحديث
+  const prefill = companyPrefill(ctx.query);
+  if (prefill) {
+    try {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/companies`);
+    } catch {
+      /* لا شيء: الرابط يبقى كما هو */
+    }
+    setTimeout(() => {
+      if (isAdmin) openCreateCompany(ctx, { onCreated: load, prefill });
+      else toast('إضافة شركة عميلة متاحة لمدير النظام فقط — أرسلوا له اسم الشركة ورقمها.', 'info');
+    }, 0);
+  }
   const host = h('div');
   let seq = 0;
 
@@ -232,7 +255,7 @@ export function prefixChecker({ companyId = null, current = null } = {}) {
 // ───────────────────────── «إضافة شركة» (U10-S20، A) ─────────────────────────
 
 /** يفتح ورقة «إضافة شركة»؛ بعد الإنشاء تظهر شاشة النتيجة ثم يُفتح ملف الشركة */
-export async function openCreateCompany(ctx, { onCreated } = {}) {
+export async function openCreateCompany(ctx, { onCreated, prefill = null } = {}) {
   let plans = [];
   let staff = [];
   let trialDays = 14;
@@ -263,7 +286,7 @@ export async function openCreateCompany(ctx, { onCreated } = {}) {
       { name: 'name', label: 'الاسم المعروض', required: true, maxLength: 150, dir: 'auto', hint: 'يظهر لفريقنا وفي بوابة الشركة.' },
       { name: 'prefix', label: 'البادئة', required: true, ltr: true, placeholder: 'NFD', hint: 'حروف لاتينية كبيرة من 2 إلى 5، تظهر في أكواد الطلبات مثل NFD-0001' },
     ],
-    { footer: false },
+    { values: { name: prefill?.name || '' }, footer: false },
   );
   const prefix = prefixChecker();
   prefix.attach(fCompany.control('prefix').input);
@@ -365,10 +388,11 @@ export async function openCreateCompany(ctx, { onCreated } = {}) {
       { name: 'fa_phone', label: 'الهاتف', type: 'phone' },
       { name: 'fa_billing', type: 'checkbox', text: 'يتلقى إشعارات التكاليف الإضافية (جهة الفواتير)' },
     ],
-    { values: { fa_billing: true }, footer: false },
+    { values: { fa_billing: true, fa_phone: prefill?.phone || '' }, footer: false },
   );
 
   const forms = [fCompany, fLegal, fSub, fEntity, fManager, fAdmin];
+  const startPhone = fAdmin.getValues().fa_phone || '';
   const fieldMap = {
     name: [fCompany, 'name'],
     prefix: [fCompany, 'prefix'],
@@ -455,7 +479,10 @@ export async function openCreateCompany(ctx, { onCreated } = {}) {
     const c = fCompany.getValues();
     const a = fAdmin.getValues();
     const l = fLegal.getValues();
-    return Boolean(c.name || c.prefix || a.fa_name || a.fa_email || a.fa_job_title || l.legal_name || l.address || (editor && editor.isDirty()));
+    // (v11 gate fix J-20) القيم المعبأة مسبقًا من طلب العرض لا تُعدّ تعديلًا
+    const changedName = c.name && c.name !== (prefill?.name || '');
+    const changedPhone = a.fa_phone && a.fa_phone !== startPhone;
+    return Boolean(changedName || changedPhone || c.prefix || a.fa_name || a.fa_email || a.fa_job_title || l.legal_name || l.address || (editor && editor.isDirty()));
   };
 
   const handle = modal({

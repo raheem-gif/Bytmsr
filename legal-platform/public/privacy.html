@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>سياسة الخصوصية — {{site_name}}</title>
-    <meta name="description" content="سياسة الخصوصية لبرنامج {{program_name}} في {{org_legal_name}}: ما البيانات التي نجمعها عبر الموقع وواتساب، ولماذا، ومن يطّلع عليها، ومدة الاحتفاظ بها، وحقوقك وطريقة التواصل معنا." />
+    <!-- v11 fixer-public (V1): الوصف و«بالمختصر» حسب جانب الزائر؛ نص «خيري» كما في 10.0 حرفيًا -->
+    <meta name="description" content="<!--#if side_charity-->سياسة الخصوصية لبرنامج {{program_name}} في {{org_legal_name}}: ما البيانات التي نجمعها عبر الموقع وواتساب، ولماذا، ومن يطّلع عليها، ومدة الاحتفاظ بها، وحقوقك وطريقة التواصل معنا.<!--/if side_charity--><!--#if side_paid-->سياسة الخصوصية لدى {{brand_name}}: ما البيانات التي نجمعها عبر الموقع وواتساب، ولماذا، ومن يطّلع عليها، ومدة الاحتفاظ بها، وحقوقكم وطريقة التواصل معنا.<!--/if side_paid-->" />
     <!--site:head-->
     <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
@@ -25,13 +26,19 @@
           <h1 id="page-title">سياسة الخصوصية</h1>
           <div class="pub-summary" id="summary">
             <h2>بالمختصر</h2>
-            <ul>
+            <!--#if side_charity--><ul>
               <li>{{{icon_check}}}<span>بنستخدم بياناتك عشان نساعدك بس.</span></li>
               <li>{{{icon_check}}}<span>المحامي مش بيشوف رقمك ولا رسايلك.</span></li>
               <li>{{{icon_check}}}<span>مش بنبيع ولا بنشارك بياناتك مع حد.</span></li>
               <li>{{{icon_check}}}<span>تقدري تطلبي نمسح بياناتك في أي وقت.</span></li>
               <!--#if org_phone--><li>{{{icon_phone}}}<span>لو عندك سؤال: <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a></span></li><!--/if org_phone-->
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>{{{icon_check}}}<span>نستخدم بياناتكم لخدمة طلبكم فقط.</span></li>
+              <li>{{{icon_check}}}<span>لا يطّلع المحامي على رقمكم ولا على رسائلكم.</span></li>
+              <li>{{{icon_check}}}<span>لا نبيع بياناتكم ولا نشاركها مع أي جهة.</span></li>
+              <li>{{{icon_check}}}<span>يمكنكم طلب حذف بياناتكم في أي وقت.</span></li>
+              <!--#if org_phone--><li>{{{icon_phone}}}<span>لأي استفسار: <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a></span></li><!--/if org_phone-->
+            </ul><!--/if side_paid-->
           </div>
           <p>نوضح في هذه الصفحة بلغة واضحة كيف نتعامل مع بياناتك حين تتواصل مع برنامج {{program_name}} عبر الموقع أو واتساب أو غيرهما من قنوات المؤسسة.</p>
           <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>

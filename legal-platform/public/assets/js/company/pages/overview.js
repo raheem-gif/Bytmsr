@@ -84,7 +84,8 @@ function attentionRow(a) {
     default:
       return null;
   }
-  const btn = button(action, { variant: 'secondary', size: 'sm', href });
+  // v11 fixer-public (K6/R-10): كلمة الإجراء وبعدها سهم الصف (النموذج company-overview)
+  const btn = button(action, { variant: 'secondary', size: 'sm', href, iconEnd: 'chevronLeft' });
   const row = kRow({
     icon: h('span.co-attn-icon', icon(ic, { size: 20 })),
     title,
@@ -219,14 +220,15 @@ export default async function overview(ctx) {
   const list = h('ul.k-list.co-attn-list', rows.slice(0, MAX_ROWS));
   const more = rows.length > MAX_ROWS ? button(copy('home.attention_more', { n: countOf(rows.length - MAX_ROWS, 'attn_more') }), { variant: 'link', onClick: (e) => { list.append(...rows.slice(MAX_ROWS)); e.currentTarget.remove(); } }) : null;
   const attention = sectionCard(
-    rows.length ? [W.home.attention, ' ', h('span.co-count.num', `(${rows.length})`)] : W.home.attention,
+    // v11 fixer-public (K6/R-10): العدد رقمًا هادئًا بلا أقواس (count-quiet)
+    rows.length ? [W.home.attention, ' ', h('span.co-count.count-quiet.num', String(rows.length))] : W.home.attention,
     rows.length ? h('div', list, more) : h('div.co-empty-attn', h('span.co-empty-icon', { 'aria-hidden': 'true' }, icon('checkCircle', { size: 28 })), h('div', h('p.co-empty-title', W.home.empty_title), h('p.co-empty-text', copy('home.empty_text')))),
     { className: 'co-attention', label: W.home.attention },
   );
 
   const open = (home.open_requests || []).slice(0, 5);
   const openCard = sectionCard(
-    home.counts?.open ? [W.home.open_requests, ' ', h('span.co-count.num', `(${home.counts.open})`)] : W.home.open_requests,
+    home.counts?.open ? [W.home.open_requests, ' ', h('span.co-count.count-quiet.num', String(home.counts.open))] : W.home.open_requests,
     open.length
       ? h('ul.k-list', open.map((r) => h('li', coRequestRow(r))))
       : emptyState(W.requests.empty_text, isViewer() || readOnly() ? null : button(W.nav.new_request, { variant: 'secondary', icon: 'plus', href: '#/requests/new' }), { title: W.requests.empty_title, compact: true, icon: 'inbox' }),

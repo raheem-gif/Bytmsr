@@ -250,7 +250,8 @@ if (X) {
   Object.assign(MSG, X.MSG);
 }
 // صيغة كلام المسجّل والصور (recorder.js وupload.js): مذكر محايد للأفراد والشركات بدل المؤنث
-const ADDR = X ? 'm' : 'f';
+// v11 fixer-public (K11): المسجّل والتصوير بفصحى الجمع في صفحة الأفراد والشركات ('p' في recorder.js وupload.js)
+const ADDR = X ? 'p' : 'f';
 const HOME = X ? '/services' : '/';
 const fill = (s, o) => String(s).replace(/\{([a-z]+)\}/g, (m, k) => (k in o ? o[k] : m));
 // أسماء الأسئلة والإجابات والمواضيع وأوقات المكالمة للجانب (القيم نفسها لا تتغير)
@@ -512,6 +513,7 @@ function draftObject() {
     phone: state.phone,
     sid: state.sid,
     sentFp: state.sentFp,
+    crossed: crossing,
     voices: voices().map((v) => ({ kind: 'audio', blob: v.blob, seconds: v.seconds })),
     photos: photos().map((f) => ({ kind: 'image', blob: f, name: f.name })),
   };
@@ -677,7 +679,8 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }
       'div.bmf-qbar',
       h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', COPY.back)),
       t && state.screen !== 'topic' && h('span.bmf-topic-chip', { role: 'img', 'aria-label': `${COPY.topicAria}${t.label}` }, pic(t.picto, 'pub-pic bmf-chip-pic'), h('span', { 'aria-hidden': 'true' }, t.label)),
-      total ? h('span.bmf-stepno', `${idx} ${COPY.of} ${total}`) : null,
+      // v11 fixer-public (K5/J-10): شرائط التقدم (النموذج intake-question)، و«2 من 4» نصًا لقارئ الشاشة
+      total ? h('span.bmf-stepno', h('span.bmf-sr', `${idx} ${COPY.of} ${total}`), h('ol.bmf-steps', { 'aria-hidden': 'true' }, Array.from({ length: total }, (_, i) => h('li', { class: i < idx ? 'is-on' : null })))) : null,
     ),
     before,
     h('div.bmf-headrow', heading, listen),
@@ -1490,7 +1493,6 @@ function phoneScreen() {
     'section.bmf-step',
     { 'aria-labelledby': heading.id },
     head,
-    crossRow(),
     h(
       'div.bmf-body',
       phoneField,
@@ -1500,6 +1502,8 @@ function phoneScreen() {
       topicsBox,
       nameField,
       h('div.bmf-actions', consentLine, err, submit, status, under),
+      // v11 fixer-public (V12): في شاشة الرقم يأتي طريق «خيري» بعد زر الإرسال، لا بين العنوان وخانة الرقم
+      crossRow(),
     ),
   );
   const say = () => [
@@ -2057,6 +2061,8 @@ async function restoreDraft() {
   }
   // مسودة 9.1 (خطوات): 1 و2 ← «احكيلنا» (الصور فيها الآن)، 3 ← رقم الموبايل
   const screen = d.v === 2 ? validScreen(d.screen) : d.step === 3 ? 'phone' : 'story';
+  // v11 fixer-public (J-18): مسودة نقلها طريق «خيري» (crossed) تُكمَّل بصمت، بلا «بدأتِ طلبًا من قبل… كمّلي»؛ أول حفظ بعدها يمسح العلامة
+  if (d.crossed) return screen;
   // [R2-B19] بلا اسم الموضوع (ابنها ممكن يكون ماسك الموبايل)
   banner = h(
     'section.bmf-banner',

@@ -1010,9 +1010,10 @@
     box-shadow: none;
   }
 
+  /* v11 gate fix (J-12/K1): عدد غير المقروء حبة هادئة لا دائرة خضراء ممتلئة (الأخضر لنوع الخدمة وحده) */
   .pa-story .pa-unread {
-    background: var(--tint);
-    color: var(--on-tint);
+    background: var(--fill-2);
+    color: var(--label);
   }
 
   .pa-story-ribbon > .badge {

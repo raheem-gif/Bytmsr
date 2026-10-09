@@ -17,3 +17,5 @@ export const QUEUE_LABELS = {
 
 /** دمج ملفين لشخص واحد (صفحة المستفيد/ة وصفحة الطلب الوارد) */
 export const MERGE_LABEL = 'دمج مع ملف مستفيد/ة آخر';
+/** v11 gate fix (J-13): «دمج مع ملف عميل/ة آخر» لطلب أفراد وشركات؛ bare = نكرة clientNoun */
+export const mergeLabel = (bare = 'مستفيد/ة') => `دمج مع ملف ${bare} آخر`;

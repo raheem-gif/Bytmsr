@@ -1877,6 +1877,28 @@ body.pub .bmf-listen {
     font-variant-numeric: tabular-nums;
   }
 
+  /* v11 fixer-public (K5/J-10): «1 من 4» صار شرائط (النموذج intake-question)، والنص للقارئ وحده (.bmf-sr) */
+  .bmf-qbar .bmf-stepno:has(.bmf-steps) {
+    padding: 0;
+    background: none;
+  }
+
+  .bmf-qbar .bmf-steps {
+    display: flex;
+    gap: 5px;
+  }
+
+  .bmf-qbar .bmf-steps li {
+    width: 18px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--label-3); /* ≥ 3:1 على الأبيض (WCAG 1.4.11): الشرائط وحدها تحمل التقدم بصريًا */
+  }
+
+  .bmf-qbar .bmf-steps li.is-on {
+    background: var(--tint);
+  }
+
   .bmf-title {
     font-size: 28px;
     line-height: 1.3;
@@ -2059,6 +2081,11 @@ body.pub .bmf-listen {
     padding-block-start: 8px;
   }
 
+  /* v11 fixer-public (J-17): «روابط مهمة» و«للمساعدة» على حافتي محتوى الصفحة نفسها (.pub-container: 1160px وهامشها)، لا حافة الشاشة */
+  body.bmf-page :is(.pub-footer-more, .pub-footer-call) {
+    margin-inline: max(var(--pub-gutter), calc((100% - 1160px) / 2 + var(--pub-gutter))) !important;
+  }
+
   body.bmf-page .pub-footer-bottom {
     border-color: var(--separator);
     color: var(--label-2);
@@ -2096,6 +2123,16 @@ body.pub .bmf-listen {
 }
 
 @media screen and (forced-colors: active) {
+  /* v11 fixer-public (K5): الشرائط تبقى ظاهرة بلا خلفيات الألوان */
+  .bmf-qbar .bmf-steps li {
+    forced-color-adjust: none;
+    background: GrayText;
+  }
+
+  .bmf-qbar .bmf-steps li.is-on {
+    background: CanvasText;
+  }
+
   .bmf-topic,
   .bmf-answer,
   .bmf-about-tile,

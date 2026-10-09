@@ -2883,6 +2883,11 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   border-start-end-radius: 3px;
 }
 
+/* v11 gate fix V15: وقت الفقاعة الصادرة 5.32:1 على #d9f2e4 (كان gray-500 = 4.17:1) */
+.msg-end .msg-foot {
+  color: var(--gray-600);
+}
+
 .msg-auto .msg-bubble {
   background: var(--accent-50);
   box-shadow: 0 1px 1px rgba(16, 32, 42, 0.1), inset 0 0 0 1px var(--accent-100);

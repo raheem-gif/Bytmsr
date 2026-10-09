@@ -93,7 +93,7 @@ export default async function render(ctx) {
     mount(
       statsHost,
       statCard({ label: 'ملفات مستمرة نشطة', value: open.length, icon: 'gavel', tone: 'primary', hint: 'مفتوحة أو معلّقة' }),
-      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'accent' : 'muted', hint: 'جلسات واجتماعات مجدولة' }),
+      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'info' : 'muted', hint: 'جلسات واجتماعات مجدولة' }), // v11 gate fix (K1)
       statCard({ label: 'مهام متأخرة', value: overdueTasks, icon: 'clock', tone: overdueTasks ? 'danger' : 'muted', hint: 'تجاوزت موعدها ولم تُنجز' }),
       statCard({ label: 'فواتير غير مسددة', value: unpaid, icon: 'wallet', tone: unpaid ? 'warning' : 'muted', hint: 'غير مسددة أو مسددة جزئيًا' }),
     );

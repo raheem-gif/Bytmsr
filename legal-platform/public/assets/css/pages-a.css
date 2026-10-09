@@ -610,7 +610,9 @@
 }
 
 .pa-decide-opt.is-primary .pa-decide-text span {
-  color: rgba(255, 255, 255, 0.82);
+  /* v11 gate fix V15: أبيض معتم (كانت الشفافية 0.82 تهبط تحت 4.5:1 مع ألوان هوية حادة)؛ يتميز عن العنوان بالوزن لا بالشفافية */
+  color: var(--on-tint);
+  font-weight: 400;
 }
 
 .pa-decide-opt.is-muted .pa-decide-icon {
@@ -2159,4 +2161,20 @@ button.pa-preset-btn:focus-visible {
 
 .pa-code-inline {
   font-size: 13px;
+}
+
+/* v11 gate fix (J-12، r2 P21): «+» «تسجيل طلب يدوي» في شريط التنقل على الهاتف بدل الدائرة الممتلئة بجوار العنوان */
+.pa-nav-plus {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .pa-nav-plus {
+    display: inline-flex;
+    color: var(--tint);
+  }
+
+  .pa-page-inbox .pa-manual-btn {
+    display: none;
+  }
 }

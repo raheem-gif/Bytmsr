@@ -209,7 +209,9 @@ export function createShell({ user, meta, onLogout }) {
     groupCtl.forEach((c) => {
       if (!c.userSet && !c.open) c.set(true);
     });
-    const auto = groupCtl.filter((c) => !c.userSet && c !== current && c !== groupCtl[0]).reverse();
+    // v11 gate fix (J-12): مجموعة فيها عدد ظاهر (مثل «طلبات الشركات 2») لا تُطوى تلقائيًا — العدد هو سبب وجود الشارة
+    const hasCount = (c) => c.links.some((a) => [...a.querySelectorAll('.nav-count')].some((n) => !n.hidden));
+    const auto = groupCtl.filter((c) => !c.userSet && c !== current && c !== groupCtl[0] && !hasCount(c)).reverse();
     for (const c of auto) {
       if (nav.scrollHeight <= nav.clientHeight) break;
       c.set(false);
@@ -396,7 +398,9 @@ export function createShell({ user, meta, onLogout }) {
         const o = await api.get('/admin/b2b/overview', undefined, { background: true });
         const n = Math.max(0, Number(o && o.badge) || 0);
         coBadgeEl.textContent = n > 99 ? '99+' : String(n);
+        const wasHidden = coBadgeEl.hidden;
         coBadgeEl.hidden = n === 0;
+        if (wasHidden && n > 0) syncNavGroups(activeLink); // (J-12) تُفتح مجموعتها إن كانت مطوية تلقائيًا
         coBadgeEl.closest('a')?.setAttribute('aria-label', n ? `طلبات الشركات، تحتاج إجراءً: ${n}` : 'طلبات الشركات');
       } catch {
         /* الدورة التالية */

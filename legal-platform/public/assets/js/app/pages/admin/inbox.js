@@ -25,7 +25,7 @@ import {
   modal,
 } from '../../../lib/ui.js';
 // v11 segment-staff (ST-1): نوع الخدمة — المفتاح والرقائق وتسجيل الطلب اليدوي
-import { segmentSwitch, segmentChip, hintChip, mismatchChip, lineMismatchChip, segLabel, parseSeg, SEGMENT_TITLE } from '../../components/segment-ui.js';
+import { segmentSwitch, segmentChip, hintChip, mismatchChip, lineMismatchChip, segLabel, parseSeg, clientNoun, SEGMENT_TITLE } from '../../components/segment-ui.js';
 
 // ───────────── أدوات مشتركة لصفحات المسار (تُستورد من الصفحات الأخرى) ─────────────
 
@@ -83,9 +83,10 @@ export function fieldError(name, message) {
 // ───────────── الصفحة ─────────────
 
 const PAGE = 50;
-const PRIORITY_FILTERS = [
+// v11 gate fix R-07: مسمى الأولوية يُقرأ عند الرسم (getter) لا عند تحميل الوحدة — مع ذاكرة /api/meta فارغة كان يظهر المفتاح الخام
+export const PRIORITY_FILTERS = [
   { value: 'high_or_urgent', label: 'عاجلة أو عالية' },
-  ...['urgent', 'high', 'normal', 'low'].map((v) => ({ value: v, label: label('priority', v) })),
+  ...['urgent', 'high', 'normal', 'low'].map((v) => ({ value: v, get label() { return label('priority', v); } })),
 ];
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
 const CLOSED_STATUSES = ['handled_internally', 'converted', 'archived'];
@@ -113,6 +114,8 @@ const STORY_EMPTY = {
   collecting: 'لا توجد قصص تُكتب الآن.',
   callback: 'لا توجد طلبات مكالمة الآن.',
 };
+/** v11 gate fix (J-15): سطر بطاقة طلب العرض من شركة في الوارد وصفحة الطلب */
+export const COMPANY_LEAD_LINE = 'طلب عرض — تواصل تجاري، لا تحليل قانوني';
 const TRACK_ICONS = { consultation: 'briefcase', matter: 'gavel', internal: 'send', refer: 'send', need_info: 'message' };
 const MINUTES = ['دقيقة واحدة', 'دقيقتين', 'دقائق', 'دقيقة'];
 
@@ -135,6 +138,30 @@ function saveSeg(v) {
     /* تخزين المتصفح غير متاح: يبقى الاختيار لهذه الزيارة فقط */
   }
 }
+/**
+ * v11 gate fix (J-12، r2 P21): «+» «تسجيل طلب يدوي» في شريط التنقل العلوي على الهاتف (يظهر تحت 600px بالـCSS).
+ * يُزال عند مغادرة قائمة الوارد؛ لا شيء إن لم يوجد الشريط (عرض ثابت في الاختبارات).
+ */
+export function navPlus(onClick) {
+  try {
+    const bar = typeof document !== 'undefined' && document.querySelector ? document.querySelector('.topbar .topbar-actions') : null;
+    if (!bar) return null;
+    const old = bar.querySelector('.pa-nav-plus');
+    if (old) old.remove();
+    const b = h('button.icon-btn.pa-nav-plus', { type: 'button', 'aria-label': 'تسجيل طلب يدوي', title: 'تسجيل طلب يدوي', onClick }, icon('plus', { size: 22 }));
+    bar.prepend(b);
+    const off = () => {
+      if (/^#\/inbox(\?|$)/.test(window.location.hash)) return;
+      b.remove();
+      window.removeEventListener('hashchange', off);
+    };
+    window.addEventListener('hashchange', off);
+    return b;
+  } catch {
+    return null;
+  }
+}
+
 /** حبة محايدة بأيقونة داخل بطاقة الفرز (r2 P12: لا برتقالي ولا ذهبي ولا أخضر غير رقاقة النوع) */
 function quietPill(text, iconName, { className, title } = {}) {
   return h('span.pill.pill-neutral', { class: className, title }, iconName && icon(iconName, { size: 14 }), h('span', text));
@@ -361,7 +388,9 @@ export default async function render(ctx) {
   }
 
   function row(it) {
-    const ai = it.ai || null;
+    // v11 gate fix (J-15): طلب عرض من شركة تواصل تجاري لا مشكلة قانونية — لا عنوان ولا مسار مقترح من التحليل
+    const lead = it.requester_kind === 'company';
+    const ai = lead ? null : it.ai || null;
     const subject = it.title
       ? h('span.pa-irow-title', it.title)
       : ai && ai.title
@@ -387,7 +416,8 @@ export default async function render(ctx) {
             'span.pa-dir',
             { class: out ? 'is-out' : 'is-in' },
             icon(out ? 'arrowLeft' : 'arrowRight', { size: 13 }),
-            out ? 'ردّنا:' : 'المستفيد/ة:',
+            // v11 gate fix (J-13/V13): «العميل/ة:» لطلب أفراد وشركات و«الشركة:» لطلب عرض شركة
+            out ? 'ردّنا:' : `${clientNoun(it.segment, { company: it.requester_kind === 'company' }).def}:`,
           ),
           h('span.pa-irow-preview-text', { dir: 'auto' }, richText(it.last_message)),
         )
@@ -405,7 +435,10 @@ export default async function render(ctx) {
             'div.pa-irow-head',
             codeTag(it.code),
             h('strong.pa-irow-name', it.contact_name || 'بدون اسم'),
-            it.returning_client && badge('مستفيد/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا المستفيد/ة طلبات سابقة لدى المؤسسة' }),
+            it.returning_client &&
+              (parseSeg(it.segment) === 'paid'
+                ? badge('عميل/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا العميل/ة طلبات سابقة لدى المؤسسة' })
+                : badge('مستفيد/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا المستفيد/ة طلبات سابقة لدى المؤسسة' })),
             it.client_code && h('span.pa-irow-client', { dir: 'ltr' }, it.client_code),
           ),
           h('div.pa-irow-subject', subject, area),
@@ -535,7 +568,9 @@ export default async function render(ctx) {
 
   function storyCard(it) {
     const st = it.story || {};
-    const ai = it.ai || null;
+    // v11 gate fix (J-15): طلب عرض من شركة — بطاقة «طلب عرض — تواصل تجاري» بدل التحليل القانوني ومساره المقترح
+    const lead = it.requester_kind === 'company';
+    const ai = lead ? null : it.ai || null;
     const open = OPEN_STATUSES.includes(it.status);
     const view = st.view || (open ? 'ready' : 'decided');
     const at = it.last_message_at || it.created_at;
@@ -545,7 +580,9 @@ export default async function render(ctx) {
 
     // سطر واحد: ملخص الذكاء الاصطناعي، أو اختياراتها في الموقع لطلب المكالمة
     let summary;
-    if (view === 'callback' && form && form.lines && form.lines.length) {
+    if (lead) {
+      summary = h('p.pa-story-line.is-lead', icon('building', { size: 14 }), h('span', COMPANY_LEAD_LINE));
+    } else if (view === 'callback' && form && form.lines && form.lines.length) {
       const lines = form.lines.filter((x) => !/^طلبت مكالمة/.test(x));
       summary = h('p.pa-story-line.is-form', { title: form.title || '' }, icon('globe', { size: 14 }), h('span', lines.length ? lines.join(' · ') : 'لم تختر موضوعًا'));
     } else if (ai && (ai.one_line || ai.title)) {
@@ -591,6 +628,8 @@ export default async function render(ctx) {
       } else if (view === 'collecting') {
         actions = [asyncButton('لخّصها الآن', () => summarizeNow(it), btnOpts('sparkle'))];
       } else if (view === 'awaiting') {
+        actions = [];
+      } else if (lead) {
         actions = [];
       } else if (!ai) {
         actions = [asyncButton('حلّل الآن', () => analyzeNow(it), btnOpts('sparkle'))];
@@ -884,15 +923,16 @@ export default async function render(ctx) {
     ),
   );
   const header = pageHeader({
-    title: 'صندوق الوارد الموحد',
+    title: 'صندوق الوارد', // v11 gate fix (J-12، V11-46): الاسم كما في النموذج المعتمد
     // V11-46: مسار التنقل لصفحات التفاصيل وحدها
     subtitle: h('span.pa-sub', countLine, explain),
     actions: [
       button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load(), className: 'pa-refresh-btn', ariaLabel: 'تحديث' }),
-      // r2 P21: تحت 600px زر «+» دائري في شريط العنوان بنفس الاسم لقارئات الشاشة
-      button('تسجيل طلب يدوي', { variant: 'primary', icon: 'plus', onClick: manualIntake, className: 'pa-manual-btn', ariaLabel: 'تسجيل طلب يدوي' }),
+      // r2 P21 + v11 gate fix (J-12): زر مُلوَّن خفيف لا ممتلئ (الممتلئ الوحيد في الصفحة «الكل»)؛ تحت 600px يحل محله «+» في شريط التنقل
+      button('تسجيل طلب يدوي', { variant: 'tinted', icon: 'plus', onClick: manualIntake, className: 'pa-manual-btn', ariaLabel: 'تسجيل طلب يدوي' }),
     ],
   });
+  navPlus(manualIntake);
 
   return h(
     'div.pa-page.pa-page-inbox',

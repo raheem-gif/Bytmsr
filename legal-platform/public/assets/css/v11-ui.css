@@ -42,6 +42,9 @@
 
   .table th { background: var(--surface); color: var(--label-2); font-size: 13px; border-block-end-color: var(--separator); }
   .table td { border-block-end-color: var(--separator); }
+  /* v11 gate fix V9: حالة طويلة («معتمد — بانتظار الرد على المستفيد/ة») تلتف داخل خليتها بدل أن تمدّ الجدول خارج بطاقته */
+  .table td .badge { white-space: normal; text-align: start; }
+  .table td .badge > span { overflow: visible; }
 
   /* V11-14 */
   .segmented { gap: 0; padding: 2px; border-radius: var(--r-10); background: var(--fill-2); overflow: visible; flex-wrap: wrap; }

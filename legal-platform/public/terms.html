@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>شروط الاستخدام — {{site_name}}</title>
-    <meta name="description" content="شروط استخدام خدمة {{program_name}} المجانية في {{org_legal_name}}: طبيعة الخدمة والاستحقاق، وحدود العلاقة مع المحامي، والتزامات المستفيد، وعدم ضمان النتائج." />
+    <!-- v11 fixer-public (V1/F-F): الوصف و«بالمختصر» حسب جانب الزائر؛ نص «خيري» كما في 10.0 حرفيًا -->
+    <meta name="description" content="<!--#if side_charity-->شروط استخدام خدمة {{program_name}} المجانية في {{org_legal_name}}: طبيعة الخدمة والاستحقاق، وحدود العلاقة مع المحامي، والتزامات المستفيد، وعدم ضمان النتائج.<!--/if side_charity--><!--#if side_paid-->شروط استخدام خدمات {{brand_name}} للأفراد والشركات: طبيعة الخدمة والأتعاب، وحدود العلاقة مع المحامي، والتزامات العميل، وعدم ضمان النتائج.<!--/if side_paid-->" />
     <!--site:head-->
     <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
@@ -25,12 +26,17 @@
           <h1 id="page-title">شروط استخدام الخدمة</h1>
           <div class="pub-summary" id="summary">
             <h2>بالمختصر</h2>
-            <ul>
+            <!--#if side_charity--><ul>
               <li>{{{icon_check}}}<span>الخدمة مجانية، ومحدش يطلب منك فلوس.</span></li>
               <li>{{{icon_check}}}<span>إحنا بننصحك، والحكم في الآخر للمحكمة.</span></li>
               <li>{{{icon_check}}}<span>مش بنعمل حاجة فيها فلوس عليكي غير بموافقتك.</span></li>
               <li>{{{icon_check}}}<span>قولي الحقيقة في طلبك عشان نقدر نساعدك صح.</span></li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>{{{icon_check}}}<span>الاستشارات والقضايا والعقود بأتعاب نتفق عليها معكم كتابةً قبل أي عمل.</span></li>
+              <li>{{{icon_check}}}<span>نقدّم لكم الرأي القانوني بأمانة، والحكم في النهاية للمحكمة.</span></li>
+              <li>{{{icon_check}}}<span>لا نطلب أي مبلغ إلا بعد موافقتكم الصريحة على صفحة طلبكم.</span></li>
+              <li>{{{icon_check}}}<span>يُرجى ذكر الحقائق كاملة في طلبكم لنتمكن من مساعدتكم.</span></li>
+            </ul><!--/if side_paid-->
           </div>
           <p>تنظّم هذه الشروط استخدامك لخدمة {{program_name}} التي تقدّمها {{org_legal_name}} عبر الموقع وواتساب وغيرهما من قنوات المؤسسة.</p>
           <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>

@@ -440,7 +440,8 @@ function sectionList() {
   if (d.events.length) rows.push(['#events', 'calendar', 'مواعيدك', pill(spokenDate(d.events[0].starts_at))]);
   if (d.invoices.length) {
     const m = d.home.money || {};
-    rows.push(['#money', 'wallet', 'مصاريف', m.needs_agreement ? pill('محتاجين موافقتك', 'amber') : m.unpaid_total > 0 ? pill(money(m.unpaid_total), 'amber') : pill('مفيش مبالغ', 'ok')]);
+    // v11 fixer-public (V14/J-05): صف الأتعاب في صفحة الأفراد والشركات «الأتعاب والمصاريف» بفصحى الجمع («خيري» كما هو)
+    rows.push(['#money', 'wallet', P('moneyTitle', 'مصاريف'), m.needs_agreement ? pill(P('aw', 'محتاجين موافقتك'), 'amber') : m.unpaid_total > 0 ? pill(money(m.unpaid_total), 'amber') : pill(P('nd', 'مفيش مبالغ'), 'ok')]);
   }
   const fresh = newMessages();
   rows.push(['#messages', 'message', 'الرسائل', fresh ? pill(`${fresh} جديدة`, 'ok') : null]);
@@ -1034,12 +1035,13 @@ function moneyView() {
   const agreeCard = (i) =>
     h(
       'section.bp-card.bp-consent',
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g('محتاجين موافقتك')),
-      h('h2.bp-now-title', `مصاريف للقضية: ${money(i.amount)} (${i.description})`),
+      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g(P('aw', 'محتاجين موافقتك'))),
+      // v11 fixer-public (J-05): عنوان المبلغ وأزراره بفصحى الجمع في صفحة الأفراد والشركات، وبلا «مش قادر أدفع» على أتعابهم
+      h('h2.bp-now-title', fillP('ft', 'مصاريف للقضية: {a} ({d})', { a: money(i.amount), d: i.description })),
       h('p', P('agreeNote', 'الاستشارة نفسها مجانية. المبلغ ده مصاريف المحكمة.')),
       btn('موافقة', { kind: 'primary', block: true, onClick: () => invoiceAnswer(i, 'agree') }),
-      btn('عندي سؤال', { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(i.amount)}: `, invoiceNumber: i.number }) }),
-      btn(state.form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع', { kind: 'text', block: true, onClick: () => invoiceAnswer(i, 'cannot_pay') }),
+      btn(P('ask', 'عندي سؤال'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(i.amount)}: `, invoiceNumber: i.number }) }),
+      i.segment === 'paid' ? null : btn(state.form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع', { kind: 'text', block: true, onClick: () => invoiceAnswer(i, 'cannot_pay') }),
     );
   const card = (i) => {
     const remaining = Math.max(0, Number(i.amount) - Number(i.paid_amount || 0));
@@ -1048,7 +1050,7 @@ function moneyView() {
         ? h('span.bp-pill.is-ok', 'اتدفعت ✓')
         : i.status === 'partially_paid'
           ? h('span.bp-pill.is-amber', `اتدفع ${money(i.paid_amount)} من ${money(i.amount)}`)
-          : h('span.bp-pill.is-amber', 'لسه ما اتدفعتش');
+          : h('span.bp-pill.is-amber', P('up', 'لسه ما اتدفعتش'));
     return h(
       'article.bp-card.bp-invoice',
       h('p.bp-inv-desc', i.description),
@@ -1062,9 +1064,9 @@ function moneyView() {
       i.client_agreed_at ? h('p.bp-meta', `${state.form === 'm' ? 'وافقت' : 'وافقتي'} يوم ${shortDate(i.client_agreed_at)}`) : null,
       i.client_response === 'cannot_pay' ? h('p.bp-meta', g('وصلنا إنك مش قادر{ة} تدفع{ي}. هنكلمك ونشوف إزاي نساعدك.')) : null,
       i.status !== 'paid'
-        ? btn('عندي سؤال على المبلغ', { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(remaining || i.amount)}`, invoiceNumber: i.number }) })
+        ? btn(P('ask', 'عندي سؤال على المبلغ'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(remaining || i.amount)}`, invoiceNumber: i.number }) })
         : null,
-      h('p.bp-small', 'رقم الفاتورة: ', h('bdi', { dir: 'ltr' }, i.number), ' (لو احتجتيه)'.replace('احتجتيه', state.form === 'm' ? 'احتجته' : 'احتجتيه')),
+      h('p.bp-small', 'رقم الفاتورة: ', h('bdi', { dir: 'ltr' }, i.number), PC ? '' : ' (لو احتجتيه)'.replace('احتجتيه', state.form === 'm' ? 'احتجته' : 'احتجتيه')),
     );
   };
   return [
@@ -1520,7 +1522,21 @@ async function load() {
     const hc = document.querySelector('[data-pub-contact], .pub-head-contact');
     if (k && hc) {
       const wa = k.whatsapp_digits ? waUrl(k.whatsapp_digits, k.whatsapp_prefill || '') : '';
-      if (wa || k.phone) hc.href = wa || `tel:${k.phone_e164 || k.phone}`;
+      if (wa || k.phone) {
+        hc.href = wa || `tel:${k.phone_e164 || k.phone}`;
+        // v11 gate fix (K13d/R-15): الأيقونة والاسم والنافذة الجديدة تتبع نوع الرابط (كانت أيقونة واتساب تبقى على رابط tel:)
+        hc.classList.toggle('pub-head-contact--wa', Boolean(wa));
+        hc.setAttribute('aria-label', wa ? 'واتساب (يفتح في نافذة جديدة)' : 'اتصال بالتليفون');
+        if (wa) {
+          hc.setAttribute('target', '_blank');
+          hc.setAttribute('rel', 'noopener noreferrer');
+        } else {
+          hc.removeAttribute('target');
+          hc.removeAttribute('rel');
+          hc.removeAttribute('data-cta');
+        }
+        mount(hc, ic(wa ? 'whatsapp' : 'phone', 22));
+      }
     }
     const p = parseHash();
     state.view = p.view;

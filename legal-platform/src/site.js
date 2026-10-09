@@ -24,7 +24,7 @@ import { PICTOS } from '../public/assets/js/public/pictos.js';
 // v11 gate-public: مفردات نوع الخدمة (charity | paid) وكعكة bm_seg ومواضيع الأفراد والشركات — نفس الوحدة في الخادم والمتصفح
 import { parseSegment, segmentFromCookie, SEG_COOKIE, SEG_COOKIE_MAX_AGE, PAID_TOPICS, paidWaPrefill, COMPANY_PREFILL } from '../public/assets/js/public/segment.js';
 // v11 gate-public (L11-13): نصوص الأفراد والشركات (تُضمَّن في صفحاتهم فقط داخل bm-copy)
-import { intakePaidCopy, INTAKE_TITLES, INTAKE_PAGE, PORTAL_PAID, PORTAL_LOGIN_PAID, DELETION_PAID_PREFILL } from './site-copy-paid.js';
+import { intakePaidCopy, INTAKE_TITLES, INTAKE_PAGE, PORTAL_PAID, PORTAL_LOGIN_PAID, DELETION_PAID_PREFILL, paidHours } from './site-copy-paid.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -43,7 +43,9 @@ const SITE_GREETING = 'السلام عليكم، عندي مشكلة قانون�
 /** أجزاء HTML يولّدها الخادم نفسه؛ وحدها تُدرج دون تهريب بصيغة {{{key}}} (أي مفتاح آخر يُهرَّب دائمًا) */
 const RAW_KEYS = new Set(['brand_inline', 'header', 'footer', 'contact_list', 'socials', 'services', 'faq', 'programs', 'brand_mark', 'audience', 'contact_buttons', 'icon_check', 'icon_lock', 'icon_wallet', 'icon_whatsapp', 'icon_phone', 'start_tiles', 'ways_tiles', 'header_contact',
   // v11 gate-public: شاشة الاختيار وصفحة الأفراد والشركات
-  'gate_layer', 'gate_preload', 'paid_cross', 'paid_co_row', 'paid_topics', 'paid_ways', 'paid_how', 'companies_band', 'paid_trust', 'paid_faq', 'paid_contact_list', 'paid_contact_buttons']);
+  'gate_layer', 'gate_preload', 'paid_cross', 'paid_co_row', 'paid_topics', 'paid_ways', 'paid_how', 'companies_band', 'paid_trust', 'paid_faq', 'paid_contact_list', 'paid_contact_buttons',
+  // v11 fixer-public (K5، GP-6 P1): شعار شاشة الدخول /portal
+  'signin_logo']);
 
 // ───────────── v11 gate-public: نوع الخدمة في الموقع العام (L11-02…08، L11-51/52) ─────────────
 /** ترتيب بطاقتي شاشة الاختيار (L11-09، O-20): «خدمات الأفراد والشركات» أولًا كما كتب صاحب الطلب — سطر واحد للتبديل */
@@ -601,7 +603,8 @@ export function registerSite(app) {
     } catch {
       /* الجملة الافتراضية */
     }
-    return { ...ps, side: 'paid', org_phone: phone, org_phone_e164: normalizePhone(phone) || '', whatsapp_digits: digits, whatsapp_display_number: '', greeting };
+    // v11 fixer-public (V2): المواعيد بالفصحى في كل ما يُبنى من إعدادات هذا الجانب (/services، التواصل، bm-public، 404، حذف البيانات)
+    return { ...ps, side: 'paid', org_phone: phone, org_phone_e164: normalizePhone(phone) || '', whatsapp_digits: digits, whatsapp_display_number: '', greeting, office_hours: paidHours(ps.office_hours) };
   }
 
   /**
@@ -1490,8 +1493,11 @@ export function registerSite(app) {
 
   /** v11 gate-public (G11-47، P1): نصوص /portal الثابتة حسب جانب الزائر (والباقي في bm-copy لـ portal-login.js) */
   function portalLoginView(ps, side) {
+    // v11 fixer-public (K5، GP-6 P1، r2 S29): الشعار الذهبي الداكن (أرضية بيضاء) فوق العنوان؛ نصه البديل اسم المكتب من الإعداد
+    const signin_logo = `<img class="pub-signin-logo" src="${imgUrl('/assets/img/emam-logo-gold-deep.svg')}" width="240" height="100" alt="${esc(ps.brand_name)}" ${nameDirAttrs(ps.brand_name)} decoding="async" />`;
     if (side !== 'paid') {
       return {
+        signin_logo,
         pl_title: `متابعة طلبك — ${ps.brand_name}`,
         pl_desc: `ارجعي لصفحة طلبك عند ${ps.brand_name}: افتحيها من الموبايل ده، أو كلمينا وهنبعتلك الرابط.`,
         pl_h1: 'تابعي طلبك',
@@ -1500,6 +1506,7 @@ export function registerSite(app) {
       };
     }
     return {
+      signin_logo,
       pl_title: `متابعة طلبكم — ${ps.brand_name}`,
       pl_desc: `تابعوا طلبكم لدى ${ps.brand_name}: افتحوا صفحة الطلب بكود يصلكم على واتساب، أو تواصلوا معنا لنرسل لكم الرابط.`,
       pl_h1: PORTAL_LOGIN_PAID.h1,
@@ -1607,7 +1614,11 @@ export function registerSite(app) {
       icon_wallet: iconSvg('wallet', 20),
       icon_whatsapp: iconSvg('whatsapp', 20),
       icon_phone: iconSvg('phone', 20),
-      office_hours_line: ps.office_hours ? `بنرد ${ps.office_hours}` : '',
+      // v11 fixer-public (V2): سطر المواعيد بصيغة الجانب (404 للأفراد والشركات: «نستقبل اتصالاتكم …»)
+      office_hours_line: ps.office_hours ? (side === 'paid' ? `نستقبل اتصالاتكم ${ps.office_hours}` : `بنرد ${ps.office_hours}`) : '',
+      // v11 fixer-public (V1/F-F): مفاتيح الجانب للقوالب (<!--#if side_paid--> في «بالمختصر» بالصفحات القانونية)
+      side_paid: side === 'paid' ? '1' : '',
+      side_charity: side === 'paid' ? '' : '1',
       // v9.2 public (P3): الشاشة الأولى بالمربعات، وزر التواصل في الرأس، والتحميل المسبق لنموذج الطلب
       start_tiles: startTilesHtml(),
       ways_tiles: waysTilesHtml(ps, wa),

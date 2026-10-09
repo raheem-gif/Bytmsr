@@ -170,7 +170,7 @@ export default async function render(ctx) {
       h(
         'div.row.pb-active-flag',
         h('span.small.muted', 'تصفية إضافية:'),
-        chips([{ label: FLAGS[state.flag].label, value: state.flag, tone: 'accent' }], { onRemove: () => setFlag(state.flag) }),
+        chips([{ label: FLAGS[state.flag].label, value: state.flag, tone: 'info' }], { onRemove: () => setFlag(state.flag) }),
       ),
     );
   }
@@ -190,7 +190,8 @@ export default async function render(ctx) {
     },
     {
       key: 'client',
-      label: 'المستفيد/ة',
+      // v11 gate fix (V13): العمود يجمع ملفات الخيري والأفراد والشركات
+      label: 'المستفيد/ة أو العميل',
       // v10 b2b-staff (STF-10): ملف عمل لطلب شركة — شارة «شركة» واسم الشركة بدل المستفيد/ة
       // v11 segment-staff (L11-16): رقاقة «شركة» الخضراء بمبنى بدل شارة v10 الرمادية، و«خيري»/«أفراد» لملفات الأفراد
       render: (r) =>
@@ -297,7 +298,7 @@ export default async function render(ctx) {
   });
 
   const filters = filterBar([
-    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
+    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو العميل أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
     selectInput({ options: areaOptions(), value: state.area, onChange: onFilter('area'), label: 'المجال القانوني', allLabel: 'كل المجالات' }),
     selectInput({ options: options('priority'), value: state.priority, onChange: onFilter('priority'), label: 'الأولوية', allLabel: 'كل الأولويات' }),
     managerOptions.length > 0 &&

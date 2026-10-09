@@ -423,7 +423,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         l.over_capacity ? badge('فوق طاقته الآن', 'warning') : null,
         (l.skills || []).length ? h('span.cs-lawyer-skills', l.skills.filter((s) => (fClass.getValues().skills || []).includes(s)).map((s) => badge(label('b2b_skill', s), 'primary'))) : null,
         (l.reasons || []).length ? h('span.cs-lawyer-why', l.reasons.filter((x) => !/مفضل/.test(x)).join(' · ')) : null,
-        l.b2b_rate != null ? h('span.cs-lawyer-rate', h('span.num', money(l.b2b_rate)), ' — سعر طلبات الشركات لهذا المحامي') : null,
+        l.b2b_rate != null ? h('span.cs-lawyer-rate', h('span.num', money(l.b2b_rate)), ' — سعر العمل المدفوع لهذا المحامي') : null,
       ),
     );
   }

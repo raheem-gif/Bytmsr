@@ -166,7 +166,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
       results,
       h(
         'div.ai-reply-meta',
-        r.provider === 'anthropic' ? badge('اقتراح Claude', 'accent', { icon: 'sparkle' }) : badge('قوالب المحلل المحلي', 'neutral', { icon: 'fileText' }),
+        r.provider === 'anthropic' ? badge('اقتراح Claude', 'info', { icon: 'sparkle' }) : badge('قوالب المحلل المحلي', 'neutral', { icon: 'fileText' }),
         Array.isArray(r.grounded_on) && r.grounded_on.length ? h('span.cell-sub', `مبني على: ${r.grounded_on.join('، ')}`) : null,
       ),
       r.fallback_reason ? alertBox(`استُخدمت القوالب المحلية بدل Claude: ${r.fallback_reason}`, 'warning') : null,

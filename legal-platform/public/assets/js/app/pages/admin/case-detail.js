@@ -59,6 +59,7 @@ import {
   lineMismatchChip,
   FEES_NOT_AGREED,
   PAID_CASE_NOTE,
+  clientNoun,
 } from '../../components/segment-ui.js';
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
@@ -242,7 +243,10 @@ export function composerTools(ta, { context = null, ai = null } = {}) {
  * صندوق كتابة رسالة للعميل مع اختيار القناة.
  * (v9) quickReplies: سياق الردود الجاهزة، وaiTarget: {caseId} أو {matterId} لزر «اقتراح رد» (انظر composerTools).
  */
-export function messageComposer({ onSend, placeholder = 'اكتب رسالة للمستفيد/ة…', hint, quickReplies = null, aiTarget = null, sendInfo = null } = {}) {
+export function messageComposer({ onSend, placeholder = null, hint, quickReplies = null, aiTarget = null, sendInfo = null, noun = null } = {}) {
+  // v11 gate fix (J-13/V13): noun = clientNoun(...) — «رسالة جديدة للعميل/ة» لملف أفراد بأتعاب؛ الخيري كما كان
+  const li = (noun && noun.li) || 'للمستفيد/ة';
+  if (!placeholder) placeholder = `اكتب رسالة ${li}…`;
   const taId = uid('composer');
   const ta = h('textarea.input', { id: taId, rows: 3, placeholder, maxlength: 4000 });
   // v11 segment-staff (r2 P13): رأس الإرسال في نافذة الردود المقترحة أيضًا
@@ -250,7 +254,7 @@ export function messageComposer({ onSend, placeholder = 'اكتب رسالة ل�
   const sel = h(
     'select.input',
     { 'aria-label': 'قناة الإرسال' },
-    CHANNEL_OPTIONS.map((o) => h('option', { value: o.value }, o.label)),
+    CHANNEL_OPTIONS.map((o) => h('option', { value: o.value }, o.value === 'auto' && noun && noun.def ? `تلقائي — آخر قناة تواصل منها ${noun.def}` : o.label)),
   );
   const err = h('p.field-error', { role: 'alert', hidden: true });
   const send = asyncButton(
@@ -279,7 +283,7 @@ export function messageComposer({ onSend, placeholder = 'اكتب رسالة ل�
   return h(
     'div.composer.pb-composer',
     sendInfo ? sendHeader(sendInfo) : null, // v11 segment-staff: النوع والنبرة و«سيُرسل من» قبل الإرسال
-    h('label.field-label', { htmlFor: taId }, 'رسالة جديدة للمستفيد/ة'),
+    h('label.field-label', { htmlFor: taId }, `رسالة جديدة ${li}`),
     ta,
     err,
     h('div.composer-actions', tools.el, h('div.select-wrap.pb-channel', sel), hint && h('span.small.muted.pb-composer-hint', hint), send),
@@ -333,7 +337,7 @@ export function docAiBadge(store, docId) {
     mount(
       host,
       a
-        ? badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'accent', {
+        ? badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'info', {
             icon: 'sparkle',
             title: a.stale ? 'استُبدل ملف المستند بعد آخر تحليل' : 'نوع المستند حسب آخر تحليل',
           })
@@ -383,7 +387,7 @@ export function docAiResultsCard(store, docs = []) {
               h(
                 'summary',
                 h('span.doc-ai-result-name', { dir: 'auto' }, d.title || d.filename || 'مستند'),
-                badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'accent', { icon: 'sparkle' }),
+                badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'info', { icon: 'sparkle' }),
                 a.created_at ? h('time.cell-sub', { datetime: a.created_at, title: dateTime(a.created_at) }, relative(a.created_at)) : null,
               ),
               docAiPanel(a, { compact: true }),
@@ -647,12 +651,15 @@ export default async function render(ctx) {
   const company = data.company || null;
   const companyReqHref = company?.request ? `#/company-requests/${company.request.id}` : company ? `#/companies/${company.id}` : null;
   const companyLink = (text = 'فتح طلب الشركة') => button(text, { variant: 'secondary', size: 'sm', icon: 'inboxStack', href: companyReqHref });
-  const WHO = company ? 'الشركة' : 'المستفيد/ة'; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
   const companyLine = (what) => h('p.cd-company-line', icon('building', { size: 16 }), h('span', what), h('a', { href: companyReqHref }, 'فتح طلب الشركة'));
   // v11 segment-staff (ST-4): كتلة نوع الخدمة من الخادم؛ ملف الشركة «شركة» دائمًا، وملف الأفراد بأتعاب يوافق عليها العميل
   const seg = data.segment || { value: company ? 'paid' : c.segment || 'charity', can_change: !company };
   const segValue = company ? 'paid' : seg.value || 'charity';
   const paidIndividual = !company && segValue === 'paid';
+  // v11 gate fix (J-13/V13): الطرف الآخر في نصوص الإدارة — «المستفيد/ة» للخيري، «العميل/ة» لملف الأفراد بأتعاب، «الشركة» لملف شركة
+  const N = clientNoun(segValue, { company: Boolean(company) });
+  const WHO = N.def; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
+  const channelOpts = CHANNEL_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, label: `تلقائي — آخر قناة تواصل منها ${N.def}` } : o));
   const fees = data.fees || null;
   const feesPending = paidIndividual && !closed && !(fees && fees.agreed);
   const sendInfo = { segment: segValue, tone: data.tone || segValue, sendLine: data.send_line || null, company: Boolean(company) };
@@ -698,7 +705,7 @@ export default async function render(ctx) {
         h('span.cd-company-close', icon('lock', { size: 14 }), 'تُغلق من صفحة طلب الشركة'),
       ];
     }
-    const acts = [button('رسالة للمستفيد/ة', { icon: 'message', onClick: openMessageDialog })];
+    const acts = [button(`رسالة ${N.li}`, { icon: 'message', onClick: openMessageDialog })];
     if (data.matter) acts.push(button('فتح الملف المستمر', { icon: 'gavel', href: `#/matters/${data.matter.id}` }));
     else {
       acts.push(
@@ -791,14 +798,14 @@ export default async function render(ctx) {
     const overdue = activeTeam.filter(isOverdue).length;
     if (!activeTeam.length) add('userPlus', 'لم يُسند الملف لأي محامٍ بعد', 'team', 'إسناد محامٍ', () => openAssignDialog());
     if (submitted) add('fileText', `آراء مقدَّمة بانتظار مراجعتك: ${submitted}`, 'opinions', 'مراجعة الآراء');
-    if (pendingInfo) add('mail', company ? `طلبات معلومات بانتظار موافقتك قبل إرسالها للشركة: ${pendingInfo}` : `طلبات معلومات بانتظار موافقتك قبل مراسلة المستفيد/ة: ${pendingInfo}`, 'requests', 'عرض الطلبات');
-    if (replied) add('message', company ? `ردود من الشركة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}` : `ردود من المستفيد/ة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}`, 'requests', 'عرض الردود');
+    if (pendingInfo) add('mail', company ? `طلبات معلومات بانتظار موافقتك قبل إرسالها للشركة: ${pendingInfo}` : `طلبات معلومات بانتظار موافقتك قبل مراسلة ${N.def}: ${pendingInfo}`, 'requests', 'عرض الطلبات');
+    if (replied) add('message', company ? `ردود من الشركة بانتظار مراجعتك وإتاحتها للمحامي: ${replied}` : `ردود من ${N.def} بانتظار مراجعتك وإتاحتها للمحامي: ${replied}`, 'requests', 'عرض الردود');
     if (pendingCounsel) add('users', `طلبات مساعدة محامٍ بانتظار قرارك: ${pendingCounsel}`, 'requests', 'عرض الطلبات');
     if (proposed) add('flag', `مسائل اقترحها المحامون بانتظار الاعتماد: ${proposed}`, 'overview', 'عرض المسائل');
     if (overdue) add('clock', `إسنادات تجاوزت موعد التسليم: ${overdue}`, 'team', 'عرض الفريق');
     if (c.status === 'approved' && company) add('send', 'الرأي معتمد — أعِدّ التسليم للشركة من صفحة طلب الشركة', null, 'فتح طلب الشركة', () => ctx.navigate(companyReqHref.slice(1)));
-    else if (c.status === 'approved') add('send', 'الرأي معتمد — أعِدّ الرد الموجه للمستفيد/ة وأرسله', 'opinions', 'إعداد الرد');
-    if (c.status === 'answered' && !company) add('checkCircle', 'تم الرد على المستفيد/ة — أغلق الملف عند انتهاء المتابعة', null, 'إغلاق الملف', openCloseDialog);
+    else if (c.status === 'approved') add('send', `الرأي معتمد — أعِدّ الرد الموجه ${N.li} وأرسله`, 'opinions', 'إعداد الرد');
+    if (c.status === 'answered' && !company) add('checkCircle', `تم الرد على ${N.def} — أغلق الملف عند انتهاء المتابعة`, null, 'إغلاق الملف', openCloseDialog);
     if (!items.length) return null;
     return h(
       'section.pb-attention',
@@ -828,7 +835,7 @@ export default async function render(ctx) {
     const clientCard = company
       ? card({
           title: 'الشركة',
-          subtitle: 'ملف عمل لطلب شركة — لا مستفيد/ة ولا قنوات واتساب',
+          subtitle: `ملف عمل لطلب شركة — لا مستفيد/ة ولا قنوات واتساب`,
           icon: 'building',
           className: 'pb-client-card cd-company-card',
           body: kv([
@@ -838,20 +845,20 @@ export default async function render(ctx) {
           ]),
         })
       : card({
-      title: 'المستفيد/ة ومصدره',
+      title: `${N.def} ومصدره`,
       subtitle: 'للإدارة فقط — لا يُتاح لأي محامٍ مهما كانت صلاحياته',
       icon: 'lock',
       className: 'pb-client-card',
       body: kv([
-        ['المستفيد/ة', cl ? inline(h('a', { href: `#/clients/${cl.id}` }, cl.name || 'بدون اسم'), codeTag(cl.code)) : null],
+        [`${N.def}`, cl ? inline(h('a', { href: `#/clients/${cl.id}` }, cl.name || 'بدون اسم'), codeTag(cl.code)) : null],
         ['الهاتف', cl?.phone ? inline(ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null], // [بوابة 9.2 K9] الصيغة المحلية
         ['قنوات التواصل', chans.size ? chips([...chans].map((ch) => ({ label: label('channel', ch), tone: ch === 'whatsapp' ? 'success' : 'info' }))) : null],
         ['المحافظة', cl?.governorate],
-        ['مصدر المستفيد/ة', h('span', label('source', intake?.source || c.source), campaign && h('span.cell-sub.pb-d-block', `الحملة: ${campaign}`))],
+        [`مصدر ${N.def}`, h('span', label('source', intake?.source || c.source), campaign && h('span.cell-sub.pb-d-block', `الحملة: ${campaign}`))],
         ['قناة الوصول', label('channel', intake?.first_channel || c.channel)],
         ['الطلب الأصلي', intake ? inline(h('a.pb-code-link', { href: `#/inbox/${intake.id}`, 'aria-label': `فتح الطلب الوارد ${intake.code}` }, codeTag(intake.code)), h('span.small.muted', dateTime(intake.created_at))) : null],
       ]),
-      footer: h('p.small.muted', 'المصدر هو ما جاء بالمستفيد/ة (مثل إعلان ممول)، والقناة هي الباب الذي تواصل منه (واتساب أو الموقع)؛ وكل الأبواب تصل إلى محرك الاستقبال نفسه.'),
+      footer: h('p.small.muted', `المصدر هو ما جاء ${N.bi} (مثل إعلان ممول)، والقناة هي الباب الذي تواصل منه (واتساب أو الموقع)؛ وكل الأبواب تصل إلى محرك الاستقبال نفسه.`),
     });
 
     const manager = staffById.get(c.case_manager_id);
@@ -874,7 +881,7 @@ export default async function render(ctx) {
         ],
         // (v9 messaging) تقييم العميل للخدمة من استبيان الرضا
         !company && data.satisfaction && [
-          'رضا المستفيد/ة',
+          `رضا ${N.def}`,
           data.satisfaction.rating
             ? h('span.qr-sat', h('span', { 'aria-hidden': 'true' }, stars(data.satisfaction.rating)), h('span', { class: data.satisfaction.low ? 'pb-warn-text' : null }, data.satisfaction.text), data.satisfaction.comment ? h('span.cell-sub.pb-d-block', { dir: 'auto' }, `«${data.satisfaction.comment}»`) : null)
             : h('span.muted', data.satisfaction.text),
@@ -932,12 +939,12 @@ export default async function render(ctx) {
 
     show();
     const foot = internal
-      ? h('div.pb-facts-foot', icon('eyeOff', { size: 15 }), 'ملاحظات الإدارة فقط: مصدر المستفيد/ة وتفضيلات التواصل وأي تفاصيل لا تخص المحامي.')
+      ? h('div.pb-facts-foot', icon('eyeOff', { size: 15 }), `ملاحظات الإدارة فقط: مصدر ${N.def} وتفضيلات التواصل وأي تفاصيل لا تخص المحامي.`)
       : h(
           'div.pb-facts-foot',
           icon('eye', { size: 15 }),
           viewers.length ? h('span', 'يراه حاليًا:') : h('span', 'لا يراه أي محامٍ حاليًا'),
-          viewers.length > 0 && chips(viewers.map((a) => ({ label: a.lawyer_name, tone: 'primary' }))),
+          viewers.length > 0 && chips(viewers.map((a) => ({ label: a.lawyer_name, tone: 'info' }))),
         );
     return card({
       title,
@@ -957,7 +964,7 @@ export default async function render(ctx) {
     const viewers = issueViewers(i.id);
     const origin =
       i.origin === 'ai'
-        ? badge('اقتراح الذكاء الاصطناعي', 'accent', { icon: 'sparkle' })
+        ? badge('اقتراح الذكاء الاصطناعي', 'info', { icon: 'sparkle' })
         : i.origin === 'lawyer'
           ? badge(`اقترحها المحامي ${i.proposed_by_name || ''}`.trim(), 'info', { icon: 'user' })
           : null;
@@ -1149,9 +1156,9 @@ export default async function render(ctx) {
               missing.map((m) =>
                 h(
                   'li',
-                  h('span.pb-missing-text', badge(label('info_request_kind', m.kind === 'document' ? 'document' : 'information'), m.kind === 'document' ? 'accent' : 'info'), ' ', m.item),
+                  h('span.pb-missing-text', badge(label('info_request_kind', m.kind === 'document' ? 'document' : 'information'), m.kind === 'document' ? 'neutral' : 'info'), ' ', m.item),
                   !closed &&
-                    button('اطلب من المستفيد/ة', {
+                    button(`اطلب من ${N.def}`, {
                       size: 'sm',
                       variant: 'link',
                       icon: 'send',
@@ -1182,7 +1189,7 @@ export default async function render(ctx) {
                 h(
                   'a.pb-sim-link',
                   { href: x.type === 'knowledge' ? `#/knowledge/${x.id}` : `#/cases/${x.id}` },
-                  x.code ? codeTag(x.code) : badge('مادة معرفية', 'accent'),
+                  x.code ? codeTag(x.code) : badge('مادة معرفية', 'neutral'),
                   h('span.pb-sim-title', x.title),
                 ),
                 h(
@@ -1359,7 +1366,7 @@ export default async function render(ctx) {
             nameCb,
             h(
               'span.pb-grant-text',
-              h('span.cell-title', 'اسم المستفيد/ة'),
+              h('span.cell-title', `اسم ${N.def}`),
               h('span.cell-sub.pb-warn-text', 'الهاتف وبيانات التواصل لا تُتاح أبدًا — الاسم فقط'),
             ),
           ),
@@ -1395,7 +1402,7 @@ export default async function render(ctx) {
       ),
       group(
         'طلبات معلومات سبق إتاحتها',
-        'إجابات حصلت عليها الإدارة من المستفيد/ة لطلبات أخرى.',
+        `إجابات حصلت عليها الإدارة من ${N.def} لطلبات أخرى.`,
         sharedIrs,
         maps.info_request,
         (r) => r.id,
@@ -1405,7 +1412,7 @@ export default async function render(ctx) {
       h(
         'div.pb-grants-never',
         icon('lock', { size: 16 }),
-        h('div', h('strong', 'لا يُتاح لأي محامٍ أبدًا: '), 'رقم الهاتف وبيانات التواصل، المحادثة الأصلية مع المستفيد/ة، مصدر المستفيد/ة والحملة، الوقائع الداخلية، والتكلفة.'),
+        h('div', h('strong', 'لا يُتاح لأي محامٍ أبدًا: '), `رقم الهاتف وبيانات التواصل، المحادثة الأصلية مع ${N.def}، مصدر ${N.def} والحملة، الوقائع الداخلية، والتكلفة.`),
       ),
       summary,
     );
@@ -1440,7 +1447,7 @@ export default async function render(ctx) {
       const v = value();
       const parts = [];
       if (v.facts) parts.push('ملخص الوقائع');
-      if (v.client_name) parts.push('اسم المستفيد/ة');
+      if (v.client_name) parts.push(`اسم ${N.def}`);
       if (v.issue_ids.length) parts.push(count(v.issue_ids.length, F_ISSUES));
       if (v.document_ids.length) parts.push(count(v.document_ids.length, F_DOCS));
       if (v.opinion_assignment_ids.length) parts.push(`آراء أعضاء الفريق (${v.opinion_assignment_ids.length})`);
@@ -1472,7 +1479,7 @@ export default async function render(ctx) {
       .map((iid) => issueById.get(iid))
       .filter(Boolean)
       .sort((x, y) => x.number - y.number)
-      .map((i) => ({ label: `رقم ${i.number}`, tone: 'primary' }));
+      .map((i) => ({ label: `رقم ${i.number}`, tone: 'info' }));
     const docChips = (g.document_ids || []).map((did) => docById.get(did)).filter(Boolean).map((d) => ({ label: truncate(d.title, 40) }));
     const opChips = (g.opinion_assignment_ids || []).map((aid) => assignmentById.get(aid)).filter(Boolean).map((x) => ({ label: x.lawyer_name, tone: 'info' }));
     const irChips = (g.info_request_ids || [])
@@ -1485,7 +1492,7 @@ export default async function render(ctx) {
       h(
         'div.pb-sees-grid',
         yesNo(g.facts, 'ملخص الوقائع'),
-        yesNo(g.client_name, 'اسم المستفيد/ة'),
+        yesNo(g.client_name, `اسم ${N.def}`),
         listRow('المسائل', issueChips, 'لا توجد مسائل متاحة'),
         listRow('المستندات', docChips, 'لا توجد مستندات متاحة'),
         listRow('آراء الزملاء', opChips, 'لا يرى آراء أعضاء آخرين'),
@@ -1640,7 +1647,7 @@ export default async function render(ctx) {
           h(
             'span.pb-pick-head',
             h('span.cell-title', l.display_name || l.name),
-            idx === 0 && badge('الأعلى ترتيبًا', 'accent', { icon: 'star' }),
+            idx === 0 && badge('الأعلى ترتيبًا', 'neutral', { icon: 'star' }),
             l.specialty_match ? badge('تخصص مطابق', 'success', { icon: 'check' }) : badge('خارج التخصص المطلوب', 'warning', { icon: 'alert' }),
             l.over_capacity && badge('تجاوز طاقته الاستيعابية', 'danger', { icon: 'alert' }),
           ),
@@ -1915,7 +1922,7 @@ export default async function render(ctx) {
     const days = ctx.meta?.settings?.default_assignment_days;
     const res = await formModal({
       title: `إعادة فتح إسناد ${a.lawyer_name}`,
-      intro: 'اعتُمد رأي هذا المحامي من قبل. إعادة فتح الإسناد تتيح له استكمال العمل على الملف (مثل متابعة طلب جديد من المستفيد/ة): تبدأ له مسودة جديدة من رأيه المعتمد ويُبلَّغ بذلك، ويبقى الرأي المعتمد السابق محفوظًا في سجل الآراء.',
+      intro: `اعتُمد رأي هذا المحامي من قبل. إعادة فتح الإسناد تتيح له استكمال العمل على الملف (مثل متابعة طلب جديد من ${N.def}): تبدأ له مسودة جديدة من رأيه المعتمد ويُبلَّغ بذلك، ويبقى الرأي المعتمد السابق محفوظًا في سجل الآراء.`,
       fields: [
         {
           name: 'brief',
@@ -1975,7 +1982,7 @@ export default async function render(ctx) {
       default:
         states = ['done', 'todo', 'todo', 'todo'];
     }
-    const labels = [r.assignment_id ? 'طلب المحامي' : 'طلب الإدارة', `موافقة الإدارة والإرسال ${company ? 'للشركة' : 'للمستفيد/ة'}`, `رد ${WHO}`, 'مراجعة الإدارة والإتاحة للمحامي']; // v10 b2b-staff: «الشركة» في ملف الشركة
+    const labels = [r.assignment_id ? 'طلب المحامي' : 'طلب الإدارة', `موافقة الإدارة والإرسال ${N.li}`, `رد ${WHO}`, 'مراجعة الإدارة والإتاحة للمحامي']; // v10 b2b-staff: «الشركة» في ملف الشركة
     return labels.map((l, i) => ({ label: l, state: states[i] }));
   }
 
@@ -2000,11 +2007,11 @@ export default async function render(ctx) {
         acts.push(button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
         acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
       } else if (r.status === 'pending_admin') {
-        acts.push(button(company ? 'موافقة وإرسال للشركة' : 'موافقة وإرسال للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r) })); // v10 b2b-staff
-        acts.push(button(company ? 'الرد مباشرة دون سؤال الشركة' : 'الرد مباشرة دون سؤال المستفيد/ة', { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
+        acts.push(button(company ? 'موافقة وإرسال للشركة' : `موافقة وإرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r) })); // v10 b2b-staff
+        acts.push(button(company ? 'الرد مباشرة دون سؤال الشركة' : `الرد مباشرة دون سؤال ${N.def}`, { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
         acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
       } else if (r.status === 'sent_to_client') {
-        if (!company) acts.push(button('تسجيل رد المستفيد/ة', { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) })); // v10 b2b-staff: الشركة ترد من بوابتها
+        if (!company) acts.push(button(`تسجيل رد ${N.def}`, { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) })); // v10 b2b-staff: الشركة ترد من بوابتها
         acts.push(button('إتاحة للمحامي', { size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r) }));
         acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r) }));
       } else if (r.status === 'client_replied') {
@@ -2023,17 +2030,17 @@ export default async function render(ctx) {
         // v10 b2b-staff (U10-S10): في ملف الشركة «أُرسل للشركة» و«ردّت الشركة» بدل «المستفيد/ة»
         company && COMPANY_IR_STATUS[r.status] ? badge(COMPANY_IR_STATUS[r.status], r.status === 'client_replied' ? 'warning' : 'info', { dot: true }) : statusBadge('info_request_status', r.status),
         r.duplicate_of_id && badge('طلب مكرر', 'warning', { icon: 'link', title: `يطلب ما طُلب في الطلب رقم ${r.duplicate_of_id}؛ يصله الرد نفسه عند إتاحته` }), // v9.1 l-work
-        r.kind === 'extension' && r.requested_due_at && badge(`حتى ${dateTime(r.requested_due_at)}`, 'accent', { icon: 'clock' }), // v9.1 l-work
+        r.kind === 'extension' && r.requested_due_at && badge(`حتى ${dateTime(r.requested_due_at)}`, 'warning', { icon: 'clock' }), // v9.1 l-work
         h('span.small.muted', who),
         h('span.small.muted', '·'),
         timeTag(r.created_at, { relative: true }),
-        r.reminder_count > 0 && badge(`تذكيرات آلية ${company ? 'للشركة' : 'للمستفيد/ة'}: ${r.reminder_count}`, 'accent', { icon: 'zap', title: r.last_reminder_at ? `آخر تذكير: ${dateTime(r.last_reminder_at)}` : null }),
+        r.reminder_count > 0 && badge(`تذكيرات آلية ${N.li}: ${r.reminder_count}`, 'neutral', { icon: 'zap', title: r.last_reminder_at ? `آخر تذكير: ${dateTime(r.last_reminder_at)}` : null }),
       ),
       showSteps && stepper(irStages(r)),
       h(
         'div.pb-blocks',
         textBlock(r.assignment_id ? 'صياغة المحامي (داخلية)' : 'المطلوب (صياغة داخلية)', r.question, { iconName: 'fileText' }),
-        textBlock(`الرسالة التي أُرسلت ${company ? 'للشركة' : 'للمستفيد/ة'}`, r.client_message, { // v10 b2b-staff
+        textBlock(`الرسالة التي أُرسلت ${N.li}`, r.client_message, { // v10 b2b-staff
           iconName: 'send',
           meta: r.sent_at ? `${r.sent_channel ? `عبر ${label('channel', r.sent_channel)} · ` : ''}${dateTime(r.sent_at)}` : null,
         }),
@@ -2097,15 +2104,15 @@ export default async function render(ctx) {
       alertBox(
         company // v10 b2b-staff (U10-S10)
           ? 'المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة عبر بوابتها، ثم تراجع الإدارة الرد وتتيحه للمحامي بعد حذف أسماء موظفي الشركة وبياناتهم تلقائيًا.'
-          : 'المحامي لا يتواصل مع المستفيد/ة أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع المستفيد/ة، ثم تراجع الإدارة الرد وتتيحه للمحامي.',
+          : `المحامي لا يتواصل مع ${N.def} أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع ${N.def}، ثم تراجع الإدارة الرد وتتيحه للمحامي.`,
         'info',
         { icon: 'shield' },
       ),
       card({
         title: 'طلبات المعلومات والمستندات',
-        subtitle: `كل طلب يمر بالإدارة قبل أن يصل ${company ? 'للشركة' : 'للمستفيد/ة'}، وكل رد يمر بها قبل أن يصل للمحامي`, // v10 b2b-staff
+        subtitle: `كل طلب يمر بالإدارة قبل أن يصل ${N.li}، وكل رد يمر بها قبل أن يصل للمحامي`, // v10 b2b-staff
         icon: 'mail',
-        actions: !closed && (company ? companyLink('سؤال للشركة من صفحة الطلب') : button('طلب من المستفيد/ة مباشرة', { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog() })), // v10 b2b-staff
+        actions: !closed && (company ? companyLink('سؤال للشركة من صفحة الطلب') : button(`طلب من ${N.def} مباشرة`, { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog() })), // v10 b2b-staff
         body: irs.length ? h('div.stack', irs.map(infoRequestCard)) : emptyState('لا توجد طلبات معلومات أو مستندات في هذا الملف', null, { compact: true, icon: 'mail' }),
       }),
       card({
@@ -2119,24 +2126,24 @@ export default async function render(ctx) {
 
   async function openStaffRequestDialog(prefill = {}) {
     const res = await formModal({
-      title: 'طلب معلومة أو مستند من المستفيد/ة مباشرة',
+      title: `طلب معلومة أو مستند من ${N.def} مباشرة`,
       // (إصلاح 9.1) لا يصلها كود الملف أبدًا (رقم واحد: رقم طلبها)
-      intro: 'تُرسل الرسالة باسم المؤسسة. على واتساب يُضاف تلقائيًا اسم المستفيد/ة ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.',
+      intro: `تُرسل الرسالة باسم المؤسسة. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
       fields: [
         { name: 'kind', label: 'نوع الطلب', type: 'select', required: true, placeholder: false, options: options('info_request_kind').filter((o) => o.value === 'document' || o.value === 'information') }, // v9.1 l-work
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS },
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
         { name: 'question', label: 'المطلوب (للسجل الداخلي)', type: 'textarea', required: true, minLength: 5, maxLength: 3000, rows: 3 },
-        { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', maxLength: 3000, rows: 4, hint: 'اتركه فارغًا لإرسال نص المطلوب كما هو.' },
+        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', maxLength: 3000, rows: 4, hint: 'اتركه فارغًا لإرسال نص المطلوب كما هو.' },
         // v9.1 b-portal (B91-03): لطلب المستند فقط — صف «صوّري» لكل بند في صفحة المتابعة
         { name: 'items', label: 'البنود المطلوبة (لطلب المستند، بند في كل سطر)', type: 'textarea', rows: 3, maxLength: 450, hint: 'اختياري، حتى 5 بنود. يُتجاهل في طلب المعلومة.' },
       ],
       values: { kind: prefill.kind || 'information', channel: 'auto', question: prefill.question || '' },
-      submitLabel: 'إرسال للمستفيد/ة',
+      submitLabel: `إرسال ${N.li}`,
       submitIcon: 'send',
       onSubmit: (v) =>
         api.post(`/admin/cases/${id}/info-requests`, { kind: v.kind, question: v.question, client_message: v.client_message || v.question, channel: v.channel || 'auto', items: v.kind === 'document' ? v.items || '' : undefined }),
     });
-    if (res) await refresh('أُرسل الطلب للمستفيد/ة', { tab: 'requests' });
+    if (res) await refresh(`أُرسل الطلب ${N.li}`, { tab: 'requests' });
   }
 
   /** v9.1 b-portal: بنود الورق المحفوظة (من المحامي أو الإدارة) كنص «بند في كل سطر» */
@@ -2170,27 +2177,27 @@ export default async function render(ctx) {
       return;
     }
     const res = await formModal({
-      title: 'موافقة وإرسال الطلب للمستفيد/ة',
-      intro: 'صِغ السؤال بكلام بسيط مناسب للمستفيد/ة. على واتساب يُضاف تلقائيًا اسم المستفيد/ة ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.',
-      before: textBlock(r.assignment_id ? 'صياغة المحامي (لن يراها المستفيد/ة)' : 'المطلوب', r.question, { iconName: 'fileText' }),
+      title: `موافقة وإرسال الطلب ${N.li}`,
+      intro: `صِغ السؤال بكلام بسيط مناسب ${N.li}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
+      before: textBlock(r.assignment_id ? `صياغة المحامي (لن يراها ${N.def})` : 'المطلوب', r.question, { iconName: 'fileText' }),
       fields: [
-        { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', required: true, maxLength: 3000, rows: 5 },
         // v9.1 b-portal (B91-03): بند لكل ورقة ← صف «صوّري» لكل بند في صفحة المتابعة
-        ...(r.kind === 'document' ? [{ name: 'items', label: 'البنود المطلوبة من المستفيد/ة (بند في كل سطر)', type: 'textarea', rows: 3, maxLength: 450, hint: 'حتى 5 بنود، كل بند 80 حرفًا على الأكثر. تظهر لها في صفحتها صفًّا «صوّري» لكل بند.' }] : []),
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS },
+        ...(r.kind === 'document' ? [{ name: 'items', label: `البنود المطلوبة من ${N.def} (بند في كل سطر)`, type: 'textarea', rows: 3, maxLength: 450, hint: 'حتى 5 بنود، كل بند 80 حرفًا على الأكثر. تظهر لها في صفحتها صفًّا «صوّري» لكل بند.' }] : []),
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
       ],
       values: { client_message: r.question, channel: 'auto', items: irItemLines(r) },
-      submitLabel: 'إرسال للمستفيد/ة',
+      submitLabel: `إرسال ${N.li}`,
       submitIcon: 'send',
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message, channel: v.channel || 'auto', ...(r.kind === 'document' ? { items: v.items || '' } : {}) }),
     });
-    if (res) await refresh('أُرسل الطلب للمستفيد/ة، وسيُبلَّغ المحامي عند إتاحة الرد', { tab: 'requests' });
+    if (res) await refresh(`أُرسل الطلب ${N.li}، وسيُبلَّغ المحامي عند إتاحة الرد`, { tab: 'requests' });
   }
 
   async function openRejectIrDialog(r) {
     const res = await formModal({
       title: 'رفض طلب المعلومات',
-      intro: 'لن يُرسل شيء للمستفيد/ة، وسيصل سبب الرفض للمحامي.',
+      intro: `لن يُرسل شيء ${N.li}، وسيصل سبب الرفض للمحامي.`,
       before: textBlock('صياغة المحامي', r.question, { iconName: 'fileText' }),
       danger: true,
       submitLabel: 'رفض الطلب',
@@ -2210,10 +2217,10 @@ export default async function render(ctx) {
       title: direct ? 'الرد على طلب المحامي مباشرة' : 'مراجعة الرد وإتاحته للمحامي',
       size: 'lg',
       intro: direct
-        ? 'إن كانت المعلومة متوفرة لدى الإدارة، أجب المحامي مباشرة دون مراسلة المستفيد/ة.'
+        ? `إن كانت المعلومة متوفرة لدى الإدارة، أجب المحامي مباشرة دون مراسلة ${N.def}.`
         : data.company // v10 b2b-staff (STF-4، L-57): الخادم ينقّي رد الشركة قبل وصوله للمحامي
           ? 'سيرى المحامي نص الرد والمستندات المختارة فقط. تُحذف أسماء موظفي الشركة وبياناتهم تلقائيًا قبل وصول الرد إلى المحامي.'
-          : 'سيرى المحامي نص الرد والمستندات المختارة فقط، ولن يرى رسالة المستفيد/ة الأصلية ولا رقمه.',
+          : `سيرى المحامي نص الرد والمستندات المختارة فقط، ولن يرى رسالة ${N.def} الأصلية ولا رقمه.`,
       before: frag(
         textBlock(r.assignment_id ? 'صياغة المحامي' : 'المطلوب', r.question, { iconName: 'fileText' }),
         textBlock(`رد ${WHO} كما ورد`, r.client_reply, { iconName: 'message', tone: 'client' }), // v10 b2b-staff
@@ -2226,7 +2233,7 @@ export default async function render(ctx) {
       ),
       fields: [
         // v10 b2b-staff (review): طلب المتابعة الآلي لا يصل بوابة الشركة — في ملف الشركة يُطلب الباقي بـ«سؤال للشركة»
-        (r.items_needed || []).length > 0 && !company && { name: 'request_rest', type: 'checkbox', label: 'اطلب الباقي من المستفيد/ة (يظهر في صفحتها «لسه محتاجين»)', full: true },
+        (r.items_needed || []).length > 0 && !company && { name: 'request_rest', type: 'checkbox', label: `اطلب الباقي من ${N.def} (يظهر في صفحتها «لسه محتاجين»)`, full: true },
         // v9.1 l-work: الموافقة على طلب المهلة تمدّد موعد التسليم في نفس الخطوة
         r.kind === 'extension' && r.requested_due_at && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
         {
@@ -2236,7 +2243,7 @@ export default async function render(ctx) {
           required: true,
           maxLength: 10000,
           rows: 5,
-          hint: 'صِغ المعلومة بشكل مهني ومحايد، دون بيانات تواصل المستفيد/ة.',
+          hint: `صِغ المعلومة بشكل مهني ومحايد، دون بيانات تواصل ${N.def}.`,
         },
         docs.length > 0 && {
           name: 'document_ids',
@@ -2272,7 +2279,7 @@ export default async function render(ctx) {
           request_rest: (r.items_needed || []).length ? (company ? false : !!v.request_rest) : undefined, // v9.1 fixes · v10 b2b-staff: لا متابعة آلية لملف شركة
         }),
     });
-    if (res) await refresh((res.follow_up_items || []).length ? 'أُتيح الرد للمحامي، وطُلب الباقي من المستفيد/ة' : 'أُتيح الرد للمحامي وأُبلغ به', { tab: 'requests' });
+    if (res) await refresh((res.follow_up_items || []).length ? `أُتيح الرد للمحامي، وطُلب الباقي من ${N.def}` : 'أُتيح الرد للمحامي وأُبلغ به', { tab: 'requests' });
   }
 
   async function openRecordReplyDialog(r) {
@@ -2287,22 +2294,22 @@ export default async function render(ctx) {
         (m.documents || []).length > 0 && h('span.cell-sub', `مرفقات: ${m.documents.map((d) => d.filename).join('، ')}`),
       );
     const res = await formModal({
-      title: 'تسجيل رد المستفيد/ة على الطلب',
+      title: `تسجيل رد ${N.def} على الطلب`,
       size: 'lg',
       className: 'pb-reply-form',
-      intro: 'اختر رسائل المستفيد/ة التي تمثل رده على هذا الطلب (تُربط مرفقاتها تلقائيًا)، أو اكتب ملخص الرد إن ورد بطريقة أخرى.',
-      before: textBlock('الرسالة المرسلة للمستفيد/ة', r.client_message || r.question, { iconName: 'send', meta: r.sent_at ? dateTime(r.sent_at) : null }),
+      intro: `اختر رسائل ${N.def} التي تمثل رده على هذا الطلب (تُربط مرفقاتها تلقائيًا)، أو اكتب ملخص الرد إن ورد بطريقة أخرى.`,
+      before: textBlock(`الرسالة المرسلة ${N.li}`, r.client_message || r.question, { iconName: 'send', meta: r.sent_at ? dateTime(r.sent_at) : null }),
       fields: [
         inbound.length
-          ? { name: 'message_ids', label: 'رسائل المستفيد/ة (الأحدث أولًا)', type: 'checkboxes', options: inbound.map((m) => ({ value: m.id, label: msgLabel(m) })) }
-          : { name: '_none', type: 'static', label: 'رسائل المستفيد/ة', value: 'لا توجد رسائل واردة من المستفيد/ة في هذا الملف بعد', full: true },
+          ? { name: 'message_ids', label: `رسائل ${N.def} (الأحدث أولًا)`, type: 'checkboxes', options: inbound.map((m) => ({ value: m.id, label: msgLabel(m) })) }
+          : { name: '_none', type: 'static', label: `رسائل ${N.def}`, value: `لا توجد رسائل واردة من ${N.def} في هذا الملف بعد`, full: true },
         linkable.length > 0 && {
           name: 'document_ids',
           label: 'مستندات أخرى في الملف تخص هذا الطلب',
           type: 'checkboxes',
           options: linkable.map((d) => ({ value: d.id, label: d.title })),
         },
-        { name: 'reply_text', label: 'ملخص الرد (اختياري)', type: 'textarea', rows: 3, maxLength: 10000, hint: 'مثلًا إن أفاد المستفيد/ة بالمعلومة في مكالمة هاتفية.' },
+        { name: 'reply_text', label: 'ملخص الرد (اختياري)', type: 'textarea', rows: 3, maxLength: 10000, hint: `مثلًا إن أفاد ${N.def} بالمعلومة في مكالمة هاتفية.` },
       ],
       values: {
         message_ids: inbound.filter((m) => after && new Date(m.created_at).getTime() > after).map((m) => m.id),
@@ -2313,17 +2320,17 @@ export default async function render(ctx) {
       onSubmit: (v) => {
         const mids = v.message_ids || [];
         const dids = v.document_ids || [];
-        if (!mids.length && !dids.length && !v.reply_text) throw new Error('حدد رسالة من رسائل المستفيد/ة أو مستندًا، أو اكتب ملخص الرد.');
+        if (!mids.length && !dids.length && !v.reply_text) throw new Error(`حدد رسالة من رسائل ${N.def} أو مستندًا، أو اكتب ملخص الرد.`);
         return api.post(`/admin/info-requests/${r.id}/record-reply`, { message_ids: mids, document_ids: dids, reply_text: v.reply_text || null });
       },
     });
-    if (res) await refresh('سُجل رد المستفيد/ة. راجعه ثم أتحه للمحامي.', { tab: 'requests' });
+    if (res) await refresh(`سُجل رد ${N.def}. راجعه ثم أتحه للمحامي.`, { tab: 'requests' });
   }
 
   async function cancelIr(r) {
     const ok = await confirmAction({
       title: 'إلغاء طلب المعلومات',
-      message: 'سيُلغى الطلب ولن تتابعه المؤسسة مع المستفيد/ة، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟',
+      message: `سيُلغى الطلب ولن تتابعه المؤسسة مع ${N.def}، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟`,
       confirmLabel: 'نعم، إلغاء الطلب',
     });
     if (!ok) return;
@@ -2360,8 +2367,8 @@ export default async function render(ctx) {
     const stages = [
       { title: 'رأي المحامي (داخلي)', sub: ops.length ? `آراء مقدَّمة: ${ops.length}` : 'لم يُقدَّم رأي بعد', icon: 'fileText', state: st(ops.length > 0, activeTeam.length > 0) },
       { title: 'مراجعة الإدارة', sub: submitted.length ? `بانتظار مراجعتك: ${submitted.length}` : approved.length ? `آراء معتمدة: ${approved.length}` : '—', icon: 'shieldCheck', state: st(approved.length > 0 && !submitted.length, submitted.length > 0) },
-      { title: 'نسخة المستفيد/ة', sub: answers.length ? `مسودات: ${drafts.length} · مرسلة: ${sent.length}` : approved.length ? 'أعِدّها من رأي معتمد' : '—', icon: 'edit', state: st(answers.length > 0 && !drafts.length, approved.length > 0 && (!answers.length || drafts.length > 0)) },
-      { title: 'الإرسال للمستفيد/ة', sub: sent.length ? `أُرسل ${dateTime(sent[sent.length - 1].sent_at)}` : '—', icon: 'send', state: st(sent.length > 0, drafts.length > 0) },
+      { title: `نسخة ${N.def}`, sub: answers.length ? `مسودات: ${drafts.length} · مرسلة: ${sent.length}` : approved.length ? 'أعِدّها من رأي معتمد' : '—', icon: 'edit', state: st(answers.length > 0 && !drafts.length, approved.length > 0 && (!answers.length || drafts.length > 0)) },
+      { title: `الإرسال ${N.li}`, sub: sent.length ? `أُرسل ${dateTime(sent[sent.length - 1].sent_at)}` : '—', icon: 'send', state: st(sent.length > 0, drafts.length > 0) },
     ];
     const sr = { done: 'مكتملة', current: 'المرحلة الحالية', todo: 'لم تبدأ بعد' };
     return h(
@@ -2370,7 +2377,7 @@ export default async function render(ctx) {
         'div.card-body',
         h(
           'ol.pb-pipeline',
-          { 'aria-label': 'مسار الرأي حتى يصل للمستفيد/ة' },
+          { 'aria-label': `مسار الرأي حتى يصل ${N.li}` },
           stages.map((s, i) =>
             h(
               'li.pb-stage',
@@ -2380,7 +2387,7 @@ export default async function render(ctx) {
             ),
           ),
         ),
-        h('p.small.muted.mt-3', 'ضغط المحامي على «تقديم» لا يعني أن المستفيد/ة تلقى الرد: يعود الرأي أولًا للإدارة لتعتمده أو تعيده، ثم تُعِد الإدارة نسخة مبسطة موجهة للمستفيد/ة وترسلها.'),
+        h('p.small.muted.mt-3', `ضغط المحامي على «تقديم» لا يعني أن ${N.def} تلقى الرد: يعود الرأي أولًا للإدارة لتعتمده أو تعيده، ثم تُعِد الإدارة نسخة مبسطة موجهة ${N.li} وترسلها.`),
       ),
     );
   }
@@ -2393,7 +2400,7 @@ export default async function render(ctx) {
     }
     if (!closed && o.status === 'approved' && company) acts.push(companyLink('إعداد التسليم من صفحة طلب الشركة'));
     else if (!closed && o.status === 'approved') {
-      acts.push(button('إعداد رد للمستفيد/ة من هذا الرأي', { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ opinion: o, answer: latestDraft() }) }));
+      acts.push(button(`إعداد رد ${N.li} من هذا الرأي`, { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ opinion: o, answer: latestDraft() }) }));
     }
     return h(
       'article.pb-opinion',
@@ -2469,22 +2476,22 @@ export default async function render(ctx) {
           !closed &&
           h(
             'div.btn-group.mt-3',
-            button('إرسال للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openSendAnswerDialog(ans) }),
+            button(`إرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openSendAnswerDialog(ans) }),
             button('تعديل', { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ answer: ans }) }),
           ),
       );
     };
     return card({
-      title: 'الرد الموجه للمستفيد/ة',
-      subtitle: 'الصياغة النهائية للمستفيد/ة قد تختلف عن الصياغة المهنية الداخلية؛ تراجعها الإدارة قبل الإرسال',
+      title: `الرد الموجه ${N.li}`,
+      subtitle: `الصياغة النهائية ${N.li} قد تختلف عن الصياغة المهنية الداخلية؛ تراجعها الإدارة قبل الإرسال`,
       icon: 'send',
       actions:
         !closed &&
         approved.length > 0 &&
-        button(latestDraft() ? 'متابعة مسودة الرد' : 'إعداد رد للمستفيد/ة', { size: 'sm', variant: 'primary', icon: 'edit', onClick: () => openAnswerDialog({ answer: latestDraft() }) }),
+        button(latestDraft() ? 'متابعة مسودة الرد' : `إعداد رد ${N.li}`, { size: 'sm', variant: 'primary', icon: 'edit', onClick: () => openAnswerDialog({ answer: latestDraft() }) }),
       body: answers.length
         ? h('div.stack', answers.map(item))
-        : emptyState(approved.length ? 'لم يُعَدّ رد للمستفيد/ة بعد. ابدأ من رأي معتمد.' : 'لا يوجد رأي معتمد بعد؛ اعتمد رأي المحامي أولًا ثم أعِدّ الرد للمستفيد/ة.', null, { compact: true, icon: 'send' }),
+        : emptyState(approved.length ? `لم يُعَدّ رد ${N.li} بعد. ابدأ من رأي معتمد.` : `لا يوجد رأي معتمد بعد؛ اعتمد رأي المحامي أولًا ثم أعِدّ الرد ${N.li}.`, null, { compact: true, icon: 'send' }),
     });
   }
 
@@ -2518,7 +2525,7 @@ export default async function render(ctx) {
       // gate J-13: ملف شركة ← الرأي يصل الشركة في «تسليم» تعده الإدارة من صفحة طلبها، لا نسخة مبسطة للمستفيد/ة
       intro: company
         ? `الاعتماد يعني أن الرأي سليم مهنيًا، ولا يصل للشركة إلا في تسليم تعدّه الإدارة من صفحة طلب الشركة («إعداد تسليم»).${isLead ? ` اعتماد رأي المحامي الأساسي يجعله متاحًا لـ«تعبئة من الرأي المعتمد» في تسليم ${(company.request && company.request.code) || 'الطلب'}.` : ''} قد تُستحق أتعاب المحامي عند الاعتماد حسب اتفاقه.`
-        : `الاعتماد يعني أن الرأي سليم مهنيًا، ولا يصل للمستفيد/ة إلا بعد إعداد نسخة مبسطة وإرسالها.${isLead ? ' اعتماد رأي المحامي الأساسي ينقل الملف إلى «معتمد — بانتظار الرد على المستفيد/ة».' : ''} قد تُستحق أتعاب المحامي عند الاعتماد حسب اتفاقه.`,
+        : `الاعتماد يعني أن الرأي سليم مهنيًا، ولا يصل ${N.li} إلا بعد إعداد نسخة مبسطة وإرسالها.${isLead ? ` اعتماد رأي المحامي الأساسي ينقل الملف إلى «معتمد — بانتظار الرد على ${N.def}».` : ''} قد تُستحق أتعاب المحامي عند الاعتماد حسب اتفاقه.`,
       before: lateBox,
       setup: (f, m) => {
         modalRef = m;
@@ -2549,7 +2556,7 @@ export default async function render(ctx) {
   async function openAnswerDialog({ opinion = null, answer = null } = {}) {
     const approved = data.opinions.filter((o) => o.status === 'approved');
     if (!approved.length && !answer) {
-      toast('اعتمد رأيًا واحدًا على الأقل قبل إعداد الرد للمستفيد/ة', 'warning');
+      toast(`اعتمد رأيًا واحدًا على الأقل قبل إعداد الرد ${N.li}`, 'warning');
       return;
     }
     const opById = new Map(data.opinions.map((o) => [o.id, o]));
@@ -2638,9 +2645,9 @@ export default async function render(ctx) {
     );
     const audioDocs = (data.documents || []).filter((d) => String(d.mime || '').startsWith('audio/') && d.uploaded_by_kind !== 'client');
     const res = await formModal({
-      title: answer ? 'تعديل الرد الموجه للمستفيد/ة' : 'إعداد رد للمستفيد/ة',
+      title: answer ? `تعديل الرد الموجه ${N.li}` : `إعداد رد ${N.li}`,
       size: 'lg',
-      intro: 'ابدأ من نص الرأي المعتمد ثم بسّطه بلغة يفهمها المستفيد/ة، أو استعن بالذكاء الاصطناعي ثم راجع الصياغة.',
+      intro: `ابدأ من نص الرأي المعتمد ثم بسّطه بلغة يفهمها ${N.def}، أو استعن بالذكاء الاصطناعي ثم راجع الصياغة.`,
       fields: [
         {
           name: 'opinion_id',
@@ -2669,14 +2676,14 @@ export default async function render(ctx) {
         },
         { name: '_ai', type: 'static', label: 'مساعدة الذكاء الاصطناعي', full: true, render: () => h('div.stack-sm', h('div.row', aiBtn), aiNote) },
         // v9.1 b-portal (B91-08)
-        { name: 'summary', label: 'الخلاصة بكلام بسيط (أول حاجة تظهر للمستفيد/ة)', type: 'textarea', maxLength: 400, rows: 3, counter: true, full: true, hint: 'جملتين أو تلاتة بالعامية المصرية البسيطة، بلا مصطلح قانوني إلا مع شرحه. لا أسماء محامين ولا ملاحظات داخلية.' },
+        { name: 'summary', label: `الخلاصة بكلام بسيط (أول حاجة تظهر ${N.li})`, type: 'textarea', maxLength: 400, rows: 3, counter: true, full: true, hint: 'جملتين أو تلاتة بالعامية المصرية البسيطة، بلا مصطلح قانوني إلا مع شرحه. لا أسماء محامين ولا ملاحظات داخلية.' },
         { name: '_summary_tools', type: 'static', full: true, render: () => h('div.row', sumBtn, glossWarn) },
         { name: 'steps', label: 'الخطوات المطلوبة منها (خطوة في كل سطر)', type: 'textarea', maxLength: 1400, rows: 4, full: true, hint: 'حتى 8 خطوات، كل خطوة 160 حرفًا على الأكثر. تظهر لها بقائمة «تعملي إيه دلوقتي؟».' },
         { name: '_steps_tools', type: 'static', full: true, render: () => h('div.row', stepsBtn) },
         audioDocs.length
-          ? { name: 'voice_document_id', label: 'رسالة صوتية للمستفيد/ة مع الرد (اختياري)', type: 'select', options: audioDocs.map((d) => ({ value: d.id, label: d.title || d.filename })), full: true, hint: 'ارفع التسجيل أولًا من «المستندات»، ثم اختره هنا. يظهر لها مشغّل صوت فوق الخلاصة.' }
+          ? { name: 'voice_document_id', label: `رسالة صوتية ${N.li} مع الرد (اختياري)`, type: 'select', options: audioDocs.map((d) => ({ value: d.id, label: d.title || d.filename })), full: true, hint: 'ارفع التسجيل أولًا من «المستندات»، ثم اختره هنا. يظهر لها مشغّل صوت فوق الخلاصة.' }
           : null,
-        { name: 'body', label: 'نص الرد للمستفيد/ة', type: 'textarea', required: true, maxLength: 4000, rows: 14, counter: true },
+        { name: 'body', label: `نص الرد ${N.li}`, type: 'textarea', required: true, maxLength: 4000, rows: 14, counter: true },
       ].filter(Boolean),
       values: {
         opinion_id: initialOp ? initialOp.id : null,
@@ -2707,14 +2714,14 @@ export default async function render(ctx) {
           ...(audioDocs.length ? { voice_document_id: v.voice_document_id || null } : {}),
         }),
     });
-    if (res) await refresh('حُفظت مسودة الرد. راجعها ثم أرسلها للمستفيد/ة.', { tab: 'opinions' });
+    if (res) await refresh(`حُفظت مسودة الرد. راجعها ثم أرسلها ${N.li}.`, { tab: 'opinions' });
   }
 
   async function openSendAnswerDialog(ans) {
     // (إصلاح 9.1) الخطوات المرقّمة تصلها على واتساب وفي صفحتها: تظهر هنا قبل الإرسال مع الخلاصة والنص
     const steps = answerSteps(ans.steps);
     const res = await formModal({
-      title: 'إرسال الرد للمستفيد/ة',
+      title: `إرسال الرد ${N.li}`,
       // v9.1 b-portal (B91-08): تنبيه إن لم تُكتب خلاصة بسيطة
       intro: `بعد الإرسال لا يمكن تعديل الرد. تأكد من مراجعة الصياغة النهائية.${ans.summary ? '' : ' الرد هيوصل من غير خلاصة.'}`,
       before: frag(
@@ -2727,13 +2734,13 @@ export default async function render(ctx) {
           ans.body,
         ),
       ),
-      fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS }],
+      fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts }],
       values: { channel: 'auto' },
       submitLabel: 'إرسال الآن',
       submitIcon: 'send',
       onSubmit: (v) => api.post(`/admin/client-answers/${ans.id}/send`, { channel: v.channel || 'auto' }),
     });
-    if (res) await refresh('أُرسل الرد للمستفيد/ة. أغلق الملف عند انتهاء المتابعة.', { tab: 'opinions' });
+    if (res) await refresh(`أُرسل الرد ${N.li}. أغلق الملف عند انتهاء المتابعة.`, { tab: 'opinions' });
   }
 
   // ───────────────────────── المستندات ─────────────────────────
@@ -2767,7 +2774,7 @@ export default async function render(ctx) {
         label: 'من يراه من الفريق',
         render: (d) => {
           const v = viewersOf(d.id);
-          return v.length ? chips(v.map((a) => ({ label: a.lawyer_name, tone: 'primary' }))) : h('span.small.muted.pb-inline', icon('lock', { size: 13 }), 'الإدارة فقط');
+          return v.length ? chips(v.map((a) => ({ label: a.lawyer_name, tone: 'info' }))) : h('span.small.muted.pb-inline', icon('lock', { size: 13 }), 'الإدارة فقط');
         },
       },
       {
@@ -2828,10 +2835,10 @@ export default async function render(ctx) {
     const failed = data.messages.filter((m) => m.direction === 'out' && m.status === 'failed').length;
     return h(
       'div.stack',
-      alertBox('المحادثة الأصلية مع المستفيد/ة تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل من واتساب والموقع تظهر هنا في خيط واحد.', 'info', { icon: 'lock' }),
+      alertBox(`المحادثة الأصلية مع ${N.def} تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل من واتساب والموقع تظهر هنا في خيط واحد.`, 'info', { icon: 'lock' }),
       failed > 0 && alertBox(`رسائل تعذر إرسالها: ${failed}. يمكنك إعادة المحاولة من داخل الرسالة.`, 'danger'),
       messageThread(data.messages, {
-        inLabel: data.client?.name || 'المستفيد/ة',
+        inLabel: data.client?.name || `${N.def}`,
         outLabel: 'المؤسسة',
         onRetry: async (m) => {
           await api.post(`/admin/messages/${m.id}/retry`);
@@ -2854,9 +2861,10 @@ export default async function render(ctx) {
         },
         aiTarget: { caseId: c.id },
         sendInfo, // v11 segment-staff (r2 P13)
+        noun: N, // v11 gate fix (J-13)
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/cases/${id}/messages`, { body, channel });
-          await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'conversation' });
+          await refresh(`أُرسلت الرسالة ${N.li}`, { tab: 'conversation' });
         },
       }),
     );
@@ -2920,19 +2928,19 @@ export default async function render(ctx) {
 
   async function openMessageDialog() {
     const res = await formModal({
-      title: 'رسالة للمستفيد/ة',
+      title: `رسالة ${N.li}`,
       before: sendHeader(sendInfo), // v11 segment-staff (r2 P13)
-      intro: `تُرسل باسم المؤسسة إلى ${data.client?.name || 'المستفيد/ة'}، وتظهر في تبويب المحادثة.`,
+      intro: `تُرسل باسم المؤسسة إلى ${data.client?.name || `${N.def}`}، وتظهر في تبويب المحادثة.`,
       fields: [
         { name: 'body', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5 },
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS },
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
       ],
       values: { channel: 'auto' },
       submitLabel: 'إرسال',
       submitIcon: 'send',
       onSubmit: (v) => api.post(`/admin/cases/${id}/messages`, { body: v.body, channel: v.channel || 'auto' }),
     });
-    if (res) await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'conversation' });
+    if (res) await refresh(`أُرسلت الرسالة ${N.li}`, { tab: 'conversation' });
   }
 
   async function openEditCaseDialog() {
@@ -2988,7 +2996,7 @@ export default async function render(ctx) {
       alertBox(
         h(
           'span',
-          `فيه رسالة من المستفيد/ة لم يُرد عليها (${relative(m.created_at)}): «${truncate(String(m.body || 'مرفق'), 90)}». `,
+          `فيه رسالة من ${N.def} لم يُرد عليها (${relative(m.created_at)}): «${truncate(String(m.body || 'مرفق'), 90)}». `,
           h('a', { href: `#/cases/${id}?tab=conversation` }, 'افتح المحادثة ورد عليها'),
         ),
         'warning',
@@ -3036,18 +3044,18 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'تحويل الاستشارة إلى ملف عمل مستمر',
       size: 'lg',
-      intro: 'يُنشأ ملف مستمر (تمثيل قضائي أو عمل قانوني مستمر) مرتبط بنفس المستفيد/ة وهذه الاستشارة، دون فقد أي شيء مما تم.',
+      intro: `يُنشأ ملف مستمر (تمثيل قضائي أو عمل قانوني مستمر) مرتبط بنفس ${N.def} وهذه الاستشارة، دون فقد أي شيء مما تم.`,
       before: pendingMsg,
       fields: [
         { name: 'kind', label: 'نوع الملف', type: 'select', required: true, options: options('matter_kind') },
-        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يرى الملف المستمر من بوابته دون بيانات تواصل المستفيد/ة أو الفواتير.' },
+        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: `يرى الملف المستمر من بوابته دون بيانات تواصل ${N.def} أو الفواتير.` },
         { name: 'title', label: 'عنوان الملف المستمر', type: 'text', maxLength: 200, full: true },
         { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150 },
         { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100 },
         { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true },
         { name: 'lawsuit_year', label: 'سنة الدعوى', type: 'text', maxLength: 10, ltr: true },
         { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200 },
-        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0 },
+        { name: 'agreed_fee', label: `الأتعاب المتفق عليها مع ${N.def}`, type: 'money', min: 0 },
         { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000 },
         // v9.1 fixes: مستندات الاستشارة المتاحة للمحامي المسؤول نفسه تظهر في صفحة الملف المستمر
         { name: 'link_granted_documents', type: 'checkbox', text: 'أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بلا الرسائل الصوتية)', full: true },

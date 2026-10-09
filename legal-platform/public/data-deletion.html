@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>طلب حذف البيانات — {{site_name}}</title>
-    <meta name="description" content="كيف تطلب حذف بياناتك الشخصية من برنامج {{program_name}} في {{org_legal_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة المقر، وما الذي يحدث بعد الطلب." />
+    <!-- v11 fixer-public (K11، G11-51): الوصف و«بالمختصر» والمقدمة وزر واتساب حسب جانب الزائر؛ نص «خيري» كما في 10.0 حرفيًا -->
+    <meta name="description" content="<!--#if side_charity-->كيف تطلب حذف بياناتك الشخصية من برنامج {{program_name}} في {{org_legal_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة المقر، وما الذي يحدث بعد الطلب.<!--/if side_charity--><!--#if side_paid-->كيف تطلبون حذف بياناتكم الشخصية لدى {{brand_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة مكتبنا، وما الذي يحدث بعد الطلب.<!--/if side_paid-->" />
     <!--site:head-->
     <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
@@ -26,15 +27,20 @@
           <h1 id="page-title">طلب حذف بياناتك</h1>
           <div class="pub-summary" id="summary">
             <h2>بالمختصر</h2>
-            <ul>
+            <!--#if side_charity--><ul>
               <li>{{{icon_check}}}<span>تقدري تطلبي نمسح بياناتك في أي وقت.</span></li>
               <!--#if org_phone--><li>{{{icon_phone}}}<span>كلمينا على <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if whatsapp_deletion_url--> أو <a href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">ابعتيلنا على واتساب</a><!--/if whatsapp_deletion_url-->، وقولي اسمك ورقم طلبك لو معاكي.</span></li><!--/if org_phone-->
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>{{{icon_check}}}<span>يمكنكم طلب حذف بياناتكم في أي وقت.</span></li>
+              <!--#if org_phone--><li>{{{icon_phone}}}<span>اتصلوا بنا على <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if whatsapp_deletion_url--> أو <a href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">راسلونا على واتساب</a><!--/if whatsapp_deletion_url-->، واذكروا الاسم ورقم الطلب إن وُجد.</span></li><!--/if org_phone-->
+            </ul><!--/if side_paid-->
           </div>
-          <p>
+          <!--#if side_charity--><p>
             من حقك أن تطلب حذف بياناتك الشخصية ومحادثاتك ومستنداتك المحفوظة لدى برنامج {{program_name}} في أي وقت، سواء تواصلت معنا عبر الموقع أو
             واتساب أو غيرهما.
-          </p>
+          </p><!--/if side_charity--><!--#if side_paid--><p>
+            من حقكم طلب حذف بياناتكم الشخصية ومحادثاتكم ومستنداتكم المحفوظة لدينا في أي وقت، سواء تواصلتم معنا عبر الموقع أو واتساب أو غيرهما.
+          </p><!--/if side_paid-->
           <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>
         </div>
       </section>
@@ -65,7 +71,7 @@
                 <div>
                   <strong>عبر واتساب</strong>
                   أرسل لنا رسالة بعبارة «طلب حذف بياناتي» من رقمك المسجل لدينا.
-                  <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer">ابعتي الطلب على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
+                  <a class="pub-btn pub-btn-whatsapp" href="{{whatsapp_deletion_url}}" target="_blank" rel="noopener noreferrer"><!--#if side_charity-->ابعتي الطلب على واتساب<!--/if side_charity--><!--#if side_paid-->أرسلوا الطلب على واتساب<!--/if side_paid--><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>
                 </div>
               </li>
               <!--/if whatsapp_deletion_url-->
@@ -91,7 +97,7 @@
               <li>
                 <span class="pub-tile"><svg class="pub-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span>
                 <div>
-                  <strong>بزيارة مقر المؤسسة</strong>
+                  <strong><!--#if side_charity-->بزيارة مقر المؤسسة<!--/if side_charity--><!--#if side_paid-->بزيارة مكتبنا<!--/if side_paid--></strong>
                   {{org_address}}<!--#if office_hours-->، {{office_hours}}<!--/if office_hours-->.
                 </div>
               </li>

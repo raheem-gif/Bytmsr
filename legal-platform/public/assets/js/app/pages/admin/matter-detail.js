@@ -135,7 +135,7 @@ export default async function render(ctx) {
       value: nextEvent ? date(nextEvent.starts_at) : '—',
       hint: nextEvent ? `${label('event_kind', nextEvent.kind)} · ${relative(nextEvent.starts_at)}` : 'لا مواعيد مجدولة',
       icon: 'calendar',
-      tone: nextEvent ? 'accent' : 'muted',
+      tone: nextEvent ? 'info' : 'muted', // v11 gate fix (K1): الذهبي لرقاقة «خيري» وحدها
       onClick: () => goTab('events'),
     }),
     statCard({
@@ -337,8 +337,8 @@ export default async function render(ctx) {
           statusBadge('event_status', e.status),
           e.client_attendance_required
             ? pendingReminder
-              ? badge('يلزم حضور المستفيد/ة', 'accent', { icon: 'user' })
-              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' })
+              ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' })
+              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'warning', { icon: 'zap' })
             : null,
           pendingReminder
             ? badge('تذكير المستفيد/ة بانتظار الاعتماد', 'warning', {
@@ -462,7 +462,7 @@ export default async function render(ctx) {
             'div',
             h('div.cell-title', t.title),
             t.details && h('div.cell-sub', t.details),
-            t.procedural ? h('div.mt-1', badge('موعد إجرائي', 'accent', { icon: 'flag' })) : null,
+            t.procedural ? h('div.mt-1', badge('موعد إجرائي', 'neutral', { icon: 'flag' })) : null,
           ),
       },
       {
@@ -767,7 +767,7 @@ export default async function render(ctx) {
         body: table({
           columns: [
             { key: 'lawyer', label: 'المحامي', render: (f) => f.lawyer_name },
-            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'primary') },
+            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'neutral') },
             { key: 'description', label: 'البيان', className: 'col-wide' },
             { key: 'amount', label: 'المبلغ', align: 'end', render: (f) => h('strong.nowrap', money(f.amount)) },
             { key: 'period', label: 'الشهر', render: (f) => (f.period ? ltr(f.period) : null) },

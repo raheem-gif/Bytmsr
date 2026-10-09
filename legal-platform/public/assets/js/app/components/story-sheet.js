@@ -11,11 +11,11 @@ import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
 import { haptic } from '../../lib/haptics.js';
 // v11 segment-staff (ST-3): نوع الخدمة في ورقة القرار — رأس الإرسال، واختيار إلزامي بلا افتراضي حين يكون «غير محدد»
-import { sendHeader, segmentChoice, parseSeg, segLabel, REQUIRED_TEXT } from './segment-ui.js';
+import { sendHeader, segmentChoice, parseSeg, segLabel, clientNoun, pronounOf, REQUIRED_TEXT } from './segment-ui.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
-export const TRACK_TONES = { consultation: 'primary', matter: 'accent', internal: 'success', refer: 'neutral', need_info: 'warning' };
+export const TRACK_TONES = { consultation: 'info', matter: 'neutral', internal: 'success', refer: 'neutral', need_info: 'warning' };
 const SUBMIT_LABELS = {
   consultation: 'تحويل وإصدار كود الملف',
   matter: 'فتح الملف والملف المستمر',
@@ -29,16 +29,37 @@ const REPLY_CHANNELS = [
   { value: 'whatsapp', label: 'واتساب' },
   { value: 'website', label: 'الموقع (صفحة المتابعة)' },
 ];
+/** v11 gate fix (J-13): «آخر قناة تواصل منها العميل/ة» لطلب أفراد وشركات؛ الخيري كما كان */
+function replyChannelsFor(segment, company) {
+  if (parseSeg(segment) !== 'paid' && !company) return REPLY_CHANNELS;
+  const n = clientNoun(segment, { company });
+  return REPLY_CHANNELS.map((o) => (o.value === 'auto' ? { ...o, label: `تلقائي (آخر قناة تواصل منها ${n.def})` } : o));
+}
+
+/**
+ * v11 gate fix (J-13): مسمى المسار بضمير المخاطَب — «نسألها الأول» / «نسأله الأول» / «نسألهم الأول» (طلب عرض شركة).
+ * بقية المسارات بلا ضمير فتبقى كما في LABELS.
+ */
+export function trackLabel(t, form = 'f', { company = false } = {}) {
+  if (t === 'need_info' && (company || form === 'm')) return `نسأل${pronounOf(form, { company })} الأول`;
+  return label('story_track', t);
+}
 const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون رسالة';
 
 /** رسالة تأكيد النجاح بعد القرار (§6.4/A92-19) + « (إرسال تجريبي)» عند المحاكاة */
-export function acceptToast(res) {
+export function acceptToast(res, { form = 'f', company = false } = {}) {
+  // v11 gate fix (J-13): «وأُرسلت له/لها/لهم رسالة» حسب صيغة المخاطَب (كان «لها» دائمًا حتى لعميل رجل أو لشركة)
+  const pr = pronounOf(form, { company });
   haptic('success'); // v10 (X10-M6): «اعمله طلب» قُبل (على الحاسوب: لا شيء)
   const sim = res.message && res.message.status === 'simulated' ? ' (إرسال تجريبي)' : '';
   let text;
   // [بوابة 9.2 G15] «(إرسال تجريبي)» يخص الرسالة التي وصلتها، لا اختيار المحامي
   if (res.track === 'consultation' && sim && res.message) {
-    toast(`تم إنشاء الملف ${res.case?.code || ''} وأُرسلت لها رسالة${sim} — اختر الآن المحامي`, 'success', 6000);
+    toast(
+      pr === 'ها' ? `تم إنشاء الملف ${res.case?.code || ''} وأُرسلت لها رسالة${sim} — اختر الآن المحامي` : `تم إنشاء الملف ${res.case?.code || ''} وأُرسلت ل${pr} رسالة${sim} — اختر الآن المحامي`,
+      'success',
+      6000,
+    );
     for (const w of res.warnings || []) toast(w.text, 'warning', 9000);
     return;
   }
@@ -46,7 +67,7 @@ export function acceptToast(res) {
   else if (res.track === 'matter') text = `تم إنشاء الملف ${res.case?.code || ''} والملف المستمر ${res.matter?.code || ''}`;
   else if (res.track === 'internal') text = res.message ? 'أُرسل الرد وأُغلق الطلب' : 'أُغلق الطلب دون رسالة';
   else if (res.track === 'refer') text = res.message ? 'أُرسل التوجيه وأُغلق الطلب' : 'أُغلق الطلب دون رسالة';
-  else text = 'أُرسلت الأسئلة — الطلب بانتظار ردها';
+  else text = pr === 'ها' ? 'أُرسلت الأسئلة — الطلب بانتظار ردها' : `أُرسلت الأسئلة — الطلب بانتظار رد${pr}`;
   toast(`${text}${sim}`, 'success', 6000);
   for (const w of res.warnings || []) toast(w.text, 'warning', 9000);
 }
@@ -105,7 +126,12 @@ export async function openStorySheet(opts = {}) {
   // [بوابة 9.2 N6] صيغة المخاطَب في نصوص الإدارة (رجل معروف: «أبو …» أو صيغة حددتها الإدارة)
   const addrForm = (p.identity && p.identity.form) || 'f';
   // [مراجعة 9.2] رقم غير مؤكد (B91-01): لا خيار «واتساب» يرفضه الخادم بعد الضغط — صفحة المتابعة فقط
-  const replyChannels = unconfirmed ? REPLY_CHANNELS.filter((c) => c.value !== 'whatsapp') : REPLY_CHANNELS;
+  // v11 gate fix (J-13): طلب عرض من شركة يُخاطَب بالجمع
+  const isCompanyLead = opts.requesterKind === 'company';
+  const replyChannelsNow = () => {
+    const list = replyChannelsFor(segPick || segNow, isCompanyLead);
+    return unconfirmed ? list.filter((c) => c.value !== 'whatsapp') : list;
+  };
   const forms = new Map();
   let handle = null;
   let finished = null;
@@ -114,6 +140,9 @@ export async function openStorySheet(opts = {}) {
   const segNow = parseSeg(p.segment);
   const segRequired = Boolean(p.segment_required) || !segNow;
   let segPick = segNow; // القيمة التي ستُرسل مع القرار (null = لم تُختر بعد)
+  // v11 gate fix (J-13/V13): «المستفيد/ة» للخيري، «العميل/ة» للأفراد، «الشركة» لطلب عرض شركة — نصوص الإدارة وحدها
+  const nounNow = () => clientNoun(segPick || segNow, { company: isCompanyLead });
+  const isCharityNoun = () => !isCompanyLead && parseSeg(segPick || segNow) !== 'paid';
   // v11 gate fix (J-04/K13): المسارات التي عدّلتها الإدارة يدويًا — مسوداتها لا تُستبدل عند تغيير النوع، بل يظهر تنبيه
   const touched = new Set();
   const touchedTone = new Map(); // نبرة المسودة التي بُني منها كل مسار عُدِّل يدويًا
@@ -182,7 +211,7 @@ export async function openStorySheet(opts = {}) {
     value: track,
     options: STORY_TRACKS.map((t) => ({
       value: t,
-      label: label('story_track', t),
+      label: trackLabel(t, addrForm, { company: isCompanyLead }),
       icon: t === recommended ? 'sparkle' : null,
       hint: t === recommended ? 'مقترح' : null,
     })),
@@ -233,7 +262,7 @@ export async function openStorySheet(opts = {}) {
     label: 'قناة الرد',
     type: 'select',
     placeholder: false,
-    options: replyChannels,
+    options: replyChannelsNow(),
     hint: channelHint || null,
   });
 
@@ -263,9 +292,9 @@ export async function openStorySheet(opts = {}) {
             h(
               'span.pa-issue-meta',
               x.origin === 'ai'
-                ? badge('اقتراح الذكاء الاصطناعي', 'accent', { icon: 'sparkle' })
+                ? badge('اقتراح الذكاء الاصطناعي', 'info', { icon: 'sparkle' })
                 : [
-                    badge('أضافتها الإدارة', 'primary'),
+                    badge('أضافتها الإدارة', 'neutral'),
                     button('', {
                       variant: 'ghost',
                       size: 'sm',
@@ -380,7 +409,7 @@ export async function openStorySheet(opts = {}) {
         { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200 },
         { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority') },
         !matter && { name: 'case_manager_id', label: 'مدير الحالة', type: 'select', options: staffOpts },
-        !matter && { name: 'due_at', label: 'الموعد المستهدف للرد على المستفيد/ة', type: 'date', endOfDay: true, min: cairoToday() },
+        !matter && { name: 'due_at', label: `الموعد المستهدف للرد على ${nounNow().def}`, type: 'date', endOfDay: true, min: cairoToday() },
         {
           name: 'facts_shared',
           label: 'ملخص الوقائع للمحامين',
@@ -449,18 +478,21 @@ export async function openStorySheet(opts = {}) {
       if (cl && !unconfirmed) {
         clientForm = form(
           [
-            { name: 'name', label: 'اسم المستفيد/ة', maxLength: 150 },
+            { name: 'name', label: `اسم ${nounNow().def}`, maxLength: 150 },
             { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري' },
             { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
           ],
           { footer: false, columns: 2, values: { name: cl.name || '', national_id: cl.national_id || '', governorate: cl.governorate || null } },
         );
       }
-      program = programSelect({ area: c.legal_area || null, governorate: (cl && cl.governorate) || null });
-      main.el.addEventListener('change', () => program.setContext({ area: main.getValues().legal_area }));
+      // v11 gate fix: عمل الأفراد والشركات مدفوع دائمًا ولا يُربط ببرنامج تمويل (L11-24) — لا حقل برنامج له
+      if (segPick !== 'paid') {
+        program = programSelect({ area: c.legal_area || null, governorate: (cl && cl.governorate) || null });
+        main.el.addEventListener('change', () => program.setContext({ area: main.getValues().legal_area }));
+      }
     }
     const reply = replyBlock(dc.reply, {
-      checkbox: { label: 'إرسال رسالة للمستفيدة بأن طلبها اتسجّل', textLabel: 'نص الرسالة' },
+      checkbox: { label: isCharityNoun() ? 'إرسال رسالة للمستفيدة بأن طلبها اتسجّل' : `إرسال رسالة ${nounNow().li} بتسجيل الطلب`, textLabel: 'نص الرسالة' },
       sourceLine: channelHint || null,
     });
     const el = frag(
@@ -471,8 +503,8 @@ export async function openStorySheet(opts = {}) {
       !matter &&
         h(
           'details.pa-details.pa-sheet-more',
-          h('summary', 'بيانات المستفيدة والتمويل'),
-          clientForm ? clientForm.el : h('p.small.muted', unconfirmed ? 'رقمها غير مؤكد: لا تُعدَّل بيانات صاحبة الرقم المسجلة من هنا.' : 'لا توجد بيانات مستفيدة مرتبطة.'),
+          h('summary', isCharityNoun() ? 'بيانات المستفيدة والتمويل' : `بيانات ${nounNow().def}`),
+          clientForm ? clientForm.el : h('p.small.muted', unconfirmed ? 'رقمها غير مؤكد: لا تُعدَّل بيانات صاحبة الرقم المسجلة من هنا.' : isCharityNoun() ? 'لا توجد بيانات مستفيدة مرتبطة.' : `لا توجد بيانات ${nounNow().def} مرتبطة.`),
           program && program.el,
         ),
       reply.el,
@@ -511,7 +543,7 @@ export async function openStorySheet(opts = {}) {
           kase.facts_internal = v.facts_internal || undefined;
           kase.case_manager_id = v.case_manager_id || undefined;
           kase.due_at = v.due_at || undefined;
-          kase.program_id = program && program.get() ? program.get() : undefined;
+          kase.program_id = segPick !== 'paid' && program && program.get() ? program.get() : undefined;
           if (clientForm) {
             const cv = clientForm.getValues();
             const nid = toLatinDigits(cv.national_id || '').replace(/\s/g, '');
@@ -581,7 +613,10 @@ export async function openStorySheet(opts = {}) {
             ? 'من دليل التوجيه في الإعدادات — راجعها قبل الإرسال'
             : null;
     const reply = replyBlock(dr.reply, {
-      checkbox: { label: kind === 'refer' ? 'إرسال الرسالة' : 'إرسال الرد', textLabel: kind === 'refer' ? 'رسالة التوجيه للمستفيدة' : 'الرد على المستفيدة' },
+      checkbox: {
+        label: kind === 'refer' ? 'إرسال الرسالة' : 'إرسال الرد',
+        textLabel: isCharityNoun() ? (kind === 'refer' ? 'رسالة التوجيه للمستفيدة' : 'الرد على المستفيدة') : kind === 'refer' ? `رسالة التوجيه ${nounNow().li}` : `الرد على ${nounNow().def}`,
+      },
       sourceLine,
       withPicker: kind === 'internal',
     });
@@ -884,7 +919,7 @@ export async function openStorySheet(opts = {}) {
         else if (opts.onDone) opts.onDone({ next: `#/inbox/${intakeId}` });
         return;
       }
-      acceptToast(finished);
+      acceptToast(finished, { form: addrForm, company: isCompanyLead });
       if (opts.onDone) opts.onDone(finished);
       else if (finished.next) window.location.hash = finished.next;
     },
