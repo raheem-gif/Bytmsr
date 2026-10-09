@@ -3154,12 +3154,16 @@ body.pub .pub-co-row {
   line-height: 1.4;
 }
 
-/* سطر فرعي واحد (L11-55): ارتفاع الصف ثابت مهما كان الخط (لا إزاحة حين يصل الخط العربي) */
 .g-sub {
-  overflow: hidden;
   color: var(--label-2);
   font-size: 15px;
   line-height: 1.45;
+}
+
+/* سطر فرعي واحد في قائمة المواضيع وحدها (L11-55): ارتفاع الصف ثابت مهما كان الخط (لا إزاحة حين يصل الخط العربي).
+   مراجعة: كانت القاعدة على كل .g-sub فقصّت جمل «التزامنا معكم» (الأتعاب والسرية) بنقاط. */
+.pub-topic-list .g-sub {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3310,6 +3314,44 @@ body.pub .pub-topic-list .g-row:focus-visible {
 
 .pub-trust-row .g-sub {
   margin-top: 2px;
+}
+
+/* مراجعة (PW-G14، زر مملوء واحد في الشاشة): فوق 1080px يبقى «طلب استشارة» المملوء في الرأس الثابت ظاهرًا دائمًا،
+   فزر نهاية الصفحة (نفس الإجراء ونفس الرابط) يصير ملوّنًا خفيفًا؛ على الهاتف القائمة مطوية فيبقى هو الزر المملوء */
+@media (min-width: 1081px) {
+  body.pub-paid .pub-final-cta .pub-btn-primary,
+  body.pub-paid .pub-final-cta .pub-btn-primary:hover {
+    background: var(--tint-weak);
+    color: var(--tint);
+  }
+}
+
+/* مراجعة (V11-53): في الألوان القسرية تختفي الخلفيات، فالقوائم المجمّعة وصف «للشركات» تأخذ حافة ولون فواصل من النظام */
+@media (forced-colors: active) {
+  .pub-topic-list,
+  .pub-trust-list,
+  body.pub .pub-co-row {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+
+  .pub-topic-list li + li::before,
+  .pub-trust-row + .pub-trust-row::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
+
+/* مراجعة: على الشاشة الكبيرة عمودان مثل قائمة المواضيع (سطر بعرض 1100px يصعب تتبعه) */
+@media (min-width: 900px) {
+  .pub-trust-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pub-trust-row:nth-child(2)::before {
+    display: none;
+  }
 }
 
 /* شريط الشركات: أرضية الشعار الغامقة، وزر ذهبي واحد عليها */

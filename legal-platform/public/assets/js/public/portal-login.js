@@ -9,6 +9,14 @@ import { ic, btn, getJson, postJson, waUrl, initMenu, savedPortal, forgetThisPho
 import { publicData } from './words.js';
 
 const root = document.getElementById('portal-login-root');
+// v11 gate-public (G11-47، P1): نصوص الأفراد والشركات (bm-copy) حين يكون جانب الزائر «أفراد وشركات» — P(المفتاح، نص «خيري»)
+let PC = null;
+try {
+  PC = JSON.parse(document.getElementById('bm-copy')?.textContent || 'null');
+} catch {
+  PC = null;
+}
+const P = (k, f) => (PC && typeof PC[k] === 'string' ? PC[k] : f);
 const titleEl = document.getElementById('page-title');
 let meta = { org: '', phone: '', phoneHref: '', wa: '', hours: '', otp: true, demo: false, setup_required: false };
 let timers = [];
@@ -36,12 +44,12 @@ function maskPhone(p) {
   return d.length > 4 ? `••• ${d.slice(-4)}` : p;
 }
 
-const callBtn = (kind = 'secondary') => (meta.phoneHref ? btn('اتصلي بينا', { kind, icon: 'phone', href: meta.phoneHref, block: true }) : null);
+const callBtn = (kind = 'secondary') => (meta.phoneHref ? btn(P('call', 'اتصلي بينا'), { kind, icon: 'phone', href: meta.phoneHref, block: true }) : null);
 const waBtn = (text, kind = 'whatsapp') => {
   const u = waUrl(meta.wa, text);
   return u ? btn('واتساب', { kind, icon: 'whatsapp', href: u, block: true }) : null;
 };
-const hoursLine = () => (meta.hours ? h('p.bp-hint', `بنرد ${meta.hours}`) : null);
+const hoursLine = () => (meta.hours ? h('p.bp-hint', P('hours', 'بنرد {h}').replace('{h}', meta.hours)) : null);
 
 // ───────────── الصفحة المحفوظة على الموبايل ده ─────────────
 
@@ -51,8 +59,8 @@ function savedCard() {
   const card = h(
     'section.bp-card.bp-saved',
     { 'aria-labelledby': 'bp-saved-title' },
-    h('h2#bp-saved-title', 'عندك طلب عندنا'),
-    btn('افتحي صفحة طلبك', { kind: 'primary', icon: 'file', href: saved.url, block: true, attrs: { 'data-saved': '1' } }),
+    h('h2#bp-saved-title', P('savedT', 'عندك طلب عندنا')),
+    btn(P('savedOpen', 'افتحي صفحة طلبك'), { kind: 'primary', icon: 'file', href: saved.url, block: true, attrs: { 'data-saved': '1' } }),
     h(
       'p.bp-new',
       h(
@@ -64,7 +72,7 @@ function savedCard() {
             card.remove();
           },
         },
-        'مش موبايلك؟ امسحي',
+        P('savedForget', 'مش موبايلك؟ امسحي'),
       ),
     ),
   );
@@ -77,9 +85,9 @@ function linkCard() {
   return h(
     'section.bp-card',
     { 'aria-labelledby': 'bp-lost-title' },
-    h('h2#bp-lost-title', 'قدّمتي من الموقع ومش لاقية الرابط؟'),
-    h('p', 'كلمينا وهنبعتلك الرابط بعد ما نتأكد إنك صاحبة الطلب.'),
-    h('div.bp-actions', callBtn('secondary'), waBtn('السلام عليكم، ضاع مني رابط متابعة طلبي. اسمي: ')),
+    h('h2#bp-lost-title', P('lostT', 'قدّمتي من الموقع ومش لاقية الرابط؟')),
+    h('p', P('lostX', 'كلمينا وهنبعتلك الرابط بعد ما نتأكد إنك صاحبة الطلب.')),
+    h('div.bp-actions', callBtn('secondary'), waBtn(P('lostWa', 'السلام عليكم، ضاع مني رابط متابعة طلبي. اسمي: '))),
     hoursLine(),
   );
 }
@@ -93,14 +101,14 @@ function demoNote() {
   );
 }
 
-const safety = () => h('p.bp-safety', ic('shield', 20), h('span', 'محدش من عندنا هيطلب منك الكود ده أبدًا.'));
+const safety = () => h('p.bp-safety', ic('shield', 20), h('span', P('safety', 'محدش من عندنا هيطلب منك الكود ده أبدًا.')));
 
 // ───────────── الخطوة 1: رقم الموبايل ─────────────
 
 function phoneStep(prefill = '') {
   clearTimers();
-  titleEl.textContent = 'تابعي طلبك';
-  document.title = `تابعي طلبك — ${meta.org || 'المؤسسة'}`;
+  titleEl.textContent = P('h1', 'تابعي طلبك');
+  document.title = `${titleEl.textContent} — ${meta.org || 'المؤسسة'}`;
   const input = h('input.bp-input', {
     id: 'pl-phone',
     type: 'tel',
@@ -113,11 +121,11 @@ function phoneStep(prefill = '') {
     'aria-describedby': 'pl-phone-hint pl-phone-err',
   });
   const err = h('p.bp-error#pl-phone-err', { role: 'alert' });
-  const submit = btn('ابعتولي كود على واتساب', { kind: 'whatsapp', icon: 'whatsapp', type: 'submit', block: true });
+  const submit = btn(P('send', 'ابعتولي كود على واتساب'), { kind: 'whatsapp', icon: 'whatsapp', type: 'submit', block: true });
   const form = h(
     'form',
     { novalidate: true },
-    h('div.bp-field', h('label.bp-label', { htmlFor: 'pl-phone' }, 'رقم موبايلك'), input, h('p.bp-hint#pl-phone-hint', 'نفس الرقم اللي كلمتينا منه أو أكّدتيه معانا')),
+    h('div.bp-field', h('label.bp-label', { htmlFor: 'pl-phone' }, P('phone', 'رقم موبايلك')), input, h('p.bp-hint#pl-phone-hint', P('phoneHint', 'نفس الرقم اللي كلمتينا منه أو أكّدتيه معانا'))),
     err,
     submit,
   );
@@ -126,7 +134,7 @@ function phoneStep(prefill = '') {
     err.textContent = '';
     const phone = phoneValue(input.value);
     if (!phone) {
-      err.textContent = 'اكتبي رقم موبايل صحيح، زي 01012345678.';
+      err.textContent = P('badPhone', 'اكتبي رقم موبايل صحيح، زي 01012345678.');
       input.setAttribute('aria-invalid', 'true');
       input.focus();
       return;
@@ -137,17 +145,17 @@ function phoneStep(prefill = '') {
       const r = await postJson('/api/public/portal-login/request', { phone });
       codeStep({ phone, challenge: r.challenge, message: r.message, expiresIn: r.expires_in, resendAfter: r.resend_after });
     } catch (e2) {
-      err.textContent = !e2.status ? 'مفيش إنترنت. جربي تاني.' : e2.message || 'حصلت مشكلة. جربي تاني.';
+      err.textContent = !e2.status ? P('offline', 'مفيش إنترنت. جربي تاني.') : e2.message || 'حصلت مشكلة. جربي تاني.';
       submit.disabled = false;
     }
   });
   const cards = [
     savedCard(),
-    meta.otp ? h('section.bp-card', { 'aria-labelledby': 'bp-wa-title' }, h('h2#bp-wa-title', 'بتكلمينا من رقم عليه واتساب؟'), form) : null,
+    meta.otp ? h('section.bp-card', { 'aria-labelledby': 'bp-wa-title' }, h('h2#bp-wa-title', P('sub', 'بتكلمينا من رقم عليه واتساب؟')), form) : null,
     linkCard(),
     safety(),
     demoNote(),
-    h('p.bp-new', h('a', { href: '/intake' }, 'عندك مشكلة جديدة؟ احكيلنا من هنا')),
+    h('p.bp-new', h('a', { href: P('newHref', '/intake') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
   ];
   mount(root, cards);
 }
@@ -156,8 +164,8 @@ function phoneStep(prefill = '') {
 
 function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60 }) {
   clearTimers();
-  titleEl.textContent = 'اكتبي الكود';
-  document.title = `اكتبي الكود — ${meta.org || 'المؤسسة'}`;
+  titleEl.textContent = P('codeH1', 'اكتبي الكود');
+  document.title = `${titleEl.textContent} — ${meta.org || 'المؤسسة'}`;
   let currentChallenge = challenge;
   let resendAt = Date.now() + resendAfter * 1000;
   const input = h('input.bp-input.bp-code-input', {
@@ -172,7 +180,7 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
   });
   const err = h('p.bp-error#pl-code-err', { role: 'alert' });
   const status = h('p.bp-hint', { role: 'status', 'aria-live': 'polite' });
-  const submit = btn('دخول', { kind: 'primary', icon: 'lock', type: 'submit', block: true });
+  const submit = btn(P('confirm', 'دخول'), { kind: 'primary', icon: 'lock', type: 'submit', block: true });
   const help = h('div');
   let busy = false;
   // كل إرسال للكود يستهلك محاولة من المحاولات الخمس: الكود الذي رفضه الخادم لا يُرسل ثانيةً دون تغيير،
@@ -205,7 +213,7 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
       status.textContent = 'بعتنا كود جديد لو رقمك متسجل عندنا. الكود القديم مبقاش شغال.';
       input.focus();
     } catch (e) {
-      err.textContent = !e.status ? 'مفيش إنترنت. جربي تاني.' : e.message;
+      err.textContent = !e.status ? P('offline', 'مفيش إنترنت. جربي تاني.') : e.message;
       if (e?.details?.retry_after) resendAt = Date.now() + e.details.retry_after * 1000;
     }
   }
@@ -214,7 +222,7 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
     if (busy || locked) return;
     const code = typed();
     if (code.length !== 6) {
-      err.textContent = 'اكتبي الكود اللي فيه 6 أرقام زي ما وصلك.';
+      err.textContent = P('badCode', 'اكتبي الكود اللي فيه 6 أرقام زي ما وصلك.');
       input.setAttribute('aria-invalid', 'true');
       input.focus();
       return;
@@ -235,7 +243,7 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
       window.location.replace(r.redirect);
     } catch (e) {
       status.textContent = '';
-      err.textContent = !e.status ? 'مفيش إنترنت. جربي تاني.' : e.message || 'الكود ده مش صح.';
+      err.textContent = !e.status ? P('offline', 'مفيش إنترنت. جربي تاني.') : e.message || 'الكود ده مش صح.';
       input.setAttribute('aria-invalid', 'true');
       // رفض الخادم الكود (غلط أو انتهى وقته): يُمسح الحقل ليكتب الكود من جديد. أما خطأ الشبكة أو كثرة المحاولات
       // فيبقى الكود كما هو ليُعاد إرساله.
@@ -269,10 +277,10 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
       h(
         'section.bp-card.bp-nocode',
         { 'aria-labelledby': 'bp-nocode-title' },
-        h('h2#bp-nocode-title', 'ما وصلكيش الكود؟'),
-        h('p', 'غالبًا رقمك لسه مش متأكد عندنا. كلمينا وهنبعتلك الرابط.'),
-        h('div.bp-actions', callBtn('secondary'), waBtn('السلام عليكم، ما وصلنيش كود الدخول لصفحة طلبي. اسمي: ')),
-        h('div.bp-row-links', h('button.bp-linkbtn', { type: 'button', onClick: resend }, 'ابعتي كود تاني'), h('button.bp-linkbtn', { type: 'button', onClick: () => phoneStep(phone) }, 'غيّري الرقم')),
+        h('h2#bp-nocode-title', P('noCodeT', 'ما وصلكيش الكود؟')),
+        h('p', P('noCodeX', 'غالبًا رقمك لسه مش متأكد عندنا. كلمينا وهنبعتلك الرابط.')),
+        h('div.bp-actions', callBtn('secondary'), waBtn(P('noCodeWa', 'السلام عليكم، ما وصلنيش كود الدخول لصفحة طلبي. اسمي: '))),
+        h('div.bp-row-links', h('button.bp-linkbtn', { type: 'button', onClick: resend }, P('resend', 'ابعتي كود تاني')), h('button.bp-linkbtn', { type: 'button', onClick: () => phoneStep(phone) }, P('change', 'غيّري الرقم'))),
       ),
     );
   }
@@ -282,14 +290,14 @@ function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60
     'form',
     { novalidate: true, onSubmit: (e) => (e.preventDefault(), verify()) },
     h('p', message || 'لو رقمك متسجل عندنا، هيوصلك كود من 6 أرقام على واتساب خلال دقيقة.'),
-    h('div.bp-field', h('label.bp-label', { htmlFor: 'pl-code' }, 'الكود'), input, h('p.bp-hint#pl-code-hint', 'على الرقم ', h('bdi', { dir: 'ltr' }, maskPhone(phone)))),
+    h('div.bp-field', h('label.bp-label', { htmlFor: 'pl-code' }, P('code', 'الكود')), input, h('p.bp-hint#pl-code-hint', 'على الرقم ', h('bdi', { dir: 'ltr' }, maskPhone(phone)))),
     err,
     status,
     submit,
   );
   mount(
     root,
-    h('section.bp-card', form, h('div.bp-row-links', h('button.bp-linkbtn', { type: 'button', onClick: () => phoneStep(phone) }, 'غيّري الرقم'))),
+    h('section.bp-card', form, h('div.bp-row-links', h('button.bp-linkbtn', { type: 'button', onClick: () => phoneStep(phone) }, P('change', 'غيّري الرقم')))),
     help,
     safety(),
     demoNote(),

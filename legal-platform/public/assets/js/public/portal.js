@@ -105,6 +105,15 @@ const state = {
 
 const g = (text) => genderize(text, state.form);
 const s = (word) => say(word, state.form);
+// v11 gate-public (G11-46، L11-35 r2 P18): نصوص الأفراد والشركات (bm-copy) في صفحات طلباتهم فقط — P(المفتاح، نص «خيري»)
+let PC = null;
+try {
+  PC = JSON.parse(document.getElementById('bm-copy')?.textContent || 'null');
+} catch {
+  PC = null;
+}
+const P = (k, f) => (PC && typeof PC[k] === 'string' ? PC[k] : f);
+const fillP = (k, f, o) => P(k, f).replace(/\{([a-z]+)\}/g, (m, x) => (x in o ? o[x] : m));
 const money = (n) => `${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })} ج.م`;
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 function shortDate(iso) {
@@ -170,7 +179,7 @@ function contact() {
   const fallback = pageContact();
   return {
     // v10 experience (X10-B3 #8): الاسم المختصر للمكتب (عنوان الصفحة واسم المرسل في الرسائل)
-    org: brandName({ short: true }) || c.org_name || 'المؤسسة',
+    org: brandName({ short: true }) || c.org_name || P('org', 'المؤسسة'),
     phone: c.phone || fallback.phone,
     tel: c.phone_e164 || c.phone ? `tel:${c.phone_e164 || c.phone}` : fallback.phoneHref,
     wa: c.whatsapp_digits !== undefined ? c.whatsapp_digits : fallback.waDigits,
@@ -180,7 +189,7 @@ function contact() {
 }
 const callBtn = (kind = 'secondary', extra = {}) => {
   const c = contact();
-  return c.tel ? btn(`${s('اتصلي')} بينا`, { kind, icon: 'phone', href: c.tel, ...extra }) : null;
+  return c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind, icon: 'phone', href: c.tel, ...extra }) : null;
 };
 function waLink(text) {
   return waUrl(contact().wa, text);
@@ -271,19 +280,19 @@ function nowCard(item) {
     return h(
       'section.bp-now',
       { 'aria-labelledby': `now-${r.id}` },
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'مطلوب منك'),
-      h('h2.bp-now-title', { id: `now-${r.id}` }, names.length ? 'محتاجين منك:' : isDoc ? 'محتاجين منك ورقة' : 'محتاجين ردّك'),
+      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('needYou', 'مطلوب منك')),
+      h('h2.bp-now-title', { id: `now-${r.id}` }, names.length ? P('needList', 'محتاجين منك:') : isDoc ? P('needDoc', 'محتاجين منك ورقة') : P('needReply', 'محتاجين ردّك')),
       names.length
         ? h('ol.bp-now-list', names.map((n) => h('li', n)))
         : h('p.bp-now-text.bp-clamp', rich(r.message || '')),
       isDoc
         ? [
-            btn(g('صوّر{ي} الورقة'), { kind: 'primary', icon: 'camera', block: true, onClick: () => cam.open() }),
-            h('p.bp-now-alt', h('button.bp-linkbtn', { type: 'button', onClick: () => gal.open() }, g('أو اختار{ي} صورة من الموبايل'))),
+            btn(g(P('photoBtn', 'صوّر{ي} الورقة')), { kind: 'primary', icon: 'camera', block: true, onClick: () => cam.open() }),
+            h('p.bp-now-alt', h('button.bp-linkbtn', { type: 'button', onClick: () => gal.open() }, g(P('galBtn', 'أو اختار{ي} صورة من الموبايل')))),
             cam.input,
             gal.input,
           ]
-        : btn(g('ردّ{ي} علينا'), { kind: 'primary', icon: 'message', block: true, onClick: () => go(`#request/${r.id}`) }),
+        : btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => go(`#request/${r.id}`) }),
     );
   }
   if (item.kind === 'hearing') {
@@ -291,35 +300,35 @@ function nowCard(item) {
     return h(
       'section.bp-now',
       { 'aria-labelledby': `now-e${e.id}` },
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g('لازم تحضر{ي} بنفسك')),
+      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g(P('attend', 'لازم تحضر{ي} بنفسك'))),
       h('h2.bp-now-title', { id: `now-e${e.id}` }, hearingTitle(e)),
       e.location ? h('p.bp-now-text', e.location) : null,
-      btn('إيه المطلوب مني؟', { kind: 'primary', block: true, onClick: () => go(`#event/${e.id}`) }),
+      btn(P('attendBtn', 'إيه المطلوب مني؟'), { kind: 'primary', block: true, onClick: () => go(`#event/${e.id}`) }),
     );
   }
   if (item.kind === 'reply') {
     return h(
       'section.bp-now',
       { 'aria-labelledby': 'now-reply' },
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'مطلوب منك'),
-      h('h2.bp-now-title', { id: 'now-reply' }, 'محتاجين ردّك'),
+      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('needYou', 'مطلوب منك')),
+      h('h2.bp-now-title', { id: 'now-reply' }, P('needReply', 'محتاجين ردّك')),
       item.text ? h('p.bp-now-text.bp-clamp', rich(item.text)) : null,
-      btn(g('ردّ{ي} علينا'), { kind: 'primary', icon: 'message', block: true, onClick: () => openComposer({}) }),
+      btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => openComposer({}) }),
     );
   }
   if (item.kind === 'answer') {
     return h(
       'section.bp-now',
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'وصلك ردّنا'),
-      h('h2.bp-now-title', 'ردّنا على مشكلتك جاهز'),
-      btn(`${s('اقري')} الرد`, { kind: 'primary', icon: 'file', block: true, onClick: () => go('#answer') }),
+      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('gotAnswer', 'وصلك ردّنا')),
+      h('h2.bp-now-title', P('answerReady', 'ردّنا على مشكلتك جاهز')),
+      btn(P('readAnswer', `${s('اقري')} الرد`), { kind: 'primary', icon: 'file', block: true, onClick: () => go('#answer') }),
     );
   }
   return h(
     'section.bp-now',
     h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'رسالة جديدة'),
-    h('h2.bp-now-title.bp-clamp', item.text || 'وصلتك رسالة مننا'),
-    btn(`${s('اقري')} الرسالة`, { kind: 'primary', icon: 'message', block: true, onClick: () => go('#messages') }),
+    h('h2.bp-now-title.bp-clamp', item.text || P('gotMsg', 'وصلتك رسالة مننا')),
+    btn(P('readMsg', `${s('اقري')} الرسالة`), { kind: 'primary', icon: 'message', block: true, onClick: () => go('#messages') }),
   );
 }
 
@@ -354,8 +363,8 @@ function greeting() {
   const name = home.name || addressName(state.data.client?.name);
   return h(
     'header.bp-greet',
-    h('h1', name ? `أهلًا يا ${name}` : g('أهلًا بيك{ي}')),
-    h('p.bp-sub', 'دي صفحتك. محدش غيرك يقدر يشوفها.'),
+    h('h1', name ? fillP('hi', 'أهلًا يا {name}', { name }) : g(P('hi0', 'أهلًا بيك{ي}'))),
+    h('p.bp-sub', P('mine', 'دي صفحتك. محدش غيرك يقدر يشوفها.')),
     h('div.bp-greet-contact', contactButtons()),
   );
 }
@@ -365,17 +374,17 @@ function contactButtons() {
   const ref = state.data?.home?.ref;
   const wa = waLink(`السلام عليكم، بتابع طلبي${ref ? ` رقم ${ref}` : ''}`);
   return [
-    c.tel ? btn(`${s('اتصلي')} بينا`, { kind: 'secondary', icon: 'phone', href: c.tel, className: 'bp-bar-call' }) : null,
+    c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind: 'secondary', icon: 'phone', href: c.tel, className: 'bp-bar-call' }) : null,
     wa
       ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', href: wa, className: 'bp-bar-wa' })
-      : btn(g('اكتب{ي}لنا'), { kind: 'whatsapp', icon: 'message', className: 'bp-bar-wa', onClick: () => openComposer({}) }),
+      : btn(g(P('write', 'اكتب{ي}لنا')), { kind: 'whatsapp', icon: 'message', className: 'bp-bar-wa', onClick: () => openComposer({}) }),
   ];
 }
 
 function hoursLine() {
   const c = contact();
-  if (c.open === false && c.hours) return h('p.bp-hours.is-closed', g(`إحنا مقفولين دلوقتي. بنرد ${c.hours}. سيب{ي}لنا رسالة وهنرد أول ما نفتح.`));
-  return c.hours ? h('p.bp-hours', `بنرد ${c.hours}`) : null;
+  if (c.open === false && c.hours) return h('p.bp-hours.is-closed', g(fillP('closed', 'إحنا مقفولين دلوقتي. بنرد {h}. سيب{ي}لنا رسالة وهنرد أول ما نفتح.', { h: c.hours })));
+  return c.hours ? h('p.bp-hours', fillP('hours', 'بنرد {h}', { h: c.hours })) : null;
 }
 
 function stories() {
@@ -408,7 +417,7 @@ function tracker() {
   return h(
     'section.bp-card.bp-track',
     { 'aria-labelledby': 'bp-track-title' },
-    h('h2.bp-card-title#bp-track-title', 'طلبك وصل لفين؟'),
+    h('h2.bp-card-title#bp-track-title', P('track', 'طلبك وصل لفين؟')),
     h(
       'ol.bp-steps',
       st.stage.steps.map((x) =>
@@ -416,7 +425,7 @@ function tracker() {
           'li.bp-step',
           { class: `is-${x.state}`, 'aria-current': x.state === 'current' ? 'step' : null },
           h('span.bp-step-dot', { 'aria-hidden': 'true' }, x.state === 'done' ? ic('check', 16) : String(x.n)),
-          h('span.bp-step-text', h('span.bp-step-title', x.title), x.hint && (x.state === 'current' || x.n === st.stage.step) ? h('span.bp-step-hint', x.hint) : null, h('span.bp-sr', x.state === 'done' ? ' (خلص)' : x.state === 'current' ? ' (إحنا هنا دلوقتي)' : '')),
+          h('span.bp-step-text', h('span.bp-step-title', x.title), x.hint && (x.state === 'current' || x.n === st.stage.step) ? h('span.bp-step-hint', x.hint) : null, h('span.bp-sr', x.state === 'done' ? P('stepDone', ' (خلص)') : x.state === 'current' ? P('stepNow', ' (إحنا هنا دلوقتي)') : '')),
         ),
       ),
     ),
@@ -455,9 +464,9 @@ function refLine() {
   // B91-21: رقم تقدر تقوله في التليفون («طلب رقم 29») بجانب الرقم الكامل
   return h(
     'p.bp-ref',
-    'رقم طلبك: ',
+    P('refLabel', 'رقم طلبك: '),
     h('bdi.bp-code', { dir: 'ltr' }, ref),
-    n ? [g(' — لو كلمت{ي}نا قول{ي}: '), h('strong', `طلب رقم ${n}`)] : g(' — قول{ي}ه لو كلمت{ي}نا'),
+    n ? [g(P('refSay', ' — لو كلمت{ي}نا قول{ي}: ')), h('strong', `${P('refNum', 'طلب رقم')} ${n}`)] : g(P('refSay0', ' — قول{ي}ه لو كلمت{ي}نا')),
   );
 }
 
@@ -474,7 +483,7 @@ function homeView() {
     now = h(
       'section.bp-now.is-calm',
       h('span.bp-calm-ic', ic('checkCircle', 28)),
-      h('div', h('h2.bp-now-title', 'مفيش حاجة مطلوبة منك دلوقتي.'), h('p.bp-now-text', state.data.home.whatsapp_confirmed ? 'هنبعتلك على واتساب أول ما يجدّ جديد.' : g('ادخل{ي} على الصفحة دي كل كام يوم عشان تشوف{ي} الجديد.'))),
+      h('div', h('h2.bp-now-title', P('calm', 'مفيش حاجة مطلوبة منك دلوقتي.')), h('p.bp-now-text', state.data.home.whatsapp_confirmed ? P('calmWa', 'هنبعتلك على واتساب أول ما يجدّ جديد.') : g(P('calmVisit', 'ادخل{ي} على الصفحة دي كل كام يوم عشان تشوف{ي} الجديد.')))),
     );
   }
   return [
@@ -484,7 +493,7 @@ function homeView() {
     stories(),
     tracker(),
     sectionList(),
-    h('div.bp-callback', btn(`${s('اطلبي')} مكالمة`, { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback })),
+    h('div.bp-callback', btn(P('callback', `${s('اطلبي')} مكالمة`), { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback })),
     refLine(),
   ];
 }
@@ -504,9 +513,9 @@ function waConfirmCard() {
   return h(
     'section.bp-card.bp-waconfirm',
     { 'aria-labelledby': 'bp-wa-title' },
-    h('h2.bp-card-title#bp-wa-title', g('عايز{ة} يوصلك الجديد على واتساب؟')),
-    h('p.bp-hint', g('ابعت{ي}لنا رقم طلبك برسالة واحدة على واتساب، وبعدها هنبعتلك كل جديد هناك.')),
-    btn(g('ابعت{ي} رقم طلبك'), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true }),
+    h('h2.bp-card-title#bp-wa-title', g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))),
+    h('p.bp-hint', g(P('waText', 'ابعت{ي}لنا رقم طلبك برسالة واحدة على واتساب، وبعدها هنبعتلك كل جديد هناك.'))),
+    btn(g(P('waBtn', 'ابعت{ي} رقم طلبك')), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true }),
   );
 }
 
@@ -869,7 +878,7 @@ function stepsList(a) {
   const done = new Set(storage.json(key, []));
   return h(
     'section.bp-steps-todo',
-    h('h3', g('تعمل{ي} إيه دلوقتي؟')),
+    h('h3', g(P('whatNow', 'تعمل{ي} إيه دلوقتي؟'))),
     h(
       'ol',
       a.steps.map((st, i) => {
@@ -902,7 +911,7 @@ function answerView() {
       h(
         'article.bp-card.bp-answer',
         h('p.bp-meta', `اتبعت ${shortDate(a.sent_at)}`),
-        a.voice ? h('div.bp-voice', h('p', 'رسالة صوتية من المؤسسة'), h('audio', { controls: true, preload: 'none', src: docHref(a.voice.id) })) : null,
+        a.voice ? h('div.bp-voice', h('p', P('voiceFrom', 'رسالة صوتية من المؤسسة')), h('audio', { controls: true, preload: 'none', src: docHref(a.voice.id) })) : null,
         listenButton(a),
         a.summary ? h('section.bp-summary', h('h3', 'الخلاصة'), h('p', a.summary)) : null,
         stepsList(a),
@@ -1027,7 +1036,7 @@ function moneyView() {
       'section.bp-card.bp-consent',
       h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g('محتاجين موافقتك')),
       h('h2.bp-now-title', `مصاريف للقضية: ${money(i.amount)} (${i.description})`),
-      h('p', 'الاستشارة نفسها مجانية. المبلغ ده مصاريف المحكمة.'),
+      h('p', P('agreeNote', 'الاستشارة نفسها مجانية. المبلغ ده مصاريف المحكمة.')),
       btn('موافقة', { kind: 'primary', block: true, onClick: () => invoiceAnswer(i, 'agree') }),
       btn('عندي سؤال', { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(i.amount)}: `, invoiceNumber: i.number }) }),
       btn(state.form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع', { kind: 'text', block: true, onClick: () => invoiceAnswer(i, 'cannot_pay') }),
@@ -1059,16 +1068,16 @@ function moneyView() {
     );
   };
   return [
-    backBar('مصاريف قضيتك'),
+    backBar(P('moneyTitle', 'مصاريف قضيتك')),
     h(
       'section.bp-info',
-      h('p', 'الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة.'),
-      h('p', g(`لو مش قادر{ة} تدفع{ي} أو عندك سؤال، ${s('كلمينا')} قبل ما تدفع{ي} أي حاجة.`)),
-      h('p', g('ادفع{ي} للمؤسسة بس، وخد{ي} إيصال دايمًا.')),
+      h('p', P('moneyInfo', 'الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة.')),
+      h('p', g(P('cantPay', `لو مش قادر{ة} تدفع{ي} أو عندك سؤال، ${s('كلمينا')} قبل ما تدفع{ي} أي حاجة.`))),
+      h('p', g(P('payUs', 'ادفع{ي} للمؤسسة بس، وخد{ي} إيصال دايمًا.'))),
     ),
     ...inv.filter((i) => i.needs_agreement).map(agreeCard),
     ...inv.map(card),
-    m.payment_instructions ? h('details.bp-card.bp-howpay', h('summary', 'إزاي أدفع؟'), h('p', m.payment_instructions)) : null,
+    m.payment_instructions ? h('details.bp-card.bp-howpay', h('summary', P('howPay', 'إزاي أدفع؟')), h('p', m.payment_instructions)) : null,
   ];
 }
 
@@ -1089,7 +1098,7 @@ async function invoiceAnswer(i, answer) {
 
 // ───────────── الرسائل (#messages) ─────────────
 
-const CHANNEL = { whatsapp: 'واتساب', website: 'صفحتك', phone: 'تليفون', walk_in: 'في المؤسسة', email: 'بريد' };
+const CHANNEL = { whatsapp: 'واتساب', website: 'صفحتك', phone: 'تليفون', walk_in: P('walkIn', 'في المؤسسة'), email: 'بريد' };
 
 function bubble(m) {
   const mine = m.direction === 'in';
@@ -1344,7 +1353,7 @@ function render({ from } = {}) {
       () => state.view === view && render({ from }),
       () => {
         if (state.view !== view) return;
-        mount(root, h('div.bp-page', backBar(''), h('p.bp-empty', { role: 'alert' }, g('الصفحة دي ما فتحتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.')), btn(g('جرب{ي} تاني'), { kind: 'secondary', block: true, onClick: () => render({ from }) })));
+        mount(root, h('div.bp-page', backBar(''), h('p.bp-empty', { role: 'alert' }, g(P('loadFail', 'الصفحة دي ما فتحتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.'))), btn(g(P('retry', 'جرب{ي} تاني')), { kind: 'secondary', block: true, onClick: () => render({ from }) })));
       },
     );
     return;
@@ -1383,7 +1392,7 @@ function render({ from } = {}) {
   // بلا تمرير ناعم (public-site.css يجعله ناعمًا للروابط الداخلية): الانتقال بين الصفحات فوري
   const jump = (top) => window.scrollTo({ top, left: 0, behavior: 'instant' });
   if (state.view === 'home') {
-    document.title = `صفحتك — ${brandName() || contact().org}`;
+    document.title = `${P('title', 'صفحتك')} — ${brandName() || contact().org}`;
     if (from && from !== 'home') requestAnimationFrame(() => jump(state.homeScroll || 0));
   } else if (from !== undefined || state.view === 'messages') {
     requestAnimationFrame(() => jump(state.view === 'messages' ? document.documentElement.scrollHeight : 0));
@@ -1399,7 +1408,7 @@ function skeleton() {
     h(
       'div.bp-page.bp-skeleton',
       { 'aria-busy': 'true' },
-      h('p.bp-sr', { role: 'status' }, 'بنجهّز صفحتك…'),
+      h('p.bp-sr', { role: 'status' }, P('loading', 'بنجهّز صفحتك…')),
       h('div.bp-sk.bp-sk-h1'),
       h('div.bp-sk.bp-sk-line'),
       h('div.bp-sk.bp-sk-card'),
@@ -1417,18 +1426,18 @@ function stateCard({ icon, title, text, actions }) {
 function offlineState() {
   stateCard({
     icon: 'wifiOff',
-    title: 'مفيش إنترنت دلوقتي',
-    text: 'أول ما يرجع هنفتح الصفحة لوحدنا.',
-    actions: [btn('حاولي تاني', { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
+    title: P('offT', 'مفيش إنترنت دلوقتي'),
+    text: P('offX', 'أول ما يرجع هنفتح الصفحة لوحدنا.'),
+    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
   });
 }
 
 function serverErrorState() {
   stateCard({
     icon: 'info',
-    title: 'حصلت مشكلة عندنا، مش منك',
-    text: 'جربي كمان شوية.',
-    actions: [btn('حاولي تاني', { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
+    title: P('errT', 'حصلت مشكلة عندنا، مش منك'),
+    text: P('errX', 'جربي كمان شوية.'),
+    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
   });
 }
 
@@ -1445,7 +1454,7 @@ function invalidState() {
       other ? btn('افتحي آخر صفحة محفوظة', { kind: 'primary', block: true, href: other.url }) : null,
       callBtn(other ? 'secondary' : 'primary', { block: true }),
       wa ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', block: true, href: wa }) : null,
-      h('p.bp-new', h('a', { href: '/intake' }, 'عندك مشكلة جديدة؟ احكيلنا من هنا')),
+      h('p.bp-new', h('a', { href: P('newHref', '/intake') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
     ],
   });
 }
@@ -1506,6 +1515,13 @@ async function load() {
     state.form = data.home?.address === 'm' ? 'm' : 'f';
     document.documentElement.dataset.address = state.form;
     rememberPage(data.home);
+    // v11 gate-public (r2 S2): زر التواصل في رأس الصفحة برقم جانب الطلب وجملته (لا جانب الكعكة)
+    const k = data.home?.contact;
+    const hc = document.querySelector('[data-pub-contact], .pub-head-contact');
+    if (k && hc) {
+      const wa = k.whatsapp_digits ? waUrl(k.whatsapp_digits, k.whatsapp_prefill || '') : '';
+      if (wa || k.phone) hc.href = wa || `tel:${k.phone_e164 || k.phone}`;
+    }
     const p = parseHash();
     state.view = p.view;
     state.param = p.param;

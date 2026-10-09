@@ -227,17 +227,22 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
   const success = intake.slice(intake.indexOf('function showSuccess('), intake.indexOf('function aboutCard('));
 
   test('N1: the about card title counts its questions and follows the address form', () => {
-    assert.match(about, /const title = steps\.length > 1 \? 'كمان سؤالين — لو تحبي' : g\('سؤال كمان — لو تحب\{ي\}'\);/);
+    // v11 gate-public (intended: r2 S16): نفس النصين في COPY.ab2/ab1، والعنوان يُختار بنفس الشرط
+    assert.match(about, /const title = steps\.length > 1 \? COPY\.ab2 : g\(COPY\.ab1\);/);
+    assert.ok(intake.includes("ab2: 'كمان سؤالين — لو تحبي'") && intake.includes("ab1: 'سؤال كمان — لو تحب{ي}'"));
     assert.equal(genderize('سؤال كمان — لو تحب{ي}', 'm'), 'سؤال كمان — لو تحب');
     assert.equal(genderize('سؤال كمان — لو تحب{ي}', 'f'), 'سؤال كمان — لو تحبي');
     // سؤالين فقط لما الصفة غير معروفة والكلام لست (السؤال الثاني «إنتي…؟» مؤنث دائمًا)
-    assert.match(about, /if \(!infer\(answers\)\.relation && form !== 'm'\) steps\.push\('rel'\);/);
+    // v11 gate-public (intended: S11-14): الأفراد والشركات (X) يُسألون المحافظة فقط
+    assert.match(about, /if \(!X && !infer\(answers\)\.relation && form !== 'm'\) steps\.push\('rel'\);/);
   });
 
   test('N2: the spoken call-back text spells the number digit by digit; the visible text keeps it as written', () => {
-    assert.match(success, /cbSay = \(\) => `\$\{lead\}\$\{from \? `، من الرقم ده: \$\{L \? L\.spellPhone\(from\) : from\}` : ''\}\. \$\{rest\}`;/);
+    // v11 gate-public (intended: r2 S16): «، من الرقم ده:» في COPY.cbFrom، ثم مسافة والرقم (نفس النص المعروض والمسموع)
+    assert.ok(intake.includes("cbFrom: '، من الرقم ده:'"));
+    assert.match(success, /cbSay = \(\) => `\$\{lead\}\$\{from \? `\$\{COPY\.cbFrom\} \$\{L \? L\.spellPhone\(from\) : from\}` : ''\}\. \$\{rest\}`;/);
     assert.match(success, /cbText && \{ text: cbSay\(\), el: cbCard \}/);
-    assert.match(success, /cbText = `\$\{lead\}\$\{from \? `، من الرقم ده: \$\{from\}` : ''\}\. \$\{rest\}`;/);
+    assert.match(success, /cbText = `\$\{lead\}\$\{from \? `\$\{COPY\.cbFrom\} \$\{from\}` : ''\}\. \$\{rest\}`;/);
   });
 
   test('N8: the «كمان سؤالين» card is read aloud (title, question, every answer, «تخطي»), the listen button repaints when it appears, the next question reads itself after a tap', () => {
@@ -250,7 +255,8 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
   });
 
   test('N9: «إنتي…؟» with a hamza, like «إنتي من أنهي محافظة؟»', () => {
-    assert.ok(about.includes("'إنتي…؟'"));
+    // v11 gate-public (intended: r2 S16): النص في COPY.abRel والبطاقة تقرؤه بالمفتاح
+    assert.ok(intake.includes("abRel: 'إنتي…؟'") && about.includes('COPY.abRel'));
     assert.ok(!intake.includes('انتي…؟'));
   });
 

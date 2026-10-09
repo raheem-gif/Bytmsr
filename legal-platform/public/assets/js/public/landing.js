@@ -78,7 +78,11 @@ function initGate() {
     const h1 = document.getElementById('start-title');
     h1?.setAttribute('tabindex', '-1');
     h1?.focus({ preventScroll: !!location.hash });
-    if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    try {
+      if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    } catch {
+      /* مراجعة: قسم بترميز مكسور (#%E0%A4) لا يوقف قراءة الصفحة بالصوت */
+    }
     if (sayHome && L?.listenOn()) sayHome();
   });
   // الرجوع إلى «/» يعيد الشاشة بعنوانها، والتقدم يكشف المربعات من جديد — بلا شبكة في الحالتين

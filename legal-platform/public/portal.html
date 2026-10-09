@@ -3,8 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>متابعة طلبك — {{brand_name}}</title>
-    <meta name="description" content="صفحتك الخاصة لمتابعة طلبك لدى {{brand_name}}: المطلوب منك، وصل طلبك لفين، الرد، المواعيد، والرسائل." />
+    <!-- v11 gate-public (G11-46، r2 P18): العنوان والنصوص الثابتة بنبرة الطلب («خيري» = نص 10.0 حرفيًا) -->
+    <title>{{pv_title}}</title>
+    <meta name="description" content="{{pv_desc}}" />
     <!-- صفحة خاصة برابط سري: لا تُفهرس، ولا يُرسل رابطها في Referer عند فتح أي رابط منها -->
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
@@ -22,7 +23,7 @@
     <main id="main" class="site-main bp-main" tabindex="-1">
       <div id="portal-root">
         <div class="bp-page bp-skeleton" aria-busy="true">
-          <p class="bp-sr" role="status">بنجهّز صفحتك…</p>
+          <p class="bp-sr" role="status">{{pv_loading}}</p>
           <div class="bp-sk bp-sk-h1"></div>
           <div class="bp-sk bp-sk-line"></div>
           <div class="bp-sk bp-sk-card"></div>
@@ -31,7 +32,7 @@
       </div>
       <noscript>
         <div class="bp-page">
-          <p class="bp-noscript">الصفحة دي محتاجة تشغيل JavaScript في المتصفح. ممكن تكلمنا على طول:</p>
+          <p class="bp-noscript">{{pv_nojs}}</p>
           {{{contact_list}}}
         </div>
       </noscript>

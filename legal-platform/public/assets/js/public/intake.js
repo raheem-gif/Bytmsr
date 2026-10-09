@@ -688,6 +688,7 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }
 
 // v11 gate-public (L11-14، r2 P2): صف الرجوع إلى «خيري» على شاشتي الموضوع والرقم في صفحة الأفراد والشركات وحدها؛
 // المسودة تنتقل لمسودة «خيري» قبل الانتقال (L11-53) فتجد كلامها وصورها في نموذج «خيري» بنفس الموضوع
+let crossing = false;
 function crossRow() {
   const c = X?.CROSS;
   if (!c) return null;
@@ -698,11 +699,17 @@ function crossRow() {
       href,
       onClick: async (e) => {
         e.preventDefault();
-        await store.flush();
-        if (meaningful()) {
-          await draftStore(keyOf('charity')).save({ ...draftObject(), seg: 'charity' });
-          await store.clear();
-        }
+        if (crossing) return;
+        crossing = true;
+        // مراجعة: تخزين معلّق (WebKit قديم، متصفح داخل تطبيق) لا يوقف طريق الرجوع — ننتظر النقل ثانيتين على الأكثر
+        const move = async () => {
+          await store.flush();
+          if (meaningful()) {
+            await draftStore(keyOf('charity')).save({ ...draftObject(), seg: 'charity' });
+            await store.clear();
+          }
+        };
+        await Promise.race([move().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
         window.location.href = href;
       },
     },

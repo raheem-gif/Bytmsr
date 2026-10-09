@@ -191,9 +191,11 @@ export default async function render(ctx) {
   const viewSwitch = h('div.segmented.pa-viewswitch', { role: 'group', 'aria-label': 'طريقة العرض' });
   // v11 segment-staff (ST-1): «الكل · خيري · أفراد وشركات · غير محدد» بأعداد الطلبات المفتوحة تحت الفلاتر الأخرى
   // (segment_counts)؛ تحت 600px المسميات القصيرة بلا أيقونات (CSS في v11-segment.css)
+  // review: segment_counts = الطلبات المفتوحة؛ تظهر الأعداد في تبويب «المفتوحة» وحده حيث تساوي ما في القائمة
+  const segCounts = (res) => (state.tab === 'open' ? (res && res.segment_counts) || null : null);
   const segSwitch = segmentSwitch({
     value: state.seg,
-    counts: data.segment_counts || null,
+    counts: segCounts(data),
     onChange: (v) => {
       state.seg = v || '';
       saveSeg(state.seg);
@@ -332,7 +334,7 @@ export default async function render(ctx) {
       items = append ? items.concat(res.items || []) : res.items || [];
       drawTabs();
       drawStoryBar();
-      segSwitch.update({ counts: res.segment_counts || null });
+      segSwitch.update({ counts: segCounts(res) });
       drawFilterPill();
       drawCountLine();
       drawList();
@@ -629,6 +631,8 @@ export default async function render(ctx) {
       ? `عدد الطلبات: ${total}${items.length < total ? ` — المعروض ${items.length}` : ''}`
       : '';
     if (!items.length) {
+      // review: نوع الخدمة المختار (وقد يكون محفوظًا من زيارة سابقة) يُسمّى في الرسالة ويُلغى بزر واحد
+      const segOnly = !hasFilters() && state.seg;
       const clear = hasFilters()
         ? button('مسح الفلاتر', {
             icon: 'x',
@@ -639,9 +643,22 @@ export default async function render(ctx) {
               load();
             },
           })
-        : null;
+        : segOnly
+          ? button('عرض كل الأنواع', {
+              icon: 'x',
+              className: 'pa-seg-all',
+              onClick: () => {
+                state.seg = '';
+                saveSeg('');
+                segSwitch.update({ value: '' });
+                load();
+              },
+            })
+          : null;
       const text = hasFilters()
         ? 'لا توجد طلبات تطابق البحث أو الفلاتر المختارة'
+        : segOnly
+          ? `لا توجد هنا طلبات نوع خدمتها «${state.seg === 'unset' ? 'غير محدد' : segLabel('segment', state.seg)}».`
         : state.story && STORY_EMPTY[state.story]
           ? STORY_EMPTY[state.story]
           : state.tab === 'open'

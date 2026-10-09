@@ -306,17 +306,20 @@ export function createApp(config, { logger = console } = {}) {
       // رمز غير صالح: لا بيانات، فتطلبها الصفحة وتعرض «تعذر فتح صفحة المتابعة» كما كانت.
       const tok = req.method === 'GET' ? /^\/p\/([A-Za-z0-9_-]{20,100})\/?$/.exec(pathname) : null;
       let headExtra = '';
+      let side; // v11 gate-public (r2 S2): رأس الصفحة وتذييلها وتواصلها بنبرة الطلب (لا الكعكة)؛ بلا بيانات = جانب الكعكة
       if (tok && app.portal?.view) {
         try {
           const access = app.clients.portalAccess(tok[1]);
           // رابط منتهٍ أو ملغى: علامة فقط فتعرض الصفحة «تعذر فتح صفحة المتابعة» دون طلب يرد 404
           const data = access ? app.portal.view(access.client, access.intakeId, { phone: access.phone }) : { invalid: true };
           if (data) headExtra = `<script type="application/json" id="bm-portal-data">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+          if (data && (data.tone === 'paid' || data.tone === 'neutral')) headExtra += app.site?.portalCopyBlock?.() || ''; // v11 gate-public: نصوص الأفراد والشركات (L11-13)
+          side = data?.tone === 'paid' || data?.tone === 'neutral' ? 'paid' : data?.tone === 'charity' ? 'charity' : undefined;
         } catch {
           headExtra = '';
         }
       }
-      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true, headExtra })) return;
+      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true, headExtra, side })) return;
       return sendFile(req, res, path.join(pub, 'portal.html')) || notFoundPage(res);
     }
     if (pathname === '/healthz') return sendJson(res, 200, { ok: true });

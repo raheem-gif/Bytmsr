@@ -510,7 +510,9 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     // v9.2 بوابة الدمج (تغيير مقصود، N5): «وقّف الصوت» أمر لراجل على الشاشة الأولى (S-25) ← الاسم «إيقاف الصوت»
     has(landing, ['بالصوت', 'إيقاف الصوت', 'اسمعوا الكلام اللي في الصفحة', 'وقّفوا الصوت', 'صفحة طلبك', 'مش موبايلك؟ امسحي'], 'landing.js');
     has(site, ['إحنا نكلمك', 'واتساب', 'طلبك فين؟', 'واتساب (يفتح في نافذة جديدة)', 'اتصال بالتليفون', 'إحنا نكلمكم ببلاش: اضغطوا هنا، واكتبوا الرقم.', 'ابعتولنا على واتساب، كتابة أو رسالة صوتية.', 'طلبك فين: لو بعتولنا طلب قبل كده.', 'ولو عايزين إحنا نكلمكم ببلاش، اضغطوا "إحنا نكلمك".', 'أو ابعتولنا على واتساب.', 'أو اعرفوا طلبكم وصل لفين.'], 'site.js');
-    has(intakeHtml, ['الصفحة بتحمّل ببطء. تقدري تكلمينا على طول:', 'الصفحة دي مش شغالة على الموبايل ده. كلمينا على طول:'], 'intake.html');
+    // v11 gate-public (intended: G11-05/r2 S16): نصوص قالب /intake مفاتيح؛ نص «خيري» نفسه في site-copy-paid.js (INTAKE_PAGE.charity)
+    has(intakeHtml, ['{{intake_slow}}', '{{intake_old}}'], 'intake.html');
+    has(read('src/site-copy-paid.js'), ["slow: 'الصفحة بتحمّل ببطء. تقدري تكلمينا على طول:'", "old: 'الصفحة دي مش شغالة على الموبايل ده. كلمينا على طول:'"], 'site-copy-paid.js');
     has(route + portal, ['اختيارات غير صالحة.', 'مفيش حاجة تتسجل.', 'اكتبي اسمك كامل، أو سيبيه فاضي.'], 'server');
     has(intake, [
       'مشكلتك في إيه؟',
@@ -518,7 +520,9 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
       'افتحي واتساب',
       'ابعتي رسالة صوتية على واتساب',
       'أو سجّلي هنا',
-      'من ${total}',
+      // v11 gate-public (intended: r2 S16): «2 من 4» بالمفتاح COPY.of
+      "of: 'من'",
+      '${COPY.of} ${total}',
       'مجاني وسرّي. المحامي مش بيشوف رقمك.',
       'احكيلنا مشكلتك',
       'اضغطي على الميكروفون واتكلمي بكلامك العادي. احكي كل حاجة، حتى لو أكتر من مشكلة.',
@@ -542,7 +546,8 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
       'أو اتصلي إنتي: ',
       'مقفولين دلوقتي',
       "placeholder: '01xxxxxxxxx'",
-      "'aria-label': 'رقم موبايلك'",
+      // v11 gate-public (intended: r2 S16): نفس الاسم «رقم موبايلك» من COPY.phoneH1
+      "'aria-label': COPY.phoneH1",
       'الرقم مظبوط',
       'اسمعي رقمك',
       'مش فاكرة رقمك؟',
@@ -582,7 +587,8 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     ]);
     // نصوص بصيغة المخاطَب ({ي}): تطابق نص المواصفة بالمؤنث
     for (const [tpl, want] of [
-      ['أول ما ترد{ي} هنقولك "طلب رقم ${num}" عشان تعرف{ي} إنه إحنا. لو ما رديت{ي}ش هنكلمك تاني.', 'أول ما تردي هنقولك "طلب رقم ${num}" عشان تعرفي إنه إحنا. لو ما رديتيش هنكلمك تاني.'],
+      // v11 gate-public (intended: r2 S16): الرقم {n} يُملأ عند العرض (COPY.cbRest) بدل ${num} داخل القالب
+      ['أول ما ترد{ي} هنقولك "طلب رقم {n}" عشان تعرف{ي} إنه إحنا. لو ما رديت{ي}ش هنكلمك تاني.', 'أول ما تردي هنقولك "طلب رقم {n}" عشان تعرفي إنه إحنا. لو ما رديتيش هنكلمك تاني.'],
       ['اسمع{ي} الرقم', 'اسمعي الرقم'],
       ['لو عندك واتساب على الرقم ده، ابعت{ي}لنا الرسالة دي عشان نبعتلك كمان هناك', 'لو عندك واتساب على الرقم ده، ابعتيلنا الرسالة دي عشان نبعتلك كمان هناك'],
       ['ولو بعت{ي}لنا على واتساب، هنبعتلك هناك كمان.', 'ولو بعتيلنا على واتساب، هنبعتلك هناك كمان.'],
@@ -651,7 +657,9 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
   test('13. no internal file code in the success templates of intake.js', () => {
     const literals = intake.match(/'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g) || [];
     for (const s of literals) assert.ok(!INTERNAL_CODE_RE.test(s), s);
-    assert.match(intake, /طلب رقم \$\{num\}/);
+    // v11 gate-public (intended: r2 S16): «طلب رقم …» في COPY.refNum، والرقم يُملأ عند العرض
+    assert.match(intake, /طلب رقم \{n\}/);
+    assert.match(intake, /fill\(COPY\.refNum, \{ n: num \}\)/);
   });
 
   test('14. [R2-B23] slow network: a server-rendered block with a tel: link, revealed by CSS after 8 s, removed by intake.js before anything waits', () => {
@@ -670,8 +678,9 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     assert.match(intake, /performance\.now\(\) - screenShownAt >= TAP_GUARD_MS/);
     assert.match(intake, /setTimeout\(fn, PRESS_MS\)/);
     assert.ok(intake.includes('/FBAN|FBAV|FB_IAB|Instagram|; wv\\)/'));
-    const banner = intake.slice(intake.indexOf("banner = h(\n    'section.bmf-banner'"), intake.indexOf("'ابدئي من الأول',"));
-    assert.ok(banner.includes('كنتي بدأتي طلب قبل كده.'));
+    // v11 gate-public (intended: r2 S16): أزرار البانر ونصه من COPY (draft/draftNew) بنفس الكلام
+    const banner = intake.slice(intake.indexOf("banner = h(\n    'section.bmf-banner'"), intake.indexOf('COPY.draftNew,'));
+    assert.ok(banner.includes('COPY.draft') && intake.includes("draft: 'كنتي بدأتي طلب قبل كده.'"));
     assert.ok(!/label|topicByKey|state\.topic\b(?!: null)/.test(banner.replace(/topic: null/g, '')), 'the banner does not show the topic');
     // «ابدئي من الأول» يمسح الإجابات ووقت المكالمة والتسجيلات
     assert.match(banner, /await store\.clear\(\);\s*voiceEls\.forEach\(\(v\) => v\.destroy\(\)\);/);
@@ -723,7 +732,9 @@ describe('v9.2 public — review fixes', () => {
 
   test('R4. the in-flow listen button is named by its visible words («اسمعي السؤال» included); R5. the call-back time choices are read aloud', () => {
     assert.ok(!intake.includes('اسمعي الكلام اللي في الصفحة'));
-    assert.match(intake, /if \(speakingNow\) btn\.setAttribute\('aria-label', 'وقّفي الصوت'\);\s*else btn\.removeAttribute\('aria-label'\);/);
+    // v11 gate-public (intended: r2 S16): الاسم «وقّفي الصوت» من COPY.stopAria
+    assert.match(intake, /if \(speakingNow\) btn\.setAttribute\('aria-label', COPY\.stopAria\);\s*else btn\.removeAttribute\('aria-label'\);/);
+    assert.ok(intake.includes("stopAria: 'وقّفي الصوت'"));
     assert.match(intake, /\.\.\.whenChips\.map\(\(c\) => \(\{ text: c\.textContent, el: c \}\)\),/);
   });
 

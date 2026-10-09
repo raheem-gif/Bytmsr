@@ -3,8 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>متابعة طلبك — {{brand_name}}</title>
-    <meta name="description" content="ارجعي لصفحة طلبك عند {{brand_name}}: افتحيها من الموبايل ده، أو كلمينا وهنبعتلك الرابط." />
+    <!-- v11 gate-public (G11-47): العنوان والنصوص الثابتة حسب جانب الزائر («خيري» = نص 10.0 حرفيًا) -->
+    <title>{{pl_title}}</title>
+    <meta name="description" content="{{pl_desc}}" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
     <!--site:head-->
@@ -19,11 +20,11 @@
 
     <main id="main" tabindex="-1">
       <div class="bp-page">
-        <h1 id="page-title" class="bp-login-title">تابعي طلبك</h1>
+        <h1 id="page-title" class="bp-login-title">{{pl_h1}}</h1>
         <div id="portal-login-root" aria-live="polite">
-          <p class="bp-sr" role="status">بنجهّز الصفحة…</p>
+          <p class="bp-sr" role="status">{{pl_loading}}</p>
         </div>
-        <noscript><p>الصفحة دي محتاجة تشغيل JavaScript. ممكن تكلمنا على طول وهنبعتلك رابط صفحتك:</p>{{{contact_list}}}</noscript>
+        <noscript><p>{{pl_nojs}}</p>{{{contact_list}}}</noscript>
       </div>
     </main>
 

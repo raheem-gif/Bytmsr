@@ -289,7 +289,9 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
     assert.equal(T.waPrefill('inh'), 'السلام عليكم، عندي مشكلة في الورث.'.replace('في الورث', T.TOPICS.find((x) => x.key === 'inh').wa_phrase));
     const intake = read('public/assets/js/public/intake.js');
     assert.ok(!intake.includes('مؤسسة بيوت مصر'));
-    assert.match(intake, /`وصلنا طلبك — \$\{brandName\(\)\}`/);
+    // v11 gate-public (intended: r2 S16): «وصلنا طلبك» في COPY.done، والعنوان «… — اسم المكتب»
+    assert.match(intake, /`\$\{COPY\.done\} — \$\{brandName\(\)\}`/);
+    assert.ok(intake.includes("done: 'وصلنا طلبك'"));
   });
 
   test('the local analyser strips the brand and «إمام» from greetings (storyLine, meaningfulLetters); skeleton drafts with a RLM signature', async () => {

@@ -40,7 +40,7 @@ import { MERGE_LABEL } from '../../labels.js';
 // v9: ردود جاهزة واقتراح رد بالذكاء الاصطناعي في محرر الرد، وتحليل المستندات (أدوات مشتركة مع صفحة الملف)
 import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
 // v9.2 (admin-ai): القصة ← اقتراح ← طلب بنقرة؛ نصوص الرسائل الصوتية؛ المكالمات
-import { openStorySheet, TRACK_TONES } from '../../components/story-sheet.js';
+import { openStorySheet } from '../../components/story-sheet.js';
 import { voiceTranscriptEditor, voiceLeftText } from '../../components/voice-transcript.js';
 import { openCallNote, openCallAttempt, attemptsList, closeUnreachable, attemptsCountText } from '../../components/call-note.js';
 // v11 segment-staff (ST-2): نوع الخدمة في ترويسة الطلب، بطاقة «غير محدد»، ورأس الإرسال «سيُرسل من»
@@ -54,7 +54,9 @@ import {
   undeterminedCard,
   openSegmentSheet,
   sendHeader,
+  segmentChoice,
   ON_CASE_HINT,
+  REQUIRED_TEXT,
 } from '../../components/segment-ui.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
@@ -588,7 +590,7 @@ export default async function render(ctx) {
     const trackBlock = rec
       ? h(
           'div.pa-prop-track',
-          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), TRACK_TONES[rec] || 'neutral', { icon: 'sparkle' })),
+          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), 'neutral', { icon: 'sparkle' })), // review (r2 P12): اقتراح الذكاء الاصطناعي حبة محايدة — الذهبي والأخضر لنوع الخدمة وحده
           reason && h('p.pa-prop-why', h('strong', 'ليه؟ '), reason),
           conf != null &&
             conf > 0 &&
@@ -766,7 +768,7 @@ export default async function render(ctx) {
             return h(
               'li.pa-issue',
               h('label.check', cb, h('span.pa-issue-title', x.title)),
-              h('span.pa-issue-meta', areaBadge, badge('اقتراح الذكاء الاصطناعي', 'accent', { icon: 'sparkle' })),
+              h('span.pa-issue-meta', areaBadge, badge('اقتراح الذكاء الاصطناعي', 'neutral', { icon: 'sparkle' })), // review (r2 P12)
             );
           }
           return h(
@@ -775,7 +777,7 @@ export default async function render(ctx) {
             h(
               'span.pa-issue-meta',
               areaBadge,
-              badge('أضافتها الإدارة', 'primary'),
+              badge('أضافتها الإدارة', 'neutral'), // review (r2 P12)
               button('', {
                 variant: 'ghost',
                 size: 'sm',
@@ -825,6 +827,20 @@ export default async function render(ctx) {
     main.el.addEventListener('change', () => program.setContext({ area: main.getValues().legal_area }));
     clientForm.el.addEventListener('change', () => program.setContext({ governorate: clientForm.getValues().governorate }));
 
+    // review (v11 segment-staff): طلب «غير محدد» يُختار نوعه هنا — إلزامي بلا اختيار افتراضي (بدل 409 بلا مخرج داخل النافذة)؛
+    // واختيار «أفراد وشركات» يخفي التمويل (ملف مدفوع لا يُربط ببرنامج)
+    let programSet = null;
+    const segPick = segValue
+      ? null
+      : segmentChoice({
+          required: true,
+          hint: seg.hint || null,
+          onChange: (v) => {
+            if (programSet) programSet.hidden = v === 'paid';
+          },
+        });
+    programSet = isPaid ? null : h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el);
+
     let created = null;
     modal({
       title: 'تحويل الطلب إلى ملف قانوني',
@@ -834,6 +850,7 @@ export default async function render(ctx) {
           'p.modal-intro',
           richText('سيصدر للملف كود مستقل حسب المجال مثل INH-2026-00482، وتنتقل إليه المحادثة والمستندات. بعدها تختار الإدارة فريق المحامين وتحدد ما يراه كل منهم.'),
         ),
+        segPick && h('div.pa-convert-seg', segPick),
         main.el,
         h(
           'fieldset.pa-fieldset',
@@ -850,7 +867,7 @@ export default async function render(ctx) {
           clientForm.el,
         ),
         // v11 segment-staff: ملف الأفراد والشركات لا يُربط ببرنامج تمويل
-        isPaid ? null : h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el),
+        programSet,
       ),
       actions: [
         { label: 'إلغاء', variant: 'ghost' },
@@ -861,7 +878,10 @@ export default async function render(ctx) {
           onClick: async () => {
             const okMain = main.validate();
             const okClient = clientForm.validate();
-            if (!okMain || !okClient) return false;
+            const okSeg = !segPick || Boolean(segPick.getValue());
+            if (!okSeg) segPick.setError(REQUIRED_TEXT);
+            if (!okMain || !okClient || !okSeg) return false;
+            const segChosen = segPick ? segPick.getValue() : null;
             const v = main.getValues();
             const c = clientForm.getValues();
             const nid = toLatinDigits(c.national_id || '').replace(/\s/g, '');
@@ -884,12 +904,14 @@ export default async function render(ctx) {
               case_manager_id: v.case_manager_id || undefined,
               client: Object.keys(client).length ? client : undefined,
               ai_suggestion_id: ai ? ai.id : undefined,
-              program_id: (!isPaid && program.get()) || undefined,
+              program_id: (!isPaid && segChosen !== 'paid' && program.get()) || undefined,
+              segment: segChosen || undefined, // v11 segment-staff (review): نوع الخدمة لطلب «غير محدد»
             };
             try {
               const res = await api.post(`${base}/convert`, payload);
               created = res.case;
             } catch (err) {
+              if (segPick && err && err.code === 'segment_required') segPick.setError(REQUIRED_TEXT);
               main.showError(err);
               return false;
             }
@@ -1358,7 +1380,7 @@ export default async function render(ctx) {
     const blocks = [
       h(
         'div.pa-ai-meta',
-        badge(provider, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
+        badge(provider, 'neutral', { icon: 'sparkle', title: ai.model || '' }), // review (r2 P12): لا ذهبي لغير «خيري»
         h('time.small.muted', { datetime: ai.created_at, title: dateTime(ai.created_at) }, `حُلّل ${relative(ai.created_at)}`),
         h('span.spacer'),
         reanalyze,
@@ -1370,7 +1392,7 @@ export default async function render(ctx) {
           'التصنيف القانوني',
           h(
             'div.stack-sm',
-            h('div.row', badge(areaLabel(out.legal_area), 'primary'), out.urgency && statusBadge('priority', out.urgency, { dot: false, title: 'الأولوية المقترحة' })),
+            h('div.row', badge(areaLabel(out.legal_area), 'neutral'), out.urgency && statusBadge('priority', out.urgency, { dot: false, title: 'الأولوية المقترحة' })),
             out.confidence != null &&
               progressBar(Math.round(out.confidence * 100), 100, out.confidence >= 0.7 ? 'success' : out.confidence >= 0.5 ? 'warning' : 'danger', {
                 label: `درجة الثقة ${percent(out.confidence)}`,

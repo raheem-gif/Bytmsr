@@ -24,7 +24,7 @@ import { PICTOS } from '../public/assets/js/public/pictos.js';
 // v11 gate-public: مفردات نوع الخدمة (charity | paid) وكعكة bm_seg ومواضيع الأفراد والشركات — نفس الوحدة في الخادم والمتصفح
 import { parseSegment, segmentFromCookie, SEG_COOKIE, SEG_COOKIE_MAX_AGE, PAID_TOPICS, paidWaPrefill, COMPANY_PREFILL } from '../public/assets/js/public/segment.js';
 // v11 gate-public (L11-13): نصوص الأفراد والشركات (تُضمَّن في صفحاتهم فقط داخل bm-copy)
-import { intakePaidCopy, INTAKE_TITLES, INTAKE_PAGE } from './site-copy-paid.js';
+import { intakePaidCopy, INTAKE_TITLES, INTAKE_PAGE, PORTAL_PAID, PORTAL_LOGIN_PAID, DELETION_PAID_PREFILL } from './site-copy-paid.js';
 
 // قيم احتياطية للحقول الإلزامية فقط (الاسم الرسمي واسم البرنامج) إن أُفرغت.
 // أما الحقول الاختيارية (الإشهار، العنوان، الهاتف، فيسبوك، المواعيد) فإفراغها من الإعدادات يخفيها من الموقع،
@@ -50,6 +50,24 @@ const RAW_KEYS = new Set(['brand_inline', 'header', 'footer', 'contact_list', 's
 export const GATE_ORDER = ['paid', 'charity'];
 /** معاملات الحملة المسموح بنقلها لروابط البطاقتين (G11-19)، كل قيمة ≤ 200 حرف وتُرمَّز من جديد */
 export const CAMPAIGN_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref', 'fbclid', 'gclid'];
+// v11 gate-public (G11-02، L11-42): أسماء يكتبها الناس أو تُلصق من واتساب (بالشرطة الأخيرة وبدونها، والعربية مرمّزة
+// بالحروف الكبيرة والصغيرة) ← الصفحة الرسمية. /company (بوابة الشركات) لا يتغير.
+export const ALIASES = {
+  '/khayri/': '/khayri',
+  '/services/': '/services',
+  '/charity': '/khayri',
+  '/khairy': '/khayri',
+  '/khayry': '/khayri',
+  '/khairi': '/khayri',
+  '/kheiri': '/khayri',
+  '/%D8%AE%D9%8A%D8%B1%D9%8A': '/khayri', // /خيري
+  '/khadamat': '/services',
+  '/afrad': '/services',
+  '/%D8%AE%D8%AF%D9%85%D8%A7%D8%AA': '/services', // /خدمات
+  '/companies': '/services#companies',
+  '/sharikat': '/services#companies',
+  '/%D8%B4%D8%B1%D9%83%D8%A7%D8%AA': '/services#companies', // /شركات
+};
 /** العناوين والأوصاف (G11-05) */
 export const TITLES = {
   charity: (b) => `الدعم القانوني للأرامل والأيتام وأسرهم — ${b}`,
@@ -644,12 +662,21 @@ export function registerSite(app) {
     return '';
   }
 
+  /**
+   * v11 gate-public (مراجعة): رابط «تغيير نوع الخدمة» — شاشة الاختيار (/?gate=1)، أو صفحة الجانب الآخر مباشرة حين تُوقف
+   * الشاشة (site_gate_enabled=false يعرض «/» صفحة «خيري» دائمًا، فكان الرابط يعيد الزائر لنفس الصفحة بلا اختيار).
+   */
+  function switchHref(side) {
+    if (gateEnabled()) return '/?gate=1';
+    return side === 'paid' ? '/khayri' : '/services';
+  }
+
   /** v11 (§5.9): شارة «خيري» / «أفراد وشركات» ← /?gate=1 (شاشة الاختيار من جديد؛ الكعكة لا تُمسح) */
   function segPillHtml(side) {
     const paid = side === 'paid';
     const aria = paid ? 'أنتم في: خدمات الأفراد والشركات. تغيير نوع الخدمة' : 'أنتم في: خيري. تغيير نوع الخدمة';
     return (
-      `<a class="pub-seg-pill pub-seg-pill--${paid ? 'paid' : 'charity'}" href="/?gate=1" aria-label="${aria}">` +
+      `<a class="pub-seg-pill pub-seg-pill--${paid ? 'paid' : 'charity'}" href="${switchHref(side)}" aria-label="${aria}">` +
       `${iconSvg(paid ? 'briefcase' : 'heart', 16)}<span>${paid ? 'أفراد وشركات' : 'خيري'}</span>${iconSvg('swap', 16, 'pub-seg-pill-swap')}<span class="pub-seg-pill-change">تغيير</span></a>`
     );
   }
@@ -739,7 +766,7 @@ export function registerSite(app) {
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية">
       ${links}
       <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''}>${iconSvg('search', 18)}<span>${followLabel}</span></a>
-      ${cta}${pill ? '\n      <a class="pub-nav-link pub-nav-gate" href="/?gate=1">تغيير نوع الخدمة</a>' : ''}
+      ${cta}${pill ? `\n      <a class="pub-nav-link pub-nav-gate" href="${switchHref(ps.side)}">تغيير نوع الخدمة</a>` : ''}
     </nav>
   </div>
 </header>`;
@@ -816,6 +843,8 @@ export function registerSite(app) {
     if (ps.side === 'paid') return paidFooterHtml(ps, wa);
     const year = new Date().getFullYear();
     const company = companyPortalOpen();
+    // مراجعة: «اختيار نوع الخدمة» يفتح الشاشة؛ حين تُوقف الشاشة يكفي رابط الجانب الآخر في القائمة نفسها
+    const gateOn = gateEnabled();
     return `<footer class="pub-footer">
   <div class="pub-container pub-footer-grid">
     <div class="pub-footer-about">
@@ -836,7 +865,7 @@ export function registerSite(app) {
         <li><a href="/portal">تابعي طلبك</a></li>
         <li><a href="/khayri#faq">أسئلة</a></li>
         <li><a href="/services">خدمات الأفراد والشركات</a></li>
-        <li><a href="/?gate=1">اختيار نوع الخدمة</a></li>
+        ${gateOn ? '<li><a href="/?gate=1">اختيار نوع الخدمة</a></li>' : ''}
       </ul>
     </nav>
     <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات">
@@ -861,7 +890,7 @@ export function registerSite(app) {
       <li><a href="/terms">شروط الاستخدام</a></li>
       <li><a href="/data-deletion">حذف البيانات</a></li>
       <li><a href="/services">خدمات الأفراد والشركات</a></li>
-      <li><a href="/?gate=1">اختيار نوع الخدمة</a></li>
+      ${gateOn ? '<li><a href="/?gate=1">اختيار نوع الخدمة</a></li>' : ''}
       <li><a href="/app">دخول فريق العمل والمحامين</a></li>
       ${company ? '<li><a href="/company">دخول الشركات</a></li>' : ''}
     </ul>
@@ -903,7 +932,7 @@ export function registerSite(app) {
         <li><a href="/portal">متابعة طلب</a></li>
         ${b2b ? '<li><a href="/services#companies">للشركات</a></li>' : ''}
         <li><a href="/khayri">خيري</a></li>
-        <li><a href="/?gate=1">اختيار نوع الخدمة</a></li>
+        ${gateEnabled() ? '<li><a href="/?gate=1">اختيار نوع الخدمة</a></li>' : ''}
       </ul>
     </nav>
     <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات">
@@ -1451,6 +1480,57 @@ export function registerSite(app) {
     };
   }
 
+  /** v11 gate-public (G11-52، P1): صفحة 404 حسب جانب الزائر — «خيري» = نص 10.0 حرفيًا */
+  function notFoundView(side) {
+    if (side !== 'paid') {
+      return { nf_h1: 'الصفحة دي مش موجودة', nf_text: 'ممكن الرابط يكون ناقص أو اتقطع منه حتة وهو بيتنسخ من واتساب.', nf_h2: 'تحبي تعملي إيه؟', nf_follow: 'تابعي طلبك', nf_new: 'احكيلنا مشكلتك', nf_new_href: '/intake', nf_home_href: '/', nf_call: 'للمساعدة كلمينا:' };
+    }
+    return { nf_h1: 'الصفحة غير موجودة', nf_text: 'قد يكون الرابط ناقصًا، أو انقطع جزء منه عند نسخه.', nf_h2: 'ماذا تريدون أن تفعلوا؟', nf_follow: 'متابعة طلب', nf_new: 'طلب استشارة', nf_new_href: '/intake?seg=paid', nf_home_href: '/services', nf_call: 'للمساعدة اتصلوا بنا:' };
+  }
+
+  /** v11 gate-public (G11-47، P1): نصوص /portal الثابتة حسب جانب الزائر (والباقي في bm-copy لـ portal-login.js) */
+  function portalLoginView(ps, side) {
+    if (side !== 'paid') {
+      return {
+        pl_title: `متابعة طلبك — ${ps.brand_name}`,
+        pl_desc: `ارجعي لصفحة طلبك عند ${ps.brand_name}: افتحيها من الموبايل ده، أو كلمينا وهنبعتلك الرابط.`,
+        pl_h1: 'تابعي طلبك',
+        pl_loading: 'بنجهّز الصفحة…',
+        pl_nojs: 'الصفحة دي محتاجة تشغيل JavaScript. ممكن تكلمنا على طول وهنبعتلك رابط صفحتك:',
+      };
+    }
+    return {
+      pl_title: `متابعة طلبكم — ${ps.brand_name}`,
+      pl_desc: `تابعوا طلبكم لدى ${ps.brand_name}: افتحوا صفحة الطلب بكود يصلكم على واتساب، أو تواصلوا معنا لنرسل لكم الرابط.`,
+      pl_h1: PORTAL_LOGIN_PAID.h1,
+      pl_loading: 'جارٍ تحميل الصفحة…',
+      pl_nojs: 'تحتاج هذه الصفحة إلى تشغيل JavaScript. يمكنكم التواصل معنا مباشرة لنرسل لكم رابط صفحتكم:',
+    };
+  }
+
+  /** v11 gate-public (G11-46): عنوان صفحة المتابعة ونصوصها الثابتة بنبرة الطلب (side من H-G1) — «خيري» = نص 10.0 حرفيًا */
+  function portalView(ps, side) {
+    if (side !== 'paid') {
+      return {
+        pv_title: `متابعة طلبك — ${ps.brand_name}`,
+        pv_desc: `صفحتك الخاصة لمتابعة طلبك لدى ${ps.brand_name}: المطلوب منك، وصل طلبك لفين، الرد، المواعيد، والرسائل.`,
+        pv_loading: 'بنجهّز صفحتك…',
+        pv_nojs: 'الصفحة دي محتاجة تشغيل JavaScript في المتصفح. ممكن تكلمنا على طول:',
+      };
+    }
+    return {
+      pv_title: `متابعة طلبكم — ${ps.brand_name}`,
+      pv_desc: `صفحة طلبكم الخاصة لدى ${ps.brand_name}: المطلوب منكم، وحالة الطلب، والرد، والمواعيد، والرسائل.`,
+      pv_loading: PORTAL_PAID.loading,
+      pv_nojs: 'تحتاج هذه الصفحة إلى تشغيل JavaScript في المتصفح. يمكنكم التواصل معنا مباشرة:',
+    };
+  }
+
+  /** v11 gate-public (L11-13، H-G1): bm-copy لصفحة /p/<رمز> بنبرة الأفراد والشركات أو المحايدة (app.js يضيفها بعد bm-portal-data) */
+  function portalCopyBlock() {
+    return `<script type="application/json" id="bm-copy">${jsonForScript(PORTAL_PAID)}</script>`;
+  }
+
   /** v11 gate-public (L11-13): <script type="application/json" id="bm-copy"> لصفحة /intake للأفراد والشركات (لا تُنفَّذ؛ CSP كما هي) */
   function intakeCopyBlock() {
     return `<script type="application/json" id="bm-copy">${jsonForScript(intakePaidCopy({ companyPortal: companyPortalOpen(), leadCss: imgUrl('/assets/css/v11-lead.css') }))}</script>`;
@@ -1499,7 +1579,7 @@ export function registerSite(app) {
       whatsapp_url: wa,
       // للنصوص البديلة في القوالب (<!--#if no_whatsapp-->) حين لا يوجد رقم واتساب فعلي بعد
       no_whatsapp: wa ? '' : '1',
-      whatsapp_deletion_url: waLink(ps.whatsapp_digits, side === 'paid' ? 'مرحبًا، أرغب في حذف بياناتي لديكم. الاسم: ' : 'السلام عليكم، ده «طلب حذف بياناتي» من عندكم. اسمي: '),
+      whatsapp_deletion_url: waLink(ps.whatsapp_digits, side === 'paid' ? DELETION_PAID_PREFILL : 'السلام عليكم، ده «طلب حذف بياناتي» من عندكم. اسمي: '),
       org_phone_href: ps.org_phone_e164 || ps.org_phone,
       // v11 gate-public: الجانب، شاشة الاختيار، العنوان
       side,
@@ -1512,7 +1592,8 @@ export function registerSite(app) {
       critical_suffix: gate ? ':gate' : '',
       header: headerHtml(ps, pagePath, { pill }),
       footer: footerHtml(ps, wa),
-      contact_list: contactListHtml(ps, wa),
+      // v11 gate-public: قائمة التواصل بكلام الجانب (نماذج /intake الاحتياطية والصفحات القانونية)
+      contact_list: side === 'paid' ? paidContactListHtml(ps, wa) : contactListHtml(ps, wa),
       socials: socialHtml(ps),
       services: servicesHtml(),
       faq: faqHtml(ps),
@@ -1536,6 +1617,9 @@ export function registerSite(app) {
       office_closed: open === false ? '1' : '',
       ...(file === 'services.html' ? paidView(ps, wa) : {}),
       ...(file === 'intake.html' ? intakeView(ps, side, !!extra.company) : {}),
+      ...(file === '404.html' ? notFoundView(side) : {}),
+      ...(file === 'portal-login.html' ? portalLoginView(ps, side) : {}),
+      ...(file === 'portal.html' ? portalView(ps, side) : {}),
     };
     // قيم إضافية من المستدعي (noindex…)؛ مفاتيح التحكم أعلاه لا تُكتب فوق قيمها المحسوبة
     for (const [k, val] of Object.entries(extra)) if (val !== undefined && !RENDER_CONTROL_KEYS.has(k)) view[k] = val;
@@ -1620,6 +1704,14 @@ export function registerSite(app) {
    */
   function serveHome(req, res, url) {
     const askGate = url?.searchParams?.get('gate') === '1';
+    // (G11-02، P1) صيغة الحملات القديمة /?topic=<مفتاح صالح> ← النموذج مباشرة (302) بجانب الكعكة إن وُجدت؛ مفتاح غير
+    // معروف = «/» كالعادة. الهدف ثابت: المفتاح من TOPICS نفسها، والجانب كلمة من القائمة البيضاء، والحملة مرمّزة من جديد
+    const topic = askGate ? null : TOPICS.find((t) => t.key === url?.searchParams?.get('topic'));
+    if (topic) {
+      const seg = cookieSide(req);
+      res.setHeader('Vary', 'Cookie');
+      return redirectTo(res, url, `/intake?topic=${topic.key}${seg ? `&seg=${seg}` : ''}`, 302);
+    }
     const on = gateEnabled();
     const cookie = cookieSide(req);
     const gate = on && (askGate || cookie !== 'charity');
@@ -1713,15 +1805,37 @@ export function registerSite(app) {
   // «عن البرنامج» صفحة البرنامج الخيري: برأس «خيري» دائمًا (G11-24)
   app.pageHandlers.set('/about', (req, res) => servePage(req, res, 'about.html', '/about', { side: 'charity' }));
   // صفحة «متابعة طلب» (وحدة المراسلة) تستخدم الرأس والتذييل المشتركين إن وضعت {{{header}}} و{{{footer}}} في قالبها
-  if (!app.pageHandlers.has('/portal')) registerPage('/portal', 'portal-login.html', { optIn: true, noindex: true });
+  // v11 gate-public (G11-47، P1): بجانب الكعكة، ونصوص الأفراد والشركات في bm-copy لصفحتهم فقط
+  if (!app.pageHandlers.has('/portal')) {
+    app.pageHandlers.set('/portal', (req, res) => {
+      const side = sideOf(req);
+      const headExtra = side === 'paid' ? `<script type="application/json" id="bm-copy">${jsonForScript(PORTAL_LOGIN_PAID)}</script>` : '';
+      return servePage(req, res, 'portal-login.html', '/portal', { optIn: true, noindex: true, side, headExtra });
+    });
+  }
 
-  // /index.html ← / (مسار واحد لكل صفحة)
-  app.pageHandlers.set('/index.html', (req, res) => {
-    res.statusCode = 301;
-    res.setHeader('Location', '/');
+  /**
+   * v11 gate-public (G11-02، P1): تحويل لمسار داخلي ثابت (لا مضيف ولا مسار من الطلب) ومعاملات الحملة المسموح بها فقط،
+   * مرمّزة من جديد. HEAD مثل GET. no-cache: الهدف لا يتغير لكن لا نريد تحويلًا قديمًا محفوظًا في وسيط.
+   */
+  function redirectTo(res, url, target, code = 301) {
+    const [p, hash] = target.split('#');
+    const q = campaignQuery(url);
+    res.statusCode = code;
+    res.setHeader('Location', `${p}${q && p.includes('?') ? `&${q.slice(1)}` : q}${hash ? `#${hash}` : ''}`);
+    res.setHeader('Cache-Control', 'no-cache');
     res.end();
     return true;
-  });
+  }
+
+  // /index.html ← / (مسار واحد لكل صفحة)؛ v11: معاملات الحملة لا تضيع
+  app.pageHandlers.set('/index.html', (req, res, url) => redirectTo(res, url, '/'));
+
+  for (const [from, to] of Object.entries(ALIASES)) {
+    const forms = new Set([from, from.toLowerCase()]);
+    if (!from.endsWith('/')) for (const f of [...forms]) forms.add(`${f}/`);
+    for (const f of forms) if (!app.pageHandlers.has(f)) app.pageHandlers.set(f, (req, res, url) => redirectTo(res, url, to));
+  }
 
   // ───────────── robots.txt وsitemap.xml ─────────────
 
@@ -1928,6 +2042,7 @@ export function registerSite(app) {
     gateEnabled,
     paidFaqItems,
     criticalCss,
+    portalCopyBlock,
   };
   return app.site;
 }

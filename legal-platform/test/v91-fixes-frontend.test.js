@@ -251,7 +251,9 @@ describe('v9.1 fixes — offline «اليوم» only inside the server session w
 describe('v9.1 fixes — honest WhatsApp promise and a second chance to confirm', () => {
   test('success screen step 3 promises WhatsApp only once she sends the number', () => {
     const intake = read('public/assets/js/public/intake.js');
-    assert.ok(intake.includes("!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')"));
+    // v11 gate-public (intended: r2 S16): نفس النصوص في COPY (s3page/s3sent/s3wa) والشاشة تختار بينها بنفس الشرط
+    assert.ok(intake.includes('!confirmUrl ? COPY.s3page : sent ? COPY.s3sent : g(COPY.s3wa)'));
+    for (const x of ["s3page: 'على صفحتك'", "s3sent: 'على واتساب وعلى صفحتك'", "s3wa: 'على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب'"]) assert.ok(intake.includes(x), x);
     assert.match(intake, /if \(sent\) paintStep3\(true\);/);
     assert.match(intake, /localStorage\.setItem\('bm_wa_confirm', JSON\.stringify\(\{ ref, url: confirmUrl, at: new Date\(\)\.toISOString\(\) \}\)\)/);
     assert.match(intake, /localStorage\.removeItem\('bm_wa_confirm'\)/, '«مش موبايلك؟ امسحيها» clears it too');
@@ -276,7 +278,8 @@ describe('v9.1 fixes — honest WhatsApp promise and a second chance to confirm'
     }
     const portal = read('public/assets/js/public/portal.js');
     assert.match(portal, /function waConfirmCard\(\) \{\s*const home = state\.data\.home;\s*if \(home\.whatsapp_confirmed\) \{\s*storage\.del\(WA_CONFIRM_KEY\);\s*return null;/);
-    assert.ok(portal.includes("g('عايز{ة} يوصلك الجديد على واتساب؟')"));
+    // v11 gate-public (intended: G11-46/r2 P18): نفس نص «خيري» احتياطيًا لـ P() (الأفراد والشركات من bm-copy)
+    assert.ok(portal.includes("g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))"));
     assert.match(read('public/assets/js/public/portal-ui.js'), /storage\.del\(WA_CONFIRM_KEY\);/, 'forgetThisPhone clears it');
   });
 });

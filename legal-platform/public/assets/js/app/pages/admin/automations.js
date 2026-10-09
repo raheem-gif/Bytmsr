@@ -368,7 +368,7 @@ export default async function render(ctx) {
       suffix: PARAM_FIELDS[k].suffix,
     }));
     if (hasTemplate) fields.push({ name: 'template', label: hasPaid ? TPL_CHARITY : 'نص الرسالة', type: 'textarea', rows: 5, required: true, maxLength: 1000, full: true, dir: 'auto' });
-    if (hasPaid) fields.push({ name: 'template_paid', label: TPL_PAID, type: 'textarea', rows: 5, required: true, maxLength: 600, full: true, dir: 'auto', hint: 'يصل لعملاء الأفراد والشركات (ولمن نوع خدمته غير محدد) بصيغة الجمع وبلا كلمة «مجاني».' });
+    if (hasPaid) fields.push({ name: 'template_paid', label: TPL_PAID, type: 'textarea', rows: 5, required: true, maxLength: 600, full: true, dir: 'auto', hint: 'يصل للأفراد والشركات (ولمن نوع خدمته غير محدد) بصيغة الجمع وبلا كلمة «مجاني».' });
     const f = form(fields, { footer: false, values: params });
     const preview = h('p.pd-template-body', { dir: 'auto' });
     const previewPaid = h('p.pd-template-body', { dir: 'auto' });

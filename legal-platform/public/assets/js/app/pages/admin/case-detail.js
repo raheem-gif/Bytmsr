@@ -720,10 +720,14 @@ export default async function render(ctx) {
 
   /** v11 segment-staff: رقاقة النوع + «تغيير» (ملف الشركة بلا تغيير؛ الأخطاء 403/409 داخل الورقة) */
   function segHead() {
+    // review: أتعاب مسجلة ← التغيير لمدير النظام وحده؛ مدير الحالة يرى السبب بدل زر ينتهي برفض 403
+    const adminOnlyForMe = Boolean(seg.admin_only) && !(ctx.user && ctx.user.role === 'admin');
     return h(
       'div.seg-head',
       segmentChip(segValue, { company: Boolean(company), size: 'label' }),
-      seg.can_change !== false && !company
+      seg.can_change !== false && !company && adminOnlyForMe
+        ? h('span.seg-src.seg-admin-only', 'سُجّلت أتعاب على هذا الملف؛ تغيير نوع الخدمة لمدير النظام فقط.')
+        : seg.can_change !== false && !company
         ? button('تغيير', {
             variant: 'ghost',
             size: 'sm',
@@ -1208,7 +1212,17 @@ export default async function render(ctx) {
   function drawFees(host) {
     const items = caseFeeItems(data.activity, clientInvoices || []).filter((x) => !x.cancelled);
     // التنبيه يكفي حين توجد أتعاب بانتظار الموافقة (لا يتكرر النص نفسه)
-    const stateText = !fees || !fees.invoices ? 'لم تُرسل أتعاب لهذا الملف بعد.' : fees.agreed ? 'تمت الموافقة على الأتعاب على صفحة الطلب.' : feesPending ? null : FEES_NOT_AGREED;
+    // build-2: أتعاب جديدة بعد موافقة سابقة لا تُعرض كأن كل شيء وافقت عليه (القائمة تحدد ما زال بانتظار الموافقة)
+    const somePending = items.some((x) => !x.agreed);
+    const stateText = !fees || !fees.invoices
+      ? 'لم تُرسل أتعاب لهذا الملف بعد.'
+      : fees.agreed
+        ? somePending
+          ? 'تمت الموافقة على جزء من الأتعاب، والباقي بانتظار الموافقة على صفحة الطلب.'
+          : 'تمت الموافقة على الأتعاب على صفحة الطلب.'
+        : feesPending
+          ? null
+          : FEES_NOT_AGREED;
     mount(
       host,
       feesPending && h('p.notice-warn.seg-fees-warn', icon('alert', { size: 16 }), h('span', FEES_NOT_AGREED)),
@@ -1220,8 +1234,9 @@ export default async function render(ctx) {
               h(
                 'li.seg-fee-row',
                 h('span', x.number ? h('bdi', { dir: 'ltr' }, x.number) : null, x.description ? ` — ${x.description}` : !x.number ? x.text : null),
-                x.amount != null ? h('span.seg-amount', `${Number(x.amount).toLocaleString('en-US')} ج.م`) : null,
-                x.agreed ? badge('تمت الموافقة', 'success', { icon: 'checkCircle' }) : badge('بانتظار الموافقة', 'neutral', { icon: 'clock' }),
+                h('span.seg-amount', x.amount != null ? `${Number(x.amount).toLocaleString('en-US')} ج.م` : ''), // عمود المبلغ ثابت حتى بلا مبلغ
+                // review (§10.3): حالات الأتعاب بالأزرق/البرتقالي — الأخضر لنوع الخدمة وحده
+                x.agreed ? badge('تمت الموافقة', 'info', { icon: 'checkCircle', className: 'seg-fee-state' }) : badge('بانتظار الموافقة', 'warning', { icon: 'clock', className: 'seg-fee-state' }),
               ),
             ),
           )

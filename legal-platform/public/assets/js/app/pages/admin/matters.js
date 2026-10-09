@@ -55,9 +55,16 @@ export default async function render(ctx) {
     const my = ++seq;
     mount(resultHost, loading('جارٍ تحميل الملفات المستمرة…'));
     try {
-      const res = await api.get('/admin/matters', { q: state.q, ...caseFilterQuery(state.seg) });
+      // review: عناصر القائمة لا تحمل company_id، فتحت «الكل» تُعرف ملفات الشركات من طلب ‎line=b2b‎ موازٍ (رقاقة «شركة» لا «أفراد»)
+      const [res, b2b] = await Promise.all([
+        api.get('/admin/matters', { q: state.q, ...caseFilterQuery(state.seg) }),
+        state.seg ? null : api.get('/admin/matters', { q: state.q, line: 'b2b' }, { background: true }).catch(() => null),
+      ]);
       if (my !== seq) return;
       items = Array.isArray(res) ? res : (res && res.items) || [];
+      const companyIds = new Set((Array.isArray(b2b) ? b2b : (b2b && b2b.items) || []).map((m) => m.id));
+      if (state.seg === 'company') items.forEach((m) => (m.is_company = true));
+      else items.forEach((m) => (m.is_company = Boolean(m.company_id) || companyIds.has(m.id)));
       draw();
     } catch (err) {
       if (my !== seq) return;
@@ -129,7 +136,7 @@ export default async function render(ctx) {
         h(
           'div',
           h('div.cell-title', m.client_name || 'بدون اسم'),
-          h('div.cell-sub', segmentChip(m.segment, { company: Boolean(m.company_id) || state.seg === 'company' }), ' ', codeTag(m.client_code)),
+          h('div.cell-sub', segmentChip(m.segment, { company: Boolean(m.is_company) }), ' ', codeTag(m.client_code)),
         ),
     },
     { key: 'lawyer', label: 'المحامي المسؤول', render: (m) => (m.lawyer_name ? h('span', m.lawyer_name) : h('span.muted', 'لم يُحدَّد')) },

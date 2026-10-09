@@ -53,12 +53,17 @@
 .seg-choice-opt.is-paid:has(input:checked) { background: var(--tint-weak); color: var(--tint); box-shadow: inset 0 0 0 1.5px currentColor; }
 .seg-choice-block, .seg-reason, .seg-msg-block { display: grid; gap: 8px; margin-block-end: 12px; }
 .seg-reason-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.seg-reason-chip { min-height: 44px; }
+.seg-reason-chip { min-height: 44px; padding-inline: 14px; border: 0; background: var(--fill-1); color: var(--label); font-size: 14px; cursor: pointer; }
+.seg-reason-chip[aria-pressed="true"] { background: var(--fill-3); font-weight: 600; }
+.seg-reason-chip:focus-visible { outline: 0; box-shadow: var(--focus); }
 .seg-msg-block .is-off textarea { opacity: 0.6; }
 .seg-sheet-hint { margin-block-end: 10px; }
 .seg-fees { display: grid; gap: 10px; }
-.seg-fee-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 0; border-block-end: 1px solid var(--separator); }
+.seg-fees-list { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; margin: 0; padding: 0; list-style: none; }
+.seg-fee-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: 6px 12px; padding: 10px 0; border-block-end: 1px solid var(--separator); }
 .seg-fee-row:last-child { border-block-end: 0; }
+.seg-fee-row bdi { white-space: nowrap; }
+@media (max-width: 599px) { .seg-fee-row > :first-child { grid-column: 1 / -1; } }
 .seg-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
 .seg-filter { margin-block-end: 12px; }
 .pa-segbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-block: 2px 8px; }
@@ -89,7 +94,9 @@
   .pa-page-inbox .page-subtitle { font: var(--t-subhead); }
   .pa-page-inbox .pa-result-info { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+/* scope tabs on my pages keep their text width (v11-ui's 44px min-width let them shrink and overlap at 390) */
+:is(.pa-tabs, .pb-seg) > .seg { flex-shrink: 0; }
 .pa-sheet-seg { margin-block-end: 10px; }
 .pa-sheet-seg > summary { display: flex; align-items: center; min-height: 44px; color: var(--tint); font-weight: 600; cursor: pointer; }
-:is(.pa-story, .pa-irow) .pa-ai-tag { background: var(--fill-1); color: var(--label-2); }
-:is(.pa-story, .pa-irow) :is(.pa-ai-mark, .is-ai) > .icon { color: var(--label-2); }
+:is(.pa-story, .pa-irow, #pa-proposal) .pa-ai-tag { background: var(--fill-1); color: var(--label-2); }
+:is(.pa-story, .pa-irow, #pa-proposal) :is(.pa-ai-mark, .is-ai) > .icon { color: var(--label-2); }

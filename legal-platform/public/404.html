@@ -24,8 +24,9 @@
               <li aria-current="page">صفحة غير موجودة</li>
             </ol>
           </nav>
-          <h1 id="page-title">الصفحة دي مش موجودة</h1>
-          <p>ممكن الرابط يكون ناقص أو اتقطع منه حتة وهو بيتنسخ من واتساب.</p>
+          <!-- v11 gate-public (G11-52): النصوص والروابط حسب جانب الزائر («خيري» = نص 10.0 حرفيًا) -->
+          <h1 id="page-title">{{nf_h1}}</h1>
+          <p>{{nf_text}}</p>
         </div>
       </section>
 
@@ -34,14 +35,14 @@
       <section class="pub-section" aria-labelledby="next-title">
         <div class="pub-container">
           <article class="pub-doc">
-            <h2 id="next-title">تحبي تعملي إيه؟</h2>
+            <h2 id="next-title">{{nf_h2}}</h2>
             <div class="pub-cta-row">
-              <a class="pub-btn pub-btn-teal pub-btn-primary" href="/portal">تابعي طلبك</a>
-              <a class="pub-btn pub-btn-outline" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
-              <a class="pub-btn pub-btn-outline" href="/">الصفحة الرئيسية</a>
+              <a class="pub-btn pub-btn-teal pub-btn-primary" href="/portal">{{nf_follow}}</a>
+              <a class="pub-btn pub-btn-outline" href="{{nf_new_href}}" data-cta="intake">{{nf_new}}</a>
+              <a class="pub-btn pub-btn-outline" href="{{nf_home_href}}">الصفحة الرئيسية</a>
             </div>
             <!--#if org_phone-->
-            <p style="margin-block-start: 16px">للمساعدة كلمينا: <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if office_hours_line--> — {{office_hours_line}}<!--/if office_hours_line--></p>
+            <p style="margin-block-start: 16px">{{nf_call}} <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if office_hours_line--> — {{office_hours_line}}<!--/if office_hours_line--></p>
             <!--/if org_phone-->
           </article>
         </div>

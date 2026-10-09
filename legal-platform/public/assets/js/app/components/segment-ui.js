@@ -6,7 +6,7 @@
 
 import { h, frag, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
-import { label as metaLabel, cairoToday, cairoDateToIso } from '../../lib/fmt.js';
+import { label as metaLabel, cairoToday, cairoDateToIso, count } from '../../lib/fmt.js';
 import { icon, iconNames, modal, field, button, toast, errorMessage, discardGuard, uid } from '../../lib/ui.js';
 
 export const SEGMENT_VALUES = ['charity', 'paid'];
@@ -154,6 +154,7 @@ export function segmentSwitch({ value = '', counts = null, onChange, withUnset =
   const el = h('div.segmented.seg-switch', { role: 'group', 'aria-label': aria, class: compact === true && 'is-compact' });
   let cur = value || '';
   let cnt = counts || {};
+  let showCounts = Boolean(counts); // review: update({counts:null}) يخفي الأعداد (تبويبات الطلبات المغلقة)
   const OPTS = [
     { key: '', full: 'الكل', short: 'الكل', icon: null },
     { key: 'charity', full: segLabel('segment', 'charity'), short: segLabel('segment_short', 'charity'), icon: 'heart' },
@@ -165,7 +166,7 @@ export function segmentSwitch({ value = '', counts = null, onChange, withUnset =
     mount(
       el,
       OPTS.map((o) => {
-        const num = counts ? n(o.key) : null;
+        const num = showCounts ? n(o.key) : null;
         // «غير محدد» يُظهر عدده متى كان > 0 (والباقي دائمًا)
         const showNum = num != null && (o.key !== 'unset' || num > 0);
         const text =
@@ -198,7 +199,10 @@ export function segmentSwitch({ value = '', counts = null, onChange, withUnset =
   }
   el.update = ({ value: v, counts: c } = {}) => {
     if (v !== undefined) cur = v || '';
-    if (c !== undefined) cnt = c || {};
+    if (c !== undefined) {
+      cnt = c || {};
+      showCounts = Boolean(c);
+    }
     draw();
   };
   el.getValue = () => cur;
@@ -345,9 +349,11 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
   const choiceWrap = field(SEGMENT_TITLE, h('div.seg-choice-opts', { role: 'radiogroup' }, radios), { group: true, required: true });
 
   const reason = h('textarea.input', { rows: 2, maxlength: 300, dir: 'auto', required: reasonNeeded() });
+  const markChip = () => reasonChips && reasonChips.querySelectorAll('.seg-reason-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.code === reasonCode)));
   reason.addEventListener('input', () => {
     dirty = true;
     reasonCode = null;
+    markChip();
   });
   const codes = Object.keys(FALLBACK.segment_reason_codes);
   const reasonChips = h(
@@ -358,12 +364,14 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
         'button.chip.seg-reason-chip',
         {
           type: 'button',
+          'aria-pressed': 'false',
           dataset: { code: c },
           onClick: () => {
             reason.value = segLabel('segment_reason_codes', c);
             reasonCode = c;
             dirty = true;
             reasonWrap.setError('');
+            markChip();
           },
         },
         segLabel('segment_reason_codes', c),
@@ -448,7 +456,8 @@ export function afterChangeNotes(res = {}) {
   const out = [];
   if (Array.isArray(res.affected_periods) && res.affected_periods.length) out.push(`الفترات المغلقة لم تتغير: ${res.affected_periods.join('، ')}`);
   const n = Array.isArray(res.cancelled_invoices) ? res.cancelled_invoices.length : 0;
-  if (n) out.push(n === 1 ? 'أُلغيت فاتورة أتعاب واحدة لم تُدفع.' : n === 2 ? 'أُلغيت فاتورتا أتعاب لم تُدفعا.' : `أُلغيت ${n} فواتير أتعاب لم تُدفع.`);
+  // review: مطابقة العدد والمعدود (11 فأكثر بالمفرد: «12 فاتورة أتعاب»)
+  if (n) out.push(`أُلغيت ${count(n, ['فاتورة أتعاب واحدة', 'فاتورتا أتعاب', 'فواتير أتعاب', 'فاتورة أتعاب'])} ${n === 2 ? 'لم تُدفعا' : 'لم تُدفع'}.`);
   return out;
 }
 

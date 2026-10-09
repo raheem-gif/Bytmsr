@@ -93,15 +93,18 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
     assert.match(index, /قدّمتي طلب قبل كده؟<\/strong> تابعيه من هنا/);
     const login = read('public/portal-login.html');
     assert.ok(!/بوابة العملاء/.test(login), 'no «بوابة العملاء» on the beneficiary-facing login page');
-    assert.match(login, /<title>متابعة طلبك — \{\{brand_name\}\}<\/title>/); // v10 experience (intended, X10-B3 #3): the brand in the title
+    // v11 gate-public (intended: G11-47): العنوان والعنوان الرئيسي مفاتيح بالجانب ({{pl_title}}/{{pl_h1}})؛ نص «خيري» نفسه يُفحص في الصفحة المعروضة أدناه
+    assert.match(login, /<title>\{\{pl_title\}\}<\/title>/); // v10 experience (intended, X10-B3 #3): the brand in the title
     // v9.1 b-portal (تغيير مقصود، B91-06): العنوان والكارت بعامية بسيطة
-    assert.match(login, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/);
+    assert.match(login, /<h1 id="page-title"[^>]*>\{\{pl_h1\}\}<\/h1>/);
     const pl = read('public/assets/js/public/portal-login.js');
     assert.match(pl, /قدّمتي من الموقع ومش لاقية الرابط؟/, 'website-only submitters are told how to get a new link');
     assert.ok(!visibleStrings(pl).some((s) => /عميل|عملاء/.test(s.text)));
     const t = await startTestApp({ seed: 'none' });
     try {
       const html = (await t.client().get('/portal')).body;
+      assert.match(html, /<title>متابعة طلبك — Emam Legal and Consultancy<\/title>/); // v11 gate-public (intended): same title, rendered
+      assert.match(html, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/); // v11 gate-public (intended): same h1, rendered
       // v9.1 b-site (B91-07): نفس الاسم في القائمة والتذييل بكلام بسيط
       assert.match(html, /<span>تابعي طلبك<\/span>/, 'site nav label');
       assert.match(html, /<a href="\/portal">تابعي طلبك<\/a>/, 'footer label');
@@ -121,6 +124,8 @@ describe('v9 frontend fixes — terminology', () => {
   V10_CLIENT_WORDS.push(/^`هذا حساب داخلي لشركة عميلة — \$\{co\.name\}`$/); // v10: +1 b2b-staff spec string (shadow client, STF-10) (intended)
   // v11 segment-staff (intended): exact v11 spec strings (§10.1/§10.2, S11-39, r2 P5) where «العميل» is the paying client of «أفراد وشركات»
   V10_CLIENT_WORDS.push(/^'لن يُطلب أي مبلغ إلا بموافقة صريحة من العميل على صفحة طلبه\.'$/, /^'لم يوافق العميل على الأتعاب بعد'$/, /^'إرسال رسالة للعميل'$/, /^'إرسال للعميل للموافقة'$/, /^'إضافة كشركة عميلة'$/);
+  // v11 segment-staff (intended, build-2): the exact L11-45/S11-42 integrations guide line (ST-6)
+  V10_CLIENT_WORDS.push(/^'أضيفوا الرقم الثاني من WhatsApp Manager في نفس حساب واتساب للأعمال، ثم الصقوا معرّفه هنا\. الرد يخرج دائمًا من الرقم الذي كتب عليه العميل\.'$/);
   test('no visible «عميل/عملاء» string anywhere in the SPA, the public scripts or the public HTML', () => {
     const hits = [];
     for (const f of walk(JS)) {

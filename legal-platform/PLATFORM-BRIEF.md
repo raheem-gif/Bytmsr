@@ -471,6 +471,51 @@ and `company.html`). Budgets: `/app` ≤ 60,000 B br, `/company` ≤ 30,000 B br
 <!-- /v11:visual -->
 
 <!-- v11:gate-public -->
+### Entry gate and the two public sides («خيري» / «الأفراد والشركات»)
+
+**The gate.** A first-time visitor to `/` sees one white screen: the deep-gold logo, two equal picture cards — «خدمات الأفراد
+والشركات» first, «خيري · مجاني» second (`GATE_ORDER` in `src/site.js`, one line to swap) — a «بالصوت» button (only when an
+Arabic voice exists) and three small links (privacy · terms · company sign-in). No phone number, WhatsApp or tiles on it. The
+full charity home is already in the same response under the overlay, so «خيري» reveals the tiles with no network request;
+the paid card navigates to `/services`. Back/forward restores the gate. Without JS the two cards are plain links.
+
+**URL map.** `/` gate (or the charity home directly for a returning «خيري» visitor) · `/khayri` charity home without the gate
+(campaigns and QR codes; canonical to itself; in the sitemap with the charity FAQ) · `/services` the paid home (the same eight
+topics as a calm list, «للشركات» row, how we work, company band `#companies`, commitments, questions, contact, and the way back
+«تبحثون عن مساعدة قانونية مجانية؟ خيري ‹» under the title; `LegalService` JSON-LD with no NGO node) · `/intake?seg=charity|paid`
+one form for both sides (`&mode=company` = the company lead) · `/?gate=1` the gate always (the header's «تغيير نوع الخدمة»;
+`noindex`) · `/p/<token>` chrome and contact by the request's own tone, never the cookie · `/portal`, `/privacy`, `/terms`,
+`/about`, `/data-deletion` and 404 use the visitor's side (header, «خيري ⇄» / «أفراد وشركات ⇄» pill, numbers, footer). The gate
+page itself carries `Organization` JSON-LD only.
+
+**The cookie.** `bm_seg=charity|paid` (no personal data; not HttpOnly because the gate's «خيري» button writes it in JS;
+`SameSite=Lax`, `Secure` on HTTPS). **Only «خيري» skips the gate**: a paid visitor sees the gate again on every visit to `/`, so
+a widow who tapped the wrong card is never stuck on the paid side. Persistent (180 days) from the «خيري» choice, `/khayri`,
+`/services` and a charity refresh of `/`; session-only from `/intake?seg=…` (a forwarded link never flips a visitor's side);
+never written on `HEAD`, prefetch/prerender or link-preview requests. **Kill switch** `site_gate_enabled` (default on): off =
+`/` is the charity home for everyone and the cookie is not refreshed; `/services` keeps working and the side pill then opens the
+other side's home directly (it would otherwise reload the same page). **Aliases (G11-02):** `/khayri/`, `/services/`,
+`/charity`, `/khairi`, `/khairy`, `/khayry`, `/kheiri`, `/خيري` → `/khayri`; `/khadamat`, `/afrad`, `/خدمات` → `/services`;
+`/companies`, `/sharikat`, `/شركات` → `/services#companies` (301, fixed internal targets, whitelisted campaign params only, both
+percent-encoding cases); the 10.0 campaign form `/?topic=<key>` → `/intake?topic=<key>` (302, + the cookie side).
+
+**Paid copy delivery.** The charity side stays 10.0 byte-for-byte in behaviour and words (only `seg=charity` added to its links;
+pinned by a hash test). Paid pages embed their formal-plural MSA copy as `<script type="application/json" id="bm-copy">`
+(escaped JSON, CSP-safe) built from `src/site-copy-paid.js` (`INTAKE_*`, `PORTAL_PAID`, `PORTAL_LOGIN_PAID`); client modules
+look keys up and fall back to the charity words, and never import paid copy. The paid intake is text-first (voice one tap
+away), shows a «مجاني — خيري ‹» row on the topic and phone steps that carries the draft to the charity form with the same topic,
+keeps one draft per side (L11-53 precedence: explicit `seg` › draft › cookie › default), and maps every server error `code`
+(`too_many_files`, `too_many_audio`, `too_short`, `bad_phone`, `bad_name`, `rate_limited`, `invalid`, 413) to its own sentence.
+The company lead (`intake-company.js` + `v11-lead.css`, loaded only on `mode=company`) posts to the same
+`/api/public/intake` with `segment:'paid'` and `requester{kind:'company',…}`. `/p/<token>` gets the `PORTAL_PAID` block when the
+request's tone is paid or neutral (H-G1 in `src/app.js`), and its header contact is rewritten to the request's own number.
+
+**Caching and budgets.** Every public HTML response is `Cache-Control: private, no-cache` with `Vary: Accept-Encoding, Cookie`;
+`/p/` stays `no-store`. Gate first paint ≈ 2.2 s on slow 3G (CLS ≤ 0.002); charity `intake.js` +1.7 KB br over 10.0; the paid
+copy block ≈ 12 KB raw / 3.5 KB br (sent only to paid pages). **Privacy and terms:** §12 cookie list (incl. `bm_seg`,
+self-hosted fonts), the company-lead bullet, and a new terms section «الخدمات بأتعاب للأفراد والشركات» — legal review O-28
+before launch. Tests: `test/v11-gate-public.test.js` (59); Playwright scripts in `scratchpad/v11-pw-gate/` and
+`scratchpad/v11-pw-gate-rv/` (review).
 <!-- /v11:gate-public -->
 
 <!-- v11:segment-server -->
@@ -547,6 +592,43 @@ A message recorded for the paid line never leaves from the main number if the pa
 <!-- /v11:segment-server -->
 
 <!-- v11:segment-staff -->
+### Service line in the staff app — see, filter, change, send
+
+**One colour code.** `components/segment-ui.js` renders every service-type chip: «خيري» gold wash + filled heart, «أفراد» /
+«شركة» green tint + briefcase / building, «غير محدد» neutral with a dashed edge, «شركة — طلب عرض» for company leads. Chips are
+always text + icon and are the only pills with a filled glyph and a ring in their own hue; statuses carry a dot (AI suggestions,
+track and area pills on the request page and «رقم غير مؤكد» inside triage cards are neutral pills; fee agreement states are
+blue/orange). Note: some global status tones in `lib/ui.js` STATUS_TONES (owned by visual) still use the gold/green tints. Hints («المقترح: …», «يبدو أفراد وشركات — …»),
+line-mismatch («كتب على …») and unknown-line («وصلت على رقم غير مضبوط (…1234)») are separate neutral pills. CSS:
+`v11-segment.css` (tokens only, ≤ 2 KB br).
+
+**Inbox.** «الكل · خيري · أفراد وشركات · غير محدد» with `segment_counts` (short labels below 600 px), `?segment=` + local
+storage; a chip next to every name; below 600 px the filters collapse into «تصفية» and manual entry becomes «+» (its «نوع
+الخدمة» radios are required, no default).
+
+**Request and case pages.** Chip + source + «تغيير» (override sheet: reason 3–300 only when changing a set value, quick reason
+chips, optional pre-filled client message, `403`/`409` shown inside the sheet, discard guard, closed periods reported). A
+«غير محدد» request opens with a two-button card and «استخدم الاقتراح» — one tap, no reason; its «تحويل إلى ملف قانوني» dialog
+asks for the type first (required, no default) and sends `segment`. Converted requests change from the case page; when fees are
+recorded (`admin_only`) a case manager sees the server's reason instead of «تغيير». Paid individual cases: no programme field, a «الأتعاب» card with «إضافة أتعاب» (`POST /api/admin/cases/:id/invoices`,
+agreement on `/p/`) and the soft warning «لم يوافق العميل على الأتعاب بعد» on the page and in the assign sheet (never blocks;
+no `pro_bono` fee mode).
+
+**«سيُرسل من».** Every surface that sends to a client (reply composer, AI reply, story sheet, document send, case/matter
+composer) starts with the chip, the tone and «سيُرسل من: {line}» from the server's `send_line` (main number, paid number or
+the follow-up page). An unknown number id allows the follow-up page only.
+
+**Dashboard, reports, settings.** Dashboard grouped list «حسب نوع الخدمة» (new today · open per side, admin-only paid revenue)
+with alert rows for «غير محدد» and «طلبات أفراد بلا واتساب مؤكد» linking to the filtered inbox; the month block split into
+«الخيري» and «الأفراد والشركات»; «يشمل الخيري والأفراد» on figures still over both sides. Analytics `segment=all|charity|paid`;
+the impact page states it is charity-only; accounting shows «منها عمل الأفراد والشركات». Settings: «شاشة الاختيار» card
+(`site_gate_enabled` kill switch, `org_phone_paid`); integrations: paid-number verification line, `wa_paid_on_main` toggle, and
+the `409 mode_change_confirm` confirm-and-resend when the main number's mode changes with open WhatsApp stories; story settings
+(choice buttons only in `shared` mode, returning-client days); automations edit «نص الخيري» / «نص الأفراد والشركات»; the
+simulator picks the line (main · paid · shared · unknown) and presses the choice buttons. Audit groups `segment.*`.
+
+**Lawyers see nothing** of this: no chip, word or key under `pages/lawyer/*` or `lawyer-shell.js` (static test + Playwright
+DOM scan).
 <!-- /v11:segment-staff -->
 
 ---

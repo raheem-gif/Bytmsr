@@ -1,4 +1,4 @@
-// v11 segment-staff — واجهة الإدارة التي تفرّق بين «خيري» و«أفراد وشركات» (§10 في v11-spec، ST-0…ST-4 في build-1).
+// v11 segment-staff — واجهة الإدارة التي تفرّق بين «خيري» و«أفراد وشركات» (§10 في v11-spec، ST-0…ST-4 في build-1، ST-5…ST-7 في build-2).
 // اختبارات بلا متصفح: مكوّنات segment-ui.js على DOM مصغّر، فحص ثابت لصفحات المسار، وتكامل HTTP على بيانات العرض.
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -600,6 +600,311 @@ describe('v11 segment-staff — ST-2…ST-4 page wiring', () => {
   });
 });
 
+// ───────────────────────── ST-5…ST-7 (build-2): صفحات اللوحة والإعدادات والمحاكي على DOM مصغّر ─────────────────────────
+const tick = () => new Promise((r) => setTimeout(r, 0));
+async function settle(n = 6) {
+  for (let i = 0; i < n; i++) await tick();
+}
+function withWindow(hash = '#/') {
+  globalThis.window = { localStorage: memoryStorage(), location: { hash, pathname: '/app', search: '' }, history: { replaceState() {} }, matchMedia: () => ({ matches: false }), getComputedStyle: () => ({ direction: 'rtl' }), requestAnimationFrame: (f) => (f(), 0) };
+  globalThis.requestAnimationFrame = (f) => (f(), 0);
+}
+function dropWindow() {
+  delete globalThis.window;
+  delete globalThis.requestAnimationFrame;
+}
+
+const DASH = {
+  intakes: { new: 3, in_review: 1, awaiting_client: 0, today: 2, urgent: 1 },
+  cases: { new: 1, closed: 2 },
+  open_cases: 5,
+  pending_decisions: {},
+  overdue_assignments: 0,
+  upcoming_events: [],
+  overdue_invoices: 0,
+  failed_messages: 0,
+  similar_alerts: [],
+  knowledge_pending: 0,
+  sla: null,
+  capacity: { capacity: 10, open_assignments: 2, top_loaded: [] },
+  cases_scope_label: 'يشمل الخيري والأفراد',
+  month: { period: '2026-10', cases_opened: 4, cases_closed: 1, lawyer_cost: 1200, pro_bono: 2, paid: { cases_opened: 2, cases_closed: 0, lawyer_cost: 1500 } },
+  segments: { charity: { new_today: 3, open: 24 }, paid: { new_today: 1, open: 2, unconfirmed_wa: 2, revenue_month: 2500 }, unset_open: 1, ineligible_overrides: 1 },
+  weekly: [],
+  ai: { label: 'محلي', provider: 'heuristic' },
+  whatsapp: { state: 'simulation' },
+  user: { name: 'كريم منصور', role: 'admin' },
+};
+
+describe('v11 segment-staff — ST-5 dashboard, impact, analytics, accounting', () => {
+  let DashMod;
+  before(async () => {
+    withWindow('#/dashboard');
+    DashMod = await import('../public/assets/js/app/pages/admin/dashboard.js');
+  });
+  after(() => dropWindow());
+
+  test('«حسب نوع الخدمة»: «خيري» / «أفراد وشركات» rows «جديد اليوم n · مفتوح n» → the filtered inbox; gold heart vs green briefcase; revenue only when the server sends it', () => {
+    const strip = DashMod.segmentStrip(DASH.segments);
+    assert.equal(text(strip.querySelector('.g-head')), 'حسب نوع الخدمة');
+    const rows = strip.querySelectorAll('a.pa-seg-row');
+    assert.equal(rows[0].getAttribute('href'), '#/inbox?segment=charity');
+    assert.equal(text(rows[0].querySelector('.g-title')), 'خيري');
+    assert.equal(text(rows[0].querySelector('.pa-seg-line')), 'جديد اليوم 3 · مفتوح 24');
+    assert.ok(rows[0].querySelector('.g-ico').classList.contains('is-gold'));
+    assert.equal(svgNames(rows[0].querySelector('.g-ico'))[0], 'heart');
+    assert.equal(rows[1].getAttribute('href'), '#/inbox?segment=paid');
+    assert.equal(text(rows[1].querySelector('.g-title')), 'أفراد وشركات');
+    assert.equal(text(rows[1].querySelector('.pa-seg-line')), 'جديد اليوم 1 · مفتوح 2');
+    assert.ok(!rows[1].querySelector('.g-ico').classList.contains('is-gold'), 'paid = the green tint, never gold');
+    assert.equal(svgNames(rows[1].querySelector('.g-ico'))[0], 'briefcase');
+    assert.match(text(rows[1].querySelector('.pa-seg-rev')), /^إيرادات الأفراد هذا الشهر: 2,500/);
+    const noRev = DashMod.segmentStrip({ ...DASH.segments, paid: { new_today: 0, open: 2, unconfirmed_wa: 0 } });
+    assert.equal(noRev.querySelector('.pa-seg-rev'), null, 'case managers get no revenue line');
+    assert.equal(DashMod.segmentStrip(null), null);
+  });
+
+  test('alert rows (r2 S9): «طلبات نوع خدمتها غير محدد: n» → #/inbox?segment=unset and «طلبات أفراد بلا واتساب مؤكد: n» → the paid call-back list, only when > 0; P1 monthly count', () => {
+    const strip = DashMod.segmentStrip(DASH.segments);
+    const unset = strip.querySelector('[data-alert="unset"]');
+    assert.equal(text(unset.querySelector('.g-title')), 'طلبات نوع خدمتها غير محدد: 1');
+    assert.equal(unset.getAttribute('href'), '#/inbox?segment=unset');
+    const wa = strip.querySelector('[data-alert="unconfirmed_wa"]');
+    assert.equal(text(wa.querySelector('.g-title')), 'طلبات أفراد بلا واتساب مؤكد: 2');
+    assert.match(wa.getAttribute('href'), /^#\/inbox\?segment=paid(&|$)/);
+    assert.equal(text(strip.querySelector('.g-foot')), 'حُوّلت من خيري إلى أفراد وشركات هذا الشهر: 1');
+    const quiet = DashMod.segmentStrip({ charity: { new_today: 0, open: 0 }, paid: { new_today: 0, open: 0, unconfirmed_wa: 0 }, unset_open: 0, ineligible_overrides: 0 });
+    assert.equal(quiet.querySelectorAll('[data-alert]').length, 0);
+    assert.equal(quiet.querySelector('.g-foot'), null);
+  });
+
+  test('rendered dashboard (r2 S10): strip under the header, month «الخيري» + «الأفراد والشركات» from month.paid, «يشمل الخيري والأفراد» on the figures over both sides', async () => {
+    stubFetch((c) => (c.url.startsWith('/api/admin/dashboard') ? { body: DASH } : { body: {} }));
+    const page = await DashMod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' } });
+    const kids = page.children;
+    assert.ok(kids[1].classList.contains('pa-seg-strip'), 'the strip follows the header');
+    assert.deepEqual(page.querySelectorAll('.pa-month-split .pa-mini-h').map(text), ['الخيري', 'الأفراد والشركات']);
+    const paidMonth = page.querySelector('.pa-month[data-seg="paid"]');
+    assert.equal(paidMonth.children.length, 3, 'no «استشارات تطوعية» on the paid side');
+    assert.match(text(paidMonth), /ملفات فُتحت\s*2/);
+    const all = text(page);
+    assert.ok((all.match(/يشمل الخيري والأفراد/g) || []).length >= 3, 'open cases, cases by status and weekly volume');
+  });
+
+  test('impact header line «تقرير الأثر يخص الخدمة الخيرية فقط.» on screen only (the printed report stays as in 10.0)', () => {
+    const src = read(`${APP}pages/admin/impact.js`);
+    assert.match(src, /meta: h\('p\.v9p-scope-line\.no-print', \{ dataset: \{ scope: 'charity' \} \}, 'تقرير الأثر يخص الخدمة الخيرية فقط\.'\)/);
+  });
+
+  test('analytics switch (r2 S10, P0): «الكل · خيري · أفراد وشركات», default all with «يشمل الخيري والأفراد»; a side refetches funnel + areas with segment= and drops the caption', async () => {
+    withWindow('#/analytics');
+    const calls = stubFetch((c) => {
+      if (c.url.startsWith('/api/admin/analytics/funnel')) {
+        const all = !/segment=(charity|paid)/.test(c.url);
+        return { body: { items: [], totals: { intakes: 3, cases: 1, messages: 4 }, ...(all ? { scope_label: 'يشمل الخيري والأفراد' } : {}) } };
+      }
+      if (c.url.startsWith('/api/admin/analytics/areas')) return { body: { items: [], weekly: [] } };
+      if (c.url.startsWith('/api/admin/analytics/spend')) return { body: { items: [], campaigns: [] } };
+      return { body: {} };
+    });
+    const mod = await import('../public/assets/js/app/pages/admin/analytics.js');
+    const fragEl = await mod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' } });
+    const page = globalThis.document.createElement('div');
+    page.appendChild(fragEl);
+    await settle();
+    const sw = page.querySelector('.pd-seg-control .seg-switch');
+    assert.deepEqual(sw.querySelectorAll('button.seg').map((b) => b.dataset.seg), ['all', 'charity', 'paid'], 'no «غير محدد» in reports');
+    assert.deepEqual(sw.querySelectorAll('.seg-l-full, .seg-l').filter((x) => !x.classList.contains('seg-l-short')).map(text), ['الكل', 'خيري', 'أفراد وشركات']);
+    assert.equal(sw.querySelector('[aria-pressed="true"]').dataset.seg, 'all');
+    assert.equal(text(page.querySelector('.pd-scope-line')), 'يشمل الخيري والأفراد');
+    assert.ok(calls.some((c) => c.url.startsWith('/api/admin/analytics/funnel') && !/segment=/.test(c.url)), 'default = 10.0 request');
+    sw.querySelector('[data-seg="paid"]').click();
+    await settle();
+    assert.ok(calls.some((c) => c.url.startsWith('/api/admin/analytics/funnel') && /segment=paid/.test(c.url)));
+    assert.ok(calls.some((c) => c.url.startsWith('/api/admin/analytics/areas') && /segment=paid/.test(c.url)));
+    assert.equal(page.querySelector('.pd-scope-line').hidden, true);
+    dropWindow();
+    withWindow('#/dashboard');
+  });
+
+  test('accounting: «منها عمل الأفراد والشركات» under each lawyer\'s period amount and in the totals card, from paid_individuals', () => {
+    const src = read(`${APP}pages/admin/accounting.js`);
+    assert.match(src, /return v \? `منها عمل الأفراد والشركات: \$\{money\(v\)\}` : null;/);
+    assert.match(src, /const share = paidShareText\(l\.paid_individuals\);/);
+    assert.match(src, /paidShareText\(t\.paid_individuals\) \? `قيود الفترة غير الملغاة · \$\{paidShareText\(t\.paid_individuals\)\}`/);
+  });
+});
+
+describe('v11 segment-staff — override sheet in its modal (§10.4: discard guard, 403/409 inline)', () => {
+  before(() => withWindow('#/inbox/1'));
+  after(() => dropWindow());
+
+  test('openSegmentSheet: a 403 fees_recorded / 409 segment_on_case stays inside the sheet with the server text; a dirty sheet asks before closing; a save toasts the new side and calls onSaved', async () => {
+    const SERVER = { 403: { error: 'سُجّلت أتعاب على هذا الملف؛ تغيير نوع الخدمة لمدير النظام فقط.', code: 'fees_recorded' }, 409: { error: 'غيّروا نوع الخدمة من صفحة الملف.', code: 'segment_on_case', details: { case_id: 9 } } };
+    let status = 403;
+    const calls = stubFetch((c) => (status === 200 ? { body: { value: c.body.segment, unchanged: false, affected_periods: ['2026-09'] } } : { status, body: SERVER[status] }));
+    let saved = null;
+    UI.openSegmentSheet({ kind: 'case', id: 7, current: 'paid', onSaved: (r) => (saved = r) });
+    const sheet = () => globalThis.document.body.querySelectorAll('.seg-sheet').at(-1);
+    const dlg = sheet();
+    assert.ok(dlg, 'the sheet is open');
+    assert.ok(text(dlg).includes('نوع الخدمة لهذا الملف'));
+    const charity = dlg.querySelectorAll('input[type="radio"]').find((r) => r.value === 'charity');
+    charity.click();
+    const reason = dlg.querySelector('textarea');
+    reason.value = 'أرملة ودخلها لا يكفي';
+    reason.dispatch('input');
+    const save = dlg.querySelectorAll('button').find((b) => text(b) === 'حفظ');
+    save.click();
+    await settle();
+    assert.equal(calls.at(-1).url, '/api/admin/cases/7/segment');
+    assert.deepEqual(calls.at(-1).body, { segment: 'charity', reason: 'أرملة ودخلها لا يكفي' });
+    assert.equal(text(dlg.querySelector('.seg-sheet-alert')), SERVER[403].error);
+    assert.ok(dlg.isConnected, '403 keeps the sheet open');
+    status = 409;
+    save.click();
+    await settle();
+    assert.equal(text(dlg.querySelector('.seg-sheet-alert')), SERVER[409].error);
+    // discard guard: closing a dirty sheet asks first (the confirm dialog opens on top)
+    const before2 = globalThis.document.body.querySelectorAll('.modal').length;
+    dlg.querySelector('.modal-close').click();
+    await settle();
+    assert.ok(globalThis.document.body.querySelectorAll('.modal').length > before2, 'a discard confirm opened');
+    assert.ok(dlg.isConnected, 'not closed without confirmation');
+    // keep editing → save succeeds
+    const keep = globalThis.document.body.querySelectorAll('.modal').at(-1).querySelectorAll('button').find((b) => /متابعة|إكمال|رجوع|ألغ/.test(text(b)) && !/تجاهل/.test(text(b))) || globalThis.document.body.querySelectorAll('.modal').at(-1).querySelectorAll('button')[0];
+    keep.click();
+    await settle(10);
+    status = 200;
+    save.click();
+    await settle(10);
+    assert.deepEqual(saved, { value: 'charity', unchanged: false, affected_periods: ['2026-09'] });
+    assert.deepEqual(UI.afterChangeNotes(saved), ['الفترات المغلقة لم تتغير: 2026-09']);
+  });
+});
+
+describe('v11 segment-staff — ST-6 settings, integrations, audit', () => {
+  before(() => withWindow('#/settings'));
+  after(() => dropWindow());
+
+  test('kill switch card «شاشة الاختيار» (L11-27): exact toggle text, org_phone_paid «فارغ = نفس هاتف المؤسسة», saves both through PATCH /api/admin/settings', async () => {
+    const calls = stubFetch((c) => ({ body: c.method === 'PATCH' ? { ...c.body } : {} }));
+    const { gateSettingsCard, GATE_TOGGLE_TEXT } = await import('../public/assets/js/app/components/site-settings.js');
+    assert.equal(GATE_TOGGLE_TEXT, 'إظهار شاشة الاختيار (خيري / خدمات الأفراد والشركات) لأول زيارة');
+    const card = gateSettingsCard({ site_gate_enabled: true, org_phone_paid: '' });
+    assert.equal(card.id, 'gate');
+    const cb = card.querySelector('input[type="checkbox"]');
+    assert.equal(cb.checked, true);
+    assert.ok(text(card).includes(GATE_TOGGLE_TEXT));
+    assert.ok(text(card).includes('هاتف خدمات الأفراد والشركات (اختياري)'));
+    assert.ok(text(card).includes('فارغ = نفس هاتف المؤسسة'));
+    cb.click();
+    card.querySelector('form').dispatch('submit');
+    await settle();
+    const patch = calls.find((c) => c.method === 'PATCH');
+    assert.equal(patch.url, '/api/admin/settings');
+    assert.deepEqual(patch.body, { site_gate_enabled: false, org_phone_paid: '' });
+    assert.match(read(`${APP}pages/admin/settings.js`), /gateSettingsCard\(settings\), \/\/ v11 segment-staff/);
+  });
+
+  test('WhatsApp mode change (r2 S3): 409 mode_change_confirm → a confirm dialog with the server text → resend with confirm:true; cancelling sends nothing more', async () => {
+    const { saveIntegrationValues } = await import('../public/assets/js/app/pages/admin/integrations.js');
+    const MSG = 'فيه 23 محادثة واتساب مفتوحة؛ تغيير الوضع يغيّر طريقة تصنيف رسائلهم الجديدة. أكّدوا للمتابعة.';
+    const reply = (c) => (c.body && c.body.confirm === true ? { body: { ok: true } } : { status: 409, body: { error: MSG, code: 'mode_change_confirm', details: { open: 23 } } });
+    let calls = stubFetch(reply);
+    const asked = [];
+    const res = await saveIntegrationValues('whatsapp', { segment: 'shared' }, { ask: async (m) => (asked.push(m), true) });
+    assert.deepEqual(asked, [MSG]);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[1].body, { values: { segment: 'shared' }, confirm: true });
+    assert.equal(calls[1].method, 'PUT');
+    assert.deepEqual(res, { ok: true });
+    calls = stubFetch(reply);
+    await assert.rejects(() => saveIntegrationValues('whatsapp', { segment: 'shared' }, { ask: async () => false }), /لم يُحفظ شيء — بقي وضع الرقم الأساسي كما هو\./);
+    assert.equal(calls.length, 1);
+    assert.match(read(`${APP}pages/admin/integrations.js`), /return saveIntegrationValues\(item\.name, patch\);/);
+  });
+
+  test('paid number (r2 S4): «رقم الأفراد والشركات: تم التحقق» / «…: لم يُتحقق بعد — اضغطوا اختبار الاتصال»; wa_paid_on_main toggle saves at once', async () => {
+    const { paidLineSection, PAID_ON_MAIN_TEXT, PAID_GUIDE_TEXT } = await import('../public/assets/js/app/pages/admin/integrations.js');
+    const item = (verified) => ({ name: 'whatsapp', fields: [{ key: 'paid_phone_number_id', set: true, value: '2000000000002' }], paid_verified_at: verified ? '2026-10-09T10:00:00Z' : null });
+    assert.equal(text(paidLineSection(item(true), {}).querySelector('.pf-paid-state')), 'رقم الأفراد والشركات: تم التحقق');
+    assert.equal(text(paidLineSection(item(false), {}).querySelector('.pf-paid-state')), 'رقم الأفراد والشركات: لم يُتحقق بعد — اضغطوا اختبار الاتصال');
+    assert.equal(paidLineSection({ name: 'whatsapp', fields: [] }, {}).querySelector('.pf-paid-state'), null, 'no paid number → no state line');
+    assert.equal(PAID_ON_MAIN_TEXT, 'استخدام الرقم الأساسي للأفراد والشركات عند عدم وجود رقم مخصص');
+    assert.equal(PAID_GUIDE_TEXT, 'أضيفوا الرقم الثاني من WhatsApp Manager في نفس حساب واتساب للأعمال، ثم الصقوا معرّفه هنا. الرد يخرج دائمًا من الرقم الذي كتب عليه العميل.');
+    const calls = stubFetch(() => ({ body: {} }));
+    const sec = paidLineSection(item(true), { wa_paid_on_main: true });
+    const cb = sec.querySelector('.pf-paid-on-main input');
+    assert.equal(cb.checked, true);
+    cb.click();
+    await settle();
+    assert.deepEqual(calls.map((c) => [c.method, c.url, c.body]), [['PATCH', '/api/admin/settings', { wa_paid_on_main: false }]]);
+  });
+
+  test('story settings (P1): the choice-buttons toggle is disabled with «تعمل فقط حين يكون الرقم الأساسي «الخدمتين معًا (رقم واحد)» في التكاملات.» unless main mode is shared; returning days field', async () => {
+    const mod = await import('../public/assets/js/app/components/story-settings.js');
+    const run = async (mode) => {
+      stubFetch((c) => (c.url.startsWith('/api/admin/integrations') ? { body: { items: [{ name: 'whatsapp', fields: [{ key: 'segment', value: mode }] }] } } : { body: {} }));
+      const card = mod.storySettingsCard({ wa_segment_choice_enabled: false, segment_returning_days: 365 });
+      await settle();
+      const box = card.querySelectorAll('input[type="checkbox"]').find((i) => text(i.closest('label')) === mod.CHOICE_TOGGLE_TEXT);
+      return { box, note: card.querySelector('.pa-choice-note'), card };
+    };
+    const a = await run('charity');
+    assert.equal(a.box.disabled, true);
+    assert.equal(a.note.hidden, false);
+    assert.equal(text(a.note), mod.CHOICE_DISABLED_TEXT);
+    assert.equal(mod.CHOICE_DISABLED_TEXT, 'تعمل فقط حين يكون الرقم الأساسي «الخدمتين معًا (رقم واحد)» في التكاملات.');
+    const b = await run('shared');
+    assert.equal(b.box.disabled, false);
+    assert.equal(b.note.hidden, true);
+    assert.ok(text(b.card).includes('تذكّر نوع الخدمة لمن راسلنا قبل كده (أيام، 0 = لا)'));
+  });
+
+  test('templates (r2 S15), automations (P1), lawyer rate (P1), audit groups: the @paid fallback never names the charity template; «نص الخيري» / «نص الأفراد والشركات»; «سعر العمل المدفوع (أفراد وشركات)»; group «segment»', () => {
+    const qr = read(`${APP}pages/admin/quick-replies.js`);
+    assert.match(qr, /\/@paid\$\/\.test\(m\.purpose\)/);
+    assert.match(qr, /لا يصل قالب الخيري لطلب بأتعاب\./);
+    const au = read(`${APP}pages/admin/automations.js`);
+    assert.match(au, /export const TPL_CHARITY = 'نص الخيري';/);
+    assert.match(au, /export const TPL_PAID = 'نص الأفراد والشركات';/);
+    assert.match(au, /if \(hasPaid\) fields\.push\(\{ name: 'template_paid', label: TPL_PAID,/);
+    assert.match(au, /for \(const key of hasPaid \? \['template', 'template_paid'\] : \['template'\]\)/);
+    assert.match(read(`${APP}pages/admin/lawyer-detail.js`), /export const PAID_RATE_LABEL = 'سعر العمل المدفوع \(أفراد وشركات\)';/);
+    const audit = read(`${APP}pages/admin/audit.js`);
+    const block = /const GROUP_LABELS = \{([\s\S]*?)\};/.exec(audit)[1];
+    assert.match(block, /segment: 'نوع الخدمة \(خيري \/ أفراد وشركات\)'/);
+    assert.match(block, /integration: 'التكاملات'/, 'integration.wa_mode_changed is grouped with the integrations');
+    assert.match(audit, /type === 'integration\.wa_mode_changed'\) return label\('wa_segment_mode', v\)/);
+  });
+});
+
+describe('v11 segment-staff — ST-7 simulator', () => {
+  test('«الرقم»: الأساسي · الأفراد والشركات · مشترك (تجربة) · رقم غير مضبوط (تجربة); reply kind «زر اختيار نوع الخدمة» (seg:charity / seg:paid); every send carries `line`; the result shows the chip', async () => {
+    withWindow('#/simulator');
+    const mod = await import('../public/assets/js/app/pages/admin/simulator.js');
+    assert.deepEqual(mod.SIM_LINES.map((l) => [l.key, l.label]), [
+      ['main', 'الأساسي'],
+      ['paid', 'الأفراد والشركات'],
+      ['shared', 'مشترك (تجربة)'],
+      ['unknown', 'رقم غير مضبوط (تجربة)'],
+    ]);
+    assert.equal(mod.SEG_REPLY_KIND, 'زر اختيار نوع الخدمة');
+    assert.deepEqual(mod.SEG_REPLIES.map((r) => r.id), ['seg:charity', 'seg:paid']);
+    const page = await mod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' } });
+    const sw = page.querySelector('.pa-sim-line');
+    assert.deepEqual(sw.querySelectorAll('button.seg').map(text), mod.SIM_LINES.map((l) => l.label));
+    assert.equal(sw.querySelector('[aria-pressed="true"]').dataset.line, 'main');
+    const src = read(`${APP}pages/admin/simulator.js`);
+    assert.match(src, /const body = \{ from: v\.from, name: v\.name \|\| undefined, text: v\.text, line: simLine \};/);
+    assert.match(src, /const body = \{ from: v\.from, name: v\.name \|\| undefined, kind, line: simLine, \.\.\.extra \};/);
+    assert.match(src, /sendQuick\('seg_reply', \{ reply_id: b\.id \}, b\.title\)/);
+    assert.match(src, /segmentChip\(res\.segment \?\? null, \{ source: res\.segment_source \|\| undefined, size: 'label' \}\)/);
+    dropWindow();
+  });
+});
+
 // ───────────────────────── تكامل HTTP على بيانات العرض ─────────────────────────
 describe('v11 segment-staff — the endpoints the UI drives (demo seed)', () => {
   let t;
@@ -674,5 +979,258 @@ describe('v11 segment-staff — the endpoints the UI drives (demo seed)', () => 
     assert.equal(a.status, 201, JSON.stringify(a.body));
     assert.ok((a.body.warning_codes || []).includes('fees_not_agreed'));
     assert.ok((a.body.warnings || []).includes('لم يوافق العميل على الأتعاب بعد'));
+  });
+});
+
+// ───────────────────────── build-2: تكامل HTTP لما تقوده صفحات ST-5…ST-7 (نسخة مستقلة لأنها تغيّر الإعدادات) ─────────────────────────
+describe('v11 segment-staff — dashboard, settings, integrations and simulator endpoints (demo seed)', () => {
+  let t;
+  let admin;
+  let manager;
+  before(async () => {
+    globalThis.fetch = realFetch;
+    t = await startTestApp({ seed: 'demo' });
+    admin = await t.login('admin');
+    manager = await t.login('manager');
+  });
+  after(async () => {
+    await t?.close();
+  });
+
+  test('dashboard strip == inbox switch: open per side and «غير محدد» match segment_counts; the paid call-back alert is non-zero on demo data; revenue for admins only', async () => {
+    const d = (await admin.get('/api/admin/dashboard')).body;
+    const inbox = (await admin.get('/api/admin/intakes?scope=open&limit=1')).body.segment_counts;
+    assert.equal(d.segments.charity.open, inbox.charity);
+    assert.equal(d.segments.paid.open, inbox.paid);
+    assert.equal(d.segments.unset_open, inbox.unset);
+    assert.ok(d.segments.unset_open >= 1, 'demo 01092000305');
+    assert.ok(d.segments.paid.unconfirmed_wa >= 1, 'demo 01092000302 (paid website, unconfirmed)');
+    assert.equal(d.cases_scope_label, 'يشمل الخيري والأفراد');
+    assert.ok(d.month.paid && 'cases_opened' in d.month.paid && 'lawyer_cost' in d.month.paid);
+    assert.ok('revenue_month' in d.segments.paid);
+    const m = (await manager.get('/api/admin/dashboard')).body;
+    assert.ok(!('revenue_month' in m.segments.paid), 'case manager: no revenue');
+  });
+
+  test('analytics: segment=all (default) carries the caption; charity/paid do not and split the totals', async () => {
+    const all = (await admin.get('/api/admin/analytics/funnel')).body;
+    assert.equal(all.scope_label, 'يشمل الخيري والأفراد');
+    const ch = (await admin.get('/api/admin/analytics/funnel?segment=charity')).body;
+    const pd = (await admin.get('/api/admin/analytics/funnel?segment=paid')).body;
+    assert.equal(ch.scope_label, undefined);
+    assert.equal(pd.scope_label, undefined);
+    assert.ok(ch.totals.intakes + pd.totals.intakes <= all.totals.intakes);
+    const areas = (await admin.get('/api/admin/analytics/areas?segment=paid')).body;
+    assert.equal(areas.segment, 'paid');
+    const acc = (await admin.get('/api/admin/accounting/summary')).body;
+    assert.deepEqual(Object.keys(acc.totals.paid_individuals).sort(), ['events', 'period_amount', 'unpaid']);
+    for (const l of acc.lawyers) assert.ok(l.paid_individuals, l.name);
+  });
+
+  test('kill switch round-trip (PW-S5 in HTTP): site_gate_enabled false → `/` without a cookie has no #gate; true → the gate; org_phone_paid saves and is validated', async () => {
+    const anon = t.client();
+    assert.match((await anon.get('/')).body, /id="gate"/);
+    const off = await admin.patch('/api/admin/settings', { site_gate_enabled: false });
+    assert.equal(off.status, 200, JSON.stringify(off.body));
+    assert.equal(off.body.site_gate_enabled, false);
+    assert.doesNotMatch((await anon.get('/')).body, /id="gate"/);
+    assert.doesNotMatch((await anon.get('/', { cookie: 'bm_seg=paid' })).body, /id="gate"/);
+    const on = await admin.patch('/api/admin/settings', { site_gate_enabled: true, org_phone_paid: '01211114663' });
+    assert.equal(on.status, 200);
+    assert.equal(on.body.org_phone_paid, '01211114663');
+    assert.match((await anon.get('/')).body, /id="gate"/);
+    const bad = await admin.patch('/api/admin/settings', { org_phone_paid: 'اتصل بنا' });
+    assert.equal(bad.status, 400);
+    assert.equal((await manager.patch('/api/admin/settings', { site_gate_enabled: false })).status, 403, 'admin only');
+    await admin.patch('/api/admin/settings', { org_phone_paid: '' });
+  });
+
+  test('integrations mode change (r2 S3): 409 mode_change_confirm with the Arabic count, then confirm:true saves and audits integration.wa_mode_changed', async () => {
+    // the demo paid number must go first (a paid number needs main = charity)
+    const clear = await admin.put('/api/admin/integrations/whatsapp', { values: { paid_phone_number_id: '', paid_number: '' } });
+    assert.equal(clear.status, 200, JSON.stringify(clear.body));
+    const r1 = await admin.put('/api/admin/integrations/whatsapp', { values: { segment: 'shared' } });
+    assert.equal(r1.status, 409, JSON.stringify(r1.body));
+    assert.equal(r1.body.code, 'mode_change_confirm');
+    assert.match(r1.body.error, /^فيه .+ مفتوح.*أكّدوا للمتابعة\.$/);
+    const r2 = await admin.put('/api/admin/integrations/whatsapp', { values: { segment: 'shared' }, confirm: true });
+    assert.equal(r2.status, 200, JSON.stringify(r2.body));
+    const items = (await admin.get('/api/admin/integrations')).body.items;
+    assert.equal(items.find((x) => x.name === 'whatsapp').fields.find((f) => f.key === 'segment').value, 'shared');
+    const audit = (await admin.get('/api/admin/audit?type=integration.wa_mode_changed')).body.items;
+    assert.ok(audit.length >= 1);
+    const back = await admin.put('/api/admin/integrations/whatsapp', { values: { segment: 'charity' }, confirm: true });
+    assert.equal(back.status, 200);
+  });
+
+  test('simulator (PW-S6 in HTTP): shared line → «غير محدد» + the two choice buttons; «أفراد وشركات» → paid (wa_choice); paid line → paid; unknown line → stored, no automated reply', async () => {
+    const from = '01093333001';
+    const s1 = await manager.post('/api/admin/simulate/whatsapp', { from, text: 'السلام عليكم عندي مشكلة في شقة الإيجار', line: 'shared' });
+    assert.equal(s1.status, 200, JSON.stringify(s1.body));
+    assert.equal(s1.body.segment, null);
+    const btns = s1.body.replies.flatMap((r) => (r.wa && r.wa.type === 'buttons' ? r.wa.buttons : []));
+    assert.deepEqual(btns.map((b) => b.id), ['seg:charity', 'seg:paid']);
+    const s2 = await manager.post('/api/admin/simulate/whatsapp', { from, kind: 'seg_reply', reply_id: 'seg:paid', line: 'shared' });
+    assert.equal(s2.body.segment, 'paid');
+    assert.equal(s2.body.segment_source, 'wa_choice');
+    const s3 = await manager.post('/api/admin/simulate/whatsapp', { from: '01093333002', text: 'محتاج استشارة في عقد عمل', line: 'paid' });
+    assert.equal(s3.body.segment, 'paid');
+    assert.equal(s3.body.wa_line, 'paid');
+    const s4 = await manager.post('/api/admin/simulate/whatsapp', { from: '01093333003', text: 'رسالة على رقم غير مضبوط', line: 'unknown' });
+    assert.equal(s4.body.wa_line, 'unknown');
+    assert.deepEqual(s4.body.replies, []);
+    const det = (await manager.get(`/api/admin/intakes/${s4.body.intake_id}`)).body;
+    assert.equal(det.segment.wa_line, 'unknown');
+    assert.ok(det.segment.wa_pid_last4, 'the request page shows «وصلت على رقم غير مضبوط (…last4)»');
+  });
+
+  test('@paid template purposes list and save through the existing mapping endpoint (r2 S15)', async () => {
+    const data = (await admin.get('/api/admin/whatsapp/templates')).body;
+    const paid = data.mappings.filter((m) => /@paid$/.test(m.purpose)).map((m) => m.purpose);
+    assert.deepEqual(paid.sort(), ['case_update@paid', 'portal_update@paid', 'rule:document_reminder@paid', 'rule:hearing_reminder@paid', 'rule:invoice_reminder@paid', 'survey@paid'].sort());
+    const put = await admin.put(`/api/admin/whatsapp/template-mappings/${encodeURIComponent('case_update@paid')}`, { template_name: 'case_update', language: 'ar', params: ['body'] });
+    assert.equal(put.status, 200, JSON.stringify(put.body));
+    const after2 = (await admin.get('/api/admin/whatsapp/templates')).body.mappings.find((m) => m.purpose === 'case_update@paid');
+    assert.equal(after2.state, 'ok');
+    assert.equal(after2.mapping.template_name, 'case_update');
+  });
+});
+
+// ───────────────────────── review (segment-staff): اختبار لكل خلل وُجد في المراجعة ─────────────────────────
+describe('v11 segment-staff — review regressions', () => {
+  const ONE = { id: 9, code: 'REQ-9', status: 'new', contact_name: 'أم علي', first_channel: 'website', channels: ['website'], source: 'direct', segment: 'charity', segment_source: 'website', story: { view: 'ready' }, created_at: '2026-10-09T06:00:00Z' };
+  const inboxReply = (c) => {
+    if (!c.url.startsWith('/api/admin/intakes')) return { body: {} };
+    if (/segment=unset/.test(c.url)) return { body: { total: 0, counts: { new: 1 }, story_counts: {}, segment_counts: { charity: 1, paid: 0, unset: 0 }, items: [] } };
+    return { body: { total: 1, counts: { new: 1, converted: 5 }, story_counts: { ready: 1 }, segment_counts: { charity: 1, paid: 0, unset: 0 }, items: [ONE] } };
+  };
+
+  test('inbox: a remembered «غير محدد» that hides everything is named in the empty state and cleared in one tap (was «لا توجد طلبات مفتوحة تنتظر الفرز الآن»)', async () => {
+    withWindow('#/inbox');
+    window.localStorage.setItem('bm.inbox.seg', 'unset');
+    const calls = stubFetch(inboxReply);
+    const mod = await import('../public/assets/js/app/pages/admin/inbox.js');
+    const page = await mod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' }, navigate() {}, reload() {} });
+    assert.match(calls[0].url, /segment=unset/);
+    const empty = text(page.querySelector('.pa-stories, .empty-state, .card'));
+    assert.match(empty, /لا توجد هنا طلبات نوع خدمتها «غير محدد»\./);
+    const all = page.querySelector('.pa-seg-all');
+    assert.ok(all, '«عرض كل الأنواع»');
+    assert.equal(text(all), 'عرض كل الأنواع');
+    all.click();
+    await settle();
+    assert.doesNotMatch(calls.at(-1).url, /segment=/);
+    assert.equal(window.localStorage.getItem('bm.inbox.seg'), null);
+    assert.equal(page.querySelector('.pa-segbar .seg-switch [aria-pressed="true"]').dataset.seg, 'all');
+    assert.equal(page.querySelectorAll('article.pa-story').length, 1);
+    dropWindow();
+  });
+
+  test('inbox: the switch counts (open requests) show on «المفتوحة» only — on a closed tab they would not match the list', async () => {
+    withWindow('#/inbox');
+    stubFetch(inboxReply);
+    const mod = await import('../public/assets/js/app/pages/admin/inbox.js');
+    const open = await mod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' }, navigate() {}, reload() {} });
+    assert.deepEqual(open.querySelector('.pa-segbar .seg-switch').querySelectorAll('.seg-n').map(text), ['1', '1', '0']);
+    const closed = await mod.default({ query: { status: 'converted' }, params: {}, user: { id: 1, role: 'admin' }, navigate() {}, reload() {} });
+    assert.deepEqual(closed.querySelector('.pa-segbar .seg-switch').querySelectorAll('.seg-n').map(text), []);
+    dropWindow();
+  });
+
+  test('segmentSwitch.update({counts:null}) hides the numbers and update({counts}) brings them back (the first render may have none)', () => {
+    const sw = UI.segmentSwitch({ value: '', counts: null });
+    assert.equal(sw.querySelectorAll('.seg-n').length, 0);
+    sw.update({ counts: { charity: 3, paid: 2, unset: 0 } });
+    assert.deepEqual(sw.querySelectorAll('.seg-n').map(text), ['5', '3', '2']);
+    sw.update({ counts: null });
+    assert.equal(sw.querySelectorAll('.seg-n').length, 0);
+  });
+
+  test('afterChangeNotes: number–noun agreement for cancelled fee invoices (3 → «فواتير»، 11 → «فاتورة»)', () => {
+    const n = (k) => UI.afterChangeNotes({ cancelled_invoices: Array.from({ length: k }, (_, i) => i + 1) })[0];
+    assert.equal(n(1), 'أُلغيت فاتورة أتعاب واحدة لم تُدفع.');
+    assert.equal(n(2), 'أُلغيت فاتورتا أتعاب لم تُدفعا.');
+    assert.equal(n(3), 'أُلغيت 3 فواتير أتعاب لم تُدفع.');
+    assert.equal(n(11), 'أُلغيت 11 فاتورة أتعاب لم تُدفع.');
+  });
+
+  test('request page: «تحويل إلى ملف» on a «غير محدد» request asks for the service type (required, no default, the hint) and sends it — no dead-end 409 inside the dialog', () => {
+    const src = read(`${APP}pages/admin/intake-detail.js`);
+    const conv = src.slice(src.indexOf('function openConvert'), src.indexOf('// ───────────── المحادثة'));
+    assert.match(conv, /const segPick = segValue\s*\? null\s*: segmentChoice\(\{\s*required: true,\s*hint: seg\.hint \|\| null,/);
+    assert.match(conv, /segPick && h\('div\.pa-convert-seg', segPick\)/);
+    assert.match(conv, /if \(!okSeg\) segPick\.setError\(REQUIRED_TEXT\);/);
+    assert.match(conv, /segment: segChosen \|\| undefined,/);
+    assert.match(conv, /program_id: \(!isPaid && segChosen !== 'paid' && program\.get\(\)\) \|\| undefined,/);
+    assert.match(conv, /err\.code === 'segment_required'\) segPick\.setError\(REQUIRED_TEXT\)/);
+  });
+
+  test('request page (r2 P12 «everywhere»): AI-suggestion, track and area pills are neutral — gold/green stay for the service type', () => {
+    const src = read(`${APP}pages/admin/intake-detail.js`);
+    assert.doesNotMatch(src, /TRACK_TONES/);
+    assert.doesNotMatch(src, /badge\('اقتراح الذكاء الاصطناعي', 'accent'/);
+    assert.doesNotMatch(src, /badge\(areaLabel\([^)]*\), 'primary'\)/);
+    assert.doesNotMatch(src, /ai\.provider === 'anthropic' \? 'accent'/);
+    assert.match(read('public/assets/css/v11-segment.css'), /:is\(\.pa-story, \.pa-irow, #pa-proposal\) \.pa-ai-tag \{ background: var\(--fill-1\); color: var\(--label-2\); \}/);
+  });
+
+  test('cases: a v10 link ?line=b2c leaves no hidden filter under «الكل»; ?line=b2b still opens «شركات»', async () => {
+    withWindow('#/cases');
+    const calls = stubFetch((c) => (c.url.startsWith('/api/admin/cases') ? { body: { items: [], total: 0, counts: {} } } : { body: [] }));
+    const mod = await import('../public/assets/js/app/pages/admin/cases.js');
+    const host = globalThis.document.createElement('div');
+    host.appendChild(await mod.default({ query: { line: 'b2c' }, params: {}, user: { id: 1, role: 'admin' }, navigate() {} }));
+    await settle();
+    const list = calls.filter((c) => c.url.startsWith('/api/admin/cases'));
+    assert.ok(list.length && list.every((c) => !/line=/.test(c.url)), list.map((c) => c.url).join(' '));
+    assert.equal(host.querySelector('.seg-switch--cases [aria-pressed="true"]').dataset.seg, 'all');
+    host.appendChild(await mod.default({ query: { line: 'b2b' }, params: {}, user: { id: 1, role: 'admin' }, navigate() {} }));
+    await settle();
+    assert.match(calls.filter((c) => c.url.startsWith('/api/admin/cases')).at(-1).url, /line=b2b/);
+    dropWindow();
+  });
+
+  test('matters: under «الكل» a company matter carries «شركة», not «أفراد» (the list items have no company_id)', async () => {
+    withWindow('#/matters');
+    const rows = [
+      { id: 1, code: 'MTR-1', title: 'نزاع توريد', status: 'open', kind: 'litigation', segment: 'paid', client_name: 'شركة النيل', client_code: 'CL-1', open_tasks: 0, overdue_tasks: 0, unpaid_invoices: 0 },
+      { id: 2, code: 'MTR-2', title: 'نفقة', status: 'open', kind: 'litigation', segment: 'paid', client_name: 'أم سارة', client_code: 'CL-2', open_tasks: 0, overdue_tasks: 0, unpaid_invoices: 0 },
+    ];
+    stubFetch((c) => (c.url.startsWith('/api/admin/matters') ? { body: { items: /line=b2b/.test(c.url) ? [rows[0]] : rows } } : { body: {} }));
+    const mod = await import('../public/assets/js/app/pages/admin/matters.js');
+    const host = globalThis.document.createElement('div');
+    host.appendChild(await mod.default({ query: {}, params: {}, user: { id: 1, role: 'admin' }, navigate() {} }));
+    await settle();
+    const chips = host.querySelectorAll('.seg-chip').map(text);
+    assert.ok(chips.includes('شركة') && chips.includes('أفراد'), chips.join(' | '));
+    dropWindow();
+  });
+
+  test('override sheet: reason chips are soft buttons that show the picked reason (no UA button border); typing clears the pick', () => {
+    const b = UI.segmentSheetBody({ kind: 'intake', current: 'charity' });
+    const chips = b.controls.reasonChips.querySelectorAll('.seg-reason-chip');
+    assert.deepEqual(chips.map((c) => c.getAttribute('aria-pressed')), ['false', 'false', 'false']);
+    chips[1].click();
+    assert.deepEqual(chips.map((c) => c.getAttribute('aria-pressed')), ['false', 'true', 'false']);
+    b.controls.reason.value = 'سبب آخر مكتوب';
+    b.controls.reason.dispatch('input');
+    assert.deepEqual(chips.map((c) => c.getAttribute('aria-pressed')), ['false', 'false', 'false']);
+    assert.match(read('public/assets/css/v11-segment.css'), /\.seg-reason-chip \{ min-height: 44px; padding-inline: 14px; border: 0;/);
+  });
+
+  test('case page: with recorded fees a case manager sees why the type is locked (server copy) instead of a «تغيير» that ends in 403; admins keep the button', () => {
+    const src = read(`${APP}pages/admin/case-detail.js`);
+    assert.match(src, /const adminOnlyForMe = Boolean\(seg\.admin_only\) && !\(ctx\.user && ctx\.user\.role === 'admin'\);/);
+    assert.match(src, /h\('span\.seg-src\.seg-admin-only', 'سُجّلت أتعاب على هذا الملف؛ تغيير نوع الخدمة لمدير النظام فقط\.'\)/);
+  });
+
+  test('case fees: the agreement state uses status tones (blue agreed, orange waiting), never the green of «أفراد»; rows align amounts in one column', () => {
+    const src = read(`${APP}pages/admin/case-detail.js`);
+    assert.match(src, /badge\('تمت الموافقة', 'info'/);
+    assert.match(src, /badge\('بانتظار الموافقة', 'warning'/);
+    const css = read('public/assets/css/v11-segment.css');
+    assert.match(css, /\.seg-fees-list \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto auto;/);
+    assert.match(css, /\.seg-fee-row \{ display: grid; grid-column: 1 \/ -1; grid-template-columns: subgrid;/);
+    assert.match(src, /h\('span\.seg-amount', x\.amount != null \?/);
   });
 });

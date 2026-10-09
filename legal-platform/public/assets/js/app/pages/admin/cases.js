@@ -47,7 +47,8 @@ export default async function render(ctx) {
   function applySeg() {
     const q = caseFilterQuery(state.seg);
     state.segment = q.segment || '';
-    if (state.seg) state.line = q.line || '';
+    // review: «line» يأتي من المفتاح وحده — رابط قديم ‎?line=b2c‎ لا يترك مرشحًا مخفيًا تحت «الكل»
+    state.line = q.line || '';
   }
   applySeg();
 
