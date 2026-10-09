@@ -109,7 +109,9 @@ export function mountShell(root, { onLogout } = {}) {
   const life = new AbortController();
   const on = { signal: life.signal };
   const outlet = h('div.co-outlet');
-  const main = h('main.co-main#co-main', { tabindex: '-1' }, outlet);
+  // C-02: مسار التنقل على الحاسوب في شاشات التفاصيل («الطلبات › NFD-0004»، «الذاكرة القانونية › العقود › {العنوان}»)
+  const crumbs = h('nav.co-crumbs', { 'aria-label': W.nav.crumbs, hidden: true });
+  const main = h('main.co-main#co-main', { tabindex: '-1' }, crumbs, outlet);
   const offline = h('div.co-offline', { role: 'status', hidden: navigator.onLine !== false }, icon('alert', { size: 16 }), h('span', W.state.offline));
   const back = h('a.co-back', { href: '#/overview', hidden: true }, icon('chevronRight', { size: 22 }), h('span.co-back-label', ''));
   const brandLink = h(
@@ -198,13 +200,49 @@ export function mountShell(root, { onLogout } = {}) {
       sideItem('plan', '#/plan', 'chart', W.nav.plan),
       sideItem('company', '#/company', 'building', W.nav.company),
     );
+    // C-10: الرابط الجانبي على الحاسوب بتسمية التبويب نفسها («المتابعة، يحتاج انتباهكم: 5» لا «المتابعة 5»)
+    const attn = (S.home?.attention || []).length;
+    const sideOverview = sideLinks.querySelector('a[data-nav="overview"]');
+    if (sideOverview && attn) sideOverview.setAttribute('aria-label', `${W.nav.overview}، ${copy('nav.attention_badge', { n: attn })}`);
     const mgr = S.home?.account_manager?.name;
     mount(sideFoot, mgr ? [h('span.co-side-foot-label', W.nav.manager_label), h('span.co-side-foot-name', mgr)] : null);
     mount(companyLine, S.company ? [h('span', { dir: 'auto' }, S.company.name), S.company.plan_label ? [' · باقة ', h('bdi', S.company.plan_label)] : null] : null);
   }
 
   let current = null;
+  /** زر الرجوع الذي حددته الصفحة (co:back) وعنوانها الحالي — لمسار التنقل */
+  let backDetail = null;
+  let pageTitle = '';
+  const deeper = (d, parent) => !!(d && parent && d.href && parent.href && d.href.startsWith(`${parent.href}/`));
+  function renderCrumbs() {
+    const r = current?.route || {};
+    if (!r.parent) {
+      crumbs.hidden = true;
+      mount(crumbs);
+      return;
+    }
+    const trail = backDetail ? (deeper(backDetail, r.parent) ? [r.parent, backDetail] : [backDetail]) : [r.parent];
+    const here = pageTitle || r.title || '';
+    crumbs.hidden = false;
+    mount(crumbs, h('ol.co-crumbs-list', trail.map((c) => h('li', h('a', { href: c.href }, c.label))), here ? h('li', h('span', { 'aria-current': 'page', dir: 'auto' }, here)) : null));
+  }
+  /** C-02: الرابط الفرعي في «الذاكرة القانونية» للصفحة الحالية (أو للقائمة التي تتبعها صفحة العنصر) */
+  function markSub() {
+    const r = current?.route || {};
+    const here = current ? `#${current.path}` : '';
+    const listHref = backDetail && deeper(backDetail, r.parent) ? backDetail.href : null;
+    for (const a of sideMemory.querySelectorAll('a.co-side-sublink')) {
+      const href = a.getAttribute('href');
+      if (href === here) a.setAttribute('aria-current', 'page');
+      else if (href === listHref) a.setAttribute('aria-current', 'true');
+      else a.removeAttribute('aria-current');
+    }
+  }
   function onRoute(ctx) {
+    if (ctx !== current) {
+      backDetail = null;
+      pageTitle = '';
+    }
     current = ctx;
     const r = ctx.route || {};
     const nav = r.nav || null;
@@ -224,6 +262,13 @@ export function mountShell(root, { onLogout } = {}) {
     }
     mount(pillSlot, r.pill === false ? null : newRequestControl({ className: 'co-pill' }));
     sideNew.hidden = r.pill === false;
+    renderCrumbs();
+    markSub();
+  }
+  /** عنوان الصفحة الحالية (من setTitle في main.js) — آخر عنصر في مسار التنقل */
+  function setPageTitle(t) {
+    pageTitle = t || '';
+    renderCrumbs();
   }
   function setUnread(n) {
     const v = Math.max(0, Number(n) || 0);
@@ -248,7 +293,10 @@ export function mountShell(root, { onLogout } = {}) {
     'co:back',
     (e) => {
       const d = e.detail;
+      backDetail = d && current?.route?.parent ? d : null;
       if (!d || !current?.route?.parent) return current && onRoute(current);
+      renderCrumbs();
+      markSub();
       back.hidden = false;
       back.href = d.href;
       back.querySelector('.co-back-label').textContent = d.label;
@@ -271,6 +319,7 @@ export function mountShell(root, { onLogout } = {}) {
     outlet,
     focusTarget: { focus: (o) => (outlet.querySelector('h1') || main).focus(o) },
     onRoute,
+    setPageTitle,
     setUnread,
     setHome,
     refresh: renderNav,

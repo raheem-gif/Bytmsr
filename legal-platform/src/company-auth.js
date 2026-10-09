@@ -96,6 +96,13 @@ export function createCompanyAuth(app) {
     const n = Number(app.settings.get(key));
     return Number.isFinite(n) && n > 0 ? Math.min(max, Math.max(min, n)) : def;
   };
+  /** G7-05: مثل settingNum لكن الصفر قيمة صالحة (غياب الإعداد أو null ← الافتراضي) */
+  const settingNumOrZero = (key, def, min, max) => {
+    const raw = app.settings.get(key);
+    if (raw === undefined || raw === null || raw === '') return def;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? Math.min(max, Math.max(min, n)) : def;
+  };
   const maxSessionHours = () => settingNum('company_session_max_hours', 72, 1, 24 * 90);
   const idleHours = () => Math.min(settingNum('company_session_idle_hours', 12, 0.25, 24 * 30), maxSessionHours());
   const inviteHours = () => settingNum('company_invite_valid_hours', 72, 1, 24 * 14);
@@ -158,7 +165,7 @@ export function createCompanyAuth(app) {
   /** شركة انتهت بعد نافذة الاطلاع: لا دخول ولا جلسات (B10-09، CS-28) */
   function pastWindow(company) {
     if (!company || company.status !== 'ended') return false;
-    const days = settingNum('b2b_ended_readonly_days', 90, 0, 3650);
+    const days = settingNumOrZero('b2b_ended_readonly_days', 90, 0, 3650);
     const ended = Date.parse(company.ended_at || company.updated_at || '');
     return Number.isFinite(ended) && ended + days * 86400000 <= now().getTime();
   }
@@ -882,6 +889,8 @@ export function createCompanyAuth(app) {
       db.update('company_users', cu.id, { password_hash: hashPassword(next), must_change_password: 0, password_changed_at: nowIso(), updated_at: nowIso() });
       const s = fromRequest(ctx);
       const revoked = revokeUserSessions(cu.id, { exceptTokenHash: s?.session?.token_hash || null });
+      // G7-06: رابط استعادة صدر قبل التغيير لا يصلح بعده
+      revokeOpenTokens(cu.id, ['reset']);
       audit(ctx, cu, company, { type: 'company_auth.password_changed', summary: `${wasTemporary ? 'استبدال كلمة المرور المؤقتة' : 'تغيير كلمة المرور'} لحساب «${cu.email}»${revoked ? ` وإنهاء ${arabicCount(revoked, SESSIONS)} على أجهزة أخرى` : ''}`, data: { sessions_revoked: revoked } });
       app.companyNotify?.security(cu, company, 'password_changed');
       const fresh = db.get('SELECT * FROM company_users WHERE id = ?', cu.id);

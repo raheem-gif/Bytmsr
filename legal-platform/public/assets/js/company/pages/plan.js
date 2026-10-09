@@ -68,13 +68,17 @@ function excludedCard(plan) {
   return sectionCard(P.excluded, h('ul.co-checks.is-out', ex.map((w) => h('li', icon('x', { size: 16 }), h('span', w.label)))));
 }
 
+/** اليوم السابق لتاريخ YYYY-MM-DD */
+const dayBefore = (key) => (key ? new Date(Date.parse(`${key}T12:00:00Z`) - 86400000).toISOString().slice(0, 10) : key);
+
 function slaCard(plan) {
   if (!plan.sla_table?.length || !plan.calendar) return null;
   const cals = calendarsFromJson(plan.calendar);
   const m = Number(plan.size_factor?.M) || 1;
   const order = ['urgent', 'high', 'normal'];
   const rows = [...plan.sla_table].filter((r) => order.includes(r.priority)).sort((a, b) => order.indexOf(a.priority) - order.indexOf(b.priority));
-  const fmt = (hours, clock) => (clock === 'calendar' ? `${hoursText(hours)} ${copy('plan.urgent_window', { window: plan.urgent_hours_text || '' })}` : durationText(hours, cals.business));
+  // C-03: خلايا الجدول قيم قائمة بذاتها ← صيغة الرفع («ساعتان»، «يوما عمل»)
+  const fmt = (hours, clock) => (clock === 'calendar' ? `${hoursText(hours, { standalone: true })} ${copy('plan.urgent_window', { window: plan.urgent_hours_text || '' })}` : durationText(hours, cals.business, { standalone: true }));
   return sectionCard(
     P.sla,
     h(
@@ -145,7 +149,8 @@ function usageCard(usage, plan) {
           }
         },
       },
-      cycles.map((c) => h('option', { value: c.start }, copy('plan.cycle_label', { from: dayText(c.start), to: dayText(c.end, { year: true }) }))),
+      // C-15: نهاية الدورة = اليوم السابق لبداية الدورة التالية («5 أكتوبر – 4 نوفمبر 2026»)
+      cycles.map((c) => h('option', { value: c.start }, copy('plan.cycle_label', { from: dayText(c.start), to: dayText(dayBefore(c.end), { year: true }) }))),
     );
     sel.value = usage.cycle?.start || cycles[0].start;
     picker = h('div.select-wrap.co-mem-select', sel);

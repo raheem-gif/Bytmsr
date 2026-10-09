@@ -114,7 +114,8 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
         h('p.login-forgot', h('button.lh-forgot', { type: 'button', onClick: () => openForgotSheet(meta, loginForm.el) }, 'نسيت كلمة المرور؟')),
       ),
       demoPanel,
-      h('a.login-back', { href: '/' }, `العودة إلى موقع ${org}`),
+      // (v10 gate C-14) اسم الموقع كما في رأس المنصة (meta.brand.staff_chrome): الشعار حين يكون مفعّلًا، وإلا اسم المؤسسة كما في 9.2
+      h('a.login-back', { href: '/' }, 'العودة إلى موقع ', h('bdi', chrome.name)),
     ),
   );
 }

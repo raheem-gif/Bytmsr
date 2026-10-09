@@ -8,7 +8,7 @@
 // المرحلة 2 (SRV-15، بعد حراس الأفراد SRV-14): طلبات NFD-0001…0006 وTSL-0001…0003 بمحامي L-38 (طارق، ياسمين، عمرو)،
 // والذاكرة القانونية والأطراف، وتكلفة إضافية في الدورة السابقة. تعمل فقط في العرض الكامل (حين يوجد المحامون)، مرة واحدة.
 import { cairoParts, cairoLocalToIso, cairoDayKey } from './util.js';
-import { usageCycle } from '../public/assets/js/lib/company-sla.js';
+import { usageCycle, calendars, addBusinessMinutes } from '../public/assets/js/lib/company-sla.js';
 
 export const COMPANY_DEMO_PASSWORD = 'Company@2026';
 
@@ -339,6 +339,18 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   const nfdDist = db.value("SELECT id FROM company_entities WHERE company_id = ? AND relation != 'parent' ORDER BY id LIMIT 1", nfd.id);
   const DAY = 86400000;
   const keyIn = (days) => cairoDayKey(new Date(realNow + days * DAY));
+  // (v10 gate J-25) مواعيد التسليم من تقويم مستوى الخدمة نفسه: بداية اليوم بعد `days` أيام + `hours` ساعات على التقويم،
+  // فيقع الموعد دائمًا داخل الساعات (العمل 10–4، والعاجل 8–10 م) أيًّا كانت ساعة تشغيل العرض، ويطابق نص «موعد التسليم المتوقع».
+  const cals = calendars(app.settings.all());
+  const dueOn = (days, hours, cal) => {
+    const [y, m, d] = keyIn(days).split('-').map(Number);
+    return addBusinessMinutes(cairoLocalToIso(y, m, d, 0, 0), hours * 60, cal);
+  };
+  /** [ساعة، دقيقة] بعد إغلاق العمل أو قبل افتتاحه بـ`delta` دقيقة (إيقاف واستئناف بلا دقائق عمل بينهما) */
+  const offHours = (delta) => {
+    const min = Math.min(1439, Math.max(0, delta > 0 ? cals.business.toMin + delta : cals.business.fromMin + delta));
+    return [Math.floor(min / 60), min % 60];
+  };
 
   // محامو الشركات: الاسم بالإنجليزية (L-56) والمهارات وسعر طلبات الشركات
   when(60, 9);
@@ -396,7 +408,7 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   });
   when(9, 13);
   h.accept(n2, {
-    delivery_due_at: new Date(realNow + 2 * DAY).toISOString(),
+    delivery_due_at: dueOn(2, 4, cals.business),
     due_reason: 'دراسة سجل الحضور قبل أي إجراء',
     brief_for_lawyer: 'إنهاء عقد مندوب مبيعات بسبب الغياب المتكرر دون إذن. المطلوب: الشروط القانونية للفصل والإجراءات والإنذارات اللازمة وتقدير مخاطر المطالبة بالتعويض.',
     issues: ['شروط الفصل للغياب', 'الإنذارات والإجراءات', 'مخاطر التعويض'],
@@ -406,9 +418,10 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   const a2 = h.assignment(n2);
   app.visibility.markOpened(a2.id, yasmine);
   const ir2 = app.requests.createInfoByLawyer(a2.id, yasmine, { kind: 'document', question: 'نحتاج سجل الحضور والإنذارات السابقة الموجهة للموظف إن وُجدت.' });
-  when(8, 12);
+  // الاستيضاح بعد إغلاق العمل والرد قبل افتتاحه: الإيقاف لا يحرك الموعد فيبقى كما في رسالة بدء العمل (J-25)
+  when(8, ...offHours(20));
   app.requests.approveInfo(ir2.id, manager, { client_message: 'نرجو إرسال سجل حضور الموظف خلال السنة، وأي إنذارات كتابية سابقة وُجهت إليه.', items: ['سجل الحضور خلال السنة', 'الإنذارات الكتابية السابقة'] });
-  when(7, 10);
+  when(7, ...offHours(-45));
   const clar2 = db.get("SELECT * FROM company_messages WHERE request_id = ? AND kind = 'clarification' ORDER BY id DESC LIMIT 1", h.rq(n2).id);
   const up2 = h.upload(mariam, 'سجل الحضور 2026.pdf', 'سجل الحضور 2026', 'Attendance 2026');
   reqs.replyClarification(mariam, nfd, n2, clar2.id, { body: 'مرفق سجل الحضور. لم نوجّه إليه إنذارات كتابية من قبل، وكانت التنبيهات شفهية فقط.\nمريم عادل', upload_ids: [up2], missing_items: [1] });
@@ -431,7 +444,7 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   h.accept(n3, {
     risk_level: 'high',
     requires_senior_review: true,
-    delivery_due_at: new Date(realNow + 26 * 3600000).toISOString(),
+    delivery_due_at: dueOn(1, 6, cals.urgent),
     due_reason: 'الرد قبل انتهاء مهلة الإنذار بيومين',
     brief_for_lawyer: 'إنذار بمطالبة بمستحقات توريد متأخرة (380 ألف جنيه) مع تهديد برفع دعوى. المطلوب: تقييم المطالبة وصياغة رد قانوني خلال المهلة.',
     issues: ['صحة المطالبة وسندها', 'الرد على الإنذار', 'مخاطر الدعوى'],

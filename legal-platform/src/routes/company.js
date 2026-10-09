@@ -160,8 +160,9 @@ export function registerCompanyRoutes(router, app) {
       limit: COMPANY_UPLOAD_LIMIT_BYTES,
       gate: (ctx) => {
         gate();
-        app.companyAuth.require(ctx, { roles: WRITERS, write: true });
-        return reqs.acquireUploadSlot();
+        const { cu, company } = app.companyAuth.require(ctx, { roles: WRITERS, write: true });
+        // G7-03: حد لكل مستخدم ولكل شركة + مراقبة تقدم قراءة الجسم (لا يحتجز جسم بطيء مكانًا بلا نهاية)
+        return reqs.acquireUploadSlot({ cu, company, req: ctx.req });
       },
     },
   );

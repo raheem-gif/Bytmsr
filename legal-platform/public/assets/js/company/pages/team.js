@@ -138,30 +138,37 @@ function showLinkSheet(inv, user, ctx) {
   modal({ title: T.resend, sheet: true, body: copyOnce(inv, user.name), actions: [{ label: T.close, variant: 'secondary' }], onClose: () => ctx.reload() });
 }
 
-async function patchUser(u, body, ctx, okText = T.saved) {
+/** تعديل زميل → true عند النجاح؛ عند الفشل false مع الخطأ في الورقة (errEl) أو في تنبيه */
+async function patchUser(u, body, ctx, okText = T.saved, { errEl = null } = {}) {
   try {
     await api.patch(`/company/team/${encodeURIComponent(u.id)}`, body);
   } catch (e) {
-    return toast(e?.code === 'last_admin' ? T.last_admin : errorMessage(e), 'danger', 6000);
+    const msg = e?.code === 'last_admin' ? T.last_admin : errorMessage(e);
+    if (errEl) showError(errEl, msg);
+    else toast(msg, 'danger', 6000);
+    return false;
   }
   toast(okText, 'success');
   ctx.reload();
+  return true;
 }
 
 function roleSheet(u, ctx) {
   let role = u.role;
+  const err = sheetError();
   modal({
     title: copy('team.actions', { name: u.name }),
     sheet: true,
-    body: h('div.co-sheet-body', roleTiles(role, (v) => (role = v || u.role))),
+    body: h('div.co-sheet-body', roleTiles(role, (v) => (role = v || u.role)), err),
     actions: [
       {
         label: T.save,
         variant: 'primary',
         onClick: async () => {
           if (role === u.role) return true;
-          await patchUser(u, { role }, ctx);
-          return true;
+          showError(err, '');
+          // J-20/K11: فشل الحفظ يبقي الورقة مفتوحة والخطأ فيها
+          return patchUser(u, { role }, ctx, T.saved, { errEl: err });
         },
       },
     ],
@@ -286,7 +293,7 @@ function twoFactorCard(profile, items, ctx) {
       'div.co-sheet-body',
       h('label.check.check-single.co-switch', { htmlFor: sw.id }, sw, h('span', T.tfa_switch)),
       h('p.field-hint', T.tfa_hint),
-      h('p.co-muted', pending ? copy('team.tfa_pending', { n: pending }) : T.tfa_all),
+      h('p.co-muted', pending ? (pending === 1 ? T.tfa_pending_one : pending === 2 ? T.tfa_pending_two : copy('team.tfa_pending', { n: countOf(pending, 'colleague') })) : T.tfa_all),
     ),
   );
 }

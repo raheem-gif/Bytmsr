@@ -2488,6 +2488,30 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   .modal-sheet .modal-footer {
     border-radius: 0;
   }
+
+  /* gate K6: في كل ورقة طويلة على الهاتف (لا أوراق الشركات وحدها) لا ينكمش المقبض والترويسة والتذييل داخل عمود flex
+     فيُقص العنوان تحت حافة الورقة؛ الجسم وحده يُمرَّر */
+  .modal-sheet > .modal-grip,
+  .modal-sheet > .modal-header,
+  .modal-sheet > .modal-footer {
+    flex-shrink: 0;
+  }
+
+  .modal-sheet > .modal-body {
+    min-height: 0;
+  }
+}
+
+/* gate K6: أزرار المقاطع (.seg) وحقول التصفية القديمة بهدف لمس 44px على شاشات اللمس */
+@media (pointer: coarse) {
+  .seg {
+    min-height: 44px;
+  }
+
+  .filter-bar .input,
+  .filter-bar select.input {
+    min-height: 44px;
+  }
 }
 
 .choice-field {
@@ -2648,6 +2672,17 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 
 .toast-close:hover {
   background: var(--gray-100);
+}
+
+/* gate K7: هدف لمس 44×44 حول زر إغلاق التنبيه (الشكل المرئي 28px كما هو) */
+.toast-close {
+  position: relative;
+}
+
+.toast-close::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 
 /* ==========================================================================
@@ -3405,8 +3440,31 @@ a.doc-chip:hover {
   color: var(--text-muted);
 }
 
+/* (v10 gate C-14) تكبير 200% على شاشة 360 (≈180 بكسل CSS): بطاقات الحسابات التجريبية تلتف بدل أن تخرج عن الشاشة */
+@media (max-width: 279.98px) {
+  .demo-panel {
+    padding: 14px 12px;
+  }
+
+  .demo-item {
+    flex-wrap: wrap;
+  }
+
+  .demo-cred .mono {
+    overflow-wrap: anywhere;
+  }
+}
+
 .login-back {
   font-size: 14px;
+  /* (v10 gate C-14) مساحة لمس 44 بكسل دون أن يتغير موضع النص (الهامش السالب يعوض الارتفاع الزائد)؛
+     كتلة نصية لا flex حتى يلتف الاسم مع الجملة على الشاشات الضيقة */
+  display: inline-block;
+  min-height: 44px;
+  padding: 10px 8px;
+  margin-block: -10px;
+  line-height: 24px;
+  text-align: center;
 }
 
 @media (max-width: 900px) {

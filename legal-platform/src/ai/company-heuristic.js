@@ -185,7 +185,7 @@ export function triageHeuristic(ctx) {
 
   const memoryRefs = (ctx.memory || [])
     .slice(0, 5)
-    .map((m) => ({ ref: m.ref, why: m.why || 'مرتبط بالطرف الآخر أو بموضوع الطلب.' }));
+    .map((m) => ({ ref: m.ref, why: m.why || 'موضوع مشابه' })); // gate C-13: السبب المحدد من سياق الفرز
   const confidence = Math.round(Math.min(0.9, 0.45 + 0.05 * (scores[type] || 0) + (missing.length ? 0 : 0.1)) * 100) / 100;
 
   return {

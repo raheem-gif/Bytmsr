@@ -13,17 +13,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  nowIso, now, badRequest, notFound, conflict, forbidden, ApiError, v, parseJson, normalizeArabic, arabicDate, arabicTime,
+  nowIso, now, badRequest, notFound, conflict, forbidden, ApiError, v, parseJson, normalizeArabic, arabicDate, cairoParts,
   truncate, formatEgp, cairoDayKey, addDays, arabicCount,
 } from '../util.js';
 import { LABELS, AREA_CODES } from '../constants.js';
 import {
   REQUEST_TYPE_KEYS, typeByKey, validateFields, renderTitle, TYPE_FIELDS, REQUEST_LIMITS, B2B_SKILLS, DELIVERABLE_KINDS, cairoToday,
-  memoryKindByKey,
+  memoryKindByKey, PRIORITIES, labelOf,
 } from '../../public/assets/js/lib/company-catalog-fields.js';
 import {
   calendars, dueAt, slaState, slaFor, deliveryHours, pauseRemaining, resumeDue, businessMinutesBetween, remainingMinutes, durationText, hoursText,
-  addBusinessMinutes,
+  addBusinessMinutes, calendarJson,
 } from '../../public/assets/js/lib/company-sla.js';
 import { visibleRequestSql, readableMemorySql, companyActor, SYSTEM_ACTOR, REQUEST_CODE_RE } from './companies.js';
 import { TERMS_DEFAULTS } from './company-billing.js';
@@ -36,6 +36,19 @@ const WRITERS = ['company_admin', 'member'];
 const UPLOAD_TTL_MS = 24 * 3600 * 1000;
 const UPLOADS_PER_HOUR = 60;
 const UPLOADS_IN_FLIGHT = 4;
+/** G7-03: حد الأجسام الجارية لكل مستخدم ولكل شركة (يبقى الحد العام 4)، ومهلة قراءة الجسم */
+const UPLOADS_IN_FLIGHT_PER_USER = 2;
+const UPLOADS_IN_FLIGHT_PER_COMPANY = 3;
+/** محاولات الرفع التي بدأت (اجتازت الحارس) لكل مستخدم في الساعة — تشمل الأجسام التي لم تكتمل */
+const UPLOAD_STARTS_PER_HOUR = 90;
+/** بلا أي بايت جديد خلال هذه المدة ← يُقطع الطلب */
+const UPLOAD_IDLE_MS = 20 * 1000;
+/** بعد هذه المدة يجب ألا يقل متوسط النقل عن UPLOAD_MIN_BPS */
+const UPLOAD_RATE_GRACE_MS = 30 * 1000;
+const UPLOAD_MIN_BPS = 1024;
+/** سقف مطلق لقراءة جسم واحد (12 ميجابايت على اتصال بطيء جدًا) */
+const UPLOAD_MAX_MS = 10 * 60 * 1000;
+const UPLOAD_WATCH_EVERY_MS = 5 * 1000;
 const SUBMITS_PER_HOUR = 30;
 const MESSAGES_PER_HOUR = 120;
 const PER_CALL = 5;
@@ -71,6 +84,7 @@ export const COMPANY_TEXT = Object.freeze({
   upload_not_found: 'الملف غير موجود.',
   upload_unavailable: 'هذا الملف لم يعد متاحًا للإرفاق؛ ارفعوه من جديد.',
   busy: 'الخادم مشغول برفع ملفات أخرى الآن؛ نعيد المحاولة بعد لحظات.',
+  upload_slow: 'انقطع رفع الملف لبطء الاتصال؛ أعيدوا المحاولة.',
   uploads_rate: 'رفعتم ملفات كثيرة خلال ساعة؛ حاولوا بعد قليل.',
   files_per_day: 'وصلت شركتكم للحد اليومي من الملفات المرفوعة؛ حاولوا غدًا أو تواصلوا مع فريقكم القانوني.',
   storage_full: 'امتلأت المساحة المتاحة لملفات شركتكم؛ تواصلوا مع فريقكم القانوني.',
@@ -100,9 +114,17 @@ export const COMPANY_TEXT = Object.freeze({
 /** خطأ «غير موجود» واحد للطلب غير الموجود وغير الظاهر (L-35) */
 const requestNotFound = () => new ApiError(404, COMPANY_TEXT.not_found, 'not_found');
 
-/** «الخميس 8 أكتوبر 2026، 4:00 مساءً» */
-export function whenText(iso) {
-  return iso ? `${arabicDate(iso)}، ${arabicTime(iso)}` : '';
+/**
+ * موعد في نص يصل الشركة (C-06، U10-06 كالبوابة): «الخميس 8 أكتوبر، 4:00 م» — السنة فقط إن لم تكن السنة الحالية،
+ * و«ص/م» (الظهر 12:00–12:59 «م» لا «مساءً»). البريد يبقى بالصيغة الطويلة (email.js).
+ */
+export function whenText(iso, { at = now() } = {}) {
+  if (!iso) return '';
+  const p = cairoParts(iso);
+  const thisYear = cairoParts(at.toISOString()).year;
+  const date = arabicDate(iso).replace(new RegExp(` ${p.year}$`), p.year === thisYear ? '' : ` ${p.year}`);
+  const h12 = p.hour % 12 === 0 ? 12 : p.hour % 12;
+  return `${date}، ${h12}:${String(p.minute).padStart(2, '0')} ${p.hour < 12 ? 'ص' : 'م'}`;
 }
 
 export function createCompanyRequests(app) {
@@ -112,6 +134,16 @@ export function createCompanyRequests(app) {
   const termsOf = (companyId) => app.companyBilling.activeSubscription(companyId)?.terms || TERMS_DEFAULTS;
   const companyOf = (id) => db.get('SELECT * FROM companies WHERE id = ?', id);
   let uploadsInFlight = 0;
+  /** G7-03: الأجسام الجارية لكل مستخدم/شركة، وبدايات الرفع في الساعة الأخيرة لكل مستخدم */
+  const inFlightByUser = new Map();
+  const inFlightByCompany = new Map();
+  const uploadStarts = new Map();
+  const bump = (map, key, d) => {
+    if (key === undefined || key === null) return;
+    const n = (map.get(key) || 0) + d;
+    if (n > 0) map.set(key, n);
+    else map.delete(key);
+  };
 
   // ───────────────────────── أدوات عامة ─────────────────────────
   function flagsOf(r) {
@@ -282,11 +314,13 @@ export function createCompanyRequests(app) {
     const phase = pr.phase;
     const due = phase === 'delivery' ? r.delivery_due_at : phase === 'confirm' ? r.confirm_due_at : phase === 'first_response' ? r.first_response_due_at : null;
     let left = null;
+    // gate K5: الساعة (أيام العمل أو التقويم الكامل للعاجل) تظهر في القائمة كما في صفحة الطلب
+    const clock = (phase === 'delivery' ? r.sla_clock : null) || slaFor(termsOf(r.company_id), r.priority).clock;
     if (due && pr.state !== 'paused') {
-      const clock = phase === 'delivery' ? r.sla_clock : slaFor(termsOf(r.company_id), r.priority).clock;
       left = remainingMinutes(nowIso(), due, clock, cals());
     } else if (pr.state === 'paused' && r.sla_remaining_minutes !== null && r.sla_remaining_minutes !== undefined) left = Number(r.sla_remaining_minutes);
     return {
+      clock,
       phase,
       phase_label: phase ? label('company_sla_phase', phase) : null,
       due_at: due || null,
@@ -746,18 +780,77 @@ export function createCompanyRequests(app) {
     whenText,
 
     // ===================== الرفع (POST /api/company/uploads) =====================
-    /** حارس الطلب قبل قراءة الجسم: ≤ 4 أجسام رفع في الوقت نفسه (429 busy)؛ يعيد دالة الإفراج */
-    acquireUploadSlot() {
+    /**
+     * حارس الطلب قبل قراءة الجسم (L-27، G7-03): ≤ 4 أجسام رفع في الوقت نفسه على الخادم كله، و≤ 2 لكل مستخدم و≤ 3 لكل شركة
+     * (429 busy)، و≤ 90 محاولة بدأت لكل مستخدم في الساعة (429 rate_limited — تُحسب الأجسام التي لم تكتمل أيضًا).
+     * مع `req` يُراقب تقدم القراءة: لا بايت جديد خلال 20 ثانية، أو متوسط أقل من 1 كيلوبايت/ث بعد 30 ثانية، أو 10 دقائق
+     * إجمالًا ← يُحرَّر المكان فورًا ويُقطع الطلب (408). يعيد دالة الإفراج.
+     */
+    acquireUploadSlot({ cu = null, company = null, req = null } = {}) {
+      const userKey = cu?.id ?? null;
+      const companyKey = company?.id ?? cu?.company_id ?? null;
       if (uploadsInFlight >= UPLOADS_IN_FLIGHT) throw new ApiError(429, COMPANY_TEXT.busy, 'busy');
-      uploadsInFlight += 1;
-      let released = false;
-      return () => {
-        if (!released) {
-          released = true;
-          uploadsInFlight -= 1;
+      if (userKey !== null && (inFlightByUser.get(userKey) || 0) >= svc.uploadLimits.perUser) throw new ApiError(429, COMPANY_TEXT.busy, 'busy');
+      if (companyKey !== null && (inFlightByCompany.get(companyKey) || 0) >= svc.uploadLimits.perCompany) throw new ApiError(429, COMPANY_TEXT.busy, 'busy');
+      if (userKey !== null) {
+        const nowMs = Date.now();
+        const starts = (uploadStarts.get(userKey) || []).filter((ms) => nowMs - ms < 3600000);
+        if (starts.length >= svc.uploadLimits.startsPerHour) {
+          uploadStarts.set(userKey, starts);
+          throw new ApiError(429, COMPANY_TEXT.uploads_rate, 'rate_limited');
         }
+        starts.push(nowMs);
+        uploadStarts.set(userKey, starts);
+      }
+      uploadsInFlight += 1;
+      bump(inFlightByUser, userKey, 1);
+      bump(inFlightByCompany, companyKey, 1);
+      let released = false;
+      let timer = null;
+      const release = () => {
+        if (released) return;
+        released = true;
+        if (timer) clearInterval(timer);
+        uploadsInFlight -= 1;
+        bump(inFlightByUser, userKey, -1);
+        bump(inFlightByCompany, companyKey, -1);
       };
+      if (req && req.socket) {
+        const startedAt = Date.now();
+        const base = req.socket.bytesRead || 0;
+        let lastBytes = base;
+        let lastAt = startedAt;
+        const kill = () => {
+          release();
+          try {
+            req.destroy(new ApiError(408, COMPANY_TEXT.upload_slow, 'upload_timeout'));
+          } catch {
+            /* المقبس مغلق أصلًا */
+          }
+        };
+        timer = setInterval(() => {
+          if (released) return clearInterval(timer);
+          if (req.complete || req.readableEnded) return clearInterval(timer);
+          if (req.destroyed) return release();
+          const t = Date.now();
+          const bytes = (req.socket?.bytesRead || 0) - base;
+          if (bytes > lastBytes - base) {
+            lastBytes = bytes + base;
+            lastAt = t;
+          }
+          const elapsed = t - startedAt;
+          const L = svc.uploadLimits;
+          if (t - lastAt >= L.idleMs || elapsed >= L.maxMs || (elapsed >= L.graceMs && (bytes * 1000) / elapsed < L.minBps)) kill();
+        }, svc.uploadLimits.watchEveryMs);
+        timer.unref?.();
+        req.once('close', () => {
+          if (!req.complete) release();
+        });
+      }
+      return release;
     },
+    /** حدود مراقبة جسم الرفع (قابلة للضبط في الاختبارات) */
+    uploadLimits: { watchEveryMs: UPLOAD_WATCH_EVERY_MS, idleMs: UPLOAD_IDLE_MS, graceMs: UPLOAD_RATE_GRACE_MS, minBps: UPLOAD_MIN_BPS, maxMs: UPLOAD_MAX_MS, perUser: UPLOADS_IN_FLIGHT_PER_USER, perCompany: UPLOADS_IN_FLIGHT_PER_COMPANY, startsPerHour: UPLOAD_STARTS_PER_HOUR },
     uploadsInFlight: () => uploadsInFlight,
 
     /** ملف واحد ← documents.save فورًا + صف company_uploads مربوط بمن رفعه 24 ساعة */
@@ -1380,7 +1473,7 @@ export function createCompanyRequests(app) {
         type_label: type?.label || r.type,
         title: r.title,
         priority: r.priority,
-        priority_label: label('priority', r.priority),
+        priority_label: labelOf(PRIORITIES, r.priority) || label('priority', r.priority), // gate C-12: كلمات الشركة نفسها
         requested_priority: r.requested_priority,
         status: r.status,
         status_label: label('company_request_status', r.status),
@@ -1483,7 +1576,18 @@ export function createCompanyRequests(app) {
               `SELECT a.id, a.role, a.status, a.due_at, a.lawyer_id, u.name FROM assignments a JOIN users u ON u.id = a.lawyer_id WHERE a.case_id = ? ORDER BY a.id`,
               c.id,
             )
-            .map((a) => ({ assignment_id: a.id, lawyer_id: a.lawyer_id, lawyer_name: a.name, role: a.role, role_label: label('assignment_role', a.role), status: a.status, status_label: label('assignment_status', a.status), due_at: a.due_at }))
+            .map((a) => ({
+              assignment_id: a.id,
+              lawyer_id: a.lawyer_id,
+              lawyer_name: a.name,
+              role: a.role,
+              role_label: label('assignment_role', a.role),
+              status: a.status,
+              status_label: label('assignment_status', a.status),
+              due_at: a.due_at,
+              // gate K5: عناصر الذاكرة الممنوحة لهذا الإسناد (تفتح ورقة «ذاكرة الشركة للمحامي» بها)
+              memory_ids: db.all('SELECT memory_id FROM assignment_memory_grants WHERE assignment_id = ? ORDER BY memory_id', a.id).map((x) => x.memory_id),
+            }))
         : [];
       const quotes = db.all('SELECT * FROM company_quotes WHERE request_id = ? ORDER BY id', r.id).map((q) => quoteView(q, { staff: true, money: true }));
       const delivs = db.all('SELECT * FROM company_deliverables WHERE request_id = ? ORDER BY version', r.id).map((d) => deliverableView(d, { staff: true }));
@@ -1541,6 +1645,8 @@ export function createCompanyRequests(app) {
         submitter: submitter ? { ...submitter, role_label: label('company_user_role', submitter.role) } : null,
         triage: sug ? { id: sug.id, provider: sug.provider, model: sug.model, created_at: sug.created_at, output: parseJson(sug.output, null) } : null,
         scope_check: svc.scopeCheck(r, company),
+        // gate K5: تقويم خدمة الشركات الفعلي (مواعيد العمل والعطلات) لمعاينة الموعد في ورقة القبول لكل فريق المكتب
+        calendar: calendarJson(cals()),
         case: c ? { id: c.id, code: c.code, status: c.status, status_label: label('case_status', c.status), team, opinions, work_files: workFiles } : null,
         notes: db
           .all('SELECT n.*, u.name FROM company_request_notes n JOIN users u ON u.id = n.user_id WHERE n.request_id = ? ORDER BY n.id', r.id)
@@ -1559,7 +1665,7 @@ export function createCompanyRequests(app) {
         memory_item: memoryItem ? { ...memoryItem, kind_label: label('company_memory_kind', memoryItem.kind), pending: !memoryItem.reviewed_at } : null,
         sla: {
           ...staffSla(r),
-          clock: r.sla_clock,
+          clock: r.sla_clock || slaFor(terms, r.priority).clock, // gate K5
           first_response_due_at: r.first_response_due_at,
           first_response_at: r.first_response_at,
           confirm_due_at: r.confirm_due_at,
@@ -1777,15 +1883,26 @@ export function createCompanyRequests(app) {
     const prefix = db.value('SELECT prefix FROM companies WHERE id = ?', companyId);
     const codeRe = prefix ? new RegExp(`\\b${prefix}-\\d{4,6}\\b`, 'g') : null;
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return (text) => {
+    const phoneForms = (p) => new Set([p, p.replace(/^\+20/, '0'), p.replace(/^\+/, '')]);
+    const red = (text) => {
       if (text === null || text === undefined || text === '') return text;
       let s = String(text);
       for (const e of emails) s = s.replace(new RegExp(escRe(e), 'gi'), '[بريد إلكتروني]');
-      for (const p of phones) for (const form of new Set([p, p.replace(/^\+20/, '0'), p.replace(/^\+/, '')])) s = s.split(form).join('[رقم هاتف]');
-      s = redact(s, { names }).text;
+      for (const p of phones) for (const form of phoneForms(p)) s = s.split(form).join('[رقم هاتف]');
+      // gate K12/J-21: أرقام الفواتير والقيود في عناوين الطلبات ليست هواتف (هواتف موظفي الشركة تُحذف أعلاه بكل صيغها)
+      s = redact(s, { names, strictPhones: true }).text;
       if (codeRe) s = s.replace(codeRe, '[رقم الطلب]');
       return s;
     };
+    /** gate K2/J-03: هل يذكر النص اسم أحد موظفي الشركة أو بريده أو هاتفه فعلًا؟ (لتنبيه القبول، لا لصيغ الشركات والعناوين) */
+    red.touchesPeople = (text) => {
+      if (!text) return false;
+      const s = String(text);
+      if (emails.some((e) => s.toLowerCase().includes(e.toLowerCase()))) return true;
+      if (phones.some((p) => [...phoneForms(p)].some((f) => f && s.includes(f)))) return true;
+      return names.length > 0 && (redact(s, { names, strictPhones: true }).counts.names || 0) > (redact(s, { strictPhones: true }).counts.names || 0);
+    };
+    return red;
   }
 
   /**
@@ -1806,10 +1923,16 @@ export function createCompanyRequests(app) {
     const hits = [];
     for (const [field, value] of Object.entries(texts || {})) {
       if (!value) continue;
-      for (const name of gate.findLawyerNames(String(value), lawyers)) hits.push({ field, name });
+      // gate K4: matched = النص كما ورد («Tarek El-Naggar» أو «tarek»)، ويُذكر الاسم العربي بجانبه
+      const seen = new Set();
+      for (const x of gate.findLawyerHits(String(value), lawyers)) {
+        if (seen.has(x.name)) continue;
+        seen.add(x.name);
+        hits.push({ field, name: x.name, matched: x.matched });
+      }
     }
     if (!hits.length) return null;
-    return new ApiError(409, `النص يذكر اسم ${hits[0].name}. فريقكم القانوني هو صاحب الرسالة أمام الشركة؛ احذف أسماء المحامين.`, 'lawyer_names', { lawyer_names: hits });
+    return new ApiError(409, `النص يذكر اسم ${gate.nameShown(hits[0])}. فريقكم القانوني هو صاحب الرسالة أمام الشركة؛ احذف أسماء المحامين.`, 'lawyer_names', { lawyer_names: hits });
   }
 
   // ═════════════════════════ SRV-8: القبول ← ملف في المحرك (B10-24) ═════════════════════════
@@ -1955,11 +2078,11 @@ export function createCompanyRequests(app) {
     for (const role of ['lead', 'reviewer']) {
       const a = input.assign[role];
       if (!a?.brief) continue;
-      const clean = red(a.brief);
-      if (clean !== a.brief) briefsChanged = true;
-      a.brief = clean;
+      if (red.touchesPeople(a.brief)) briefsChanged = true;
+      a.brief = red(a.brief);
     }
-    if (brief !== input.brief || caseTitle !== input.caseTitle || briefsChanged || issues.some((x, i) => x !== input.issues[i])) {
+    // gate K2/J-03: التنبيه حين حُذف فعلًا اسم موظف أو بريده أو هاتفه — لا لكل تغيير يجريه المنقّي
+    if (briefsChanged || [input.brief, input.caseTitle, ...input.issues].some((x) => red.touchesPeople(x))) {
       warnings.push('حُذفت من ملخص المحامي أو مسائله بيانات تخص موظفي الشركة (أسماء أو بريد أو هاتف). راجع النص قبل الإسناد.');
     }
     // review (INV-B4، INV-B11): الملاحظة للشركة لا تذكر المحامين المسندين
@@ -1968,11 +2091,14 @@ export function createCompanyRequests(app) {
     // الاحتساب من الباقة (حتمي؛ L-28)
     const terms = termsOf(company.id);
     const sc = svc.scopeCheck(r, company, { type: input.type });
-    const scope = input.scope || (sc.in_plan ? 'in_scope' : 'out_of_scope');
+    // gate J-01/K1: عرض سعر وافقت عليه الشركة (خارج الباقة أو طلب إضافي) يحدد الاحتساب في كل مسار — خطة البدء أو «بدء العمل»
+    // يدويًا بعد خطأ الخطة أو بلا خطة. لا يُعاد التصنيف ولا يُطلب عرض جديد ولا يُستهلك طلب مشمول فوق تكلفة العرض.
+    const approvedQuote = r.quota_kind && ['out_of_scope', 'overage'].includes(r.quota_kind) ? db.get("SELECT id, kind FROM company_quotes WHERE request_id = ? AND status = 'approved' ORDER BY id DESC LIMIT 1", r.id) : null;
+    const scope = approvedQuote && r.quota_kind === 'out_of_scope' ? 'out_of_scope' : input.scope || (sc.in_plan ? 'in_scope' : 'out_of_scope');
     let quotaKind;
     let quotaPeriod;
     let billOverage = false;
-    if (plan && r.quota_kind) {
+    if (approvedQuote || (plan && r.quota_kind)) {
       quotaKind = r.quota_kind;
       quotaPeriod = r.quota_period;
     } else if (input.quota === 'free') {
@@ -2175,9 +2301,12 @@ export function createCompanyRequests(app) {
         reasons.unshift(label('company_pod_role', pref));
       }
       const rate = db.value('SELECT b2b_rate_minor FROM lawyers WHERE user_id = ?', l.id);
-      items.push({ id: l.id, name: l.name, score: Math.round(score * 100) / 100, reasons, over_capacity: l.over_capacity, b2b_rate: rate ? major(rate) : null, skills: [...ls] });
+      // gate K5: محامو الشركات (تخصصات شركات أو سعر لطلبات الشركات أو الفريق المفضل) قبل غيرهم، والباقون يُعلَّمون
+      const b2b = ls.size > 0 || !!rate || (!!pref && pref !== 'excluded');
+      if (!b2b) reasons.push('بلا تخصص شركات');
+      items.push({ id: l.id, name: l.name, score: Math.round(score * 100) / 100, reasons, over_capacity: l.over_capacity, b2b_rate: rate ? major(rate) : null, skills: [...ls], b2b });
     }
-    items.sort((a, b) => b.score - a.score);
+    items.sort((a, b) => Number(b.b2b) - Number(a.b2b) || b.score - a.score);
     return { role, items: items.slice(0, 10), excluded };
   }
 
@@ -2205,6 +2334,13 @@ export function createCompanyRequests(app) {
     }
     return out;
   }
+  /** gate K5: عناصر الذاكرة الممنوحة لإسناد في ملف شركة (للإدارة) */
+  function memoryGrantsOf(assignmentId) {
+    const a = db.get('SELECT a.id, c.company_id FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', assignmentId);
+    if (!a) throw notFound('الإسناد غير موجود');
+    if (!a.company_id) throw badRequest('منح الذاكرة لملفات الشركات فقط');
+    return { memory_ids: db.all('SELECT memory_id FROM assignment_memory_grants WHERE assignment_id = ? ORDER BY memory_id', a.id).map((x) => x.memory_id) };
+  }
   /** منح الذاكرة للمحامي: عناصر الطلب المرتبطة افتراضيًا أو المختارة؛ «المفوَّضون» لا يُمنحون أبدًا (L-57) */
   function setMemoryGrants(assignmentId, memoryIds, actor, { replace = true } = {}) {
     const a = db.get('SELECT a.*, c.company_id FROM assignments a JOIN cases c ON c.id = a.case_id WHERE a.id = ?', assignmentId);
@@ -2226,6 +2362,11 @@ export function createCompanyRequests(app) {
     return { memory_ids: db.all('SELECT memory_id FROM assignment_memory_grants WHERE assignment_id = ? ORDER BY memory_id', a.id).map((x) => x.memory_id) };
   }
   function onAssignmentCreated(assignmentId, c, body = {}, actor = null) {
+    // gate J-07: محامٍ أساسي يُسند بعد المراجع النهائي ← يرى المراجعون رأيه (منحة «رأي» على إسناده)
+    const a0 = db.get('SELECT role FROM assignments WHERE id = ?', assignmentId);
+    if (a0?.role === 'lead') {
+      for (const rv of db.all("SELECT id FROM assignments WHERE case_id = ? AND role = 'reviewer' AND status != 'withdrawn' AND id != ?", c.id, assignmentId)) app.visibility.addGrant(rv.id, 'opinion', assignmentId, actor);
+    }
     let ids;
     if (body.memory_ids !== undefined && body.memory_ids !== null) ids = v.ids(body.memory_ids, 'عناصر الذاكرة');
     else {
@@ -2466,6 +2607,10 @@ export function createCompanyRequests(app) {
       acceptInput(r, company, body.accept_plan, actor); // تحقق مبكر من الخطة
       plan = body.accept_plan;
     }
+    // gate G7-01: كل نص العرض يصل الشركة — لا أسماء محامين (محامو الملف ومن تسندهم خطة البدء)
+    const planLawyers = plan ? ['lead', 'reviewer'].map((x) => plan.assign?.[x]?.lawyer_id).filter(Boolean) : [];
+    const quoteNameErr = lawyerNameError(r, { message, scope_of_work: scopeOfWork, assumptions, excluded }, { extraLawyerIds: planLawyers });
+    if (quoteNameErr) throw quoteNameErr;
     const t = nowIso();
     const validUntil = addDays(t, validDays);
     let qid;
@@ -2639,7 +2784,15 @@ export function createCompanyRequests(app) {
       db.tx(() => {
         db.run("UPDATE company_quotes SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'sent'", t, q.id);
         if (r.status === 'awaiting_company' && (r.waiting_on === 'quote' || r.waiting_on === 'overage')) {
-          db.update('company_requests', r.id, { status: 'submitted', waiting_on: null, accept_plan: null, confirm_due_at: confirmDue(r, t), rev: r.rev + 1, updated_at: t });
+          // G-R4: مثل سحب العرض — استيضاح بلا رد ← يبقى الطلب «بانتظار ردكم» على المعلومة، بلا موعد تأكيد يجري على الفريق
+          const openClar = db.get("SELECT 1 FROM company_messages WHERE request_id = ? AND kind = 'clarification' AND answered_at IS NULL", r.id);
+          db.update(
+            'company_requests',
+            r.id,
+            openClar
+              ? { waiting_on: 'info', accept_plan: null, confirm_due_at: null, rev: r.rev + 1, updated_at: t }
+              : { status: 'submitted', waiting_on: null, accept_plan: null, confirm_due_at: confirmDue(r, t), rev: r.rev + 1, updated_at: t },
+          );
         }
       });
       notifyStaff(getById(r.id), companyOf(r.company_id), { type: 'company_request.quote_decided', title: `انتهت صلاحية عرض السعر — ${r.code}` });
@@ -2704,6 +2857,9 @@ export function createCompanyRequests(app) {
     const r = requireStaffRequest(id);
     const company = companyOf(r.company_id);
     if (!['in_progress', 'delivered'].includes(r.status)) throw new ApiError(409, 'يُعد التسليم بعد بدء العمل على الطلب.', 'invalid_transition');
+    // gate J-12: مسودة واحدة لكل طلب — «إعداد تسليم» يتابعها، فلا تبقى مسودات يتيمة ولا يقفز رقم الإصدار الذي تراه الشركة
+    const openDraft = db.get("SELECT id, version FROM company_deliverables WHERE request_id = ? AND status = 'draft' ORDER BY id DESC LIMIT 1", r.id);
+    if (openDraft) throw new ApiError(409, `توجد مسودة تسليم لم تُرسل بعد (الإصدار ${openDraft.version})؛ تابعها بدل إنشاء مسودة جديدة.`, 'deliverable_draft_open', { deliverable_id: openDraft.id });
     const f = deliverableFields(r, body);
     const saved = [];
     let did;
@@ -2802,9 +2958,12 @@ export function createCompanyRequests(app) {
       { docsReviewed: !!deliverableById(d.id).docs_reviewed, allowNames },
     );
     if (err) throw new ApiError(err.status, err.message, err.code, pc);
-    if (allowNames && pc.lawyer_names.length) overrides.push('lawyer_names');
-    const t = nowIso();
     const message = v.str(body.message, 'رسالة للشركة', { max: 2000 });
+    // gate G7-01 (INV-B4، INV-B11): «رسالة للشركة» مع التسليم تمر بحارس أسماء المحامين نفسه (وبنفس تجاوز مدير النظام)
+    const msgErr = message ? lawyerNameError(r, { message }) : null;
+    if (msgErr && !allowNames) throw msgErr;
+    if (allowNames && (pc.lawyer_names.length || msgErr)) overrides.push('lawyer_names');
+    const t = nowIso();
     db.tx(() => {
       db.update('company_deliverables', d.id, { status: 'released', released_by: actor.id, released_at: t, updated_at: t });
       const cur = getById(r.id);
@@ -2848,14 +3007,28 @@ export function createCompanyRequests(app) {
     const o = db.get("SELECT * FROM opinions WHERE id = ? AND case_id = ? AND status = 'approved'", Number(body.opinion_id) || 0, r.case_id);
     if (!o) throw badRequest('اختر رأيًا معتمدًا في ملف هذا الطلب', { fields: { opinion_id: 'اختر رأيًا معتمدًا' } });
     const text = String(o.body || '');
+    // gate J-06: عناوين هيكل الرأي كلها عناوين («المخاطر الرئيسية ودرجتها»، «التحليل القانوني»، «التعديلات المقترحة على البنود»،
+    // و«أولًا: الوقائع المؤثرة»…): سطر قصير بلا علامة نهاية جملة يبدأ بكلمة عنوان معروفة (بعد ترقيم أو تنسيق Markdown)
+    const HEAD_START = /^(?:الخلاصه|الخلاصة|الملخص|المخاطر|التوصيات|التوصيه|التوصية|التحليل|خطوات|الوقائع|الرأي|الراي|التعديلات|التكييف|المستندات)/u;
+    const headingCore = (l) => {
+      const t = String(l || '')
+        .replace(/^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*/u, '')
+        .replace(/\s*(?:\*\*)?\s*:?\s*$/u, '')
+        .trim();
+      if (!t || t.length > 60 || /[.!؟?،,;؛]$/u.test(t)) return null;
+      const core = t.replace(/^(?:أولًا|أولا|ثانيًا|ثانيا|ثالثًا|ثالثا|رابعًا|رابعا|خامسًا|خامسا|سادسًا|سادسا|\d+[.)-]?)\s*[:\-–]?\s*/u, '').trim();
+      return HEAD_START.test(core) && core.split(/\s+/).length <= 6 ? core : null;
+    };
     const section = (names) => {
       const lines = text.split('\n');
-      const isHeading = (l) => /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(?:الخلاصة التنفيذية|المخاطر|التوصيات|خطوات للشركة|الوقائع|التحليل|الرأي)\s*(?:\*\*)?\s*:?\s*$/u.test(l);
-      const start = lines.findIndex((l) => names.some((n) => l.replace(/[#*:\s]/g, '').startsWith(n.replace(/\s/g, ''))) && isHeading(l));
+      const start = lines.findIndex((l) => {
+        const c = headingCore(l);
+        return c && names.some((n) => c.replace(/\s/g, '').startsWith(n.replace(/\s/g, '')));
+      });
       if (start < 0) return null;
       const out = [];
       for (let i = start + 1; i < lines.length; i++) {
-        if (isHeading(lines[i])) break;
+        if (headingCore(lines[i])) break;
         out.push(lines[i]);
       }
       const s = out.join('\n').trim();
@@ -3168,6 +3341,7 @@ export function createCompanyRequests(app) {
     assignDefaults,
     onAssignmentCreated,
     setMemoryGrants,
+    memoryGrantsOf,
     lawyerBlock,
     lawyerView,
     addWorkFiles,

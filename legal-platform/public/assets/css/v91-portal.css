@@ -1568,6 +1568,52 @@ body.pub .bp-viewtitle:focus-visible {
   }
 }
 
+/* (v10 gate C-17) تكبير 200% على شاشة 360 (≈180 بكسل CSS) أو خط كبير جدًا: الزران يلتفان لسطرين بدل أن يُقص
+   «اكتبيلنا» خارج الشاشة (الحد الأدنى لعرض كل زر هو نصه كاملًا)، والشارات في صفوف الأقسام تلتف داخلها. */
+.bp-bar-btns {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 279.98px) {
+  /* الشريط في آخر الصفحة بدل أن يغطي أكثر من نصف الشاشة مع رأس الصفحة (وفي الرأس زر الاتصال)؛
+     portal.js يجعل --bp-bar-space صفرًا حين لا يكون الشريط ثابتًا */
+  .bp-bar {
+    position: static;
+    padding-top: 4px;
+    box-shadow: none;
+  }
+
+  .bp-bar .bp-hours {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+
+  .bp-bar-btns {
+    gap: 6px;
+  }
+
+  .bp-bar-btns > * {
+    min-height: 44px;
+  }
+
+  /* صف القسم يلتف: الأيقونة والعنوان في السطر الأول، والشارة والسهم تحتهما حين لا يتسع السطر */
+  .bp-row {
+    flex-wrap: wrap;
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+
+  .bp-row-main {
+    flex: 1 1 4em;
+  }
+
+  .bp-row > .bp-pill {
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* ═════════════ v10 experience — ضغط فوري، شريط «كروم»، أرقام بعرض ثابت، تفضيلات الإتاحة ═════════════
    الرموز (--press-*, --ease-out, --dur-*) من public-site.css (المحمّل قبل هذا الملف). */
 

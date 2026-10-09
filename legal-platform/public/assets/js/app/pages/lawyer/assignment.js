@@ -28,6 +28,9 @@ const PRIVACY_LINE = 'تصل طلباتك للإدارة، وهي التي تت�
 export const COMPANY_PRIVACY_LINE = 'تصل طلباتك للإدارة، وهي التي تتواصل مع الشركة عبر بوابتها.';
 export const COMPANY_NO_CONTEXT = 'لم تُشارك معك عناصر من ذاكرة الشركة.';
 export const SENIOR_REVIEW_LINE = 'يراجع عملك مراجع نهائي قبل تسليمه للشركة.';
+/** gate J-07/K10: المراجع النهائي نفسه لا يُقال له «يراجع عملك»؛ وموعد الشركة سياق لا أمر (موعده هو في رأس الصفحة) */
+export const REVIEWER_LINE = 'أنت المراجع النهائي لهذا العمل قبل تسليمه للشركة.';
+export const COMPANY_DUE_LABEL = 'موعد تسليم الإدارة للشركة';
 export const WORK_FILES_WARNING = 'احذف اسمك من خصائص ملف Word ومن أسماء التعديلات المتتبَّعة، أو أرفق PDF.';
 const OUTPUT_LANG = { ar: 'العربية', en: 'English', both: 'العربية والإنجليزية' };
 const PRIORITY_WORD = { urgent: 'أولوية عاجلة', high: 'أولوية مرتفعة', normal: 'أولوية عادية', low: 'أولوية منخفضة' };
@@ -40,7 +43,7 @@ const COMPANY_SUBS = [[/المستفيد\/ة/g, 'الشركة']];
  * قسم «سياق الشركة» (U10-L03) من view.company فقط. fields = memoryFields من الكتالوج (للتسميات)، onOpen لفتح مستند.
  * @param {object} co view.company
  */
-export function companyContextSection(co, { fields = () => [] } = {}) {
+export function companyContextSection(co, { fields = () => [], role = null, closed = false } = {}) {
   if (!co) return null;
   const ctxItems = Array.isArray(co.context) ? co.context : [];
   const typeLine = [co.request_type_label, PRIORITY_WORD[co.priority] || null, co.output_language ? `لغة التسليم: ${OUTPUT_LANG[co.output_language] || co.output_language}` : null].filter(Boolean);
@@ -89,8 +92,12 @@ export function companyContextSection(co, { fields = () => [] } = {}) {
     h('div.lw-sec-head', h('h2.lw-sec-title', icon('building', { size: 18 }), 'سياق الشركة')),
     h('p.lw-co-name', [co.name, co.entity].filter(Boolean).join(' · ') || 'شركة عميلة'),
     typeLine.length ? h('p.lw-co-line', typeLine.join(' · ')) : null,
-    co.delivery_due_at ? h('p.lw-co-line', icon('clock', { size: 16 }), `سلّم قبل: ${deadline(co.delivery_due_at)}`) : null,
-    co.requires_senior_review ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), SENIOR_REVIEW_LINE) : null,
+    co.delivery_due_at && !closed ? h('p.lw-co-line', icon('calendar', { size: 16 }), `${COMPANY_DUE_LABEL}: ${deadline(co.delivery_due_at)}`) : null,
+    role === 'reviewer'
+      ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), REVIEWER_LINE)
+      : co.requires_senior_review
+        ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), SENIOR_REVIEW_LINE)
+        : null,
     ctxItems.length
       ? h('div.lw-co-mem', h('h3.lw-co-sub', `من ذاكرة الشركة (${num(ctxItems.length)})`), h('div.lw-co-list', ctxItems.map(itemNode)))
       : h('p.lw-muted', COMPANY_NO_CONTEXT),
@@ -539,7 +546,7 @@ export default async function render(ctx) {
 
   function filePane() {
     // v10 b2b-staff (U10-L03): «سياق الشركة» أول أقسام «الملف» في ملفات الشركات
-    return frag(view.company ? companyContextSection(view.company, { fields: memoryFields }) : null, briefNode(), factsNode(), issuesNode(), docsNode(), teamNode(), feeLine());
+    return frag(view.company ? companyContextSection(view.company, { fields: memoryFields, role: view.assignment && view.assignment.role, closed: closed() }) : null, briefNode(), factsNode(), issuesNode(), docsNode(), teamNode(), feeLine());
   }
 
   // ───────────── «رأيي» ─────────────

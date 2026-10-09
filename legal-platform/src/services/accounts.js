@@ -767,6 +767,8 @@ export function createAccounts(app) {
       const wasTemporary = !!u.must_change_password;
       db.update('users', u.id, { password_hash: hashPassword(next), must_change_password: 0, password_changed_at: nowIso() });
       const revoked = app.auth.revokeUserSessions(u.id, { exceptTokenHash: ctx.user.session_token_hash });
+      // v10 G7-06: رابط استعادة صدر قبل تغيير كلمة المرور لا يصلح بعده
+      db.run("UPDATE account_tokens SET revoked_at = ?, revoked_by = ? WHERE user_id = ? AND kind = 'reset' AND used_at IS NULL AND revoked_at IS NULL", nowIso(), u.id, u.id);
       audit({
         actor: u,
         ctx,

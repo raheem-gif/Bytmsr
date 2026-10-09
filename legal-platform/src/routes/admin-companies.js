@@ -184,6 +184,8 @@ export function registerAdminCompanyRoutes(router, app) {
     ctx.status = 201;
     return mem.staffCreate(r.company_id, ctx.body, u, { sourceRequest: r });
   }), { limit: 60 * 1024 * 1024 });
+  // gate K5: قراءة عناصر الذاكرة الممنوحة لإسناد (S)
+  router.get('/api/admin/assignments/:id/memory-grants', S((ctx) => reqs.memoryGrantsOf(id(ctx))));
   router.put('/api/admin/assignments/:id/memory-grants', S((ctx, u) => {
     const r = reqs.setMemoryGrants(id(ctx), Array.isArray(ctx.body.memory_ids) ? ctx.body.memory_ids : [], u);
     const a = app.db.get('SELECT case_id FROM assignments WHERE id = ?', id(ctx));

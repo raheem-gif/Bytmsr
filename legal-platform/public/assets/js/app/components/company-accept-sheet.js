@@ -7,8 +7,8 @@ import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, areaOptions, isoToCairoDate, money } from '../../lib/fmt.js';
 import { modal, form, button, badge, icon, alertBox, toast, errorMessage, discardGuard, setBusy } from '../../lib/ui.js';
-import { REQUEST_TYPES, B2B_SKILLS, typeByKey } from '../../lib/company-catalog.js';
-import { calendars, dueAt } from '../../lib/company-sla.js';
+import { REQUEST_TYPES, B2B_SKILLS, typeByKey, PRIORITIES as CAT_PRIORITIES, labelOf } from '../../lib/company-catalog.js';
+import { calendars, calendarsFromJson, dueAt } from '../../lib/company-sla.js';
 import { haptic } from '../../lib/haptics.js';
 import { whenText, hoursPhrase } from '../pages/admin/company-requests.js';
 
@@ -24,6 +24,19 @@ const PARTY_ROLES = [
   { value: 'opponent', label: 'خصم' },
 ];
 const CP_FIELDS = ['counterparty_name', 'sender_name', 'supplier_name'];
+/** gate J-02: أسباب الفرز التي تبرر الاختيار المسبق (src/ai/company.js MEMORY_WHY) */
+const STRONG_WHY = new Set(['نفس الطرف الآخر', 'نموذج معتمد لنفس النوع']);
+/** مفتاح الطرف للمقارنة (مثل counterpartyNorm على الخادم): توحيد الحروف وحذف «شركة/مؤسسة/ش م م» */
+export function cpKey(name) {
+  const s = ` ${String(name || '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
+  return s.replace(/ (?:شركه|مؤسسه|ش م م)(?= )/gu, ' ').replace(/\s+/g, ' ').trim();
+}
 const STAFF_DISCARD = { singular: true };
 /** قيم الورقة بعد «مراجعة التغييرات» تبقى لهذه الجلسة فقط (لا تخزين في المتصفح) */
 const drafts = new Map();
@@ -44,8 +57,14 @@ function nameVariants(full) {
   if (parts[0].length >= 4 && !STOP_NAME_PARTS.has(parts[0])) out.push(parts[0]);
   return [...new Set(out)];
 }
-/** نمط يطابق الاسم كلمةً مستقلة (مع حرف عطف/جر ملتصق: «وحسام»، «لمريم») — اسم المجموعة الأولى ما قبله */
-const nameRe = (v, flags = 'u') => new RegExp(`(^|[^\\p{L}\\p{M}][وفبل]?|^[وفبل])${tolerant(v)}(?=$|[^\\p{L}\\p{M}])`, flags);
+/**
+ * نمط يطابق الاسم كلمةً مستقلة (مع حرف عطف/جر ملتصق: «وحسام»، «لمريم عادل») — اسم المجموعة الأولى ما قبله.
+ * gate K2/J-04: الاسم الأول وحده يقبل حرف العطف (و/ف) فقط كما في الخادم: «لدينا» ليست «ل» + «دينا».
+ */
+const nameRe = (v, flags = 'u') => {
+  const c = /\s/.test(v) ? '[وفبل]' : '[وف]';
+  return new RegExp(`(^|[^\\p{L}\\p{M}]${c}?|^${c})${tolerant(v)}(?=$|[^\\p{L}\\p{M}])`, flags);
+};
 /**
  * أسماء موظفي الشركة وبريدهم وهواتفهم الظاهرة في نص (تنبيه مسبق؛ الخادم ينقّي على أي حال، L-57).
  * يعيد النصوص كما وردت في النص (لتُحذف بنقرة)، الأطول أولًا.
@@ -102,8 +121,8 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
     api.get(`/admin/companies/${d.company.id}`).catch(() => null),
     api.get('/admin/staff').catch(() => []),
     api.get(`/admin/companies/${d.company.id}/memory`).catch(() => ({ items: [] })),
-    // review: معاينة الموعد على تقويم خدمة الشركات الفعلي (مواعيد العمل والعطلات) — متاح لمدير النظام؛ غيره على التقويم الافتراضي
-    isAdmin ? api.get('/admin/b2b/settings', null, { background: true }).catch(() => null) : null,
+    // gate K5: تقويم خدمة الشركات الفعلي يصل مع صفحة الطلب (d.calendar) لكل فريق المكتب؛ إعدادات مدير النظام احتياط لخادم أقدم
+    !detail.calendar && isAdmin ? api.get('/admin/b2b/settings', null, { background: true }).catch(() => null) : null,
   ]);
   const terms = (companyView && companyView.subscription && companyView.subscription.terms) || {};
   const people = (companyView && companyView.users) || (d.submitter ? [d.submitter] : []);
@@ -118,7 +137,15 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   const memItems = (memory.items || []).filter((m) => m.kind !== 'person' && !m.archived);
   const whyOf = new Map((t.memory_refs || []).map((x) => [x.ref, x.why]));
   const offered = new Set(memItems.map((m) => m.id)); // «المفوَّضون» والمؤرشف لا يُعرضون ولا يُرسلون (L-57)
-  const initialMem = (p.memory_ids ? p.memory_ids.map(Number) : [...new Set([...linkedIds, ...triageMemIds])]).filter((mid) => offered.has(mid));
+  // gate J-02: يُختار مسبقًا ما ربطته الشركة بالطلب، وما يخص الطرف الآخر نفسه، والنموذج المعتمد لنفس النوع فقط؛
+  // باقي اقتراحات الفرز تظهر بسببها دون اختيار (يصل للمحامي ما يختاره الفريق صراحةً)
+  const reqCps = new Set(CP_FIELDS.map((k) => fields[k]).filter(Boolean).map(cpKey));
+  const cpMatch = (m) => !!(m.counterparty && m.counterparty.name && reqCps.has(cpKey(m.counterparty.name)));
+  const strongTriage = (t.memory_refs || []).filter((x) => STRONG_WHY.has(String(x.why || '').replace(/[.\s]+$/, ''))).map((x) => /^M-(\d+)$/.exec(x.ref || '')).filter(Boolean).map((m) => Number(m[1]));
+  const preselect = [...new Set([...linkedIds, ...memItems.filter(cpMatch).map((m) => m.id), ...strongTriage])];
+  const initialMem = (p.memory_ids ? p.memory_ids.map(Number) : preselect).filter((mid) => offered.has(mid));
+  const whyFor = (m) => whyOf.get(`M-${m.id}`) || (linkedIds.includes(m.id) ? 'ربطته الشركة بالطلب' : cpMatch(m) ? 'نفس الطرف الآخر' : null);
+  void triageMemIds;
   const parties = Array.isArray(p.counterparties)
     ? p.counterparties.map((x) => ({ ...x }))
     : CP_FIELDS.filter((k) => fields[k]).map((k) => ({ name: String(fields[k]), role: spec.party_role === 'opponent' ? 'opponent' : 'related' }));
@@ -170,7 +197,8 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         hint: t.effort ? `الفرز: ≈ ${t.effort.hours_min}–${t.effort.hours_max} ساعات عمل (${t.effort.size})` : null,
         onChange: () => drawDue(),
       },
-      { name: 'priority', label: 'الاستعجال', type: 'select', required: true, placeholder: false, options: PRIORITIES.map((k) => ({ value: k, label: label('priority', k) })), onChange: () => drawDue() },
+      // gate C-12: كلمات الاستعجال نفسها التي تراها الشركة (الكتالوج): عاجل · مرتفع · عادي · منخفض
+      { name: 'priority', label: 'الاستعجال', type: 'select', required: true, placeholder: false, options: PRIORITIES.map((k) => ({ value: k, label: labelOf(CAT_PRIORITIES, k) })), onChange: () => drawDue() },
     ],
     { values: v0, footer: false },
   );
@@ -192,7 +220,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       drawDue();
     },
   });
-  const cals = calendars(b2b && b2b.values ? { ...b2b.values, office_hours_schedule: b2b.office_hours_schedule } : {});
+  const cals = d.calendar ? calendarsFromJson(d.calendar) : calendars(b2b && b2b.values ? { ...b2b.values, office_hours_schedule: b2b.office_hours_schedule } : {});
   function computedDue() {
     const vals = fClass.getValues();
     const sla = terms.sla && terms.sla[vals.priority];
@@ -245,8 +273,16 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         h('span', 'مجانًا — بقرار الإدارة'),
       )
     : null;
+  // gate J-01/K1: عرض سعر وافقت عليه الشركة يحدد الاحتساب (الخادم يلتزم به في كل مسار؛ لا «مجانًا» ولا طلب مشمول فوقه)
+  const approvedQuote = ['out_of_scope', 'overage'].includes(r.quota_kind) ? [...(d.quotes || [])].reverse().find((x) => x.status === 'approved') || null : null;
+  if (approvedQuote && freeBox) freeBox.hidden = true;
   function drawQuota() {
     let text;
+    if (approvedQuote) {
+      text = `${r.quota_kind === 'overage' ? 'طلب إضافي فوق الباقة' : 'خارج الباقة'} — وفق عرض السعر المعتمد ${approvedQuote.number}، ولا يُحتسب من الطلبات المشمولة`;
+      mount(quotaLine, h('strong', 'النطاق: '), r.quota_kind === 'out_of_scope' ? 'خارج الباقة' : 'ضمن الباقة', ' · ', h('strong', 'الاحتساب: '), text);
+      return;
+    }
     if (free) text = 'مجانًا — بقرار الإدارة (يُسجَّل في سجل الأمان)';
     else if (!sc.in_plan) text = `خارج الباقة: ${(sc.reason_labels || []).join('، ')}`;
     else if (q.unlimited) text = 'من الطلبات المشمولة (غير محدودة)';
@@ -345,8 +381,9 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
               'span',
               `${m.kind_label} · `,
               h('span', { dir: 'auto' }, m.title),
-              m.kind === 'position' ? badge('موقف معتمد', 'info') : null,
-              whyOf.get(`M-${m.id}`) ? h('span.muted', ` — ${whyOf.get(`M-${m.id}`)}`) : null,
+              // gate C-13/J-02: لا شارة تكرر النوع؛ تنبيه لعناصر «مديرو البوابة فقط»، وسبب الاقتراح إن وُجد
+              m.access === 'admins' ? badge(m.access_label || 'مديرو البوابة فقط', 'warning') : null,
+              whyFor(m) ? h('span.muted', ` — ${whyFor(m)}`) : null,
             ),
           ),
         ),
@@ -440,7 +477,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       skills: c.skills || [],
       priority: c.priority,
       size: c.size,
-      scope: sc.in_plan === false ? 'out_of_scope' : 'in_scope',
+      scope: sc.in_plan === false || (approvedQuote && r.quota_kind === 'out_of_scope') ? 'out_of_scope' : 'in_scope',
       requires_senior_review: !!qv.requires_senior_review,
       risk_level: qv.risk_level || undefined,
       case_title: lv.case_title,
@@ -458,7 +495,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       ai_suggestion_id: d.triage ? d.triage.id : undefined,
       assign: {},
     };
-    if (free) body.quota = 'free';
+    if (free && !approvedQuote) body.quota = 'free';
     if (manualDue && due.delivery_due_at) {
       body.delivery_due_at = due.delivery_due_at;
       body.due_reason = due.due_reason || undefined;

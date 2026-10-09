@@ -449,3 +449,16 @@ tr.is-voided > td { color: var(--text-muted); }
 .cs-sheet > .modal-header,
 .cs-sheet > .modal-footer { flex-shrink: 0; }
 .cs-sheet > .modal-body { min-height: 0; }
+
+/* gate J-13: شارة الشركة ورمز طلبها على بطاقات «قرارات الإدارة» */
+.pa-co-chip { text-decoration: none; display: inline-flex; }
+.pa-co-chip:hover .badge { text-decoration: underline; }
+
+/* gate K7: على هاتف المحامي تظهر التنبيهات أسفل الشاشة؛ وأثناء نافذة أو ورقة مفتوحة تنتقل لأعلى الشاشة حتى لا تغطي أزرارها */
+@media (max-width: 640px) {
+  html.lh-lawyer-ui body.has-modal .toast-region {
+    inset-block-start: calc(12px + env(safe-area-inset-top, 0px));
+    inset-block-end: auto;
+    --toast-from: -12px;
+  }
+}

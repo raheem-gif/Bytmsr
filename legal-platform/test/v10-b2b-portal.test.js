@@ -970,7 +970,9 @@ describe('v10 b2b-portal — build-2 copy and components (§8.3, L-50, L-63)', (
   });
 
   test('counted copy agrees in number: revision rounds, entities, users, near dates', () => {
-    assert.equal(UI.copy('changesSheet.left', { left: UI.countOf(2, 'round_left'), max: 2, date: '5 نوفمبر' }), 'تبقّى لكم جولتا تعديل (من 2) حتى 5 نوفمبر.');
+    // gate C-03: «تبقّت» (جولة مؤنثة) و«من {max}» بلا أقواس؛ ولا «(من …)» حين لم تُستخدم أي جولة
+    assert.equal(UI.copy('changesSheet.left', { left: UI.countOf(1, 'round_left'), max: 2, date: '5 نوفمبر' }), 'تبقّت لكم جولة تعديل واحدة من 2 حتى 5 نوفمبر.');
+    assert.equal(UI.copy('changesSheet.left_all', { left: UI.countOf(2, 'round_left'), date: '5 نوفمبر' }), 'تبقّت لكم جولتا تعديل حتى 5 نوفمبر.');
     assert.equal(UI.countOf(1, 'round_left'), 'جولة تعديل واحدة');
     assert.equal(UI.countOf(3, 'entity'), '3 كيانات');
     assert.equal(UI.countOf(10, 'user'), '10 مستخدمين');

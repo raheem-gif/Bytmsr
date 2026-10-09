@@ -5,6 +5,12 @@
 > It is written so that a person — or an AI assistant they are talking to — can understand everything the platform
 > does, why it was designed that way, how it is used day to day, and what is still left to decide before going live.
 > You can paste this whole file into an AI chat and ask it questions about the platform.
+>
+> **Since version 10.0** the platform serves **two product lines** under one client-facing brand, **«Emam Legal and
+> Consultancy»** (royal green and gold): the foundation's free legal support for individuals (beneficiaries) and a paid
+> **"Virtual In-House Counsel as a Service"** for companies, with its own Company Legal Portal at `/company`. The brand
+> is a setting used only where clients look; the legal entity, code and history keep their names. Read the 10.0 section
+> («10.0 in plain words») first for the company service.
 
 ---
 
@@ -30,6 +36,16 @@ facts, questions and documents that the administration explicitly grants them. E
 information, a document, help from another lawyer) goes through the administration. Only the administration talks to
 the beneficiary and only the administration closes a file.
 
+**Since 10.0 — a second product line.** The same engine (lawyer network, assignments, review and approval, AI,
+knowledge, accounting) now also runs a paid service for companies, **«Virtual In-House Counsel as a Service»**: a company
+subscribes to a plan, its employees submit legal requests (contracts, NDAs, employee matters, notices, resolutions,
+compliance questions, disputes…) in the Company Legal Portal `/company`, and the firm answers as «فريقكم القانوني» (your
+legal team) within a stated response promise, keeps the company's institutional legal memory (contracts, deadlines,
+templates, licences, approved positions) and reminds it of renewals. The individual line (called «Legal Services on
+Demand» in the 10.0 vision) is unchanged and stays free; both are presented to clients as **«Emam Legal and
+Consultancy»**. The same core principle applies to companies: lawyers see only what the administration grants (and never
+the names or contacts of the company's employees), and companies see only «فريقكم القانوني», never a lawyer's name.
+
 ---
 
 ## 2. Who uses it (roles)
@@ -40,6 +56,10 @@ the beneficiary and only the administration closes a file.
 | Case manager | إدارة الحالات | Daily operations: inbox, triage, files, lawyers, messages, court cases, calendar, programmes (view), impact. No accounting or system settings. |
 | Lawyer | المحامي | Only their own assignments («إسنادات») and court cases they are responsible for; sees only what was granted; drafts opinions, asks for information, a document, more time or another lawyer's help, asks the administration a question, records hearing outcomes and tasks, sees their own pay («مستحقاتي»). Since 9.1 the lawyer's home page is «اليوم» (Today), built for a phone. |
 | Beneficiary / client | المستفيد/ة | No account. Uses WhatsApp, the website form, and a private follow-up page (saved on her phone, or opened with a WhatsApp code) to follow the request, answer questions, send photos and voice notes, reply to hearings and fees, and ask for a call. |
+| (10.0) Account manager | مدير العلاقة | An admin or case manager assigned to a client company; the only firm person the company sees by name («مدير علاقتكم لدينا: …»). |
+| (10.0) Company portal admin | مدير البوابة | A company employee with a `/company` account: sends and sees all the company's requests, approves quotes, accepts deliverables, manages the team, entities and the legal memory, sees charges. |
+| (10.0) Company member | عضو | Sends requests and follows their own and shared requests; adds contracts, templates, licences and key dates to the memory. |
+| (10.0) Company viewer | اطلاع فقط | Reads shared requests and memory only. Any company role can also carry the «جهة الفواتير» (billing contact) flag. |
 
 Arabic terminology was standardised across the whole product: «إسناد» = a piece of work given to a lawyer, «مهمة» = a
 task inside a court case, «استشارة/ملف» = a consultation file, «قضية» only for real court cases, «مستفيد/مستفيدة» for
@@ -429,6 +449,202 @@ account for **companies**, for which the firm acts as their outsourced in-house 
 Service"): a company legal portal where they submit legal requests and follow them, backed by the same lawyer network,
 AI, knowledge and workflow engine as the beneficiary service.
 
+The first subsection below explains the result in plain words; the four that follow are the technical record of each
+build lane (between `<!-- v10:… -->` markers); then come the integration gate's fixes, the known limitations and what
+was deferred to 10.1. The open decisions O-1 … O-18 are in section 11 and the demo company logins in section 9.
+
+### 10.0 in plain words — one firm, two product lines
+
+**The brand.** Since 10.0 everything a client sees carries the name **«Emam Legal and Consultancy»** (short form «Emam
+Legal») in **royal green `#0b5a3c` and gold `#c9a14a`**. The name is a setting, not code: it appears only on
+client-facing surfaces (the public site's header, footer lockup, page titles and share cards; the beneficiary
+follow-up page and its login; the signature of messages to beneficiaries; the installed-app names; the company portal;
+company e-mails) and in the chrome of the staff/lawyer app (login, sidebar wordmark, tab title) while the admin setting
+`brand_in_staff_app` is on. It is **not** used for the legal entity: the © line, the privacy policy, the terms, the
+JSON-LD `Organization`, printed letterheads and the "contracting entity" shown to companies keep `org_legal_name`
+(today still the foundation's default — open decision O-2). Staff and lawyer body copy, code, database and docs history
+are not renamed.
+
+**Two product lines share one engine** (the same lawyer network, assignments, review and approval, AI, knowledge base,
+accounting and automations):
+
+| | Individuals — «Legal Services on Demand» (B2C) | Companies — «Virtual In-House Counsel as a Service» (B2B, new) |
+|---|---|---|
+| Who | widows, guardians of orphans and their families (the foundation's legal-support programme; free) | companies that outsource their in-house legal department to the firm (paid subscription) |
+| Front door | WhatsApp, `/` picture tiles, `/intake`, the follow-up page `/p/<token>` and `/portal` | the **Company Legal Portal** `/company` («Emam Legal and Consultancy — إدارتكم القانونية») + e-mail |
+| Identity | no account (phone number, follow-up link, WhatsApp code) | named portal accounts (company users, own sessions, 2FA, invites) |
+| Who they deal with | «المؤسسة» / the team, in Egyptian colloquial | «فريقكم القانوني» (your legal team), in formal plural Modern Standard Arabic; never a named lawyer |
+| Channel for news | WhatsApp (24-hour window, approved templates, B91-01 channel rule) | the portal + e-mail (SMTP); **never WhatsApp** |
+| Money | free; lawyers paid per agreement; CSR/pro-bono tracking | plans, included requests per monthly cycle, approved extra charges; work is always paid (`payable`), never counted as volunteer/CSR work |
+
+Behind every company request the firm runs **request → AI triage (staff only) → specialty → capacity (lead lawyer +
+optional senior reviewer) → lawyer work → review → delivery**. Technically each company has one hidden "shadow client",
+and every accepted company request becomes an ordinary engine case (`cases.company_id`), so lawyers use the same screens
+as for B2C work. Thirty guards keep this invisible to the beneficiary side: B2C reports, automations and exports are
+byte-identical with company data present (snapshot test).
+
+**The Company Legal Portal (`/company`) and its roles.**
+
+| Role | Arabic | Can do |
+|---|---|---|
+| Portal admin | «مدير البوابة» (`company_admin`) | everything in the company: send requests, see **all** the company's requests (including private ones), approve quotes, accept deliverables, manage the team (invite, roles, deactivate, e-mail a colleague a password link), entities, the whole legal memory (including admins-only items), company profile, and see charges |
+| Member | «عضو» (`member`) | send requests; see own requests, requests shared with the whole company and those they watch; answer clarifications and accept deliverables on them; add contracts, templates, licences and key dates to memory and edit what they added |
+| Viewer | «اطلاع فقط» (`viewer`) | read shared requests and memory; no sending, replying or approving |
+| Billing contact (flag) | «جهة الفواتير» | sees the approved-charges ledger (any role can carry it) |
+
+The firm-side person a company can see is the **account manager** — «مدير علاقتكم لدينا: {name}» (company setting
+`show_account_manager`, default on — O-6); the company's own top role is «مدير البوابة». These two names were kept
+apart on purpose (a member must know whether "the person who approves" is a colleague or the firm). The company never
+sees a lawyer's name, the engine case code, the team, AI output, internal notes or lawyer pay. Screens: «المتابعة»
+(overview: what needs your attention, open requests, plan usage, upcoming dates, one search box across requests, memory
+and documents), «الطلبات», «طلب جديد», the request page, «الذاكرة القانونية», «الفريق», «الباقة والاستخدام», «بيانات
+الشركة», «الإشعارات», «حسابي والأمان» (password, 2FA, devices) and «المزيد» on phones. Read-only companies (suspended,
+or ended within `b2b_ended_readonly_days`, default 90) can still sign in, read and download; every write returns 403.
+
+**The 12 request types** (one catalogue, `public/assets/js/lib/company-catalog.js`, shared by server, portal and staff
+desk; each has its own fields, document hint and suggested title): contract review («مراجعة عقد»), contract drafting
+(«صياغة عقد»), NDA («اتفاقية سرية»), an employee matter («مسألة موظف»), marketing campaign review, a legal notice or
+claim received («إنذار أو مطالبة وصلتكم»), a board or general-assembly resolution, a supplier problem, a compliance
+question, renewal of a contract or licence, starting a dispute or claim, and «طلب آخر». A request can be **private**
+(only the sender and portal admins see it) or shared with the company, can have watchers, a priority («عادي»,
+«مرتفع», «عاجل»; «منخفض» is staff-only), an entity, documents (uploaded one by one with progress and retry; ≤ 5 per
+batch, ≤ 30 per request; PDF, Word, Excel, images, text — no audio or video) and an output language. The draft survives a
+reload (text and uploaded file ids only, 7 days, deleted on send and on sign-out).
+
+**The SLA promise.** Before the company presses «إرسال الطلب» it sees two sentences computed by the **same module the
+server uses** (`public/assets/js/lib/company-sla.js`): «نؤكد لكم موعد التسليم أو نطلب ما ينقص قبل {weekday date time}.»
+(the **first-response** deadline) and «التسليم المعتاد لطلب مثل هذا: خلال {n أيام عمل} من بدء العمل.» (typical delivery
+= the plan's delivery hours × the type's size factor S 0.5 / M 1 / L 2), plus a plan line (included requests left, a
+warning when pending requests may exceed them, urgent requests left in the cycle, and what an overage would mean).
+Rules: business-hour arithmetic on **one firm calendar** — by default the public office hours (Sat–Thu 10:00–16:00
+Cairo, DST-correct) plus `b2b_holidays`; urgent requests run on a separate clock inside `b2b_urgent_hours` (default every
+day 08:00–22:00) and are capped per plan (demo Starter 1, Growth 3, Enterprise unlimited per cycle; above the allowance
+the request is stored as «مرتفع» and the company is told why). A **first response** is only a real decision —
+acceptance, a clarification, a quote, an overage request or a decline; a chat message does not stop the clock. After
+the company answers a pre-acceptance question or approves a quote, a **confirm phase** gives staff one more
+first-response window to start work. Acceptance sets the delivery date («بدأ فريقكم القانوني العمل على الطلب. موعد
+التسليم المتوقع: …»). The clock **pauses** while the firm waits on the company and resumes by the paused business minutes. The
+`b2b.sla` job flags requests at risk and late (once per phase and due date); late and urgent events also e-mail the
+account manager and staff admins (company name + code only). The sender or a portal admin can **escalate** any open
+request to the firm's management, once every 24 hours. The request page shows a **five-step tracker** — «تم الاستلام · دراسة الطلب ·
+العمل القانوني · المراجعة النهائية · التسليم» — driven only by the request's stage, reset per revision cycle.
+
+**Clarifications.** When the firm needs something it sends «سؤال للشركة» with numbered items — written by staff, or a
+lawyer's information/document request approved by staff (the core rule stands: every lawyer request goes through the
+administration). The company answers per item: attach a file, or «غير متوفر لدينا». The answer goes back to staff, who
+share it with the lawyer after server-side cleaning of employee names, e-mails and phones. No WhatsApp, no `messages`
+row; unanswered clarifications get up to two reminders after 16 business hours.
+
+**Quotes.** Work outside the plan (litigation, arbitration, M&A, criminal, debt collection, due diligence — per plan —
+or a type outside the plan's scope, or a contract above the plan's value cap) gets a **quote**: fixed («مبلغ ثابت») or
+capped («بحد أقصى»), with scope of work, assumptions, exclusions and validity (default 14 days); hourly quotes do not
+exist in 10.0. Only portal admins approve (O-7). Approval is atomic: the quote is approved, the charge is booked and
+every admin and billing contact is notified in the portal and by e-mail; then the start plan staff prepared runs, so
+work begins without another click (if it cannot — e.g. the planned lawyer was deactivated — the company still gets
+success and the request returns to the top of the staff queue with «تعذّر بدء العمل»). Work started from an approved
+quote never also consumes an included request. Expired quotes are closed by the `b2b.reminders` job.
+
+**Deliverables and the document gate.** Staff build a deliverable from the **approved** opinion(s): «تعبئة من الرأي
+المعتمد» fills the executive summary, recommendations («خطوات للشركة»), risk level and body deterministically (no AI);
+staff edit it and attach files. Before «إرسال للشركة» is enabled, one gate (`src/services/company-doc-gate.js`) must
+pass: no name of any lawyer who worked on the case in the text, titles or file names (Arabic normalised, with or without
+honorifics, first + last, with middle names, Latin name, initial + surname, username), no lawyer name in **file metadata**
+(Word/Excel/PowerPoint authors and tracked changes, PDF `/Author` and XMP, JPEG EXIF/XMP, PNG text chunks, text files —
+a hit must be fixed, there is no override), and an explicit review tick («راجعتُ الملفات وتأكدت من خلوّها من أسماء المحامين») for any Office or
+PDF file that carries author metadata. The same gate runs on staff messages with attachments, on quote texts, on the release
+message and on files staff put into the company's memory. The company sees the summary, risk, recommendations, files and
+versions, and either **accepts** («اعتماد التسليم», ★1–5, with «حفظ العقد في الذاكرة القانونية» pre-ticked for contract
+work, and an admin-only «تسجيل قرار الإدارة» that records a position) or **asks for changes** («طلب تعديلات», within the
+plan's revision rounds and a 30-day window). A delivered request closes automatically after 7 days (O-16).
+
+**Legal memory and reminders.** Each company has an institutional memory that the work fills by itself: accepting a
+contract review, drafting or NDA deliverable saves the contract (under review until staff confirm it), and
+«تسجيل قرار الإدارة» saves an approved position. Kinds: contracts (renewal type, term, notice period, value,
+counterparty, signed date — the badge shows «آخر موعد لإيقاف التجديد بعد …»), approved templates, licences, board
+resolutions, approved positions, authorised people, policies, disputes and key dates; plus entities and counterparties.
+Items can be visible to all or to portal admins only; each holds ≤ 10 documents and offers "start a request from this
+item" shortcuts (e.g. «متابعة التجديد أو الإنهاء»). The daily `b2b.memory` job (after 08:00 Cairo, once per day even
+across restarts) sends reminders before the notice deadline or end date (contracts 60/30/7 days, licences 90/30/7, key
+dates 14/3/1, disputes 7/1, people 30/7), rolls auto-renewing contracts forward from their anchor day (31 Jan → 28 Feb →
+31 Mar), expires licences and authorisations, and repeats recurring key dates. Permanent deletion is for the firm's system admin only (typed-name confirmation).
+Lawyers see a memory item only when staff grant it on an assignment, and then only a whitelist of safe fields per kind
+(authorised-people items are never grantable), until 7 days after the case closes.
+
+**Plans, usage and charges.** A plan (or custom terms per company) fixes: monthly price, included requests per
+**monthly usage cycle anchored on the subscription start**, urgent requests per cycle, max users and entities, the
+overage policy («بموافقة الشركة على تكلفة إضافية» = the admin approves a priced overage; «تُضاف تكلفة إضافية
+تلقائيًا» = billed and said before sending; «لا يبدأ العمل حتى الدورة التالية»), the overage price, a contract-value cap,
+the request types in scope and the excluded work, the SLA table per priority (first response and delivery hours, clock),
+size factors, second review (never / high-risk / always) and revision rounds. Quota is consumed at **acceptance**, not at
+submission, and released automatically only when the firm declines after acceptance (O-17). Every charge (approved
+quote, overage under `bill`, staff manual charge) lands in an **approved-charges ledger** and is notified to admins and
+billing contacts («أُضيفت تكلفة إضافية …» — amount and request code only); a capped charge can only be replaced by a
+lower one. Staff export a cycle as CSV (one subscription line + the charges). **No invoices, payments or e-invoicing in
+10.0** (deferred to 10.1, O-5). «الباقة والاستخدام» shows the plan, what is left, the SLA table, usage per cycle, the
+next period start and the **contracting entity** («الجهة المتعاقدة: {org_legal_name} · السجل: …»). Production ships with
+no priced plans: staff create plans first (or use custom terms when adding a company). Demo plans (fictional prices):
+Starter 15,000 EGP/month (5 requests, 1 urgent, 1 entity, 3 users, first response 6 business hours for normal), Growth
+35,000 (15, 3 urgent, 3 entities, 10 users, second review for high-risk work, 2 revision rounds), Enterprise 80,000 (40,
+unlimited urgent, overage billed, second review always, 3 rounds).
+
+**The staff desk in `/app`.** A sidebar group «خدمة الشركات» (admins and case managers only): «طلبات الشركات» — a queue of
+cards ordered escalated → late → plan error → at risk → new → needs the team → working → awaiting the company, each with
+one primary action, an SLA chip and the suggested triage — and «الشركات العميلة». The request page shows the handler,
+the dates «as the company sees them», the AI triage suggestion (type, priority, size, risk, skills, scope/quota check,
+related memory items with the reason) for staff to accept or change, the request as submitted, the conversation (with
+internal notes), the work case and team, memory grants, deliverables, quotes and charges. Four sheets do the work:
+**«بدء العمل على الطلب»** (classification, delivery date, plan consequence, lead + reviewer, the brief the lawyer will
+read — with a live warning if it contains employee names — and every conflict handled inside the sheet), **«سؤال
+للشركة»**, **«عرض سعر للشركة»** (fixed/capped + start plan; admin only) and **«إعداد تسليم»** (prefill, live gate
+checklist, send disabled until every gate passes). Every preview "as the company will see it" uses the portal's own
+components. Company pages: add a company (prefix check, plan or custom terms, account manager, first portal admin; the
+invite link is shown once when e-mail is not set up), and a company page with overview, requests, users (e-mail change
+and promotion to portal admin are admin-only; security actions), entities and counterparties, plan and charges (+ CSV),
+legal memory (confirm items saved from deliveries, internal notes, archive, purge), preferred team and log. Settings:
+«خدمة الشركات», «باقات الشركات», the e-mail card in «التكاملات» and «صادر البريد». Engine pages hide every B2C-only
+control on company cases (WhatsApp, beneficiary card, client answers, generic close/reopen — the request owns its case).
+
+**What lawyers see of a company.** A «شركة» chip and the company name in «اليوم» and «إسناداتي», a «طلبات الشركات»
+filter, and in the assignment a **«سياق الشركة»** block: entity, request type, priority, output language, «موعد تسليم
+الإدارة للشركة» (the date the firm owes the company; hidden once the case is closed), the reviewer role («أنت المراجع النهائي لهذا العمل قبل
+تسليمه للشركة.»), and the memory items staff granted, with their safe fields only. The opinion editor offers the
+company skeleton («الخلاصة التنفيذية · المخاطر الرئيسية ودرجتها · التوصيات · التحليل القانوني» + «خطوات للشركة»), «ملفات
+العمل» (≤ 5, never visible to the company) and no AI draft on company work. Lawyers never see company employees'
+names, e-mails or phones, the request code, the plan or the price; every string sent to them passes a redactor. Each
+lawyer's Latin name («الاسم بالإنجليزية») is recorded so the document gate can catch it.
+
+**Privacy model (10.0 additions).** (1) **Three principals that never mix:** staff/lawyers (`users`), beneficiaries
+(no account) and company users (`company_users`, cookie `bm_csid` scoped to `/api/company`); a company cookie opens no
+staff, lawyer, document or print route and a staff cookie opens no company route. (2) **Tenant isolation:** `company_id`
+always comes from the session; another company's id or code answers 404 with the same body as "does not exist".
+(3) **Inside a company:** private requests, admins-only memory, employee counterparties and billing data are filtered
+by three shared SQL predicates on every path (lists, counts, search, home, usage, notifications, downloads, nested ids).
+(4) **One voice:** company JSON never contains a lawyer or staff name (except the account manager), a case code, AI
+output, internal notes, SLA internals, costs or lawyer pay (automated scan of every company GET). (5) **Lawyers never see
+company people** (whitelist + redactor). (6) **No lawyer identity in deliverables** (document gate). (7) **E-mails carry
+no legal content** — an event line, the request code and a portal link built from `PUBLIC_BASE_URL`; invite and reset
+links live only in memory until sent. (8) **AI and knowledge stay per company:** triage is staff-only and reviewed;
+knowledge records from company cases are `company_only` and never reach B2C prompts, precedents or the training export.
+(9) **Browser storage** holds only the request draft, the return page and view preferences; no service worker on
+`/company`. (10) No company identity ever lands in a staff foreign-key column (audit, documents, closed-by).
+
+**The Apple-style experience kit.** Applied with three intensities: the public site and `/intake` get CSS-only press
+feedback, a frosted header, scroll-edge and the reduce-motion/transparency/contrast rules (no new JavaScript, budgets
+unchanged); the beneficiary follow-up page gets a finger-tracking bottom sheet loaded after first paint; `/app` and the
+company portal get the full kit — interruptible **springs** with Apple's damping/response (`lib/spring.js`), **draggable
+sheets** with velocity hand-off and momentum projection (`lib/sheet-motion.js`), desktop dialogs that **materialise from
+the button that opened them**, press feedback on pointer-down, translucent chrome, a type scale (Arabic never
+letter-spaced), inline validation that rewards early and punishes late, typed text that is never lost to a gesture
+(«تجاهل ما كتبتموه؟»), and **haptics only on real commits** (`lib/haptics.js`: send, approve, save). No dependency, no
+CDN, CSP unchanged.
+
+**Brand-name settings.** In «الموقع العام وبيانات التواصل»: `brand_name` («اسم المكتب كما يراه العملاء», ≤ 60, default
+«Emam Legal and Consultancy»), `brand_short_name` (≤ 24, «Emam Legal»), and `brand_in_staff_app` («إظهار اسم المكتب في
+منصة فريق العمل والمحامين», default on — off restores the 9.2 names in `/app` only; O-18). An emptied field renders the
+default; control and bidi characters and `< >` are refused. Server code reads the name only through `app.brand.*`; the
+Latin name is bidi-isolated in Arabic HTML, a WhatsApp signature line gets an RLM so it stays right-aligned, and plain-text
+e-mails wrap it in U+2068/U+2069. New 2FA enrolments show the issuer «Emam Legal».
+
 ### Design system, colours and the brand name
 <!-- v10:experience -->
 **Brand = settings, one accessor, user experience only.** `brand_name` («Emam Legal and Consultancy», ≤ 60) and
@@ -534,10 +750,12 @@ lifecycle, overview, B2B settings), `company-requests.js` (staged uploads, 12 re
 triage, accept → shadow-client case + assignments, clarifications, quotes, deliverables + doc gate, close/reopen/
 auto-close, SLA engine on `company-sla.js`), `company-billing.js` (quota per usage cycle, overage, charges, CSV — no
 invoices), `company-memory.js` (memory items, counterparties, reminders, purge), `company-notify.js` (portal
-notifications, `b2b.cleanup`), `email.js` (outbox + hardened SMTP), `company-doc-gate.js` (lawyer names in text and in
-Word/PDF author metadata). One voice both ways: every staff text that reaches the company after acceptance
-(messages, deliverables, clarifications incl. an approved lawyer info request, due-date reason, close note, decline reason,
-deliverable withdrawal reason, the acceptance note) is refused with 409 `lawyer_names` when it names a lawyer of the case;
+notifications, `b2b.cleanup`), `email.js` (outbox + hardened SMTP), `company-doc-gate.js` (lawyer names in text — full
+name, honorific + first name, middle names, Latin name and initial + surname, username — and in Word/Excel/PowerPoint/PDF
+author metadata, JPEG EXIF/XMP, PNG text chunks and text files; also gates staff files added to a company's memory). One voice both ways: every staff text that reaches the company after acceptance
+(messages, deliverables and the release message, clarifications incl. an approved lawyer info request, quote message,
+scope, assumptions and exclusions, due-date reason, close note, decline reason, deliverable withdrawal reason, the
+acceptance note) is refused with 409 `lawyer_names` when it names a lawyer of the case;
 every string a lawyer sees on a company case — brief, issues, shared replies, document titles, the case title and the
 per-assignment brief (stored redacted at acceptance, on generic assignment and on title edits, and redacted again when
 read) — passes the company-user redactor (names, e-mails, phones, request codes). Schema `schema.d/80`–`85` is additive and idempotent (G-4 rehearsed in the suite on a real
@@ -559,7 +777,7 @@ third company with accepted work.
 | Public | `GET meta` (ETag; `email_enabled`, `terms_url`, limits, hours text) · `POST auth/login`, `auth/login/2fa`, `auth/logout` · `GET auth/session` · `POST auth/link` (inspect invite/reset), `auth/invite/accept`, `auth/forgot` (same answer always), `auth/reset` |
 | Me (R) | `GET/PATCH me` · `POST me/password` · `POST me/2fa/setup|enable|disable|recovery-codes` · `GET me/sessions` · `POST me/sessions/revoke-others` · `DELETE me/sessions/:sid` |
 | Home (R) | `GET home`, `plan` (prices to A/billing contacts only), `usage`, `colleagues`, `search?q=` (requests + memory + documents, Arabic-normalised), `GET charges` (A or billing contact) |
-| Requests | `POST uploads` (W; one file, 12 MB, 4 in flight) · `GET requests?state=&q=&cursor=` (R) · `POST requests` (W; `client_ref` replay-safe) · `GET requests/:code` (R) · `POST requests/:code/messages`, `/documents` (W) · `POST requests/:code/clarifications/:messageId/reply` (W) · `POST requests/:code/cancel`, `/escalate` (W) · `PUT requests/:code/watchers` (W) · `POST requests/:code/quotes/:number/approve|reject` (A) · `POST requests/:code/deliverables/:id/accept|request-changes` (W) · `GET documents/:id/download` (R, L-52) |
+| Requests | `POST uploads` (W; one file, 12 MB; in flight ≤ 2 per user, 3 per company, 4 in all; 60 files and 90 starts per user per hour; a stalled body is cut with 408) · `GET requests?state=&q=&cursor=` (R) · `POST requests` (W; `client_ref` replay-safe) · `GET requests/:code` (R) · `POST requests/:code/messages`, `/documents` (W) · `POST requests/:code/clarifications/:messageId/reply` (W) · `POST requests/:code/cancel`, `/escalate` (W) · `PUT requests/:code/watchers` (W) · `POST requests/:code/quotes/:number/approve|reject` (A) · `POST requests/:code/deliverables/:id/accept|request-changes` (W) · `GET documents/:id/download` (R, L-52) |
 | Memory | `GET memory?kind=&status=&q=&due_within_days=` (R) · `GET memory/:id` (R) · `POST memory` (A any kind; member contract/template/licence/key_date; 100/day) · `PATCH memory/:id` (A, member own) · `POST memory/:id/documents {upload_ids}` (≤ 5 per call, ≤ 10 per item) · `POST memory/:id/archive` · `GET key-dates?from=&to=&kind=` · `GET counterparties?q=` |
 | Company | `GET/POST entities`, `PATCH entities/:id` (A) · `GET/PATCH profile` (A) · `GET team`, `POST team/invite`, `PATCH team/:uid`, `POST team/:uid/invite|reset-link|sessions/revoke` (A; 20 invites+links/day) · `GET notifications`, `POST notifications/read-all`, `POST notifications/:id/read` (R) |
 
@@ -575,7 +793,7 @@ A, `GET|PUT companies/:id/team` S, `GET companies/:id/charges` S, `POST companie
 `GET …/suggest-lawyers` S, `PUT …/memory-links` S, `POST …/memory` S, `POST …/quote` A, `POST company-quotes/:id/withdraw` A,
 `POST …/deliverables`, `POST …/deliverables/prefill`, `POST …/ai/deliverable` S, `PATCH company-deliverables/:id`,
 `GET company-deliverables/:id/precheck`, `POST company-deliverables/:id/release` S, `POST company-deliverables/:id/withdraw` A,
-`PUT assignments/:id/memory-grants` S. Memory: `GET|POST companies/:id/memory` S, `GET|PATCH company-memory/:mid` S,
+`GET|PUT assignments/:id/memory-grants` S. Memory: `GET|POST companies/:id/memory` S, `GET|PATCH company-memory/:mid` S,
 `POST company-memory/:mid/documents|archive` S, `DELETE company-memory/:mid?purge=1` A, `GET|POST companies/:id/counterparties` S,
 `PATCH company-counterparties/:cid` S. Operations: `GET b2b/overview` S (`mrr_minor` A only), `GET email-outbox` A,
 `GET|PUT b2b/settings` A, plus `PUT integrations/email` and `POST integrations/email/test` A. Lawyers:
@@ -590,7 +808,7 @@ manual subscription past `ends_on` → ended), `b2b.memory` daily after 08:00 Ca
 transaction per item; every due offset recorded in `company_memory_reminders`, only the newest sent, at most one
 notification per item per run; auto-renew rolls with compare-and-swap on `end_date`; licences/people expire; key dates
 recur), `b2b.cleanup` 15 min (expired staged uploads + files, read notifications, outbox), `email.flush` 1 min with SMTP
-(≤ 50 messages, 20 s budget, one connection + RSET, back-off 1/10/60 min, stale `sending` rows recovered at start-up).
+(≤ 50 messages, 20 s budget, one connection + RSET, back-off 1/10/60 min, stale `sending` rows (> 10 min) requeued at start-up and at the start of every flush).
 
 **E-mail.** Provider `outbox` (default; nothing leaves) or `smtp` (`INTEGRATION_SPEC.email`: host, port 25/465/587/2525,
 `starttls`|`tls`, user, password (encrypted), from address, from name; env `EMAIL_PROVIDER`, `EMAIL_FROM`,
@@ -621,14 +839,16 @@ auto-closed; an overage charge in the previous cycle; lawyers tarek/yasmine/amr 
 in-process fake TLS/STARTTLS servers, jobs, the journey, §7.3 items 3–17, G-4), `test/v10-b2b-server-isolation.test.js`
 (route scan, cross- and intra-tenant matrices on the demo, lawyer memory-grant expiry, shadow-client guards, CS-8
 automations, INV-B7 snapshot), `test/v10-b2b-server-sla.test.js` (calendars, business-time arithmetic, DST, pauses,
-preview parity incl. real submits at Thursday 15:59/16:01 and a holiday eve, usage cycles) — 140 tests.
+preview parity incl. real submits at Thursday 15:59/16:01 and a holiday eve, usage cycles) — 143 tests (103 + 18 + 22).
 <!-- /v10:b2b-server -->
 
 ### The Company Legal Portal `/company`
 <!-- v10:b2b-portal -->
 **Front door.** `/company` serves `public/company.html` (platform CSP, no inline script, `noindex`, manifest
 `/company.webmanifest`, no service worker). `company/main.js` boots: storage hygiene, plural error copy
-(`setErrorCopy`), `GET /api/company/meta` ∥ `GET /api/company/auth/session` (and `/home` fired from `company/early.js`),
+(`setErrorCopy`), `GET /api/company/meta` ∥ `GET /api/company/auth/session` (and `/home` on the overview) — started first by
+`lib/company-boot-early.js`, an async classic script in the `<head>`, before the module graph loads, and picked up by
+`company/early.js` —
 then sign-in screens (`pages/login.js`, `pages/link.js`), the restricted gate (`pages/gate.js`) or the routed shell
 (`company/shell.js`: `.k-chrome`, phone `.k-tabbar`, light desktop side nav, bell, user menu, one-search box, the single
 gold «طلب جديد» control). Routes (`company/routes.js`, U10-08 minus billing/activity) lazy-load page modules; build-2
@@ -651,7 +871,10 @@ when `meta.email_enabled` is false.
 
 Every sheet with a text field goes through `company/page-kit.js textSheet()` → `beforeClose: discardGuard(dirty)`
 («تجاهل ما كتبتموه؟»). Browser storage holds only `ek.co.draft:`, `ek.co.return`, `ek.co.setup:`, `ek.co.intro:`,
-`ek.co.view:` keys (L-47). Budgets as served: entry closure 59,437 B br (≤ 60 KB), entry CSS 23,084 B br (≤ 25 KB).
+`ek.co.view:` keys (L-47). Budgets as served (after the gate fixes): entry closure 60,560 B br in 17 files (≤ 60 KB = 61,440 B), entry CSS
+24,594 B br (≤ 25 KB). Cold load at 390 px, median of 3 (Sherif): slow 3G 3.82 s (target ≤ 4 s), 4G 1.67 s (target
+1.5 s — not met, see «Known limitations»), broadband at 1366 px 0.27 s; the web-font preload was removed and the splash
+uses the system font.
 V10 (50 rows on `#/requests`, 4× CPU): scroll-frame p95 16.7 ms at 390.
 
 **Roles.** «مدير البوابة» (`company_admin`) · «عضو» (`member`) · «اطلاع فقط» (`viewer`) · billing-contact flag. Write
@@ -742,7 +965,7 @@ no AI draft entry on company assignments (L-29). `lawyer-detail.js`: «خدمة 
 
 **Review fixes.** The accept sheet's employee check now finds first names and two-part names on Arabic word boundaries
 (the same variants the server redacts) and removes whole words only; memory grants saved in a session reopen with the
-saved items (the server does not return an assignment's grants yet); a company case hides the impact card and speaks of
+saved items (since the gate, `GET /api/admin/assignments/:id/memory-grants` returns them); a company case hides the impact card and speaks of
 «الشركة» throughout the info-request flow, and sharing a company reply never creates the automatic follow-up (it never
 reaches the portal — use «سؤال للشركة»); company sheets keep their grip/header on tall phone sheets; every control on the
 desk screens and sheets is ≥ 44 px on phones; the urgent clock reads «س» (not «س عمل»); the companies table fits 1366.
@@ -755,6 +978,77 @@ the pages read (create company with editor terms, case-manager 403s, B2B setting
 filter, shadow client, lawyer profile, lawyer view whitelist with granted memory). Playwright twins of T13–T18, T21,
 T22 and the lawyer DOM privacy scans live in `scratchpad/v10-pw-staff/`.
 <!-- /v10:b2b-staff -->
+
+### What the 10.0 integration gate fixed before release
+
+After the four lanes, 10.0 was exercised end to end (journeys J1–J6 at 360/390/1366 px on fresh demo data: an NDA from
+the portal to a released deliverable and the contract saved to memory; a clarification answered with a file and an
+item marked unavailable; quote approval with and without a runnable start plan; brand and colours on every surface;
+an isolation probe replaying every company URL across companies, roles and principals; the brand switch in `/app`), an
+independent security/privacy probe (several hundred checks: cross- and intra-tenant access, principal separation, CSRF, uploads,
+the document gate, auth flows, read-only states, the 9.2 → 10.0 upgrade on real databases), a regression run (the 9.x
+browser tour, 239 extra page visits across the portal, desk and lawyer screens, budgets and slow-3G timings) and an
+Arabic copy and accessibility review. Three fixers then closed the findings:
+
+- **Money:** starting work after a company approved an out-of-scope or overage quote (from the start plan, after a plan
+  error, or by hand) now always uses the quote — it never also consumes an included request and never asks for a second
+  approval; the accept sheet says «وفق عرض السعر المعتمد …». An expiring quote leaves a still-unanswered clarification
+  waiting on the company.
+- **Lawyer names cannot leak:** the document gate now also covers the release message and the quote texts, catches
+  honorific + first name, middle names and a Latin initial + surname, scans images (EXIF/XMP, PNG text) and text files,
+  and runs on files staff add to a company's memory (whose document list may only reference files the company can
+  already see). The checklist shows the exact text found.
+- **Company people cannot leak to lawyers:** the redactor no longer mistakes «ش.م.م.» for a title that swallows the next
+  line, no longer cuts «لدينا» as the name «دينا», and keeps long reference numbers that are not phone-shaped; the accept
+  warning appears only when a person's data was really removed; knowledge records also drop lawyers' Latin names.
+- **Hardening:** per-user (2) and per-company (3) caps on uploads in flight beside the process-wide 4, 90 upload starts per
+  user per hour, and a body watchdog (408 after 20 s with no bytes, under 1 KB/s after 30 s, or 10 minutes); a password
+  change revokes open reset links (company users and staff); `b2b_ended_readonly_days = 0` now really closes an ended
+  company; SMTP refuses data pipelined before STARTTLS; e-mail rows stuck in «sending» are requeued on every flush;
+  a renewal notification for a memory item the reader can no longer open shows a neutral title.
+- **Workflow:** sharing a company's answer with the lawyer never creates a beneficiary-style website follow-up; the
+  reviewer on a company case sees the lead's opinion and is told he is the final reviewer; one open deliverable draft at a
+  time; the prefill copies only «الخلاصة التنفيذية» into the summary; triage suggestions carry their reason and a minimum
+  score, and the accept sheet pre-ticks only memory the company linked, the same counterparty and the matching approved
+  template; the queue shows the company and request code, the SLA clock and B2B-skilled lawyers first; staff can read an
+  assignment's memory grants back; auto-renewals and monthly/yearly key dates roll from their anchor day.
+- **Portal:** the NDA form offers only an NDA template; an early boot script fetches meta/session/overview before the
+  module graph (cold slow-3G at 390 px 5.06 → 3.82 s; 4G 1.89 → 1.67 s); the conversation opens on the newest 6 messages;
+  number agreement, dates («الاثنين 28 سبتمبر، 12:00 م»), the invite sentence («تلقّيتم دعوة من … للانضمام إلى بوابة …
+  لدى …»), desktop breadcrumbs, 48 px inputs on touch, forced-colours outlines, placeholder contrast and screen-reader
+  labels were corrected; unsaved selects count as typed text.
+- **Desk and lawyers:** company wording in the approve, share and reply dialogs; catalogue priority words; the company
+  due date relabelled and hidden on closed cases; phone sheets keep their header; Escape after a swipe no longer asks
+  twice; toasts move to the top while a lawyer's dialog is open.
+- **Demo and B2C:** demo due dates always fall inside business or urgent hours, so the «موعد التسليم المتوقع» message
+  equals the promise box; the B2C inbox channel filter no longer lists the company portal; the `/app` login back link
+  names the brand (44 px); the follow-up page's contact bar wraps at 200 % zoom.
+
+### Known limitations at release (need a decision)
+
+- **Portal cold start on 4G:** 1.67 s at 390 px against a 1.5 s target (§8.4). Reaching it needs `ui.js` split into lazy
+  parts or fewer entry modules; slow 3G (3.82 s ≤ 4 s) and broadband (0.27 s) meet their targets. The portal no longer
+  preloads its web font (intentional, so the font does not compete with the JavaScript).
+- **Cross-company invite answer:** inviting an address that already belongs to another company returns the normal 200
+  shape with `pending_review: true` and notifies staff (decision L-60); a careful admin can still tell it apart from a
+  normal invite. Making it indistinguishable would need a placeholder row in the team list or dropping the copy-once
+  invite path — a product decision.
+- **A lawyer's surname alone** (e.g. «النجار للمحاماة») is not flagged by the document gate; full names, first names
+  with an honorific, Latin names and usernames are.
+- **Forced-colours mode in `/app`:** the selected-state outlines were added to the company portal only.
+
+### Deferred to 10.1 (designed, not built)
+
+Invoices, payments, the printable «مطالبة مالية», ETA e-invoicing and payment instructions for companies; the Resend
+e-mail provider; known-device lockout for company users, SSO, multi-company membership and entity-scoped permissions;
+a company-facing activity log; company memory in lawyers' AI drafts, "past advice for this company" in triage,
+cross-company anonymised knowledge and AI extraction of contract data; a memory calendar month grid, an ICS feed, an
+English portal, multi-page photo PDFs, company data export, online payment, e-signature and WhatsApp for companies;
+«الشركات» in Ctrl+K search, time tracking and hourly quotes, automatic metadata scrubbing of deliverables (10.0 detects
+and blocks), Web Push for staff (10.0 e-mails urgent and late events) and an «anonymise company user» action; quota rules
+other than the monthly cycle and automatic quota release on other outcomes; and, in the experience kit, the drawer
+spring, an `/intake` direction hint, stacked-modal depth, cross-document view transitions, swipe-to-dismiss toasts,
+sheet drag from scrolled content, a haptics setting, dark mode and the `/p/` tracker on `stepTracker`.
 
 ## الإصدار 9.2 — Version 9.2: picture tiles, stories turned into requests, the foundation's colours
 
@@ -1032,6 +1326,16 @@ final review left open). Known limitations left on purpose:
   the editable «اعمله طلب» sheet before it is sent; automated story messages are fixed texts, session-only and
   WhatsApp-first only, and off by default; the reply route ignores client-supplied `meta`; a website request's name is
   only what that submission typed; every new endpoint is staff-only on the server and audited.
+- 10.0 additions (company service; details in «10.0 in plain words» → "Privacy model"): company users are a third,
+  separate principal (own table, sessions and cookie scoped to `/api/company`; neither cookie opens the other side's
+  routes); `company_id` always comes from the session and another company's ids answer "not found"; inside a company,
+  private requests, admins-only memory, employee counterparties and billing data are filtered on every path; companies
+  never see a lawyer's or staff name (except their account manager), a case code, AI output, internal notes or costs;
+  lawyers never see company employees' names, e-mails or phones (field whitelist + redactor); every deliverable, staff
+  message with files, quote and release message passes the document gate (no lawyer name in text or file metadata);
+  company e-mails carry no legal content and secret links are never stored; company knowledge never reaches B2C AI or the
+  training export; no WhatsApp to companies; no company identity in staff columns of the audit log, documents or cases.
+  The beneficiary rules above are unchanged, and B2C reports are byte-identical with company data present.
 
 ---
 
@@ -1042,10 +1346,14 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- 809 automated tests (`npm test`, all passing at version 10.0.0; 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
-  158 page views and, in 9.1 and 9.2, a browser usability run per lane at phone widths (including a simulated slow 3G
-  network for the beneficiary pages). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
-  360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review.
+- 1,155 automated tests in 270 suites (`npm test`, all passing at version 10.0.0; 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+  158 page views and, in 9.1, 9.2 and 10.0, a browser usability run per lane at phone widths (including a simulated slow 3G
+  network for the beneficiary pages and the company portal). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
+  360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review; 10.0's
+  gate did the same for the company service (journeys J1–J6, ≈ 240 extra page visits, an isolation and privacy probe,
+  the 9.2 → 10.0 upgrade on real databases). The 346 tests added in 10.0: `v10-experience` 53, `v10-b2b-server` 103,
+  `v10-b2b-server-isolation` 18, `v10-b2b-server-sla` 22, `v10-b2b-portal` 45, `v10-b2b-staff` 41 and the gate's
+  regression files `v10-gate-company` 22, `v10-gate-staff` 31, `v10-gate-public` 11.
 - Key folders: `src/` (server: services, routes, channels/WhatsApp, ai/, schema.d/ database extensions,
   `seed-v91-*.js` and `seed-v92-*.js` demo stories), `public/` (website, staff app, portal, `assets/fonts/`),
   `scripts/` (admin, backup, restore, demo reset), `test/` (`v91-*.test.js` for the 9.1 lanes, `v92-*.test.js` for 9.2).
@@ -1055,6 +1363,16 @@ final review left open). Known limitations left on purpose:
   `src/services/voice.js` (transcripts), `src/brand.js` + `public/assets/js/lib/brand-color.js` (colour generator),
   `public/assets/js/app/components/story-sheet.js` («اعمله طلب»). Schema: `src/schema.d/78-v92-stories.*` and
   `79-v92-public.columns.json` (additive only).
+- 10.0 key files: `src/brand.js` (brand accessors, `brand_in_staff_app`) · `public/assets/js/lib/spring.js`,
+  `sheet-motion.js`, `haptics.js`, additions to `lib/ui.js` and `public/assets/css/v10-experience.css` (the experience kit)
+  · `src/company-auth.js` (company sign-in, sessions, 2FA, invites, resets) · `src/routes/company.js` (`/api/company/*` and
+  the `/company` page) and `src/routes/admin-companies.js` (staff company API) · `src/services/companies.js`,
+  `company-requests.js`, `company-billing.js`, `company-memory.js`, `company-notify.js`, `company-doc-gate.js`, `email.js`
+  · `src/ai/company.js` + `company-heuristic.js` (triage) · shared browser/server modules `public/assets/js/lib/company-catalog.js`
+  (+ `company-catalog-fields.js`), `company-sla.js` · the portal `public/company.html`, `public/assets/js/company/**`,
+  `lib/company-ui.js`, `lib/company-forms.js`, `lib/company-boot-early.js`, `v10-company*.css` · the staff desk
+  `pages/admin/company-*.js`, `components/company-*.js`, `v10-desk.css`. Schema: `src/schema.d/80`–`85` (additive only).
+  Demo: `src/seed-v10-b2b.js`.
 - Main documents in the repository: `README.md` (overview, Arabic), `DEPLOY.md` (deployment guide, Arabic), this file.
 
 ---
@@ -1111,6 +1429,42 @@ production. Log in as `manager` and open the inbox (cards view):
 Also try the WhatsApp simulator (test voice note, photo, «خلاص», topic list buttons), «اعمل منها طلب جديد» under the
 messages of an open file, and Settings → «ألوان المؤسسة», then open `/` and `/app`.
 
+**Version 10.0 — company accounts in the demo** (fictional companies on the reserved `.example` domain; built with the
+real services in `src/seed-v10-b2b.js`). Sign in at **`/company`** with password **`Company@2026`**. In demo mode no
+e-mail is really sent: company e-mails appear in «صادر البريد» (staff → «الأتمتة والرسائل»).
+
+| E-mail | Company | Role | What you will find |
+|---|---|---|---|
+| `mariam@nilefoods.example` (مريم عادل) | شركة النيل للأغذية (`NFD`), plan Growth, active; account manager `manager` | Portal admin + billing contact | six requests in every state: NFD-0001 contract review closed with ★5 (the Delta Packaging contract saved and confirmed in memory, notice deadline in 25 days, plus a recorded position), NFD-0002 a **private** employee matter in progress after a clarification she answered, NFD-0003 an **urgent** legal notice in final review, NFD-0004 a marketing review waiting on the company, NFD-0005 a dispute with a **fixed 45,000 EGP quote** to approve, NFD-0006 a new NDA already triaged; a subsidiary entity; an overage charge in the previous cycle |
+| `hossam@nilefoods.example` (حسام الدين فوزي) | شركة النيل للأغذية | Member | his NFD-0004 (the firm asks for the final design and the contest terms) and NFD-0006; he cannot see the private NFD-0002 or admins-only memory, and he sees who may approve the quote |
+| `dina@nilefoods.example` (دينا سمير) | شركة النيل للأغذية | Viewer | read-only: the five shared requests, no send, reply or approve buttons; no charges |
+| `sherif@techsol.example` (شريف حمدي) | تك سوليوشنز (`TSL`), plan Starter, **trial ending in 10 days**; account manager `admin` | Portal admin + billing contact | TSL-0001 a SaaS master services agreement **delivered** and waiting for his decision, TSL-0002 a data-protection compliance question in progress, TSL-0003 a board resolution auto-closed after delivery |
+| `omar@techsol.example` (عمر خالد) | تك سوليوشنز | Member | his TSL-0002 in progress, plus the company's shared requests; no charges |
+
+Company work in the demo is done by the lawyers `tarek` (contracts; Latin name «Tarek El-Naggar»), `yasmine`
+(employment, data protection) and `amr` (disputes; reviewer), password `Lawyer@2026`; staff `manager` and `admin`
+handle the desk. Demo plans: Starter / Growth / Enterprise with fictional prices (production starts with none).
+
+**What to try.**
+1. As **mariam** (phone width): answer NFD-0004's clarification — attach a file to item 1 and mark item 2
+   «غير متوفر لدينا» (the request enters the confirm phase); approve NFD-0005's quote (confirmation sheet → the charge is
+   booked, every admin and billing contact is notified, and work starts by itself); search «الدلتا» and open the Delta
+   contract; open «الذاكرة القانونية» → «العقود» (notice badge) → «متابعة التجديد أو الإنهاء»; send a new request and
+   watch the promise sentences and the plan line change with the type and priority; invite a colleague.
+2. As **sherif**: accept TSL-0001 with ★★★★★ («حفظ العقد في الذاكرة القانونية» is pre-ticked) or «طلب تعديلات»; send an NDA
+   and follow it through the five-step tracker.
+3. As **hossam** and **dina**: try to open `#/requests/NFD-0002` (not found), the quote approval (member: who approves;
+   viewer: read only).
+4. As **manager** in `/app` → «طلبات الشركات»: accept NFD-0006 in «بدء العمل على الطلب» (lead + reviewer, the brief the
+   lawyer reads, the plan consequence); ask the company a question with «سؤال للشركة»; on NFD-0003 approve amr's opinion
+   from the work case, then «إعداد تسليم» → «تعبئة من الرأي المعتمد» and watch the live gate checklist (typing
+   «Amr El-Shafei» in the summary blocks «إرسال للشركة»).
+5. As **tarek** (phone width): open a company assignment and read «سياق الشركة» — no employee names, no request code;
+   write with the company skeleton.
+6. As **admin**: «الشركات العميلة» → «إضافة شركة» (prefix check, plan terms, first portal admin), the company page tabs
+   (plan & charges → CSV), Settings → «خدمة الشركات» and «باقات الشركات», «التكاملات» → «البريد الإلكتروني», and turn
+   «إظهار اسم المكتب في منصة فريق العمل والمحامين» off and on to see `/app` switch names.
+
 ---
 
 ## 10. How to run and deploy
@@ -1142,6 +1496,18 @@ messages of an open file, and Settings → «ألوان المؤسسة», then o
   number and days in Settings → «القصص الواردة على واتساب» (the site promises both to the beneficiary), and keeps the
   welcome list and the acknowledgement off until the privacy-policy sentence about human review is changed. The
   scheduler must stay on (job «تلخيص القصص المكتملة», every minute). See `DEPLOY.md` «ما الجديد تشغيليًا في 9.2».
+- **10.0 operations notes (company service):** no new dependencies; optional environment variables `EMAIL_PROVIDER`,
+  `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_FROM_NAME` (or the
+  «البريد الإلكتروني» card in Integrations). The schema upgrade (`schema.d/80`–`85`) only adds tables and columns and was
+  rehearsed on real 9.2 databases (no message, e-mail or AI call is caused by the upgrade; saved colours and the saved 2FA
+  issuer are kept; installs without saved colours turn green and gold). **Before the first company:** set
+  `PUBLIC_BASE_URL` (every company e-mail link is built from it), configure **SMTP** with SPF, DKIM and DMARC for the
+  sender's domain (e-mail is the companies' only push channel; readiness turns red as soon as a company exists without
+  it), check business hours (inherited from the office hours) and urgent hours in «خدمة الشركات», **create the plans**
+  (production has none), and **set the legal-entity data** in «ملف المؤسسة» (shown to companies as the contracting
+  entity; readiness red otherwise). `data/.secret-key` now also encrypts company users' 2FA secrets and the SMTP password —
+  back it up with the database. A purged memory item stays in older backups until they rotate. See `DEPLOY.md`
+  «ما الجديد تشغيليًا في 10.0».
 - Full details: `DEPLOY.md`.
 
 ---
@@ -1172,8 +1538,9 @@ messages of an open file, and Settings → «ألوان المؤسسة», then o
     use "forgot password?" by WhatsApp.
 11. **(9.1) "Remember me" for lawyers**: decide all lawyers / only with two-step login / off in the security policy.
     (Setting the `SESSION_TTL_HOURS` environment variable turns the feature off; `render.yaml` does not set it.)
-12. **(9.2) The foundation's real colours.** Nothing public gave them, so the platform keeps its teal and gold. An admin
-    sets them in a minute in Settings → «ألوان المؤسسة» (colour suggestions can be taken from a picture of the logo).
+12. **(9.2) The foundation's real colours.** Nothing public gave them, so 9.2 kept its teal and gold; since 10.0 the
+    default is royal green `#0b5a3c` and gold `#c9a14a` (the brand's colours). An admin can still set others in a minute in
+    Settings → «ألوان المؤسسة» (colour suggestions can be taken from a picture of the logo).
 13. **(9.2) WhatsApp welcome list and the «وصلتنا حكايتك» acknowledgement.** Both are off by default in code (the
     acknowledgement is on in the demo); the launch-readiness page flags the acknowledgement while it is off. Decide
     decision 22 (privacy wording) first.
@@ -1205,6 +1572,33 @@ messages of an open file, and Settings → «ألوان المؤسسة», then o
     oldest first in the inbox (FIFO) rather than by the time she asked to be called; and whether staff wording should
     guess a man from his first name (today only a «أبو …» kunya or an address form set by staff does).
 
+**Version 10.0 decisions (O-1 … O-18)** — the brand, the company service and the experience. Each ships with the default
+shown; the firm confirms or changes it before production use.
+
+| # | Decision | Default in 10.0 |
+|---|---|---|
+| O-1 | The public site's beneficiary content (free help for widows and orphans, «برامج المؤسسة») now sits under «Emam Legal and Consultancy»: whether to re-position it, and whether the home page should advertise company services | content unchanged; only a footer link «دخول الشركات» (shown while the company service is on) |
+| O-2 | The legal-entity data (`org_legal_name`, registration, address, phone, Facebook) are still Beyoot Misr's defaults; legal pages, the footer ©, printouts and the «الجهة المتعاقدة» line shown to companies use them | the owner sets them in setup / Settings → «ملف المؤسسة»; readiness is red while a company exists and the default is unchanged |
+| O-3 | Plan prices, included requests, urgent allowance, SLA hours, size factors, revision rounds | demo values only; production has no plans |
+| O-4 | Business hours and holidays for the response promise | the firm's public hours (`office_hours_schedule`, today Sat–Thu 10:00–16:00), no holidays; a company-only override exists |
+| O-5 | E-invoicing (ETA) and the invoice format | invoices deferred to 10.1; approved-charges ledger + CSV |
+| O-6 | Show the account manager's name to companies | yes («مدير علاقتكم لدينا: …»; per-company switch) |
+| O-7 | May members approve quotes (`quote_approvers`) | portal admins only (per-company option: admins or the request's sender) |
+| O-8 | E-mail provider, sender address and `PUBLIC_BASE_URL` | outbox only until set — readiness is red once a company exists, and the portal stops promising e-mail |
+| O-9 | Terms of service for companies (`b2b_terms_url`), accepted at invitation | empty → a generic sentence without a link (the beneficiary `/terms` page is never linked from the portal) |
+| O-10 | Data retention after a company leaves | read-only for 90 days, data kept; purge on request (purged items survive in older backups until they rotate) |
+| O-11 | May CSR / pro-bono lawyers take paid company work | allowed; paid company work is always `payable`, never counted as CSR or pro bono; pod exclusions exist |
+| O-12 | An English UI for the portal | Arabic only |
+| O-13 | An emergency line outside business hours; urgent hours and the urgent allowance per plan | none shown; urgent clock 08:00–22:00 daily; Starter 1 / Growth 3 / Enterprise unlimited per cycle |
+| O-14 | Usability sessions before go-live (5 company users, 2 staff, 3 lawyers) | required before production use |
+| O-15 | Order of the 12 request tiles | the user's list; review after 3 months |
+| O-16 | Auto-close after delivery and the revision window | 7 days and 30 days |
+| O-17 | Quota refunds: does a request withdrawn or closed without delivery after acceptance still consume an included request | released automatically only when the firm declines after acceptance; otherwise staff decide (`free`, admin) |
+| O-18 | Should volunteer/CSR lawyers see the commercial brand in their app (`brand_in_staff_app`) | on |
+
+The four "known limitations at release" in the 10.0 section (portal 4G cold start, the cross-company invite answer, a
+surname alone in the document gate, forced-colours outlines in `/app`) also need a decision.
+
 ---
 
 ## 12. How it was built (history)
@@ -1233,5 +1627,11 @@ messages of an open file, and Settings → «ألوان المؤسسة», then o
 - **Version 10.0:** the user asked for an Apple-style design in royal green and gold, the name «Emam Legal and
   Consultancy» in the user experience only, and company accounts for an outsourced in-house counsel service. Three
   design documents (experience, B2B server, B2B UX) were merged into one spec, revised after a client/operations critique
-  and a security critique, then built by four lanes (experience, b2b-server, b2b-portal, b2b-staff) followed by an
-  integration gate.
+  and a security critique, then built by four lanes (experience, b2b-server, b2b-portal, b2b-staff), each with its own
+  code review and browser usability run. An integration gate then ran six cross-lane journeys (an NDA from the portal to
+  a released deliverable saved in memory, a clarification, quote approval with and without a runnable start plan, brand
+  and colours on every surface, an isolation probe, the brand switch), an independent security and privacy probe, a
+  regression run against the 9.2 baseline and an Arabic copy and accessibility review; three fixers closed the findings
+  (most importantly: work started from an approved quote never also consumes an included request, and the document gate
+  now also covers the release message, quote texts, images, text files and staff memory files) before the version
+  became 10.0.0.

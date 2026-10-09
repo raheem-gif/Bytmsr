@@ -338,7 +338,9 @@ export function createRequests(app) {
       // v9.1 fixes: طلب ورق أجابت المستفيدة عن بعض بنوده: البنود التي لم تصل بعد (لا صورة ولا «مش لاقية») تبقى مطلوبة منها
       // في طلب متابعة يظهر في صفحتها «لسه محتاجين: …» (افتراضيًا؛ request_rest: false يوقفه)، بدل أن تختفي بصمت
       const restItems = svc.neededItems(r);
-      const requestRest = restItems.length > 0 && (body.request_rest === undefined || body.request_rest === null ? true : v.bool(body.request_rest));
+      // gate K3: ملف شركة ← لا متابعة «لسه محتاجين» آلية أبدًا (صف «website» لعميل الظل لا يصل الشركة ولا يوقف مستوى الخدمة،
+      // وملفات الشركة لا ترتبط ببند بعينه). ما بقي ناقصًا يطلبه الفريق من الشركة باستيضاح جديد من صفحة الطلب («سؤال للشركة»).
+      const requestRest = !c.company_id && restItems.length > 0 && (body.request_rest === undefined || body.request_rest === null ? true : v.bool(body.request_rest));
       let followUpId = null;
       const sharedTitle = (code) =>
         r.kind === 'admin_question'
@@ -621,8 +623,9 @@ export function createRequests(app) {
         for (const it of list) {
           if (!it.case_id) continue;
           if (!companyOf.has(it.case_id)) {
-            const cr = db.get('SELECT r.id, r.code FROM cases c JOIN company_requests r ON r.id = c.company_request_id WHERE c.id = ? AND c.company_id IS NOT NULL', it.case_id);
-            companyOf.set(it.case_id, cr ? { id: cr.id, code: cr.code } : null);
+            // gate J-13: واسم الشركة (شارة على بطاقات «قرارات الإدارة»)
+            const cr = db.get('SELECT r.id, r.code, co.name AS company_name FROM cases c JOIN company_requests r ON r.id = c.company_request_id JOIN companies co ON co.id = r.company_id WHERE c.id = ? AND c.company_id IS NOT NULL', it.case_id);
+            companyOf.set(it.case_id, cr ? { id: cr.id, code: cr.code, company_name: cr.company_name } : null);
           }
           if (companyOf.get(it.case_id)) it.company_request = companyOf.get(it.case_id);
         }

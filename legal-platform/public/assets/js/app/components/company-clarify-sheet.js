@@ -6,7 +6,7 @@ import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { modal, button, icon, alertBox, toast, errorMessage, discardGuard } from '../../lib/ui.js';
 import { coClarificationCard } from '../../lib/company-ui.js';
-import { hm } from '../pages/admin/company-requests.js';
+import { hm, lawyerHitMatched } from '../pages/admin/company-requests.js';
 
 const MAX_ITEMS = 5;
 const DEFAULT_TEXT = 'لاستكمال الطلب نحتاج منكم:';
@@ -85,7 +85,7 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
     } catch (err) {
       const det = err && err.details;
       const msg = err && err.code === 'lawyer_names' && det && det.lawyer_names && det.lawyer_names[0]
-        ? `الرسالة تحتوي اسم محامٍ من فريق العمل («${det.lawyer_names[0].name}»). الشركة لا ترى أسماء المحامين — احذف الاسم أو أعد الصياغة.`
+        ? `الرسالة تحتوي اسم محامٍ من فريق العمل («${lawyerHitMatched(det.lawyer_names[0])}»). الشركة لا ترى أسماء المحامين — احذف الاسم أو أعد الصياغة.`
         : err && err.code === 'request_changed'
           ? 'تغيّر الطلب بعد فتح هذه النافذة (ردّت الشركة أو أُضيف مستند). أغلق النافذة لمراجعة التغييرات؛ يبقى ما كتبته هنا حتى تغلقها.'
           : errorMessage(err);

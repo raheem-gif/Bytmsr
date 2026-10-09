@@ -1316,14 +1316,19 @@ function openCallback() {
 // ───────────── الشريط السفلي ─────────────
 
 let bar = null;
+// المساحة المحجوزة أسفل الصفحة بقدر الشريط الثابت (تحت 280 بكسل يصير الشريط في آخر الصفحة فلا مساحة)
+const barSpace = () =>
+  bar && document.documentElement.style.setProperty('--bp-bar-space', `${getComputedStyle(bar).position === 'fixed' ? bar.offsetHeight : 0}px`);
 function bottomBar() {
   if (!bar) {
     bar = h('div.bp-bar', { role: 'region', 'aria-label': 'كلمنا' });
     document.body.append(bar);
+    // (v10 gate C-17) الشريط يتغير ارتفاعه بعد العرض (تكبير الصفحة، الخط، التفاف الزرين): المساحة تتبعه
+    if (typeof ResizeObserver === 'function') new ResizeObserver(barSpace).observe(bar);
   }
   mount(bar, hoursLine(), h('div.bp-bar-btns', contactButtons()));
   // مساحة أسفل الصفحة بقدر الشريط الفعلي (سطر مواعيد العمل قد يلتف لسطرين)
-  requestAnimationFrame(() => document.documentElement.style.setProperty('--bp-bar-space', `${bar.offsetHeight}px`));
+  requestAnimationFrame(barSpace);
 }
 
 // ───────────── العرض ─────────────

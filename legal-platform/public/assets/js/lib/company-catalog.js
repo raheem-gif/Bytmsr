@@ -332,7 +332,7 @@ export const CURRENCIES = Object.freeze([
 export const OUTPUT_LANGUAGES = Object.freeze([
   { key: 'ar', label: 'العربية' },
   { key: 'en', label: 'English', lang: 'en' },
-  { key: 'both', label: 'الاثنتان' },
+  { key: 'both', label: 'العربية والإنجليزية' },
 ].map((x) => Object.freeze(x)));
 
 /** أساس عرض السعر في 10.0: مبلغ ثابت أو بحد أقصى (L-31) */

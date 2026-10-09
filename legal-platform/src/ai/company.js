@@ -41,6 +41,10 @@ export function postProcessDeliverable(out, { lawyers = [] } = {}) {
   };
 }
 
+/** gate J-02/C-13: أسباب محددة لاقتراح عنصر من ذاكرة الشركة، وحد أدنى لتشابه النص */
+export const MEMORY_WHY = Object.freeze({ counterparty: 'نفس الطرف الآخر', template: 'نموذج معتمد لنفس النوع', similar: 'موضوع مشابه' });
+export const TRIAGE_MIN_SCORE = 0.2;
+
 export function createCompanyAi(app, { run, store, active }) {
   const { db } = app;
   const indexCache = new Map(); // companyId → { key, index }
@@ -85,7 +89,9 @@ export function createCompanyAi(app, { run, store, active }) {
    * سياق الشركة (B10 §10.4): عناصر الذاكرة وطلبات الشركة نفسها الأقرب لنص الطلب. forLawyer: حقول المحامي فقط بلا
    * ملاحظات داخلية ولا «مفوَّضين»؛ memoryIds: تقييد بعناصر محددة (المنح للمحامي) داخل الشركة نفسها.
    */
-  function companyContext(companyId, { text = '', counterparties = [], type = null, forLawyer = false, memoryIds = null, limit = 8 } = {}) {
+  // gate J-02/C-13: سبب الاقتراح لكل عنصر (نفس الطرف الآخر / نموذج معتمد لنفس النوع / موضوع مشابه)، و minScore يُسقط ما
+  // لا يربطه بالطلب إلا كلمات عامة («عقد»، «توريد») — يُستخدم في الفرز حتى لا تصل للمحامي عناصر لا علاقة لها بالطلب
+  function companyContext(companyId, { text = '', counterparties = [], type = null, forLawyer = false, memoryIds = null, limit = 8, minScore = 0 } = {}) {
     const cpNorms = new Set(counterparties.filter(Boolean).map((n) => app.companyMemory?.counterpartyNorm(n) || normalizeArabic(n)));
     if (memoryIds) {
       const ids = memoryIds.map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -109,17 +115,29 @@ export function createCompanyAi(app, { run, store, active }) {
     }
     for (const s of scored) {
       const row = s.doc.row;
+      s.text_score = s.score;
+      s.reason = s.score >= minScore && s.score > 0 ? 'similar' : null;
       if (s.doc.src === 'memory') {
-        if (row.cp_norm && cpNorms.has(row.cp_norm)) s.score += 0.5;
-        if (type === 'nda' && row.kind === 'template') s.score += 0.3;
+        if (row.cp_norm && cpNorms.has(row.cp_norm)) {
+          s.score += 0.5;
+          s.reason = 'counterparty';
+        }
+        if (type === 'nda' && row.kind === 'template' && (s.text_score >= 0.1 || s.reason)) {
+          s.score += 0.3;
+          if (s.reason !== 'counterparty') s.reason = 'template';
+        }
         if (row.kind === 'position') s.score += 0.1;
       }
     }
     return scored
       .filter((s) => s.doc.src === 'request' || !forLawyer || memoryKindByKey(s.doc.row.kind)?.grantable !== false)
+      .filter((s) => !minScore || s.reason)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map((s) => (s.doc.src === 'memory' ? memoryItem(s.doc.row, { forLawyer, score: s.score }) : { ref: s.doc.ref, kind: 'request', title: s.doc.row.title, summary: s.doc.row.summary || null, score: Math.round(s.score * 100) / 100 }));
+      .map((s) => ({
+        ...(s.doc.src === 'memory' ? memoryItem(s.doc.row, { forLawyer, score: s.score }) : { ref: s.doc.ref, kind: 'request', title: s.doc.row.title, summary: s.doc.row.summary || null, score: Math.round(s.score * 100) / 100 }),
+        reason: s.reason || 'similar',
+      }));
   }
 
   function memoryItem(m, { forLawyer = false, score = null } = {}) {
@@ -158,7 +176,8 @@ export function createCompanyAi(app, { run, store, active }) {
     const entity = r.entity_id ? db.get('SELECT name FROM company_entities WHERE id = ? AND company_id = ?', r.entity_id, r.company_id) : null;
     const names = db.all('SELECT name FROM company_users WHERE company_id = ?', r.company_id).map((u) => u.name);
     const cps = ['counterparty_name', 'sender_name', 'supplier_name'].map((k) => fields[k]).filter(Boolean);
-    const memory = companyContext(r.company_id, { text: `${r.title}\n${r.description}`, counterparties: cps, type: r.type, forLawyer: false, limit: 8 }).map((m) => ({ ...m, why: m.kind === 'request' ? 'طلب سابق مشابه للشركة.' : cps.length && m.ref.startsWith('M-') ? 'مرتبط بالطرف الآخر أو بموضوع الطلب.' : 'موضوع مشابه في ذاكرة الشركة.' }));
+    const memory = companyContext(r.company_id, { text: `${r.title}\n${r.description}`, counterparties: cps, type: r.type, forLawyer: false, limit: 8, minScore: TRIAGE_MIN_SCORE })
+      .map((m) => ({ ...m, why: m.kind === 'request' ? 'طلب سابق مشابه للشركة.' : MEMORY_WHY[m.reason] || MEMORY_WHY.similar }));
     return {
       company,
       ctx: {

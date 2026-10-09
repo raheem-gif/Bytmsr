@@ -37,10 +37,12 @@ function entitySheet(entity, all, ctx) {
   const jur = input(entity?.jurisdiction, { max: 100 });
   for (const el of [cr, tax]) el.setAttribute('dir', 'ltr');
   const err = sheetError();
-  const initial = JSON.stringify([name.value, cr.value, tax.value, jur.value]);
+  // J-20/K11: القوائم (الشكل القانوني والعلاقة والكيان الأم) جزء من فحص «تجاهل ما كتبتموه؟» كالحقول النصية
+  const snapshot = () => JSON.stringify([name.value, cr.value, tax.value, jur.value, ...[form, rel, parentSel].map((w) => w.querySelector('select').value)]);
+  const initial = snapshot();
   textSheet({
     title: editing ? M.entity_edit : M.entity_sheet,
-    dirty: () => JSON.stringify([name.value, cr.value, tax.value, jur.value]) !== initial,
+    dirty: () => snapshot() !== initial,
     body: h('div.co-sheet-body', nameWrap, field(M.e_form, form), field(M.e_relation, rel), entity?.relation === 'parent' ? null : field(M.e_parent, parentSel), field(M.e_cr, cr), field(M.e_tax, tax), field(M.e_jurisdiction, jur), err),
     actions: [
       {

@@ -409,7 +409,7 @@ function buildUi(ctx, data) {
 }
 
 // ───────────────────────── التحقق والإرسال ─────────────────────────
-function validateStep1() {
+function validateStep1(forSend = false) {
   const f = form;
   const t = typeByKey(f.type);
   const ui = f.ui;
@@ -435,7 +435,8 @@ function validateStep1() {
     first = first || ui.docWrap;
   }
   ui.step1Alert.hidden = !n;
-  ui.step1Alert.textContent = n ? copy('newRequest.review', { n: countOf(n, 'field') }) : '';
+  // C-04: بجوار «إرسال الطلب» تقول «قبل الإرسال»، وبجوار «التالي» «قبل المتابعة»
+  ui.step1Alert.textContent = n ? copy(forSend ? 'newRequest.review_send' : 'newRequest.review', { n: countOf(n, 'field') }) : '';
   if (first) {
     first.scrollIntoView({ block: 'center', behavior: 'smooth' });
     first.querySelector('input:not([type=hidden]), select, textarea, button, label')?.focus({ preventScroll: true });
@@ -463,7 +464,7 @@ function validateStep2() {
     first = first || ui.entityWrap;
   }
   ui.step2Alert.hidden = !n;
-  ui.step2Alert.textContent = n ? copy('newRequest.review', { n: countOf(n, 'field') }) : '';
+  ui.step2Alert.textContent = n ? copy('newRequest.review_send', { n: countOf(n, 'field') }) : '';
   if (first) {
     first.scrollIntoView({ block: 'center', behavior: 'smooth' });
     first.querySelector('input, select, textarea, button')?.focus({ preventScroll: true });
@@ -494,7 +495,7 @@ function sendError(ctx, err) {
     if (map.entity_id && ui.entityWrap) ui.entityWrap.setError(map.entity_id);
     if (map.needed_by) ui.neededWrap.setError(map.needed_by);
     const step1 = Object.keys(typeErrs).length || map.description || map.upload_ids || map.title;
-    show(copy('newRequest.review', { n: countOf(Object.keys(map).length, 'field') }));
+    show(copy('newRequest.review_send', { n: countOf(Object.keys(map).length, 'field') }));
     if (step1 && form.step === 2 && !wide()) ctx.navigate(`/requests/new/${form.type}`);
     return;
   }
@@ -506,7 +507,7 @@ async function send(ctx) {
   const ui = f.ui;
   if (ui.send.classList.contains('is-loading')) return;
   ui.sendError.hidden = true;
-  if (!validateStep1()) {
+  if (!validateStep1(true)) {
     if (!wide() && f.step === 2) ctx.navigate(`/requests/new/${f.type}`);
     ui.sendError.textContent = ui.step1Alert.textContent;
     ui.sendError.hidden = false;
@@ -550,6 +551,8 @@ async function send(ctx) {
     form.done = res;
     window.history.replaceState(null, '', `#/requests/new/${f.type}?sent=${encodeURIComponent(res.request?.code || '')}`);
     mount(page.parentElement, confirmation(ctx, res));
+    // C-01: زر الرجوع في الإطار بعد الإرسال لا يعيد إلى «التفاصيل» (نموذج فارغ لطلب مكرر) بل إلى قائمة الطلبات
+    window.dispatchEvent(new CustomEvent('co:back', { detail: { label: W.nav.requests, href: '#/requests' } }));
   } catch (err) {
     sendError(ctx, err);
   } finally {

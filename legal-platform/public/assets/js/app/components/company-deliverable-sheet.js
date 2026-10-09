@@ -10,6 +10,7 @@ import { label } from '../../lib/fmt.js';
 import { modal, form, button, icon, alertBox, toast, errorMessage, discardGuard, fileInput, setBusy } from '../../lib/ui.js';
 import { DELIVERABLE_KINDS, typeByKey } from '../../lib/company-catalog.js';
 import { coDeliverableCard } from '../../lib/company-ui.js';
+import { lawyerHitShown } from '../pages/admin/company-requests.js';
 
 const DEBOUNCE_MS = 600;
 const FIELD_NAMES = { title: 'العنوان', summary: 'الخلاصة', recommendations: 'التوصيات', body: 'النص' };
@@ -196,7 +197,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
     out.push(pc.approved_opinion ? ok('رأي معتمد في ملف العمل') : bad('لا يوجد رأي معتمد بعد', 'opinion'));
     if (pc.senior_review !== 'not_required') out.push(pc.senior_review === 'ok' ? ok('مراجعة نهائية معتمدة') : bad('المراجعة النهائية لم تُعتمد بعد', 'senior'));
     if (!pc.lawyer_names.length) out.push(ok('لا أسماء محامين في النص'));
-    else for (const n of pc.lawyer_names) out.push(bad(`يظهر اسم «${n.name}» في ${fieldLabel(n.field)}`, 'names'));
+    else for (const n of pc.lawyer_names) out.push(bad(`يظهر اسم ${lawyerHitShown(n)} في ${fieldLabel(n.field)}`, 'names')); // gate K4
     for (const fa of pc.file_authors || []) {
       const fn = fa.filename || (pc.office_docs || []).find((o) => o.id === fa.document_id)?.filename || 'المرفق';
       out.push(bad(authorLine(fn, (fa.names || [])[0] || ''), 'author'));
@@ -434,7 +435,13 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
     sendBtn.disabled = !pass;
     sendBtn.title = pass ? '' : 'يُتاح الإرسال بعد أن تمر كل ضوابط «جاهزية الإرسال»';
   }
-  // modal() يعيد تفعيل الأزرار بعد كل إجراء: نعيد ضبط «إرسال للشركة» بعدها
+  // modal() يعيد تفعيل الأزرار بعد انتهاء كل إجراء (بعد «حفظ مسودة» مثلًا): gate J-11 — كلما عاد «إرسال للشركة» مفعّلًا
+  // والضوابط لا تمر يُعطَّل من جديد (المراقبة بعد إعادة التفعيل، لا قبلها كما كان مع setTimeout 0)
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(() => {
+      if (!sendBtn.disabled && !sendBtn.classList.contains('is-loading') && !gatesPass()) syncSend();
+    }).observe(sendBtn, { attributes: true, attributeFilter: ['disabled'] });
+  }
   for (const b of handle.buttons) b.addEventListener('click', () => setTimeout(syncSend, 0));
 
   drawFinalHint();

@@ -18,7 +18,7 @@ const EXIT = { damping: 1, response: 0.3 };
  * panel: العنصر المتحرك؛ scrim: الخلفية المعتمة (شفافيتها تتبع الموضع)؛ handles: المقبض والترويسة (touch-action:none في CSS).
  * السحب للأسفل حتى الإغلاق يسأل canDismiss('swipe') ثم يستدعي onDismissed('swipe') بعد خروج الورقة.
  */
-export function attachSheet({ panel, scrim, handles = [], canDismiss = () => true, onDismissed = () => {} }) {
+export function attachSheet({ panel, scrim, handles = [], canDismiss = () => true, onDismissed = () => {}, onExitCancelled = () => {} }) {
   let y = 0;
   let anim = null;
   let target = 0;
@@ -160,7 +160,9 @@ export function attachSheet({ panel, scrim, handles = [], canDismiss = () => tru
     const commit = v >= FLICK || (v > REVERSE && y + project(v) > H() * 0.5);
     if (commit && (await canDismiss('swipe'))) {
       if (!alive) return;
+      // gate K7: خروج أُوقف بإمساك الورقة ← تبقى مفتوحة ويُبلَّغ المالك (يعود Esc/✕ للعمل)
       if (await exit('swipe', { velocity: Math.max(v, 0), interruptible: true })) onDismissed('swipe');
+      else onExitCancelled('swipe');
       return;
     }
     if (!alive) return;

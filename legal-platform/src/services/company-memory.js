@@ -57,9 +57,23 @@ export function counterpartyNorm(name) {
 export function memorySearchText(item, counterpartyName = '', docNames = []) {
   const data = typeof item?.data === 'string' ? parseJson(item.data, {}) : item?.data || {};
   const values = Object.entries(data)
-    .filter(([k, x]) => k !== 'history' && (typeof x === 'string' || typeof x === 'number'))
+    .filter(([k, x]) => k !== 'history' && k !== 'anchor_day' && (typeof x === 'string' || typeof x === 'number'))
     .map(([, x]) => x);
   return normalizeArabic([item?.title, item?.summary, counterpartyName, ...values, ...docNames].filter(Boolean).join(' '));
+}
+
+/**
+ * G-R3: يوم المرساة لتكرار شهري/سنوي — المحفوظ في data.anchor_day ما دام التاريخ الحالي هو نفسه مقصوصًا على آخر الشهر
+ * (31 ← 28 فبراير)، وإلا يوم التاريخ الحالي (تاريخ أدخله المستخدم أو عدّله).
+ */
+export function anchorDayOf(d, key) {
+  const day = Number(String(key).slice(8, 10));
+  const a = Number(d?.anchor_day);
+  if (Number.isInteger(a) && a > day && a <= 31) {
+    const last = new Date(Date.UTC(Number(String(key).slice(0, 4)), Number(String(key).slice(5, 7)), 0)).getUTCDate();
+    if (day === last) return a;
+  }
+  return day;
 }
 
 export function createCompanyMemory(app) {
@@ -121,6 +135,7 @@ export function createCompanyMemory(app) {
   function dataView(m) {
     const d = { ...dataOf(m) };
     delete d.history;
+    delete d.anchor_day;
     for (const k of Object.keys(d)) {
       if (k.endsWith('_minor')) {
         d[k.slice(0, -6)] = major(d[k]);
@@ -166,6 +181,8 @@ export function createCompanyMemory(app) {
       currency: m.currency || null,
       renewal_type: m.kind === 'contract' ? d.renewal_type || null : null,
       our_role: m.kind === 'contract' ? d.our_role || null : null,
+      // J-05: نوع النموذج (لاقتراح نموذج السرية المعتمد في طلب «اتفاقية سرية» فقط)
+      template_kind: m.kind === 'template' ? d.template_kind || null : null,
       access: m.access,
       access_label: label('company_memory_access', m.access),
       archived: !!m.archived_at,
@@ -279,6 +296,12 @@ export function createCompanyMemory(app) {
     // data: دمج مع القائم عند التعديل (history يبقى)
     const prevData = existing ? dataOf(existing) : {};
     if (Object.keys(values.data).length || !existing) row.data = JSON.stringify({ ...prevData, ...values.data });
+    // G-R3: تاريخ يغيّره المستخدم يصبح هو المرساة الجديدة للتكرار
+    if (existing && prevData.anchor_day !== undefined && ((row.start_date !== undefined && row.start_date !== existing.start_date) || (row.end_date !== undefined && row.end_date !== existing.end_date))) {
+      const next = row.data ? JSON.parse(row.data) : { ...prevData };
+      delete next.anchor_day;
+      row.data = JSON.stringify(next);
+    }
     let counterpartyName = null;
     if (values.counterparty !== undefined) {
       counterpartyName = values.counterparty || null;
@@ -316,8 +339,21 @@ export function createCompanyMemory(app) {
   /** ملفات الفريق (base64) أو مستندات قائمة في الشركة (document_ids) */
   function attachStaffFiles(m, company, body, actor, saved) {
     const ids = v.ids(body.document_ids, 'المستندات');
+    // gate G7-02: مستند قائم يُضاف للذاكرة فقط إن كانت الشركة تراه بالفعل — ما رفعته هي، أو ملف تسليم أُرسل، أو مرفق رسالة
+    // من الفريق، أو مستند في عنصر ذاكرة آخر — وبشرط ألا يوسّع الظهور (ملف طلب خاص أو عنصر للمديرين ← عنصر للمديرين فقط)
+    const access = db.value('SELECT access FROM company_memory WHERE id = ?', m.id) || m.access || 'all';
+    const privateReq = (rid) => rid && db.value('SELECT visibility FROM company_requests WHERE id = ?', rid) === 'private';
     for (const did of ids) {
-      if (!db.get('SELECT 1 FROM documents WHERE id = ? AND (company_id = ? OR client_id = ?)', did, company.id, company.client_id)) throw badRequest('المستند ليس من ملفات هذه الشركة');
+      const d = db.get('SELECT * FROM documents WHERE id = ? AND (company_id = ? OR client_id = ?)', did, company.id, company.client_id);
+      if (!d) throw badRequest('المستند ليس من ملفات هذه الشركة');
+      const released = db.get("SELECT d.request_id FROM company_deliverable_documents dd JOIN company_deliverables d ON d.id = dd.deliverable_id WHERE dd.document_id = ? AND d.status = 'released' AND d.company_id = ? LIMIT 1", did, company.id);
+      const sent = db.get("SELECT m.request_id FROM company_message_documents md JOIN company_messages m ON m.id = md.message_id WHERE md.document_id = ? AND m.company_id = ? LIMIT 1", did, company.id);
+      const inMemory = db.all('SELECT cm.access FROM company_memory_documents md JOIN company_memory cm ON cm.id = md.memory_id WHERE md.document_id = ? AND cm.company_id = ? AND cm.id != ?', did, company.id, m.id);
+      const fromCompany = d.uploaded_by_kind === 'client' && !!d.company_user_id;
+      const reqId = released?.request_id ?? sent?.request_id ?? (fromCompany ? d.company_request_id : null);
+      const seen = fromCompany || !!released || !!sent || inMemory.length > 0;
+      const widens = access !== 'admins' && (privateReq(reqId) || (inMemory.length > 0 && !released && !sent && !fromCompany && inMemory.every((x) => x.access === 'admins')));
+      if (!seen || widens) throw badRequest('هذا المستند لم يصل الشركة بعد (أو يصل لمديري البوابة فقط)؛ أرسله أولًا في تسليم أو رسالة، أو ارفعه من جديد.', { fields: { document_ids: 'مستند غير متاح للشركة' } });
     }
     const files = Array.isArray(body.files) ? body.files : [];
     if (files.length > PER_CALL) throw badRequest('الحد 5 ملفات في المرة');
@@ -328,6 +364,12 @@ export function createCompanyMemory(app) {
     }
     const have = Number(db.value('SELECT COUNT(*) FROM company_memory_documents WHERE memory_id = ?', m.id));
     if (have + ids.length > PER_ITEM_DOCS) throw new ApiError(409, 'وصل العنصر للحد الأقصى من المستندات (10 مستندات).', 'memory_documents_limit');
+    // gate G7-02 (INV-B11): ملفات الفريق في الذاكرة تمر ببوابة أسماء المحامين (العنوان واسم الملف وبيانات الكاتب)
+    if (app.companyDocGate?.companyFilesGate && ids.length) {
+      const gate = app.companyDocGate.companyFilesGate({ companyId: company.id, documentIds: ids });
+      const err = app.companyDocGate.gateError(gate, { docsReviewed: true });
+      if (err) throw new ApiError(err.status, err.message, err.code, gate);
+    }
     for (const did of ids) db.run('INSERT OR IGNORE INTO company_memory_documents (memory_id, document_id) VALUES (?, ?)', m.id, did);
     return ids.length;
   }
@@ -430,13 +472,15 @@ export function createCompanyMemory(app) {
         let end = m.end_date;
         const history = Array.isArray(d.history) ? [...d.history] : [];
         let guard = 0;
+        // G-R3: يوم المرساة يبقى (31 أغسطس ← 28 فبراير ← 31 أغسطس)، لا يُقصّ الأساس المحفوظ
+        const anchor = anchorDayOf(d, m.end_date);
         while (end <= today && guard < 600) {
-          const next = addMonthsKey(end, term);
+          const next = addMonthsKey(end, term, anchor);
           history.push({ from: end, to: next, at: today });
           end = next;
           guard += 1;
         }
-        const data = { ...d, history: history.slice(-24) };
+        const data = { ...d, anchor_day: anchor, history: history.slice(-24) };
         const dates = computeMemoryDates('contract', { ...m, end_date: end, data }, { today });
         const ch = db.run(
           "UPDATE company_memory SET end_date = ?, data = ?, notice_deadline = ?, next_date = ?, status = CASE WHEN status IN ('renewed','expired') THEN 'active' ELSE status END, updated_at = ? WHERE id = ? AND end_date = ?",
@@ -470,11 +514,13 @@ export function createCompanyMemory(app) {
       if (rec === 'yearly' || rec === 'monthly') {
         let date = m.start_date;
         let guard = 0;
+        // G-R3: التكرار من يوم المرساة (29 فبراير يعود 29 في السنة الكبيسة، و31 يعود بعد الشهر القصير)
+        const anchor = anchorDayOf(d, m.start_date);
         while (date < today && guard < 1200) {
-          date = addMonthsKey(date, rec === 'yearly' ? 12 : 1);
+          date = addMonthsKey(date, rec === 'yearly' ? 12 : 1, anchor);
           guard += 1;
         }
-        const ch = db.run('UPDATE company_memory SET start_date = ?, next_date = ?, updated_at = ? WHERE id = ? AND start_date = ?', date, date, nowIso(), m.id, m.start_date);
+        const ch = db.run('UPDATE company_memory SET start_date = ?, next_date = ?, data = ?, updated_at = ? WHERE id = ? AND start_date = ?', date, date, JSON.stringify({ ...d, anchor_day: anchor }), nowIso(), m.id, m.start_date);
         if (ch.changes) {
           res.rolled = true;
           m = getRow(m.id);

@@ -75,7 +75,17 @@ export function createKnowledge(app) {
       const co = c.company_id ? db.get('SELECT * FROM companies WHERE id = ?', c.company_id) : null;
       if (existing && existing.status !== 'pending_review' && !(co && existing.status === 'company_only')) return mapRecord(existing);
       const names = knownNames(caseId);
-      if (co) names.push(...companyNames(co));
+      if (co) {
+        names.push(...companyNames(co));
+        // gate J-24: سجل ملف الشركة لا يحتفظ باسم المحامي بالإنجليزية ولا باسم مستخدمه (يصل للشركة في التسليمات بهذه الصيغ)
+        for (const l of db.all('SELECT DISTINCT u.username, l.name_latin FROM assignments a JOIN users u ON u.id = a.lawyer_id LEFT JOIN lawyers l ON l.user_id = u.id WHERE a.case_id = ?', caseId)) {
+          for (const n of [l.name_latin, l.username]) {
+            if (!n || String(n).length < 3) continue;
+            const t = String(n).trim();
+            names.push(t, t.toLowerCase(), t.replace(/\b\p{L}/gu, (x) => x.toUpperCase()));
+          }
+        }
+      }
       const counts = {};
       const R = (text) => {
         const r = redact(text || '', { names });

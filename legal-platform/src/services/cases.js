@@ -530,7 +530,8 @@ export function createCases(app) {
       if (open >= lawyer.capacity) warnings.push(`تنبيه: الإسنادات المفتوحة لدى هذا المحامي (${open}) بلغت طاقته المحددة (${lawyer.capacity}) أو تجاوزتها.`);
       const specs = parseJson(lawyer.specialties, []);
       const neededArea = body.specialty || c.legal_area;
-      if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات المحامي المسجلة لا تشمل «${AREA[neededArea]}».`);
+      // gate J-23: التنبيه يسمّي المحامي ودوره (يُسند الأساسي والمراجع معًا من ورقة القبول)
+      if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات ${lawyer.name} (${LABELS.assignment_role[role] || role}) المسجلة لا تشمل «${AREA[neededArea]}».`);
 
       const t = nowIso();
       const assignmentId = db.tx(() => {

@@ -706,8 +706,20 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
       panel: dialog,
       scrim,
       handles: dismissible ? [grip, dialog.querySelector('.modal-header')] : [],
-      canDismiss: (reason) => !exiting && mayClose(reason),
-      onDismissed: (reason) => close(reason, { exited: true }),
+      // gate K7: بعد «تجاهل» في السحب تكون الورقة خارجة — Esc أو ✕ أثناء الخروج لا يسألان مرة ثانية
+      canDismiss: async (reason) => {
+        if (exiting) return false;
+        const ok = await mayClose(reason);
+        if (ok) exiting = true;
+        return ok;
+      },
+      onExitCancelled: () => {
+        exiting = false;
+      },
+      onDismissed: (reason) => {
+        exiting = false;
+        close(reason, { exited: true });
+      },
     });
   }
 

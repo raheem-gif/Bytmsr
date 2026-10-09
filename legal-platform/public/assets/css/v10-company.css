@@ -475,6 +475,68 @@
   color: var(--gray-900);
 }
 
+/* C-02: القائمة الفرعية الحالية في «الذاكرة القانونية» */
+.co-side-sublink[aria-current] {
+  background: var(--primary-50);
+  color: var(--primary-800);
+  font-weight: 600;
+}
+
+/* C-02: مسار التنقل في شاشات التفاصيل على الحاسوب فقط (الهاتف له زر الرجوع في الإطار) */
+.co-crumbs {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .co-crumbs:not([hidden]) {
+    display: block;
+    max-width: 1120px;
+    margin: 16px auto -8px;
+    padding-inline: 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .co-crumbs-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .co-crumbs-list li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .co-crumbs-list li + li::before {
+    content: '›';
+    color: var(--text-muted);
+  }
+
+  .co-crumbs-list a {
+    color: var(--primary-700);
+    text-decoration: none;
+  }
+
+  .co-crumbs-list a:hover {
+    text-decoration: underline;
+  }
+
+  .co-crumbs-list [aria-current] {
+    overflow: hidden;
+    max-width: 48ch;
+    color: var(--text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .co-side-group {
   margin: 16px 12px 4px;
   font-size: 12px;
@@ -1479,4 +1541,57 @@
 .co-bare-text {
   margin: 0;
   color: var(--text-muted);
+}
+
+/* ───────── gate C-07/C-08/C-11: لمس ووضوح ───────── */
+/* C-07: أهداف لمس ≥ 44 بكسل على الهاتف (الحقول 48، أزرار الأوراق، زر «إظهار»، إغلاق الحوار) */
+@media (pointer: coarse) {
+  .input {
+    min-height: 48px;
+  }
+
+  .modal .btn {
+    min-height: 44px;
+  }
+
+  .modal-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .input-action {
+    min-width: 44px;
+    width: auto;
+    padding-inline: 8px;
+    inset-block: 2px;
+  }
+
+  html[dir="rtl"] .input-group-action .input[dir="ltr"] {
+    padding-left: 68px;
+  }
+}
+
+/* C-11: النص الإرشادي في مربعات البحث هو تسميتها الظاهرة الوحيدة ← تباين ≥ 4.5:1 */
+.co-search input::placeholder,
+.co-req-search .input::placeholder,
+.search-input .input::placeholder {
+  color: var(--gray-500);
+  opacity: 1;
+}
+
+/* C-08: الألوان القسرية — الحالة المختارة (المقطع، التبويب، عنصر التنقل الحالي) بإطار لا بلون الخلفية وحده */
+@media (forced-colors: active) {
+  [aria-pressed="true"],
+  .k-tabbar [aria-current="page"],
+  .co-side [aria-current],
+  .co-crumbs [aria-current] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+/* gate K8/J-09: نص شاشة التحميل بخط النظام — لا يطلب خط الويب (42 كيلوبايت) قبل وحدات البوابة على شبكة بطيئة؛
+   الخط يُطلب عند رسم الإطار */
+.boot-splash {
+  font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
 }

@@ -3,9 +3,12 @@
 // البريد قصير بلا محتوى قانوني (src/services/email.js) ويحترم تفضيل المستخدم email_pref عدا رسائل الأمان.
 // تنبيهات الشركة التي لا طلب لها (الفترة التجريبية، الإيقاف، انتهاء الاشتراك…) تُكرر مرة واحدة عبر automation_runs (CS-16).
 import { nowIso, now } from '../util.js';
-import { visibleRequestSql } from './companies.js';
+import { visibleRequestSql, readableMemorySql } from './companies.js';
 
 const TITLE_MAX = 70;
+/** K12: عنوان إشعار ذاكرة لعنصر لم يعد المستخدم يقرؤه */
+export const MEMORY_HIDDEN_TITLE = 'موعد يقترب في ذاكرتكم القانونية';
+const MEMORY_HIDDEN_RENEWED = 'تجدّد عقد تلقائيًا في ذاكرتكم القانونية';
 const clip = (s, n) => {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim();
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
@@ -123,13 +126,24 @@ export function createCompanyNotify(app) {
         n,
       );
       const vis = visibleRequestSql(cu, 'r');
+      const mem = readableMemorySql(cu, 'm');
       const items = rows.map((r) => {
         let body = r.body;
+        let title = r.title;
+        let link = r.link;
         if (r.request_id) {
           const visible = db.get(`SELECT 1 FROM company_requests r WHERE r.id = ? AND ${vis.sql}`, r.request_id, ...vis.params);
           if (!visible) body = null; // L-51: العنوان فقط إن لم يعد الطلب ظاهرًا
         }
-        return { id: r.id, type: r.type, title: r.title, body, link: r.link, read_at: r.read_at, created_at: r.created_at };
+        // K12: إشعار عنصر ذاكرة (عنوانه يحمل اسم العنصر) لم يعد العنصر مقروءًا للمستخدم (خُفّض دوره أو قُصر العنصر على المديرين)
+        // ← عنوان عام بلا جسم ولا رابط للعنصر
+        const memId = r.type === 'memory.renewal' ? Number(/^#\/memory\/item\/(\d+)$/.exec(r.link || '')?.[1]) : 0;
+        if (memId && !db.get(`SELECT 1 FROM company_memory m WHERE m.id = ? AND ${mem.sql}`, memId, ...mem.params)) {
+          title = /^تجدّد تلقائيًا/.test(r.title) ? MEMORY_HIDDEN_RENEWED : MEMORY_HIDDEN_TITLE;
+          body = null;
+          link = '#/memory';
+        }
+        return { id: r.id, type: r.type, title, body, link, read_at: r.read_at, created_at: r.created_at };
       });
       const unread = Number(db.value('SELECT COUNT(*) FROM company_notifications WHERE company_user_id = ? AND read_at IS NULL', cu.id));
       return { items, unread };

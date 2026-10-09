@@ -88,18 +88,54 @@ function bubble(m, { pending = null, onRetry = null } = {}) {
   );
 }
 
-function thread(messages) {
-  const list = h('div.co-thread', { role: 'log', 'aria-label': W.req.conversation, 'aria-live': 'polite' });
+/** المستندات المتبقية للطلب (≤ 30 لكل طلب، L-27) */
+const docsLeft = (view) => Math.max(0, 30 - (view?.documents || []).length);
+
+/** J-10: المحادثة تبدأ بأحدث الرسائل — الأقدم خلف «عرض الرسائل الأقدم»، وعلى سطح المكتب يُمرَّر الصندوق إلى آخره */
+const THREAD_RECENT = 6;
+function threadNodes(messages) {
+  const out = [];
   let last = '';
   for (const m of messages) {
     const k = dayKey(m.created_at);
     if (k !== last) {
-      list.append(h('div.co-thread-day', h('span', dayName(m.created_at))));
+      out.push(h('div.co-thread-day', h('span', dayName(m.created_at))));
       last = k;
     }
-    list.append(bubble(m));
+    out.push(bubble(m));
   }
-  if (!messages.length) list.append(h('p.co-muted.co-thread-empty', W.thread.empty));
+  return out;
+}
+function thread(messages) {
+  const list = h('div.co-thread', { role: 'log', 'aria-label': W.req.conversation, 'aria-live': 'polite' });
+  if (!messages.length) {
+    list.append(h('p.co-muted.co-thread-empty', W.thread.empty));
+    return list;
+  }
+  const hidden = Math.max(0, messages.length - THREAD_RECENT);
+  if (hidden) {
+    const more = button(copy('thread.earlier', { n: hidden }), {
+      variant: 'link',
+      size: 'sm',
+      className: 'co-thread-more',
+      onClick: () => {
+        const older = threadNodes(messages.slice(0, hidden));
+        list.replaceChildren(...threadNodes(messages));
+        const first = list.querySelector('.co-msg');
+        first?.setAttribute('tabindex', '-1');
+        first?.focus({ preventScroll: true });
+        (older[0] || first)?.scrollIntoView({ block: 'start' });
+      },
+    });
+    list.append(h('div.co-thread-more-wrap', more), ...threadNodes(messages.slice(hidden)));
+  } else list.append(...threadNodes(messages));
+  // على سطح المكتب صندوق المحادثة بارتفاع محدود: يُعرض آخره (أحدث رسالة) لا أوله
+  let tries = 0;
+  const toEnd = () => {
+    if (list.isConnected) list.scrollTop = list.scrollHeight;
+    else if (tries++ < 30) requestAnimationFrame(toEnd);
+  };
+  requestAnimationFrame(toEnd);
   return list;
 }
 
@@ -122,7 +158,8 @@ function composer(view, listEl, ctx) {
     icon: 'paperclip',
     onClick: () => {
       if (up) return up.el.querySelector('input[type=file]')?.click();
-      up = coUploader({ max: 5, capture: true });
+      // J-20/K11: حد 30 مستندًا للطلب يشمل ما فيه
+      up = coUploader({ max: 5, perRequestLeft: docsLeft(view), capture: true });
       upSlot.append(up.el);
     },
   });
@@ -174,7 +211,9 @@ function approveSheet(q, code, ctx) {
   const note = textareaField(W.quoteSheet.note, { max: 1000, rows: 3 });
   const err = sheetError();
   const company = S.company?.name || '';
-  const text = copy(q.kind === 'overage' ? 'quoteSheet.approve_text_overage' : 'quoteSheet.approve_text', { company, amount: q.amount_text || '' });
+  // J-22: العرض «بحد أقصى» لا يُقرأ التزامًا بالمبلغ كاملًا
+  const capped = q.basis === 'capped' ? '_capped' : '';
+  const text = copy(`${q.kind === 'overage' ? 'quoteSheet.approve_text_overage' : 'quoteSheet.approve_text'}${capped}`, { company, amount: q.amount_text || '' });
   textSheet({
     title: W.quoteSheet.approve_title,
     dirty: () => !!note.value(),
@@ -307,7 +346,9 @@ function changesSheet(d, view, ctx) {
   const { left, max, until } = changesLeft(r);
   const what = textareaField(W.changesSheet.what, { required: true, max: 3000, rows: 5, hint: W.changesSheet.hint });
   const err = sheetError();
-  const line = h('p.co-card-sub', copy(until ? 'changesSheet.left' : 'changesSheet.left_open', { left: countOf(left, 'round_left'), max, date: until ? whenLong(until, { time: false }) : '' }));
+  // C-03: «تبقّت لكم جولة تعديل واحدة حتى …» (بلا «(من 1)» حين لم تُستخدم أي جولة)
+  const key = `${until ? 'changesSheet.left' : 'changesSheet.left_open'}${left >= max ? '_all' : ''}`;
+  const line = h('p.co-card-sub', copy(key, { left: countOf(left, 'round_left'), max, date: until ? whenLong(until, { time: false }) : '' }));
   const sh = textSheet({
     title: W.changesSheet.title,
     dirty: () => !!what.value(),
@@ -439,7 +480,7 @@ async function watchersSheet(view, ctx) {
 
 function documentsSheet(view, ctx) {
   const r = view.request;
-  const up = coUploader({ max: 5, perRequestLeft: Math.max(0, 30 - (view.documents || []).length), capture: true });
+  const up = coUploader({ max: 5, perRequestLeft: docsLeft(view), capture: true });
   const err = sheetError();
   textSheet({
     title: W.docs.add,
@@ -564,7 +605,7 @@ function actionCard(view, ctx) {
     const msg = open[0];
     const card = coClarificationCard(msg, {
       canAnswer: !!can.answer,
-      uploader: (i, label) => coUploader({ max: 5, titlePrefix: `${label} — ` }),
+      uploader: (i, label) => coUploader({ max: 5, perRequestLeft: docsLeft(view), titlePrefix: `${label} — ` }),
       onReply: async (payload) => {
         await api.post(`/company/requests/${encodeURIComponent(r.code)}/clarifications/${encodeURIComponent(msg.id)}/reply`, payload);
         toast(W.clarification.sent, 'success');

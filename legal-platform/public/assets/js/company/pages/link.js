@@ -33,6 +33,8 @@ function failure(root, err, kind, onLogin) {
       action ? button(action, { variant: 'primary', block: true, onClick: () => onLogin(null) }) : h('p.co-auth-links', h('a', { href: '#/login', onClick: (e) => { e.preventDefault(); onLogin(null); } }, W.login.back_to_login)),
     ),
   );
+  // C-09: التركيز على العنوان بعد فحص الرابط (قارئ الشاشة يعلن الحالة)
+  root.querySelector('h1.co-auth-title')?.focus({ preventScroll: true });
 }
 
 export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
@@ -113,7 +115,7 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
       root,
       authLayout(
         h('h1.co-auth-title', { tabindex: '-1' }, W.link.welcome),
-        h('p.co-auth-sub', ...copyParts('link.invited', { inviter: inviter || h('span', ...copyParts('link.inviter_team', { brand: brandEl() })), company: info.company?.name || '', brand: brandEl() })),
+        h('p.co-auth-sub', ...copyParts('link.invited', { inviter: inviter || W.link.inviter_team, company: info.company?.name || '', brand: brandEl() })),
         form,
       ),
     );

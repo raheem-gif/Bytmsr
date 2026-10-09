@@ -83,6 +83,6 @@ export default async function companyPage(ctx) {
     pageHead(W.nav.company, F.sub, { actions: edit }),
     sectionCard(null, kv(pairs, { className: 'co-fields-kv' })),
     ce?.legal_name ? h('p.co-contracting', icon('landmark', { size: 16 }), h('span', ce.registration ? copy('plan.contracting', { legal_name: ce.legal_name, registration: ce.registration }) : copy('plan.contracting_plain', { legal_name: ce.legal_name }))) : null,
-    h('ul.k-list.co-more-info', h('li', h('a.k-row', { href: '#/memory/entities' }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('building', { size: 22 })), h('span.k-row-main', h('span.k-row-title', F.entities), h('span.k-row-sub', countOf(p.entities_count ?? 0, 'entity'))), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 }))))),
+    h('ul.k-list.co-more-info', h('li', h('a.k-row', { href: '#/memory/entities' }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('building', { size: 22 })), h('span.k-row-main', h('span.k-row-title', F.entities), h('span.k-row-sub', countOf(p.entities_count ?? 0, 'entity_nom'))), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 }))))),
   );
 }

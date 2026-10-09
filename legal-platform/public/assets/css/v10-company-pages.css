@@ -1991,3 +1991,24 @@ tr.is-voided td {
 .co-page .co-file-actions {
   flex-wrap: wrap;
 }
+
+/* gate J-10: على الهاتف لا صندوق تمرير داخلي للمحادثة (أحدث الرسائل ظاهرة، والأقدم خلف «عرض الرسائل الأقدم») */
+.co-thread-more-wrap {
+  align-self: center;
+}
+
+@media (max-width: 1023px) {
+  .co-thread {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* gate C-07: على الهاتف حقول الدخول وطلب جديد 48 بكسل كبقية الحقول (v10-company.css) */
+@media (pointer: coarse) {
+  .co-auth-form .input,
+  .co-nr-form .input,
+  .co-nr-form select.input {
+    min-height: 48px;
+  }
+}

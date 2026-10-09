@@ -133,7 +133,7 @@ export function coQuoteCard(q, { canApprove = false, approverNames = [], onAppro
       )
     : h(
         'div.co-card-actions',
-        h('p.co-card-note', icon('info', { size: 16 }), h('span', approverNames.length ? copy('quote.approvers', { names: approverNames.join('، ') }) : W.quote.approvers_plain)),
+        h('p.co-card-note', icon('info', { size: 16 }), h('span', approverNames.length ? copy(approverNames.length === 1 ? 'quote.approvers_one' : 'quote.approvers', { names: approverNames.join('، ') }) : W.quote.approvers_plain)),
         onDiscuss ? button(W.quote.discuss, { variant: 'link', onClick: () => onDiscuss(q) }) : null,
       );
   return h(

@@ -32,6 +32,7 @@ const SIGNED_HINT = 'ek.co.view:signed';
 function setTitle(t) {
   const base = t ? `${t} — ${brandShort()}` : brandShort();
   document.title = `${S.unread ? `(${S.unread > 99 ? '99+' : S.unread}) ` : ''}${base}`;
+  shell?.setPageTitle?.(t);
   setTitle.last = t;
 }
 
@@ -47,6 +48,9 @@ async function renderAuth() {
   stopPolling();
   const { path } = parseHash();
   const m = /^\/(invite|reset)\/([^/]+)$/.exec(path);
+  // C-09: العنوان قبل أي تحميل (شاشة الدعوة/التعيين كانت تعود قبل ضبطه فيبقى العنوان العام أو عنوان الشاشة السابقة)
+  const title = m ? (m[1] === 'invite' ? W.titles.invite : W.titles.reset) : path === '/forgot' ? W.titles.forgot : W.titles.login;
+  setTitle(title);
   try {
     // أنماط شاشات الدخول تُحمَّل معها (خارج أوراق أول رسم لـ«المتابعة»؛ §8.4)
     const css = ensureStyles(['v10-company-pages']);
@@ -61,7 +65,7 @@ async function renderAuth() {
   } catch (err) {
     bare(h('p', { role: 'alert' }, W.state.network), button(W.state.retry, { variant: 'primary', onClick: renderAuth }));
   }
-  setTitle(m ? (m[1] === 'invite' ? W.titles.invite : W.titles.reset) : path === '/forgot' ? W.titles.forgot : W.titles.login);
+  setTitle(title);
 }
 /** شاشة الدخول (مع ملاحظة: انتهاء الجلسة أو تغيير كلمة المرور، والبريد معبأ) */
 function showLogin(notice = null, email = '') {

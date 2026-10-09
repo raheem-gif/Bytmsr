@@ -373,9 +373,10 @@ export default async function render(ctx) {
   }
   function companyRef() {
     const host = h('div.lw-co-ref');
+    const coOpts = { role: view.assignment && view.assignment.role, closed: !!(view.case && view.case.state === 'closed') }; // gate J-07/K10
     import('../../../lib/company-catalog-fields.js')
-      .then((m) => mount(host, companyContextSection(view.company, { fields: m.memoryFields })))
-      .catch(() => mount(host, companyContextSection(view.company)));
+      .then((m) => mount(host, companyContextSection(view.company, { fields: m.memoryFields, ...coOpts })))
+      .catch(() => mount(host, companyContextSection(view.company, coOpts)));
     return host;
   }
   function docsRef() {

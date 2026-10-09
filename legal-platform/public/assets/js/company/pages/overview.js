@@ -15,6 +15,14 @@ const QUICK = ['contract_review', 'nda', 'employment', 'legal_notice'];
 const ORDER = { clarification: 0, quote: 1, overage: 1, deliverable: 2, renewal: 3, charge: 4 };
 const MAX_ROWS = 6;
 
+/** C-03: «في الموعد» بعدد ما سُلِّم (واحد / اثنان / أكثر) */
+function onTimeText(n, m) {
+  if (m >= n) return n === 1 ? W.home.one_on_time : n === 2 ? W.home.both_on_time : W.home.all_on_time;
+  if (m <= 0) return n === 1 ? W.home.one_late : n === 2 ? W.home.both_late : W.home.all_late;
+  if (n === 2) return W.home.one_of_two_on_time;
+  return copy('home.some_on_time', { m: countOf(m, 'delivered') });
+}
+
 function afterDays(n) {
   if (n <= 0) return null;
   return `بعد ${countOf(n, 'day_after')}`;
@@ -39,7 +47,7 @@ function attentionRow(a) {
     case 'quote':
     case 'overage':
       title = a.kind === 'quote' ? W.home.quote : W.home.overage;
-      sub = [code, ` · ${money(a.amount)}`, a.kind === 'quote' ? ` · ${copy('quote.valid_until', { date: whenLong(a.valid_until, { time: false }) })}` : ' · بعد استخدام كل الطلبات المشمولة', a.can_approve ? '' : W.home.quote_admins];
+      sub = [code, ` · ${money(a.amount)}`, a.kind === 'quote' ? ` · ${copy('home.quote_valid', { date: whenLong(a.valid_until, { time: false }) })}` : ` · ${W.home.overage_after}`, a.can_approve ? '' : W.home.quote_admins];
       action = a.can_approve ? (a.kind === 'quote' ? W.home.review_quote : W.home.review) : W.home.view;
       href = `${reqHref}?focus=action`;
       break;
@@ -76,16 +84,22 @@ function attentionRow(a) {
     default:
       return null;
   }
-  return h(
-    'li.co-attn',
-    kRow({
-      icon: h('span.co-attn-icon', icon(ic, { size: 20 })),
-      title,
-      sub,
-      trailing: button(action, { variant: 'secondary', size: 'sm', href }),
-      className: 'co-attn-row',
-    }),
-  );
+  const btn = button(action, { variant: 'secondary', size: 'sm', href });
+  const row = kRow({
+    icon: h('span.co-attn-icon', icon(ic, { size: 20 })),
+    title,
+    sub,
+    trailing: btn,
+    className: 'co-attn-row',
+  });
+  // C-10: «عرض»/«الرد» تُقرأ مع عنوان الصف وسطره («عرض — عرض سعر بانتظار موافقتكم، NFD-0005 · …»)
+  const id = `co-attn-${(attentionRow.seq = (attentionRow.seq || 0) + 1)}`;
+  const t = row.querySelector('.k-row-title');
+  const s = row.querySelector('.k-row-sub');
+  if (t) t.id = `${id}-t`;
+  if (s) s.id = `${id}-s`;
+  btn.setAttribute('aria-describedby', [t && `${id}-t`, s && `${id}-s`].filter(Boolean).join(' '));
+  return h('li.co-attn', row);
 }
 
 function banners(home) {
@@ -147,7 +161,7 @@ function planCard(home) {
         const n = Number(u?.requests?.delivered) || 0;
         if (!n) return;
         const m = Number(u?.sla?.delivered_on_time) || 0;
-        extra.replaceChildren(h('p.co-meter-line', copy(n <= 2 ? 'home.delivered_one' : 'home.delivered_many', { n: countOf(n, 'delivered'), ontime: m >= n ? W.home.all_on_time : copy('home.some_on_time', { m }) })));
+        extra.replaceChildren(h('p.co-meter-line', copy(n <= 2 ? 'home.delivered_one' : 'home.delivered_many', { n: countOf(n, 'delivered'), ontime: onTimeText(n, m) })));
       })
       .catch(() => {});
     if (atLimit && seesMoney()) {
@@ -203,7 +217,7 @@ export default async function overview(ctx) {
   const att = [...(home.attention || [])].sort((a, b) => (ORDER[a.kind] ?? 9) - (ORDER[b.kind] ?? 9) || (a.kind === 'renewal' ? a.days_left - b.days_left : 0));
   const rows = att.map(attentionRow).filter(Boolean);
   const list = h('ul.k-list.co-attn-list', rows.slice(0, MAX_ROWS));
-  const more = rows.length > MAX_ROWS ? button(copy('home.attention_more', { n: rows.length - MAX_ROWS }), { variant: 'link', onClick: (e) => { list.append(...rows.slice(MAX_ROWS)); e.currentTarget.remove(); } }) : null;
+  const more = rows.length > MAX_ROWS ? button(copy('home.attention_more', { n: countOf(rows.length - MAX_ROWS, 'attn_more') }), { variant: 'link', onClick: (e) => { list.append(...rows.slice(MAX_ROWS)); e.currentTarget.remove(); } }) : null;
   const attention = sectionCard(
     rows.length ? [W.home.attention, ' ', h('span.co-count.num', `(${rows.length})`)] : W.home.attention,
     rows.length ? h('div', list, more) : h('div.co-empty-attn', h('span.co-empty-icon', { 'aria-hidden': 'true' }, icon('checkCircle', { size: 28 })), h('div', h('p.co-empty-title', W.home.empty_title), h('p.co-empty-text', copy('home.empty_text')))),

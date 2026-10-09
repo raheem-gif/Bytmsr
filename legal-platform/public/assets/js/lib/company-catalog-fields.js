@@ -644,15 +644,19 @@ export function addDaysKey(key, days) {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + Number(days)));
   return d.toISOString().slice(0, 10);
 }
-/** إضافة أشهر لتاريخ YYYY-MM-DD (اليوم يُقصّ على آخر أيام الشهر) */
-export function addMonthsKey(key, months) {
+/**
+ * إضافة أشهر لتاريخ YYYY-MM-DD (اليوم يُقصّ على آخر أيام الشهر). anchorDay (G-R3): يوم الشهر الأصلي للتكرار — يُقصّ
+ * الموعد المحسوب وحده ولا يضيع اليوم 29–31 بعد شهر قصير (31 يناير ← 28 فبراير ← 31 مارس).
+ */
+export function addMonthsKey(key, months, anchorDay = null) {
   const m = DATE_RE.exec(key);
   const y = Number(m[1]);
   const mo = Number(m[2]) - 1 + Number(months);
   const ty = y + Math.floor(mo / 12);
   const tm = ((mo % 12) + 12) % 12;
   const last = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
-  const d = Math.min(Number(m[3]), last);
+  const want = Number.isInteger(Number(anchorDay)) && Number(anchorDay) >= 1 && Number(anchorDay) <= 31 ? Number(anchorDay) : Number(m[3]);
+  const d = Math.min(want, last);
   return `${ty}-${String(tm + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 

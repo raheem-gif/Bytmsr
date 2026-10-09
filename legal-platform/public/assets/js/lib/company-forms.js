@@ -307,9 +307,10 @@ function control(spec, value, ctx) {
       break;
     case 'memory_ref':
       if (spec.key === 'template_memory_id') {
-        // «استخدام نموذج السرية المعتمد لديكم: {العنوان}» (مفعّل افتراضيًا) حين يوجد نموذج معتمد في الذاكرة
-        const ts = (ctx.memoryItems || []).filter((m) => m.kind === 'template');
-        const t = ts.find((m) => /سري|NDA/i.test(m.title)) || ts[0];
+        // «استخدام نموذج السرية المعتمد لديكم: {العنوان}» (مفعّل افتراضيًا) حين يوجد نموذج سرية معتمد في الذاكرة —
+        // نموذج من نوع «اتفاقية سرية» فقط (J-05: لا «شروط الاستخدام» ولا أي نموذج آخر بديلًا)
+        const isNda = (m) => m.kind === 'template' && (m.template_kind ? m.template_kind === 'nda' : /سري|NDA/i.test(m.title || ''));
+        const t = (ctx.memoryItems || []).find(isNda) || null;
         input = h('input', { id: idf, type: 'checkbox' });
         el = h('label.check.check-single', { htmlFor: idf }, input, h('span', t ? `${spec.label}: ${t.title}` : spec.label));
         get = () => (t && input.checked ? t.id : '');
@@ -493,7 +494,7 @@ export function coRequestFields(typeKey, fields = {}) {
       else shown = h('span', { dir: 'auto' }, String(optionLabel(s, v)));
       return [s.label, shown];
     });
-  if (src.output_language) pairs.push([W.newRequest.language, { ar: 'العربية', en: 'English', both: 'الاثنتان' }[src.output_language] || src.output_language]);
+  if (src.output_language) pairs.push([W.newRequest.language, { ar: 'العربية', en: 'English', both: 'العربية والإنجليزية' }[src.output_language] || src.output_language]);
   return kv(pairs, { className: 'co-fields-kv' });
 }
 
@@ -581,8 +582,10 @@ export function coMemoryFields(item = {}) {
       if (s.kind === 'date') return [s.label, fmtDate(`${String(v).slice(0, 10)}T10:00:00Z`)];
       if (s.kind === 'money') return [s.label, h('span.num', money(v))];
       if (s.kind === 'bool') return [s.label, v ? 'نعم' : 'لا'];
-      if (s.kind === 'int' && s.key === 'term_months') return [s.label, count(v, 'month')];
-      if (s.kind === 'int' && /days/.test(s.key)) return [s.label, count(v, 'day')];
+      // C-15: الوحدة في القيمة («12 شهرًا») فلا تتكرر في التسمية («(بالأشهر)»)
+      const plain = String(s.label).replace(/\s*\((?:بالأشهر|بالأيام)\)\s*$/, '');
+      if (s.kind === 'int' && s.key === 'term_months') return [plain, count(v, 'month')];
+      if (s.kind === 'int' && /days/.test(s.key)) return [plain, count(v, 'day')];
       return [s.label, h('span', { dir: 'auto' }, String(optionLabel(s, v)))];
     })
     .filter(Boolean);

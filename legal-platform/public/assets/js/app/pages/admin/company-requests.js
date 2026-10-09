@@ -23,7 +23,7 @@ import {
   table,
   toast,
 } from '../../../lib/ui.js';
-import { REQUEST_TYPES, typeByKey, stageByKey } from '../../../lib/company-catalog.js';
+import { REQUEST_TYPES, typeByKey, stageByKey, PRIORITIES, labelOf } from '../../../lib/company-catalog.js';
 
 // ───────────────────────── «كما تراه الشركة» ─────────────────────────
 // المصدر الوحيد لمعاينة ما تراه الشركة هو مكوّنات البوابة نفسها (lib/company-ui.js و lib/company-forms.js، POR-0):
@@ -126,6 +126,15 @@ export function typeBadge(typeKey, text) {
 }
 
 const PROVIDER = { heuristic: 'المحلل المحلي', anthropic: 'Claude', claude: 'Claude' };
+/** gate K4: ما وُجد فعلًا في النص من اسم المحامي (قد يكون لاتينيًا أو اسم المستخدم) */
+export const lawyerHitMatched = (n) => String((n && (n.matched || n.name)) || '');
+const plainName = (s) => String(s || '').replace(/[\u064B-\u0652\u0640]/g, '').replace(/\s+/g, ' ').trim();
+/** gate K4: «Tarek El-Naggar» (طارق النجار) حين يختلف ما وُجد عن الاسم العربي، وإلا «طارق النجار» */
+export function lawyerHitShown(n) {
+  const m = plainName(n && n.matched);
+  const name = plainName(n && n.name);
+  return m && m !== name ? `«${m}» (${name})` : `«${name || m}»`;
+}
 export const providerLabel = (p) => PROVIDER[p] || label('ai_provider', p) || p || '';
 
 /** سطر «المقترح» من الفرز (D10) */
@@ -327,7 +336,7 @@ export default async function render(ctx) {
           h('span.cq-card-badges', typeBadge(it.type, it.type_label), stageBadgeStaff(it)),
         ),
         h('h3.cq-card-title', h('a', { id: titleId, href: `#/company-requests/${it.id}`, dir: 'auto' }, it.title)),
-        h('div.cq-card-sla', slaChip(it.sla, { clock: clockOf(it) }), it.priority && it.priority !== 'normal' && badge(it.priority_label || label('priority', it.priority), it.priority === 'urgent' ? 'danger' : it.priority === 'low' ? 'muted' : 'warning', { icon: 'flag' })),
+        h('div.cq-card-sla', slaChip(it.sla, { clock: clockOf(it) }), it.priority && it.priority !== 'normal' && badge(labelOf(PRIORITIES, it.priority) || it.priority_label, it.priority === 'urgent' ? 'danger' : it.priority === 'low' ? 'muted' : 'warning', { icon: 'flag' })),
         aiLine(it.ai, it),
         h('div.cq-flags', flagChips(it.flags, { staffUnread: it.staff_unread, skip: ['escalated'] })),
         h(

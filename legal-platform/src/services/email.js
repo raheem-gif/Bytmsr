@@ -226,6 +226,13 @@ export class SmtpConnection {
       // STARTTLS إلزامي: لا متابعة بلا تشفير، ولا AUTH قبله أبدًا
       if (!this.ext.has('STARTTLS')) throw Object.assign(new Error('خادم البريد لا يدعم STARTTLS؛ أُوقف الإرسال قبل إرسال بيانات الدخول'), { permanent: true });
       await this.cmd('STARTTLS', { expect: [220] });
+      // gate G7-07: أي رد أو بيانات وصلت بعد «220» وقبل التشفير حقنٌ محتمل من وسيط — لا تُحمل عبر STARTTLS أبدًا
+      if (this.early.length || this.buf || this.lines.length) {
+        throw Object.assign(new Error('أرسل خادم البريد بيانات غير متوقعة قبل بدء التشفير؛ أُوقف الإرسال'), { permanent: true });
+      }
+      this.early = [];
+      this.buf = '';
+      this.lines = [];
       const plain = this.socket;
       plain.removeAllListeners('data');
       plain.removeAllListeners('close');
@@ -315,7 +322,8 @@ export function createEmail(app) {
     const cutoff = new Date(now().getTime() - STALE_SENDING_MS).toISOString();
     let n = 0;
     for (const r of db.all("SELECT id, body_text FROM email_outbox WHERE status = 'sending' AND COALESCE(next_attempt_at, created_at) <= ?", cutoff)) {
-      if (String(r.body_text).includes('{link}')) db.run("UPDATE email_outbox SET status = 'failed', error = ? WHERE id = ? AND status = 'sending'", LINK_EXPIRED, r.id);
+      // (gate G-R2: يُستدعى أيضًا في بداية كل flush — الرابط السري الذي ما زال في الذاكرة يُعاد إرساله بدل أن يفشل)
+      if (String(r.body_text).includes('{link}') && !secrets.has(r.id)) db.run("UPDATE email_outbox SET status = 'failed', error = ? WHERE id = ? AND status = 'sending'", LINK_EXPIRED, r.id);
       else db.run("UPDATE email_outbox SET status = 'queued', next_attempt_at = ? WHERE id = ? AND status = 'sending'", nowIso(), r.id);
       n += 1;
     }
@@ -444,13 +452,14 @@ export function createEmail(app) {
       const lines = (...ls) => ls.filter(Boolean).join('\n');
       switch (template) {
         case 'invite': {
-          const inviter = vars.inviter ? vars.inviter : `فريق ${b}`;
+          // J-19/K9: صيغة محايدة تذكر العلامة مرة واحدة (لا «دعاكم فريق {brand} … لدى {brand}»، ولا فعل مذكر لداعية)
+          const inviter = vars.inviter ? vars.inviter : 'فريقكم القانوني';
           return {
             purpose: 'invite',
             subject: 'دعوة للانضمام إلى إدارتكم القانونية',
             text: lines(
               hello,
-              `دعاكم ${inviter} للانضمام إلى بوابة ${companyName} لدى ${b} — إدارتكم القانونية.`,
+              `تلقّيتم دعوة من ${inviter} للانضمام إلى بوابة ${companyName} لدى ${b} — إدارتكم القانونية.`,
               `لتفعيل حسابكم واختيار كلمة المرور افتحوا الرابط التالي (صالح لمرة واحدة حتى ${vars.until}): {link}`,
               'إن لم تكونوا تتوقعون هذه الرسالة فتجاهلوها.',
               footer,
@@ -538,6 +547,13 @@ export function createEmail(app) {
       const out = { sent: 0, failed: 0, retried: 0 };
       let conn = null;
       try {
+        // gate G-R2: صف بقي «جارٍ الإرسال» بعد إعادة تشغيل (أو تعطل) يعود للانتظار دون انتظار إعادة تشغيل أخرى؛ لا يمسك أي
+        // تشغيل صفًا أكثر من FLUSH_BUDGET_MS (20 ث) فصفوف أقدم من 10 دقائق ليست قيد الإرسال
+        try {
+          recoverStale();
+        } catch (e) {
+          app.log?.('email recover', e);
+        }
         const t = nowIso();
         const rows = only
           ? db.all(`SELECT * FROM email_outbox WHERE id IN (${only.map(() => '?').join(',')}) AND status = 'queued'`, ...only)

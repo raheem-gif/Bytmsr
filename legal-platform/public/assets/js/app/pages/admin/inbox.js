@@ -587,7 +587,8 @@ export default async function render(ctx) {
       selectInput({
         label: 'قناة التواصل',
         allLabel: 'كل القنوات',
-        options: options('channel'),
+        // (v10 gate J-25) «بوابة الشركة» قناة طلبات الشركات فقط، ولا تطابق أي طلب وارد للأفراد
+        options: options('channel').filter((o) => o.value !== 'company_portal'),
         value: state.channel,
         onChange: (v) => {
           state.channel = v;

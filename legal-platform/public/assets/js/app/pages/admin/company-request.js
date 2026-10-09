@@ -26,7 +26,9 @@ import {
   fileInput,
   setBusy,
 } from '../../../lib/ui.js';
-import { typeByKey, stageByKey } from '../../../lib/company-catalog.js';
+import { typeByKey, stageByKey, PRIORITIES, labelOf } from '../../../lib/company-catalog.js';
+/** gate C-12: كلمات الاستعجال كما تراها الشركة */
+const prioWord = (k) => labelOf(PRIORITIES, k);
 import {
   slaChip,
   flagChips,
@@ -35,6 +37,7 @@ import {
   whenText,
   hm,
   providerLabel,
+  lawyerHitMatched,
 } from './company-requests.js';
 import { promiseText, teamAuthor } from '../../../lib/company-ui.js';
 import { coRequestFields } from '../../../lib/company-forms.js';
@@ -149,7 +152,9 @@ export default async function render(ctx) {
   }
   async function openDeliverable(deliverable = null) {
     const { openDeliverableSheet } = await import('../../components/company-deliverable-sheet.js');
-    await openDeliverableSheet({ detail: d, user, deliverable, onDone: done });
+    // gate J-12: «إعداد تسليم» يتابع المسودة المفتوحة إن وُجدت (مسودة واحدة لكل طلب)
+    const draft = deliverable || [...(d.deliverables || [])].reverse().find((x) => x.status === 'draft') || null;
+    await openDeliverableSheet({ detail: d, user, deliverable: draft, onDone: done });
   }
   async function openGrants(a) {
     const { openMemoryGrants } = await import('../../components/company-memory-grants.js');
@@ -347,7 +352,7 @@ export default async function render(ctx) {
         codeTag(r.code),
         h('a.cr-company-link', { href: `#/companies/${d.company.id}` }, icon('building', { size: 15 }), d.company.name),
         typeBadge(r.type, r.type_label),
-        r.priority && badge(label('priority', r.priority), r.priority === 'urgent' ? 'danger' : r.priority === 'high' ? 'warning' : 'neutral', { icon: 'flag' }),
+        r.priority && badge(prioWord(r.priority), r.priority === 'urgent' ? 'danger' : r.priority === 'high' ? 'warning' : 'neutral', { icon: 'flag' }),
         stageBadgeStaff(r),
         r.status_label && r.status_label !== stageByKey(r.stage)?.staff_label ? h('span.cr-status', r.status_label) : null,
         d.company.read_only && badge('الشركة للاطلاع فقط', 'warning', { icon: 'lock' }),
@@ -528,7 +533,8 @@ export default async function render(ctx) {
     if (m) {
       const it = memoryIndex && memoryIndex.get(Number(m[1]));
       const text = it ? `${it.kind_label} · ${it.title}` : `عنصر من الذاكرة (${ref.ref})`;
-      return h('li', h('a', { href: `#/companies/${d.company.id}?tab=memory&item=${m[1]}`, dir: 'auto' }, text), it && it.kind === 'position' ? badge('موقف معتمد', 'info') : null, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
+      // gate C-13: نوع العنصر «موقف معتمد من الإدارة» ظاهر في النص؛ الشارة لمن يراه في الشركة (مديرو البوابة فقط)
+      return h('li', h('a', { href: `#/companies/${d.company.id}?tab=memory&item=${m[1]}`, dir: 'auto' }, text), it && it.access === 'admins' ? badge(it.access_label || 'مديرو البوابة فقط', 'warning') : null, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
     }
     if (rq) return h('li', h('a', { href: `#/company-requests?q=${encodeURIComponent(rq[1])}&status=closed` }, `طلب سابق ${rq[1]}`), ref.why ? h('span.muted', ` — ${ref.why}`) : null);
     return h('li', ref.ref, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
@@ -657,7 +663,7 @@ export default async function render(ctx) {
         kv(
           [
             ['الكيان', r.entity?.name || null],
-            ['الاستعجال المطلوب', `${label('priority', r.requested_priority || r.priority)}${r.priority_changed ? ` (المعتمد: ${label('priority', r.priority)})` : ''}`],
+            ['الاستعجال المطلوب', `${prioWord(r.requested_priority || r.priority)}${r.priority_changed ? ` (المعتمد: ${prioWord(r.priority)})` : ''}`],
             r.urgent_reason ? ['سبب الاستعجال', h('span', { dir: 'auto' }, r.urgent_reason)] : null,
             ['مطلوب قبل', r.needed_by ? isoToCairoDate(r.needed_by) || r.needed_by : null],
             ['لغة التسليم', lang && lang !== fields.output_language ? lang : { ar: 'العربية', en: 'الإنجليزية', both: 'العربية والإنجليزية' }[fields.output_language] || 'العربية'],
@@ -796,7 +802,7 @@ export default async function render(ctx) {
       } catch (err) {
         const det = err && err.details;
         let msg = errorMessage(err);
-        if (err && err.code === 'lawyer_names' && det && det.lawyer_names && det.lawyer_names[0]) msg = LAWYER_NAME_MSG(det.lawyer_names[0].name);
+        if (err && err.code === 'lawyer_names' && det && det.lawyer_names && det.lawyer_names[0]) msg = LAWYER_NAME_MSG(lawyerHitMatched(det.lawyer_names[0])); // gate K4
         if (err && err.code === 'file_author_names' && det && det.file_authors && det.file_authors[0]) {
           const fa = det.file_authors[0];
           msg = AUTHOR_MSG(fa.filename || (det.office_docs || []).find((o) => o.id === fa.document_id)?.filename || 'المرفق', (fa.names || [])[0] || '');

@@ -5,7 +5,7 @@
 
 export const QUEUE_LABELS = {
   info_requests: 'طلبات معلومات من المحامين',
-  client_replies: 'ردود المستفيدين بانتظار المراجعة',
+  client_replies: 'ردود المستفيدين والشركات بانتظار المراجعة', // gate J-13
   counsel_requests: 'طلبات مساعدة محامٍ',
   opinions: 'آراء بانتظار المراجعة',
   proposed_issues: 'مسائل اقترحها المحامون',

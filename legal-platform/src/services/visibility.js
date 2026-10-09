@@ -115,7 +115,11 @@ export function createVisibility(app) {
         return { facts: true, client_name: companyCase, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
       }
       // v10 b2b-server: مراجع ملف الشركة يحتاج المسائل والمستندات كالمحامي الأساسي
-      if (companyCase && role === 'reviewer') return { facts: true, client_name: true, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: [], info_request_ids: [] };
+      // gate J-07: والمراجعة النهائية تحتاج رأي المحامي الأساسي (يظهر له متى قُدّم)
+      if (companyCase && role === 'reviewer') {
+        const leads = db.all("SELECT id FROM assignments WHERE case_id = ? AND role = 'lead' AND status != 'withdrawn'", caseId).map((r) => r.id);
+        return { facts: true, client_name: true, issue_ids: allIssues, document_ids: allDocs, opinion_assignment_ids: leads, info_request_ids: [] };
+      }
       return {
         facts: true,
         client_name: companyCase,

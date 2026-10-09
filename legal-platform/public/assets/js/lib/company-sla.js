@@ -348,6 +348,10 @@ function countForm(n, [one, two, few, many]) {
 const BUSINESS_HOURS_FORMS = ['ساعة عمل', 'ساعتي عمل', 'ساعات عمل', 'ساعة عمل'];
 const BUSINESS_DAYS_FORMS = ['يوم عمل', 'يومي عمل', 'أيام عمل', 'يوم عمل'];
 const HOURS_FORMS = ['ساعة', 'ساعتين', 'ساعات', 'ساعة'];
+/** C-03: صيغ الرفع لقيمة قائمة بذاتها (خلية جدول): «ساعتان»، «يوما عمل» */
+const BUSINESS_HOURS_NOM = ['ساعة عمل', 'ساعتا عمل', 'ساعات عمل', 'ساعة عمل'];
+const BUSINESS_DAYS_NOM = ['يوم عمل', 'يوما عمل', 'أيام عمل', 'يوم عمل'];
+const HOURS_NOM = ['ساعة', 'ساعتان', 'ساعات', 'ساعة'];
 
 /** طول يوم العمل بالساعات في التقويم */
 export function dayLength(cal) {
@@ -357,17 +361,19 @@ export function dayLength(cal) {
 /**
  * المدة كما تُقرأ بعد «خلال» (CO-25): أقل من يوم عمل ← «{n} ساعات عمل»، يوم واحد ← «يوم عمل»، أكثر ← «{⌈الساعات ÷ طول اليوم⌉} أيام عمل».
  */
-export function durationText(hours, cal) {
+export function durationText(hours, cal, { standalone = false } = {}) {
   const h = Math.max(0, Number(hours) || 0);
   const len = dayLength(cal || calendarFrom({}));
-  if (h < len) return countForm(Math.max(1, Math.ceil(h)), BUSINESS_HOURS_FORMS);
-  if (h === len) return BUSINESS_DAYS_FORMS[0];
-  return countForm(Math.ceil(h / len), BUSINESS_DAYS_FORMS);
+  const hf = standalone ? BUSINESS_HOURS_NOM : BUSINESS_HOURS_FORMS;
+  const df = standalone ? BUSINESS_DAYS_NOM : BUSINESS_DAYS_FORMS;
+  if (h < len) return countForm(Math.max(1, Math.ceil(h)), hf);
+  if (h === len) return df[0];
+  return countForm(Math.ceil(h / len), df);
 }
 
 /** ساعات فعلية بعد «خلال»: «ساعة»، «ساعتين»، «8 ساعات» */
-export function hoursText(hours) {
-  return countForm(Math.max(1, Math.ceil(Number(hours) || 0)), HOURS_FORMS);
+export function hoursText(hours, { standalone = false } = {}) {
+  return countForm(Math.max(1, Math.ceil(Number(hours) || 0)), standalone ? HOURS_NOM : HOURS_FORMS);
 }
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
