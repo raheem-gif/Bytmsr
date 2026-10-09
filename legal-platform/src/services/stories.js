@@ -944,9 +944,15 @@ export function createStories(app) {
         send_line: i.client_id && app.segments ? app.segments.sendLine({ clientId: i.client_id, intakeId: i.id }) : null,
         eligibility_warning: eligibilityWarning,
         eligibility_text: eligibilityWarning ? 'لم تُسجَّل بيانات الأسرة — تأكدوا من الاستحقاق' : null,
-        // P1: لطلب «غير محدد» مسودات الرسائل بالنبرتين، فتتبدل المسودة حين تختار الإدارة نوع الخدمة في نفس الورقة
-        ...(i.segment === null && !asSegment
-          ? { drafts_by_tone: { charity: svc.proposal(intakeId, { asSegment: 'charity' }).drafts, paid: svc.proposal(intakeId, { asSegment: 'paid' }).drafts } }
+        // P1: مسودات الرسائل بالنبرتين، فتتبدل المسودة حين تختار الإدارة نوع الخدمة في نفس الورقة
+        // (v11 gate fix J-04/K13: لكل طلب لا لـ«غير محدد» وحده — تغيير «خيري» إلى «أفراد وشركات» داخل الورقة يبدّل المسودة أيضًا)
+        ...(!asSegment
+          ? {
+              drafts_by_tone:
+                i.segment === 'charity' || i.segment === 'paid'
+                  ? { [i.segment]: drafts, [i.segment === 'charity' ? 'paid' : 'charity']: svc.proposal(intakeId, { asSegment: i.segment === 'charity' ? 'paid' : 'charity' }).drafts }
+                  : { charity: svc.proposal(intakeId, { asSegment: 'charity' }).drafts, paid: svc.proposal(intakeId, { asSegment: 'paid' }).drafts },
+            }
           : {}),
       };
     },

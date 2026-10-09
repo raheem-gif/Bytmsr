@@ -11,7 +11,7 @@ import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
 import { haptic } from '../../lib/haptics.js';
 // v11 segment-staff (ST-3): نوع الخدمة في ورقة القرار — رأس الإرسال، واختيار إلزامي بلا افتراضي حين يكون «غير محدد»
-import { sendHeader, segmentChoice, parseSeg, REQUIRED_TEXT } from './segment-ui.js';
+import { sendHeader, segmentChoice, parseSeg, segLabel, REQUIRED_TEXT } from './segment-ui.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -114,7 +114,11 @@ export async function openStorySheet(opts = {}) {
   const segNow = parseSeg(p.segment);
   const segRequired = Boolean(p.segment_required) || !segNow;
   let segPick = segNow; // القيمة التي ستُرسل مع القرار (null = لم تُختر بعد)
-  let draftsEdited = false;
+  // v11 gate fix (J-04/K13): المسارات التي عدّلتها الإدارة يدويًا — مسوداتها لا تُستبدل عند تغيير النوع، بل يظهر تنبيه
+  const touched = new Set();
+  const touchedTone = new Map(); // نبرة المسودة التي بُني منها كل مسار عُدِّل يدويًا
+  let draftTone = segNow; // نبرة المسودات المعروضة الآن (null = محايدة لطلب «غير محدد»)
+  const toneWarnHost = h('div.pa-sheet-tonewarn', { 'aria-live': 'polite' });
   const headHost = h('div.pa-sheet-sendhead');
   const eligibilityHost = h('div.pa-sheet-eligibility');
   function drawSendHead() {
@@ -136,14 +140,27 @@ export async function openStorySheet(opts = {}) {
       drawSendHead();
       drawEligibility();
       syncFooter();
-      // P1: مسودات الرسائل بأسلوب النوع المختار (drafts_by_tone لطلب «غير محدد») ما دامت لم تُعدَّل
-      if (!segNow && p.drafts_by_tone && p.drafts_by_tone[v] && !draftsEdited) {
-        p.drafts = p.drafts_by_tone[v];
-        forms.clear();
-        drawForm();
-      }
+      swapDrafts(v);
     },
   });
+  /**
+   * P1 + v11 gate fix (J-04/K13): مسودات الرسائل بأسلوب النوع المختار (drafts_by_tone لكل طلب). المسارات التي لم تُلمس تُبنى
+   * من جديد بالنبرة الجديدة؛ مسار عُدِّل يدويًا يبقى كما هو مع تنبيه، فلا يصل عميل «أفراد وشركات» نص خيري دون أن تنتبه الإدارة.
+   */
+  function swapDrafts(v) {
+    const next = p.drafts_by_tone && p.drafts_by_tone[v];
+    if (!next || v === draftTone) return syncToneWarn();
+    p.drafts = next;
+    draftTone = v;
+    for (const t of [...forms.keys()]) if (!touched.has(t)) forms.delete(t);
+    drawForm();
+    syncToneWarn();
+  }
+  function syncToneWarn() {
+    const stale = Boolean(segPick) && touched.has(track) && touchedTone.get(track) !== segPick;
+    mount(toneWarnHost, stale ? h('p.notice-warn', icon('alert', { size: 16 }), h('span', `عدّلتم نص هذا النموذج فلم يُستبدل — راجعوا الرسالة لتكون ${segLabel('segment_tone', segPick)} قبل الإرسال.`)) : null);
+  }
+
   const segBlock = segRequired
     ? h('div.pa-sheet-seg', segPicker)
     : h('details.pa-sheet-seg', h('summary', 'تغيير نوع الخدمة عند اعتماد القرار'), segPicker);
@@ -176,6 +193,7 @@ export async function openStorySheet(opts = {}) {
       drawWhy();
       drawForm();
       drawEligibility();
+      syncToneWarn();
       syncFooter();
     },
     className: 'pa-sheet-tracks',
@@ -850,6 +868,7 @@ export async function openStorySheet(opts = {}) {
       warnBox,
       eligibilityHost,
       alertHost,
+      toneWarnHost,
       formHost,
     ),
     actions: sheetActions,
@@ -903,8 +922,11 @@ export async function openStorySheet(opts = {}) {
   drawSendHead();
   drawEligibility();
   syncFooter();
-  // تعديل يدوي في النماذج يمنع إعادة تعبئة المسودات عند تغيير النوع
-  formHost.addEventListener('input', () => (draftsEdited = true));
+  // تعديل يدوي في نموذج مسار يمنع إعادة تعبئة مسوداته عند تغيير النوع (v11 gate fix J-04: لكل مسار على حدة)
+  formHost.addEventListener('input', () => {
+    if (!touched.has(track)) touchedTone.set(track, draftTone);
+    touched.add(track);
+  });
   if (opts.focusTracks) requestAnimationFrame(() => picker.focusFirst && picker.focusFirst());
   return handle;
 }

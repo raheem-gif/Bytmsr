@@ -343,10 +343,17 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
       target = v;
       dirty = true;
       syncMessage();
+      syncNote();
     });
     return h('label.seg-choice-opt', { class: `is-${v}` }, r, glyph(v === 'charity' ? 'heart' : 'briefcase', 18), h('span', segLabel('segment_long', v)));
   });
   const choiceWrap = field(SEGMENT_TITLE, h('div.seg-choice-opts', { role: 'radiogroup' }, radios), { group: true, required: true });
+  // v11 gate fix J-22: ملاحظة «لن يُطلب أي مبلغ…» تخص التحويل إلى «أفراد وشركات» وحده — تختفي حين الهدف «خيري»
+  const amountNote = h('p.seg-note', icon('info', { size: 14 }), h('span', NO_AMOUNT_NOTE));
+  function syncNote() {
+    amountNote.hidden = target !== 'paid';
+  }
+  syncNote();
 
   const reason = h('textarea.input', { rows: 2, maxlength: 300, dir: 'auto', required: reasonNeeded() });
   const markChip = () => reasonChips && reasonChips.querySelectorAll('.seg-reason-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.code === reasonCode)));
@@ -409,7 +416,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
     choiceWrap,
     h('div.seg-reason', reasonWrap, reasonChips),
     msgBlock,
-    h('p.seg-note', icon('info', { size: 14 }), h('span', NO_AMOUNT_NOTE)),
+    amountNote,
   );
   return {
     el,
@@ -447,7 +454,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
     showError(err) {
       mount(alert, h('p.alert.alert-danger', icon('alert', { size: 16 }), h('span', errorMessage(err))));
     },
-    controls: { radios, reason, reasonChips, sendCb, msg },
+    controls: { radios, reason, reasonChips, sendCb, msg, amountNote },
   };
 }
 

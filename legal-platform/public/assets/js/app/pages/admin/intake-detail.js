@@ -55,6 +55,7 @@ import {
   openSegmentSheet,
   sendHeader,
   segmentChoice,
+  segLabel,
   ON_CASE_HINT,
   REQUIRED_TEXT,
 } from '../../components/segment-ui.js';
@@ -85,12 +86,25 @@ const SOURCE_DETAIL_LABELS = {
   ctwa_clid: 'معرّف النقرة (ctwa_clid)',
   entered_by: 'سجّله يدويًا',
   intake_mode: 'طريقة تعبئة النموذج',
+  // v11 gate fix J-02: اختيار الزائر في الموقع وطريقة تحديده بالعربية لا بمفاتيح خام
+  gate: 'اختيار الزائر',
+  gate_via: 'طريقة التحديد',
 };
 const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
 const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة' };
+export const GATE_VIA_LABELS = { param: 'من رابط الصفحة', cookie: 'اختيار سابق محفوظ في المتصفح', default: 'الإعداد الافتراضي للموقع' };
 // مفاتيح داخلية في source_detail (التحقق من الهوية) تُعرض بتنبيه مخصص لا كصفوف خام
 // (v9.1 b-forms) وكود تأكيد الرقم برسالة واتساب (confirm_*) لا يُعرض كذلك
-const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k.startsWith('identity_') || k.startsWith('confirm_');
+// (v11 gate fix J-02) وبيانات الشركة صاحبة طلب العرض (requester) تظهر في بطاقة «طلب عرض من شركة» لا هنا
+export const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k === 'requester' || k.startsWith('identity_') || k.startsWith('confirm_');
+/** (v11 gate fix J-02) قيمة صف المصدر بالعربية؛ النص الخام فقط لما لا نعرف معناه. */
+export function sourceDetailValue(k, v) {
+  if (k === 'source_type') return SOURCE_TYPE_LABELS[v] || String(v);
+  if (k === 'intake_mode') return INTAKE_MODE_LABELS[v] || String(v);
+  if (k === 'gate') return v === 'charity' || v === 'paid' ? segLabel('segment', v) : String(v);
+  if (k === 'gate_via') return GATE_VIA_LABELS[v] || String(v);
+  return null;
+}
 
 const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
 
@@ -1604,11 +1618,7 @@ export default async function render(ctx) {
       .filter(([k, v]) => !isInternalSourceKey(k) && v != null && v !== '')
       .map(([k, v]) => [
         SOURCE_DETAIL_LABELS[k] || k,
-        k === 'source_type'
-          ? SOURCE_TYPE_LABELS[v] || String(v)
-          : k === 'intake_mode'
-            ? INTAKE_MODE_LABELS[v] || String(v)
-            : h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v)),
+        sourceDetailValue(k, v) ?? h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v)),
       ]);
     const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
     return card({

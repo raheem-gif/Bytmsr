@@ -382,25 +382,27 @@ export function badge(text, tone = 'neutral', { icon: iconName, dot, title, clas
 }
 
 // درجات الألوان لكل حالة في LABELS
+// v11 gate fix (K1/J-07/R-06): no status, role or kind uses 'primary' (green tint) or 'accent' (gold) —
+// those fills are reserved for the segment chips (gold = خيري, green = أفراد/شركة; r2 P12 / L11-16).
 const STATUS_TONES = {
-  user_role: { admin: 'accent', case_manager: 'info', lawyer: 'primary' },
+  user_role: { admin: 'neutral', case_manager: 'info', lawyer: 'neutral' },
   channel: { whatsapp: 'success', website: 'info', phone: 'neutral', walk_in: 'neutral', email: 'neutral' },
   source: {
     facebook_ad: 'info',
-    instagram_ad: 'accent',
+    instagram_ad: 'info',
     meta_ad: 'info',
     google: 'warning',
     direct: 'neutral',
     referral: 'success',
-    social_organic: 'primary',
-    returning: 'accent',
+    social_organic: 'neutral',
+    returning: 'neutral',
     other: 'muted',
     unknown: 'muted',
   },
   intake_status: {
     new: 'info',
     in_review: 'warning',
-    awaiting_client: 'accent',
+    awaiting_client: 'neutral',
     handled_internally: 'success',
     converted: 'success',
     archived: 'muted',
@@ -409,8 +411,8 @@ const STATUS_TONES = {
   priority: { low: 'muted', normal: 'neutral', high: 'warning', urgent: 'danger' },
   case_status: {
     new: 'info',
-    assigned: 'primary',
-    in_progress: 'accent',
+    assigned: 'neutral',
+    in_progress: 'info',
     under_review: 'warning',
     approved: 'success',
     answered: 'success',
@@ -424,17 +426,17 @@ const STATUS_TONES = {
     not_eligible: 'neutral',
     duplicate: 'muted',
   },
-  assignment_role: { lead: 'accent', specialist: 'info', second_opinion: 'info', reviewer: 'primary', co_counsel: 'neutral' },
+  assignment_role: { lead: 'neutral', specialist: 'info', second_opinion: 'info', reviewer: 'info', co_counsel: 'neutral' },
   assignment_status: {
     assigned: 'info',
-    in_progress: 'accent',
+    in_progress: 'neutral',
     submitted: 'warning',
     returned: 'danger',
     approved: 'success',
     withdrawn: 'muted',
   },
-  fee_mode: { agreement: 'neutral', custom: 'info', pro_bono: 'accent' },
-  info_request_kind: { information: 'info', document: 'accent' },
+  fee_mode: { agreement: 'neutral', custom: 'info', pro_bono: 'neutral' },
+  info_request_kind: { information: 'info', document: 'neutral' },
   info_request_status: {
     pending_admin: 'warning',
     rejected: 'danger',
@@ -443,15 +445,15 @@ const STATUS_TONES = {
     shared: 'success',
     cancelled: 'muted',
   },
-  counsel_kind: { second_opinion: 'info', specialist_input: 'accent', document_review: 'neutral', co_counsel: 'primary' },
+  counsel_kind: { second_opinion: 'info', specialist_input: 'info', document_review: 'neutral', co_counsel: 'neutral' },
   counsel_status: { pending_admin: 'warning', assigned: 'info', completed: 'success', rejected: 'danger', cancelled: 'muted' },
   opinion_status: { draft: 'neutral', submitted: 'warning', returned: 'danger', approved: 'success', superseded: 'muted' },
   client_answer_status: { draft: 'warning', sent: 'success' },
   agreement_type: {
     per_case: 'info',
-    monthly: 'primary',
-    monthly_quota: 'primary',
-    package: 'accent',
+    monthly: 'info',
+    monthly_quota: 'info',
+    package: 'neutral',
     pro_bono: 'success',
     csr: 'success',
   },
@@ -461,20 +463,20 @@ const STATUS_TONES = {
     included_monthly: 'info',
     included_quota: 'info',
     overage: 'warning',
-    package_credit: 'primary',
+    package_credit: 'info',
     package_overage: 'warning',
     pro_bono: 'success',
     csr: 'success',
   },
   ledger_kind: {},
   ledger_status: { accrued: 'warning', paid: 'success', void: 'muted' },
-  matter_kind: { litigation: 'accent', ongoing: 'info' },
+  matter_kind: { litigation: 'neutral', ongoing: 'info' },
   matter_status: { open: 'success', on_hold: 'warning', closed: 'muted' },
-  event_kind: { hearing: 'accent', meeting: 'info', expert: 'primary', appointment: 'neutral', other: 'muted' },
+  event_kind: { hearing: 'warning', meeting: 'info', expert: 'neutral', appointment: 'neutral', other: 'muted' },
   event_status: { scheduled: 'info', done: 'success', postponed: 'warning', cancelled: 'muted' },
   task_status: { open: 'info', done: 'success', cancelled: 'muted' },
   invoice_status: { unpaid: 'danger', partially_paid: 'warning', paid: 'success', cancelled: 'muted' },
-  expense_paid_by: { organization: 'primary', lawyer: 'warning', client: 'neutral' },
+  expense_paid_by: { organization: 'neutral', lawyer: 'warning', client: 'neutral' },
   knowledge_status: { pending_review: 'warning', approved: 'success', excluded: 'muted' },
   knowledge_usage: { none: 'muted', knowledge: 'info', knowledge_training: 'success' },
   message_status: {
@@ -484,15 +486,17 @@ const STATUS_TONES = {
     delivered: 'info',
     read: 'success',
     failed: 'danger',
-    simulated: 'accent',
+    simulated: 'neutral',
   },
   ai_field: {},
   ai_verdict: { accepted: 'success', corrected: 'warning', rejected: 'danger', missed: 'danger' },
   automation_rule: {},
-  actor_kind: { staff: 'primary', lawyer: 'info', client: 'neutral', system: 'muted', ai: 'accent' },
+  actor_kind: { staff: 'neutral', lawyer: 'info', client: 'neutral', system: 'muted', ai: 'info' },
 };
 
 /** درجة اللون المناسبة لحالة معينة. */
+export { STATUS_TONES };
+
 export function statusTone(group, key) {
   return STATUS_TONES[group]?.[key] || 'neutral';
 }

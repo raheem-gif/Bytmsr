@@ -48,6 +48,8 @@
   .seg { min-height: 32px; min-width: 44px; padding: 4px 14px; border-radius: 8px; color: var(--label); font-weight: 500; position: relative; }
   .seg::after { content: ""; position: absolute; inset: -6px 0; }
   .seg[aria-pressed="true"] { color: var(--label); font-weight: 600; box-shadow: 0 1px 3px var(--fill-3); }
+  /* v11 gate fix V4: the pressed segment keeps its keyboard ring (WCAG 2.4.7; L11-48) */
+  .seg:focus-visible, .seg[aria-pressed="true"]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
   .tablist { gap: 18px; border-block-end-color: var(--separator); }
   .tab { padding-inline: 0; border-radius: 0; color: var(--label-2); font-size: 15px; font-weight: 500; }
   .tab:hover { background: none; color: var(--label); }
