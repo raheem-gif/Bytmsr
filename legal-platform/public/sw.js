@@ -200,27 +200,25 @@ function offlineResponse() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b5a3c">
+<meta name="theme-color" content="#0b3d29">
 <title>لا يوجد اتصال — ${org}</title>
 <style>
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:#f3f5f7;color:#16202a;
-    font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;line-height:1.8;font-size:17px}
-  main{max-width:440px;width:100%;background:#fff;border:1px solid #dfe5ea;border-radius:20px;padding:32px 24px;text-align:center;
-    box-shadow:0 12px 40px rgba(8,50,33,.08)}
-  .mark{width:72px;height:72px;margin:0 auto 18px;border-radius:18px;background:#0b5a3c;display:grid;place-items:center}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:#032516;color:#fff;
+    font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;line-height:1.7;font-size:17px}
+  main{max-width:440px;width:100%;padding:24px 8px;text-align:center}
+  .logo{display:block;width:220px;max-width:70vw;height:auto;margin:0 auto 28px}
   h1{font-size:22px;margin:0 0 8px}
-  p{margin:0 0 12px;color:#4f5d6b}
-  .retry{display:inline-flex;align-items:center;justify-content:center;font-weight:600;margin-top:8px;min-height:48px;padding:10px 28px;border-radius:12px;background:#0b5a3c;color:#fff;text-decoration:none}
-  .retry:focus-visible{outline:3px solid #c9a14a;outline-offset:3px}
-  small{display:block;margin-top:16px;color:#677583;font-size:14px}
+  p{margin:0 0 12px;color:rgba(255,255,255,.82)}
+  .retry{display:inline-flex;align-items:center;justify-content:center;font-weight:600;margin-top:8px;min-height:50px;padding:10px 28px;border-radius:14px;background:#cca454;color:#052015;text-decoration:none}
+  .retry:focus-visible{outline:3px solid #fff;outline-offset:3px}
+  small{display:block;margin-top:16px;color:rgba(255,255,255,.75);font-size:14px}
 </style>
 </head>
 <body>
 <main>
-  <div class="mark" aria-hidden="true">
-    <svg width="44" height="44" viewBox="0 0 24 24"><g fill="none" stroke="#dabe86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></g></svg>
-  </div>
+  <!-- v11 visual (V11-04 rule 2): the bright gold lockup on the logo ground (served from the precache) -->
+  <img class="logo" src="/assets/img/emam-logo-gold.svg" width="220" height="92" alt="${org}">
   <h1>لا يوجد اتصال بالإنترنت</h1>
   <p>تعذر فتح منصة ${org} لأن جهازك غير متصل بالشبكة الآن.</p>
   <p>تحقق من اتصال الإنترنت ثم أعد المحاولة. لا يُحفظ على الجهاز من بيانات الملفات إلا القليل اللازم للعمل دون اتصال، ويُمسح عند تسجيل الخروج.</p>
@@ -235,7 +233,7 @@ function offlineResponse() {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
       // صفحة مولدة محليًا بلا أي سكربت
-      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'",
     },
   });
 }

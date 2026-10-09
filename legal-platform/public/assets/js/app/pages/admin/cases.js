@@ -19,6 +19,8 @@ import {
   loading,
   alertBox,
 } from '../../../lib/ui.js';
+// v11 segment-staff (ST-4): «الكل · خيري · أفراد · شركات» ورقاقة النوع على كل ملف
+import { segmentChip, caseSegmentSwitch, caseFilterKey, caseFilterQuery, SEGMENT_TITLE } from '../../components/segment-ui.js';
 
 const LIMIT = 500;
 const FLAGS = {
@@ -39,7 +41,15 @@ export default async function render(ctx) {
     lawyer_id: q0.lawyer_id || '',
     flag: FLAGS[q0.flag] ? q0.flag : '',
     line: q0.line === 'b2c' || q0.line === 'b2b' ? q0.line : '', // v10 b2b-staff (STF-10): «الأفراد · الشركات»
+    seg: caseFilterKey(q0), // v11 segment-staff: '' | charity | paid | company
   };
+  // v11: المفتاح يحدد معاملات القائمة — خيري = segment=charity؛ أفراد = segment=paid&line=b2c؛ شركات = line=b2b
+  function applySeg() {
+    const q = caseFilterQuery(state.seg);
+    state.segment = q.segment || '';
+    if (state.seg) state.line = q.line || '';
+  }
+  applySeg();
 
   // قوائم الفلاتر المساعدة: فشلها لا يمنع عرض الصفحة
   const [staff, lawyers] = await Promise.all([
@@ -60,7 +70,7 @@ export default async function render(ctx) {
   function syncUrl() {
     const qs = new URLSearchParams();
     if (state.status !== 'open') qs.set('status', state.status);
-    for (const k of ['area', 'priority', 'q', 'manager_id', 'lawyer_id', 'flag', 'line']) if (state[k]) qs.set(k, state[k]);
+    for (const k of ['segment', 'area', 'priority', 'q', 'manager_id', 'lawyer_id', 'flag', 'line']) if (state[k]) qs.set(k, state[k]);
     const s = qs.toString();
     try {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/cases${s ? `?${s}` : ''}`);
@@ -80,6 +90,7 @@ export default async function render(ctx) {
         manager_id: state.manager_id,
         lawyer_id: state.lawyer_id,
         line: state.line || undefined, // v10 b2b-staff
+        segment: state.segment || undefined, // v11 segment-staff
         limit: LIMIT,
       });
       if (my !== seq) return;
@@ -180,10 +191,11 @@ export default async function render(ctx) {
       key: 'client',
       label: 'المستفيد/ة',
       // v10 b2b-staff (STF-10): ملف عمل لطلب شركة — شارة «شركة» واسم الشركة بدل المستفيد/ة
+      // v11 segment-staff (L11-16): رقاقة «شركة» الخضراء بمبنى بدل شارة v10 الرمادية، و«خيري»/«أفراد» لملفات الأفراد
       render: (r) =>
         r.company_id
-          ? h('div', h('div.cell-title', badge('شركة', 'neutral', { icon: 'building', className: 'badge-outline' }), ' ', r.company_name || ''), h('div.cell-sub', 'ملف عمل لطلب شركة'))
-          : h('div', h('div.cell-title', r.client_name || 'بدون اسم'), h('div.cell-sub', codeTag(r.client_code))),
+          ? h('div', h('div.cell-title', segmentChip('paid', { company: true }), ' ', r.company_name || ''), h('div.cell-sub', 'ملف عمل لطلب شركة'))
+          : h('div', h('div.cell-title', r.client_name || 'بدون اسم'), h('div.cell-sub', segmentChip(r.segment), ' ', codeTag(r.client_code))),
     },
     { key: 'area', label: 'المجال', render: (r) => areaLabel(r.legal_area) },
     {
@@ -287,8 +299,6 @@ export default async function render(ctx) {
     searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
     selectInput({ options: areaOptions(), value: state.area, onChange: onFilter('area'), label: 'المجال القانوني', allLabel: 'كل المجالات' }),
     selectInput({ options: options('priority'), value: state.priority, onChange: onFilter('priority'), label: 'الأولوية', allLabel: 'كل الأولويات' }),
-    // v10 b2b-staff (STF-10): الأفراد · الشركات
-    selectInput({ options: [{ value: 'b2c', label: 'الأفراد' }, { value: 'b2b', label: 'الشركات' }], value: state.line, onChange: onFilter('line'), label: 'الأفراد أو الشركات', allLabel: 'الأفراد والشركات' }),
     managerOptions.length > 0 &&
       selectInput({ options: managerOptions, value: state.manager_id, onChange: onFilter('manager_id'), label: 'مدير الحالة', allLabel: 'كل مديري الحالات' }),
     lawyerOptions.length > 0 &&
@@ -306,6 +316,19 @@ export default async function render(ctx) {
     ],
   });
 
+  // v11 segment-staff (ST-4): بدل قائمة v10 «الأفراد · الشركات»
+  const segSwitch = caseSegmentSwitch({
+    value: state.seg,
+    label: SEGMENT_TITLE,
+    onChange: (v) => {
+      state.seg = v;
+      state.line = '';
+      applySeg();
+      syncUrl();
+      load();
+    },
+  });
+
   load();
-  return frag(header, statsHost, h('div.pb-seg-wrap', segHost), filters, flagHost, countLine, resultHost);
+  return frag(header, statsHost, h('div.seg-filter', segSwitch), h('div.pb-seg-wrap', segHost), filters, flagHost, countLine, resultHost);
 }

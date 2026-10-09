@@ -140,6 +140,9 @@ export const ICONS = {
   helpCircle: ['c 12 12 10', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
   building: ['M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z', 'M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2', 'M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2', 'M10 6h4', 'M10 10h4', 'M10 14h4', 'M10 18h4'],
   bookOpen: ['M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z', 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'],
+  // v11 visual (§5.8): «خيري» (قلب) و«تغيير نوع الخدمة» (سهمان متعاكسان)
+  heart: ['M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'],
+  swap: ['M8 3 4 7l4 4', 'M4 7h16', 'm16 21 4-4-4-4', 'M20 17H4'],
 };
 ICONS.moreHorizontal = ICONS.more;
 ICONS.inboxStack = ICONS.queue;
@@ -179,7 +182,7 @@ export function icon(name, { size = 20, className, label } = {}) {
       viewBox: '0 0 24 24',
       fill: 'none',
       stroke: 'currentColor',
-      'stroke-width': 2,
+      'stroke-width': 1.75, // v11 visual (V11-20): خط واحد 1.75
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
       focusable: 'false',
@@ -194,9 +197,37 @@ export function icon(name, { size = 20, className, label } = {}) {
 /** أسماء الأيقونات المتاحة. */
 export const iconNames = Object.keys(ICONS);
 
-/** شعار المؤسسة المصغر (ميزان داخل مربع ذهبي). */
+// v11 visual (V-4، L11-05): في كل شريط وقائمة جانبية علامة «EMAM إمام» الخضراء كصورة مخزّنة (لا يُعاد تلوينها بألوان
+// المؤسسة، V11-04 القاعدة 7). حين يُوقف اسم المكتب في /app (brand_in_staff_app=false: staff_chrome ≠ الاسم) يعود رمز
+// الميزان واسم المؤسسة كما في 9.2 (J6). نص الاسم يبقى في الصفحة لقارئ الشاشة (الصورة alt="").
+function brandChromeOn() {
+  const b = getMeta()?.brand || {};
+  const sc = b.staff_chrome;
+  return !sc || !sc.name || !b.name || sc.name === b.name;
+}
+
+/** شعار المؤسسة المصغر: علامة «EMAM إمام» (v11)، أو الميزان داخل مربع ذهبي حين يُوقف اسم المكتب في /app. */
 export function brandMark({ size = 24 } = {}) {
+  if (brandChromeOn()) return h('img.brand-logo', { src: '/assets/img/emam-mark-green.svg', alt: '', width: Math.round(size * 5.2), height: size, decoding: 'async' });
   return h('span.brand-mark', { 'aria-hidden': 'true' }, icon('scale', { size }));
+}
+
+/**
+ * v11 visual (V11-04 القاعدتان 1 و2): الشعار الكامل لشاشات الدخول — الذهبي الغامق على الأبيض (tone 'deep')، والذهبي
+ * الفاتح على أرضية الشعار الغامقة (tone 'bright'). العرض ≥ 200px، والنص البديل = اسم المكتب من الإعدادات (L11-33).
+ * يعيد null حين يُوقف اسم المكتب في /app (تبقى شاشة 9.2 النصية).
+ */
+export function brandLockup({ tone = 'deep', width = 240 } = {}) {
+  if (!brandChromeOn()) return null;
+  const name = brandNames().name;
+  return h('img.brand-lockup', {
+    src: `/assets/img/emam-logo-${tone === 'bright' ? 'gold' : 'gold-deep'}.svg`,
+    alt: name,
+    width: Math.max(200, width),
+    height: Math.round((Math.max(200, width) * 582) / 1392),
+    decoding: 'async',
+    ...nameDir(name),
+  });
 }
 
 // ───────────────────────── v10 experience: اسم المكتب (X10-B2, §4.1) ─────────────────────────

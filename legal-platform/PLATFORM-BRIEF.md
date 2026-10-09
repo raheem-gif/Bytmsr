@@ -441,6 +441,116 @@ explanation. Lawyers get concise professional Arabic.
 
 ---
 
+## الإصدار 11.0 — Version 11.0
+
+<!-- v11:visual -->
+### Visual language (V11) — public site, company portal, staff and lawyer app
+
+**Colours from the logo.** Default pair `#0b3d29` (deep logo green) / `#cca454` (logo gold): `LEGACY` in
+`brand-color.js` and both `@brand-defaults` blocks; the generator and the 29-row contract are unchanged, and 25 new v11 pairs
+(V1–V25: filled/tinted/plain buttons, focus ring, washes, «مجاني», «خيري» pill, call-back way, company band, pictograms,
+counts, secondary text) pass for the default and 8 hostile custom pairs. Role tokens (`--canvas`, `--canvas-grouped`
+`#f6f6f3`, `--surface(-tint)`, `--label/-2/-3`, `--separator`, `--fill-1/2/3`, `--tint(-weak)`, `--gold-*`, status pairs,
+`--e-1/2/3`, radii) live in `app.css :root` and in the public critical `:root`; the old names point at them. Gold is
+jewellery (hairline, kicker, the band button), never text on white.
+**Type.** One family; 34/28/22/20/17/15/13 (`--t-*` in `v10-experience.css :root`, so nothing later overrides them);
+Arabic is never letter-spaced. **Layout.** Grouped lists instead of bordered cards; cards are white on the warm paper with a
+soft shadow and no border or coloured edge; one filled button per screen (tinted/gray/plain for the rest); light sidebars
+and translucent bars in `/app` and `/company`; large page titles that collapse into the bar on scroll; many-scope status
+filters render as underline scope tabs with `--label-2` counts. **Boundaries ≥ 3:1** on every charity tile, way, intake
+answer and «مش عارفة» (`--edge-strong`) and on every field (`--field-line`). **Accessibility:** reduced motion /
+transparency, more contrast, forced colours, ≤ 340 px (200 % zoom) rules, 44-px targets; print layout unchanged (every
+restyle sits in `@media screen`; paper only follows the brand colour, so installs on the default pair print the logo green).
+**Logo rules.** Cached SVG files in `public/assets/img/`, never recoloured: the green mark in every bar and sidebar
+(`brand_in_staff_app=false` restores the 9.2 text name, J6), the deep-gold lockup on white (sign-in screens, the gate), the
+bright gold lockup on the deep logo ground (footer, offline page, `og-image.png`); `alt` = `brand_name`, the artwork's own
+words are never exposed. **O-19:** the artwork reads «إمام وشركاه / Emam & Partners» while the trading name is «Emam Legal
+and Consultancy» — flagged to the firm, not renamed. Components: `public/assets/css/v11-ui.css` (last sheet in `app.html`
+and `company.html`). Budgets: `/app` ≤ 60,000 B br, `/company` ≤ 30,000 B br, general critical CSS ≤ 8,500 B. Tests:
+`test/v11-visual.test.js` (30).
+<!-- /v11:visual -->
+
+<!-- v11:gate-public -->
+<!-- /v11:gate-public -->
+
+<!-- v11:segment-server -->
+### Service line («خيري» / «أفراد وشركات») — server
+
+**The field.** One column `segment ∈ {charity, paid}` on `intakes`, `cases` and `matters` (schema 86, additive and
+idempotent on a 10.0 database: everything reads `charity`, company cases and their matters `paid`). Only an intake may be
+`NULL` («غير محدد»), and only from a shared WhatsApp number with no signal. Cases copy their intake, matters their case; a
+`NULL` intake cannot become a case until staff choose (`409 segment_required {hint}`). `segment_source` records where the
+value came from (`website`, `website_default`, `wa_line`, `wa_tag`, `returning`, `wa_choice`, `staff`, `reference`,
+`manual`, `company_lead`; legacy rows show «قبل الإصدار 11 (خيري)»). `app.segments` (`src/services/segments.js`) is the
+only place that decides.
+
+**Precedence** (automatic signals only fill `NULL`, never overwrite staff): (a) staff › (b) reference (confirm code, message
+split, new request from a follow-up page) › (c) explicit choice (website `segment`/cookie, manual form, WhatsApp buttons) ›
+(d) dedicated line › (e) prefill sentence › (f) returning client within `segment_returning_days` (365) › (g) `NULL` + a local
+`segment_hint` that is never applied.
+
+**WhatsApp lines (same WABA).** Main number in mode `charity` (default) or `shared` (`paid` is not offered for the main
+number in 11.0), optional paid number shown publicly (and used for stories that never wrote on it) only after `whatsapp.test()` verified its
+`display_phone_number` (`paid_verified_at`). Inbound is routed by `metadata.phone_number_id`: configured main → `main`,
+configured paid → `paid`, absent/legacy/`SIM` → `main`, a present but unknown id → `unknown` (stored with its intake, never
+auto-answered, one log line per id per day, readiness item). `messages.wa_line`/`wa_pid` make the 24-hour window per number
+id, so a replaced number starts closed; replies always leave from the number the client wrote to (`lineForStory`), and staff
+responses carry `send_line {key,label}`. A dedicated-line message from a client with an open item of the other side attaches
+to it with `meta.line_mismatch` (no stray intakes). In the default configuration (`wa_paid_on_main = true`, no verified paid
+number) the paid side links to the main number with the paid prefill, which tags the message `paid`.
+
+**Same analysis.** Classification (area, track, urgency, issues, missing info, similar cases) uses the same code and prompt
+for both lines. The charity Claude request is byte-identical to 10.0 (the lane test pins the 10.0 request hash); paid adds
+exactly one header line at the same address form that changes only client-facing wording; `NULL` adds a hint line and the
+`segment_hint` schema field (stored, never applied; staff choices are recorded as AI feedback). Paid «refer» drafts never
+name a charity programme (the referral directory is charity-only unless an entry lists `segments: ['paid']`). Display-only
+«الزوج أو الزوجة» staff lines never reach the request.
+
+**Texts and templates by tone.** `segments.text(key, tone)`: charity = the 9.x texts, paid = `CLIENT_TEXTS_PAID` (polite
+plural MSA, no «ببلاش»/«مجاني»/«المؤسسة»), neutral (`NULL`) = paid wording without fee lines and no welcome list. Every
+client-send site uses it (story welcome/nudge/ack, accept reply, questions, info-request suffix, documents, survey and its
+follow-ups, automations via `template_paid`, day-before reminder, answer message, portal link, confirmation reply). Outside
+the window a paid story uses `<purpose>@paid` when mapped, else the neutral `portal_update`; the charity survey template
+never reaches a paid client; readiness warns when a paid-facing template contains charity words.
+
+**Money and reports.** Paid work is always `payable` (custom fee › «سعر العمل المدفوع» (`b2b_rate`) › per-case rate › 0 +
+warning/notification); `fee_mode: 'pro_bono'` → `409 paid_case_pro_bono`; programme link → `409 paid_case_program`.
+`billable_events.segment` / `ledger_entries.segment` are a snapshot written at insert (explicit value + schema-86 triggers,
+backfilled once); event/ledger queries filter on the snapshot, case-based ones on the case's current segment. Impact,
+programme, CSR usage, pro-bono events, closed-case costs (snapshot rule for cases with events), the beneficiary export and
+the dashboard `month` are charity-only and unchanged by paid data or later overrides; `month.paid` and accounting
+`paid_individuals` show the paid side. Overriding a case with recorded fees or client payments is admin-only and returns
+`affected_periods`. Case-level fee invoices (`POST /api/admin/cases/:id/invoices`) reach `/p/` through the existing agreement
+flow; assignment before agreement warns `fees_not_agreed`.
+
+**Settings** (`<settings:v11-segment>`): `site_gate_enabled`, `org_phone_paid`, `segment_website_default`, `wa_paid_on_main`,
+`wa_segment_choice_enabled` (two-button choice on a shared number, off by default), `segment_returning_days`,
+`callback_from_number_paid`, `print_answer_disclaimer_paid`. **Integration fields** (`whatsapp`): `segment`
+(`charity|shared`, env `WHATSAPP_SEGMENT`; `paid` is read as `charity`), `paid_phone_number_id`
+(`WHATSAPP_PAID_PHONE_NUMBER_ID`), `paid_number` (`WHATSAPP_PAID_NUMBER`); validation (ids differ, numbers differ, paid id
+needs main = `charity`) and a mode change with open WhatsApp conversations needs `confirm: true` (`409
+mode_change_confirm {open}`, audited `integration.wa_mode_changed`).
+
+**Endpoints.** `GET /api/admin/intakes?segment=charity|paid|unset` (+ `segment_counts`), intake/case/matter detail
+`segment` blocks + `tone` + `send_line`, `PUT /api/admin/intakes/:id/segment` and `/cases/:id/segment` (reason rules,
+audit + activity `segment.changed`), `accept`/`convert` with `segment`, `POST /api/admin/cases/:id/invoices`, dashboard
+`segments` (+ admin `paid.revenue_month`, `ineligible_overrides`), analytics `segment` + `scope_label`, accounting
+`paid_individuals`, portal `tone` / `stories[].segment` / `invoices[].segment` / `contact` by tone, simulator `line` +
+`seg_reply`. No lawyer or company response gains anything (tests scan every lawyer and company GET).
+
+**Review additions.** Switching a case from paid to charity cancels, in the same transaction, its case-level fee invoices that
+have no payment (agreed or not; response `cancelled_invoices`, activity `invoice.cancelled`), so a charity client is never
+left with a fee request or an invoice reminder. Intake and case `segment` blocks carry `change_message {charity, paid}`: the
+S11 §10.4 text filled with the client's name, request number and the tone of the side they came from; the server fills any
+`{hello}`/`{ref_no}`/`{first_name}`/gender mark in a sent override message and refuses a leftover variable (400, rolled back).
+A message recorded for the paid line never leaves from the main number if the paid id disappears (it fails instead).
+<!-- /v11:segment-server -->
+
+<!-- v11:segment-staff -->
+<!-- /v11:segment-staff -->
+
+---
+
 ## الإصدار 10.0 — Version 10.0: Apple-style design, royal green and gold, «Emam Legal and Consultancy», and company accounts
 
 The user asked for two things: (1) apply an Apple-style design skill with the colours **royal green** and **gold**, and
@@ -1346,7 +1456,7 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- 1,155 automated tests in 270 suites (`npm test`, all passing at version 10.0.0; 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+- automated tests (`npm test`, all passing at version 11.0.0; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
   158 page views and, in 9.1, 9.2 and 10.0, a browser usability run per lane at phone widths (including a simulated slow 3G
   network for the beneficiary pages and the company portal). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
   360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review; 10.0's

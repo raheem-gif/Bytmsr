@@ -255,8 +255,9 @@
 .lw-brief,
 .lw-mine-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--r-20);
+  box-shadow: var(--e-1);
   padding: 14px 16px;
   min-width: 0;
 }
@@ -645,25 +646,16 @@ details[open] > summary .lw-chev {
   flex-direction: column;
   gap: 8px;
 }
+/* v11 visual (V11-13): صف الطلب سطح هادئ بلا حد ولا حافة ملوّنة — حالته في نصه الملوّن */
 .lw-reqrow {
-  border: 1px solid var(--border);
-  border-inline-start: 4px solid var(--gray-300);
-  border-radius: 12px;
+  border: 0;
+  border-radius: var(--r-14);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--surface);
+  background: var(--surface-tint);
   min-width: 0;
-}
-.lw-reqrow.is-wait {
-  border-inline-start-color: var(--warning-500);
-}
-.lw-reqrow.is-ok {
-  border-inline-start-color: var(--success-600);
-}
-.lw-reqrow.is-bad {
-  border-inline-start-color: var(--danger-600);
 }
 .lw-reqrow.is-fresh {
   animation: lw-fresh 2.4s ease;
@@ -1394,8 +1386,8 @@ body.lw-kb-open .lw-actionbar {
   color: var(--gray-700);
 }
 .lw-steps {
-  border: 1px dashed var(--border-strong);
-  border-radius: 12px;
+  border-radius: var(--r-14);
+  background: var(--fill-1);
 }
 .lw-steps-body {
   padding: 0 12px 12px;
@@ -1696,5 +1688,21 @@ body.lw-kb-open .lw-actionbar {
     position: sticky;
     top: calc(var(--topbar-h) + 57px);
     max-height: calc(100vh - var(--topbar-h) - 72px);
+  }
+}
+
+/* v11 visual (V11-13): ملخص الإسناد سطح ذهبي خفيف بلا حد ولا حافة (الطباعة كما هي) */
+@media screen {
+  .lw-brief {
+    border: 0;
+    background: var(--gold-wash);
+    box-shadow: none;
+  }
+
+  /* «اطلب» ملوّن خفيف: «أكمل الكتابة» هو الزر الممتلئ الوحيد */
+  .btn-primary.lw-req-cta {
+    background: var(--tint-weak);
+    color: var(--tint);
+    border-color: transparent;
   }
 }

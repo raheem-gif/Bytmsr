@@ -1,14 +1,5 @@
-/* ==========================================================================
-   بيوت مصر — نظام التصميم (RTL)
-   الخصائص المنطقية (inline/block) تضمن اتجاهًا صحيحًا من اليمين لليسار.
-   ========================================================================== */
-
-/* v9.1 l-home (L-07): خط IBM Plex Sans Arabic مستضاف ذاتيًا (رخصة SIL OFL — public/assets/fonts/OFL.txt)،
-   بلا أي طلب لخوادم Google. العربية واللاتينية (الأرقام والأكواد) مقسّمتان بـ unicode-range فلا يُنزَّل إلا ما يلزم.
-   المسافة (U+0020/U+00A0) موجودة في ملف العربية نفسه فتُنسب إليه، والنجمة (علامة الحقل المطلوب) و«…» (نصوص التحميل)
-   تُرسمان بخط النظام: فشاشة عربية بلا أرقام ولا حروف لاتينية (كشاشة الدخول) لا تنزّل الملف اللاتيني.
-   (إصلاح 9.1) لا ملف للوزن 500: ملف 600 يغطي «500 600» فالنص المتوسط (font-weight:500) يُرسم أثقل كما في 9.0 لا بوزن 400،
-   بلا ملف إضافي (ملف 600 تنزّله كل صفحات العمل أصلًا). */
+/* Platform base stylesheet (/app, /company, setup). Comments were removed in the v11 visual review to keep the served
+   size inside the §4 budgets; the commented source is in git history (10.0) and the design language is in README «v11:visual». */
 @font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 400; font-display: swap;
   src: url("/assets/fonts/plex-arabic-400.woff2") format("woff2");
   unicode-range: U+0020, U+00A0, U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
@@ -29,61 +20,92 @@
   unicode-range: U+0000-001F, U+0021-0029, U+002B-009F, U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
 :root {
-  /* الخطوط */
+
   --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* v9.2 «ألوان المؤسسة»: هذه الكتلة وحدها (ومثيلتها في public-site.css) تعرّف درجات اللونين، وقيمها = LEGACY في
-     public/assets/js/lib/brand-color.js. الألوان المضبوطة من الإعدادات تصل في <style id="bm-theme">html:root{…}</style>
-     (أولوية أعلى من :root) فلا يتغير هذا الملف. لا تضف لونًا للعلامة خارج الكتلة: اختبار v92-colours يرفضه. */
   /* @brand-defaults-start */
-  /* الأساسي: أخضر ملكي */
-  --primary-900: #083221;
-  --primary-800: #0a452e;
-  --primary-700: #0b5a3c;
-  --primary-600: #0b6b48;
-  --primary-500: #0a7f55;
-  --primary-300: #7cb999;
-  --primary-200: #b7dac7;
-  --primary-100: #dbeee3;
-  --primary-50: #eef7f2;
 
-  /* الثانوي: ذهبي (للزخرفة والحدود؛ النص يستخدم -700، والنص فوق -300/-400/-500 هو --on-accent) */
-  --accent-800: #5f4711;
-  --accent-700: #745818;
-  --accent-600: #937123;
-  --accent-500: #c9a14a;
-  --accent-400: #d3ab57;
-  --accent-300: #dabe86;
-  --accent-100: #f6ecd9;
-  --accent-50: #fbf7ee;
+  --primary-900: #052015;
+  --primary-800: #082e1e;
+  --primary-700: #0b3d29;
+  --primary-600: #175139;
+  --primary-500: #26684c;
+  --primary-300: #8ab59e;
+  --primary-200: #bfd8ca;
+  --primary-100: #dfece5;
+  --primary-50: #eff6f2;
 
-  /* ثلاثيات RGB لاستخدام rgb(var(--x-rgb) / شفافية) */
-  --primary-300-rgb: 124 185 153;
-  --primary-500-rgb: 10 127 85;
-  --primary-700-rgb: 11 90 60;
-  --primary-900-rgb: 8 50 33;
-  --accent-500-rgb: 201 161 74;
+  --accent-800: #5e4716;
+  --accent-700: #74581f;
+  --accent-600: #93712b;
+  --accent-500: #cca454;
+  --accent-400: #d4ad5f;
+  --accent-300: #dabe89;
+  --accent-100: #f6ecda;
+  --accent-50: #fbf7ef;
+
+  --primary-300-rgb: 138 181 158;
+  --primary-500-rgb: 38 104 76;
+  --primary-700-rgb: 11 61 41;
+  --primary-900-rgb: 5 32 21;
+  --accent-500-rgb: 204 164 84;
   /* @brand-defaults-end */
 
-  /* مشتقة من الدرجات (خارج الكتلة): النص الوحيد المسموح فوق accent-300/400/500، ولون الروابط */
   --on-accent: var(--primary-900);
-  /* v10 experience (X10-C4): خلفية معتمة للنوافذ والأوراق والقائمة الجانبية (تتبع ألوان المؤسسة، لا لون ثابت) */
+
   --scrim: rgb(var(--primary-900-rgb) / 0.48);
 
-  /* المحايد */
-  --gray-900: #16202a;
-  --gray-800: #24313d;
-  --gray-700: #374654;
-  --gray-600: #4f5d6b;
-  --gray-500: #677583;
-  --gray-400: #96a1ad;
-  --gray-300: #c6ced6;
-  --gray-200: #dfe5ea;
-  --gray-100: #edf1f4;
-  --gray-50: #f6f8f9;
+  --canvas: #ffffff;
+  --canvas-grouped: #f6f6f3;
+  --surface-tint: #f9f8f4;
+  --label: #141f1a;
+  --label-2: #5a625e;
+  --label-3: #7d8480;
+  --separator: rgb(20 31 26 / 0.12);
+  --fill-1: rgb(20 31 26 / 0.05);
+  --fill-2: rgb(20 31 26 / 0.08);
+  --fill-3: rgb(20 31 26 / 0.12);
+  --tint: var(--primary-700);
+  --on-tint: #fff;
+  --tint-weak: var(--primary-50);
+  --tint-weak-2: var(--primary-100);
+  --gold-line: var(--accent-500);
+  --gold-ink: var(--accent-700);
+  --gold-wash: var(--accent-50);
+  --ok: #1c6a39;
+  --ok-weak: #e8f4ec;
+  --warn: #8a5300;
+  --warn-weak: #fdf3df;
+  --bad: #b42318;
+  --bad-weak: #fdecea;
+  --info: #1b5a99;
+  --info-weak: #e7f0fa;
+  --e-1: 0 1px 2px rgb(var(--primary-900-rgb) / 0.05), 0 1px 1px rgb(var(--primary-900-rgb) / 0.03);
+  --e-2: 0 1px 2px rgb(var(--primary-900-rgb) / 0.05), 0 10px 30px -12px rgb(var(--primary-900-rgb) / 0.18);
+  --e-3: 0 30px 70px -20px rgb(var(--primary-900-rgb) / 0.3), 0 2px 6px rgb(var(--primary-900-rgb) / 0.06);
+  --r-6: 6px;
+  --r-10: 10px;
+  --r-14: 14px;
+  --r-20: 20px;
+  --r-28: 28px;
 
-  /* الحالات (نص -700 على خلفية -100 ≥ 4.5:1) */
+  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px var(--primary-700), 0 0 0 7px rgb(var(--accent-500-rgb) / 0.3);
+
+  --edge-strong: 0 0 0 2px var(--primary-500);
+  --field-line: #767d79;
+
+  --gray-900: #141f1a;
+  --gray-800: #28322d;
+  --gray-700: #3d4541;
+  --gray-600: #5a625e;
+  --gray-500: #6b726e;
+  --gray-400: #969c98;
+  --gray-300: #c5c9c6;
+  --gray-200: #e1e3df;
+  --gray-100: #eeefec;
+  --gray-50: #f6f6f3;
+
   --success-700: #1c6a39;
   --success-600: #23804a;
   --success-100: #e2f3e8;
@@ -99,25 +121,24 @@
   --whatsapp: #0e7a55;
   --whatsapp-dark: #0a6345;
 
-  /* الأسطح */
-  --bg: #f3f5f7;
+  --bg: var(--canvas-grouped);
   --surface: #ffffff;
-  --surface-2: #f8fafb;
-  --text: #16202a;
-  --text-muted: #4f5d6b;
-  --text-soft: #677583;
-  --border: #dfe5ea;
-  --border-strong: #c6ced6;
+  --surface-2: var(--surface-tint);
+  --text: var(--label);
+  --text-muted: var(--label-2);
+  --text-soft: var(--label-2);
+  --border: var(--separator);
+  --border-strong: rgb(20 31 26 / 0.2);
   --link: var(--primary-600);
 
   --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
+  --radius: 14px;
+  --radius-lg: 20px;
   --radius-xl: 20px;
-  --shadow-sm: 0 1px 2px rgba(16, 32, 42, 0.06);
-  --shadow: 0 1px 3px rgba(16, 32, 42, 0.08), 0 4px 12px rgba(16, 32, 42, 0.05);
-  --shadow-lg: 0 12px 40px rgb(var(--primary-900-rgb) / 0.18);
-  --focus-ring: 0 0 0 3px rgb(var(--accent-500-rgb) / 0.55);
+  --shadow-sm: var(--e-1);
+  --shadow: var(--e-1);
+  --shadow-lg: var(--e-3);
+  --focus-ring: var(--focus);
 
   --sidebar-w: 272px;
   --topbar-h: 64px;
@@ -126,8 +147,6 @@
 
   color-scheme: light;
 }
-
-/* ───────────── الأساسيات ───────────── */
 
 *,
 *::before,
@@ -220,7 +239,6 @@ textarea {
   border: 0;
 }
 
-/* أرقام وأكواد وهواتف تظهر LTR داخل النص العربي */
 .ltr {
   direction: ltr;
   unicode-bidi: isolate;
@@ -321,8 +339,6 @@ html[dir="rtl"] .icon-dir {
   transform: scaleX(-1);
 }
 
-/* ───────────── الشبكات ───────────── */
-
 .grid-2,
 .grid-3,
 .grid-4 {
@@ -336,11 +352,10 @@ html[dir="rtl"] .icon-dir {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
   gap: 16px;
 }
 
-/* تخطيط التفاصيل: محتوى رئيسي + عمود جانبي، يتكدسان على الشاشات الصغيرة */
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
@@ -364,12 +379,8 @@ html[dir="rtl"] .icon-dir {
 
 @media (max-width: 640px) {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
-  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; }
 }
-
-/* ==========================================================================
-   هيكل التطبيق: الشريط الجانبي (يمين في RTL) + الشريط العلوي + المحتوى
-   ========================================================================== */
 
 .app-root {
   min-height: 100vh;
@@ -468,7 +479,7 @@ html[dir="rtl"] .icon-dir {
 .nav-group-title {
   font-size: 11.5px;
   font-weight: 600;
-  /* v9.2 بوابة G4: ≥ 4.5:1 على الشريط الجانبي (primary-800) لأي لونين للمؤسسة (0.55 كانت 4.1:1 مع بعض الألوان) */
+
   color: rgba(255, 255, 255, 0.66);
   padding: 4px 12px 6px;
   letter-spacing: 0;
@@ -697,7 +708,6 @@ html[dir="rtl"] .icon-dir {
   min-width: 0;
 }
 
-/* القائمة المنسدلة للإشعارات */
 .dropdown-anchor {
   position: relative;
 }
@@ -740,8 +750,6 @@ html[dir="rtl"] .icon-dir {
   text-align: center;
 }
 
-/* (إصلاح 9.1) الهاتف: لوحة الإشعارات بعرض الشاشة لكل الأدوار — كانت للمحامي فقط، وعند فريق العمل تخرج عن حافة الشاشة
-   (الجرس ليس في طرف الشريط). الشريط العلوي فيه backdrop-filter فيصير هو مرجع position:fixed: تبدأ تحته مباشرة */
 @media (max-width: 640px) {
   .dropdown-anchor > .dropdown {
     position: fixed;
@@ -799,7 +807,6 @@ html[dir="rtl"] .icon-dir {
   color: var(--primary-700);
 }
 
-/* الإشعارات المهمة (أمان، تجاوز ميزانية، تقييم منخفض، تجاوز مهلة الرد…) — src: notifTone() في app/notif.js */
 .notif-icon.is-danger,
 .notif-item.is-unread .notif-icon.is-danger {
   background: var(--danger-100);
@@ -885,7 +892,6 @@ html[dir="rtl"] .icon-dir {
   background: transparent;
 }
 
-/* شاشة التحميل الأولى */
 .boot-splash {
   min-height: 100vh;
   display: grid;
@@ -894,8 +900,6 @@ html[dir="rtl"] .icon-dir {
   gap: 14px;
   color: var(--text-muted);
 }
-
-/* ───────────── الأجهزة اللوحية والهواتف: القائمة الجانبية كدرج ───────────── */
 
 @media (max-width: 1024px) {
   :root {
@@ -963,10 +967,6 @@ html[dir="rtl"] .icon-dir {
     padding-block-start: 16px;
   }
 }
-
-/* ==========================================================================
-   الأزرار
-   ========================================================================== */
 
 .btn {
   --btn-h: 40px;
@@ -1048,7 +1048,7 @@ html[dir="rtl"] .icon-dir {
 .btn-accent {
   background: var(--accent-500);
   color: var(--on-accent);
-  /* v9.2: حافة ظاهرة فلا يعتمد شكل الزر على درجة اللون الثاني (حد شفاف أصلًا في .btn: بلا إزاحة) */
+
   border-color: var(--accent-600);
 }
 
@@ -1150,10 +1150,6 @@ html[dir="rtl"] .icon-dir {
   to { transform: rotate(360deg); }
 }
 
-/* ==========================================================================
-   الشارات والرقائق
-   ========================================================================== */
-
 .badge {
   --tone-bg: var(--gray-100);
   --tone-fg: var(--gray-700);
@@ -1193,7 +1189,7 @@ html[dir="rtl"] .icon-dir {
 .badge-warning { --tone-bg: var(--warning-100); --tone-fg: var(--warning-700); }
 .badge-danger { --tone-bg: var(--danger-100); --tone-fg: var(--danger-700); }
 .badge-accent { --tone-bg: var(--accent-100); --tone-fg: var(--accent-700); }
-/* v10 experience (X10-C4, L-10): العلامة خضراء، فالشارة الفئوية «primary» محدّدة لا مملوءة (الحالة مملوءة، الفئة محدّدة) */
+
 .badge-primary { --tone-bg: var(--surface); --tone-fg: var(--primary-700); box-shadow: inset 0 0 0 1px var(--primary-300); }
 
 .chips {
@@ -1239,7 +1235,6 @@ html[dir="rtl"] .icon-dir {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* كود بخط ثابت (INH-2026-00482) */
 .code-tag {
   display: inline-block;
   direction: ltr;
@@ -1265,7 +1260,6 @@ html[dir="rtl"] .icon-dir {
   letter-spacing: 0.03em;
 }
 
-/* الصورة الرمزية */
 .avatar {
   --av: 36px;
   width: var(--av);
@@ -1289,10 +1283,6 @@ html[dir="rtl"] .icon-dir {
 .avatar-c4 { background: #efe6f7; color: #5b3685; }
 .avatar-c5 { background: var(--warning-100); color: var(--warning-700); }
 
-/* ==========================================================================
-   البطاقات
-   ========================================================================== */
-
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1301,7 +1291,6 @@ html[dir="rtl"] .icon-dir {
   min-width: 0;
 }
 
-/* v9.2: بطاقة تُفتح بالرابط مباشرة (‎#/settings?section=brand‎) لا يغطي الشريط العلوي الثابت عنوانها */
 .card[id] {
   scroll-margin-block-start: calc(var(--topbar-h) + 16px);
 }
@@ -1386,7 +1375,6 @@ html[dir="rtl"] .icon-dir {
   font-weight: 700;
 }
 
-/* بطاقات الأرقام */
 .stat-card {
   display: flex;
   align-items: flex-start;
@@ -1463,10 +1451,6 @@ button.stat-card:hover {
 .tone-info { --tone-bg: var(--info-100); --tone-fg: var(--info-700); }
 .tone-neutral { --tone-bg: var(--gray-100); --tone-fg: var(--gray-700); }
 .tone-muted { --tone-bg: var(--gray-50); --tone-fg: var(--gray-500); }
-
-/* ==========================================================================
-   ترويسة الصفحة ومسار التنقل والفلاتر
-   ========================================================================== */
 
 .page-header {
   display: flex;
@@ -1555,11 +1539,7 @@ button.stat-card:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  gap: 8px;
 }
 
 .filter-bar > * {
@@ -1571,7 +1551,7 @@ button.stat-card:hover {
 }
 
 .filter-bar .select-wrap {
-  flex: 0 1 200px;
+  flex: 0 1 170px;
 }
 
 .search-input {
@@ -1596,10 +1576,6 @@ button.stat-card:hover {
   .filter-bar .select-wrap { flex: 1 1 140px; }
   .page-actions { width: 100%; }
 }
-
-/* ==========================================================================
-   الجداول
-   ========================================================================== */
 
 .table-wrap {
   width: 100%;
@@ -1669,7 +1645,6 @@ button.stat-card:hover {
   padding: 8px;
 }
 
-/* على الشاشات الضيقة يتمرر الجدول داخل غلافه بدل ضغط الأعمدة */
 @media (max-width: 760px) {
   .table td {
     min-width: 7.5rem;
@@ -1680,7 +1655,6 @@ button.stat-card:hover {
   }
 }
 
-/* عمود نصي طويل (بيان/وصف) يحتفظ بعرض مقروء ويُمرَّر الجدول عند الحاجة */
 .table .col-wide {
   min-width: 220px;
 }
@@ -1694,10 +1668,6 @@ button.stat-card:hover {
   font-size: 12.5px;
   color: var(--text-muted);
 }
-
-/* ==========================================================================
-   النماذج
-   ========================================================================== */
 
 .form {
   display: flex;
@@ -1874,7 +1844,6 @@ input[type="datetime-local"].input {
   white-space: nowrap;
 }
 
-/* الحقول ذات dir=ltr داخل مجموعة عربية: الخصائص المنطقية تُحسب باتجاه الحقل نفسه، فنستخدم قيمًا فيزيائية */
 html[dir="rtl"] .input-group .input[dir="ltr"] {
   border-radius: 0 9px 9px 0;
 }
@@ -1935,7 +1904,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   color: var(--gray-900);
 }
 
-/* مربعات الاختيار */
 .check {
   display: inline-flex;
   align-items: flex-start;
@@ -1967,7 +1935,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 
 .check-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
   gap: 8px 16px;
 }
 
@@ -1978,6 +1946,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .chip-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1990,6 +1959,12 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.chip-toggle::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
 }
 
 .chip-toggle .icon {
@@ -2018,7 +1993,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   box-shadow: var(--focus-ring);
 }
 
-/* اختيار الملفات */
 .file-input {
   display: flex;
   flex-direction: column;
@@ -2153,7 +2127,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   padding-block-start: 4px;
 }
 
-/* صناديق التنبيه */
 .alert {
   display: flex;
   align-items: flex-start;
@@ -2175,7 +2148,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   margin-block-end: 2px;
 }
 
-/* v9.2 بوابة N3: رابط داخل تنبيه ملوّن بلون نص التنبيه نفسه (ثابت ومقروء) لا بلون المؤسسة (primary-600 قد يقل عن 4.5:1 على خلفية التنبيه) */
 .alert a:not(.btn) {
   color: inherit;
   text-decoration: underline;
@@ -2185,10 +2157,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 .alert-success { background: var(--success-100); color: var(--success-700); border-color: #bfe3cb; }
 .alert-warning { background: var(--warning-100); color: var(--warning-700); border-color: #f4dba6; }
 .alert-danger { background: var(--danger-100); color: var(--danger-700); border-color: #f6c4be; }
-
-/* ==========================================================================
-   التبويبات
-   ========================================================================== */
 
 .tabs {
   display: flex;
@@ -2276,7 +2244,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   border-radius: 6px;
 }
 
-/* تبويبات على شكل أقراص */
 .tabs-pills .tablist {
   border: 0;
   padding: 4px;
@@ -2300,10 +2267,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   display: none;
 }
 
-/* ==========================================================================
-   النوافذ الحوارية
-   ========================================================================== */
-
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2312,7 +2275,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  /* v10 (X10-M2/M3): التعتيم طبقة مستقلة (.modal-scrim) تتغير شفافيتها مع الحركة؛ الدخول والخروج في ui.js */
+
   background: none;
 }
 
@@ -2422,7 +2385,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   }
 }
 
-/* v9.1 l-court — ورقة سفلية (modal({ sheet: true })) ومربعات الاختيار (choiceTiles) */
 .modal-sheet {
   max-width: 480px;
 }
@@ -2467,8 +2429,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  /* v10 (X10-M2): المقبض هدف لمس بارتفاع 44px (الشريط المرئي 40×4 كما هو) يتداخل مع أعلى الترويسة، وكلاهما يُسحب
-     بالإصبع (touch-action: none) — لا انتقال CSS على الورقة: النابض في ui.js يتبع الإصبع */
   .modal-sheet .modal-grip {
     display: block;
     height: 44px;
@@ -2489,8 +2449,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
     border-radius: 0;
   }
 
-  /* gate K6: في كل ورقة طويلة على الهاتف (لا أوراق الشركات وحدها) لا ينكمش المقبض والترويسة والتذييل داخل عمود flex
-     فيُقص العنوان تحت حافة الورقة؛ الجسم وحده يُمرَّر */
   .modal-sheet > .modal-grip,
   .modal-sheet > .modal-header,
   .modal-sheet > .modal-footer {
@@ -2502,7 +2460,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   }
 }
 
-/* gate K6: أزرار المقاطع (.seg) وحقول التصفية القديمة بهدف لمس 44px على شاشات اللمس */
 @media (pointer: coarse) {
   .seg {
     min-height: 44px;
@@ -2585,12 +2542,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   color: var(--text-muted);
 }
 
-/* (v10: ‎@keyframes fade-in/fade-out/pop-in أُزيلت — دخول النوافذ وخروجها نوابض في ui.js، X10-M3) */
-
-/* ==========================================================================
-   Toast — أعلى المنتصف
-   ========================================================================== */
-
 .toast-region {
   position: fixed;
   inset-block-start: 16px;
@@ -2623,7 +2574,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   box-shadow: var(--shadow-lg);
   font-size: 14.5px;
   line-height: 1.6;
-  /* v10 (X10-F1): يدخل من حافته المثبّت عليها (12px + شفافية) ويخرج من نفس المسار بمنحنى معكوس */
+
   opacity: 0;
   transform: translateY(var(--toast-from, -12px));
   transition:
@@ -2674,7 +2625,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   background: var(--gray-100);
 }
 
-/* gate K7: هدف لمس 44×44 حول زر إغلاق التنبيه (الشكل المرئي 28px كما هو) */
 .toast-close {
   position: relative;
 }
@@ -2684,10 +2634,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   position: absolute;
   inset: -8px;
 }
-
-/* ==========================================================================
-   قوائم مفتاح/قيمة
-   ========================================================================== */
 
 .kv {
   margin: 0;
@@ -2736,7 +2682,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   }
 }
 
-/* مفتاح تبديل (تصفية) */
 .segmented {
   display: inline-flex;
   gap: 4px;
@@ -2782,10 +2727,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   outline: none;
   box-shadow: var(--focus-ring);
 }
-
-/* ==========================================================================
-   الخط الزمني
-   ========================================================================== */
 
 .timeline {
   list-style: none;
@@ -2875,10 +2816,6 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
-/* ==========================================================================
-   المحادثة (بأسلوب واتساب)
-   ========================================================================== */
 
 .chat {
   display: flex;
@@ -3084,7 +3021,6 @@ a.doc-chip:hover {
   .msg { max-width: 90%; }
 }
 
-/* صندوق الكتابة أسفل المحادثة */
 .composer {
   display: flex;
   flex-direction: column;
@@ -3106,10 +3042,6 @@ a.doc-chip:hover {
   flex-wrap: wrap;
   gap: 8px;
 }
-
-/* ==========================================================================
-   الحالات: فارغ، تحميل، خطأ، هيكل
-   ========================================================================== */
 
 .empty-state,
 .error-state {
@@ -3213,10 +3145,6 @@ a.doc-chip:hover {
   100% { background-position: 0 50%; }
 }
 
-/* ==========================================================================
-   شريط التقدم
-   ========================================================================== */
-
 .progress-wrap {
   display: flex;
   flex-direction: column;
@@ -3249,10 +3177,6 @@ a.doc-chip:hover {
 .progress.tone-primary .progress-bar { background: var(--primary-600); }
 .progress.tone-accent .progress-bar { background: var(--accent-500); }
 .progress.tone-warning .progress-bar { background: var(--warning-500); }
-
-/* ==========================================================================
-   صفحة الدخول
-   ========================================================================== */
 
 .login-page {
   min-height: 100vh;
@@ -3344,7 +3268,7 @@ a.doc-chip:hover {
 
 .login-foot {
   font-size: 13px;
-  /* v10 (مراجعة): 0.6 كان 4.39:1 فوق الوهج الذهبي على الأخضر الملكي (9.2: 4.94) — 0.72 مثل .brand-sub */
+
   color: rgba(255, 255, 255, 0.72);
 }
 
@@ -3440,7 +3364,6 @@ a.doc-chip:hover {
   color: var(--text-muted);
 }
 
-/* (v10 gate C-14) تكبير 200% على شاشة 360 (≈180 بكسل CSS): بطاقات الحسابات التجريبية تلتف بدل أن تخرج عن الشاشة */
 @media (max-width: 279.98px) {
   .demo-panel {
     padding: 14px 12px;
@@ -3457,8 +3380,7 @@ a.doc-chip:hover {
 
 .login-back {
   font-size: 14px;
-  /* (v10 gate C-14) مساحة لمس 44 بكسل دون أن يتغير موضع النص (الهامش السالب يعوض الارتفاع الزائد)؛
-     كتلة نصية لا flex حتى يلتف الاسم مع الجملة على الشاشات الضيقة */
+
   display: inline-block;
   min-height: 44px;
   padding: 10px 8px;
@@ -3496,10 +3418,6 @@ a.doc-chip:hover {
     padding: 24px 20px;
   }
 }
-
-/* ==========================================================================
-   الموقع العام: الصفحة الرئيسية، نموذج الطلب، بوابة العميل
-   ========================================================================== */
 
 .site {
   min-height: 100vh;
@@ -3554,12 +3472,6 @@ a.doc-chip:hover {
   white-space: nowrap;
 }
 
-.site-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .site-main {
   flex: 1 1 auto;
 }
@@ -3574,151 +3486,11 @@ a.doc-chip:hover {
     linear-gradient(165deg, var(--primary-700) 0%, var(--primary-900) 100%);
 }
 
-.hero-inner {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 40px;
-  align-items: center;
-  padding-block: 72px 80px;
-}
-
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  /* v9.2: نص — الذهبي الفاتح فوق الخلفية الغامقة مضمون 3:1 فقط (صف N4 للأيقونات)، فالنص أبيض مباشرة على الخلفية (T1/T3) */
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
 .hero h1 {
   margin-block: 18px 12px;
   color: #fff;
   font-size: clamp(30px, 5vw, 46px);
   line-height: 1.35;
-}
-
-.hero-tagline {
-  font-size: clamp(17px, 2.2vw, 21px);
-  color: rgba(255, 255, 255, 0.88);
-  max-width: 560px;
-}
-
-.hero-doors {
-  margin-block-start: 14px;
-  color: rgba(255, 255, 255, 0.75);
-  max-width: 560px;
-}
-
-.cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-block-start: 28px;
-}
-
-.hero .btn-accent:hover:not(:disabled) {
-  background: var(--accent-400);
-  color: var(--on-accent);
-}
-
-.hero-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 22px;
-  padding: 24px;
-  backdrop-filter: blur(4px);
-}
-
-.door {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.door + .door {
-  margin-block-start: 10px;
-}
-
-.door-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--accent-300);
-}
-
-.door strong {
-  display: block;
-  color: #fff;
-  font-size: 15.5px;
-}
-
-.door > div > span {
-  display: block;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13.5px;
-}
-
-.door .ltr {
-  display: inline-block;
-  color: #fff;
-  font-weight: 600;
-}
-
-.door-join {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-block: 14px 0;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.door-join::before,
-.door-join::after {
-  content: "";
-  flex: 1 1 auto;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.site-section {
-  padding-block: 64px;
-}
-
-.site-section.alt {
-  background: var(--bg);
-}
-
-.site-section:not(.alt) + .site-section:not(.alt) {
-  padding-block-start: 0;
-}
-
-.site-section-head {
-  max-width: 640px;
-  margin-block-end: 32px;
-}
-
-.site-section-head h2 {
-  font-size: clamp(22px, 3vw, 30px);
-}
-
-.site-section-head p {
-  margin-block-start: 8px;
-  color: var(--text-muted);
-  font-size: 16px;
 }
 
 .steps {
@@ -3740,19 +3512,6 @@ a.doc-chip:hover {
   counter-increment: step;
 }
 
-.step-num {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: var(--primary-700);
-  color: #fff;
-  font-weight: 700;
-  font-size: 17px;
-  margin-block-end: 14px;
-}
-
 .step h3 {
   font-size: 16.5px;
   margin-block-end: 6px;
@@ -3763,86 +3522,7 @@ a.doc-chip:hover {
   font-size: 14.5px;
 }
 
-.privacy-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  padding: 28px;
-  border-radius: var(--radius-xl);
-  background: var(--primary-50);
-  border: 1px solid var(--primary-100);
-}
-
-.privacy-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--primary-700);
-  color: var(--accent-300);
-  flex-shrink: 0;
-}
-
-.privacy-box h2 {
-  font-size: 21px;
-  margin-block-end: 8px;
-}
-
-.privacy-box p {
-  color: var(--gray-700);
-  font-size: 15.5px;
-}
-
-.privacy-points {
-  list-style: none;
-  padding: 0;
-  margin: 14px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  color: var(--primary-800);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.privacy-points li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.site-footer {
-  background: var(--primary-900);
-  color: rgba(255, 255, 255, 0.75);
-  padding-block: 28px;
-  font-size: 14px;
-}
-
-.site-footer-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-}
-
-.site-footer a {
-  color: #fff;
-}
-
-.site-footer .footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-}
-
 @media (max-width: 900px) {
-  .hero-inner {
-    grid-template-columns: minmax(0, 1fr);
-    padding-block: 44px 52px;
-    gap: 28px;
-  }
 
   .steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3855,377 +3535,21 @@ a.doc-chip:hover {
     padding-inline: 16px;
   }
 
-  .site-section {
-    padding-block: 44px;
-  }
-
   .steps {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .cta-row .btn {
-    width: 100%;
-  }
-
-  .privacy-box {
-    flex-direction: column;
-    padding: 22px 18px;
-  }
-
-  .site-nav .btn-ghost {
-    display: none;
-  }
 }
 
-/* صفحة الطلب */
-.intake-page {
-  padding-block: 32px 64px;
-}
-
-.intake-wrap {
-  width: 100%;
-  max-width: 860px;
-  margin-inline: auto;
-  padding-inline: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.intake-head h1 {
-  font-size: clamp(22px, 3.4vw, 30px);
-}
-
-.intake-head p {
-  margin-block-start: 6px;
-  color: var(--text-muted);
-  font-size: 15.5px;
-}
-
-.intake-head .wa-alt {
-  margin-block-start: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.intake-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow);
-  padding: 24px;
-}
-
-/* «الموقع قيد التجهيز» (وضع الإعداد الأول): الرسالة ثم وسائل التواصل */
-.intake-preparing {
-  display: grid;
-  gap: 16px;
-}
-
-.intake-card .tabs-pills .tablist {
-  margin-inline: auto;
-}
-
-@media (max-width: 560px) {
-  .intake-card .tabs-pills .tablist {
-    width: 100%;
-  }
-
-  .intake-card .tabs-pills .tab {
-    flex: 1 1 0;
-    justify-content: center;
-    white-space: normal;
-    text-align: center;
-    line-height: 1.4;
-    padding-inline: 8px;
-  }
-}
-
-.honeypot {
-  position: absolute !important;
-  inset-inline-start: -10000px;
-  inset-block-start: auto;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-.consent-notice {
-  font-size: 13.5px;
-  color: var(--text-muted);
-  margin-block-start: 4px;
-}
-
-@media (max-width: 560px) {
-  .intake-wrap {
-    padding-inline: 16px;
-  }
-
-  .intake-card {
-    padding: 16px;
-    border-radius: var(--radius-lg);
-  }
-
-  .intake-page {
-    padding-block: 20px 48px;
-  }
-}
-
-/* المعالج الحواري */
 .wizard {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.wizard-progress {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.wizard-progress .progress-wrap {
-  flex: 1 1 auto;
-}
-
 .wizard .chat {
   max-height: min(56vh, 520px);
   overflow-y: auto;
   scroll-behavior: smooth;
-}
-
-.wizard-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-}
-
-.wizard-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.wizard-actions .btn-group {
-  margin-inline-start: auto;
-}
-
-.typing {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.typing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--gray-400);
-  animation: typing 1s infinite ease-in-out;
-}
-
-.typing span:nth-child(2) { animation-delay: 0.15s; }
-.typing span:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes typing {
-  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
-  40% { opacity: 1; transform: translateY(-3px); }
-}
-
-.review-list {
-  margin: 0;
-}
-
-.review-list .kv-row {
-  padding-block: 8px;
-}
-
-/* بطاقة نجاح الإرسال */
-.success-card {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 36px 24px;
-}
-
-.success-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--success-100);
-  color: var(--success-700);
-  box-shadow: 0 0 0 8px rgba(226, 243, 232, 0.5);
-}
-
-.success-card h2 {
-  font-size: 24px;
-}
-
-.ref-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 14px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  border: 1px dashed var(--primary-300);
-}
-
-.ref-label {
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.next-steps {
-  list-style: none;
-  padding: 0;
-  margin: 6px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: start;
-  max-width: 520px;
-  width: 100%;
-}
-
-.next-steps li {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  color: var(--gray-700);
-  font-size: 14.5px;
-}
-
-.next-steps .icon {
-  color: var(--success-700);
-  margin-block-start: 3px;
-}
-
-/* بوابة العميل */
-.portal-hero {
-  background: linear-gradient(165deg, var(--primary-700), var(--primary-900));
-  color: #fff;
-  padding-block: 32px 36px;
-}
-
-.portal-hero h1 {
-  color: #fff;
-  font-size: clamp(22px, 3.4vw, 30px);
-}
-
-.portal-hero p {
-  color: rgba(255, 255, 255, 0.82);
-  margin-block-start: 4px;
-}
-
-.portal-hero .code-tag {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-
-.portal-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-  margin-block-start: 22px;
-}
-
-.portal-summary a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fff;
-  text-decoration: none;
-}
-
-.portal-summary a:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.portal-summary .sum-num {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.portal-summary .sum-label {
-  display: block;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.portal-summary .sum-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--accent-300);
-  flex-shrink: 0;
-}
-
-.portal-body {
-  padding-block: 28px 64px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.portal-section {
-  scroll-margin-top: 84px;
-}
-
-.request-item {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--surface);
-}
-
-.request-item.is-pending {
-  border-color: var(--accent-300);
-  background: var(--accent-50);
-  box-shadow: inset 4px 0 0 var(--accent-500);
-}
-
-html[dir="rtl"] .request-item.is-pending {
-  box-shadow: inset -4px 0 0 var(--accent-500);
-}
-
-.request-msg {
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--gray-900);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .answer-item {
@@ -4304,78 +3628,6 @@ html[dir="rtl"] .request-item.is-pending {
   gap: 4px;
 }
 
-.list-plain {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.case-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.case-row-main {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  min-width: 0;
-}
-
-.case-row-title {
-  font-weight: 600;
-  color: var(--gray-900);
-  min-width: 0;
-}
-
-.error-page {
-  min-height: 70vh;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-}
-
-.portal-chat {
-  max-height: min(60vh, 560px);
-  overflow-y: auto;
-}
-
-.error-page-card h1 {
-  font-size: 22px;
-}
-
-.error-page-card {
-  max-width: 520px;
-  width: 100%;
-  text-align: center;
-  padding: 36px 28px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-/* ==========================================================================
-   الحركة المخفضة والطباعة
-   ========================================================================== */
-
-/* v10 (X10-A1): الحركة المخفّضة لا «تقتل كل شيء»: التحويلات والحركات تقفز، أما الشفافية والألوان فتتلاشى في 150ms
-   (النوابض في JS تُفرض عليها damping = 1، والأوراق والنوافذ تتلاشى بلا انزلاق — ui.js) */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --press-scale: 1;
@@ -4392,7 +3644,6 @@ html[dir="rtl"] .request-item.is-pending {
   }
 }
 
-/* v10 (X10-T1): iOS يكبّر الصفحة عند التركيز في حقل أصغر من 16px — حقول الهاتف واللمس 16px */
 @media (max-width: 640px), (pointer: coarse) {
   .input,
   select.input,
@@ -4401,7 +3652,6 @@ html[dir="rtl"] .request-item.is-pending {
   }
 }
 
-/* v10 (X10-T1): أرقام بعرض ثابت للعدادات والأكواد والأعمدة الرقمية */
 .code-tag,
 .bell-count,
 .table td.align-end,
@@ -4409,12 +3659,11 @@ html[dir="rtl"] .request-item.is-pending {
   font-variant-numeric: tabular-nums;
 }
 
-/* v9.2 بوابة K6/N15: صفحات الإدارة على الهاتف — كل زر صغير أو زر أيقونة أو «تفاصيل» قابلة للفتح هدف لمس ≥ 44px
-   (صفحة الملف، صحة النظام، تفاصيل الطلب، بطاقات القصص). هيكل المحامي له قواعده الخاصة (is-lawyer). */
+/* v9.2 بوابة K6/N15: أهداف لمس ≥ 44px لصفحات الإدارة على الهاتف (مرساة اختبار v92-gate-admin) */
 @media (max-width: 640px) {
   .app-shell:not(.is-lawyer) #main .btn:not(.btn-lg) {
     --btn-h: 44px;
-    min-height: 44px; /* ‎.btn-link يلغي الارتفاع (min-height: auto) */
+    min-height: 44px;
   }
 
   .app-shell:not(.is-lawyer) #main summary,
@@ -4434,13 +3683,43 @@ html[dir="rtl"] .request-item.is-pending {
 }
 
 @media print {
+  /* v11 visual review (INV-22, PW-V1): paper keeps the 10.0 neutrals, radii and shadows; only the brand pair follows settings */
   :root {
     --bg: #fff;
+    --gray-900: #16202a;
+    --gray-800: #24313d;
+    --gray-700: #374654;
+    --gray-600: #4f5d6b;
+    --gray-500: #677583;
+    --gray-400: #96a1ad;
+    --gray-300: #c6ced6;
+    --gray-200: #dfe5ea;
+    --gray-100: #edf1f4;
+    --gray-50: #f6f8f9;
+    --label: #16202a;
+    --label-2: #4f5d6b;
+    --separator: #dfe5ea;
+    --surface-tint: #f8fafb;
+    --surface-2: #f8fafb;
+    --text: #16202a;
+    --text-muted: #4f5d6b;
+    --text-soft: #677583;
+    --border: #dfe5ea;
+    --border-strong: #c6ced6;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 2px rgba(16, 32, 42, 0.06);
+    --shadow: 0 1px 3px rgba(16, 32, 42, 0.08), 0 4px 12px rgba(16, 32, 42, 0.05);
   }
 
   body {
     background: #fff;
     font-size: 12pt;
+  }
+
+  /* v11 visual review (INV-22): the 1.75 icon stroke is screen-only; paper keeps the 10.0 stroke */
+  svg.icon {
+    stroke-width: 2;
   }
 
   .sidebar,

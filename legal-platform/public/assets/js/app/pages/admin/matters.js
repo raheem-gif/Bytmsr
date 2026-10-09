@@ -17,6 +17,8 @@ import {
   loading,
   ltr,
 } from '../../../lib/ui.js';
+// v11 segment-staff (ST-4): «الكل · خيري · أفراد · شركات» ورقاقة النوع (الملف المستمر يتبع ملفه)
+import { segmentChip, caseSegmentSwitch, caseFilterKey, caseFilterQuery, SEGMENT_TITLE } from '../../components/segment-ui.js';
 
 const WEEK = 7 * 24 * 3600 * 1000;
 
@@ -26,6 +28,7 @@ export default async function render(ctx) {
   const state = {
     status: statusKeys.includes(q0.status) || q0.status === 'all' ? q0.status : 'active',
     q: q0.q || '',
+    seg: caseFilterKey(q0),
   };
 
   let items = [];
@@ -39,6 +42,7 @@ export default async function render(ctx) {
     const qs = new URLSearchParams();
     if (state.status !== 'active') qs.set('status', state.status);
     if (state.q) qs.set('q', state.q);
+    for (const [k, v] of Object.entries(caseFilterQuery(state.seg))) qs.set(k, v);
     const s = qs.toString();
     try {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/matters${s ? `?${s}` : ''}`);
@@ -51,7 +55,7 @@ export default async function render(ctx) {
     const my = ++seq;
     mount(resultHost, loading('جارٍ تحميل الملفات المستمرة…'));
     try {
-      const res = await api.get('/admin/matters', { q: state.q });
+      const res = await api.get('/admin/matters', { q: state.q, ...caseFilterQuery(state.seg) });
       if (my !== seq) return;
       items = Array.isArray(res) ? res : (res && res.items) || [];
       draw();
@@ -121,7 +125,12 @@ export default async function render(ctx) {
     {
       key: 'client',
       label: 'المستفيد/ة',
-      render: (m) => h('div', h('div.cell-title', m.client_name || 'بدون اسم'), h('div.cell-sub', codeTag(m.client_code))),
+      render: (m) =>
+        h(
+          'div',
+          h('div.cell-title', m.client_name || 'بدون اسم'),
+          h('div.cell-sub', segmentChip(m.segment, { company: Boolean(m.company_id) || state.seg === 'company' }), ' ', codeTag(m.client_code)),
+        ),
     },
     { key: 'lawyer', label: 'المحامي المسؤول', render: (m) => (m.lawyer_name ? h('span', m.lawyer_name) : h('span.muted', 'لم يُحدَّد')) },
     {
@@ -216,6 +225,16 @@ export default async function render(ctx) {
     }),
   ]);
 
+  const segSwitch = caseSegmentSwitch({
+    value: state.seg,
+    label: SEGMENT_TITLE,
+    onChange: (v) => {
+      state.seg = v;
+      syncUrl();
+      load();
+    },
+  });
+
   load();
-  return frag(header, statsHost, segHost, filters, countLine, resultHost);
+  return frag(header, statsHost, h('div.seg-filter', segSwitch), segHost, filters, countLine, resultHost);
 }

@@ -1,0 +1,84 @@
+/* v11 gate-public (G11-45، L11-36): «اطلبوا عرضًا لشركتكم» — نموذج مجمّع بلا صناديق متداخلة: مجموعات على سطح أبيض بفواصل
+   رفيعة، والحقول نفسها من v91-b-forms.css (حد 1px بلون --field-line ≥ 3:1، L11-54). يُحمّل مع intake-company.js فقط.
+   رموز الألوان من public-site.css وحدها (بلا ألوان مكتوبة). */
+.lead .bmf-body {
+  display: grid;
+  gap: 20px;
+}
+.lead-group {
+  background: var(--surface);
+  border-radius: var(--r-14);
+  padding: 4px 16px;
+  box-shadow: var(--e-1);
+}
+.lead-group > .lead-row + .lead-row {
+  border-top: 1px solid var(--separator);
+}
+.lead-row {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+}
+.lead-label {
+  font: var(--t-subhead);
+  font-weight: 600;
+  color: var(--label-2);
+  padding: 0;
+}
+.lead-set {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.lead-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lead-chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--field-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--label);
+  font: var(--t-callout);
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.lead-chip[aria-pressed="true"] {
+  background: var(--tint-weak);
+  border-color: var(--tint);
+  color: var(--tint);
+  font-weight: 600;
+}
+.lead-chip:focus-visible,
+.lead-page:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.lead-ref,
+.lead-portal {
+  font: var(--t-callout);
+  color: var(--label-2);
+}
+.lead-portal a,
+.lead-page {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--tint);
+  font-weight: 600;
+}
+@media (forced-colors: active) {
+  .lead-chip[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+  }
+}
+.lead .bmf-back {
+  text-decoration: none;
+}

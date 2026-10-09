@@ -10,6 +10,8 @@ import { programSelect } from './program-picker.js';
 import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
 import { haptic } from '../../lib/haptics.js';
+// v11 segment-staff (ST-3): نوع الخدمة في ورقة القرار — رأس الإرسال، واختيار إلزامي بلا افتراضي حين يكون «غير محدد»
+import { sendHeader, segmentChoice, parseSeg, REQUIRED_TEXT } from './segment-ui.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -79,6 +81,7 @@ function splitQuestions(text, questions) {
  * @param {(res:object)=>void} [opts.onDone] بعد النجاح (الافتراضي: الانتقال إلى res.next)
  * @param {()=>void} [opts.onReview] «مراجعة الرسائل» (الافتراضي: فتح المحادثة في الطلب)
  * @param {(res:object)=>void} [opts.onCalled] بعد «اتصل بها» من داخل الورقة
+ * @param {{segment:string, reasons:string[]}} [opts.segmentHint] v11: اقتراح نوع الخدمة لطلب «غير محدد» (لا يُطبَّق)
  */
 export async function openStorySheet(opts = {}) {
   const { intakeId } = opts;
@@ -107,6 +110,44 @@ export async function openStorySheet(opts = {}) {
   let handle = null;
   let finished = null;
 
+  // ───────────── v11 segment-staff (ST-3): نوع الخدمة ─────────────
+  const segNow = parseSeg(p.segment);
+  const segRequired = Boolean(p.segment_required) || !segNow;
+  let segPick = segNow; // القيمة التي ستُرسل مع القرار (null = لم تُختر بعد)
+  let draftsEdited = false;
+  const headHost = h('div.pa-sheet-sendhead');
+  const eligibilityHost = h('div.pa-sheet-eligibility');
+  function drawSendHead() {
+    // رأس الإرسال حين يكون النوع معروفًا (من الطلب أو من الاختيار هنا)
+    mount(headHost, segPick ? sendHeader({ segment: segPick, tone: segPick === segNow ? p.tone || segPick : segPick, sendLine: p.send_line || null, requesterKind: opts.requesterKind || null }) : null);
+  }
+  function drawEligibility() {
+    // r2 S14: قبول خيري بلا بيانات أسرة — تنبيه لا يمنع
+    const show = Boolean(p.eligibility_warning) && segPick === 'charity' && (track === 'consultation' || track === 'matter');
+    mount(eligibilityHost, show ? h('p.notice-warn', icon('alert', { size: 16 }), h('span', p.eligibility_text || 'لم تُسجَّل بيانات الأسرة — تأكدوا من الاستحقاق')) : null);
+  }
+  const segPicker = segmentChoice({
+    value: segNow,
+    required: segRequired,
+    hint: segRequired ? opts.segmentHint || p.segment_hint || null : null,
+    current: segNow,
+    onChange: (v) => {
+      segPick = v;
+      drawSendHead();
+      drawEligibility();
+      syncFooter();
+      // P1: مسودات الرسائل بأسلوب النوع المختار (drafts_by_tone لطلب «غير محدد») ما دامت لم تُعدَّل
+      if (!segNow && p.drafts_by_tone && p.drafts_by_tone[v] && !draftsEdited) {
+        p.drafts = p.drafts_by_tone[v];
+        forms.clear();
+        drawForm();
+      }
+    },
+  });
+  const segBlock = segRequired
+    ? h('div.pa-sheet-seg', segPicker)
+    : h('details.pa-sheet-seg', h('summary', 'تغيير نوع الخدمة عند اعتماد القرار'), segPicker);
+
   // ───────────── أجزاء الورقة ─────────────
   const alertHost = h('div.pa-sheet-alert', { 'aria-live': 'assertive' });
   const formHost = h('div.pa-sheet-form');
@@ -134,6 +175,7 @@ export async function openStorySheet(opts = {}) {
       mount(alertHost);
       drawWhy();
       drawForm();
+      drawEligibility();
       syncFooter();
     },
     className: 'pa-sheet-tracks',
@@ -685,6 +727,8 @@ export async function openStorySheet(opts = {}) {
       ...cur.payload(),
       ...extra,
     };
+    // v11 segment-staff: النوع المختار (إلزامي لطلب «غير محدد»؛ ومخالفته لنوع الطلب تُسجَّل تغييرًا)
+    if (segPick && segPick !== segNow) body.segment = segPick;
     try {
       const res = await api.post(`${base}/accept`, body);
       finished = res;
@@ -734,6 +778,7 @@ export async function openStorySheet(opts = {}) {
         return false;
       }
       if (err && err.status === 409) {
+        if (err.code === 'segment_required') segPicker.setError(REQUIRED_TEXT);
         mount(alertHost, alertBox(errorMessage(err), 'danger'));
         return false;
       }
@@ -749,6 +794,10 @@ export async function openStorySheet(opts = {}) {
   async function deliverByPhone() {
     const cur = current();
     mount(alertHost);
+    if (!segPick) {
+      segPicker.setError(REQUIRED_TEXT);
+      return false;
+    }
     if (!cur.validate({ phone: true })) return false;
     let noteId = opts.callNoteId || null;
     if (!noteId) {
@@ -765,34 +814,45 @@ export async function openStorySheet(opts = {}) {
 
   // ───────────── الورقة ─────────────
   const subtitle = [p.code, opts.name].filter(Boolean).join(' — ');
+  // (modal يعيد تفعيل الأزرار حسب disabled في هذه المصفوفة بعد كل ضغطة — فيبقى الإرسال معطلًا حتى يُختار النوع)
+  const sheetActions = [
+    { label: 'إلغاء', variant: 'ghost' },
+    { label: PHONE_DELIVERY, variant: 'link', icon: 'phone', onClick: () => deliverByPhone(), disabled: !segPick },
+    {
+      label: SUBMIT_LABELS[track],
+      variant: 'primary',
+      icon: SUBMIT_ICONS[track],
+      disabled: !segPick,
+      onClick: async () => {
+        mount(alertHost);
+        if (!segPick) {
+          segPicker.setError(REQUIRED_TEXT);
+          return false;
+        }
+        if (!current().validate()) return false;
+        return (await submit()) ? undefined : false;
+      },
+    },
+  ];
   handle = modal({
     sheet: true,
     className: 'pa-story-sheet',
     title: 'اعمله طلب',
     subtitle,
     body: frag(
+      // v11 segment-staff (r2 P13): النوع والنبرة و«سيُرسل من» أعلى الورقة متى عُرف النوع
+      headHost,
+      segBlock,
       p.one_line && h('p.pa-sheet-oneline', { dir: 'auto' }, icon('sparkle', { size: 14 }), h('span', p.one_line)),
       picker,
       why,
       callFirst,
       warnBox,
+      eligibilityHost,
       alertHost,
       formHost,
     ),
-    actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: PHONE_DELIVERY, variant: 'link', icon: 'phone', onClick: () => deliverByPhone() },
-      {
-        label: SUBMIT_LABELS[track],
-        variant: 'primary',
-        icon: SUBMIT_ICONS[track],
-        onClick: async () => {
-          mount(alertHost);
-          if (!current().validate()) return false;
-          return (await submit()) ? undefined : false;
-        },
-      },
-    ],
+    actions: sheetActions,
     onClose: () => {
       if (!finished) return;
       if (finished.review) {
@@ -820,6 +880,12 @@ export async function openStorySheet(opts = {}) {
   }
 
   function syncFooter() {
+    // v11 segment-staff: لا إرسال قبل اختيار نوع الخدمة
+    sheetActions[1].disabled = !segPick;
+    sheetActions[2].disabled = !segPick;
+    phoneBtn.disabled = !segPick;
+    submitBtn.disabled = !segPick;
+    submitBtn.title = segPick ? '' : REQUIRED_TEXT;
     phoneBtn.hidden = !(track === 'internal' || track === 'refer');
     let text = SUBMIT_LABELS[track];
     if (track === 'internal' || track === 'refer') {
@@ -834,7 +900,11 @@ export async function openStorySheet(opts = {}) {
 
   drawWhy();
   drawForm();
+  drawSendHead();
+  drawEligibility();
   syncFooter();
+  // تعديل يدوي في النماذج يمنع إعادة تعبئة المسودات عند تغيير النوع
+  formHost.addEventListener('input', () => (draftsEdited = true));
   if (opts.focusTracks) requestAnimationFrame(() => picker.focusFirst && picker.focusFirst());
   return handle;
 }

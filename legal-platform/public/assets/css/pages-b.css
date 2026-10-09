@@ -94,7 +94,8 @@
 }
 
 @media (min-width: 900px) {
-  .segmented.pb-seg {
+  .segmented.pb-seg,
+  .segmented.pb-seg:has(> .seg:nth-child(5)) {
     flex-wrap: wrap;
   }
 
@@ -539,7 +540,7 @@ textarea.pb-fact-input {
 
 .pb-sees-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
   gap: 8px 20px;
 }
 
@@ -805,7 +806,7 @@ textarea.pb-fact-input {
 
 .pb-blocks {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 10px;
 }
 
@@ -1369,4 +1370,42 @@ html[dir="rtl"] .pb-step-pill {
 /* كتل نصية أعلى نماذج النوافذ (صياغة المحامي، رد العميل…) */
 .modal-body > .pb-block {
   margin-block-end: 12px;
+}
+
+/* v11 visual (V11-13): لا حافة ملوّنة ولا حد حول البطاقات — ما يحتاج تصرفًا سطح warn-weak، والمتأخر سطح bad-weak (الطباعة كما هي) */
+@media screen {
+  .pb-attention,
+  .pb-req.needs-action,
+  .pb-op-group.needs-action {
+    border: 0;
+    border-radius: var(--r-14);
+    background: var(--warn-weak);
+  }
+
+  .pb-client-card,
+  .pb-facts-shared {
+    border-inline-start: 0;
+  }
+
+  .pb-facts-internal {
+    border-inline-start: 0;
+    background: var(--surface);
+  }
+
+  .pb-member.is-overdue {
+    border: 0;
+    background: var(--bad-weak);
+  }
+}
+
+/* v11 visual (V11-55): ≤ 340px (تكبير 200 %) — تسميات الكتل تلتف */
+@media (max-width: 340px) {
+  .pb-block-label {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .pb-block-label > * {
+    min-width: 0;
+  }
 }

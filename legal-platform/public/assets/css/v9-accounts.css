@@ -709,3 +709,8 @@
     content: none;
   }
 }
+
+/* v11 visual: V11-P2 */
+@media screen {
+  .acc-lead ~ .acc-actions-row > .btn-primary:not(.acc-2fa-wizard *) { background: var(--tint-weak); color: var(--tint); border-color: transparent; }
+}

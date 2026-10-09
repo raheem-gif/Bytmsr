@@ -29,9 +29,10 @@ const themeOf = (html) => (/<meta name="theme-color" content="([^"]+)"/.exec(htm
 
 describe('v10 experience — version and docs skeleton (EXP-0)', () => {
   test('10.0.0 in package.json and both Dockerfile labels; the four lane markers in README, PLATFORM-BRIEF and DEPLOY', () => {
-    assert.equal(JSON.parse(read('package.json')).version, '10.0.0');
-    assert.match(read('Dockerfile'), /org\.opencontainers\.image\.version="10\.0\.0"/);
-    assert.match(fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8'), /org\.opencontainers\.image\.version="10\.0\.0"/);
+    // v11 visual (intended): the version is 11.0.0 now (package.json and both Dockerfile labels); the v10 markers stay
+    assert.equal(JSON.parse(read('package.json')).version, '11.0.0');
+    assert.match(read('Dockerfile'), /org\.opencontainers\.image\.version="11\.0\.0"/);
+    assert.match(fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8'), /org\.opencontainers\.image\.version="11\.0\.0"/);
     for (const f of ['README.md', 'PLATFORM-BRIEF.md', 'DEPLOY.md']) {
       const s = read(f);
       for (const lane of ['experience', 'b2b-server', 'b2b-portal', 'b2b-staff']) assert.ok(s.includes(`<!-- v10:${lane} -->`), `${f} ${lane}`);
@@ -49,22 +50,23 @@ describe('v10 experience — royal green and gold (EXP-3, X10-C)', () => {
   });
   after(async () => t && t.close());
 
-  test('the default pair is #0b5a3c/#c9a14a: buildTheme returns LEGACY (legacy:true, no adjustments) and all 29 contract rows pass', () => {
-    assert.equal(B.DEFAULT_PRIMARY, '#0b5a3c');
-    assert.equal(B.DEFAULT_ACCENT, '#c9a14a');
+  test('the default pair is #0b3d29/#cca454: buildTheme returns LEGACY (legacy:true, no adjustments) and all 29 contract rows pass', () => {
+    // v11 visual (intended): the logo colours (V11-01) replace the v10 royal green/gold pair
+    assert.equal(B.DEFAULT_PRIMARY, '#0b3d29');
+    assert.equal(B.DEFAULT_ACCENT, '#cca454');
     const t0 = B.buildTheme(B.DEFAULT_PRIMARY, B.DEFAULT_ACCENT);
     assert.deepEqual(t0.primary, { ...B.LEGACY.primary });
     assert.deepEqual(t0.accent, { ...B.LEGACY.accent });
     assert.equal(t0.legacy, true);
-    assert.deepEqual(B.buildTheme('#0b5a3c', '#c9a14a').adjustments, []);
+    assert.deepEqual(B.buildTheme('#0b3d29', '#cca454').adjustments, []); // v11 visual (intended)
     assert.deepEqual(B.checkContract(B.LEGACY).filter((r) => !r.ok).map((r) => r.id), []);
-    // X10-C1: the generated scale verbatim
-    assert.deepEqual({ ...B.LEGACY.primary }, { 50: '#eef7f2', 100: '#dbeee3', 200: '#b7dac7', 300: '#7cb999', 500: '#0a7f55', 600: '#0b6b48', 700: '#0b5a3c', 800: '#0a452e', 900: '#083221' });
-    assert.deepEqual({ ...B.LEGACY.accent }, { 50: '#fbf7ee', 100: '#f6ecd9', 300: '#dabe86', 400: '#d3ab57', 500: '#c9a14a', 600: '#937123', 700: '#745818', 800: '#5f4711' });
+    // X10-C1: the generated scale verbatim — v11 visual (intended): the V11-01 scale
+    assert.deepEqual({ ...B.LEGACY.primary }, { 50: '#eff6f2', 100: '#dfece5', 200: '#bfd8ca', 300: '#8ab59e', 500: '#26684c', 600: '#175139', 700: '#0b3d29', 800: '#082e1e', 900: '#052015' });
+    assert.deepEqual({ ...B.LEGACY.accent }, { 50: '#fbf7ef', 100: '#f6ecda', 300: '#dabe89', 400: '#d4ad5f', 500: '#cca454', 600: '#93712b', 700: '#74581f', 800: '#5e4716' });
     // a neighbour of the default goes through the generator and lands on the same scale: no adjustment
-    const near = B.buildTheme('#0b5a3d', '#c9a14b');
+    const near = B.buildTheme('#0b3d2a', '#cca455'); // v11 visual (intended)
     assert.deepEqual(near.adjustments, []);
-    assert.equal(near.primary[700], '#0b5a3d');
+    assert.equal(near.primary[700], '#0b3d2a');
   });
 
   test('every theme colour of the platform is LEGACY.primary[700]: app.html, setup.html, /app, /, both manifests, the offline page', async () => {
@@ -76,7 +78,7 @@ describe('v10 experience — royal green and gold (EXP-3, X10-C)', () => {
     for (const m of ['/manifest.webmanifest', '/company.webmanifest']) assert.equal(JSON.parse((await t.client().get(m)).body).theme_color, want, m);
     const sw = read('public/sw.js');
     assert.ok(sw.includes(`<meta name="theme-color" content="${want}">`));
-    assert.ok(sw.includes('#c9a14a') && sw.includes('#dabe86'));
+    assert.ok(sw.includes('#cca454') && sw.includes('#032516')); // v11 visual (intended): offline page = gold on the logo ground
     assert.ok(read('src/routes/lawyer-home.js').includes(`'<meta name="theme-color" content="${want}" />'`), 'the /app replace literal matches app.html');
   });
 
@@ -118,14 +120,15 @@ describe('v10 experience — royal green and gold (EXP-3, X10-C)', () => {
   });
 
   test('the scales mark: favicon.svg (green tile, a300 glyph, brand label), brand-mark.svg, public header glyph and the offline page', async () => {
+    // v11 visual (intended): favicon = the logo's interlocking-diamond ornament in gold on the logo ground, no label (L11-58)
     const fav = read('public/assets/img/favicon.svg');
-    assert.match(fav, /<rect width="64" height="64" rx="14" fill="#0b5a3c"\/>/);
-    assert.match(fav, /stroke="#dabe86"/);
-    assert.match(fav, /aria-label="Emam Legal and Consultancy"/);
-    assert.ok(fav.includes('M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2'), 'scales glyph');
+    assert.match(fav, /<rect width="64" height="64" rx="14" fill="#032516"\/>/);
+    assert.match(fav, /stroke="url\(#g\)"/);
+    assert.ok(!/aria-label|<title/.test(fav), 'no artwork label');
+    assert.ok(fav.includes('M18.7 15.3 15 19 6 10 15 1 24 10 21.3 12.7'), 'ornament');
     assert.ok(read('public/assets/img/brand-mark.svg').includes('M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2'));
     const home = (await t.client().get('/')).body;
-    assert.ok(/<span class="pub-logo"><svg class="pub-mark-svg"[^>]*viewBox="0 0 24 24"/.test(home));
+    assert.ok(/<img class="pub-mark" src="\/assets\/img\/emam-mark-green\.svg\?v=[^"]+" width="99" height="19" alt=""/.test(home)); // v11 gate-public (intended)
     assert.ok(!home.includes('M8 30 32 10.5 56 30'), 'no house glyph left');
     assert.ok(!read('public/sw.js').includes('M8 30 32 10.5 56 30'));
   });
@@ -201,7 +204,8 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
     const legal = DEFAULT_SETTINGS.org_legal_name;
     const portal = ok(await admin.post(`/api/admin/clients/${t.app.db.value('SELECT id FROM clients ORDER BY id LIMIT 1')}/portal-link`, {}));
     const pPath = new URL(portal.url, t.base).pathname;
-    for (const p of ['/', '/intake', '/about', '/privacy', '/terms', '/data-deletion', '/portal', pPath, '/no-such-page-v10']) {
+    // v11 gate-public (intended): + /services and /khayri (same «— Emam Legal and Consultancy» suffix)
+    for (const p of ['/', '/khayri', '/services', '/intake', '/about', '/privacy', '/terms', '/data-deletion', '/portal', pPath, '/no-such-page-v10']) {
       const html = (await t.client().get(p)).body;
       assert.match(titleOf(html), /— Emam Legal and Consultancy$/, p);
       assert.ok(html.includes('<bdi class="pub-wordmark" dir="ltr" lang="en"><b>Emam Legal</b> <span>and Consultancy</span></bdi>'), `${p} lockup`);
@@ -210,7 +214,7 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
       assert.ok(html.includes('<meta property="og:site_name" content="Emam Legal and Consultancy" />'), `${p} og:site_name`);
     }
     for (const p of ['/privacy', '/terms', '/about']) assert.ok((await t.client().get(p)).body.includes(legal), `${p} keeps the legal entity`);
-    const home = (await t.client().get('/')).body;
+    const home = (await t.client().get('/khayri')).body; // v11 gate-public (intended): the charity LegalService/NGO graph lives on /khayri (the gated / carries Organization only)
     assert.ok(home.includes('<span class="pub-sr">مساعدة قانونية مجانية من <bdi class="wordmark" dir="ltr" lang="en">Emam Legal and Consultancy</bdi>. </span>'));
     const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(home)[1])['@graph'];
     const org = ld.find((x) => x['@type'] === 'NGO');
@@ -1034,7 +1038,9 @@ describe('v10 experience — motion, press, materials, haptics and images (EXP-7
   test('X10-L materials: frosted header/topbar/bottom bars with a solid fallback; the scroll edge lives in the non-critical part', () => {
     // #ffffffdb = white at 0.86 (shorter in the 12 KB critical block)
     assert.match(critical, /\.pub-header \{[^}]*background: #ffffffdb;[^}]*-webkit-backdrop-filter: saturate\(1\.8\) blur\(20px\);[^}]*backdrop-filter: saturate\(1\.8\) blur\(20px\);/);
-    assert.match(critical, /@media \(max-width: 299px\) \{\s*\.pub-header \.pub-wordmark \{\s*display: none;/, '200 % zoom on a 360 px phone: the mark alone');
+    // v11 visual (intended): the wordmark is visually hidden in the header at every width (the mark image carries the brand;
+    // the text stays for screen readers), so at 200 % zoom on a 360 px phone the mark is still alone
+    assert.match(critical, /\.pub-sr,\s*\.pub-header \.pub-wordmark \{\s*position: absolute !important;[^}]*clip-path: inset\(50%\);/, 'wordmark visually hidden at every width');
     assert.ok(!critical.includes('animation-timeline'), 'the scroll edge is not critical');
     assert.match(nonCritical, /@supports \(animation-timeline: scroll\(\)\) \{\s*\.pub-header \{/);
     assert.match(nonCritical, /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)/);

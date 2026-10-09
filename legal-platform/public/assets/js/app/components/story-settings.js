@@ -6,7 +6,12 @@ import { api } from '../../lib/api.js';
 import { toLatinDigits, normalizeEgPhone } from '../../lib/fmt.js';
 import { card, form, toast, icon } from '../../lib/ui.js';
 
-export const STORY_SETTING_KEYS = ['story_quiet_minutes', 'story_welcome_enabled', 'story_ack_enabled', 'callback_from_number', 'callback_eta_days'];
+export const STORY_SETTING_KEYS = ['story_quiet_minutes', 'story_welcome_enabled', 'story_ack_enabled', 'callback_from_number', 'callback_eta_days', 'wa_segment_choice_enabled', 'segment_returning_days'];
+
+// v11 segment-staff (ST-6، S11-42، P1): أزرار اختيار نوع الخدمة على الرقم المشترك + تذكّر نوع الخدمة للعائدين
+export const CHOICE_TOGGLE_TEXT = 'أزرار اختيار نوع الخدمة على الرقم المشترك';
+export const CHOICE_DISABLED_TEXT = 'تعمل فقط حين يكون الرقم الأساسي «الخدمتين معًا (رقم واحد)» في التكاملات.';
+export const RETURNING_DAYS_LABEL = 'تذكّر نوع الخدمة لمن راسلنا قبل كده (أيام، 0 = لا)';
 
 function fieldError(name, msg) {
   const e = new Error(msg);
@@ -51,6 +56,16 @@ export function storySettingsCard(settings = {}) {
         hint: 'يظهر لها بعد طلب المكالمة حتى ترد عليه. اتركه فارغًا لاستخدام رقم المؤسسة.',
       },
       { name: 'callback_eta_days', label: 'نتصل خلال (أيام عمل)', type: 'number', integer: true, required: true, min: 1, max: 5 },
+      // v11 segment-staff (ST-6، P1): تُفعَّل الأزرار فقط حين يكون الرقم الأساسي «الخدمتين معًا» (يُقرأ من التكاملات أدناه)
+      {
+        name: 'wa_segment_choice_enabled',
+        type: 'checkbox',
+        full: true,
+        text: CHOICE_TOGGLE_TEXT,
+        disabled: true,
+        hint: 'أول رسالة من رقم جديد بلا جملة حجز تصله برسالة فيها زرّان: «خيري — مجاني» و«أفراد وشركات». قبل التفعيل راجعوا جملة "كل رد يصلك يراجعه شخص مختص" في سياسة الخصوصية؛ الأزرار رسالة آلية ثابتة.',
+      },
+      { name: 'segment_returning_days', label: RETURNING_DAYS_LABEL, type: 'number', integer: true, required: true, min: 0, max: 3650, hint: 'من راسلنا خلال هذه المدة يبقى على نفس نوع الخدمة على الرقم المشترك.' },
     ],
     {
       values: {
@@ -59,6 +74,8 @@ export function storySettingsCard(settings = {}) {
         story_ack_enabled: Boolean(settings.story_ack_enabled),
         callback_from_number: settings.callback_from_number || '',
         callback_eta_days: settings.callback_eta_days ?? 1,
+        wa_segment_choice_enabled: Boolean(settings.wa_segment_choice_enabled),
+        segment_returning_days: settings.segment_returning_days ?? 365,
       },
       submitLabel: 'حفظ',
       submitIcon: 'check',
@@ -71,6 +88,9 @@ export function storySettingsCard(settings = {}) {
           story_ack_enabled: Boolean(v.story_ack_enabled),
           callback_from_number: raw,
           callback_eta_days: v.callback_eta_days,
+          // v11 segment-staff: الأزرار تُرسل فقط حين يكون المفتاح متاحًا (وضع «الخدمتين معًا»)؛ وإلا تبقى قيمتها كما هي
+          ...(choiceAllowed ? { wa_segment_choice_enabled: Boolean(v.wa_segment_choice_enabled) } : {}),
+          segment_returning_days: v.segment_returning_days,
         });
         if (saved && typeof saved === 'object') {
           const next = {};
@@ -82,6 +102,22 @@ export function storySettingsCard(settings = {}) {
     },
   );
   f.el.classList.add('pa-stset-form');
+
+  // v11 segment-staff (ST-6): وضع الرقم الأساسي من التكاملات (لمدير النظام) — المفتاح معطّل بشرح حتى يكون «الخدمتين معًا»
+  let choiceAllowed = false;
+  const choice = f.control('wa_segment_choice_enabled');
+  const choiceNote = h('p.pa-note.small.pa-choice-note', icon('info', { size: 15 }), h('span', CHOICE_DISABLED_TEXT));
+  choice.wrap.append(choiceNote);
+  api
+    .get('/admin/integrations', null, { background: true })
+    .then((d) => {
+      const wa = (d && Array.isArray(d.items) ? d.items : []).find((x) => x.name === 'whatsapp');
+      const mode = wa && (wa.fields || []).find((x) => x.key === 'segment');
+      choiceAllowed = Boolean(mode && mode.value === 'shared');
+      choice.input.disabled = !choiceAllowed;
+      choiceNote.hidden = choiceAllowed;
+    })
+    .catch(() => {});
 
   const el = card({
     title: 'القصص الواردة على واتساب',

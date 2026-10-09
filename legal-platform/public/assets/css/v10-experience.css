@@ -22,23 +22,27 @@
   --mat-chrome-solid: rgb(255 255 255 / 0.97);
   --mat-blur: saturate(180%) blur(20px);
   --chrome-edge: 0 1px 0 rgb(16 32 42 / 0.04), 0 8px 24px -16px rgb(var(--primary-900-rgb) / 0.22);
-  /* الخط (X10-T1): العربية بلا تباعد حروف أبدًا؛ التدرج بالوزن والحجم والسطر */
+  /* الخط (X10-T1؛ v11 visual V11-07 34/28/22/20/17/15/13 هنا لا في ملف لاحق، r2 S1): العربية بلا تباعد حروف أبدًا */
   --t-display: 700 clamp(26px, 6.4vw, 34px) / 1.3 var(--font);
-  --t-title1: 700 24px / 1.35 var(--font);
-  --t-title2: 700 20px / 1.4 var(--font);
+  --t-large: 700 34px / 1.25 var(--font);
+  --t-title1: 700 28px / 1.3 var(--font);
+  --t-title2: 700 22px / 1.35 var(--font);
+  --t-title3: 600 20px / 1.4 var(--font);
   --t-headline: 600 17px / 1.5 var(--font);
-  --t-body: 400 15px / 1.7 var(--font);
-  --t-callout: 400 15px / 1.6 var(--font);
-  --t-footnote: 500 13px / 1.55 var(--font);
-  --t-caption: 500 12px / 1.5 var(--font);
+  --t-body: 400 17px / 1.6 var(--font);
+  --t-callout: 400 16px / 1.55 var(--font);
+  --t-subhead: 400 15px / 1.5 var(--font);
+  --t-footnote: 400 13px / 1.5 var(--font);
+  --t-caption: 600 12px / 1.35 var(--font);
   --wordmark-font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --k-chrome-h: 56px;
-  --k-tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --k-chrome-h: 52px;
+  --k-tabbar-h: calc(54px + env(safe-area-inset-bottom, 0px));
 }
 
-@media (max-width: 640px) {
+@media (max-width: 420px) {
   :root {
-    --t-title1: 700 21px / 1.35 var(--font);
+    --t-large: 700 30px / 1.25 var(--font);
+    --t-title1: 700 26px / 1.3 var(--font);
   }
 }
 
@@ -323,19 +327,19 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  min-height: 56px;
+  min-height: 54px;
   padding: 4px 2px;
   border: 0;
   background: transparent;
-  color: var(--gray-600);
-  font: 600 12px / 1.3 var(--font);
+  color: var(--label-2);
+  font: 600 11.5px / 1.3 var(--font);
   text-decoration: none;
   cursor: pointer;
 }
 
 .k-tab .icon {
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
 }
 
 .k-tab-label {
@@ -347,7 +351,7 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
 
 .k-tab.is-active,
 .k-tab[aria-current="page"] {
-  color: var(--primary-700);
+  color: var(--tint);
 }
 
 .k-tab:focus-visible {
@@ -389,8 +393,8 @@ body.k-keyboard .k-tabbar {
   padding: 0;
   list-style: none;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-20);
+  box-shadow: var(--e-1);
   overflow: hidden;
 }
 
@@ -404,8 +408,8 @@ body.k-keyboard .k-tabbar {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 8px 16px;
+  min-height: 52px;
+  padding: 10px 16px;
   border: 0;
   background-color: var(--surface);
   color: inherit;
@@ -426,12 +430,11 @@ body.k-keyboard .k-tabbar {
 .k-row-icon {
   display: grid;
   place-items: center;
-  flex: 0 0 36px;
-  height: 36px;
-  border-radius: var(--radius);
-  color: var(--primary-700);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--border);
+  flex: 0 0 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--tint);
+  background: var(--tint-weak);
 }
 
 .k-row-main {
@@ -443,16 +446,13 @@ body.k-keyboard .k-tabbar {
 }
 
 .k-row-title {
-  font-weight: 600;
-  font-size: 15px;
-  line-height: 1.5;
+  font: var(--t-headline);
   overflow-wrap: anywhere;
 }
 
 .k-row-sub {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-muted);
+  font: var(--t-subhead);
+  color: var(--label-2);
   overflow-wrap: anywhere;
 }
 
@@ -465,15 +465,15 @@ body.k-keyboard .k-tabbar {
 
 .k-row-trailing {
   flex: 0 0 auto;
-  font-size: 13px;
-  color: var(--text-muted);
+  font: var(--t-subhead);
+  color: var(--label-2);
 }
 
 .k-row-chevron {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: var(--gray-400);
+  color: var(--label-3);
 }
 
 /* ───────────── «أين وصل الطلب؟» (.step-tracker) ───────────── */

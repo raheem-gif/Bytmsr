@@ -44,6 +44,16 @@ export function createAutomations(app) {
    * نص رسالة المستفيد/ة من قالب القاعدة: {first_name} بالكنية، {ref} رقم الطلب REQ، {portal_link} رابط صفحتها
    * (يُصدر فقط إن احتاجه القالب وكانت القصة مؤكدة)، ورموز النوع {ي}/{ة} حسب صيغة المخاطبة.
    */
+  /**
+   * v11 segment-server (S11 §10.3، L11-25): نص القاعدة بنبرة القصة — الأفراد والشركات (أو «غير محدد») ← template_paid،
+   * ولا يصلهم نص الخيري أبدًا.
+   */
+  function templateFor(r, story) {
+    const tone = app.engine.storyTone ? app.engine.storyTone(story) : 'charity';
+    if (tone === 'charity') return r.params.template;
+    return r.params.template_paid || DEFAULT_AUTOMATION_RULES[r.key]?.params?.template_paid || r.params.template;
+  }
+
   function clientText(template, story, vars) {
     const words = app.engine.clientWords(story);
     const values = { ...vars, first_name: words.first_name, ref: words.ref || vars.ref || '' };
@@ -151,7 +161,7 @@ export function createAutomations(app) {
         const did = once('hearing_reminder', `event:${e.id}:${e.starts_at}`, 'matter_event', e.id, () => {
           // v9.1 b-site (B91-10): «أهلًا يا {first_name}، عندك جلسة يوم … الساعة 10 الصبح» + رابط صفحتها، بلا أكواد داخلية
           const story = { clientId: e.client_id, intakeId: e.intake_id, caseId: e.case_id, matterId: e.matter_id };
-          const filled = clientText(r.params.template, story, {
+          const filled = clientText(templateFor(r, story), story, {
             event_kind: LABELS.event_kind[e.kind],
             matter_code: e.matter_code, // للقوالب القديمة التي عدّلتها الإدارة فقط
             date: arabicDate(e.starts_at),
@@ -163,8 +173,9 @@ export function createAutomations(app) {
           });
           const vars = filled.vars;
           // v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة (ملاحظة الموعد) بدل «هاتي معاكي بطاقتك» وحدها
-          const body = withClientNote(filled.body, e, vars.form);
-          const waText = filled.wa_text ? withClientNote(filled.wa_text, e, vars.form) : null;
+          const eTone = app.engine.storyTone ? app.engine.storyTone(story) : 'charity'; // v11 segment-server
+          const body = withClientNote(filled.body, e, vars.form, eTone);
+          const waText = filled.wa_text ? withClientNote(filled.wa_text, e, vars.form, eTone) : null;
           const msg = app.engine.sendToClient({
             client_id: e.client_id,
             intake_id: e.intake_id,
@@ -206,7 +217,7 @@ export function createAutomations(app) {
         const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id));
         const did = once('invoice_reminder', `invoice:${i.id}:${i.reminder_count + 1}`, 'invoice', i.id, () => {
           // v9.1 b-site (B91-10): المبلغ وسببه بكلمات بسيطة و«ردّي علينا قبل ما تدفعي»
-          const filled = clientText(r.params.template, story, {
+          const filled = clientText(templateFor(r, story), story, {
             invoice_number: i.number,
             amount: fromMinor(i.amount_minor - paid).toLocaleString('en-US'),
             description: i.description || 'مصاريف القضية',
@@ -252,7 +263,7 @@ export function createAutomations(app) {
         const did = once('document_reminder', `inforeq:${ir.id}:${ir.reminder_count + 1}`, 'info_request', ir.id, () => {
           // v9.1 b-site (B91-10): {ref} رقم الطلب بدل كود الملف ({case_code} يبقى للقوالب القديمة المعدّلة)
           // (v9.1 fixes: طلب المتابعة «لسه محتاجين: …» يُذكر ببنوده فقط بعد «لسه مستنيين منك:»)
-          const filled = clientText(r.params.template, story, { case_code: ir.case_code, request: truncate(String(ir.client_message || ir.question).replace(/^لسه محتاجين:\s*/, ''), 200), org_name: orgName() });
+          const filled = clientText(templateFor(r, story), story, { case_code: ir.case_code, request: truncate(String(ir.client_message || ir.question).replace(/^لسه محتاجين:\s*/, ''), 200), org_name: orgName() });
           const vars = filled.vars;
           const body = filled.body;
           const msg = app.engine.sendToClient({ client_id: ir.client_id, intake_id: ir.intake_id, case_id: ir.case_id, body, automated: true, rule: 'document_reminder', meta: { info_request_id: ir.id, vars, ...(filled.wa_text ? { wa_text: filled.wa_text } : {}) } });
@@ -393,6 +404,7 @@ export function createAutomations(app) {
         for (const [k, val] of Object.entries(body.params)) {
           if (!(k in def)) continue;
           if (k === 'template') params[k] = v.str(val, 'نص الرسالة', { required: true, max: 600 }); // v9.1 b-site: رسائل قصيرة (B91-10)
+          else if (k === 'template_paid') params[k] = v.str(val, 'نص الأفراد والشركات', { required: true, max: 600 }); // v11 segment-server (S11 §10.3)
           else {
             // الصفر كان يعود صامتًا للقيمة الافتراضية؛ إيقاف القاعدة يكون بمفتاح التفعيل
             if (Number(val) === 0) throw badRequest('القيمة يجب أن تكون ١ على الأقل. لإيقاف هذه التذكيرات أوقف القاعدة من مفتاح التفعيل');

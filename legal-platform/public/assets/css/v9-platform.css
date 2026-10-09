@@ -302,8 +302,7 @@
   flex-direction: column;
   gap: 8px;
   background: var(--primary-50);
-  border: 1px solid var(--primary-100);
-  border-radius: var(--radius);
+  border-radius: var(--r-14);
   padding: 12px 14px;
   min-width: 0;
 }
@@ -464,17 +463,14 @@ html[dir='rtl'] .pf-field-en {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border-radius: var(--r-14);
+  background: var(--surface-tint);
   min-width: 0;
 }
 .pf-check.is-danger {
-  border-color: var(--danger-600);
   background: var(--danger-100);
 }
 .pf-check.is-warning {
-  border-color: var(--warning-500);
   background: var(--warning-100);
 }
 .pf-check-icon {
@@ -627,4 +623,10 @@ html[dir='rtl'] .pf-field-en {
     padding-inline-start: 26px;
     padding-inline-end: 12px;
   }
+}
+
+/* v11 visual (V11-P2): «تعديل» في رأس كل بطاقة تكامل ملوّن خفيف — لا جدار من الأزرار الممتلئة */
+@media screen {
+  .pf-card-actions .btn-primary { background: var(--tint-weak); color: var(--tint); border-color: transparent; }
+  .pf-card-actions .btn-primary:hover:not(:disabled) { background: var(--tint-weak-2); color: var(--tint); }
 }

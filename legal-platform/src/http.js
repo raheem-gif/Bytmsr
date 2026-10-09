@@ -76,12 +76,16 @@ function gzipFile(file, st) {
 /**
  * يرسل جسمًا نصيًا جاهزًا (JSON أو HTML) مضغوطًا إن قبله المتصفح وكان أكبر من 1 كيلوبايت.
  * يضبط Content-Length و Vary؛ ولا يكتب الجسم لطلبات HEAD.
+ * v11 gate-public (L11-43): vary = ترويسات إضافية يتغير بها الرد (مثل 'Cookie' لصفحات الموقع التي تقرأ bm_seg)؛
+ * تُرسل «Vary: Accept-Encoding, Cookie» سواء ضُغط الجسم أم لا (وكذلك لطلبات HEAD والأجسام القصيرة).
+ * الصفحة التي بناها renderPage تعلّم الطلب (req.bmVary) فيأخذ ردها الترويسة نفسها حتى من مسار آخر (صفحة 404).
  */
-export function sendBody(res, status, body, { req = res.req, cacheKey = null } = {}) {
+export function sendBody(res, status, body, { req = res.req, cacheKey = null, vary = req?.bmVary || null } = {}) {
   let buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8');
   res.statusCode = status;
+  if (vary) res.setHeader('Vary', `Accept-Encoding, ${vary}`);
   if (buf.length >= MIN_COMPRESS_BYTES && buf.length <= MAX_COMPRESS_BYTES) {
-    res.setHeader('Vary', 'Accept-Encoding');
+    if (!vary) res.setHeader('Vary', 'Accept-Encoding');
     if (acceptsBrotli(req)) {
       // cacheKey (اختياري، v9.1 l-home): جسم ثابت يتكرر (مثل ملفات CSS المجمّعة) يُضغط بأعلى جودة مرة واحدة
       const src = buf;

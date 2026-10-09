@@ -58,7 +58,7 @@ describe('v9.2 public — the tile-first home page', () => {
     assert.equal((start.match(/class="pub-pick-tile"/g) || []).length, 8);
     tiles.forEach((m, i) => {
       assert.equal(m[1], ORDER[i]);
-      assert.equal(m[2], `/intake?topic=${ORDER[i]}`);
+      assert.equal(m[2], `/intake?seg=charity&topic=${ORDER[i]}`); // v11 gate-public (intended, L11-52)
       assert.equal(m[3], ORDER[i]);
       assert.equal(m[4], T.topicByKey(ORDER[i]).say);
       assert.equal(m[6], T.topicByKey(ORDER[i]).label);
@@ -79,7 +79,7 @@ describe('v9.2 public — the tile-first home page', () => {
     assert.equal(ways[1], '3');
     const hrefs = [...ways[2].matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
     assert.equal(hrefs.length, 3);
-    assert.equal(hrefs[0], '/intake?mode=callback&amp;entry=home_callback');
+    assert.equal(hrefs[0], '/intake?seg=charity&amp;mode=callback&amp;entry=home_callback'); // v11 gate-public (intended, L11-52)
     assert.match(hrefs[1], /^https:\/\/wa\.me\/201000000001\?text=/);
     assert.equal(hrefs[2], '/portal');
     assert.ok(!ways[2].includes('tel:'));
@@ -123,9 +123,9 @@ describe('v9.2 public — the tile-first home page', () => {
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}">\\s*<a class="pub-tile-link" href="([^"]+)"`).exec(html);
       assert.ok(m, s.key);
-      assert.equal(m[1], `/intake?topic=${s.topic}`);
+      assert.equal(m[1], `/intake?seg=charity&topic=${s.topic}`); // v11 gate-public (intended, L11-52)
     }
-    assert.ok(html.includes('id="service-custody">\n  <a class="pub-tile-link" href="/intake?topic=custody"'));
+    assert.ok(html.includes('id="service-custody">\n  <a class="pub-tile-link" href="/intake?seg=charity&topic=custody"')); // v11 gate-public (intended)
     const intake = read('public/assets/js/public/intake.js');
     assert.match(intake, /params\.get\('area'\)/);
     assert.match(intake, /TOPICS\.find\(\(x\) => x\.area === area\)/);
@@ -429,11 +429,15 @@ describe('v9.2 public — the slow-network budget (§5.3)', () => {
   const closure = (entry) => [entry, ...preloadClosure(path.join(PUB, entry), PUB)];
 
   test('8. / HTML ≤ 14 KB br and ≤ 70 KB raw; critical CSS ≤ 12 KB; landing ≤ 4 KB br; listen.js ≤ 3.5 KB br; /intake closure ≤ 32 KB br without recorder.js', async () => {
+    // v11 gate-public (intended): the same limits on the gate state (no cookie) and the «خيري» cookie state of /
+    for (const headers of [{}, { cookie: 'bm_seg=charity' }]) {
+      const h = (await t.client().get('/', headers)).body;
+      assert.ok(Buffer.byteLength(h) <= 70 * 1024, `raw ${Buffer.byteLength(h)} ${headers.cookie || 'gate'}`);
+      assert.ok(br(Buffer.from(h)) <= 14 * 1024, `br ${br(Buffer.from(h))} ${headers.cookie || 'gate'}`);
+      const c = /<style>([\s\S]*?)<\/style>/.exec(h)[1];
+      assert.ok(Buffer.byteLength(c) <= 12 * 1024, `critical ${Buffer.byteLength(c)} ${headers.cookie || 'gate'}`);
+    }
     const html = (await t.client().get('/')).body;
-    assert.ok(Buffer.byteLength(html) <= 70 * 1024, `raw ${Buffer.byteLength(html)}`);
-    assert.ok(br(Buffer.from(html)) <= 14 * 1024, `br ${br(Buffer.from(html))}`);
-    const css = /<style>([\s\S]*?)<\/style>/.exec(html)[1];
-    assert.ok(Buffer.byteLength(css) <= 12 * 1024, `critical ${Buffer.byteLength(css)}`);
     const bm = /<script type="application\/json" id="bm-public">([\s\S]*?)<\/script>/.exec(html)[1];
     assert.ok(Buffer.byteLength(bm) <= 3072);
     const landing = closure('/assets/js/public/landing.js');
@@ -633,8 +637,10 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     assert.match(pubCss, /\.pb \{\s*fill: var\(--accent-600\);/);
     assert.match(pubCss, /\.pl \{\s*fill: var\(--primary-300\);/);
     assert.match(pubCss, /\.po \{\s*fill: none;\s*stroke: var\(--primary-700\);\s*stroke-width: 2\.5;/);
-    assert.match(pubCss, /body\.pub \.pub-pick-tile \{[^}]*border: 2px solid var\(--primary-500\);/);
-    assert.match(formsCss, /\.bmf-answer \{[^}]*border: 2px solid var\(--primary-500\);/);
+    // v11 visual (intended, L11-54/L11-48): the tile and answer edge is the --edge-strong ring — the same 2px of p500 (N3 ≥ 3:1)
+    assert.match(pubCss, /--edge-strong: 0 0 0 2px var\(--primary-500\);/);
+    assert.match(pubCss, /\.pub-pick-tile \{[^}]*box-shadow: var\(--edge-strong\)/);
+    assert.match(formsCss, /\.bmf-answer \{[^}]*box-shadow: var\(--edge-strong\)/);
     assert.match(formsCss, /--bmf-teal: var\(--primary-700\);/);
     assert.match(formsCss, /\.bmf-btn\.bmf-btn-gold \{\s*background: var\(--bmf-gold\);\s*color: var\(--on-accent\);\s*border-color: var\(--accent-600\);/);
     for (const css of [pubCss, formsCss]) {

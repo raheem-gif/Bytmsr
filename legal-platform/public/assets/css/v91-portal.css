@@ -9,15 +9,16 @@
 
 .bp-portal,
 .bp-login {
-  --bp-ink: #142129;
-  --bp-soft: #3f4f5c;
+  /* v11 visual (V11-61، V11-43): الأسماء تشير لأدوار v11 */
+  --bp-ink: var(--label);
+  --bp-soft: var(--label-2);
   --bp-teal: var(--primary-700);
   --bp-teal-d: var(--primary-900);
   --bp-teal-bg: var(--primary-50);
   --bp-gold: var(--accent-500);
-  --bp-cream: #fbf8f2;
-  --bp-cream-2: #fbf3e3;
-  --bp-line: #e6dfd0;
+  --bp-cream: var(--canvas);
+  --bp-cream-2: var(--surface-tint);
+  --bp-line: var(--separator);
   --bp-ok: #1d7a46;
   --bp-ok-bg: #e4f3ea;
   --bp-amber: #8a5200;
@@ -28,7 +29,7 @@
   --bp-bar-h: 64px;
   /* v10 experience (X10-C4): نفس تعريف app.css (الصفحة لا تحمّل app.css) */
   --scrim: rgb(var(--primary-900-rgb) / 0.48);
-  --bp-radius: 18px;
+  --bp-radius: 20px;
   font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", Tahoma, sans-serif;
   background: var(--bp-cream);
   margin: 0;
@@ -742,19 +743,20 @@ body.pub .bp-viewtitle:focus-visible {
   display: block;
   width: 100%;
   min-height: 52px;
-  border: 2px solid var(--bp-line);
+  border: 1px solid var(--field-line);
   border-radius: 14px;
   padding: 10px 12px;
   font-size: 18px;
   line-height: 1.6;
-  background: #fff;
+  background: var(--fill-1);
   resize: vertical;
 }
 
 .bp-input:focus {
   outline: none;
-  border-color: var(--bp-teal);
-  box-shadow: 0 0 0 3px rgb(var(--accent-500-rgb) / 0.35);
+  border-color: var(--primary-700);
+  box-shadow: inset 0 0 0 1px var(--primary-700);
+  background: #fff;
 }
 
 .bp-send-error,
@@ -1695,5 +1697,117 @@ html:has(#bm-theme) .bp-bar {
 
   .bp-btn:active {
     outline: 2px solid Highlight;
+  }
+}
+
+/* ==========================================================================
+   v11 visual (V-3، V11-43): صفحة المتابعة و«تابعي طلبك» بلغة v11 — صفحة بيضاء، بطاقات بسطح هادئ بلا حدود،
+   زر واحد ممتلئ أخضر، والثانوي ملوّن خفيف، والنصي أخضر؛ متتبع الخطوات بشكله (تم = p700، الحالي = حلقة ذهبية).
+   داخل @media screen فلا يتغير شيء عند الطباعة (L11-29).
+   ========================================================================== */
+
+@media screen {
+  .bp-card,
+  .bp-info,
+  .bp-bubble,
+  .bp-now.is-calm {
+    border: 0;
+    background: var(--surface-tint);
+  }
+
+  .bp-now,
+  .bp-saved,
+  .bp-consent {
+    border: 0;
+    background: var(--gold-wash);
+  }
+
+  .bp-restore,
+  .bp-nocode {
+    border: 0;
+    background: var(--warn-weak);
+  }
+
+  .bp-composer {
+    border: 0;
+    box-shadow: var(--e-2), 0 0 0 1px var(--separator);
+  }
+
+  .bp-btn--secondary {
+    border-color: transparent;
+    background: var(--tint-weak);
+    color: var(--tint);
+  }
+
+  .bp-btn--ghost {
+    border-color: transparent;
+    background: var(--fill-1);
+    color: var(--tint);
+  }
+
+  .bp-btn--text,
+  .bp-linkbtn {
+    text-decoration: none;
+  }
+
+  .bp-icon-btn,
+  .bp-back {
+    border: 0;
+    background: var(--fill-1);
+  }
+
+  .bp-choice {
+    border-color: transparent;
+    background: var(--fill-1);
+  }
+
+  /* التركيز (V11-09): p700 (كان ذهبيًا 2:1 على الأبيض) */
+  .bp-btn:focus-visible,
+  .bp-row:focus-visible,
+  .bp-linkbtn:focus-visible,
+  .bp-back:focus-visible,
+  .bp-icon-btn:focus-visible,
+  .bp-choice:focus-visible,
+  .bp-page a:focus-visible,
+  .bp-page summary:focus-visible {
+    outline-color: var(--primary-700);
+  }
+
+  .bp-step-dot {
+    background: var(--fill-2);
+    color: var(--label-2);
+  }
+
+  .bp-step.is-done .bp-step-dot {
+    background: var(--tint);
+    color: var(--on-tint);
+  }
+
+  .bp-step.is-current .bp-step-dot {
+    background: var(--gold-wash);
+    box-shadow: 0 0 0 2px var(--gold-line);
+  }
+
+  .bp-row > .bp-ic:last-child {
+    color: var(--label-3);
+  }
+
+  .bp-pill {
+    background: var(--fill-1);
+    color: var(--label-2);
+  }
+
+  .bp-bar {
+    border-top: 0;
+    box-shadow: inset 0 1px 0 var(--separator);
+  }
+}
+
+@media screen and (forced-colors: active) {
+  .bp-card,
+  .bp-now,
+  .bp-btn--secondary,
+  .bp-choice {
+    outline: 1px solid CanvasText;
   }
 }

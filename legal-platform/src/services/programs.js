@@ -868,6 +868,8 @@ export function createPrograms(app) {
     linkCase(caseId, programId, actor, { confirm = false, move = false, force = false } = {}) {
       const c = app.cases.require(caseId);
       if (c.company_id) throw Object.assign(conflict('ملفات الشركات عمل مدفوع لا يُربط ببرامج التمويل.'), { code: 'company_case_no_program' }); // v10 b2b-server (حارس #18)
+      // v11 segment-server (L11-24): ملف الأفراد والشركات عمل مدفوع لا يُربط ببرنامج تمويل (ولا تدخل أرقامه تقارير البرامج)
+      if (c.segment === 'paid') throw Object.assign(conflict('ملف مدفوع لا يُربط ببرنامج تمويل.'), { code: 'paid_case_program' });
       const p = svc.require(v.int(programId, 'البرنامج', { required: true, min: 1 }));
       if (c.program_id === p.id) return { ...svc.forCase(c.id), unchanged: true, warnings: [] };
       if (p.status === 'closed') throw conflict(`البرنامج ${p.code} مغلق ولا يقبل ربط ملفات جديدة`, { reason: 'program_closed' });
@@ -1119,8 +1121,10 @@ export function createPrograms(app) {
   function answerDoc(id) {
     const ans = db.get('SELECT * FROM client_answers WHERE id = ?', id);
     if (!ans) throw notFound('الإفادة غير موجودة');
-    const c = db.get('SELECT id, code, title, legal_area, client_id FROM cases WHERE id = ?', ans.case_id);
+    const c = db.get('SELECT id, code, title, legal_area, client_id, segment, company_id FROM cases WHERE id = ?', ans.case_id);
     const sent = db.all("SELECT id FROM client_answers WHERE case_id = ? AND status = 'sent' ORDER BY COALESCE(sent_at, created_at), id", c.id).map((r) => r.id);
+    // v11 segment-server (S11 §4، P1): تنبيه الإفادة المطبوعة لملف الأفراد والشركات (بلا «برنامج الدعم» ولا «المؤسسة»)
+    const paidCase = !c.company_id && c.segment === 'paid';
     const seq = sent.indexOf(ans.id) + 1;
     const number = ans.status === 'sent' ? `${c.code}/${seq || 1}` : `${c.code}/مسودة`;
     const client = clientBrief(c.client_id);
@@ -1136,7 +1140,7 @@ export function createPrograms(app) {
       recipient: client ? { name: client.name, code: client.code } : null,
       body: ans.body,
       channel_label: ans.channel ? LABELS.channel[ans.channel] || ans.channel : null,
-      disclaimer: app.settings.get('print_answer_disclaimer') || '',
+      disclaimer: (paidCase ? app.settings.get('print_answer_disclaimer_paid') : null) || app.settings.get('print_answer_disclaimer') || '',
     };
   }
 

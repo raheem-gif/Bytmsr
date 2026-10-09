@@ -8,6 +8,9 @@ import { createPortalV91, shortRefCodes, itemsInput } from './portal-v91.js'; //
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
 const SPEND_DUP = 'يوجد سجل إنفاق لنفس الشهر والمصدر والحملة. عدّل السجل القائم بدل إضافة سجل جديد';
+// v11 segment-server [r2 S10] (L11-60): نطاق نوع الخدمة في التحليلات؛ «الكل» = مخرجات 10.0 بعنوان يوضح أنها للجانبين
+const ALL_SCOPE_LABEL = 'يشمل الخيري والأفراد';
+const scopeOf = (s) => (s === 'charity' || s === 'paid' ? s : 'all');
 
 function spendFields(body) {
   const period = v.str(body.period, 'الشهر', { required: true, max: 7 });
@@ -31,18 +34,20 @@ export function createAnalytics(app) {
 
   const svc = {
     /** قمع التحويل حسب المصدر أو القناة أو الحملة */
-    funnel({ from, to, group = 'source' } = {}) {
+    funnel({ from, to, group = 'source', segment = 'all' } = {}) {
       const start = from ? new Date(from).toISOString() : addDays(nowIso(), -90);
       const end = to ? new Date(to).toISOString() : addDays(nowIso(), 1);
       const keyExpr = group === 'channel' ? 'i.first_channel' : group === 'campaign' ? "COALESCE(i.campaign, '—')" : 'i.source';
+      const scope = scopeOf(segment);
       const rows = db.all(
         `SELECT ${keyExpr} AS k, i.id, i.status, i.kind, i.case_id, c.status AS case_status, c.outcome, c.matter_id,
            (SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') AS team,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in') AS inbound
          FROM intakes i LEFT JOIN cases c ON c.id = i.case_id
-         WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL`, // v10 b2b-server (حارس #8)
+         WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL${scope === 'all' ? '' : ' AND i.segment = ?'}`, // v10 b2b-server (حارس #8)؛ v11: نوع الخدمة
         start,
         end,
+        ...(scope === 'all' ? [] : [scope]),
       );
       const groups = new Map();
       for (const r of rows) {
@@ -80,7 +85,8 @@ export function createAnalytics(app) {
       }
       // الإنفاق الإعلاني للأشهر التي تتقاطع مع الفترة (بالمصدر أو الحملة)
       const spendBy = new Map();
-      if (group !== 'channel') {
+      // v11: الإنفاق الإعلاني بلا نوع خدمة في 11.0 — يظهر في «الكل» فقط
+      if (group !== 'channel' && scope === 'all') {
         const p1 = periodOf(start);
         const p2 = periodOf(end);
         for (const r of db.all('SELECT source, campaign, SUM(amount_minor) AS amt FROM ad_spend WHERE period >= ? AND period <= ? GROUP BY source, campaign', p1, p2)) {
@@ -118,6 +124,8 @@ export function createAnalytics(app) {
         from: start,
         to: end,
         group,
+        segment: scope, // v11 segment-server
+        ...(scope === 'all' ? { scope_label: ALL_SCOPE_LABEL } : {}),
         items,
         totals: {
           messages: sum('messages'),
@@ -130,7 +138,7 @@ export function createAnalytics(app) {
           matters: sum('matters'),
           closed: sum('closed'),
           cost: Math.round(sum('cost') * 100) / 100,
-          ad_spend: group === 'channel' ? null : Math.round(sum('ad_spend') * 100) / 100,
+          ad_spend: group === 'channel' || scope !== 'all' ? null : Math.round(sum('ad_spend') * 100) / 100,
         },
       };
     },
@@ -181,29 +189,34 @@ export function createAnalytics(app) {
     },
 
     /** توزيع الملفات حسب المجال وحاجتها لأكثر من تخصص */
-    byArea() {
+    byArea(segment = 'all') {
+      const scope = scopeOf(segment);
       return db
         .all(
           `SELECT c.legal_area, COUNT(*) AS cases, SUM(c.status = 'closed') AS closed,
              SUM((SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') > 1) AS multi,
              SUM(c.matter_id IS NOT NULL) AS matters
-           FROM cases c WHERE c.company_id IS NULL GROUP BY c.legal_area ORDER BY cases DESC`, // v10 b2b-server (حارس #8)
+           FROM cases c WHERE c.company_id IS NULL${scope === 'all' ? '' : ' AND c.segment = ?'} GROUP BY c.legal_area ORDER BY cases DESC`, // v10 b2b-server (حارس #8)؛ v11: نوع الخدمة
+          ...(scope === 'all' ? [] : [scope]),
         )
         .map((r) => ({ ...r, label: AREA[r.legal_area], cases: Number(r.cases), closed: Number(r.closed), multi: Number(r.multi), matters: Number(r.matters) }));
     },
 
     /** حجم الطلبات أسبوعيًا (آخر 12 أسبوعًا) لمتابعة أثر الحملات */
-    weeklyVolume() {
+    weeklyVolume(segment = 'all') {
       const out = [];
       const t = nowIso();
+      const scope = scopeOf(segment);
+      const segI = scope === 'all' ? '' : ' AND segment = ?';
+      const segP = scope === 'all' ? [] : [scope];
       for (let w = 11; w >= 0; w--) {
         const s = addDays(t, -7 * (w + 1));
         const e = addDays(t, -7 * w);
         out.push({
           week_start: s.slice(0, 10),
-          intakes: Number(db.value('SELECT COUNT(*) FROM intakes WHERE created_at >= ? AND created_at < ?', s, e)),
-          cases: Number(db.value('SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ? AND company_id IS NULL', s, e)), // v10 b2b-server (حارس #8)
-          closed: Number(db.value('SELECT COUNT(*) FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL', s, e)),
+          intakes: Number(db.value(`SELECT COUNT(*) FROM intakes WHERE created_at >= ? AND created_at < ?${segI}`, s, e, ...segP)),
+          cases: Number(db.value(`SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ? AND company_id IS NULL${segI}`, s, e, ...segP)), // v10 b2b-server (حارس #8)
+          closed: Number(db.value(`SELECT COUNT(*) FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL${segI}`, s, e, ...segP)),
         });
       }
       return out;
@@ -255,14 +268,59 @@ export function createAnalytics(app) {
           const l = app.lawyers.list({ period });
           return { ...l.totals, top_loaded: l.items.filter((x) => x.active).sort((a, b) => (b.utilization || 0) - (a.utilization || 0)).slice(0, 5).map((x) => ({ id: x.id, name: x.display_name, open: x.metrics.open_assignments, capacity: x.capacity, overdue: x.metrics.overdue })) };
         })(),
+        // v11 segment-server [r2 S10]: الحالات والملفات المفتوحة أعلاه تشمل الجانبين
+        cases_scope_label: ALL_SCOPE_LABEL,
         month: {
           period,
           // v10 b2b-server (حارس #8، #27): ملخص الشهر للأفراد فقط — عمل الشركات المدفوع خارج تكلفة المحامين والعمل التطوعي
-          cases_opened: q('SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL', period),
-          cases_closed: q('SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL', period),
-          lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL)", period)),
-          pro_bono: q("SELECT COUNT(*) FROM billable_events b WHERE b.period = ? AND b.treatment IN ('pro_bono','csr') AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = b.case_id AND cx.company_id IS NOT NULL)", period),
+          // v11 segment-server [r2 S10] (L11-60): وللخيري فقط — الملفات بنوعها الحالي، والتكلفة والعمل التطوعي بلقطة القيد/الحدث
+          cases_opened: q("SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL AND segment = 'charity'", period),
+          cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL AND segment = 'charity'", period),
+          lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL) AND COALESCE(e.segment, 'charity') != 'paid'", period)),
+          pro_bono: q("SELECT COUNT(*) FROM billable_events b WHERE b.period = ? AND b.treatment IN ('pro_bono','csr') AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = b.case_id AND cx.company_id IS NOT NULL) AND COALESCE(b.segment, 'charity') != 'paid'", period),
+          // الأفراد والشركات (بلا الشركات المتعاقدة) في نفس الشهر
+          paid: {
+            cases_opened: q("SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL AND segment = 'paid'", period),
+            cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL AND segment = 'paid'", period),
+            lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL) AND COALESCE(e.segment, 'charity') = 'paid'", period)),
+          },
         },
+        // v11 segment-server (§5.6): الطلبات حسب نوع الخدمة («جديد اليوم» = آخر 24 ساعة مثل intakes.today)
+        segments: (() => {
+          const openSql = "status IN ('new','in_review','awaiting_client')";
+          const since = addDays(t, -1);
+          const by = (seg) => ({
+            new_today: q('SELECT COUNT(*) FROM intakes WHERE created_at >= ? AND segment = ?', since, seg),
+            open: q(`SELECT COUNT(*) FROM intakes WHERE ${openSql} AND segment = ?`, seg),
+          });
+          return {
+            charity: by('charity'),
+            // [r2 S9] طلبات أفراد من الموقع بلا واتساب مؤكد (قائمة المكالمات)
+            paid: {
+              ...by('paid'),
+              unconfirmed_wa: q(`SELECT COUNT(*) FROM intakes i WHERE i.${openSql.replace('status', 'status')} AND i.segment = 'paid' AND i.first_channel = 'website' AND ${portalUnverifiedSql('i')}`),
+              // P1 (S11-33): «إيرادات الأفراد هذا الشهر» لمدير النظام فقط — مدفوعات فواتير ملفات الأفراد والشركات (بلا الشركات المتعاقدة)
+              ...(user?.role === 'admin'
+                ? {
+                    revenue_month: fromMinor(
+                      q(
+                        `SELECT COALESCE(SUM(p.amount_minor), 0) FROM payments p JOIN invoices inv ON inv.id = p.invoice_id
+                           JOIN cases c ON c.id = COALESCE(inv.case_id, (SELECT m.case_id FROM matters m WHERE m.id = inv.matter_id))
+                          WHERE c.company_id IS NULL AND c.segment = 'paid' AND substr(p.paid_at, 1, 7) = ?`,
+                        period,
+                      ),
+                    ),
+                  }
+                : {}),
+            },
+            unset_open: q(`SELECT COUNT(*) FROM intakes WHERE ${openSql} AND segment IS NULL`),
+            // P1 (S11-37): تحويلات «خيري ← أفراد وشركات» هذا الشهر (غير مستحق للخيري)
+            ineligible_overrides: q(
+              "SELECT COUNT(*) FROM activity WHERE type = 'segment.changed' AND substr(created_at, 1, 7) = ? AND json_extract(data, '$.from') = 'charity' AND json_extract(data, '$.to') = 'paid'",
+              period,
+            ),
+          };
+        })(),
         weekly: svc.weeklyVolume(),
         ai: app.ai.status(),
         whatsapp_configured: app.whatsapp.configured,
@@ -463,6 +521,8 @@ export function createPortal(app) {
       // cases[] وintakes[] باقيتان إصدارًا واحدًا للتوافق، أما case_code وmatter_code فلا تصلان للصفحة بعد الآن.
       v91.decorate(client, sc, out);
       out.home = v91.home(client, sc, out);
+      // v11 segment-server (§5.7، S11-16): نبرة الصفحة (يقرأها الخادم لكلمات /p/ ونصوص الأفراد والشركات) — لا تظهر كتسمية
+      out.tone = out.home.tone;
       return out;
     },
 

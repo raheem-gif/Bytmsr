@@ -1341,7 +1341,7 @@ export function createPractice(app) {
       const cutoff = addHours(nowIso(), -hours);
       const chan = SLA_CHANNELS.map(() => '?').join(',');
       const rows = db.all(
-        `SELECT i.id, i.code, i.title, i.contact_name, i.client_id, i.created_at, i.assigned_staff_id FROM intakes i
+        `SELECT i.id, i.code, i.title, i.contact_name, i.client_id, i.created_at, i.assigned_staff_id, i.segment FROM intakes i
          WHERE i.status IN ('new','in_review','awaiting_client') AND i.first_channel IN (${chan}) AND i.sla_alerted_at IS NULL
            AND i.created_at <= ? AND ${FIRST_RESPONSE_SQL} IS NULL ORDER BY i.created_at LIMIT 200`,
         ...SLA_CHANNELS,
@@ -1365,7 +1365,8 @@ export function createPractice(app) {
         app.notifications.notifyStaff(
           {
             type: 'intake.sla_breach',
-            title: `الطلب ${r.code} بلا رد منذ ${arabicCount(Math.max(1, waited), AR_UNITS.hour)} (المهلة ${arabicCount(hours, AR_UNITS.hour)})`,
+            // v11 segment-server (§5.6): الاسم المختصر لنوع الخدمة في العنوان
+            title: `الطلب ${r.code}${app.segments ? ` · ${app.segments.shortLabel(r.segment)}` : ''} بلا رد منذ ${arabicCount(Math.max(1, waited), AR_UNITS.hour)} (المهلة ${arabicCount(hours, AR_UNITS.hour)})`,
             body: truncate(r.title || r.contact_name || '', 120) || null,
             link: `#/inbox/${r.id}`,
           },
@@ -1452,6 +1453,9 @@ export function createPractice(app) {
       const cP = [];
       iF.push('cl.company_id IS NULL'); // v10 b2b-server (حارس #4): تقرير الأثر للأفراد فقط
       cF.push('c.company_id IS NULL'); // v10 b2b-server (حارس #4، #27)
+      // v11 segment-server (§8.1a، INV-13): تقرير الأثر للخيري وحده دائمًا (نوع الخدمة الحالي للطلب/الملف)
+      iF.push("i.segment = 'charity'");
+      cF.push("c.segment = 'charity'");
       if (area) {
         cF.push('c.legal_area = ?');
         cP.push(area);
@@ -1594,7 +1598,7 @@ export function createPractice(app) {
         `SELECT COUNT(*) AS n, COALESCE(SUM(b.notional_minor), 0) AS notional, COUNT(DISTINCT b.lawyer_id) AS lawyers,
            COALESCE(SUM((SELECT a.hours_spent FROM assignments a WHERE a.id = b.assignment_id)), 0) AS hours
          FROM billable_events b${vJoin}
-         WHERE b.treatment IN ('pro_bono','csr') AND b.created_at >= ? AND b.created_at < ?${and(cF)}`,
+         WHERE b.treatment IN ('pro_bono','csr') AND b.created_at >= ? AND b.created_at < ?${and(cF)} AND COALESCE(b.segment, 'charity') != 'paid'`, // v11 (§8.1a): لقطة الحدث
         ...vParams,
         ...cP,
       );
@@ -1622,6 +1626,7 @@ export function createPractice(app) {
         from,
         to,
         filters: { area, governorate },
+        charity_only: true, // v11 segment-server (§8.1a): «خيري فقط — لا يشمل الأفراد والشركات»
         org: { name: s.org_name, legal_name: s.org_legal_name || s.org_name, registration: s.org_registration || null, address: s.org_address || null, phone: s.org_phone || null },
         generated_at: nowIso(),
         totals: {
@@ -1720,6 +1725,8 @@ export function createPractice(app) {
 
   // ═══════════════════════ 8) التصدير والاستيراد (CSV) ═══════════════════════
 
+  // v11 segment-server (S11-43): «خيري» / «أفراد وشركات» / «غير محدد» في التصدير
+  const segLabel = (seg) => (seg === 'charity' || seg === 'paid' ? LABELS.segment[seg] : 'غير محدد');
   const childrenText = (kids) => (kids || []).map((k) => `${k.birth_year}${k.gender ? ` ${k.gender === 'm' ? 'ذكر' : 'أنثى'}` : ''}`).join('؛ ');
 
   const EXPORTS = {
@@ -1729,7 +1736,12 @@ export function createPractice(app) {
            (SELECT COUNT(*) FROM intakes WHERE client_id = c.id) AS n_intakes, (SELECT COUNT(*) FROM cases WHERE client_id = c.id) AS n_cases,
            p.relation, p.children_count, p.children, p.monthly_income_band, p.housing, p.employment, p.has_disability,
            p.foundation_file_number, p.is_foundation_beneficiary, p.data_source, p.verified_at, p.notes AS p_notes, p.client_id AS has_profile
-         FROM clients c LEFT JOIN beneficiary_profiles p ON p.client_id = c.id WHERE c.merged_into IS NULL AND c.company_id IS NULL ORDER BY c.id`, // v10 b2b-server (حارس #6)
+         FROM clients c LEFT JOIN beneficiary_profiles p ON p.client_id = c.id WHERE c.merged_into IS NULL AND c.company_id IS NULL
+           AND NOT (
+             (EXISTS (SELECT 1 FROM intakes xi WHERE xi.client_id = c.id AND xi.segment = 'paid') OR EXISTS (SELECT 1 FROM cases xc WHERE xc.client_id = c.id AND xc.segment = 'paid'))
+             AND NOT EXISTS (SELECT 1 FROM intakes xi WHERE xi.client_id = c.id AND xi.segment = 'charity')
+             AND NOT EXISTS (SELECT 1 FROM cases xc WHERE xc.client_id = c.id AND xc.segment = 'charity' AND xc.company_id IS NULL)
+           ) ORDER BY c.id`, // v10 b2b-server (حارس #6)؛ v11 segment-server (§8.1a): بلا عملاء الأفراد والشركات وحدهم
       );
       const year = cairoYearNow();
       return {
@@ -1788,6 +1800,7 @@ export function createPractice(app) {
           { label: 'زمن أول رد (دقيقة)', value: (r) => (r.fr ? Math.round((Date.parse(r.fr) - Date.parse(r.created_at)) / 60000) : '') },
           { label: 'ضمن مهلة الخدمة', value: (r) => (!SLA_CHANNELS.includes(r.first_channel) ? '' : r.fr ? yesNo((Date.parse(r.fr) - Date.parse(r.created_at)) / 3600000 <= hours) : '') },
           { label: 'كود الملف', key: 'case_code' },
+          { label: 'الخدمة', value: (r) => segLabel(r.segment) }, // v11 segment-server (S11-43، P1)
         ],
       };
     },
@@ -1820,6 +1833,7 @@ export function createPractice(app) {
           { label: 'مصدر العميل', value: (r) => (r.source ? LABELS.source[r.source] || r.source : '') },
           { label: 'الملف المستمر', key: 'matter_code' },
           { label: 'الشركة', value: (r) => (r.company_id ? db.value('SELECT name FROM companies WHERE id = ?', r.company_id) || '' : '') }, // v10 b2b-server (حارس #6)
+          { label: 'الخدمة', value: (r) => (r.company_id ? 'شركة' : segLabel(r.segment)) }, // v11 segment-server (S11-43، P1)
         ],
       };
     },
@@ -1853,6 +1867,7 @@ export function createPractice(app) {
           { label: 'نوع الأثر المتحقق', value: (r) => (r.outcome_kind ? LABELS.outcome_kind[r.outcome_kind] : '') },
           { label: 'المسترد دفعة واحدة (ج.م)', value: (r) => egp(r.recovered_one_time_minor) },
           { label: 'المسترد شهريًا (ج.م)', value: (r) => egp(r.recovered_monthly_minor) },
+          { label: 'الخدمة', value: (r) => segLabel(r.segment) }, // v11 segment-server (S11-43، P1)
         ],
       };
     },

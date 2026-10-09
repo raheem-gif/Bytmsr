@@ -32,7 +32,7 @@ describe('Website intake validation', () => {
       for (const phone of [undefined, '', '0223456789', '+971501234567', '0101234567', '01312345678']) {
         const r = await submit(t, form({ phone }));
         assert.equal(r.status, 400, `phone ${phone} -> ${r.status}`);
-        assert.equal(r.body.code, 'bad_request');
+        assert.equal(r.body.code, 'bad_phone'); // v11 segment-server (intended, r2 S16): رمز ثابت لكل خطأ في نموذج الطلب
         assert.match(r.body.error, /[؀-ۿ]/);
       }
       assert.equal(await totalIntakes(admin), 0);

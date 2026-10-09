@@ -6,6 +6,7 @@ import { statDuration, count as v9pCount } from '../../../lib/fmt.js'; // v9 pra
 import { label, money, num, relative, dateTime, time, calendarParts, cairoParts, percent } from '../../../lib/fmt.js';
 import { pageHeader, card, button, badge, statusBadge, icon, codeTag, statCard, progressBar, emptyState, avatar, richText } from '../../../lib/ui.js';
 import { QUEUE_LABELS } from '../../labels.js';
+import { segLabel } from '../../components/segment-ui.js'; // v11 segment-staff (ST-5)
 
 const CASE_ORDER = ['new', 'assigned', 'in_progress', 'under_review', 'approved', 'answered', 'closed'];
 const CASE_TONES = { new: 'info', assigned: 'primary', in_progress: 'accent', under_review: 'warning', approved: 'success', answered: 'success', closed: 'muted' };
@@ -138,6 +139,56 @@ function companyStrip(user) {
   return host;
 }
 
+/**
+ * v11 segment-staff (ST-5، S11-37 + r2 S9/S10): «حسب نوع الخدمة» — صف «خيري» وصف «أفراد وشركات» (جديد اليوم · مفتوح، وإيرادات
+ * الأفراد لمدير النظام)، ثم صفوف تنبيه حين توجد: «غير محدد» و«أفراد بلا واتساب مؤكد». قائمة مجمّعة واحدة بدل بطاقات بحدود؛
+ * الذهبي = خيري والأخضر = أفراد وشركات (نفس لون الرقاقة في كل مكان)، والبرتقالي للتنبيه وحده.
+ */
+export function segmentStrip(seg) {
+  if (!seg || !seg.charity || !seg.paid) return null;
+  const c = seg.charity;
+  const p = seg.paid;
+  const row = ({ href, ico, tone, title, sub, extra, data }) =>
+    h(
+      'li',
+      h(
+        'a.g-row.pa-seg-row',
+        { href, dataset: data },
+        h('span.g-ico', { class: tone, 'aria-hidden': 'true' }, icon(ico, { className: data.seg ? 'seg-glyph' : null })),
+        h('span.g-main', h('span.g-title', title), sub ? h('span.g-sub.pa-seg-line', sub) : null, extra || null),
+        h('span.g-trail', icon('chevronLeft', { size: 16 })),
+      ),
+    );
+  const line = (d) => ['جديد اليوم ', h('strong', num(d.new_today)), ' · مفتوح ', h('strong', num(d.open))];
+  const rows = [
+    row({ href: '#/inbox?segment=charity', ico: 'heart', tone: 'is-gold', title: segLabel('segment', 'charity'), sub: line(c), data: { seg: 'charity' } }),
+    row({
+      href: '#/inbox?segment=paid',
+      ico: 'briefcase',
+      tone: null,
+      title: segLabel('segment', 'paid'),
+      sub: line(p),
+      // P1 (S11-33): لمدير النظام فقط (الخادم لا يرسل الرقم لغيره)
+      extra: p.revenue_month != null ? h('span.g-sub.pa-seg-rev', 'إيرادات الأفراد هذا الشهر: ', h('strong', money(p.revenue_month))) : null,
+      data: { seg: 'paid' },
+    }),
+  ];
+  if (Number(seg.unset_open) > 0)
+    rows.push(row({ href: '#/inbox?segment=unset', ico: 'helpCircle', tone: 'is-warn', title: `طلبات نوع خدمتها غير محدد: ${num(seg.unset_open)}`, sub: 'اختاروا النوع من صفحة كل طلب.', data: { alert: 'unset' } }));
+  // r2 S9: طلبات أفراد من الموقع بلا واتساب مؤكد — قائمة المكالمات
+  if (Number(p.unconfirmed_wa) > 0)
+    rows.push(row({ href: '#/inbox?segment=paid&channel=website', ico: 'phone', tone: 'is-warn', title: `طلبات أفراد بلا واتساب مؤكد: ${num(p.unconfirmed_wa)}`, sub: 'لم يؤكدوا رقمهم على واتساب — اتصلوا بهم.', data: { alert: 'unconfirmed_wa' } }));
+  const moved = Number(seg.ineligible_overrides) || 0;
+  return h(
+    'section.g-section.pa-seg-strip',
+    { 'aria-labelledby': 'pa-seg-strip-h' },
+    h('div.g-head', h('h2#pa-seg-strip-h', 'حسب نوع الخدمة')),
+    h('ul.g-list.has-icons', rows),
+    // P1 (S11-37/C-8): طلبات وملفات حُوّلت من «خيري» إلى «أفراد وشركات» هذا الشهر
+    moved ? h('p.g-foot', `حُوّلت من خيري إلى أفراد وشركات هذا الشهر: ${num(moved)}`) : null,
+  );
+}
+
 export default async function render(ctx) {
   const d = await api.get('/admin/dashboard');
   const intakes = d.intakes || {};
@@ -147,6 +198,8 @@ export default async function render(ctx) {
   const month = d.month || {};
   const user = d.user || ctx.user || {};
   const ai = d.ai || {};
+  // v11 segment-staff (ST-5، r2 S10): الأرقام التي ما زالت تجمع الجانبين تحمل «يشمل الخيري والأفراد»
+  const scope = d.cases_scope_label || null;
 
   // ───────────── الترويسة ─────────────
   const header = pageHeader({
@@ -181,7 +234,7 @@ export default async function render(ctx) {
       tone: intakes.urgent ? 'danger' : 'neutral',
       href: '#/inbox?priority=high_or_urgent',
     }),
-    statCard({ label: 'ملفات مفتوحة', value: num(d.open_cases), hint: 'ملفات استشارة لم تُغلق', icon: 'briefcase', tone: 'primary', href: '#/cases' }),
+    statCard({ label: 'ملفات مفتوحة', value: num(d.open_cases), hint: scope ? `ملفات استشارة لم تُغلق · ${scope}` : 'ملفات استشارة لم تُغلق', icon: 'briefcase', tone: 'primary', href: '#/cases' }),
     statCard({
       label: 'قرارات بانتظار الإدارة',
       value: num(pendingTotal),
@@ -274,6 +327,7 @@ export default async function render(ctx) {
   const caseMax = Math.max(1, ...CASE_ORDER.map((k) => Number(caseCounts[k]) || 0));
   const casesCard = card({
     title: 'ملفات الاستشارة حسب الحالة',
+    subtitle: scope, // v11 segment-staff (ST-5)
     icon: 'briefcase',
     actions: button('كل الملفات', { variant: 'ghost', size: 'sm', href: '#/cases' }),
     body: h(
@@ -406,21 +460,42 @@ export default async function render(ctx) {
   });
 
   // ───────────── هذا الشهر ─────────────
+  // v11 segment-staff (ST-5، r2 S10): «الخيري» (أرقام البرنامج، كما يحسبها الخادم للخيري وحده) ثم «الأفراد والشركات» من month.paid
+  const mp = month.paid || null;
+  const charityMonth = h(
+    'div.pa-month',
+    h('div', h('span', 'ملفات فُتحت'), h('strong', num(month.cases_opened))),
+    h('div', h('span', 'ملفات أُغلقت'), h('strong', num(month.cases_closed))),
+    h('div', h('span', 'تكلفة المحامين'), h('strong', money(month.lawyer_cost))),
+    h('div', h('span', 'استشارات تطوعية'), h('strong', num(month.pro_bono))),
+  );
   const monthCard = card({
     title: `هذا الشهر — ${periodLabel(month.period)}`,
     icon: 'chart',
-    body: h(
-      'div.pa-month',
-      h('div', h('span', 'ملفات فُتحت'), h('strong', num(month.cases_opened))),
-      h('div', h('span', 'ملفات أُغلقت'), h('strong', num(month.cases_closed))),
-      h('div', h('span', 'تكلفة المحامين'), h('strong', money(month.lawyer_cost))),
-      h('div', h('span', 'استشارات تطوعية'), h('strong', num(month.pro_bono))),
-    ),
+    body: mp
+      ? h(
+          'div.stack.pa-month-split',
+          h('section', { 'aria-label': 'الخيري' }, h('h3.pa-mini-h', 'الخيري'), charityMonth),
+          h(
+            'section',
+            { 'aria-label': 'الأفراد والشركات' },
+            h('h3.pa-mini-h', 'الأفراد والشركات'),
+            h(
+              'div.pa-month',
+              { dataset: { seg: 'paid' } },
+              h('div', h('span', 'ملفات فُتحت'), h('strong', num(mp.cases_opened))),
+              h('div', h('span', 'ملفات أُغلقت'), h('strong', num(mp.cases_closed))),
+              h('div', h('span', 'تكلفة المحامين'), h('strong', money(mp.lawyer_cost))),
+            ),
+            h('p.small.muted', 'الشركات المتعاقدة في «خدمة الشركات».'),
+          ),
+        )
+      : charityMonth,
   });
 
   const weeklyCard = card({
     title: 'الحجم الأسبوعي',
-    subtitle: 'الطلبات الواردة من كل القنوات مقابل ما تحول منها إلى ملفات استشارة',
+    subtitle: scope ? `الطلبات الواردة من كل القنوات مقابل ما تحول منها إلى ملفات استشارة — ${scope}` : 'الطلبات الواردة من كل القنوات مقابل ما تحول منها إلى ملفات استشارة',
     icon: 'chart',
     actions: button('التحليلات', { variant: 'ghost', size: 'sm', href: '#/analytics' }),
     body: weeklyChart(d.weekly || []),
@@ -429,6 +504,7 @@ export default async function render(ctx) {
   const page = h(
     'div.pa-page.pa-page-dashboard',
     header,
+    segmentStrip(d.segments), // v11 segment-staff (ST-5): «حسب نوع الخدمة» — قبل الأرقام لأن صفوف التنبيه تحتاج قرارًا اليوم
     stats,
     companyStrip(user), // v10 b2b-staff (STF-10، U10-S02): «خدمة الشركات» — مخفي إن لم توجد شركات
     h('div.pa-dash-grid', decisionsCard, capacityCard, eventsCard, casesCard, similarCard, monthCard),

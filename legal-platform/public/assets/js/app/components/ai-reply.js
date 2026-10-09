@@ -11,6 +11,8 @@ import { h, frag, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, count } from '../../lib/fmt.js';
 import { button, modal, badge, loading, errorState, emptyState, alertBox, icon, toast, errorMessage } from '../../lib/ui.js';
+// v11 segment-staff (r2 P13): نوع الخدمة والنبرة و«سيُرسل من» في رأس النافذة
+import { sendHeader } from './segment-ui.js';
 
 const INTENTS = [
   { key: 'answer', icon: 'message' },
@@ -45,9 +47,10 @@ function sendFeedback(suggestionId, body) {
 
 /**
  * نافذة الردود المقترحة.
- * @param {{target:{intake_id?:number, case_id?:number, matter_id?:number}, onText?:(text:string, meta:object)=>void, intent?:string}} opts
+ * @param {{target:{intake_id?:number, case_id?:number, matter_id?:number}, onText?:(text:string, meta:object)=>void, intent?:string,
+ *          sendInfo?:{segment?:string|null, tone?:string, sendLine?:{key,label}|null, company?:boolean}}} opts
  */
-export function openReplyDialog({ target, onText, intent = 'answer' } = {}) {
+export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = null } = {}) {
   let current = INTENTS.some((x) => x.key === intent) ? intent : 'answer';
   let seq = 0;
   let dialog = null;
@@ -177,6 +180,7 @@ export function openReplyDialog({ target, onText, intent = 'answer' } = {}) {
     size: 'lg',
     className: 'ai-reply-modal',
     body: frag(
+      sendInfo ? sendHeader(sendInfo) : null,
       h('p.modal-intro', 'اختر الغرض من الرد، ثم راجع النص وعدّله إن لزم قبل استخدامه. لا تتضمن الردود أي رأي قانوني لم تعتمده الإدارة.'),
       h('div.ai-intents', { role: 'group', 'aria-label': 'الغرض من الرد' }, intentButtons),
       results,
@@ -190,9 +194,9 @@ export function openReplyDialog({ target, onText, intent = 'answer' } = {}) {
 /**
  * زر «اقتراح رد» يفتح نافذة الردود المقترحة.
  * @param {{intakeId?:number, caseId?:number, matterId?:number, onText?:(text:string, meta:object)=>void,
- *          label?:string, intent?:string, size?:string, variant?:string}} opts
+ *          label?:string, intent?:string, size?:string, variant?:string, sendInfo?:object}} opts  sendInfo: رأس الإرسال (segment-ui)
  */
-export function aiReplyButton({ intakeId, caseId, matterId, onText, label: text = 'اقتراح رد', intent = 'answer', size = 'sm', variant = 'secondary' } = {}) {
+export function aiReplyButton({ intakeId, caseId, matterId, onText, label: text = 'اقتراح رد', intent = 'answer', size = 'sm', variant = 'secondary', sendInfo = null } = {}) {
   const target = intakeId ? { intake_id: Number(intakeId) } : caseId ? { case_id: Number(caseId) } : matterId ? { matter_id: Number(matterId) } : null;
   const btn = button(text, {
     variant,
@@ -202,7 +206,7 @@ export function aiReplyButton({ intakeId, caseId, matterId, onText, label: text 
     title: 'ردود مقترحة قصيرة جاهزة للإرسال عبر واتساب',
     onClick: () => {
       try {
-        openReplyDialog({ target, onText, intent });
+        openReplyDialog({ target, onText, intent, sendInfo });
       } catch (err) {
         toast(errorMessage(err), 'danger');
       }

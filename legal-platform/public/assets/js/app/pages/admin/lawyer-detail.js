@@ -47,6 +47,8 @@ import { B2B_SKILLS } from '../../../lib/company-catalog.js'; // v10 b2b-staff (
 export const NAME_LATIN_HINT = 'يُستخدم للتأكد من عدم ظهور اسمك في ملفات الشركات وتسليماتها.';
 
 const ACTIVE_ASSIGNMENT = ['assigned', 'in_progress', 'returned'];
+// v11 segment-staff (ST-6، L11-24): b2b_rate هو سعر كل عمل مدفوع — طلبات الشركات وملفات الأفراد بأتعاب
+export const PAID_RATE_LABEL = 'سعر العمل المدفوع (أفراد وشركات)';
 
 /** مبلغ لبطاقة رقمية: الرقم كبير والعملة أصغر. */
 function moneyValue(n) {
@@ -460,7 +462,8 @@ export default async function render(ctx) {
               fields: [
                 { name: 'name_latin', label: 'الاسم بالإنجليزية', ltr: true, maxLength: 80, placeholder: 'Tarek El-Naggar', hint: NAME_LATIN_HINT },
                 { name: 'skills', label: 'مهارات طلبات الشركات', type: 'multiselect', options: B2B_SKILLS.map((x) => ({ value: x.key, label: x.label })) },
-                { name: 'b2b_rate', label: 'سعر طلبات الشركات', type: 'money', min: 0, hint: 'أتعاب المحامي عن طلب شركة متوسط الحجم؛ يظهر للإدارة عند اختيار المحامي.' },
+                // v11 segment-staff (ST-6، L11-24، P1): السعر نفسه يُستخدم لعمل الأفراد والشركات المدفوع
+                { name: 'b2b_rate', label: PAID_RATE_LABEL, type: 'money', min: 0, hint: 'أتعاب المحامي عن طلب شركة أو ملف أفراد بأتعاب متوسط الحجم (ما لم يُتفق على أتعاب خاصة بالإسناد)؛ يظهر للإدارة عند اختيار المحامي.' },
               ],
               values: { name_latin: l.name_latin || '', skills: l.skills || [], b2b_rate: l.b2b_rate },
               onSubmit: (v) => {
@@ -482,7 +485,7 @@ export default async function render(ctx) {
     body: kv([
       ['الاسم بالإنجليزية', l.name_latin ? h('bdi', { dir: 'ltr', lang: 'en' }, l.name_latin) : h('span.muted', 'غير مسجل — سجّله ليُفحص في ملفات التسليم')],
       ['مهارات طلبات الشركات', (l.skills || []).length ? chips((l.skills || []).map((k) => ({ label: B2B_SKILLS.find((x) => x.key === k)?.label || k }))) : h('span.muted', 'لم تُحدَّد')],
-      ['سعر طلبات الشركات', l.b2b_rate != null ? money(l.b2b_rate) : h('span.muted', 'لم يُحدَّد')],
+      [PAID_RATE_LABEL, l.b2b_rate != null ? money(l.b2b_rate) : h('span.muted', 'لم يُحدَّد')],
     ]),
   });
 

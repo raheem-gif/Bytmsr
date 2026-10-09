@@ -1,0 +1,15 @@
+[
+  ["intakes", "segment", "TEXT DEFAULT 'charity'"],
+  ["intakes", "segment_source", "TEXT"],
+  ["intakes", "segment_set_at", "TEXT"],
+  ["intakes", "segment_set_by", "INTEGER REFERENCES users(id)"],
+  ["intakes", "segment_hint", "TEXT"],
+  ["intakes", "wa_line", "TEXT"],
+  ["intakes", "segment_choice_sent_at", "TEXT"],
+  ["cases", "segment", "TEXT NOT NULL DEFAULT 'charity'"],
+  ["matters", "segment", "TEXT NOT NULL DEFAULT 'charity'"],
+  ["messages", "wa_line", "TEXT"],
+  ["messages", "wa_pid", "TEXT"],
+  ["billable_events", "segment", "TEXT"],
+  ["ledger_entries", "segment", "TEXT"]
+]

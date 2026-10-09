@@ -226,7 +226,7 @@ export function createShell({ user, meta, onLogout }) {
       brandMark({ size: 24 }),
       // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان؛ v10: الشعار النصي للمكتب على سطرين
       chrome.on
-        ? h('span.brand-text', wordmark({ size: 'md', tone: 'dark', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني'))
+        ? h('span.brand-text', wordmark({ size: 'md', tone: 'light', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني')) // v11 visual: القائمة الجانبية فاتحة الآن (الاسم النصي لقارئ الشاشة بجوار العلامة)
         : h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
     ),
     nav,

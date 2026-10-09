@@ -13,6 +13,8 @@ import { parseWebhook, sourceFromReferral } from './whatsapp.js';
 import { normalizeArabic, conflict } from '../util.js';
 import { STORY_AUTO_RULES } from '../constants.js';
 import { topicByKey, topicFromWaPrefill } from '../../public/assets/js/public/topics.js';
+// v11 segment-server (SS-2/SS-3): جملة الأفراد والشركات الجاهزة ليست من الوقائع
+import { paidPrefillOf, choiceFromText } from '../../public/assets/js/public/segment.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
 // v9.1 b-site: «… وكود التأكيد 482913» في رسالة واتساب الجاهزة من شاشة نجاح الطلب (يقبل الأرقام العربية)
@@ -22,6 +24,8 @@ const CONFIRM_MAX_FAILURES = 5;
 const CONFIRMING_CHANNELS = new Set(['whatsapp', 'phone', 'walk_in']);
 /** رسالة الخطأ عند إرسال الإدارة عبر واتساب لطلب رقمه غير مؤكد (B91-01) */
 export const UNCONFIRMED_WHATSAPP_ERROR = 'رقم هذا الطلب غير مؤكد. أكّدوا هوية المستفيد/ة أولًا ثم أعيدوا الإرسال.';
+/** v11 segment-server [r2 S8]: رسائل العميل وصلت على رقم غير مضبوط في التكاملات (أو استُبدل الرقم) — لا رد واتساب منه */
+export const UNKNOWN_LINE_ERROR = 'رسائل هذا العميل وصلت على رقم واتساب غير مضبوط في التكاملات؛ الرد يُتاح في صفحة المتابعة فقط.';
 
 // ───────────── v9.1 fixes: روابط صفحة المتابعة لا تُحفظ في نص الرسالة أبدًا ─────────────
 /** متغير الرابط في نص واتساب: يُستبدل برابط جديد عند الإرسال الفعلي فقط (dispatch)، ولا يُحفظ الرابط في قاعدة البيانات */
@@ -76,12 +80,24 @@ export function stripFollowupPrefill(text) {
   const out = latinDigits(s).replace(FOLLOWUP_PREFILL_RE, ' ');
   return out === latinDigits(s) ? s : out.replace(/[ \t]+/g, ' ').replace(/^\s*[،,.!]+\s*/, '').trim();
 }
+/**
+ * v11 segment-server (S11-21): جملة الحجز الجاهزة من صفحات الأفراد والشركات («مرحبًا، أرغب في حجز استشارة قانونية بخصوص …»)
+ * أو جملة الشركات ليست من الوقائع: تُحذف ويبقى ما كُتب بعدها (نص بلا هذه الجملة يعود كما هو).
+ */
+export function stripSegmentPrefill(text) {
+  const s = String(text ?? '');
+  const p = paidPrefillOf(s);
+  return p ? p.rest : s;
+}
 /** نص رسالة واردة كما يدخل التحليل والوقائع: رسالة تأكيد الرقم بلا رقم الطلب والكود */
 export function factsText(body, meta) {
   const m = typeof meta === 'string' ? parseJson(meta, {}) : meta || {};
   // v9.2 (S-07/S-08): «عايزة حد يكلمني — الصبح» جملة جاهزة وليست من وقائع الطلب
   if (isCannedCallback(m, body)) return '';
-  return stripFollowupPrefill(m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? ''));
+  // v11 segment-server (G11-44): «طلب عرض لخدمات الشركات — …» بلا تفاصيل نص ثابت وليس من الوقائع
+  if (m.company_lead_canned === true) return '';
+  const out = stripFollowupPrefill(m.identity_confirm ? stripIdentityConfirm(body) : String(body ?? ''));
+  return m.segment_tag ? stripSegmentPrefill(out) : out;
 }
 
 // ───────────── v9.2 (admin-ai): القصة — ما يُعد «وقائع» وما يعني «خلصت حكايتي» ─────────────
@@ -124,7 +140,7 @@ const NON_STORY_PHRASES = [
 
 /** نص الرسالة بعد حذف التحيات والشكر وكلمات «خلاص» وأرقام الطلبات وأكواد التأكيد والملصقات والرموز */
 export function storyWords(text, doneWords = []) {
-  let s = latinDigits(stripFollowupPrefill(text))
+  let s = latinDigits(stripSegmentPrefill(stripFollowupPrefill(text))) // v11 segment-server: + جملة الأفراد والشركات
     .replace(/REQ-\d{4}-\d{5}/gi, ' ')
     .replace(/كود\s*(?:ال)?تأكيد\s*[:：]?\s*\d{6}(?!\d)/g, ' ')
     .replace(/\[ملصق\]/g, ' ');
@@ -150,7 +166,8 @@ export function isFactual(msg, text, ctx = {}) {
   if (ctx.confirmOnly) return false;
   if (isCannedCallback(meta, text)) return false;
   if (meta.story_done || meta.topic_prefill) return false;
-  if (/^(evt|svy|topic):/.test(replyId)) return false;
+  if (meta.company_lead_canned === true || meta.segment_choice) return false; // v11 segment-server
+  if (/^(evt|svy|topic|seg):/.test(replyId)) return false; // v11 segment-server: + seg: (أزرار نوع الخدمة)
   if (meta.invoice_response || meta.event_response) return false;
   const kinds = (msg?.attachments || []).map((a) => a?.kind || (/^audio\//.test(String(a?.mime || '')) ? 'audio' : /^image\//.test(String(a?.mime || '')) ? 'image' : 'document'));
   if (kinds.some((k) => ['audio', 'image', 'document', 'video'].includes(k))) return true;
@@ -354,7 +371,7 @@ export function createEngine(app) {
    * هذا المرسل لا تُوجَّه رسائله تلقائيًا إلى طلب غير موثّق أنشأه شخص آخر من الموقع بنفس الرقم،
    * وإلا وصلت رسائل صاحب الرقم إلى رابط بوابة ذلك الشخص.
    */
-  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender, portalSender = false }) {
+  function findTarget(client, { refIntake, forceNew, caseId, intakeId, verifiedSender, portalSender = false, signal = null }) {
     if (intakeId) {
       // رسالة من رابط بوابة خاص بطلب بعينه
       const i = db.get('SELECT * FROM intakes WHERE id = ? AND client_id = ?', intakeId, client.id);
@@ -378,40 +395,82 @@ export function createEngine(app) {
     // رسائل صاحب الرقم تلقائيًا (وإلا ردّت عليها الإدارة في صفحة المتابعة فقرأها حامل رابط الموقع). يبقى ذكر رقم الطلب
     // صراحة (refIntake أعلاه) وتأكيده بالكود أو من الإدارة.
     const skipSql = portalUnverifiedSql();
-    const openIntake = db.get(
-      `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
-         AND NOT (? = 1 AND ${skipSql})
-       ORDER BY id DESC LIMIT 1`,
-      client.id,
-      skipUnverified,
-    );
-    if (openIntake) return { intake: openIntake, caseRow: null };
     const unverifiedCaseIds = `SELECT id FROM cases WHERE intake_id IN (SELECT id FROM intakes WHERE ${skipSql})`;
-    const openCase = db.get(
-      `SELECT * FROM cases WHERE client_id = ? AND status != 'closed' AND NOT (? = 1 AND id IN (${unverifiedCaseIds})) ORDER BY id DESC LIMIT 1`,
-      client.id,
-      skipUnverified,
-    );
-    if (openCase) {
-      return { intake: openCase.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', openCase.intake_id) : null, caseRow: openCase };
+    // v11 segment-server (S11 §3.4، L11-49): seg = نوع خدمة مطلوب للعنصر المفتوح (طلب بنفس النوع أو «غير محدد»)، أو null = أي عنصر
+    const openItem = (seg) => {
+      const openIntake = db.get(
+        `SELECT * FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client')
+           AND NOT (? = 1 AND ${skipSql})${seg ? ' AND (segment = ? OR segment IS NULL)' : ''}
+         ORDER BY id DESC LIMIT 1`,
+        client.id,
+        skipUnverified,
+        ...(seg ? [seg] : []),
+      );
+      if (openIntake) return { intake: openIntake, caseRow: null };
+      const caseSeg = "(CASE WHEN company_id IS NOT NULL THEN 'paid' ELSE segment END)";
+      const openCase = db.get(
+        `SELECT * FROM cases WHERE client_id = ? AND status != 'closed' AND NOT (? = 1 AND id IN (${unverifiedCaseIds}))${seg ? ` AND ${caseSeg} = ?` : ''} ORDER BY id DESC LIMIT 1`,
+        client.id,
+        skipUnverified,
+        ...(seg ? [seg] : []),
+      );
+      if (openCase) {
+        return { intake: openCase.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', openCase.intake_id) : null, caseRow: openCase };
+      }
+      // ملف عمل مستمر مفتوح (قضية أمام المحكمة) بعد إغلاق الاستشارة
+      const openMatter = db.get(
+        `SELECT * FROM matters WHERE client_id = ? AND status != 'closed'
+           AND NOT (? = 1 AND case_id IN (${unverifiedCaseIds}))${seg ? ' AND segment = ?' : ''}
+         ORDER BY id DESC LIMIT 1`,
+        client.id,
+        skipUnverified,
+        ...(seg ? [seg] : []),
+      );
+      if (openMatter) {
+        const c = db.get('SELECT * FROM cases WHERE id = ?', openMatter.case_id);
+        return { intake: c?.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null, caseRow: c, matter: openMatter };
+      }
+      return null;
+    };
+    const itemSegment = (t) => (t.matter ? t.matter.segment : t.caseRow ? (t.caseRow.company_id ? 'paid' : t.caseRow.segment) : t.intake?.segment ?? null);
+    if (signal?.segment && signal.kind === 'tag') {
+      // جملة جاهزة = إشارة طلب جديد صريحة: عنصر مفتوح بنفس النوع (أو طلب «غير محدد» فتملؤه)، وإلا طلب جديد
+      return openItem(signal.segment) || { intake: null, caseRow: null };
     }
-    // ملف عمل مستمر مفتوح (قضية أمام المحكمة) بعد إغلاق الاستشارة
-    const openMatter = db.get(
-      `SELECT * FROM matters WHERE client_id = ? AND status != 'closed'
-         AND NOT (? = 1 AND case_id IN (${unverifiedCaseIds}))
-       ORDER BY id DESC LIMIT 1`,
-      client.id,
-      skipUnverified,
-    );
-    if (openMatter) {
-      const c = db.get('SELECT * FROM cases WHERE id = ?', openMatter.case_id);
-      return { intake: c?.intake_id ? db.get('SELECT * FROM intakes WHERE id = ?', c.intake_id) : null, caseRow: c, matter: openMatter };
+    if (signal?.segment && signal.kind === 'line' && signal.mismatchable) {
+      // [r2 S7] رقم مخصص: عنصر مفتوح بنفس النوع أولًا؛ وإلا أحدث عنصر مفتوح (كما في 10.0) مع علامة للإدارة؛ وطلب جديد فقط بلا عناصر مفتوحة
+      const same = openItem(signal.segment);
+      if (same) return same;
+      const any = openItem(null);
+      if (any) return { ...any, line_mismatch: { line: signal.line, item_segment: itemSegment(any) } };
+      return { intake: null, caseRow: null };
     }
-    return { intake: null, caseRow: null };
+    return openItem(null) || { intake: null, caseRow: null };
+  }
+
+  /** v11 segment-server: عمودا الرقم لرسالة واتساب صادرة (wa_line / wa_pid) */
+  function outLineCols(channel, line, story) {
+    if (channel !== 'whatsapp' || !app.segments) return {};
+    const key = line || (story.client_id ? app.segments.lineForStory({ clientId: story.client_id, intakeId: story.intake_id, caseId: story.case_id, matterId: story.matter_id }) : null) || 'main';
+    const l = app.segments.lines().find((x) => x.key === key);
+    return { wa_line: key, wa_pid: l?.pid || null };
+  }
+  /** v11 segment-server: نبرة القصة (الملف ثم الطلب) */
+  function storyTone({ intakeId = null, caseId = null, matterId = null } = {}) {
+    if (!app.segments) return 'charity';
+    let cid = caseId;
+    if (!cid && matterId) cid = db.value('SELECT case_id FROM matters WHERE id = ?', matterId) ?? null;
+    if (cid) {
+      const c = db.get('SELECT segment, company_id FROM cases WHERE id = ?', cid);
+      if (c) return app.segments.tone(c);
+    }
+    const i = storyIntake({ intakeId, caseId, matterId });
+    return i ? app.segments.tone(i) : 'charity';
   }
 
   const engine = {
     lastInbound,
+    storyTone,
     /** وضع المعاينة: الرسائل تُسجَّل فقط (داخل معاملة سيُتراجع عنها) ولا تُرسل لواتساب */
     dryRun: false,
 
@@ -430,6 +489,11 @@ export function createEngine(app) {
       const staffEntry = msg.staff_entry === true;
       if (staffEntry && !msg.external_id) throw badRequest('مفتاح منع التكرار مطلوب');
       const doneWords = app.settings?.get('story_done_words');
+      // v11 segment-server (SS-2، L11-20/50): الرقم الذي وصلت عليه رسالة واتساب (الأساسي / الأفراد والشركات / غير مضبوط)
+      // وإشارة نوع الخدمة في الرسالة نفسها (الرقم المخصص أو الجملة الجاهزة)
+      const waLine = msg.channel === 'whatsapp' ? msg.line || app.segments?.lineFor?.(msg.business_phone_number_id) || null : null;
+      const signal = waLine && !staffEntry && app.segments ? app.segments.messageSignal({ msg, line: waLine, text }) : null;
+      const noAuto = waLine?.key === 'unknown';
       const result = db.tx(() => {
         if (msg.external_id) {
           const dup = db.get('SELECT id, intake_id, case_id, client_id FROM messages WHERE channel = ? AND external_id = ?', msg.channel, msg.external_id);
@@ -488,6 +552,8 @@ export function createEngine(app) {
             body: text,
             status: 'received',
             meta: JSON.stringify(smeta),
+            wa_line: msg.channel === 'whatsapp' ? waLine?.key || 'main' : undefined, // v11 segment-server
+            wa_pid: msg.channel === 'whatsapp' ? (msg.business_phone_number_id != null && msg.business_phone_number_id !== '' ? String(msg.business_phone_number_id) : waLine?.pid || null) : undefined,
             created_at: t,
           });
           const outcome = app.messaging.recordSurveyReply(surveyMatch, { messageId: surveyMessageId, channel: msg.channel, text });
@@ -560,8 +626,14 @@ export function createEngine(app) {
           intakeId: msg.target_intake_id,
           verifiedSender,
           portalSender: !!msg.portal_client_id && !msg.target_intake_id,
+          signal, // v11 segment-server
         });
         let intake = target.intake;
+        // v11 segment-server (S11 §3.4): إشارة تلقائية تملأ «غير محدد» فقط، ولا تغيّر نوعًا محددًا أبدًا (INV-15)
+        if (intake && intake.segment === null && signal?.segment && !intake.case_id) {
+          const filled = db.run('UPDATE intakes SET segment = ?, segment_source = ?, segment_set_at = ? WHERE id = ? AND segment IS NULL', signal.segment, signal.source, nowIso(), intake.id);
+          if (filled.changes) intake = db.get('SELECT * FROM intakes WHERE id = ?', intake.id);
+        }
         let caseRow = target.caseRow;
         const matter = target.matter || (caseRow?.matter_id ? db.get('SELECT * FROM matters WHERE id = ?', caseRow.matter_id) : null);
         let createdIntake = false;
@@ -580,6 +652,9 @@ export function createEngine(app) {
           if (!attribution || !attribution.source || attribution.source === 'unknown') {
             attribution = { ...(attribution || {}), source: previous > 0 ? 'returning' : attribution?.source || 'unknown' };
           }
+          // v11 segment-server (S11 §3.3 + L11-21): نوع الخدمة ومصدره صراحة دائمًا — null حين لا إشارة (L11-41)
+          const seg = app.segments ? app.segments.resolveInbound({ msg, line: waLine, client, signal }) : { segment: 'charity', source: null };
+          const prefillTopic = msg.channel === 'whatsapp' && !staffEntry ? paidPrefillOf(text)?.topic || null : null;
           const id = db.insert('intakes', {
             code: nextIntakeCode(t),
             client_id: client.id,
@@ -601,7 +676,11 @@ export function createEngine(app) {
             story_state: msg.channel === 'whatsapp' ? 'collecting' : 'ready',
             story_ready_at: msg.channel === 'whatsapp' ? null : t,
             story_ready_via: msg.channel === 'whatsapp' ? null : msg.channel === 'website' ? 'website' : 'staff_entry',
-            topic: topicByKey(msg.topic)?.key || null,
+            topic: topicByKey(msg.topic)?.key || topicByKey(prefillTopic)?.key || null,
+            segment: seg.segment ?? null,
+            segment_source: seg.source ?? null,
+            segment_set_at: seg.segment ? t : null,
+            wa_line: msg.channel === 'whatsapp' ? waLine?.key || 'main' : null,
             created_at: t,
             updated_at: t,
           });
@@ -641,8 +720,24 @@ export function createEngine(app) {
           if (pre) {
             meta.topic = pre;
             meta.topic_prefill = true;
+          } else {
+            // v11 segment-server (S11-21): موضوع جملة الحجز للأفراد والشركات؛ الجملة وحدها ليست حكاية
+            const pp = paidPrefillOf(text);
+            if (pp?.topic && topicByKey(pp.topic)) meta.topic = pp.topic;
+            if (pp && !String(pp.rest || '').trim()) meta.topic_prefill = true;
           }
         }
+        // v11 segment-server: الجملة الجاهزة (للتحليل والوقائع) وعلامة «كتب على رقم آخر» للإدارة [r2 S7]
+        if (signal?.tag) meta.segment_tag = signal.tag;
+        // v11 segment-server (S11-20، P1): جواب أزرار نوع الخدمة (أو كلماتها مكتوبة وحدها) لطلب أُرسل له الاختيار وما زال
+        // «غير محدد» — ليس من الوقائع (لا يحرك story_rev)، ويُطبَّق بعد الحفظ (segments.onChoice)
+        if (!staffEntry && msg.channel === 'whatsapp' && intake && !createdIntake && intake.segment_choice_sent_at && intake.segment === null) {
+          const rid = /^seg:(charity|paid)$/.exec(String(msg.reply?.id || ''))?.[1] || null;
+          const choice = rid || (!(msg.attachments || []).length ? choiceFromText(text) : null);
+          if (choice) meta.segment_choice = choice;
+        }
+        if (target.line_mismatch) meta.line_mismatch = target.line_mismatch;
+        if (noAuto) meta.unknown_line = true;
         if (!staffEntry && !msg.reply?.id && isDoneWord(text, doneWords)) meta.story_done = true;
         if ((msg.attachments || []).length) {
           meta.media = msg.attachments.map((a) => ({
@@ -665,8 +760,13 @@ export function createEngine(app) {
           body: text,
           status: 'received',
           meta: JSON.stringify(meta),
+          // v11 segment-server (L11-50): الرقم ومعرّفه — نافذة الـ 24 ساعة لكل رقم، ورقم مُستبدل لا يرث نافذة مفتوحة
+          wa_line: msg.channel === 'whatsapp' ? waLine?.key || 'main' : undefined,
+          wa_pid: msg.channel === 'whatsapp' ? (msg.business_phone_number_id != null && msg.business_phone_number_id !== '' ? String(msg.business_phone_number_id) : waLine?.pid || null) : undefined,
           created_at: t,
         });
+        // v11 segment-server [r2 S14]: الاقتراح المحلي لنوع الخدمة لكل طلب جديد (لا يُطبَّق أبدًا)
+        if (createdIntake && app.segments) app.segments.storeHint(intake.id, factsText(text, meta));
 
         // 5) المرفقات القادمة من الواجهة (base64) تُحفظ فورًا؛ وسائط واتساب تُنزَّل لاحقًا بشكل غير متزامن
         const documentIds = [];
@@ -764,7 +864,10 @@ export function createEngine(app) {
         if (createdIntake) {
           app.notifications.notifyStaff({
             type: 'intake.new',
-            title: `طلب وارد جديد ${intake.code} عبر ${LABELS.channel[msg.channel]}`,
+            // v11 segment-server (§5.6): «طلب وارد جديد {code} · {خيري|أفراد وشركات|غير محدد} · عبر {channel}»
+            title: app.segments
+              ? `طلب وارد جديد ${intake.code} · ${app.segments.label(intake.segment)} · عبر ${LABELS.channel[msg.channel]}`
+              : `طلب وارد جديد ${intake.code} عبر ${LABELS.channel[msg.channel]}`,
             body: truncate(text, 140),
             link: `#/inbox/${intake.id}`,
           });
@@ -807,10 +910,20 @@ export function createEngine(app) {
             staff_entry: staffEntry,
             mentioned_ref: meta.mentioned_ref || null,
           },
+          // v11 segment-server: نوع الخدمة والرقم ([r2 S8] رقم غير مضبوط = لا رسائل آلية)
+          segment: {
+            value: intake ? db.value('SELECT segment FROM intakes WHERE id = ?', intake.id) ?? null : null,
+            source: intake ? db.value('SELECT segment_source FROM intakes WHERE id = ?', intake.id) ?? null : null,
+            tag: signal?.tag ?? null,
+            line: waLine?.key ?? null,
+            mode: waLine?.mode ?? null, // charity | shared | paid (أزرار الاختيار على الرقم المشترك فقط)
+            choice: meta.segment_choice ?? null,
+          },
+          no_auto: noAuto,
         };
       });
       // v9.1 b-site (B91-01): ردّ واتساب فوري بعد تأكيد الرقم برابط صفحتها (نطاق الرقم نفسه، مثل الدخول برمز)
-      if (result.confirmed_intake && !result.duplicate) {
+      if (result.confirmed_intake && !result.duplicate && !result.no_auto) {
         try {
           engine.sendConfirmationReply(result.client, result.confirmed_intake, msg.from_phone);
         } catch (e) {
@@ -902,7 +1015,7 @@ export function createEngine(app) {
     },
 
     /** معالجة Webhook واتساب بالكامل */
-    handleWhatsAppWebhook(payload) {
+    handleWhatsAppWebhook(payload, { line: lineOverride = null } = {}) {
       const { messages, statuses } = parseWebhook(payload);
       const results = [];
       let failed = 0;
@@ -911,7 +1024,10 @@ export function createEngine(app) {
         // رسالة واحدة معيبة لا يجب أن توقف بقية الدفعة (ميتا تعيد إرسال الدفعة كاملة عند الفشل)
         try {
           const attribution = sourceFromReferral(m.referral);
-          results.push(engine.receive({ ...m, attribution }));
+          // v11 segment-server (S11-18): الرقم من metadata.phone_number_id لكل رسالة
+          // (المحاكي والبيانات التجريبية فقط: رقم محسوم مسبقًا، مثل «الرقم المشترك» دون تغيير إعداد التكامل)
+          const line = lineOverride || (app.segments ? app.segments.lineFor(m.business_phone_number_id) : null);
+          results.push(engine.receive({ ...m, attribution, line }));
         } catch (e) {
           failed++;
           app.log(`whatsapp inbound ${m.external_id} failed`, e);
@@ -955,30 +1071,45 @@ export function createEngine(app) {
       const intake = storyIntake({ intakeId, caseId, matterId });
       const phone = storyPhone(clientId, intake);
       const confirmed = isStoryConfirmed({ clientId, intakeId, caseId, matterId });
+      // v11 segment-server [r2 S8] (INV-16): الرد من الرقم الذي كتب عليه العميل؛ رقم غير مضبوط أو مُستبدل ← صفحة المتابعة فقط
+      const line = confirmed && phone && app.segments ? app.segments.lineForStory({ clientId, intakeId, caseId, matterId }) : 'main';
       if (requested === 'whatsapp') {
         if (!phone) throw badRequest('لا يوجد رقم هاتف مسجل لهذا العميل للإرسال عبر واتساب');
         if (!confirmed) throw badRequest(UNCONFIRMED_WHATSAPP_ERROR);
+        if (!line) throw badRequest(UNKNOWN_LINE_ERROR);
         return 'whatsapp';
       }
-      return confirmed && phone ? 'whatsapp' : 'website';
+      return confirmed && phone && line ? 'whatsapp' : 'website';
     },
 
     /** وصف القناة لصندوق الرد في صفحات الإدارة: «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد» */
     channelHint({ clientId, intakeId = null, caseId = null, matterId = null } = {}) {
       const confirmed = !!clientId && isStoryConfirmed({ clientId, intakeId, caseId, matterId });
       const phone = clientId ? storyPhone(clientId, storyIntake({ intakeId, caseId, matterId })) : null;
-      return {
-        confirmed,
-        whatsapp: confirmed && !!phone,
-        text: confirmed && phone ? 'واتساب + صفحة المتابعة' : confirmed ? 'صفحة المتابعة فقط — لا يوجد رقم واتساب' : 'صفحة المتابعة فقط — الرقم غير مؤكد',
-      };
+      // v11 segment-server (SS-2): النص كما في 10.0، إلا مع رقم للأفراد والشركات فيذكر الرقم الذي سيُرسل منه
+      const line = clientId && app.segments ? app.segments.lineForStory({ clientId, intakeId, caseId, matterId }) : 'main';
+      const twoLines = !!app.segments?.lineConfigured?.('paid');
+      const wa = confirmed && !!phone && !!line;
+      let text = wa ? 'واتساب + صفحة المتابعة' : confirmed && phone && !line ? 'صفحة المتابعة فقط — وصلت رسائله على رقم واتساب غير مضبوط' : confirmed ? 'صفحة المتابعة فقط — لا يوجد رقم واتساب' : 'صفحة المتابعة فقط — الرقم غير مؤكد';
+      if (wa && twoLines) text = `واتساب (${LABELS.wa_line[line]}) + صفحة المتابعة`;
+      return { confirmed, whatsapp: wa, text, line: wa ? line : null };
     },
 
-    /** هل نحن داخل نافذة الـ 24 ساعة منذ آخر رسالة واتساب من العميل؟ */
-    inWindow(clientId) {
+    /**
+     * هل نحن داخل نافذة الـ 24 ساعة منذ آخر رسالة واتساب من العميل على هذا الرقم؟
+     * v11 segment-server (INV-05، L11-50): النافذة لكل رقم (بمعرّفه الحالي؛ رقم مُستبدل يبدأ مغلقًا). line: 'main' | 'paid' | { key }
+     */
+    inWindow(clientId, line = 'main') {
+      const key = line && typeof line === 'object' ? line.key : line || 'main';
+      if (!app.segments) {
+        const lastIn0 = db.get("SELECT created_at FROM messages WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' ORDER BY id DESC LIMIT 1", clientId);
+        return !!lastIn0 && addHours(lastIn0.created_at, 24) > nowIso();
+      }
+      const cond = app.segments.lineSql(key, 'm');
       const lastIn = db.get(
-        "SELECT created_at FROM messages WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' ORDER BY id DESC LIMIT 1",
+        `SELECT m.created_at FROM messages m WHERE m.client_id = ? AND m.direction = 'in' AND m.channel = 'whatsapp' AND ${cond.sql} ORDER BY m.id DESC LIMIT 1`,
         clientId,
+        ...cond.params,
       );
       return !!lastIn && addHours(lastIn.created_at, 24) > nowIso();
     },
@@ -1013,7 +1144,7 @@ export function createEngine(app) {
      * تسجيل رسالة صادرة ثم إرسالها (واتساب) أو إتاحتها في البوابة (الموقع).
      * secret: قيم لا تُحفظ في قاعدة البيانات أبدًا (مثل رمز الدخول) وتُستخدم عند الإرسال الفعلي فقط: { text, vars }.
      */
-    record({ client_id, intake_id = null, case_id = null, matter_id = null, channel, to = null, body, author = null, automated = false, rule = null, meta = {}, attachments = [], secret = null }) {
+    record({ client_id, intake_id = null, case_id = null, matter_id = null, channel, to = null, body, author = null, automated = false, rule = null, meta = {}, attachments = [], secret = null, line = null }) {
       const t = nowIso();
       const docIds = [...new Set((attachments || []).map(Number).filter((x) => Number.isInteger(x) && x > 0))];
       const fullMeta = { ...meta };
@@ -1038,6 +1169,8 @@ export function createEngine(app) {
         status: channel === 'website' ? 'sent' : 'queued',
         meta: JSON.stringify(fullMeta),
         sent_at: channel === 'website' ? t : null,
+        // v11 segment-server (INV-16): الرقم الذي تخرج منه رسالة واتساب (رقم القصة؛ بلا عميل = الأساسي)
+        ...outLineCols(channel, line, { client_id, intake_id, case_id, matter_id }),
         created_at: t,
       });
       for (const docId of docIds) {
@@ -1077,7 +1210,14 @@ export function createEngine(app) {
       if (!msg || msg.status !== 'queued' || msg.channel !== 'whatsapp') return;
       const meta = parseJson(msg.meta, {});
       const wa = meta.wa || {};
-      const inWindow = engine.inWindow(msg.client_id);
+      // v11 segment-server (INV-05/16): الرقم المسجل للرسالة؛ إن لم يعد مضبوطًا لا تُرسل من رقم آخر
+      const lineKey = msg.wa_line || 'main';
+      if (app.segments && !app.segments.lineConfigured(lineKey)) {
+        db.update('messages', msg.id, { status: 'failed', error: 'الرقم الذي كتب عليه العميل لم يعد مضبوطًا في التكاملات؛ لم تُرسل الرسالة من رقم آخر.' });
+        return;
+      }
+      const via1 = { line: lineKey };
+      const inWindow = engine.inWindow(msg.client_id, lineKey);
       // v9.2 [R2-A19]: رسالة آلية للقصة خارج نافذة الـ 24 ساعة لا تتحول لقالب أبدًا: تفشل بهدوء (بلا تنبيه للإدارة ولا إعادة)
       if (wa.session_only && !inWindow) {
         db.update('messages', msg.id, { status: 'failed', error: 'انتهت نافذة الـ 24 ساعة قبل الإرسال؛ لم تُرسل الرسالة الآلية' });
@@ -1103,20 +1243,20 @@ export function createEngine(app) {
           if (!abs.startsWith(config.uploadsDir + path.sep) || !fs.existsSync(abs)) {
             throw Object.assign(new Error('document file missing'), { arabic: 'ملف المستند غير موجود على الخادم' });
           }
-          const mediaId = await app.whatsapp.uploadMedia({ buffer: fs.readFileSync(abs), mime: doc.mime, filename: doc.filename });
-          wamid = await app.whatsapp.sendDocument(msg.to_address, { mediaId, filename: doc.filename, caption: wa.caption || null });
+          const mediaId = await app.whatsapp.uploadMedia({ buffer: fs.readFileSync(abs), mime: doc.mime, filename: doc.filename }, via1);
+          wamid = await app.whatsapp.sendDocument(msg.to_address, { mediaId, filename: doc.filename, caption: wa.caption || null }, via1);
           via = 'document';
         } else if (wa.type === 'list' && inWindow && Array.isArray(wa.sections) && wa.sections.length) {
           // v9.2 (A92-05): قائمة المواضيع (ترحيب واتساب) داخل النافذة فقط
-          wamid = await app.whatsapp.sendList(msg.to_address, { header: wa.header, text: wa.text || msg.body, footer: wa.footer, button: wa.button, sections: wa.sections });
+          wamid = await app.whatsapp.sendList(msg.to_address, { header: wa.header, text: wa.text || msg.body, footer: wa.footer, button: wa.button, sections: wa.sections }, via1);
           via = 'interactive';
         } else if (wa.type === 'buttons' && inWindow && Array.isArray(wa.buttons) && wa.buttons.length) {
-          wamid = await app.whatsapp.sendButtons(msg.to_address, renderLinks(msg, wa.text || meta.wa_text || msg.body), wa.buttons, { footer: wa.footer });
+          wamid = await app.whatsapp.sendButtons(msg.to_address, renderLinks(msg, wa.text || meta.wa_text || msg.body), wa.buttons, { footer: wa.footer, ...via1 });
           via = 'interactive';
         } else if (inWindow && !wa.force_template) {
           // v9.1 b-site: meta.wa_text = نص واتساب (مثل طلب المستند مع «صوّري الورقة وابعتيها هنا» ورابط صفحتها)،
           // ونص الرسالة نفسه هو ما يظهر في صفحة المتابعة. (v9.1 fixes: {portal_link} يُستبدل برابط جديد هنا فقط)
-          wamid = await app.whatsapp.sendText(msg.to_address, secret?.text || renderLinks(msg, meta.wa_text || msg.body));
+          wamid = await app.whatsapp.sendText(msg.to_address, secret?.text || renderLinks(msg, meta.wa_text || msg.body), via1);
           via = 'session';
         } else {
           const plan = app.messaging?.templatePlan ? app.messaging.templatePlan(msg, meta, secret?.vars || {}) : legacyPlan(msg);
@@ -1125,7 +1265,7 @@ export function createEngine(app) {
               arabic: 'خارج نافذة الـ 24 ساعة ولا يوجد قالب رسائل معتمد مربوط بهذا الغرض. اربط قالبًا من صفحة «الردود الجاهزة والقوالب».',
             });
           }
-          wamid = await app.whatsapp.sendTemplate(msg.to_address, plan.name, plan.language, plan.params, { buttons: plan.buttons || [] });
+          wamid = await app.whatsapp.sendTemplate(msg.to_address, plan.name, plan.language, plan.params, { buttons: plan.buttons || [], ...via1 });
           via = 'template';
           templateName = plan.name;
         }
@@ -1236,8 +1376,10 @@ export function createEngine(app) {
       const to = normalizePhone(phone || intake.contact_phone || '') || storyPhone(client.id, intake);
       const words = engine.clientWords({ clientId: client.id, intakeId: intake.id });
       // v9.1 fixes: {portal_link} يبقى متغيرًا في نص واتساب ويُصدر الرابط عند الإرسال؛ النص المحفوظ بلا سطر الرابط
+      // v11 segment-server (L11-25): بنبرة الطلب (الأفراد والشركات/المحايد ← صيغة الجمع المهذبة)
+      const tone = app.segments ? app.segments.tone(db.get('SELECT * FROM intakes WHERE id = ?', intake.id) || intake) : 'charity';
       const text = engine.fillClientText(
-        CLIENT_TEXTS.confirm_reply,
+        (app.segments && app.segments.text('confirm_reply', tone)) || CLIENT_TEXTS.confirm_reply,
         { first_name: words.first_name, ref: intake.code, org_name: app.brand.displayName() }, // v10 experience (H-E2)
         words.form,
       );
@@ -1268,13 +1410,14 @@ export function createEngine(app) {
       const org = app.brand.displayName(); // v10 experience (H-E2)
       // v9.1 b-site (B91-10): صياغة بسيطة بلا أكواد الملفات الداخلية
       const words = engine.clientWords({ clientId: msg.client_id, intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
+      const tone = storyTone({ intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id }); // v11 segment-server
       return engine.record({
         client_id: msg.client_id,
         intake_id: msg.intake_id,
         case_id: msg.case_id,
         matter_id: msg.matter_id,
         channel: 'website',
-        body: engine.fillClientText(CLIENT_TEXTS.document_fallback, { title: doc.title || doc.filename, org_name: org }, words.form),
+        body: engine.fillClientText((app.segments && app.segments.text('document_fallback', tone)) || CLIENT_TEXTS.document_fallback, { title: doc.title || doc.filename, org_name: org }, words.form),
         author: msg.author_user_id ? { id: msg.author_user_id } : null,
         automated: !!msg.automated,
         meta: { portal_fallback_for: msg.id },

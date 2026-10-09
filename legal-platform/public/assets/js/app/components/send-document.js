@@ -7,6 +7,8 @@
 
 import { api } from '../../lib/api.js';
 import { button, formDialog, toast } from '../../lib/ui.js';
+// v11 segment-staff (ST-3، r2 P13): نوع الخدمة والنبرة و«سيُرسل من» أعلى نافذة الإرسال
+import { sendHeader } from './segment-ui.js';
 
 const CHANNELS = [
   { value: 'auto', label: 'تلقائي: واتساب إن أمكن، وإلا صفحة المتابعة' },
@@ -17,8 +19,9 @@ const CHANNELS = [
 /**
  * يفتح نافذة الإرسال ويعيد نتيجة الخادم أو null عند الإلغاء.
  * @param {{id:number, title?:string, filename?:string}} doc
+ * @param {{sendInfo?:{segment?:string|null, tone?:string, sendLine?:{key,label}|null, company?:boolean}}} [opts]
  */
-export async function openSendDocumentDialog(doc) {
+export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
   const name = doc.title || doc.filename || 'المستند';
   const result = await formDialog({
     title: 'إرسال مستند للمستفيد/ة',
@@ -44,6 +47,9 @@ export async function openSendDocumentDialog(doc) {
       },
     ],
     values: { channel: 'auto' },
+    setup: (f) => {
+      if (sendInfo) f.el.prepend(sendHeader(sendInfo));
+    },
     onSubmit: (v) => api.post(`/admin/documents/${encodeURIComponent(doc.id)}/send-to-client`, { channel: v.channel || 'auto', caption: v.caption || null }),
   });
   if (!result) return null;
@@ -56,16 +62,16 @@ export async function openSendDocumentDialog(doc) {
 /**
  * زر صغير «إرسال للعميل» لصف مستند.
  * @param {{id:number, title?:string, filename?:string}} doc
- * @param {{onSent?:(result:object)=>void, label?:string, size?:string, variant?:string}} [opts]
+ * @param {{onSent?:(result:object)=>void, label?:string, size?:string, variant?:string, sendInfo?:object}} [opts]
  */
-export function sendDocumentButton(doc, { onSent, label = 'إرسال للمستفيد/ة', size = 'sm', variant = 'ghost' } = {}) {
+export function sendDocumentButton(doc, { onSent, label = 'إرسال للمستفيد/ة', size = 'sm', variant = 'ghost', sendInfo = null } = {}) {
   const btn = button(label, {
     size,
     variant,
     icon: 'send',
     title: `إرسال «${doc.title || doc.filename || 'المستند'}» للمستفيد/ة`,
     onClick: async () => {
-      const r = await openSendDocumentDialog(doc);
+      const r = await openSendDocumentDialog(doc, { sendInfo });
       if (r && onSent) onSent(r);
     },
   });

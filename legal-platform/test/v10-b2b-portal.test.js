@@ -573,10 +573,13 @@ describe('v10 b2b-portal — budgets as served (§8.4, §8.5-6)', () => {
     console.log(`  entry closure: ${total} B br in ${files.size} files`);
   });
 
-  test('entry CSS (app.css + v10-experience.css + v10-company.css) ≤ 25 KB br', () => {
-    const total = ['app.css', 'v10-experience.css', 'v10-company.css'].reduce((n, f) => n + served(path.join(PUB, 'assets/css', f)), 0);
-    assert.ok(total <= 25 * 1024, `entry CSS ${total} B br > 25 KB`);
-    console.log(`  entry CSS: ${total} B br`);
+  // v11 visual (intended, §4/§7.4): the budget covers every stylesheet company.html links (v11-ui.css joins the 10.0 three)
+  test('stylesheets linked by company.html ≤ 30,000 B br', () => {
+    const hrefs = [...read('public/company.html').matchAll(/<link rel="stylesheet" href="\/(assets\/css\/[\w.-]+\.css)"/g)].map((m) => m[1]);
+    assert.ok(hrefs.includes('assets/css/v11-ui.css') && hrefs.length >= 4, hrefs.join(', '));
+    const total = hrefs.reduce((n, f) => n + served(path.join(PUB, f)), 0);
+    assert.ok(total <= 30000, `company CSS ${total} B br > 30,000 B`);
+    console.log(`  company CSS: ${total} B br in ${hrefs.length} files`);
   });
 
   test('no third-party request: no absolute URL fetched or imported by the portal', () => {

@@ -12,6 +12,8 @@ const INCLUDED = ['included_monthly', 'included_quota', 'package_credit'];
 const endedBefore = (lw, start) => !lw.active && (!lw.deactivated_at || lw.deactivated_at < start);
 // v10 b2b-server (حارس #27، L-59): شرط «ليس من ملفات الشركات» على أي جدول فيه case_id (ملخص الأفراد وعدّاد المسؤولية المجتمعية)
 const NOT_COMPANY = (alias) => `NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = ${alias}.case_id AND cx.company_id IS NOT NULL)`;
+// v11 segment-server [r2 S6]: لقطة نوع الخدمة المكتوبة عند إدراج الحدث/القيد (لا تتبع تغييرًا لاحقًا لنوع الملف)
+export const PAID_SNAP = (alias) => `COALESCE(${alias}.segment, 'charity') = 'paid'`;
 
 /** التحقق من اتفاق المحامي وتوحيده (المبالغ بالجنيه) */
 export function validateAgreement(input) {
@@ -96,6 +98,7 @@ export function createAccounting(app) {
       status: 'accrued',
       dedupe_key: e.dedupe_key ?? null,
       created_by: e.created_by ?? null,
+      segment: e.segment ?? undefined, // v11 segment-server: صريح من واقعة الاستحقاق، وإلا يكتبه trg_v11_le_segment
       created_at: nowIso(),
     });
   }
@@ -103,6 +106,17 @@ export function createAccounting(app) {
   const svc = {
     validateAgreement,
     describeAgreement,
+
+    /** v11 segment-server (S11-31): سعر العمل المدفوع للمحامي (بالقرش): «سعر العمل المدفوع» › سعر الملف في اتفاقه › 0 */
+    paidRateMinor(lawyerId) {
+      let lw = null;
+      try {
+        lw = lawyerRow(lawyerId);
+      } catch {
+        return 0;
+      }
+      return Number(lw.b2b_rate_minor) || (lw.agreement?.type === 'per_case' ? toMinor(lw.agreement.rate) || 0 : 0);
+    },
 
     /**
      * تسجيل واقعة استحقاق لإسناد (مرة واحدة فقط لكل إسناد).
@@ -115,17 +129,28 @@ export function createAccounting(app) {
         if (!a || a.status !== 'approved') return null;
         const lw = lawyerRow(a.lawyer_id);
         const ag = lw.agreement;
-        const c = db.get('SELECT code, company_id FROM cases WHERE id = ?', a.case_id);
+        const c = db.get('SELECT code, company_id, segment FROM cases WHERE id = ?', a.case_id);
+        // v11 segment-server (L11-24، S11-31): عمل الأفراد والشركات مثل عمل الشركات — مدفوع دائمًا
+        const paidWork = !!(c?.company_id || c?.segment === 'paid');
         const t = nowIso();
         const period = periodOf(t);
         let treatment;
         let amount = 0;
         let notional = 0;
         let ledgerKind = 'fee';
-        if (c?.company_id) {
+        if (paidWork) {
           // v10 b2b-server (L-59، حارس #26): عمل الشركات مدفوع دائمًا — لا تطوع ولا مسؤولية مجتمعية ولا رصيد باقة المحامي
+          // v11 segment-server: ويشمل ملفات الأفراد والشركات: أتعاب الإسناد › «سعر العمل المدفوع» › سعر الملف › 0 + تنبيه
           treatment = 'payable';
           amount = a.fee_mode === 'custom' ? a.fee_amount_minor || 0 : Number(lw.b2b_rate_minor) || (ag.type === 'per_case' ? toMinor(ag.rate) || 0 : 0);
+          if (!amount && !c.company_id) {
+            app.notifications.notifyStaff({
+              type: 'billing.paid_rate_missing',
+              title: `ملف مدفوع ${c.code}: أتعاب المحامي ${lw.name} صفر`,
+              body: 'ليس للمحامي سعر للعمل المدفوع ولم تُحدَّد أتعاب لهذا الإسناد؛ حدّدوها من صفحة الملف ثم سجّلوا قيدًا يدويًا إن لزم.',
+              link: `#/cases/${a.case_id}`,
+            });
+          }
         } else if (a.fee_mode === 'pro_bono') {
           treatment = 'pro_bono';
           notional = toMinor(ag.notional_value ?? ag.rate ?? 0) || 0;
@@ -199,6 +224,7 @@ export function createAccounting(app) {
           amount_minor: amount,
           notional_minor: notional,
           period,
+          segment: paidWork ? 'paid' : 'charity', // v11 segment-server [r2 S6]: لقطة نوع الخدمة وقت الحدث
           created_at: t,
         });
         if (amount > 0) {
@@ -208,6 +234,7 @@ export function createAccounting(app) {
             amount_minor: amount,
             case_id: a.case_id,
             billable_event_id: beId,
+            segment: paidWork ? 'paid' : 'charity',
             period,
             description: `${LABELS.ledger_kind[ledgerKind]} — الملف ${c.code} — ${LABELS.assignment_role[a.role]}`,
             dedupe_key: `be:${beId}`,
@@ -519,15 +546,19 @@ export function createAccounting(app) {
         const periodAmount = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND period = ? AND status != 'void' AND ${NOT_COMPANY('e')}`, lw.id, p));
         const unpaid = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND status = 'accrued' AND ${NOT_COMPANY('e')}`, lw.id));
         const notional = ev.reduce((s, r) => s + Number(r.nv || 0), 0);
+        // v11 segment-server (§5.6، r2 S10): منها عمل الأفراد والشركات (بلقطة الحدث/القيد) — المحامي مستحق له كاملًا
+        const piEvents = Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE lawyer_id = ? AND period = ? AND ${NOT_COMPANY('b')} AND ${PAID_SNAP('b')}`, lw.id, p));
+        const piAmount = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND period = ? AND status != 'void' AND ${NOT_COMPANY('e')} AND ${PAID_SNAP('e')}`, lw.id, p));
+        const piUnpaid = Number(db.value(`SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries e WHERE lawyer_id = ? AND status = 'accrued' AND ${NOT_COMPANY('e')} AND ${PAID_SNAP('e')}`, lw.id));
         const needsClosing =
           ['monthly', 'monthly_quota'].includes(ag.type) && !endedBefore(lw, pStart) && !db.get('SELECT 1 FROM ledger_entries WHERE dedupe_key = ?', `monthly:${lw.id}:${p}`);
         let csr = null;
         if (ag.type === 'csr') {
           const range = ag.csr_period === 'month' ? [p, p] : [`${p.slice(0, 4)}-01`, `${p.slice(0, 4)}-12`];
-          const used = Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE lawyer_id = ? AND treatment = 'csr' AND period BETWEEN ? AND ? AND ${NOT_COMPANY('b')}`, lw.id, range[0], range[1])); // v10 (#27)
+          const used = Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE lawyer_id = ? AND treatment = 'csr' AND period BETWEEN ? AND ? AND ${NOT_COMPANY('b')} AND NOT ${PAID_SNAP('b')}`, lw.id, range[0], range[1])); // v10 (#27)؛ v11 (§8.1a): بلا عمل الأفراد والشركات
           const hours = Number(
             db.value(
-              `SELECT COALESCE(SUM(a.hours_spent), 0) FROM billable_events b JOIN assignments a ON a.id = b.assignment_id WHERE b.lawyer_id = ? AND b.treatment = 'csr' AND b.period BETWEEN ? AND ? AND ${NOT_COMPANY('b')}`,
+              `SELECT COALESCE(SUM(a.hours_spent), 0) FROM billable_events b JOIN assignments a ON a.id = b.assignment_id WHERE b.lawyer_id = ? AND b.treatment = 'csr' AND b.period BETWEEN ? AND ? AND ${NOT_COMPANY('b')} AND NOT ${PAID_SNAP('b')}`,
               lw.id,
               range[0],
               range[1],
@@ -552,14 +583,21 @@ export function createAccounting(app) {
           quota,
           csr,
           needs_month_closing: needsClosing,
+          paid_individuals: { events: piEvents, period_amount: fromMinor(piAmount), unpaid: fromMinor(piUnpaid) },
         };
       });
       const totals = {
         period_amount: rows.reduce((s, r) => s + r.period_amount, 0),
         unpaid_balance: rows.reduce((s, r) => s + r.unpaid_balance, 0),
         events: rows.reduce((s, r) => s + r.events, 0),
-        pro_bono_events: Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE period = ? AND treatment IN ('pro_bono','csr') AND ${NOT_COMPANY('b')}`, p)), // v10 (#27)
+        pro_bono_events: Number(db.value(`SELECT COUNT(*) FROM billable_events b WHERE period = ? AND treatment IN ('pro_bono','csr') AND ${NOT_COMPANY('b')} AND NOT ${PAID_SNAP('b')}`, p)), // v10 (#27)؛ v11 (§8.1a)
         contribution_value: rows.reduce((s, r) => s + r.contribution_value, 0),
+        // v11 segment-server: «منها عمل الأفراد والشركات»
+        paid_individuals: {
+          events: rows.reduce((s, r) => s + r.paid_individuals.events, 0),
+          period_amount: Math.round(rows.reduce((s, r) => s + r.paid_individuals.period_amount, 0) * 100) / 100,
+          unpaid: Math.round(rows.reduce((s, r) => s + r.paid_individuals.unpaid, 0) * 100) / 100,
+        },
         paid_in_period: fromMinor(
           Number(
             db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payouts WHERE paid_at >= ? AND paid_at < ?', periodRange(p).start, periodRange(p).end),
@@ -568,7 +606,16 @@ export function createAccounting(app) {
       };
       // تكلفة الملفات المغلقة خلال الفترة وأنواع الملفات الأكثر استهلاكًا للموارد
       const { start, end } = periodRange(p);
-      const closed = db.all('SELECT id, code, title, legal_area FROM cases WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL', start, end); // v10 (#27): تكلفة ملفات الأفراد فقط
+      // v11 segment-server (§8.1a، INV-13): تكلفة ملفات الخيري فقط — ملف عليه أحداث استحقاق يُحكم بلقطتها (فترة مسجلة لا
+      // تتغير بتغيير لاحق لنوع الخدمة)، وملف بلا أحداث بنوع خدمته الحالي
+      const closed = db.all(
+        `SELECT id, code, title, legal_area FROM cases c WHERE closed_at >= ? AND closed_at < ? AND company_id IS NULL
+           AND CASE WHEN EXISTS (SELECT 1 FROM billable_events b WHERE b.case_id = c.id)
+                    THEN NOT EXISTS (SELECT 1 FROM billable_events b WHERE b.case_id = c.id AND ${PAID_SNAP('b')})
+                    ELSE c.segment = 'charity' END`,
+        start,
+        end,
+      ); // v10 (#27): تكلفة ملفات الأفراد فقط
       const caseCosts = closed.map((c) => ({ ...c, ...svc.caseCost(c.id), team_size: Number(db.value('SELECT COUNT(*) FROM billable_events WHERE case_id = ?', c.id)) }));
       const byArea = {};
       for (const c of caseCosts) {
@@ -624,7 +671,8 @@ export function createAccounting(app) {
         unpaid_balance: fromMinor(entries.filter((e) => e.status === 'accrued').reduce((s, e) => s + e.amount_minor, 0)),
         paid_total: fromMinor(payouts.reduce((s, p) => s + p.amount_minor, 0)),
         pro_bono_count: events.filter((e) => e.treatment === 'pro_bono' || e.treatment === 'csr').length,
-        entries: entries.map(({ dedupe_key, created_by, ...e }) => ({ ...e, kind_label: LABELS.ledger_kind[e.kind], status_label: LABELS.ledger_status[e.status] })),
+        // v11 segment-server (INV-02): لقطة نوع الخدمة لا تصل المحامي
+        entries: entries.map(({ dedupe_key, created_by, segment: _segment, ...e }) => ({ ...e, kind_label: LABELS.ledger_kind[e.kind], status_label: LABELS.ledger_status[e.status] })),
         events,
         payouts,
         // v9.1 l-court (L-09): this_month, months, unpaid, last_payout, payout_note, performance

@@ -65,6 +65,8 @@ import { registerAdminCompanyRoutes } from './routes/admin-companies.js';
 import { createCompanyDocGate } from './services/company-doc-gate.js'; // v10 b2b-server (L-56)
 import { createCompanyMemory } from './services/company-memory.js';
 import { createCompanyRequests } from './services/company-requests.js';
+// v11 segment-server: نوع الخدمة «خيري» / «أفراد وشركات» (المكان الوحيد الذي يقرر)
+import { createSegments } from './services/segments.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -97,6 +99,7 @@ export function createApp(config, { logger = console } = {}) {
   app.voice = createVoice(app); // v9.2: نصوص الرسائل الصوتية (تكتبها الإدارة)
   app.clients = createClients(app);
   app.whatsapp = createWhatsApp(config, app.log, app);
+  app.segments = createSegments(app); // v11 segment-server (§5.5)
   app.engine = createEngine(app);
   app.ai = createAi(app);
   app.visibility = createVisibility(app);

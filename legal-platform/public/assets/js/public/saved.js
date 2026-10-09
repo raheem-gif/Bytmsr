@@ -74,23 +74,24 @@ export function forgetSaved() {
  * بطاقة «عندك طلب عندنا» بزر «افتحي صفحة طلبك» (56px) ورابط «مش موبايلك؟ امسحي» (15px).
  * تعيد null إن لم توجد صفحة محفوظة.
  */
-export function savedCard({ onForget, headingLevel = 2 } = {}) {
+export function savedCard({ onForget, headingLevel = 2, t } = {}) {
+  // v11 gate-public: t = نصوص الأفراد والشركات ({ title, open, forget }) من صفحة /intake لهم
   const saved = readSaved();
   if (!saved) return null;
   const card = document.createElement('section');
   card.className = 'pub-saved';
-  card.setAttribute('aria-label', 'عندك طلب عندنا');
+  card.setAttribute('aria-label', t?.title || 'عندك طلب عندنا');
   card.dataset.saved = '';
   const title = document.createElement(`h${Math.min(6, Math.max(2, headingLevel))}`);
-  title.textContent = 'عندك طلب عندنا';
+  title.textContent = t?.title || 'عندك طلب عندنا';
   const open = document.createElement('a');
   open.className = 'pub-btn pub-btn-teal pub-btn-primary';
   open.href = saved.url;
-  open.textContent = 'افتحي صفحة طلبك';
+  open.textContent = t?.open || 'افتحي صفحة طلبك';
   const forget = document.createElement('button');
   forget.type = 'button';
   forget.className = 'pub-saved-forget';
-  forget.textContent = 'مش موبايلك؟ امسحي';
+  forget.textContent = t?.forget || 'مش موبايلك؟ امسحي';
   forget.addEventListener('click', () => {
     forgetSaved();
     card.remove();

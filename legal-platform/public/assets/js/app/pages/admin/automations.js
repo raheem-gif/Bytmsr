@@ -96,6 +96,9 @@ const PARAM_FIELDS = {
   expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود المستفيد/ة بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم' },
 };
 const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_reminders', 'after_hours', 'expire_days'];
+// v11 segment-staff (ST-6، S11 §9.9): مسميا نصّي القاعدة لكل نوع خدمة (template / template_paid)
+export const TPL_CHARITY = 'نص الخيري';
+export const TPL_PAID = 'نص الأفراد والشركات';
 
 const REMINDER_FORMS = ['تذكير واحد', 'تذكيرين', 'تذكيرات', 'تذكيرًا'];
 
@@ -306,7 +309,15 @@ export default async function render(ctx) {
       h('p.pd-rule-desc', meta.desc),
       paramKeys.length ? h('ul.pd-rule-params', paramKeys.map((k) => h('li', icon('check', { size: 14 }), paramSentence(k, params[k], r.key)))) : null,
       params.template
-        ? h('div.pd-template', h('div.pd-template-label', icon('message', { size: 14 }), 'نص الرسالة'), h('p.pd-template-body', { dir: 'rtl' }, templateNodes(params.template)))
+        ? h(
+            'div.pd-template',
+            // v11 segment-staff (ST-6، S11 §9.9، P1): نصان للقاعدة — الخيري والأفراد والشركات (template_paid)
+            h('div.pd-template-label', icon('message', { size: 14 }), typeof params.template_paid === 'string' ? TPL_CHARITY : 'نص الرسالة'),
+            h('p.pd-template-body', { dir: 'rtl' }, templateNodes(params.template)),
+          )
+        : null,
+      typeof params.template_paid === 'string'
+        ? h('div.pd-template.pd-template-paid', h('div.pd-template-label', icon('briefcase', { size: 14 }), TPL_PAID), h('p.pd-template-body', { dir: 'rtl' }, templateNodes(params.template_paid)))
         : null,
       h(
         'div.pd-rule-runs',
@@ -344,6 +355,7 @@ export default async function render(ctx) {
     const params = r.params || {};
     const paramKeys = PARAM_ORDER.filter((k) => k in params);
     const hasTemplate = typeof params.template === 'string';
+    const hasPaid = hasTemplate && typeof params.template_paid === 'string'; // v11 segment-staff
     const fields = paramKeys.map((k) => ({
       name: k,
       label: PARAM_FIELDS[k].label,
@@ -355,15 +367,26 @@ export default async function render(ctx) {
       max: 365,
       suffix: PARAM_FIELDS[k].suffix,
     }));
-    if (hasTemplate) fields.push({ name: 'template', label: 'نص الرسالة', type: 'textarea', rows: 5, required: true, maxLength: 1000, full: true, dir: 'auto' });
+    if (hasTemplate) fields.push({ name: 'template', label: hasPaid ? TPL_CHARITY : 'نص الرسالة', type: 'textarea', rows: 5, required: true, maxLength: 1000, full: true, dir: 'auto' });
+    if (hasPaid) fields.push({ name: 'template_paid', label: TPL_PAID, type: 'textarea', rows: 5, required: true, maxLength: 600, full: true, dir: 'auto', hint: 'يصل لعملاء الأفراد والشركات (ولمن نوع خدمته غير محدد) بصيغة الجمع وبلا كلمة «مجاني».' });
     const f = form(fields, { footer: false, values: params });
     const preview = h('p.pd-template-body', { dir: 'auto' });
+    const previewPaid = h('p.pd-template-body', { dir: 'auto' });
     const placeholders = meta.placeholders || {};
     let legend = null;
     if (hasTemplate) {
-      const ta = f.control('template').input;
-      const updatePreview = () => mount(preview, richText(fillTemplate(ta.value, { org_name: orgName(), ...(meta.sample || {}) })));
-      ta.addEventListener('input', updatePreview);
+      const taCharity = f.control('template').input;
+      const taPaid = hasPaid ? f.control('template_paid').input : null;
+      let ta = taCharity; // المتغيرات تُدرج في آخر نص كان فيه المؤشر
+      const fill = (t) => richText(fillTemplate(t, { org_name: orgName(), ...(meta.sample || {}) }));
+      const updatePreview = () => {
+        mount(preview, fill(taCharity.value));
+        if (taPaid) mount(previewPaid, fill(taPaid.value));
+      };
+      for (const x of [taCharity, taPaid].filter(Boolean)) {
+        x.addEventListener('input', updatePreview);
+        x.addEventListener('focus', () => (ta = x));
+      }
       updatePreview();
       legend = h(
         'div.pd-legend',
@@ -400,7 +423,8 @@ export default async function render(ctx) {
         h('p.modal-intro', meta.desc || ''),
         f.el,
         legend,
-        hasTemplate ? h('div.pd-template.pd-template-preview', h('div.pd-template-label', icon('eye', { size: 14 }), 'معاينة بمثال واقعي'), preview) : null,
+        hasTemplate ? h('div.pd-template.pd-template-preview', h('div.pd-template-label', icon('eye', { size: 14 }), hasPaid ? `معاينة بمثال واقعي — ${TPL_CHARITY}` : 'معاينة بمثال واقعي'), preview) : null,
+        hasPaid ? h('div.pd-template.pd-template-preview', h('div.pd-template-label', icon('eye', { size: 14 }), `معاينة بمثال واقعي — ${TPL_PAID}`), previewPaid) : null,
       ),
       actions: [
         { label: 'إلغاء', variant: 'ghost' },
@@ -412,10 +436,12 @@ export default async function render(ctx) {
             if (!f.validate()) return false;
             const v = f.getValues();
             if (hasTemplate) {
-              const unknown = [...new Set([...v.template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).filter((k) => !(k in placeholders)))];
-              if (unknown.length) {
-                f.setErrors({ template: `متغير غير معروف لهذه القاعدة: ${unknown.map((k) => `{${k}}`).join('، ')}` });
-                return false;
+              for (const key of hasPaid ? ['template', 'template_paid'] : ['template']) {
+                const unknown = [...new Set([...String(v[key] || '').matchAll(/\{(\w+)\}/g)].map((m) => m[1]).filter((k) => !(k in placeholders)))];
+                if (unknown.length) {
+                  f.setErrors({ [key]: `متغير غير معروف لهذه القاعدة: ${unknown.map((k) => `{${k}}`).join('، ')}` });
+                  return false;
+                }
               }
             }
             try {

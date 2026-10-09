@@ -87,8 +87,9 @@ describe('v9.1 fixes — portal link-buttons keep their colours (contrast ≥ 4.
     assert.ok(contrast('#ffffff', teal) >= 4.5, `primary ${contrast('#ffffff', teal)}`);
     assert.ok(contrast('#ffffff', wa) >= 4.5, `whatsapp ${contrast('#ffffff', wa)}`);
     assert.ok(contrast(teal, '#ffffff') >= 4.5, 'secondary/text');
-    // ما كان يحدث: لون الرابط #145d6f على خلفية الزر
-    assert.ok(contrast('#145d6f', teal) < 1.5 && contrast('#145d6f', wa) < 1.5, 'the old link colour was unreadable on these buttons');
+    // ما كان يحدث: لون الرابط #145d6f على خلفية الزر — v11 visual (intended): مع ألوان الشعار يُقارن لون الرابط الحالي (p600)
+    // بخلفية الزر الأساسي (نفس المعنى: رابط بلون الرابط فوق الزر لا يُقرأ)، ولون 9.1 القديم بزر واتساب كما كان
+    assert.ok(contrast(LEGACY.primary[600], teal) < 1.5 && contrast('#145d6f', wa) < 1.5, 'the link colour is unreadable on these buttons');
   });
 });
 

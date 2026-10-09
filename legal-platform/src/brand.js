@@ -38,7 +38,7 @@ export function wordmarkParts(name = BRAND_DEFAULT_NAME, short = BRAND_DEFAULT_S
 export const BRAND_SETTING = 'brand_colors';
 /** شكل الكتلة المضمّنة المسموح وحده (يُتحقق منه قبل إدراجها في أي صفحة، وفي المتصفح قبل التطبيق الحي) */
 export const THEME_CSS_RE = /^html:root\{(--[a-z0-9-]+:[#0-9a-f ]+;?)+\}$/;
-export const HEX_ERROR = 'اكتب اللون بصيغة ‎#RRGGBB‎، مثل ‎#0b5a3c‎';
+export const HEX_ERROR = 'اكتب اللون بصيغة ‎#RRGGBB‎، مثل ‎#0b3d29‎'; // v11 visual: H-V2
 export const UNREADABLE_ERROR = 'تعذّر تجهيز ألوان مقروءة من هذا الاختيار. جرّب لونًا آخر.';
 const ADJUSTED_SUFFIX = ' (عُدّلت الدرجة لوضوح الكتابة)';
 

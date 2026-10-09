@@ -61,9 +61,8 @@
   gap: 10px;
   padding: 16px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--r-20);
+  box-shadow: var(--e-1);
   min-width: 0;
 }
 
@@ -759,24 +758,34 @@
   min-width: 0;
 }
 
+/* v11 visual (V11-47): رقائق القصة هادئة — سطح أبيض بحلقة شعرية، والمختارة ممتلئة بلون الفعل */
 .pa-sf {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 4px 12px;
-  border: 1px solid var(--border-strong);
+  padding: 4px 14px;
+  border: 0;
   border-radius: 999px;
   background: var(--surface);
-  color: var(--text-muted);
+  box-shadow: 0 0 0 1px var(--separator);
+  color: var(--label);
   font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.pa-sf::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
 .pa-sf:hover {
-  border-color: var(--primary-500);
+  box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .pa-sf:focus-visible {
@@ -785,9 +794,9 @@
 }
 
 .pa-sf[aria-pressed="true"] {
-  border-color: var(--primary-700);
-  background: var(--primary-700);
-  color: var(--surface);
+  background: var(--tint);
+  color: var(--on-tint);
+  box-shadow: none;
 }
 
 .pa-viewswitch {
@@ -806,7 +815,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 14px;
 }
 
@@ -814,35 +823,18 @@
   min-width: 0;
 }
 
+/* v11 visual (V11-47): بطاقة الفرز سطح أبيض على الورقي — بلا حد ولا حافة ملوّنة؛ الحالة نقطة ملونة في سطرها */
 .pa-story {
   display: flex;
   flex-direction: column;
   gap: 10px;
   height: 100%;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-inline-start: 4px solid var(--gray-300);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.pa-story.is-callback {
-  border-inline-start-color: var(--info-600);
-}
-
-.pa-story.is-ready {
-  border-inline-start-color: var(--success-600);
-}
-
-.pa-story.is-blocked,
-.pa-story.is-stale {
-  border-inline-start-color: var(--warning-500);
-}
-
-.pa-story.is-collecting {
-  border-inline-start-color: var(--primary-300);
+  border: 0;
+  border-radius: var(--r-20);
+  box-shadow: var(--e-1);
 }
 
 .pa-story-head {
@@ -853,10 +845,21 @@
   min-width: 0;
 }
 
+.pa-story-head .pa-chan {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--fill-1);
+  color: var(--label-2);
+}
+
 .pa-story-name {
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
-  font-weight: 700;
-  color: var(--text);
+  min-height: 44px;
+  font: var(--t-headline);
+  color: var(--label);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
@@ -866,31 +869,42 @@
 }
 
 .pa-story.is-unread .pa-story-name {
-  font-weight: 800;
+  font-weight: 700;
 }
 
-.pa-story-code {
+.pa-story-code.code-tag {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--label-2);
   font-size: 12px;
+  font-weight: 500;
 }
 
 .pa-story-time {
   margin-inline-start: auto;
-  font-size: 12.5px;
-  color: var(--text-soft);
+  font: var(--t-footnote);
+  color: var(--label-2);
   white-space: nowrap;
 }
 
 .pa-story-ribbon {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 8px;
-  font-size: 13px;
-  color: var(--text-muted);
+  font: var(--t-subhead);
+  color: var(--label-2);
+}
+
+.pa-story-ribbon > .badge {
+  margin-inline-end: 4px;
+  vertical-align: baseline;
 }
 
 .pa-story-ribbon-text {
   min-width: 0;
+}
+
+.pa-story-ribbon-text::before {
+  content: "· ";
+  color: var(--label-3);
 }
 
 .pa-live-dot {
@@ -972,6 +986,55 @@
 .pa-story-actions .pa-story-primary {
   --btn-h: 48px;
   flex: 1 1 auto;
+}
+
+/* v11 visual (V11-47, r2 P12): داخل البطاقة إجراء واحد ملوّن خفيف (الممتلئ للصفحة وحدها)، و«فتح الطلب» نصي؛
+   وحبوب التنبيه («رقم غير مؤكد»، «لم تُكتب») واقتراح الذكاء الاصطناعي («المقترح…») محايدة بأيقونتها */
+@media screen {
+  .pa-story-actions .btn-primary.pa-story-primary {
+    background: var(--tint-weak);
+    color: var(--tint);
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .pa-story-actions .btn-primary.pa-story-primary:hover:not(:disabled) {
+    background: var(--tint-weak-2);
+    color: var(--tint);
+  }
+
+  .pa-story-chips .badge-warning,
+  .pa-story-chips .badge.pa-story-track {
+    --tone-bg: var(--fill-1);
+    --tone-fg: var(--label-2);
+    box-shadow: none;
+  }
+
+  .pa-story .pa-unread {
+    background: var(--tint);
+    color: var(--on-tint);
+  }
+
+  .pa-story-ribbon > .badge {
+    min-height: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 14px;
+  }
+
+  .pa-story-ribbon > .badge:not(.pa-story-live) > .icon {
+    display: none;
+  }
+
+  .pa-story-ribbon > .badge:not(.pa-story-live)::before {
+    content: "";
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
 }
 
 /* ─── «تحويل القصة إلى طلب» و«طلبت مكالمة» داخل الطلب ─── */
@@ -1582,4 +1645,20 @@
   .pa-page-simulator .input {
     min-height: 44px;
   }
+}
+
+/* v11 visual (V11-13): «قولي لها» سطح ذهبي خفيف بلا حافة */
+@media screen {
+  .pa-call-say {
+    border-inline-start: 0;
+    border-radius: var(--r-14);
+    background: var(--gold-wash);
+    color: var(--gold-ink);
+  }
+}
+
+/* v11 visual (V11-47): إجراء واحد ملوّن خفيف في بطاقة الفرز — «لم ترد» رمادي */
+@media screen {
+  .pa-story-actions .pa-story-noanswer { background: var(--fill-1); color: var(--label); border-color: transparent; }
+  .pa-story-actions .pa-story-noanswer:hover:not(:disabled) { background: var(--fill-2); color: var(--label); }
 }

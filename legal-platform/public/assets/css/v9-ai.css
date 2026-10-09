@@ -279,3 +279,12 @@
 .doc-ai-result > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .doc-ai-result-name { flex: 1 1 160px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 .doc-ai-result > .doc-ai { padding: 4px 12px 12px; }
+
+/* v11 visual (V11-13): خطأ الذكاء الاصطناعي سطح bad-weak بلا حد ولا حافة */
+@media screen {
+  .ai-error {
+    border: 0;
+    border-radius: var(--r-10);
+    background: var(--bad-weak);
+  }
+}

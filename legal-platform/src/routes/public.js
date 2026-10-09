@@ -11,6 +11,10 @@ import { verifySignature, publicWhatsAppDigits, isPlaceholderWhatsApp } from '..
 // v9.2 public: مصدر واحد لمواضيع الطلب (الموقع والخادم والإدارة)
 import { topicByKey, sanitizeAnswers, infer, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 import { addressForm } from '../util.js';
+// v11 segment-server (SS-1، §5.7): نوع الخدمة وطلب العرض للشركات
+import { ApiError } from '../util.js';
+import { isPlainName, collapseSpaces } from '../brand.js';
+import { REQUESTER_EMPLOYEES, REQUESTER_NEEDS } from '../../public/assets/js/public/segment.js';
 
 const DEMO_ACCOUNTS = [
   { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
@@ -28,7 +32,7 @@ const MAX_INTAKE_AUDIO = 3;
 const VOICE_ONLY_TEXT = '[رسالة صوتية]';
 const SUBMISSION_RE = /^[A-Za-z0-9_-]{16,64}$/;
 // v9.2 public (§3.3): من أين بدأ الطلب، وأي شكل للنموذج
-const ENTRIES = ['home_tile', 'home_callback', 'intake_tiles', 'direct'];
+const ENTRIES = ['home_tile', 'home_callback', 'intake_tiles', 'direct', 'company_band']; // v11 segment-server: + company_band
 const MODES = ['form', 'guided', 'tiles', 'callback'];
 const NAME_MSG = 'اكتبي اسمك كامل، أو سيبيه فاضي.';
 const MAX_AUDIO_SECONDS = 600;
@@ -36,6 +40,49 @@ const MAX_AUDIO_SECONDS = 600;
 const QUICK_GOVERNORATES = ['القاهرة', 'الجيزة', 'القليوبية', 'الإسكندرية', 'الشرقية', 'الدقهلية'];
 const OTHER_GOVERNORATE = 'محافظة تانية';
 const nonSpace = (s) => String(s || '').replace(/\s/gu, '').length;
+// v11 segment-server [r2 S16]: رمز ثابت لكل خطأ 400/429 من نموذج الطلب (يترجمه intake.js لنصوص الأفراد والشركات)، والنص العربي كما هو
+const withCode = (err, code) => {
+  if (err instanceof ApiError) err.code = code;
+  return err;
+};
+const INVALID_MSG = 'بيانات غير صالحة.';
+const COMPANY_NAME_MSG = 'اكتبوا اسم الشركة.';
+const COMPANY_EMAIL_MSG = 'البريد الإلكتروني غير صحيح.';
+/**
+ * v11 segment-server (G11-44): بيانات طلب العرض للشركات — مع «أفراد وشركات» فقط. المفاتيح غير المعروفة تُحذف،
+ * والقيم غير الصالحة 400 بأخطاء الحقول.
+ */
+function cleanRequester(raw, segment) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw) || raw.kind !== 'company' || segment !== 'paid') throw withCode(badRequest(INVALID_MSG), 'invalid');
+  const name = typeof raw.company_name === 'string' ? collapseSpaces(raw.company_name) : '';
+  if (name.length < 2 || name.length > 120 || !isPlainName(name)) throw withCode(badRequest(COMPANY_NAME_MSG, { fields: { company_name: COMPANY_NAME_MSG } }), 'invalid');
+  const out = { kind: 'company', company_name: name };
+  if (raw.job_title !== undefined && raw.job_title !== null && raw.job_title !== '') {
+    const jt = typeof raw.job_title === 'string' ? collapseSpaces(raw.job_title) : '';
+    if (!jt || jt.length > 80 || !isPlainName(jt)) throw withCode(badRequest(INVALID_MSG, { fields: { job_title: INVALID_MSG } }), 'invalid');
+    out.job_title = jt;
+  }
+  if (raw.email !== undefined && raw.email !== null && raw.email !== '') {
+    let email = null;
+    try {
+      email = v.email(raw.email, 'البريد الإلكتروني');
+    } catch {
+      email = null;
+    }
+    if (!email) throw withCode(badRequest(COMPANY_EMAIL_MSG, { fields: { email: COMPANY_EMAIL_MSG } }), 'invalid');
+    out.email = email;
+  }
+  if (raw.employees !== undefined && raw.employees !== null && raw.employees !== '') {
+    if (!REQUESTER_EMPLOYEES.includes(raw.employees)) throw withCode(badRequest(INVALID_MSG, { fields: { employees: INVALID_MSG } }), 'invalid');
+    out.employees = raw.employees;
+  }
+  if (raw.needs !== undefined && raw.needs !== null) {
+    if (!Array.isArray(raw.needs) || raw.needs.length > REQUESTER_NEEDS.length || raw.needs.some((x) => !REQUESTER_NEEDS.includes(x))) throw withCode(badRequest(INVALID_MSG, { fields: { needs: INVALID_MSG } }), 'invalid');
+    out.needs = REQUESTER_NEEDS.filter((k) => raw.needs.includes(k));
+  }
+  return out;
+}
 
 export function registerPublicRoutes(router, app) {
   const { config } = app;
@@ -154,9 +201,13 @@ export function registerPublicRoutes(router, app) {
   // يُخزَّن مُجزّأً 30 يومًا) يُرسل مع رقم الطلب في رسالة واتساب جاهزة فيثبت أن مقدّمة الطلب صاحبة الرقم (B91-01).
   // إعادة الإرسال بنفس submission_id (انقطع النت بعد وصول الطلب) تُصدر رابطًا وكودًا جديدين لنفس الطلب ولا تنشئ طلبًا ثانيًا.
   // v9.2 public: رقم المكالمة الذي سيظهر لها («من الرقم ده»): callback_from_number، وإلا تليفون المؤسسة
-  function callbackFrom() {
+  function callbackFrom(segment = 'charity') {
+    // v11 segment-server (P1): رقم مكالمات الأفراد والشركات ← رقم المكالمات العام ← هاتف الأفراد والشركات/المؤسسة
+    const paidOwn = segment === 'paid' ? String(app.settings.get('callback_from_number_paid') || '').trim() : '';
+    if (paidOwn) return paidOwn;
     const own = String(app.settings.get('callback_from_number') || '').trim();
-    return own || String(app.settings.get('org_phone') || '').trim() || null;
+    const paidPhone = segment === 'paid' ? String(app.settings.get('org_phone_paid') || '').trim() : '';
+    return own || paidPhone || String(app.settings.get('org_phone') || '').trim() || null;
   }
   function callbackEtaDays() {
     const n = Math.round(Number(app.settings.get('callback_eta_days')));
@@ -174,14 +225,17 @@ export function registerPublicRoutes(router, app) {
   function v92Fields(current) {
     const fa = parseJson(current?.form_answers, null);
     const callback = fa && CALLBACK_WHEN[fa.callback] ? fa.callback : null;
-    return { callback, callback_from: callbackFrom(), callback_eta_days: callbackEtaDays(), about_governorates: aboutGovernorates() };
+    return { callback, callback_from: callbackFrom(current?.segment === 'paid' ? 'paid' : 'charity'), callback_eta_days: callbackEtaDays(), about_governorates: aboutGovernorates() };
   }
 
   function intakeResponse(intake, clientId) {
     const s = app.settings.all();
-    const digits = waDigits();
     const current = db.get('SELECT * FROM intakes WHERE id = ?', intake.id) || intake;
-    const extra = v92Fields(current);
+    // v11 segment-server (§5.7): رقم واتساب جانب الطلب ([r2 P4] الأفراد والشركات: رقمهم المُتحقق منه أو الأساسي)؛
+    // جملة التأكيد نفسها لا تتغير للجانبين (B91-01)
+    const segment = current.segment ?? null;
+    const digits = app.segments ? app.segments.publicDigits(segment === 'charity' ? 'charity' : 'paid') : waDigits();
+    const extra = { ...v92Fields(current), segment };
     if (!isPortalUnverifiedIntake(current)) {
       // v9.1 fixes: إعادة الإرسال بنفس submission_id بعد تأكيد الرقم (بالكود أو من الإدارة) لا تُصدر رابطًا ولا كودًا جديدًا:
       // الطلب صار قصة صاحبة الرقم، ورابطها يصلها على واتساب. (حامل submission_id أثبت أنه المتصفح الذي أرسل الطلب، لا صاحب الرقم)
@@ -224,17 +278,35 @@ export function registerPublicRoutes(router, app) {
    * طلب مكالمة بلا حكاية مقبول (body = «عايزة حد يكلمني — الصبح» أو «محتاجين حد يكلمنا — …» بلا اسم).
    * يُستدعى من المسار، ومن بيانات العرض التجريبية (seed-v92-public.js) بنفس القواعد دون حدود المعدل.
    */
-  function submitIntake(b, { limits = true } = {}) {
+  function submitIntake(b, opts = {}) {
+    try {
+      return submitIntakeInner(b, opts);
+    } catch (e) {
+      // v11 segment-server [r2 S16]: كل 400/429 برمز ثابت (الرمز الأدق يُضبط عند مصدر الخطأ)
+      if (e instanceof ApiError && e.status === 429) e.code = 'rate_limited';
+      else if (e instanceof ApiError && e.status === 400 && (!e.code || e.code === 'bad_request')) e.code = 'invalid';
+      throw e;
+    }
+  }
+  function submitIntakeInner(b, { limits = true, cookieHeader = null } = {}) {
     if (b.website) return { status: 200, body: { reference: null, ok: true } }; // حقل فخ للبرامج الآلية
     if (b.consent !== true) throw badRequest('لازم توافقي عشان نقدر نساعدك.');
+    // v11 segment-server (SS-1): نوع الخدمة segment › كعكة bm_seg › الافتراضي — قيمة غير صالحة لا ترفض الطلب أبدًا
+    const seg = app.segments ? app.segments.fromWebsite({ body: b, cookieHeader }) : { segment: 'charity', source: 'website_default', via: 'default' };
+    const requester = cleanRequester(b.requester, seg.segment);
     // الاسم اختياري: «سيبيه فاضي» = لا يُرسل أصلًا (النموذج لا يرسله فاضيًا)؛ أما إن أُرسل فحرفان على الأقل
     let name = null;
     if (b.name !== undefined && b.name !== null) {
       const raw = typeof b.name === 'string' ? b.name.trim() : '';
-      if (raw.length < 2 || raw.length > 120) throw badRequest(NAME_MSG, { fields: { name: NAME_MSG } });
+      if (raw.length < 2 || raw.length > 120) throw withCode(badRequest(NAME_MSG, { fields: { name: NAME_MSG } }), 'bad_name');
       name = raw;
     }
-    const phone = v.phone(b.phone, 'رقم الموبايل', { required: true, egyptianMobile: true });
+    let phone;
+    try {
+      phone = v.phone(b.phone, 'رقم الموبايل', { required: true, egyptianMobile: true });
+    } catch (e) {
+      throw withCode(e, 'bad_phone');
+    }
     // v9.2: الموضوع (مفتاح أو اسم قديم، وإلا بلا موضوع بصمت) وإجابات الصور (كائن فقط) ووقت المكالمة
     const topic = topicByKey(b.topic);
     if (b.answers !== undefined && b.answers !== null && (typeof b.answers !== 'object' || Array.isArray(b.answers))) throw badRequest('اختيارات غير صالحة.');
@@ -267,8 +339,8 @@ export function registerPublicRoutes(router, app) {
     // وبدونها يكفي وصف من 10 حروف («جوزي مات ومعاش» مقبول)، أو طلب مكالمة (v9.2)
     const files = b.documents == null ? [] : Array.isArray(b.documents) ? b.documents : badRequestFiles();
     const audioCount = files.filter((f) => app.documents.isAudio(f || {})).length;
-    if (files.length - audioCount > MAX_INTAKE_DOCS) throw badRequest('تقدري تبعتي لحد 5 صور دلوقتي. الباقي ابعتيه بعدين من صفحتك.');
-    if (audioCount > MAX_INTAKE_AUDIO) throw badRequest('تقدري تبعتي لحد 3 رسايل صوتية.');
+    if (files.length - audioCount > MAX_INTAKE_DOCS) throw withCode(badRequest('تقدري تبعتي لحد 5 صور دلوقتي. الباقي ابعتيه بعدين من صفحتك.'), 'too_many_files');
+    if (audioCount > MAX_INTAKE_AUDIO) throw withCode(badRequest('تقدري تبعتي لحد 3 رسايل صوتية.'), 'too_many_audio');
     // v9.2: مدة الرسالة الصوتية كما سجّلها المتصفح (0–600 ثانية) تصل لحفظ المستند
     const attachments = files.map((f) => {
       if (!f || typeof f !== 'object') return f;
@@ -277,8 +349,11 @@ export function registerPublicRoutes(router, app) {
       return app.documents.isAudio(f) && seconds !== undefined && seconds !== null && Number.isFinite(n) ? { ...rest, seconds: Math.max(0, Math.min(MAX_AUDIO_SECONDS, n)) } : rest;
     });
     let description = v.str(b.description, 'وصف المشكلة', { max: 10000 }) || '';
+    // v11 segment-server (G11-44): طلب عرض الشركات بلا تفاصيل مقبول بنص ثابت لا يُعد من الوقائع
+    const companyCanned = !!requester && !audioCount && nonSpace(description) < MIN_DESC_CHARS && !callback;
+    if (companyCanned) description = `طلب عرض لخدمات الشركات — ${requester.company_name}`;
     if (!audioCount && nonSpace(description) < MIN_DESC_CHARS && !callback) {
-      throw badRequest('سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.', { fields: { description: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.' } });
+      throw withCode(badRequest('سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.', { fields: { description: 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.' } }), 'too_short');
     }
     // v9.2 (بوابة الدمج K3): كلمتين كتبتهم ثم «مش عارفة تحكي؟ سيبي رقمك» (أقل من 10 حروف بلا صوت) ليسا حكاية:
     // الطلب طلب مكالمة بلا حكاية (الجملة الجاهزة أولًا، ثم كلماتها كما هي للموظفين فقط، خارج الوقائع والتحليل)
@@ -296,7 +371,8 @@ export function registerPublicRoutes(router, app) {
     // v9.2: ما يُستنتج من الإجابات (الصفة، عدد الأطفال، السكن) وما ترسله صراحةً يغلب عليه
     const inferred = infer(answers);
     let beneficiary = null;
-    if (app.practice) {
+    // v11 segment-server: لا بيانات أسرة لطلبات الأفراد والشركات (لا بحث اجتماعي ولا أولوية من وضع الأسرة)
+    if (app.practice && seg.segment !== 'paid') {
       const explicit = app.practice.beneficiary.validatePublic(b.beneficiary);
       const fromAnswers = {};
       for (const k of ['relation', 'children_count', 'housing']) if (inferred[k] !== undefined) fromAnswers[k] = inferred[k];
@@ -305,7 +381,7 @@ export function registerPublicRoutes(router, app) {
       beneficiary = Object.keys(merged).length ? merged : null;
     }
     const attribution = sourceFromWebAttribution(b.attribution || {});
-    attribution.detail = { ...attribution.detail, intake_mode: mode };
+    attribution.detail = { ...attribution.detail, intake_mode: mode, gate: seg.segment, gate_via: seg.via, ...(requester ? { requester } : {}) };
     const r = app.engine.receive({
       channel: 'website',
       from_phone: phone,
@@ -320,7 +396,11 @@ export function registerPublicRoutes(router, app) {
       force_new_intake: true,
       intake_kind: 'consultation',
       topic: topic?.key || null,
-      extra_meta: callback ? { callback, callback_canned: !hasStory } : undefined,
+      extra_meta: callback ? { callback, callback_canned: !hasStory } : companyCanned ? { company_lead_canned: true } : undefined,
+      // v11 segment-server (L11-41): نوع الخدمة ومصدره صراحة عند إنشاء الطلب
+      segment: seg.segment,
+      segment_source: requester ? 'company_lead' : seg.source,
+      requester_kind: requester ? 'company' : null,
     });
     if (r.duplicate) {
       // سباق نادر: نفس الإرسال وصل مرتين في نفس اللحظة
@@ -332,7 +412,7 @@ export function registerPublicRoutes(router, app) {
     // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
     if (!r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
     // v9.2 (§3.3): اختيارات الصور كما ضغطت عليها (تقرأها الإدارة والتحليل تحت «قد تكون غير دقيقة»)
-    const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV };
+    const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV, ...(requester ? { requester } : {}) };
     // v9.2 (بوابة الدمج K1): اسم الطلب = ما كتبه هذا الإرسال وحده. الرقم المكتوب في الموقع غير مثبت، فطلب بلا اسم
     // على رقم عميل موجود لا يرث اسم صاحب الرقم (وإلا عرضته صفحة /p/… والردود الجاهزة لمن كتب الرقم: «أهلًا يا رامي»).
     // الموظفون يرون اسم ملف العميل كما هو (intakes.list: contact_name || client_name).
@@ -346,10 +426,20 @@ export function registerPublicRoutes(router, app) {
       app.activity.log({ intake_id: r.intake.id, client_id: r.client.id, actor: { kind: 'client' }, type: 'client.callback', summary, data: { when: callback, source: 'website', story } });
       app.notifications.notifyStaff({
         type: 'client.callback',
-        title: `طلب مكالمة (${when}) — الطلب ${r.intake.code}`,
+        // v11 segment-server (§5.6): طلب الأفراد والشركات يُعلَّم في العنوان (عنوان الخيري كما في 10.0)
+        title: `طلب مكالمة (${when}) — الطلب ${r.intake.code}${seg.segment === 'paid' && app.segments ? ` · ${app.segments.label('paid')}` : ''}`,
         body: hasStory
           ? 'اتصلوا على رقمها المسجل في الطلب، والمكالمة نفسها فرصة لتأكيد هويتها.'
           : 'طلب جديد من الموقع بدون حكاية. اتصلوا عليها واسمعوا مشكلتها، ثم سجّلوا ما قالته من «تسجيل المكالمة» في صفحة الطلب.',
+        link: `#/inbox/${r.intake.id}`,
+      });
+    }
+    if (requester) {
+      // v11 segment-server (§5.6): تنبيه «طلب عرض من شركة» (بجانب «طلب وارد جديد»)
+      app.notifications.notifyStaff({
+        type: 'intake.company_lead',
+        title: `طلب عرض من شركة: ${requester.company_name} — ${r.intake.code}`,
+        body: requester.needs?.length ? requester.needs.map((k) => LABELS.requester_needs[k]).join('، ') : null,
         link: `#/inbox/${r.intake.id}`,
       });
     }
@@ -361,8 +451,12 @@ export function registerPublicRoutes(router, app) {
   router.post(
     '/api/public/intake',
     (ctx) => {
-      app.limiters.publicIntake.hit(`intake:${ctx.ip}`);
-      const out = submitIntake(ctx.body || {}, { limits: true });
+      try {
+        app.limiters.publicIntake.hit(`intake:${ctx.ip}`);
+      } catch (e) {
+        throw withCode(e, 'rate_limited'); // v11 segment-server [r2 S16]
+      }
+      const out = submitIntake(ctx.body || {}, { limits: true, cookieHeader: ctx.req.headers.cookie || null });
       if (out.status !== 200) ctx.status = out.status;
       return out.body;
     },

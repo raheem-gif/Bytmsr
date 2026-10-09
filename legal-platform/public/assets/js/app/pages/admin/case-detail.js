@@ -49,6 +49,17 @@ import { quickReplyPicker, bindQuickReplyShortcuts, insertAtCursor } from '../..
 import { aiReplyButton } from '../../components/ai-reply.js'; // v9 ai
 import { docAiButton, docAiPanel } from '../../components/doc-ai.js'; // v9 ai
 import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
+// v11 segment-staff (ST-4): نوع الخدمة في الملف — الرقاقة و«تغيير» والأتعاب للأفراد ورأس الإرسال
+import {
+  segmentChip,
+  sendHeader,
+  openSegmentSheet,
+  openFeeSheet,
+  caseFeeItems,
+  lineMismatchChip,
+  FEES_NOT_AGREED,
+  PAID_CASE_NOTE,
+} from '../../components/segment-ui.js';
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
 
@@ -155,6 +166,8 @@ export function messageThread(messages = [], { onRetry, inLabel = 'المستف�
     if (m.automated && m.automation_rule) extras.push(h('span.pb-msg-tag', icon('zap', { size: 12 }), label('automation_rule', m.automation_rule)));
     if (meta.info_request_id) extras.push(h('span.pb-msg-tag', icon('mail', { size: 12 }), 'ضمن طلب معلومات أرسلته الإدارة'));
     if (meta.client_answer_id) extras.push(h('span.pb-msg-tag.is-answer', icon('checkCircle', { size: 12 }), 'الرد النهائي على الاستشارة'));
+    // v11 segment-staff (r2 S7): كتب على رقم الجانب الآخر وأُلحقت رسالته بهذا الملف — «اعمل منها طلب جديد» أدناه إن كانت مشكلة جديدة
+    if (m.direction === 'in' && meta.line_mismatch) extras.push(lineMismatchChip(meta.line_mismatch));
     if (m.direction === 'out' && m.status === 'failed') {
       extras.push(
         h(
@@ -229,10 +242,11 @@ export function composerTools(ta, { context = null, ai = null } = {}) {
  * صندوق كتابة رسالة للعميل مع اختيار القناة.
  * (v9) quickReplies: سياق الردود الجاهزة، وaiTarget: {caseId} أو {matterId} لزر «اقتراح رد» (انظر composerTools).
  */
-export function messageComposer({ onSend, placeholder = 'اكتب رسالة للمستفيد/ة…', hint, quickReplies = null, aiTarget = null } = {}) {
+export function messageComposer({ onSend, placeholder = 'اكتب رسالة للمستفيد/ة…', hint, quickReplies = null, aiTarget = null, sendInfo = null } = {}) {
   const taId = uid('composer');
   const ta = h('textarea.input', { id: taId, rows: 3, placeholder, maxlength: 4000 });
-  const tools = composerTools(ta, { context: quickReplies, ai: aiTarget });
+  // v11 segment-staff (r2 P13): رأس الإرسال في نافذة الردود المقترحة أيضًا
+  const tools = composerTools(ta, { context: quickReplies, ai: aiTarget ? { ...aiTarget, sendInfo: aiTarget.sendInfo || sendInfo } : null });
   const sel = h(
     'select.input',
     { 'aria-label': 'قناة الإرسال' },
@@ -264,6 +278,7 @@ export function messageComposer({ onSend, placeholder = 'اكتب رسالة ل�
   });
   return h(
     'div.composer.pb-composer',
+    sendInfo ? sendHeader(sendInfo) : null, // v11 segment-staff: النوع والنبرة و«سيُرسل من» قبل الإرسال
     h('label.field-label', { htmlFor: taId }, 'رسالة جديدة للمستفيد/ة'),
     ta,
     err,
@@ -634,6 +649,13 @@ export default async function render(ctx) {
   const companyLink = (text = 'فتح طلب الشركة') => button(text, { variant: 'secondary', size: 'sm', icon: 'inboxStack', href: companyReqHref });
   const WHO = company ? 'الشركة' : 'المستفيد/ة'; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
   const companyLine = (what) => h('p.cd-company-line', icon('building', { size: 16 }), h('span', what), h('a', { href: companyReqHref }, 'فتح طلب الشركة'));
+  // v11 segment-staff (ST-4): كتلة نوع الخدمة من الخادم؛ ملف الشركة «شركة» دائمًا، وملف الأفراد بأتعاب يوافق عليها العميل
+  const seg = data.segment || { value: company ? 'paid' : c.segment || 'charity', can_change: !company };
+  const segValue = company ? 'paid' : seg.value || 'charity';
+  const paidIndividual = !company && segValue === 'paid';
+  const fees = data.fees || null;
+  const feesPending = paidIndividual && !closed && !(fees && fees.agreed);
+  const sendInfo = { segment: segValue, tone: data.tone || segValue, sendLine: data.send_line || null, company: Boolean(company) };
 
   let tabsEl = null;
 
@@ -696,6 +718,31 @@ export default async function render(ctx) {
     return acts;
   }
 
+  /** v11 segment-staff: رقاقة النوع + «تغيير» (ملف الشركة بلا تغيير؛ الأخطاء 403/409 داخل الورقة) */
+  function segHead() {
+    return h(
+      'div.seg-head',
+      segmentChip(segValue, { company: Boolean(company), size: 'label' }),
+      seg.can_change !== false && !company
+        ? button('تغيير', {
+            variant: 'ghost',
+            size: 'sm',
+            icon: 'swap',
+            className: 'seg-change',
+            ariaLabel: 'تغيير نوع الخدمة',
+            onClick: () =>
+              openSegmentSheet({
+                kind: 'case',
+                id: c.id,
+                current: segValue,
+                changeMessage: seg.change_message || null,
+                onSaved: () => refresh(null),
+              }),
+          })
+        : null,
+    );
+  }
+
   const header = pageHeader({
     title: c.title,
     breadcrumbs: [
@@ -703,6 +750,7 @@ export default async function render(ctx) {
       { label: c.code },
     ],
     meta: [
+      segHead(),
       codeTag(c.code, { className: 'pb-code-lg' }),
       statusBadge('case_status', c.status),
       badge(`الأولوية: ${label('priority', c.priority)}`, statusTone('priority', c.priority), { icon: 'flag' }),
@@ -812,7 +860,8 @@ export default async function render(ctx) {
         ['الموعد المستهدف', c.due_at ? inline(h('span', date(c.due_at)), !closed && dueBadge(c.due_at)) : h('span.muted', 'بدون موعد محدد')],
         ['فريق العمل', activeTeam.length ? h('span', `${count(activeTeam.length, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])} — المحامي الأساسي: ${lead ? lead.lawyer_name : 'لم يُحدَّد'}`) : h('span.muted', 'لم يُسند لأي محامٍ بعد')],
         ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}` }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
-        company ? null : ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })], // v10 b2b-staff: لا برامج تمويل لعمل الشركات
+        // v11 segment-staff: ملف الأفراد بأتعاب لا يُربط ببرنامج تمويل (الخادم يرفضه 409 paid_case_program)
+        paidIndividual ? null : company ? null : ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })], // v10 b2b-staff: لا برامج تمويل لعمل الشركات
         [
           'المعرفة المؤسسية',
           data.knowledge
@@ -1145,9 +1194,60 @@ export default async function render(ctx) {
     });
   }
 
+  // ───────────────────────── v11 segment-staff (ST-4، r2 P5): أتعاب ملف الأفراد ─────────────────────────
+  let clientInvoices = null;
+  async function loadClientInvoices(host) {
+    try {
+      const r = await api.get(`/admin/clients/${encodeURIComponent(c.client_id)}`);
+      clientInvoices = (r && r.invoices) || [];
+    } catch {
+      clientInvoices = [];
+    }
+    drawFees(host);
+  }
+  function drawFees(host) {
+    const items = caseFeeItems(data.activity, clientInvoices || []).filter((x) => !x.cancelled);
+    // التنبيه يكفي حين توجد أتعاب بانتظار الموافقة (لا يتكرر النص نفسه)
+    const stateText = !fees || !fees.invoices ? 'لم تُرسل أتعاب لهذا الملف بعد.' : fees.agreed ? 'تمت الموافقة على الأتعاب على صفحة الطلب.' : feesPending ? null : FEES_NOT_AGREED;
+    mount(
+      host,
+      feesPending && h('p.notice-warn.seg-fees-warn', icon('alert', { size: 16 }), h('span', FEES_NOT_AGREED)),
+      stateText && h('p.small.muted', stateText),
+      items.length
+        ? h(
+            'ul.seg-fees-list',
+            items.map((x) =>
+              h(
+                'li.seg-fee-row',
+                h('span', x.number ? h('bdi', { dir: 'ltr' }, x.number) : null, x.description ? ` — ${x.description}` : !x.number ? x.text : null),
+                x.amount != null ? h('span.seg-amount', `${Number(x.amount).toLocaleString('en-US')} ج.م`) : null,
+                x.agreed ? badge('تمت الموافقة', 'success', { icon: 'checkCircle' }) : badge('بانتظار الموافقة', 'neutral', { icon: 'clock' }),
+              ),
+            ),
+          )
+        : null,
+      h('p.seg-note', icon('info', { size: 14 }), h('span', PAID_CASE_NOTE)),
+    );
+  }
+  function feesCard() {
+    if (!paidIndividual) return null;
+    const host = h('div.seg-fees');
+    drawFees(host);
+    if (c.client_id) loadClientInvoices(host);
+    return card({
+      title: 'الأتعاب',
+      subtitle: 'تصل إلى صفحة الطلب للموافقة عليها قبل أي عمل',
+      icon: 'wallet',
+      className: 'seg-fees-card',
+      actions: !closed && button('إضافة أتعاب', { size: 'sm', icon: 'plus', onClick: () => openFeeSheet({ caseId: c.id, onSaved: () => refresh(null) }) }),
+      body: host,
+    });
+  }
+
   function renderOverview() {
     return h(
       'div.stack-lg',
+      feesCard(),
       h('div.grid-2.pb-facts-grid', factsBlock('internal'), factsBlock('shared')),
       h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', company ? null : outcomeCard({ kind: 'case', id: c.id }), aiAnalysisCard(), similarCard())),
     );
@@ -1587,7 +1687,8 @@ export default async function render(ctx) {
           type: 'select',
           required: true,
           placeholder: false,
-          options: options('fee_mode'),
+          // v11 segment-staff: العمل المدفوع لا يُسجَّل تطوعيًا (الخادم يرفضه 409 paid_case_pro_bono)
+          options: paidIndividual ? options('fee_mode').filter((o) => o.value !== 'pro_bono') : options('fee_mode'),
           onChange: (v, fapi) => {
             fapi.control('fee_amount').wrap.hidden = v !== 'custom';
           },
@@ -1626,6 +1727,8 @@ export default async function render(ctx) {
 
     let result = null;
     const body = frag(
+      // v11 segment-staff (r2 P5): تنبيه لا يمنع — الأتعاب لم يوافق عليها العميل بعد
+      feesPending && h('p.notice-warn.seg-fees-warn', icon('alert', { size: 16 }), h('span', FEES_NOT_AGREED)),
       counsel &&
         alertBox(
           frag(
@@ -2599,12 +2702,15 @@ export default async function render(ctx) {
       title: 'إرسال الرد للمستفيد/ة',
       // v9.1 b-portal (B91-08): تنبيه إن لم تُكتب خلاصة بسيطة
       intro: `بعد الإرسال لا يمكن تعديل الرد. تأكد من مراجعة الصياغة النهائية.${ans.summary ? '' : ' الرد هيوصل من غير خلاصة.'}`,
-      before: h(
-        'div.pb-preview',
-        { dir: 'auto' },
-        ans.summary ? h('p', h('strong', 'الخلاصة: '), ans.summary) : null,
-        steps.length ? h('div.pb-preview-steps', h('strong', 'الخطوات المطلوبة منها:'), h('ol', steps.map((s) => h('li', s)))) : null,
-        ans.body,
+      before: frag(
+        sendHeader(sendInfo), // v11 segment-staff (r2 P13)
+        h(
+          'div.pb-preview',
+          { dir: 'auto' },
+          ans.summary ? h('p', h('strong', 'الخلاصة: '), ans.summary) : null,
+          steps.length ? h('div.pb-preview-steps', h('strong', 'الخطوات المطلوبة منها:'), h('ol', steps.map((s) => h('li', s)))) : null,
+          ans.body,
+        ),
       ),
       fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: CHANNEL_OPTIONS }],
       values: { channel: 'auto' },
@@ -2659,7 +2765,7 @@ export default async function render(ctx) {
             button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}` }),
             // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
             // (يعرض المكوّن نفسه رسالة النجاح والقناة المستخدمة، فلا تُكرر هنا)
-            company ? null : sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }) }), // v10 b2b-staff: المستندات للشركة عبر صفحة الطلب
+            company ? null : sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }), sendInfo }), // v10 b2b-staff: المستندات للشركة عبر صفحة الطلب
             // (v9 ai) تحليل نوع المستند ووقائعه وما يثبته؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
             docAiAction(analyses, d),
           ),
@@ -2732,6 +2838,7 @@ export default async function render(ctx) {
           client_id: data.client?.id || c.client_id || undefined,
         },
         aiTarget: { caseId: c.id },
+        sendInfo, // v11 segment-staff (r2 P13)
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/cases/${id}/messages`, { body, channel });
           await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'conversation' });
@@ -2799,6 +2906,7 @@ export default async function render(ctx) {
   async function openMessageDialog() {
     const res = await formModal({
       title: 'رسالة للمستفيد/ة',
+      before: sendHeader(sendInfo), // v11 segment-staff (r2 P13)
       intro: `تُرسل باسم المؤسسة إلى ${data.client?.name || 'المستفيد/ة'}، وتظهر في تبويب المحادثة.`,
       fields: [
         { name: 'body', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5 },

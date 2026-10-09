@@ -4,7 +4,9 @@
 // رابط إعادة التعيين من ترويسة Host، قالب portal_update، تنظيف نص الإدارة للمحامي، ومجهِّل المعرفة.
 import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { startTestApp, waPayload, resetClock, freezeClock } from './helpers.js';
+import { startTestApp, waPayload as waPayload0, resetClock, freezeClock } from './helpers.js';
+// v11 segment-server (intended, r2 S8): رسائل الاختبار تصل على الرقم المضبوط في LIVE_WA؛ معرّف آخر = «رقم غير مضبوط» بلا رد
+const waPayload = (o) => ((p) => ((p.entry[0].changes[0].value.metadata.phone_number_id = '123456789012345'), p))(waPayload0(o));
 import { ok, uniquePhone, phoneCore, newCase, createLawyer, outbox, runAutomations, plusDays, notificationsOf } from './lane-b-kit.test.js';
 import { withoutLinkLines, stripIdentityConfirm } from '../src/channels/engine.js';
 

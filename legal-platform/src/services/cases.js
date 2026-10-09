@@ -1,5 +1,6 @@
 // ملفات الاستشارات: الإنشاء من الطلب الوارد، المسائل، المستندات، فريق العمل والصلاحيات، الإغلاق وإعادة الفتح.
 import { nowIso, addDays, cairoYear, parseJson, badRequest, notFound, conflict, v, truncate } from '../util.js';
+import { ApiError } from '../util.js'; // v11 segment-server
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage } from '../channels/engine.js';
 import { newAssignmentBody, deadlineText, grantsNotification } from './lawyer-copy.js'; // v9.1 l-home (L-12)
@@ -38,6 +39,12 @@ export function createCases(app) {
 
     /** إنشاء ملف جديد (يُستدعى من تحويل الطلب الوارد) */
     createFromIntake(intake, body, actor) {
+      // v11 segment-server (S11-07): الملف يرث نوع خدمة الطلب؛ «غير محدد» لا يصير ملفًا حتى تختاره الإدارة
+      const fresh = intake?.id ? db.get('SELECT segment, segment_hint FROM intakes WHERE id = ?', intake.id) : null;
+      const segment = fresh ? fresh.segment : intake.segment;
+      if (segment !== 'charity' && segment !== 'paid') {
+        throw new ApiError(409, 'اختاروا نوع الخدمة أولًا.', 'segment_required', { hint: app.segments?.hintOf?.(fresh || intake) ?? null });
+      }
       const area = v.oneOf(body.legal_area, AREA_CODES, 'المجال القانوني', { required: true });
       const title = v.str(body.title, 'عنوان الملف', { required: true, max: 200 });
       const t = nowIso();
@@ -56,6 +63,7 @@ export function createCases(app) {
         source: intake.source,
         channel: intake.first_channel,
         campaign: intake.campaign,
+        segment, // v11 segment-server
         created_by: actor.id,
         created_at: t,
         updated_at: t,
@@ -109,11 +117,16 @@ export function createCases(app) {
       return status;
     },
 
-    list({ status, area, lawyer_id, q, priority, manager_id, scope, line = 'all', limit = 100, offset = 0 } = {}) {
+    list({ status, area, lawyer_id, q, priority, manager_id, scope, line = 'all', limit = 100, offset = 0, segment } = {}) {
       const where = ['1=1'];
       const params = [];
       if (line === 'b2c') where.push('c.company_id IS NULL'); // v10 b2b-server: الأفراد · الشركات
       else if (line === 'b2b') where.push('c.company_id IS NOT NULL');
+      // v11 segment-server (§5.6): خيري = segment=charity؛ أفراد = segment=paid&line=b2c؛ شركات = line=b2b
+      if (segment === 'charity' || segment === 'paid') {
+        where.push("(CASE WHEN c.company_id IS NOT NULL THEN 'paid' ELSE c.segment END) = ?");
+        params.push(segment);
+      }
       if (status && ENUMS.case_status.includes(status)) {
         where.push('c.status = ?');
         params.push(status);
@@ -184,6 +197,7 @@ export function createCases(app) {
           outcome: r.outcome,
           company_id: r.company_id ?? null, // v10 b2b-server
           company_name: r.company_name ?? null,
+          segment: r.company_id ? 'paid' : r.segment, // v11 segment-server
         })),
       };
     },
@@ -312,6 +326,15 @@ export function createCases(app) {
           case_manager_name: c.case_manager_id ? db.value('SELECT name FROM users WHERE id = ?', c.case_manager_id) ?? null : null,
         },
         client: client ? { ...client, phone: app.clients.primaryPhone(client.id), identities: app.clients.identities(client.id) } : null,
+        // v11 segment-server (§5.6، L11-61): نوع الخدمة وأتعاب ملف الأفراد والرقم الذي سيُرسل منه
+        ...(app.segments
+          ? {
+              segment: app.segments.caseBlock(c),
+              tone: app.segments.tone(c),
+              send_line: c.company_id ? null : app.segments.sendLine({ clientId: c.client_id, caseId: c.id, intakeId: c.intake_id ?? null }),
+              ...(c.segment === 'paid' && !c.company_id ? { fees: app.segments.caseFees(c) } : {}),
+            }
+          : {}),
         // v10 b2b-server: ملف طلب شركة (الإغلاق وإعادة الفتح والرسائل من صفحة الطلب)
         company: c.company_id
           ? (() => {
@@ -507,6 +530,8 @@ export function createCases(app) {
       // v10 b2b-server (B10 §8.4): ملف شركة — استبعاد المحامي (409)، الموعد من موعد التسليم، وسعر طلبات الشركات
       const b2b = c.company_id && app.companyRequests ? app.companyRequests.assignDefaults(c, lawyerId, role, body) : null;
       const feeMode = v.oneOf(body.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب') || b2b?.fee_mode || 'agreement';
+      // v11 segment-server (L11-24): عمل الأفراد والشركات مدفوع دائمًا — لا يُسجَّل تطوعيًا
+      if (feeMode === 'pro_bono' && !c.company_id && c.segment === 'paid') throw new ApiError(409, 'العمل المدفوع لا يُسجَّل تطوعيًا.', 'paid_case_pro_bono');
       const feeMinor = feeMode === 'custom' ? (b2b?.fee_mode === 'custom' && !body.fee_mode ? b2b.fee_amount_minor : v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true })) : null;
       const settings = app.settings.all();
       const dueAt = v.iso(body.due_at, 'موعد التسليم') || b2b?.due_at || addDays(nowIso(), Number(settings.default_assignment_days) || 3);
@@ -532,6 +557,19 @@ export function createCases(app) {
       const neededArea = body.specialty || c.legal_area;
       // gate J-23: التنبيه يسمّي المحامي ودوره (يُسند الأساسي والمراجع معًا من ورقة القبول)
       if (!specs.includes(neededArea)) warnings.push(`تنبيه: تخصصات ${lawyer.name} (${LABELS.assignment_role[role] || role}) المسجلة لا تشمل «${AREA[neededArea]}».`);
+      // v11 segment-server [r2 P5]: ملف أفراد بلا أتعاب وافق عليها العميل — تنبيه لا يمنع الإسناد أبدًا
+      const warningCodes = [];
+      if (!c.company_id && c.segment === 'paid' && app.segments && !app.segments.caseFees(c).agreed) {
+        warnings.push('لم يوافق العميل على الأتعاب بعد');
+        warningCodes.push('fees_not_agreed');
+      }
+      // v11 segment-server (S11-31): ملف مدفوع ومحامٍ بلا سعر للعمل المدفوع ← الأتعاب ستُحسب صفرًا ما لم تُحدَّد للإسناد
+      if (!c.company_id && c.segment === 'paid' && feeMode !== 'custom' && app.accounting?.paidRateMinor && !app.accounting.paidRateMinor(lawyerId)) {
+        const ag = parseJson(lawyer.agreement, {}) || {};
+        const kind = ag.type === 'csr' ? 'مسؤولية مجتمعية' : ag.type === 'pro_bono' ? 'متطوع' : 'بلا سعر محدد';
+        warnings.push(`ملف مدفوع: المحامي ${lawyer.name} ${kind} وليس له سعر للعمل المدفوع — حدّدوا أتعابًا لهذا الإسناد.`);
+        warningCodes.push('paid_rate_missing');
+      }
 
       const t = nowIso();
       const assignmentId = db.tx(() => {
@@ -584,7 +622,7 @@ export function createCases(app) {
         link: `#/my/assignments/${assignmentId}`,
       });
       svc.refreshStatus(c.id);
-      return { assignment: db.get('SELECT * FROM assignments WHERE id = ?', assignmentId), warnings };
+      return { assignment: db.get('SELECT * FROM assignments WHERE id = ?', assignmentId), warnings, warning_codes: warningCodes };
     },
 
     updateAssignment(assignmentId, body, actor) {
@@ -599,6 +637,10 @@ export function createCases(app) {
           throw conflict('لا يمكن تعديل الأتعاب بعد تسجيل واقعة الاستحقاق لهذا الإسناد');
         }
         const mode = v.oneOf(body.fee_mode ?? a.fee_mode, ENUMS.fee_mode, 'طريقة الأتعاب', { required: true });
+        // v11 segment-server (L11-24): لا تطوع على ملف أفراد وشركات
+        if (mode === 'pro_bono' && db.get("SELECT 1 FROM cases WHERE id = ? AND company_id IS NULL AND segment = 'paid'", a.case_id)) {
+          throw new ApiError(409, 'العمل المدفوع لا يُسجَّل تطوعيًا.', 'paid_case_pro_bono');
+        }
         patch.fee_mode = mode;
         patch.fee_amount_minor = mode === 'custom' ? v.money(body.fee_amount, 'مبلغ الأتعاب', { required: true }) : null;
       }

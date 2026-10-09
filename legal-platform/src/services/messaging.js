@@ -11,6 +11,7 @@ import {
 } from '../util.js';
 import { LABELS, ENUMS, LEGAL_AREAS } from '../constants.js';
 import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
+import { DEFAULT_AUTOMATION_RULES } from '../constants.js'; // v11 segment-server: template_paid الافتراضي
 import { RateLimiter } from '../auth.js';
 import { countTemplateParams, graphErrorArabic } from '../channels/whatsapp.js';
 import { mapMessage } from '../channels/engine.js';
@@ -45,6 +46,11 @@ for (const [purpose, vars] of Object.entries(TEMPLATE_PURPOSES)) {
 }
 if (!TEMPLATE_PURPOSES['rule:invoice_reminder'].includes('description')) TEMPLATE_PURPOSES['rule:invoice_reminder'].push('description');
 TEMPLATE_PURPOSES.portal_update = ['first_name', 'org_name', 'portal_link', 'ref'];
+// v11 segment-server [r2 S15] (L11-25): قوالب اختيارية لعملاء الأفراد والشركات بنفس متغيرات الغرض الأصلي؛ تختارها
+// app.segments.templatePurpose(purpose, tone)، وبلا ربط يُستخدم قالب portal_update المحايد (لا نص الخيري أبدًا)
+for (const p of ['case_update', 'portal_update', 'survey', 'rule:hearing_reminder', 'rule:document_reminder', 'rule:invoice_reminder']) {
+  TEMPLATE_PURPOSES[`${p}@paid`] = [...TEMPLATE_PURPOSES[p]];
+}
 
 // ===== دخول البوابة برمز =====
 const OTP_TTL_MINUTES = 10;
@@ -216,7 +222,9 @@ export function createMessaging(app) {
           readQueue.delete(id);
           if (!app.whatsapp.configured) continue;
           try {
-            await app.whatsapp.markRead(row.external_id);
+            // v11 segment-server: «قُرئت» من الرقم الذي وصلت عليه الرسالة؛ رقم غير مضبوط لا يُرسل منه شيء
+            if (row.wa_line === 'unknown') continue;
+            await app.whatsapp.markRead(row.external_id, { line: row.wa_line || 'main' });
             db.run(
               "UPDATE messages SET read_receipt_at = ? WHERE client_id = ? AND direction = 'in' AND channel = 'whatsapp' AND id <= ? AND read_receipt_at IS NULL",
               nowIso(),
@@ -574,6 +582,20 @@ export function createMessaging(app) {
         // v9.1 b-site (B91-01): بلا قالب مربوط بالغرض ← قالب «في جديد في طلبك» بلا أي تفاصيل ورابط صفحتها
         purposes.push('portal_update');
       }
+      // v11 segment-server [r2 S15] (L11-25): عميل الأفراد والشركات (أو «غير محدد») ← '<purpose>@paid' المربوط، وإلا قالب
+      // portal_update المحايد؛ استبيان الخيري وقوالب الخيري لا تصله أبدًا
+      if (!isOtp && msg.client_id && app.segments && app.engine?.storyTone) {
+        const tone = app.engine.storyTone({ intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
+        if (tone !== 'charity') {
+          const paidList = [];
+          for (const p of purposes) {
+            const tp = app.segments.templatePurpose(p, tone);
+            if (tp && tp !== 'portal_update') paidList.push(tp);
+          }
+          purposes.length = 0;
+          purposes.push(...paidList, 'portal_update@paid', 'portal_update');
+        }
+      }
       const found = resolveMapping([...new Set(purposes)]);
       if (!found) {
         if (isOtp) return null;
@@ -605,7 +627,7 @@ export function createMessaging(app) {
     markConversationRead({ intakeId = null, caseId = null } = {}) {
       if (!app.whatsapp.configured || (!intakeId && !caseId)) return { queued: 0 };
       const row = db.get(
-        `SELECT id, external_id, client_id, created_at FROM messages
+        `SELECT id, external_id, client_id, created_at, wa_line FROM messages
          WHERE ${caseId ? 'case_id' : 'intake_id'} = ? AND direction = 'in' AND channel = 'whatsapp' AND external_id IS NOT NULL AND read_receipt_at IS NULL
          ORDER BY id DESC LIMIT 1`,
         caseId || intakeId,
@@ -630,10 +652,12 @@ export function createMessaging(app) {
       const requested = v.oneOf(body.channel || 'auto', ['auto', 'whatsapp', 'website'], 'قناة الإرسال', { required: true });
       const caption = v.str(body.caption, 'النص المرافق', { max: 1000 });
       const phone = app.clients.primaryPhone(client.id);
-      const inWindow = app.engine.inWindow(client.id);
       // v9.1 b-site (B91-01): المستند لا يُرسل على واتساب لقصة رقمها غير مؤكد (يُتاح في صفحة المتابعة فقط)
       const docCase = doc.case_id ? db.get('SELECT id, intake_id, matter_id FROM cases WHERE id = ?', doc.case_id) : null;
       const docStory = { clientId: client.id, intakeId: doc.intake_id || docCase?.intake_id || null, caseId: docCase?.id ?? null, matterId: doc.matter_id || docCase?.matter_id || null };
+      // v11 segment-server (L11-50): نافذة الـ 24 ساعة على الرقم الذي كتب عليه العميل في هذه القصة
+      const docLine = app.segments ? app.segments.lineForStory(docStory) : 'main';
+      const inWindow = !!docLine && app.engine.inWindow(client.id, docLine);
       const storyConfirmed = app.engine.isStoryConfirmed ? app.engine.isStoryConfirmed(docStory) : true;
       let channel;
       let note = null;
@@ -661,9 +685,12 @@ export function createMessaging(app) {
       const title = doc.title || doc.filename;
       // v9.1 b-site (B91-10): كلام بسيط بلا أكواد الملفات الداخلية (INH-/MTR-)
       const words = app.engine.clientWords ? app.engine.clientWords(docStory) : { form: 'f' };
+      // v11 segment-server (L11-25): بنبرة القصة (الأفراد والشركات بصيغة الجمع المهذبة)
+      const docTone = app.engine.storyTone ? app.engine.storyTone(docStory) : 'charity';
+      const docKey = channel === 'whatsapp' ? 'document_sent' : 'document_fallback';
       const text =
         caption ||
-        app.engine.fillClientText(channel === 'whatsapp' ? CLIENT_TEXTS.document_sent : CLIENT_TEXTS.document_fallback, { title, org_name: orgName() }, words.form);
+        app.engine.fillClientText((app.segments && app.segments.text(docKey, docTone)) || CLIENT_TEXTS[docKey], { title, org_name: orgName() }, words.form);
       const msg = app.engine.sendToClient({
         client_id: client.id,
         intake_id: doc.intake_id || caseRow?.intake_id || null,
@@ -782,6 +809,7 @@ export function createMessaging(app) {
               rule: 'portal_otp',
               meta: { wa: { type: 'otp', force_template: hasTemplate }, otp_id: otpId },
               secret: { text: realText, vars: { code } },
+              line: app.segments ? app.segments.lineForPhone(client.id) : null, // v11 segment-server (S11-16، P1): رقمه الذي يكتب عليه
             });
             db.update('portal_otps', otpId, { message_id: msg.id });
           } catch (e) {
@@ -871,7 +899,7 @@ export function createMessaging(app) {
       // لا نرسل استبيانًا عن رد مضى عليه أكثر من أسبوع بعد الموعد (مثل تفعيل القاعدة لأول مرة على ملفات قديمة)
       const oldest = addHours(cutoff, -24 * 7);
       const rows = db.all(
-        `SELECT a.id AS answer_id, a.sent_at, c.id AS case_id, c.code, c.client_id, c.intake_id, c.matter_id
+        `SELECT a.id AS answer_id, a.sent_at, c.id AS case_id, c.code, c.client_id, c.intake_id, c.matter_id, c.segment
          FROM client_answers a JOIN cases c ON c.id = a.case_id
          WHERE a.status = 'sent' AND a.sent_at <= ? AND a.sent_at >= ? AND c.company_id IS NULL -- v10 b2b-server (حارس #24)
            AND a.id = (SELECT MAX(x.id) FROM client_answers x WHERE x.case_id = a.case_id AND x.status = 'sent')
@@ -883,6 +911,7 @@ export function createMessaging(app) {
       for (const r of rows) {
         const client = app.clients.get(r.client_id);
         if (!client) continue;
+        r.tone = app.segments ? app.segments.tone(r) : 'charity'; // v11 segment-server
         const did = once('satisfaction_survey', `case:${r.case_id}`, 'case', r.case_id, () => {
           const sent = nowIso();
           const surveyId = db.insert('case_surveys', {
@@ -897,7 +926,10 @@ export function createMessaging(app) {
           // v9.1 b-site (B91-10): «أهلًا يا أم محمد، يا ترى ردّنا فادك؟» بلا كود الملف، و{ي}/{ة} حسب صيغة المخاطبة
           const words = app.engine.clientWords({ clientId: client.id, intakeId: r.intake_id, caseId: r.case_id, matterId: r.matter_id });
           const fillW = (tpl, extra = {}) => app.engine.fillClientText(tpl, { case_code: words.ref || r.code, ref: words.ref, first_name: words.first_name, org_name: org, client_name: client.name || '', ...extra }, words.form);
-          const body = fillW(params.template).replace(/[ \t]{2,}/g, ' ').trim();
+          // v11 segment-server (L11-25، S11 §10.3): استبيان الأفراد والشركات بنصه (template_paid) — استبيان الخيري لا يصلهم أبدًا
+          const sTone = r.tone;
+          const T = (k) => (sTone === 'charity' ? CLIENT_TEXTS[k] : app.segments.text(k, sTone));
+          const body = fillW(sTone === 'charity' ? params.template : params.template_paid || DEFAULT_AUTOMATION_RULES.satisfaction_survey?.params?.template_paid).replace(/[ \t]{2,}/g, ' ').trim();
           const msg = app.engine.sendToClient({
             client_id: client.id,
             intake_id: r.intake_id,
@@ -915,9 +947,9 @@ export function createMessaging(app) {
                 type: 'buttons',
                 purpose: 'survey',
                 survey_id: surveyId,
-                text: fillW(CLIENT_TEXTS.survey_question),
-                footer: fillW(CLIENT_TEXTS.survey_footer),
-                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.rating === 1 ? (words.form === 'm' ? 'مش راضي' : 'مش راضية') : b.title })),
+                text: fillW(T('survey_question')),
+                footer: fillW(T('survey_footer')),
+                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.rating === 1 ? (sTone !== 'charity' ? b.title : words.form === 'm' ? 'مش راضي' : 'مش راضية') : b.title })),
               },
             },
           });
@@ -1050,7 +1082,10 @@ export function createMessaging(app) {
       const org = orgName();
       // v9.1 b-site (B91-10): شكر بكلام بسيط وصيغة المخاطبة الصحيحة
       const words = app.engine.clientWords({ clientId: c.client_id, intakeId: c.intake_id, caseId: c.id, matterId: c.matter_id });
-      const tpl = outcome.type === 'comment' ? CLIENT_TEXTS.survey_comment_thanks : outcome.ask_comment ? CLIENT_TEXTS.survey_ask_comment : CLIENT_TEXTS.survey_thanks;
+      const key = outcome.type === 'comment' ? 'survey_comment_thanks' : outcome.ask_comment ? 'survey_ask_comment' : 'survey_thanks';
+      // v11 segment-server (L11-25): الشكر بنبرة الملف
+      const sTone = app.engine.storyTone ? app.engine.storyTone({ intakeId: c.intake_id, caseId: c.id, matterId: c.matter_id }) : 'charity';
+      const tpl = sTone === 'charity' ? CLIENT_TEXTS[key] : app.segments.text(key, sTone);
       const body = app.engine.fillClientText(tpl, { first_name: words.first_name, org_name: org }, words.form);
       const msg = app.engine.sendToClient({
         client_id: c.client_id,

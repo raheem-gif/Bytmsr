@@ -501,9 +501,12 @@ describe('v10 b2b-staff — engine pages for company work (STF-10)', () => {
     assert.ok(client.includes('هذا حساب داخلي لشركة عميلة — ${co.name}'));
     assert.ok(client.includes("button('فتح صفحة الشركة'"));
     const cases = read(`${APP}pages/admin/cases.js`);
-    assert.match(cases, /\{ value: 'b2c', label: 'الأفراد' \}, \{ value: 'b2b', label: 'الشركات' \}/);
+    // v11 segment-staff (intended, ST-4): «الأفراد · الشركات» صار مفتاح «الكل · خيري · أفراد · شركات» (شركات = line=b2b)،
+    // وشارة «شركة» الرمادية صارت رقاقة النوع الخضراء بمبنى (L11-16)
+    assert.match(cases, /caseSegmentSwitch\(/);
+    assert.match(read(`${APP}components/segment-ui.js`), /\{ key: 'company', label: 'شركات', icon: 'building', query: \{ line: 'b2b' \} \}/);
     assert.match(cases, /line: state\.line \|\| undefined/);
-    assert.match(cases, /badge\('شركة', 'neutral', \{ icon: 'building', className: 'badge-outline' \}\)/);
+    assert.match(cases, /segmentChip\('paid', \{ company: true \}\)/);
     const dash = read(`${APP}pages/admin/dashboard.js`).replace(/^\s*(\/\/|\*|\/\*\*).*$/gm, '');
     for (const t of ['بانتظار الفرز', 'يقترب موعدها', 'متأخرة', 'بانتظار الشركات', 'تجديدات خلال 30 يومًا', 'الاشتراكات الشهرية']) assert.ok(dash.includes(`label: '${t}'`), t);
     assert.ok(!dash.includes('مطالبات متأخرة'));

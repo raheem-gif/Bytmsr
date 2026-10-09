@@ -1007,6 +1007,22 @@ button.lc-outbox-pill {
   background: linear-gradient(180deg, var(--accent-50), var(--surface) 70%);
 }
 
+/* v11 visual (V11-13): على الشاشة سطوح بيضاء بظل خفيف، بلا حد ولا تدرّج (الطباعة كما هي) */
+@media screen {
+  .lc-hero,
+  .lc-money-card,
+  .lc-months {
+    border: 0;
+    border-radius: var(--r-20);
+    box-shadow: var(--e-1);
+  }
+
+  .lc-hero,
+  .lc-hero.is-volunteer {
+    background: var(--surface);
+  }
+}
+
 .lc-hero-period {
   margin: 0;
   font-size: 15px;
@@ -1309,5 +1325,24 @@ button.lc-outbox-pill {
 
   .lc-cal-lawyer .v9p-cal-card .stack > .v9p-type-toggles {
     order: 3;
+  }
+}
+
+/* v11 visual (V11-13): تنبيه «بانتظار» سطح warn-weak بلا حد ولا حافة ملوّنة (الطباعة كما هي) */
+@media screen {
+  .lc-pending-card,
+  .lc-cal-pending {
+    border: 0;
+    border-radius: var(--r-14);
+    background: var(--warn-weak);
+  }
+}
+
+/* v11 visual (V11-13): تفاصيل «مستحقاتي» سطح بلا حد على الشاشة */
+@media screen {
+  .lc-details {
+    border: 0;
+    border-radius: var(--r-20);
+    box-shadow: var(--e-1);
   }
 }

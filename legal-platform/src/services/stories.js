@@ -14,7 +14,10 @@ import {
   factsText, isCannedCallback, isFactual, isPortalUnverifiedIntake, portalUnverifiedSql, storyWords, PORTAL_LINK_VAR, withoutLinkLines,
 } from '../channels/engine.js';
 import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
-import { questionsFor, classify } from '../ai/heuristic.js';
+import { questionsFor, classify, paidQuestionsFor } from '../ai/heuristic.js';
+// v11 segment-server (L11-25، r2 P16): نصوص الأفراد والشركات وقائمة مواضيعهم، وسطور اختيارات الموقع للعرض فقط
+import { PAID_TOPICS } from '../../public/assets/js/public/segment.js';
+import { paidStaffLines } from './segments.js';
 
 export { isFactual };
 
@@ -137,7 +140,8 @@ export function createStories(app) {
       callback: f.callback || null,
       callback_label: f.callback && CALLBACK_WHEN[f.callback] ? CALLBACK_WHEN[f.callback].staff : null,
       story: f.story || null,
-      lines: staffLines(f),
+      // v11 segment-server (r2 P16): «الزوج أو الزوجة» لطلبات الأفراد والشركات — للعرض فقط (نص التحليل يبني سطوره بنفسه)
+      lines: i?.segment === 'paid' ? paidStaffLines(staffLines(f)) : staffLines(f),
       urgent_hint: !!f.inferred?.urgent_hint || f.answers?.['rent.evict'] === 'yes',
       about: about
         ? {
@@ -180,9 +184,15 @@ export function createStories(app) {
     }
   }
 
+  // v11 segment-server (L11-25، S11-25): النبرة ونص الرسالة بها — الأفراد والشركات لا يرجعون أبدًا لنص الخيري
+  const toneOf = (i) => (app.segments && i ? app.segments.tone(i) : 'charity');
+  const textFor = (key, tone) => (app.segments ? app.segments.text(key, tone) : tone === 'charity' ? CLIENT_TEXTS[key] : null);
+
   const svc = {
     STORY_VIEW_SQL,
     formOf,
+    toneOf,
+    textFor,
 
     /** [R2-A3] هل تضيف الرسالة شيئًا إلى القصة؟ (انظر engine.isFactual) */
     isFactual: (msg, text, ctx) => isFactual(msg, text, { doneWords: setting('story_done_words'), ...(ctx || {}) }),
@@ -329,11 +339,14 @@ export function createStories(app) {
       const first = addressName(name);
       const form = unverified ? addressForm({ name }) : addressForm({ name, address_form: c?.address_form });
       const num = /^REQ-\d{4}-0*(\d+)$/.exec(String(i?.code || ''))?.[1] || '';
+      // v11 segment-server (S11 §10): الأفراد والشركات/المحايد «مرحبًا {الاسم}» أو «مرحبًا بكم»، و«الطلب رقم 29»
+      const plural = toneOf(i) !== 'charity';
       return {
         first_name: first,
         form,
-        hello: genderize(first ? `أهلًا يا ${first}` : 'أهلًا بيك{ي}', form),
-        ref_no: num ? `طلب رقم ${num}` : '',
+        tone: toneOf(i),
+        hello: plural ? (first ? `مرحبًا ${first}` : 'مرحبًا بكم') : genderize(first ? `أهلًا يا ${first}` : 'أهلًا بيك{ي}', form),
+        ref_no: num ? (plural ? `الطلب رقم ${num}` : `طلب رقم ${num}`) : '',
         ref_number: num,
         org_name: app.brand.displayName(), // v10 experience: اسم المكتب (يغذي نصوص واتساب ونص المكالمة)
         org_phone: setting('org_phone') || '',
@@ -358,6 +371,8 @@ export function createStories(app) {
     autoEligible(intake) {
       const i = typeof intake === 'object' ? intake : db.get('SELECT * FROM intakes WHERE id = ?', intake);
       if (!i || i.first_channel !== 'whatsapp' || !i.client_id) return false;
+      // v11 segment-server [r2 S8]: رسالة على رقم غير مضبوط لا يُرد عليها آليًا أبدًا
+      if (i.wa_line === 'unknown') return false;
       const since = setting('stories_since');
       if (since && String(i.created_at) < String(since)) return false;
       if (db.get("SELECT 1 FROM messages WHERE intake_id = ? AND direction = 'out' AND automated = 0", i.id)) return false;
@@ -468,37 +483,60 @@ export function createStories(app) {
       }
       if (s.done) svc.markReady(i.id, 'client_done');
       if (msg?.channel === 'whatsapp' && !s.staff_entry) {
-        if (result.created_intake) svc.maybeWelcome(row(i.id), result);
+        // v11 segment-server (S11-20، P1): جواب أزرار نوع الخدمة، أو الأزرار نفسها قبل الترحيب على الرقم المشترك
+        if (result.segment?.choice && app.segments) app.segments.onChoice(row(i.id), result.segment.choice, msg);
+        else if (result.created_intake && !(app.segments && app.segments.maybeChoice(row(i.id), result))) svc.maybeWelcome(row(i.id), result);
         if (s.topic && !s.topic_prefill) svc.maybeNudge(row(i.id));
       }
+    },
+
+    /**
+     * v11 segment-server (S11-20): الترحيب بنبرة النوع بعد جواب الاختيار — مرة واحدة، دون شرط «لا رسالة صادرة خلال 24 ساعة»
+     * (الرسالة الصادرة الوحيدة هي أزرار الاختيار نفسها). false إن لم يُرسل.
+     */
+    sendWelcomeAfterChoice(i) {
+      if (!i || !setting('story_welcome_enabled') || toneOf(i) === 'neutral' || !svc.autoEligible(i)) return false;
+      const claim = db.run('UPDATE intakes SET welcome_sent_at = ? WHERE id = ? AND welcome_sent_at IS NULL', nowIso(), i.id);
+      if (claim.changes !== 1) return false;
+      return !!sendAuto(i, 'story_welcome', svc.fill(textFor('story_welcome', toneOf(i)), i), { portal_hidden: true, wa: svc.welcomeList(i) });
     },
 
     /** [A92-05] ترحيب بقائمة المواضيع لأول رسالة في قصة واتساب جديدة (متوقف افتراضيًا) */
     maybeWelcome(i, result) {
       if (!i || !setting('story_welcome_enabled')) return false;
       if (result.identity_confirm || result.story?.mentioned_ref || result.story?.topic_prefill) return false;
+      // v11 segment-server (S11 §6.3/§10.2): الترحيب بنبرة الطلب؛ «غير محدد» لا يصله ترحيب أبدًا (ينتظر اختيار نوع الخدمة)
+      if (toneOf(i) === 'neutral') return false;
       if (!svc.autoEligible(i)) return false;
       const since = isoMinus(nowIso(), 24 * HOUR);
       if (db.get("SELECT 1 FROM messages WHERE client_id = ? AND direction = 'out' AND created_at >= ?", i.client_id, since)) return false;
       const claim = db.run('UPDATE intakes SET welcome_sent_at = ? WHERE id = ? AND welcome_sent_at IS NULL', nowIso(), i.id);
       if (claim.changes !== 1) return false;
-      return !!sendAuto(i, 'story_welcome', svc.fill(CLIENT_TEXTS.story_welcome, i), { portal_hidden: true, wa: svc.welcomeList(i) });
+      return !!sendAuto(i, 'story_welcome', svc.fill(textFor('story_welcome', toneOf(i)), i), { portal_hidden: true, wa: svc.welcomeList(i) });
     },
 
     /** القائمة التفاعلية للترحيب (حدود واتساب: الرأس والتذييل 60، الزر 20، القسم 24، الصف 24، الوصف 72، النص 1024) */
     welcomeList(i) {
       const w = svc.words(i);
       const g = (t) => genderize(svc.fill(t, i), w.form);
+      // v11 segment-server (S11-25): قائمة الأفراد والشركات بعناوين PAID_TOPICS وبنفس معرّفات الصفوف topic:<key>
+      const tone = toneOf(i);
+      const T = (k) => textFor(k, tone) || '';
+      const paid = tone !== 'charity';
       return {
         type: 'list',
-        header: g(CLIENT_TEXTS.story_welcome_header).slice(0, 60),
-        text: g(CLIENT_TEXTS.story_welcome).slice(0, 1024),
-        footer: g(CLIENT_TEXTS.story_welcome_footer).slice(0, 60),
-        button: g(CLIENT_TEXTS.story_welcome_button).slice(0, 20),
+        header: g(T('story_welcome_header')).slice(0, 60),
+        text: g(T('story_welcome')).slice(0, 1024),
+        footer: g(T('story_welcome_footer')).slice(0, 60),
+        button: g(T('story_welcome_button')).slice(0, 20),
         sections: [
           {
-            title: g(CLIENT_TEXTS.story_welcome_section).slice(0, 24),
-            rows: TOPICS.map((t) => ({ id: `topic:${t.key}`, title: String(t.wa_title).slice(0, 24), description: genderize(t.wa_desc, w.form).slice(0, 72) })),
+            title: g(T('story_welcome_section')).slice(0, 24),
+            rows: TOPICS.map((t) =>
+              paid && PAID_TOPICS[t.key]
+                ? { id: `topic:${t.key}`, title: String(PAID_TOPICS[t.key].wa_title).slice(0, 24), description: String(PAID_TOPICS[t.key].wa_desc).slice(0, 72) }
+                : { id: `topic:${t.key}`, title: String(t.wa_title).slice(0, 24), description: genderize(t.wa_desc, w.form).slice(0, 72) },
+            ),
           },
         ],
       };
@@ -510,7 +548,9 @@ export function createStories(app) {
       const st = svc.storyText(i.id);
       if (st.meaningfulLetters >= 25 || st.hasMedia) return false;
       if (db.get("SELECT 1 FROM messages WHERE intake_id = ? AND automation_rule = 'story_topic_nudge'", i.id)) return false;
-      return !!sendAuto(i, 'story_topic_nudge', svc.fill(CLIENT_TEXTS.story_topic_nudge, i), { portal_hidden: true });
+      const nudge = textFor('story_topic_nudge', toneOf(i)); // v11 segment-server: بنبرة الطلب («غير محدد» = صيغة الجمع)
+      if (!nudge) return false;
+      return !!sendAuto(i, 'story_topic_nudge', svc.fill(nudge, i), { portal_hidden: true });
     },
 
     /**
@@ -551,8 +591,10 @@ export function createStories(app) {
       if (!(st.meaningfulLetters >= 25 || st.hasMedia)) return false;
       const claim = db.run('UPDATE intakes SET story_ack_sent_at = ? WHERE id = ? AND story_ack_sent_at IS NULL', nowIso(), i.id);
       if (claim.changes !== 1) return false;
-      let text = svc.fill(CLIENT_TEXTS.story_ack, i);
-      if (officeOpen() === false) text += svc.fill(CLIENT_TEXTS.story_ack_closed, i);
+      // v11 segment-server (S11 §10.2): بنبرة الطلب؛ «غير محدد» = story_ack_neutral (بلا أتعاب ولا «ببلاش»)
+      const tone = toneOf(i);
+      let text = svc.fill(textFor('story_ack', tone), i);
+      if (officeOpen() === false) text += svc.fill(textFor('story_ack_closed', tone), i);
       return !!sendAuto(i, 'story_ack', text);
     },
 
@@ -724,8 +766,10 @@ export function createStories(app) {
 
     // ───────────── الاقتراح (§6.2) ─────────────
     /** GET /api/admin/intakes/:id/proposal — الاقتراح ومسودة لكل مسار وتحذيرات وإجراء الاتصال */
-    proposal(intakeId) {
-      const i = requireRow(intakeId);
+    proposal(intakeId, { asSegment = null } = {}) {
+      // v11 segment-server (§5.6، P1): asSegment = المسودات كما لو كان الطلب «خيري» أو «أفراد وشركات» (لطلب «غير محدد»)
+      const i0 = requireRow(intakeId);
+      const i = asSegment ? { ...i0, segment: asSegment } : i0;
       const st = svc.storyText(i.id);
       const w = svc.words(i);
       const sug = app.ai.latestStory(i.id);
@@ -736,7 +780,9 @@ export function createStories(app) {
       const draft = out?.request_draft || {};
       const unconfirmed = isPortalUnverifiedIntake(i);
       const hint = i.client_id && app.engine?.channelHint ? app.engine.channelHint({ clientId: i.client_id, intakeId: i.id }) : { text: '', whatsapp: false, confirmed: false };
-      const inWindow = i.client_id ? app.engine.inWindow(i.client_id) : false;
+      // v11 segment-server (L11-50): نافذة الرقم الذي كتبت عليه في هذه القصة
+      const storyLine = i.client_id && app.segments ? app.segments.lineForStory({ clientId: i.client_id, intakeId: i.id }) : 'main';
+      const inWindow = i.client_id && storyLine ? app.engine.inWindow(i.client_id, storyLine) : false;
       const client = i.client_id ? app.clients.get(i.client_id) : null;
       const area = out?.legal_area || i.legal_area || topicByKey(i.topic)?.area || 'GEN';
       const title = draft.title || out?.title || i.title || '';
@@ -744,6 +790,7 @@ export function createStories(app) {
       const issues = (out?.suggested_issues || []).map((x) => ({ title: x.title, details: x.details ?? null, legal_area: x.legal_area || area, origin: 'ai' }));
       const fallbackBrief = `المطلوب: رأي مبدئي في: ${issues[0]?.title || title || 'المسألة'}، مع المستندات اللازمة والخطوات العملية للمستفيدة.`;
       const form = formOf(i);
+      const tone = toneOf(i); // v11 segment-server (L11-25): مسودات الرسائل بنبرة الطلب
       const internalBits = [draft.internal_note, form?.lines?.length ? `${STAFF_LINES_TITLE}: ${form.lines.join(' · ')}` : null].filter(Boolean);
       const caseDraft = {
         legal_area: area,
@@ -759,7 +806,9 @@ export function createStories(app) {
       };
       const m = recommended === 'matter' && draft.matter ? draft.matter : { kind: 'litigation', court: null, opponent: null, next_hearing_text: null };
       // الرد على المستفيدة لكل مسار (معبأ مسبقًا بالاسم المسموح ورقم الطلب واسم المؤسسة وصيغة المخاطبة)
-      const referrals = Array.isArray(setting('story_referrals')) ? setting('story_referrals') : [];
+      const allReferrals = Array.isArray(setting('story_referrals')) ? setting('story_referrals') : [];
+      // v11 segment-server (S11 §4): دليل التوجيه للخيري افتراضيًا (segments:['charity'])؛ الأفراد والشركات يرون ما عُلّم لهم فقط
+      const referrals = tone === 'charity' ? allReferrals : allReferrals.filter((r) => Array.isArray(r?.segments) && r.segments.includes('paid'));
       let internalReply = null;
       let internalSource = null;
       let internalTitle = null;
@@ -778,10 +827,14 @@ export function createStories(app) {
         referReply = svc.fill(referrals[0].reply || '', i);
         referSource = 'referral_directory';
       }
-      const qs = (recommended === 'need_info' && draft.questions_for_her?.length ? draft.questions_for_her : questionsFor(area)).slice(0, 3).map((q) => genderize(q, w.form));
+      if (!referReply && tone !== 'charity') {
+        referReply = svc.fill(textFor('story_refer_generic', tone), i);
+        referSource = 'paid_generic';
+      }
+      const qs = (recommended === 'need_info' && draft.questions_for_her?.length ? draft.questions_for_her : tone === 'charity' ? questionsFor(area) : paidQuestionsFor(area)).slice(0, 3).map((q) => genderize(q, w.form));
       const numbered = qs.map((q, k) => `${k + 1}. ${q}`).join('\n');
       const drafts = {
-        consultation: { case: caseDraft, reply: { send: true, text: svc.fill(CLIENT_TEXTS.story_accepted, i) } },
+        consultation: { case: caseDraft, reply: { send: true, text: svc.fill(textFor('story_accepted', tone), i) } },
         matter: {
           case: caseDraft,
           matter: {
@@ -794,7 +847,7 @@ export function createStories(app) {
             responsible_lawyer_id: null,
             notes: [draft.brief_for_lawyer || fallbackBrief, m.next_hearing_text].filter(Boolean).join('\n'),
           },
-          reply: { send: true, text: svc.fill(CLIENT_TEXTS.story_accepted_matter, i) },
+          reply: { send: true, text: svc.fill(textFor('story_accepted_matter', tone), i) },
         },
         internal: {
           legal_area: area,
@@ -806,7 +859,7 @@ export function createStories(app) {
           resolution_note: (recommended === 'refer' && draft.resolution_note) || (referTarget ? `وُجّهت إلى: ${referTarget}` : ''),
           reply: { send: true, text: referReply || svc.fill('{hello}،\n\n— {org_name}', i), source: referSource },
         },
-        need_info: { questions: qs, reply: { send: true, text: svc.fill(CLIENT_TEXTS.story_questions, i, { questions: numbered }) } },
+        need_info: { questions: qs, reply: { send: true, text: svc.fill(textFor('story_questions', tone), i, { questions: numbered }) } },
       };
       // التحذيرات
       const warnings = [];
@@ -836,6 +889,10 @@ export function createStories(app) {
       if (!w.org_phone && /\{org_phone\}/.test(drafts.refer.reply.text)) add('no_org_phone', 'رقم المؤسسة غير مضبوط في الإعدادات، فرسالة التوجيه فيها متغير ناقص.');
       const other = i.client_id ? svc.otherOpen(i) : null;
       if (other) add('other_open_request', `${male ? 'له' : 'لها'} طلب آخر مفتوح (${other.code}) — راجعوا أو ادمجوا قبل القرار.`);
+      // v11 segment-server (§5.6، r2 S14): نوع الخدمة قبل القرار، وتنبيه الاستحقاق لطلب «خيري» بلا بيانات أسرة
+      if (i.segment === null) add('segment_unset', 'نوع الخدمة غير محدد — اختاروه قبل القرار.');
+      const eligibilityWarning =
+        i.segment === 'charity' && !!i.client_id && !db.get('SELECT 1 FROM beneficiary_profiles WHERE client_id = ?', i.client_id) && !db.get('SELECT 1 FROM beneficiary_submissions WHERE intake_id = ?', i.id);
       // [بوابة 9.2 G5] آخر ما وصل في قصتها مكالمة سجلتها الإدارة: كلّمناها بالفعل، فالخطوة التالية القرار نفسه (لا «اتصل بها» مرة أخرى)
       const lastIn = db.get("SELECT id, meta FROM messages WHERE intake_id = ? AND direction = 'in' ORDER BY id DESC LIMIT 1", i.id);
       const lastCallNoteId = lastIn && parseJson(lastIn.meta, {}).call_note ? lastIn.id : null;
@@ -880,6 +937,17 @@ export function createStories(app) {
           last_call_note_id: lastCallNoteId,
         },
         call_attempts: svc.attempts(i.id),
+        // v11 segment-server (§5.6، L11-61): نوع الخدمة والنبرة والرقم الذي سيُرسل منه
+        segment: i.segment ?? null,
+        tone: app.segments ? app.segments.tone(i) : 'charity',
+        segment_required: i.segment === null,
+        send_line: i.client_id && app.segments ? app.segments.sendLine({ clientId: i.client_id, intakeId: i.id }) : null,
+        eligibility_warning: eligibilityWarning,
+        eligibility_text: eligibilityWarning ? 'لم تُسجَّل بيانات الأسرة — تأكدوا من الاستحقاق' : null,
+        // P1: لطلب «غير محدد» مسودات الرسائل بالنبرتين، فتتبدل المسودة حين تختار الإدارة نوع الخدمة في نفس الورقة
+        ...(i.segment === null && !asSegment
+          ? { drafts_by_tone: { charity: svc.proposal(intakeId, { asSegment: 'charity' }).drafts, paid: svc.proposal(intakeId, { asSegment: 'paid' }).drafts } }
+          : {}),
       };
     },
 
@@ -901,6 +969,9 @@ export function createStories(app) {
       if (i0.status === 'converted') throw conflict('هذا الطلب تحول بالفعل إلى ملف', { case_id: i0.case_id });
       if (!OPEN.includes(i0.status)) throw conflict('تم البت في هذا الطلب بالفعل');
       if (!i0.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
+      // v11 segment-server (§5.6): نوع الخدمة قبل أي قرار — «غير محدد» بلا اختيار ← 409، واختيار مختلف = تغيير مسجل
+      const segWanted = app.intakes.segmentParam(body.segment);
+      if (i0.segment === null && !segWanted) throw new ApiError(409, 'اختاروا نوع الخدمة أولًا.', 'segment_required', { hint: app.segments?.hintOf?.(i0) ?? null });
       // [مراجعة 9.2] رقم المراجعة إلزامي (إلا مع «متابعة رغم ذلك»): بدونه تسقط مقارنة «وصلت رسائل جديدة بعد فتح الاقتراح»
       const revSeen = body.story_rev === undefined || body.story_rev === null ? (force ? Number(i0.story_rev) : v.int(null, 'رقم مراجعة القصة', { required: true, min: 0 })) : v.int(body.story_rev, 'رقم مراجعة القصة', { min: 0 });
       const suggestionId = body.suggestion_id ? v.int(body.suggestion_id, 'الاقتراح', { min: 1 }) : null;
@@ -930,7 +1001,9 @@ export function createStories(app) {
         questions = raw.map((q) => (typeof q === 'string' ? q.trim() : '')).filter(Boolean);
         if (!questions.length || questions.length > 3 || raw.length > 3) throw badRequest('اكتب من سؤال إلى ثلاثة أسئلة');
         questions = questions.map((q, k) => v.str(q, `السؤال ${k + 1}`, { required: true, max: 300 }));
-        if (!text) text = svc.fill(CLIENT_TEXTS.story_questions, i0, { questions: questions.map((q, k) => `${k + 1}. ${q}`).join('\n') });
+        // v11 segment-server: بنبرة نوع الخدمة المختار في نفس القرار (أو نوع الطلب)
+        const iT = segWanted && segWanted !== i0.segment ? { ...i0, segment: segWanted } : i0;
+        if (!text) text = svc.fill(textFor('story_questions', toneOf(iT)), iT, { questions: questions.map((q, k) => `${k + 1}. ${q}`).join('\n') });
       }
       if (wantsMessage) {
         const left = [...new Set([...String(text).matchAll(/\{(\w+)\}/g)].map((x) => x[1]).filter((k) => `{${k}}` !== PORTAL_LINK_VAR))];
@@ -998,6 +1071,8 @@ export function createStories(app) {
           throw new ApiError(409, 'وصلت رسائل جديدة من المستفيدة بعد فتح الاقتراح. راجعها ثم حاول مرة أخرى، أو تابع رغم ذلك.', 'story_changed', { current_rev: Number(now.story_rev) || 0 });
         }
         const revNow = Number(db.value('SELECT story_rev FROM intakes WHERE id = ?', i0.id)) || 0;
+        // v11 segment-server: الاختيار يُسجل قبل المسار (نفس المعاملة)؛ «عند اعتماد القرار» سبب التغيير من قيمة محددة
+        if (segWanted && segWanted !== i0.segment) app.segments.setIntake(i0.id, segWanted, { actor, reason: i0.segment === null ? undefined : 'عند اعتماد القرار', via: 'accept' });
         let kase = null;
         let matter = null;
         if (track === 'consultation' || track === 'matter') {
@@ -1259,6 +1334,11 @@ export function createStories(app) {
           story_rev: factualCount,
           last_message_at: msgs[msgs.length - 1].created_at,
           last_inbound_at: msgs[msgs.length - 1].created_at,
+          // v11 segment-server (L11-41): نوع خدمة الملف أو الطلب الأصلي، مصدره «من الطلب أو الملف الأصلي»
+          segment: srcCase ? (srcCase.company_id ? 'paid' : srcCase.segment || 'charity') : srcIntake ? srcIntake.segment : 'charity',
+          segment_source: 'reference',
+          segment_set_at: t,
+          wa_line: first.channel === 'whatsapp' ? first.wa_line || 'main' : null,
           created_at: t,
           updated_at: t,
         });

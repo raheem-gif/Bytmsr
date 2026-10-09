@@ -24,18 +24,17 @@
   gap: 2px;
 }
 
+/* v11 visual (V11-46 للمحامي): التاريخ سطر هادئ فوق عنوان كبير */
 .lh-date {
   margin: 0;
-  font-size: 14px;
-  color: var(--text-muted);
+  font: var(--t-subhead);
+  color: var(--label-2);
 }
 
 .lh-h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--gray-900);
+  font: var(--t-large);
+  color: var(--label);
 }
 
 .lh-h1:focus {
@@ -47,11 +46,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--warning-100);
-  color: var(--warning-700);
-  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: var(--r-14);
+  background: var(--warn-weak);
+  color: var(--warn);
+  font-size: 15px;
   font-weight: 500;
 }
 
@@ -62,11 +61,10 @@
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  color: var(--link, var(--primary-700));
+  color: var(--tint);
   font: inherit;
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -94,10 +92,10 @@
 
 .lh-card-title {
   margin: 0;
-  padding: 12px 16px 4px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--gray-800);
+  padding: 14px 16px 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
 }
 
 .lh-rows {
@@ -144,7 +142,7 @@
 }
 
 .lh-row-main:hover {
-  background: var(--gray-50);
+  background: var(--fill-1);
 }
 
 .lh-row-main:focus-visible {
@@ -159,9 +157,9 @@
   flex: 0 0 auto;
 }
 
-.lh-dot-red { background: var(--danger-600); }
-.lh-dot-amber { background: var(--warning-500); }
-.lh-dot-teal { background: var(--primary-500); }
+.lh-dot-red { background: var(--bad); }
+.lh-dot-amber { background: var(--warn); }
+.lh-dot-teal { background: var(--ok); }
 
 .lh-row-text,
 .lh-line-text {
@@ -174,10 +172,8 @@
 
 .lh-row-title,
 .lh-line-title {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: var(--gray-900);
+  font: var(--t-headline);
+  color: var(--label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -188,9 +184,8 @@
   flex-wrap: wrap;
   align-items: baseline;
   min-width: 0;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--text-muted);
+  font: var(--t-subhead);
+  color: var(--label-2);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -223,7 +218,7 @@
 }
 
 .lh-chev {
-  color: var(--gray-400);
+  color: var(--label-3);
   flex: 0 0 auto;
   display: inline-grid;
 }
@@ -279,11 +274,12 @@
   gap: 4px;
 }
 
+/* v11 visual (V11-12): عنوان القسم خارج القائمة المجمّعة، والقائمة سطح أبيض بلا حدود */
 .lh-section-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--gray-700);
+  padding-inline: 4px;
+  font: var(--t-title3);
+  color: var(--label);
 }
 
 .lh-list {
@@ -291,8 +287,9 @@
   margin: 0;
   padding: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-20);
+  box-shadow: var(--e-1);
+  overflow: hidden;
 }
 
 .lh-list > li + li {
@@ -310,12 +307,12 @@
 }
 
 .lh-line .lh-line-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
 }
 
 .lh-line:hover {
-  background: var(--gray-50);
+  background: var(--fill-1);
 }
 
 .lh-status-word {
@@ -344,11 +341,11 @@
   align-items: center;
   gap: 10px;
   min-height: 52px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  border-radius: var(--r-20);
   background: var(--surface);
-  color: var(--gray-900);
+  box-shadow: var(--e-1);
+  color: var(--label);
   font-weight: 600;
   text-decoration: none;
 }
@@ -708,11 +705,10 @@
     z-index: 40;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    height: calc(54px + env(safe-area-inset-bottom, 0px));
     padding-block-end: env(safe-area-inset-bottom, 0px);
     background: rgba(255, 255, 255, 0.97);
-    border-block-start: 1px solid var(--border);
-    box-shadow: 0 -4px 16px rgb(var(--primary-900-rgb) / 0.06);
+    border-block-start: 1px solid var(--separator);
   }
 
   .is-lawyer .lh-tab {
@@ -722,15 +718,21 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    min-height: 56px;
+    min-height: 54px;
     border: 0;
     background: none;
-    color: var(--gray-600);
+    color: var(--label-2);
     font: inherit;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+  }
+
+  /* v11 visual (V11-16): أيقونات 25 بخط 1.75، والمختار بلون الفعل وحده (بلا شريط تحته) */
+  .is-lawyer .lh-tab .icon {
+    width: 25px;
+    height: 25px;
   }
 
   .is-lawyer .lh-tab-icon {
@@ -739,17 +741,7 @@
   }
 
   .is-lawyer .lh-tab.is-active {
-    color: var(--primary-700);
-  }
-
-  .is-lawyer .lh-tab.is-active .lh-tab-icon::after {
-    content: '';
-    position: absolute;
-    inset-inline: -10px;
-    inset-block-end: -4px;
-    height: 3px;
-    border-radius: 3px;
-    background: var(--primary-700);
+    color: var(--tint);
   }
 
   .is-lawyer .content {

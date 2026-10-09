@@ -195,7 +195,8 @@ export function coUsageMeter(quota, { showPrices = false, policy, price, hasMana
   const pending = newRequest && !atLimit && used + (Number(quota.pending) || 0) + 1 > included;
   return h(
     'div.co-meter',
-    h('p.co-meter-line.num', copy('usage.used', { used, included, date: dayText(quota.cycle_end) })),
+    // v11 visual (V11-44): النص نفسه، والعدد المستخدم كبير (b.co-meter-big)
+    h('p.co-meter-line.num', copyParts('usage.used', { used: h('b.co-meter-big', String(used)), included, date: dayText(quota.cycle_end) })),
     h(
       'div.progress',
       { class: `tone-${tone}`, role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': included, 'aria-valuenow': Math.min(used, included), 'aria-label': W.usage.meter_label },

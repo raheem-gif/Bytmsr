@@ -420,7 +420,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}">\\s*<a class="pub-tile-link" href="([^"]+)"`).exec(html);
       assert.ok(m, s.key);
-      assert.equal(m[1], `/intake?topic=${s.topic}`); // v9.2 (تغيير مقصود): روابط بالموضوع لا بالمجال
+      assert.equal(m[1], `/intake?seg=charity&topic=${s.topic}`); // v9.2 (تغيير مقصود): روابط بالموضوع لا بالمجال — v11 gate-public (intended, L11-52): + seg=charity
       assert.ok(html.includes(s.example), s.key);
     }
     // لا شيء غير تفاعلي بشكل زر أو شريحة
@@ -434,7 +434,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   });
 
   test('FAQ: exactly the 5 visible questions in JSON-LD, answers ≤ 40 words; WhatsApp words only when a number exists', async () => {
-    const html = await get('/');
+    const html = await get('/khayri'); // v11 gate-public (intended): the charity FAQPage JSON-LD lives on /khayri (the gated / carries Organization only)
     const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)[1]);
     const faq = ld['@graph'].find((n) => n['@type'] === 'FAQPage');
     assert.equal(FAQ.length, 5);
@@ -447,7 +447,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
 
     const noWa = await startTestApp({ config: NO_WA });
     try {
-      const h2 = (await noWa.client().get('/')).body;
+      const h2 = (await noWa.client().get('/khayri')).body; // v11 gate-public (intended): charity FAQPage on /khayri
       assert.ok(!h2.includes('wa.me'));
       const how = /<ol class="pub-how">[\s\S]*?<\/ol>/.exec(h2)[0];
       const contact = /<section id="contact"[\s\S]*?<\/section>/.exec(h2)[0];

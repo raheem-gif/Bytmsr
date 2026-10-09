@@ -4,7 +4,7 @@
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { getMeta, count } from '../../lib/fmt.js';
-import { icon, button, field, wordmark, alertBox, toast, uid, setBusy } from '../../lib/ui.js';
+import { icon, button, field, brandLockup, alertBox, toast, uid, setBusy } from '../../lib/ui.js';
 import { copy, countOf } from '../../lib/company-ui-core.js';
 import { W } from '../words-flows.js';
 
@@ -44,13 +44,14 @@ export function authLayout(...content) {
     'div.co-auth',
     h(
       'aside.co-auth-panel',
-      h('div.co-auth-panel-in', wordmark({ size: 'lg', tone: 'dark' }), h('p.co-auth-promise', { lang: 'en', dir: 'ltr' }, W.brand.tagline_en), h('ul.co-auth-lines', [W.login.line1, W.login.line2, W.login.line3].map((t) => h('li', icon('check', { size: 18 }), h('span', t))))),
+      // v11 visual (V11-04): الشعار الذهبي الفاتح على أرضية الشعار الغامقة (الحاسوب)، والذهبي الغامق على الأبيض (الهاتف)
+      h('div.co-auth-panel-in', brandLockup({ tone: 'bright', width: 280 }), h('p.co-auth-promise', { lang: 'en', dir: 'ltr' }, W.brand.tagline_en), h('ul.co-auth-lines', [W.login.line1, W.login.line2, W.login.line3].map((t) => h('li', icon('check', { size: 18 }), h('span', t))))),
     ),
     h(
       'main.co-auth-main',
       h(
         'div.co-auth-card',
-        h('div.co-auth-brand', h('span.co-auth-mark', { 'aria-hidden': 'true' }, icon('scale', { size: 28 })), wordmark({ size: 'lg', tone: 'light' }), h('p.co-auth-promise', { lang: 'en', dir: 'ltr' }, W.brand.tagline_en), h('p.co-auth-portal', W.brand.portal)),
+        h('div.co-auth-brand', brandLockup({ width: 220 }), h('p.co-auth-promise', { lang: 'en', dir: 'ltr' }, W.brand.tagline_en), h('p.co-auth-portal', W.brand.portal)),
         ...content,
       ),
     ),

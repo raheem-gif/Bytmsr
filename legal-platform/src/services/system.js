@@ -221,6 +221,15 @@ const INTEGRATION_RULES = {
           ? 'هذا رقم توضيحي وليس رقم واتساب المؤسسة؛ اكتب الرقم الفعلي مثل 201211114662'
           : null,
     api_version: (s) => (/^v\d{1,2}\.\d$/.test(s) ? null : 'إصدار Graph API يُكتب بالصيغة v21.0'),
+    // v11 segment-server (§5.4): وضع الرقم الأساسي ورقم الأفراد والشركات (التحقق المترابط في app.segments.checkWhatsAppSave)
+    segment: (s) => (['charity', 'shared'].includes(s) ? null : 'اختر ما يخدمه الرقم الأساسي من القائمة'),
+    paid_phone_number_id: (s) => (/^\d{5,30}$/.test(s) ? null : 'معرّف رقم الأفراد والشركات (Phone Number ID) أرقام فقط'),
+    paid_number: (s) =>
+      !/^\d{8,15}$/.test(s)
+        ? 'رقم واتساب الأفراد والشركات غير صالح، اكتبه بالصيغة الدولية مثل 201211114663'
+        : isPlaceholderWhatsApp(s)
+          ? 'هذا رقم توضيحي وليس رقم واتساب الأفراد والشركات'
+          : null,
   },
   anthropic: {
     api_key: (s) => (/^sk-ant-[A-Za-z0-9_-]{10,300}$/.test(s) ? null : 'مفتاح Anthropic غير صالح: يبدأ بـ sk-ant- كما يظهر في console.anthropic.com'),
@@ -247,11 +256,12 @@ const INTEGRATION_RULES = {
 
 function normalizeIntegrationValue(name, key, raw) {
   let s = latinDigits(String(raw)).trim();
-  if (name === 'whatsapp' && key === 'number') {
+  if (name === 'whatsapp' && (key === 'number' || key === 'paid_number')) {
     const p = normalizePhone(s);
     s = p ? p.replace(/^\+/, '') : s.replace(/\D/g, '');
   }
-  if (name === 'whatsapp' && (key === 'phone_number_id' || key === 'waba_id')) s = s.replace(/\s/g, '');
+  if (name === 'whatsapp' && (key === 'phone_number_id' || key === 'waba_id' || key === 'paid_phone_number_id')) s = s.replace(/\s/g, '');
+  if (name === 'whatsapp' && key === 'segment') s = s.toLowerCase(); // v11 segment-server
   if (name === 'anthropic' && (key === 'effort' || key === 'provider')) s = s.toLowerCase();
   if (name === 'anthropic' && key === 'monthly_budget_usd') s = String(Number(s));
   if (name === 'email' && key === 'smtp_password') s = String(raw); // v10 b2b-server: كلمة المرور كما كُتبت
@@ -573,6 +583,8 @@ export function createSystem(app) {
       item.runtime = { live, state: st2.state, label: st2.label };
       item.app_secret_set = !!eff.app_secret;
       item.verify_token_set = !!eff.verify_token;
+      // v11 segment-server [r2 S4]: رقم الأفراد والشركات يظهر للعامة فقط بعد التحقق منه في «اختبار الاتصال»
+      item.paid_verified_at = app.segments?.paidVerifiedAt?.() || null;
     } else {
       const ai = app.ai?.status?.() || {};
       item.runtime = { live: ai.provider === 'anthropic', label: ai.label || '', provider: ai.provider || null, model: ai.model || null };
@@ -1126,10 +1138,16 @@ export function createSystem(app) {
 
     saveIntegration(name, body, actor, ctx) {
       if (!INTEGRATION_SPEC[name]) throw notFound('التكامل غير معروف');
-      const raw = body && body.values && typeof body.values === 'object' ? body.values : body;
+      let raw = body && body.values && typeof body.values === 'object' ? body.values : body;
+      // v11 segment-server [r2 S3]: «confirm» تأكيد تغيير وضع الرقم الأساسي، وليس حقلًا من حقول التكامل
+      const confirm = body?.confirm === true;
+      if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'confirm' in raw && !INTEGRATION_SPEC[name].fields.confirm) {
+        const { confirm: _c, ...rest } = raw;
+        raw = rest;
+      }
       const patch = cleanIntegrationPatch(name, raw, { allowClear: true });
       if (!Object.keys(patch).length) throw badRequest('لم تُرسل أي قيم لتحديثها');
-      app.integrations.set(name, patch, actor, ctx);
+      app.integrations.set(name, patch, actor, ctx, { confirm });
       if (name === 'email') app.audit?.log({ actor, ctx, type: 'email.settings_updated', severity: 'warning', summary: 'تحديث إعدادات البريد الإلكتروني', data: { fields: Object.keys(patch) } }); // v10 b2b-server
       const item = integrationItem(name);
       const spec = INTEGRATION_SPEC[name].fields;
@@ -1323,6 +1341,8 @@ export function createSystem(app) {
       // v9.2 «ألوان المؤسسة»: المستوى ok في الحالتين (لا يؤثر في جاهزية الإطلاق)؛ السطر التالي لبند story_ack (H-A2)
       const brandItem = app.brand?.readiness?.() || { title: 'ألوان المؤسسة: الألوان الأصلية للمنصة', detail: '', href: '#/settings?section=brand' };
       add('brand', 'ok', brandItem.title, brandItem.detail, brandItem.href);
+      // v11 segment-server [r2 S4/S9/S15]: رقم الأفراد والشركات، أرقام غير مضبوطة، قوالب الأفراد والشركات
+      for (const it of app.segments?.readiness?.() || []) add(it.key, it.level, it.title, it.detail, it.href);
       // v9.2 [R2-B21] (H-A2): «وصلتنا حكايتك» متوقفة افتراضيًا؛ تحذير فقط حين يكون واتساب متصلًا فعلًا
       add(
         'story_ack',

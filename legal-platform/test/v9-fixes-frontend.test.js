@@ -119,6 +119,8 @@ describe('v9 frontend fixes — terminology', () => {
   const V10_CLIENT_WORDS = [/اسم المكتب كما يراه العملاء/, /^'الشركات العميلة'$/, /^'مثل: بيانات عملاء، أسعار، خطط منتج\.'$/]; // v10: +2 company spec strings (audit group «الشركات العميلة», nda hint) (intended)
   V10_CLIENT_WORDS.push(/^'شركة عميلة'$/, /^'كل طلبات الشركات العميلة مرتبة حسب أقرب موعد\.'$/); // v10: +2 b2b-staff spec strings (route title STF-0, queue subtitle U10-S04) (intended)
   V10_CLIENT_WORDS.push(/^`هذا حساب داخلي لشركة عميلة — \$\{co\.name\}`$/); // v10: +1 b2b-staff spec string (shadow client, STF-10) (intended)
+  // v11 segment-staff (intended): exact v11 spec strings (§10.1/§10.2, S11-39, r2 P5) where «العميل» is the paying client of «أفراد وشركات»
+  V10_CLIENT_WORDS.push(/^'لن يُطلب أي مبلغ إلا بموافقة صريحة من العميل على صفحة طلبه\.'$/, /^'لم يوافق العميل على الأتعاب بعد'$/, /^'إرسال رسالة للعميل'$/, /^'إرسال للعميل للموافقة'$/, /^'إضافة كشركة عميلة'$/);
   test('no visible «عميل/عملاء» string anywhere in the SPA, the public scripts or the public HTML', () => {
     const hits = [];
     for (const f of walk(JS)) {

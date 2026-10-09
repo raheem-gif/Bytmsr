@@ -101,7 +101,7 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.match(html, /class="pub-header"/);
     assert.match(html, /class="pub-footer"/);
     // v9.1 b-portal (تغيير مقصود، B91-02): نفس قالب الموقع مع فئات الصفحة الجديدة
-    assert.match(html, /<body class="site pub v91 bp-portal">/);
+    assert.match(html, /<body class="site pub v91 bp-portal" data-side="(?:charity|paid)">/); // v11 gate-public (intended, GP-2): body[data-side] on every public page
     assert.match(html, /<meta name="robots" content="noindex, nofollow" \/>/);
     assert.equal((html.match(/<meta name="robots"/g) || []).length, 1, 'a single robots tag');
     assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);

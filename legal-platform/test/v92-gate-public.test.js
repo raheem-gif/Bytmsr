@@ -191,10 +191,13 @@ describe('v9.2 gate (K2) — text on the legal-page hero is a contract pair for 
   };
 
   test('.pub-updated is white (T1 on p700, darker below), the breadcrumb text is ≥ 90% white', () => {
-    assert.match(rule('.pub-updated'), /color: #fff !important;/);
+    // v11 visual (intended, L11-48 stronger value): the legal-page hero is a large title on the white canvas now, so «آخر تحديث»
+    // and the breadcrumb are secondary text (--label-2 #5a625e on #fff = 6.0:1, independent of the foundation colours) — never gold
+    assert.match(rule('.pub-updated'), /color: var\(--label-2\) !important;/);
     assert.doesNotMatch(rule('.pub-updated'), /gold|accent/);
-    assert.match(rule('.pub-crumbs'), /color: rgba\(255, 255, 255, 0\.9\);/);
-    assert.match(rule('.pub-page-hero'), /linear-gradient\(165deg, var\(--pub-teal\) 0%, var\(--pub-teal-deep\) 100%\)/);
+    assert.match(rule('.pub-crumbs'), /color: var\(--label-2\);/);
+    assert.doesNotMatch(rule('.pub-page-hero'), /background/);
+    assert.ok(B.contrast('#5a625e', '#ffffff') >= 4.5);
   });
 
   test('hostile and common brand pairs: white and 90% white stay ≥ 4.5:1 on p700…p900; the old accent-300 did not', () => {
@@ -285,6 +288,9 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
       assert.ok(!header.includes('تابعي'), 'no feminine verb in the home header');
       const privacy = (await t.client().get('/privacy')).body;
       assert.match(/<header class="pub-header"[\s\S]*?<\/header>/.exec(privacy)[0], /<span>تابعي طلبك<\/span>/);
+      // v11 gate-public (intended, L11-14): the side pill is on the homes and legal pages, never on the task pages
+      assert.ok(header.includes('class="pub-seg-pill pub-seg-pill--charity"'), 'pill on the home');
+      for (const p of ['/intake', '/intake?seg=paid', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345']) assert.ok(!(await t.client().get(p)).body.includes('pub-seg-pill'), `no pill on ${p}`);
     } finally {
       await t.close();
     }

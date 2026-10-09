@@ -118,7 +118,8 @@ export function mountShell(root, { onLogout } = {}) {
     'a.co-brand',
     { href: '#/overview' },
     h('span.co-brand-phone', brandMark({ size: 20 }), brandEl({ short: true })),
-    h('span.co-brand-desk', wordmark({ size: 'md', tone: 'light', descriptor: W.brand.tagline_ar })),
+    // v11 visual (V11-44): علامة الشعار الخضراء + «إدارتكم القانونية»؛ الاسم النصي يبقى لقارئ الشاشة (والنص وحده إن أُطفئ شعار المكتب)
+    h('span.co-brand-desk', brandMark({ size: 22 }), wordmark({ size: 'md', tone: 'light', descriptor: W.brand.tagline_ar })),
   );
   const companyLine = h('span.co-chrome-company');
   const bellBadge = h('span.co-bell-badge.num', { hidden: true });

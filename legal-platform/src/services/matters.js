@@ -88,6 +88,7 @@ export function createMatters(app) {
           opponent: v.str(body.opponent, 'الخصم', { max: 200 }),
           agreed_fee_minor: v.money(body.agreed_fee, 'الأتعاب المتفق عليها مع العميل'),
           notes: v.str(body.notes, 'ملاحظات وتكليف المحامي', { max: 10000 }),
+          segment: c.company_id ? 'paid' : c.segment || 'charity', // v11 segment-server: الملف المستمر يتبع ملفه
           opened_at: t,
           created_by: actor.id,
           updated_at: t,
@@ -139,9 +140,16 @@ export function createMatters(app) {
       return m;
     },
 
-    list({ status, q, lawyer_id } = {}) {
+    list({ status, q, lawyer_id, segment, line } = {}) {
       const where = ['1=1'];
       const params = [];
+      // v11 segment-server (§5.6): مرشح نوع الخدمة (الملف المستمر يتبع ملفه) ومرشح الأفراد/الشركات
+      if (segment === 'charity' || segment === 'paid') {
+        where.push('m.segment = ?');
+        params.push(segment);
+      }
+      if (line === 'b2c') where.push('c.company_id IS NULL');
+      else if (line === 'b2b') where.push('c.company_id IS NOT NULL');
       if (status && ENUMS.matter_status.includes(status)) {
         where.push('m.status = ?');
         params.push(status);
@@ -180,6 +188,18 @@ export function createMatters(app) {
       return {
         matter: { ...m, agreed_fee: fromMinor(m.agreed_fee_minor) },
         client: client ? { id: client.id, code: client.code, name: client.name, phone: app.clients.primaryPhone(client.id) } : null,
+        // v11 segment-server (§5.6): الملف المستمر يتبع ملفه — لا تغيير من هنا
+        ...(app.segments
+          ? (() => {
+              const kase = db.get('SELECT * FROM cases WHERE id = ?', m.case_id);
+              const blk = kase ? app.segments.caseBlock(kase) : null;
+              return {
+                segment: blk ? { ...blk, can_change: false, block: 'follows_case', change_message: null } : null,
+                tone: kase ? app.segments.tone(kase) : 'charity',
+                send_line: app.segments.sendLine({ clientId: m.client_id, caseId: m.case_id, matterId: m.id }),
+              };
+            })()
+          : {}),
         // v9.1 b-site (B91-01): أين تصل رسائل هذا الملف؟ (تلميح صندوق الرد)
         reply_channel: app.engine?.channelHint ? app.engine.channelHint({ clientId: m.client_id, caseId: m.case_id, matterId: m.id }) : null,
         case: db.get('SELECT id, code, title, status, legal_area, created_at FROM cases WHERE id = ?', m.case_id), // created_at: v9.2 بوابة G6
@@ -466,6 +486,39 @@ export function createMatters(app) {
       const inv = db.get('SELECT * FROM invoices WHERE id = ?', id);
       app.activity.log({ matter_id: m.id, case_id: m.case_id, actor, type: 'invoice.created', summary: `أُصدرت الفاتورة ${inv.number} بمبلغ ${formatEgp(inv.amount_minor)}` });
       return invoiceView(inv);
+    },
+
+    /**
+     * v11 segment-server [r2 P5] (S11-32): أتعاب مقترحة على ملف الأفراد والشركات نفسه (matter_id NULL) — نفس تحقق
+     * addInvoice، وتصل صفحة متابعة العميل بزر الموافقة القائم (B91-18). ملف شركة ← تكاليفه في صفحة الشركة؛ ملف خيري ← لا أتعاب.
+     * لا تُنشأ فاتورة تلقائيًا أبدًا، ولا تذكير قبل موافقة العميل (قاعدة invoice_reminder كما هي).
+     */
+    addCaseInvoice(caseId, body, actor, ctx = null) {
+      const c = app.cases.require(caseId);
+      if (c.company_id) throw Object.assign(conflict('هذا ملف شركة؛ تكاليفه في «الباقة والتكاليف» بصفحة الشركة.'), { code: 'company_case_use_billing' });
+      if (c.segment !== 'paid') throw Object.assign(conflict('ملف خيري؛ الأتعاب للأفراد والشركات فقط.'), { code: 'charity_case_fee' });
+      if (c.status === 'closed') throw conflict('الملف مغلق؛ أعيدوا فتحه أولًا لإضافة أتعاب.');
+      const t = nowIso();
+      const description = body.description === undefined || body.description === null || String(body.description).trim() === '' ? 'أتعاب استشارة قانونية' : v.str(body.description, 'البيان', { required: true, max: 300 });
+      const amount = v.money(body.amount, 'المبلغ', { required: true, min: 0.01 });
+      const dueAt = v.iso(body.due_at, 'تاريخ الاستحقاق', { required: true });
+      const id = db.insert('invoices', {
+        number: nextInvoiceNumber(t),
+        client_id: c.client_id,
+        matter_id: null,
+        case_id: c.id,
+        description,
+        amount_minor: amount,
+        due_at: dueAt,
+        status: 'unpaid',
+        created_by: actor.id,
+        created_at: t,
+        updated_at: t,
+      });
+      const inv = db.get('SELECT * FROM invoices WHERE id = ?', id);
+      app.activity.log({ case_id: c.id, client_id: c.client_id, actor, type: 'invoice.created', summary: `أُصدرت أتعاب مقترحة ${inv.number} بمبلغ ${formatEgp(inv.amount_minor)} — بانتظار موافقة العميل`, data: { invoice_id: inv.id, case_fee: true } });
+      app.audit?.log({ actor, ctx, type: 'segment.case_fee', severity: 'info', summary: `أتعاب مقترحة ${inv.number} (${formatEgp(inv.amount_minor)}) على الملف ${c.code}`, data: { case_id: c.id, invoice_id: inv.id, amount: fromMinor(inv.amount_minor) } });
+      return { ...invoiceView(inv), agreed: false, fees: app.segments ? app.segments.caseFees(c) : null };
     },
 
     addPayment(invoiceId, body, actor) {

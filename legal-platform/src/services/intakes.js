@@ -1,6 +1,7 @@
 // صندوق الوارد الموحد: فرز الطلبات الواردة من كل القنوات، والرد، والتعامل الداخلي، والتحويل إلى ملف.
 import { nowIso, parseJson, badRequest, notFound, conflict, v } from '../util.js';
 import { addressForm } from '../util.js'; // v9.2 بوابة N6
+import { ApiError } from '../util.js'; // v11 segment-server
 import { LABELS, LEGAL_AREAS, AREA_CODES, ENUMS } from '../constants.js';
 import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
 // v9.2 (admin-ai): حالة القصة (SQL واحد) وترتيب الفرز واختيارات الموقع والمسار المقترح
@@ -24,7 +25,7 @@ export function createIntakes(app) {
       return i;
     },
 
-    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0, story, track, sort } = {}) {
+    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0, story, track, sort, segment } = {}) {
       const where = ['1=1'];
       const params = [];
       // شروط الفلاتر غير الحالة (تُستخدم أيضًا لحساب عدد كل حالة ضمن نفس الفلاتر)
@@ -71,6 +72,12 @@ export function createIntakes(app) {
         fWhere.push('i.ai_track = ?');
         fParams.push(track);
       }
+      // v11 segment-server (§5.6): أعداد نوع الخدمة للطلبات المفتوحة تحت بقية المرشحات (قبل مرشح النوع نفسه)
+      const segmentCounts = app.segments ? app.segments.counts(`${fWhere.join(' AND ')} AND i.status IN ('new','in_review','awaiting_client')`, fParams) : null;
+      if (segment === 'charity' || segment === 'paid') {
+        fWhere.push('i.segment = ?');
+        fParams.push(segment);
+      } else if (segment === 'unset') fWhere.push('i.segment IS NULL');
       where.push(...fWhere.slice(1));
       params.push(...fParams);
       // v9.2 [R2-A11]: حالة القصة من نفس تعريف SQL (لا يُعاد حسابها من نص الرسائل)
@@ -101,7 +108,9 @@ export function createIntakes(app) {
            (SELECT direction FROM messages m WHERE m.intake_id = i.id AND ${PREVIEW_SQL} ORDER BY m.id DESC LIMIT 1) AS last_direction,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id) AS messages_count,
            (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id) AS documents_count,
-           (SELECT COUNT(*) FROM intakes o WHERE o.client_id = i.client_id AND o.id != i.id) AS client_other_intakes
+           (SELECT COUNT(*) FROM intakes o WHERE o.client_id = i.client_id AND o.id != i.id) AS client_other_intakes,
+           (SELECT m.wa_line FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' AND m.channel = 'whatsapp' ORDER BY m.id DESC LIMIT 1) AS last_wa_line,
+           (SELECT json_extract(m.meta, '$.line_mismatch.line') FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' AND json_extract(m.meta, '$.line_mismatch') IS NOT NULL ORDER BY m.id DESC LIMIT 1) AS line_mismatch_line
          ${base}
          ORDER BY ${order}
          LIMIT ? OFFSET ?`,
@@ -130,6 +139,7 @@ export function createIntakes(app) {
         total,
         counts,
         story_counts: storyCounts,
+        segment_counts: segmentCounts, // v11 segment-server
         items: rows.map((r) => {
           // v9.2: آخر تحليل كامل، وإلا الملخص المبدئي أثناء كتابة القصة (preview)
           const ai = app.ai.latestStory ? app.ai.latestStory(r.id) : app.ai.latest('intake', r.id, 'intake_analysis');
@@ -184,6 +194,13 @@ export function createIntakes(app) {
             identity_unconfirmed: isPortalUnverifiedIntake(r),
             // [بوابة 9.2 N6] صيغة المخاطبة لنصوص الإدارة («اتصل به/بها»): لرقم غير مؤكد من الاسم الذي كتبه فقط
             address_form: isPortalUnverifiedIntake(r) ? addressForm({ name: r.contact_name }) : addressForm({ name: r.client_name || r.contact_name, address_form: r.client_address_form }),
+            // v11 segment-server (§5.6): نوع الخدمة لكل طلب (الشريحة/الشارة في الواجهة)
+            segment: r.segment ?? null,
+            segment_source: r.segment_source ?? null,
+            segment_hint: app.segments ? app.segments.hintOf(r) : null,
+            wa_line: r.last_wa_line || r.wa_line || null,
+            line_mismatch: r.line_mismatch_line ? { line: r.line_mismatch_line } : null,
+            requester_kind: parseJson(r.form_answers, {})?.requester?.kind === 'company' ? 'company' : null,
           };
         }),
       };
@@ -282,6 +299,14 @@ export function createIntakes(app) {
         case: i.case_id ? db.get('SELECT id, code, title, status FROM cases WHERE id = ?', i.case_id) : null,
         activity: app.activity.forIntake(i.id),
         staff: db.all("SELECT id, name, role FROM users WHERE role IN ('admin','case_manager') AND active = 1 ORDER BY name"),
+        // v11 segment-server (§5.6، L11-61): نوع الخدمة، والنبرة، والرقم الذي سيُرسل منه
+        ...(app.segments
+          ? {
+              segment: app.segments.intakeBlock(i),
+              tone: app.segments.tone(i),
+              send_line: i.client_id ? app.segments.sendLine({ clientId: i.client_id, intakeId: i.id }) : null,
+            }
+          : {}),
         // v9.2 (admin-ai): القصة واختيارات الموقع والاقتراح والرسائل الصوتية ومحاولات الاتصال
         ...(app.stories
           ? {
@@ -439,10 +464,14 @@ export function createIntakes(app) {
       if (i.status === 'converted') throw conflict('هذا الطلب تحول بالفعل إلى ملف', { case_id: i.case_id });
       if (!OPEN_STATUSES.includes(i.status)) throw conflict('أعد فتح الطلب أولًا قبل تحويله إلى ملف');
       if (!i.client_id) throw badRequest('لا يوجد عميل مرتبط بالطلب');
+      // v11 segment-server (§5.6): «غير محدد» بلا اختيار ← 409 segment_required، واختيار مختلف = تغيير مسجل («عند اعتماد القرار»)
+      const segWanted = svc.segmentParam(body.segment);
+      if (i.segment === null && !segWanted) throw new ApiError(409, 'اختاروا نوع الخدمة أولًا.', 'segment_required', { hint: app.segments?.hintOf?.(i) ?? null });
       const caseRow = db.tx(() => {
+        if (segWanted && segWanted !== i.segment) app.segments.setIntake(i.id, segWanted, { actor, reason: i.segment === null ? undefined : 'عند اعتماد القرار', via: 'accept' });
         svc.startTriage(i.id, actor);
         if (body.client) app.clients.update(i.client_id, body.client, actor);
-        const c = app.cases.createFromIntake(i, body, actor);
+        const c = app.cases.createFromIntake(db.get('SELECT * FROM intakes WHERE id = ?', i.id), body, actor);
         // ربط الملف الجديد ببرنامج تمويل اختاره الموظف عند التحويل (وحدة programs)
         if (body.program_id) app.programs.linkCase(c.id, body.program_id, actor, { force: true });
         db.update('intakes', i.id, {
@@ -491,7 +520,11 @@ export function createIntakes(app) {
       const email = v.email(body.email, 'البريد الإلكتروني', { required: channel === 'email' });
       const text = v.str(body.text, 'وصف الطلب', { required: true, max: 20000 });
       const source = v.oneOf(body.source, ENUMS.source, 'مصدر العميل') || 'unknown';
+      // v11 segment-server: نوع الخدمة من نموذج الإدارة (الواجهة تلزمه؛ بدونه «خيري» كما كان)، المصدر «سجلته الإدارة»
+      const segment = svc.segmentParam(body.segment) || 'charity';
       const r = app.engine.receive({
+        segment,
+        segment_source: 'manual',
         channel,
         from_phone: phone,
         from_email: email,
@@ -503,6 +536,13 @@ export function createIntakes(app) {
       });
       app.activity.log({ intake_id: r.intake.id, client_id: r.client.id, actor, type: 'intake.manual', summary: `سجّل ${actor.name} الطلب يدويًا (${LABELS.channel[channel]})` });
       return r.intake;
+    },
+
+    /** v11 segment-server: قيمة segment من طلب الإدارة (فارغ ← null؛ قيمة غير معروفة ← 400) */
+    segmentParam(raw) {
+      if (raw === undefined || raw === null || raw === '') return null;
+      if (raw !== 'charity' && raw !== 'paid') throw new ApiError(400, 'نوع الخدمة غير صالح.', 'bad_request', { fields: { segment: 'نوع الخدمة غير صالح.' } });
+      return raw;
     },
 
     /** دمج عميل الطلب مع عميل موجود (نفس الشخص من رقم آخر) */

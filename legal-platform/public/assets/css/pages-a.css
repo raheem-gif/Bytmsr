@@ -36,23 +36,26 @@
   }
 }
 
+/* v11 visual (V11-46): الشرح تحت العنوان الكبير سطر هامشي هادئ */
 .pa-principle {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  font-size: 13.5px;
-  color: var(--text-muted);
-  line-height: 1.7;
+  max-width: 80ch;
+  font: var(--t-footnote);
+  color: var(--label-2);
 }
 
 .pa-principle > .icon {
-  margin-block-start: 3px;
-  color: var(--primary-600);
+  margin-block-start: 2px;
+  flex: none;
+  color: var(--label-3);
 }
 
 .pa-principle strong {
-  color: var(--gray-800);
+  color: var(--label);
+  font-weight: 600;
 }
 
 .pa-note {
@@ -776,12 +779,13 @@
   gap: 8px;
 }
 
+/* v11 visual (V11-48): لوحة الذكاء الاصطناعي قائمة مجمّعة — كل كتلة صف: تسمية 13 ثم قيمة 17/600، وفاصل شعري */
 .pa-ai-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   padding-block-start: 12px;
-  border-block-start: 1px dashed var(--gray-200);
+  border-block-start: 1px solid var(--separator);
 }
 
 .pa-ai-block-head {
@@ -793,21 +797,18 @@
 }
 
 .pa-ai-h {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--gray-700);
+  font: var(--t-footnote);
+  color: var(--label-2);
 }
 
 .pa-ai-text {
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--gray-800);
+  font: var(--t-callout);
+  color: var(--label);
   overflow-wrap: anywhere;
 }
 
 .pa-ai-text.is-strong {
-  font-weight: 600;
-  color: var(--gray-900);
+  font: var(--t-headline);
 }
 
 .pa-ai-sub {
@@ -835,6 +836,7 @@
   margin-inline-start: 6px;
 }
 
+/* «صحيح / غير دقيق» مقطّع صغير: مسار fill-2 والمختار إبهام أبيض بلون معناه */
 .pa-fb {
   display: inline-flex;
   align-items: center;
@@ -842,21 +844,71 @@
   gap: 2px;
 }
 
-.pa-fb .btn.pa-fb-btn {
-  --btn-h: 28px;
-  padding-inline: 8px;
-  color: var(--gray-600);
-  font-weight: 600;
-}
+@media screen {
+  .pa-fb {
+    padding: 2px;
+    border-radius: var(--r-10);
+    background: var(--fill-2);
+  }
 
-.pa-fb .btn.pa-fb-btn.is-ok.is-on {
-  background: var(--success-100);
-  color: var(--success-700);
-}
+  .pa-fb .btn.pa-fb-btn {
+    --btn-h: 32px;
+    padding-inline: 10px;
+    border-radius: 8px;
+    color: var(--label-2);
+    font-weight: 600;
+  }
 
-.pa-fb .btn.pa-fb-btn.is-bad.is-on {
-  background: var(--danger-100);
-  color: var(--danger-700);
+  .pa-fb .btn.pa-fb-btn.is-on {
+    background: var(--surface);
+    box-shadow: 0 1px 3px var(--fill-3);
+  }
+
+  .pa-fb .btn.pa-fb-btn.is-ok.is-on {
+    color: var(--ok);
+  }
+
+  .pa-fb .btn.pa-fb-btn.is-bad.is-on {
+    color: var(--bad);
+  }
+
+  /* V11-48: تنبيه «رقم غير مؤكد» إشعار warn-weak مضغوط، وزره هادئ */
+  #pa-identity.pa-note {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 12px 16px;
+    border-radius: var(--r-14);
+    background: var(--warn-weak);
+    color: var(--label);
+    font: var(--t-subhead);
+  }
+
+  #pa-identity.pa-note > p {
+    flex: 1 1 320px;
+    margin: 0;
+  }
+
+  #pa-identity.pa-note > p > .icon {
+    color: var(--warn);
+  }
+
+  #pa-identity.pa-note .btn-group {
+    margin-inline-start: auto;
+  }
+
+  #pa-identity.pa-note .btn {
+    background: var(--surface);
+    color: var(--label);
+    border-color: transparent;
+  }
+
+  .page-meta .code-tag {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--label-2);
+  }
 }
 
 .pa-fb-status {
@@ -1168,6 +1220,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 6px 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -1189,7 +1242,7 @@
 }
 
 .pa-qnav-item.is-pending {
-  border-color: #f4dba6;
+  border-color: var(--warning-100);
   background: var(--warning-100);
   color: var(--warning-700);
 }

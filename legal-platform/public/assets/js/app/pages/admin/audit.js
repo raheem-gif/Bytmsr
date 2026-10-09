@@ -49,6 +49,7 @@ const GROUP_LABELS = {
   company: 'الشركات العميلة', // v10 b2b-server
   company_auth: 'دخول الشركات', // v10 b2b-server
   email: 'البريد الإلكتروني', // v10 b2b-server
+  segment: 'نوع الخدمة (خيري / أفراد وشركات)', // v11 segment-staff (ST-6): segment.changed و segment.case_fee؛ و integration.wa_mode_changed ضمن «التكاملات»
 };
 const FILTER_KEYS = ['q', 'type', 'severity', 'user_id', 'from', 'to'];
 
@@ -56,7 +57,7 @@ function severityBadge(sev) {
   return badge(label('security_severity', sev), SEVERITY_TONES[sev] || 'neutral', { dot: true });
 }
 
-function dataRows(data) {
+function dataRows(data, type = '') {
   if (!data || typeof data !== 'object') return [];
   const LABELS = {
     username: 'اسم المستخدم المُدخل',
@@ -85,7 +86,17 @@ function dataRows(data) {
     pledge_accepted_at: 'الإقرار بالتعهد بالسرية',
     filters: 'الفلاتر المطبقة',
     changes: 'التغييرات',
+    // v11 segment-staff (ST-6): segment.changed و segment.case_fee و integration.wa_mode_changed
+    entity: 'على',
+    code: 'الرقم',
+    reason_code: 'سبب جاهز',
+    hint_used: 'استُخدم الاقتراح',
+    via: 'من خلال',
+    affected_periods: 'الفترات المغلقة (لم تتغير)',
+    cancelled_invoices: 'فواتير أتعاب أُلغيت',
+    open: 'محادثات واتساب مفتوحة',
   };
+  const VIA = { staff: 'صفحة الطلب أو الملف', accept: 'اعتماد القرار', wa_choice: 'أزرار واتساب' };
   const REASONS = { password: 'كلمة مرور غير صحيحة', '2fa': 'رمز تحقق غير صحيح', unknown_user: 'اسم مستخدم غير موجود', inactive: 'حساب موقوف' };
   // أسماء الحقول والإعدادات بالعربية بدل مفاتيحها البرمجية
   const FIELD_NAMES = {
@@ -115,6 +126,12 @@ function dataRows(data) {
       );
     }
     if (k === 'role' || ((k === 'from' || k === 'to') && ['admin', 'case_manager', 'lawyer'].includes(v))) return label('user_role', v);
+    // v11 segment-staff: نوع الخدمة ووضع رقم واتساب بأسمائهما لا بمفاتيحهما
+    if ((k === 'from' || k === 'to') && type === 'integration.wa_mode_changed') return label('wa_segment_mode', v);
+    if ((k === 'from' || k === 'to' || k === 'segment_choice') && type.startsWith('segment.')) return v === 'charity' || v === 'paid' ? label('segment', v) : 'غير محدد';
+    if (k === 'entity' && (v === 'intake' || v === 'case')) return v === 'intake' ? 'طلب' : 'ملف';
+    if (k === 'reason_code') return label('segment_reason_codes', v);
+    if (k === 'via' && VIA[v]) return VIA[v];
     if (k === 'method') return { invite: 'دعوة', temporary_password: 'كلمة مرور مؤقتة', password: 'كلمة مرور' }[v] || label('auth_method', v);
     if (typeof v === 'boolean') return v ? 'نعم' : 'لا';
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return dateTime(v);
@@ -141,7 +158,7 @@ function openEvent(e) {
         ['المستخدم', e.actor_name ? `${e.actor_name}${e.actor_role ? ` — ${label('user_role', e.actor_role)}` : ''}` : 'زائر غير مسجل'],
         ['عنوان IP', e.ip ? ltr(e.ip) : null],
         ['الجهاز', e.device],
-        ...dataRows(e.data),
+        ...dataRows(e.data, e.type || ''),
       ]),
     ),
     actions: [{ label: 'إغلاق', variant: 'ghost' }],

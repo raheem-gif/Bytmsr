@@ -1,17 +1,17 @@
 // ألوان المؤسسة (v9.2، C92): توليد درجات الألوان من لونين مع ضمان تباين WCAG AA لكل زوج نص/خلفية تستخدمه أوراق الأنماط.
 // وحدة نقية بلا استيراد ولا DOM: يستوردها الخادم (src/brand.js) وصفحة الإعدادات (المعاينة الحية) فتتطابق النتيجة حرفيًا.
 
-// v10 experience (X10-C1): أخضر ملكي + ذهبي (كانا في 9.1/9.2 ‎#0f4c5c‎ و‎#b8862e‎)
-export const DEFAULT_PRIMARY = '#0b5a3c';
-export const DEFAULT_ACCENT = '#c9a14a';
+// v11 visual (V11-01): أخضر الشعار العميق + ذهبه (كانا في 10.0 ‎#0b5a3c‎ و‎#c9a14a‎، وفي 9.1/9.2 ‎#0f4c5c‎ و‎#b8862e‎)
+export const DEFAULT_PRIMARY = '#0b3d29';
+export const DEFAULT_ACCENT = '#cca454';
 export const PRIMARY_STEPS = [50, 100, 200, 300, 500, 600, 700, 800, 900];
 export const ACCENT_STEPS = [50, 100, 300, 400, 500, 600, 700, 800];
 export const RGB_TOKENS = [['primary', 300], ['primary', 500], ['primary', 700], ['primary', 900], ['accent', 500]];
 
-/** الدرجات الافتراضية المضمّنة في أوراق الأنماط (= buildTheme للزوج الافتراضي، بلا تعديلات؛ v10: الأخضر الملكي والذهبي) */
+/** الدرجات الافتراضية المضمّنة في أوراق الأنماط (= buildTheme للزوج الافتراضي، بلا تعديلات؛ v11: ألوان الشعار، V11-01 حرفيًا) */
 export const LEGACY = Object.freeze({
-  primary: Object.freeze({ 50: '#eef7f2', 100: '#dbeee3', 200: '#b7dac7', 300: '#7cb999', 500: '#0a7f55', 600: '#0b6b48', 700: '#0b5a3c', 800: '#0a452e', 900: '#083221' }),
-  accent: Object.freeze({ 50: '#fbf7ee', 100: '#f6ecd9', 300: '#dabe86', 400: '#d3ab57', 500: '#c9a14a', 600: '#937123', 700: '#745818', 800: '#5f4711' }),
+  primary: Object.freeze({ 50: '#eff6f2', 100: '#dfece5', 200: '#bfd8ca', 300: '#8ab59e', 500: '#26684c', 600: '#175139', 700: '#0b3d29', 800: '#082e1e', 900: '#052015' }),
+  accent: Object.freeze({ 50: '#fbf7ef', 100: '#f6ecda', 300: '#dabe89', 400: '#d4ad5f', 500: '#cca454', 600: '#93712b', 700: '#74581f', 800: '#5e4716' }),
 });
 
 // ───── تحويلات sRGB ↔ OKLab/OKLCH ─────

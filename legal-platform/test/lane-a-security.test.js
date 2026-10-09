@@ -458,6 +458,7 @@ describe('Req 13 — duplicate deliveries and delivery-status webhooks', () => {
     const t = await startTestApp({ seed: 'none', config: { whatsapp: { token: 'test-token', phoneNumberId: '1234567890', verifyToken: 'verify-me', appSecret: 's3cret', numberDigits: '201000000000' } } });
     // with a real token configured, unsigned deliveries are refused, so every webhook here is signed
     const signedPost = (payload) => {
+      if (payload.entry?.[0]?.changes?.[0]?.value?.metadata) payload.entry[0].changes[0].value.metadata.phone_number_id = '1234567890'; // v11 segment-server (intended, r2 S8): على الرقم المضبوط نفسه
       const body = JSON.stringify(payload);
       return raw(t, 'POST', '/webhooks/whatsapp', { body, headers: { 'content-type': 'application/json', 'x-hub-signature-256': sign(body) } });
     };

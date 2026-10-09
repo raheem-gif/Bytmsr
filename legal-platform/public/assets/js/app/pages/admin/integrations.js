@@ -21,12 +21,34 @@ import {
   ltr,
   errorState,
   errorMessage,
+  confirmDialog,
 } from '../../../lib/ui.js';
 import { emailSettingsCard } from '../../components/email-settings.js'; // v10 b2b-staff (STF-9، U10-S24)
 
 const SOURCE_TONE = { env: 'info', db: 'success', default: 'neutral' };
 const ICONS = { whatsapp: 'whatsapp', anthropic: 'sparkle' };
 const AR_RE = /[؀-ۿ]/;
+
+// v11 segment-staff (ST-6، r2 S3/S4، L11-45): رقم الأفراد والشركات ووضع الرقم الأساسي
+export const PAID_VERIFIED_TEXT = 'رقم الأفراد والشركات: تم التحقق';
+export const PAID_UNVERIFIED_TEXT = 'رقم الأفراد والشركات: لم يُتحقق بعد — اضغطوا اختبار الاتصال';
+export const PAID_ON_MAIN_TEXT = 'استخدام الرقم الأساسي للأفراد والشركات عند عدم وجود رقم مخصص';
+export const PAID_GUIDE_TEXT = 'أضيفوا الرقم الثاني من WhatsApp Manager في نفس حساب واتساب للأعمال، ثم الصقوا معرّفه هنا. الرد يخرج دائمًا من الرقم الذي كتب عليه العميل.';
+export const MODE_CONFIRM_TITLE = 'تغيير وضع رقم واتساب الأساسي';
+
+/**
+ * حفظ تكامل مع تأكيد تغيير الوضع (r2 S3): 409 mode_change_confirm ← نافذة تأكيد بنص الخادم ← إعادة الإرسال بـ confirm:true.
+ * الإلغاء يُبقي نافذة التعديل مفتوحة برسالة واضحة. ask قابل للاستبدال في الاختبارات.
+ */
+export async function saveIntegrationValues(name, patch, { ask = (message) => confirmDialog({ title: MODE_CONFIRM_TITLE, message, confirmLabel: 'تأكيد التغيير' }) } = {}) {
+  try {
+    return await api.put(`/admin/integrations/${name}`, { values: patch });
+  } catch (err) {
+    if (!(err && err.status === 409 && err.code === 'mode_change_confirm')) throw err;
+    if (!(await ask(errorMessage(err)))) throw new Error('لم يُحفظ شيء — بقي وضع الرقم الأساسي كما هو.');
+    return api.put(`/admin/integrations/${name}`, { values: patch, confirm: true });
+  }
+}
 
 // ── اتجاه النص المختلط ──
 // أسماء القوائم الإنجليزية تُعزل (LRI…PDI) حتى تتبع الأسهم «←» بينها اتجاه الفقرة العربية فيُقرأ المسار من اليمين:
@@ -220,7 +242,7 @@ async function editIntegration(item, onSaved) {
       }
       for (const k of vals.__clear || []) patch[k] = '';
       if (!Object.keys(patch).length) throw new Error('لم تغيّر أي قيمة.');
-      return api.put(`/admin/integrations/${item.name}`, { values: patch });
+      return saveIntegrationValues(item.name, patch); // v11 segment-staff: تأكيد تغيير وضع الرقم (409 mode_change_confirm)
     },
   });
   if (!res) return;
@@ -231,7 +253,43 @@ async function editIntegration(item, onSaved) {
 
 // ───────── بطاقة كل تكامل ─────────
 
-function integrationCard(item, data, reload) {
+/**
+ * v11 segment-staff (ST-6): قسم «رقم الأفراد والشركات» داخل بطاقة واتساب — حالة التحقق (paid_verified_at)، ومفتاح
+ * wa_paid_on_main (إعداد يُحفظ عبر PATCH /api/admin/settings فورًا)، وسطر الإرشاد.
+ */
+export function paidLineSection(item, settings = {}) {
+  const pid = (item.fields || []).find((f) => f.key === 'paid_phone_number_id');
+  const hasPaid = Boolean(pid && pid.set && pid.value);
+  const state = hasPaid
+    ? item.paid_verified_at
+      ? h('div.pf-paid-state', { dataset: { verified: 'true' } }, alertBox(PAID_VERIFIED_TEXT, 'success', { icon: 'checkCircle' }))
+      : h('div.pf-paid-state', { dataset: { verified: 'false' } }, alertBox(PAID_UNVERIFIED_TEXT, 'warning', { icon: 'alert' }))
+    : null;
+  const cb = h('input', { type: 'checkbox', checked: settings.wa_paid_on_main !== false });
+  cb.addEventListener('change', async () => {
+    const want = cb.checked;
+    cb.disabled = true;
+    try {
+      await api.patch('/admin/settings', { wa_paid_on_main: want });
+      toast(want ? 'يستخدم الأفراد والشركات الرقم الأساسي حين لا يوجد رقم مخصص' : 'لن يظهر واتساب للأفراد والشركات إلا برقم مخصص متحقق منه', 'success', 5000);
+    } catch (err) {
+      cb.checked = !want;
+      toast(errorMessage(err), 'danger');
+    } finally {
+      cb.disabled = false;
+    }
+  });
+  return h(
+    'section.pf-paid-line',
+    { 'aria-label': 'رقم الأفراد والشركات' },
+    h('h3.pf-subtitle', 'رقم الأفراد والشركات'),
+    state,
+    h('label.check.check-single.pf-paid-on-main', cb, h('span', PAID_ON_MAIN_TEXT)),
+    h('p.pf-muted', icon('info', { size: 14 }), ' ', PAID_GUIDE_TEXT),
+  );
+}
+
+function integrationCard(item, data, reload, settings = {}) {
   const resultSlot = h('div.pf-test-result', testResultBox(item.last_test));
   const test = asyncButton(
     'اختبار الاتصال',
@@ -284,6 +342,7 @@ function integrationCard(item, data, reload) {
         ),
       ),
     );
+    extras.push(paidLineSection(item, settings)); // v11 segment-staff (ST-6)
   }
 
   return card({
@@ -342,8 +401,13 @@ export default async function render() {
   async function load() {
     let data;
     let companies = 0; // v10 b2b-staff: تنبيه البريد الأحمر حين توجد شركات والإرسال صندوق صادر فقط
+    let settings = {}; // v11 segment-staff: wa_paid_on_main
     try {
-      [data, companies] = await Promise.all([api.get('/admin/integrations'), api.get('/admin/b2b/overview', null, { background: true }).then((o) => Number(o?.companies?.total) || 0).catch(() => 0)]);
+      [data, companies, settings] = await Promise.all([
+        api.get('/admin/integrations'),
+        api.get('/admin/b2b/overview', null, { background: true }).then((o) => Number(o?.companies?.total) || 0).catch(() => 0),
+        api.get('/admin/settings', null, { background: true }).then((d) => (d && d.settings) || {}).catch(() => ({})),
+      ]);
     } catch (err) {
       mount(host, pageHeader({ title: 'التكاملات' }), errorState(err, load));
       return;
@@ -358,7 +422,7 @@ export default async function render() {
       h(
         'div.stack',
         keyAlert(data),
-        h('div.pf-integrations-grid', data.items.map((item) => (item.name === 'email' ? emailSettingsCard(item, data, { reload: load, companies }) : integrationCard(item, data, load)))),
+        h('div.pf-integrations-grid', data.items.map((item) => (item.name === 'email' ? emailSettingsCard(item, data, { reload: load, companies }) : integrationCard(item, data, load, settings)))),
         guides(data),
         h(
           'p.pf-muted',

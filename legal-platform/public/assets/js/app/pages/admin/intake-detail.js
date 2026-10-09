@@ -43,6 +43,19 @@ import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsC
 import { openStorySheet, TRACK_TONES } from '../../components/story-sheet.js';
 import { voiceTranscriptEditor, voiceLeftText } from '../../components/voice-transcript.js';
 import { openCallNote, openCallAttempt, attemptsList, closeUnreachable, attemptsCountText } from '../../components/call-note.js';
+// v11 segment-staff (ST-2): نوع الخدمة في ترويسة الطلب، بطاقة «غير محدد»، ورأس الإرسال «سيُرسل من»
+import {
+  segmentChip,
+  sourceText,
+  mismatchChip,
+  lineMismatchChip,
+  unknownLineChip,
+  unknownLineText,
+  undeterminedCard,
+  openSegmentSheet,
+  sendHeader,
+  ON_CASE_HINT,
+} from '../../components/segment-ui.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
 /** (إصلاح 9.1) اسم عام لا يقول ما في الورقة: «ورقة 1»، «ورقة-2.jpg»، «صورة 3»، «IMG_2041.jpg» */
@@ -112,6 +125,13 @@ export default async function render(ctx) {
   const herPhone = (cl && cl.phone) || it.contact_phone || null;
 
   const base = `/admin/intakes/${it.id}`;
+  // v11 segment-staff: كتلة نوع الخدمة من الخادم (§5.6) — القيمة والمصدر والاقتراح والخط الذي وصلت عليه
+  const seg = d.segment || { value: it.segment ?? null, can_change: !it.case_id, block: it.case_id ? 'segment_on_case' : null };
+  const segValue = seg.value || null;
+  const isPaid = segValue === 'paid';
+  const unknownLine = seg.wa_line === 'unknown' || (d.send_line && d.send_line.key === 'unknown');
+  const requester = seg.requester || null;
+  const sendInfo = { segment: segValue, tone: d.tone || null, sendLine: d.send_line || null, requesterKind: requester ? 'company' : null };
   // رقم من نموذج الموقع يطابق عميلًا مسجلًا دون إثبات أن المرسل صاحبه
   const identity = it.identity || {
     phone_match_unverified: Boolean(it.source_detail && it.source_detail.phone_match_unverified === true),
@@ -128,6 +148,58 @@ export default async function render(ctx) {
     } catch (err) {
       toast(errorMessage(err), 'danger');
     }
+  }
+
+  // ───────────── v11 segment-staff (ST-2): نوع الخدمة ─────────────
+  function changeSegment() {
+    return openSegmentSheet({
+      kind: 'intake',
+      id: it.id,
+      current: segValue,
+      hint: seg.hint || null,
+      changeMessage: seg.change_message || null,
+      onSaved: () => reloadAndFocus(ctx, '.seg-head .seg-change'),
+    });
+  }
+
+  /** سطر النوع في الترويسة: الرقاقة + المصدر («أفراد وشركات · رقم واتساب المخصص») + «تغيير» (أو «من صفحة الملف») */
+  function segHead() {
+    const change =
+      seg.can_change !== false
+        ? button('تغيير', { variant: 'ghost', size: 'sm', icon: 'swap', className: 'seg-change', ariaLabel: 'تغيير نوع الخدمة', onClick: changeSegment })
+        : h('span.seg-on-case', ON_CASE_HINT, d.case ? [' ', h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code))] : null);
+    return h(
+      'div.seg-head',
+      segmentChip(segValue, { source: seg.source, sourceLabel: seg.source_label, requesterKind: requester ? 'company' : null, size: 'label' }),
+      sourceText(seg) && h('span.seg-src', sourceText(seg)),
+      // r2 S14: طلب خيري نصه يقول أفراد/شركة — اقتراح لا يُطبَّق
+      segValue === 'charity' && seg.mismatch_hint ? mismatchChip({ segment: 'paid', reasons: seg.mismatch_hint.reasons }) : null,
+      // r2 S7: كتب على رقم الجانب الآخر وأُلحقت رسالته بهذا الطلب
+      seg.line_mismatch ? lineMismatchChip(seg.line_mismatch) : null,
+      // r2 S8: وصلت على رقم غير مضبوط — لا رد تلقائي ولا واتساب من هنا
+      unknownLine ? unknownLineChip(seg.wa_pid_last4) : null,
+      change,
+    );
+  }
+
+  /** طلب عرض من شركة (G11-45): بيانات مقدّم الطلب و«إضافة كشركة عميلة» (تعبئة مسبقة فقط) */
+  function requesterCard() {
+    if (!requester) return null;
+    const phone = (cl && cl.phone) || it.contact_phone || '';
+    const q = new URLSearchParams({ new: '1', name: requester.company_name || '', phone: phone ? localPhone(phone) : '' });
+    const rows = [
+      ['اسم الشركة', requester.company_name],
+      ['صفة مقدّم الطلب', requester.job_title],
+      ['البريد الإلكتروني', requester.email ? ltr(requester.email) : null],
+      ['عدد الموظفين', requester.employees_label ? ltr(requester.employees_label) : null],
+      ['ما تحتاجه الشركة', requester.needs_labels && requester.needs_labels.length ? requester.needs_labels.join('، ') : null],
+    ].filter(([, v]) => v);
+    return card({
+      title: 'طلب عرض من شركة',
+      icon: 'building',
+      className: 'seg-requester',
+      body: h('div.stack-sm', kv(rows), h('div.btn-group', button('إضافة كشركة عميلة', { icon: 'building', href: `#/companies?${q.toString()}` }))),
+    });
   }
 
   // ───────────── التحقق من هوية المرسل ─────────────
@@ -351,6 +423,8 @@ export default async function render(ctx) {
       userId: ctx.user && ctx.user.id,
       callNoteId: lastCallNoteId,
       phone: herPhone,
+      segmentHint: seg.hint || null, // v11 segment-staff: اقتراح النوع لطلب «غير محدد»
+      requesterKind: requester ? 'company' : null,
       onDone: (res) => {
         if (res && res.next && res.next !== `#/inbox/${it.id}`) ctx.navigate(res.next);
         else reloadAndFocus(ctx, '#pa-decision');
@@ -775,7 +849,8 @@ export default async function render(ctx) {
           h('p.field-hint', 'تُحدَّث في ملف المستفيد/ة ', cl ? codeTag(cl.code) : null, '، ولا تظهر للمحامين إلا إذا أتاحت الإدارة الاسم صراحة.'),
           clientForm.el,
         ),
-        h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el),
+        // v11 segment-staff: ملف الأفراد والشركات لا يُربط ببرنامج تمويل
+        isPaid ? null : h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el),
       ),
       actions: [
         { label: 'إلغاء', variant: 'ghost' },
@@ -809,7 +884,7 @@ export default async function render(ctx) {
               case_manager_id: v.case_manager_id || undefined,
               client: Object.keys(client).length ? client : undefined,
               ai_suggestion_id: ai ? ai.id : undefined,
-              program_id: program.get() || undefined,
+              program_id: (!isPaid && program.get()) || undefined,
             };
             try {
               const res = await api.post(`${base}/convert`, payload);
@@ -874,6 +949,8 @@ export default async function render(ctx) {
           ),
         );
       }
+      // v11 segment-staff (r2 S7): رسالة وصلت على رقم الجانب الآخر وأُلحقت بهذا الطلب
+      if (m.direction === 'in' && m.meta && m.meta.line_mismatch) node.after(h('div.pa-msg-flag.is-start', lineMismatchChip(m.meta.line_mismatch)));
       if (m.meta && m.meta.referral && m.meta.referral.headline) {
         node.after(h('div.pa-msg-flag.is-start.is-info', icon('flag', { size: 14 }), h('span', `وصلت عبر إعلان: «${m.meta.referral.headline}»`)));
       }
@@ -1031,9 +1108,11 @@ export default async function render(ctx) {
         intake_id: it.id,
         client_id: !unverified && it.client_id ? it.client_id : undefined,
       },
-      ai: { intakeId: it.id },
+      ai: { intakeId: it.id, sendInfo }, // v11 segment-staff (r2 P13): رأس الإرسال في نافذة الردود المقترحة
     });
-    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, REPLY_CHANNELS.map((o) => h('option', { value: o.value }, o.label)));
+    // v11 segment-staff (r2 S8): وصلت على رقم غير مضبوط ← لا واتساب من هنا، صفحة المتابعة فقط
+    const channels = unknownLine ? REPLY_CHANNELS.filter((o) => o.value === 'website') : REPLY_CHANNELS;
+    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, channels.map((o) => h('option', { value: o.value }, o.label)));
     const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status) });
     const sendBtn = asyncButton(
       'إرسال الرد',
@@ -1065,6 +1144,9 @@ export default async function render(ctx) {
     });
     return h(
       'div.composer.pa-composer',
+      // v11 segment-staff (r2 P13): النوع والنبرة و«سيُرسل من» قبل أي إرسال
+      sendHeader(sendInfo),
+      unknownLine && h('p.pa-note.is-warning', icon('alert', { size: 15 }), h('span', `${unknownLineText(seg.wa_pid_last4)} — الإرسال لصفحة المتابعة فقط.`)),
       unverified &&
         h(
           'p.pa-note.is-warning',
@@ -1583,11 +1665,12 @@ export default async function render(ctx) {
           )
         : null,
     meta: [
+      segHead(),
       codeTag(it.code),
       statusBadge('intake_status', it.status),
       statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
       it.kind && badge(label('intake_kind', it.kind), 'neutral'),
-      it.legal_area && badge(areaLabel(it.legal_area), 'primary'),
+      it.legal_area && badge(areaLabel(it.legal_area), 'neutral'), // v11 segment-staff: الأخضر لنوع الخدمة وحده
       // v9.2: الموضوع الذي اختارته (قائمة واتساب أو الموقع) وحالة القصة
       story && story.topic_label && badge(`الموضوع: ${story.topic_label}`, 'neutral', { icon: 'list' }),
       isOpen && story && story.view && story.view !== 'decided' && badge(label('story_view', story.view), VIEW_TONES[story.view] || 'neutral', { className: 'pa-view-badge' }),
@@ -1606,15 +1689,19 @@ export default async function render(ctx) {
       'div.detail-layout',
       h(
         'div.detail-main',
+        // v11 segment-staff (ST-2): «غير محدد» أولًا — ضغطة واحدة تحفظ النوع بلا سبب (r2 S21)
+        !segValue && seg.can_change !== false ? undeterminedCard({ id: it.id, hint: seg.hint || null }, () => reloadAndFocus(ctx, '.seg-head .seg-change')) : null,
         identityEl && withId(identityEl, 'pa-identity'),
         // v9.2: الطلب المفتوح يبدأ بـ «تحويل القصة إلى طلب» (أو «طلبت مكالمة»)، والقرار اليدوي داخلها
         prop ? withId(proposalCard(), 'pa-proposal') : withId(decisionCard(), 'pa-decision'),
         webFormCard(),
+        requesterCard(),
         withId(conversationCard(), 'pa-conversation'),
         allDocs.length ? withId(documentsCard(), 'pa-documents') : null,
         analyses && docAiResultsCard(analyses, allDocs),
         withId(triageCard(), 'pa-triage'),
-        it.client_id && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
+        // بيانات الأسرة (الاستحقاق) للخيري فقط
+        it.client_id && !isPaid && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
         activityCard(),
       ),
       h('div.detail-side', withId(aiCard(), 'pa-ai'), withId(clientCard(), 'pa-client'), sourceCard()),

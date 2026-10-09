@@ -108,3 +108,57 @@ export function siteSettingsCard(settings = {}) {
     body: h('div', f.el),
   });
 }
+
+// ───────────── v11 segment-staff (ST-6، L11-27): شاشة الاختيار «خيري / خدمات الأفراد والشركات» ─────────────
+
+export const GATE_SETTING_KEYS = ['site_gate_enabled', 'org_phone_paid'];
+export const GATE_TOGGLE_TEXT = 'إظهار شاشة الاختيار (خيري / خدمات الأفراد والشركات) لأول زيارة';
+
+/**
+ * بطاقة «شاشة الاختيار» (‎#/settings?section=gate‎): مفتاح الإيقاف site_gate_enabled (P0) وهاتف الأفراد والشركات
+ * org_phone_paid (P1). الإيقاف = الصفحة الرئيسية تفتح على «خيري» دائمًا ولا تُجدَّد كعكة الزائر (r2 S20)؛ /services و/khayri تعملان.
+ * @param {object} settings قيم GET /api/admin/settings
+ */
+export function gateSettingsCard(settings = {}) {
+  const f = form(
+    [
+      {
+        name: 'site_gate_enabled',
+        type: 'checkbox',
+        full: true,
+        text: GATE_TOGGLE_TEXT,
+        hint: 'عند الإيقاف تفتح الصفحة الرئيسية على «خيري» مباشرة لكل الزوار، وتبقى صفحة الأفراد والشركات على ‎/services‎.',
+      },
+      { name: 'org_phone_paid', label: 'هاتف خدمات الأفراد والشركات (اختياري)', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'فارغ = نفس هاتف المؤسسة' },
+    ],
+    {
+      values: { site_gate_enabled: settings.site_gate_enabled !== false, org_phone_paid: settings.org_phone_paid || '' },
+      submitLabel: 'حفظ',
+      submitIcon: 'check',
+      onSubmit: async (v, fapi) => {
+        const raw = toLatinDigits(v.org_phone_paid || '').trim();
+        const phone = raw.replace(/[^\d+]/g, '');
+        const digits = phone.replace(/\D/g, '');
+        if (raw && (digits.length < 8 || digits.length > 15)) throw fieldError('org_phone_paid', 'أدخل رقم هاتف صحيحًا مثل 01211114662');
+        const saved = await api.patch('/admin/settings', { site_gate_enabled: v.site_gate_enabled !== false, org_phone_paid: phone });
+        if (saved && typeof saved === 'object') {
+          const next = {};
+          for (const k of GATE_SETTING_KEYS) if (k in saved) next[k] = k === 'site_gate_enabled' ? saved[k] !== false : saved[k] || '';
+          fapi.setValues(next);
+        }
+        toast(v.site_gate_enabled !== false ? 'شاشة الاختيار تظهر لأول زيارة' : 'أُوقفت شاشة الاختيار — الصفحة الرئيسية تفتح على «خيري»', 'success', 5000);
+      },
+    },
+  );
+  const el = card({
+    title: 'شاشة الاختيار',
+    subtitle: 'أول ما يراه الزائر على الصفحة الرئيسية: «خدمات الأفراد والشركات» أو «خيري».',
+    icon: 'swap',
+    className: 'pa-gateset',
+    actions: button('معاينة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: '/?gate=1', target: '_blank' }),
+    body: h('div', f.el),
+  });
+  el.id = 'gate';
+  return el;
+}
+
