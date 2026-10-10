@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startTestApp } from './helpers.js';
+import { startTestApp, demoCode } from './helpers.js';
 import { ok, assertNoLeak, LAWYER_FORBIDDEN_KEYS } from './lane-b-kit.test.js';
 import { migrateInfoRequestKinds, suggestedDocuments } from '../src/services/v91-l-work.js';
 import { diffParagraphs, wordDiff, splitParagraphs } from '../public/assets/js/app/components/text-diff.js';
@@ -31,6 +31,7 @@ let hany;
 let mohamed;
 let rania;
 let caseId;
+let mainCode; // v11 gate fixer-server (R-04)
 let ahmedAsg;
 let hanyAsg;
 let mohamedAsg;
@@ -43,7 +44,8 @@ before(async () => {
   hany = await t.login('hany');
   mohamed = await t.login('mohamed');
   rania = await t.login('rania');
-  const list = ok(await admin.get('/api/admin/cases?q=INH-2026-00482'));
+  mainCode = demoCode(t.app); // v11 gate fixer-server (R-04, intended): INH-<سنة البذر>-00482
+  const list = ok(await admin.get(`/api/admin/cases?q=${mainCode}`));
   caseId = list.items[0].id;
   const detail = ok(await admin.get(`/api/admin/cases/${caseId}`));
   const by = (re) => detail.assignments.find((a) => re.test(a.lawyer_name) && a.status !== 'withdrawn');
@@ -201,7 +203,7 @@ describe('L-04 extension and question to the administration', () => {
     assert.equal(mine.extension_applied, true);
     assert.equal(mine.requested_due_at, row.requested_due_at);
     const notes = ok(await ahmed.get('/api/notifications'));
-    assert.ok((notes.items || notes).some((n) => /مُدّد موعد تسليم رأيك في الملف INH-2026-00482 إلى/.test(n.title)));
+    assert.ok((notes.items || notes).some((n) => n.title.startsWith(`مُدّد موعد تسليم رأيك في الملف ${mainCode} إلى`)));
   });
 
   test('question to the administration is answered without the beneficiary', async () => {

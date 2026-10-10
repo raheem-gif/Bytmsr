@@ -4,12 +4,13 @@ import { h } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { statDuration, count as v9pCount } from '../../../lib/fmt.js'; // v9 practice
 import { label, money, num, relative, dateTime, time, calendarParts, cairoParts, percent } from '../../../lib/fmt.js';
-import { pageHeader, card, button, badge, statusBadge, icon, codeTag, statCard, progressBar, emptyState, avatar, richText } from '../../../lib/ui.js';
+import { pageHeader, card, button, badge, statusBadge, statusTone, icon, codeTag, statCard, progressBar, emptyState, avatar, richText } from '../../../lib/ui.js';
 import { QUEUE_LABELS } from '../../labels.js';
 import { segLabel } from '../../components/segment-ui.js'; // v11 segment-staff (ST-5)
 
 const CASE_ORDER = ['new', 'assigned', 'in_progress', 'under_review', 'approved', 'answered', 'closed'];
-const CASE_TONES = { new: 'info', assigned: 'primary', in_progress: 'accent', under_review: 'warning', approved: 'success', answered: 'success', closed: 'muted' };
+// v11 gate fix (K1): أشرطة الحالات بألوان شارات الحالة نفسها (STATUS_TONES) — الأخضر والذهبي لنوع الخدمة وحده
+const caseTone = (k) => statusTone('case_status', k);
 
 // المسميات من QUEUE_LABELS: نفس اسم القسم هنا وفي صفحة «بانتظار قرار الإدارة»
 const DECISIONS = [
@@ -206,7 +207,7 @@ export default async function render(ctx) {
     title: `${greeting()}، ${(user.name || '').split(' ')[0] || ''}`.replace(/،\s*$/, ''),
     subtitle: 'هذه نظرة اليوم على ما يصل إلى المؤسسة وما ينتظر قرارك.',
     meta: [
-      badge(`الذكاء الاصطناعي: ${ai.label || '—'}`, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
+      badge(`الذكاء الاصطناعي: ${ai.label || '—'}`, ai.provider === 'anthropic' ? 'info' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
       whatsappBadge(d),
     ],
     actions: [
@@ -341,7 +342,7 @@ export default async function render(ctx) {
             { href: `#/cases?status=${k}`, class: !n && 'is-zero' },
             h('span.pa-hbar-label', label('case_status', k)),
             h('span.pa-hbar-n', String(n)),
-            h('span.pa-hbar-track', { 'aria-hidden': 'true' }, n ? h('span.pa-hbar-fill', { class: `tone-${CASE_TONES[k]}`, style: { width: `${Math.max(2, (n / caseMax) * 100)}%` } }) : null),
+            h('span.pa-hbar-track', { 'aria-hidden': 'true' }, n ? h('span.pa-hbar-fill', { class: `tone-${caseTone(k)}`, style: { width: `${Math.max(2, (n / caseMax) * 100)}%` } }) : null),
           ),
         );
       }),

@@ -297,7 +297,8 @@ export function createPrograms(app) {
        LEFT JOIN matters mm ON mm.id = e.matter_id
        JOIN cases c ON c.id = COALESCE(e.case_id, mm.case_id)
        WHERE c.program_id = ? AND e.status != 'void' AND e.kind NOT IN (${NON_CASE_LEDGER.map(() => '?').join(',')})
-         AND e.created_at >= ? AND e.created_at <= ?`,
+         AND COALESCE(e.segment, 'charity') != 'paid'
+         AND e.created_at >= ? AND e.created_at <= ?`, // v11 gate fixer-server (F-D, r2 S6): قيود عمل الأفراد والشركات (بلقطتها) لا تُحسب على البرنامج
       p.id,
       ...NON_CASE_LEDGER,
       from,
@@ -370,7 +371,7 @@ export function createPrograms(app) {
     const { from, to } = spanOf(p);
     const inKind = db.get(
       `SELECT COUNT(*) AS n, COALESCE(SUM(b.notional_minor), 0) AS v FROM billable_events b JOIN cases c ON c.id = b.case_id
-       WHERE c.program_id = ? AND b.treatment IN ('pro_bono','csr') AND b.created_at >= ? AND b.created_at <= ?`,
+       WHERE c.program_id = ? AND b.treatment IN ('pro_bono','csr') AND COALESCE(b.segment, 'charity') != 'paid' AND b.created_at >= ? AND b.created_at <= ?`,
       p.id,
       from,
       to,
@@ -743,7 +744,8 @@ export function createPrograms(app) {
           remaining: minorSum('remaining'),
           cases: items.reduce((s, x) => s + x.stats.cases, 0),
           families,
-          unlinked_open_cases: Number(db.value("SELECT COUNT(*) FROM cases WHERE program_id IS NULL AND status != 'closed'")) || 0,
+          // v11 gate fixer-server (J-01/R-16, INV-13): ملفات الشركات والأفراد والشركات لا تُربط ببرامج التمويل، فلا تُعد «دون برنامج»
+          unlinked_open_cases: Number(db.value("SELECT COUNT(*) FROM cases WHERE program_id IS NULL AND status != 'closed' AND company_id IS NULL AND segment = 'charity'")) || 0,
         },
       };
     },

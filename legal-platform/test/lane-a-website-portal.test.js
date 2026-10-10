@@ -2,7 +2,7 @@
 // replies to information requests), and privacy of the unauthenticated website door.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { startTestApp, waPayload, samplePdf, freezeClock, resetClock } from './helpers.js';
+import { startTestApp, waPayload, samplePdf, freezeClock, resetClock, demoCode } from './helpers.js';
 
 const DESC = 'زوجي توفي منذ عام وترك شقة باسمه، وأهل زوجي يطالبون ببيعها، وأريد معرفة حقي وحق أطفالي القُصّر.';
 const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -358,7 +358,7 @@ describe('Privacy of the unauthenticated website door', () => {
       if (r.body.portal_url) {
         const p = await t.client().get(`/api/portal/${tokenOf(r.body.portal_url)}`);
         const s = JSON.stringify(p.body);
-        assert.ok(!s.includes('INH-2026-00482'), "the existing client's case must not be exposed to an unverified website submitter");
+        assert.ok(!s.includes(demoCode(t.app)) && !/INH-\d{4}-00482/.test(s), "the existing client's case must not be exposed to an unverified website submitter"); // v11 gate fixer-server (R-04, intended)
         assert.ok(!s.includes('سامية'), "the existing client's name must not be exposed");
         assert.ok(!(p.body.messages || []).some((m) => m.direction === 'out'), "staff messages to the existing client must not be exposed");
       }

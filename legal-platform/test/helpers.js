@@ -126,3 +126,15 @@ export function freezeClock(iso) {
 export function resetClock() {
   setClock(null);
 }
+
+/**
+ * v11 gate fixer-server (R-04): رمز ملف من البيانات التجريبية بلا سنة مكتوبة في الاختبار — البذر ينشئ الرموز بسنة القاهرة
+ * وقت البذر (INH-2027-00482 في 2027، وقد تكون السنة السابقة في أول أيام يناير). pattern بصيغة LIKE مثل 'INH-%-00482'.
+ */
+export function demoCode(app, pattern = 'INH-%-00482', table = 'cases') {
+  if (!['cases', 'intakes', 'matters', 'invoices'].includes(table)) throw new Error(`demoCode: unsupported table ${table}`);
+  const col = table === 'invoices' ? 'number' : 'code';
+  const v = app.db.value(`SELECT ${col} FROM ${table} WHERE ${col} LIKE ? ORDER BY id LIMIT 1`, pattern);
+  if (!v) throw new Error(`demoCode: no ${table} row like ${pattern}`);
+  return v;
+}

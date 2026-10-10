@@ -191,6 +191,8 @@
     font-variant-numeric: tabular-nums;
   }
   .count-quiet { min-width: 0; height: auto; padding: 0; background: none; color: var(--label-2); font-weight: 500; }
+  /* v11 fixer-public (K6): بحث بوابة الشركات تعبئة هادئة بلا حافة داكنة (النموذج company-overview .search)؛ التركيز يبقى بقاعدة .input:focus */
+  .co-search-input:not(:focus) { border-color: transparent; background: var(--fill-1); }
 
   /* V11-12 */
   .g-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }

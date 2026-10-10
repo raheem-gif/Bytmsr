@@ -6,16 +6,20 @@ import { options, label, money, dateTime } from '../../lib/fmt.js';
 import { card, button, kv, emptyState, loading, errorState, formDialog, toast, badge } from '../../lib/ui.js';
 
 /** حقول الأثر لاستخدامها داخل نوافذ أخرى (مثل نافذة إغلاق الملف) */
-export function outcomeFields({ required = false } = {}) {
+// v11 gate fix (J-13/V13): ملف الأفراد بأتعاب — «العميل/ة» بدل «المستفيد»، وتقرير الأثر يخص الخدمة الخيرية فقط (L11-24)
+const PAID_OUTCOME_TITLE = 'الأثر المتحقق للعميل/ة';
+const PAID_OUTCOME_NOTE = 'لا يدخل تقرير الأثر ما دام الملف بأتعاب — التقرير يخص الخدمة الخيرية فقط.';
+
+export function outcomeFields({ required = false, paid = false } = {}) {
   return [
     {
       name: 'outcome_kind',
-      label: 'الأثر المتحقق للمستفيد',
+      label: paid ? PAID_OUTCOME_TITLE : 'الأثر المتحقق للمستفيد',
       type: 'select',
       required,
       options: options('outcome_kind'),
       placeholder: '— لم يُحدَّد بعد —',
-      hint: 'يُستخدم في تقرير الأثر للمجلس والجهات المانحة ووزارة التضامن.',
+      hint: paid ? PAID_OUTCOME_NOTE : 'يُستخدم في تقرير الأثر للمجلس والجهات المانحة ووزارة التضامن.',
     },
     { name: 'recovered_one_time', label: 'حقوق مستردة دفعة واحدة', type: 'money', min: 0, hint: 'مثل نصيب ميراث أو متجمد نفقة أو تعويض.' },
     { name: 'recovered_monthly', label: 'حقوق شهرية مستردة', type: 'money', min: 0, hint: 'مثل نفقة شهرية أو معاش أو تكافل وكرامة.' },
@@ -39,11 +43,12 @@ export function outcomePayload(v) {
  * بطاقة الأثر المتحقق. kind: 'case' | 'matter'
  * @returns {HTMLElement}
  */
-export function outcomeCard({ kind, id, title = 'الأثر المتحقق للمستفيد' }) {
+export function outcomeCard({ kind, id, title, paid = false }) {
   const base = kind === 'matter' ? `/admin/matters/${id}/outcome-value` : `/admin/cases/${id}/outcome-value`;
+  const heading = title || (paid ? PAID_OUTCOME_TITLE : 'الأثر المتحقق للمستفيد');
   const body = h('div.v9p-outcome', loading());
   const editBtn = button('تسجيل الأثر', { size: 'sm', icon: 'edit', onClick: () => edit() });
-  const el = card({ title, subtitle: 'الحقوق التي استردها المستفيد بفضل الخدمة', icon: 'star', actions: editBtn, body, className: 'v9p-outcome-card' });
+  const el = card({ title: heading, subtitle: paid ? PAID_OUTCOME_NOTE : 'الحقوق التي استردها المستفيد بفضل الخدمة', icon: 'star', actions: editBtn, body, className: 'v9p-outcome-card' });
   let current = null;
 
   async function load() {
@@ -63,7 +68,7 @@ export function outcomeCard({ kind, id, title = 'الأثر المتحقق لل�
       mount(
         body,
         emptyState(
-          o.closed ? 'لم يُسجَّل الأثر المتحقق لهذا الملف بعد. سجّله ليُحتسب في تقرير الأثر.' : 'يُسجَّل الأثر عادةً عند إغلاق الملف، ويمكن تسجيله أو تعديله في أي وقت.',
+          o.closed && !paid ? 'لم يُسجَّل الأثر المتحقق لهذا الملف بعد. سجّله ليُحتسب في تقرير الأثر.' : 'يُسجَّل الأثر عادةً عند إغلاق الملف، ويمكن تسجيله أو تعديله في أي وقت.',
           null,
           { compact: true, icon: 'star' },
         ),
@@ -89,9 +94,9 @@ export function outcomeCard({ kind, id, title = 'الأثر المتحقق لل�
   async function edit() {
     const o = current || {};
     const res = await formDialog({
-      title: 'الأثر المتحقق للمستفيد',
-      intro: 'سجّل ما استرده المستفيد فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الواحدة + الشهري × 12.',
-      fields: outcomeFields(),
+      title: heading,
+      intro: `سجّل ما استرده ${paid ? 'العميل/ة' : 'المستفيد'} فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الواحدة + الشهري × 12.`,
+      fields: outcomeFields({ paid }),
       values: { outcome_kind: o.outcome_kind, recovered_one_time: o.recovered_one_time, recovered_monthly: o.recovered_monthly, outcome_notes: o.notes },
       onSubmit: (v) =>
         api.put(base, {

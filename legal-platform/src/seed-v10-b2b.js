@@ -360,7 +360,9 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
 
   // الدورة السابقة لنيل للأغذية (L-28): من بداية الدورة الحالية نعود أيامًا
   const cyc = usageCycle(nfdStartsOn, new Date(realNow));
-  const curStartAgo = Math.max(0, Math.round((realNow - Date.parse(`${cyc.start}T10:00:00Z`)) / DAY));
+  // v11 gate fixer-server (K2/R-01): أيام القاهرة الكاملة بين اليوم وبداية الدورة (كما يعدّ when/at أيامًا تقويمية)، لا فرق
+  // الميلي ثانية بتوقيت UTC مقرّبًا — كان يخطئ بيوم بين 00:00 و01:00 بتوقيت القاهرة الصيفي وبعد انتهاء التوقيت الصيفي
+  const curStartAgo = Math.max(0, Math.round((Date.parse(`${cairoDayKey(new Date(realNow))}T00:00:00Z`) - Date.parse(`${cyc.start}T00:00:00Z`)) / DAY));
   const P = curStartAgo + 3; // داخل الدورة السابقة
 
   // ═════ NFD-0001: مراجعة عقد توريد مع شركة الدلتا للتغليف — مكتمل بتقييم 5 وحُفظ العقد في الذاكرة ═════
@@ -394,7 +396,7 @@ async function seedStage2(app, { when, realNow, ctx, admin, manager, nfd, tsl, n
   if (posId) mem.staffUpdate(posId, { decided_by_text: 'مريم عادل — مديرة الموارد البشرية' }, manager);
 
   // تكلفة إضافية في الدورة السابقة (طلب فوق المشمول) مع إشعارها (INV-B10)
-  when(Math.max(curStartAgo + 1, 1), 13);
+  when(curStartAgo + 2, 13); // v11 gate fixer-server (K2): يومان قبل بداية الدورة الحالية (هامش يوم لحدود التوقيت الصيفي)
   app.companyBilling.staffAddCharge(nfd.id, { kind: 'overage', description: 'طلب إضافي فوق الطلبات المشمولة في الدورة', amount: 2500 }, admin, ctx);
 
   // ═════ NFD-0002: موضوع موظف (خاص) — جارٍ العمل مع ياسمين، واستيضاح أُجيب عليه ═════

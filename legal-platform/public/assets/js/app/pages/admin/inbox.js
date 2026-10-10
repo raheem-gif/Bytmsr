@@ -437,7 +437,7 @@ export default async function render(ctx) {
             h('strong.pa-irow-name', it.contact_name || 'بدون اسم'),
             it.returning_client &&
               (parseSeg(it.segment) === 'paid'
-                ? badge('عميل/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا العميل/ة طلبات سابقة لدى المؤسسة' })
+                ? badge('عميل/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا العميل/ة طلبات سابقة' })
                 : badge('مستفيد/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا المستفيد/ة طلبات سابقة لدى المؤسسة' })),
             it.client_code && h('span.pa-irow-client', { dir: 'ltr' }, it.client_code),
           ),

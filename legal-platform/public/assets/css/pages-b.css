@@ -1126,7 +1126,7 @@ html[dir="rtl"] .pb-step-pill {
 }
 
 .pb-stars .is-on {
-  /* v11 gate fix V15: #74581f على الأبيض 6.65:1 (كان accent-500 = 2.33:1 تحت حد 3:1 للرسومات) */
+  /* v11 gate fix V15: accent-700 على الأبيض 6.65:1 (كان accent-500 = 2.33:1 تحت حد 3:1 للرسومات) */
   color: var(--accent-700);
 }
 

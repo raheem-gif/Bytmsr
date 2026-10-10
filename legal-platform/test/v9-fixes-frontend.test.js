@@ -126,6 +126,21 @@ describe('v9 frontend fixes — terminology', () => {
   V10_CLIENT_WORDS.push(/^'لن يُطلب أي مبلغ إلا بموافقة صريحة من العميل على صفحة طلبه\.'$/, /^'لم يوافق العميل على الأتعاب بعد'$/, /^'إرسال رسالة للعميل'$/, /^'إرسال للعميل للموافقة'$/, /^'إضافة كشركة عميلة'$/);
   // v11 segment-staff (intended, build-2): the exact L11-45/S11-42 integrations guide line (ST-6)
   V10_CLIENT_WORDS.push(/^'أضيفوا الرقم الثاني من WhatsApp Manager في نفس حساب واتساب للأعمال، ثم الصقوا معرّفه هنا\. الرد يخرج دائمًا من الرقم الذي كتب عليه العميل\.'$/);
+  // v11 gate (intended, fixer-staff J-13/V13/J-15/J-20): staff-only wording where «العميل/ة» is the paying client of «أفراد وشركات»
+  // (clientNoun table, the cases column/search, the paid «returning» pill, the paid outcome card) and «شركة عميلة» for a company lead.
+  // Charity pages, lawyer pages and the public site keep «المستفيد/ة»; the lawyer-page check lives in v11-gate-staff.
+  V10_CLIENT_WORDS.push(
+    /^'(?:العميل|للعميل|بالعميل|عميل)\/ة'$/,
+    /^'عميلًا'$/,
+    /^'الأثر المتحقق للعميل\/ة'$/,
+    /^`سجّل ما استرده \$\{paid \? 'العميل\/ة' : 'المستفيد'\} فعليًا /,
+    /^'المستفيد\/ة أو العميل'$/,
+    /^'ابحث بكود الملف أو العنوان أو اسم المستفيد\/ة أو العميل أو كوده…'$/,
+    /^'عميل\/ة سابق\/ة'$/,
+    /^'لهذا العميل\/ة طلبات سابقة'$/,
+    /^'إضافة شركة عميلة متاحة لمدير النظام فقط — أرسلوا له اسم الشركة ورقمها\.'$/,
+    /^'طلب عرض من شركة: تواصلوا معها تجاريًا، ثم أضيفوها كشركة عميلة\. لا تحليل قانوني لهذا الطلب\.'$/,
+  );
   test('no visible «عميل/عملاء» string anywhere in the SPA, the public scripts or the public HTML', () => {
     const hits = [];
     for (const f of walk(JS)) {

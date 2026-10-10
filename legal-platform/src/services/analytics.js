@@ -1,6 +1,6 @@
 // التحليلات: مصدر العميل ≠ قناة التواصل. نعرف ليس فقط عدد الرسائل التي أنتجها كل إعلان،
 // بل ماذا حدث لها فعليًا: كم تحول لاستشارة، كم احتاج محاميًا، كم صار قضية، كم كلّف، وما النتائج.
-import { nowIso, addDays, periodOf, fromMinor, isValidPeriod, badRequest, notFound, conflict, v, normalizePhone } from '../util.js';
+import { nowIso, addDays, periodOf, periodRange, fromMinor, isValidPeriod, badRequest, notFound, conflict, v, normalizePhone } from '../util.js';
 import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
 import { portalUnverifiedSql, isPortalUnverifiedIntake } from '../channels/engine.js';
 import { createPortalV91, shortRefCodes, itemsInput } from './portal-v91.js'; // v9.1 b-portal
@@ -228,6 +228,7 @@ export function createAnalytics(app) {
       const q = (sql, ...p) => Number(db.value(sql, ...p));
       const queue = app.requests.queue();
       const period = periodOf(t);
+      const mr = periodRange(period); // v11 gate fixer-server (R-03)
       return {
         intakes: {
           new: q("SELECT COUNT(*) FROM intakes WHERE status = 'new'"),
@@ -274,14 +275,15 @@ export function createAnalytics(app) {
           period,
           // v10 b2b-server (حارس #8، #27): ملخص الشهر للأفراد فقط — عمل الشركات المدفوع خارج تكلفة المحامين والعمل التطوعي
           // v11 segment-server [r2 S10] (L11-60): وللخيري فقط — الملفات بنوعها الحالي، والتكلفة والعمل التطوعي بلقطة القيد/الحدث
-          cases_opened: q("SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL AND segment = 'charity'", period),
-          cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL AND segment = 'charity'", period),
+          // v11 gate fixer-server (R-03): حدود شهر القاهرة (periodRange) لا شهر UTC (substr) — كان أول 2–3 ساعات من الشهر خارج الشهرين
+          cases_opened: q("SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ? AND company_id IS NULL AND segment = 'charity'", mr.start, mr.end),
+          cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND closed_at >= ? AND closed_at < ? AND company_id IS NULL AND segment = 'charity'", mr.start, mr.end),
           lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL) AND COALESCE(e.segment, 'charity') != 'paid'", period)),
           pro_bono: q("SELECT COUNT(*) FROM billable_events b WHERE b.period = ? AND b.treatment IN ('pro_bono','csr') AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = b.case_id AND cx.company_id IS NOT NULL) AND COALESCE(b.segment, 'charity') != 'paid'", period),
           // الأفراد والشركات (بلا الشركات المتعاقدة) في نفس الشهر
           paid: {
-            cases_opened: q("SELECT COUNT(*) FROM cases WHERE substr(created_at, 1, 7) = ? AND company_id IS NULL AND segment = 'paid'", period),
-            cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 7) = ? AND company_id IS NULL AND segment = 'paid'", period),
+            cases_opened: q("SELECT COUNT(*) FROM cases WHERE created_at >= ? AND created_at < ? AND company_id IS NULL AND segment = 'paid'", mr.start, mr.end),
+            cases_closed: q("SELECT COUNT(*) FROM cases WHERE closed_at IS NOT NULL AND closed_at >= ? AND closed_at < ? AND company_id IS NULL AND segment = 'paid'", mr.start, mr.end),
             lawyer_cost: fromMinor(q("SELECT COALESCE(SUM(e.amount_minor), 0) FROM ledger_entries e WHERE e.period = ? AND e.status != 'void' AND NOT EXISTS (SELECT 1 FROM cases cx WHERE cx.id = e.case_id AND cx.company_id IS NOT NULL) AND COALESCE(e.segment, 'charity') = 'paid'", period)),
           },
         },
@@ -306,8 +308,9 @@ export function createAnalytics(app) {
                       q(
                         `SELECT COALESCE(SUM(p.amount_minor), 0) FROM payments p JOIN invoices inv ON inv.id = p.invoice_id
                            JOIN cases c ON c.id = COALESCE(inv.case_id, (SELECT m.case_id FROM matters m WHERE m.id = inv.matter_id))
-                          WHERE c.company_id IS NULL AND c.segment = 'paid' AND substr(p.paid_at, 1, 7) = ?`,
-                        period,
+                          WHERE c.company_id IS NULL AND c.segment = 'paid' AND p.paid_at >= ? AND p.paid_at < ?`,
+                        mr.start,
+                        mr.end,
                       ),
                     ),
                   }
@@ -316,8 +319,9 @@ export function createAnalytics(app) {
             unset_open: q(`SELECT COUNT(*) FROM intakes WHERE ${openSql} AND segment IS NULL`),
             // P1 (S11-37): تحويلات «خيري ← أفراد وشركات» هذا الشهر (غير مستحق للخيري)
             ineligible_overrides: q(
-              "SELECT COUNT(*) FROM activity WHERE type = 'segment.changed' AND substr(created_at, 1, 7) = ? AND json_extract(data, '$.from') = 'charity' AND json_extract(data, '$.to') = 'paid'",
-              period,
+              "SELECT COUNT(*) FROM activity WHERE type = 'segment.changed' AND created_at >= ? AND created_at < ? AND json_extract(data, '$.from') = 'charity' AND json_extract(data, '$.to') = 'paid'",
+              mr.start,
+              mr.end,
             ),
           };
         })(),

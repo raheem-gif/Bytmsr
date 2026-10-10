@@ -1,4 +1,4 @@
-# Beyoot Misr Legal Support Platform — Complete Brief (version 10.0, pre-launch)
+# Beyoot Misr Legal Support Platform — Complete Brief (version 11.0, pre-launch)
 
 > **Purpose of this file.** This is a full, plain-language description of a software platform that was built for
 > «مؤسسة بيوت مصر لدعم الأرامل والأيتام» (Beyoot Misr Foundation for Supporting Widows and Orphans).
@@ -11,6 +11,14 @@
 > **"Virtual In-House Counsel as a Service"** for companies, with its own Company Legal Portal at `/company`. The brand
 > is a setting used only where clients look; the legal entity, code and history keep their names. Read the 10.0 section
 > («10.0 in plain words») first for the company service.
+>
+> **Since version 11.0** the public site opens on an **entry gate** with only the firm's logo and two choices:
+> **«خيري»** (khayri — the foundation's free charity legal help, unchanged) and **«خدمات الأفراد والشركات»** (paid legal
+> services for individuals, plus the company service). Both sides share the same request options, follow-up page and AI
+> analysis; every request, case and matter now carries a **service line** (`segment`: `charity` | `paid`) from its first
+> website or WhatsApp message to the fees and reports, which staff see and can change and lawyers never see. The whole
+> platform was also visually redesigned around the firm's logo. Read «11.0 in plain words» first for this release, and
+> §11 for the questions the firm must answer before launch (O-19 brand name vs logo, O-25 contracting entity).
 
 ---
 
@@ -60,10 +68,13 @@ the names or contacts of the company's employees), and companies see only «فر
 | (10.0) Company portal admin | مدير البوابة | A company employee with a `/company` account: sends and sees all the company's requests, approves quotes, accepts deliverables, manages the team, entities and the legal memory, sees charges. |
 | (10.0) Company member | عضو | Sends requests and follows their own and shared requests; adds contracts, templates, licences and key dates to the memory. |
 | (10.0) Company viewer | اطلاع فقط | Reads shared requests and memory only. Any company role can also carry the «جهة الفواتير» (billing contact) flag. |
+| (11.0) Paid individual client | العميل/ة (أفراد وشركات) | No account, exactly like a beneficiary (same form, WhatsApp, follow-up page), but chose «خدمات الأفراد والشركات» or wrote with the paid sentence or to the paid number: the request carries `segment = paid`, every text speaks polite plural Arabic, and fees are proposed on the follow-up page for agreement before any work. A company proposal from `/services` (`mode=company`) is a paid request from a prospective company, handled by staff until the firm adds the company. |
 
 Arabic terminology was standardised across the whole product: «إسناد» = a piece of work given to a lawyer, «مهمة» = a
 task inside a court case, «استشارة/ملف» = a consultation file, «قضية» only for real court cases, «مستفيد/مستفيدة» for
 the people served, currency always «ج.م», correct Arabic number–noun agreement everywhere.
+Since 11.0 staff screens say «المستفيد/ة» on charity work, «العميل/ة» on paid individual work and «الشركة» on company work;
+lawyer screens keep their 10.0 wording and never show the service line.
 
 ---
 
@@ -441,7 +452,220 @@ explanation. Lawyers get concise professional Arabic.
 
 ---
 
-## الإصدار 11.0 — Version 11.0
+## الإصدار 11.0 — Version 11.0: an entry gate with two sides, one service-line field end to end, and the real visual redesign
+
+### 11.0 in plain words — one door, two sides, the same work behind them
+
+**What the user asked.** In his words: «the very first thing that happens when someone enters is he's given two options …
+khayry aw khadamat afrad we sharekat in a very simple overlay with only our logo … white page with very light accents of
+our logo colours … afrad we sharekat takes him to our normal for profit page, the other one to the non profit requests …
+both should have the same options internally and the request of the for profit should be distinguished in the admin page
+from the non for profit one but both should give the same analysis and both should have the api integration which will
+differentiate between non profit and for profit messages». He also asked for a **real visual redesign**, because the
+10.0 «Apple-style» pass had changed only the motion. Version 11.0 (`11.0.0` in `package.json`, both Dockerfiles, the
+sidebar footer and the system page) delivers both. The firm's logo reads «EMAM إمام & Partners شركاه — Professional
+Services Firm»; the text brand setting `brand_name` stays «Emam Legal and Consultancy» (see O-19 below).
+
+**The two sides, named.**
+
+| Side | Arabic on screen | Value everywhere (DB, URL `seg`, cookie, JSON) | What it is | How it speaks |
+|---|---|---|---|---|
+| Charity | «خيري» (khayri), with the kicker «مجاني» (free) | `charity` | the foundation's free legal-support programme for widows, orphans' families and families in need — everything the platform did before 11.0 | Egyptian colloquial, feminine after the first tap, voice-first, picture tiles (9.2), unchanged |
+| Paid | «خدمات الأفراد والشركات» (services for individuals and companies); short chip «أفراد» / «شركة» | `paid` | fee-based legal services for individuals, plus the 10.0 company service (Virtual In-House Counsel) | polite formal Arabic in the plural («كيف نساعدكم؟»), text-first, no «مجاني/ببلاش», never speaks as «المؤسسة» |
+
+A request whose side is not known yet is «غير محدد» (`NULL`); this happens only on a shared WhatsApp number with no signal.
+
+**1. The entry gate (`/`).** A first-time visitor sees one opaque white overlay with the firm's logo (the deep-gold
+artwork `emam-logo-gold-deep.svg`, chosen so the letters stay readable on white), a very light gold wash at the top and
+green wash at the bottom, a small «بالصوت» (listen) button that appears only when the phone has an Arabic voice, two
+equal-height picture cards and three small links («الخصوصية · الشروط · دخول الشركات»). Nothing else: no phone number,
+no WhatsApp button, no tiles. Card 1 is «خدمات الأفراد والشركات» with a briefcase pictogram and the line «استشارات وقضايا
+وعقود بأتعاب واضحة، وإدارة قانونية للشركات»; card 2 is «خيري» with a 17-px gold «مجاني» and a mother-and-child pictogram.
+The order (paid first) follows the user's sentence «the first option which is the afrad we sharekat» and is one constant
+(`GATE_ORDER` in `src/site.js`, decision O-20). The spoken version names the pictures («… دي الصورة اللي فيها الشنطة»).
+The charity home is already in the same HTML under the overlay, so tapping «خيري» reveals the tiles in ≈ 10 ms with no
+network request (important on slow 3G); tapping the paid card navigates to `/services`. Back/forward restores the gate.
+Without JavaScript both cards are ordinary links. Measured on slow 3G: cards tappable in ≈ 2.2 s, zero layout shift,
+the page under 14 KB compressed.
+
+**2. URLs.**
+
+| URL | What it shows |
+|---|---|
+| `/` | the gate; a visitor whose cookie says «خيري» goes straight to the charity tiles (no gate, no redirect) |
+| `/khayri` | the charity home without the gate — for charity campaigns, flyers and QR codes; canonical to itself, in the sitemap, carries the charity FAQ structured data |
+| `/services` | the paid home: H1 «كيف نساعدكم؟», the same eight topics as a calm list with line icons, a row «للشركات: إدارتكم القانونية الافتراضية», «كيف نعمل؟», a companies band (proposal form + «دخول بوابة الشركات»), commitments, paid FAQ, contact; directly under the H1 a way back «تبحثون عن مساعدة قانونية مجانية؟ خيري ‹» |
+| `/intake?seg=charity` · `/intake?seg=paid` | the one request form, per side (same questions and answer values) |
+| `/intake?seg=paid&mode=company` | the company proposal form («اطلبوا عرضًا لشركتكم»: company name, job title, e-mail, staff size, needs, phone) |
+| `/?gate=1` | the gate always (the header's «تغيير نوع الخدمة»); `noindex` |
+| `/p/<token>` | the follow-up page, in the tone of the request itself (never the cookie) |
+| `/portal`, `/privacy`, `/terms`, `/about`, `/data-deletion`, 404 | in the visitor's side (header, side pill «خيري ⇄» / «أفراد وشركات ⇄», numbers, footer, summaries) |
+| aliases (301) | `/charity`, `/khairi`, `/khairy`, `/khayry`, `/kheiri`, `/خيري` → `/khayri`; `/khadamat`, `/afrad`, `/خدمات` → `/services`; `/companies`, `/sharikat`, `/شركات` → `/services#companies`; the 10.0 campaign form `/?topic=<key>` → `/intake?topic=<key>` (302) |
+
+**3. The cookie `bm_seg`.** One word (`charity` or `paid`), no personal data, never reflected into a page, `SameSite=Lax`,
+`Secure` on HTTPS, deliberately not HttpOnly (the gate's «خيري» button writes it in JavaScript to avoid a round trip).
+**Only «خيري» is remembered at `/`**: a visitor who chose the paid side sees the gate again on every visit, so one wrong tap
+(or a shared family phone) never keeps a widow on the paid side; the paid cookie only picks the chrome of legal pages and
+the `/intake` default. It is persistent (180 days) when set by the gate's «خيري», `/khayri`, `/services`, or a charity
+visit to `/`; session-only when set by `/intake?seg=…` (a forwarded link never flips someone's side for months); never
+written on HEAD, prefetch/prerender or link-preview requests (WhatsApp/Facebook), on `/?gate=1`, on the gate itself, or
+while the gate is switched off. Every public page is sent `Cache-Control: private, no-cache` with
+`Vary: Accept-Encoding, Cookie` (`/p/` stays `no-store`).
+
+**4. Same options internally.** Both sides use the same eight topic keys in the same order (inheritance, pension,
+orphans' money, alimony, custody, housing/rent — «العقارات والإيجار» on the paid side — official papers, other), the same
+picture questions and answer values, the same `/intake` flow, the same `POST /api/public/intake`, the same follow-up page
+and the same engine behind them. Only words and register differ. The charity pages are byte-identical to 10.0 except that
+their links to the form now carry `seg=charity` (a test hashes the main content). The paid words reach the browser as a
+server-embedded `<script type="application/json" id="bm-copy">` (from `src/site-copy-paid.js`), so the charity pages carry
+no paid copy and the content-security policy still allows no inline script. The paid form starts with text (voice one
+tap away), maps every server error code to its own polite sentence, keeps one draft per side, and shows on its topic and
+phone steps a small row «تبحثون عن مساعدة قانونية مجانية؟ خيري ‹» that carries the draft to the charity form.
+
+**5. Service-line tagging end to end.** One field, `segment`, on `intakes` (nullable), `cases` and `matters`
+(`NOT NULL DEFAULT 'charity'`), plus `segment_source` (where it came from), `segment_hint` (a local, never-applied suggestion) and
+`wa_line` on intakes; `messages.wa_line` / `wa_pid` (which WhatsApp number a message used); and a snapshot `segment` on
+`billable_events` and `ledger_entries` (written once at insert by triggers, so a closed accounting period never changes).
+Schema 86 is additive and idempotent: on upgrade every existing intake, case and matter reads `charity` (shown with the
+source «قبل الإصدار 11 (خيري)»), company cases and their matters `paid`, and nothing is sent.
+
+Where the value comes from, by **precedence** (an automatic signal only fills `NULL`; nothing automatic ever overwrites a
+staff choice):
+
+| Rule | Signal | `segment_source` |
+|---|---|---|
+| a | staff set or changed it on the request or case (with a reason when changing a set value, audited) | `staff` |
+| b | a reference: the confirm-code message of a website request, a message split into a new request, a new request from a follow-up page | `reference` |
+| c | an explicit choice: the website form's side (URL `seg` › draft › cookie › `segment_website_default`), staff's manual-entry form (side required), the WhatsApp choice buttons, the company proposal form | `website` / `website_default` / `manual` / `wa_choice` / `company_lead` |
+| d | a dedicated WhatsApp line (the paid number, or the main number in mode `charity`) | `wa_line` |
+| e | a prefill sentence from the website on a shared main number (or a paid sentence on the main number while `wa_paid_on_main` is on) | `wa_tag` |
+| f | a returning client on a shared number: the side of their latest item within `segment_returning_days` (365) | `returning` |
+| g | nothing: «غير محدد» + a local hint («يبدو أفراد وشركات — …») that staff may use with one tap | — |
+
+Cases copy their intake's value, matters their case's; a «غير محدد» request cannot become a case until staff choose
+(`409 segment_required`, with the hint). Changing a converted request is done on its case and propagates to the matters
+and the intake in one transaction.
+
+**6. How staff see it** (`/app`; lawyers see none of this). One colour code everywhere: **gold = charity, green = paid**;
+blue, orange and red are only for statuses. Chips: «خيري» (gold wash, filled heart), «أفراد» (green tint, briefcase),
+«شركة» (green, building), «شركة — طلب عرض» for company proposals, «غير محدد» (gray, dashed edge, question mark); always
+text + icon. The inbox has a switch «الكل · خيري · أفراد وشركات · غير محدد» with counts of open requests (remembered in the
+URL and on the device) and a chip next to every name; the manual-entry form requires choosing a side. A request page
+shows the chip, its source and «تغيير». A «غير محدد» request opens with a card of two big buttons and «استخدم الاقتراح»
+(one tap, no reason). Changing a set value opens a sheet that requires a reason (3–300 characters, quick reasons «غير مستحق
+للخيري» · «اختار النوع الخطأ» · «طلب شركة») and offers an optional, pre-filled message to the client; every change is in
+the activity and the security log. Cases and matters filter «الكل · خيري · أفراد · شركات». Every sheet or composer that
+sends to a client starts with the chip, the tone («بأسلوب الخيري / الأفراد والشركات / محايد») and **«سيُرسل من: …»** (the
+main number, the paid number, or the follow-up page only), from the server's `send_line`. Staff wording follows the side:
+«المستفيد/ة» for charity, «العميل/ة» for paid individuals, «الشركة» for companies. The dashboard has a grouped list «حسب
+نوع الخدمة» (new today · open per side, admin-only paid revenue this month) with alert rows «غير محدد» and «طلبات أفراد بلا
+واتساب مؤكد». A company proposal shows a «طلب عرض — تواصل تجاري» card (no legal analysis) and «إضافة شركة» pre-filled.
+
+**7. The same AI analysis.** Classification (legal area, track, urgency, issues, missing information, similar cases) runs
+the same code and the same prompt for both sides. The Claude request for a charity request is **byte-identical to 10.0**
+(a test pins the 10.0 request hash). For a paid request exactly one header line is added that changes only the wording of
+client-facing drafts (plural, no fee-free promises); for «غير محدد» a hint field is added that is stored and never applied
+(staff choices are recorded as AI feedback). Paid «refer elsewhere» drafts never point to the foundation's programmes. The
+local heuristic `segmentHint(text)` runs on every new request and fills `segment_hint` only. AI output is still reviewed by
+staff before anything is sent.
+
+**8. WhatsApp: two lines, tags and buttons.** All numbers belong to the **same WhatsApp Business Account** (one token, app
+secret, webhook and template set). The main number has a mode: `charity` (default — every message on it is charity unless
+it carries the paid sentence) or `shared` (both sides on one number; the sentence, the client's history or the buttons
+decide). A second, optional **paid number** (integration fields `paid_phone_number_id` + `paid_number`, main must stay
+`charity`) is shown publicly only after «اختبار الاتصال» confirmed with Meta that its displayed number matches
+(`paid_verified_at`); whoever writes to it directly is always answered from it. Inbound messages are routed by
+`metadata.phone_number_id`: configured main → `main`, configured paid → `paid`, absent/legacy → `main`, **a present but
+unknown id → stored with its request, never auto-answered**, one log line per id per day and a readiness item.
+
+What each side's public pages link to (`publicDigits`):
+
+| Main mode | Paid number | `wa_paid_on_main` | Charity pages | Paid pages |
+|---|---|---|---|---|
+| `charity` (default) | set and verified | any | main number + charity sentence | paid number + paid sentence |
+| `charity` | none or unverified | on (default) | main + charity sentence | **main number + paid sentence** (tagged `paid`) |
+| `charity` | none or unverified | off | main + charity sentence | no WhatsApp (phone + form); dashboard «طلبات أفراد بلا واتساب مؤكد» |
+| `shared` | — | — | main + charity sentence | main + paid sentence |
+
+**Prefill tags** are the sentences the website puts in the WhatsApp link: paid «مرحبًا، أرغب في حجز استشارة قانونية بخصوص
+{topic}.» (or without the topic), company «مرحبًا، نرغب في التواصل بخصوص الخدمات القانونية للشركات.», charity the 10.0
+greeting «السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.». They are recognised by a normalised prefix match, so words the
+client adds after the sentence do not matter. **Choice buttons** (`wa_segment_choice_enabled`, off by default, on in the demo; shared number only): the
+first message of an unknown person with no signal gets one message with two buttons «خيري — مجاني» / «أفراد وشركات» (also
+typed words are understood), once per request and once per client per 30 days, only inside the 24-hour window and never
+when another outgoing message went in the last 24 hours; the answer is recorded as `wa_choice` and staff can still change
+it. **Replies always leave from the number the client wrote to** (`lineForStory`), and the **24-hour window is per number
+id** (`inWindow(client, line)` counts only inbound messages with that number's current id), so a replaced number starts
+closed: if the id the client wrote to was replaced and that side is still configured, the reply goes from the current
+number of the same side as an approved template only; a removed or unknown number leaves the follow-up page only. A
+dedicated-line message from a client whose open item is on the other side attaches to that item with a «كتب على …» flag
+(no stray requests; staff can split it). B91-01 holds on every line: an unconfirmed website number never receives
+WhatsApp. Outside the window, paid clients get `<purpose>@paid` templates when mapped (`case_update@paid`,
+`portal_update@paid`, `survey@paid`, hearing/document/invoice reminders), else the neutral `portal_update`; the 10.0
+charity template and the charity survey never reach a paid client (the message then stays on the follow-up page).
+Readiness items: paid number unverified; paid side without WhatsApp; unknown number id seen; a paid-facing template with
+charity words; no template for paid clients; shared number without returning days or without buttons; buttons on while
+the privacy policy still promises human review of every reply.
+
+**9. Client texts by tone.** Every automated or suggested client message (welcome, «وصلنا طلبكم», acceptance, questions,
+document requests, survey, reminders, the answer message, the portal link, the confirmation reply, the day-before hearing
+reminder) is chosen by the tone of its request or case: charity = the 9.x colloquial texts, paid = `CLIENT_TEXTS_PAID`
+(polite plural, no «ببلاش/مجاني/المؤسسة»), neutral (`NULL`) = paid wording without fee lines and no welcome list. The
+follow-up page `/p/` takes its tone from the scoped request, then the latest open request, then the newest request, then the
+client; for paid it shows a plural formal tracker («استلمنا طلبكم · يراجع فريقنا طلبكم · يدرس المحامي طلبكم … · وصلكم الرد
+· اكتمل الطلب · قضيتكم أمام المحكمة»), paid contact numbers and «الأتعاب والمصاريف».
+
+**10. Money rules.** Paid work is **always payable** to the lawyer: the assignment's custom fee › the lawyer's «سعر العمل
+المدفوع (أفراد وشركات)» › the per-case rate › 0 with a warning; it is never pro bono (`409 paid_case_pro_bono`), never CSR
+or package credit, and a paid case can never be linked to a funding programme (`409 paid_case_program`); volunteer/CSR
+lawyers may take it but are paid and it never counts as volunteering (O-29). **Case fee invoices**: on a paid individual
+case staff press «إضافة أتعاب» (amount, description, due date → `POST /api/admin/cases/:id/invoices`); the client sees it on
+`/p/` and agrees with the existing agreement button (nothing is requested before agreement); assigning a lawyer before
+agreement shows the soft warning «لم يوافق العميل على الأتعاب بعد» (never blocks). Charity cases refuse fee invoices
+(`409 charity_case_fee`), company cases use company billing. Changing a case's side when fees, billable events or client
+payments exist is admin-only and returns the affected accounting periods; switching paid → charity cancels, in the same
+transaction, the case's fee invoices that have no payment and the unpaid matter invoices issued since the case became paid,
+and invoice reminders skip invoices created before the switch.
+
+**11. Reports.** Charity reports are **byte-identical** with paid data present and after later overrides: impact,
+programme reports and spend, CSR usage, pro-bono events, closed-case costs, the beneficiary export, the funnel with
+`segment=charity`, and the dashboard `month` (Cairo month; a new `month.paid` beside it). Analytics take
+`segment=all|charity|paid` (`all` = the 10.0 output, captioned «يشمل الخيري والأفراد»); accounting shows `paid_individuals` subtotals;
+exports gain a «الخدمة» column; the paid «إفادة قانونية» print uses its own disclaimer.
+
+**12. The new visual design and the logo.** One visual language on every surface (public site, follow-up page, company
+portal, staff and lawyer app): the logo colours deep green `#0b3d29` and gold `#cca454` as the default pair (installs with
+saved custom colours keep them; the contrast generator is unchanged and 25 new pairs pass for the default and 8 hostile
+pairs); one type scale 34/28/22/20/17/15/13 with Arabic never letter-spaced; much more white space; grouped lists instead
+of bordered cards; one filled button per screen; light sidebars and translucent bars; large titles; 1.75-stroke icons; ≥ 3:1
+edges on charity tiles and every field; print unchanged. **Logo assets** (`public/assets/img/`, cached, never recoloured,
+`alt` always from `brand_name`): `emam-mark-green.svg` (every header and sidebar), `emam-logo-gold-deep.svg` (on white:
+gate, sign-in screens), `emam-logo-gold.svg` (on the deep green: footer, offline page, share image), `emam-logo-green.svg`,
+`emam-mark-gold.svg`, `emam-mark-white.svg`, `favicon.svg` (the interlocking-diamond ornament), `app-icon.svg`, and
+re-rendered `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png`,
+`og-image.png`. The old scales mark `brand-mark.svg` stays on disk for print only.
+
+**13. Settings and integration fields added in 11.0.**
+
+| Key | Default | Where | Meaning |
+|---|---|---|---|
+| `site_gate_enabled` | on | Settings → «شاشة الاختيار» | **kill switch**: off = `/` is the charity home for everyone (cookie not refreshed); `/services` and `/khayri` keep working |
+| `org_phone_paid` | empty (= `org_phone`) | same card | phone shown on the paid side |
+| WhatsApp `segment` (main number mode) | `charity` | Integrations → WhatsApp «الرقم الأساسي يخدم» (env `WHATSAPP_SEGMENT`) | `charity` or `shared`; `paid` is not offered for the main number in 11.0 (an env value `paid` is read as `charity`); changing it while WhatsApp conversations are open needs a confirmation (`409 mode_change_confirm`) and is audited |
+| WhatsApp `paid_phone_number_id` + `paid_number` | empty | same card (env `WHATSAPP_PAID_PHONE_NUMBER_ID`, `WHATSAPP_PAID_NUMBER`) | the optional paid number in the same WABA; verified by «اختبار الاتصال» |
+| `wa_paid_on_main` | on | same card (toggle) | without a verified paid number, paid pages use the main number with the paid sentence |
+| `wa_segment_choice_enabled` | off | Settings → «القصص الواردة على واتساب» | choice buttons on a shared number |
+| `segment_returning_days` | 365 | same card | rule f on a shared number (0 = off) |
+| `segment_website_default` | `charity` | API only | side of a website request with no choice and no cookie |
+| `callback_from_number_paid` | empty | API only | number paid clients are called from |
+| `print_answer_disclaimer_paid` | a neutral sentence | API only | footer of the paid «إفادة قانونية» |
+
+**14. What is still open.** The firm must answer **O-19** (trading name «Emam Legal and Consultancy» vs the logo's «Emam &
+Partners / إمام وشركاه») and **O-25** (which legal entity contracts with paying clients — the © line, Organization data and
+legal pages still name the foundation) **before launch**, then O-24, O-26, O-28, O-20 and O-32 (all in §11 «Version 11.0
+decisions»). The gate goes live on upgrade; the kill switch exists for exactly this. What was deliberately left for 11.1 is
+listed under «Deferred to 11.1» below; what the release gate found and fixed is under «What the 11.0 integration gate
+fixed».
 
 <!-- v11:visual -->
 ### Visual language (V11) — public site, company portal, staff and lawyer app
@@ -467,7 +691,7 @@ bright gold lockup on the deep logo ground (footer, offline page, `og-image.png`
 words are never exposed. **O-19:** the artwork reads «إمام وشركاه / Emam & Partners» while the trading name is «Emam Legal
 and Consultancy» — flagged to the firm, not renamed. Components: `public/assets/css/v11-ui.css` (last sheet in `app.html`
 and `company.html`). Budgets: `/app` ≤ 60,000 B br, `/company` ≤ 30,000 B br, general critical CSS ≤ 8,500 B. Tests:
-`test/v11-visual.test.js` (30).
+`test/v11-visual.test.js` (39).
 <!-- /v11:visual -->
 
 <!-- v11:gate-public -->
@@ -514,7 +738,7 @@ request's tone is paid or neutral (H-G1 in `src/app.js`), and its header contact
 `/p/` stays `no-store`. Gate first paint ≈ 2.2 s on slow 3G (CLS ≤ 0.002); charity `intake.js` +1.7 KB br over 10.0; the paid
 copy block ≈ 12 KB raw / 3.5 KB br (sent only to paid pages). **Privacy and terms:** §12 cookie list (incl. `bm_seg`,
 self-hosted fonts), the company-lead bullet, and a new terms section «الخدمات بأتعاب للأفراد والشركات» — legal review O-28
-before launch. Tests: `test/v11-gate-public.test.js` (59); Playwright scripts in `scratchpad/v11-pw-gate/` and
+before launch. Tests: `test/v11-gate-public.test.js` (61); Playwright scripts in `scratchpad/v11-pw-gate/` and
 `scratchpad/v11-pw-gate-rv/` (review).
 <!-- /v11:gate-public -->
 
@@ -584,11 +808,13 @@ audit + activity `segment.changed`), `accept`/`convert` with `segment`, `POST /a
 `seg_reply`. No lawyer or company response gains anything (tests scan every lawyer and company GET).
 
 **Review additions.** Switching a case from paid to charity cancels, in the same transaction, its case-level fee invoices that
-have no payment (agreed or not; response `cancelled_invoices`, activity `invoice.cancelled`), so a charity client is never
-left with a fee request or an invoice reminder. Intake and case `segment` blocks carry `change_message {charity, paid}`: the
+have no payment (agreed or not; response `cancelled_invoices`, activity `invoice.cancelled`) — and, since the integration
+gate, also the unpaid matter invoices issued since the case became paid, while the invoice-reminder automation skips any
+invoice created before a later switch to charity — so a charity client is never left with a fee request or a reminder. Intake and case `segment` blocks carry `change_message {charity, paid}`: the
 S11 §10.4 text filled with the client's name, request number and the tone of the side they came from; the server fills any
 `{hello}`/`{ref_no}`/`{first_name}`/gender mark in a sent override message and refuses a leftover variable (400, rolled back).
 A message recorded for the paid line never leaves from the main number if the paid id disappears (it fails instead).
+Tests: `test/v11-segment-server.test.js` (63, including the 10.0 Claude request hash and a real 10.0 database upgrade).
 <!-- /v11:segment-server -->
 
 <!-- v11:segment-staff -->
@@ -598,7 +824,10 @@ A message recorded for the paid line never leaves from the main number if the pa
 «شركة» green tint + briefcase / building, «غير محدد» neutral with a dashed edge, «شركة — طلب عرض» for company leads. Chips are
 always text + icon and are the only pills with a filled glyph and a ring in their own hue; statuses carry a dot (AI suggestions,
 track and area pills on the request page and «رقم غير مؤكد» inside triage cards are neutral pills; fee agreement states are
-blue/orange). Note: some global status tones in `lib/ui.js` STATUS_TONES (owned by visual) still use the gold/green tints. Hints («المقترح: …», «يبدو أفراد وشركات — …»),
+blue/orange). Since the integration gate no status tone uses the green or gold tints (`lib/ui.js` `STATUS_TONES` maps
+statuses to neutral, muted, info (blue), warning (orange), danger (red) and success only — also in dashboard bars and the
+company desk), so the two colours mean
+the service line alone. Hints («المقترح: …», «يبدو أفراد وشركات — …»),
 line-mismatch («كتب على …») and unknown-line («وصلت على رقم غير مضبوط (…1234)») are separate neutral pills. CSS:
 `v11-segment.css` (tokens only, ≤ 2 KB br).
 
@@ -628,8 +857,89 @@ the `409 mode_change_confirm` confirm-and-resend when the main number's mode cha
 simulator picks the line (main · paid · shared · unknown) and presses the choice buttons. Audit groups `segment.*`.
 
 **Lawyers see nothing** of this: no chip, word or key under `pages/lawyer/*` or `lawyer-shell.js` (static test + Playwright
-DOM scan).
+DOM scan). Tests: `test/v11-segment-staff.test.js` (51); Playwright in `scratchpad/v11-pw-staff/`.
 <!-- /v11:segment-staff -->
+
+### What the 11.0 integration gate fixed before release
+
+After the four lanes, the integrated 11.0 build was tested on fresh demo data by four independent reviewers: **cross-lane
+journeys** at 360, 390 and 1366 px (the gate; a charity voice request; a paid text request; a company proposal; identical
+AI output for identical charity and paid stories; nine WhatsApp line cases and replies from the right number; unset,
+override and audit; a paid fee from «إضافة أتعاب» to the client's agreement on `/p/` and the lawyer's approval; the lawyer
+and company portals), a **security and privacy probe** (a customised real 10.0 database upgraded twice; the scheduler run on
+10.0 and on 11.0 against the same copy gave identical message, AI, notification and automation counts — the upgrade sends
+nothing; cookie attributes, CSP, `Vary`, the kill switch; a multi-number WhatsApp probe; a money probe), a **regression run**
+(the full suite under fake clocks across Cairo midnight, the end of summer time, month ends and 2027; 402 automated page
+visits; size budgets and slow-3G timings; the G-4 migration rehearsal) and a **visual, copy and accessibility review** (26
+public pages × 3 widths, staff, lawyer and company sweeps, 200 % zoom, reduced motion and transparency, more contrast, forced
+colours, hostile custom colours). Three fixers then closed the findings:
+
+- **Money and reports.** Paid → charity now also cancels the unpaid matter invoices issued since the case became paid (older
+  charity-era invoices stay), and the invoice reminder skips invoices created before a later switch to charity. Programme
+  spend excludes ledger lines whose snapshot is paid (a case switched to charity and then linked to a programme); the
+  programme figure «unlinked open cases» excludes paid and company cases. The dashboard month (charity and paid) now uses the
+  Cairo month in all six queries (it compared UTC months and was wrong for the first hours of a month).
+- **WhatsApp.** If the number id a client wrote to was replaced and that side is still configured, the reply now goes from the
+  same side's current number as an approved template only (the window stays closed because it is keyed by the number id)
+  instead of the follow-up page only; «سيُرسل من» and the channel hint say so; removed or unknown numbers still mean the
+  follow-up page only. A former paid client writing to the main number without the paid sentence stays charity (precedence)
+  but gets the «يبدو أفراد وشركات — عميل أفراد وشركات سابق» hint chip. The legacy 10.0 template setting
+  (`whatsapp_template_name`, charity wording) is never used for a paid or neutral client any more (the message stays on the
+  follow-up page) and readiness warns `wa_paid_no_template`; a new readiness warning `wa_choice_privacy` fires when choice
+  buttons are on a shared number while the privacy policy still promises human review of every reply, and «shared number
+  without buttons» is now a warning.
+- **Paid follow-up page and public copy.** The paid `/p/` tracker is built on the server in plural formal Arabic (stages
+  above), the money row reads «الأتعاب والمصاريف», paid invoices no longer offer «مش قادر أدفع»; the page tone falls back
+  scoped request › latest open › newest › the client's own side, so a paid client whose request closed no longer gets the
+  charity page; greetings and drafts keep a title with the first name («مرحبًا م. خالد», «مرحبًا أ. نادية»); office hours read
+  «من السبت إلى الخميس، من 10 صباحًا حتى 4 عصرًا» on paid pages; the «بالمختصر» summary and meta description of
+  `/terms` and `/privacy` follow the side; the paid recorder/upload strings are plural; `/data-deletion` has a paid summary,
+  intro and WhatsApp button.
+- **Look.** At most one filled button per viewport on both homes (the header CTA is tinted on the homes and filled again in
+  the phone menu); gate links ≥ 44 px; the deep-gold logo above the `/portal` sign-in; visible step bars on `/intake` with
+  «n من 4» for screen readers; two-line topic sub-lines with no cut text; contact ways at their designed width on desktop; the
+  focus ring on a pressed segmented button; a borderless company search field and quiet counts with chevrons on the company
+  overview.
+- **Staff app.** No status pill uses the segment colours any more; the request page's «المصدر والقناة» card is in Arabic;
+  staff wording uses «المستفيد/ة», «العميل/ة» or «الشركة» by side (lawyer pages unchanged); a company proposal shows a
+  «طلب عرض — تواصل تجاري» card instead of the legal analysis, and «إضافة شركة» opens pre-filled from it; drafts in «اعمله طلب»
+  swap with the side unless staff edited them (then a warning); the «لن يُطلب أي مبلغ» note shows only when switching to paid;
+  the lawyer-rate label says «سعر العمل المدفوع (أفراد وشركات)»; the phone request header shrank from ≈ 430 to 210 px and the
+  inbox title is «صندوق الوارد» with «+» in the bar; the cases table no longer overflows.
+- **Tests.** Date-dependent failures in the demo seed and two suites (00:00–01:00 Cairo in summer time, after summer time
+  ends, from the 22nd of a month, and in 2027) were fixed and proved under fake clocks; three regression files were added:
+  `v11-gate-public-fixes` (26), `v11-gate-staff` (25), `v11-gate-server` (15).
+
+### Known limitations at release (need a decision)
+
+- The paid `/intake` copy block (`bm-copy`) is 12,002 B raw (≈ 3.5 KB compressed, sent to paid pages only) against the spec's
+  6,144 B: the verbatim paid copy cannot fit; the test allows 12,288 B. Approve the new limit, or load the success screen copy
+  lazily.
+- A few inner money-view strings on the paid `/p/` (#money) are still colloquial («اتدفعت ✓», «اتدفع X من Y», «وافقت يوم …»,
+  «آخر ميعاد», the agreement toast), because the paid portal copy block is at its budget (3,069 of 3,072 B) — deferred to
+  11.1 with the rest of the body copy (O-30). The fee card title is «المبلغ: …» rather than «أتعاب طلبكم: …», so it stays
+  correct for court costs; say if the other wording is required. The long legal body of `/data-deletion` on the paid side
+  is also 11.1.
+- The staff request page title stays «الطلب REQ-…» (pinned by a 9.2 test) rather than the person's name, and the call
+  actions stay in the triage card (the prototype put them in the header).
+- Some staff strings are deliberately colloquial from 9.2 («القصة لسه بتتكتب», «اعمله طلب», «اتلخّصت منذ …»); a plural-MSA
+  pass over the whole staff app is 11.1.
+- A company proposal is still analysed like a legal request on the server (area, track, missing info) so classification stays
+  identical for both sides; staff do not see that output.
+- The logo appears twice on very short 404 pages; the English line «Your Virtual Legal Department» on the company sign-in
+  needs the firm's decision; `brand-mark.svg` (the old scales) is kept on disk for print only.
+
+### Deferred to 11.1 (designed, not built)
+
+Gate view/choice counters; a white `theme-color`; logo headers in e-mails; English copy for the paid side and the gate; the
+full plural-MSA body of the paid follow-up page (≈ 220 strings, including the money view) and the paid data-deletion body; a
+paid «من نحن» firm profile; public prices; speculation-rules prefetch of `/services`; `org_email_paid`; remembering the side
+in the saved follow-up page; a deep-gold logo variant without the «PROFESSIONAL SERVICES FIRM» line for screens under 360 px;
+a second WhatsApp number in a different WABA, main-number mode `paid` and click-to-WhatsApp ad rules; converting a company
+proposal into a client company in one click; per-staff segment queues and notification subscriptions; SLA per side; segment
+columns on quick replies, ad spend and knowledge; fixed or capped quotes and online payment for paid individuals; the fee
+field in the accept sheet; the request page titled by the person with the call actions in its header; a segment chip on
+the company queue and a «الخدمة» line on the client page; a plural-MSA pass over the staff app.
 
 ---
 
@@ -1528,6 +1838,16 @@ final review left open). Known limitations left on purpose:
   company e-mails carry no legal content and secret links are never stored; company knowledge never reaches B2C AI or the
   training export; no WhatsApp to companies; no company identity in staff columns of the audit log, documents or cases.
   The beneficiary rules above are unchanged, and B2C reports are byte-identical with company data present.
+- 11.0 additions (service line): lawyers never see the segment (no key, chip, word or alert; every lawyer GET and page is
+  scanned with all work set to paid) and company responses gain nothing; every segment change needs a permission (staff;
+  admin only when fees, billable events or client payments exist) and a reason, and is audited (`segment.changed`); no
+  automatic signal (number, sentence, returning client, AI or local hint) ever overwrites a staff choice and hints are never
+  applied; the 9.1 rule holds on every WhatsApp number (an unconfirmed website number gets no WhatsApp), replies leave from
+  the number the client wrote to, the 24-hour window is per number id, and a message on an unknown number id is stored but
+  never auto-answered; the `bm_seg` cookie is one whitelisted word with no personal data, never reflected and never set by
+  HEAD, prefetch or link-preview requests; paid copy is non-executable JSON (`application/json`), so the CSP still allows no
+  inline script; the company proposal's `requester` fields are validated and shown to staff only; every public page is
+  `private, no-cache` with `Vary: Cookie`; and charity reports stay byte-identical with paid data present and after overrides.
 
 ---
 
@@ -1538,14 +1858,18 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- automated tests (`npm test`, all passing at version 11.0.0; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+- automated tests (`npm test`, all passing at version 11.0.0: 1,435 in 341 suites; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
   158 page views and, in 9.1, 9.2 and 10.0, a browser usability run per lane at phone widths (including a simulated slow 3G
   network for the beneficiary pages and the company portal). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
   360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review; 10.0's
   gate did the same for the company service (journeys J1–J6, ≈ 240 extra page visits, an isolation and privacy probe,
   the 9.2 → 10.0 upgrade on real databases). The 346 tests added in 10.0: `v10-experience` 53, `v10-b2b-server` 103,
   `v10-b2b-server-isolation` 18, `v10-b2b-server-sla` 22, `v10-b2b-portal` 45, `v10-b2b-staff` 41 and the gate's
-  regression files `v10-gate-company` 22, `v10-gate-staff` 31, `v10-gate-public` 11.
+  regression files `v10-gate-company` 22, `v10-gate-staff` 31, `v10-gate-public` 11. The 280 tests added in 11.0:
+  `v11-visual` 39, `v11-gate-public` 61, `v11-segment-server` 63, `v11-segment-staff` 51 and the gate's regression files
+  `v11-gate-public-fixes` 26, `v11-gate-staff` 25, `v11-gate-server` 15; 11.0's gate also ran journeys at 360/390/1366, a
+  10.0 → 11.0 upgrade rehearsal with the scheduler on (no upgrade-caused sends), fake-clock runs across Cairo midnight, the
+  end of summer time, month ends and 2027, and ≈ 400 automated page visits.
 - Key folders: `src/` (server: services, routes, channels/WhatsApp, ai/, schema.d/ database extensions,
   `seed-v91-*.js` and `seed-v92-*.js` demo stories), `public/` (website, staff app, portal, `assets/fonts/`),
   `scripts/` (admin, backup, restore, demo reset), `test/` (`v91-*.test.js` for the 9.1 lanes, `v92-*.test.js` for 9.2).
@@ -1565,6 +1889,15 @@ final review left open). Known limitations left on purpose:
   `lib/company-ui.js`, `lib/company-forms.js`, `lib/company-boot-early.js`, `v10-company*.css` · the staff desk
   `pages/admin/company-*.js`, `components/company-*.js`, `v10-desk.css`. Schema: `src/schema.d/80`–`85` (additive only).
   Demo: `src/seed-v10-b2b.js`.
+- 11.0 key files: `src/services/segments.js` (the service line: labels, WhatsApp lines and `publicDigits`, precedence
+  `resolveInbound`, `lineForStory`/`sendLine`, tone texts and template purposes, overrides `setIntake`/`setCase`, hints,
+  choice buttons, readiness) · `public/assets/js/public/segment.js` (vocabulary, paid topics and prefill sentences, cookie
+  parsing; imported by the server, loaded by no page) · `src/site.js` (gate, `/khayri`, `/services`, side resolution, cookie,
+  aliases) + `src/site-copy-paid.js` (paid copy) + `public/services.html` · `public/assets/js/public/intake-company.js` +
+  `v11-lead.css` (company proposal, lazy) · `public/assets/js/app/components/segment-ui.js` + `v11-segment.css` (staff chips,
+  switches, override sheet, send header) · `public/assets/css/v11-ui.css` (components of the new look) and the logo files in
+  `public/assets/img/`. Schema: `src/schema.d/86-v11-segment.columns.json` + `.sql` (additive, idempotent, triggers for the
+  accounting snapshot). Demo: `src/seed-v11-segment.js`.
 - Main documents in the repository: `README.md` (overview, Arabic), `DEPLOY.md` (deployment guide, Arabic), this file.
 
 ---
@@ -1657,6 +1990,25 @@ handle the desk. Demo plans: Starter / Growth / Enterprise with fictional prices
    (plan & charges → CSV), Settings → «خدمة الشركات» and «باقات الشركات», «التكاملات» → «البريد الإلكتروني», and turn
    «إظهار اسم المكتب في منصة فريق العمل والمحامين» off and on to see `/app` switch names.
 
+**Version 11.0 — the two sides in the demo** (fictional numbers; built with the real services in
+`src/seed-v11-segment.js`). Demo configuration: the main WhatsApp number in mode `charity` (every 9.x story stays charity),
+a paid number `SIM-PAID` / `201000000002` marked verified for the demo only, and the choice buttons switched on. Log in as
+`manager`, open the inbox and use «الكل · خيري · أفراد وشركات · غير محدد»:
+
+| Number (who) | What to try |
+|---|---|
+| `01092000301` (م. خالد) | Wrote to the paid number (chip «أفراد», source «رقم واتساب المخصص»): custody and moving the child to a school in another governorate. A consultation with a 2,500 EGP fee he agreed to on his follow-up page; lead lawyer `tarek` at the paid-work rate. Same analysis as a charity custody story. Open the case: the «الأتعاب» card, «إضافة أتعاب», «سيُرسل من: رقم الأفراد والشركات»; his `/p/` page is in plural formal Arabic and greets «مرحبًا م. خالد». |
+| `01092000302` (أ. نادية) | From the paid website: inheritance (selling an inherited flat), a written story and a morning call-back request, no family card, number not confirmed on WhatsApp → the dashboard alert «طلبات أفراد بلا واتساب مؤكد». A follow-up link from her client page opens in the paid tone. |
+| `01092000303` (شركة الأمل للتجارة — أ. هشام) | The company proposal form → chip «شركة — طلب عرض», the «طلب عرض — تواصل تجاري» card (company, job title, e-mail, staff size, needs) and «إضافة شركة» pre-filled. |
+| `01092000304` (أم سلمى) | A shared number (simulated): she pressed «خيري — مجاني» → charity, source «اختار من أزرار واتساب». |
+| `01092000305` (no name) | A shared number (simulated): «شركتي عندها عقد توريد…», buttons not answered → «غير محدد» with the hint «أفراد وشركات»: the two-button card, «استخدم الاقتراح», and «تحويل إلى ملف قانوني» asks for the side first. |
+| `01092000306` (أم يحيى) | A paid-website request that `manager` switched to «خيري» with the reason «أرملة ودخلها لا يكفي» (activity and security log, group «نوع الخدمة»). |
+
+Also try: `/` and both cards (and `/?gate=1` after choosing «خيري»), `/khayri`, `/services`, `/intake?seg=paid&topic=inh`,
+`/intake?seg=paid&mode=company`; the WhatsApp simulator with a line picker (main · paid · shared · unknown), the paid sentence
+«مرحبًا، أرغب في حجز استشارة قانونية…» and the choice buttons; Settings → «شاشة الاختيار» (kill switch, preview);
+Integrations → WhatsApp («رقم الأفراد والشركات: تم التحقق»). As `tarek`, nothing about the service line is visible.
+
 ---
 
 ## 10. How to run and deploy
@@ -1700,6 +2052,20 @@ handle the desk. Demo plans: Starter / Growth / Enterprise with fictional prices
   entity; readiness red otherwise). `data/.secret-key` now also encrypts company users' 2FA secrets and the SMTP password —
   back it up with the database. A purged memory item stays in older backups until they rotate. See `DEPLOY.md`
   «ما الجديد تشغيليًا في 10.0».
+- **11.0 operations notes (entry gate and service line):** no new dependencies; optional environment variables
+  `WHATSAPP_SEGMENT` (`charity` default or `shared`), `WHATSAPP_PAID_PHONE_NUMBER_ID` and `WHATSAPP_PAID_NUMBER` (or the
+  WhatsApp card in Integrations). Schema 86 only adds columns, indexes and two triggers, marks company cases and their
+  matters paid and fills the empty accounting snapshots (idempotent, every start); it was rehearsed on real 10.0
+  databases (everything stays charity, company cases become paid, «غير محدد» rows untouched, no message, e-mail or AI call is
+  caused by the upgrade). **The gate and the paid pages go live on upgrade** (`site_gate_enabled` defaults on): answer O-19,
+  O-25, O-24, O-26 and O-28 first, or switch the gate off in Settings → «شاشة الاختيار» right after upgrading (then `/` is the
+  charity home as in 10.0). **Default WhatsApp configuration:** one number in mode `charity`, no paid number, `wa_paid_on_main`
+  on — paid pages link to the main number with the paid sentence, which tags those messages paid; turn it off (O-32) if the main
+  number's WhatsApp profile is branded as the charity. A second number in the same WABA is shown only after «اختبار الاتصال»
+  verified it; map `…@paid` templates (or at least `portal_update`). Campaign links: charity → `/khayri`, paid → `/services`,
+  companies → `/services#companies`, neutral → `/`. A caching proxy/CDN must honour `Vary: Cookie` or not cache HTML. Take a
+  backup before upgrading: rolling back to 10.0 after paid work starts would mix paid work into charity reports, so roll back by
+  restoring that backup. See `DEPLOY.md` «ما الجديد تشغيليًا في 11.0».
 - Full details: `DEPLOY.md`.
 
 ---
@@ -1791,6 +2157,33 @@ shown; the firm confirms or changes it before production use.
 The four "known limitations at release" in the 10.0 section (portal 4G cold start, the cross-company invite answer, a
 surname alone in the document gate, forced-colours outlines in `/app`) also need a decision.
 
+**Version 11.0 decisions (O-19 … O-33)** — the entry gate, the paid side and the logo. **O-19 and O-25 must be answered
+before launch («قبل الإطلاق»)**, then O-24, O-26, O-28, O-20 and O-32; the rest ship with the default shown. The gate and the
+paid claims go live on upgrade, so until these are answered the kill switch (Settings → «شاشة الاختيار») can keep `/` on the
+charity home.
+
+| # | Decision | Default in 11.0 |
+|---|---|---|
+| **O-19 — قبل الإطلاق** | **Brand name vs logo.** The logo artwork reads «Emam & Partners — إمام وشركاه — PROFESSIONAL SERVICES FIRM»; the text setting `brand_name` says «Emam Legal and Consultancy» (short «Emam Legal»). Keep it, or set `brand_name` to «Emam & Partners» / «إمام وشركاه» so page titles, share cards, WhatsApp signatures, the 2FA issuer **and the logo's `alt` text read by screen readers** match the logo? | logo artwork in headers, gate, sign-in screens and footer; every text use (including `alt`) stays on the setting; changing it is one settings field, no release |
+| **O-25 — قبل الإطلاق** | **Legal entity on the paid side.** The © line, the Organization structured data and the legal pages name the foundation (`org_legal_name`) also on a fee-charging service. 11.0 already hides the NGO registration and programme name in the paid footer and drops the NGO node from the `/services` structured data. Which entity contracts with paying clients? | © line unchanged until the firm names the contracting entity |
+| O-24 | «نرسل لكم الأتعاب المقترحة كتابةً على صفحة طلبكم قبل أي عمل» promises individuals a written fee before any work (deliverable in 11.0: «إضافة أتعاب» + agreement on `/p/`) | shipped; the firm confirms its process |
+| O-26 | The trust claim «محامون مقيّدون بنقابة المحامين» on `/services` | shipped; drop the clause if it cannot be confirmed |
+| O-28 | The new terms section «الخدمات بأتعاب للأفراد والشركات» and the new privacy bullets (cookie list, company proposals) need the firm's lawyer; the choice buttons on a shared number need the privacy wording first (readiness `wa_choice_privacy`) | text shipped as written; choice buttons off |
+| O-20 | Gate card order. The user wrote both «the first option which is the afrad we sharekat» (paid first) and «خيري أو خدمات أفراد وشركات» (charity first). Risk with paid first: a widow taps the first card by habit. Mitigations shipped: only «خيري» is remembered, the way back on the first screen of `/services` and of the paid `/intake`, briefcase vs mother-and-child pictograms, equal cards, a 17-px «مجاني», spoken picture cues | paid first; one constant `GATE_ORDER` |
+| O-32 | `wa_paid_on_main`: if the main number's WhatsApp profile name/photo is branded as the charity, paid clients see that name. Keep on, rename the profile neutrally, or turn it off (paid side → phone + form, dashboard call-back list) | on |
+| O-21 | Remember «خيري» for 180 days (returning beneficiaries skip the gate); the paid choice is remembered only for chrome and defaults, `/` shows the gate again | as described |
+| O-22 | Campaign links: charity ads/flyers/QR → `/khayri`; paid → `/services`; companies → `/services#companies`; neutral → `/` | as listed in `DEPLOY.md` |
+| O-23 | The public word «خيري» (paired with «مجاني» and a plain line); «خيري» is also a common male first name — the field test with real beneficiaries compares «خيري» with «خيري · مجاني» before launch | «خيري» + kicker «مجاني» |
+| O-27 | WhatsApp: two numbers in the same WABA (recommended; the paid number is shown only after verification) or one number | one number, mode `charity`, `wa_paid_on_main` on |
+| O-29 | Volunteer/CSR lawyers on paid individual work | allowed and paid at «سعر العمل المدفوع»; never counted as volunteering |
+| O-30 | Voice of the paid follow-up page: key and chrome strings (and since the gate the tracker) in plural formal Arabic; the rest of the body, including the inner money view, colloquial (masculine default) until 11.1; no prices on `/services` | as described |
+| O-31 | **Accepted risk:** automated charity texts («ببلاش») go out before anyone checks eligibility, and a paying client can choose «خيري». Staff see a non-applying «يبدو أفراد وشركات» chip and an eligibility notice at acceptance, and can switch with the reason «غير مستحق للخيري» | accepted; reviewed after the first month's override count |
+| O-33 | Pre-upgrade: the gate and the paid claims go live on upgrade (`site_gate_enabled` defaults on); confirm O-24/O-25/O-26/O-28 first or switch the gate off until then (`DEPLOY.md` checklist) | gate on |
+
+The «known limitations at release» in the 11.0 section (the paid copy block size, the remaining colloquial money-view strings
+on the paid `/p/`, the staff request title, colloquial staff strings, the company proposal's server-side analysis, the
+double logo on short 404 pages and the English company sign-in line) also need a decision.
+
 ---
 
 ## 12. How it was built (history)
@@ -1827,3 +2220,15 @@ surname alone in the document gate, forced-colours outlines in `/app`) also need
   (most importantly: work started from an approved quote never also consumes an included request, and the document gate
   now also covers the release message, quote texts, images, text files and staff memory files) before the version
   became 10.0.0.
+- **Version 11.0:** the user asked for an entry choice between «خيري» and «خدمات أفراد وشركات» on a white page with only
+  the firm's logo, the same options behind both, the paid requests told apart in the admin, the same analysis for both, and a
+  WhatsApp integration that tells the two kinds of messages apart — plus a real visual redesign. Three design documents
+  (visual with approved HTML prototypes, the gate and public sides, the service-line architecture) were merged into one spec,
+  revised after a people review and a security/performance/operations review, then built by four lanes (visual,
+  segment-server, gate-public, segment-staff), each with its own code review and browser usability run. An integration gate
+  then ran cross-lane journeys, an independent security and privacy probe (including a 10.0 → 11.0 upgrade with the scheduler
+  running), a regression run under fake clocks and an Arabic copy, visual and accessibility review; three fixers closed the
+  findings (most importantly: a switch from paid to charity can no longer leave a fee request or a reminder on a charity
+  client, a replaced WhatsApp number no longer silences replies, paid clients never receive the old charity template, the
+  paid follow-up page speaks plural formal Arabic on its first screen and tracker, and status colours no longer collide with
+  the service-line colours) before the version became 11.0.0, with 1,435 tests passing.

@@ -2,7 +2,7 @@
 // ahmed = lead counsel; mohamed = tax specialist granted ONLY issue #3 + 2 documents; client CL-00881.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startTestApp } from './helpers.js';
+import { startTestApp, demoCode } from './helpers.js';
 import { ok, assertNoLeak, LAWYER_FORBIDDEN_KEYS, runAutomations, outbox } from './lane-b-kit.test.js';
 
 let t;
@@ -11,6 +11,7 @@ let ahmed;
 let mohamed;
 let hany;
 let caseId;
+let mainCode; // v11 gate fixer-server (R-04)
 let detail;
 
 before(async () => {
@@ -19,7 +20,8 @@ before(async () => {
   ahmed = await t.login('ahmed');
   mohamed = await t.login('mohamed');
   hany = await t.login('hany');
-  const list = ok(await admin.get('/api/admin/cases?q=INH-2026-00482'));
+  mainCode = demoCode(t.app); // v11 gate fixer-server (R-04, intended): INH-<سنة البذر>-00482
+  const list = ok(await admin.get(`/api/admin/cases?q=${mainCode}`));
   caseId = list.items[0].id;
   detail = ok(await admin.get(`/api/admin/cases/${caseId}`));
 });
@@ -34,7 +36,7 @@ function asgOf(username) {
 }
 
 test('admin sees the full picture of INH-2026-00482: client CL-00881, phone, source and the whole team', async () => {
-  assert.equal(detail.case.code, 'INH-2026-00482');
+  assert.equal(detail.case.code, mainCode);
   assert.equal(detail.client.code, 'CL-00881');
   assert.equal(detail.client.name, 'سامية محمود عبد الحميد');
   assert.equal(detail.client.phone, '+201012345678');
@@ -52,7 +54,7 @@ test('admin sees the full picture of INH-2026-00482: client CL-00881, phone, sou
 test('mohamed (tax specialist) sees only issue #3 and the two granted documents — no identity, no conversation', async () => {
   const spec = asgOf('mohamed');
   const v = ok(await mohamed.get(`/api/lawyer/assignments/${spec.id}`));
-  assert.equal(v.case.code, 'INH-2026-00482');
+  assert.equal(v.case.code, mainCode);
   assert.deepEqual(v.issues.map((i) => i.number), [3]);
   assert.equal(v.documents.length, 2);
   assert.deepEqual(v.documents.map((d) => d.id).sort(), [...spec.grants.document_ids].sort());

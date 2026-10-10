@@ -584,9 +584,11 @@ export function createMessaging(app) {
       }
       // v11 segment-server [r2 S15] (L11-25): عميل الأفراد والشركات (أو «غير محدد») ← '<purpose>@paid' المربوط، وإلا قالب
       // portal_update المحايد؛ استبيان الخيري وقوالب الخيري لا تصله أبدًا
+      let paidTone = false;
       if (!isOtp && msg.client_id && app.segments && app.engine?.storyTone) {
         const tone = app.engine.storyTone({ intakeId: msg.intake_id, caseId: msg.case_id, matterId: msg.matter_id });
         if (tone !== 'charity') {
+          paidTone = true;
           const paidList = [];
           for (const p of purposes) {
             const tp = app.segments.templatePurpose(p, tone);
@@ -599,6 +601,9 @@ export function createMessaging(app) {
       const found = resolveMapping([...new Set(purposes)]);
       if (!found) {
         if (isOtp) return null;
+        // v11 gate fixer-server (F-E): القالب القديم من الإعدادات (قالب 10.0 بصيغة الخيري) لا يصل عميل الأفراد والشركات أبدًا؛
+        // بلا قالب «— الأفراد والشركات» ولا portal_update مربوط تبقى الرسالة في صفحة المتابعة (والجاهزية تنبه الإدارة)
+        if (paidTone) return null;
         const s = app.settings.all();
         return s.whatsapp_template_name ? { name: s.whatsapp_template_name, language: s.whatsapp_template_language || 'ar', params: [msg.body], buttons: [] } : null;
       }

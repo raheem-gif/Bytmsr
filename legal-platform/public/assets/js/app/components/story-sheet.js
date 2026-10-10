@@ -48,9 +48,9 @@ const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون �
 
 /** رسالة تأكيد النجاح بعد القرار (§6.4/A92-19) + « (إرسال تجريبي)» عند المحاكاة */
 export function acceptToast(res, { form = 'f', company = false } = {}) {
+  haptic('success'); // v10 (X10-M6): «اعمله طلب» قُبل (على الحاسوب: لا شيء)
   // v11 gate fix (J-13): «وأُرسلت له/لها/لهم رسالة» حسب صيغة المخاطَب (كان «لها» دائمًا حتى لعميل رجل أو لشركة)
   const pr = pronounOf(form, { company });
-  haptic('success'); // v10 (X10-M6): «اعمله طلب» قُبل (على الحاسوب: لا شيء)
   const sim = res.message && res.message.status === 'simulated' ? ' (إرسال تجريبي)' : '';
   let text;
   // [بوابة 9.2 G15] «(إرسال تجريبي)» يخص الرسالة التي وصلتها، لا اختيار المحامي

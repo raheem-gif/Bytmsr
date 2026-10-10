@@ -1271,7 +1271,7 @@ export default async function render(ctx) {
       'div.stack-lg',
       feesCard(),
       h('div.grid-2.pb-facts-grid', factsBlock('internal'), factsBlock('shared')),
-      h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', company ? null : outcomeCard({ kind: 'case', id: c.id }), aiAnalysisCard(), similarCard())),
+      h('div.detail-layout', h('div.detail-main', issuesCard(), partiesCard({ caseId: c.id, readOnly: closed })), h('div.detail-side', company ? null : outcomeCard({ kind: 'case', id: c.id, paid: paidIndividual }), aiAnalysisCard(), similarCard())),
     );
   }
 
@@ -3016,7 +3016,7 @@ export default async function render(ctx) {
       fields: [
         { name: 'outcome', label: 'نتيجة الملف', type: 'select', required: true, options: options('case_outcome') },
         { name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 3000 },
-        ...outcomeFields(),
+        ...outcomeFields({ paid: paidIndividual }),
       ],
       values: { outcome: c.status === 'answered' ? 'answered' : null },
       onSubmit: (v) => withPendingOpinionsOverride((force) => api.post(`/admin/cases/${id}/close`, { outcome: v.outcome, note: v.note || null, force: force || undefined, outcome_value: outcomePayload(v) })),

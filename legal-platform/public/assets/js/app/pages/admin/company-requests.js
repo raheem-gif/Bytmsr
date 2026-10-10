@@ -122,7 +122,7 @@ export function flagChips(flags = [], { staffUnread = 0, skip = [] } = {}) {
 /** النوع شارة مُحددة (فئة = إطار، L-10) */
 export function typeBadge(typeKey, text) {
   const t = typeByKey(typeKey);
-  return badge(text || t?.label || typeKey, 'primary', { icon: t?.icon || null });
+  return badge(text || t?.label || typeKey, 'neutral', { icon: t?.icon || null }); // v11 gate fix (K1): النوع محايد، لا أخضر «شركة»
 }
 
 const PROVIDER = { heuristic: 'المحلل المحلي', anthropic: 'Claude', claude: 'Claude' };
@@ -156,7 +156,8 @@ export function aiLine(ai, item = {}) {
 }
 
 /** المرحلة كما يراها الفريق (شارة ممتلئة) */
-const STAGE_TONE = { received: 'info', needs_you: 'warning', approval: 'warning', working: 'accent', final_review: 'accent', delivered: 'warning', closed: 'success', declined: 'muted', cancelled: 'muted' };
+// v11 gate fix (K1): لا حالة بالذهبي أو بأخضر الرقاقة — هذان لنوع الخدمة وحده (r2 P12)
+const STAGE_TONE = { received: 'info', needs_you: 'warning', approval: 'warning', working: 'info', final_review: 'info', delivered: 'warning', closed: 'success', declined: 'muted', cancelled: 'muted' };
 export function stageBadgeStaff(item) {
   return badge(stageByKey(item.stage)?.staff_label || item.stage_label || item.status_label || item.status, STAGE_TONE[item.stage] || 'neutral', { dot: true });
 }

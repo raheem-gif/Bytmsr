@@ -24,6 +24,7 @@ export const SIZES = Object.freeze({ text: 18, small: 16, meta: 15, tapPrimary: 
 
 const KUNYA_RE = /^(أم|ام|إم|أبو|ابو|أبو)$/;
 const MALE_KUNYA_RE = /^(أبو|ابو|أبو)$/;
+const TITLE_RE = /^(?:[\u0621-\u064A]{1,2}\.(?:[\u0621-\u064A]{1,2}\.)?|[مأدا][./]?|(?:ال)?(?:أستاذ|استاذ|دكتور|مهندس|مستشار)[ةه]?)$/;
 
 /** الاسم الذي نخاطب به: الكنية كاملة («أم محمد عبد الله» ← «أم محمد») أو الاسم الأول («سامية محمود» ← «سامية»). */
 export function addressName(name) {
@@ -33,6 +34,11 @@ export function addressName(name) {
     .split(/\s+/)
     .filter(Boolean);
   if (!w.length) return '';
+  // v11 gate fixer-server (J-03): لقب أولًا («م. رامي»)، ولقب وحده ← '' (نفس src/util.js)
+  if (TITLE_RE.test(w[0])) {
+    const rest = addressName(w.slice(1).join(' '));
+    return rest ? `${w[0].replace(/^ال(?=[أاد-ي])/, '')} ${rest}` : '';
+  }
   if (KUNYA_RE.test(w[0])) return w[1] ? `${w[0]} ${w[1]}${w[1] === 'عبد' && w[2] ? ` ${w[2]}` : ''}` : '';
   if (w[0] === 'عبد' && w[1]) return `${w[0]} ${w[1]}`;
   return w[0];

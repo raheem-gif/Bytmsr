@@ -7,6 +7,8 @@ import { publicWhatsAppDigits } from '../channels/whatsapp.js';
 import { parseSegment, segmentFromCookie, paidWaPrefill, paidPrefillOf, COMPANY_PREFILL, PAID_TOPICS, CHOICE_IDS } from '../../public/assets/js/public/segment.js';
 import { topicFromWaPrefill, waPrefill } from '../../public/assets/js/public/topics.js';
 import { segmentHint } from '../ai/heuristic.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /** تحية الموقع العامة (مثل SITE_GREETING في site.js) وتحية «عايزة أحكيلكم» — إشارتا «خيري» على رقم مشترك (L11-22) */
 export const SITE_GREETING = 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.';
@@ -43,7 +45,9 @@ export function createSegments(app) {
   const label = (s) => LABELS.segment[s] || UNSET_LABEL;
   const shortLabel = (s) => LABELS.segment_short[s] || UNSET_LABEL;
   const longLabel = (s) => LABELS.segment_long[s] || UNSET_LABEL;
-  const sourceLabel = (src, seg) => (src ? LABELS.segment_source[src] || src : seg === 'charity' ? LEGACY_SOURCE_LABEL : seg === 'paid' ? LABELS.segment_source.company : null);
+  // v11 gate fixer-server (F-C): «رقم واتساب المخصص» له معنى فقط مع رقم ثانٍ للأفراد والشركات؛ برقم واحد «الرقم الأساسي»
+  const sourceLabel = (src, seg) =>
+    src === 'wa_line' && seg === 'charity' && !lineByKey('paid') ? LABELS.wa_line.main : src ? LABELS.segment_source[src] || src : seg === 'charity' ? LEGACY_SOURCE_LABEL : seg === 'paid' ? LABELS.segment_source.company : null;
   const modeOf = (raw) => (String(raw || '').trim().toLowerCase() === 'shared' ? 'shared' : 'charity');
 
   function waConfig() {
@@ -199,19 +203,21 @@ export function createSegments(app) {
   }
 
   /** القاعدة f [r2 S3]: نوع خدمة آخر طلب أو ملف للعميل خلال segment_returning_days (0 = متوقفة) */
-  function returningSegment(clientId) {
+  function returningSegment(clientId, { excludeIntakeId = null } = {}) {
     const days = Number(S('segment_returning_days'));
     if (!clientId || !Number.isFinite(days) || days <= 0) return null;
     const since = addDays(nowIso(), -days);
     const row = db.get(
       `SELECT segment, created_at FROM (
-         SELECT segment, created_at FROM intakes WHERE client_id = ? AND segment IS NOT NULL AND created_at >= ?
-         UNION ALL SELECT segment, created_at FROM cases WHERE client_id = ? AND company_id IS NULL AND created_at >= ?
+         SELECT segment, created_at FROM intakes WHERE client_id = ? AND segment IS NOT NULL AND created_at >= ? AND id != ?
+         UNION ALL SELECT segment, created_at FROM cases WHERE client_id = ? AND company_id IS NULL AND created_at >= ? AND (intake_id IS NULL OR intake_id != ?)
        ) ORDER BY created_at DESC LIMIT 1`,
       clientId,
       since,
+      excludeIntakeId ?? 0,
       clientId,
       since,
+      excludeIntakeId ?? 0,
     );
     return parseSegment(row?.segment);
   }
@@ -297,8 +303,10 @@ export function createSegments(app) {
   }
 
   /**
-   * الرقم الذي يُرد منه في قصة (INV-16): رقم آخر رسالة واتساب منها، ما دام مضبوطًا الآن بنفس المعرّف؛ بلا رسائل واتساب
-   * ← رقم نوع الخدمة (الأفراد والشركات ← رقمهم المُتحقق منه، وإلا الأساسي). null = رقم غير مضبوط أو استُبدل.
+   * الرقم الذي يُرد منه في قصة (INV-16): رقم آخر رسالة واتساب منها، ما دام مضبوطًا الآن؛ بلا رسائل واتساب
+   * ← رقم نوع الخدمة (الأفراد والشركات ← رقمهم المُتحقق منه، وإلا الأساسي). null = رقم غير مضبوط، أو رقم أُزيل من التكاملات.
+   * v11 gate fixer-server (K8/J-09/R-05): رقم «الأساسي» أو «الأفراد والشركات» استُبدل معرّفه (والجانب نفسه ما زال مضبوطًا)
+   * ← نفس الجانب برقمه الحالي؛ نافذته تبدأ مغلقة (inWindow بالمعرّف الحالي، INV-05) فلا يخرج إلا قالب معتمد.
    */
   function lineForStory(story = {}) {
     if (!story.clientId) return null;
@@ -307,9 +315,7 @@ export function createSegments(app) {
       const key = last.wa_line || 'main';
       if (key === 'unknown') return null;
       if (!lineConfigured(key)) return null;
-      const { pids, configured } = pidsFor(key);
-      if (key === 'main' && (!configured || !last.wa_pid)) return 'main';
-      return pids.includes(last.wa_pid) ? key : null;
+      return key;
     }
     const seg = storySegment(story);
     const paid = lineByKey('paid');
@@ -329,6 +335,23 @@ export function createSegments(app) {
     return pidsFor('paid').pids.includes(last.wa_pid) ? 'paid' : 'main';
   }
 
+  /**
+   * v11 gate fixer-server (K8): هل كتب العميل آخر مرة على معرّف رقم استُبدل (الجانب نفسه ما زال مضبوطًا برقم آخر)؟
+   * (المحاكي «SIM» والصفوف القديمة بلا معرّف تُعد الرقم الأساسي نفسه)
+   */
+  function storyLineReplaced(story = {}) {
+    if (!story.clientId) return false;
+    const last = lastInboundOfStory(story);
+    if (!last) return false;
+    const key = last.wa_line || 'main';
+    if ((key !== 'main' && key !== 'paid') || !lineConfigured(key)) return false;
+    const { pids, configured } = pidsFor(key);
+    if (key === 'main' && (!configured || !last.wa_pid)) return false;
+    return !pids.includes(last.wa_pid);
+  }
+  /** نص القناة عند رقم مُستبدل (صندوق الرد وسطر «سيُرسل من») */
+  const REPLACED_LINE_TEXT = 'الرقم الذي كتب عليه استُبدل — سيُرسل بقالب من الرقم الحالي';
+
   /** «سيُرسل من: …» في رؤوس الإرسال (L11-61): { key, label } أو null بلا عميل */
   function sendLine(story = {}) {
     if (!story.clientId) return null;
@@ -341,6 +364,7 @@ export function createSegments(app) {
     }
     const confirmed = app.engine?.isStoryConfirmed?.({ clientId: story.clientId, intakeId: story.intakeId ?? null, caseId: story.caseId ?? null, matterId: story.matterId ?? null });
     if (confirmed === false) return { key: 'portal', label: 'صفحة المتابعة فقط — الرقم غير مؤكد' };
+    if (storyLineReplaced(story)) return { key, label: `${LABELS.wa_line[key]} — ${REPLACED_LINE_TEXT}`, replaced: true };
     return { key, label: LABELS.wa_line[key] };
   }
 
@@ -463,9 +487,19 @@ export function createSegments(app) {
     const h = parseJson(row?.segment_hint, null);
     return h && parseSegment(h.segment) ? { segment: h.segment, reasons: Array.isArray(h.reasons) ? h.reasons.slice(0, 3) : [] } : null;
   }
+  /** نص سبب الاقتراح لعميل أفراد وشركات سابق كتب بلا جملة الحجز على الرقم الأساسي «الخيري» */
+  const RETURNING_PAID_REASON = 'عميل أفراد وشركات سابق';
   /** يحسب الاقتراح من نص الطلب ويحفظه (أو NULL) — لا يلمس segment أبدًا (INV-04) */
   function storeHint(intakeId, t) {
-    const h = segmentHint(t);
+    let h = segmentHint(t);
+    // v11 gate fixer-server (F-C): على الرقم الأساسي «الخيري» تبقى الرسالة بلا جملة «خيري» (L11-21)، لكن عميل أفراد وشركات
+    // سابق (خلال segment_returning_days) يأخذ اقتراحًا لا يُطبَّق «يبدو أفراد وشركات — عميل أفراد وشركات سابق» فتراه الإدارة
+    if (h.segment !== 'paid') {
+      const i = db.get('SELECT id, client_id, segment, segment_source FROM intakes WHERE id = ?', intakeId);
+      if (i && i.segment === 'charity' && i.segment_source === 'wa_line' && returningSegment(i.client_id, { excludeIntakeId: i.id }) === 'paid') {
+        h = { segment: 'paid', confidence: 0.6, reasons: [RETURNING_PAID_REASON] };
+      }
+    }
     const val = h.segment ? JSON.stringify({ segment: h.segment, reasons: h.reasons, confidence: h.confidence }) : null;
     db.run('UPDATE intakes SET segment_hint = ? WHERE id = ?', val, intakeId);
     return h;
@@ -576,10 +610,17 @@ export function createSegments(app) {
       // [مراجعة 11.0] ملف صار «خيري»: الأتعاب المقترحة على الملف نفسه بلا أي دفعة تُلغى في نفس المعاملة (رسالة التحويل
       // تقول «لن تُطلب منكم أي أتعاب»، ولا تذكير بمبلغ ولا زر موافقة على صفحة المتابعة بعدها). ما عليه دفعات يبقى (لمدير النظام).
       if (to === 'charity') {
+        // v11 gate fixer-server (F-A): ومعها فواتير الملف المستمر (أتعاب المحاماة في الدعوى) الصادرة منذ صار الملف «أفراد وشركات»
+        // — بلا دفعات فقط؛ فواتير الملف المستمر الأقدم (من فترة خيري سابقة، مثل الرسوم) تبقى كما هي
+        const paidSince = db.value("SELECT MAX(created_at) FROM activity WHERE case_id = ? AND type = 'segment.changed' AND json_extract(data, '$.to') = 'paid'", c.id) || '';
         const open = db.all(
-          `SELECT id, number FROM invoices WHERE case_id = ? AND matter_id IS NULL AND status NOT IN ('cancelled', 'paid')
+          `SELECT id, number FROM invoices WHERE status NOT IN ('cancelled', 'paid')
+             AND ((case_id = ? AND matter_id IS NULL)
+               OR (matter_id IN (SELECT id FROM matters WHERE case_id = ?) AND created_at >= ?))
              AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = invoices.id) ORDER BY id`,
           c.id,
+          c.id,
+          paidSince,
         );
         for (const inv of open) {
           db.run("UPDATE invoices SET status = 'cancelled', updated_at = ? WHERE id = ?", t, inv.id);
@@ -745,6 +786,16 @@ export function createSegments(app) {
     return at;
   }
 
+  /** v11 gate fixer-server (K10): هل ما زالت سياسة الخصوصية تعد بأن «كل رد يصلك يراجعه شخص مختص»؟ (نفس آلية بند story_ack في 9.2) */
+  function privacyPromisesHumanReview() {
+    try {
+      const file = path.join(config.publicDir || '', 'privacy.html');
+      return /يراجعه شخص مختص/.test(fs.readFileSync(file, 'utf8'));
+    } catch {
+      return false;
+    }
+  }
+
   // ───────────── الجاهزية (r2 S4/S9/S15) ─────────────
   function readiness() {
     const items = [];
@@ -765,7 +816,10 @@ export function createSegments(app) {
     if (main.mode === 'shared') {
       const days = Number(S('segment_returning_days'));
       if (!(days > 0)) add('wa_shared_returning', 'warning', 'الرقم المشترك لا يتذكر نوع خدمة من راسلنا قبل كده', 'كل رسالة جديدة بلا جملة جاهزة تبقى «غير محدد» حتى من عملاء سابقين. اضبطوا «تذكّر نوع الخدمة لمن راسلنا قبل كده» بعدد أيام أكبر من صفر.', '#/settings?section=stories');
-      if (!S('wa_segment_choice_enabled')) add('wa_shared_choice', 'info', 'الرسائل الجديدة على الرقم المشترك تبقى «غير محدد» حتى يختار الفريق نوع الخدمة', 'أزرار اختيار نوع الخدمة متوقفة؛ تختار الإدارة نوع الخدمة من صفحة الطلب.', '#/settings?section=stories');
+      // v11 gate fixer-server (R-11): «تحذير» كما في S11 §6.7 (كان «معلومة»)
+      if (!S('wa_segment_choice_enabled')) add('wa_shared_choice', 'warning', 'الرسائل الجديدة على الرقم المشترك تبقى «غير محدد» حتى يختار الفريق نوع الخدمة', 'أزرار اختيار نوع الخدمة متوقفة؛ تختار الإدارة نوع الخدمة من صفحة الطلب.', '#/settings?section=stories');
+      // v11 gate fixer-server (K10/R-11, S11-24): الأزرار رسالة آلية ثابتة بينما تعد سياسة الخصوصية بأن شخصًا يراجع كل رد (O-28)
+      else if (privacyPromisesHumanReview()) add('wa_choice_privacy', 'warning', 'أزرار نوع الخدمة رسالة آلية بينما تقول سياسة الخصوصية إن شخصًا يراجع كل رد', 'راجعوا جملة «كل رد يصلك يراجعه شخص مختص» في سياسة الخصوصية أو أوقفوا الأزرار.', '#/settings?section=stories');
     }
     const unknown = db.get("SELECT wa_pid, MAX(created_at) AS at, COUNT(*) AS n FROM messages WHERE direction = 'in' AND wa_line = 'unknown' AND created_at >= ? GROUP BY wa_pid ORDER BY at DESC LIMIT 1", addDays(nowIso(), -7));
     if (unknown) {
@@ -775,6 +829,12 @@ export function createSegments(app) {
     const paidTraffic = Number(db.value("SELECT COUNT(*) FROM intakes WHERE segment = 'paid'") || 0) + Number(db.value("SELECT COUNT(*) FROM cases WHERE segment = 'paid' AND company_id IS NULL") || 0);
     if (paidTraffic > 0) {
       try {
+        // v11 gate fixer-server (F-E): بلا قالب «— الأفراد والشركات» ولا portal_update مربوط لا يخرج لهم شيء خارج النافذة
+        // (القالب القديم من الإعدادات بصيغة الخيري ولا يُستخدم معهم)
+        const paidMapped = Number(db.value("SELECT COUNT(*) FROM wa_template_mappings WHERE purpose LIKE '%@paid' OR purpose = 'portal_update'") || 0);
+        if (!paidMapped && app.whatsapp?.configured) {
+          add('wa_paid_no_template', 'warning', 'لا قالب واتساب لعملاء الأفراد والشركات بعد 24 ساعة من آخر رسالة منهم', 'خارج نافذة الـ 24 ساعة لا يخرج إلا قالب معتمد؛ القالب القديم في الإعدادات بصيغة الخيري فلا يُرسل لهم، فتبقى رسائلهم في صفحة المتابعة فقط. اربطوا قالب «في جديد في طلبك» (portal_update) أو قوالب «— الأفراد والشركات».', '#/quick-replies');
+        }
         const rows = db.all(
           `SELECT m.purpose, t.name, t.body_text FROM wa_template_mappings m JOIN wa_templates t ON t.name = m.template_name AND t.language = m.language
             WHERE m.purpose LIKE '%@paid' OR m.purpose = 'portal_update'`,
@@ -910,6 +970,8 @@ export function createSegments(app) {
     changeText,
     changeMessage,
     templatePurpose,
+    storyLineReplaced,
+    REPLACED_LINE_TEXT,
     paidStaffLines,
     counts,
     hint,

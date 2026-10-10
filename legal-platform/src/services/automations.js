@@ -204,7 +204,10 @@ export function createAutomations(app) {
         `SELECT i.*, c.intake_id FROM invoices i LEFT JOIN cases c ON c.id = i.case_id
          WHERE i.status IN ('unpaid','partially_paid') AND i.due_at < ? AND i.reminder_count < ?
            AND (i.client_agreed_at IS NOT NULL OR EXISTS (SELECT 1 FROM payments p WHERE p.invoice_id = i.id))
-           AND NOT EXISTS (SELECT 1 FROM clients x WHERE x.id = i.client_id AND x.company_id IS NOT NULL)`, // v9.1 b-portal (B91-18): لا تذكير بمبلغ لم توافق عليه المستفيدة (دفع جزء منه موافقة) · v10 b2b-server (حارس #2)
+           AND NOT EXISTS (SELECT 1 FROM clients x WHERE x.id = i.client_id AND x.company_id IS NOT NULL)
+           AND NOT (COALESCE(c.segment, 'charity') = 'charity' AND EXISTS (
+             SELECT 1 FROM activity a WHERE a.case_id = i.case_id AND a.type = 'segment.changed'
+               AND json_extract(a.data, '$.to') = 'charity' AND a.created_at >= i.created_at))`, // v9.1 b-portal (B91-18): لا تذكير بمبلغ لم توافق عليه المستفيدة (دفع جزء منه موافقة) · v10 b2b-server (حارس #2) · v11 gate fixer-server (F-A): لا تذكير بأتعاب صدرت قبل تحويل الملف إلى «خيري»
         t,
         max,
       );

@@ -1081,7 +1081,8 @@ describe('v10 experience — motion, press, materials, haptics and images (EXP-7
     assert.match(portal, /haptic\('success'\); \/\/ v10 \(X10-M6\): الورق وصل فعلًا/);
     assert.equal((portal.match(/haptic\('commit'\)/g) || []).length, 2, 'RSVP and «موافقة»');
     assert.match(read('public/assets/js/app/components/outcome-sheet.js'), /m\.close\('saved'\);\s*haptic\('success'\);/);
-    assert.match(read('public/assets/js/app/components/story-sheet.js'), /export function acceptToast\(res\) \{\s*haptic\('success'\);/);
+    // v11 gate (J-13): acceptToast also takes the address form for the toast pronoun; the haptic stays its first statement
+    assert.match(read('public/assets/js/app/components/story-sheet.js'), /export function acceptToast\(res[^)]*\) \{\s*haptic\('success'\);/);
     assert.match(read('public/assets/js/app/pages/lawyer/home.js'), /import \{ haptic \} from '\.\.\/\.\.\/\.\.\/lib\/haptics\.js';/);
     assert.match(read('public/assets/js/app/pages/lawyer/home.js'), /haptic\('commit'\);[^\n]*\n\s*const t = toast\('سُجّلت المهمة منجزة'/);
     assert.match(read('public/assets/js/app/pages/lawyer/write.js'), /haptic\('success'\);[^\n]*\n\s*toast\(`قُدّم رأيك/);

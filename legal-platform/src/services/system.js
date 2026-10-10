@@ -349,7 +349,7 @@ export function createSystem(app) {
     res.setHeader('Cache-Control', 'no-store');
     res.end(
       '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الصفحة غير موجودة</title>' +
-        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b5a3c}</style></head>' + // v10 experience: H-E4
+        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b3d29}</style></head>' + // v10 experience: H-E4 · v11 gate fixer-server (R-18): أخضر الشعار
         '<body><main><h1>الصفحة غير موجودة</h1><p>تأكد من الرابط أو عد إلى <a href="/">الصفحة الرئيسية</a>.</p></main></body></html>',
     );
   }

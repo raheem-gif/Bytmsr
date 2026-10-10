@@ -1028,12 +1028,13 @@ describe('v11 gate-public — review regressions', () => {
     assert.ok(headerOf(on).includes('href="/?gate=1"') && footerOf(on).includes('href="/?gate=1">اختيار نوع الخدمة</a>'), 'on again → the gate');
   });
 
-  test('58. /services «التزامنا معكم»: trust lines wrap in full; only the topic rows keep the one-line sub (L11-55)', () => {
+  test('58. /services «التزامنا معكم»: trust lines wrap in full; the topic rows clamp their sub-line at two lines in a reserved 88 px row (L11-55; gate fix V8/J-16: one line cut «…وغيرها» on phones)', () => {
     const paid = critical('paid');
-    assert.match(paid, /\.pub-topic-list \.g-sub\{overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/);
+    assert.match(paid, /\.pub-topic-list \.g-sub\{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden\}/);
+    assert.match(paid, /\.pub-topic-list \.g-row\{[^}]*min-height:88px/);
     const css = tailCss().replace(/\/\*[\s\S]*?\*\//g, '');
     for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-      if (/nowrap|ellipsis/.test(m[2])) assert.ok(!/(^|,)\s*\.g-sub\s*(,|$)/.test(m[1].trim()) && !/pub-trust/.test(m[1]), `one-line rule on ${m[1].trim()}`);
+      if (/nowrap|ellipsis/.test(m[2])) assert.ok(!/\.g-sub/.test(m[1]) && !/pub-trust/.test(m[1]), `one-line rule on ${m[1].trim()}`);
     }
   });
 
@@ -1043,9 +1044,12 @@ describe('v11 gate-public — review regressions', () => {
     assert.match(cross, /if \(crossing\) return;\s*crossing = true;/);
     assert.match(cross, /await Promise\.race\(\[move\(\)\.catch\(\(\) => \{\}\), new Promise\(\(r\) => setTimeout\(r, 2000\)\)\]\);\s*window\.location\.href = href;/);
   });
-  test('60. (PW-G14) one filled button per viewport on /services: above 1080 px the sticky header keeps the filled «طلب استشارة», so the same action at the page end is tinted; grouped lists keep an edge in forced colours (V11-53); trust rows go two columns on desktop', () => {
+  test('60. (PW-G14) one filled button per viewport on /services: above 1080 px the header «طلب استشارة» is tinted on the homes (gate fix J-06/K12), so the in-page actions are the filled ones (the page-end CTA filled again); paid callback and contact WhatsApp tinted; grouped lists keep an edge in forced colours (V11-53); trust rows go two columns on desktop', () => {
     const css = tailCss();
-    assert.match(css, /@media \(min-width: 1081px\) \{\s*body\.pub-paid \.pub-final-cta \.pub-btn-primary,\s*body\.pub-paid \.pub-final-cta \.pub-btn-primary:hover \{\s*background: var\(--tint-weak\);\s*color: var\(--tint\);/);
+    assert.ok(!/\.pub-final-cta \.pub-btn-primary[^{]*\{\s*background: var\(--tint-weak\)/.test(css), 'page-end CTA stays filled');
+    assert.match(read('public/assets/css/public-site.css'), /\nbody\.pub-landing \.pub-nav-cta \{\s*background: var\(--tint-weak\);\s*color: var\(--tint\);/);
+    assert.match(css, /body\.pub-paid \.pub-pick-way--callback \{[^}]*background: var\(--gold-wash\);/);
+    assert.match(css, /body\.pub-paid #contact \.pub-btn-whatsapp \{\s*background: var\(--ok-weak\);/);
     assert.match(read('public/assets/css/public-site.css'), /@media \(max-width: 1080px\) \{\s*\.pub-nav \{\s*display: none;/, 'the header CTA shows from 1081 px');
     assert.match(read('public/services.html'), /<body class="site pub v91 pub-landing pub-paid"/);
     assert.match(css, /@media \(forced-colors: active\) \{\s*\.pub-topic-list,\s*\.pub-trust-list,\s*body\.pub \.pub-co-row \{\s*outline: 1px solid CanvasText;/);

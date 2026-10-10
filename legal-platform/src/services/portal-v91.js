@@ -84,6 +84,17 @@ export const spokenTime = typeof U.spokenTime === 'function' ? U.spokenTime : lo
 export const spokenDate = typeof U.spokenDate === 'function' ? U.spokenDate : localSpokenDate;
 export const dayWord = typeof U.dayWord === 'function' ? U.dayWord : localDayWord;
 
+/**
+ * v11 fixer-public: اسم التحية في صفحة المتابعة. لقب مختصر في أول الاسم («م. خالد»، «أ. نادية»، «د. سامي»، «أ.د. …»،
+ * شائع عند عملاء الأفراد والشركات) لا يُخاطَب وحده («مرحبًا م.»): اللقب ثم الاسم الأول. غير ذلك = addressName كما هو.
+ */
+const TITLE_ABBR_RE = /^[\u0621-\u064A]{1,2}\.(?:[\u0621-\u064A]{1,2}\.)?$/;
+export function greetName(name) {
+  const w = String(name ?? '').replace(/[\u200e\u200f\u061c]/g, '').trim().split(/\s+/).filter(Boolean);
+  if (w.length > 1 && TITLE_ABBR_RE.test(w[0])) return `${w[0]} ${addressName(w.slice(1).join(' '))}`.trim();
+  return addressName(name);
+}
+
 /** رقم الطلب كما يُقال في التليفون: REQ-2026-00029 → «29» */
 export function spokenRef(code) {
   const m = /^REQ-\d{4}-(\d+)$/.exec(String(code || ''));
@@ -704,7 +715,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const instructions = String(setting('portal_payment_instructions') || '').trim().slice(0, 500);
     return {
       address: form,
-      name: addressName(displayName),
+      name: greetName(displayName), // v11 fixer-public: «مرحبًا م. خالد» لا «مرحبًا م.»
       ref,
       spoken_ref: spokenRef(ref),
       whatsapp_confirmed: whatsappConfirmed(client, sc),

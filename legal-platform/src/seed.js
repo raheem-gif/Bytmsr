@@ -1000,7 +1000,8 @@ export async function seedDemo(app) {
       const zInv = app.matters.addInvoice(m2.id, { description: 'رسوم إدارية رمزية — ملف الجنحة', amount: 200, due_at: addDays(new Date(T).toISOString(), 14) }, manager);
       at(28, 13);
       app.matters.addPayment(zInv.id, { amount: 200, method: 'نقدًا بمقر المؤسسة' }, manager);
-      at(21, 11);
+      // v11 gate fixer-server (R-02): أتعاب الجنحة في الشهر السابق دائمًا (كان at(21) يقع في الشهر الحالي من اليوم 22)
+      at(Math.max(21, cairoParts(new Date(realNow)).day + 6), 11);
       app.accounting.addAdjustment({ kind: 'matter_fee', matter_id: m2.id, lawyer_id: U.hany.id, amount: 2500, description: 'أتعاب حضور جلسات الجنحة (خارج الاتفاق الشهري)' }, admin);
       at(8, 12);
       app.matters.addExpense(m2.id, { description: 'رسوم إعلان شاهد النفي', amount: 220, paid_by: 'organization' }, manager);

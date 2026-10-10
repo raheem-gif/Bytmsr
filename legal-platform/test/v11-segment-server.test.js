@@ -26,6 +26,7 @@ import crypto from 'node:crypto';
 import { setSdkLoader, createAnthropicProvider, PAID_AUDIENCE_LINE, UNSET_AUDIENCE_LINE } from '../src/ai/anthropic.js';
 import { SEGMENT_DEMO_PHONES } from '../src/seed-v11-segment.js';
 import { DAY_BEFORE_TEMPLATE_PAID } from '../src/services/portal-v91.js';
+import { periodOf } from '../src/util.js'; // v11 gate fixer-server (R-03)
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -580,7 +581,7 @@ describe('v11 segment-server — WhatsApp lines, window per number, unknown ids 
     }
   });
 
-  test('r2 S8 (L11-50): a replaced paid number id starts with a closed window and is no longer a reply line', async () => {
+  test('r2 S8 (L11-50): a replaced paid number id starts with a closed window (the same side\'s current number, templates only — gate K8)', async () => {
     const t = await startTestApp({ seed: 'none', config: LIVE });
     try {
       configurePaid(t);
@@ -589,7 +590,9 @@ describe('v11 segment-server — WhatsApp lines, window per number, unknown ids 
       assert.equal(t.app.engine.inWindow(i.client_id, 'paid'), true);
       configurePaid(t, { pid: 'PAIDID2', number: '201000000002' });
       assert.equal(t.app.engine.inWindow(i.client_id, 'paid'), false);
-      assert.equal(t.app.segments.lineForStory({ clientId: i.client_id, intakeId: i.id }), null);
+      // v11 gate fixer-server (K8, intended): كان null (صفحة المتابعة فقط حتى يكتب العميل من جديد)؛ الآن نفس الجانب برقمه الحالي
+      assert.equal(t.app.segments.lineForStory({ clientId: i.client_id, intakeId: i.id }), 'paid');
+      assert.equal(t.app.segments.storyLineReplaced({ clientId: i.client_id, intakeId: i.id }), true);
     } finally {
       await t.close();
     }
@@ -1432,7 +1435,7 @@ describe('v11 segment-server — money, reports and case fees (SS-7, SS-7b, L11-
     try {
       const admin = await t.login('admin');
       const db = t.app.db;
-      const period = new Date().toISOString().slice(0, 7);
+      const period = periodOf(new Date().toISOString()); // v11 gate fixer-server (R-03, intended): فترات القيود بتوقيت القاهرة
       const snap = async () => {
         const acc = (await admin.get(`/api/admin/accounting/summary?period=${period}`)).body;
         const dash = (await admin.get('/api/admin/dashboard')).body;
@@ -1457,6 +1460,7 @@ describe('v11 segment-server — money, reports and case fees (SS-7, SS-7b, L11-
           export: (await admin.download('/api/admin/data/export/clients')).body,
           funnel: (await admin.get('/api/admin/analytics/funnel?segment=charity')).body,
           month,
+          programmes_totals: (await admin.get('/api/programs')).body.totals, // v11 gate fixer-server (J-01, intended): «ملفات مفتوحة دون برنامج»
         });
       };
       freezeClock(new Date().toISOString());

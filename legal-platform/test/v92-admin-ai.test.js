@@ -1910,7 +1910,9 @@ describe('v9.2 stories — review fixes', () => {
     const inbox = read('public/assets/js/app/pages/admin/inbox.js');
     assert.match(inbox, /phone: p && p\.identity \? p\.identity\.phone : null/);
     const sheet = read('public/assets/js/app/components/story-sheet.js');
-    assert.match(sheet, /unconfirmed \? REPLY_CHANNELS\.filter\(\(c\) => c\.value !== 'whatsapp'\)/);
+    // v11 gate (J-13): the list is REPLY_CHANNELS with the «auto» label in the segment's noun; the whatsapp filter is unchanged
+    assert.match(sheet, /unconfirmed \? (?:REPLY_CHANNELS|list)\.filter\(\(c\) => c\.value !== 'whatsapp'\)/);
+    assert.match(sheet, /const list = replyChannelsFor\(segPick \|\| segNow, isCompanyLead\);/);
     assert.match(sheet, /const herPhone = opts\.phone \|\| \(p\.identity && p\.identity\.phone\)/);
     const css = read('public/assets/css/v9-messaging.css');
     const v92 = css.slice(css.indexOf('v9.2 القصص'));

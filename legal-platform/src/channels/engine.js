@@ -1092,6 +1092,8 @@ export function createEngine(app) {
       const wa = confirmed && !!phone && !!line;
       let text = wa ? 'واتساب + صفحة المتابعة' : confirmed && phone && !line ? 'صفحة المتابعة فقط — وصلت رسائله على رقم واتساب غير مضبوط' : confirmed ? 'صفحة المتابعة فقط — لا يوجد رقم واتساب' : 'صفحة المتابعة فقط — الرقم غير مؤكد';
       if (wa && twoLines) text = `واتساب (${LABELS.wa_line[line]}) + صفحة المتابعة`;
+      // v11 gate fixer-server (K8): رقم كتب عليه العميل استُبدل ← نفس الجانب برقمه الحالي، بقالب فقط (نافذته مغلقة)
+      if (wa && app.segments?.storyLineReplaced?.({ clientId, intakeId, caseId, matterId })) text = `${app.segments.REPLACED_LINE_TEXT} + صفحة المتابعة`;
       return { confirmed, whatsapp: wa, text, line: wa ? line : null };
     },
 

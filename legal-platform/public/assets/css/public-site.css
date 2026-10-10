@@ -263,12 +263,12 @@ body.pub .pub-nav-cta {
   color: var(--on-tint);
 }
 
-/* v11 fixer-public (K12/J-06، V11-P2): في صفحات البداية فوق 1080px زر الرأس ملوّن خفيف، فزر الصفحة نفسها هو الممتلئ الوحيد */
-@media (min-width: 1081px) {
-  body.pub-landing .pub-nav-cta {
-    background: var(--tint-weak);
-    color: var(--tint);
-  }
+/* v11 fixer-public (K12/J-06، V11-P2): في صفحات البداية زر الرأس ملوّن خفيف، فزر الصفحة نفسها هو الممتلئ الوحيد. بلا @media
+   حتى تبقى الكتلة العامة ≤ 8,500 بايت: الرأس لا يظهر الزر تحت 1081px إلا في القائمة المفتوحة، وهناك يعود ممتلئًا (القاعدة
+   المقابلة داخل @media (max-width: 1080px) في الجزء غير الحرج، والقائمة لا تُفتح قبل تحميله) */
+body.pub-landing .pub-nav-cta {
+  background: var(--tint-weak);
+  color: var(--tint);
 }
 
 .pub-seg-pill-change,
@@ -839,6 +839,12 @@ body.pub .pub-seg-pill:hover {
     margin: 8px 0 0;
     min-height: var(--tap-primary);
     font-size: 18px;
+  }
+
+  /* v11 fixer-public (K12): في القائمة المفتوحة لصفحات البداية يبقى «احكيلنا مشكلتك»/«طلب استشارة» الزر الممتلئ */
+  body.pub-landing .pub-nav-cta {
+    background: var(--tint);
+    color: var(--on-tint);
   }
 
   body.pub .pub-nav-gate {

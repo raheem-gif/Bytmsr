@@ -293,6 +293,8 @@ describe('v11 gate (staff) — status pills never wear the segment colours', () 
     const files = [
       'components/ai-reply.js', 'components/story-sheet.js', 'components/send-document.js', 'pages/admin/case-detail.js', 'pages/admin/cases.js',
       'pages/admin/inbox.js', 'pages/admin/intake-detail.js', 'pages/admin/matter-detail.js', 'pages/admin/matters.js', 'pages/admin/simulator.js',
+      // the AI document card on request/case pages and the company desk (all «شركة» work): no green/gold pills either
+      'components/doc-ai.js', 'components/company-accept-sheet.js', 'pages/admin/company-requests.js', 'pages/admin/company-request.js', 'pages/admin/company-detail.js',
     ];
     for (const f of files) {
       const src = read(`${APP}${f}`);
@@ -303,6 +305,13 @@ describe('v11 gate (staff) — status pills never wear the segment colours', () 
     }
     assert.match(read(`${APP}pages/admin/intake-detail.js`), /const ACTOR_TONES = \{ ai: 'info', client: 'neutral', staff: 'neutral', lawyer: 'info', system: 'muted' \};/);
     assert.match(read(`${APP}components/story-sheet.js`), /export const TRACK_TONES = \{ consultation: 'info', matter: 'neutral',/);
+    // the company desk stage pill «جارٍ العمل» is blue like case_status.in_progress, never gold
+    assert.match(read(`${APP}pages/admin/company-requests.js`), /working: 'info', final_review: 'info',/);
+    // the dashboard case-status bars take the badge tones (no green «مُسند» bar, no gold «قيد الدراسة» bar beside the segment tiles)
+    const dash = read(`${APP}pages/admin/dashboard.js`);
+    assert.match(dash, /const caseTone = \(k\) => statusTone\('case_status', k\);/);
+    assert.ok(!/CASE_TONES/.test(dash));
+    assert.match(dash, /ai\.provider === 'anthropic' \? 'info' : 'neutral'/);
     // the triage-card unread count is a quiet pill, not a filled green circle
     assert.match(read(`${CSS}v9-messaging.css`), /\.pa-story \.pa-unread \{\s*background: var\(--fill-2\);\s*color: var\(--label\);/);
   });
@@ -456,6 +465,19 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
     assert.ok(paid.querySelectorAll('option').map(text).includes('تلقائي — آخر قناة تواصل منها العميل/ة'));
     const charity = CD.messageComposer({ onSend() {} });
     assert.match(text(charity), /رسالة جديدة للمستفيد\/ة/);
+  });
+
+  test('a paid case’s outcome card and close dialog say «العميل/ة» and that the impact report is charity-only', async () => {
+    const O = await import('../public/assets/js/app/components/outcome.js');
+    const [paidKind] = O.outcomeFields({ paid: true });
+    assert.equal(paidKind.label, 'الأثر المتحقق للعميل/ة');
+    assert.equal(paidKind.hint, 'لا يدخل تقرير الأثر ما دام الملف بأتعاب — التقرير يخص الخدمة الخيرية فقط.');
+    const [charityKind] = O.outcomeFields();
+    assert.equal(charityKind.label, 'الأثر المتحقق للمستفيد');
+    assert.equal(charityKind.hint, 'يُستخدم في تقرير الأثر للمجلس والجهات المانحة ووزارة التضامن.');
+    const cd = read(`${APP}pages/admin/case-detail.js`);
+    assert.ok(cd.includes("company ? null : outcomeCard({ kind: 'case', id: c.id, paid: paidIndividual })"));
+    assert.ok(cd.includes('...outcomeFields({ paid: paidIndividual }),'));
   });
 
   test('lawyers.js validator names the paid rate as the UI does (K9)', () => {

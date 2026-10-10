@@ -554,7 +554,7 @@ export default async function render(ctx) {
       parts.push(
         kv(
           [
-            ['المجال', h('span', areaLabel(t.practice_area || r.practice_area), (t.skills || []).length ? h('span.cr-chips', t.skills.map((s) => badge(label('b2b_skill', s), 'primary'))) : null)],
+            ['المجال', h('span', areaLabel(t.practice_area || r.practice_area), (t.skills || []).length ? h('span.cr-chips', t.skills.map((s) => badge(label('b2b_skill', s), 'neutral'))) : null)],
             ['الاستعجال المقترح', `${URGENCY[t.urgency] || t.urgency || '—'}${t.urgency_reason ? ` — ${t.urgency_reason}` : ''}`],
             ['الحجم', t.effort ? h('span', `${t.effort.size || '—'} · `, h('span.num', `${t.effort.hours_min ?? '—'}–${t.effort.hours_max ?? '—'}`), ` ساعات${t.effort.reason ? ` — ${t.effort.reason}` : ''}`) : null],
             ['نوع التسليم', t.deliverable_kind ? label('company_deliverable_kind', t.deliverable_kind) : null],

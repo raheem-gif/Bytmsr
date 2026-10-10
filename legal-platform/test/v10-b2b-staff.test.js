@@ -485,7 +485,8 @@ describe('v10 b2b-staff — engine pages for company work (STF-10)', () => {
     assert.match(cd, /company \? null : sendDocumentButton\(/);
     assert.match(cd, /!company && data\.satisfaction/);
     assert.match(cd, /const clientCard = company\s*\n\s*\? card\(\{\s*\n\s*title: 'الشركة'/, 'beneficiary card replaced');
-    assert.match(cd, /if \(!company\) acts\.push\(button\('تسجيل رد المستفيد\/ة'/);
+    // v11 gate (J-13): the noun follows the segment («المستفيد/ة» / «العميل/ة»); a company case still has no such button
+    assert.match(cd, /if \(!company\) acts\.push\(button\(`تسجيل رد \$\{N\.def\}`/);
   });
 
   test('no generic «إغلاق الملف» / «إعادة فتح الملف» on a company case (L-65, §9.3-9)', () => {
@@ -743,7 +744,9 @@ describe('v10 b2b-staff review — regressions', () => {
   test('F3 company case page: no impact card and no beneficiary wording in the info-request flow', () => {
     const src = read(`${APP}pages/admin/case-detail.js`);
     assert.match(src, /company \? null : outcomeCard\(/);
-    assert.match(src, /const WHO = company \? 'الشركة' : 'المستفيد\/ة'/);
+    // v11 gate (J-13): WHO = clientNoun(…).def — «الشركة» for a company case, «العميل/ة» for paid, «المستفيد/ة» for charity
+    assert.match(src, /const N = clientNoun\(segValue, \{ company: Boolean\(company\) \}\);/);
+    assert.match(src, /const WHO = N\.def;/);
     for (const t of ['أُرسل للشركة — بانتظار ردها', 'ردّت الشركة — بانتظار مراجعة الإدارة', ' اطلبه من الشركة بـ«سؤال للشركة» في صفحة طلب الشركة.']) assert.ok(src.includes(t), t);
     for (const t of ["'موافقة الإدارة والإرسال للمستفيد/ة', 'رد المستفيد/ة'", "textBlock('رد المستفيد/ة', r.client_reply", "textBlock('الرسالة التي أُرسلت للمستفيد/ة'", "subtitle: 'كل طلب يمر بالإدارة قبل أن يصل للمستفيد/ة"]) assert.ok(!src.includes(t), `still fixed to the beneficiary: ${t}`);
   });

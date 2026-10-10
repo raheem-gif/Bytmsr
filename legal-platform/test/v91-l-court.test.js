@@ -327,8 +327,8 @@ describe('v9.1 l-court — hearing outcome, calendar, outbox idempotency, statem
   });
 
   test('lawyer calendar: past unrecorded hearings within 30 days are flagged needs_outcome', async () => {
-    const now = cairoParts(nowIso());
-    const startIso = cairoLocalToIso(now.year, now.month, now.day, 0, 10);
+    // v11 gate fixer-server (K2/R-01, intended): ساعتان مضتا دائمًا (كانت 00:10 اليوم بتوقيت القاهرة، فتبقى في المستقبل قبل 00:10)
+    const startIso = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
     const ev = ok(await hany.post(`/api/lawyer/matters/${matterId}/events`, { kind: 'hearing', starts_at: startIso, title: 'جلسة اختبار التقويم' }));
     const old = ok(await hany.post(`/api/lawyer/matters/${matterId}/events`, { kind: 'hearing', starts_at: new Date(Date.now() - 40 * 86400000).toISOString(), title: 'جلسة قديمة' }));
     const cal = ok(await hany.get('/api/lawyer/calendar'));

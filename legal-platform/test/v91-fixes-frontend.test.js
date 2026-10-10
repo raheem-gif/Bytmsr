@@ -456,7 +456,8 @@ describe('v9.1 fixes — staff and lawyer copy', () => {
   test('request dialogs no longer promise a case number; they say what is really added', () => {
     const src = read('public/assets/js/app/pages/admin/case-detail.js');
     assert.equal(/سيُضاف تلقائيًا رقم الملف|تلقائيًا رقم الملف/.test(src), false);
-    assert.equal((src.match(/اسم المستفيد\/ة ورقم طلبه\/ا ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
+    // v11 gate (J-13): the noun follows the segment — «اسم ${N.def}» is «المستفيد/ة» on a charity case, «العميل/ة» on a paid one
+    assert.equal((src.match(/اسم \$\{N\.def\} ورقم طلبه\/ا ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
   });
 
   test('beneficiary-facing leftovers: privacy page and the demo message are plain', () => {
@@ -506,7 +507,7 @@ describe('v9.1 fixes — answer composer', () => {
     const src = read('public/assets/js/app/pages/admin/case-detail.js');
     assert.match(src, /before: unansweredNotice\(\),\s*danger: true,/);
     assert.match(src, /close_case: !pendingMsg,/);
-    assert.ok(src.includes('`فيه رسالة من المستفيد/ة لم يُرد عليها ('));
+    assert.ok(src.includes('`فيه رسالة من ${N.def} لم يُرد عليها (')); // v11 gate (J-13): noun by segment
     assert.ok(src.includes("'افتح المحادثة ورد عليها'"));
   });
 });
