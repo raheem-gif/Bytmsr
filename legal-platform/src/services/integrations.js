@@ -24,6 +24,12 @@ export const INTEGRATION_SPEC = {
       verify_token: { label: 'رمز التحقق من Webhook', secret: true, env: 'WHATSAPP_VERIFY_TOKEN', cfg: (c) => c.whatsapp?.verifyToken },
       number: { label: 'رقم واتساب الظاهر للمستفيدين (أرقام دولية فقط)', env: 'WHATSAPP_NUMBER', cfg: (c) => c.whatsapp?.numberDigits },
       api_version: { label: 'إصدار Graph API', env: 'WHATSAPP_API_VERSION', cfg: (c) => (process.env.WHATSAPP_API_VERSION ? c.whatsapp?.apiVersion : ''), default: 'v21.0' },
+      // v11 segment-server (§5.4، L11-20): رقمان في نفس حساب واتساب للأعمال. الرقم الأساسي «الخيري» أو «الخدمتين معًا»
+      // ([r2 S3] لا «أفراد وشركات فقط» للرقم الأساسي في 11.0؛ قيمة paid في البيئة تُقرأ charity)، ورقم اختياري للأفراد والشركات
+      // يظهر للعامة فقط بعد التحقق منه في «اختبار الاتصال» [r2 S4]
+      segment: { label: 'الرقم الأساسي يخدم', env: 'WHATSAPP_SEGMENT', cfg: () => process.env.WHATSAPP_SEGMENT || '', default: 'charity', options: LABELS.wa_segment_mode },
+      paid_phone_number_id: { label: 'معرّف رقم الأفراد والشركات (Phone Number ID) — نفس حساب واتساب للأعمال', env: 'WHATSAPP_PAID_PHONE_NUMBER_ID', cfg: () => process.env.WHATSAPP_PAID_PHONE_NUMBER_ID || '', code: true },
+      paid_number: { label: 'رقم واتساب الأفراد والشركات الظاهر (أرقام دولية فقط)', env: 'WHATSAPP_PAID_NUMBER', cfg: () => process.env.WHATSAPP_PAID_NUMBER || '' },
     },
   },
   anthropic: {
@@ -154,8 +160,25 @@ export function createIntegrations(app) {
       return { name, label: s.label, fields, undecryptable: !!st.__undecryptable, key_source: master.source };
     },
 
-    /** حفظ قيم (القيمة الفارغة "" تحذف الحقل). يطلق الحدث integrations.changed لإعادة تهيئة الخدمة المعنية */
-    set(name, patch, actor, ctx = null) {
+    /**
+     * القيم الفعلية لمجموعة قيم مخزنة (البيئة أولًا ثم المخزن ثم الافتراضي) — نفس قاعدة get() على قيم لم تُحفظ بعد.
+     * v11 segment-server: للتحقق من حقول واتساب المترابطة قبل الحفظ.
+     */
+    effectiveOf(name, st) {
+      const s = spec(name);
+      const out = {};
+      for (const [k, f] of Object.entries(s.fields)) {
+        const envVal = f.cfg ? f.cfg(config) : '';
+        out[k] = envVal ? String(envVal) : st?.[k] !== undefined && st[k] !== '' ? String(st[k]) : f.default ?? '';
+      }
+      return out;
+    },
+
+    /**
+     * حفظ قيم (القيمة الفارغة "" تحذف الحقل). يطلق الحدث integrations.changed لإعادة تهيئة الخدمة المعنية.
+     * opts.confirm (v11 segment-server، [r2 S3]): تأكيد تغيير وضع الرقم الأساسي مع وجود محادثات واتساب مفتوحة.
+     */
+    set(name, patch, actor, ctx = null, opts = {}) {
       const s = spec(name);
       if (!patch || typeof patch !== 'object') throw badRequest('بيانات غير صالحة');
       const cur = stored(name);
@@ -169,6 +192,8 @@ export function createIntegrations(app) {
           next[k] = str;
         }
       }
+      // v11 segment-server (§5.4): رقم الأفراد والشركات ووضع الرقم الأساسي (تحقق مترابط + تأكيد تغيير الوضع + سجل)
+      const waCheck = name === 'whatsapp' && app.segments?.checkWhatsAppSave ? app.segments.checkWhatsAppSave(svc.effectiveOf(name, cur.__undecryptable ? {} : cur), svc.effectiveOf(name, next), { confirm: opts.confirm === true }) : null;
       db.run(
         `INSERT INTO integration_secrets (name, value_enc, updated_by, updated_at) VALUES (?, ?, ?, ?)
          ON CONFLICT(name) DO UPDATE SET value_enc = excluded.value_enc, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
@@ -178,6 +203,7 @@ export function createIntegrations(app) {
         nowIso(),
       );
       app.audit?.log({ actor, ctx, type: 'integration.updated', severity: 'warning', summary: `تم تحديث إعدادات ${s.label}`, data: { name, fields: Object.keys(patch) } });
+      if (waCheck) app.segments.afterWhatsAppSave(waCheck, { actor, ctx }); // v11 segment-server
       app.events.emit('integrations.changed', { name });
       return svc.status(name);
     },

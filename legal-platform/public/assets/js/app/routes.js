@@ -10,7 +10,7 @@ export const EVERYONE = ['admin', 'case_manager', 'lawyer'];
 export const routes = [
   // ── الإدارة ──
   { path: '/dashboard', load: () => import('./pages/admin/dashboard.js'), roles: STAFF, title: 'لوحة المتابعة' },
-  { path: '/inbox', load: () => import('./pages/admin/inbox.js'), roles: STAFF, title: 'صندوق الوارد الموحد' },
+  { path: '/inbox', load: () => import('./pages/admin/inbox.js'), roles: STAFF, title: 'صندوق الوارد' },
   { path: '/inbox/:id', load: () => import('./pages/admin/intake-detail.js'), roles: STAFF, title: 'تفاصيل الطلب الوارد' },
   { path: '/queue', load: () => import('./pages/admin/queue.js'), roles: STAFF, title: 'بانتظار قرار الإدارة' },
   { path: '/cases', load: () => import('./pages/admin/cases.js'), roles: STAFF, title: 'ملفات الاستشارات' },

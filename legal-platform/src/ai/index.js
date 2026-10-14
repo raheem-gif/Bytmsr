@@ -21,6 +21,8 @@ import { factsText } from '../channels/engine.js'; // v9.1 fixes: رسالة ت�
 import { normalizePhone } from '../util.js'; // v9.2 (admin-ai)
 import { ApiError } from '../util.js'; // v10 b2b-server
 import { createCompanyAi } from './company.js'; // v10 b2b-server (SRV-7): فرز طلبات الشركات
+import { CLIENT_TEXTS_PAID } from '../constants.js'; // v11 segment-server (SS-6)
+import { PAID_BANNED_RE } from '../services/segments.js'; // v11 segment-server (SS-6): كلمات لا تصل عميل الأفراد والشركات
 
 // مسميات أحداث الأمان الخاصة بالذكاء الاصطناعي تُضاف لمسميات سجل الأمان (مثل وحدة الرسائل)
 if (LABELS.security_event && LABELS.ai_security_event) {
@@ -790,6 +792,65 @@ export function createAi(app) {
     return store('intake', intakeId, 'intake_analysis', { output, provider: 'heuristic', model: HEURISTIC_MODEL }, actor);
   }
 
+  // ───────────── v11 segment-server (SS-6، S11-27…30): نفس التحليل، والكلام الموجه للعميل بنبرته ─────────────
+  /** جمهور التحليل: نوع خدمة الطلب ('charity' | 'paid' | null = غير محدد) */
+  const audienceOf = (intake) => (intake?.segment === undefined ? 'charity' : intake.segment === 'paid' || intake.segment === 'charity' ? intake.segment : null);
+  /** نبرة ملف/ملف مستمر/طلب للكلام الموجه للعميل */
+  const toneOfEntity = (kind, id) => {
+    if (!app.segments) return 'charity';
+    if (kind === 'intake') return app.segments.tone(db.get('SELECT segment FROM intakes WHERE id = ?', id));
+    const caseId = kind === 'case' ? id : db.value('SELECT case_id FROM matters WHERE id = ?', id);
+    return app.segments.tone(caseId ? db.get('SELECT segment, company_id FROM cases WHERE id = ?', caseId) : null);
+  };
+  /**
+   * مخرجات الفرز لعميل الأفراد والشركات (أو «غير محدد»): التصنيف والمسار كما هما بالضبط؛ يتغير الكلام الموجه للعميل فقط:
+   * التوجيه لا يذكر برامج المؤسسة الخيرية (دليل التوجيه للخيري افتراضيًا: segments:['charity'])، والرد الإجرائي أو
+   * الأسئلة بكلمات الخيري تُستبدل بصيغة الجمع المهذبة.
+   */
+  function forAudience(output, audience, ctxReferrals = []) {
+    if (audience === 'charity' || !output || output.blocked) return output;
+    const o = output;
+    const d = o.request_draft && typeof o.request_draft === 'object' ? { ...o.request_draft } : null;
+    if (!d) return o;
+    const forPaid = (r) => Array.isArray(r?.segments) && r.segments.includes('paid');
+    const charityNames = (Array.isArray(ctxReferrals) ? ctxReferrals : []).filter((r) => !forPaid(r)).map((r) => String(r?.label || '').trim()).filter((x) => x.length >= 3);
+    const charityWords = (t) => !!t && (PAID_BANNED_RE.test(String(t)) || charityNames.some((nm) => String(t).includes(nm)));
+    if (o.recommended_track === 'refer') {
+      const fromDir = o.reply_source?.kind === 'referral_directory';
+      const entry = fromDir ? (ctxReferrals || []).find((r) => (o.reply_source.key && r.key === o.reply_source.key) || r.label === o.reply_source.title) : null;
+      if ((fromDir && !forPaid(entry)) || charityWords(d.referral_target) || charityWords(d.reply_to_her)) {
+        d.referral_target = null;
+        d.reply_to_her = CLIENT_TEXTS_PAID.story_refer_generic;
+        d.resolution_note = 'خارج نطاق خدماتنا القانونية.';
+        o.reply_source = { kind: 'paid_generic', key: null, title: null };
+      }
+    } else if (o.recommended_track === 'internal' && charityWords(d.reply_to_her)) {
+      d.reply_to_her = null;
+      o.reply_source = null;
+    } else if (o.recommended_track === 'need_info') {
+      const qs = Array.isArray(d.questions_for_her) ? d.questions_for_her : [];
+      if (!qs.length || qs.some((q) => charityWords(q) || /\{[ية]\}/.test(String(q)))) d.questions_for_her = H.paidQuestionsFor(o.legal_area);
+    }
+    o.request_draft = d;
+    return o;
+  }
+  /**
+   * اقتراح نوع الخدمة بعد كل تحليل كامل (لا يُطبَّق أبدًا، INV-04): لطلب «غير محدد» اقتراح Claude إن كان خيري/أفراد،
+   * وإلا الاقتراح المحلي من القصة كاملة؛ ولغيره الاقتراح المحلي (ليظهر «يبدو أفراد وشركات» على طلب خيري).
+   */
+  function refreshHint(intakeId, audience, aiHint, storyText) {
+    if (!app.segments) return null;
+    let h = null;
+    if (audience === null && aiHint && ['charity', 'paid'].includes(aiHint.segment)) {
+      h = { segment: aiHint.segment, reasons: (Array.isArray(aiHint.reasons) ? aiHint.reasons : []).map((r) => clip(String(r || ''), 160)).filter(Boolean).slice(0, 3), source: 'ai' };
+    } else {
+      const loc = app.segments.hint(storyText || '');
+      if (loc.segment) h = { segment: loc.segment, reasons: loc.reasons, confidence: loc.confidence, source: 'local' };
+    }
+    db.run('UPDATE intakes SET segment_hint = ? WHERE id = ?', h ? JSON.stringify(h) : null, intakeId);
+    return h ? { segment: h.segment, reasons: h.reasons, source: h.source } : null;
+  }
+
   const svc = {
     reconfigure() {
       cfg = readConfig();
@@ -1109,7 +1170,7 @@ export function createAi(app) {
       if (st.blocked) {
         // [R2-A1d] قصة محجوبة (رسالة صوتية لم تُكتب، تنزيل فشل، طلب مكالمة بلا حكاية): اقتراح محلي واحد يُستبدل في مكانه،
         // بلا سجل استهلاك ولا نشاط «حلل الذكاء الاصطناعي» ولا Claude
-        const output = norm(local());
+        const output = forAudience(norm(local()), audienceOf(intake), ctx.referrals); // v11 segment-server
         output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: output.legal_area });
         const sug = storeBlocked(intakeId, output, actor);
         markAnalyzed(intakeId, snapshotRev, null);
@@ -1127,6 +1188,8 @@ export function createAi(app) {
         }
       }
       const words = app.stories?.words ? app.stories.words(intake) : { form: 'f' };
+      // v11 segment-server (S11-27، L11-23): نفس المدخلات لكل الأنواع؛ audience يغيّر أسلوب الكلام الموجه للعميل فقط
+      const audience = audienceOf(intake);
       const args = {
         text: st.contextText,
         governorate: intake.governorate,
@@ -1134,6 +1197,7 @@ export function createAi(app) {
         topic: topicByKey(intake.topic)?.staff || null,
         form: words.form,
         voice: st.voice,
+        audience,
       };
       const exec = () => run('analyzeIntake', args, local, meta, { forceLocal, reason });
       const result = a.provider && opts.auto && !forceLocal && !opts.noSlot ? await withClaudeSlot(exec) : await exec();
@@ -1141,8 +1205,13 @@ export function createAi(app) {
       const OPEN_NOW = ['new', 'in_review', 'awaiting_client'];
       const nowRow = db.get('SELECT status, priority FROM intakes WHERE id = ?', intakeId);
       if (OPEN_NOW.includes(intake.status) && (!nowRow || !OPEN_NOW.includes(nowRow.status))) return null;
-      result.output = norm(result.output);
+      const aiHint = result.provider === 'anthropic' ? result.output?.segment_hint : null;
+      if (result.output) delete result.output.segment_hint;
+      result.output = forAudience(norm(result.output), audience, ctx.referrals);
       result.output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: result.output.legal_area });
+      // v11 segment-server (S11-30، r2 S14): الاقتراح يُحفظ في segment_hint فقط ولا يلمس segment أبدًا
+      const segHint = refreshHint(intakeId, audience, aiHint, st.clientText);
+      if (audience === null) result.output.segment_hint = segHint;
       const sug = store('intake', intakeId, 'intake_analysis', result, actor);
       markAnalyzed(intakeId, snapshotRev, result.output.recommended_track);
       app.activity.log({
@@ -1195,7 +1264,7 @@ export function createAi(app) {
       const st = storyOf(intake);
       const ctx = trackCtx(intake, st);
       const local = () => H.analyzeIntake(st.clientText, ctx);
-      const output = normalizeStory(local(), { fallback: local, orgPhone: app.settings.get('org_phone'), storyRev: Number(intake.story_rev) || 0, voice: st.voice, preview: true, questionsFor: H.questionsFor });
+      const output = forAudience(normalizeStory(local(), { fallback: local, orgPhone: app.settings.get('org_phone'), storyRev: Number(intake.story_rev) || 0, voice: st.voice, preview: true, questionsFor: H.questionsFor }), audienceOf(intake), ctx.referrals); // v11 segment-server
       output.similar = { total: 0, items: [] };
       const prev = db.get("SELECT id FROM ai_suggestions WHERE entity_type = 'intake' AND entity_id = ? AND kind = 'intake_preview' ORDER BY id DESC LIMIT 1", intakeId);
       if (prev) {
@@ -1281,16 +1350,18 @@ export function createAi(app) {
       const args = { clientName: client?.name, caseCode: c.code, opinion: op.body, orgName: app.brand.displayName() }; // v10 experience (H-E3)
       const sources = precedents(`${c.title}\n${c.facts_shared || ''}`, { area: c.legal_area, limit: 3 });
       const docIds = db.all('SELECT id FROM documents WHERE case_id = ?', c.id).map((r) => r.id);
+      // v11 segment-server (SS-6): نفس الرأي المعتمد؛ عميل الأفراد والشركات بصيغة الجمع المهذبة (طلب الخيري كما في 10.0)
+      const tone = app.segments ? app.segments.tone(c) : 'charity';
       const result = await run(
         'clientVersion',
-        { ...args, precedents: sources, documents: analysesFor(docIds) },
-        () => ({ text: H.clientVersion(args) }),
+        { ...args, precedents: sources, documents: analysesFor(docIds), ...(tone === 'charity' ? {} : { audience: tone }) },
+        () => ({ text: tone === 'charity' ? H.clientVersion(args) : H.clientVersionPaid(args) }),
         { feature: 'client_version', entity_type: 'case', entity_id: caseId, user_id: actor?.id ?? null },
       );
       // v9.1 b-portal (B91-08): «الخلاصة بكلام بسيط» و«الخطوات» مقترحتان دائمًا (من Claude، وإلا من المحلل المحلي
       // بخطوات المحامي المقترحة للمستفيد/ة إن وُجدت)؛ تراجعها الإدارة قبل الحفظ
       if (result.output && (!result.output.summary || !result.output.steps?.length)) {
-        const local = H.clientSummary({ opinion: op.body, clientSteps: op.client_steps });
+        const local = H.clientSummary({ opinion: op.body, clientSteps: op.client_steps, tone });
         result.output.summary = result.output.summary || local.summary;
         result.output.steps = result.output.steps?.length ? result.output.steps : local.steps;
       }
@@ -1313,7 +1384,12 @@ export function createAi(app) {
       const id = v.int(body[keys[0]], 'المعرف', { required: true, min: 1 });
       const intent = v.oneOf(body.intent, REPLY_INTENTS, 'الغرض من الرد') || 'answer';
       const { ctx, lawyerNames } = replyContext(kind, id);
-      const heuristic = () => ({ suggestions: H.suggestReplies({ ...ctx, intent }) });
+      // v11 segment-server (SS-6): عميل الأفراد والشركات بلا «المؤسسة» في الردود المحلية، وسطر الأسلوب لـ Claude
+      const replyTone = toneOfEntity(kind, id);
+      const heuristic = () => {
+        const list = H.suggestReplies({ ...ctx, intent });
+        return { suggestions: replyTone === 'charity' ? list : list.map((x) => ({ ...x, text: String(x.text).replace(/مقر المؤسسة/g, 'مقرنا') })) };
+      };
       const forModel = {
         intent,
         reference: ctx.code,
@@ -1327,6 +1403,7 @@ export function createAi(app) {
         approved_appointment: ctx.next_event,
         organization: { name: ctx.org_name, address: ctx.org_address },
         conversation: ctx.conversation,
+        ...(replyTone === 'charity' ? {} : { audience: replyTone }),
       };
       const result = await run('suggestReplies', forModel, heuristic, { feature: 'reply', entity_type: kind, entity_id: id, user_id: actor?.id ?? null });
       const clean = (list) =>

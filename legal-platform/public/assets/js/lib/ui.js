@@ -140,6 +140,9 @@ export const ICONS = {
   helpCircle: ['c 12 12 10', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
   building: ['M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z', 'M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2', 'M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2', 'M10 6h4', 'M10 10h4', 'M10 14h4', 'M10 18h4'],
   bookOpen: ['M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z', 'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'],
+  // v11 visual (§5.8): «خيري» (قلب) و«تغيير نوع الخدمة» (سهمان متعاكسان)
+  heart: ['M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'],
+  swap: ['M8 3 4 7l4 4', 'M4 7h16', 'm16 21 4-4-4-4', 'M20 17H4'],
 };
 ICONS.moreHorizontal = ICONS.more;
 ICONS.inboxStack = ICONS.queue;
@@ -179,7 +182,7 @@ export function icon(name, { size = 20, className, label } = {}) {
       viewBox: '0 0 24 24',
       fill: 'none',
       stroke: 'currentColor',
-      'stroke-width': 2,
+      'stroke-width': 1.75, // v11 visual (V11-20): خط واحد 1.75
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
       focusable: 'false',
@@ -194,9 +197,37 @@ export function icon(name, { size = 20, className, label } = {}) {
 /** أسماء الأيقونات المتاحة. */
 export const iconNames = Object.keys(ICONS);
 
-/** شعار المؤسسة المصغر (ميزان داخل مربع ذهبي). */
+// v11 visual (V-4، L11-05): في كل شريط وقائمة جانبية علامة «EMAM إمام» الخضراء كصورة مخزّنة (لا يُعاد تلوينها بألوان
+// المؤسسة، V11-04 القاعدة 7). حين يُوقف اسم المكتب في /app (brand_in_staff_app=false: staff_chrome ≠ الاسم) يعود رمز
+// الميزان واسم المؤسسة كما في 9.2 (J6). نص الاسم يبقى في الصفحة لقارئ الشاشة (الصورة alt="").
+function brandChromeOn() {
+  const b = getMeta()?.brand || {};
+  const sc = b.staff_chrome;
+  return !sc || !sc.name || !b.name || sc.name === b.name;
+}
+
+/** شعار المؤسسة المصغر: علامة «EMAM إمام» (v11)، أو الميزان داخل مربع ذهبي حين يُوقف اسم المكتب في /app. */
 export function brandMark({ size = 24 } = {}) {
+  if (brandChromeOn()) return h('img.brand-logo', { src: '/assets/img/emam-mark-green.svg', alt: '', width: Math.round(size * 5.2), height: size, decoding: 'async' });
   return h('span.brand-mark', { 'aria-hidden': 'true' }, icon('scale', { size }));
+}
+
+/**
+ * v11 visual (V11-04 القاعدتان 1 و2): الشعار الكامل لشاشات الدخول — الذهبي الغامق على الأبيض (tone 'deep')، والذهبي
+ * الفاتح على أرضية الشعار الغامقة (tone 'bright'). العرض ≥ 200px، والنص البديل = اسم المكتب من الإعدادات (L11-33).
+ * يعيد null حين يُوقف اسم المكتب في /app (تبقى شاشة 9.2 النصية).
+ */
+export function brandLockup({ tone = 'deep', width = 240 } = {}) {
+  if (!brandChromeOn()) return null;
+  const name = brandNames().name;
+  return h('img.brand-lockup', {
+    src: `/assets/img/emam-logo-${tone === 'bright' ? 'gold' : 'gold-deep'}.svg`,
+    alt: name,
+    width: Math.max(200, width),
+    height: Math.round((Math.max(200, width) * 582) / 1392),
+    decoding: 'async',
+    ...nameDir(name),
+  });
 }
 
 // ───────────────────────── v10 experience: اسم المكتب (X10-B2, §4.1) ─────────────────────────
@@ -351,25 +382,27 @@ export function badge(text, tone = 'neutral', { icon: iconName, dot, title, clas
 }
 
 // درجات الألوان لكل حالة في LABELS
+// v11 gate fix (K1/J-07/R-06): no status, role or kind uses 'primary' (green tint) or 'accent' (gold) —
+// those fills are reserved for the segment chips (gold = خيري, green = أفراد/شركة; r2 P12 / L11-16).
 const STATUS_TONES = {
-  user_role: { admin: 'accent', case_manager: 'info', lawyer: 'primary' },
+  user_role: { admin: 'neutral', case_manager: 'info', lawyer: 'neutral' },
   channel: { whatsapp: 'success', website: 'info', phone: 'neutral', walk_in: 'neutral', email: 'neutral' },
   source: {
     facebook_ad: 'info',
-    instagram_ad: 'accent',
+    instagram_ad: 'info',
     meta_ad: 'info',
     google: 'warning',
     direct: 'neutral',
     referral: 'success',
-    social_organic: 'primary',
-    returning: 'accent',
+    social_organic: 'neutral',
+    returning: 'neutral',
     other: 'muted',
     unknown: 'muted',
   },
   intake_status: {
     new: 'info',
     in_review: 'warning',
-    awaiting_client: 'accent',
+    awaiting_client: 'neutral',
     handled_internally: 'success',
     converted: 'success',
     archived: 'muted',
@@ -378,8 +411,8 @@ const STATUS_TONES = {
   priority: { low: 'muted', normal: 'neutral', high: 'warning', urgent: 'danger' },
   case_status: {
     new: 'info',
-    assigned: 'primary',
-    in_progress: 'accent',
+    assigned: 'neutral',
+    in_progress: 'info',
     under_review: 'warning',
     approved: 'success',
     answered: 'success',
@@ -393,17 +426,17 @@ const STATUS_TONES = {
     not_eligible: 'neutral',
     duplicate: 'muted',
   },
-  assignment_role: { lead: 'accent', specialist: 'info', second_opinion: 'info', reviewer: 'primary', co_counsel: 'neutral' },
+  assignment_role: { lead: 'neutral', specialist: 'info', second_opinion: 'info', reviewer: 'info', co_counsel: 'neutral' },
   assignment_status: {
     assigned: 'info',
-    in_progress: 'accent',
+    in_progress: 'neutral',
     submitted: 'warning',
     returned: 'danger',
     approved: 'success',
     withdrawn: 'muted',
   },
-  fee_mode: { agreement: 'neutral', custom: 'info', pro_bono: 'accent' },
-  info_request_kind: { information: 'info', document: 'accent' },
+  fee_mode: { agreement: 'neutral', custom: 'info', pro_bono: 'neutral' },
+  info_request_kind: { information: 'info', document: 'neutral' },
   info_request_status: {
     pending_admin: 'warning',
     rejected: 'danger',
@@ -412,15 +445,15 @@ const STATUS_TONES = {
     shared: 'success',
     cancelled: 'muted',
   },
-  counsel_kind: { second_opinion: 'info', specialist_input: 'accent', document_review: 'neutral', co_counsel: 'primary' },
+  counsel_kind: { second_opinion: 'info', specialist_input: 'info', document_review: 'neutral', co_counsel: 'neutral' },
   counsel_status: { pending_admin: 'warning', assigned: 'info', completed: 'success', rejected: 'danger', cancelled: 'muted' },
   opinion_status: { draft: 'neutral', submitted: 'warning', returned: 'danger', approved: 'success', superseded: 'muted' },
   client_answer_status: { draft: 'warning', sent: 'success' },
   agreement_type: {
     per_case: 'info',
-    monthly: 'primary',
-    monthly_quota: 'primary',
-    package: 'accent',
+    monthly: 'info',
+    monthly_quota: 'info',
+    package: 'neutral',
     pro_bono: 'success',
     csr: 'success',
   },
@@ -430,20 +463,20 @@ const STATUS_TONES = {
     included_monthly: 'info',
     included_quota: 'info',
     overage: 'warning',
-    package_credit: 'primary',
+    package_credit: 'info',
     package_overage: 'warning',
     pro_bono: 'success',
     csr: 'success',
   },
   ledger_kind: {},
   ledger_status: { accrued: 'warning', paid: 'success', void: 'muted' },
-  matter_kind: { litigation: 'accent', ongoing: 'info' },
+  matter_kind: { litigation: 'neutral', ongoing: 'info' },
   matter_status: { open: 'success', on_hold: 'warning', closed: 'muted' },
-  event_kind: { hearing: 'accent', meeting: 'info', expert: 'primary', appointment: 'neutral', other: 'muted' },
+  event_kind: { hearing: 'warning', meeting: 'info', expert: 'neutral', appointment: 'neutral', other: 'muted' },
   event_status: { scheduled: 'info', done: 'success', postponed: 'warning', cancelled: 'muted' },
   task_status: { open: 'info', done: 'success', cancelled: 'muted' },
   invoice_status: { unpaid: 'danger', partially_paid: 'warning', paid: 'success', cancelled: 'muted' },
-  expense_paid_by: { organization: 'primary', lawyer: 'warning', client: 'neutral' },
+  expense_paid_by: { organization: 'neutral', lawyer: 'warning', client: 'neutral' },
   knowledge_status: { pending_review: 'warning', approved: 'success', excluded: 'muted' },
   knowledge_usage: { none: 'muted', knowledge: 'info', knowledge_training: 'success' },
   message_status: {
@@ -453,15 +486,17 @@ const STATUS_TONES = {
     delivered: 'info',
     read: 'success',
     failed: 'danger',
-    simulated: 'accent',
+    simulated: 'neutral',
   },
   ai_field: {},
   ai_verdict: { accepted: 'success', corrected: 'warning', rejected: 'danger', missed: 'danger' },
   automation_rule: {},
-  actor_kind: { staff: 'primary', lawyer: 'info', client: 'neutral', system: 'muted', ai: 'accent' },
+  actor_kind: { staff: 'neutral', lawyer: 'info', client: 'neutral', system: 'muted', ai: 'info' },
 };
 
 /** درجة اللون المناسبة لحالة معينة. */
+export { STATUS_TONES };
+
 export function statusTone(group, key) {
   return STATUS_TONES[group]?.[key] || 'neutral';
 }

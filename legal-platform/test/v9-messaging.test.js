@@ -22,9 +22,11 @@ const signedPost = (t, payload, secret = 's3cret') => {
   const body = JSON.stringify(payload);
   return raw(t, 'POST', '/webhooks/whatsapp', { body, headers: { 'content-type': 'application/json', 'x-hub-signature-256': sign(body, secret) } });
 };
-const wa = (phone, text, extra = {}) => waPayload({ from: phone, name: extra.name || 'مستفيدة', text, ...extra });
+// v11 segment-server (intended, r2 S8): رسائل الاختبار تصل على الرقم المضبوط نفسه (PN123)؛ معرّف آخر = «رقم غير مضبوط» بلا رد
+const onMain = (p) => ((p.entry[0].changes[0].value.metadata.phone_number_id = 'PN123'), p);
+const wa = (phone, text, extra = {}) => onMain(waPayload({ from: phone, name: extra.name || 'مستفيدة', text, ...extra }));
 const buttonReply = (phone, id, title) =>
-  waPayload({ from: phone, type: 'interactive', extra: { interactive: { type: 'button_reply', button_reply: { id, title } } } });
+  onMain(waPayload({ from: phone, type: 'interactive', extra: { interactive: { type: 'button_reply', button_reply: { id, title } } } }));
 
 /** محاكاة Graph API: تسجيل الطلبات والرد حسب المسار */
 function mockGraph(handler) {

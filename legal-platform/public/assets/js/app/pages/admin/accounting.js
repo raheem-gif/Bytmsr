@@ -43,6 +43,12 @@ function moneyCell(n, { strong = false, zeroMuted = true } = {}) {
   return h(strong ? 'strong.nowrap.pd-amount' : 'span.nowrap.pd-amount', { class: v < 0 ? 'pd-text-danger' : null }, money(v));
 }
 
+/** v11 segment-staff (ST-5، r2 S10): «منها عمل الأفراد والشركات: …» — من paid_individuals (لقطة القيد)، يظهر حين يوجد */
+function paidShareText(pi) {
+  const v = Number(pi && pi.period_amount) || 0;
+  return v ? `منها عمل الأفراد والشركات: ${money(v)}` : null;
+}
+
 /** مبلغ لبطاقة رقمية: الرقم كبير والعملة أصغر. */
 function moneyValue(n) {
   return h('span.nowrap', num(Number(n) || 0), h('span.pd-unit', ' ج.م'));
@@ -200,7 +206,15 @@ export default async function render(ctx) {
           },
           { key: 'events', label: `وقائع ${pl}`, render: treatmentCell },
           { key: 'usage', label: 'الاستهلاك', render: usageCell, className: 'pd-col-usage' },
-          { key: 'period_amount', label: 'مستحقات الفترة', align: 'end', render: (l) => moneyCell(l.period_amount, { strong: true }) },
+          {
+            key: 'period_amount',
+            label: 'مستحقات الفترة',
+            align: 'end',
+            render: (l) => {
+              const share = paidShareText(l.paid_individuals);
+              return share ? h('div.pd-cell-stack.pd-align-end', moneyCell(l.period_amount, { strong: true }), h('span.cell-sub.pd-paid-share', share)) : moneyCell(l.period_amount, { strong: true });
+            },
+          },
           {
             key: 'unpaid',
             label: 'رصيد غير مصروف',
@@ -714,7 +728,13 @@ export default async function render(ctx) {
     }),
     h(
       'div.stats-grid.pd-stats-3',
-      statCard({ label: `مستحقات ${pl}`, value: moneyValue(t.period_amount), hint: 'قيود الفترة غير الملغاة', icon: 'wallet', tone: 'primary' }),
+      statCard({
+        label: `مستحقات ${pl}`,
+        value: moneyValue(t.period_amount),
+        hint: paidShareText(t.paid_individuals) ? `قيود الفترة غير الملغاة · ${paidShareText(t.paid_individuals)}` : 'قيود الفترة غير الملغاة',
+        icon: 'wallet',
+        tone: 'primary',
+      }),
       statCard({
         label: 'رصيد غير مصروف',
         value: moneyValue(t.unpaid_balance),

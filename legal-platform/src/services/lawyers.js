@@ -110,7 +110,7 @@ export function createLawyers(app) {
       agreement_text: describeAgreement(ag),
       package_remaining: ag.type === 'package' ? r.package_remaining : null,
       notes: r.notes,
-      // v10 b2b-server (L-56، STF-11): الاسم بالإنجليزية لفحص التسليمات، ومهارات وسعر طلبات الشركات
+      // v10 b2b-server (L-56، STF-11): الاسم بالإنجليزية لفحص التسليمات، ومهارات وسعر العمل المدفوع (أفراد وشركات؛ v11 gate fix K9)
       name_latin: r.name_latin || null,
       skills: parseJson(r.skills, []),
       b2b_rate: r.b2b_rate_minor === null || r.b2b_rate_minor === undefined ? null : fromMinor(r.b2b_rate_minor),
@@ -216,7 +216,7 @@ export function createLawyers(app) {
       if (body.firm !== undefined) lawyerPatch.firm = v.str(body.firm, 'مكتب المحاماة', { max: 150 });
       if (body.capacity !== undefined) lawyerPatch.capacity = v.int(body.capacity, 'الطاقة الاستيعابية', { required: true, min: 1, max: 1000 });
       if (body.notes !== undefined) lawyerPatch.notes = v.str(body.notes, 'ملاحظات', { max: 3000 });
-      // v10 b2b-server (§4.6، L-56): الاسم بالإنجليزية (حروف لاتينية ومسافات و . - ') ومهارات وسعر طلبات الشركات
+      // v10 b2b-server (§4.6، L-56): الاسم بالإنجليزية (حروف لاتينية ومسافات و . - ') ومهارات وسعر العمل المدفوع (أفراد وشركات؛ v11 gate fix K9)
       if (body.name_latin !== undefined) {
         const nl = v.str(body.name_latin, 'الاسم بالإنجليزية', { max: 80 });
         if (nl && !/^[A-Za-z][A-Za-z .'-]*$/.test(nl)) throw badRequest('الاسم بالإنجليزية يُكتب بحروف لاتينية ومسافات فقط (مثل Tarek El-Naggar)', { fields: { name_latin: 'حروف لاتينية ومسافات فقط' } });
@@ -227,7 +227,7 @@ export function createLawyers(app) {
         if (!Array.isArray(body.skills) || body.skills.some((k) => !keys.includes(k))) throw badRequest('مهارات طلبات الشركات غير صالحة');
         lawyerPatch.skills = JSON.stringify([...new Set(body.skills)]);
       }
-      if (body.b2b_rate !== undefined) lawyerPatch.b2b_rate_minor = v.money(body.b2b_rate, 'سعر طلبات الشركات', { max: 10000000 });
+      if (body.b2b_rate !== undefined) lawyerPatch.b2b_rate_minor = v.money(body.b2b_rate, 'سعر العمل المدفوع (أفراد وشركات)', { max: 10000000 });
       let newPackage = null;
       let leavingMonthly = null;
       if (body.agreement !== undefined) {

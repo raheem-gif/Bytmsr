@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>استشارات قانونية للأفراد والشركات — {{brand_name}}</title>
+    <meta name="description" content="استشارات وقضايا للأفراد في الميراث والنفقة والحضانة والإيجار وغيرها، وإدارة قانونية افتراضية للشركات باشتراك شهري. نتفق معكم على الأتعاب قبل أي عمل." />
+    <!--site:head-->
+    <!-- v11 gate-public (GP-3، L11-30): الكتلة العامة + كتلة «paid» مضمّنتان، والملف الكامل بعد الشاشة الأولى -->
+    <!--site:critical-css:paid-->
+    <script type="module" src="/assets/js/public/landing.js"></script>
+  </head>
+  <body class="site pub v91 pub-landing pub-paid" data-side="{{side}}" data-seg-sync="1">
+    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
+    {{{header}}}
+
+    <main id="main" tabindex="-1">
+      <!-- v11 (§5.9، r2 P2/P14/P15/P26): العنوان والسطر الفرعي، ثم طريق «خيري» للعودة، ثم «للشركات»، ثم المواضيع الثمانية قائمة مجمّعة. بلا شعار كامل (يكفي شعار الرأس) -->
+      <section id="topics" class="pub-start pub-start--paid" aria-labelledby="start-title" data-prefetch="{{prefetch_urls}}" data-saved-label="صفحة طلبكم" data-saved-forget="ليس هاتفكم؟ احذفوا الرابط">
+        <div class="pub-container pub-paid-hero">
+          <div class="pub-paid-head">
+            <h1 id="start-title">كيف نساعدكم؟</h1>
+            <p class="pub-paid-sub">اختاروا الموضوع — ونتفق معكم على الأتعاب قبل أي عمل.</p>
+            {{{paid_cross}}}
+            {{{paid_co_row}}}
+          </div>
+          <div class="pub-paid-body">
+            {{{paid_topics}}}
+            {{{paid_ways}}}
+            <!--#if paid_hours--><p class="pub-start-hours">{{paid_hours}}</p><!--/if paid_hours-->
+          </div>
+        </div>
+      </section>
+
+      <link rel="stylesheet" href="/assets/css/public-site.css" />
+
+      <!-- كيف نعمل؟ (G11-28) -->
+      <section id="how" class="pub-section pub-paid-how" aria-labelledby="how-title">
+        <div class="pub-container">
+          <div class="pub-section-head">
+            <h2 id="how-title">كيف نعمل؟</h2>
+          </div>
+          <ol class="pub-how">
+            {{{paid_how}}}
+          </ol>
+        </div>
+      </section>
+
+      <!-- للشركات (G11-29؛ يختفي حين تُوقف خدمة الشركات) -->
+      {{{companies_band}}}
+
+      <!-- التزامنا معكم (G11-30) -->
+      <section id="trust" class="pub-section pub-trust" aria-labelledby="trust-title">
+        <div class="pub-container">
+          <div class="pub-section-head">
+            <h2 id="trust-title">التزامنا معكم</h2>
+          </div>
+          {{{paid_trust}}}
+        </div>
+      </section>
+
+      <!-- أسئلة شائعة (G11-31) -->
+      <section id="faq" class="pub-section pub-section-cream" aria-labelledby="faq-title">
+        <div class="pub-container">
+          <div class="pub-section-head">
+            <h2 id="faq-title">أسئلة شائعة</h2>
+          </div>
+          <div class="pub-faq">
+            {{{paid_faq}}}
+          </div>
+        </div>
+      </section>
+
+      <!-- تواصلوا معنا (G11-32) -->
+      <section id="contact" class="pub-section" aria-labelledby="contact-title">
+        <div class="pub-container pub-contact">
+          <div class="pub-panel">
+            <h2 id="contact-title" class="pub-h2">تواصلوا معنا</h2>
+            {{{paid_contact_list}}}
+            {{{paid_contact_buttons}}}
+          </div>
+          <div class="pub-final-cta">
+            <h2 id="final-title">جاهزون لمساعدتكم</h2>
+            <p>اكتبوا موضوعكم أو سجّلوه برسالة صوتية، ولا تحتاجون إلى أي معرفة قانونية.</p>
+            <a class="pub-btn pub-btn-outline" href="/intake?seg=paid&amp;mode=callback" data-cta="intake">{{{icon_phone}}}<span>نتصل بكم</span></a>
+            <a class="pub-btn pub-btn-teal pub-btn-primary" href="/intake?seg=paid" data-cta="intake">طلب استشارة</a>
+            <a class="pub-returning" href="/portal">
+              <span><strong>أرسلتم طلبًا من قبل؟</strong> تابعوه من هنا</span>
+              <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    {{{footer}}}
+  </body>
+</html>

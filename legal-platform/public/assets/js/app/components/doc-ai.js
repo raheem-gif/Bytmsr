@@ -37,7 +37,7 @@ export function docAiPanel(analysis, { compact = false, onRequestDoc = null } = 
     h(
       'div.doc-ai-head',
       h('span.doc-ai-type', icon('fileText', { size: 18 }), h('strong', analysis.doc_type_label || label('ai_doc_type', analysis.doc_type))),
-      ai ? badge('تحليل Claude', 'accent', { icon: 'sparkle' }) : badge('تحليل مبدئي', 'neutral', { icon: 'info' }),
+      ai ? badge('تحليل Claude', 'info', { icon: 'sparkle' }) : badge('تحليل مبدئي', 'neutral', { icon: 'info' }),
       r.confidence != null && ai ? h('span.cell-sub', 'درجة الثقة: ', h('bdi', percent(r.confidence))) : null,
       analysis.created_at ? h('time.cell-sub', { datetime: analysis.created_at, title: dateTime(analysis.created_at) }, relative(analysis.created_at)) : null,
     ),
@@ -78,7 +78,7 @@ export function docAiPanel(analysis, { compact = false, onRequestDoc = null } = 
                   h('button.lw-chip.doc-ai-request-chip', { type: 'button', onClick: () => onRequestDoc(`صورة ${String(m).replace(/\s*\([^)]*\)\s*/g, ' ').trim()}`) }, icon('plus', { size: 14 }), h('span', m)),
                 ),
               )
-            : chips(missing.map((m) => ({ label: m, tone: 'primary' }))),
+            : chips(missing.map((m) => ({ label: m, tone: 'neutral' }))),
         )
       : null,
     ai ? h('p.cell-sub.doc-ai-disclaimer', 'نتيجة آلية للمساعدة؛ يُرجع دائمًا إلى أصل المستند قبل الاعتماد عليها.') : null,

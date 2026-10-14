@@ -15,7 +15,10 @@ const PUB = path.join(ROOT, 'public');
 
 // v10 experience (intended, L-02/L-08): عناوين الصفحات تنتهي باسم المكتب كما يراه الناس (site_name = brand_name)
 const PAGES = [
-  ['/', /الدعم القانوني للأرامل والأيتام وأسرهم — Emam Legal and Consultancy/],
+  // v11 gate-public (intended, G11-05): «/» بلا كعكة = شاشة الاختيار بعنوانها؛ صفحة «خيري» بعنوانها في /khayri، والأفراد في /services
+  ['/', /مساعدة قانونية مجانية وخدمات قانونية للأفراد والشركات — Emam Legal and Consultancy/],
+  ['/khayri', /الدعم القانوني للأرامل والأيتام وأسرهم — Emam Legal and Consultancy/],
+  ['/services', /استشارات قانونية للأفراد والشركات — Emam Legal and Consultancy/],
   ['/intake', /احكيلنا مشكلتك — Emam Legal and Consultancy/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
   ['/about', /عن برنامج الدعم القانوني — Emam Legal and Consultancy/],
   ['/privacy', /سياسة الخصوصية — Emam Legal and Consultancy/],
@@ -58,7 +61,9 @@ describe('v9 site — public pages rendered on the server', () => {
       // الرأس والتذييل المشتركان + روابط السياسات والمتابعة
       assert.match(r.body, /class="pub-header"/);
       assert.match(r.body, /class="pub-footer"/);
-      for (const href of ['/privacy', '/terms', '/data-deletion', '/portal', '/intake', '/about']) assert.ok(r.body.includes(`href="${href}"`), `${p} links ${href}`);
+      // v11 gate-public (intended): the paid footer (G11-23) has no «عن البرنامج» (the charity programme page)
+      for (const href of ['/privacy', '/terms', '/data-deletion', '/portal', ...(p === '/services' ? [] : ['/about'])]) assert.ok(r.body.includes(`href="${href}"`), `${p} links ${href}`);
+      assert.ok(/href="\/intake(?:\?seg=(?:charity|paid))?"/.test(r.body), `${p} links /intake`); // v11 gate-public (intended, L11-52): the side's CTA is /intake?seg=charity|paid
       // CSP صارمة: لا سكربتات مضمّنة تنفيذية
       const inline = [...r.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/(?:ld\+)?json/.test(m[1]));
       assert.equal(inline.length, 0, `${p} must not have inline executable scripts`);
@@ -92,7 +97,7 @@ describe('v9 site — public pages rendered on the server', () => {
   });
 
   test('JSON-LD describes the NGO and its LegalService (address, phone, Facebook) and the home page FAQ', async () => {
-    const home = jsonLd((await t.client().get('/')).body);
+    const home = jsonLd((await t.client().get('/khayri')).body); // v11 gate-public (intended): charity NGO/LegalService/FAQPage graph on /khayri
     assert.equal(home['@context'], 'https://schema.org');
     const graph = home['@graph'];
     const ngo = graph.find((n) => n['@type'] === 'NGO');
@@ -328,7 +333,7 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     ok(await admin.patch('/api/admin/settings', { org_facebook_url: '', org_address: '', org_registration: '', office_hours: '', org_phone: '' }));
     const meta = ok(await t.client().get('/api/meta'));
     for (const k of ['org_facebook_url', 'org_address', 'org_registration', 'office_hours', 'org_phone', 'map_url']) assert.equal(meta.site[k], '', k);
-    const home = (await t.client().get('/')).body;
+    const home = (await t.client().get('/khayri')).body; // v11 gate-public (intended): the charity NGO graph lives on /khayri
     assert.ok(!home.includes('facebook.com/Beyootmisr'), 'Facebook link removed');
     assert.ok(!home.includes('tel:'), 'phone link removed');
     assert.ok(!home.includes('google.com/maps'), 'map link removed');
@@ -346,10 +351,10 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
         org_phone: DEFAULT_SETTINGS.org_phone,
       }),
     );
-    const ngo = jsonLd((await t.client().get('/')).body)['@graph'].find((n) => n['@type'] === 'NGO');
+    const ngo = jsonLd((await t.client().get('/khayri')).body)['@graph'].find((n) => n['@type'] === 'NGO'); // v11 gate-public (intended)
     assert.equal(ngo.address.addressLocality, 'الجيزة');
     ok(await admin.patch('/api/admin/settings', { org_address: 'عنوان بلا محافظة' }));
-    assert.equal(jsonLd((await t.client().get('/')).body)['@graph'].find((n) => n['@type'] === 'NGO').address.addressLocality, undefined);
+    assert.equal(jsonLd((await t.client().get('/khayri')).body)['@graph'].find((n) => n['@type'] === 'NGO').address.addressLocality, undefined); // v11 gate-public (intended)
     ok(await admin.patch('/api/admin/settings', { org_address: DEFAULT_SETTINGS.org_address }));
   });
 

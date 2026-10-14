@@ -412,6 +412,31 @@ export const ANALYSIS_SCHEMA = {
   additionalProperties: false,
 };
 
+// v11 segment-server (S11-28، L11-23): نوع الخدمة لا يغيّر الفرز. «خيري» = طلب 10.0 بالحرف؛ «أفراد وشركات» = سطر رأس
+// واحد يغيّر أسلوب الكلام الموجه للعميل فقط؛ «غير محدد» (P1) = سطر رأس + حقل segment_hint في المخطط (اقتراح لا يُطبَّق)
+export const PAID_AUDIENCE_LINE =
+  'نوع الخدمة: أفراد وشركات (بأتعاب). هذا لا يغيّر الفرز: المجال والمسار والاستعجال والمسائل والناقص كما هي. يتغير أسلوب questions_for_her وreply_to_her فقط: عربية مهذبة بصيغة الجمع («حضرتكم»)، بلا «ببلاش» أو «مجاني»، وبلا توجيه لبرامج المؤسسة الخيرية؛ وفي refer اذكر أن الموضوع خارج نطاق خدماتنا القانونية.';
+export const UNSET_AUDIENCE_LINE = 'نوع الخدمة: غير محدد — اقترح segment_hint ولا تغيّر الفرز.';
+/** سطر الأسلوب لاقتراح الردود والنسخة الموجهة للعميل في ملفات الأفراد والشركات (محتوى متغير فقط؛ التعليمات الثابتة كما هي) */
+export const PAID_TONE_NOTE =
+  'أسلوب الخطاب: عميل خدمات الأفراد والشركات (بأتعاب): عربية مهذبة بصيغة الجمع («حضرتكم»)، بلا «ببلاش» أو «مجاني»، وبلا ذكر برامج المؤسسة الخيرية، وابدأ بـ «مرحبًا» لا «أهلًا يا».';
+export const ANALYSIS_SCHEMA_WITH_HINT = {
+  ...ANALYSIS_SCHEMA,
+  properties: {
+    ...ANALYSIS_SCHEMA.properties,
+    segment_hint: {
+      type: 'object',
+      properties: {
+        segment: { type: 'string', enum: ['charity', 'paid', 'unknown'] },
+        reasons: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['segment', 'reasons'],
+      additionalProperties: false,
+    },
+  },
+  required: [...ANALYSIS_SCHEMA.required, 'segment_hint'],
+};
+
 const ISSUES_SCHEMA = {
   type: 'object',
   properties: { issues: { type: 'array', items: ISSUE_ITEM } },
@@ -623,21 +648,25 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
     model,
     effort: eff,
 
-    async analyzeIntake({ text, governorate, channel = null, topic = null, form = 'f', voice = null }, meta = {}) {
+    async analyzeIntake({ text, governorate, channel = null, topic = null, form = 'f', voice = null, audience = 'charity' }, meta = {}) {
       // v9.2 (A92-11): القناة والموضوع الذي اختارته وصيغة مخاطبتها وعدد الرسائل الصوتية (لا يُرسل أي صوت أبدًا)
       const v = voice || { total: 0, done: 0, missing: 0 };
-      const header = [
+      const lines = [
         `المحافظة المعروفة: ${governorate || 'غير معروفة'}`,
         `القناة: ${channel || 'غير معروفة'}`,
         `الموضوع الذي اختارته: ${topic || 'لم تختر'}`,
         `صيغة مخاطبتها: ${form === 'm' ? 'مذكر' : 'مؤنث'}`,
         `الرسائل الصوتية: ${v.total} (مكتوبة ${v.done}، لم تُكتب ${v.missing})`,
-      ].join('\n');
+      ];
+      // v11 segment-server (S11-28، L11-23، r2 S22): نفس الصيغة ونفس الفرز؛ الأفراد والشركات سطر واحد زائد، و«غير محدد» سطر + اقتراح
+      if (audience === 'paid') lines.push(PAID_AUDIENCE_LINE);
+      else if (audience === null) lines.push(UNSET_AUDIENCE_LINE);
+      const header = lines.join('\n');
       const { data, model: m } = await structured({
         meta,
         feature: 'intake_analysis',
         content: `${header}\n\nرسائل المستفيد بترتيب وصولها:\n"""\n${text}\n"""`,
-        schema: ANALYSIS_SCHEMA,
+        schema: audience === null ? ANALYSIS_SCHEMA_WITH_HINT : ANALYSIS_SCHEMA,
       });
       return { ...data, _model: m };
     },
@@ -662,11 +691,13 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
       return { text: data.text, used_sources: Array.isArray(data.used_sources) ? data.used_sources : [], _model: m };
     },
 
-    async clientVersion({ clientName, caseCode, opinion, precedents = [], documents = [] }, meta = {}) {
+    async clientVersion({ clientName, caseCode, opinion, precedents = [], documents = [], audience = 'charity' }, meta = {}) {
+      // v11 segment-server (SS-6): ملفات الأفراد والشركات يُضاف لمحتواها سطر الأسلوب فقط (الخيري كما في 10.0 بالحرف)
+      const body = { beneficiary_name: clientName || null, case_code: caseCode, approved_opinion: opinion, document_analyses: documents, approved_precedents: precedents };
       const { data, model: m } = await structured({
         meta,
         feature: 'client_version',
-        content: json({ beneficiary_name: clientName || null, case_code: caseCode, approved_opinion: opinion, document_analyses: documents, approved_precedents: precedents }),
+        content: audience === 'paid' || audience === 'neutral' ? `${PAID_TONE_NOTE}\n\n${json({ ...body, audience: 'paid' })}` : json(body),
         schema: CLIENT_SCHEMA, // v9.1 b-portal: + summary / steps
       });
       const steps = Array.isArray(data.steps) ? data.steps.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 160)) : undefined;
@@ -674,10 +705,12 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
     },
 
     async suggestReplies(context, meta = {}) {
+      // v11 segment-server (SS-6): audience في السياق وسطر الأسلوب لعملاء الأفراد والشركات فقط (طلب الخيري كما في 10.0)
+      const paidTone = context?.audience === 'paid' || context?.audience === 'neutral';
       const { data, model: m } = await structured({
         meta,
         feature: 'reply',
-        content: json(context),
+        content: paidTone ? `${PAID_TONE_NOTE}\n\n${json(context)}` : json(context),
         schema: REPLY_SCHEMA,
         maxTokens: 8000,
         // ردود قصيرة يُنتظر ظهورها فورًا: جهد منخفض يكفي ويقلل التكلفة وزمن الانتظار

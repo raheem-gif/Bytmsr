@@ -3,14 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>الدعم القانوني للأرامل والأيتام وأسرهم — {{brand_name}}</title>
-    <meta name="description" content="مساعدة قانونية مجانية وسرية للأرامل وأسر الأيتام من {{org_legal_name}}: الورث والمعاش والنفقة والحضانة والسكن وفلوس الأيتام والورق الرسمي. احكيلنا مشكلتك برسالة صوتية أو كتابة." />
+    <title>{{home_title}}</title>
+    <meta name="description" content="{{home_description}}" />
+    <!-- v11 gate-public (G11-05): العنوان والوصف حسب الحالة (شاشة الاختيار أو صفحة «خيري» بنصها في 10.0)؛ شعار الشاشة يُحمَّل مبكرًا -->
+    {{{gate_preload}}}
     <!--site:head-->
-    <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم -->
-    <!--site:critical-css-->
+    <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم؛ v11: + كتلة «gate» في حالة الشاشة -->
+    <!--site:critical-css{{critical_suffix}}-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub v91 pub-landing">
+  <body class="site pub v91 pub-landing{{gate_class}}" data-side="{{side}}" data-seg-sync="{{seg_sync}}">
+    <!-- v11 gate-public (L11-03): شاشة الاختيار أول عنصر في الصفحة (حالة الشاشة فقط)، وصفحة «خيري» تحتها جاهزة (inert) -->
+    {{{gate_layer}}}
+    <div id="site"{{site_inert}}>
     <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
@@ -113,8 +118,8 @@
             <h2 id="final-title">جاهزين نسمعك</h2>
             <p>برسالة صوتية أو كتابة. مش لازم تعرفي أي كلام قانوني.</p>
             <!-- v9.2: مكالمة مجانية لمن لا تريد أن تحكي هنا، ومتابعة طلب قديم (كانت تحت الشاشة الأولى في 9.1) -->
-            <a class="pub-btn pub-btn-outline" href="/intake?mode=callback" data-cta="intake">{{{icon_phone}}}<span>سيبي رقمك وإحنا نكلمك</span></a>
-            <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake" data-cta="intake">احكيلنا مشكلتك</a>
+            <a class="pub-btn pub-btn-outline" href="/intake?seg=charity&amp;mode=callback" data-cta="intake">{{{icon_phone}}}<span>سيبي رقمك وإحنا نكلمك</span></a>
+            <a class="pub-btn pub-btn-gold pub-btn-primary" href="/intake?seg=charity" data-cta="intake">احكيلنا مشكلتك</a>
             <a class="pub-returning" href="/portal">
               <span><strong>قدّمتي طلب قبل كده؟</strong> تابعيه من هنا</span>
               <svg class="pub-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -125,5 +130,6 @@
     </main>
 
     {{{footer}}}
+    </div>
   </body>
 </html>

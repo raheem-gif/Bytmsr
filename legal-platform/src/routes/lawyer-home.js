@@ -320,7 +320,7 @@ export function renderAppHtml(app, { withShell = true } = {}) {
   // وبيانات الصفحة ووحداتها قبل وصول شجرة وحدات التطبيق؛ أول الرأس حتى يأخذ اتصالًا قبل بقية الملفات (ستة فقط على HTTP/1.1)
   // v9.2 «ألوان المؤسسة»: لون شريط المتصفح، وكتلة الألوان المضمّنة (لا شيء للألوان الأصلية) قبل كتلة البيانات؛
   // ETag الصفحة يتبع HTML فيتغير مع الألوان، وعامل الخدمة لا يتغير (فلا تنبيه «يتوفر إصدار أحدث» بسبب الألوان)
-  html = html.replace('<meta name="theme-color" content="#0b5a3c" />', () => `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0b5a3c'}" />`);
+  html = html.replace('<meta name="theme-color" content="#0b3d29" />', () => `<meta name="theme-color" content="${app.brand?.themeColor?.() || '#0b3d29'}" />`); // v11 visual: H-V1
   // v10 experience (L-03): اسم المكتب المختصر في عنوان التبويب واسم أيقونة الهاتف ما دام brand_in_staff_app مفعّلًا
   // (إيقافه يترك أسماء 9.2 كما هي في app.html)
   if (app.brand?.staffChromeOn?.()) {

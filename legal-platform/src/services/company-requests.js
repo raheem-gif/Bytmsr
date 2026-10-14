@@ -2169,6 +2169,7 @@ export function createCompanyRequests(app) {
         updated_at: t,
         company_id: company.id,
         company_request_id: r.id,
+        segment: 'paid', // v11 segment-server (H-S1): ملفات الشركات «أفراد وشركات» دائمًا
       });
       issues.forEach((title, idx) => db.insert('case_issues', { case_id: caseId, number: idx + 1, title, legal_area: input.area, origin: 'staff', status: 'active', created_at: t }));
       for (const d of docIds) db.run('UPDATE documents SET case_id = ? WHERE id = ? AND company_request_id = ?', caseId, d, r.id);

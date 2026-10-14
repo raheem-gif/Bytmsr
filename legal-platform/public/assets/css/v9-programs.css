@@ -763,7 +763,7 @@
 
 .pr-sums {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
   gap: 8px;
   margin: 12px 0;
 }
@@ -819,7 +819,7 @@
 
 .pr-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -948,7 +948,7 @@
 /* التوقيعات والختم */
 .pr-signs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 18px;
   margin-top: 26px;
   break-inside: avoid;

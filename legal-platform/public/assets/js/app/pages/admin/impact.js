@@ -413,6 +413,8 @@ export default async function render(ctx) {
   const header = pageHeader({
     title: 'تقرير الأثر',
     subtitle: 'للمجلس والجهات المانحة ووزارة التضامن الاجتماعي: من خدمنا وما الحقوق التي استُردت.',
+    // v11 segment-staff (ST-5، S11-38): الأرقام كما كانت (الخيري وحده)؛ سطر للفريق على الشاشة، والمطبوع لا يتغير (INV-22)
+    meta: h('p.v9p-scope-line.no-print', { dataset: { scope: 'charity' } }, 'تقرير الأثر يخص الخدمة الخيرية فقط.'),
     actions: [exportBtn, button('طباعة التقرير', { variant: 'primary', icon: 'fileText', onClick: () => window.print() })],
   });
 

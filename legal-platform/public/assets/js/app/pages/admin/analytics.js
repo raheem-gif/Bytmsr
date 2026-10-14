@@ -5,6 +5,10 @@ import { api } from '../../../lib/api.js';
 import { label, areaLabel, num, count, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
 import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge, formDialog, confirmDanger, toast } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
+import { segmentSwitch } from '../../components/segment-ui.js'; // v11 segment-staff (ST-5)
+
+// v11 segment-staff (ST-5، r2 S10، P0): «الكل · خيري · أفراد وشركات» — الافتراضي «الكل» = مخرجات 10.0 مع «يشمل الخيري والأفراد»
+const SEG_SCOPES = ['charity', 'paid'];
 
 const GROUPS = {
   source: { label: 'المصدر', col: 'مصدر المستفيد/ة', hint: 'من أين عرفنا المستفيد/ة: إعلان ممول، بحث جوجل، إحالة…' },
@@ -130,11 +134,10 @@ export default async function render(ctx) {
     group: GROUPS[ctx.query.group] ? ctx.query.group : 'source',
     from: isoDay(ctx.query.from) || addDaysStr(today, -90),
     to: isoDay(ctx.query.to) || today,
+    seg: SEG_SCOPES.includes(ctx.query.segment) ? ctx.query.segment : '',
   };
-  const [initialFunnel, areas] = await Promise.all([
-    api.get('/admin/analytics/funnel', { group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true) }),
-    api.get('/admin/analytics/areas'),
-  ]);
+  const funnelQuery = () => ({ group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true), segment: state.seg || undefined });
+  const [initialFunnel, areas] = await Promise.all([api.get('/admin/analytics/funnel', funnelQuery()), api.get('/admin/analytics/areas', { segment: state.seg || undefined })]);
 
   const funnelHost = h('div.stack-lg');
   const rangeError = h('p.field-error', { hidden: true, role: 'alert' });
@@ -142,7 +145,7 @@ export default async function render(ctx) {
 
   function syncUrl() {
     const defaults = state.from === addDaysStr(today, -90) && state.to === today;
-    replaceQuery('/analytics', { group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
+    replaceQuery('/analytics', { segment: state.seg, group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
   }
 
   async function refetch() {
@@ -156,7 +159,7 @@ export default async function render(ctx) {
     syncUrl();
     mount(funnelHost, loading());
     try {
-      const d = await api.get('/admin/analytics/funnel', { group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true) });
+      const d = await api.get('/admin/analytics/funnel', funnelQuery());
       if (my !== seq) return;
       drawFunnel(d);
     } catch (err) {
@@ -166,6 +169,7 @@ export default async function render(ctx) {
   }
 
   function drawFunnel(d) {
+    drawScope(d.scope_label);
     const t = d.totals || {};
     const items = Array.isArray(d.items) ? d.items : [];
     const g = GROUPS[state.group];
@@ -357,9 +361,26 @@ export default async function render(ctx) {
     state.to = toInput.value;
     refetch();
   });
+  // v11 segment-staff (ST-5): نوع الخدمة يرشّح القمع والمجالات والحجم الأسبوعي معًا
+  const scopeLine = h('p.pd-scope-line', { 'aria-live': 'polite' });
+  function drawScope(text) {
+    scopeLine.textContent = !state.seg && text ? text : '';
+    scopeLine.hidden = !scopeLine.textContent;
+  }
+  const segSwitch = segmentSwitch({
+    value: state.seg,
+    withUnset: false,
+    label: 'نوع الخدمة',
+    onChange: (v) => {
+      state.seg = SEG_SCOPES.includes(v) ? v : '';
+      refetch();
+      reloadAreas();
+    },
+  });
   const controls = h(
     'div.filter-bar.pd-analytics-controls',
     { role: 'search' },
+    h('div.pd-control.pd-seg-control', h('span.field-label', 'نوع الخدمة'), segSwitch, scopeLine),
     h('div.pd-control', h('span.field-label', 'تجميع حسب'), segmented),
     field('من تاريخ', fromInput, { className: 'pd-date-field' }),
     field('إلى تاريخ', toInput, { className: 'pd-date-field' }),
@@ -369,51 +390,68 @@ export default async function render(ctx) {
 
   drawFunnel(initialFunnel);
 
-  // ── حسب المجال والحجم الأسبوعي ──
-  const areaItems = Array.isArray(areas.items) ? areas.items : [];
-  const weekly = Array.isArray(areas.weekly) ? areas.weekly : [];
-  const maxCases = Math.max(1, ...areaItems.map((a) => a.cases));
-  const topMulti = [...areaItems].filter((a) => a.multi).sort((a, b) => b.multi / b.cases - a.multi / a.cases)[0];
+  // ── حسب المجال والحجم الأسبوعي ── (v11 segment-staff: يُعاد رسمهما عند تغيير نوع الخدمة)
+  const areasHost = h('div');
+  const weeklyHost = h('div');
+  let areasSeq = 0;
+  async function reloadAreas() {
+    const my = ++areasSeq;
+    try {
+      const a = await api.get('/admin/analytics/areas', { segment: state.seg || undefined });
+      if (my === areasSeq) drawAreas(a);
+    } catch (err) {
+      if (my === areasSeq) mount(areasHost, errorState(err, reloadAreas));
+    }
+  }
+  function drawAreas(areas) {
+    const areaItems = Array.isArray(areas.items) ? areas.items : [];
+    const weekly = Array.isArray(areas.weekly) ? areas.weekly : [];
+    const maxCases = Math.max(1, ...areaItems.map((a) => a.cases));
+    const topMulti = [...areaItems].filter((a) => a.multi).sort((a, b) => b.multi / b.cases - a.multi / a.cases)[0];
 
-  const areasCard = card({
-    title: 'الملفات حسب المجال القانوني',
-    subtitle: 'كل الملفات منذ البداية — أيها يحتاج أكثر من تخصص ويتحول إلى عمل مستمر',
-    icon: 'scale',
-    body: h(
-      'div.stack',
-      topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${count(topMulti.cases, 'case')}).`, 'info', { icon: 'users' }) : null,
-      table({
-        className: 'pd-table-tight',
-        caption: 'الملفات حسب المجال',
-        rows: areaItems,
-        empty: 'لا توجد ملفات بعد',
-        columns: [
-          { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', a.label || areaLabel(a.legal_area)) },
-          {
-            key: 'cases',
-            label: 'الملفات',
-            className: 'pd-col-bar',
-            render: (a) => h('div.pd-hbar', h('div.pd-hbar-track', h('div.pd-hbar-fill', { style: { width: `${(a.cases / maxCases) * 100}%` } })), h('span.pd-hbar-val', num(a.cases))),
-          },
-          { key: 'closed', label: 'مغلقة', align: 'center', render: (a) => num(a.closed) },
-          {
-            key: 'multi',
-            label: 'متعددة التخصصات',
-            render: (a) =>
-              h('span.nowrap', num(a.multi), ' ', h('bdi.cell-sub', { dir: 'ltr' }, `(${percent(a.cases ? a.multi / a.cases : 0)})`), a.multi && a.multi / a.cases >= 0.5 ? [' ', badge('مرتفع', 'accent')] : null),
-          },
-          { key: 'matters', label: 'تحولت لعمل مستمر', align: 'center', render: (a) => num(a.matters) },
-        ],
-      }),
-    ),
-  });
+    const areasCard = card({
+      title: 'الملفات حسب المجال القانوني',
+      subtitle: 'كل الملفات منذ البداية — أيها يحتاج أكثر من تخصص ويتحول إلى عمل مستمر',
+      icon: 'scale',
+      body: h(
+        'div.stack',
+        topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${count(topMulti.cases, 'case')}).`, 'info', { icon: 'users' }) : null,
+        table({
+          className: 'pd-table-tight',
+          caption: 'الملفات حسب المجال',
+          rows: areaItems,
+          empty: 'لا توجد ملفات بعد',
+          columns: [
+            { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', a.label || areaLabel(a.legal_area)) },
+            {
+              key: 'cases',
+              label: 'الملفات',
+              className: 'pd-col-bar',
+              render: (a) => h('div.pd-hbar', h('div.pd-hbar-track', h('div.pd-hbar-fill', { style: { width: `${(a.cases / maxCases) * 100}%` } })), h('span.pd-hbar-val', num(a.cases))),
+            },
+            { key: 'closed', label: 'مغلقة', align: 'center', render: (a) => num(a.closed) },
+            {
+              key: 'multi',
+              label: 'متعددة التخصصات',
+              render: (a) =>
+                h('span.nowrap', num(a.multi), ' ', h('bdi.cell-sub', { dir: 'ltr' }, `(${percent(a.cases ? a.multi / a.cases : 0)})`), a.multi && a.multi / a.cases >= 0.5 ? [' ', badge('مرتفع', 'accent')] : null),
+            },
+            { key: 'matters', label: 'تحولت لعمل مستمر', align: 'center', render: (a) => num(a.matters) },
+          ],
+        }),
+      ),
+    });
 
-  const weeklyCard = card({
-    title: 'الحجم الأسبوعي — آخر 12 أسبوعًا',
-    subtitle: 'لمتابعة أثر الحملات على الطلبات وما يتحول منها إلى ملفات',
-    icon: 'calendar',
-    body: weekly.length ? weeklyChart(weekly) : emptyState('لا توجد بيانات أسبوعية بعد', null, { icon: 'chart', compact: true }),
-  });
+    const weeklyCard = card({
+      title: 'الحجم الأسبوعي — آخر 12 أسبوعًا',
+      subtitle: 'لمتابعة أثر الحملات على الطلبات وما يتحول منها إلى ملفات',
+      icon: 'calendar',
+      body: weekly.length ? weeklyChart(weekly) : emptyState('لا توجد بيانات أسبوعية بعد', null, { icon: 'chart', compact: true }),
+    });
+    mount(areasHost, areasCard);
+    mount(weeklyHost, weeklyCard);
+  }
+  drawAreas(areas);
 
   // ── الإنفاق على الإعلانات ──
   const isAdmin = ctx.user && ctx.user.role === 'admin';
@@ -527,8 +565,8 @@ export default async function render(ctx) {
     controls,
     funnelHost,
     spendHost,
-    weeklyCard,
-    areasCard,
+    weeklyHost,
+    areasHost,
   );
 }
 

@@ -32,6 +32,10 @@ const EXACT = {
   'company.invite_conflict': ['mailWarning', 'warning'],
   'company.manager_reassigned': ['userCog', null],
   'email.failed': ['alert', 'warning'],
+  // v11 segment-staff (ST-0, S11-41): طلب عرض من شركة، وتغيير نوع الخدمة (داخل المنصة فقط)، وعمل مدفوع بلا سعر
+  'intake.company_lead': ['building', null],
+  'segment.changed': ['edit', null],
+  'billing.paid_rate_missing': ['wallet', 'warning'],
 };
 
 const TYPE_ICONS = [

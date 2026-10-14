@@ -191,10 +191,13 @@ describe('v9.2 gate (K2) — text on the legal-page hero is a contract pair for 
   };
 
   test('.pub-updated is white (T1 on p700, darker below), the breadcrumb text is ≥ 90% white', () => {
-    assert.match(rule('.pub-updated'), /color: #fff !important;/);
+    // v11 visual (intended, L11-48 stronger value): the legal-page hero is a large title on the white canvas now, so «آخر تحديث»
+    // and the breadcrumb are secondary text (--label-2 #5a625e on #fff = 6.0:1, independent of the foundation colours) — never gold
+    assert.match(rule('.pub-updated'), /color: var\(--label-2\) !important;/);
     assert.doesNotMatch(rule('.pub-updated'), /gold|accent/);
-    assert.match(rule('.pub-crumbs'), /color: rgba\(255, 255, 255, 0\.9\);/);
-    assert.match(rule('.pub-page-hero'), /linear-gradient\(165deg, var\(--pub-teal\) 0%, var\(--pub-teal-deep\) 100%\)/);
+    assert.match(rule('.pub-crumbs'), /color: var\(--label-2\);/);
+    assert.doesNotMatch(rule('.pub-page-hero'), /background/);
+    assert.ok(B.contrast('#5a625e', '#ffffff') >= 4.5);
   });
 
   test('hostile and common brand pairs: white and 90% white stay ≥ 4.5:1 on p700…p900; the old accent-300 did not', () => {
@@ -224,17 +227,22 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
   const success = intake.slice(intake.indexOf('function showSuccess('), intake.indexOf('function aboutCard('));
 
   test('N1: the about card title counts its questions and follows the address form', () => {
-    assert.match(about, /const title = steps\.length > 1 \? 'كمان سؤالين — لو تحبي' : g\('سؤال كمان — لو تحب\{ي\}'\);/);
+    // v11 gate-public (intended: r2 S16): نفس النصين في COPY.ab2/ab1، والعنوان يُختار بنفس الشرط
+    assert.match(about, /const title = steps\.length > 1 \? COPY\.ab2 : g\(COPY\.ab1\);/);
+    assert.ok(intake.includes("ab2: 'كمان سؤالين — لو تحبي'") && intake.includes("ab1: 'سؤال كمان — لو تحب{ي}'"));
     assert.equal(genderize('سؤال كمان — لو تحب{ي}', 'm'), 'سؤال كمان — لو تحب');
     assert.equal(genderize('سؤال كمان — لو تحب{ي}', 'f'), 'سؤال كمان — لو تحبي');
     // سؤالين فقط لما الصفة غير معروفة والكلام لست (السؤال الثاني «إنتي…؟» مؤنث دائمًا)
-    assert.match(about, /if \(!infer\(answers\)\.relation && form !== 'm'\) steps\.push\('rel'\);/);
+    // v11 gate-public (intended: S11-14): الأفراد والشركات (X) يُسألون المحافظة فقط
+    assert.match(about, /if \(!X && !infer\(answers\)\.relation && form !== 'm'\) steps\.push\('rel'\);/);
   });
 
   test('N2: the spoken call-back text spells the number digit by digit; the visible text keeps it as written', () => {
-    assert.match(success, /cbSay = \(\) => `\$\{lead\}\$\{from \? `، من الرقم ده: \$\{L \? L\.spellPhone\(from\) : from\}` : ''\}\. \$\{rest\}`;/);
+    // v11 gate-public (intended: r2 S16): «، من الرقم ده:» في COPY.cbFrom، ثم مسافة والرقم (نفس النص المعروض والمسموع)
+    assert.ok(intake.includes("cbFrom: '، من الرقم ده:'"));
+    assert.match(success, /cbSay = \(\) => `\$\{lead\}\$\{from \? `\$\{COPY\.cbFrom\} \$\{L \? L\.spellPhone\(from\) : from\}` : ''\}\. \$\{rest\}`;/);
     assert.match(success, /cbText && \{ text: cbSay\(\), el: cbCard \}/);
-    assert.match(success, /cbText = `\$\{lead\}\$\{from \? `، من الرقم ده: \$\{from\}` : ''\}\. \$\{rest\}`;/);
+    assert.match(success, /cbText = `\$\{lead\}\$\{from \? `\$\{COPY\.cbFrom\} \$\{from\}` : ''\}\. \$\{rest\}`;/);
   });
 
   test('N8: the «كمان سؤالين» card is read aloud (title, question, every answer, «تخطي»), the listen button repaints when it appears, the next question reads itself after a tap', () => {
@@ -247,7 +255,8 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
   });
 
   test('N9: «إنتي…؟» with a hamza, like «إنتي من أنهي محافظة؟»', () => {
-    assert.ok(about.includes("'إنتي…؟'"));
+    // v11 gate-public (intended: r2 S16): النص في COPY.abRel والبطاقة تقرؤه بالمفتاح
+    assert.ok(intake.includes("abRel: 'إنتي…؟'") && about.includes('COPY.abRel'));
     assert.ok(!intake.includes('انتي…؟'));
   });
 
@@ -285,6 +294,9 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
       assert.ok(!header.includes('تابعي'), 'no feminine verb in the home header');
       const privacy = (await t.client().get('/privacy')).body;
       assert.match(/<header class="pub-header"[\s\S]*?<\/header>/.exec(privacy)[0], /<span>تابعي طلبك<\/span>/);
+      // v11 gate-public (intended, L11-14): the side pill is on the homes and legal pages, never on the task pages
+      assert.ok(header.includes('class="pub-seg-pill pub-seg-pill--charity"'), 'pill on the home');
+      for (const p of ['/intake', '/intake?seg=paid', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345']) assert.ok(!(await t.client().get(p)).body.includes('pub-seg-pill'), `no pill on ${p}`);
     } finally {
       await t.close();
     }

@@ -17,6 +17,8 @@ import {
   loading,
   ltr,
 } from '../../../lib/ui.js';
+// v11 segment-staff (ST-4): «الكل · خيري · أفراد · شركات» ورقاقة النوع (الملف المستمر يتبع ملفه)
+import { segmentChip, caseSegmentSwitch, caseFilterKey, caseFilterQuery, SEGMENT_TITLE } from '../../components/segment-ui.js';
 
 const WEEK = 7 * 24 * 3600 * 1000;
 
@@ -26,6 +28,7 @@ export default async function render(ctx) {
   const state = {
     status: statusKeys.includes(q0.status) || q0.status === 'all' ? q0.status : 'active',
     q: q0.q || '',
+    seg: caseFilterKey(q0),
   };
 
   let items = [];
@@ -39,6 +42,7 @@ export default async function render(ctx) {
     const qs = new URLSearchParams();
     if (state.status !== 'active') qs.set('status', state.status);
     if (state.q) qs.set('q', state.q);
+    for (const [k, v] of Object.entries(caseFilterQuery(state.seg))) qs.set(k, v);
     const s = qs.toString();
     try {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/matters${s ? `?${s}` : ''}`);
@@ -51,9 +55,16 @@ export default async function render(ctx) {
     const my = ++seq;
     mount(resultHost, loading('جارٍ تحميل الملفات المستمرة…'));
     try {
-      const res = await api.get('/admin/matters', { q: state.q });
+      // review: عناصر القائمة لا تحمل company_id، فتحت «الكل» تُعرف ملفات الشركات من طلب ‎line=b2b‎ موازٍ (رقاقة «شركة» لا «أفراد»)
+      const [res, b2b] = await Promise.all([
+        api.get('/admin/matters', { q: state.q, ...caseFilterQuery(state.seg) }),
+        state.seg ? null : api.get('/admin/matters', { q: state.q, line: 'b2b' }, { background: true }).catch(() => null),
+      ]);
       if (my !== seq) return;
       items = Array.isArray(res) ? res : (res && res.items) || [];
+      const companyIds = new Set((Array.isArray(b2b) ? b2b : (b2b && b2b.items) || []).map((m) => m.id));
+      if (state.seg === 'company') items.forEach((m) => (m.is_company = true));
+      else items.forEach((m) => (m.is_company = Boolean(m.company_id) || companyIds.has(m.id)));
       draw();
     } catch (err) {
       if (my !== seq) return;
@@ -82,7 +93,7 @@ export default async function render(ctx) {
     mount(
       statsHost,
       statCard({ label: 'ملفات مستمرة نشطة', value: open.length, icon: 'gavel', tone: 'primary', hint: 'مفتوحة أو معلّقة' }),
-      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'accent' : 'muted', hint: 'جلسات واجتماعات مجدولة' }),
+      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'info' : 'muted', hint: 'جلسات واجتماعات مجدولة' }), // v11 gate fix (K1)
       statCard({ label: 'مهام متأخرة', value: overdueTasks, icon: 'clock', tone: overdueTasks ? 'danger' : 'muted', hint: 'تجاوزت موعدها ولم تُنجز' }),
       statCard({ label: 'فواتير غير مسددة', value: unpaid, icon: 'wallet', tone: unpaid ? 'warning' : 'muted', hint: 'غير مسددة أو مسددة جزئيًا' }),
     );
@@ -121,7 +132,12 @@ export default async function render(ctx) {
     {
       key: 'client',
       label: 'المستفيد/ة',
-      render: (m) => h('div', h('div.cell-title', m.client_name || 'بدون اسم'), h('div.cell-sub', codeTag(m.client_code))),
+      render: (m) =>
+        h(
+          'div',
+          h('div.cell-title', m.client_name || 'بدون اسم'),
+          h('div.cell-sub', segmentChip(m.segment, { company: Boolean(m.is_company) }), ' ', codeTag(m.client_code)),
+        ),
     },
     { key: 'lawyer', label: 'المحامي المسؤول', render: (m) => (m.lawyer_name ? h('span', m.lawyer_name) : h('span.muted', 'لم يُحدَّد')) },
     {
@@ -216,6 +232,16 @@ export default async function render(ctx) {
     }),
   ]);
 
+  const segSwitch = caseSegmentSwitch({
+    value: state.seg,
+    label: SEGMENT_TITLE,
+    onChange: (v) => {
+      state.seg = v;
+      syncUrl();
+      load();
+    },
+  });
+
   load();
-  return frag(header, statsHost, segHost, filters, countLine, resultHost);
+  return frag(header, statsHost, h('div.seg-filter', segSwitch), segHost, filters, countLine, resultHost);
 }

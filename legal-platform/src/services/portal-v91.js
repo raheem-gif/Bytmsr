@@ -26,6 +26,7 @@ import { LABELS, GOVERNORATES } from '../constants.js';
 // v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
 import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 import { isPortalUnverifiedIntake } from '../channels/engine.js';
+import { paidHours } from '../site-copy-paid.js'; // v11 fixer-public (V2): المواعيد بالفصحى في صفحة الأفراد والشركات
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
 
@@ -82,6 +83,17 @@ export const genderize = typeof U.genderize === 'function' ? U.genderize : local
 export const spokenTime = typeof U.spokenTime === 'function' ? U.spokenTime : localSpokenTime;
 export const spokenDate = typeof U.spokenDate === 'function' ? U.spokenDate : localSpokenDate;
 export const dayWord = typeof U.dayWord === 'function' ? U.dayWord : localDayWord;
+
+/**
+ * v11 fixer-public: اسم التحية في صفحة المتابعة. لقب مختصر في أول الاسم («م. خالد»، «أ. نادية»، «د. سامي»، «أ.د. …»،
+ * شائع عند عملاء الأفراد والشركات) لا يُخاطَب وحده («مرحبًا م.»): اللقب ثم الاسم الأول. غير ذلك = addressName كما هو.
+ */
+const TITLE_ABBR_RE = /^[\u0621-\u064A]{1,2}\.(?:[\u0621-\u064A]{1,2}\.)?$/;
+export function greetName(name) {
+  const w = String(name ?? '').replace(/[\u200e\u200f\u061c]/g, '').trim().split(/\s+/).filter(Boolean);
+  if (w.length > 1 && TITLE_ABBR_RE.test(w[0])) return `${w[0]} ${addressName(w.slice(1).join(' '))}`.trim();
+  return addressName(name);
+}
 
 /** رقم الطلب كما يُقال في التليفون: REQ-2026-00029 → «29» */
 export function spokenRef(code) {
@@ -159,7 +171,7 @@ export function parseSteps(raw) {
  * v9.1 fixes: نص تذكير الجلسة بقائمة «هاتي معاكي» التي اعتمدتها الإدارة (ملاحظة الموعد) بدل «هاتي معاكي بطاقتك» وحدها،
  * وسطر اللقاء («المحامي هيقابلك …») قبل التوقيع. بلا ملاحظة معتمدة يبقى النص كما هو.
  */
-export function withClientNote(body, e, form = 'f') {
+export function withClientNote(body, e, form = 'f', tone = 'charity') {
   if (!e || !e.client_text_approved || !e.client_note) return body;
   const lines = String(e.client_note).split(/\r?\n/).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8);
   const meetRe = /(هيقابل|هتقابل|هنقابل|هنستنا|هيستنا|نتقابل|مكان اللقا|ميعاد اللقا)/;
@@ -174,9 +186,11 @@ export function withClientNote(body, e, form = 'f') {
     return parts.join('\n');
   };
   if (bring.length) {
-    const items = bring.some((s) => /بطاق/.test(s)) ? bring : ['بطاقتك', ...bring];
-    const say = form === 'm' ? 'هات معاك' : 'هاتي معاكي';
-    const re = /هاتي?(?:\s+معاكي?)?\s+بطاقتك(?:\s+الشخصية)?/;
+    // v11 segment-server (L11-25): عميل الأفراد والشركات «يرجى إحضار: …» بصيغة مهذبة
+    const paid = tone !== 'charity';
+    const items = bring.some((s) => /بطاق/.test(s)) ? bring : [paid ? 'بطاقة الرقم القومي' : 'بطاقتك', ...bring];
+    const say = paid ? 'يرجى إحضار' : form === 'm' ? 'هات معاك' : 'هاتي معاكي';
+    const re = paid ? /يرجى إحضار بطاقة الرقم القومي/ : /هاتي?(?:\s+معاكي?)?\s+بطاقتك(?:\s+الشخصية)?/;
     out = re.test(out) ? out.replace(re, `${say}: ${items.join('، ')}`) : beforeSignature(out, `${say}: ${items.join('، ')}.`);
   }
   if (meet) out = beforeSignature(out, meet);
@@ -186,6 +200,9 @@ export function withClientNote(body, e, form = 'f') {
 /** نص تذكير «قبلها بيوم» (B91-13): {ي} و{ة} حسب صيغة المخاطبة */
 export const DAY_BEFORE_TEMPLATE =
   'أهلًا يا {first_name}، فكّرناك: بكرة {event_kind} الساعة {time_spoken} في {location}.\nهات{ي} بطاقتك. لو في أي مشكلة رد{ي} علينا هنا.\n— {org_name}';
+/** v11 segment-server (L11-25، S11 §10): تذكير «قبلها بيوم» لعملاء الأفراد والشركات بصيغة الجمع المهذبة */
+export const DAY_BEFORE_TEMPLATE_PAID =
+  'مرحبًا {first_name}، نذكّركم بموعد {event_kind} غدًا الساعة {time_spoken} في {location}.\nيرجى إحضار بطاقة الرقم القومي. إن تعذّر حضوركم يرجى الرد علينا هنا.\n— {org_name}';
 
 /**
  * حقول الرد الموجه للمستفيد/ة (B91-08) من جسم طلب الإدارة: { summary ≤ 400، steps ≤ 8 × ≤ 160، voice_document_id }.
@@ -232,18 +249,24 @@ export function answerMessageText(app, ans, caseRow, { forWhatsApp = false } = {
   // عند الإرسال الفعلي (engine.renderLinks)، والنص المحفوظ يقول «الرد كامل على صفحتك.» فقط
   const withLink = forWhatsApp && !!app.engine?.isStoryConfirmed?.(story);
   const steps = parseSteps(ans.steps);
-  const head = `${name ? `أهلًا يا ${name}` : 'أهلًا بيك{ي}'}، ردّنا على مشكلتك جاهز.\n\n${String(ans.summary).trim()}`;
-  const tail = `\n\n${withLink ? 'الرد كامل على صفحتك: {portal_link}' : 'الرد كامل على صفحتك.'}\nلو عندك سؤال، رد{ي} علينا هنا.\n— ${org}`;
+  // v11 segment-server (L11-25): ملف الأفراد والشركات بصيغة الجمع المهذبة (نفس البنية والحدود)
+  const paid = app.segments ? app.segments.tone(caseRow) !== 'charity' : false;
+  const head = paid
+    ? `${name ? `مرحبًا ${name}` : 'مرحبًا بكم'}، الرد على طلبكم جاهز.\n\n${String(ans.summary).trim()}`
+    : `${name ? `أهلًا يا ${name}` : 'أهلًا بيك{ي}'}، ردّنا على مشكلتك جاهز.\n\n${String(ans.summary).trim()}`;
+  const tail = paid
+    ? `\n\n${withLink ? 'الرد كاملًا في صفحة طلبكم: {portal_link}' : 'الرد كاملًا في صفحة طلبكم.'}\nلأي استفسار، راسلونا هنا.\n— ${org}`
+    : `\n\n${withLink ? 'الرد كامل على صفحتك: {portal_link}' : 'الرد كامل على صفحتك.'}\nلو عندك سؤال، رد{ي} علينا هنا.\n— ${org}`;
   // طول الرابط الفعلي عند الإرسال (≈ 70 حرفًا) يُحسب ضمن حد الـ 1000 حرف
   const linkRoom = withLink ? 70 : 0;
   let list = '';
   if (steps.length) {
-    list = `\n\nتعمل{ي} إيه دلوقتي:`;
+    list = paid ? '\n\nالخطوات التالية:' : `\n\nتعمل{ي} إيه دلوقتي:`;
     let i = 0;
     for (const s of steps) {
       const line = `\n${i + 1}. ${s}`;
       if ((head + list + line + tail).length + linkRoom > 960) {
-        list += '\nوباقي الخطوات على صفحتك.';
+        list += paid ? '\nوباقي الخطوات في صفحة طلبكم.' : '\nوباقي الخطوات على صفحتك.';
         break;
       }
       list += line;
@@ -283,20 +306,56 @@ export function createPortalV91(app, { scopeOf, inList }) {
   const { db } = app;
   const setting = (k) => app.settings.get(k);
 
-  /** بيانات التواصل الظاهرة في الموقع (نفس مصدر رأس الموقع وتذييله) */
-  function contact() {
+  /**
+   * بيانات التواصل الظاهرة في الموقع (نفس مصدر رأس الموقع وتذييله).
+   * v11 segment-server [r2 S2]: بنبرة الصفحة — الأفراد والشركات (أو «غير محدد») ← رقم واتساب جانبهم وجملة الحجز
+   * (publicDigits/publicPrefill)، وهاتفهم org_phone_paid ← org_phone.
+   */
+  function contact(tone = 'charity') {
     const ps = app.site?.publicSettings ? app.site.publicSettings() : null;
     const s = app.settings.all();
+    const paidSide = tone === 'paid' || tone === 'neutral';
+    if (paidSide && app.segments) {
+      const phonePaid = String(s.org_phone_paid || '').trim();
+      return {
+        org_name: app.brand?.displayName ? app.brand.displayName() : ps?.org_name || s.org_name,
+        phone: phonePaid || ps?.org_phone || s.org_phone || '',
+        phone_e164: phonePaid ? U.normalizePhone(phonePaid) || '' : ps?.org_phone_e164 || '',
+        whatsapp_digits: app.segments.publicDigits('paid') || '',
+        whatsapp_prefill: app.segments.publicPrefill('paid'),
+        office_hours: paidHours(ps?.office_hours || s.office_hours || ''),
+        open_now: officeOpen(s.office_hours_schedule),
+      };
+    }
     const digits = ps ? ps.whatsapp_digits : app.whatsapp?.publicDigits ? app.whatsapp.publicDigits() : '';
     return {
       org_name: app.brand?.displayName ? app.brand.displayName() : ps?.org_name || s.org_name, // v10: اسم المكتب
       phone: ps?.org_phone || s.org_phone || '',
       phone_e164: ps?.org_phone_e164 || '',
       whatsapp_digits: digits || '',
+      ...(app.segments ? { whatsapp_prefill: app.segments.publicPrefill('charity') } : {}),
       office_hours: ps?.office_hours || s.office_hours || '',
       open_now: officeOpen(s.office_hours_schedule),
     };
   }
+  /** v11 segment-server (S11-16): نوع خدمة القصة في صفحة المتابعة (الملف ثم الطلب؛ ملف الشركة «أفراد وشركات») */
+  const storySegment = (st) => (st.kase ? (st.kase.company_id ? 'paid' : st.kase.segment || 'charity') : st.intake ? (st.intake.segment ?? null) : 'charity');
+  const toneOfSegment = (seg) => (seg === 'charity' ? 'charity' : seg === 'paid' ? 'paid' : 'neutral');
+  /** v11 fixer-public (K11/J-05): مراحل صفحة الأفراد والشركات بالفصحى بصيغة الجمع (نصوص «خيري» في stageOf كما هي) */
+  const STAGE_PAID = {
+    titles: ['استلمنا طلبكم', 'يراجع فريقنا طلبكم', 'يدرس المحامي طلبكم'],
+    answered: 'وصلكم الرد',
+    done: 'اكتمل الطلب',
+    court: 'قضيتكم أمام المحكمة',
+    waitPaper: 'ننتظر منكم المستندات لنستكمل طلبكم',
+    waitReply: 'ننتظر ردكم لنستكمل طلبكم',
+    lastMsg: 'اطّلعوا على آخر رسالة منا',
+    readAnswer: 'اقرؤوا ردنا على طلبكم',
+    finalReview: 'نراجع الرد قبل إرساله إليكم',
+    noHearing: 'لم يُحدَّد موعد الجلسة بعد',
+  };
+  /** «خلال يوم عمل» · «خلال يومَي عمل» · «خلال 3 أيام عمل» · «خلال 12 يوم عمل» (كما في شاشة «وصلنا طلبكم») */
+  const paidWorkDays = (n) => (n === 1 ? 'خلال يوم عمل' : n === 2 ? 'خلال يومَي عمل' : n <= 10 ? `خلال ${n} أيام عمل` : `خلال ${n} يوم عمل`);
 
   /**
    * هل المؤسسة تعمل الآن بتوقيت القاهرة؟ من office_hours_schedule { days: [0..6 بترقيم getDay], from, to }.
@@ -353,13 +412,17 @@ export function createPortalV91(app, { scopeOf, inList }) {
    * مرحلة القصة بالكلام البسيط (نفس الكلمات في الصفحة وفي رسائل واتساب):
    * received | review | waiting_you | study | final_review | answered | court | done
    */
-  function stageOf(story, { form = 'f', iso = nowIso() } = {}) {
+  function stageOf(story, { form = 'f', iso = nowIso(), tone = 'charity' } = {}) {
     const { intake, kase, matter } = story;
+    // v11 fixer-public (K11/J-05، L11-35): صفحة الأفراد والشركات (نبرة غير «خيري») لا تخلط الفصحى بالعامية في شريط المراحل
+    const T = tone === 'charity' ? null : STAGE_PAID;
     const etaReview = Math.max(1, Number(setting('portal_eta_review_days')) || 2);
     const etaMin = Math.max(1, Number(setting('portal_eta_study_min_days')) || 7);
     const etaMax = Math.max(etaMin, Number(setting('portal_eta_study_max_days')) || 14);
-    const reviewHint = `غالبًا خلال ${arabicCount(etaReview, WORK_DAYS)}`;
-    const studyHint = `ده بياخد غالبًا من ${etaMin} لـ ${arabicCount(etaMax, STUDY_DAYS).replace(/^(\d+) أيام$/, '$1 يوم')}`;
+    const reviewHint = T ? `عادةً ${paidWorkDays(etaReview)}` : `غالبًا خلال ${arabicCount(etaReview, WORK_DAYS)}`;
+    const studyHint = T
+      ? `يستغرق ذلك عادةً من ${etaMin} إلى ${etaMax} ${etaMax >= 3 && etaMax <= 10 ? 'أيام' : 'يومًا'}`
+      : `ده بياخد غالبًا من ${etaMin} لـ ${arabicCount(etaMax, STUDY_DAYS).replace(/^(\d+) أيام$/, '$1 يوم')}`;
     // طلب مننا لسه مستنيين ردها عليه (ورق أو معلومة)
     let waiting = null;
     if (kase) {
@@ -370,7 +433,8 @@ export function createPortalV91(app, { scopeOf, inList }) {
       }
     }
     if (!kase && intake?.status === 'awaiting_client') waiting = 'reply';
-    const waitingHint = waiting ? `مستنيين منك ${waiting === 'paper' ? 'الورق' : 'ردّك'} عشان نكمّل` : null;
+    const waitingHint = waiting ? (T ? (waiting === 'paper' ? T.waitPaper : T.waitReply) : `مستنيين منك ${waiting === 'paper' ? 'الورق' : 'ردّك'} عشان نكمّل`) : null;
+    const lastMsg = () => (T ? T.lastMsg : genderize('شوف{ي} آخر رسالة مننا', form));
 
     let step = 2;
     let key = 'review';
@@ -384,11 +448,11 @@ export function createPortalV91(app, { scopeOf, inList }) {
       if (matter.status === 'closed') {
         key = 'done';
         complete = true;
-        hint = genderize('شوف{ي} آخر رسالة مننا', form);
+        hint = lastMsg();
       } else {
         key = 'court';
         const next = db.get("SELECT starts_at FROM matter_events WHERE matter_id = ? AND status = 'scheduled' AND starts_at >= ? ORDER BY starts_at LIMIT 1", matter.id, iso);
-        hint = next ? `الجلسة الجاية: ${spokenDate(next.starts_at)}` : 'لسه مفيش جلسة متحددة';
+        hint = next ? `${T ? 'الجلسة القادمة' : 'الجلسة الجاية'}: ${spokenDate(next.starts_at)}` : T ? T.noHearing : 'لسه مفيش جلسة متحددة';
       }
     } else if (kase) {
       if (kase.status === 'closed' || kase.status === 'answered') {
@@ -396,16 +460,16 @@ export function createPortalV91(app, { scopeOf, inList }) {
         complete = true;
         if (answerSent) {
           key = 'answered';
-          hint = genderize('اقر{ي} الرد في «ردّنا عليك{ي}»', form);
+          hint = T ? T.readAnswer : genderize('اقر{ي} الرد في «ردّنا عليك{ي}»', form);
         } else {
           key = 'done';
           doneLabel = true;
-          hint = genderize('شوف{ي} آخر رسالة مننا', form);
+          hint = lastMsg();
         }
       } else if (kase.status === 'under_review' || kase.status === 'approved') {
         step = 3;
         key = 'final_review';
-        hint = 'بنراجع الرد قبل ما نبعته لك';
+        hint = T ? T.finalReview : 'بنراجع الرد قبل ما نبعته لك';
       } else if (kase.status === 'assigned' || kase.status === 'in_progress') {
         step = 3;
         key = 'study';
@@ -423,15 +487,15 @@ export function createPortalV91(app, { scopeOf, inList }) {
         key = 'done';
         complete = true;
         doneLabel = true;
-        hint = genderize('شوف{ي} آخر رسالة مننا', form);
+        hint = lastMsg();
       }
     }
     if (waiting && !complete && key !== 'court') {
       key = 'waiting_you';
       hint = waitingHint;
     }
-    const titles = ['استلمنا طلبك', 'فريقنا بيراجع طلبك', 'المحامي بيدرس مشكلتك', doneLabel ? 'الطلب خلص' : 'وصلك الرد'];
-    if (matter) titles.push('قضيتك في المحكمة');
+    const titles = T ? [...T.titles, doneLabel ? T.done : T.answered] : ['استلمنا طلبك', 'فريقنا بيراجع طلبك', 'المحامي بيدرس مشكلتك', doneLabel ? 'الطلب خلص' : 'وصلك الرد'];
+    if (matter) titles.push(T ? T.court : 'قضيتك في المحكمة');
     const steps = titles.map((title, i) => {
       const n = i + 1;
       const state = n < step || (n === step && complete) ? 'done' : n === step ? 'current' : 'next';
@@ -550,6 +614,12 @@ export function createPortalV91(app, { scopeOf, inList }) {
         client_response_at: row.client_response_at || null,
         needs_agreement: i.status === 'unpaid' && !row.client_agreed_at && Number(i.paid_amount || 0) === 0,
         story_ref: row.matter_id ? refOfMatter(row.matter_id) : refOfCase(row.case_id),
+        // v11 segment-server (S11-16): نوع خدمة ملف الفاتورة (للنصوص فقط؛ لا يظهر كتسمية)
+        segment: (() => {
+          const cid = row.case_id || (row.matter_id ? db.value('SELECT case_id FROM matters WHERE id = ?', row.matter_id) : null);
+          const c = cid ? db.get('SELECT segment, company_id FROM cases WHERE id = ?', cid) : null;
+          return c ? (c.company_id ? 'paid' : c.segment) : 'charity';
+        })(),
       };
     });
     return view;
@@ -573,10 +643,30 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const iso = nowIso();
     const displayName = view.client?.name || '';
     // رابط طلب من الموقع لم تتأكد هويته: نخاطب بالاسم الذي كتبه فقط (لا نكشف إعداد صاحب الرقم)
-    const form = sc.websiteOnly ? addressForm({ name: displayName }) : addressForm({ name: displayName, address_form: client.address_form });
+    const form0 = sc.websiteOnly ? addressForm({ name: displayName }) : addressForm({ name: displayName, address_form: client.address_form });
     const all = stories(sc);
+    // v11 segment-server (§5.7، L11-35): نبرة الصفحة = طلب الرابط › أحدث قصة مفتوحة › الخيري؛ ولصفحة الأفراد والشركات صيغة
+    // المخاطبة الافتراضية المذكر (المفرد العام في الواجهات) ما لم تحددها الإدارة أو كانت الكنية «أم …» — نص الصفحة فقط
+    const isOpenStory = (x) => (x.kase ? x.kase.status !== 'closed' : x.intake ? ['new', 'in_review', 'awaiting_client'].includes(x.intake.status) : false);
+    const scoped = !sc.full && sc.intake ? all.find((x) => x.intake?.id === sc.intake.id) : null;
+    const latestOpen = [...all].filter(isOpenStory).sort((a, b) => String(b.intake?.created_at || b.kase?.created_at || '').localeCompare(String(a.intake?.created_at || a.kase?.created_at || '')))[0] || null;
+    // v11 fixer-public (F-B): بلا طلب مفتوح (ملف مغلق، أو طلب موقع لم يتأكد بعد فلا يظهر في رابط العميل) لا نرجع للخيري:
+    // أحدث قصة في الصفحة بأي حالة، ثم نبرة العميل من الخادم (أحدث طلب)؛ «خيري» فقط لمن لا تاريخ له مع الأفراد والشركات
+    const createdOf = (x) => String(x.intake?.created_at || x.kase?.created_at || '');
+    const latestAny = [...all].sort((a, b) => createdOf(b).localeCompare(createdOf(a)))[0] || null;
+    const pick = scoped || latestOpen || latestAny;
+    let tone = pick ? toneOfSegment(storySegment(pick)) : 'charity';
+    if (!pick && app.segments?.clientTone) {
+      try {
+        tone = app.segments.clientTone(client.id) || 'charity';
+      } catch {
+        tone = 'charity';
+      }
+    }
+    const setForm = !sc.websiteOnly && (client.address_form === 'm' || client.address_form === 'f');
+    const form = tone !== 'charity' && !setForm && !/^(أم|ام|إم)\s/.test(String(displayName).trim()) ? 'm' : form0;
     const storyViews = all.map((s) => {
-      const stage = stageOf(s, { form, iso });
+      const stage = stageOf(s, { form, iso, tone });
       const nextHearing = s.matter
         ? db.get("SELECT starts_at FROM matter_events WHERE matter_id = ? AND status = 'scheduled' AND starts_at >= ? ORDER BY starts_at LIMIT 1", s.matter.id, iso)
         : null;
@@ -589,6 +679,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
         next_hearing_at: nextHearing?.starts_at || null,
         active: !stage.complete,
         created_at: s.intake?.created_at || s.kase?.created_at || null,
+        segment: storySegment(s), // v11 segment-server (S11-16)
       };
     });
     // الأحدث النشط أولًا، ثم ما انتهى
@@ -624,13 +715,14 @@ export function createPortalV91(app, { scopeOf, inList }) {
     const instructions = String(setting('portal_payment_instructions') || '').trim().slice(0, 500);
     return {
       address: form,
-      name: addressName(displayName),
+      name: greetName(displayName), // v11 fixer-public: «مرحبًا م. خالد» لا «مرحبًا م.»
       ref,
       spoken_ref: spokenRef(ref),
       whatsapp_confirmed: whatsappConfirmed(client, sc),
       stories: storyViews,
       next,
-      contact: contact(),
+      tone, // v11 segment-server
+      contact: contact(tone),
       money: {
         unpaid_total: Math.round(unpaid.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100) / 100,
         needs_agreement: unpaid.filter((i) => i.needs_agreement).length,
@@ -842,7 +934,9 @@ export function createPortalV91(app, { scopeOf, inList }) {
       if (answer === 'agree' && !inv.client_agreed_at) patch.client_agreed_at = t;
       db.update('invoices', inv.id, patch);
       const said = { agree: 'موافقة على', question: 'عندي سؤال على', cannot_pay: form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع' }[answer];
-      const text = answer === 'cannot_pay' ? `${said}: ${amount} (${inv.description})` : `${said} مصاريف القضية: ${amount} (${inv.description})`;
+      // v11 segment-server (r2 P5): أتعاب ملف الأفراد والشركات ليست «مصاريف القضية»
+      const feeOfPaidCase = !!db.get("SELECT 1 FROM cases WHERE id = ? AND company_id IS NULL AND segment = 'paid'", caseId) && !inv.matter_id;
+      const text = answer === 'cannot_pay' ? `${said}: ${amount} (${inv.description})` : `${said} ${feeOfPaidCase ? 'الأتعاب' : 'مصاريف القضية'}: ${amount} (${inv.description})`;
       const res = receivePortal(client, targetForCase(intakeId, caseId), text, { meta: { invoice_number: inv.number, invoice_response: answer } });
       const ref = refOfCase(caseId);
       app.activity.log({
@@ -891,9 +985,11 @@ export function createPortalV91(app, { scopeOf, inList }) {
       const res = receivePortal(client, app.portal.targetFor(client, intakeId, { phone }), own, { meta: { callback: when } });
       const ref = res.intake?.code || (res.caseRow ? refOfCase(res.caseRow.id) : null);
       app.activity.log({ intake_id: res.intake?.id, case_id: res.caseRow?.id, client_id: client.id, actor: { kind: 'client' }, type: 'client.callback', summary: text, data: { when, message_id: res.message_id } });
+      // v11 segment-server [مراجعة 11.0] (§5.6): طلب مكالمة من صفحة متابعة الأفراد والشركات يُعلَّم في العنوان (عنوان الخيري كما في 10.0)
+      const cbTone = app.engine?.storyTone ? app.engine.storyTone({ intakeId: res.intake?.id ?? null, caseId: res.caseRow?.id ?? null }) : 'charity';
       notifyFor(res.caseRow?.id || null, {
         type: 'client.callback',
-        title: `${text}${ref ? ` — الطلب ${ref}` : ''}`,
+        title: `${text}${ref ? ` — الطلب ${ref}` : ''}${cbTone !== 'charity' && app.segments ? ` · ${app.segments.label(cbTone === 'paid' ? 'paid' : null)}` : ''}`,
         body: 'اتصلوا على رقمها المسجل في الطلب، والمكالمة نفسها فرصة لتأكيد هويتها.',
         link: res.caseRow ? `#/cases/${res.caseRow.id}` : res.intake ? `#/inbox/${res.intake.id}` : null,
       });
@@ -912,9 +1008,12 @@ export function createPortalV91(app, { scopeOf, inList }) {
       if (!intake || intake.client_id !== client.id) throw notFound(BAD_LINK);
       const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
       const given = (k) => b[k] !== undefined && b[k] !== null && b[k] !== '';
+      // v11 segment-server (§5.7): طلب «أفراد وشركات» — المحافظة فقط (الصفة تُتجاهل: لا بيانات أسرة ولا بحث اجتماعي)
+      const paidIntake = intake.segment === 'paid';
+      if (paidIntake && !given('governorate')) throw badRequest('اختاروا المحافظة أولًا.'); // [مراجعة 11.0]: صيغة الجمع المهذبة لصفحة الأفراد والشركات
       if (!given('governorate') && !given('relation')) throw badRequest('مفيش حاجة تتسجل.');
       const governorate = given('governorate') ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
-      const relation = given('relation') ? v.oneOf(b.relation, ABOUT_RELATIONS, 'الصفة') : null;
+      const relation = given('relation') && !paidIntake ? v.oneOf(b.relation, ABOUT_RELATIONS, 'الصفة') : null;
       const t = nowIso();
       db.tx(() => {
         if (governorate) db.run('UPDATE intakes SET governorate = ? WHERE id = ? AND governorate IS NULL', governorate, intake.id);
@@ -931,7 +1030,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
         db.run('UPDATE beneficiary_submissions SET applied_at = NULL WHERE intake_id = ?', intake.id);
       }
       const parts = [governorate && 'المحافظة', relation && 'الصفة'].filter(Boolean).join('، ');
-      app.activity.log({ intake_id: intake.id, client_id: client.id, actor: { kind: 'client' }, type: 'client.about', summary: `أضافت بيانات عنها: ${parts}`, data: { governorate, relation } });
+      app.activity.log({ intake_id: intake.id, client_id: client.id, actor: { kind: 'client' }, type: 'client.about', summary: paidIntake ? `أضاف العميل بياناته: ${parts}` : `أضافت بيانات عنها: ${parts}`, data: { governorate, relation } }); // v11 segment-server: صياغة محايدة للأفراد والشركات
       return { ok: true };
     },
 
@@ -953,7 +1052,16 @@ export function createPortalV91(app, { scopeOf, inList }) {
         location: e.location || e.matter_court || 'المحكمة',
         org_name: app.brand.displayName(), // v10 experience
       };
-      const tpl = typeof params.template_day_before === 'string' && params.template_day_before.trim() ? params.template_day_before : DAY_BEFORE_TEMPLATE;
+      // v11 segment-server (L11-25): ملف الأفراد والشركات ← النص المهذب (نص الخيري المعدّل من الإدارة لا يصلهم)
+      const tone = app.engine?.storyTone ? app.engine.storyTone({ intakeId: e.intake_id ?? null, caseId: e.case_id, matterId: e.matter_id }) : 'charity';
+      const tpl =
+        tone !== 'charity'
+          ? typeof params.template_day_before_paid === 'string' && params.template_day_before_paid.trim()
+            ? params.template_day_before_paid
+            : DAY_BEFORE_TEMPLATE_PAID
+          : typeof params.template_day_before === 'string' && params.template_day_before.trim()
+            ? params.template_day_before
+            : DAY_BEFORE_TEMPLATE;
       // (v9.1 fixes: قائمة «هاتي معاكي» وسطر اللقاء المعتمدان من الإدارة بدل «هاتي بطاقتك» وحدها)
       const body = withClientNote(
         app.engine?.fillClientText
@@ -961,6 +1069,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
           : genderize(String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] ? String(vars[k]) : m)).replace(/يا \{first_name\}/, 'بيك{ي}'), form),
         e,
         form,
+        tone,
       );
       const msg = app.engine.sendToClient({
         client_id: e.client_id,
@@ -974,7 +1083,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
           vars: { ...vars, matter_code: e.matter_code, time: spokenTime(e.starts_at) },
           reminder: 'day_before',
           event_id: e.id,
-          wa: { type: 'buttons', text: body, buttons: [{ id: `evt:${e.id}:yes`, title: 'هحضر' }, { id: `evt:${e.id}:no`, title: 'مش هقدر' }] },
+          wa: { type: 'buttons', text: body, buttons: tone !== 'charity' ? [{ id: `evt:${e.id}:yes`, title: 'سأحضر' }, { id: `evt:${e.id}:no`, title: 'لن أتمكن' }] : [{ id: `evt:${e.id}:yes`, title: 'هحضر' }, { id: `evt:${e.id}:no`, title: 'مش هقدر' }] },
         },
       });
       // رقم غير مؤكد (B91-01): لا يصل الرقم شيء، والتخطي يُسجَّل مرة واحدة

@@ -36,19 +36,38 @@ import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus, replaceQuery 
 import { pickClient } from './clients.js';
 import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 import { programSelect } from '../../components/program-picker.js';
-import { MERGE_LABEL } from '../../labels.js';
+import { MERGE_LABEL, mergeLabel } from '../../labels.js';
 // v9: ردود جاهزة واقتراح رد بالذكاء الاصطناعي في محرر الرد، وتحليل المستندات (أدوات مشتركة مع صفحة الملف)
 import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
 // v9.2 (admin-ai): القصة ← اقتراح ← طلب بنقرة؛ نصوص الرسائل الصوتية؛ المكالمات
-import { openStorySheet, TRACK_TONES } from '../../components/story-sheet.js';
+import { openStorySheet } from '../../components/story-sheet.js';
 import { voiceTranscriptEditor, voiceLeftText } from '../../components/voice-transcript.js';
 import { openCallNote, openCallAttempt, attemptsList, closeUnreachable, attemptsCountText } from '../../components/call-note.js';
+// v11 segment-staff (ST-2): نوع الخدمة في ترويسة الطلب، بطاقة «غير محدد»، ورأس الإرسال «سيُرسل من»
+import {
+  segmentChip,
+  sourceText,
+  mismatchChip,
+  lineMismatchChip,
+  unknownLineChip,
+  unknownLineText,
+  undeterminedCard,
+  openSegmentSheet,
+  sendHeader,
+  segmentChoice,
+  segLabel,
+  clientNoun,
+  pronounOf,
+  ON_CASE_HINT,
+  REQUIRED_TEXT,
+} from '../../components/segment-ui.js';
 
 const OPEN = ['new', 'in_review', 'awaiting_client'];
 /** (إصلاح 9.1) اسم عام لا يقول ما في الورقة: «ورقة 1»، «ورقة-2.jpg»، «صورة 3»، «IMG_2041.jpg» */
 export const GENERIC_DOC_NAME = /^\s*(?:ورقة|ورقه|صورة|صوره|مستند|مرفق|IMG|image|photo|scan|document|file|DSC|PXL|WhatsApp Image)[\s_-]*[\d\s_.:-]*(?:at[\d\s_.:-]*)?(?:\.(?:jpe?g|png|webp|heic|pdf))?\s*$/i;
-const REPLY_CHANNELS = [
-  { value: 'auto', label: 'تلقائي (آخر قناة تواصل منها المستفيد/ة)' },
+// v11 gate fix (J-13/V13): «آخر قناة تواصل منها العميل/ة» لطلب أفراد وشركات
+const replyChannelsFor = (noun = 'المستفيد/ة') => [
+  { value: 'auto', label: `تلقائي (آخر قناة تواصل منها ${noun})` },
   { value: 'whatsapp', label: 'واتساب' },
   { value: 'website', label: 'الموقع (صفحة المتابعة)' },
 ];
@@ -70,14 +89,28 @@ const SOURCE_DETAIL_LABELS = {
   ctwa_clid: 'معرّف النقرة (ctwa_clid)',
   entered_by: 'سجّله يدويًا',
   intake_mode: 'طريقة تعبئة النموذج',
+  // v11 gate fix J-02: اختيار الزائر في الموقع وطريقة تحديده بالعربية لا بمفاتيح خام
+  gate: 'اختيار الزائر',
+  gate_via: 'طريقة التحديد',
 };
 const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
 const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة' };
+export const GATE_VIA_LABELS = { param: 'من رابط الصفحة', cookie: 'اختيار سابق محفوظ في المتصفح', default: 'الإعداد الافتراضي للموقع' };
 // مفاتيح داخلية في source_detail (التحقق من الهوية) تُعرض بتنبيه مخصص لا كصفوف خام
 // (v9.1 b-forms) وكود تأكيد الرقم برسالة واتساب (confirm_*) لا يُعرض كذلك
-const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k.startsWith('identity_') || k.startsWith('confirm_');
+// (v11 gate fix J-02) وبيانات الشركة صاحبة طلب العرض (requester) تظهر في بطاقة «طلب عرض من شركة» لا هنا
+export const isInternalSourceKey = (k) => k === 'phone_match_unverified' || k === 'requester' || k.startsWith('identity_') || k.startsWith('confirm_');
+/** (v11 gate fix J-02) قيمة صف المصدر بالعربية؛ النص الخام فقط لما لا نعرف معناه. */
+export function sourceDetailValue(k, v) {
+  if (k === 'source_type') return SOURCE_TYPE_LABELS[v] || String(v);
+  if (k === 'intake_mode') return INTAKE_MODE_LABELS[v] || String(v);
+  if (k === 'gate') return v === 'charity' || v === 'paid' ? segLabel('segment', v) : String(v);
+  if (k === 'gate_via') return GATE_VIA_LABELS[v] || String(v);
+  return null;
+}
 
-const ACTOR_TONES = { ai: 'accent', client: 'info', staff: 'primary', lawyer: 'info', system: 'muted' };
+// v11 gate fix (K1): لا أخضر ولا ذهبي لغير رقاقة نوع الخدمة — نفس درجات actor_kind في STATUS_TONES
+const ACTOR_TONES = { ai: 'info', client: 'neutral', staff: 'neutral', lawyer: 'info', system: 'muted' };
 
 function activityIcon(type = '') {
   if (type.startsWith('ai.')) return 'sparkle';
@@ -112,6 +145,16 @@ export default async function render(ctx) {
   const herPhone = (cl && cl.phone) || it.contact_phone || null;
 
   const base = `/admin/intakes/${it.id}`;
+  // v11 segment-staff: كتلة نوع الخدمة من الخادم (§5.6) — القيمة والمصدر والاقتراح والخط الذي وصلت عليه
+  const seg = d.segment || { value: it.segment ?? null, can_change: !it.case_id, block: it.case_id ? 'segment_on_case' : null };
+  const segValue = seg.value || null;
+  const isPaid = segValue === 'paid';
+  const unknownLine = seg.wa_line === 'unknown' || (d.send_line && d.send_line.key === 'unknown');
+  const requester = seg.requester || null;
+  const sendInfo = { segment: segValue, tone: d.tone || null, sendLine: d.send_line || null, requesterKind: requester ? 'company' : null };
+  // v11 gate fix (J-13/V13): اسم صاحب الطلب في نصوص الإدارة حسب النوع — «المستفيد/ة» / «العميل/ة» / «الشركة» (طلب عرض)
+  const N = clientNoun(segValue, { company: Boolean(requester) });
+  const REPLY_CHANNELS = replyChannelsFor(N.def);
   // رقم من نموذج الموقع يطابق عميلًا مسجلًا دون إثبات أن المرسل صاحبه
   const identity = it.identity || {
     phone_match_unverified: Boolean(it.source_detail && it.source_detail.phone_match_unverified === true),
@@ -130,11 +173,66 @@ export default async function render(ctx) {
     }
   }
 
+  // ───────────── v11 segment-staff (ST-2): نوع الخدمة ─────────────
+  function changeSegment() {
+    return openSegmentSheet({
+      kind: 'intake',
+      id: it.id,
+      current: segValue,
+      hint: seg.hint || null,
+      changeMessage: seg.change_message || null,
+      onSaved: () => reloadAndFocus(ctx, '.seg-head .seg-change'),
+    });
+  }
+
+  /** سطر النوع في الترويسة: الرقاقة + المصدر («أفراد وشركات · رقم واتساب المخصص») + «تغيير» (أو «من صفحة الملف») */
+  function segHead() {
+    const change =
+      seg.can_change !== false
+        ? button('تغيير', { variant: 'ghost', size: 'sm', icon: 'swap', className: 'seg-change', ariaLabel: 'تغيير نوع الخدمة', onClick: changeSegment })
+        : h('span.seg-on-case', ON_CASE_HINT, d.case ? [' ', h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code))] : null);
+    return h(
+      'div.seg-head',
+      segmentChip(segValue, { source: seg.source, sourceLabel: seg.source_label, requesterKind: requester ? 'company' : null, size: 'label' }),
+      // v11 gate fix (J-12): «تغيير» بجوار الرقاقة مباشرة فيبقى على سطرها في الهاتف، والمصدر بعده
+      change,
+      sourceText(seg) && h('span.seg-src', sourceText(seg)),
+      // r2 S14: طلب خيري نصه يقول أفراد/شركة — اقتراح لا يُطبَّق
+      segValue === 'charity' && seg.mismatch_hint ? mismatchChip({ segment: 'paid', reasons: seg.mismatch_hint.reasons }) : null,
+      // r2 S7: كتب على رقم الجانب الآخر وأُلحقت رسالته بهذا الطلب
+      seg.line_mismatch ? lineMismatchChip(seg.line_mismatch) : null,
+      // r2 S8: وصلت على رقم غير مضبوط — لا رد تلقائي ولا واتساب من هنا
+      unknownLine ? unknownLineChip(seg.wa_pid_last4) : null,
+    );
+  }
+
+  /** طلب عرض من شركة (G11-45): بيانات مقدّم الطلب و«إضافة كشركة عميلة» (تعبئة مسبقة فقط) */
+  function requesterCard() {
+    if (!requester) return null;
+    const phone = (cl && cl.phone) || it.contact_phone || '';
+    const q = new URLSearchParams({ new: '1', name: requester.company_name || '', phone: phone ? localPhone(phone) : '' });
+    const rows = [
+      ['اسم الشركة', requester.company_name],
+      ['صفة مقدّم الطلب', requester.job_title],
+      ['البريد الإلكتروني', requester.email ? ltr(requester.email) : null],
+      ['عدد الموظفين', requester.employees_label ? ltr(requester.employees_label) : null],
+      ['ما تحتاجه الشركة', requester.needs_labels && requester.needs_labels.length ? requester.needs_labels.join('، ') : null],
+    ].filter(([, v]) => v);
+    // v11 gate fix (J-15): بطاقة «طلب عرض — تواصل تجاري» أول الصفحة بدل التحليل القانوني (لا عنوان ولا مسار مقترح لطلب عرض)
+    return card({
+      title: 'طلب عرض — تواصل تجاري',
+      subtitle: 'طلب عرض من شركة: تواصلوا معها تجاريًا، ثم أضيفوها كشركة عميلة. لا تحليل قانوني لهذا الطلب.',
+      icon: 'building',
+      className: 'seg-requester',
+      body: h('div.stack-sm', kv(rows), h('div.btn-group', button('إضافة كشركة عميلة', { variant: 'primary', icon: 'building', href: `#/companies?${q.toString()}` }))),
+    });
+  }
+
   // ───────────── التحقق من هوية المرسل ─────────────
   async function confirmIdentity() {
     const ok = await confirmDialog({
       title: 'تأكيد هوية المرسل',
-      message: 'أكّد فقط بعد التحقق من أن مقدم الطلب هو صاحب رقم الهاتف المسجل (مثلًا بمكالمة على الرقم أو برسالة منه عبر واتساب). بعد التأكيد يُعامل الطلب كطلب من المستفيد/ة نفسه.',
+      message: `أكّد فقط بعد التحقق من أن مقدم الطلب هو صاحب رقم الهاتف المسجل (مثلًا بمكالمة على الرقم أو برسالة منه عبر واتساب). بعد التأكيد يُعامل الطلب كطلب من ${N.def} نفسه.`,
       confirmLabel: 'تأكيد الهوية',
     });
     if (!ok) return;
@@ -146,7 +244,7 @@ export default async function render(ctx) {
   async function revokePortal() {
     const ok = await confirmDanger({
       title: 'إلغاء روابط البوابة',
-      message: 'ستتوقف روابط البوابة الخاصة بهذا الطلب فورًا، ولن يستطيع من يملكها متابعة الطلب أو الاطلاع على رسائله. يمكن إنشاء رابط جديد لاحقًا من ملف المستفيد/ة بعد التحقق.',
+      message: `ستتوقف روابط البوابة الخاصة بهذا الطلب فورًا، ولن يستطيع من يملكها متابعة الطلب أو الاطلاع على رسائله. يمكن إنشاء رابط جديد لاحقًا من ملف ${N.def} بعد التحقق.`,
       confirmLabel: 'نعم، إلغاء الروابط',
     });
     if (!ok) return;
@@ -161,7 +259,7 @@ export default async function render(ctx) {
       return alertBox(
         h(
           'div.stack-sm',
-          h('p', 'رقم الهاتف أُدخل من نموذج الموقع ويطابق مستفيدًا مسجلًا، ولم يُثبت أن المرسل هو صاحب الرقم. لا تُرسل معلومات عن ملفات المستفيد/ة الأخرى قبل التحقق.'),
+          h('p', `رقم الهاتف أُدخل من نموذج الموقع ويطابق ${N.acc} مسجلًا، ولم يُثبت أن المرسل هو صاحب الرقم. لا تُرسل معلومات عن ملفات ${N.def} الأخرى قبل التحقق.`),
           portalLinks > 0 &&
             h('p.small', `لهذا الطلب ${count(portalLinks, ['رابط بوابة ساري', 'رابطا بوابة ساريان', 'روابط بوابة سارية', 'رابط بوابة ساريًا'])}؛ من يملكه يتابع الطلب ويرى رسائله.`),
           h(
@@ -203,7 +301,7 @@ export default async function render(ctx) {
       return alertBox(
         h(
           'div.pa-alert-row',
-          h('span', 'قررت الإدارة أن هذا الطلب يستحق ملفًا قانونيًا، وصدر له الكود ', d.case ? codeTag(d.case.code) : null, '. تستمر المحادثة مع المستفيد/ة داخل الملف.'),
+          h('span', 'قررت الإدارة أن هذا الطلب يستحق ملفًا قانونيًا، وصدر له الكود ', d.case ? codeTag(d.case.code) : null, `. تستمر المحادثة مع ${N.def} داخل الملف.`),
           d.case && button('فتح الملف', { variant: 'primary', size: 'sm', icon: 'briefcase', href: `#/cases/${d.case.id}` }),
         ),
         'success',
@@ -269,7 +367,7 @@ export default async function render(ctx) {
   async function openHandle() {
     const res = await formDialog({
       title: 'تعامل داخلي دون محامٍ',
-      intro: 'استخدم هذا الخيار للاستفسارات البسيطة التي تجيب عنها الإدارة مباشرة. يُغلق الطلب ويُسجل ما تم في سجل المستفيد/ة، ولا يُصدر له كود ملف.',
+      intro: `استخدم هذا الخيار للاستفسارات البسيطة التي تجيب عنها الإدارة مباشرة. يُغلق الطلب ويُسجل ما تم في سجل ${N.def}، ولا يُصدر له كود ملف.`,
       submitLabel: 'إغلاق الطلب كتعامل داخلي',
       size: 'lg',
       values: { legal_area: it.legal_area || (out && out.legal_area) || null, channel: 'auto' },
@@ -286,7 +384,7 @@ export default async function render(ctx) {
         },
         { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), hint: 'يساعد في قياس دقة تصنيف الذكاء الاصطناعي وتحليل الطلبات' },
         { name: 'channel', label: 'قناة الرد', type: 'select', placeholder: false, options: REPLY_CHANNELS },
-        { name: 'reply', label: 'رد يُرسل للمستفيد/ة (اختياري)', type: 'textarea', maxLength: 4000, rows: 4, hint: 'اتركه فارغًا إذا كنت قد رددت عليه بالفعل في المحادثة أو هاتفيًا.' },
+        { name: 'reply', label: `رد يُرسل ${N.li} (اختياري)`, type: 'textarea', maxLength: 4000, rows: 4, hint: 'اتركه فارغًا إذا كنت قد رددت عليه بالفعل في المحادثة أو هاتفيًا.' },
       ],
       onSubmit: (v) =>
         api.post(`${base}/handle-internally`, {
@@ -305,7 +403,7 @@ export default async function render(ctx) {
   async function openArchive() {
     const res = await formDialog({
       title: 'أرشفة الطلب',
-      intro: 'تُستخدم الأرشفة للرسائل غير الجدية أو المكررة أو الخارجة عن نطاق الخدمة. يبقى الطلب محفوظًا ويمكن إعادة فتحه إذا تواصل المستفيد/ة مجددًا.',
+      intro: `تُستخدم الأرشفة للرسائل غير الجدية أو المكررة أو الخارجة عن نطاق الخدمة. يبقى الطلب محفوظًا ويمكن إعادة فتحه إذا تواصل ${N.def} مجددًا.`,
       submitLabel: 'أرشفة الطلب',
       fields: [{ name: 'reason', label: 'سبب الأرشفة', type: 'textarea', required: true, minLength: 3, maxLength: 500, rows: 3 }],
       onSubmit: (v) => api.post(`${base}/archive`, { reason: v.reason }),
@@ -351,6 +449,8 @@ export default async function render(ctx) {
       userId: ctx.user && ctx.user.id,
       callNoteId: lastCallNoteId,
       phone: herPhone,
+      segmentHint: seg.hint || null, // v11 segment-staff: اقتراح النوع لطلب «غير محدد»
+      requesterKind: requester ? 'company' : null,
       onDone: (res) => {
         if (res && res.next && res.next !== `#/inbox/${it.id}`) ctx.navigate(res.next);
         else reloadAndFocus(ctx, '#pa-decision');
@@ -514,7 +614,7 @@ export default async function render(ctx) {
     const trackBlock = rec
       ? h(
           'div.pa-prop-track',
-          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), TRACK_TONES[rec] || 'neutral', { icon: 'sparkle' })),
+          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), 'neutral', { icon: 'sparkle' })), // review (r2 P12): اقتراح الذكاء الاصطناعي حبة محايدة — الذهبي والأخضر لنوع الخدمة وحده
           reason && h('p.pa-prop-why', h('strong', 'ليه؟ '), reason),
           conf != null &&
             conf > 0 &&
@@ -615,7 +715,7 @@ export default async function render(ctx) {
         { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يحدد بادئة كود الملف (مثل INH للمواريث)' },
         { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200 },
         { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority') },
-        { name: 'due_at', label: 'الموعد المستهدف للرد على المستفيد/ة', type: 'date', endOfDay: true, min: cairoToday() },
+        { name: 'due_at', label: `الموعد المستهدف للرد على ${N.def}`, type: 'date', endOfDay: true, min: cairoToday() },
         {
           name: 'case_manager_id',
           label: 'مدير الحالة',
@@ -628,7 +728,7 @@ export default async function render(ctx) {
           type: 'textarea',
           rows: 6,
           maxLength: 20000,
-          hint: 'هذا ما يمكن إتاحته للمحامين لاحقًا — لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر المستفيد/ة.',
+          hint: `هذا ما يمكن إتاحته للمحامين لاحقًا — لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر ${N.def}.`,
         },
         { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000 },
       ],
@@ -647,7 +747,7 @@ export default async function render(ctx) {
 
     const clientForm = form(
       [
-        { name: 'name', label: 'اسم المستفيد/ة', maxLength: 150 },
+        { name: 'name', label: `اسم ${N.def}`, maxLength: 150 },
         { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري' },
         { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
       ],
@@ -692,7 +792,7 @@ export default async function render(ctx) {
             return h(
               'li.pa-issue',
               h('label.check', cb, h('span.pa-issue-title', x.title)),
-              h('span.pa-issue-meta', areaBadge, badge('اقتراح الذكاء الاصطناعي', 'accent', { icon: 'sparkle' })),
+              h('span.pa-issue-meta', areaBadge, badge('اقتراح الذكاء الاصطناعي', 'neutral', { icon: 'sparkle' })), // review (r2 P12)
             );
           }
           return h(
@@ -701,7 +801,7 @@ export default async function render(ctx) {
             h(
               'span.pa-issue-meta',
               areaBadge,
-              badge('أضافتها الإدارة', 'primary'),
+              badge('أضافتها الإدارة', 'neutral'), // review (r2 P12)
               button('', {
                 variant: 'ghost',
                 size: 'sm',
@@ -751,6 +851,20 @@ export default async function render(ctx) {
     main.el.addEventListener('change', () => program.setContext({ area: main.getValues().legal_area }));
     clientForm.el.addEventListener('change', () => program.setContext({ governorate: clientForm.getValues().governorate }));
 
+    // review (v11 segment-staff): طلب «غير محدد» يُختار نوعه هنا — إلزامي بلا اختيار افتراضي (بدل 409 بلا مخرج داخل النافذة)؛
+    // واختيار «أفراد وشركات» يخفي التمويل (ملف مدفوع لا يُربط ببرنامج)
+    let programSet = null;
+    const segPick = segValue
+      ? null
+      : segmentChoice({
+          required: true,
+          hint: seg.hint || null,
+          onChange: (v) => {
+            if (programSet) programSet.hidden = v === 'paid';
+          },
+        });
+    programSet = isPaid ? null : h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el);
+
     let created = null;
     modal({
       title: 'تحويل الطلب إلى ملف قانوني',
@@ -760,6 +874,7 @@ export default async function render(ctx) {
           'p.modal-intro',
           richText('سيصدر للملف كود مستقل حسب المجال مثل INH-2026-00482، وتنتقل إليه المحادثة والمستندات. بعدها تختار الإدارة فريق المحامين وتحدد ما يراه كل منهم.'),
         ),
+        segPick && h('div.pa-convert-seg', segPick),
         main.el,
         h(
           'fieldset.pa-fieldset',
@@ -771,11 +886,12 @@ export default async function render(ctx) {
         ),
         h(
           'fieldset.pa-fieldset',
-          h('legend', 'بيانات المستفيد/ة'),
-          h('p.field-hint', 'تُحدَّث في ملف المستفيد/ة ', cl ? codeTag(cl.code) : null, '، ولا تظهر للمحامين إلا إذا أتاحت الإدارة الاسم صراحة.'),
+          h('legend', `بيانات ${N.def}`),
+          h('p.field-hint', `تُحدَّث في ملف ${N.def} `, cl ? codeTag(cl.code) : null, '، ولا تظهر للمحامين إلا إذا أتاحت الإدارة الاسم صراحة.'),
           clientForm.el,
         ),
-        h('fieldset.pa-fieldset', h('legend', 'التمويل'), program.el),
+        // v11 segment-staff: ملف الأفراد والشركات لا يُربط ببرنامج تمويل
+        programSet,
       ),
       actions: [
         { label: 'إلغاء', variant: 'ghost' },
@@ -786,7 +902,10 @@ export default async function render(ctx) {
           onClick: async () => {
             const okMain = main.validate();
             const okClient = clientForm.validate();
-            if (!okMain || !okClient) return false;
+            const okSeg = !segPick || Boolean(segPick.getValue());
+            if (!okSeg) segPick.setError(REQUIRED_TEXT);
+            if (!okMain || !okClient || !okSeg) return false;
+            const segChosen = segPick ? segPick.getValue() : null;
             const v = main.getValues();
             const c = clientForm.getValues();
             const nid = toLatinDigits(c.national_id || '').replace(/\s/g, '');
@@ -809,12 +928,14 @@ export default async function render(ctx) {
               case_manager_id: v.case_manager_id || undefined,
               client: Object.keys(client).length ? client : undefined,
               ai_suggestion_id: ai ? ai.id : undefined,
-              program_id: program.get() || undefined,
+              program_id: (!isPaid && segChosen !== 'paid' && program.get()) || undefined,
+              segment: segChosen || undefined, // v11 segment-staff (review): نوع الخدمة لطلب «غير محدد»
             };
             try {
               const res = await api.post(`${base}/convert`, payload);
               created = res.case;
             } catch (err) {
+              if (segPick && err && err.code === 'segment_required') segPick.setError(REQUIRED_TEXT);
               main.showError(err);
               return false;
             }
@@ -836,7 +957,7 @@ export default async function render(ctx) {
     const msgs = d.messages || [];
     const conflicts = msgs.filter((m) => m.meta && m.meta.identity_conflict);
     const thread = chatThread(msgs, {
-      inLabel: it.contact_name || (cl && cl.name) || 'المستفيد/ة',
+      inLabel: it.contact_name || (cl && cl.name) || N.def,
       outLabel: 'المؤسسة',
       emptyText: 'لا توجد رسائل في هذا الطلب بعد',
     });
@@ -852,7 +973,7 @@ export default async function render(ctx) {
             'div.pa-msg-flag',
             { class: m.direction === 'in' ? 'is-start' : 'is-end' },
             icon('alert', { size: 14 }),
-            h('span', 'يذكر رقم طلب لمستفيد/ة آخر: ', codeTag(ic.intake_code)),
+            h('span', `يذكر رقم طلب ل${N.bare} آخر: `, codeTag(ic.intake_code)),
           ),
         );
       }
@@ -874,6 +995,8 @@ export default async function render(ctx) {
           ),
         );
       }
+      // v11 segment-staff (r2 S7): رسالة وصلت على رقم الجانب الآخر وأُلحقت بهذا الطلب
+      if (m.direction === 'in' && m.meta && m.meta.line_mismatch) node.after(h('div.pa-msg-flag.is-start', lineMismatchChip(m.meta.line_mismatch)));
       if (m.meta && m.meta.referral && m.meta.referral.headline) {
         node.after(h('div.pa-msg-flag.is-start.is-info', icon('flag', { size: 14 }), h('span', `وصلت عبر إعلان: «${m.meta.referral.headline}»`)));
       }
@@ -889,7 +1012,7 @@ export default async function render(ctx) {
         if (meta.topic_prefill) tags.push(badge('اختارت الموضوع من الموقع', 'info', { icon: 'globe' }));
         else if (meta.topic) tags.push(badge('اختارت من القائمة', 'info', { icon: 'list' }));
         if (meta.story_done) tags.push(badge('أنهت حكايتها', 'success', { icon: 'check' }));
-        if (meta.call_note) tags.push(badge('مكالمة — كتبتها الإدارة', 'primary', { icon: 'phone' }));
+        if (meta.call_note) tags.push(badge('مكالمة — كتبتها الإدارة', 'info', { icon: 'phone' }));
       }
       const bubble = node.querySelector('.msg-bubble');
       if (tags.length && bubble) bubble.append(h('div.pa-msg-tags', tags));
@@ -917,7 +1040,7 @@ export default async function render(ctx) {
             'span',
             `رسالة بتاريخ ${dateTime(m.created_at)} من رقم غير مسجل لصاحب الطلب تذكر رقم الطلب `,
             codeTag(ic.intake_code),
-            ic.client_code ? [' الخاص بالمستفيد/ة ', codeTag(ic.client_code)] : null,
+            ic.client_code ? [` الخاص ${N.bi} `, codeTag(ic.client_code)] : null,
             '. لم يدمج النظام الملفين تلقائيًا حماية للخصوصية — تحقق من هوية المرسل أولًا.',
           ),
           h(
@@ -927,7 +1050,7 @@ export default async function render(ctx) {
           ),
         ),
         'warning',
-        { title: 'يذكر رقم طلب لمستفيد/ة آخر' },
+        { title: `يذكر رقم طلب ل${N.bare} آخر` },
       );
     });
 
@@ -1016,13 +1139,13 @@ export default async function render(ctx) {
       return h(
         'p.pa-note.mt-3',
         icon('info', { size: 15 }),
-        h('span', 'تستمر المراسلات مع المستفيد/ة داخل الملف القانوني ', d.case ? h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code)) : null, '.'),
+        h('span', `تستمر المراسلات مع ${N.def} داخل الملف القانوني `, d.case ? h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code)) : null, '.'),
       );
     }
-    const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: 'اكتب ردك على المستفيد/ة…' });
+    const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: `اكتب ردك على ${N.def}…` });
     // v9.1 b-site (B91-01): أين يصل الرد؟ «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
     const replyChannel = it.identity && it.identity.reply_channel ? `يصل الرد: ${it.identity.reply_channel.text}. ` : '';
-    const wrap = field('الرد على المستفيد/ة', ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.` });
+    const wrap = field(`الرد على ${N.def}`, ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.` });
     // (v9) ردود جاهزة واقتراح رد. الهوية غير المؤكدة: الاسم كما كتبه المرسل فقط، دون ربط بملف العميل المسجل
     const tools = composerTools(ta, {
       context: {
@@ -1031,9 +1154,11 @@ export default async function render(ctx) {
         intake_id: it.id,
         client_id: !unverified && it.client_id ? it.client_id : undefined,
       },
-      ai: { intakeId: it.id },
+      ai: { intakeId: it.id, sendInfo }, // v11 segment-staff (r2 P13): رأس الإرسال في نافذة الردود المقترحة
     });
-    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, REPLY_CHANNELS.map((o) => h('option', { value: o.value }, o.label)));
+    // v11 segment-staff (r2 S8): وصلت على رقم غير مضبوط ← لا واتساب من هنا، صفحة المتابعة فقط
+    const channels = unknownLine ? REPLY_CHANNELS.filter((o) => o.value === 'website') : REPLY_CHANNELS;
+    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, channels.map((o) => h('option', { value: o.value }, o.label)));
     const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status) });
     const sendBtn = asyncButton(
       'إرسال الرد',
@@ -1065,11 +1190,14 @@ export default async function render(ctx) {
     });
     return h(
       'div.composer.pa-composer',
+      // v11 segment-staff (r2 P13): النوع والنبرة و«سيُرسل من» قبل أي إرسال
+      sendHeader(sendInfo),
+      unknownLine && h('p.pa-note.is-warning', icon('alert', { size: 15 }), h('span', `${unknownLineText(seg.wa_pid_last4)} — الإرسال لصفحة المتابعة فقط.`)),
       unverified &&
         h(
           'p.pa-note.is-warning',
           icon('alert', { size: 15 }),
-          h('span', 'الهوية غير مؤكدة: الرد عبر واتساب يصل إلى صاحب الرقم المسجل، والرد عبر الموقع يصل إلى من أرسل النموذج — فلا تذكر تفاصيل من ملفات المستفيد/ة الأخرى.'),
+          h('span', `الهوية غير مؤكدة: الرد عبر واتساب يصل إلى صاحب الرقم المسجل، والرد عبر الموقع يصل إلى من أرسل النموذج — فلا تذكر تفاصيل من ملفات ${N.def} الأخرى.`),
         ),
       wrap,
       h(
@@ -1080,9 +1208,9 @@ export default async function render(ctx) {
           h('div.select-wrap', chan),
           h(
             'label.check',
-            { title: it.status === 'awaiting_client' ? 'الطلب بانتظار المستفيد/ة بالفعل' : null },
+            { title: it.status === 'awaiting_client' ? `الطلب بانتظار ${N.def} بالفعل` : null },
             awaitCb,
-            h('span', 'بانتظار رد المستفيد/ة'),
+            h('span', `بانتظار رد ${N.def}`),
           ),
         ),
         sendBtn,
@@ -1117,10 +1245,10 @@ export default async function render(ctx) {
         { name: 'kind', label: 'نوع الطلب', type: 'select', options: options('intake_kind') },
         { name: 'priority', label: 'الأولوية', type: 'select', required: true, placeholder: false, options: options('priority') },
         { name: 'assigned_staff_id', label: 'المسؤول عن الفرز', type: 'select', options: staffOpts },
-        { name: 'source', label: 'مصدر المستفيد/ة', type: 'select', required: true, placeholder: false, options: options('source') },
+        { name: 'source', label: `مصدر ${N.def}`, type: 'select', required: true, placeholder: false, options: options('source') },
         { name: 'campaign', label: 'الحملة / جهة الإحالة', maxLength: 150 },
         { name: 'summary', label: 'ملخص الطلب', type: 'textarea', rows: 3, maxLength: 5000 },
-        { name: 'internal_notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 10000, hint: 'لا تظهر للمستفيد/ة ولا للمحامين' },
+        { name: 'internal_notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 10000, hint: `لا تظهر ${N.li} ولا للمحامين` },
       ],
       {
         values: {
@@ -1207,7 +1335,7 @@ export default async function render(ctx) {
 
     return card({
       title: 'بيانات الفرز',
-      subtitle: 'تصنيف الطلب وأولويته ومصدره — بيانات داخلية لا يراها المستفيد/ة',
+      subtitle: `تصنيف الطلب وأولويته ومصدره — بيانات داخلية لا يراها ${N.def}`,
       icon: 'filter',
       actions: fillAll,
       body: f.el,
@@ -1250,6 +1378,15 @@ export default async function render(ctx) {
   }
 
   function aiCard() {
+    // v11 gate fix (J-15): طلب عرض من شركة لا يُعرض له تحليل قانوني (المجال والمسار المقترحان لا معنى لهما)
+    if (requester) {
+      return card({
+        title: 'تحليل الذكاء الاصطناعي',
+        icon: 'sparkle',
+        className: 'pa-ai-card',
+        body: h('p.small.muted', 'طلب عرض تجاري من شركة — لا يُعرض له تحليل قانوني. بيانات الشركة واحتياجاتها في بطاقة «طلب عرض — تواصل تجاري».'),
+      });
+    }
     const reanalyze = asyncButton(
       ai ? 'إعادة التحليل' : 'تحليل الآن',
       async () => {
@@ -1276,7 +1413,7 @@ export default async function render(ctx) {
     const blocks = [
       h(
         'div.pa-ai-meta',
-        badge(provider, ai.provider === 'anthropic' ? 'accent' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
+        badge(provider, 'neutral', { icon: 'sparkle', title: ai.model || '' }), // review (r2 P12): لا ذهبي لغير «خيري»
         h('time.small.muted', { datetime: ai.created_at, title: dateTime(ai.created_at) }, `حُلّل ${relative(ai.created_at)}`),
         h('span.spacer'),
         reanalyze,
@@ -1288,7 +1425,7 @@ export default async function render(ctx) {
           'التصنيف القانوني',
           h(
             'div.stack-sm',
-            h('div.row', badge(areaLabel(out.legal_area), 'primary'), out.urgency && statusBadge('priority', out.urgency, { dot: false, title: 'الأولوية المقترحة' })),
+            h('div.row', badge(areaLabel(out.legal_area), 'neutral'), out.urgency && statusBadge('priority', out.urgency, { dot: false, title: 'الأولوية المقترحة' })),
             out.confidence != null &&
               progressBar(Math.round(out.confidence * 100), 100, out.confidence >= 0.7 ? 'success' : out.confidence >= 0.5 ? 'warning' : 'danger', {
                 label: `درجة الثقة ${percent(out.confidence)}`,
@@ -1382,8 +1519,8 @@ export default async function render(ctx) {
   async function mergeFlow(initialQuery = '') {
     if (!cl) return;
     const target = await pickClient({
-      title: MERGE_LABEL,
-      intro: 'استخدم الدمج عندما يكون صاحب هذا الطلب هو نفسه مستفيدًا مسجلًا برقم أو بريد آخر. ابحث عن الملف الأساسي واختره.',
+      title: mergeLabel(N.bare),
+      intro: `استخدم الدمج عندما يكون صاحب هذا الطلب هو نفسه ${N.acc} مسجلًا برقم أو بريد آخر. ابحث عن الملف الأساسي واختره.`,
       excludeId: cl.id,
       initialQuery,
     });
@@ -1406,27 +1543,27 @@ export default async function render(ctx) {
     if (!ok) return;
     await run(async () => {
       await api.post(`${base}/link-client`, { client_id: target.id });
-      toast(`تم الدمج — أصبح الطلب مرتبطًا بالمستفيد/ة ${target.code}`, 'success');
+      toast(`تم الدمج — أصبح الطلب مرتبطًا ${N.bi} ${target.code}`, 'success');
       await reloadAndFocus(ctx, '#pa-client');
     });
   }
 
   function clientCard() {
     if (!cl) {
-      return card({ title: 'المستفيد/ة', icon: 'user', body: emptyState('لا يوجد مستفيد/ة مرتبط بهذا الطلب', null, { compact: true, icon: 'user' }) });
+      return card({ title: N.def, icon: 'user', body: emptyState(`لا يوجد ${N.bare} مرتبط بهذا الطلب`, null, { compact: true, icon: 'user' }) });
     }
     const idents = cl.identities || [];
     const allChannels = [...new Set([...idents.flatMap((x) => x.channels || []), ...(it.channels || [])])];
     const others = cl.other_intakes || [];
     const cases = cl.cases || [];
     return card({
-      title: 'المستفيد/ة',
+      title: N.def,
       icon: 'user',
-      actions: button('ملف المستفيد/ة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/clients/${cl.id}` }),
+      actions: button(`ملف ${N.def}`, { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/clients/${cl.id}` }),
       body: h(
         'div.stack',
         kv([
-          ['كود المستفيد/ة', h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
+          [`كود ${N.def}`, h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
           ['الاسم', cl.name || it.contact_name],
           ['الهاتف', cl.phone ? h('span.row', ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null],
           cl.email && ['البريد', ltr(cl.email)],
@@ -1436,7 +1573,7 @@ export default async function render(ctx) {
           ? h(
               'p.pa-note.is-warning',
               icon('alert', { size: 15 }),
-              h('span', 'رُبط الطلب بهذا المستفيد/ة لتطابق رقم الهاتف فقط، والهوية غير مؤكدة: لا تعتمد على تاريخ المستفيد/ة أدناه في الرد قبل التحقق.'),
+              h('span', `رُبط الطلب بهذا ${N.def} لتطابق رقم الهاتف فقط، والهوية غير مؤكدة: لا تعتمد على تاريخ ${N.def} أدناه في الرد قبل التحقق.`),
             )
           : allChannels.length
           ? h(
@@ -1445,8 +1582,8 @@ export default async function render(ctx) {
               h(
                 'span',
                 allChannels.length > 1
-                  ? `ربط النظام تلقائيًا ما وصل من ${allChannels.map((c) => label('channel', c)).join(' و')} بنفس المستفيد/ة `
-                  : `يتعرّف النظام على هذا المستفيد/ة من رقمه، وأي رسالة منه عبر أي قناة تصل إلى نفس المستفيد/ة `,
+                  ? `ربط النظام تلقائيًا ما وصل من ${allChannels.map((c) => label('channel', c)).join(' و')} بنفس ${N.def} `
+                  : `يتعرّف النظام على هذا ${N.def} من رقمه، وأي رسالة منه عبر أي قناة تصل إلى نفس ${N.def} `,
                 codeTag(cl.code),
                 '.',
               ),
@@ -1471,7 +1608,7 @@ export default async function render(ctx) {
           : null,
         h(
           'div',
-          h('h3.pa-mini-h', 'تاريخ المستفيد/ة مع المؤسسة'),
+          h('h3.pa-mini-h', `تاريخ ${N.def} مع المؤسسة`),
           others.length || cases.length
             ? h(
                 'ul.pa-hist',
@@ -1486,9 +1623,9 @@ export default async function render(ctx) {
                   ),
                 ),
               )
-            : h('p.small.muted', 'هذا أول تواصل لهذا المستفيد/ة مع المؤسسة.'),
+            : h('p.small.muted', `هذا أول تواصل لهذا ${N.def} مع المؤسسة.`),
         ),
-        button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: () => mergeFlow() }),
+        N.bare === 'مستفيد/ة' ? button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: () => mergeFlow() }) : button(mergeLabel(N.bare), { size: 'sm', icon: 'users', onClick: () => mergeFlow() }),
       ),
     });
   }
@@ -1500,11 +1637,7 @@ export default async function render(ctx) {
       .filter(([k, v]) => !isInternalSourceKey(k) && v != null && v !== '')
       .map(([k, v]) => [
         SOURCE_DETAIL_LABELS[k] || k,
-        k === 'source_type'
-          ? SOURCE_TYPE_LABELS[v] || String(v)
-          : k === 'intake_mode'
-            ? INTAKE_MODE_LABELS[v] || String(v)
-            : h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v)),
+        sourceDetailValue(k, v) ?? h('span.pa-break', { dir: 'auto' }, typeof v === 'object' ? JSON.stringify(v) : String(v)),
       ]);
     const chans = it.channels && it.channels.length ? it.channels : [it.first_channel];
     return card({
@@ -1512,7 +1645,7 @@ export default async function render(ctx) {
       icon: 'flag',
       body: h(
         'div.stack-sm',
-        h('p.pa-note', icon('info', { size: 15 }), h('span', 'المصدر هو ما جاء بالمستفيد/ة، والقناة هي طريقة التواصل: إعلان على فيسبوك قد يصل عبر واتساب.')),
+        h('p.pa-note', icon('info', { size: 15 }), h('span', `المصدر هو ما جاء ${N.bi}، والقناة هي طريقة التواصل: إعلان على فيسبوك قد يصل عبر واتساب.`)),
         kv([
           ['المصدر', statusBadge('source', it.source, { dot: false })],
           ['الحملة', it.campaign ? h('span', { dir: 'auto' }, it.campaign) : null],
@@ -1570,33 +1703,30 @@ export default async function render(ctx) {
   const header = pageHeader({
     title: `الطلب ${it.code}`,
     breadcrumbs: [
-      { label: 'صندوق الوارد الموحد', href: '#/inbox' },
+      { label: 'صندوق الوارد', href: '#/inbox' },
       { label: it.code },
     ],
     subtitle: it.title
       ? h('span', it.contact_name ? `${it.title} — ${it.contact_name}` : it.title)
-      : it.contact_name || aiTitle
+      : it.contact_name || (aiTitle && !requester)
         ? h(
             'span',
             it.contact_name ? `من ${it.contact_name}` : null,
-            aiTitle ? h('span.pa-ai-inline', icon('sparkle', { size: 14 }), `${it.contact_name ? ' · ' : ''}عنوان مقترح: ${aiTitle}`) : null,
+            aiTitle && !requester ? h('span.pa-ai-inline', icon('sparkle', { size: 14 }), `${it.contact_name ? ' · ' : ''}عنوان مقترح: ${aiTitle}`) : null,
           )
         : null,
+    // v11 gate fix (V6/J-12، V11-48): ترويسة أقصر — الكود هو العنوان فلا يتكرر، والنوع والمجال في «بيانات الفرز»، والأولوية حين تكون عالية فقط
     meta: [
-      codeTag(it.code),
+      segHead(),
       statusBadge('intake_status', it.status),
-      statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
-      it.kind && badge(label('intake_kind', it.kind), 'neutral'),
-      it.legal_area && badge(areaLabel(it.legal_area), 'primary'),
+      ['high', 'urgent'].includes(it.priority) && statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
       // v9.2: الموضوع الذي اختارته (قائمة واتساب أو الموقع) وحالة القصة
       story && story.topic_label && badge(`الموضوع: ${story.topic_label}`, 'neutral', { icon: 'list' }),
       isOpen && story && story.view && story.view !== 'decided' && badge(label('story_view', story.view), VIEW_TONES[story.view] || 'neutral', { className: 'pa-view-badge' }),
       h('span.small.muted', { title: dateTime(it.created_at) }, `وصل ${relative(it.created_at)}`),
     ],
-    actions: [
-      button('رجوع', { variant: 'ghost', icon: 'chevronRight', href: '#/inbox' }),
-      it.status === 'converted' && d.case && button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}` }),
-    ],
+    // (V6) لا صف «رجوع» مستقل: مسار التنقل أعلى الصفحة يعود إلى صندوق الوارد
+    actions: it.status === 'converted' && d.case ? [button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}` })] : null,
   });
 
   return h(
@@ -1606,15 +1736,20 @@ export default async function render(ctx) {
       'div.detail-layout',
       h(
         'div.detail-main',
+        // v11 segment-staff (ST-2): «غير محدد» أولًا — ضغطة واحدة تحفظ النوع بلا سبب (r2 S21)
+        !segValue && seg.can_change !== false ? undeterminedCard({ id: it.id, hint: seg.hint || null }, () => reloadAndFocus(ctx, '.seg-head .seg-change')) : null,
         identityEl && withId(identityEl, 'pa-identity'),
         // v9.2: الطلب المفتوح يبدأ بـ «تحويل القصة إلى طلب» (أو «طلبت مكالمة»)، والقرار اليدوي داخلها
-        prop ? withId(proposalCard(), 'pa-proposal') : withId(decisionCard(), 'pa-decision'),
+        // v11 gate fix (J-15): طلب العرض من شركة يبدأ ببطاقة التواصل التجاري، والقرار اليدوي بدل اقتراح المسار القانوني
+        requester ? withId(requesterCard(), 'pa-requester') : null,
+        prop && !requester ? withId(proposalCard(), 'pa-proposal') : withId(decisionCard(), 'pa-decision'),
         webFormCard(),
         withId(conversationCard(), 'pa-conversation'),
         allDocs.length ? withId(documentsCard(), 'pa-documents') : null,
         analyses && docAiResultsCard(analyses, allDocs),
         withId(triageCard(), 'pa-triage'),
-        it.client_id && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
+        // بيانات الأسرة (الاستحقاق) للخيري فقط
+        it.client_id && !isPaid && withId(beneficiaryCard({ clientId: it.client_id, intakeId: it.id, onChange: () => ctx.reload() }), 'v9p-beneficiary'),
         activityCard(),
       ),
       h('div.detail-side', withId(aiCard(), 'pa-ai'), withId(clientCard(), 'pa-client'), sourceCard()),

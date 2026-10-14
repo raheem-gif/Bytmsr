@@ -65,6 +65,8 @@ import { registerAdminCompanyRoutes } from './routes/admin-companies.js';
 import { createCompanyDocGate } from './services/company-doc-gate.js'; // v10 b2b-server (L-56)
 import { createCompanyMemory } from './services/company-memory.js';
 import { createCompanyRequests } from './services/company-requests.js';
+// v11 segment-server: نوع الخدمة «خيري» / «أفراد وشركات» (المكان الوحيد الذي يقرر)
+import { createSegments } from './services/segments.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -97,6 +99,7 @@ export function createApp(config, { logger = console } = {}) {
   app.voice = createVoice(app); // v9.2: نصوص الرسائل الصوتية (تكتبها الإدارة)
   app.clients = createClients(app);
   app.whatsapp = createWhatsApp(config, app.log, app);
+  app.segments = createSegments(app); // v11 segment-server (§5.5)
   app.engine = createEngine(app);
   app.ai = createAi(app);
   app.visibility = createVisibility(app);
@@ -303,17 +306,20 @@ export function createApp(config, { logger = console } = {}) {
       // رمز غير صالح: لا بيانات، فتطلبها الصفحة وتعرض «تعذر فتح صفحة المتابعة» كما كانت.
       const tok = req.method === 'GET' ? /^\/p\/([A-Za-z0-9_-]{20,100})\/?$/.exec(pathname) : null;
       let headExtra = '';
+      let side; // v11 gate-public (r2 S2): رأس الصفحة وتذييلها وتواصلها بنبرة الطلب (لا الكعكة)؛ بلا بيانات = جانب الكعكة
       if (tok && app.portal?.view) {
         try {
           const access = app.clients.portalAccess(tok[1]);
           // رابط منتهٍ أو ملغى: علامة فقط فتعرض الصفحة «تعذر فتح صفحة المتابعة» دون طلب يرد 404
           const data = access ? app.portal.view(access.client, access.intakeId, { phone: access.phone }) : { invalid: true };
           if (data) headExtra = `<script type="application/json" id="bm-portal-data">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+          if (data && (data.tone === 'paid' || data.tone === 'neutral')) headExtra += app.site?.portalCopyBlock?.() || ''; // v11 gate-public: نصوص الأفراد والشركات (L11-13)
+          side = data?.tone === 'paid' || data?.tone === 'neutral' ? 'paid' : data?.tone === 'charity' ? 'charity' : undefined;
         } catch {
           headExtra = '';
         }
       }
-      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true, headExtra })) return;
+      if (app.site?.servePage?.(req, res, 'portal.html', '/portal', { optIn: true, noindex: true, noStore: true, headExtra, side })) return;
       return sendFile(req, res, path.join(pub, 'portal.html')) || notFoundPage(res);
     }
     if (pathname === '/healthz') return sendJson(res, 200, { ok: true });
@@ -343,7 +349,7 @@ export function createApp(config, { logger = console } = {}) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(
       '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>الصفحة غير موجودة</title>' +
-        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b5a3c}</style></head>' + // v10 experience: H-E4
+        '<style>body{font-family:Tahoma,sans-serif;background:#f6f7f8;color:#1d2a30;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}a{color:#0b3d29}</style></head>' + // v10 experience: H-E4 · v11 gate fixer-server (R-18): أخضر الشعار
         '<body><main><h1>الصفحة غير موجودة</h1><p>تأكد من الرابط أو عد إلى <a href="/">الصفحة الرئيسية</a>.</p></main></body></html>',
     );
     return true;

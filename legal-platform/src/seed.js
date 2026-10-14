@@ -12,6 +12,7 @@ import { seedPortalDemo } from './seed-v91-b-portal.js'; // v9.1 b-portal
 import { seedStoriesDemo } from './seed-v92-stories.js'; // v9.2 admin-ai
 import { seedPublicDemo } from './seed-v92-public.js'; // v9.2 public
 import { seedB2bDemo } from './seed-v10-b2b.js'; // v10 b2b-server
+import { seedSegmentDemo } from './seed-v11-segment.js'; // v11 segment-server
 
 const HOUR = 3600 * 1000;
 
@@ -999,7 +1000,8 @@ export async function seedDemo(app) {
       const zInv = app.matters.addInvoice(m2.id, { description: 'رسوم إدارية رمزية — ملف الجنحة', amount: 200, due_at: addDays(new Date(T).toISOString(), 14) }, manager);
       at(28, 13);
       app.matters.addPayment(zInv.id, { amount: 200, method: 'نقدًا بمقر المؤسسة' }, manager);
-      at(21, 11);
+      // v11 gate fixer-server (R-02): أتعاب الجنحة في الشهر السابق دائمًا (كان at(21) يقع في الشهر الحالي من اليوم 22)
+      at(Math.max(21, cairoParts(new Date(realNow)).day + 6), 11);
       app.accounting.addAdjustment({ kind: 'matter_fee', matter_id: m2.id, lawyer_id: U.hany.id, amount: 2500, description: 'أتعاب حضور جلسات الجنحة (خارج الاتفاق الشهري)' }, admin);
       at(8, 12);
       app.matters.addExpense(m2.id, { description: 'رسوم إعلان شاهد النفي', amount: 220, paid_by: 'organization' }, manager);
@@ -1042,6 +1044,10 @@ export async function seedDemo(app) {
     // <seed:v10-b2b> خدمة الشركات: الباقات، شركة النيل للأغذية (Growth) وتك سوليوشنز (Starter، تجريبية) ومستخدموهما،
     // وطلباتهما (NFD-0001…0006، TSL-0001…0003) والذاكرة القانونية والتكاليف — قبل تشغيل الأتمتة (حراس الأفراد #1–#3، #19)
     await seedB2bDemo(app, { at, realNow, setNow: (ms) => { T = Math.min(ms, realNow - 60 * 1000); tick(); } });
+
+    // <seed:v11-segment> نوعا الخدمة: «خيري» و«أفراد وشركات» (01092000301…306) — رقم الأفراد والشركات المُتحقق منه (عرض فقط)،
+    // الرقم المشترك بالمحاكاة، طلب عرض شركة، تغيير الإدارة لنوع الخدمة، وأتعاب وافق عليها العميل من صفحة المتابعة
+    await seedSegmentDemo(app, { at, realNow });
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

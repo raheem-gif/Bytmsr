@@ -5,7 +5,7 @@
 import { h, mount } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, dateTime, count, staffChrome } from '../../lib/fmt.js';
-import { form, button, alertBox, loading, brandMark, icon, toast, errorMessage, copyButton, wordmark, brandEl } from '../../lib/ui.js';
+import { form, button, alertBox, loading, brandMark, brandLockup, icon, toast, errorMessage, copyButton, brandEl } from '../../lib/ui.js';
 import { attachStrength, passwordProblem, PASSWORD_HINT } from '../components/password.js';
 import { twoFactorWizard } from '../components/two-factor.js';
 
@@ -30,7 +30,7 @@ function screen(meta, { wide = false } = {}, ...children) {
   return h(
     'div.auth-screen',
     staffChrome().on
-      ? h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', wordmark({ size: 'md', tone: 'light', name: staffChrome().name, short: staffChrome().short }), h('span', 'منصة الدعم القانوني')))
+      ? h('header.auth-brand.auth-brand--lockup', brandLockup({ width: 220 }), h('span.auth-brand-sub', 'منصة الدعم القانوني')) // v11 visual: الشعار الذهبي الكامل على الأبيض
       : h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
     cardEl,
     staffChrome().on ? h('a.auth-back', { href: '/' }, 'العودة إلى موقع ', brandEl()) : h('a.auth-back', { href: '/' }, `العودة إلى موقع ${orgOf(meta)}`),

@@ -1,10 +1,4 @@
-/* ==========================================================================
-   v10 — بوابة الشركات /company: أنماط الصفحات التي تُحمَّل عند الحاجة (الدخول والروابط وشاشة الإلزام، طلب جديد، الرفع
-   على مراحل). تُحمَّل قبل عرض هذه الشاشات (ensureStyles) فتبقى أوراق أول رسم لـ«المتابعة» ضمن 25 كيلوبايت (§8.4).
-   نفس قواعد v10-company.css: رموز ألوان فقط، ولا ذهبي إلا زر «طلب جديد».
-   ========================================================================== */
-
-/* ───────────── الدخول والروابط ───────────── */
+/* /company page styles (lazy). Comments removed in the v11 visual review (served-size budget, PW-V8); see git history. */
 .co-auth {
   display: grid;
   min-height: 100vh;
@@ -36,6 +30,18 @@
 
 .co-auth-brand .wordmark-lg {
   align-items: center;
+}
+
+.co-auth-brand .brand-lockup,
+.co-auth-panel .brand-lockup {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+}
+
+.co-auth-panel .brand-lockup {
+  width: 280px;
 }
 
 .co-auth-mark {
@@ -205,13 +211,13 @@
   }
 
   .co-auth-card .co-auth-brand .co-auth-mark,
+  .co-auth-card .co-auth-brand .brand-lockup,
   .co-auth-card .co-auth-brand .wordmark,
   .co-auth-card .co-auth-brand .co-auth-promise {
     display: none;
   }
 }
 
-/* ───────────── طلب جديد (U10-28…40) ───────────── */
 .co-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -233,10 +239,11 @@
   gap: 6px;
   min-height: 96px;
   padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--r-20);
   background: var(--surface);
-  color: var(--gray-900);
+  box-shadow: var(--e-1);
+  color: var(--label);
   font: inherit;
   text-align: start;
   text-decoration: none;
@@ -244,7 +251,7 @@
 }
 
 .co-type-tile:hover {
-  border-color: var(--primary-300);
+  box-shadow: var(--e-2);
 }
 
 .co-type-tile:focus-visible {
@@ -526,7 +533,6 @@
   min-height: 48px;
 }
 
-/* ───────────── الرفع على مراحل ───────────── */
 .co-uploader {
   display: grid;
   gap: 8px;
@@ -558,7 +564,6 @@
   cursor: pointer;
 }
 
-/* الحقل الأصلي مخفي: حلقة التركيز على زره الظاهر */
 .co-up-btn.is-focus {
   outline: 2px solid var(--accent-500);
   outline-offset: 2px;
@@ -695,7 +700,6 @@
   display: none;
 }
 
-/* خطوتا طلب جديد على الهاتف (شاشة لكل خطوة)، وصفحة واحدة على الحاسوب */
 @media (max-width: 1023px) {
   .co-nr[data-step="1"] .co-nr-s2,
   .co-nr[data-step="1"] .co-nr-aside,
@@ -723,7 +727,6 @@
   margin: 0;
 }
 
-/* ───────────── معالج التحقق بخطوتين على الهاتف نفسه (شاشة الإلزام وحسابي والأمان؛ نفس شكل منصة الفريق L-11) ───────────── */
 .lh-2fa-phone {
   display: flex;
   flex-direction: column;
@@ -764,9 +767,6 @@
   color: var(--primary-700);
 }
 
-/* ───────────── صفحة الطلب (U10-42…U10-58) ─────────────
-   الحاسوب: عمودان 8/4 والجانب ثابت تحت الشريط. الهاتف: عمود واحد بالترتيب — الرأس، الوعد، بطاقة الإجراء، «أين وصل
-   طلبكم؟»، التسليمات، المحادثة، التفاصيل، المستندات، الذاكرة (العمودان display: contents فيرتّبهما order). */
 .co-req-head {
   display: grid;
   gap: 8px;
@@ -890,7 +890,6 @@
   overflow: hidden;
 }
 
-/* قائمة «⋯» */
 .co-menu-anchor {
   position: relative;
 }
@@ -906,7 +905,6 @@
   max-width: min(320px, calc(100vw - 32px));
 }
 
-/* تُوضع بجوار زرها بإحداثيات الشاشة (page-kit menuButton) فلا تقصّها الجداول القابلة للتمرير */
 .co-pop-menu.is-fixed {
   position: fixed;
   inset: auto;
@@ -917,7 +915,6 @@
   cursor: default;
 }
 
-/* المستندات */
 .co-docs {
   display: grid;
   gap: 8px;
@@ -951,7 +948,6 @@
   font-size: 13px;
 }
 
-/* المحادثة: فريقكم القانوني في البداية، والشركة في النهاية */
 .co-conversation {
   display: grid;
   gap: 12px;
@@ -1120,7 +1116,6 @@
   margin-block-start: 4px;
 }
 
-/* الأوراق */
 .co-sheet-body {
   display: grid;
   gap: 14px;
@@ -1154,7 +1149,6 @@
   margin-block-start: 12px;
 }
 
-/* التقييم بالنجوم (U10-49) */
 .co-rating {
   display: grid;
   gap: 6px;
@@ -1203,7 +1197,6 @@
   display: none;
 }
 
-/* ───────────── الذاكرة القانونية (U10-59…U10-66) ───────────── */
 .co-mem-search {
   margin-block-end: 16px;
 }
@@ -1230,15 +1223,15 @@
   gap: 12px;
   min-height: 64px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-14);
+  background: var(--fill-1);
   color: inherit;
   text-decoration: none;
 }
 
 .co-mem-kind:hover {
-  border-color: var(--primary-300);
+  background: var(--fill-2);
 }
 
 .co-mem-kind:focus-visible {
@@ -1371,7 +1364,6 @@
   display: none;
 }
 
-/* المواعيد المهمة: جدول أعمال بالشهر */
 .co-agenda-list {
   display: grid;
   gap: 4px;
@@ -1433,7 +1425,6 @@
   overflow-wrap: anywhere;
 }
 
-/* الأطراف المتعاملة */
 .co-cps {
   display: grid;
   gap: 8px;
@@ -1468,7 +1459,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ───────────── الفريق (U10-67…U10-70) ───────────── */
 .co-member {
   display: flex;
   align-items: flex-start;
@@ -1543,7 +1533,6 @@
   height: 22px;
 }
 
-/* ───────────── الباقة والاستخدام (U10-71) ───────────── */
 .co-plan-top {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1625,8 +1614,6 @@
   font-size: 13px;
 }
 
-/* جداول «الباقة والاستخدام» على الهاتف: صفوف بطاقات مكدسة (table({ stack: true })) بدل تمرير أفقي يخفي عمود التسليم
-   والمبلغ — نفس قواعد v9-fixes.css التي لا تُحمَّل في /company */
 @media (max-width: 640px) {
   .co-page .table-wrap.table-stack {
     overflow: visible;
@@ -1642,7 +1629,7 @@
     display: block;
     width: 100%;
   }
-  /* رؤوس الأعمدة تصير تسمية كل خلية (data-label)؛ الرأس المخفي لا يوسّع الصفحة عند التكبير 200% */
+
   .co-page .table-stack thead {
     display: none;
   }
@@ -1690,7 +1677,6 @@
   }
 }
 
-/* رابط كود الطلب في جدول «التكاليف الإضافية المعتمدة»: هدف لمس كامل على الهاتف (≥ 44px) */
 @media (max-width: 1023px) {
   .co-plan .table td a {
     display: inline-flex;
@@ -1773,7 +1759,6 @@ tr.is-voided td {
   text-decoration: line-through;
 }
 
-/* ───────────── الإشعارات (U10-74) ───────────── */
 .co-notif-page .co-notif-page-row {
   display: flex;
   align-items: flex-start;
@@ -1792,7 +1777,6 @@ tr.is-voided td {
   font-size: 14px;
 }
 
-/* ───────────── حسابي والأمان (U10-75) ───────────── */
 .co-account-form {
   display: grid;
   gap: 14px;
@@ -1853,7 +1837,6 @@ tr.is-voided td {
   margin-block-end: 16px;
 }
 
-/* ───────────── الترحيب (U10-19) ───────────── */
 .co-welcome {
   display: flex;
   justify-content: center;
@@ -1944,7 +1927,6 @@ tr.is-voided td {
   }
 }
 
-/* ───────────── الهاتف: أهداف لمس ≥ 44px في عناصر صفحات build-2، وتكبير 200% على 360 (عرض 180) بلا تمرير أفقي ───────────── */
 @media (max-width: 1023px) {
   .co-page .co-seg-btn,
   .co-page .chip-toggle {
@@ -1992,7 +1974,6 @@ tr.is-voided td {
   flex-wrap: wrap;
 }
 
-/* gate J-10: على الهاتف لا صندوق تمرير داخلي للمحادثة (أحدث الرسائل ظاهرة، والأقدم خلف «عرض الرسائل الأقدم») */
 .co-thread-more-wrap {
   align-self: center;
 }
@@ -2004,11 +1985,31 @@ tr.is-voided td {
   }
 }
 
-/* gate C-07: على الهاتف حقول الدخول وطلب جديد 48 بكسل كبقية الحقول (v10-company.css) */
 @media (pointer: coarse) {
   .co-auth-form .input,
   .co-nr-form .input,
   .co-nr-form select.input {
     min-height: 48px;
   }
+}
+
+@media screen {
+  .co-msg-clar .co-msg-bubble {
+    border-inline-start: 0;
+    background: var(--warn-weak);
+  }
+}
+
+.co-crumbs a {
+  position: relative;
+}
+
+.co-crumbs a::after {
+  content: "";
+  position: absolute;
+  inset: -11px -4px;
+}
+
+@media screen {
+  .co-2fa > .btn-primary { background: var(--tint-weak); color: var(--tint); border-color: transparent; }
 }

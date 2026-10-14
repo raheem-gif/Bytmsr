@@ -1,7 +1,7 @@
 // v9.1 b-forms — مسجّل الرسالة الصوتية للمستفيدة (نموذج الطلب، والردود والرسائل في صفحة المتابعة).
 //
 // API (ثابت؛ يستخدمه نموذج الطلب وصفحة المتابعة):
-//   voiceRecorder({ maxSeconds = 180, onChange(blobOrNull, { seconds }), address = 'f'|'m', whatsappUrl = null,
+//   voiceRecorder({ maxSeconds = 180, onChange(blobOrNull, { seconds }), address = 'f'|'m'|'p' (الأفراد والشركات، v11), whatsappUrl = null,
 //                   variant = 'big'|'compact', initial = { blob, seconds } | null, permissionHint = null }) → HTMLElement
 //     الحالات: جاهز ← (تنبيه إذن الميكروفون) ← يسجّل (زر «خلّصت» + عدّاد «0:12 من 3:00») ← مسجّلة (اسمعيها / امسحيها)
 //     ورفض الإذن أو عدم الدعم: رسالة بديلة (الكتابة، أو واتساب إن كان مضبوطًا) ولا يُكسر شيء.
@@ -57,6 +57,29 @@ const COPY = {
     failed: 'التسجيل وقف. جرب تاني.',
     auto: (max) => `التسجيل وقف لوحده بعد ${minutesText(max)}.`,
     wa: 'افتح واتساب',
+  },
+  // v11 fixer-public (K11/J-05): صفحة الطلب للأفراد والشركات (address 'p'): فصحى مهذبة بصيغة الجمع كبقية نصوصها (G11-39)
+  p: {
+    start: 'اضغطوا لتسجيل رسالة صوتية',
+    startShort: 'تسجيل رسالة صوتية',
+    permission: 'سيطلب الهاتف السماح باستخدام الميكروفون. اختاروا «السماح».',
+    asking: 'لحظة…',
+    recording: 'جارٍ التسجيل… تحدثوا براحتكم',
+    play: 'استماع',
+    pause: 'إيقاف',
+    del: 'حذف التسجيل',
+    denied: (wa) => `لم يسمح الهاتف باستخدام الميكروفون. اكتبوا هنا بدلًا من ذلك${wa ? '، أو أرسلوا رسالة صوتية على واتساب' : ''}.`,
+    noMic: 'لم نجد ميكروفونًا في هذا الهاتف. اكتبوا هنا بدلًا من ذلك.',
+    retry: 'إعادة المحاولة',
+    unsupported: ['تفضّلون إرسال رسالة صوتية؟', 'أرسلوها على واتساب'],
+    tooShort: 'التسجيل قصير جدًا. اضغطوا وسجّلوا مرة أخرى.',
+    failed: 'توقف التسجيل. حاولوا مرة أخرى.',
+    auto: (max) => `توقف التسجيل تلقائيًا بعد ${minutesText(max).replace('دقايق', 'دقائق')}.`,
+    wa: 'فتح واتساب',
+    stopLabel: 'إيقاف التسجيل',
+    yours: 'رسالتكم الصوتية ',
+    ended: 'انتهى التسجيل، مدته ',
+    gone: 'حُذف التسجيل',
   },
 };
 
@@ -283,7 +306,7 @@ export async function blobToUpload(blob, filename = 'رسالة-صوتية') {
  */
 export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whatsappUrl = null, variant = 'big', initial = null, permissionHint = null } = {}) {
   ensureFormsStyles();
-  const t = COPY[address === 'm' ? 'm' : 'f'];
+  const t = COPY[address === 'm' || address === 'p' ? address : 'f'];
   const max = Math.max(5, Math.min(600, Number(maxSeconds) || 180));
   const el = h('div.bmf-rec', { class: variant === 'compact' ? 'bmf-rec--compact' : 'bmf-rec--big' });
   const live = h('span.bmf-sr', { 'aria-live': 'polite' });
@@ -449,7 +472,7 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
     blob = b;
     state = 'recorded';
     setUrl(b);
-    live.textContent = `خلص التسجيل، مدته ${clock(seconds)}`;
+    live.textContent = `${t.ended || 'خلص التسجيل، مدته '}${clock(seconds)}`;
     paint();
     emit();
   }
@@ -462,7 +485,7 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
     setUrl(null);
     state = 'idle';
     note = '';
-    live.textContent = 'اتمسح التسجيل';
+    live.textContent = t.gone || 'اتمسح التسجيل';
     paint();
     emit();
     el.querySelector('.bmf-rec-start')?.focus();
@@ -557,7 +580,7 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
             'button.bmf-rec-stop',
             { type: 'button', onClick: stop },
             h('span.bmf-rec-stop-icon', ic('stop', big ? 26 : 18)),
-            h('span.bmf-rec-stop-label', 'خلّصت'),
+            h('span.bmf-rec-stop-label', t.stopLabel || 'خلّصت'),
           ),
           h(
             'div.bmf-rec-status',
@@ -578,7 +601,7 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
       parts.push(
         h(
           'div.bmf-rec-done',
-          h('span.bmf-rec-title', ic('mic', 18), h('span', 'رسالتك الصوتية '), h('span.bmf-rec-dur', { dir: 'ltr' }, `(${clock(seconds)})`)),
+          h('span.bmf-rec-title', ic('mic', 18), h('span', t.yours || 'رسالتك الصوتية '), h('span.bmf-rec-dur', { dir: 'ltr' }, `(${clock(seconds)})`)),
           h(
             'button.bmf-rec-play',
             { type: 'button', onClick: togglePlay, 'aria-pressed': String(playing) },
@@ -587,7 +610,7 @@ export function voiceRecorder({ maxSeconds = 180, onChange, address = 'f', whats
           ),
           h(
             'button.bmf-rec-del',
-            { type: 'button', disabled, onClick: remove, 'aria-label': `${t.del} — رسالتك الصوتية` },
+            { type: 'button', disabled, onClick: remove, 'aria-label': `${t.del} — ${(t.yours || 'رسالتك الصوتية ').trim()}` },
             ic('trash', 18),
             h('span', t.del),
           ),

@@ -297,7 +297,8 @@ export function createPrograms(app) {
        LEFT JOIN matters mm ON mm.id = e.matter_id
        JOIN cases c ON c.id = COALESCE(e.case_id, mm.case_id)
        WHERE c.program_id = ? AND e.status != 'void' AND e.kind NOT IN (${NON_CASE_LEDGER.map(() => '?').join(',')})
-         AND e.created_at >= ? AND e.created_at <= ?`,
+         AND COALESCE(e.segment, 'charity') != 'paid'
+         AND e.created_at >= ? AND e.created_at <= ?`, // v11 gate fixer-server (F-D, r2 S6): قيود عمل الأفراد والشركات (بلقطتها) لا تُحسب على البرنامج
       p.id,
       ...NON_CASE_LEDGER,
       from,
@@ -370,7 +371,7 @@ export function createPrograms(app) {
     const { from, to } = spanOf(p);
     const inKind = db.get(
       `SELECT COUNT(*) AS n, COALESCE(SUM(b.notional_minor), 0) AS v FROM billable_events b JOIN cases c ON c.id = b.case_id
-       WHERE c.program_id = ? AND b.treatment IN ('pro_bono','csr') AND b.created_at >= ? AND b.created_at <= ?`,
+       WHERE c.program_id = ? AND b.treatment IN ('pro_bono','csr') AND COALESCE(b.segment, 'charity') != 'paid' AND b.created_at >= ? AND b.created_at <= ?`,
       p.id,
       from,
       to,
@@ -743,7 +744,8 @@ export function createPrograms(app) {
           remaining: minorSum('remaining'),
           cases: items.reduce((s, x) => s + x.stats.cases, 0),
           families,
-          unlinked_open_cases: Number(db.value("SELECT COUNT(*) FROM cases WHERE program_id IS NULL AND status != 'closed'")) || 0,
+          // v11 gate fixer-server (J-01/R-16, INV-13): ملفات الشركات والأفراد والشركات لا تُربط ببرامج التمويل، فلا تُعد «دون برنامج»
+          unlinked_open_cases: Number(db.value("SELECT COUNT(*) FROM cases WHERE program_id IS NULL AND status != 'closed' AND company_id IS NULL AND segment = 'charity'")) || 0,
         },
       };
     },
@@ -868,6 +870,8 @@ export function createPrograms(app) {
     linkCase(caseId, programId, actor, { confirm = false, move = false, force = false } = {}) {
       const c = app.cases.require(caseId);
       if (c.company_id) throw Object.assign(conflict('ملفات الشركات عمل مدفوع لا يُربط ببرامج التمويل.'), { code: 'company_case_no_program' }); // v10 b2b-server (حارس #18)
+      // v11 segment-server (L11-24): ملف الأفراد والشركات عمل مدفوع لا يُربط ببرنامج تمويل (ولا تدخل أرقامه تقارير البرامج)
+      if (c.segment === 'paid') throw Object.assign(conflict('ملف مدفوع لا يُربط ببرنامج تمويل.'), { code: 'paid_case_program' });
       const p = svc.require(v.int(programId, 'البرنامج', { required: true, min: 1 }));
       if (c.program_id === p.id) return { ...svc.forCase(c.id), unchanged: true, warnings: [] };
       if (p.status === 'closed') throw conflict(`البرنامج ${p.code} مغلق ولا يقبل ربط ملفات جديدة`, { reason: 'program_closed' });
@@ -1119,8 +1123,10 @@ export function createPrograms(app) {
   function answerDoc(id) {
     const ans = db.get('SELECT * FROM client_answers WHERE id = ?', id);
     if (!ans) throw notFound('الإفادة غير موجودة');
-    const c = db.get('SELECT id, code, title, legal_area, client_id FROM cases WHERE id = ?', ans.case_id);
+    const c = db.get('SELECT id, code, title, legal_area, client_id, segment, company_id FROM cases WHERE id = ?', ans.case_id);
     const sent = db.all("SELECT id FROM client_answers WHERE case_id = ? AND status = 'sent' ORDER BY COALESCE(sent_at, created_at), id", c.id).map((r) => r.id);
+    // v11 segment-server (S11 §4، P1): تنبيه الإفادة المطبوعة لملف الأفراد والشركات (بلا «برنامج الدعم» ولا «المؤسسة»)
+    const paidCase = !c.company_id && c.segment === 'paid';
     const seq = sent.indexOf(ans.id) + 1;
     const number = ans.status === 'sent' ? `${c.code}/${seq || 1}` : `${c.code}/مسودة`;
     const client = clientBrief(c.client_id);
@@ -1136,7 +1142,7 @@ export function createPrograms(app) {
       recipient: client ? { name: client.name, code: client.code } : null,
       body: ans.body,
       channel_label: ans.channel ? LABELS.channel[ans.channel] || ans.channel : null,
-      disclaimer: app.settings.get('print_answer_disclaimer') || '',
+      disclaimer: (paidCase ? app.settings.get('print_answer_disclaimer_paid') : null) || app.settings.get('print_answer_disclaimer') || '',
     };
   }
 

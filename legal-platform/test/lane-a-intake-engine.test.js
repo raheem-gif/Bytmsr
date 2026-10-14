@@ -2,7 +2,7 @@
 // codes & counters, returning clients. Expectations come from the product requirements (1, 2, 3).
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { startTestApp, waPayload, freezeClock, resetClock } from './helpers.js';
+import { startTestApp, waPayload, freezeClock, resetClock, demoCode } from './helpers.js';
 
 const DESC = 'توفي والدي وترك شقة ومحلًا تجاريًا، وأريد معرفة نصيب كل وارث وكيفية تقسيم التركة بين الإخوة دون نزاع.';
 const REQ_RE = /^REQ-(\d{4})-(\d{5})$/;
@@ -223,8 +223,10 @@ describe('Demo scenario — سامية (CL-00881) and INH-2026-00482', () => {
     try {
       const admin = await t.login('admin');
       const openBefore = (await inbox(admin)).total;
-      const kase = (await admin.get('/api/admin/cases?q=INH-2026-00482')).body.items[0];
-      assert.equal(kase.code, 'INH-2026-00482');
+      const code = demoCode(t.app); // v11 gate fixer-server (R-04, intended): INH-<سنة البذر>-00482
+      const kase = (await admin.get(`/api/admin/cases?q=${code}`)).body.items[0];
+      assert.equal(kase.code, code);
+      assert.match(kase.code, /^INH-\d{4}-00482$/);
       assert.equal(kase.client_code, 'CL-00881');
       assert.equal(kase.source, 'facebook_ad');
       assert.equal(kase.channel, 'whatsapp');

@@ -3,7 +3,7 @@
 import { h } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, staffChrome } from '../../lib/fmt.js';
-import { form, icon, badge, statusTone, asyncButton, alertBox, avatar, brandMark, wordmark } from '../../lib/ui.js';
+import { form, icon, badge, statusTone, asyncButton, alertBox, avatar, brandMark, brandLockup } from '../../lib/ui.js';
 
 /**
  * @param {{meta:object, expired?:boolean, onLogin:(user:object)=>void}} opts
@@ -76,14 +76,11 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
     'div.login-page.lh-login',
     h(
       'section.login-brand',
-      h(
-        'div.brand',
-        brandMark({ size: 28 }),
-        // v10 experience (L-03): الشعار النصي للمكتب، أو اسم المؤسسة كما في 9.2 حين يُوقف في الإعدادات
-        chrome.on
-          ? h('span.brand-text', wordmark({ size: 'lg', tone: 'dark', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني'))
-          : h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني')),
-      ),
+      // v11 visual (V-4، V11-04 القاعدة 1): الشعار الذهبي الكامل (≥ 200px، النص البديل = اسم المكتب) على لوحة فاتحة،
+      // أو اسم المؤسسة ورمز الميزان كما في 9.2 حين يُوقف اسم المكتب في الإعدادات
+      chrome.on
+        ? h('div.brand.brand--lockup', brandLockup({ width: 260 }), h('span.brand-sub', 'منصة الدعم القانوني'))
+        : h('div.brand', brandMark({ size: 28 }), h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني'))),
       h(
         'div.login-pitch',
         h('h2', 'كل طلب قانوني، من أول رسالة حتى الرد المعتمد، في مكان واحد'),

@@ -92,7 +92,7 @@ describe('v9.2 colours — generator (brand-color.js)', () => {
   });
 
   test('G5 a pair one step off the default is within 5/255 of LEGACY on every step, with no adjustments', () => {
-    const t = B.buildTheme('#0b5a3d', '#c9a14b'); // v10 experience (intended): one step off the new default pair (was #0f4c5d/#b8862f)
+    const t = B.buildTheme('#0b3d2a', '#cca455'); // v11 visual (intended): one step off the v11 default pair (v10: #0b5a3d/#c9a14b)
     assert.deepEqual(t.adjustments, []);
     for (const k of B.PRIMARY_STEPS) assert.ok(rgbDist(t.primary[k], B.LEGACY.primary[k]) <= 5, `primary ${k}: ${t.primary[k]} vs ${B.LEGACY.primary[k]}`);
     for (const k of B.ACCENT_STEPS) assert.ok(rgbDist(t.accent[k], B.LEGACY.accent[k]) <= 5, `accent ${k}: ${t.accent[k]} vs ${B.LEGACY.accent[k]}`);
@@ -144,8 +144,8 @@ describe('v9.2 colours — generator (brand-color.js)', () => {
 
 // ───────────────────────── فحص أوراق الأنماط ─────────────────────────
 // 25 لونًا للعلامة (درجات 9.1 وما شابهها) و5 ثلاثيات RGB: لا تظهر إلا داخل كتلتي @brand-defaults.
-const BRAND_HEX = ['#0f4c5c', '#145d6f', '#1b7187', '#0b3a46', '#082a33', '#7fb3c0', '#b9d7de', '#dcecef', '#eef6f7', '#e4f0f2', '#e7f1f3', '#d6e8ec', '#cfe1e5', '#5d8591', '#b8862e', '#c99a45', '#9a6e22', '#7a5518', '#634510', '#6b4a10', '#dcbd84', '#f6ecd8', '#f3e2bf', '#fbf7ee', '#fdf6e7', /* v10 experience: the green/gold scale (the 9.x teal stays listed so a stale literal still fails) */ '#eef7f2', '#dbeee3', '#b7dac7', '#7cb999', '#0a7f55', '#0b6b48', '#0b5a3c', '#0a452e', '#083221', '#f6ecd9', '#dabe86', '#d3ab57', '#c9a14a', '#937123', '#745818', '#5f4711'];
-const BRAND_RGB = ['15, ?76, ?92', '184, ?134, ?46', '27, ?113, ?135', '127, ?179, ?192', '8, ?42, ?51', '11, ?90, ?60', '201, ?161, ?74', '10, ?127, ?85', '124, ?185, ?153', '8, ?50, ?33']; // v10: + green/gold
+const BRAND_HEX = ['#0f4c5c', '#145d6f', '#1b7187', '#0b3a46', '#082a33', '#7fb3c0', '#b9d7de', '#dcecef', '#eef6f7', '#e4f0f2', '#e7f1f3', '#d6e8ec', '#cfe1e5', '#5d8591', '#b8862e', '#c99a45', '#9a6e22', '#7a5518', '#634510', '#6b4a10', '#dcbd84', '#f6ecd8', '#f3e2bf', '#fbf7ee', '#fdf6e7', /* v10 experience: the green/gold scale (the 9.x teal stays listed so a stale literal still fails) */ '#eef7f2', '#dbeee3', '#b7dac7', '#7cb999', '#0a7f55', '#0b6b48', '#0b5a3c', '#0a452e', '#083221', '#f6ecd9', '#dabe86', '#d3ab57', '#c9a14a', '#937123', '#745818', '#5f4711', /* v11 visual (intended): the logo scale (V11-01) */ '#eff6f2', '#dfece5', '#bfd8ca', '#8ab59e', '#26684c', '#175139', '#0b3d29', '#082e1e', '#052015', '#fbf7ef', '#f6ecda', '#dabe89', '#d4ad5f', '#cca454', '#93712b', '#74581f', '#5e4716'];
+const BRAND_RGB = ['15, ?76, ?92', '184, ?134, ?46', '27, ?113, ?135', '127, ?179, ?192', '8, ?42, ?51', '11, ?90, ?60', '201, ?161, ?74', '10, ?127, ?85', '124, ?185, ?153', '8, ?50, ?33', /* v11 visual (intended) */ '11, ?61, ?41', '204, ?164, ?84', '38, ?104, ?76', '138, ?181, ?158', '5, ?32, ?21']; // v10: + green/gold
 const HEX_RE = new RegExp(`(?:${BRAND_HEX.join('|')})(?![0-9a-f])`, 'i');
 const RGB_RE = new RegExp(`rgba?\\(\\s*(?:${BRAND_RGB.map((s) => s.replace(/, \?/g, '\\s*,?\\s*')).join('|')})\\b`, 'i');
 const BRAND_VAR_DECL = /(?:^|[\s;{])(--(?:primary|accent)-\d+(?:-rgb)?)\s*:/g;
@@ -289,8 +289,23 @@ function covered(a, b, { nonText = false } = {}) {
     const w = /^w(\d+)$/.exec(x);
     if (w && Number(w[1]) >= 75 && y === 'p900') return 'T3b';
   }
+  // v11 visual (intended): the V1–V25 rows of the v11 contract (v11-proto/tools/v11-contract.mjs, ported in test/v11-visual.test.js
+  // for the default and 8 hostile pairs) — the neutral role labels on brand tints; all 29 rows above stay
+  for (const [fg, bg, id, min] of V11_ROWS) {
+    if (min < 4.5 && !nonText) continue;
+    if ((fg === a && bg === b) || (fg === b && bg === a)) return id;
+  }
   return null;
 }
+// [fg, bg, id, min] — المحايدة بأسماء ألوانها الثابتة (‎--label = #141f1a، ‎--label-2 = #5a625e)
+const V11_ROWS = [
+  ['#141f1a', 'p50', 'V9', 4.5],
+  ['#5a625e', 'p50', 'V10', 4.5],
+  ['a700', 'a50', 'V11', 4.5],
+  ['#141f1a', 'a50', 'V24', 4.5],
+  ['p600', '#f6f6f3', 'V6', 4.5],
+  ['p700', '#f6f6f3', 'V8', 3],
+];
 
 /** قاعدة لأيقونة أو شعار أو علامة (لا نص فيها): آخر جزء من كل محدد فيها صنف ينتهي بـ icon/logo/mark/dot/pic/swatch */
 const NON_TEXT_CLASS = /(?:^|-)(?:icon|logo|mark|dot|pic|swatch)$/;
@@ -409,11 +424,12 @@ describe('v9.2 colours — stylesheet lint (all public/assets/css/*.css)', () =>
     assert.doesNotMatch(soft, /rgb\(var/);
     assert.match(portal, /\.bp-btn--primary \{[^}]*color: #fff;/);
     for (const { p, a, t } of propertyResults()) assert.ok(B.contrast('#ffffff', t.primary[600]) >= 4.5, `${p}/${a} white on p600`);
-    // ‎.hero-eyebrow‎ (نص): أبيض بلا طبقة بيضاء، لا ذهبي فاتح
-    const app = cssText('app.css');
-    const i = app.indexOf('.hero-eyebrow {');
-    const rule = app.slice(i, app.indexOf('}', i));
-    assert.match(rule, /color: #fff;/);
+    // ‎.hero-eyebrow‎ (نص): أبيض بلا طبقة بيضاء، لا ذهبي فاتح — v11 visual (intended): ‎.hero-eyebrow‎ كان من أنماط موقع 9.0
+    // الميتة في app.css (حُذفت)؛ النص على الأرضية الغامقة الآن عناوين التذييل: أبيض 75% (T3b) لا ذهبي فاتح
+    const pubSite = cssText('public-site.css');
+    const i = pubSite.indexOf('body.pub .pub-footer h2 {');
+    const rule = pubSite.slice(i, pubSite.indexOf('}', i));
+    assert.match(rule, /color: rgb\(255 255 255 \/ 0\.75\);/);
     assert.doesNotMatch(rule, /accent-300|background:/);
   });
 
@@ -430,7 +446,7 @@ describe('v9.2 colours — stylesheet lint (all public/assets/css/*.css)', () =>
     assert.match(app, /--link: var\(--primary-600\);/);
     assert.match(app, /\.btn-accent \{[^}]*color: var\(--on-accent\);[^}]*border-color: var\(--accent-600\);/);
     assert.match(app, /\.brand-mark \{[^}]*linear-gradient\(135deg, var\(--accent-400\), var\(--accent-500\)\)[^}]*color: var\(--on-accent\)/);
-    for (const sel of ['.skip-link', '.nav-count', '.hero .btn-accent:hover:not(:disabled)']) {
+    for (const sel of ['.skip-link', '.nav-count', '.btn-accent']) { // v11 visual (intended): «.hero .btn-accent:hover» was dead 9.0 public CSS (pruned from app.css); the live accent button keeps on-accent ink
       const i = app.indexOf(`${sel} {`);
       assert.ok(i >= 0, sel);
       assert.match(app.slice(i, app.indexOf('}', i)), /color: var\(--on-accent\)/, sel);
@@ -580,7 +596,7 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
     const rowData = JSON.parse(t.app.db.get("SELECT data FROM security_events WHERE type = 'brand.colors_updated' ORDER BY id DESC LIMIT 1").data);
     assert.deepEqual(rowData.to, { primary: '#6a1b9a', accent: '#f9a825' });
     // اللون الأصلي = حذف الصف
-    const def = ok(await admin.put('/api/admin/brand/colors', { primary: '#0B5A3C', accent: 'c9a14a' })); // v10 experience (intended): the new default pair, still case + missing #
+    const def = ok(await admin.put('/api/admin/brand/colors', { primary: '#0B3D29', accent: 'cca454' })); // v11 visual (intended): the v11 default pair, still case + missing #
     assert.equal(def.inputs.source, 'default');
     assert.equal(t.app.db.get("SELECT COUNT(*) AS n FROM settings WHERE key = 'brand_colors'").n, 0);
     assert.doesNotMatch((await anon.get('/')).body, /id="bm-theme"/);

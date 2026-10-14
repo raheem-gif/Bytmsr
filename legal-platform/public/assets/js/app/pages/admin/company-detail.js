@@ -418,7 +418,7 @@ export default async function render(ctx) {
           {
             key: 'role',
             label: 'الدور',
-            render: (u) => h('div.cq-cell-st', badge(u.role_label, u.role === 'company_admin' ? 'primary' : 'neutral', { className: 'badge-outline' }), u.billing_contact ? badge('جهة الفواتير', 'neutral', { className: 'badge-outline' }) : null),
+            render: (u) => h('div.cq-cell-st', badge(u.role_label, u.role === 'company_admin' ? 'info' : 'neutral', { className: 'badge-outline' }), u.billing_contact ? badge('جهة الفواتير', 'neutral', { className: 'badge-outline' }) : null),
           },
           { key: 'state', label: 'الحالة', render: (u) => h('div.cq-cell-st', badge(u.state_label, USER_TONE[u.state] || 'neutral', { dot: true }), u.two_factor ? badge('تحقق بخطوتين', 'success', { icon: 'shieldCheck' }) : null) },
           { key: 'last', label: 'آخر دخول', render: (u) => timeOf(u.last_login_at) },

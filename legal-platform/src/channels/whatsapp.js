@@ -106,6 +106,8 @@ export function parseWebhook(payload) {
   for (const entry of payload.entry) {
     for (const change of entry.changes || []) {
       const value = change.value || {};
+      // v11 segment-server (S11-18): الرقم الذي وصلت عليه الرسالة (رقمان في نفس حساب واتساب للأعمال)
+      const pid = value.metadata?.phone_number_id != null && value.metadata.phone_number_id !== '' ? String(value.metadata.phone_number_id) : null;
       const names = new Map((value.contacts || []).map((c) => [c.wa_id, c.profile?.name || null]));
       for (const m of value.messages || []) {
         if (m.type === 'reaction' || m.type === 'system') continue;
@@ -125,6 +127,7 @@ export function parseWebhook(payload) {
           referral: m.referral || null,
           context_id: m.context?.id || null,
           reply: replyOf(m),
+          business_phone_number_id: pid,
         });
       }
       for (const s of value.statuses || []) {
@@ -133,6 +136,7 @@ export function parseWebhook(payload) {
           status: s.status, // sent | delivered | read | failed
           timestamp: s.timestamp ? new Date(Number(s.timestamp) * 1000).toISOString() : null,
           error: s.errors?.[0] ? `${s.errors[0].code}: ${s.errors[0].title || s.errors[0].message || ''}` : null,
+          business_phone_number_id: pid,
         });
       }
     }
@@ -229,6 +233,8 @@ function readSettings(config, app) {
       verifyToken: base.verifyToken || '',
       numberDigits: String(base.numberDigits || '').replace(/\D/g, ''),
       apiVersion: base.apiVersion || DEFAULT_API_VERSION,
+      paidPhoneNumberId: '',
+      paidNumberDigits: '',
     };
   }
   return {
@@ -239,6 +245,9 @@ function readSettings(config, app) {
     verifyToken: s.verify_token || '',
     numberDigits: String(s.number || '').replace(/\D/g, ''),
     apiVersion: /^v\d+\.\d+$/.test(s.api_version || '') ? s.api_version : base.apiVersion || DEFAULT_API_VERSION,
+    // v11 segment-server (§5.4): رقم الأفراد والشركات في نفس الحساب (نفس الرمز والسر)
+    paidPhoneNumberId: String(s.paid_phone_number_id || '').trim(),
+    paidNumberDigits: String(s.paid_number || '').replace(/\D/g, ''),
   };
 }
 
@@ -285,9 +294,16 @@ export function createWhatsApp(config, log, app = null) {
   }
 
   const to = (e164) => String(e164 || '').replace(/^\+/, '');
+  /** v11 segment-server (INV-16): معرّف الرقم الذي تخرج منه الرسالة — رقم الأفراد والشركات أو الأساسي */
+  // [مراجعة 11.0] رسالة «رقم الأفراد والشركات» بلا معرّف مضبوط لا تخرج من الرقم الأساسي بصمت (INV-16): تفشل برسالة واضحة
+  const pidOf = (opts) => {
+    if (opts?.line !== 'paid') return wa.phoneNumberId;
+    if (!wa.paidPhoneNumberId) throw Object.assign(new Error('paid phone number id missing'), { arabic: 'رقم الأفراد والشركات لم يعد مضبوطًا في التكاملات؛ لم تُرسل الرسالة من رقم آخر.' });
+    return wa.paidPhoneNumberId;
+  };
 
-  async function sendMessage(payload) {
-    const data = await graph(`${wa.phoneNumberId}/messages`, {
+  async function sendMessage(payload, opts = {}) {
+    const data = await graph(`${pidOf(opts)}/messages`, {
       method: 'POST',
       body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', ...payload }),
     });
@@ -306,11 +322,13 @@ export function createWhatsApp(config, log, app = null) {
     },
 
     /**
+     * v11 segment-server: بلا وسيط = الرقم الأساسي كما في 10.0؛ مع نوع خدمة ← app.segments.publicDigits (جدول §5.5).
      * رقم واتساب المؤسسة للعرض العام وروابط wa.me (أرقام بصيغة دولية) أو '' إن لم يُضبط بعد.
      * المصدر المعتمد: رقم «التكاملات» (متغير البيئة WHATSAPP_NUMBER أولًا ثم ما حُفظ من معالج الإعداد أو صفحة التكاملات)،
      * ثم «رقم واتساب الظاهر» في الإعدادات العامة. الرقم التوضيحي +20 100 000 0000 والقيم غير الصالحة تُعامل كأنها غير مضبوطة.
      */
-    publicDigits() {
+    publicDigits(segment) {
+      if (segment !== undefined && segment !== null && app?.segments) return app.segments.publicDigits(segment);
       const fromIntegrations = publicWhatsAppDigits(wa.numberDigits);
       if (fromIntegrations) return fromIntegrations;
       let display = '';
@@ -330,17 +348,18 @@ export function createWhatsApp(config, log, app = null) {
       return svc.configured;
     },
 
-    /** اختبار الاتصال: بيانات الرقم كما تراها ميتا */
+    /** اختبار الاتصال: بيانات الرقم كما تراها ميتا (v11 segment-server: والتحقق من رقم الأفراد والشركات [r2 S4]) */
     async test() {
       if (!wa.token || !wa.phoneNumberId) {
         return { ok: false, error: 'لم تُضبط بيانات الاعتماد بعد: يلزم رمز الوصول ومعرّف رقم الهاتف (Phone Number ID).' };
       }
+      let main;
       try {
         const d = await graph(`${wa.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,code_verification_status`, { method: 'GET' });
         const quality = { GREEN: 'مرتفعة', YELLOW: 'متوسطة', RED: 'منخفضة' }[d.quality_rating] || null;
-        return {
+        main = {
           ok: true,
-          message: `تم الاتصال بنجاح بالرقم ${d.display_phone_number || wa.phoneNumberId}${d.verified_name ? ` (${d.verified_name})` : ''}${quality ? ` — جودة الرقم لدى ميتا: ${quality}` : ''}`,
+          message: `${wa.paidPhoneNumberId ? 'الرقم الأساسي: ' : ''}تم الاتصال بنجاح بالرقم ${d.display_phone_number || wa.phoneNumberId}${d.verified_name ? ` (${d.verified_name})` : ''}${quality ? ` — جودة الرقم لدى ميتا: ${quality}` : ''}`,
           display_phone_number: d.display_phone_number || null,
           verified_name: d.verified_name || null,
           quality_rating: d.quality_rating || null,
@@ -349,11 +368,29 @@ export function createWhatsApp(config, log, app = null) {
       } catch (e) {
         return { ok: false, error: e.arabic || graphErrorArabic(e), code: e.code ?? null };
       }
+      if (!wa.paidPhoneNumberId) return main;
+      // رقم الأفراد والشركات: يُقرأ بنفس الرمز؛ يظهر للعامة فقط إن طابق رقمه المسجل لدى ميتا الرقم المكتوب في التكاملات
+      const expected = publicWhatsAppDigits(wa.paidNumberDigits);
+      try {
+        const p = await graph(`${wa.paidPhoneNumberId}?fields=display_phone_number`, { method: 'GET' });
+        const got = publicWhatsAppDigits(p.display_phone_number) || String(p.display_phone_number || '').replace(/\D/g, '');
+        if (expected && got === expected) {
+          const at = app?.segments?.markPaidVerified?.(wa.paidPhoneNumberId, expected) || null;
+          return { ...main, message: `${main.message}\nرقم الأفراد والشركات: تم التحقق — ${got}`, paid: { ok: true, verified: true, display_phone_number: p.display_phone_number || null, verified_at: at } };
+        }
+        return {
+          ...main,
+          message: `${main.message}\nرقم الأفراد والشركات لم يُتحقق منه: الرقم المسجل لدى ميتا ${got || 'غير معروف'} لا يطابق الرقم المكتوب في التكاملات ${expected || '(فارغ)'}.`,
+          paid: { ok: false, verified: false, display_phone_number: p.display_phone_number || null, expected: expected || null },
+        };
+      } catch (e) {
+        return { ...main, message: `${main.message}\nرقم الأفراد والشركات: تعذر التحقق — ${e.arabic || graphErrorArabic(e)}`, paid: { ok: false, verified: false, error: e.arabic || graphErrorArabic(e) } };
+      }
     },
 
     /** إرسال نص حر (داخل نافذة الـ 24 ساعة) */
-    sendText(toE164, body) {
-      return sendMessage({ to: to(toE164), type: 'text', text: { body: String(body).slice(0, 4096), preview_url: false } });
+    sendText(toE164, body, opts = {}) {
+      return sendMessage({ to: to(toE164), type: 'text', text: { body: String(body).slice(0, 4096), preview_url: false } }, opts);
     },
 
     /**
@@ -369,15 +406,18 @@ export function createWhatsApp(config, log, app = null) {
         const param = b.sub_type === 'quick_reply' ? { type: 'payload', payload: String(b.value) } : { type: 'text', text: String(b.value) };
         components.push({ type: 'button', sub_type: b.sub_type === 'copy_code' ? 'url' : b.sub_type, index: String(b.index), parameters: [param] });
       }
-      return sendMessage({
-        to: to(toE164),
-        type: 'template',
-        template: { name: templateName, language: { code: language || 'ar' }, ...(components.length ? { components } : {}) },
-      });
+      return sendMessage(
+        {
+          to: to(toE164),
+          type: 'template',
+          template: { name: templateName, language: { code: language || 'ar' }, ...(components.length ? { components } : {}) },
+        },
+        opts,
+      );
     },
 
     /** رسالة تفاعلية بأزرار رد (حتى 3 أزرار، عنوان الزر 20 حرفًا) — داخل النافذة فقط */
-    sendButtons(toE164, bodyText, buttons, { footer } = {}) {
+    sendButtons(toE164, bodyText, buttons, { footer, line } = {}) {
       return sendMessage({
         to: to(toE164),
         type: 'interactive',
@@ -387,14 +427,14 @@ export function createWhatsApp(config, log, app = null) {
           ...(footer ? { footer: { text: String(footer).slice(0, 60) } } : {}),
           action: { buttons: buttons.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: String(b.id).slice(0, 256), title: String(b.title).slice(0, 20) } })) },
         },
-      });
+      }, { line });
     },
 
     /**
      * v9.2 — رسالة قائمة تفاعلية (داخل النافذة فقط): حتى 10 صفوف إجمالًا، عنوان الصف 24 حرفًا والوصف 72،
      * الزر 20، عنوان القسم 24، الرأس والتذييل 60، والنص 1024 (حدود ميتا).
      */
-    sendList(toE164, { header, text, footer, button, sections }) {
+    sendList(toE164, { header, text, footer, button, sections }, opts = {}) {
       let left = 10;
       const secs = (Array.isArray(sections) ? sections : [])
         .slice(0, 10)
@@ -421,12 +461,12 @@ export function createWhatsApp(config, log, app = null) {
           ...(footer ? { footer: { text: String(footer).slice(0, 60) } } : {}),
           action: { button: String(button).slice(0, 20), sections: secs },
         },
-      });
+      }, opts);
     },
 
     /** إعلام العميل بأن رسالته قُرئت (يُعلِّم ما قبلها أيضًا) */
-    async markRead(messageId) {
-      await graph(`${wa.phoneNumberId}/messages`, {
+    async markRead(messageId, opts = {}) {
+      await graph(`${pidOf(opts)}/messages`, {
         method: 'POST',
         body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId }),
       });
@@ -434,12 +474,12 @@ export function createWhatsApp(config, log, app = null) {
     },
 
     /** رفع ملف إلى واتساب (multipart) وإرجاع معرّف الوسائط */
-    async uploadMedia({ buffer, mime, filename }) {
+    async uploadMedia({ buffer, mime, filename }, opts = {}) {
       const form = new FormData();
       form.append('messaging_product', 'whatsapp');
       form.append('type', mime);
       form.append('file', new Blob([buffer], { type: mime }), filename || 'document');
-      const data = await call(`${GRAPH}/${wa.apiVersion}/${wa.phoneNumberId}/media`, {
+      const data = await call(`${GRAPH}/${wa.apiVersion}/${pidOf(opts)}/media`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${wa.token}` },
         body: form,
@@ -450,12 +490,15 @@ export function createWhatsApp(config, log, app = null) {
     },
 
     /** إرسال مستند سبق رفعه */
-    sendDocument(toE164, { mediaId, filename, caption }) {
-      return sendMessage({
-        to: to(toE164),
-        type: 'document',
-        document: { id: mediaId, filename: String(filename || 'document').slice(0, 240), ...(caption ? { caption: String(caption).slice(0, 1024) } : {}) },
-      });
+    sendDocument(toE164, { mediaId, filename, caption }, opts = {}) {
+      return sendMessage(
+        {
+          to: to(toE164),
+          type: 'document',
+          document: { id: mediaId, filename: String(filename || 'document').slice(0, 240), ...(caption ? { caption: String(caption).slice(0, 1024) } : {}) },
+        },
+        opts,
+      );
     },
 
     /** قوالب حساب واتساب للأعمال (مع الصفحات التالية) */

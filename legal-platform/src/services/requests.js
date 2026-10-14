@@ -177,9 +177,13 @@ export function createRequests(app) {
       const meta = { info_request_id: r.id };
       if (channel === 'whatsapp') {
         const words = app.engine.clientWords(story);
-        const suffix = r.kind === 'document' ? CLIENT_TEXTS.info_suffix_document : CLIENT_TEXTS.info_suffix_information;
+        // v11 segment-server (L11-25): بنبرة الملف — الأفراد والشركات «مرحبًا {الاسم}، بخصوص طلبكم …» وسطر الرد بصيغة الجمع
+        const tone = app.engine.storyTone ? app.engine.storyTone(story) : 'charity';
+        const sKey = r.kind === 'document' ? 'info_suffix_document' : 'info_suffix_information';
+        const suffix = tone === 'charity' ? CLIENT_TEXTS[sKey] : app.segments.text(sKey, tone);
         // (إصلاح 9.1، B91-10) على واتساب: اسمها ورقم طلبها في أول الرسالة إن لم تبدأ الإدارة بتحية (صفحتها تعرض النص نظيفًا)
-        const head = /^\s*(?:أهل|اهل|السلام|مرحب|صباح|مساء)/.test(clientMessage) ? '' : `أهلًا يا {first_name}${words.ref ? `، بخصوص طلبك ${words.ref}` : ''}:\n`;
+        const greeted = /^\s*(?:أهل|اهل|السلام|مرحب|صباح|مساء)/.test(clientMessage);
+        const head = greeted ? '' : tone === 'charity' ? `أهلًا يا {first_name}${words.ref ? `، بخصوص طلبك ${words.ref}` : ''}:\n` : `مرحبًا {first_name}${words.ref ? `، بخصوص طلبكم ${words.ref}` : ''}:\n`;
         // v9.1 fixes: {portal_link} يبقى متغيرًا ويُصدر الرابط عند الإرسال الفعلي فقط (لا رابط في قاعدة البيانات)
         meta.wa_text = app.engine.fillClientText(`${head}${clientMessage}${suffix}`, { first_name: words.first_name }, words.form);
       }

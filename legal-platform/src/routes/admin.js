@@ -59,6 +59,21 @@ export function registerAdminRoutes(router, app) {
     ctx.status = 201;
     return { case: app.intakes.convert(id(ctx), ctx.body, u) };
   }));
+  // ===== v11 segment-server (§5.6): نوع الخدمة — تغيير الإدارة بسبب وسجل (الإدارة ومديرو الحالات) =====
+  const segmentOpts = (ctx, u) => ({
+    actor: u,
+    ctx,
+    reason: ctx.body.reason,
+    reasonCode: ctx.body.reason_code,
+    message: ctx.body.message && typeof ctx.body.message === 'object' ? ctx.body.message : null,
+  });
+  router.put('/api/admin/intakes/:id/segment', S((ctx, u) => app.segments.setIntake(id(ctx), ctx.body.segment, segmentOpts(ctx, u))));
+  router.put('/api/admin/cases/:id/segment', S((ctx, u) => app.segments.setCase(id(ctx), ctx.body.segment, segmentOpts(ctx, u))));
+  // [r2 P5] أتعاب ملف الأفراد والشركات (SS-7b): فاتورة على الملف نفسه تصل صفحة العميل بزر الموافقة
+  router.post('/api/admin/cases/:id/invoices', S((ctx, u) => {
+    ctx.status = 201;
+    return { invoice: app.matters.addCaseInvoice(id(ctx), ctx.body, u, ctx) };
+  }));
   router.post('/api/admin/intakes/:id/link-client', S((ctx, u) => app.intakes.linkClient(id(ctx), v.int(ctx.body.client_id, 'العميل', { required: true, min: 1 }), u)));
   router.post('/api/admin/intakes/:id/ai-feedback', S((ctx, u) => app.intakes.aiFeedback(id(ctx), ctx.body, u)));
 
@@ -121,7 +136,10 @@ export function registerAdminRoutes(router, app) {
     const b = ctx.body;
     const phone = v.phone(b.from, 'رقم المرسل', { required: true });
     // v9.2 (A92-22): رسالة نصية، أو رسالة صوتية تجريبية، أو صورة ورقة، أو اختيار موضوع من قائمة الترحيب
-    const kind = v.oneOf(b.kind || 'text', ['text', 'voice', 'photo', 'list_reply'], 'نوع الرسالة', { required: true });
+    const kind = v.oneOf(b.kind || 'text', ['text', 'voice', 'photo', 'list_reply', 'seg_reply'], 'نوع الرسالة', { required: true }); // v11: + seg_reply
+    // v11 segment-server (S11-23، §5.6): الرقم الذي تصل عليه الرسالة — الأساسي، الأفراد والشركات، «مشترك» (الأساسي بوضع
+    // «الخدمتين معًا» لهذه الرسالة فقط دون تغيير التكامل)، أو رقم غير مضبوط (تُحفظ ولا يُرد عليها آليًا)
+    const simLine = v.oneOf(b.line || 'main', ['main', 'paid', 'shared', 'unknown'], 'الرقم', { required: true });
     const text = v.str(b.text, 'نص الرسالة', { required: kind === 'text', max: 4000 });
     const msg = { from: phone.replace(/^\+/, ''), id: `wamid.SIM.${randomToken(12)}`, timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: text } };
     if (kind === 'voice') {
@@ -139,6 +157,11 @@ export function registerAdminRoutes(router, app) {
       delete msg.text;
       msg.type = 'interactive';
       msg.interactive = { type: 'list_reply', list_reply: { id: `topic:${topic.key}`, title: topic.wa_title } };
+    } else if (kind === 'seg_reply') {
+      const rid = v.oneOf(b.reply_id, ['seg:charity', 'seg:paid'], 'زر الاختيار', { required: true });
+      delete msg.text;
+      msg.type = 'interactive';
+      msg.interactive = { type: 'button_reply', button_reply: { id: rid, title: rid === 'seg:paid' ? 'أفراد وشركات' : 'خيري — مجاني' } };
     }
     if (b.ad && b.ad.platform) {
       const platform = v.oneOf(b.ad.platform, ['facebook', 'instagram'], 'منصة الإعلان', { required: true });
@@ -150,11 +173,17 @@ export function registerAdminRoutes(router, app) {
         ctwa_clid: randomToken(10),
       };
     }
+    const lines = app.segments ? app.segments.lines() : [{ key: 'main', pid: '' }];
+    const mainLine = lines[0];
+    const paidLine = lines.find((l) => l.key === 'paid');
+    const pid = simLine === 'paid' ? paidLine?.pid || 'SIM-PAID' : simLine === 'unknown' ? 'SIM-UNKNOWN' : mainLine.pid || 'SIM';
+    const override =
+      simLine === 'shared' ? { ...mainLine, key: 'main', mode: 'shared' } : simLine === 'unknown' ? { key: 'unknown', pid: 'SIM-UNKNOWN', digits: '', mode: null } : null;
     const payload = {
       object: 'whatsapp_business_account',
-      entry: [{ id: 'SIM', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { display_phone_number: 'SIM', phone_number_id: 'SIM' }, contacts: [{ profile: { name: v.str(b.name, 'اسم المرسل', { max: 100 }) || 'عميل' }, wa_id: msg.from }], messages: [msg] } }] }],
+      entry: [{ id: 'SIM', changes: [{ field: 'messages', value: { messaging_product: 'whatsapp', metadata: { display_phone_number: 'SIM', phone_number_id: pid }, contacts: [{ profile: { name: v.str(b.name, 'اسم المرسل', { max: 100 }) || 'عميل' }, wa_id: msg.from }], messages: [msg] } }] }],
     };
-    const result = app.engine.handleWhatsAppWebhook(payload);
+    const result = app.engine.handleWhatsAppWebhook(payload, { line: override });
     const row = app.db.get('SELECT id, intake_id, case_id FROM messages WHERE channel = ? AND external_id = ?', 'whatsapp', msg.id);
     // v9.2: ردودنا الآلية على هذه الرسالة (الترحيب بالقائمة، «احكيلنا»، «وصلتنا حكايتك») وحالة القصة
     const replies = row?.intake_id
@@ -173,6 +202,11 @@ export function registerAdminRoutes(router, app) {
       story_view: story?.view || null,
       story_view_label: story?.view ? LABELS.story_view[story.view] : null,
       welcome_enabled: !!app.settings.get('story_welcome_enabled'),
+      // v11 segment-server (§5.6): نوع الخدمة ومصدره والرقم الذي وصلت عليه
+      line: simLine,
+      segment: row?.intake_id ? app.db.value('SELECT segment FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
+      segment_source: row?.intake_id ? app.db.value('SELECT segment_source FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
+      wa_line: row?.id ? app.db.value('SELECT wa_line FROM messages WHERE id = ?', row.id) ?? null : null,
     };
   }));
 
@@ -206,7 +240,10 @@ export function registerAdminRoutes(router, app) {
       // v9.1 fixes: الرابط لا يُحفظ في نص الرسالة: {portal_link} في نص واتساب يُستبدل عند الإرسال الفعلي برابط
       // بنطاق رقمها، والنص المحفوظ (للإدارة وصفحة المتابعة) بلا رابط
       const w = app.engine.clientWords({ clientId: c.id });
-      const waText = app.engine.fillClientText(CLIENT_TEXTS.portal_link_message, { first_name: w.first_name, org_name: app.brand.displayName() }, w.form); // v10 experience (H-E3)
+      // v11 segment-server (L11-25): بنبرة أحدث قصة مفتوحة للعميل
+      const linkTone = app.segments ? app.segments.clientTone(c.id) : 'charity';
+      const linkTpl = linkTone === 'charity' ? CLIENT_TEXTS.portal_link_message : app.segments.text('portal_link_message', linkTone);
+      const waText = app.engine.fillClientText(linkTpl, { first_name: w.first_name, org_name: app.brand.displayName() }, w.form); // v10 experience (H-E3)
       message = app.engine.sendToClient({
         client_id: c.id,
         body: app.engine.withoutLinkLines(waText),
@@ -392,9 +429,13 @@ export function registerAdminRoutes(router, app) {
   // ===== التحليلات =====
   router.get('/api/admin/analytics/funnel', S((ctx) => {
     const group = ['source', 'channel', 'campaign'].includes(ctx.query.group) ? ctx.query.group : 'source';
-    return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group });
+    return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group, segment: ctx.query.segment }); // v11 segment-server: + segment
   }));
-  router.get('/api/admin/analytics/areas', S(() => ({ items: app.analytics.byArea(), weekly: app.analytics.weeklyVolume() })));
+  router.get('/api/admin/analytics/areas', S((ctx) => {
+    // v11 segment-server [r2 S10]: segment=all|charity|paid (الافتراضي «الكل» = مخرجات 10.0 مع عنوان النطاق)
+    const seg = ['charity', 'paid'].includes(ctx.query.segment) ? ctx.query.segment : 'all';
+    return { items: app.analytics.byArea(seg), weekly: app.analytics.weeklyVolume(seg), segment: seg, ...(seg === 'all' ? { scope_label: 'يشمل الخيري والأفراد' } : {}) };
+  }));
   router.get('/api/admin/analytics/spend', S((ctx) => app.analytics.listSpend(ctx.query)));
   router.post('/api/admin/analytics/spend', A((ctx, u) => app.analytics.saveSpend(ctx.body, u)));
   router.patch('/api/admin/analytics/spend/:id', A((ctx) => app.analytics.updateSpend(id(ctx), ctx.body)));
@@ -455,6 +496,21 @@ export function registerAdminRoutes(router, app) {
       out.callback_from_number = shown;
     }
     if (b.callback_eta_days !== undefined) out.callback_eta_days = v.int(b.callback_eta_days, 'نتصل خلال (أيام عمل)', { required: true, min: 1, max: 5 });
+    // v11 segment-server (§5.3): إعدادات نوع الخدمة (التحقق الصريح؛ org_phone_paid في validateSettings للموقع)
+    if (b.segment_returning_days !== undefined) out.segment_returning_days = v.int(b.segment_returning_days, 'تذكّر نوع الخدمة لمن راسلنا قبل كده (أيام)', { required: true, min: 0, max: 3650 });
+    if (b.segment_website_default !== undefined) out.segment_website_default = v.oneOf(b.segment_website_default, ['charity', 'paid'], 'نوع الخدمة الافتراضي للموقع', { required: true });
+    for (const k of ['site_gate_enabled', 'wa_paid_on_main', 'wa_segment_choice_enabled']) if (b[k] !== undefined) out[k] = v.bool(b[k]);
+    if (b.print_answer_disclaimer_paid !== undefined) out.print_answer_disclaimer_paid = v.str(b.print_answer_disclaimer_paid, 'تنبيه الإفادة القانونية للأفراد والشركات', { required: true, max: 1000 });
+    if (b.callback_from_number_paid !== undefined) {
+      const raw = String(latinDigits(b.callback_from_number_paid ?? '')).trim();
+      let shown = '';
+      if (raw) {
+        const p = normalizePhone(raw);
+        if (!p || !p.startsWith('+20')) throw badRequest('اكتب رقمًا مصريًا صحيحًا أو اتركه فارغًا');
+        shown = `0${p.slice(3)}`;
+      }
+      out.callback_from_number_paid = shown;
+    }
     return out;
   }
 

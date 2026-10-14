@@ -1,7 +1,7 @@
 // v9.1 b-forms — تصوير الورق ورفعه من موبايل بسيط وعلى نت ضعيف.
 //
 // API (ثابت؛ يستخدمه نموذج الطلب وصفحة المتابعة):
-//   photoPicker({ label, multiple = true, max = 5, onChange(files), address = 'f'|'m', variant = 'big'|'row'|'compact',
+//   photoPicker({ label, multiple = true, max = 5, onChange(files), address = 'f'|'m'|'p' (الأفراد والشركات، v11), variant = 'big'|'row'|'compact',
 //                 namePrefix = 'ورقة', galleryLabel, tip = false, maxBytes = 8 MB, maxSide = 1600, quality = 0.72,
 //                 initial = [], messages: { tooMany, bad } }) → HTMLElement
 //     الكاميرا أولًا (<input capture="environment">) ثم «من الموبايل» (صور أو PDF)، صور مصغّرة 3 في الصف مع زر × لكل صورة،
@@ -74,8 +74,27 @@ const COPY = {
     many: 'بعت كتير في وقت قصير. استنى شوية وجرب تاني.',
     stopped: 'وقّفت الإرسال. صورك لسه موجودة.',
   },
+  // v11 fixer-public (K11/J-05): صفحة الطلب للأفراد والشركات (address 'p'): فصحى مهذبة بصيغة الجمع (G11-39)
+  p: {
+    camera: 'تصوير مستند',
+    gallery: 'اختيار صورة أو ملف من الهاتف',
+    galleryShort: 'من الهاتف',
+    remove: 'حذف هذه الصورة',
+    preparing: 'جارٍ تجهيز الصور…',
+    tooMany: (max) => `يمكنكم إرسال ${photosText(max)} على الأكثر الآن، وإرسال الباقي لاحقًا من صفحة طلبكم.`,
+    bad: 'لا يمكن استخدام هذا الملف. جرّبوا صورة بدلًا منه.',
+    tip: 'ضعوا المستند على سطح مستوٍ في مكان مضيء، واحرصوا على ظهور أركانه الأربعة.',
+    tipOk: 'حسنًا',
+    sending: 'جارٍ الإرسال…',
+    dontClose: 'لا تغلقوا الصفحة',
+    stop: 'إيقاف',
+    net: 'لم يُرسل. تأكدوا من الاتصال بالإنترنت وحاولوا مرة أخرى.',
+    big: 'حجم الصور كبير. احذفوا صورة وحاولوا مرة أخرى.',
+    many: 'أُرسلت طلبات كثيرة في وقت قصير. انتظروا قليلًا ثم حاولوا مرة أخرى.',
+    stopped: 'أُوقف الإرسال. صوركم ما زالت محفوظة.',
+  },
 };
-const copyFor = (address) => COPY[address === 'm' ? 'm' : 'f'];
+const copyFor = (address) => COPY[address === 'm' || address === 'p' ? address : 'f'];
 
 // ───────── أيقونات ─────────
 const PATHS = {

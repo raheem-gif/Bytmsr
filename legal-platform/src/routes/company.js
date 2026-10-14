@@ -271,7 +271,7 @@ export function renderCompanyHtml(app) {
   siteAssets.setPublicRoot?.(pub);
   const short = escAttr(app.companies?.brandShort?.() || '');
   html = html.split('{{brand_short}}').join(short);
-  html = html.replace(/<meta name="theme-color" content="#[0-9a-fA-F]{3,8}" \/>/, () => `<meta name="theme-color" content="${escAttr(app.brand?.themeColor?.() || '#0b5a3c')}" />`);
+  html = html.replace(/<meta name="theme-color" content="#[0-9a-fA-F]{3,8}" \/>/, () => `<meta name="theme-color" content="${escAttr(app.brand?.themeColor?.() || '#0b3d29')}" />`); // v11 visual: H-V1
   const present = new Set();
   html = html.replace(/\b(href|src)="(\/assets\/(?:js|css|fonts)\/[^"?#]+\.(?:js|css|woff2))"/g, (m, attr, url) => {
     const v = assetVersion(path.join(pub, url));

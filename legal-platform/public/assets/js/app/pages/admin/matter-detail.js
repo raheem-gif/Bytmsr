@@ -32,6 +32,8 @@ import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
 import { partiesCard } from '../../components/parties.js'; // v9 practice
 import { outcomeCard } from '../../components/outcome.js'; // v9 practice
+// v11 segment-staff (ST-4): رقاقة النوع (يتبع ملف الاستشارة) ورأس الإرسال
+import { segmentChip, sendHeader } from '../../components/segment-ui.js';
 
 const TAB_KEYS = ['events', 'tasks', 'invoices', 'expenses', 'fees', 'documents', 'messages', 'activity'];
 
@@ -57,6 +59,10 @@ export default async function render(ctx) {
   const messages = [...(d.messages || [])].sort((a, b) => a.id - b.id);
   const now = Date.now();
   let tabsEl = null;
+  // v11 segment-staff: الملف المستمر يتبع نوع ملفه (يُغيَّر من صفحة الاستشارة)
+  const seg = d.segment || { value: m.segment || 'charity' };
+  const segValue = seg.company ? 'paid' : seg.value || 'charity';
+  const sendInfo = { segment: segValue, tone: d.tone || segValue, sendLine: d.send_line || null, company: Boolean(seg.company) };
 
   // ── التبويبات والتحديث ──
   function syncTab(key) {
@@ -90,7 +96,16 @@ export default async function render(ctx) {
   const header = pageHeader({
     title: m.title,
     breadcrumbs: [{ label: 'الملفات المستمرة', href: '#/matters' }, { label: m.code }],
-    meta: [codeTag(m.code, { className: 'pb-code-lg' }), statusBadge('matter_status', m.status), statusBadge('matter_kind', m.kind)],
+    meta: [
+      h(
+        'div.seg-head',
+        segmentChip(segValue, { company: Boolean(seg.company), size: 'label' }),
+        d.case ? h('span.seg-src', 'يتبع ملف الاستشارة — يُغيَّر من ', h('a', { href: `#/cases/${d.case.id}` }, 'صفحة الملف')) : null,
+      ),
+      codeTag(m.code, { className: 'pb-code-lg' }),
+      statusBadge('matter_status', m.status),
+      statusBadge('matter_kind', m.kind),
+    ],
     actions: [
       d.case && button('الاستشارة الأصلية', { icon: 'briefcase', href: `#/cases/${d.case.id}` }),
       button('رسالة للمستفيد/ة', { icon: 'message', onClick: () => goTab('messages') }),
@@ -120,7 +135,7 @@ export default async function render(ctx) {
       value: nextEvent ? date(nextEvent.starts_at) : '—',
       hint: nextEvent ? `${label('event_kind', nextEvent.kind)} · ${relative(nextEvent.starts_at)}` : 'لا مواعيد مجدولة',
       icon: 'calendar',
-      tone: nextEvent ? 'accent' : 'muted',
+      tone: nextEvent ? 'info' : 'muted', // v11 gate fix (K1): الذهبي لرقاقة «خيري» وحدها
       onClick: () => goTab('events'),
     }),
     statCard({
@@ -322,8 +337,8 @@ export default async function render(ctx) {
           statusBadge('event_status', e.status),
           e.client_attendance_required
             ? pendingReminder
-              ? badge('يلزم حضور المستفيد/ة', 'accent', { icon: 'user' })
-              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'accent', { icon: 'zap' })
+              ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' })
+              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'warning', { icon: 'zap' })
             : null,
           pendingReminder
             ? badge('تذكير المستفيد/ة بانتظار الاعتماد', 'warning', {
@@ -447,7 +462,7 @@ export default async function render(ctx) {
             'div',
             h('div.cell-title', t.title),
             t.details && h('div.cell-sub', t.details),
-            t.procedural ? h('div.mt-1', badge('موعد إجرائي', 'accent', { icon: 'flag' })) : null,
+            t.procedural ? h('div.mt-1', badge('موعد إجرائي', 'neutral', { icon: 'flag' })) : null,
           ),
       },
       {
@@ -752,7 +767,7 @@ export default async function render(ctx) {
         body: table({
           columns: [
             { key: 'lawyer', label: 'المحامي', render: (f) => f.lawyer_name },
-            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'primary') },
+            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'neutral') },
             { key: 'description', label: 'البيان', className: 'col-wide' },
             { key: 'amount', label: 'المبلغ', align: 'end', render: (f) => h('strong.nowrap', money(f.amount)) },
             { key: 'period', label: 'الشهر', render: (f) => (f.period ? ltr(f.period) : null) },
@@ -805,7 +820,7 @@ export default async function render(ctx) {
                   'div.btn-group',
                   button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
                   // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
-                  sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }) }),
+                  sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }), sendInfo }),
                   // (v9 ai) تحليل المستند؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
                   docAiAction(analyses, x),
                 ),
@@ -894,6 +909,7 @@ export default async function render(ctx) {
           client_id: d.client?.id || undefined,
         },
         aiTarget: { matterId: m.id },
+        sendInfo, // v11 segment-staff (r2 P13)
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/matters/${id}/messages`, { body, channel });
           await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'messages' });

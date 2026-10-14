@@ -3,15 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>احكيلنا مشكلتك — {{site_name}}</title>
-    <meta name="description" content="احكيلنا مشكلتك القانونية برسالة صوتية أو بالكتابة، وصوّري الورق من الموبايل. الخدمة من {{org_legal_name}} مجانية وسرّية، والمحامي مش بيشوف رقمك." />
+    <!-- v11 gate-public (G11-05): العنوان والوصف حسب الجانب (نص «خيري» كما في 10.0 حرفيًا) -->
+    <title>{{intake_title}}</title>
+    <meta name="description" content="{{intake_description}}" />
     <!--site:head-->
     <link rel="stylesheet" href="/assets/css/public-site.css" />
     <link rel="stylesheet" href="/assets/css/v91-b-forms.css" />
     <script type="module" src="/assets/js/public/intake.js"></script>
     <script nomodule src="/assets/js/public/nomodule.js"></script>
   </head>
-  <body class="site pub v91 bmf-page">
+  <body class="site pub v91 bmf-page" data-side="{{side}}">
     <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
@@ -21,20 +22,20 @@
         <div class="bmf-loading" role="status"><span class="bmf-spinner" aria-hidden="true"></span><span>لحظة…</span></div>
         <!-- v9.2 [R2-B23]: النت بطيء والصفحة ما فتحتش بعد 8 ثواني؟ تظهر بالـ CSS وحده (بلا JavaScript)، وأول سطر في intake.js يشيلها -->
         <div class="bmf-card bmf-slow" data-slow>
-          <p class="bmf-card-text">الصفحة بتحمّل ببطء. تقدري تكلمينا على طول:</p>
+          <p class="bmf-card-text">{{intake_slow}}</p>
           <!--#if whatsapp_url--><a class="bmf-btn bmf-btn-wa bmf-btn-lg bmf-btn-block" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer">{{{icon_whatsapp}}}<span>واتساب</span></a><!--/if whatsapp_url-->
-          <!--#if org_phone--><a class="bmf-btn bmf-btn-outline bmf-btn-lg bmf-btn-block" href="tel:{{org_phone_href}}">{{{icon_phone}}}<span>اتصال: </span><span class="bmf-ltr" dir="ltr">{{org_phone}}</span></a><!--/if org_phone-->
+          <!--#if org_phone--><a class="bmf-btn bmf-btn-outline bmf-btn-lg bmf-btn-block" href="tel:{{org_phone_href}}">{{{icon_phone}}}<span>{{intake_call}}</span><span class="bmf-ltr" dir="ltr">{{org_phone}}</span></a><!--/if org_phone-->
           {{{contact_list}}}
         </div>
         <!-- v9.2 (P9): متصفح قديم لا يشغّل الوحدات: nomodule.js يشيل «لحظة…» ويُظهر طرق التواصل -->
         <div class="bmf-card" data-fallback hidden>
-          <p class="bmf-card-text">الصفحة دي مش شغالة على الموبايل ده. كلمينا على طول:</p>
+          <p class="bmf-card-text">{{intake_old}}</p>
           {{{contact_list}}}
         </div>
         <noscript>
           <div class="bmf-card">
-            <h1>احكيلنا مشكلتك</h1>
-            <p>الصفحة دي محتاجة تشغيل JavaScript في المتصفح. ممكن تكلمينا على طول:</p>
+            <h1>{{intake_nojs_h1}}</h1>
+            <p>{{intake_nojs}}</p>
             {{{contact_list}}}
           </div>
         </noscript>

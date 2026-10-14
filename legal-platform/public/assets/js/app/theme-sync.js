@@ -42,7 +42,7 @@ export function applyBrandTheme(brand) {
     if (old) old.replaceWith(el);
     else document.head.appendChild(el);
   }
-  const color = brand && /^#[0-9a-f]{6}$/.test(String(brand.theme_color || '')) ? brand.theme_color : '#0b5a3c';
+  const color = brand && /^#[0-9a-f]{6}$/.test(String(brand.theme_color || '')) ? brand.theme_color : '#0b3d29'; // v11 gate fixer-server (R-18): أخضر الشعار (V11-01)
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', color);
   return true;

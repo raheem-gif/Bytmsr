@@ -87,8 +87,9 @@ describe('v9.1 fixes — portal link-buttons keep their colours (contrast ≥ 4.
     assert.ok(contrast('#ffffff', teal) >= 4.5, `primary ${contrast('#ffffff', teal)}`);
     assert.ok(contrast('#ffffff', wa) >= 4.5, `whatsapp ${contrast('#ffffff', wa)}`);
     assert.ok(contrast(teal, '#ffffff') >= 4.5, 'secondary/text');
-    // ما كان يحدث: لون الرابط #145d6f على خلفية الزر
-    assert.ok(contrast('#145d6f', teal) < 1.5 && contrast('#145d6f', wa) < 1.5, 'the old link colour was unreadable on these buttons');
+    // ما كان يحدث: لون الرابط #145d6f على خلفية الزر — v11 visual (intended): مع ألوان الشعار يُقارن لون الرابط الحالي (p600)
+    // بخلفية الزر الأساسي (نفس المعنى: رابط بلون الرابط فوق الزر لا يُقرأ)، ولون 9.1 القديم بزر واتساب كما كان
+    assert.ok(contrast(LEGACY.primary[600], teal) < 1.5 && contrast('#145d6f', wa) < 1.5, 'the link colour is unreadable on these buttons');
   });
 });
 
@@ -250,7 +251,9 @@ describe('v9.1 fixes — offline «اليوم» only inside the server session w
 describe('v9.1 fixes — honest WhatsApp promise and a second chance to confirm', () => {
   test('success screen step 3 promises WhatsApp only once she sends the number', () => {
     const intake = read('public/assets/js/public/intake.js');
-    assert.ok(intake.includes("!confirmUrl ? 'على صفحتك' : sent ? 'على واتساب وعلى صفحتك' : g('على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب')"));
+    // v11 gate-public (intended: r2 S16): نفس النصوص في COPY (s3page/s3sent/s3wa) والشاشة تختار بينها بنفس الشرط
+    assert.ok(intake.includes('!confirmUrl ? COPY.s3page : sent ? COPY.s3sent : g(COPY.s3wa)'));
+    for (const x of ["s3page: 'على صفحتك'", "s3sent: 'على واتساب وعلى صفحتك'", "s3wa: 'على صفحتك، وعلى واتساب لو بعت{ي}لنا رقم الطلب'"]) assert.ok(intake.includes(x), x);
     assert.match(intake, /if \(sent\) paintStep3\(true\);/);
     assert.match(intake, /localStorage\.setItem\('bm_wa_confirm', JSON\.stringify\(\{ ref, url: confirmUrl, at: new Date\(\)\.toISOString\(\) \}\)\)/);
     assert.match(intake, /localStorage\.removeItem\('bm_wa_confirm'\)/, '«مش موبايلك؟ امسحيها» clears it too');
@@ -275,7 +278,8 @@ describe('v9.1 fixes — honest WhatsApp promise and a second chance to confirm'
     }
     const portal = read('public/assets/js/public/portal.js');
     assert.match(portal, /function waConfirmCard\(\) \{\s*const home = state\.data\.home;\s*if \(home\.whatsapp_confirmed\) \{\s*storage\.del\(WA_CONFIRM_KEY\);\s*return null;/);
-    assert.ok(portal.includes("g('عايز{ة} يوصلك الجديد على واتساب؟')"));
+    // v11 gate-public (intended: G11-46/r2 P18): نفس نص «خيري» احتياطيًا لـ P() (الأفراد والشركات من bm-copy)
+    assert.ok(portal.includes("g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))"));
     assert.match(read('public/assets/js/public/portal-ui.js'), /storage\.del\(WA_CONFIRM_KEY\);/, 'forgetThisPhone clears it');
   });
 });
@@ -452,7 +456,8 @@ describe('v9.1 fixes — staff and lawyer copy', () => {
   test('request dialogs no longer promise a case number; they say what is really added', () => {
     const src = read('public/assets/js/app/pages/admin/case-detail.js');
     assert.equal(/سيُضاف تلقائيًا رقم الملف|تلقائيًا رقم الملف/.test(src), false);
-    assert.equal((src.match(/اسم المستفيد\/ة ورقم طلبه\/ا ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
+    // v11 gate (J-13): the noun follows the segment — «اسم ${N.def}» is «المستفيد/ة» on a charity case, «العميل/ة» on a paid one
+    assert.equal((src.match(/اسم \$\{N\.def\} ورقم طلبه\/ا ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
   });
 
   test('beneficiary-facing leftovers: privacy page and the demo message are plain', () => {
@@ -502,7 +507,7 @@ describe('v9.1 fixes — answer composer', () => {
     const src = read('public/assets/js/app/pages/admin/case-detail.js');
     assert.match(src, /before: unansweredNotice\(\),\s*danger: true,/);
     assert.match(src, /close_case: !pendingMsg,/);
-    assert.ok(src.includes('`فيه رسالة من المستفيد/ة لم يُرد عليها ('));
+    assert.ok(src.includes('`فيه رسالة من ${N.def} لم يُرد عليها (')); // v11 gate (J-13): noun by segment
     assert.ok(src.includes("'افتح المحادثة ورد عليها'"));
   });
 });

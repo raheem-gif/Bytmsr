@@ -674,7 +674,7 @@ function kunyaName(name) {
  * الخلاصة من «التوصية»/«الخلاصة»/«الرأي» (وإلا فارغة) مختصرة لثلاث جمل ≤ 400 حرف؛ الخطوات مما اقترحه المحامي للمستفيد/ة،
  * وإلا خطوات عامة آمنة لا تضيف رأيًا قانونيًا. تراجعها الإدارة دائمًا قبل الإرسال.
  */
-export function clientSummary({ opinion, clientSteps } = {}) {
+export function clientSummary({ opinion, clientSteps, tone = 'charity' } = {}) {
   const lines = String(opinion || '')
     .split('\n')
     .map((l) => l.trim())
@@ -704,7 +704,10 @@ export function clientSummary({ opinion, clientSteps } = {}) {
     steps = String(clientSteps || '').split('\n');
   }
   steps = steps.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 160));
-  if (!steps.length) steps = ['جهّزي الورق اللي معاكي عن المشكلة دي.', 'لو عندك أي سؤال على الرد، اسألينا من صفحتك أو كلمينا.'];
+  if (!steps.length) {
+    // v11 segment-server (L11-25): خطوات عامة بصيغة الجمع المهذبة لعملاء الأفراد والشركات
+    steps = tone === 'charity' ? ['جهّزي الورق اللي معاكي عن المشكلة دي.', 'لو عندك أي سؤال على الرد، اسألينا من صفحتك أو كلمينا.'] : ['جهّزوا المستندات المتعلقة بالموضوع.', 'لأي سؤال على الرد، راسلونا من صفحة طلبكم أو اتصلوا بنا.'];
+  }
   return { summary, steps };
 }
 
@@ -731,6 +734,47 @@ export function clientVersion({ clientName, caseCode, opinion, orgName }) {
     'مع خالص التحية،',
     `فريق برنامج الدعم القانوني — ${orgName || 'مؤسسة بيوت مصر'}`,
   ].join('\n');
+}
+
+/** v11 segment-server (SS-6): النسخة الموجهة لعميل الأفراد والشركات — نفس الرأي المعتمد بصيغة الجمع المهذبة، بلا «برنامج الدعم» */
+export function clientVersionPaid({ clientName, caseCode, opinion, orgName }) {
+  const body = String(opinion || '')
+    .split('\n')
+    .filter((l) => !/^مسودة أولية|^\[يُستكمل/.test(l.trim()))
+    .join('\n')
+    .trim();
+  void caseCode;
+  const first = kunyaName(clientName);
+  return [
+    `${first ? `مرحبًا ${first}` : 'مرحبًا بكم'}،`,
+    '',
+    'هذا ردّنا على موضوعكم بعد دراسته من المختصين لدينا:',
+    '',
+    body,
+    '',
+    'هذه الإفادة مبنية على المعلومات والمستندات التي قدمتموها، وقد يتغير الرأي إذا ظهرت وقائع أو مستندات جديدة.',
+    'للاستفسار أو إرسال أي مستندات إضافية يمكنكم الرد على هذه الرسالة.',
+    '',
+    'مع خالص التحية،',
+    `فريق ${orgName || 'المكتب'}`,
+  ].join('\n');
+}
+
+// v11 segment-server (SS-6): أسئلة «نسألهم الأول» لعملاء الأفراد والشركات — نفس الأسئلة بصيغة الجمع المهذبة (بلا رموز النوع)
+const PAID_QUESTIONS_BY_AREA = {
+  GEN: ['يرجى توضيح ما حدث في جملتين: ما الموضوع، ومع من؟'],
+  INH: ['من المتوفى، ومتى كانت الوفاة؟', 'هل صدر إعلام الوراثة؟'],
+  PEN: ['المعاش عن من؟ ومتى كانت الوفاة؟', 'هل سبق التقدم بطلب المعاش؟ وما الرد الذي تلقيتموه؟'],
+  FAM: ['مع من الخلاف تحديدًا؟', 'هل توجد قضية مرفوعة من قبل؟'],
+  GRD: ['أين أموال القاصرين الآن: في البنك أم ضمن تركة لم تُقسَّم؟', 'هل يوجد وصي معيَّن على القاصرين؟'],
+  PRP: ['هل العقار إيجار أم تمليك؟ وباسم من؟', 'هل طُلب منكم إخلاء العقار؟'],
+  ADM: ['ما المستند الذي تريدون استخراجه تحديدًا؟', 'ما الجهة التي تقدمتم إليها من قبل، وما الرد؟'],
+};
+const PAID_QUESTIONS_OTHER = ['يرجى توضيح ما حدث في جملتين: ما الموضوع، ومع من؟', 'هل لديكم مستندات تخص الموضوع؟ يمكنكم تصويرها وإرسالها هنا.'];
+/** أسئلة قصيرة لعملاء الأفراد والشركات (حتى 3) حسب المجال */
+export function paidQuestionsFor(area) {
+  if (!area || area === 'GEN') return PAID_QUESTIONS_BY_AREA.GEN.slice();
+  return (PAID_QUESTIONS_BY_AREA[area] || PAID_QUESTIONS_OTHER).slice(0, 3);
 }
 
 // ───────────────────────── الإصدار 9: الردود المقترحة وتحليل المستندات (بدون ذكاء اصطناعي) ─────────────────────────
@@ -904,4 +948,47 @@ export function analyzeDocument({ filename = '', title = '', mime = '', size = 0
     missing_related: rule ? rule.related : [],
     note: reason ? `${HEURISTIC_DOC_NOTE} (${reason})` : HEURISTIC_DOC_NOTE,
   };
+}
+
+// ───────────── v11 segment-server (S11-29، r2 S14): اقتراح نوع الخدمة من الكلمات — لا يُطبَّق تلقائيًا أبدًا ─────────────
+// [الكلمة كما تُعرض للإدارة, الوزن]. عبارة متعددة الكلمات تُطابق كنص، والكلمة المفردة كلمة كاملة (بعد normalizeArabic).
+const SEGMENT_HINT_WORDS = {
+  paid: [
+    ['شركة', 1], ['شركتنا', 2], ['شركتي', 2], ['مؤسستنا التجارية', 2], ['سجل تجاري', 2], ['بطاقة ضريبية', 2],
+    ['عقد توريد', 2], ['عقد توزيع', 2], ['عقد شراكة', 2], ['موظفين', 1], ['موظف عندنا', 2], ['ش.م.م', 2], ['LLC', 2],
+    ['أتعاب', 1], ['بكام الاستشارة', 2], ['التكلفة', 1], ['السعر', 1], ['حجز استشارة', 2], ['محامي خاص', 2], ['استثمار', 1], ['فاتورة', 1],
+  ],
+  charity: [
+    ['أرملة', 2], ['جوزي اتوفى', 2], ['جوزي مات', 2], ['أيتام', 2], ['العيال اليتامى', 2], ['تكافل وكرامة', 2],
+    ['مش قادرة أدفع', 2], ['مش معايا فلوس', 2], ['مساعدة', 1], ['المؤسسة', 1], ['الجمعية', 1], ['ببلاش', 2], ['مجاني', 1], ['معاش الأرملة', 2],
+  ],
+};
+const SEG_KEY = (s) => n(String(s)).replace(/[^\p{L}\p{N}.\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+const SEGMENT_HINT_INDEX = Object.fromEntries(Object.entries(SEGMENT_HINT_WORDS).map(([seg, list]) => [seg, list.map(([shown, w]) => ({ shown, w, key: SEG_KEY(shown) }))]));
+
+/**
+ * { segment: 'paid'|'charity'|null, confidence 0..1, reasons[] } — يلزم فرق كلمتين على الأقل وثقة ≥ 0.6، وإلا null.
+ * reasons جملة واحدة تذكر الكلمات («ذكر «شركتي» و«عقد توريد»»).
+ */
+export function segmentHint(text) {
+  const hay = ` ${SEG_KEY(text)} `;
+  const hits = { paid: [], charity: [] };
+  const score = { paid: 0, charity: 0 };
+  if (hay.trim()) {
+    for (const seg of ['paid', 'charity']) {
+      for (const t of SEGMENT_HINT_INDEX[seg]) {
+        if (t.key && hay.includes(` ${t.key} `)) {
+          hits[seg].push(t.shown);
+          score[seg] += t.w;
+        }
+      }
+    }
+  }
+  const total = score.paid + score.charity;
+  const win = score.paid > score.charity ? 'paid' : score.charity > score.paid ? 'charity' : null;
+  const lose = win === 'paid' ? 'charity' : 'paid';
+  if (!win || hits[win].length - hits[lose].length < 2 || score[win] / total < 0.6) return { segment: null, confidence: 0, reasons: [] };
+  const words = hits[win].slice(0, 3).map((w) => `«${w}»`);
+  const reason = `ذكر ${words.length > 1 ? `${words.slice(0, -1).join('، ')} و${words[words.length - 1]}` : words[0]}`;
+  return { segment: win, confidence: Math.round((score[win] / total) * 100) / 100, reasons: [reason] };
 }
