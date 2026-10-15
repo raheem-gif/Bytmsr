@@ -5,7 +5,11 @@ import { LABELS, ENUMS, CLIENT_TEXTS, CLIENT_TEXTS_PAID, CLIENT_TEXTS_CHARITY_EX
 import { nowIso, addDays, parseJson, badRequest, notFound, ApiError, arabicCount, truncate, normalizeArabic } from '../util.js';
 import { publicWhatsAppDigits } from '../channels/whatsapp.js';
 import { parseSegment, segmentFromCookie, paidWaPrefill, paidPrefillOf, COMPANY_PREFILL, PAID_TOPICS, CHOICE_IDS } from '../../public/assets/js/public/segment.js';
-import { topicFromWaPrefill, waPrefill } from '../../public/assets/js/public/topics.js';
+// v12 staff-lines (SL-4/SL-5، E12-07/E12-28/E12-80…85، L12-77): جمل الشجرة الجاهزة، الجملة العامة، قائمة الخدمات، كلمات الإيقاف
+import { PAID_GENERIC } from '../../public/assets/js/public/segment.js';
+import { pathFromPrefill, leafOf, resolvePath, pageOf, lineFromText, rowFromText, LINES } from '../../public/assets/js/public/entry-tree.js';
+import { LINES_MENU_TEXTS, OPT_OUT_WORDS, AREA_CODES } from '../constants.js';
+import { topicFromWaPrefill, waPrefill, topicByKey } from '../../public/assets/js/public/topics.js';
 import { segmentHint } from '../ai/heuristic.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,6 +21,9 @@ const OPEN_INTAKE = "('new','in_review','awaiting_client')";
 const UNSET_LABEL = 'غير محدد';
 const LEGACY_SOURCE_LABEL = 'قبل الإصدار 11 (خيري)';
 const VERIFIED_KEY = 'wa_paid_verified';
+const WEBSITE_PAID_DEFAULT_LABEL = 'الموقع بدون اختيار، أفراد وشركات افتراضيًا'; // v12 staff-lines (L12-09)
+// v12 staff-lines (L12-77): جملة الإفصاح في سياسة الخصوصية عن الرسائل الآلية (الخيري «موضوعك»، الأفراد والشركات «موضوعكم»)
+const AUTOMATED_DISCLOSURE_RE = /الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا/;
 // كلمات لا تصل عميل الأفراد والشركات (L11-25، INV-12): مجانية أو اسم الجمعية أو أمر بصيغة المؤنث العامية
 export const PAID_BANNED_RE = /ببلاش|مجان|المؤسسة|\{ي\}|\{ة\}|اكتبي|ابعتي|صوّري|صوري|اختاري|سجّلي|سجلي|اضغطي|قولي|تقدري|حاولي|ارجعي/;
 
@@ -28,6 +35,40 @@ const normCmp = (s) =>
     .trim()
     .replace(/[.!؟?]+$/, '')
     .trim();
+
+/**
+ * v12 staff-lines (E12-07، E12-28، SL-4): الجملة الجاهزة للأفراد والشركات في أول رسالة واتساب، بالأولوية:
+ * جملة ورقة من الشجرة › جملة موضوع v11 (paidPrefillOf) › جملة الشركات (مسار company/counsel) › الجملة العامة PAID_GENERIC.
+ * ← { kind: 'tree'|'paid'|'company'|'generic', path, topic, requester, rest } أو null (rest = ما بعد الجملة، القصة).
+ */
+const GENERIC_CMP = normCmp(PAID_GENERIC);
+export function paidSentenceOf(text) {
+  const t = pathFromPrefill(text);
+  // review (F6): + area (مجال الورقة) ليُحفظ على الطلب الجديد كما يفعل الموقع (legal_area_hint = leaf.area)
+  if (t) return { kind: 'tree', path: t.path, topic: leafOf(t.path)?.topic || null, area: leafOf(t.path)?.area || null, requester: null, rest: t.rest };
+  const p = paidPrefillOf(text);
+  if (p) return p.requester === 'company' ? { kind: 'company', path: 'company/counsel', topic: null, requester: 'company', rest: p.rest } : { kind: 'paid', path: null, topic: p.topic, requester: null, rest: p.rest };
+  const raw = String(text ?? '').trim();
+  if (!raw) return null;
+  const end = raw.search(/[.!؟?\n]/);
+  if (normCmp(end < 0 ? raw : raw.slice(0, end)) === GENERIC_CMP) return { kind: 'generic', path: null, topic: null, requester: null, rest: end < 0 ? '' : raw.slice(end + 1).trim() };
+  return null;
+}
+
+/** v12 staff-lines (L12-77): هل الرسالة كلها كلمة إيقاف («توقف»، «إيقاف»، «الغاء»، «stop»…)؟ «توقف المعاش» ليست كذلك */
+const STOP_CMP = new Set(OPT_OUT_WORDS.map((w) => stopKey(w)));
+function stopKey(text) {
+  return normalizeArabic(String(text ?? '').normalize('NFC'))
+    .toLowerCase()
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+export function isStopWord(text) {
+  const k = stopKey(text);
+  return !!k && k.length <= 20 && STOP_CMP.has(k);
+}
 
 /** «الزوج» في سطور اختيارات الموقع للإدارة ← «الزوج أو الزوجة» لطلبات الأفراد والشركات (للعرض فقط، لا يدخل التحليل) */
 export function paidStaffLines(lines) {
@@ -46,8 +87,19 @@ export function createSegments(app) {
   const shortLabel = (s) => LABELS.segment_short[s] || UNSET_LABEL;
   const longLabel = (s) => LABELS.segment_long[s] || UNSET_LABEL;
   // v11 gate fixer-server (F-C): «رقم واتساب المخصص» له معنى فقط مع رقم ثانٍ للأفراد والشركات؛ برقم واحد «الرقم الأساسي»
+  // v12 staff-lines (L12-09): طلب موقع بلا اختيار وقت أرشفة «خيري» يصير «أفراد وشركات» افتراضيًا (المصدر نفسه بمسمى صحيح)
   const sourceLabel = (src, seg) =>
-    src === 'wa_line' && seg === 'charity' && !lineByKey('paid') ? LABELS.wa_line.main : src ? LABELS.segment_source[src] || src : seg === 'charity' ? LEGACY_SOURCE_LABEL : seg === 'paid' ? LABELS.segment_source.company : null;
+    src === 'wa_line' && seg === 'charity' && !lineByKey('paid')
+      ? LABELS.wa_line.main
+      : src === 'website_default' && seg === 'paid'
+        ? WEBSITE_PAID_DEFAULT_LABEL
+        : src
+          ? LABELS.segment_source[src] || src
+          : seg === 'charity'
+            ? LEGACY_SOURCE_LABEL
+            : seg === 'paid'
+              ? LABELS.segment_source.company
+              : null;
   const modeOf = (raw) => (String(raw || '').trim().toLowerCase() === 'shared' ? 'shared' : 'charity');
 
   function waConfig() {
@@ -160,24 +212,39 @@ export function createSegments(app) {
     return topicKey ? waPrefill(topicKey) : SITE_GREETING;
   }
 
-  /** نوع خدمة طلب الموقع: segment في الطلب › كعكة bm_seg › الإعداد الافتراضي (قيمة غير صالحة تُتجاهل ولا ترفض الطلب أبدًا) */
+  /** v12 (L12-09، E12-71 #19): «خيري» ظاهر على الموقع؟ (charity_public؛ متوقف افتراضيًا) */
+  const charityPublic = () => S('charity_public') === true;
+
+  /**
+   * نوع خدمة طلب الموقع: segment في الطلب › كعكة bm_seg › الإعداد الافتراضي (قيمة غير صالحة تُتجاهل ولا ترفض الطلب أبدًا).
+   * v12 staff-lines (L12-09): أثناء أرشفة «خيري» تُتجاهل الكعكة، والطلب بلا segment «أفراد وشركات» (لا segment_website_default).
+   */
   function fromWebsite({ body, cookieHeader } = {}) {
     const p = parseSegment(body?.segment);
     if (p) return { segment: p, source: 'website', via: 'param' };
+    if (!charityPublic()) return { segment: 'paid', source: 'website_default', via: 'default' };
     const c = segmentFromCookie(cookieHeader);
     if (c) return { segment: c, source: 'website', via: 'cookie' };
     return { segment: parseSegment(S('segment_website_default')) || 'charity', source: 'website_default', via: 'default' };
   }
 
-  /** جملة جاهزة في رسالة واتساب: { segment, topic, requester, rest } أو null (S11-21، L11-22) */
+  /**
+   * جملة جاهزة في رسالة واتساب: { segment, topic, requester, rest, pathway, kind } أو null (S11-21، L11-22).
+   * v12 staff-lines (SL-4، E12-07): الشجرة › موضوع v11 › الشركات (company/counsel، أو «شركات» وحدها حين تتوقف خدمة الشركات)
+   * › الجملة العامة (بلا مسار) › جمل «خيري». جمل الأفراد والشركات كلها «أفراد وشركات» (القاعدة e، wa_tag).
+   */
   function tagOf(text) {
-    const paid = paidPrefillOf(text);
-    if (paid) return { segment: 'paid', topic: paid.topic, requester: paid.requester, rest: paid.rest };
+    const paid = paidSentenceOf(text);
+    if (paid) {
+      let pathway = paid.path;
+      if (pathway && app.pathways && !resolvePath(pathway, app.pathways.treeCtx())) pathway = pathway.split('/')[0];
+      return { segment: 'paid', topic: paid.topic, requester: paid.requester, rest: paid.rest, pathway, kind: paid.kind };
+    }
     const s = normCmp(text);
     if (!s) return null;
     const topic = topicFromWaPrefill(text);
-    if (topic) return { segment: 'charity', topic, requester: null, rest: '' };
-    if (s === normCmp(SITE_GREETING) || s === normCmp(CHARITY_GENERIC)) return { segment: 'charity', topic: null, requester: null, rest: '' };
+    if (topic) return { segment: 'charity', topic, requester: null, rest: '', pathway: null, kind: 'charity' };
+    if (s === normCmp(SITE_GREETING) || s === normCmp(CHARITY_GENERIC)) return { segment: 'charity', topic: null, requester: null, rest: '', pathway: null, kind: 'charity' };
     return null;
   }
 
@@ -188,17 +255,19 @@ export function createSegments(app) {
    * kind: 'line' (رقم مخصص) | 'tag' (جملة جاهزة = إشارة طلب جديد) | null
    */
   function messageSignal({ msg, line, text }) {
-    const none = { segment: null, source: null, kind: null, tag: null, topic: null, requester: null, line: line?.key ?? null, mismatchable: false };
+    const none = { segment: null, source: null, kind: null, tag: null, topic: null, requester: null, line: line?.key ?? null, mismatchable: false, pathway: null };
     if (!msg || msg.channel !== 'whatsapp' || !line) return none;
     const tag = tagOf(text);
     // [r2 S7] علامة «كتب على رقم آخر» لها معنى فقط حين يكون للأفراد والشركات رقمهم المخصص
     const mismatchable = !!lineByKey('paid') && (line.key === 'paid' || line.key === 'main');
-    if (line.key === 'paid') return { ...none, segment: 'paid', source: 'wa_line', kind: 'line', tag: tag?.segment || null, topic: tag?.topic ?? null, mismatchable };
+    // v12 staff-lines (SL-4): pathway = مسار جملة الأفراد والشركات الجاهزة (يُكتب على طلب جديد «أفراد وشركات» فقط، wa_tag)
+    const pathway = tag?.segment === 'paid' ? tag.pathway ?? null : null;
+    if (line.key === 'paid') return { ...none, segment: 'paid', source: 'wa_line', kind: 'line', tag: tag?.segment || null, topic: tag?.topic ?? null, mismatchable, pathway };
     if (line.key === 'main' && line.mode !== 'shared') {
-      if (tag?.segment === 'paid' && S('wa_paid_on_main') !== false) return { ...none, segment: 'paid', source: 'wa_tag', kind: 'tag', tag: 'paid', topic: tag.topic, requester: tag.requester };
+      if (tag?.segment === 'paid' && S('wa_paid_on_main') !== false) return { ...none, segment: 'paid', source: 'wa_tag', kind: 'tag', tag: 'paid', topic: tag.topic, requester: tag.requester, pathway };
       return { ...none, segment: 'charity', source: 'wa_line', kind: 'line', tag: tag?.segment || null, topic: tag?.topic ?? null, mismatchable };
     }
-    if (tag) return { ...none, segment: tag.segment, source: 'wa_tag', kind: 'tag', tag: tag.segment, topic: tag.topic, requester: tag.requester };
+    if (tag) return { ...none, segment: tag.segment, source: 'wa_tag', kind: 'tag', tag: tag.segment, topic: tag.topic, requester: tag.requester, pathway };
     return none;
   }
 
@@ -790,7 +859,11 @@ export function createSegments(app) {
   function privacyPromisesHumanReview() {
     try {
       const file = path.join(config.publicDir || '', 'privacy.html');
-      return /يراجعه شخص مختص/.test(fs.readFileSync(file, 'utf8'));
+      const html = fs.readFileSync(file, 'utf8');
+      // v12 staff-lines (L12-77): جملة 12.0 («الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا، وكل رد على موضوعك يكتبه
+      // أو يراجعه شخص مختص…») تُفصح عن الرسائل الآلية، فلا تحذير؛ الوعد القديم وحده («كل رد يصلك يراجعه…») يحذّر
+      if (AUTOMATED_DISCLOSURE_RE.test(html)) return false;
+      return /يراجعه شخص مختص/.test(html);
     } catch {
       return false;
     }
@@ -817,9 +890,20 @@ export function createSegments(app) {
       const days = Number(S('segment_returning_days'));
       if (!(days > 0)) add('wa_shared_returning', 'warning', 'الرقم المشترك لا يتذكر نوع خدمة من راسلنا قبل كده', 'كل رسالة جديدة بلا جملة جاهزة تبقى «غير محدد» حتى من عملاء سابقين. اضبطوا «تذكّر نوع الخدمة لمن راسلنا قبل كده» بعدد أيام أكبر من صفر.', '#/settings?section=stories');
       // v11 gate fixer-server (R-11): «تحذير» كما في S11 §6.7 (كان «معلومة»)
-      if (!S('wa_segment_choice_enabled')) add('wa_shared_choice', 'warning', 'الرسائل الجديدة على الرقم المشترك تبقى «غير محدد» حتى يختار الفريق نوع الخدمة', 'أزرار اختيار نوع الخدمة متوقفة؛ تختار الإدارة نوع الخدمة من صفحة الطلب.', '#/settings?section=stories');
+      // v12 staff-lines (E12-71 #16): أثناء أرشفة «خيري» لا أزرار اختيار أصلًا، فلا تحذير عنها
+      if (!charityPublic()) {
+        /* لا شيء: الرسائل بلا إشارة تبقى «غير محدد» حتى يختار الفريق (القاعدة g، L12-07) */
+      } else if (!S('wa_segment_choice_enabled')) add('wa_shared_choice', 'warning', 'الرسائل الجديدة على الرقم المشترك تبقى «غير محدد» حتى يختار الفريق نوع الخدمة', 'أزرار اختيار نوع الخدمة متوقفة؛ تختار الإدارة نوع الخدمة من صفحة الطلب.', '#/settings?section=stories');
       // v11 gate fixer-server (K10/R-11, S11-24): الأزرار رسالة آلية ثابتة بينما تعد سياسة الخصوصية بأن شخصًا يراجع كل رد (O-28)
       else if (privacyPromisesHumanReview()) add('wa_choice_privacy', 'warning', 'أزرار نوع الخدمة رسالة آلية بينما تقول سياسة الخصوصية إن شخصًا يراجع كل رد', 'راجعوا جملة «كل رد يصلك يراجعه شخص مختص» في سياسة الخصوصية أو أوقفوا الأزرار.', '#/settings?section=stories');
+    }
+    // v12 staff-lines (E12-71 #18، P1): «خيري» مؤرشف على الموقع والرقم الأساسي في وضع «خيري» (قرار المالك O-38)
+    if (!charityPublic() && main.mode === 'charity') {
+      add('wa_main_charity_archived', 'warning', 'الخدمة الخيرية متوقفة على الموقع، لكن الرقم الأساسي في وضع «خيري»: رسائل الأشخاص الجدد بلا جملة الموقع تُسجَّل «خيري».', 'غيّروا وضع الرقم الأساسي أو أضيفوا رقمًا للأفراد والشركات من التكاملات ← واتساب.', '#/integrations');
+    }
+    // v12 staff-lines (E12-86، P1): قائمة الخدمات رسالة آلية ثابتة بينما سياسة الخصوصية لا تذكر الرسائل الآلية (L12-77)
+    if (S('wa_lines_menu_enabled') === true && privacyPromisesHumanReview()) {
+      add('wa_lines_privacy', 'warning', 'قائمة الخدمات على واتساب رسالة آلية بينما تقول سياسة الخصوصية إن شخصًا يراجع كل رد', 'حدّثوا سياسة الخصوصية بجملة «الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا…» أو أوقفوا القائمة.', '#/settings?section=stories');
     }
     const unknown = db.get("SELECT wa_pid, MAX(created_at) AS at, COUNT(*) AS n FROM messages WHERE direction = 'in' AND wa_line = 'unknown' AND created_at >= ? GROUP BY wa_pid ORDER BY at DESC LIMIT 1", addDays(nowIso(), -7));
     if (unknown) {
@@ -859,6 +943,8 @@ export function createSegments(app) {
    */
   function maybeChoice(i, result = {}) {
     if (!i || !S('wa_segment_choice_enabled')) return false;
+    // v12 staff-lines (E12-71 #16): أثناء أرشفة «خيري» لا تُرسل أزرار «خيري — مجاني / أفراد وشركات» أبدًا
+    if (!charityPublic()) return false;
     if (!result.created_intake || result.duplicate || result.no_auto) return false;
     const seg = result.segment || {};
     if (seg.line !== 'main' || seg.mode !== 'shared' || seg.tag) return false;
@@ -945,6 +1031,262 @@ export function createSegments(app) {
     return true;
   }
 
+  // ───────────── v12 staff-lines (L12-75): «سبق التعامل مع خيري» — للفريق فقط، بلا أي فرق يراه صاحب الطلب ─────────────
+  /**
+   * بعد طلب «أفراد وشركات» من الموقع: إن كان لنفس الرقم (العميل) طلب أو ملف «خيري» خلال 365 يومًا ← segment_hint.returning_charity
+   * وسطر في سجل الطلب. لا يغيّر نوع الخدمة أبدًا. ← true إن عُلِّم الطلب.
+   */
+  function markReturningCharity(intakeId) {
+    const i = db.get('SELECT id, code, client_id, segment, segment_hint FROM intakes WHERE id = ?', Number(intakeId));
+    if (!i || i.segment !== 'paid' || !i.client_id) return false;
+    const since = addDays(nowIso(), -365);
+    const hit = db.get(
+      `SELECT 1 FROM intakes WHERE client_id = ? AND id != ? AND segment = 'charity' AND created_at >= ?
+       UNION ALL SELECT 1 FROM cases WHERE client_id = ? AND company_id IS NULL AND segment = 'charity' AND created_at >= ? AND (intake_id IS NULL OR intake_id != ?)
+       LIMIT 1`,
+      i.client_id,
+      i.id,
+      since,
+      i.client_id,
+      since,
+      i.id,
+    );
+    if (!hit) return false;
+    const h = parseJson(i.segment_hint, null);
+    if (h && typeof h === 'object' && h.returning_charity) return true;
+    const next = { ...(h && typeof h === 'object' && !Array.isArray(h) ? h : {}), returning_charity: true };
+    db.run('UPDATE intakes SET segment_hint = ? WHERE id = ?', JSON.stringify(next), i.id);
+    app.activity.log({
+      intake_id: i.id,
+      client_id: i.client_id,
+      actor: { kind: 'system' },
+      type: 'segment.returning_charity',
+      summary: 'سبق التعامل مع «خيري» من هذا الرقم خلال سنة (للفريق فقط؛ نوع الخدمة لم يتغير)',
+      data: { entity: 'intake', id: i.id, code: i.code },
+    });
+    return true;
+  }
+
+  // ───────────── v12 staff-lines (L12-77): كلمة إيقاف ← لا رسائل آلية لهذا الشخص ─────────────
+  /** وقت إيقاف الرسائل الآلية للعميل أو null */
+  function optedOutAt(clientId) {
+    if (!clientId) return null;
+    try {
+      return db.value('SELECT wa_auto_opt_out_at FROM clients WHERE id = ?', clientId) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  /** رسالة واتساب كلها كلمة إيقاف: يُسجَّل الإيقاف مرة (بلا رد آلي) وسطر في سجل الطلب. ← true إن سُجِّل الآن */
+  function optOut(clientId, { intakeId = null, messageId = null } = {}) {
+    if (!clientId) return false;
+    const r = db.run('UPDATE clients SET wa_auto_opt_out_at = ? WHERE id = ? AND wa_auto_opt_out_at IS NULL', nowIso(), clientId);
+    if (r.changes !== 1) return false;
+    app.activity.log({
+      intake_id: intakeId,
+      client_id: clientId,
+      actor: { kind: 'client' },
+      type: 'client.auto_opt_out',
+      summary: 'أرسل/ت كلمة إيقاف: توقفت الرسائل الآلية (ردود الفريق وتذكيرات الجلسات مستمرة)',
+      data: { message_id: messageId },
+    });
+    return true;
+  }
+  /** «إلغاء الإيقاف» من الفريق (DELETE /api/admin/clients/:id/auto-opt-out): سجل أمان + سطر في السجل */
+  function clearOptOut(clientId, { actor = null, ctx = null } = {}) {
+    const c = db.get('SELECT id, code, wa_auto_opt_out_at FROM clients WHERE id = ?', Number(clientId));
+    if (!c) throw notFound('العميل غير موجود');
+    if (!c.wa_auto_opt_out_at) return { cleared: false, client_id: c.id, auto_opt_out_at: null };
+    db.tx(() => {
+      db.run('UPDATE clients SET wa_auto_opt_out_at = NULL WHERE id = ?', c.id);
+      const data = { entity: 'client', id: c.id, code: c.code, from: c.wa_auto_opt_out_at, to: null };
+      const last = db.get("SELECT id FROM intakes WHERE client_id = ? AND status IN ('new','in_review','awaiting_client') ORDER BY id DESC LIMIT 1", c.id);
+      app.activity.log({ intake_id: last?.id ?? null, client_id: c.id, actor, type: 'client.auto_opt_out_cleared', summary: `ألغى ${actor?.name || 'الفريق'} إيقاف الرسائل الآلية`, data });
+      app.audit?.log({ actor, ctx, type: 'client.auto_opt_out_cleared', severity: 'info', summary: `إلغاء إيقاف الرسائل الآلية للعميل ${c.code || c.id}`, data });
+    });
+    return { cleared: true, client_id: c.id, auto_opt_out_at: null };
+  }
+
+  // ───────────── v12 staff-lines (SL-5، E12-80…85، L12-77…79): قائمة الخدمات على واتساب ─────────────
+  /** اسم المكتب في الرسائل (L12-85): firm_legal_name وإلا brand_name */
+  const firmName = () => String(S('firm_legal_name') || '').trim() || (app.brand?.displayName ? app.brand.displayName() : '');
+  const fillLines = (tpl, values) => String(tpl ?? '').replace(/\{(\w+)\}/g, (m, k) => (values[k] ? String(values[k]) : m));
+
+  /**
+   * رقم «أفراد وشركات» (L12-79): رقم الأفراد والشركات، أو الأساسي في وضع «الخدمتين معًا»، أو الأساسي ما دام لا رقم
+   * مخصص والأفراد والشركات عليه (wa_paid_on_main). الأساسي «الخيري» بوجود رقم مخصص ليس خطًا للأفراد والشركات.
+   */
+  function paidLine(line) {
+    if (!line || line.key === 'unknown') return false;
+    if (line.key === 'paid') return true;
+    if (line.key !== 'main') return false;
+    if (line.mode === 'shared') return true;
+    return !lineByKey('paid') && S('wa_paid_on_main') !== false;
+  }
+
+  /** هل توقفت القائمة؟ (رسالة واردة بعد إرسالها ليست ردًا عليها = قصة، فلا تُفهم الأرقام المكتوبة بعدها كاختيار، E12-84) */
+  function menuStopped(i) {
+    if (!i?.lines_menu_sent_at) return true;
+    return !!db.get(
+      "SELECT 1 FROM messages WHERE intake_id = ? AND direction = 'in' AND created_at > ? AND json_extract(meta, '$.lines_reply') IS NULL LIMIT 1",
+      i.id,
+      i.lines_menu_sent_at,
+    );
+  }
+
+  /**
+   * رد على قائمة الخدمات قبل حفظ الرسالة (engine.receive): زر line:<الخط>، صف path:<l1>/<l2> (يُتحقق منه بـ resolvePath)،
+   * أو كلمة/رقم مكتوب (E12-84) ما دامت القائمة أُرسلت ولم تتوقف. يُقبل على رقم «أفراد وشركات» ولطلب «أفراد وشركات» فقط
+   * (L12-79)؛ غير ذلك يُحفظ نصًا عاديًا. ← { kind: 'line'|'row', path, via: 'button'|'typed' } أو null.
+   */
+  function linesReplyOf({ intake, msg = {}, text = '', line = null } = {}) {
+    if (!intake || intake.segment !== 'paid' || !paidLine(line)) return null;
+    const ctx = app.pathways ? app.pathways.treeCtx() : undefined;
+    const rid = String(msg?.reply?.id || '');
+    const lm = /^line:(consultation|litigation|company)$/.exec(rid);
+    if (lm) return { kind: 'line', path: lm[1], via: 'button' };
+    if (/^path:[a-z0-9/-]{3,60}$/.test(rid)) {
+      const r = resolvePath(rid.slice(5), ctx);
+      if (!r || r.exit || r.depth < 2) return null;
+      return { kind: 'row', path: r.path, via: 'button' };
+    }
+    if (rid || (msg?.attachments || []).length) return null;
+    if (!intake.lines_menu_sent_at || menuStopped(intake)) return null;
+    const cur = intake.pathway || null;
+    if (!cur) {
+      const l = lineFromText(text);
+      return l ? { kind: 'line', path: l, via: 'typed' } : null;
+    }
+    if (intake.pathway_source === 'wa_menu' && !cur.includes('/')) {
+      const p = rowFromText(cur, text, ctx);
+      return p ? { kind: 'row', path: p, via: 'typed' } : null;
+    }
+    return null;
+  }
+
+  /** رسالة آلية من قائمة الخدمات (داخل نافذة 24 ساعة فقط، لا تجعل الرسائل «مقروءة»، مخفية من صفحة المتابعة) */
+  function sendLinesMessage(i, rule, body, wa = {}) {
+    try {
+      return app.engine.sendToClient({
+        client_id: i.client_id,
+        intake_id: i.id,
+        body,
+        channel: 'whatsapp',
+        automated: true,
+        rule,
+        keep_unread: true,
+        meta: { portal_hidden: true, wa: { session_only: true, ...wa } },
+      });
+    } catch (e) {
+      app.log?.(`lines menu message ${rule} failed`, e);
+      return null;
+    }
+  }
+
+  /**
+   * W-01 (E12-80 + L12-77/L12-79): أول رسالة قصيرة من شخص جديد على رقم «أفراد وشركات» ← ثلاثة أزرار. كل الشروط معًا: الإعداد مفعّل؛
+   * الرسالة أنشأت الطلب (لا تكرار، لا رقم غير مضبوط، لا تأكيد هوية ولا رقم طلب ولا إدخال من الفريق، ولا رد تفاعلي)؛ الطلب
+   * «أفراد وشركات» بلا مسار ولا شركة مقدِّمة؛ الرسالة قصيرة (أقل من 25 حرفًا ذا معنى بلا وسائط) أو الجملة العامة؛ القصة مؤهلة؛
+   * لا رسالة صادرة لهذا الشخص خلال 24 ساعة؛ لا قائمة لطلب آخر له خلال 30 يومًا؛ لم يرسل كلمة إيقاف؛ ثم المطالبة بالعمود.
+   */
+  function maybeLinesMenu(i, result = {}, msg = {}) {
+    if (!i || S('wa_lines_menu_enabled') !== true) return false;
+    if (!result.created_intake || result.duplicate || result.no_auto) return false;
+    if (result.identity_confirm || result.confirmed_intake || result.story?.mentioned_ref || result.story?.staff_entry) return false;
+    if (msg?.reply?.id || result.interactive) return false;
+    if (msg?.channel && msg.channel !== 'whatsapp') return false;
+    if (!paidLine({ key: result.segment?.line ?? null, mode: result.segment?.mode ?? null })) return false;
+    if (i.segment !== 'paid' || i.pathway || requesterOf(i)) return false;
+    if (optedOutAt(i.client_id)) return false;
+    // قصيرة: أقل من 25 حرفًا ذا معنى بلا وسائط (الجملة العامة وحدها صفر حرف؛ جملتها لا تُعد من القصة)
+    if ((msg?.attachments || []).length) return false;
+    const st = app.stories?.storyText ? app.stories.storyText(i.id) : null;
+    if (!st || st.meaningfulLetters >= 25 || st.hasMedia) return false;
+    if (!app.stories?.autoEligible?.(i)) return false;
+    if (db.get("SELECT 1 FROM messages WHERE client_id = ? AND direction = 'out' AND created_at >= ?", i.client_id, addDays(nowIso(), -1))) return false;
+    if (db.get('SELECT 1 FROM intakes WHERE client_id = ? AND id != ? AND lines_menu_sent_at >= ?', i.client_id, i.id, addDays(nowIso(), -30))) return false;
+    const claim = db.run('UPDATE intakes SET lines_menu_sent_at = ? WHERE id = ? AND lines_menu_sent_at IS NULL', nowIso(), i.id);
+    if (claim.changes !== 1) return false;
+    const body = fillLines(LINES_MENU_TEXTS.lines_menu, { firm_name: firmName() });
+    sendLinesMessage(i, 'lines_menu', body, {
+      type: 'buttons',
+      text: body,
+      footer: LINES_MENU_TEXTS.lines_menu_footer,
+      buttons: ['consultation', 'litigation', 'company'].map((k) => ({ id: `line:${k}`, title: LINES[k].label })),
+    });
+    return true;
+  }
+
+  /** نص W-02…W-04 ورسالة القائمة لخط (صفوف من pageOf، L12-63: بلا صف المستشار حين تتوقف خدمة الشركات) */
+  function linesList(line) {
+    const ctx = app.pathways ? app.pathways.treeCtx() : undefined;
+    const page = pageOf(line, ctx);
+    if (!page) return null;
+    const body = LINES_MENU_TEXTS[`lines_list_${line}`] || page.q;
+    return {
+      body,
+      wa: {
+        type: 'list',
+        header: LINES[line].label,
+        text: body,
+        button: LINES_MENU_TEXTS.lines_list_button,
+        sections: [
+          {
+            title: LINES[line].label,
+            rows: page.options.map((o) => ({ id: `path:${o.path}`, title: String(o.wa || o.label).slice(0, 24), description: o.wa_desc ? String(o.wa_desc).slice(0, 72) : undefined })),
+          },
+        ],
+      },
+    };
+  }
+
+  /** نص W-05 أو W-06 لمسار صف */
+  function linesNextText(pathway) {
+    if (String(pathway || '').startsWith('company/counsel')) {
+      const base = String(config.publicBaseUrl || '').replace(/\/+$/, '');
+      const portal = app.pathways ? app.pathways.treeCtx().portal : true;
+      const tail = base && portal ? ` ${fillLines(LINES_MENU_TEXTS.lines_counsel_account, { base_url: base })}` : '';
+      return `${LINES_MENU_TEXTS.lines_counsel}${tail}`;
+    }
+    return LINES_MENU_TEXTS.lines_next;
+  }
+
+  /**
+   * بعد حفظ رد القائمة (E12-85): المسار بمصدر «من قائمة واتساب» (لا يغلب قيمة الفريق ولا مصدرًا آليًا آخر)، ثم مرة واحدة:
+   * القائمة بعد الخط (W-02…W-04)، أو W-05 / W-06 بعد الصف. المتابعة للطلب الذي أُرسلت له القائمة فقط. ← true إن كُتب المسار.
+   */
+  function onLinesReply(i, reply, msg = {}) {
+    if (!i || !reply || !app.pathways) return false;
+    if (reply.kind === 'line' && i.pathway && i.pathway.split('/')[0] === reply.path) return false;
+    let res = null;
+    try {
+      res = app.pathways.set(i.id, reply.path, { source: 'wa_menu' });
+    } catch (e) {
+      app.log?.('lines menu pathway failed', e);
+      return false;
+    }
+    if (!res) return false;
+    // review (F6): صف هو ورقة (company/other، consultation/other، litigation/paper) يحفظ موضوعها ومجالها كما يحفظهما الموقع،
+    // ولا يغلب قيمة موجودة
+    const leaf = reply.kind === 'row' ? leafOf(res.path) : null;
+    if (leaf) {
+      if (leaf.topic && topicByKey(leaf.topic)) db.run('UPDATE intakes SET topic = ? WHERE id = ? AND topic IS NULL', leaf.topic, i.id);
+      if (leaf.area && AREA_CODES.includes(leaf.area)) db.run('UPDATE intakes SET legal_area = ? WHERE id = ? AND legal_area IS NULL', leaf.area, i.id);
+    }
+    const row = db.get('SELECT * FROM intakes WHERE id = ?', i.id);
+    if (!row?.lines_menu_sent_at || optedOutAt(row.client_id)) return true;
+    const sent = (rule) => !!db.get('SELECT 1 FROM messages WHERE intake_id = ? AND automation_rule = ? LIMIT 1', row.id, rule);
+    if (reply.kind === 'line') {
+      if (!sent('lines_list')) {
+        const l = linesList(reply.path);
+        if (l) sendLinesMessage(row, 'lines_list', l.body, l.wa);
+      }
+    } else if (!sent('lines_next')) {
+      sendLinesMessage(row, 'lines_next', linesNextText(row.pathway));
+    }
+    return true;
+  }
+
   const svc = {
     label,
     shortLabel,
@@ -994,6 +1336,22 @@ export function createSegments(app) {
     maybeChoice,
     onChoice,
     PAID_TOPICS,
+    // v12 staff-lines (L12-75): طلب أفراد وشركات من رقم سبق له طلب أو ملف «خيري» (للفريق فقط)
+    markReturningCharity,
+    // v12 staff-lines (SL-5، L12-77…79): قائمة الخدمات على واتساب وكلمات الإيقاف
+    paidSentenceOf,
+    isStopWord,
+    optedOutAt,
+    optOut,
+    clearOptOut,
+    paidLine,
+    linesReplyOf,
+    maybeLinesMenu,
+    onLinesReply,
+    linesList,
+    linesNextText,
+    firmName,
+    charityPublic,
   };
   return svc;
 }

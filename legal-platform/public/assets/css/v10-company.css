@@ -1,9 +1,4 @@
-/* ==========================================================================
-   v10 — بوابة الشركات /company: التخطيط فقط (الألوان رموز من app.css وv10-experience.css، بلا قيم حرفية).
-   الذهبي لزر «طلب جديد» وحده (.btn-accent من app.css؛ L-63): لا خلفيات ذهبية ولا نص ذهبي فاتح هنا.
-   الهاتف ≤ 1023px: شريط علوي + شريط تبويب سفلي. الحاسوب ≥ 1024px: شريط علوي + تنقل جانبي فاتح 240px.
-   ========================================================================== */
-
+/* Company portal /company layout (v10). Comments removed in v12 (look, LK-0) to keep /company within 30,000 B br; the commented source is v10-company.css in git (11.0). */
 .k-body {
   background: var(--bg);
 }
@@ -12,7 +7,6 @@
   min-height: 100vh;
 }
 
-/* ───────────── رابط التخطي ───────────── */
 .co-skip {
   position: absolute;
   inset-inline-start: 8px;
@@ -30,7 +24,6 @@
   inset-block-start: 8px;
 }
 
-/* ───────────── الشريط العلوي ───────────── */
 .co-chrome .k-chrome-start {
   gap: 12px;
 }
@@ -274,6 +267,10 @@
   border-color: var(--border);
 }
 
+.co-user .avatar {
+  display: none;
+}
+
 .co-user-name {
   max-width: 180px;
   overflow: hidden;
@@ -282,7 +279,6 @@
   font-weight: 600;
 }
 
-/* شريط انقطاع الاتصال (U10-81) */
 .co-offline {
   position: sticky;
   inset-block-start: var(--k-chrome-h);
@@ -302,7 +298,6 @@
   display: none;
 }
 
-/* ───────────── الهيكل: التنقل الجانبي + المحتوى ───────────── */
 .co-body {
   display: block;
 }
@@ -358,7 +353,7 @@
     display: block;
     padding-inline-start: 16px;
     margin-inline-start: 4px;
-    border-inline-start: 1px solid var(--gold-line);
+    border-inline-start: 1px solid var(--rule);
     color: var(--label-2);
     font-size: 14px;
     overflow: hidden;
@@ -407,7 +402,6 @@
   margin-block-end: 12px;
 }
 
-/* v11 visual (V11-44): «طلب جديد» الزر الممتلئ الوحيد (كان ذهبيًا) */
 @media screen {
   .btn-accent:is(.co-new-side, .co-pill) {
     background: var(--tint);
@@ -420,7 +414,6 @@
     color: var(--on-tint);
   }
 
-  /* صفحة الطلب لها زرها الممتلئ («إرسال الرد»…): «طلب جديد» في القائمة يصير ملوّنًا خفيفًا هناك */
   .co-detail .btn-accent:is(.co-new-side, .co-pill) {
     background: var(--tint-weak);
     color: var(--tint);
@@ -449,13 +442,14 @@
   min-height: 44px;
   padding: 8px 10px;
   border-radius: var(--r-10);
-  color: var(--label);
-  font-weight: 500;
+  color: var(--ink-2);
+  font-weight: 400;
   text-decoration: none;
 }
 
-.co-side-link .icon {
-  color: var(--primary-600);
+.co-side-link .icon,
+.co-new-side .icon {
+  display: none;
 }
 
 .co-side-link:hover {
@@ -464,23 +458,17 @@
 
 .co-side-link.is-active {
   background: var(--tint-weak);
-  color: var(--tint);
+  color: var(--ink);
   font-weight: 600;
 }
 
-.co-side-link.is-active .icon {
-  color: var(--tint);
-}
-
-/* العدد الممتلئ الوحيد في القائمة: «المتابعة» (.count) */
 .co-side-badge {
   margin-inline-start: auto;
   min-width: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--tint);
-  color: var(--on-tint);
-  font: 600 12px / 22px var(--font);
+  padding: 0;
+  background: none;
+  color: var(--act);
+  font: 600 13px / 22px var(--font);
   text-align: center;
 }
 
@@ -513,14 +501,11 @@
   color: var(--gray-900);
 }
 
-/* C-02: القائمة الفرعية الحالية في «الذاكرة القانونية» */
 .co-side-sublink[aria-current] {
-  background: var(--primary-50);
-  color: var(--primary-800);
+  color: var(--ink);
   font-weight: 600;
 }
 
-/* C-02: مسار التنقل في شاشات التفاصيل على الحاسوب فقط (الهاتف له زر الرجوع في الإطار) */
 .co-crumbs {
   display: none;
 }
@@ -604,7 +589,6 @@
   font-weight: 700;
 }
 
-/* ───────────── الصفحة ───────────── */
 .co-page {
   max-width: 1120px;
   margin-inline: auto;
@@ -632,6 +616,7 @@
 
 .co-h1 {
   font: var(--t-large);
+  font-weight: 600;
   margin: 0;
   outline: none;
   overflow-wrap: anywhere;
@@ -643,13 +628,8 @@
   font: var(--t-callout);
 }
 
-/* v11 visual (V11-13): القسم سطح أبيض بظل خفيف بلا حد؛ والقائمة داخله بلا ظل ثانٍ */
 .co-section {
-  margin-block-end: 20px;
-  padding: 16px;
-  border-radius: var(--r-20);
-  background: var(--surface);
-  box-shadow: var(--e-1);
+  margin-block-end: 32px;
 }
 
 .co-section-head {
@@ -658,51 +638,27 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px 12px;
-  margin-block-end: 10px;
+  margin-block-end: 12px;
+  padding-block-end: 6px;
+  border-block-end: 1px solid var(--ink);
+}
+
+.co-section-head:has(+ .k-list, + div > .k-list:first-child) {
+  margin-block-end: 0;
 }
 
 .co-section-title {
   margin: 0;
-  font: var(--t-title3);
+  font: var(--t-head);
 }
 
-.co-section > .k-list,
-.co-section > div > .k-list {
-  margin-inline: -16px;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* «المتابعة» (V11-12/44): العنوان خارج القائمة المجمّعة، والقائمة أو المحتوى سطح واحد */
-.co-overview .co-section {
-  margin-block-end: 24px;
-  padding: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.co-overview .co-section-head {
-  margin-block-end: 6px;
-  padding-inline: 4px;
-}
-
-.co-overview .co-section > .k-list,
-.co-overview .co-section > div > .k-list {
-  margin-inline: 0;
-  border-radius: var(--r-20);
-  box-shadow: var(--e-1);
-}
-
-.co-overview .co-section > :not(.co-section-head, .k-list, :has(> .k-list)) {
-  padding: 16px;
-  border-radius: var(--r-20);
-  background: var(--surface);
-  box-shadow: var(--e-1);
+.co-section .k-row {
+  padding-inline: 0;
 }
 
 .co-count {
-  color: var(--label-2);
-  font-weight: 500;
+  color: var(--ink-3);
+  font-weight: 400;
 }
 
 .co-link {
@@ -749,16 +705,15 @@
   }
 }
 
-/* حالات الصفحة (U10-79…82) */
 .co-state {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  max-width: 520px;
-  margin: 48px auto;
-  padding: 24px 16px;
-  text-align: center;
+  max-width: 560px;
+  margin: 32px auto;
+  padding: 20px 0;
+  border-block: 1px solid var(--rule);
 }
 
 .co-state p {
@@ -766,26 +721,10 @@
   color: var(--text-muted);
 }
 
-/* «العودة إلى {عنوان طويل}» يلتف ولا يمد الصفحة (تكبير 200%) */
 .co-state .btn {
   max-width: 100%;
   height: auto;
   white-space: normal;
-}
-
-.co-state-icon {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-600);
-}
-
-.co-state-icon.is-danger {
-  background: var(--danger-100);
-  color: var(--danger-700);
 }
 
 .co-skeleton {
@@ -807,7 +746,6 @@
   color: var(--text-muted);
 }
 
-/* ───────────── «المتابعة» ───────────── */
 .co-overview > .alert {
   margin-block-end: 12px;
 }
@@ -822,12 +760,15 @@
   color: var(--warning-700);
 }
 
-.co-attn-row .k-row-icon {
-  box-shadow: none;
-  background: var(--warn-weak);
+.k-body .k-row-icon:not(:has(.co-date-chip)),
+.co-empty-icon,
+.co-state-icon,
+.co-cell-icon,
+.co-promise-icon,
+.co-team-mark {
+  display: none;
 }
 
-/* v11 visual (V11-44): الإجراء كلمة ملوّنة في آخر الصف (لا زر بحدود)، ومساحة لمسها الصف كله (الرابط نفسه) */
 .co-attn-row {
   position: relative;
 }
@@ -864,10 +805,6 @@
   gap: 12px;
 }
 
-.co-empty-icon {
-  color: var(--success-700);
-}
-
 .co-empty-title {
   margin: 0;
   font-weight: 700;
@@ -889,29 +826,25 @@
 .co-quick {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 0 20px;
 }
 
 .co-quick-tile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 72px;
-  padding: 12px;
-  border-radius: var(--r-14);
-  background: var(--fill-1);
-  color: var(--label);
-  font-weight: 600;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 0;
+  border-block-end: 1px solid var(--rule);
+  color: var(--ink);
   text-decoration: none;
 }
 
 .co-quick-tile .icon {
-  color: var(--tint);
+  display: none;
 }
 
 .co-quick-tile:hover {
-  background: var(--fill-2);
+  color: var(--act);
 }
 
 .co-quick-card {
@@ -924,34 +857,30 @@
   }
 }
 
-/* v11 visual (V11-44): شريحة التاريخ كورقة تقويم — اليوم كبير في السطر الأول والشهر تحته بالأحمر */
-.co-dates .k-row-icon {
-  flex: 0 0 48px;
+.k-row-icon:has(.co-date-chip) {
+  flex: 0 0 52px;
   height: auto;
-  padding: 4px 2px;
-  border-radius: var(--r-10);
-  background: var(--fill-1);
+  background: none;
 }
 
 .co-date-chip {
   display: block;
-  width: 44px;
-  font: 600 11px / 1.25 var(--font);
-  color: var(--bad);
-  text-align: center;
+  width: 52px;
+  font: 400 12px / 1.3 var(--font);
+  color: var(--ink-3);
+  text-align: start;
 }
 
 .co-date-chip::first-line {
-  font-size: 19px;
-  color: var(--label);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .co-intro p {
   margin: 0 0 6px;
 }
 
-
-/* ───────────── عناصر مشتركة (lib/company-ui.js) ───────────── */
 .co-stage {
   display: inline-flex;
   flex-wrap: wrap;
@@ -973,15 +902,10 @@
 .co-row .k-row-badges {
   order: 3;
   flex-basis: 100%;
-  padding-inline-start: 48px;
 }
 
 .co-row .k-row-title {
-  font-weight: 700;
-}
-
-.co-row .k-row-icon {
-  color: var(--primary-700);
+  font-weight: 600;
 }
 
 .co-meter {
@@ -995,8 +919,8 @@
 }
 
 .co-meter-big {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 30px;
+  font-weight: 600;
   line-height: 1.2;
   vertical-align: -2px;
 }
@@ -1027,10 +951,8 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 12px 14px;
-  border-radius: var(--r-14);
-  background: var(--surface);
-  box-shadow: var(--e-1);
+  padding: 0;
+  color: var(--ink-2);
 }
 
 .co-promise p {
@@ -1047,35 +969,18 @@
   color: var(--text-muted);
 }
 
-.co-promise-icon {
-  margin-block-start: 2px;
-  color: var(--gray-600);
-}
-
-.co-promise.tone-info .co-promise-icon {
-  color: var(--info-700);
-}
-
 .co-promise.tone-warning {
-  background: var(--warning-100);
-  box-shadow: none;
-}
-
-.co-promise.tone-warning .co-promise-icon {
-  color: var(--warning-700);
+  padding: 12px 14px;
+  background: var(--paper-2);
+  box-shadow: inset -2px 0 0 var(--warn);
+  color: var(--ink);
 }
 
 .co-promise.tone-danger {
-  border-color: var(--danger-100);
-  background: var(--danger-100);
-}
-
-.co-promise.tone-danger .co-promise-icon {
-  color: var(--danger-700);
-}
-
-.co-promise.tone-success .co-promise-icon {
-  color: var(--success-700);
+  padding: 12px 14px;
+  background: var(--paper-2);
+  box-shadow: inset -2px 0 0 var(--bad);
+  color: var(--ink);
 }
 
 .co-risk {
@@ -1094,16 +999,6 @@
   color: var(--primary-800);
 }
 
-.co-team-mark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: var(--primary-700);
-  color: var(--surface);
-}
-
 .co-card {
   display: grid;
   gap: 10px;
@@ -1114,13 +1009,12 @@
   box-shadow: var(--e-1);
 }
 
-/* v11 visual (V11-13): بلا حافة ملوّنة — العنوان وأيقونته يقولان «يحتاج منكم» */
 .co-card-attention {
   background: var(--surface);
 }
 
 .co-card-quiet {
-  background: var(--gray-50);
+  background: var(--paper-2);
 }
 
 .co-card-head {
@@ -1265,9 +1159,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 8px 0;
+  border-block-end: 1px solid var(--rule);
 }
 
 .co-file-type {
@@ -1292,7 +1185,6 @@
   min-height: 44px;
 }
 
-/* البحث الواحد (L-55) */
 .co-search {
   position: relative;
 }
@@ -1385,7 +1277,6 @@
   }
 }
 
-/* ───────────── «الطلبات» ───────────── */
 .co-filters {
   display: grid;
   gap: 10px;
@@ -1401,9 +1292,7 @@
 
 .co-seg {
   display: inline-flex;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--gray-100);
+  gap: 0 18px;
 }
 
 .co-seg.is-muted {
@@ -1413,19 +1302,20 @@
 .co-seg-btn {
   min-height: 44px;
   min-width: 44px;
-  padding: 6px 14px;
+  padding: 0 2px;
   border: 0;
-  border-radius: 9px;
   background: transparent;
-  color: var(--gray-700);
-  font: 600 14px / 1.4 var(--font);
+  color: var(--ink-2);
+  font: 400 15px / 1.4 var(--font);
   cursor: pointer;
 }
 
 .co-seg-btn[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--primary-800);
-  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.45em;
 }
 
 .co-req-search {
@@ -1520,7 +1410,6 @@
   min-height: 44px;
 }
 
-/* ───────────── «المزيد» ───────────── */
 .co-more .k-list + .k-list {
   margin-block-start: 16px;
 }
@@ -1541,8 +1430,6 @@
   overflow-wrap: anywhere;
 }
 
-/* تكبير النص 200% على هاتف 360 (عرض 180): الشريط العلوي يتسع — «طلب جديد» أيقونة باسمها المقروء واسم المكتب
-   بالشعار وحده، بلا تمرير أفقي (U10-A14) */
 @media (max-width: 340px) {
   .co-pill {
     padding-inline: 12px;
@@ -1562,7 +1449,6 @@
     flex-wrap: wrap;
   }
 
-  /* الصف يلتف: النص تحت الأيقونة حين لا يتسع لها، والإجراء تحته */
   .co-page .k-row {
     flex-wrap: wrap;
   }
@@ -1572,7 +1458,6 @@
   }
 }
 
-/* الهاتف: كل زر في صفحات البوابة هدف لمس ≥ 44px (‎.btn-link يلغي الارتفاع، و‎.btn-sm 32px) */
 @media (max-width: 1023px) {
   .co-page .btn:not(.btn-lg),
   .co-auth .btn:not(.btn-lg) {
@@ -1581,7 +1466,6 @@
   }
 }
 
-/* ───────────── الضغط (X10-P2): مربعات البوابة وأزرارها الخاصة تستجيب عند الإصبع لا عند الرفع ───────────── */
 .co-type-tile,
 .co-quick-tile,
 .co-mem-kind,
@@ -1613,7 +1497,6 @@
   transition-duration: var(--dur-press);
 }
 
-/* صفوف وروابط بعرض القائمة: تعتيم فقط */
 .co-side-link:active,
 .co-menu-item:active:not(:disabled),
 .co-search-opt:active,
@@ -1622,7 +1505,6 @@
   background-image: linear-gradient(var(--press-dim), var(--press-dim));
 }
 
-/* ───────────── الحركة المخفّضة ───────────── */
 @media (prefers-reduced-motion: reduce) {
   .co-skip,
   .co-pop,
@@ -1654,8 +1536,6 @@
   color: var(--text-muted);
 }
 
-/* ───────── gate C-07/C-08/C-11: لمس ووضوح ───────── */
-/* C-07: أهداف لمس ≥ 44 بكسل على الهاتف (الحقول 48، أزرار الأوراق، زر «إظهار»، إغلاق الحوار) */
 @media (pointer: coarse) {
   .input {
     min-height: 48px;
@@ -1682,7 +1562,6 @@
   }
 }
 
-/* C-11: النص الإرشادي في مربعات البحث هو تسميتها الظاهرة الوحيدة ← تباين ≥ 4.5:1 */
 .co-search input::placeholder,
 .co-req-search .input::placeholder,
 .search-input .input::placeholder {
@@ -1690,7 +1569,6 @@
   opacity: 1;
 }
 
-/* C-08: الألوان القسرية — الحالة المختارة (المقطع، التبويب، عنصر التنقل الحالي) بإطار لا بلون الخلفية وحده */
 @media (forced-colors: active) {
   [aria-pressed="true"],
   .k-tabbar [aria-current="page"],
@@ -1701,8 +1579,6 @@
   }
 }
 
-/* gate K8/J-09: نص شاشة التحميل بخط النظام — لا يطلب خط الويب (42 كيلوبايت) قبل وحدات البوابة على شبكة بطيئة؛
-   الخط يُطلب عند رسم الإطار */
 .boot-splash {
   font-family: "Segoe UI", Tahoma, system-ui, sans-serif;
 }

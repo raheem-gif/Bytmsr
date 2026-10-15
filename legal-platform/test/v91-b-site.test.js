@@ -29,7 +29,9 @@ const codeOf = (confirmUrl) => /كود التأكيد (\d{6})/.exec(decodeURICom
 const wordsIn = (s) => String(s).split(/\s+/).filter(Boolean).length;
 
 async function websiteIntake(t, phone = uniquePhone(), name = 'أم محمد عبد الله') {
-  const r = ok(await t.client().post('/api/public/intake', { name, phone, consent: true, description: desc, attribution: {} }), 201);
+  // v12 staff-lines: intended (L12-09): a «خيري» website request as in 11.0 (its default); while «خيري» is archived a POST
+  // without segment is «أفراد وشركات», so the helper names the side as the charity form does
+  const r = ok(await t.client().post('/api/public/intake', { name, phone, consent: true, description: desc, attribution: {}, segment: 'charity' }), 201);
   const intake = t.app.db.get('SELECT * FROM intakes WHERE code = ?', r.reference);
   return { r, intake, phone };
 }
@@ -396,6 +398,8 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   let t;
   before(async () => {
     t = await startTestApp();
+    // v12 entry: intended (E12 §12.2): these are the charity pages, checked in the restored state; «/» is the entry tree
+    t.app.settings.set('charity_public', true);
   });
   after(async () => t && t.close());
 
@@ -411,7 +415,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   };
 
   test('landing: free and private on the first screen, no conditional «للمستحقين», plain-word tiles to /intake?topic=', async () => {
-    const html = await get('/');
+    const html = await get('/khayri'); // v12 entry: intended (E12 §12.2)
     // v9.2 (تغيير مقصود): الشاشة الأولى صارت #start (مربعات الصور) بدل pub-hero، وبلا زر ذهبي واحد
     const start = /<section id="start"[\s\S]*?<\/section>/.exec(html)[0];
     assert.ok(start.includes('مجاني') && start.includes('المحامي مش بيشوف رقمك')); // v9.2 (تغيير مقصود): #start بدل pub-hero
@@ -446,6 +450,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     assert.ok(/<ol class="pub-how">[\s\S]*?أو على واتساب/.test(html), 'how-it-works mentions WhatsApp when configured');
 
     const noWa = await startTestApp({ config: NO_WA });
+    noWa.app.settings.set('charity_public', true); // v12 entry: intended (E12 §12.2): restored state
     try {
       const h2 = (await noWa.client().get('/khayri')).body; // v11 gate-public (intended): charity FAQPage on /khayri
       assert.ok(!h2.includes('wa.me'));
@@ -473,7 +478,8 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   });
 
   test('no third-party requests: no Google Fonts on any public page; self-hosted font preloaded; strict CSP kept (application/json is data)', async () => {
-    for (const p of ['/', '/about', '/privacy', '/terms', '/data-deletion', '/intake', '/portal']) {
+    // v12 entry: intended (E12 §12.2): + the tree, /services and the paid form; the charity form is /intake?seg=charity
+    for (const p of ['/', '/start/consultation', '/services', '/khayri', '/about', '/privacy', '/terms', '/data-deletion', '/intake?seg=charity', '/intake?path=consultation/other', '/portal']) {
       const html = await get(p);
       assert.ok(!/fonts\.(googleapis|gstatic)\.com/.test(html), p);
       assert.ok(!/<(?:script|link)[^>]+(?:src|href)="https?:\/\//.test(html.replace(/<link rel="canonical"[^>]+>/, '')), `${p} loads nothing from another origin`);
@@ -487,7 +493,7 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   });
 
   test('bm-public: a non-executable JSON block ≤ 3 KB with the organisation data, so pages never wait for /api/meta', async () => {
-    for (const p of ['/intake', '/', '/portal']) {
+    for (const p of ['/intake?seg=charity', '/khayri', '/portal']) { // v12 entry: intended (E12 §12.2; the tree pages carry no bm-public)
       const raw = jsonBlock(await get(p));
       assert.ok(Buffer.byteLength(raw) <= 3072, `${p}: ${Buffer.byteLength(raw)} bytes`);
       const data = JSON.parse(raw);
@@ -516,18 +522,19 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     const deps = preloadClosure(path.join(PUB, 'assets/js/public/landing.js'), PUB);
     assert.ok(deps.some((d) => d.startsWith('/assets/js/public/menu.js?v=')));
     assert.ok(!deps.some((d) => /lib\/ui\.js/.test(d)), 'the landing page never loads the component library');
-    const html = await get('/');
+    const html = await get('/khayri'); // v12 entry: intended (E12 §12.2): landing.js runs on /khayri and /services; «/» loads entry.js only
     for (const d of deps) assert.ok(html.includes(`<link rel="modulepreload" href="${d}" />`), d);
     const css = await (await fetch(`${t.base}/assets/css/public-site.css?v=${assetVersion(path.join(PUB, 'assets/css/public-site.css'))}`)).text();
     assert.match(css, /url\("\/assets\/fonts\/plex-arabic-400\.woff2\?v=[\w-]{10}"\)/);
   });
 
   test('lighter bundle: landing and static pages load neither ui.js nor app.css; common.js has no static import of the component library', async () => {
-    for (const p of ['/', '/about', '/privacy', '/terms', '/data-deletion']) {
+    for (const p of ['/', '/start/litigation', '/khayri', '/services', '/about', '/privacy', '/terms', '/data-deletion']) {
       const html = await get(p);
       assert.ok(!html.includes('/assets/css/app.css'), p);
       assert.ok(!/lib\/ui\.js/.test(html), p);
-      assert.match(html, /<body class="site pub v91/);
+      // v12 entry: intended (E12-20): the tree pages are «site pub pub-paid entry»
+      assert.match(html, p === '/' || p.startsWith('/start/') ? /<body class="site pub pub-paid entry"/ : /<body class="site pub v91/, p);
     }
     const common = fs.readFileSync(path.join(PUB, 'assets/js/public/common.js'), 'utf8');
     assert.ok(!/^import[^\n]*lib\/ui\.js/m.test(common));
@@ -636,6 +643,7 @@ describe('v9.1 b-site review — copy agreement, one number, Arabic digits, cold
 
   test('legal pages and 404 paint from inline critical CSS (title + «بالمختصر»), load the full stylesheet after the hero, and 404 is compressed', async () => {
     const t = await startTestApp();
+    t.app.settings.set('charity_public', true); // v12 entry: intended (E12 §12.2): /about exists while «خيري» is restored
     try {
       for (const p of ['/privacy', '/terms', '/about', '/data-deletion', '/no-such-page']) {
         const r = await t.client().get(p);
@@ -650,9 +658,10 @@ describe('v9.1 b-site review — copy agreement, one number, Arabic digits, cold
         assert.ok(hero > 0 && link > hero, `${p}: full stylesheet after the hero`);
         assert.ok(!r.body.includes('<!--site:critical-css'), p);
       }
-      const home = (await t.client().get('/')).body;
-      const homeCss = /<style>([\s\S]*?)<\/style>/.exec(home)[1];
-      assert.ok(!homeCss.includes('.pub-summary'), 'the landing page does not inline the legal-page block');
+      for (const p of ['/', '/khayri', '/services']) { // v12 entry: intended (E12 §12.2): the tree and both landings
+        const homeCss = /<style>([\s\S]*?)<\/style>/.exec((await t.client().get(p)).body)[1];
+        assert.ok(!homeCss.includes('.pub-summary'), `${p}: the landing page does not inline the legal-page block`);
+      }
       const gz = await fetch(`${t.base}/no-such-page`, { headers: { 'Accept-Encoding': 'gzip' } });
       assert.equal(gz.status, 404);
       assert.equal(gz.headers.get('content-encoding'), 'gzip');
@@ -668,10 +677,15 @@ describe('v9.1 b-site review — copy agreement, one number, Arabic digits, cold
     assert.match(css, /body\.pub\.v91 \.pub-summary a,[\s\S]*?padding-block: 10px;\s*margin-block: -10px;/);
     const t = await startTestApp();
     try {
-      const home = (await t.client().get('/')).body;
+      // v12 entry: intended (E12-20, E12 §12.2): the tree's WhatsApp link carries the neutral paid sentence; the charity home
+      // (restored) and the charity deletion page keep their words
+      const tree = (await t.client().get('/')).body;
+      assert.equal(decodeURIComponent(/href="https:\/\/wa\.me\/\d+\?text=([^"]+)"/.exec(tree)[1]), 'مرحبًا، أرغب في التواصل بخصوص خدمة قانونية.');
+      t.app.settings.set('charity_public', true);
+      const home = (await t.client().get('/khayri')).body;
       const wa = /href="https:\/\/wa\.me\/\d+\?text=([^"]+)"/.exec(home);
       assert.equal(decodeURIComponent(wa[1]), 'السلام عليكم، عندي مشكلة قانونية ومحتاجين مساعدتكم.');
-      const del = (await t.client().get('/data-deletion')).body;
+      const del = (await t.client().get('/data-deletion?side=charity')).body;
       assert.ok(del.includes('ابعتي الطلب على واتساب') && !del.includes('أرسل الطلب عبر واتساب'));
       // v9.2 (تغيير مقصود): زر واتساب في رأس كل صفحة (R2-B1) يسبق زر الحذف، فنقرأ رابط الصفحة نفسها داخل <main>
       const delMain = del.slice(del.indexOf('<main'));

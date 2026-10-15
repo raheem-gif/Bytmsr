@@ -375,7 +375,8 @@ describe('Public pages while the platform is being set up', () => {
       const meta = ok(await t.client().get('/api/meta'));
       assert.equal(meta.setup_required, true, 'the pages learn about setup mode from /api/meta');
       assert.equal(meta.site.org_phone, '01211114662');
-      for (const p of ['/intake', '/portal']) assert.equal((await t.client().get(p)).status, 200, p);
+      // v12 entry: intended (E12-10): a bare /intake redirects to the tree; the forms live at /intake?path=… (and the charity form via /p/)
+      for (const p of ['/intake?path=consultation/other', '/intake?seg=charity&via=p', '/portal']) assert.equal((await t.client().get(p)).status, 200, p);
     } finally {
       await t.close();
     }

@@ -1,9 +1,9 @@
-// الصفحة الرئيسية وصفحات «عن البرنامج» والسياسات (الإصدار 9.1 — B91-07/B91-20؛ v9.2 — P6):
+// صفحة «خيري» الرئيسية (/khayri حين يُعاد «خيري») وصفحة المكتب /services والسياسات و404 (الإصدار 9.1 — B91-07/B91-20؛ v9.2 — P6):
 // القائمة ومعاملات الحملة (menu.js) والصفحة المحفوظة (saved.js) فقط — بلا مكتبة المكونات.
 // v9.2: مربع «صفحة طلبك» مكان «طلبك فين؟» على موبايلها، زر «بالصوت» (listen.js يُحمَّل عند الحاجة)،
 // وتحميل ملفات نموذج الطلب مسبقًا وهي تختار.
-// v11 gate-public (GP-4، G11-17 + r2): شاشة الاختيار — «خيري» يكشف المربعات الجاهزة تحتها بلا أي طلب شبكة،
-// وزر الرجوع يعيد الشاشة؛ صفحة الأفراد والشركات (#topics) بنفس السلوك عدا «بالصوت».
+// v12 entry (E12-71 #1): لا شاشة اختيار؛ «/» صارت الشجرة (entry.js). في صفحات الأفراد والشركات روابط «متابعة طلب»
+// ([data-follow]) تفتح صفحة الطلب المحفوظة على هذا الجهاز مباشرة.
 
 import { captureAttribution, initSiteChrome } from './menu.js';
 import { readSaved, forgetSaved } from './saved.js';
@@ -12,13 +12,11 @@ captureAttribution();
 initSiteChrome();
 
 const body = document.body;
-const start = document.getElementById('start') || document.getElementById('topics');
-const gate = document.getElementById('gate');
+const start = document.getElementById('start');
 let L = null; // listen.js بعد التأكد من وجود صوت عربي
-let sayHome = null;
 if (start) {
   savedTile();
-  sayHome = wireListen(
+  wireListen(
     document.getElementById('start-listen'),
     () => [
       { text: start.dataset.sayIntro, el: document.getElementById('start-title') },
@@ -29,12 +27,13 @@ if (start) {
     '.pub-pick-tile, .pub-pick-way',
   );
   prefetchForm();
+} else {
+  savedLinks();
 }
-if (gate) initGate();
 
 // (r2 S12) الرجوع والتقدم يعرضان الصفحة من ذاكرة bfcache أو من ذاكرة HTTP دون أن يصل الطلب للخادم (فلا Set-Cookie):
 // الكعكة تعود لجانب الصفحة المعروضة. فقط في الصفحات التي يكتب الخادم كعكتها (data-seg-sync)، ولا شيء أثناء التحميل المسبق.
-const syncSide = () => body.dataset.segSync === '1' && !body.classList.contains('has-gate') && setSide(body.dataset.side);
+const syncSide = () => body.dataset.segSync === '1' && setSide(body.dataset.side);
 addEventListener('pageshow', () => document.prerendering || syncSide());
 document.addEventListener('prerenderingchange', syncSide);
 
@@ -44,55 +43,14 @@ function setSide(side) {
   document.cookie = `bm_seg=${side}; Path=/; Max-Age=15552000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
 }
 
-// (د) شاشة الاختيار: البطاقتان روابط عادية تعمل بلا JS؛ هنا «خيري» يكشف الصفحة تحتها في الإطار نفسه
-function initGate() {
-  const site = document.getElementById('site');
-  const cards = [...gate.querySelectorAll('.gate-card')];
-  const gateTitle = document.title;
-  const siteTitle = gate.dataset.titleSite || gateTitle;
-  // روابط قديمة مثل /#faq: الرابط يحمل القسم حتى بلا JS
-  if (location.hash) for (const a of cards) a.href = `${a.getAttribute('href').split('#')[0]}${location.hash}`;
-  wireListen(
-    gate.querySelector('.gate-listen'),
-    () => [{ text: gate.dataset.sayIntro, el: document.getElementById('gate-title') }, ...cards.map((a) => ({ text: a.dataset.say, el: a }))],
-    gate,
-    '.gate-card',
-  );
-  const show = (on) => {
-    if (on) body.prepend(gate);
-    else gate.remove();
-    body.classList.toggle('has-gate', on);
-    site?.toggleAttribute('inert', on);
-    body.dataset.segSync = on ? '' : '1';
-    document.title = on ? gateTitle : siteTitle;
-  };
-  gate.querySelector('.gate-card--charity')?.addEventListener('click', (e) => {
-    if (e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    setSide('charity');
-    show(false);
-    const q = new URLSearchParams(location.search);
-    q.delete('gate');
-    const qs = q.toString();
-    history.pushState({ gate: false }, '', `/khayri${qs ? `?${qs}` : ''}${location.hash}`);
-    const h1 = document.getElementById('start-title');
-    h1?.setAttribute('tabindex', '-1');
-    h1?.focus({ preventScroll: !!location.hash });
-    try {
-      if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
-    } catch {
-      /* مراجعة: قسم بترميز مكسور (#%E0%A4) لا يوقف قراءة الصفحة بالصوت */
-    }
-    if (sayHome && L?.listenOn()) sayHome();
-  });
-  // الرجوع إلى «/» يعيد الشاشة بعنوانها، والتقدم يكشف المربعات من جديد — بلا شبكة في الحالتين
-  addEventListener('popstate', () => {
-    const on = location.pathname === '/';
-    if (on === body.classList.contains('has-gate')) return;
-    L?.stop();
-    show(on);
-    (on ? gate.querySelector('.gate-listen:not([hidden])') || cards[0] : document.getElementById('start-title'))?.focus();
-  });
+// v12 entry (E12-25): صفحة طلب محفوظة على هذا الجهاز ← روابط «متابعة طلب» تفتحها مباشرة («صفحة طلبكم» حين يكون الرابط كلمة فقط)
+function savedLinks() {
+  const saved = readSaved();
+  if (!saved) return;
+  for (const a of document.querySelectorAll('a[data-follow]')) {
+    a.href = saved.url;
+    if (!a.children.length) a.textContent = 'صفحة طلبكم';
+  }
 }
 
 // (أ) صفحة طلب محفوظة على هذا الموبايل: «صفحة طلبك» في نفس مكان «طلبك فين؟» بلا أي إزاحة، و✕ في ركنه

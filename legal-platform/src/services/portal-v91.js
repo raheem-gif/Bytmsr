@@ -774,6 +774,11 @@ export function createPortalV91(app, { scopeOf, inList }) {
     if (docs.length - audio > max) throw badRequest(`تقدري تبعتي لحد ${max} صور في المرة الواحدة`);
     if (audio > 3) throw badRequest('تقدري تبعتي لحد 3 رسايل صوتية');
     for (const d of docs) if (!d || typeof d.data_base64 !== 'string' || !d.data_base64) throw badRequest('الملف فاضي. اختاري الصورة تاني');
+    // v12 media (MD-4، H-M13، L12-70): كل صورة وكل أصل من الماسح يُفحص كاملًا قبل أي كتابة؛ القرص الممتلئ ← 503
+    if (docs.length && app.media) {
+      if (app.media.diskLow()) throw app.media.diskLowError();
+      app.media.checkAttachments(docs, { surface: 'portal' });
+    }
     return docs;
   };
 

@@ -33,6 +33,9 @@ import {
   errorMessage,
 } from '../../../lib/ui.js';
 import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus, replaceQuery } from './inbox.js';
+// v12 staff-lines (SL-2/SL-3، L12-75/77/81): مسار الطلب وتعديله، «مقترح» بتأكيد، و«سبق التعامل مع خيري» و«أوقف الرسائل الآلية»
+import { returningCharityChip, optOutChip } from './inbox.js';
+import { lineChip, pathLine, suggestRow, openPathwaySheet } from '../../components/pathway-ui.js';
 import { pickClient } from './clients.js';
 import { beneficiaryCard } from '../../components/beneficiary.js'; // v9 practice
 import { programSelect } from '../../components/program-picker.js';
@@ -1698,6 +1701,29 @@ export default async function render(ctx) {
       }
     }, 80);
   }
+  // ───────────── v12 staff-lines (SL-2/SL-3): مسار الطلب تحت العنوان ─────────────
+  const pathway = d.pathway || null;
+  function editPathway() {
+    return openPathwaySheet({ id: it.id, pathway }, { onSaved: () => reloadAndFocus(ctx, '.path-line .btn-link') });
+  }
+  async function clearOptOut() {
+    if (!cl) return;
+    await api.del(`/admin/clients/${cl.id}/auto-opt-out`);
+    toast('عادت الرسائل الآلية لهذا الشخص', 'success');
+    await reloadAndFocus(ctx, '.path-line');
+  }
+  function pathRow() {
+    const sug = !pathway && d.pathway_suggest ? suggestRow({ id: it.id, pathway: null, suggested_line: d.pathway_suggest.line, suggested_line_label: d.pathway_suggest.label }, { onConfirm: () => reloadAndFocus(ctx, '.path-line') }) : null;
+    const optedOut = Boolean(d.auto_opt_out_at);
+    return h(
+      'div.pa-path-row',
+      pathLine(pathway, { onEdit: editPathway }),
+      sug,
+      d.returning_charity ? returningCharityChip() : null,
+      optedOut ? [optOutChip(), ' ', h('button.btn-link', { type: 'button', tag: 'PTH-15', onClick: () => run(clearOptOut) }, 'إلغاء الإيقاف')] : null,
+    );
+  }
+
   // عنوان واحد ثابت لكل الحالات («الطلب REQ-…» كعنوان المتصفح)، والموضوع تحته: لا يتبدل العنوان بين اسم المرسل
   // وموضوع الطلب بحسب حالته
   const header = pageHeader({
@@ -1719,6 +1745,7 @@ export default async function render(ctx) {
     meta: [
       segHead(),
       statusBadge('intake_status', it.status),
+      lineChip(pathway), // v12 staff-lines (§5.7): «استشارة» · «دعوى» · «شركات»
       ['high', 'urgent'].includes(it.priority) && statusBadge('priority', it.priority, { dot: false, icon: 'flag' }),
       // v9.2: الموضوع الذي اختارته (قائمة واتساب أو الموقع) وحالة القصة
       story && story.topic_label && badge(`الموضوع: ${story.topic_label}`, 'neutral', { icon: 'list' }),
@@ -1728,6 +1755,10 @@ export default async function render(ctx) {
     // (V6) لا صف «رجوع» مستقل: مسار التنقل أعلى الصفحة يعود إلى صندوق الوارد
     actions: it.status === 'converted' && d.case ? [button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}` })] : null,
   });
+
+  // v12 staff-lines (SL-2): سطر المسار تحت العنوان (بين السطر الفرعي وصف البيانات)
+  const headText = header.querySelector('.page-header-text');
+  if (headText) headText.insertBefore(pathRow(), headText.querySelector('.page-meta'));
 
   return h(
     'div.pa-page.pa-page-intake',

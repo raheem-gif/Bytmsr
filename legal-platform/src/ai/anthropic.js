@@ -41,6 +41,8 @@ export const MODEL_PRICES = {
   'claude-sonnet-5': { input: 2, output: 10, cache_read: 0.2, cache_write: 2.5 },
   'claude-sonnet-4-6': { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
   'claude-haiku-4-5': { input: 1, output: 5, cache_read: 0.1, cache_write: 1.25 },
+  // v12 media (L12-19): Haiku 5.5 للبرومبت حتى 100K رمز (فوقها 0.5 / 2.5)؛ قراءة الذاكرة 0.1× وكتابتها 1.25× سعر الإدخال
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.125 },
 };
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -564,9 +566,9 @@ const FALLBACK_MODELS = ['claude-fable-5-1', 'claude-opus-5-5', 'claude-opus-5',
 function routingParams(model) {
   return FALLBACK_MODELS.includes(model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
 }
-// مستوى الجهد غير مدعوم على Haiku 4.5
-function effortConfig(model, level) {
-  return /haiku/.test(String(model)) ? {} : { effort: level };
+// مستوى الجهد غير مدعوم على Haiku 4.5 وما قبله؛ Haiku 5.5 يقبله (v12 media، L12-19)
+export function effortConfig(model, level) {
+  return /haiku-(?:3|4)/.test(String(model)) ? {} : { effort: level };
 }
 
 /**
@@ -786,7 +788,7 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
             max_tokens: 512,
             ...routingParams(model),
             messages: [{ role: 'user', content: 'اختبار اتصال: أجب بكلمة «تم» فقط.' }],
-            ...(/haiku/.test(String(model)) ? {} : { output_config: { effort: 'low' } }),
+            ...(effortConfig(model, 'low').effort ? { output_config: effortConfig(model, 'low') } : {}), // v12 media (L12-19)
           },
           { maxRetries: 0, timeout: 30_000 },
         );

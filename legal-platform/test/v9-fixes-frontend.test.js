@@ -102,6 +102,9 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
     assert.ok(!visibleStrings(pl).some((s) => /عميل|عملاء/.test(s.text)));
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 entry: intended (E12-13, E12 §12.2): archived, /portal is on the paid side (« | » title); the charity words are checked restored
+      assert.match((await t.client().get('/portal')).body, /<title>متابعة طلبكم \| Emam Legal and Consultancy<\/title>/);
+      t.app.settings.set('charity_public', true);
       const html = (await t.client().get('/portal')).body;
       assert.match(html, /<title>متابعة طلبك — Emam Legal and Consultancy<\/title>/); // v11 gate-public (intended): same title, rendered
       assert.match(html, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/); // v11 gate-public (intended): same h1, rendered
@@ -109,7 +112,7 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
       assert.match(html, /<span>تابعي طلبك<\/span>/, 'site nav label');
       assert.match(html, /<a href="\/portal">تابعي طلبك<\/a>/, 'footer label');
       assert.ok(!html.includes('بوابة العملاء'));
-      const home = (await t.client().get('/')).body;
+      const home = (await t.client().get('/khayri')).body; // v12 entry: intended (E12 §12.2): the charity home
       assert.match(home, /ضيّعت رابط طلبي، أعمل إيه؟/);
     } finally {
       await t.close();

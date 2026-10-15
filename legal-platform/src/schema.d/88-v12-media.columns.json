@@ -1,0 +1,8 @@
+[
+  ["documents", "scan_state", "TEXT"],
+  ["documents", "display_file_id", "INTEGER"],
+  ["documents", "page_count", "INTEGER"],
+  ["documents", "ocr_state", "TEXT"],
+  ["documents", "width", "INTEGER"],
+  ["documents", "height", "INTEGER"]
+]

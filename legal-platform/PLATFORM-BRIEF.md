@@ -452,6 +452,135 @@ explanation. Lawyers get concise professional Arabic.
 
 ---
 
+## الإصدار 12.0 — Version 12.0
+
+<!-- v12:entry -->
+### The first page is a three-level tree, the paid intake asks one question per screen, «خيري» is archived on the site (entry)
+
+- **Tree** (`public/assets/js/public/entry-tree.js`, pure and browser-safe; `TREE_VERSION`): `/` asks «كيف نساعدكم؟» with
+  three rows (`consultation`, `litigation`, `company`), `/start/<line>` and `/start/<line>/<node>` list the next level,
+  and a leaf opens `/intake?path=<line>/<node>/<leaf>`. Server-rendered from `src/site.js` (`entry.html`, class contract
+  `lh`, `trail`, `q__title`, `opts`, `opt`), plain links, no JavaScript needed, no cookie written; tree pages count views
+  per day (`entry_tree_daily`, schema 87) for staff analytics. The v11 gate and `site_gate_enabled` are gone; old URLs
+  (`/?gate=1`, `/intake?seg=paid`, `/intake?topic=…`, `/khairy`, `/charity`) redirect through `app.pathways.classify`
+  with the campaign parameters kept. B2B off or the company portal closed removes the in-house-counsel row.
+- **Paid intake** (`intake.js` with a `bm-path` block ≤ 1,024 B and the `bm-copy` block from `site-copy-paid.js`): the
+  same white page (I-04 mark, I-03 «رجوع», I-01 trail, I-02 step line «n من N»), then the leaf's 0–2 questions (each
+  with «لا أعرف», `aria-current` on the previous answer, focus on the new `h1`), the story, «هل لديكم مستندات؟» (the
+  media lane's photo picker with page grouping; a multi-page document goes up as one PDF, originals kept for staff),
+  and the phone screen (line chips on the callback form, «اسم الشركة (اختياري)» on company leaves, «رقم من خارج مصر؟»
+  → WhatsApp). The success screen (I-60…I-68) adds the urgent line when `isUrgent(path, answers)` and the phone number
+  only while the office is open. Drafts are keyed on the path; a voice note held from an older draft is still sent
+  while web voice is off (`web_voice_enabled`, media). Budgets: /intake static closure ≤ 32,768 B br (measured
+  29.7 KB), intake.js ≤ 21,149 B br (measured 20,986 B), /intake HTML ≤ 16,384 B br.
+- **`POST /api/public/intake`** takes `pathway` (≤ 80 chars, resolved with `resolvePath`; an exit or unknown path is
+  ignored and recorded as `attribution.detail.pathway_invalid`). A valid path forces `segment = 'paid'`
+  (`segment_source = 'website'`, `via = 'pathway'`), sets topic, legal area and answers from the leaf
+  (`sanitizePathAnswers`), `entry = 'tree'`, `form_answers.company_name` on company leaves, and
+  `form_answers.inferred.urgent_hint`. After the row is saved, `app.pathways.set(id, path, {source:'website',
+  onlyIfEmpty:true})` and `segments.markReturningCharity` run inside try/catch, so a failure there never loses a
+  request. The 201 body adds `urgent` and `call_now`. Charity requests (restored state) are byte-for-byte the 11.0 path.
+- **Archive of «خيري»** (`charity_public`, default false after the upgrade; `charity_archived_landing` = notice or
+  redirect): no «خيري» or «مجاني» on any paid page, `/khayri` shows the KH notice («متابعة طلب سابق», the charity
+  WhatsApp when one is configured, no fees, no paid header), every charity link, `/p/` page, WhatsApp number and document keeps working, and a
+  website request without a segment is paid (`segments.fromWebsite`). Restoring brings back the 11.0 charity home,
+  the charity intake (byte-identical `<main>`), a quiet «خيري» row under the tree and the charity legal sentences.
+- **Legal pages**: privacy §6 stop words, §7 the fixed automated messages sentence (readiness checks read it) and the
+  media processors disclosure (`app.media.privacyHtml(side)`, Egypt PDPL), §12 the `bm_seg` cookie sentence per state;
+  terms keep the «خيري» bullet only while restored; data deletion gets `app.media.deletionHtml(side)`.
+- **Copy**: no em-dash cadence and no «!» on the paid side, « | » as the title separator, «إدارة قانونية خارجية»,
+  Arabic number–noun agreement through `pagesAr`. Lawyers and companies see none of the tree data.
+- **Demo** (`src/seed-v12-entry.js`): six tree requests through `app.publicIntake` (01092000501…506), seven days of
+  tree views, `firm_legal_name = «إمام وشركاه»`; nothing is sent and no media job is queued.
+<!-- /v12:entry -->
+
+<!-- v12:look -->
+### "The firm's stationery": tokens, display face, restyle of every surface, no page logic (look)
+
+- **Tokens** (`app.css :root`, and the public general critical `:root`): `--paper/-2/-3`, `--ink/-2/-3`, `--rule/-2`,
+  `--field`, `--act` (= `--primary-700`), `--gold` (logo/ornament only), status `--ok/--warn/--bad/--info`, type
+  `--d1…--d4` (display) and `--t-*` (Plex), `--r-1` = 2 px, `--sheet-shadow`. The v11 role names are re-pointed to them
+  (`--canvas*`→paper, `--label*`→ink, `--separator`→rule, `--tint-weak`/`--gold-wash`→transparent, `--e-1/--e-2`→none,
+  radii → 2 px), globally in `/app` and `/company`, and on public pages through
+  `:root:has(> body:not([data-side="charity"], .pub-charity))` so the archived charity screens keep the 11.0 look
+  (PW-L8: tile and pictogram rects identical to 11.0).
+- **Fonts** (`public/assets/fonts/`, OFL texts in `OFL.txt`, subset commands in `README.txt`): «Emam Display» =
+  `amiri-arabic-400-sub.woff2` (41,328 B, 76 code points; the `unicode-range` equals the list in README.txt) +
+  `cormorant-latin-500-sub.woff2` (11,912 B, Latin/digits; the space belongs to Amiri), `font-display: optional`.
+  Allowed only on `.q__title` and static h1/h2 (public), `.page-title`/`.empty-title` (staff); never on option rows
+  (`.opt__t` = Plex 400 20 px), form controls or anything with user data (`.bp-greet`, `.co-h1`, record titles) —
+  enforced by an allow-list test. Amiri is preloaded on `/services` only and not with `Save-Data: on` (H-L1). Paid public
+  pages no longer fetch Plex 700 (the remaining 700s render 600).
+- **Critical CSS** (`public-site.css`, parsed by `CRITICAL_RE`): general (≤ 8,500 B, ends `/* @critical-end:general */`),
+  `:charity` (the charity home's first screen, used only by the restored charity home), `:entry` (`/` and `/start/*`,
+  ≤ 3,072 B), `:paid` (`/services`), `:legal`. The gate block is gone.
+- **Component layer** `public/assets/css/v12-look.css` (linked last in `app.html` and `company.html`, screen only,
+  ≈ 1.1 KB br): `.state` (dot + word), `.line-chip`, `.line-path(--suggest)`, `.path-line`, `.btn-link` (≥ 44 px hit area),
+  `.btn.btn--primary/--line/--text/--sm`, `.vt-warn`; secondary/tinted buttons as 1-px ink outlines; the sidebar current
+  row = white + 2-px act start bar. Markup lanes write these classes and no CSS.
+- **Surfaces**: public masthead/footer/`/services` (hanging `.sec-label` only ≥ 900 px), intake, `/p/` (one box only
+  when something is due; diamond steps), legal pages, 404, `/portal`; staff shell (`shell.js` chrome: «منصة المكتب»,
+  groups «اليوم · الشركات · المكتب · النظام»), inbox docket rows over `.pa-story`, dashboard figures, hanging-label
+  settings, segment diamonds (charity `--gold-ink` outline, paid `--act`); company portal (text nav, ruled sections,
+  «طلب جديد» catalog as ruled option rows by CSS alone, date column, 2-px meter, diamond step tracker, words files without
+  «—»); lawyer phone shell (white tab bar, 22-px glyphs, count in act, ruled assignment/matter/calendar rows); shared
+  `.code-tag`, `.tab-count`, `.chip-toggle` (2-px hairline, selected = ink border, never a filled pill), `.progress`
+  (2-px meter). Forced colours: every focus stop gets a `Highlight` outline.
+- **Budgets (measured)**: `/app` sheets 57,321 B br (≤ 60,000), `/company` 28,729 B br with the page sheet (≤ 30,000),
+  `v12-look.css` 1,141 B br (≤ 6,144); cold 390 px Fast 3G: `/` 117.3 KB (≤ 120 KB), `/services` 166.6 KB (≤ 200 KB);
+  CLS `/` 0.0007, `/services` 0.0052, `/p/` 0, `/company` 0.0003, `/app#/inbox` 0.001; 0 px overflow at 320 and at 180
+  CSS px (200 % zoom). Tests: `test/v12-look.test.js` (30).
+<!-- /v12:look -->
+
+<!-- v12:staff-lines -->
+### Request type and path for staff, the WhatsApp services menu, archive on WhatsApp, settings (staff-lines)
+
+- **Every paid request carries a type and a path**: «استشارة» / «دعوى قضائية» / «شركات» (`service_line`), then the area
+  or situation, then the topic (`pathway`, e.g. `litigation/defend/family`), as chosen on the first page, in the
+  WhatsApp menu, or set by staff. One module writes it (`app.pathways`); a paid request without a type (old rows
+  included) reads «لم يُحدَّد النوع», and that filter/count covers paid requests only (charity requests have no type;
+  the dashboard group is paid-only and sums to the «أفراد وشركات» open count). Staff see it everywhere a request is listed: the inbox filter «كل الأنواع» (with counts, kept in
+  `?line=`, inside the phone filter sheet), a path line on each row, «مقترح: …» + one-tap «تأكيد» for rows that have an
+  area but no path, the request header «المسار: … · من …» + «تعديل» (three cascading selects and an optional reason),
+  the dashboard group «حسب نوع الطلب», and analytics (`line` on the funnel, the section «من الصفحة الأولى إلى الطلب»:
+  views per tree page with the share of the page above, requests per path). New endpoints, all staff-only and audited:
+  `PUT /api/admin/intakes/:id/pathway` (`intake.pathway_changed {from,to,reason}`), `DELETE
+  /api/admin/clients/:id/auto-opt-out` (`client.auto_opt_out_cleared`), `GET /api/admin/analytics/entry-tree`
+  (`analytics.viewed {report:'entry_tree'}`).
+- **WhatsApp services menu** (setting `wa_lines_menu_enabled`, default off, demo on): the first short message from a
+  new person on the paid number gets three buttons (W-01, the firm's name from `firm_legal_name`), then a short list
+  (W-02…W-04, rows generated from the same tree as the website), then one closing message (W-05 with «خلاص» and the
+  fee promise, or W-06 for in-house counsel). Fixed texts, never AI, session-only (24-hour window, never a template),
+  once per person, never on the charity number or a charity request, never in reply to a button. A ready-made website
+  sentence sets the path without the menu, and a leaf (sentence or list row) also stores its topic and legal area when
+  empty, as the website form does. The path is added as one context line to the AI story analysis of paid
+  requests only (the charity request bytes are unchanged).
+- **Stop words**: a message that is only «توقف», «إيقاف», «ايقاف», «الغاء», «إلغاء», «stop» or «unsubscribe» sets
+  `clients.wa_auto_opt_out_at` (schema 89); automated story/menu/survey messages are then skipped for that person,
+  staff replies, hearing reminders and fee messages are not. Staff see «أوقف الرسائل الآلية» and can undo it.
+- **Archive on WhatsApp**: while «خيري» is hidden from the site, the v11 charity/paid choice buttons are never sent, a
+  website request without a type is paid, a returning charity client is flagged to staff only («سبق التعامل مع «خيري»»),
+  and readiness warns when the main number is still in charity mode.
+- **Settings «الصفحة الأولى»** (replaces «شاشة الاختيار»; `site_gate_enabled` is retired and hidden): the charity
+  switch with a confirm dialog, what old charity links open while archived (a notice, or the first page), the firm's
+  legal name, the paid phone, and «عن المكتب» (city, founding year, up to 8 partners with name and title). Changes to
+  `charity_public`, `charity_archived_landing`, `wa_lines_menu_enabled`, `firm_partners` (count only) and the media
+  privacy switches each write their own security-log row with `{from, to}`.
+- **Lawyers and companies see nothing new**: no type, path, chip or marker in any of their pages or APIs (route scans
+  over every lawyer and company GET).
+<!-- /v12:staff-lines -->
+
+<!-- v12:media -->
+<!-- /v12:media -->
+
+<!-- v12:tags -->
+<!-- /v12:tags -->
+
+<!-- v12:gate -->
+<!-- /v12:gate -->
+
+---
+
 ## الإصدار 11.0 — Version 11.0: an entry gate with two sides, one service-line field end to end, and the real visual redesign
 
 ### 11.0 in plain words — one door, two sides, the same work behind them
@@ -1858,7 +1987,7 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- automated tests (`npm test`, all passing at version 11.0.0: 1,435 in 341 suites; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+- automated tests (`npm test`, all passing at version 12.0.0 (the 12.0 count is recorded by the 12.0 gate); 1,435 in 341 suites at 11.0.0; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
   158 page views and, in 9.1, 9.2 and 10.0, a browser usability run per lane at phone widths (including a simulated slow 3G
   network for the beneficiary pages and the company portal). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
   360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review; 10.0's

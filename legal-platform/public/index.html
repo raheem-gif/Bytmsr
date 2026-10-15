@@ -5,18 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{home_title}}</title>
     <meta name="description" content="{{home_description}}" />
-    <!-- v11 gate-public (G11-05): العنوان والوصف حسب الحالة (شاشة الاختيار أو صفحة «خيري» بنصها في 10.0)؛ شعار الشاشة يُحمَّل مبكرًا -->
-    {{{gate_preload}}}
+    <!-- v12 entry (E12-71): صفحة «خيري» الرئيسية على /khayri وحدها، حين يُعاد «خيري» (charity_public)؛ لا شاشة اختيار -->
     <!--site:head-->
-    <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم؛ v11: + كتلة «gate» في حالة الشاشة -->
-    <!--site:critical-css{{critical_suffix}}-->
+    <!-- B91-11: أنماط الشاشة الأولى مضمّنة (من public-site.css نفسه)، والملف الكامل بعد الشاشة الأولى فلا يؤخر أول رسم؛ v12 look: + كتلة «charity» -->
+    <!--site:critical-css:charity-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
-  <body class="site pub v91 pub-landing{{gate_class}}" data-side="{{side}}" data-seg-sync="{{seg_sync}}">
-    <!-- v11 gate-public (L11-03): شاشة الاختيار أول عنصر في الصفحة (حالة الشاشة فقط)، وصفحة «خيري» تحتها جاهزة (inert) -->
-    {{{gate_layer}}}
-    <div id="site"{{site_inert}}>
-    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
+  <body class="site pub v91 pub-landing" data-side="{{side}}" data-seg-sync="{{seg_sync}}">
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -130,6 +125,5 @@
     </main>
 
     {{{footer}}}
-    </div>
   </body>
 </html>

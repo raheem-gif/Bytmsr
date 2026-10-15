@@ -24,6 +24,7 @@ import {
   confirmDialog,
 } from '../../../lib/ui.js';
 import { emailSettingsCard } from '../../components/email-settings.js'; // v10 b2b-staff (STF-9، U10-S24)
+import { tagged } from '../../../lib/h.js'; // v12 media (MD-6): رموز بطاقة تحويل الصوت INT-01…INT-17
 
 const SOURCE_TONE = { env: 'info', db: 'success', default: 'neutral' };
 const ICONS = { whatsapp: 'whatsapp', anthropic: 'sparkle' };
@@ -354,6 +355,180 @@ function integrationCard(item, data, reload, settings = {}) {
   });
 }
 
+// ───────── v12 media (MD-6، M12-06، L12-62، L12-71): بطاقة «تحويل الرسائل الصوتية إلى نص» ─────────
+export const STT_VENDOR_REQUIRED = 'اكتب اسم المزوّد وأكّد شروطه قبل الحفظ.';
+export const STT_KEY_NOTE = 'تغيير المزوّد أو العنوان يمسح المفتاح المحفوظ.';
+const STT_PRESETS = [
+  { id: 'openai', label: 'OpenAI', provider: 'openai_compatible', base_url: 'https://api.openai.com', model: 'gpt-4o-transcribe', hosting: 'third_party', vendor_name: 'OpenAI', price_per_minute_usd: '0.006' },
+  { id: 'groq', label: 'Groq', provider: 'openai_compatible', base_url: 'https://api.groq.com/openai', model: 'whisper-large-v3', hosting: 'third_party', vendor_name: 'Groq', price_per_minute_usd: '0.00185' },
+  { id: 'own_whisper', label: 'خادم Whisper خاص بالمكتب', provider: 'openai_compatible', base_url: 'http://127.0.0.1:8000', model: 'Systran/faster-whisper-large-v3', hosting: 'own_server', vendor_name: '', price_per_minute_usd: '0' },
+  { id: 'google', label: 'Google Speech-to-Text', provider: 'google', base_url: '', model: '', hosting: 'third_party', vendor_name: 'Google', price_per_minute_usd: '0.016' },
+];
+const STT_TEST_TEXT = {
+  auth: 'رفض المزوّد المفتاح',
+  timeout: 'انتهت المهلة دون رد',
+  network: 'تعذر الاتصال بالمزوّد',
+  blocked_host: 'عنوان الخدمة غير مسموح',
+  http: 'رفض المزوّد الطلب',
+  off: 'التحويل متوقف',
+  not_configured: 'الإعدادات ناقصة',
+  too_big: 'المقطع أكبر من المسموح',
+  no_clip: 'مقطع الاختبار غير موجود على الخادم',
+};
+const sttVal = (item) => Object.fromEntries((item.fields || []).map((f) => [f.key, f]));
+
+/** هل التحويل مضبوط؟ (نفس شرط الخادم: المزوّد، العنوان أو المفتاح، واسم المزوّد وتأكيد شروطه للجهة الخارجية) */
+export function sttConfigured(item) {
+  const v = sttVal(item);
+  const p = v.provider?.value || 'off';
+  if (p === 'off') return false;
+  const third = (v.hosting?.value || 'third_party') !== 'own_server';
+  if (p === 'google' && !v.api_key?.set) return false;
+  if (p === 'openai_compatible' && !v.base_url?.value) return false;
+  if (third && (!v.api_key?.set || !v.vendor_name?.value || v.no_training_attested?.value !== 'yes')) return false;
+  return true;
+}
+
+function sttResultBox(r) {
+  if (!r) return h('p.pf-muted', icon('info', { size: 16 }), ' لم يُختبر الاتصال بعد.');
+  if (r.message) return testResultBox(r);
+  const text = r.ok ? `نجح الاتصال (${r.latency_ms} مللي ثانية)` : `فشل الاتصال: ${STT_TEST_TEXT[r.code] || 'تعذر الاختبار'}${r.status && !r.ok ? ` (${r.status})` : ''}`;
+  return alertBox(text, r.ok ? 'success' : 'danger', { title: r.ok ? 'آخر اختبار: ناجح' : 'آخر اختبار: فاشل' });
+}
+
+async function editStt(item, onSaved) {
+  const v = sttVal(item);
+  if (Object.values(v).some((f) => f.source === 'env')) return editIntegration(item, onSaved); // قيم من البيئة: النموذج العام يعرضها ثابتة
+  const cur = (k) => (v[k] && v[k].source === 'db' ? v[k].value || '' : '');
+  const initial = {
+    preset: '',
+    provider: cur('provider') || 'off',
+    base_url: cur('base_url'),
+    api_key: '',
+    model: cur('model'),
+    language: cur('language'),
+    prompt: cur('prompt'),
+    hosting: cur('hosting') || 'third_party',
+    vendor_name: cur('vendor_name'),
+    no_training_attested: v.no_training_attested?.value === 'yes',
+    price_per_minute_usd: cur('price_per_minute_usd'),
+    monthly_budget_usd: cur('monthly_budget_usd'),
+    max_seconds: cur('max_seconds'),
+  };
+  const opt = (k) => (v[k]?.options || []).map((o) => ({ value: o.value, label: o.label }));
+  const def = (k) => (v[k] && v[k].source === 'default' ? `الافتراضي: ${v[k].value}` : '');
+  const fields = [
+    { name: 'preset', label: 'نوع الخدمة', type: 'select', placeholder: false, options: [{ value: '', label: 'بلا قالب (يدوي)' }, ...STT_PRESETS.map((p) => ({ value: p.id, label: p.label }))], hint: 'يملأ الحقول بقيم الخدمة المختارة، وتبقى قابلة للتعديل.', full: true },
+    { name: 'provider', label: 'مزوّد التحويل', type: 'select', placeholder: false, options: opt('provider') },
+    { name: 'hosting', label: 'مكان التشغيل', type: 'select', placeholder: false, options: opt('hosting') },
+    { name: 'base_url', label: 'عنوان الخدمة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('base_url'), hint: STT_KEY_NOTE, full: true },
+    { name: 'api_key', label: 'المفتاح', type: 'password', autocomplete: 'new-password', placeholder: v.api_key?.set ? `محفوظ (${v.api_key.hint || '••••'}) — اتركه فارغًا للإبقاء عليه` : 'غير مضبوط', full: true },
+    { name: 'vendor_name', label: 'اسم المزوّد', type: 'text', maxLength: 60, autocomplete: 'off', hint: 'مطلوب للجهة الخارجية، ويظهر في سياسة الخصوصية.' },
+    { name: 'model', label: 'النموذج', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('model') },
+    { name: 'language', label: 'اللغة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('language') },
+    { name: 'no_training_attested', label: 'شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا تزيد على 30 يومًا', type: 'checkbox', full: true },
+    { name: 'prompt', label: 'توجيه النموذج', type: 'textarea', rows: 3, maxLength: 1000, placeholder: def('prompt') },
+    { name: 'price_per_minute_usd', label: 'السعر لكل دقيقة (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('price_per_minute_usd') },
+    { name: 'monthly_budget_usd', label: 'حد الإنفاق الشهري (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('monthly_budget_usd') },
+    { name: 'max_seconds', label: 'أقصى مدة للرسالة (ثانية)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('max_seconds') },
+  ];
+  const TAGS = { preset: 'INT-06', provider: 'INT-07', base_url: 'INT-08', api_key: 'INT-09', model: 'INT-10', language: 'INT-11', prompt: 'INT-12', hosting: 'INT-13', price_per_minute_usd: 'INT-14', monthly_budget_usd: 'INT-15', vendor_name: 'INT-16', no_training_attested: 'INT-17' };
+  const res = await formDialog({
+    title: h('span', 'تعديل ', bidiTitle(item.label)),
+    size: 'lg',
+    intro: 'النص الآلي مسودة يراجعها الفريق قبل الاعتماد عليها. المفتاح لا يُعرض بعد حفظه.',
+    fields,
+    values: initial,
+    submitLabel: 'حفظ الإعدادات',
+    setup: (f) => {
+      for (const [k, code] of Object.entries(TAGS)) tagged(code, f.control(k)?.wrap);
+      const preset = f.control('preset');
+      preset?.input?.addEventListener('change', () => {
+        const p = STT_PRESETS.find((x) => x.id === preset.get());
+        if (!p) return;
+        f.setValues({ provider: p.provider, base_url: p.base_url, model: p.model, hosting: p.hosting, vendor_name: p.vendor_name, price_per_minute_usd: p.price_per_minute_usd });
+      });
+    },
+    onSubmit: async (vals, f) => {
+      const third = vals.provider !== 'off' && vals.hosting !== 'own_server';
+      if (third && (!String(vals.vendor_name || '').trim() || !vals.no_training_attested)) {
+        f.setErrors({ vendor_name: STT_VENDOR_REQUIRED });
+        throw new Error(STT_VENDOR_REQUIRED);
+      }
+      const patch = {};
+      for (const k of Object.keys(initial)) {
+        if (k === 'preset') continue;
+        if (k === 'api_key') {
+          if (String(vals.api_key || '').trim()) patch.api_key = String(vals.api_key).trim();
+          continue;
+        }
+        const nv = k === 'no_training_attested' ? (vals[k] ? 'yes' : '') : String(vals[k] ?? '').trim();
+        const ov = k === 'no_training_attested' ? (initial[k] ? 'yes' : '') : String(initial[k] ?? '').trim();
+        if (nv !== ov) patch[k] = nv;
+      }
+      if (!Object.keys(patch).length) throw new Error('لم تغيّر أي قيمة.');
+      return api.put('/admin/integrations/stt', { values: patch });
+    },
+  });
+  if (!res) return;
+  toast('تم حفظ إعدادات تحويل الصوت', 'success');
+  onSaved();
+}
+
+function sttCard(item, reload, settings = {}) {
+  const v = sttVal(item);
+  const ok = sttConfigured(item);
+  const third = (v.hosting?.value || 'third_party') !== 'own_server';
+  const resultSlot = tagged('INT-05', h('div.pf-test-result', sttResultBox(item.last_test)));
+  const test = tagged(
+    'INT-04',
+    asyncButton(
+      'اختبار الاتصال',
+      async () => {
+        const r = await api.post('/admin/integrations/stt/test');
+        mount(resultSlot, sttResultBox(r));
+        toast(r.ok ? 'نجح الاتصال' : `فشل الاتصال: ${STT_TEST_TEXT[r.code] || 'تعذر الاختبار'}`, r.ok ? 'success' : 'danger');
+      },
+      { variant: 'secondary', icon: 'zap', size: 'sm' },
+    ),
+  );
+  const edit = tagged('INT-03', button('تعديل', { variant: 'primary', icon: 'edit', size: 'sm', onClick: () => editStt(item, reload) }));
+  const since = settings.stt_third_party_since;
+  const where = (v.provider?.value || 'off') === 'off' ? 'متوقف' : third ? `جهة خارجية${v.vendor_name?.value ? `: ${v.vendor_name.value}` : ''}` : 'خادم المكتب';
+  const status = tagged(
+    'INT-02',
+    h(
+      'div.pf-badges',
+      ok ? badge('مضبوط', 'success', { icon: 'check' }) : badge('غير مضبوط', 'warning', { icon: 'alert' }),
+      h('span.pf-muted', `مكان التشغيل: ${where}`),
+      since && third ? h('span.pf-muted', `تحويل الصوت عند جهة خارجية معلن منذ ${dateTime(since)}`) : null,
+      item.updated_at ? h('span.pf-muted', `آخر تعديل ${relative(item.updated_at)}${item.updated_by_name ? ` (${item.updated_by_name})` : ''}`) : null,
+    ),
+  );
+  const extras = [];
+  if (item.undecryptable) extras.push(alertBox('تغيّر مفتاح التشفير بعد حفظ هذه الأسرار فلم يعد ممكنًا فك تشفيرها. أعد إدخال المفتاح.', 'danger', { title: 'تعذر فك تشفير القيم المحفوظة' }));
+  if (third && (v.provider?.value || 'off') !== 'off' && (!v.vendor_name?.value || v.no_training_attested?.value !== 'yes')) extras.push(alertBox(STT_VENDOR_REQUIRED, 'warning'));
+  extras.push(h('p.pf-muted', icon('info', { size: 14 }), ' النص الآلي مسودة للفريق وحده، لا يراه المحامي ولا صاحب الرسالة. طلبات «خيري» لا تُرسل إلى جهة خارجية إلا بإذن من «الإعدادات ← المستندات والصوت».'));
+  return tagged(
+    'INT-01',
+    card({
+      title: bidiTitle(item.label),
+      icon: 'mic',
+      className: 'pf-integration',
+      actions: h('div.pf-card-actions', test, edit),
+      // توجيه النموذج نص طويل: يُعرض في نافذة التعديل لا في القائمة (سطر «افتراضي / مخصص» فقط)
+      body: h(
+        'div.stack',
+        status,
+        extras,
+        fieldList({ ...item, fields: (item.fields || []).filter((f) => f.key !== 'prompt') }),
+        h('p.pf-muted', `توجيه النموذج: ${v.prompt && v.prompt.source === 'db' ? 'مخصص' : 'الافتراضي'}`),
+        h('div', h('h3.pf-subtitle', 'نتيجة اختبار الاتصال'), resultSlot),
+      ),
+    }),
+  );
+}
+
 // ───────── الأدلة المختصرة ─────────
 
 function guide(title, steps, open = false) {
@@ -382,6 +557,12 @@ function guides(data) {
         `من ${menu('WhatsApp Manager', 'Message Templates')} أنشئ قالبًا من فئة ${en('Utility')} باسم ${en('case_update')} بالعربية ونصه متغير واحد ${en('{{1}}')} (تستخدمه المنصة للتذكيرات والردود خارج نافذة الـ 24 ساعة)، وقالبًا من فئة ${en('Authentication')} باسم ${en('portal_login_code')} لرموز دخول المستفيدين إلى بوابتهم (OTP).`,
         'احفظ القيم من زر «تعديل» في بطاقة واتساب، ثم اضغط «اختبار الاتصال»، وأرسل رسالة تجريبية من هاتف إلى رقم المؤسسة لتظهر في صندوق الوارد.',
       ], true),
+      guide('ربط تحويل الرسائل الصوتية إلى نص', [
+        'الأنسب خادم Whisper على جهاز يملكه المكتب: لا يخرج الصوت من المكتب، ويعمل لكل الطلبات. اختر «خادم Whisper خاص بالمكتب» من «نوع الخدمة» واكتب عنوانه.',
+        `أو جهة خارجية (${en('OpenAI')} أو ${en('Groq')} أو ${en('Google')}): أنشئ مفتاحًا من لوحة المزوّد، واكتب اسمه، وأكّد أن شروطه تمنع التدريب على التسجيلات وأن مدة الاحتفاظ لا تزيد على 30 يومًا.`,
+        'اضبط السعر لكل دقيقة وحد الإنفاق الشهري، ثم اضغط «اختبار الاتصال».',
+        'تبدأ الرسائل الجديدة بعد الحفظ في الوصول بمسودة نصية يراجعها الفريق. الجهة الخارجية لا تتلقى صوت طلبات «خيري» إلا بإذن من الإعدادات.',
+      ]),
       guide('الحصول على مفتاح Claude من Anthropic', [
         `ادخل ${en('console.anthropic.com')} وأنشئ حسابًا باسم المؤسسة (أو ادخل بحسابها الحالي).`,
         `من ${menu('Settings', 'Billing')} أضف وسيلة دفع أو رصيدًا مسبقًا، ومن ${menu('Settings', 'Limits')} اضبط حدًا شهريًا للإنفاق يناسب ميزانية البرنامج.`,
@@ -416,13 +597,13 @@ export default async function render() {
       host,
       pageHeader({
         title: 'التكاملات',
-        subtitle: 'ربط واتساب للأعمال والذكاء الاصطناعي (Claude). تُحفظ الأسرار مشفرة ولا تُعرض بعد حفظها، وقيم متغيرات البيئة تتقدم على ما يُحفظ هنا.',
+        subtitle: 'ربط واتساب للأعمال والذكاء الاصطناعي (Claude) وتحويل الرسائل الصوتية إلى نص. تُحفظ الأسرار مشفرة ولا تُعرض بعد حفظها، وقيم متغيرات البيئة تتقدم على ما يُحفظ هنا.',
         actions: button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load }),
       }),
       h(
         'div.stack',
         keyAlert(data),
-        h('div.pf-integrations-grid', data.items.map((item) => (item.name === 'email' ? emailSettingsCard(item, data, { reload: load, companies }) : integrationCard(item, data, load, settings)))),
+        h('div.pf-integrations-grid', data.items.map((item) => (item.name === 'email' ? emailSettingsCard(item, data, { reload: load, companies }) : item.name === 'stt' ? sttCard(item, load, settings) : integrationCard(item, data, load, settings)))),
         guides(data),
         h(
           'p.pf-muted',

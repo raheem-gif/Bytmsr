@@ -14,6 +14,27 @@ import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord
 let CAP = null; // { photoPicker, sendWithProgress, uploadProgress, friendlyError, voiceRecorder, blobToUpload, draftStore }
 let capReq = null;
 const CAPTURE_VIEWS = new Set(['request', 'messages']);
+// v12 media (MD-7، M12-01…04): تسجيل الصوت من صفحة المتابعة مؤرشف ما لم يُفعَّل «الرسائل الصوتية من الموقع وصفحة المتابعة»
+// (bm-public.voice). عندها لا زر ميكروفون ولا مسجّل ولا طلب recorder.js، والنصوص كتابة فقط؛ تشغيل رسائل الفريق الصوتية باقٍ،
+// ومسودة قديمة فيها تسجيل تُعرض بسطر وتُرسل مع الرد أو تُحذف.
+const VOICE_ON = (() => {
+  try {
+    return JSON.parse(document.getElementById('bm-public')?.textContent || '{}').voice === true;
+  } catch {
+    return false;
+  }
+})();
+const AUDIO_EXT = { 'audio/webm': '.webm', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/mpeg': '.mp3' };
+/** تسجيل محفوظ في مسودة ← مرفق، دون تحميل recorder.js */
+function voiceBlobToUpload(blob) {
+  const mime = String(blob.type || '').split(';')[0].trim().toLowerCase() || 'audio/webm';
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve({ filename: `رسالة-صوتية${AUDIO_EXT[mime] || ''}`, mime: AUDIO_EXT[mime] ? mime : 'audio/webm', data_base64: String(r.result).split(',')[1] || '' });
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
 /** ملف تنسيق مكوّنات التصوير والتسجيل (لم يعد في <head> الصفحة): يُضاف ويُنتظر قبل أول عرض لها فلا تظهر بلا تنسيق */
 function formsCss() {
   return new Promise((resolve) => {
@@ -31,7 +52,7 @@ function formsCss() {
 function loadCapture() {
   if (CAP) return Promise.resolve(CAP);
   if (!capReq) {
-    capReq = Promise.all([import('./upload.js'), import('./recorder.js'), import('./drafts.js'), formsCss()]).then(
+    capReq = Promise.all([import('./upload.js'), VOICE_ON ? import('./recorder.js') : Promise.resolve({}), import('./drafts.js'), formsCss()]).then(
       ([u, r, d]) => (CAP = { ...u, ...r, ...d }),
       (err) => {
         capReq = null;
@@ -45,7 +66,7 @@ function loadCapture() {
 const draftStore = (...a) => CAP.draftStore(...a);
 const photoPicker = (...a) => CAP.photoPicker(...a);
 const voiceRecorder = (...a) => CAP.voiceRecorder(...a);
-const blobToUpload = (...a) => CAP.blobToUpload(...a);
+const blobToUpload = (blob, name) => (CAP.blobToUpload ? CAP.blobToUpload(blob, name) : voiceBlobToUpload(blob));
 const uploadProgress = (...a) => CAP.uploadProgress(...a);
 const sendWithProgress = (...a) => CAP.sendWithProgress(...a);
 /** رسالة الخطأ المفهومة (upload.js)، وفي صفحة بلا إرسال (موافقة، ميعاد، مكالمة) نفس كلامها دون تحميل الوحدة */
@@ -537,6 +558,25 @@ function forgetLine() {
   );
 }
 
+// ───────────── v12 media (MD-7): الصوت المؤرشف ─────────────
+
+/** «فيه رسالة صوتية محفوظة من قبل، هتتبعت مع ردّك» + حذفها (مسودة من قبل أرشفة التسجيل، M12-03) */
+function keptVoiceLine(onDrop) {
+  return h(
+    'p.bp-small.bp-voice-kept-line',
+    { role: 'status', tag: PC ? 'P-02' : null },
+    h('span', PC ? 'لديكم رسالة صوتية محفوظة من قبل، وستُرسل مع ردّكم.' : g('فيه رسالة صوتية محفوظة من قبل، هتتبعت مع ردّك.')),
+    ' ',
+    h('button.bp-linkbtn', { type: 'button', tag: PC ? 'P-03' : null, onClick: onDrop }, PC ? 'حذفها' : g('امسح{ي}ها')),
+  );
+}
+/** الرسالة الصوتية على واتساب بدل التسجيل في الصفحة (M12-04: يُذكر الصوت على واتساب فقط) */
+function waVoiceLine() {
+  const href = waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي');
+  if (!href) return null;
+  return h('p.bp-small.bp-wa-voice', { tag: PC ? 'P-01' : null }, h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, PC ? 'أو أرسلوا رسالة صوتية على واتساب' : g('أو ابعت{ي} رسالة صوتية على واتساب')));
+}
+
 // ───────────── الورق المطلوب (#request/<id>) ─────────────
 
 function requestView(id) {
@@ -612,20 +652,25 @@ function requestView(id) {
       syncSend();
     },
   });
-  const rec = voiceRecorder({
-    maxSeconds: 180,
-    variant: 'compact',
-    address: state.form,
-    whatsappUrl: waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي'),
-    onChange: (blob, meta) => {
-      voice = blob ? { blob, seconds: meta?.seconds || 0 } : null;
-      saveDraft();
-      syncSend();
-    },
-  });
+  // v12 media (MD-7): المسجّل فقط حين يُفعَّل الصوت من الموقع؛ وإلا سطر واتساب للرسالة الصوتية (إن وُجد واتساب)
+  const rec = VOICE_ON
+    ? voiceRecorder({
+        maxSeconds: 180,
+        variant: 'compact',
+        address: state.form,
+        whatsappUrl: waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي'),
+        onChange: (blob, meta) => {
+          voice = blob ? { blob, seconds: meta?.seconds || 0 } : null;
+          saveDraft();
+          syncSend();
+        },
+      })
+    : null;
+  const voiceHost = h('div.bp-voice-kept'); // مسودة قديمة فيها تسجيل
+  const waVoice = !VOICE_ON && waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي') ? waVoiceLine() : null;
   const noteBlock = isDoc
-    ? h('details.bp-note', h('summary', g('عايز{ة} تقول{ي} حاجة؟')), h('label.bp-sr', { htmlFor: ta.id }, 'ملاحظة'), ta, rec)
-    : h('div.bp-note.is-open', h('label.bp-label', { htmlFor: ta.id }, g('اكتب{ي} ردّك أو سجّل{ي} رسالة صوتية')), rec, ta);
+    ? h('details.bp-note', h('summary', g('عايز{ة} تقول{ي} حاجة؟')), h('label.bp-sr', { htmlFor: ta.id }, 'ملاحظة'), ta, rec, voiceHost, waVoice)
+    : h('div.bp-note.is-open', h('label.bp-label', { htmlFor: ta.id }, VOICE_ON ? g('اكتب{ي} ردّك أو سجّل{ي} رسالة صوتية') : PC ? 'اكتبوا ردّكم' : g('اكتب{ي} ردّك')), rec, voiceHost, ta, waVoice);
 
   // صور لطلب «معلومة» (اختيارية)
   let infoPicker = null;
@@ -648,7 +693,7 @@ function requestView(id) {
   async function submit(retryBody) {
     if (state.busy) return;
     if (!retryBody && !hasContent()) {
-      hint.textContent = isDoc ? g('صوّر{ي} ورقة الأول') : g('اكتب{ي} ردّك أو سجّل{ي} رسالة صوتية الأول');
+      hint.textContent = isDoc ? g('صوّر{ي} ورقة الأول') : VOICE_ON ? g('اكتب{ي} ردّك أو سجّل{ي} رسالة صوتية الأول') : PC ? 'اكتبوا ردّكم أولًا.' : g('اكتب{ي} ردّك الأول');
       return;
     }
     errBox.hidden = true;
@@ -666,7 +711,7 @@ function requestView(id) {
       host: progressHost,
       lock: (on) => {
         for (const p of pickers.values()) p.setDisabled?.(on);
-        rec.setDisabled?.(on);
+        rec?.setDisabled?.(on);
         ta.disabled = on;
         sendBtn.disabled = on;
       },
@@ -712,8 +757,20 @@ function requestView(id) {
         note = dr.note;
       }
       if (dr.voice?.blob) {
-        rec.setRecording?.(dr.voice);
         voice = dr.voice;
+        if (rec) rec.setRecording?.(dr.voice);
+        else {
+          if (noteBlock.tagName === 'DETAILS') noteBlock.open = true; // السطر داخل «عايزة تقولي حاجة؟» يظهر دون فتحها
+          mount(
+            voiceHost,
+            keptVoiceLine(async () => {
+              voice = null;
+              mount(voiceHost);
+              saveDraft();
+              syncSend();
+            }),
+          );
+        }
       }
       syncSend();
       mount(
@@ -729,7 +786,8 @@ function requestView(id) {
               kind: 'secondary',
               onClick: async () => {
                 for (const p of pickers.values()) p.clear?.();
-                rec.reset?.();
+                rec?.reset?.();
+                mount(voiceHost);
                 ta.value = '';
                 note = '';
                 voice = null;
@@ -1126,7 +1184,7 @@ function messagesView() {
   markSeen({ msg: lastOutId() });
   const thread = msgs.length
     ? h('ol.bp-thread', msgs.map(bubble))
-    : h('p.bp-empty', g('لسه مفيش رسايل. اكتب{ي}لنا أو سجّل{ي} رسالة صوتية، وهنرد عليك{ي}.'));
+    : h('p.bp-empty', VOICE_ON ? g('لسه مفيش رسايل. اكتب{ي}لنا أو سجّل{ي} رسالة صوتية، وهنرد عليك{ي}.') : PC ? 'لا توجد رسائل بعد. اكتبوا لنا وسنرد عليكم.' : g('لسه مفيش رسايل. اكتب{ي}لنا، وهنرد عليك{ي}.'));
   return [backBar('الرسائل'), h('section.bp-card.bp-chat', thread), composer(), h('div.bp-callback', btn(`${s('اطلبي')} مكالمة`, { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback }))];
 }
 
@@ -1152,13 +1210,16 @@ function composer() {
   };
   const recHost = h('div.bp-compose-rec', { hidden: true });
   const camHost = h('div.bp-compose-cam', { hidden: true });
-  const rec = voiceRecorder({
-    maxSeconds: 180,
-    variant: 'compact',
-    address: state.form,
-    onChange: (blob, meta) => (voice = blob ? { blob, seconds: meta?.seconds || 0 } : null),
-  });
-  recHost.append(rec);
+  // v12 media (MD-7): لا ميكروفون في الرسائل ما دام الصوت من الموقع مؤرشفًا
+  const rec = VOICE_ON
+    ? voiceRecorder({
+        maxSeconds: 180,
+        variant: 'compact',
+        address: state.form,
+        onChange: (blob, meta) => (voice = blob ? { blob, seconds: meta?.seconds || 0 } : null),
+      })
+    : null;
+  if (rec) recHost.append(rec);
   const picker = photoPicker({ label: g('صوّر{ي} ورقة'), variant: 'compact', max: 5, address: state.form, namePrefix: 'صورة', messages: { tooMany: () => g('تقدر{ي} تبعت{ي} لحد 5 صور في الرسالة') } });
   camHost.append(picker);
   const ctxChip = () =>
@@ -1173,7 +1234,7 @@ function composer() {
     ta.disabled = on;
     sendBtn.disabled = on;
     picker.setDisabled?.(on);
-    rec.setDisabled?.(on);
+    rec?.setDisabled?.(on);
   };
   const send = async (retryBody) => {
     if (state.busy) return;
@@ -1183,7 +1244,7 @@ function composer() {
       const docs = await picker.getUploads();
       if (voice?.blob) docs.push(await blobToUpload(voice.blob, 'رسالة-صوتية'));
       if (!text && !docs.length) {
-        toast(g('اكتب{ي} رسالتك أو سجّل{ي} رسالة صوتية الأول'), 'info');
+        toast(VOICE_ON ? g('اكتب{ي} رسالتك أو سجّل{ي} رسالة صوتية الأول') : PC ? 'اكتبوا رسالتكم أولًا.' : g('اكتب{ي} رسالتك الأول'), 'info');
         ta.focus();
         return;
       }
@@ -1230,7 +1291,7 @@ function composer() {
     camHost,
     errBox,
     progressHost,
-    h('div.bp-compose-row', tool('mic', g('سجّل{ي} رسالة صوتية'), recHost), tool('camera', g('صوّر{ي} ورقة'), camHost), sendBtn),
+    h('div.bp-compose-row', rec ? tool('mic', g('سجّل{ي} رسالة صوتية'), recHost) : null, tool('camera', g('صوّر{ي} ورقة'), camHost), sendBtn),
   );
 }
 
@@ -1456,7 +1517,8 @@ function invalidState() {
       other ? btn('افتحي آخر صفحة محفوظة', { kind: 'primary', block: true, href: other.url }) : null,
       callBtn(other ? 'secondary' : 'primary', { block: true }),
       wa ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', block: true, href: wa }) : null,
-      h('p.bp-new', h('a', { href: P('newHref', '/intake') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
+      // v12 entry (H-E2، L12-08): الأفراد والشركات ← «/» (bm-copy)؛ صفحة «خيري» ← نموذج «خيري» (via=p ما دام «خيري» متوقفًا على الموقع)
+      h('p.bp-new', h('a', { href: P('newHref', /"charity"\s*:\s*true/.test(document.getElementById('bm-public')?.textContent || '') ? '/intake?seg=charity' : '/intake?seg=charity&via=p') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
     ],
   });
 }

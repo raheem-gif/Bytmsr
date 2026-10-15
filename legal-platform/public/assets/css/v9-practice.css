@@ -117,12 +117,12 @@
 .v9p-cal-month { margin: 0; font-size: 1.15rem; min-width: 8.5em; text-align: center; }
 .v9p-cal-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .v9p-lawyer-filter .select-wrap { min-width: 190px; }
-.v9p-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--gray-100); border-radius: 10px; }
-.v9p-seg-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 7px 12px; border-radius: 8px; font: inherit; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; min-height: 36px; }
+.v9p-seg { display: inline-flex; gap: 0 18px; }
+.v9p-seg-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 7px 2px; font: inherit; font-size: 0.9rem; color: var(--ink-2); cursor: pointer; min-height: 36px; }
 /* v11 visual: V11-51 */
 .v9p-seg-btn::after, .v9p-day-num::after { content: ""; position: absolute; inset: -4px 0; }
 .v9p-day-num::after { inset: -7px; }
-.v9p-seg-btn[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); font-weight: 600; }
+.v9p-seg-btn[aria-pressed='true'] { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.45em; }
 .v9p-seg-btn:focus-visible { box-shadow: var(--focus-ring); outline: none; }
 .v9p-type-toggles { display: flex; flex-wrap: wrap; gap: 10px 6px; }
 .v9p-type-toggle { display: inline-flex; align-items: center; gap: 6px; }
@@ -161,9 +161,9 @@
   .v9p-dots { display: none; }
 }
 
-.v9p-cal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.v9p-cal-item { display: grid; grid-template-columns: 4px 92px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px 10px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.v9p-cal-item.is-overdue { border-color: #f3b4ad; }
+.v9p-cal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.v9p-cal-item { display: grid; grid-template-columns: 4px 92px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 0; border-block-end: 1px solid var(--rule); }
+.v9p-cal-item.is-overdue { border-color: var(--bad); }
 .v9p-cal-item.is-done { opacity: 0.7; }
 .v9p-cal-bar { align-self: stretch; border-radius: 4px; background: var(--v9p-c); }
 .v9p-cal-when { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; color: var(--text); }

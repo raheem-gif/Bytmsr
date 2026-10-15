@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "frozen": false,
+  "note": "v12 tags-core (TG-0): reserved ranges of spec §5.9. The tags sweep and npm run tags never number inside a reserved range; next = first number the tool may hand out. Unused reserved numbers stay gaps.",
+  "prefixes": {
+    "L": {
+      "next": 12,
+      "reserved": [
+        { "from": 1, "to": 11, "lane": "entry", "what": "entry and tree page chrome (L-07 = نتصل بكم)" }
+      ],
+      "retired": {}
+    },
+    "T": {
+      "next": 84,
+      "reserved": [
+        { "from": 1, "to": 83, "lane": "entry", "what": "tree questions and options (E12-02 + r2 T-82, T-83)" }
+      ],
+      "retired": {}
+    },
+    "S": {
+      "next": 70,
+      "reserved": [
+        { "from": 10, "to": 16, "lane": "entry", "what": "/services hero (S-12, S-13, S-14 the three lines)" },
+        { "from": 20, "to": 23, "lane": "entry", "what": "how we work" },
+        { "from": 30, "to": 37, "lane": "entry", "what": "companies band" },
+        { "from": 40, "to": 44, "lane": "entry", "what": "trust (our commitments)" },
+        { "from": 45, "to": 47, "lane": "entry", "what": "partners (r2)" },
+        { "from": 50, "to": 55, "lane": "entry", "what": "FAQ" },
+        { "from": 60, "to": 62, "lane": "entry", "what": "contact" },
+        { "from": 65, "to": 69, "lane": "entry", "what": "end band" }
+      ],
+      "retired": {}
+    },
+    "H": {
+      "next": 12,
+      "reserved": [
+        { "from": 1, "to": 11, "lane": "entry", "what": "paid public header" }
+      ],
+      "retired": {}
+    },
+    "F": {
+      "next": 21,
+      "reserved": [
+        { "from": 1, "to": 16, "lane": "entry", "what": "paid public footer (F-16 خيري, restored only)" },
+        { "from": 20, "to": 20, "lane": "entry", "what": "© line" }
+      ],
+      "retired": {}
+    },
+    "KH": {
+      "next": 100,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "entry", "what": "charity archived notice: KH-01 text, KH-02 WhatsApp, KH-03 follow-up, KH-04 legal links" },
+        { "from": 5, "to": 99, "lane": "12.1", "what": "archived charity screens, untagged in 12.0" }
+      ],
+      "retired": {}
+    },
+    "PV": {
+      "next": 5,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "media", "what": "privacy paragraphs (STT, scan, OCR)" }
+      ],
+      "retired": {}
+    },
+    "DD": {
+      "next": 2,
+      "reserved": [
+        { "from": 1, "to": 1, "lane": "media", "what": "data-deletion paragraph" }
+      ],
+      "retired": {}
+    },
+    "I": {
+      "next": 150,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "entry", "what": "intake chrome" },
+        { "from": 11, "to": 25, "lane": "entry", "what": "questions (I-23 judgment.when, I-24 alimony.for, I-25 rent.side)" },
+        { "from": 30, "to": 34, "lane": "entry", "what": "story" },
+        { "from": 40, "to": 43, "lane": "entry", "what": "documents" },
+        { "from": 50, "to": 58, "lane": "entry", "what": "contact and call-back (I-58 رقم من خارج مصر؟)" },
+        { "from": 60, "to": 68, "lane": "entry", "what": "success (I-67 urgent line, I-68 call-now link)" },
+        { "from": 80, "to": 149, "lane": "entry", "what": "answers" }
+      ],
+      "retired": {}
+    },
+    "IC": {
+      "next": 17,
+      "reserved": [
+        { "from": 1, "to": 16, "lane": "entry", "what": "company lead (IC-16 رقم من خارج مصر؟)" }
+      ],
+      "retired": {}
+    },
+    "UP": {
+      "next": 11,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "upload tool" }
+      ],
+      "retired": {}
+    },
+    "SC": {
+      "next": 21,
+      "reserved": [
+        { "from": 1, "to": 20, "lane": "media", "what": "scanner sheet" }
+      ],
+      "retired": {}
+    },
+    "P": {
+      "next": 10,
+      "reserved": [
+        { "from": 1, "to": 9, "lane": "media", "what": "/p/ follow-up page (scanner and voice archive)" }
+      ],
+      "retired": {}
+    },
+    "CK": {
+      "next": 6,
+      "reserved": [
+        { "from": 1, "to": 5, "lane": "media", "what": "company forms (scanner)" }
+      ],
+      "retired": {}
+    },
+    "KIT": {
+      "next": 6,
+      "reserved": [
+        { "from": 1, "to": 5, "lane": "media", "what": "ui.js internals" }
+      ],
+      "retired": {}
+    },
+    "SRC": {
+      "next": 5,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "media", "what": "global search (SRC-04 recall note)" }
+      ],
+      "retired": {}
+    },
+    "DSH": {
+      "next": 5,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "staff-lines", "what": "dashboard" }
+      ],
+      "retired": {}
+    },
+    "INB": {
+      "next": 9,
+      "reserved": [
+        { "from": 1, "to": 8, "lane": "staff-lines", "what": "inbox: INB-01…06 the كل الأنواع select, INB-07 returning-charity chip, INB-08 opted-out chip" }
+      ],
+      "retired": {}
+    },
+    "PTH": {
+      "next": 16,
+      "reserved": [
+        { "from": 1, "to": 15, "lane": "staff-lines", "what": "pathway UI: chip, path line, edit, PTH-04 docket path, PTH-05 suggestion, sheet fields and actions" }
+      ],
+      "retired": {}
+    },
+    "DOC": {
+      "next": 18,
+      "reserved": [
+        { "from": 1, "to": 17, "lane": "media", "what": "document viewer (DOC-16 clean-copy label, DOC-17 HEIC note)" }
+      ],
+      "retired": {}
+    },
+    "VTR": {
+      "next": 11,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "voice box (VTR-09 listen first, VTR-10 no speech)" }
+      ],
+      "retired": {}
+    },
+    "ANL": {
+      "next": 7,
+      "reserved": [
+        { "from": 1, "to": 6, "lane": "staff-lines", "what": "analytics" }
+      ],
+      "retired": {}
+    },
+    "SIM": {
+      "next": 5,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "staff-lines", "what": "simulator" }
+      ],
+      "retired": {}
+    },
+    "SET": {
+      "next": 40,
+      "reserved": [
+        { "from": 1, "to": 19, "lane": "staff-lines", "what": "settings: الصفحة الأولى card, lines menu, story settings" },
+        { "from": 20, "to": 39, "lane": "media", "what": "settings: المستندات والصوت card" }
+      ],
+      "retired": {}
+    },
+    "INT": {
+      "next": 18,
+      "reserved": [
+        { "from": 1, "to": 17, "lane": "media", "what": "integrations (INT-16 vendor name, INT-17 attestation)" }
+      ],
+      "retired": {}
+    },
+    "SYS": {
+      "next": 11,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "system health (SYS-09 memory, SYS-10 disk)" }
+      ],
+      "retired": {}
+    },
+    "W": {
+      "next": 7,
+      "reserved": [
+        { "from": 1, "to": 6, "lane": "staff-lines", "what": "WhatsApp lines menu: W-01 buttons, W-02…W-04 lists, W-05 after row, W-06 counsel" }
+      ],
+      "retired": {}
+    }
+  }
+}

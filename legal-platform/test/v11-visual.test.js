@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { setPublicRoot, transformAsset } from '../src/site-assets.js';
 import { assetVersion } from '../src/http.js';
 import * as B from '../public/assets/js/lib/brand-color.js';
+import { CRITICAL_RE } from '../src/site.js'; // v12 look: intended (§8.4, LK-0) — the server's block parser is the source of truth
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = path.join(ROOT, 'public');
@@ -52,7 +53,8 @@ function cssRules(text) {
 function critical(name = '') {
   const text = css('public-site.css');
   let out = '';
-  for (const m of text.matchAll(/@critical-start(?::([a-z0-9-]+))?[^*]*\*\/([\s\S]*?)\/\*\s*@critical-end\s*\*\//g)) {
+  // v12 look: intended (§8.4, LK-0): blocks may close with a named end (/* @critical-end:general */), so parse with CRITICAL_RE
+  for (const m of text.matchAll(CRITICAL_RE)) {
     if ((m[1] || '') === name) out += m[2];
   }
   return out
@@ -195,7 +197,7 @@ describe('v11 visual — tokens, literals and budgets (§5.8, §4)', () => {
     assert.equal(app['--text'], 'var(--label)');
     assert.equal(app['--text-muted'], 'var(--label-2)');
     assert.equal(app['--border'], 'var(--separator)');
-    assert.equal(app['--radius'], '14px');
+    assert.equal(app['--radius'], 'var(--r-1)'); // v12 look: intended (K12-02 re-point: radii 2 px)
     assert.equal(app['--shadow-sm'], 'var(--e-1)');
     assert.equal(app['--shadow'], 'var(--e-1)');
     assert.equal(app['--shadow-lg'], 'var(--e-3)');
@@ -205,7 +207,7 @@ describe('v11 visual — tokens, literals and budgets (§5.8, §4)', () => {
     assert.equal(pub['--pub-ink'], 'var(--label)');
     assert.equal(pub['--pub-ink-soft'], 'var(--label-2)');
     assert.match(app['--edge-strong'], /^0 0 0 (1\.5|2)px var\(--primary-500\)$/);
-    assert.equal(app['--field-line'], N.fieldLine);
+    assert.equal(app['--field-line'], 'var(--field)'); // v12 look: intended (K12-02: field and radio boundaries = --field, 3.29:1)
   });
 
   test('5. no v11 scale literal outside the defaults blocks in any stylesheet; v11-ui.css has hex only in neutral :root definitions', () => {
@@ -226,8 +228,8 @@ describe('v11 visual — tokens, literals and budgets (§5.8, §4)', () => {
       const links = [...read(`public/${page}`).matchAll(/<link rel="stylesheet" href="\/(assets\/css\/[\w.-]+\.css)"/g)].map((m) => m[1]);
       const i = links.indexOf('assets/css/v11-ui.css');
       assert.ok(i >= 0, `${page} links v11-ui.css`);
-      // H-T1: v11-segment.css (segment-staff) may follow it; nothing else
-      assert.deepEqual(links.slice(i + 1).filter((l) => l !== 'assets/css/v11-segment.css'), [], `${page}: v11-ui.css last`);
+      // H-T1: v11-segment.css (segment-staff) may follow it; v12 look: intended (K12-62, LK-0): then v12-look.css, linked last
+      assert.deepEqual(links.slice(i + 1).filter((l) => l !== 'assets/css/v11-segment.css'), ['assets/css/v12-look.css'], `${page}: v11-ui.css then v12-look.css last`);
       const total = links.reduce((s, l) => s + served(l), 0);
       assert.ok(total <= limit, `${page}: ${total} B br > ${limit}`);
     }
@@ -545,7 +547,7 @@ describe('v11 visual — cascade, boundaries, print, SVG safety, deep gold (r2 S
   });
 
   test('16. boundaries ≥ 3:1: charity tiles, ways, intake answers and «مش عارفة» use --edge-strong; field borders use --field-line (or a state colour); p500 and the field line pass for all 9 themes', () => {
-    const crit = critical('');
+    const crit = critical('charity'); // v12 look: intended (LK-0): the charity home's first screen is the named block «charity», text unchanged
     assert.match(crit, /\.pub-pick-tile\{[^}]*box-shadow:var\(--edge-strong\)/);
     assert.match(crit, /\.pub-pick-way--follow\{[^}]*box-shadow:var\(--edge-strong\)/);
     const forms = css('v91-b-forms.css');
@@ -613,11 +615,12 @@ describe('v11 visual — cascade, boundaries, print, SVG safety, deep gold (r2 S
   });
 
   test('20. the call-back way keeps the 10.0 filled pair (r2 P24); scope-tab and status-tab counts use --label-2 (r2 P23)', () => {
-    assert.match(critical(''), /body\.pub \.pub-pick-way--callback\{[^}]*background:var\(--accent-500\);[^}]*color:var\(--on-accent\)/);
+    assert.match(critical('charity'), /body\.pub \.pub-pick-way--callback\{[^}]*background:var\(--accent-500\);[^}]*color:var\(--on-accent\)/); // v12 look: intended (LK-0): block «charity»
     const ui = css('v11-ui.css');
     assert.match(ui, /\.tab-count, \.scope-tabs \.n \{[^}]*color: var\(--label-2\)/);
     assert.match(ui, /\.scope-tabs \.n \{[^}]*color: var\(--label-2\)/);
-    assert.match(ui, /\.segmented:has\(> \.seg:nth-child\(5\)\) > \[aria-pressed="true"\]::after \{[^}]*background: var\(--tint\)/);
+    // v12 look: intended (LK-2, K12-34): the current scope tab is underlined in ink, not the action green
+    assert.match(ui, /\.segmented:has\(> \.seg:nth-child\(5\)\) > \[aria-pressed="true"\]::after \{[^}]*background: var\(--ink\)/);
     assert.doesNotMatch(ui, /\.(tab-count|n)\b[^{]*\{[^}]*color: var\(--label-3\)/);
   });
 });
@@ -639,16 +642,21 @@ describe('v11 visual — surfaces (V-5 staff/lawyer, V-6 company)', () => {
   });
 
   test('22. light sidebars: /app sidebar and /company side on surface-tint with a hairline; selected row p50/p700; the only filled count is «طلبات الشركات» / «المتابعة»', () => {
-    const ui = css('v11-ui.css');
-    assert.match(ui, /\.sidebar \{[^}]*background: var\(--surface-tint\)/);
-    assert.match(ui, /\.nav-link\.is-active \{[^}]*background: var\(--tint-weak\);[^}]*color: var\(--tint\)/);
-    assert.match(ui, /\.nav-count \{[^}]*background: none;[^}]*color: var\(--label-2\)/);
-    assert.match(ui, /\.nav-link\[data-path="\/company-requests"\] \.nav-count \{[^}]*background: var\(--tint\)/);
-    assert.match(ui, /\.brand::after \{[^}]*var\(--gold-line\)/);
+    // v12 look: intended (LK-2, K12-33): the /app sidebar rules moved to v10-desk.css (/app only, so /company stays in budget);
+    // ivory sidebar with an end rule, current row = white + 2-px act start bar (v12-look.css), plain counts, the act-coloured
+    // «طلبات الشركات» count, and no gold gradient under the brand (K12-P8)
+    const desk = css('v10-desk.css');
+    assert.match(desk, /\.sidebar \{[^}]*background: var\(--paper-2\);[^}]*border-inline-end: 1px solid var\(--rule\)/);
+    assert.match(css('v12-look.css'), /\.nav-link\.is-active,\s*\.co-side-link\.is-active \{[^}]*background: var\(--paper\);[^}]*box-shadow: inset -2px 0 0 var\(--act\)/);
+    assert.match(desk, /\.nav-count \{[^}]*background: none;[^}]*color: var\(--ink-3\)/);
+    assert.match(desk, /\.nav-link\[data-path="\/company-requests"\] \.nav-count \{[^}]*color: var\(--act\)/);
+    assert.match(desk, /\.nav-link \.icon \{ display: none; \}/);
+    assert.doesNotMatch(css('v11-ui.css') + desk, /\.brand::after/);
     const co = css('v10-company.css');
     assert.match(co, /\.co-side \{[^}]*background: var\(--surface-tint\);[^}]*border-inline-end: 1px solid var\(--separator\)/);
     assert.match(co, /\.co-side-link\.is-active \{[^}]*background: var\(--tint-weak\)/);
-    assert.match(co, /\.co-side-badge \{[^}]*background: var\(--tint\)/);
+    // v12 look: intended (LK-3, K12-33): the «المتابعة» count is a plain act-coloured figure, not a filled badge
+    assert.match(co, /\.co-side-badge \{[^}]*background: none;[^}]*color: var\(--act\)/);
   });
 
   test('23. company «طلب جديد» is the one filled button (screen only); attention rows end in a tinted action word whose link covers the row', () => {
@@ -660,14 +668,17 @@ describe('v11 visual — surfaces (V-5 staff/lawyer, V-6 company)', () => {
     // plan card: same words, the used count large
     const core = read('public/assets/js/lib/company-ui-core.js');
     assert.match(core, /copyParts\('usage\.used', \{ used: h\('b\.co-meter-big', String\(used\)\), included, date: dayText\(quota\.cycle_end\) \}\)/);
-    assert.match(read('public/assets/js/company/words.js'), /used: 'استخدمتم \{used\} من \{included\} — تتجدد يوم \{date\}'/);
+    // v12 look: intended (LK-3, L12-34): the same words without «—»
+    assert.match(read('public/assets/js/company/words.js'), /used: 'استخدمتم \{used\} من \{included\}، وتتجدد يوم \{date\}'/);
   });
 
   test('24. many-scope status filters are underline scope tabs (≥ 5 segments); ≤ 4 stay segmented controls', () => {
     const ui = css('v11-ui.css');
     assert.match(ui, /\.segmented:has\(> \.seg:nth-child\(5\)\) \{[^}]*background: none;[^}]*box-shadow: inset 0 -1px 0 var\(--separator\)/);
     assert.match(ui, /\.segmented:has\(> \.seg:nth-child\(5\)\) > \.seg \{[^}]*min-height: 44px/);
-    assert.match(ui, /\.segmented \{[^}]*background: var\(--fill-2\)/);
+    // v12 look: intended (LK-2, K12-34): ≤ 4 segments are words, the current one underlined (no grey track)
+    assert.match(ui, /\.segmented \{[^}]*background: none/);
+    assert.match(ui, /\.seg\[aria-pressed="true"\] \{[^}]*text-decoration: underline/);
   });
 
   test('25. lawyer shell: large title, grouped lists without borders, status dots from the status tokens, V11-16 tab bar (54 px, 25-px icons, active = tint)', () => {
@@ -677,7 +688,9 @@ describe('v11 visual — surfaces (V-5 staff/lawyer, V-6 company)', () => {
     assert.doesNotMatch(/\.lh-list \{([^}]*)\}/.exec(lh)[1], /border:/);
     assert.match(lh, /\.lh-dot-red \{ background: var\(--bad\); \}/);
     assert.match(lh, /height: calc\(54px \+ env\(safe-area-inset-bottom, 0px\)\)/);
-    assert.match(lh, /\.is-lawyer \.lh-tab \.icon \{[^}]*width: 25px;[^}]*height: 25px/);
+    // v12 look: intended (LK-4, K12-36): tab glyphs 22 px on a white bar with a rule-2 top line; the count in act (red only on the bell)
+    assert.match(lh, /\.is-lawyer \.lh-tab \.icon \{[^}]*width: 22px;[^}]*height: 22px/);
+    assert.match(lh, /\.lh-tab-badge \{[^}]*background: var\(--act\)/);
     assert.match(lh, /\.is-lawyer \.lh-tab\.is-active \{[^}]*color: var\(--tint\)/);
     assert.match(lh, /font-size: 11\.5px/);
     // the active tab is still announced (aria-current) now that the underline is gone
@@ -710,11 +723,12 @@ describe('v11 visual — surfaces (V-5 staff/lawyer, V-6 company)', () => {
   test('29. the light chrome reaches the topbar: search is a fill-1 field with a key cap; the inline title appears only after the large title scrolls away (static otherwise)', () => {
     assert.match(css('v9-practice.css'), /\.icon-btn\.v9p-search-trigger \{[^}]*background: var\(--fill-1\)/);
     const ui = css('v11-ui.css');
-    assert.match(ui, /@supports \(animation-timeline: scroll\(\)\) \{\s*\.app-shell:not\(\.is-lawyer\):has\(\.page-header\) \.topbar-title \{[^}]*animation-timeline: scroll\(root\)/);
+    const desk = css('v10-desk.css'); // v12 look: intended (LK-2): the /app topbar rules moved to v10-desk.css (/app only)
+    assert.match(desk, /@supports \(animation-timeline: scroll\(\)\) \{\s*\.app-shell:not\(\.is-lawyer\):has\(\.page-header\) \.topbar-title \{[^}]*animation-timeline: scroll\(root\)/);
     // review fix: a short page has no scroll range, the timeline is inactive and the animation does not apply — the base
     // value must be the hidden one (the large title is on screen), and the keyframes must end visible
-    assert.match(ui, /\.app-shell:not\(\.is-lawyer\):has\(\.page-header\) \.topbar-title \{ opacity: 0; animation: v11-bar-title/);
-    assert.match(ui, /@keyframes v11-bar-title \{ from \{ opacity: 0; \} to \{ opacity: 1; \} \}/);
+    assert.match(desk, /\.app-shell:not\(\.is-lawyer\):has\(\.page-header\) \.topbar-title \{ opacity: 0; animation: v11-bar-title/);
+    assert.match(desk, /@keyframes v11-bar-title \{ from \{ opacity: 0; \} to \{ opacity: 1; \} \}/);
     // reduced motion / more contrast: the inline title is shown statically and must win over the higher-specificity base
     assert.equal((ui.match(/\.topbar-title \{ animation: none !important; opacity: 1 !important; \}/g) || []).length, 2);
   });

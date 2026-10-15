@@ -88,6 +88,9 @@ function applyProps(el, props, isSvg) {
       deferredValue = val;
     } else if (key === 'ref') {
       if (typeof val === 'function') val(el);
+    } else if (key === 'tag') {
+      // v12 tags-core (TG-0، T12-15): رمز العنصر للمالك، { tag: 'S-14' } يصير data-tag="S-14"
+      if (val) el.setAttribute('data-tag', String(val));
     } else if (!isSvg && key in BOOL_PROPS) {
       el[BOOL_PROPS[key]] = Boolean(val);
     } else if (key === 'htmlFor') {
@@ -155,4 +158,13 @@ export function mount(el, ...children) {
 /** عقدة نصية آمنة. */
 export function text(s) {
   return document.createTextNode(s == null ? '' : String(s));
+}
+
+/**
+ * v12 tags-core (TG-0، T12-15): يضع رمز العنصر على عقدة بنتها دالة بلا خيارات (section('…', …)) ويعيدها نفسها.
+ * مثل tagged('CSF-13', section('الوقائع', …)). الرمز الفارغ أو العقدة بلا setAttribute: تُعاد كما هي.
+ */
+export function tagged(code, node) {
+  if (code && node && typeof node.setAttribute === 'function') node.setAttribute('data-tag', String(code));
+  return node;
 }

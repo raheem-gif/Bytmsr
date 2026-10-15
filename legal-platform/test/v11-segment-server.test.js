@@ -321,6 +321,8 @@ describe('v11 segment-server — website path (SS-1, §5.7)', () => {
   test('segment param › cookie › default; invalid never blocks; source and gate_via recorded; same submission keeps its first segment', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 staff-lines: intended (L12-09, SL-T17): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const c = t.client();
       const sub = (o, headers) => c.post('/api/public/intake', form(o), headers);
       let r = await sub({ segment: 'paid', phone: '01011111111', submission_id: 'sub-aaaaaaaaaaaaaaaa1' });
@@ -355,6 +357,8 @@ describe('v11 segment-server — website path (SS-1, §5.7)', () => {
   test('paid: no beneficiary profile; confirm sentence unchanged and on the main number in the default configuration', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 staff-lines: intended (L12-09): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const c = t.client();
       const r = await c.post('/api/public/intake', form({ segment: 'paid', answers: { 'inh.deceased': 'husband' }, topic: 'inh' }));
       assert.equal(r.status, 201, JSON.stringify(r.body));
@@ -478,6 +482,8 @@ describe('v11 segment-server — website path (SS-1, §5.7)', () => {
   test('r2 S14: a local hint is stored for every new intake and never applied (INV-04)', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 staff-lines: intended (L12-09): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const c = t.client();
       const r = await c.post('/api/public/intake', form({ description: PAID_STORY, phone: '01066666666' }));
       const i = intakeByCode(t, r.body.reference);
@@ -871,6 +877,8 @@ describe('v11 segment-server — inheritance and staff override (SS-4, §5.6, IN
   test('PUT /intakes/:id/segment: one tap from NULL, reason 3–300 from a set value, no-op, audit + activity, segment_on_case, permissions', async () => {
     const t = await startTestApp({ seed: 'demo', config: LIVE });
     try {
+      // v12 staff-lines: intended (L12-09): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const admin = await t.login('admin');
       const manager = await t.login('manager');
       const lawyer = await t.login('ahmed');
@@ -1009,6 +1017,8 @@ describe('v11 segment-server — staff read APIs (SS-5, §5.6)', () => {
   test('detail and proposal: segment block, tone, send_line, segment_required, eligibility_warning', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 staff-lines: intended (L12-09): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const admin = await t.login('admin');
       const c = t.client();
       const r = await c.post('/api/public/intake', form({ phone: '01011110120', description: 'عندي سؤال عن إعلام الوراثة وإيه الورق المطلوب' }));
@@ -1710,7 +1720,9 @@ describe('v11 segment-server — simulator, demo seed and choice buttons (SS-8, 
         '01092000301': ['paid', 'wa_line', 'paid'],
         '01092000302': ['paid', 'website', null],
         '01092000303': ['paid', 'company_lead', null],
-        '01092000304': ['charity', 'wa_choice', 'main'],
+        // v12 staff-lines: intended (E12-71 #16, SL-T07): the demo keeps «خيري» archived, so the shared-number stranger gets no
+        // choice buttons and stays «غير محدد» (rule g, L12-07) instead of choosing «خيري» from them
+        '01092000304': [null, null, 'main'],
         '01092000305': [null, null, 'main'],
         '01092000306': ['charity', 'staff', null],
       });
@@ -1738,6 +1750,8 @@ describe('v11 segment-server — simulator, demo seed and choice buttons (SS-8, 
   test('simulator (S11-23): line main|paid|shared|unknown and kind seg_reply; the response carries segment, source and line', async () => {
     const t = await startTestApp({ seed: 'demo' });
     try {
+      // v12 staff-lines: intended (E12-71 #16): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const admin = await t.login('admin');
       let r = await admin.post('/api/admin/simulate/whatsapp', { from: '01011115001', text: 'عندي سؤال عن عقد إيجار', line: 'paid' });
       assert.equal(r.status, 200, JSON.stringify(r.body));
@@ -1760,6 +1774,8 @@ describe('v11 segment-server — simulator, demo seed and choice buttons (SS-8, 
     const stub = stubFetch();
     const t = await startTestApp({ seed: 'none', config: LIVE });
     try {
+      // v12 staff-lines: intended (E12-71 #16, SL-T07): v11 behaviour with «خيري» public (archived behaviour: test/v12-staff-lines.test.js)
+      t.app.settings.set('charity_public', true);
       const db = t.app.db;
       t.app.settings.set('stories_since', '2020-01-01T00:00:00.000Z');
       t.app.settings.set('segment_returning_days', 0);

@@ -105,7 +105,8 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.match(html, /<meta name="robots" content="noindex, nofollow" \/>/);
     assert.equal((html.match(/<meta name="robots"/g) || []).length, 1, 'a single robots tag');
     assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);
-    assert.match(html, /<title>متابعة طلبك — Emam Legal and Consultancy<\/title>/); // v10 experience (intended): brand title
+    // v10 experience (intended): brand title — v12 entry: intended (E12-13): the paid side titles with « | »
+    assert.match(html, /<title>(?:متابعة طلبك — |متابعة طلبكم \| )Emam Legal and Consultancy<\/title>/);
     assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/portal" \/>/);
     // (إصلاحات الإطلاق) روابط CSS/JS تحمل رقم إصدار الملف ?v=… للتخزين الطويل في المتصفح
     assert.match(html, /<script type="module" src="\/assets\/js\/public\/portal\.js(\?v=[A-Za-z0-9_-]+)?"><\/script>/);
@@ -153,13 +154,20 @@ describe('v9 integration — the placeholder WhatsApp number never reaches the p
     const meta = ok(await c.get('/api/meta'));
     assert.equal(meta.settings.whatsapp_number_digits, '', `${label}: meta digits`);
     assert.equal(meta.settings.whatsapp_display_number, '', `${label}: meta display number`);
-    for (const p of ['/', '/intake', '/about', '/privacy', '/terms', '/data-deletion', '/portal']) {
+    // v12 entry: intended (E12 §12.2): the tree, /services and the paid form; the charity pages in the restored state
+    t.app.settings.set('charity_public', true);
+    for (const p of ['/', '/start/consultation', '/services', '/intake?path=consultation/other', '/intake?seg=charity', '/khayri', '/about', '/privacy', '/terms', '/data-deletion', '/portal']) {
       const html = (await c.get(p)).body;
+      assert.equal((await c.get(p)).status, 200, `${label}: ${p}`);
       assert.ok(!html.includes('wa.me'), `${label}: ${p} has no wa.me link`);
       assert.ok(!/100 000 0000|201000000000|01000000000/.test(html), `${label}: ${p} never shows the placeholder`);
     }
     // البدائل: الهاتف ومتابعة الطلب
-    const home = (await c.get('/')).body;
+    const tree = (await c.get('/')).body; // v12 entry: intended (E12-23, L12-64): the tree's links row offers «نتصل بكم» and «متابعة طلب»
+    assert.match(tree, /href="\/intake\?mode=callback"/);
+    assert.match(tree, /href="\/portal"/);
+    assert.ok(!tree.includes('data-cta="whatsapp"'), `${label}: no WhatsApp link on the tree`);
+    const home = (await c.get('/khayri')).body; // v12 entry: intended (E12 §12.2): the charity home, restored
     assert.match(home, /href="tel:\+201211114662"/);
     assert.match(home, /href="\/portal"/);
     assert.ok(!home.includes('data-cta="whatsapp"'), `${label}: no WhatsApp CTA buttons`);

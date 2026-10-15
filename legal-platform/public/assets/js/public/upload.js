@@ -18,9 +18,188 @@
 //   friendlyError(err, address) → نص بسيط للمستفيدة
 //
 // يعتمد على h.js فقط.
+//
+// v12 media (MD-3، §5.8): photoPicker({ …, scan = 'auto'|'off', pages = false }) — كل صورة مستند تمر بالماسح على الموبايل
+// (lib/scanner.js، يُحمَّل عند أول صورة فقط): الصورة المصغّرة هي الصفحة النظيفة، والصورة الأصلية تُرفع معها دائمًا.
+// لم تُكتشف حدود الورقة أو كانت مقصوصة ← الأصل بنقطة كهرمانية وسطر وزران («إعادة التصوير» · «استخدام الصورة كما هي»)،
+// ولمس الصورة يفتح ورقة تعديل الأركان. pages: true (الطلب المدفوع) ← «صفحة أخرى» تضيف صفحة لنفس المستند ← PDF واحد.
+// أي فشل (فك، عامل، مهلة، ذاكرة، صفحة فارغة) يعود بصمت إلى التصغير العادي بلا scan. fileToUpload(file) يضيف scan (والأصول
+// بـ base64) للملف الممسوح. Save-Data أو شبكة 2g/3g ← الأصل 1200 px بجودة 0.7 و«جارٍ تجهيز الصورة 2 من 3…» (L12-58).
 
 import { h, svg, mount } from '../lib/h.js';
-import { ensureFormsStyles } from './recorder.js';
+
+/** v12 media (MD-7، M12-01): تنسيق المكوّنات دون استيراد recorder.js (لا يُطلب المسجّل في صفحة بلا تسجيل صوتي) */
+function ensureFormsStyles() {
+  try {
+    if (document.querySelector('link[data-bmf-css], link[href*="v91-b-forms.css"]')) return;
+    const href = new URL('../../css/v91-b-forms.css', import.meta.url).pathname;
+    document.head.append(h('link', { rel: 'stylesheet', href, 'data-bmf-css': '1' }));
+  } catch {
+    /* بلا تنسيق إضافي يبقى المكوّن صالحًا للاستخدام */
+  }
+}
+
+// ملف ممسوح ← { doc: { name, pages }, scan } (الأصول Blobs حتى لحظة الإرسال)
+const SCANS = new WeakMap();
+let scanLoading = null;
+let scanMods = null; // { scanner, sheet } بعد التحميل
+/** الماسح وورقته عند أول صورة (لا يُطلبان مع الصفحة أبدًا) */
+export function loadScanner() {
+  if (!scanLoading) {
+    scanLoading = Promise.all([import('../lib/scanner.js'), import('../lib/scan-sheet.js')]).then(
+      ([scanner, sheet]) => {
+        sheet.loadScanStyles();
+        scanMods = { scanner, sheet };
+        return scanMods;
+      },
+      (e) => {
+        scanLoading = null;
+        throw e;
+      },
+    );
+  }
+  return scanLoading;
+}
+/** المستند الممسوح خلف ملف (أو null) */
+export function scanOf(file) {
+  return (file && SCANS.get(file)) || null;
+}
+/** إعداد «تحسين صور المستندات على جهاز المرسل» (scan_client_enabled) إن حملته الصفحة؛ غيابه = مفعّل */
+function scanSwitchOn() {
+  try {
+    const el = document.getElementById('bm-public');
+    if (el && JSON.parse(el.textContent || '{}').scan === false) return false;
+  } catch {
+    /* بيانات الصفحة غير قابلة للقراءة: الافتراضي */
+  }
+  return true;
+}
+/** صفحات مستند ← ملف جديد مسجّل مع كتلة scan */
+async function buildScanned(doc) {
+  const { scanner } = await loadScanner();
+  const { file, scan } = await scanner.docFile(doc.pages, { name: doc.name });
+  SCANS.set(file, { doc, scan });
+  return file;
+}
+
+// ───────── الماسح للمنتقيات الثلاثة (photoPicker هنا، coUploader للشركات، fileInput للفريق) ─────────
+const SCANNABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const DEFAULT_PAGES = 12; // L12-58 (الفريق 20)
+
+/** صورة مستند ← ملف ممسوح (نظيف + أصل)، أو null (لا ماسح، ليست صورة، أي فشل ← التصغير العادي بصمت) */
+export async function scanImage(file, { name = 'مستند', register = 'p', i = 1, n = 1, onStatus, sourceMax = 2400, maxSide = 1754, quality = 0.7 } = {}) {
+  if (!SCANNABLE.has(typeOf(file)) || !scanSwitchOn()) return null;
+  try {
+    const m = await loadScanner();
+    if (!m.scanner.supportsScanner()) return null;
+    onStatus?.(m.sheet.prepText(register, i, n));
+    const page = await m.scanner.scanPage(file, { sourceMax, maxSide, quality });
+    return await buildScanned({ name, pages: [page], opts: { sourceMax, maxSide, quality } });
+  } catch {
+    return null;
+  }
+}
+/** رقم أول صفحة تحتاج انتباهًا (مقصوصة أو بلا حدود) أو -1 */
+export function scanProblem(file) {
+  const s = SCANS.get(file);
+  return s ? s.doc.pages.findIndex((p) => p.state === 'partial' || p.state === 'notfound') : -1;
+}
+/** ورقة تعديل الأركان على صفحة (الأولى التي تحتاج انتباهًا، وإلا الأخيرة) ← ملف جديد، أو null عند الإلغاء */
+export async function scanEditPage(file, { register = 'p', trigger = null } = {}) {
+  const s = SCANS.get(file);
+  if (!s) return null;
+  const { sheet } = await loadScanner();
+  const w = scanProblem(file);
+  const idx = w >= 0 ? w : s.doc.pages.length - 1;
+  const o = s.doc.opts || {};
+  const res = await sheet.editPage(s.doc.pages[idx], { register, trigger, maxSide: o.maxSide, quality: o.quality, sourceMax: o.sourceMax });
+  if (res.action === 'cancel') return null;
+  const pages = s.doc.pages.slice();
+  pages[idx] = res.action === 'done' ? res.page : { ...pages[idx], clean: null, bits: null, state: 'asis' };
+  return buildScanned({ ...s.doc, pages });
+}
+/** «استخدام الصورة كما هي» من الملاحظة: المقصوصة تبقى نسختها النظيفة (والأصل يُعرض أولًا، L12-59)، وبلا حدود ← الأصل */
+export async function scanKeepPage(file, idx = scanProblem(file)) {
+  const s = SCANS.get(file);
+  if (!s || idx < 0) return null;
+  const pages = s.doc.pages.slice();
+  const p = pages[idx];
+  pages[idx] = p.state === 'partial' ? { ...p, state: 'kept' } : { ...p, clean: null, bits: null, state: 'asis' };
+  return buildScanned({ ...s.doc, pages });
+}
+/** صورة جديدة صفحةً إضافية (replace = رقم صفحة يُستبدل: «إعادة التصوير») ← ملف جديد، أو null */
+export async function scanAddPage(file, raw, { replace = null, maxPages = DEFAULT_PAGES } = {}) {
+  const s = SCANS.get(file);
+  if (!s || !SCANNABLE.has(typeOf(raw))) return null;
+  const { scanner } = await loadScanner();
+  const o = s.doc.opts || {};
+  const page = await scanner.scanPage(raw, { sourceMax: o.sourceMax, maxSide: o.maxSide, quality: o.quality });
+  const pages = s.doc.pages.slice();
+  if (Number.isInteger(replace) && replace >= 0 && replace < pages.length) pages[replace] = page;
+  else if (pages.length < maxPages) pages.push(page);
+  else return null;
+  return buildScanned({ ...s.doc, pages });
+}
+/** عدد صفحات المستند الممسوح (0 لملف عادي) */
+export function scanPages(file) {
+  return SCANS.get(file)?.doc.pages.length || 0;
+}
+/** كتلة scan بأصولها بـ base64 دون الملف الرئيسي (لمسار الفريق: file.bmScan) أو null */
+export async function scanBlock(file) {
+  const s = SCANS.get(file)?.scan;
+  if (!s) return null;
+  const originals = [];
+  for (const o of s.originals) originals.push({ filename: o.filename, mime: o.mime, data_base64: await readAsBase64(o.blob) });
+  const { originals: _o, ...params } = s;
+  return { ...params, originals };
+}
+/**
+ * ربط الماسح بقائمة ملفات الفريق (ui.js fileInput) — هنا لا في ui.js حتى لا يكبر ملف المنصة الأساسي.
+ * ctl: { files(), set(i, file), input, maxBytes, note(msg), pages } → { scan(file), row(file), take(list), reset() }
+ */
+export function fileInputScan(ctl) {
+  let pick = null; // { f, replace }: الصورة التالية صفحة جديدة لمستند أو بديل صفحة
+  const swap = async (old, out) => {
+    const i = ctl.files().indexOf(old);
+    if (i < 0 || !out) return;
+    if (out.size > ctl.maxBytes) return ctl.note(`الملف «${out.name}» أكبر من الحد المسموح`);
+    out.bmScan = await scanBlock(out);
+    ctl.set(i, out);
+  };
+  const done = (old, p) => p.then((out) => swap(old, out), () => {});
+  return {
+    scan: (f) => done(f, scanImage(f, { name: f.name, register: 'staff', sourceMax: 3200, maxSide: 2339 })),
+    reset: () => (pick = null),
+    take(list) {
+      const tg = pick;
+      pick = null;
+      if (!tg || !list.length || !ctl.files().includes(tg.f)) return false;
+      done(tg.f, scanAddPage(tg.f, list[0], { maxPages: 20, replace: tg.replace }));
+      return true;
+    },
+    row(file) {
+      const doc = scanDoc(file);
+      if (!doc || !scanMods) return null;
+      const { sheet } = scanMods;
+      const w = scanProblem(file);
+      const choose = (replace) => {
+        pick = { f: file, replace };
+        ctl.input.click();
+      };
+      return h(
+        'div.file-scan',
+        doc.pages.length > 1 ? sheet.pagesBadge(doc.pages.length) : null,
+        h('button.scn-btn.scn-btn--text.scn-btn--sm', { type: 'button', onClick: (e) => done(file, scanEditPage(file, { register: 'staff', trigger: e.currentTarget })), tag: 'UP-10' }, 'تعديل'),
+        ctl.pages && doc.pages.length < 20 ? sheet.addPageButton({ register: 'staff', onClick: () => choose(null) }) : null,
+        w >= 0 ? sheet.scanNote(doc.pages[w], { register: 'staff', onRetake: () => choose(w), onKeep: () => done(file, scanKeepPage(file, w)) }) : null,
+      );
+    },
+  };
+}
+/** صفحات المستند الممسوح ({ name, pages }) أو null */
+export function scanDoc(file) {
+  return SCANS.get(file)?.doc || null;
+}
 
 const COMPRESSIBLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ACCEPTED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf']);
@@ -214,10 +393,13 @@ export async function compressToBlob(file, { maxSide = 1600, quality = 0.75, min
   }
 }
 
-/** ملف ← مرفق بصيغة الخادم */
+/** ملف ← مرفق بصيغة الخادم (+ scan بأصوله إن مرّ بالماسح، §5.4) */
 export async function fileToUpload(file) {
   const mime = typeOf(file) === 'image/heif' ? 'image/heic' : typeOf(file) || 'application/octet-stream';
-  return { filename: file.name || `ملف${MIME_EXT[mime] || ''}`, mime, data_base64: await readAsBase64(file) };
+  const up = { filename: file.name || `ملف${MIME_EXT[mime] || ''}`, mime, data_base64: await readAsBase64(file) };
+  const scan = await scanBlock(file);
+  if (scan) up.scan = scan;
+  return up;
 }
 
 /** عقد واجهة b-forms: تصغير صورة وإرجاعها بصيغة مرفقات الخادم مع حجمها بعد التصغير */
@@ -336,7 +518,7 @@ export function uploadProgress({ text, onCancel, address = 'f' } = {}) {
   const pct = h('span.bmf-progress-text', `${label} 0٪`);
   const el = h(
     'div.bmf-progress',
-    { role: 'status' },
+    { role: 'status', tag: 'UP-09' },
     pct,
     bar,
     h('p.bmf-progress-hint', t.dontClose),
@@ -356,8 +538,12 @@ export function uploadProgress({ text, onCancel, address = 'f' } = {}) {
 
 // ───────── منتقي الصور ─────────
 
+const MAX_PAGES = DEFAULT_PAGES; // L12-58: صفحات المستند الواحد على الطلب والمتابعة
+const OPEN_LABEL = { f: 'ظبّطي الورقة', m: 'ظبّط الورقة', p: 'تعديل المستند' };
+
 /**
  * الكاميرا أولًا ثم «من الموبايل»، مع صور مصغّرة وزر × لكل صورة.
+ * scan: 'auto' (الماسح على الموبايل) | 'off' · pages: «صفحة أخرى» لمستند من عدة صفحات (الطلب المدفوع)
  * @returns {HTMLElement}
  */
 export function photoPicker({
@@ -375,16 +561,24 @@ export function photoPicker({
   quality = 0.72,
   initial = [],
   messages = {},
+  scan = 'auto',
+  pages = false,
 } = {}) {
   ensureFormsStyles();
   const t = copyFor(address);
+  const register = address === 'm' || address === 'p' ? address : 'f';
   const limit = Math.max(1, multiple ? Number(max) || 5 : 1);
   const prefix = safePrefix(namePrefix);
+  // دفتر الصفحات للطلب المدفوع فقط؛ «خيري»: صورة واحدة = ورقة واحدة (O-M5)
+  const multiPage = !!pages && register === 'p';
   let files = [];
   let urls = new Map();
   let disabled = false;
   let queue = Promise.resolve();
   let pending = 0;
+  let docN = 0;
+  // الصورة التالية من الكاميرا: صفحة جديدة لمستند، أو بديل صفحة («إعادة التصوير»)
+  let target = null;
 
   const camInput = h('input.bmf-file', { type: 'file', accept: 'image/*', capture: 'environment', tabindex: '-1', 'aria-hidden': 'true' });
   const galInput = h('input.bmf-file', { type: 'file', accept: 'image/*,application/pdf', multiple: multiple && limit > 1, tabindex: '-1', 'aria-hidden': 'true' });
@@ -394,19 +588,31 @@ export function photoPicker({
 
   const camBtn = h(
     'button.bmf-btn.bmf-pick-camera',
-    { type: 'button', class: variant === 'big' ? 'bmf-btn-primary bmf-btn-lg' : 'bmf-btn-primary', 'aria-label': iconOnly('camera') ? camLabel : null, title: iconOnly('camera') ? camLabel : null, onClick: () => !disabled && camInput.click() },
+    {
+      type: 'button',
+      class: variant === 'big' ? 'bmf-btn-primary bmf-btn-lg' : 'bmf-btn-primary',
+      'aria-label': iconOnly('camera') ? camLabel : null,
+      title: iconOnly('camera') ? camLabel : null,
+      onClick: () => {
+        if (disabled) return;
+        target = null;
+        camInput.click();
+      },
+      tag: 'UP-01',
+    },
     ic('camera', variant === 'big' ? 24 : 22),
     !iconOnly('camera') && h('span', camLabel),
   );
   const galBtn = h(
     'button.bmf-btn.bmf-btn-outline.bmf-pick-gallery',
-    { type: 'button', 'aria-label': iconOnly('gallery') ? galLabel : null, title: iconOnly('gallery') ? galLabel : null, onClick: () => !disabled && galInput.click() },
+    { type: 'button', 'aria-label': iconOnly('gallery') ? galLabel : null, title: iconOnly('gallery') ? galLabel : null, onClick: () => !disabled && galInput.click(), tag: 'UP-02' },
     ic('image', 22),
     !iconOnly('gallery') && h('span', galLabel),
   );
-  const status = h('p.bmf-pick-status', { role: 'status', 'aria-live': 'polite' });
-  const error = h('p.bmf-pick-error', { role: 'alert', hidden: true });
-  const grid = h('ul.bmf-thumbs', { class: variant === 'big' ? 'is-big' : 'is-small', 'aria-label': 'الصور المختارة' });
+  const status = h('p.bmf-pick-status', { role: 'status', 'aria-live': 'polite', tag: 'UP-06' });
+  const error = h('p.bmf-pick-error', { role: 'alert', hidden: true, tag: 'UP-08' });
+  const grid = h('ul.bmf-thumbs', { class: variant === 'big' ? 'is-big' : 'is-small', 'aria-label': 'الصور المختارة', tag: 'UP-03' });
+  const noteHost = h('div.bmf-scan-host');
 
   let tipEl = null;
   if (tip) {
@@ -419,6 +625,7 @@ export function photoPicker({
     if (!off) {
       tipEl = h(
         'div.bmf-tip',
+        { tag: 'UP-07' },
         ic('bulb', 20),
         h('p', t.tip),
         h(
@@ -450,6 +657,7 @@ export function photoPicker({
     status,
     error,
     grid,
+    noteHost,
   );
 
   const showError = (msg) => {
@@ -465,27 +673,48 @@ export function photoPicker({
     }
   };
 
-  function urlFor(f) {
-    if (!urls.has(f)) urls.set(f, URL.createObjectURL(f));
-    return urls.get(f);
+  function urlFor(blob) {
+    if (!urls.has(blob)) urls.set(blob, URL.createObjectURL(blob));
+    return urls.get(blob);
   }
+  /** الصفحة التي تحتاج انتباهًا (مقصوصة أو بلا حدود)، وإلا آخر صفحة */
+  const problemIndex = (doc) => doc.pages.findIndex((p) => p.state === 'partial' || p.state === 'notfound');
+  const shownBlob = (f) => {
+    const s = SCANS.get(f);
+    if (!s) return f;
+    // مقصوصة أو بلا حدود: الصورة المصغّرة تبقى الأصل (بنقطة كهرمانية) حتى يقرر الشخص
+    const p = s.doc.pages[0];
+    return p.clean && p.state !== 'notfound' && p.state !== 'partial' ? p.clean : p.original;
+  };
 
   function paint() {
-    for (const [f, u] of urls) {
-      if (!files.includes(f)) {
+    const live = new Set(files.map(shownBlob));
+    for (const [b, u] of urls) {
+      if (!live.has(b)) {
         URL.revokeObjectURL(u);
-        urls.delete(f);
+        urls.delete(b);
       }
     }
+    let note = null;
     mount(
       grid,
       files.map((f, i) => {
-        const isImg = typeOf(f).startsWith('image/') && typeOf(f) !== 'image/heic' && typeOf(f) !== 'image/heif';
+        const s = SCANS.get(f);
+        const show = shownBlob(f);
+        const type = typeOf(show);
+        const isImg = type.startsWith('image/') && type !== 'image/heic' && type !== 'image/heif';
+        const img = isImg ? h('img', { src: urlFor(show), alt: `صورة ${i + 1}`, loading: 'lazy', decoding: 'async' }) : h('span.bmf-thumb-file', ic('file', 26), h('span.bmf-thumb-name', { dir: 'auto' }, f.name || `ملف ${i + 1}`));
+        const warn = s ? problemIndex(s.doc) : -1;
+        if (s && warn >= 0 && !note && scanMods) {
+          note = { f, page: s.doc.pages[warn], idx: warn };
+        }
         return h(
           'li.bmf-thumb',
-          isImg
-            ? h('img', { src: urlFor(f), alt: `صورة ${i + 1}`, loading: 'lazy', decoding: 'async' })
-            : h('span.bmf-thumb-file', ic('file', 26), h('span.bmf-thumb-name', { dir: 'auto' }, f.name || `ملف ${i + 1}`)),
+          s && isImg
+            ? h('button.scn-thumb-open', { type: 'button', disabled, 'aria-label': `${OPEN_LABEL[register]} ${i + 1}`, onClick: (e) => edit(f, e.currentTarget), tag: 'UP-04' }, img)
+            : img,
+          s && warn >= 0 ? h('span.scn-dot', { 'aria-hidden': 'true' }) : null,
+          s && s.doc.pages.length > 1 && scanMods ? scanMods.sheet.pagesBadge(s.doc.pages.length) : null,
           h(
             'button.bmf-thumb-x',
             {
@@ -501,6 +730,7 @@ export function photoPicker({
                 emit();
                 (grid.querySelector('.bmf-thumb-x') || camBtn).focus();
               },
+              tag: 'UP-05',
             },
             ic('x', 20),
           ),
@@ -508,19 +738,50 @@ export function photoPicker({
       }),
     );
     grid.hidden = !files.length;
+    // ملاحظة واحدة تحت الصور: لم تُكتشف حدود الورقة أو كانت مقصوصة
+    const last = files[files.length - 1];
+    const lastDoc = last && SCANS.get(last)?.doc;
+    mount(
+      noteHost,
+      note && scanMods
+        ? scanMods.sheet.scanNote(note.page, {
+            register,
+            onRetake: disabled ? null : () => retake(note.f, note.idx),
+            onKeep: disabled ? null : () => keep(note.f, note.idx),
+          })
+        : null,
+      // «صفحة أخرى» لآخر مستند، ولا تظهر مع ملاحظة تنتظر قرارًا (قرار واحد في المرة)
+      multiPage && !note && lastDoc && scanMods && lastDoc.pages.length < MAX_PAGES
+        ? scanMods.sheet.addPageButton({
+            register,
+            disabled: disabled || pending > 0,
+            onClick: () => {
+              if (disabled) return;
+              target = { mode: 'add', f: last };
+              camInput.click();
+            },
+          })
+        : null,
+    );
     const full = files.length + pending >= limit;
     camBtn.disabled = disabled || full;
     galBtn.disabled = disabled || full;
     el.dataset.count = String(files.length);
   }
 
-  async function prepare(file) {
+  /** صورة ← ملف جاهز: الماسح أولًا (صورة مستند)، وإلا التصغير العادي كما في 11.0 */
+  async function prepare(file, i = 1, n = 1) {
     const type = typeOf(file);
     if (!ACCEPTED.has(type)) {
       showError(messages.bad || t.bad);
       return null;
     }
-    const name = `${prefix}-${files.length + 1}`;
+    docN += 1;
+    const name = `${prefix}-${docN}`;
+    if (scan !== 'off') {
+      const out = await scanImage(file, { name, register, i, n, onStatus: (txt) => (status.textContent = txt) });
+      if (out && out.size && out.size <= maxBytes) return out;
+    }
     let out;
     try {
       out = await compressToBlob(file, { maxSide, quality, name });
@@ -549,8 +810,8 @@ export function photoPicker({
     paint();
     // صورة بعد صورة: موبايل بذاكرة 2 جيجا لا يتحمل فك عدة صور كبيرة معًا
     queue = queue.then(async () => {
-      for (const f of take) {
-        const out = await prepare(f);
+      for (let k = 0; k < take.length; k++) {
+        const out = await prepare(take[k], k + 1, take.length);
         pending -= 1;
         if (out && files.length < limit) files.push(out);
         paint();
@@ -561,9 +822,47 @@ export function photoPicker({
     });
   }
 
+  /** تعديل مستند ممسوح (ورقة التعديل، صفحة جديدة، بديل صفحة) ← ملف جديد مكانه */
+  function change(f, fn) {
+    queue = queue.then(async () => {
+      if (!SCANS.get(f) || !files.includes(f)) return;
+      el.classList.add('is-busy');
+      try {
+        const out = await fn();
+        if (!out) return;
+        if (out.size > maxBytes) return showError(messages.bad || t.bad);
+        const i = files.indexOf(f);
+        if (i >= 0) files[i] = out;
+      } catch {
+        /* الصفحة الجديدة لم تُجهز: يبقى المستند كما كان */
+      } finally {
+        status.textContent = '';
+        el.classList.remove('is-busy');
+        paint();
+        emit();
+      }
+    });
+    return queue;
+  }
+  const edit = (f, trigger) => !disabled && change(f, () => scanEditPage(f, { register, trigger }));
+  const keep = (f, idx) => change(f, () => scanKeepPage(f, idx));
+  function retake(f, idx) {
+    target = { mode: 'replace', f, idx };
+    camInput.click();
+  }
+  function takePage(raw) {
+    const tg = target;
+    target = null;
+    if (!tg || !files.includes(tg.f) || !SCANNABLE.has(typeOf(raw))) return add([raw]);
+    status.textContent = scanMods ? scanMods.sheet.prepText(register) : t.preparing;
+    return change(tg.f, () => scanAddPage(tg.f, raw, { replace: tg.mode === 'replace' ? tg.idx : null, maxPages: MAX_PAGES }));
+  }
+
   camInput.addEventListener('change', () => {
-    add(camInput.files);
+    const list = [...(camInput.files || [])];
     camInput.value = '';
+    if (target && list.length) takePage(list[0]);
+    else add(list);
   });
   galInput.addEventListener('change', () => {
     add(galInput.files);

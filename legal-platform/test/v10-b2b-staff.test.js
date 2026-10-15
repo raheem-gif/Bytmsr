@@ -70,11 +70,12 @@ describe('v10 b2b-staff — routes, navigation and notification icons (STF-0)', 
   });
 
   test('«خدمة الشركات» sits right after «التشغيل اليومي» for staff, never for lawyers', () => {
+    // v12 look: intended (LK-2, K12-33/K12-57): the groups are renamed «اليوم · الشركات · المكتب» (+ «النظام»); same order
     for (const role of ['admin', 'case_manager']) {
       const groups = navGroups({ role }, { demo: true });
-      const i = groups.findIndex((g) => g.title === 'خدمة الشركات');
+      const i = groups.findIndex((g) => g.title === 'الشركات');
       assert.equal(i, 1, `${role}: group position`);
-      assert.equal(groups[0].title, 'التشغيل اليومي');
+      assert.equal(groups[0].title, 'اليوم');
       assert.deepEqual(groups[i].items.map((x) => [x.href, x.icon, x.label]), [
         ['/company-requests', 'inboxStack', 'طلبات الشركات'],
         ['/companies', 'building', 'الشركات العميلة'],
@@ -82,7 +83,7 @@ describe('v10 b2b-staff — routes, navigation and notification icons (STF-0)', 
       assert.equal(groups[i].items[0].coBadge, true, 'badge on «طلبات الشركات»');
     }
     const lawyer = navGroups({ role: 'lawyer' }, {});
-    assert.ok(!lawyer.some((g) => g.title === 'خدمة الشركات'));
+    assert.ok(!lawyer.some((g) => g.title === 'الشركات')); // v12 look: intended (LK-2): renamed group
     assert.ok(!lawyer.flatMap((g) => g.items).some((x) => /company|companies/.test(x.href)));
   });
 

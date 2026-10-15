@@ -838,7 +838,8 @@
   margin-inline-start: 6px;
 }
 
-/* «صحيح / غير دقيق» مقطّع صغير: مسار fill-2 والمختار إبهام أبيض بلون معناه */
+/* «صحيح / غير دقيق» مقطّع صغير: مسار fill-2 والمختار إبهام أبيض بلون معناه.
+   v12 look (K12-57): كلمتان نصيتان «صحيح · غير دقيق»، والمختارة بلون معناها وخط تحتها */
 .pa-fb {
   display: inline-flex;
   align-items: center;
@@ -848,22 +849,32 @@
 
 @media screen {
   .pa-fb {
-    padding: 2px;
-    border-radius: var(--r-10);
-    background: var(--fill-2);
+    gap: 0 14px;
+    padding: 0;
+    border-radius: 0;
+    background: none;
   }
 
   .pa-fb .btn.pa-fb-btn {
     --btn-h: 32px;
-    padding-inline: 10px;
-    border-radius: 8px;
-    color: var(--label-2);
-    font-weight: 600;
+    padding-inline: 2px;
+    border-radius: 0;
+    background: none;
+    color: var(--ink-2);
+    font-weight: 400;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.3em;
+  }
+
+  .pa-fb .btn.pa-fb-btn > .icon {
+    display: none;
   }
 
   .pa-fb .btn.pa-fb-btn.is-on {
-    background: var(--surface);
-    box-shadow: 0 1px 3px var(--fill-3);
+    background: none;
+    box-shadow: none;
+    font-weight: 600;
   }
 
   .pa-fb .btn.pa-fb-btn.is-ok.is-on {
@@ -874,15 +885,16 @@
     color: var(--bad);
   }
 
-  /* V11-48: تنبيه «رقم غير مؤكد» إشعار warn-weak مضغوط، وزره هادئ */
+  /* V11-48: تنبيه «رقم غير مؤكد» إشعار مضغوط، وزره هادئ. v12 look (K12-29): ملاحظة عاجية بخط تحذير 2px على البداية */
   #pa-identity.pa-note {
     flex-flow: row wrap;
     align-items: center;
     gap: 8px 14px;
     padding: 12px 16px;
-    border-radius: var(--r-14);
-    background: var(--warn-weak);
-    color: var(--label);
+    border-radius: 0;
+    border-inline-start: 2px solid var(--warn);
+    background: var(--paper-2);
+    color: var(--ink);
     font: var(--t-subhead);
   }
 
@@ -900,9 +912,12 @@
   }
 
   #pa-identity.pa-note .btn {
-    background: var(--surface);
-    color: var(--label);
+    background: none;
+    color: var(--act);
     border-color: transparent;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
   }
 
   .page-meta .code-tag {

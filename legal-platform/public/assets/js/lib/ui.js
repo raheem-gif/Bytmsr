@@ -2,6 +2,8 @@
 
 import { h, svg, frag, mount, clear } from './h.js';
 import { ApiError, downloadUrl, formatBytes, GENERIC_ERROR } from './api.js';
+// v12 media (MD-3): هل يحمل fileToUpload في api.js كتلة scan (file.bmScan)؟ استيراد مساحة الأسماء لا يكسر شيئًا إن غاب التصدير
+import * as apiNs from './api.js';
 import {
   label as lbl,
   dateTime,
@@ -1074,9 +1076,16 @@ export function fileInput({
   label = 'اختر ملفات أو اسحبها إلى هنا',
   hint,
   onChange,
+  // v12 media (MD-3، L12-21): صور المستندات تمر بالماسح عند الرفع (نظيفة + الأصل)، والمنطق كله في upload.js (يُحمَّل
+  // عند أول صورة). 'auto' يعمل حين يحمل api.js كتلة scan (UPLOAD_SCAN)، 'on' حين تستخدم الصفحة getUploads()، 'off' لا.
+  scan = 'auto',
+  pages = false,
 } = {}) {
   let files = [];
   const limit = multiple ? maxFiles : 1;
+  const scanOn = scan === 'on' || (scan === 'auto' && apiNs.UPLOAD_SCAN === true);
+  let S = null;
+  const glue = () => import('../public/upload.js').then((U) => (S = S || U.fileInputScan({ files: () => files, set: (i, f) => ((files[i] = f), changed()), input, maxBytes, note: (m) => showNote(m), pages })));
   const note = h('p.file-note', { role: 'alert', hidden: true });
   const list = h('ul.file-list');
   const input = h('input.file-native', {
@@ -1092,7 +1101,7 @@ export function fileInput({
   });
   const zone = h(
     'label.file-drop',
-    { htmlFor: id },
+    { htmlFor: id, onClick: () => S?.reset(), tag: 'KIT-01' },
     h('span.file-drop-icon', icon('upload', { size: 22 })),
     h('span.file-drop-text', h('strong', label), h('span.file-drop-hint', hint || `حتى ${count(limit, 'file')}، وحجم الملف الواحد لا يزيد على ${formatBytes(maxBytes)}`)),
   );
@@ -1100,8 +1109,13 @@ export function fileInput({
     note.textContent = msg || '';
     note.hidden = !msg;
   };
+  const changed = () => {
+    render();
+    if (onChange) onChange([...files]);
+  };
 
   function add(newFiles) {
+    if (S?.take(newFiles)) return;
     const problems = [];
     for (const f of newFiles) {
       if (f.size > maxBytes) {
@@ -1115,10 +1129,10 @@ export function fileInput({
         break;
       }
       files.push(f);
+      if (scanOn && /^image\//.test(f.type)) glue().then((g) => g.scan(f), () => {});
     }
     showNote(problems.join(' — '));
-    render();
-    if (onChange) onChange([...files]);
+    changed();
   }
 
   function render() {
@@ -1145,6 +1159,7 @@ export function fileInput({
             },
             icon('x', { size: 16 }),
           ),
+          S?.row(f),
         ),
       ),
     );
@@ -1168,6 +1183,8 @@ export function fileInput({
     el,
     input,
     getFiles: () => [...files],
+    /** المرفقات بصيغة الخادم مع scan للمستندات الممسوحة (§5.8) */
+    getUploads: async () => Promise.all(files.map(async (f) => (await import('../public/upload.js')).fileToUpload(f))),
     setFiles: (arr) => {
       files = Array.isArray(arr) ? arr.filter((f) => f instanceof Blob).slice(0, limit) : [];
       render();

@@ -2142,3 +2142,294 @@ body.pub .bmf-listen {
     outline-offset: -2px;
   }
 }
+
+/* ==========================================================================
+   v12 look (LK-1، K12-24/25/29، L12-04/L12-65/L12-84): الطلب للأفراد والشركات (data-side=paid، ويشمل مكوّنات الرفع في /p/
+   المدفوعة). ورقة بيضاء، عنوان السؤال بوجه العناوين، حقول 52px بحد 1px وزوايا 2px، زر ممتلئ واحد، والبطاقات ملاحظات عاجية
+   بخط 2px على البداية. صفوف الأسئلة (.opt--choice) وخط الخطوة (.step) من public-site.css (§5.6). «خيري» لا يتغير (L12-33).
+   داخل @media screen فلا يتغير شيء عند الطباعة.
+   ========================================================================== */
+
+@media screen {
+  body[data-side="paid"] {
+    --bmf-radius: 2px;
+    --bmf-drop: 0 0 #0000;
+    --bmf-teal-soft: var(--paper-2);
+    --bmf-gold-soft: var(--paper-2);
+    --bmf-green-soft: var(--paper-2);
+    --bmf-amber-soft: var(--paper-2);
+    --bmf-red-soft: var(--paper-2);
+  }
+
+  body.bmf-page[data-side="paid"] {
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  body[data-side="paid"] :is(.bmf-btn, .bmf-input, .bmf-textarea, .bmf-select, .bmf-chip, .bmf-when-chip, .bmf-topic-chip-btn):focus-visible {
+    outline: none;
+    box-shadow: var(--focus);
+  }
+
+  /* العناوين: نص ثابت كتبناه (لا بيانات المستخدم)، فوجه العناوين مسموح (L12-13 ب) */
+  body[data-side="paid"] :is(.bmf-title, .bmf-success h1) {
+    color: var(--ink);
+    font: var(--d2);
+  }
+
+  body[data-side="paid"] .bmf-sub {
+    max-width: 36em;
+    margin-top: 8px;
+    color: var(--ink-2);
+    font: var(--t-lead);
+  }
+
+  body[data-side="paid"] :is(.bmf-thanks, .bmf-card-text) {
+    color: var(--ink-2);
+    font: 400 17px/1.7 var(--f-ui);
+  }
+
+  /* الحقول (K12-25) */
+  body[data-side="paid"] :is(.bmf-input, .bmf-textarea, .bmf-select) {
+    min-height: 52px;
+    padding: 12px 14px;
+    border: 1px solid var(--field-line);
+    border-radius: 2px;
+    background: var(--paper);
+    box-shadow: none;
+    color: var(--ink);
+    font: 400 17px/1.5 var(--f-ui);
+  }
+
+  body[data-side="paid"] .bmf-textarea {
+    min-height: 140px;
+  }
+
+  body[data-side="paid"] :is(.bmf-input, .bmf-textarea, .bmf-select):focus {
+    outline: none;
+    border-color: var(--act);
+    box-shadow: inset 0 0 0 1px var(--act);
+  }
+
+  body[data-side="paid"] :is(.bmf-input, .bmf-textarea)[aria-invalid="true"] {
+    border-color: var(--bad);
+  }
+
+  body[data-side="paid"] :is(.bmf-input, .bmf-textarea)::placeholder {
+    color: var(--ink-3);
+  }
+
+  body[data-side="paid"] :is(.bmf-label, .bmf-group legend, .bmf-when legend, .bmf-topic-chips legend) {
+    margin-bottom: 8px;
+    color: var(--ink);
+    font: var(--t-ui-strong);
+  }
+
+  /* سطر تحت الحقل (I-58 «رقم من خارج مصر؟»، L12-84) */
+  body[data-side="paid"] .bmf-hint {
+    margin-top: 6px;
+    color: var(--ink-3);
+    font: var(--t-small);
+  }
+
+  body[data-side="paid"] :is(.bmf-hint, .bmf-fine, .bmf-contact, .bmf-consent-line, .bmf-under-send) a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--act);
+    font-weight: 400;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.32em;
+  }
+
+  body[data-side="paid"] :is(.bmf-error, .bmf-pick-error) {
+    color: var(--bad);
+    font: var(--t-small);
+  }
+
+  /* الأزرار (K12-20): ممتلئ واحد، خطّي، نص؛ بلا تكبير عند الضغط */
+  body[data-side="paid"] .bmf-btn {
+    min-height: 48px;
+    padding: 0 26px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: none;
+    box-shadow: none;
+    color: var(--act);
+    font: 600 16px/1.2 var(--f-ui);
+  }
+
+  body[data-side="paid"] .bmf-btn.bmf-btn-lg {
+    min-height: 50px;
+  }
+
+  body[data-side="paid"] .bmf-btn:active:not(:disabled) {
+    transform: none;
+    background-image: none;
+  }
+
+  body[data-side="paid"] .bmf-btn:is(.bmf-btn-primary, .bmf-btn-gold) {
+    border-color: transparent;
+    background: var(--act);
+    color: var(--on-act);
+  }
+
+  body[data-side="paid"] .bmf-btn:is(.bmf-btn-primary, .bmf-btn-gold):hover:not(:disabled) {
+    background: var(--act-hover);
+    color: var(--on-act);
+  }
+
+  body[data-side="paid"] .bmf-btn:is(.bmf-btn-outline, .bmf-btn-wa, .bmf-confirm) {
+    border-color: var(--ink);
+    background: none;
+    color: var(--ink);
+  }
+
+  body[data-side="paid"] .bmf-btn:is(.bmf-btn-outline, .bmf-btn-wa, .bmf-confirm):hover:not(:disabled) {
+    border-color: var(--ink);
+    background: var(--paper-2);
+    color: var(--ink);
+  }
+
+  body[data-side="paid"] .bmf-btn.bmf-btn-text {
+    padding-inline: 4px;
+    background: none;
+    color: var(--act);
+  }
+
+  body[data-side="paid"] .bmf-btn.bmf-btn-text:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 0.32em;
+  }
+
+  body[data-side="paid"] :is(.bmf-btn, .bmf-card, .bmf-tip) .bmf-ic {
+    display: none;
+  }
+
+  /* الموافقة والاختيارات الصغيرة (وقت الاتصال، نوع الطلب I-57): أزرار بحد 1px */
+  body[data-side="paid"] .bmf-consent {
+    padding: 12px 0;
+    border-radius: 0;
+    background: none;
+    color: var(--ink-2);
+    font: var(--t-ui);
+  }
+
+  body[data-side="paid"] .bmf-consent input {
+    accent-color: var(--act);
+  }
+
+  body[data-side="paid"] :is(.bmf-chip, .bmf-tile, .bmf-when-chip, .bmf-topic-chip-btn) {
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--field-line);
+    border-radius: 2px;
+    background: var(--paper);
+    box-shadow: none;
+    color: var(--ink);
+    font: var(--t-ui);
+  }
+
+  body[data-side="paid"] :is(.bmf-chip, .bmf-tile, .bmf-when-chip, .bmf-topic-chip-btn)[aria-pressed="true"] {
+    border-color: var(--act);
+    background: var(--paper-2);
+    box-shadow: inset 0 0 0 1px var(--act);
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  body[data-side="paid"] :is(.bmf-when-chip, .bmf-topic-chip-btn, .bmf-chip) .pub-pic {
+    display: none;
+  }
+
+  /* الملاحظات (K12-29): البطاقة الوحيدة المسموحة صندوق عاجي بخط 2px على البداية */
+  body[data-side="paid"] :is(.bmf-card, .bmf-card.is-gold, .bmf-card.is-outline, .bmf-summary, .bmf-optional, .bmf-tip, .bmf-alert, .bmf-banner) {
+    border: 0;
+    border-inline-start: 2px solid var(--act);
+    border-radius: 0;
+    background: var(--paper-2);
+    box-shadow: none;
+  }
+
+  body[data-side="paid"] :is(.bmf-alert.is-error, .bmf-banner) {
+    border-inline-start-color: var(--warn);
+  }
+
+  body[data-side="paid"] .bmf-card h2 {
+    color: var(--ink);
+    font: var(--t-head);
+  }
+
+  body[data-side="paid"] .bmf-kicker {
+    color: var(--ink-2);
+    font: var(--t-label);
+  }
+
+  /* «وصلنا طلبكم»: بلا دائرة علامة؛ سطر العاجل (I-67) ملاحظة بخط الموعد، ورقم الطلب أرقام ثابتة العرض */
+  body[data-side="paid"] .bmf-done-icon {
+    display: none;
+  }
+
+  body[data-side="paid"] .bmf-urgent {
+    margin: 16px 0 0;
+    padding: 14px 18px;
+    border-inline-start: 2px solid var(--warn);
+    background: var(--paper-2);
+    color: var(--ink);
+    font: 400 17px/1.6 var(--f-ui);
+  }
+
+  body[data-side="paid"] .bmf-urgent + .btn {
+    margin-top: 12px;
+  }
+
+  body[data-side="paid"] .bmf-ref {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  body[data-side="paid"] :is(.bmf-note, .bmf-fine, .bmf-reassure, .bmf-sent, .bmf-trust) {
+    color: var(--ink-3);
+    font: var(--t-small);
+  }
+
+  body[data-side="paid"] .bmf-toast {
+    border-radius: 2px;
+    background: var(--ink);
+    box-shadow: none;
+    color: var(--paper);
+  }
+
+  /* الصور والملفات (upload.js): مصغّرات بزوايا 2px وحد رفيع، وشريط الإرسال 2px */
+  body[data-side="paid"] .bmf-thumb {
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    box-shadow: none;
+  }
+
+  body[data-side="paid"] .bmf-thumb-x {
+    border-radius: 2px;
+  }
+
+  body[data-side="paid"] .bmf-progress-bar {
+    height: 2px;
+    border-radius: 0;
+    background: var(--rule);
+  }
+
+  body[data-side="paid"] .bmf-progress-fill {
+    border-radius: 0;
+    background: var(--act);
+  }
+}
+
+@media screen and (forced-colors: active) {
+  body[data-side="paid"] :is(.bmf-btn, .bmf-card, .bmf-urgent, .bmf-when-chip, .bmf-topic-chip-btn) {
+    border: 1px solid CanvasText;
+  }
+}

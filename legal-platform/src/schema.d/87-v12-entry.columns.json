@@ -1,0 +1,7 @@
+[
+  ["intakes", "service_line", "TEXT"],
+  ["intakes", "pathway", "TEXT"],
+  ["intakes", "pathway_source", "TEXT"],
+  ["intakes", "pathway_set_at", "TEXT"],
+  ["intakes", "lines_menu_sent_at", "TEXT"]
+]

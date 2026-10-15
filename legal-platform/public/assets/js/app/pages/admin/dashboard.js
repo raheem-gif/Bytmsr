@@ -190,6 +190,39 @@ export function segmentStrip(seg) {
   );
 }
 
+/**
+ * v12 staff-lines (SL-2، E12-53): «حسب نوع الطلب» — استشارة · دعوى قضائية · شركات · لم يُحدَّد النوع، لكل صف «جديد اليوم» و«مفتوح»
+ * ورابط إلى صندوق الوارد مصفّى بالنوع (?line=). كلمات محايدة بلا ألوان نوع الخدمة ولا أيقونات.
+ */
+export function lineStrip(lines) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  return h(
+    'section.g-section.pa-line-strip',
+    { 'aria-labelledby': 'pa-line-strip-h' },
+    h('div.g-head', h('h2#pa-line-strip-h', { tag: 'DSH-01' }, 'حسب نوع الطلب')),
+    h(
+      'ul.g-list',
+      { tag: 'DSH-02' },
+      lines.map((l) =>
+        h(
+          'li',
+          h(
+            'a.g-row.pa-line-row',
+            // review (F1): الأعداد لطلبات «أفراد وشركات» وحدها، فالرابط يفتح صندوق الوارد على النطاق نفسه (لا على آخر نوع خدمة محفوظ)
+            { href: `#/inbox?segment=paid&line=${encodeURIComponent(l.line)}`, dataset: { line: l.line } },
+            h(
+              'span.g-main',
+              h('span.g-title', l.label),
+              h('span.g-sub', 'جديد اليوم ', h('strong', num(l.new_today)), ' · مفتوح ', h('strong', num(l.open))),
+            ),
+            h('span.g-trail', icon('chevronLeft', { size: 16 })),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 export default async function render(ctx) {
   const d = await api.get('/admin/dashboard');
   const intakes = d.intakes || {};
@@ -506,6 +539,7 @@ export default async function render(ctx) {
     'div.pa-page.pa-page-dashboard',
     header,
     segmentStrip(d.segments), // v11 segment-staff (ST-5): «حسب نوع الخدمة» — قبل الأرقام لأن صفوف التنبيه تحتاج قرارًا اليوم
+    lineStrip(d.lines), // v12 staff-lines (SL-2): «حسب نوع الطلب»
     stats,
     companyStrip(user), // v10 b2b-staff (STF-10، U10-S02): «خدمة الشركات» — مخفي إن لم توجد شركات
     h('div.pa-dash-grid', decisionsCard, capacityCard, eventsCard, casesCard, similarCard, monthCard),

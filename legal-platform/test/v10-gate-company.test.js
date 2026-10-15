@@ -372,7 +372,11 @@ describe('gate — portal client fixes (static and pure checks)', () => {
     const html = read('public/company.html');
     assert.match(html, /<script src="\/assets\/js\/lib\/company-boot-early\.js" async fetchpriority="high"><\/script>/);
     assert.ok(html.indexOf('company-boot-early.js') < html.indexOf('app.css'), 'first in the head');
-    assert.doesNotMatch(html, /rel="preload"[^>]*plex-arabic/);
+    // v12 look: intended (K12-12, LK-0): the two Plex weights the portal draws first (400 text, 600 rows) are preloaded after
+    // the boot script (which still starts first); no other font, and never the display face
+    const fontPreloads = [...html.matchAll(/<link rel="preload" href="\/assets\/fonts\/([\w.-]+)" as="font"[^>]*>/g)].map((m) => m[1]);
+    assert.deepEqual(fontPreloads, ['plex-arabic-400.woff2', 'plex-arabic-600.woff2']);
+    assert.ok(html.indexOf('company-boot-early.js') < html.indexOf('rel="preload"'), 'the boot script comes before the font preloads');
     const boot = read('public/assets/js/lib/company-boot-early.js');
     for (const u of ['/api/company/meta', '/api/company/auth/session', '/api/company/home']) assert.ok(boot.includes(`'${u}'`), u);
     assert.doesNotMatch(boot, /^\s*(?:import|export)\b/m, 'a classic script');

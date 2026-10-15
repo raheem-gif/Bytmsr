@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>الصفحة غير موجودة — {{site_name}}</title>
+    <title>{{nf_title}}</title>
     <meta name="description" content="الصفحة المطلوبة غير موجودة لدى {{brand_name}}. تابع طلبك أو قدّم طلبًا جديدًا أو تواصل معنا." />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
@@ -12,7 +12,6 @@
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
   <body class="site pub v91" data-side="{{side}}">
-    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -20,7 +19,7 @@
         <div class="pub-container">
           <nav aria-label="مسار التصفح">
             <ol class="pub-crumbs">
-              <li><a href="/">الرئيسية</a></li>
+              <li><a href="{{nf_home_href}}">{{nf_crumb}}</a></li>
               <li aria-current="page">صفحة غير موجودة</li>
             </ol>
           </nav>
@@ -39,10 +38,10 @@
             <div class="pub-cta-row">
               <a class="pub-btn pub-btn-teal pub-btn-primary" href="/portal">{{nf_follow}}</a>
               <a class="pub-btn pub-btn-outline" href="{{nf_new_href}}" data-cta="intake">{{nf_new}}</a>
-              <a class="pub-btn pub-btn-outline" href="{{nf_home_href}}">الصفحة الرئيسية</a>
+              <a class="pub-btn pub-btn-outline" href="{{nf_home_href}}">{{nf_home}}</a>
             </div>
             <!--#if org_phone-->
-            <p style="margin-block-start: 16px">{{nf_call}} <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if office_hours_line--> — {{office_hours_line}}<!--/if office_hours_line--></p>
+            <p class="pub-nf-call">{{nf_call}} <a href="tel:{{org_phone_href}}" dir="ltr" class="pub-ltr">{{org_phone}}</a><!--#if office_hours_line-->{{nf_sep}}{{office_hours_line}}<!--/if office_hours_line--></p>
             <!--/if org_phone-->
           </article>
         </div>

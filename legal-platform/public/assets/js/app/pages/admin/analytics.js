@@ -1,11 +1,69 @@
 // التسويق والتحليلات: مصدر العميل يختلف عن قناة التواصل — نقيس ماذا حدث فعلًا لكل رسالة جاءت من كل مصدر.
 
-import { h, frag, mount } from '../../../lib/h.js';
+import { h, frag, mount, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { label, areaLabel, num, count, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
 import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge, formDialog, confirmDanger, toast } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
 import { segmentSwitch } from '../../components/segment-ui.js'; // v11 segment-staff (ST-5)
+
+// v12 staff-lines (SL-8، E12-56/57): نوع الطلب في القمع، وقسم «من الصفحة الأولى إلى الطلب»
+export const LINE_SCOPES = Object.freeze([
+  { value: 'consultation', label: 'استشارة' },
+  { value: 'litigation', label: 'دعوى قضائية' },
+  { value: 'company', label: 'شركات' },
+]);
+export const ENTRY_TITLE = 'من الصفحة الأولى إلى الطلب';
+export const ENTRY_NOTE = 'الزيارات تُعدّ للصفحة الأولى وصفحات الاختيار فقط، بلا أي بيانات عن الزائر. «من الصفحة السابقة» = زيارات الصفحة مقسومة على زيارات الصفحة التي قبلها.';
+
+/** قسم «من الصفحة الأولى إلى الطلب»: جدول الصفحات وجدول المسارات وإجمالي الطلبات لكل نوع (GET /api/admin/analytics/entry-tree) */
+export function entryTreeSection(d = {}) {
+  const pages = Array.isArray(d.pages) ? d.pages : [];
+  const paths = Array.isArray(d.paths) ? d.paths : [];
+  const totals = Array.isArray(d.totals) ? d.totals : [];
+  return card({
+    title: ENTRY_TITLE,
+    subtitle: 'كم زائرًا فتح كل صفحة من الصفحة الأولى، وكم طلبًا وصل من كل مسار في الفترة نفسها.',
+    icon: 'filter',
+    className: 'pa-entry-tree',
+    body: h(
+      'div.stack',
+      h(
+        'p.pd-scope-line',
+        { tag: 'ANL-05' },
+        totals.map((t, i) => [i ? ' · ' : '', `${t.label}: `, h('strong', num(t.requests))]),
+      ),
+      tagged(
+        'ANL-03',
+        table({
+          className: 'pd-table-tight',
+          caption: 'زيارات صفحات الاختيار',
+          rows: pages,
+          empty: 'لا زيارات في الفترة المختارة',
+          columns: [
+            { key: 'label', label: 'الصفحة', render: (p) => h('div.pd-cell-stack', h('span.cell-title', p.label), p.question ? h('span.cell-sub', p.question) : null) },
+            { key: 'views', label: 'الزيارات', align: 'center', render: (p) => num(p.views) },
+            { key: 'share', label: 'من الصفحة السابقة', align: 'center', render: (p) => (p.share_of_parent == null ? '—' : h('bdi', { dir: 'ltr' }, percent(p.share_of_parent))) },
+          ],
+        }),
+      ),
+      tagged(
+        'ANL-04',
+        table({
+          className: 'pd-table-tight',
+          caption: 'الطلبات حسب المسار',
+          rows: paths,
+          empty: 'لا طلبات بمسار في الفترة المختارة',
+          columns: [
+            { key: 'label', label: 'المسار', render: (x) => h('span.cell-title', x.label) },
+            { key: 'requests', label: 'الطلبات', align: 'center', render: (x) => num(x.requests) },
+          ],
+        }),
+      ),
+      h('p.pd-footnote', { tag: 'ANL-06' }, ENTRY_NOTE),
+    ),
+  });
+}
 
 // v11 segment-staff (ST-5، r2 S10، P0): «الكل · خيري · أفراد وشركات» — الافتراضي «الكل» = مخرجات 10.0 مع «يشمل الخيري والأفراد»
 const SEG_SCOPES = ['charity', 'paid'];
@@ -135,8 +193,9 @@ export default async function render(ctx) {
     from: isoDay(ctx.query.from) || addDaysStr(today, -90),
     to: isoDay(ctx.query.to) || today,
     seg: SEG_SCOPES.includes(ctx.query.segment) ? ctx.query.segment : '',
+    line: LINE_SCOPES.some((l) => l.value === ctx.query.line) ? ctx.query.line : '', // v12 staff-lines (SL-8)
   };
-  const funnelQuery = () => ({ group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true), segment: state.seg || undefined });
+  const funnelQuery = () => ({ group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true), segment: state.seg || undefined, line: state.line || undefined });
   const [initialFunnel, areas] = await Promise.all([api.get('/admin/analytics/funnel', funnelQuery()), api.get('/admin/analytics/areas', { segment: state.seg || undefined })]);
 
   const funnelHost = h('div.stack-lg');
@@ -145,7 +204,7 @@ export default async function render(ctx) {
 
   function syncUrl() {
     const defaults = state.from === addDaysStr(today, -90) && state.to === today;
-    replaceQuery('/analytics', { segment: state.seg, group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
+    replaceQuery('/analytics', { segment: state.seg, line: state.line, group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
   }
 
   async function refetch() {
@@ -157,6 +216,7 @@ export default async function render(ctx) {
     rangeError.hidden = true;
     const my = ++seq;
     syncUrl();
+    loadEntryTree(); // v12 staff-lines (SL-8)
     mount(funnelHost, loading());
     try {
       const d = await api.get('/admin/analytics/funnel', funnelQuery());
@@ -377,10 +437,26 @@ export default async function render(ctx) {
       reloadAreas();
     },
   });
+  // v12 staff-lines (SL-8، E12-56): نوع الطلب يرشّح القمع فقط
+  const lineSel = h(
+    'select.input',
+    {
+      tag: 'ANL-01',
+      'aria-label': 'نوع الطلب',
+      onChange: (e) => {
+        state.line = LINE_SCOPES.some((l) => l.value === e.target.value) ? e.target.value : '';
+        refetch();
+      },
+    },
+    h('option', { value: '' }, 'كل الأنواع'),
+    LINE_SCOPES.map((l) => h('option', { value: l.value }, l.label)),
+  );
+  lineSel.value = state.line;
   const controls = h(
     'div.filter-bar.pd-analytics-controls',
     { role: 'search' },
     h('div.pd-control.pd-seg-control', h('span.field-label', 'نوع الخدمة'), segSwitch, scopeLine),
+    field('نوع الطلب', h('div.select-wrap', lineSel), { className: 'pd-line-field' }),
     h('div.pd-control', h('span.field-label', 'تجميع حسب'), segmented),
     field('من تاريخ', fromInput, { className: 'pd-date-field' }),
     field('إلى تاريخ', toInput, { className: 'pd-date-field' }),
@@ -389,6 +465,24 @@ export default async function render(ctx) {
   );
 
   drawFunnel(initialFunnel);
+
+  // ── v12 staff-lines (SL-8، E12-57): من الصفحة الأولى إلى الطلب ── (يتبع التاريخين فقط؛ كل قراءة تُسجَّل في سجل الأمان)
+  const entryHost = h('div', { tag: 'ANL-02' });
+  let entrySeq = 0;
+  let entryRange = '';
+  async function loadEntryTree({ force = false } = {}) {
+    const range = `${state.from}|${state.to}`;
+    if (!force && range === entryRange) return; // نوع الخدمة ونوع الطلب والتجميع لا تغيّر هذا القسم
+    entryRange = range;
+    const my = ++entrySeq;
+    try {
+      const d = await api.get('/admin/analytics/entry-tree', { from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true) }, { background: true });
+      if (my === entrySeq) mount(entryHost, entryTreeSection(d));
+    } catch (err) {
+      if (my === entrySeq) mount(entryHost, errorState(err, () => loadEntryTree({ force: true })));
+    }
+  }
+  loadEntryTree();
 
   // ── حسب المجال والحجم الأسبوعي ── (v11 segment-staff: يُعاد رسمهما عند تغيير نوع الخدمة)
   const areasHost = h('div');
@@ -564,6 +658,7 @@ export default async function render(ctx) {
     }),
     controls,
     funnelHost,
+    entryHost, // v12 staff-lines (SL-8)
     spendHost,
     weeklyHost,
     areasHost,

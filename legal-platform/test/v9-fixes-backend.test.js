@@ -413,11 +413,12 @@ describe('Branded 404 and truncated /p/ links', () => {
       for (const p of ['/no-such-page', '/setup', '/privacy.html']) {
         const r = await c.get(p);
         assert.equal(r.status, 404, p);
-        // v9.1 b-site (B91-12): نفس المعنى بكلام بسيط
-        assert.match(r.body, /الصفحة دي مش موجودة/);
+        // v9.1 b-site (B91-12): نفس المعنى بكلام بسيط — v12 entry: intended (E12 §12.2, E12-10): while «خيري» is archived
+        // the 404 is the paid one («متابعة طلب»، «طلب جديد» → the entry tree «/»)
+        assert.match(r.body, /الصفحة غير موجودة/);
         assert.match(r.body, /public-site\.css/, 'styled like the public site');
-        assert.match(r.body, /href="\/portal"[^>]*>تابعي طلبك/);
-        assert.match(r.body, /href="\/intake"[^>]*>احكيلنا مشكلتك/);
+        assert.match(r.body, /href="\/portal"[^>]*>متابعة طلب/);
+        assert.match(r.body, /href="\/"[^>]*>طلب جديد/);
         assert.ok(r.body.includes('01211114662'), 'the org phone is shown');
         // ليست صفحة الطوارئ المجردة (v9.1 b-site: الأنماط المضمّنة في 404 تذكر Tahoma ضمن قائمة الخطوط البديلة)
         assert.doesNotMatch(r.body, /تأكد من الرابط أو عد إلى|font-family:Tahoma,sans-serif;background:#f6f7f8/);

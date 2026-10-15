@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- v12 entry (E12-13، E12-20، §5.6): الصفحة الأولى «/» وصفحات /start/… من قالب واحد. ورقة بيضاء: الشعار، سؤال واحد،
+         صفوف بخطوط رفيعة، وتذييل هادئ. كل رابط يعمل بلا JavaScript؛ entry.js صغير ومؤجل (مصدر الزيارة، صفحة الطلب المحفوظة،
+         التحميل المسبق في المستوى الثالث، ومنع الضغطة المزدوجة). -->
+    <title>{{tree_title}}</title>
+    <meta name="description" content="{{tree_description}}" />
+    {{{tree_preload}}}
+    <!--site:head-->
+    <!--site:critical-css:entry-->
+    <script type="module" src="/assets/js/public/entry.js"></script>
+  </head>
+  <body class="site pub pub-paid entry" data-side="paid" data-depth="{{tree_depth}}" data-prefetch="{{tree_prefetch}}">
+    {{{tree_main}}}
+    <link rel="stylesheet" href="/assets/css/public-site.css" />
+  </body>
+</html>

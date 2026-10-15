@@ -492,7 +492,8 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
     await t.close();
   });
 
-  const pages = () => ['/', '/intake', '/portal', portalPath, '/privacy', '/no-such-page-v92'];
+  // v12 entry: intended (E12-10): a bare /intake redirects to the tree «/»; the form is /intake?path=… (+ /services, the paid home)
+  const pages = () => ['/', '/services', '/intake?path=consultation/other', '/portal', portalPath, '/privacy', '/no-such-page-v92'];
 
   test('I1 default colours: no theme block on any public page or /app, theme-color stays the default p700 (v10: B.DEFAULT_PRIMARY)', async () => {
     for (const p of pages()) {
@@ -637,7 +638,7 @@ describe('v9.2 colours — server delivery, API, audit and readiness', () => {
   test('I11 a corrupted brand_colors row never breaks a page: 200 and no theme block', async () => {
     for (const raw of ['{bad json', JSON.stringify({ primary: '</style>', accent: '#f9a825' }), JSON.stringify('#6a1b9a'), 'null']) {
       t.app.db.run("INSERT INTO settings (key, value) VALUES ('brand_colors', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", raw);
-      for (const p of ['/', '/intake', '/portal']) {
+      for (const p of ['/', '/intake?path=consultation/other', '/portal']) { // v12 entry: intended (E12-10)
         const r = await anon.get(p);
         assert.equal(r.status, 200, `${p} with ${raw}`);
         assert.doesNotMatch(r.body, /id="bm-theme"/, `${p} with ${raw}`);

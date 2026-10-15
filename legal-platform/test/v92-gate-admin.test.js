@@ -73,6 +73,9 @@ describe('v9.2 gate (admin) — names and identity on website requests', () => {
   let admin;
   before(async () => {
     t = await startTestApp({ seed: 'none' });
+    // v12 staff-lines: intended (L12-09): these are «خيري» website requests (the 11.0 default); with «خيري» archived a POST
+    // without segment is «أفراد وشركات», so the suite runs with «خيري» public to keep its charity-tone assertions
+    t.app.settings.set('charity_public', true);
     admin = await t.login('admin');
   });
   after(async () => {

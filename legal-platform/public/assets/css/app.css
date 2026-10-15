@@ -18,6 +18,13 @@
 @font-face { font-family: "IBM Plex Sans Arabic"; font-style: normal; font-weight: 700; font-display: swap;
   src: url("/assets/fonts/plex-latin-700.woff2") format("woff2");
   unicode-range: U+0000-001F, U+0021-0029, U+002B-009F, U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* v12 look (K12-12, L12-13): display face for static headings only; ranges = the subsets' code points (fonts/README.txt) */
+@font-face { font-family: "Emam Display"; font-style: normal; font-weight: 400; font-display: optional;
+  src: url("/assets/fonts/amiri-arabic-400-sub.woff2") format("woff2");
+  unicode-range: U+0020, U+00A0, U+060C, U+061B, U+061F, U+0621-063A, U+0640-0655, U+0660-066D, U+0670, U+067E, U+0686, U+06A4, U+06AF, U+06CC, U+200C-200E; }
+@font-face { font-family: "Emam Display"; font-style: normal; font-weight: 400; font-display: optional;
+  src: url("/assets/fonts/cormorant-latin-500-sub.woff2") format("woff2");
+  unicode-range: U+0021-007E, U+00A9, U+00AB, U+00B7, U+00BB, U+2013-2014, U+2018-2019, U+201C-201D, U+2026; }
 
 :root {
 
@@ -56,44 +63,74 @@
 
   --scrim: rgb(var(--primary-900-rgb) / 0.48);
 
-  --canvas: #ffffff;
-  --canvas-grouped: #f6f6f3;
-  --surface-tint: #f9f8f4;
-  --label: #141f1a;
-  --label-2: #5a625e;
-  --label-3: #7d8480;
-  --separator: rgb(20 31 26 / 0.12);
-  --fill-1: rgb(20 31 26 / 0.05);
-  --fill-2: rgb(20 31 26 / 0.08);
+  /* v12 look (K12-02…04): the firm's stationery. White paper, green-black ink, hairline rules, one action colour;
+     gold is the logo's only. The v11 role names below point at these (one re-point moves every screen). */
+  --paper: #fff;
+  --paper-2: #f8f6f1;
+  --paper-3: #f1eee6;
+  --ink: #13201a;
+  --ink-2: #4a524d;
+  --ink-3: #686f6b;
+  --rule: #e4e0d6;
+  --rule-2: #cfc9bb;
+  --field: #8a8f8a;
+  --act: var(--primary-700);
+  --act-hover: var(--primary-800);
+  --on-act: #fff;
+  --gold: var(--accent-500);
+  --sheet-shadow: 0 30px 80px -24px rgb(var(--primary-900-rgb) / 0.38);
+  --f-ui: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-display: "Emam Display", "IBM Plex Sans Arabic", "Times New Roman", serif;
+  --d2: 400 clamp(28px, 0.9vw + 22px, 38px) / 1.45 var(--f-display);
+  --d3: 400 clamp(24px, 0.4vw + 20px, 28px) / 1.5 var(--f-display);
+  --d4: 400 22px / 1.5 var(--f-display);
+  --t-ui: 400 15px / 1.6 var(--f-ui);
+  --t-ui-strong: 600 15px / 1.6 var(--f-ui);
+  --t-head: 600 17px / 1.55 var(--f-ui);
+  --t-small: 400 14px / 1.6 var(--f-ui);
+  --t-label: 600 13px / 1.5 var(--f-ui);
+  --t-num: 400 13px / 1.4 var(--f-ui);
+  --r-1: 2px;
+  --r-sheet: 14px;
+
+  --canvas: var(--paper);
+  --canvas-grouped: var(--paper);
+  --surface-tint: var(--paper-2);
+  --label: var(--ink);
+  --label-2: var(--ink-2);
+  --label-3: var(--ink-3);
+  --separator: var(--rule);
+  --fill-1: var(--paper-2);
+  --fill-2: var(--paper-3);
   --fill-3: rgb(20 31 26 / 0.12);
-  --tint: var(--primary-700);
-  --on-tint: #fff;
-  --tint-weak: var(--primary-50);
-  --tint-weak-2: var(--primary-100);
-  --gold-line: var(--accent-500);
+  --tint: var(--act);
+  --on-tint: var(--on-act);
+  --tint-weak: transparent;
+  --tint-weak-2: var(--paper-2);
+  --gold-line: var(--gold);
   --gold-ink: var(--accent-700);
-  --gold-wash: var(--accent-50);
-  --ok: #1c6a39;
+  --gold-wash: transparent;
+  --ok: #1d6b3a;
   --ok-weak: #e8f4ec;
   --warn: #8a5300;
   --warn-weak: #fdf3df;
-  --bad: #b42318;
+  --bad: #a8261b;
   --bad-weak: #fdecea;
   --info: #1b5a99;
   --info-weak: #e7f0fa;
-  --e-1: 0 1px 2px rgb(var(--primary-900-rgb) / 0.05), 0 1px 1px rgb(var(--primary-900-rgb) / 0.03);
-  --e-2: 0 1px 2px rgb(var(--primary-900-rgb) / 0.05), 0 10px 30px -12px rgb(var(--primary-900-rgb) / 0.18);
+  --e-1: 0 0 #0000;
+  --e-2: 0 0 #0000;
   --e-3: 0 30px 70px -20px rgb(var(--primary-900-rgb) / 0.3), 0 2px 6px rgb(var(--primary-900-rgb) / 0.06);
-  --r-6: 6px;
-  --r-10: 10px;
-  --r-14: 14px;
-  --r-20: 20px;
-  --r-28: 28px;
+  --r-6: var(--r-1);
+  --r-10: var(--r-1);
+  --r-14: var(--r-1);
+  --r-20: var(--r-1);
+  --r-28: var(--r-sheet);
 
-  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px var(--primary-700), 0 0 0 7px rgb(var(--accent-500-rgb) / 0.3);
+  --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--act);
 
   --edge-strong: 0 0 0 2px var(--primary-500);
-  --field-line: #767d79;
+  --field-line: var(--field);
 
   --gray-900: #141f1a;
   --gray-800: #28322d;
@@ -122,19 +159,19 @@
   --whatsapp-dark: #0a6345;
 
   --bg: var(--canvas-grouped);
-  --surface: #ffffff;
+  --surface: var(--paper);
   --surface-2: var(--surface-tint);
   --text: var(--label);
   --text-muted: var(--label-2);
   --text-soft: var(--label-2);
   --border: var(--separator);
-  --border-strong: rgb(20 31 26 / 0.2);
+  --border-strong: var(--rule-2);
   --link: var(--primary-600);
 
-  --radius-sm: 6px;
-  --radius: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 20px;
+  --radius-sm: var(--r-1);
+  --radius: var(--r-1);
+  --radius-lg: var(--r-1);
+  --radius-xl: var(--r-1);
   --shadow-sm: var(--e-1);
   --shadow: var(--e-1);
   --shadow-lg: var(--e-3);
@@ -1241,13 +1278,12 @@ html[dir="rtl"] .icon-dir {
   unicode-bidi: isolate;
   font-family: var(--font-mono);
   font-size: 0.86em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  padding: 1px 8px;
-  border-radius: 6px;
-  background: var(--primary-50);
-  color: var(--primary-800);
-  border: 1px solid var(--primary-100);
+  font-weight: 500;
+  padding: 0 6px;
+  border-radius: var(--r-1);
+  background: var(--paper);
+  color: var(--ink-2);
+  border: 1px solid var(--rule-2);
   white-space: nowrap;
   vertical-align: middle;
   line-height: 1.7;
@@ -1256,7 +1292,6 @@ html[dir="rtl"] .icon-dir {
 .code-tag.code-lg {
   font-size: 22px;
   padding: 6px 16px;
-  border-radius: 10px;
   letter-spacing: 0.03em;
 }
 
@@ -1952,10 +1987,10 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   gap: 6px;
   min-height: 36px;
   padding: 4px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--gray-800);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-1);
+  background: var(--paper);
+  color: var(--ink-2);
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
@@ -1972,15 +2007,16 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .chip-toggle:hover:not(:disabled) {
-  border-color: var(--primary-300);
-  background: var(--primary-50);
+  border-color: var(--ink-3);
+  background: var(--paper-2);
 }
 
 .chip-toggle.is-on,
 .chip-toggle[aria-pressed="true"] {
-  background: var(--primary-700);
-  border-color: var(--primary-700);
-  color: #fff;
+  background: var(--paper-2);
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .chip-toggle.is-on .icon,
@@ -2219,10 +2255,8 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 
 .tab-count {
   min-width: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-700);
+  padding: 0 2px;
+  color: var(--ink-3);
   font-size: 12px;
   line-height: 20px;
   text-align: center;
@@ -2230,8 +2264,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .tab[aria-selected="true"] .tab-count {
-  background: var(--primary-100);
-  color: var(--primary-800);
+  color: var(--ink);
 }
 
 .tab-panel:focus {
@@ -3166,9 +3199,8 @@ a.doc-chip:hover {
 }
 
 .progress {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--gray-100);
+  height: 2px;
+  background: var(--rule);
   overflow: hidden;
 }
 
@@ -3180,7 +3212,7 @@ a.doc-chip:hover {
 }
 
 .progress.tone-primary .progress-bar { background: var(--primary-600); }
-.progress.tone-accent .progress-bar { background: var(--accent-500); }
+.progress.tone-accent .progress-bar { background: var(--act); }
 .progress.tone-warning .progress-bar { background: var(--warning-500); }
 
 .login-page {

@@ -869,16 +869,24 @@ export function createCompanyRequests(app) {
       const perDay = Math.max(1, Number(app.settings.get('b2b_files_per_day')) || 200);
       const today = Number(db.value('SELECT COUNT(*) FROM company_uploads WHERE company_id = ? AND created_at >= ?', company.id, since(86400000)));
       if (today >= perDay) throw new ApiError(429, COMPANY_TEXT.files_per_day, 'rate_limited');
+      // v12 media (H-M13): القرص الممتلئ ← 503 قبل أي كتابة
+      if (app.media?.diskLow?.()) throw app.media.diskLowError();
+      // v12 media (H-M6، L12-58، L12-70): كتلة الماسح وأصولها تُفحص كاملة قبل الكتابة، والأصول تُحسب في مساحة الشركة
+      const scanned = file.scan !== undefined && file.scan !== null && !!app.media;
+      if (scanned) app.media.checkAttachments([{ filename: file.name ?? file.filename, mime: m.mime, data_base64: b64, scan: file.scan }], { surface: 'company' });
+      const scanBytes = scanned ? file.scan.originals.reduce((n, o) => n + Math.floor((String(o.data_base64).length * 3) / 4), 0) : 0;
       const storageMb = Math.max(1, Number(app.settings.get('b2b_storage_mb')) || 2048);
-      const used = Number(db.value('SELECT COALESCE(SUM(size), 0) FROM documents WHERE company_id = ?', company.id));
-      if (used + approx > storageMb * 1024 * 1024) throw new ApiError(409, COMPANY_TEXT.storage_full, 'storage_full');
+      const used =
+        Number(db.value('SELECT COALESCE(SUM(size), 0) FROM documents WHERE company_id = ?', company.id)) +
+        Number(db.value('SELECT COALESCE(SUM(f.size), 0) FROM document_files f JOIN documents d ON d.id = f.document_id WHERE d.company_id = ?', company.id)); // v12 media (H-M6)
+      if (used + approx + scanBytes > storageMb * 1024 * 1024) throw new ApiError(409, COMPANY_TEXT.storage_full, 'storage_full');
       const name = cleanLine(file.name ?? file.filename, 150) || 'ملف';
       let storageKey = null;
       let out;
       try {
         out = db.tx(() => {
           const docId = app.documents.save(
-            { filename: name, mime: m.mime, data_base64: b64 },
+            { filename: name, mime: m.mime, data_base64: b64, scan: scanned ? file.scan : undefined }, // v12 media (H-M6)
             { client_id: company.client_id, company_id: company.id, company_user_id: cu.id, title: cleanLine(body.title || name, 200) },
             { kind: 'client' },
           );

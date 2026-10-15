@@ -40,7 +40,15 @@ describe('v9.1 b-forms — microphone and media-src only on /intake and /p/', ()
   after(async () => t && t.close());
 
   test('the intake page and the follow-up page allow the microphone and blob: playback', async () => {
+    // v12 media: intended (L12-22): web recording is archived by default (web_voice_enabled = false → microphone=());
+    // the 11.0 headers come back when the setting is on (per request; covered both ways in test/v12-media.test.js)
     for (const p of ['/intake', '/p/abcdefghijklmnop']) {
+      const off = await t.client().get(p);
+      assert.match(off.headers.get('permissions-policy'), /microphone=\(\)/, `${p}: archived by default`);
+    }
+    t.app.settings.set('web_voice_enabled', true);
+    // v12 entry: intended (E12-10): a bare /intake now redirects to the tree; the forms are /intake?path=… and the charity form via /p/
+    for (const p of ['/intake?path=consultation/other', '/intake?seg=charity&via=p', '/p/abcdefghijklmnop']) {
       const r = await t.client().get(p);
       assert.equal(r.status, 200, p);
       assert.match(r.headers.get('permissions-policy'), /microphone=\(self\)/, p);

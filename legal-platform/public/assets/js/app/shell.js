@@ -29,8 +29,9 @@ export function navGroups(user, meta) {
   }
   const isAdmin = user.role === 'admin';
   const groups = [
+    // v12 look (LK-2، K12-33/K12-57): المجموعات «اليوم · الشركات · المكتب»، ثم «النظام» للإدارة والحساب
     {
-      title: 'التشغيل اليومي',
+      title: 'اليوم',
       items: [
         navItem('/dashboard', 'home'),
         navItem('/inbox', 'inbox'),
@@ -42,14 +43,20 @@ export function navGroups(user, meta) {
       ],
     },
     // v10 b2b-staff (H-S2): خدمة الشركات — العدد على «طلبات الشركات» من /admin/b2b/overview مع دورة الإشعارات
-    { title: 'خدمة الشركات', items: [navItem('/company-requests', 'inboxStack', { coBadge: true }), navItem('/companies', 'building')] },
+    { title: 'الشركات', items: [navItem('/company-requests', 'inboxStack', { coBadge: true }), navItem('/companies', 'building')] },
     {
-      title: 'الشبكة والمالية والبرامج',
-      items: [navItem('/lawyers', 'scale'), isAdmin && navItem('/accounting', 'wallet'), navItem('/programs', 'book'), navItem('/conflicts', 'shieldCheck')],
-    },
-    {
-      title: 'الأثر والمعرفة والتواصل',
-      items: [navItem('/impact', 'star'), navItem('/automations', 'zap'), navItem('/quick-replies', 'message'), navItem('/knowledge', 'sparkle'), navItem('/analytics', 'chart')],
+      title: 'المكتب',
+      items: [
+        navItem('/lawyers', 'scale'),
+        isAdmin && navItem('/accounting', 'wallet'),
+        navItem('/programs', 'book'),
+        navItem('/conflicts', 'shieldCheck'),
+        navItem('/impact', 'star'),
+        navItem('/automations', 'zap'),
+        navItem('/quick-replies', 'message'),
+        navItem('/knowledge', 'sparkle'),
+        navItem('/analytics', 'chart'),
+      ],
     },
     {
       title: 'النظام',
@@ -228,13 +235,13 @@ export function createShell({ user, meta, onLogout }) {
       brandMark({ size: 24 }),
       // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان؛ v10: الشعار النصي للمكتب على سطرين
       chrome.on
-        ? h('span.brand-text', wordmark({ size: 'md', tone: 'light', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة الدعم القانوني')) // v11 visual: القائمة الجانبية فاتحة الآن (الاسم النصي لقارئ الشاشة بجوار العلامة)
-        : h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة الدعم القانوني')),
+        ? h('span.brand-text', wordmark({ size: 'md', tone: 'light', name: chrome.name, short: chrome.short }), h('span.brand-sub', 'منصة المكتب')) // v11 visual: القائمة الجانبية فاتحة الآن (الاسم النصي لقارئ الشاشة بجوار العلامة)؛ v12 look (K12-33): «منصة المكتب»
+        : h('span.brand-text', h('span.brand-name', orgName), h('span.brand-sub', 'منصة المكتب')),
     ),
     nav,
     h(
       'div.sidebar-footer',
-      h('div', meta && meta.demo ? 'نسخة تجريبية — البيانات المعروضة وهمية' : settings.org_tagline || orgName),
+      h('div', meta && meta.demo ? 'نسخة تجريبية، البيانات وهمية' : settings.org_tagline || orgName), // v12 look (K12-41): بلا «—»
       // رقم الإصدار (وحدة platform): «الإصدار 9.0» من app.version في /api/meta
       h('div.sidebar-version', { title: meta && meta.version ? `الإصدار ${meta.version}` : null }, `الإصدار ${String((meta && meta.version) || '9.0').split('.').slice(0, 2).join('.')}`),
     ),
@@ -242,11 +249,13 @@ export function createShell({ user, meta, onLogout }) {
   const backdrop = h('div.sidebar-backdrop', { onClick: () => closeDrawer(true) });
 
   // ── الشريط العلوي ──
+  // v12 look (K12-21/K12-33، L12-83): على الهاتف كلمة «القائمة» بدل أيقونة الأسطر الثلاثة، وبجانبها العلامة (صنف topbar-mark)
   const menuBtn = h(
-    'button.icon-btn.topbar-menu',
+    'button.icon-btn.topbar-menu.topbar-menu--word',
     { type: 'button', 'aria-label': 'فتح القائمة', 'aria-controls': 'app-sidebar', 'aria-expanded': 'false' },
-    icon('menu', { size: 22 }),
+    h('span.topbar-menu-word', 'القائمة'),
   );
+  const topMark = h('a.topbar-mark', { href: '#/', 'aria-label': 'لوحة المتابعة' }, brandMark({ size: 18 }));
   const titleEl = h('div.topbar-title');
   const bellCount = h('span.bell-count', { hidden: true, 'aria-hidden': 'true' });
   const bellBtn = h(
@@ -286,6 +295,7 @@ export function createShell({ user, meta, onLogout }) {
   const topbar = h(
     'header.topbar',
     menuBtn,
+    topMark,
     titleEl,
     h(
       'div.topbar-actions',

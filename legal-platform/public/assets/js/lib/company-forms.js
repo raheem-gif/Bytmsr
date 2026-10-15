@@ -26,7 +26,7 @@ import {
   MEMORY_COMMON_FIELDS,
   CURRENCIES,
 } from './company-catalog-fields.js';
-import { compressToBlob, fileToUpload, sendWithProgress } from '../public/upload.js';
+import { compressToBlob, fileToUpload, sendWithProgress, scanImage, scanProblem, scanEditPage, scanKeepPage, scanAddPage, scanPages, scanDoc, loadScanner } from '../public/upload.js';
 import { W } from '../company/words-flows.js';
 import { copy } from './company-ui.js';
 
@@ -73,12 +73,15 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
     .map((x) => ({ key: uid('f'), name: x.filename || x.name || '', size: x.size || 0, mime: x.mime || '', status: 'done', pct: 1, upload_id: x.upload_id, expires_at: x.expires_at || null }));
   let photoN = 0;
   let running = false;
+  // v12 media (MD-3، L12-38): «تصوير صفحة أخرى» تضيف صفحة لآخر مستند ممسوح (PDF واحد)؛ «إعادة التصوير» تستبدل صفحة
+  let camTarget = null;
+  let sheetMod = null;
   const errEl = h('p.co-up-error', { role: 'alert', hidden: true });
   const live = h('p.co-up-progress', { 'aria-live': 'polite' });
   const listEl = h('ul.co-up-list', { 'aria-label': W.uploader.list_label });
   const another = h('div.co-up-another', { hidden: true });
   const fileInput = h('input.file-native', { type: 'file', id: `${id}-file`, multiple: true, accept: ACCEPT, onChange: () => takeFiles(fileInput) });
-  const camInput = h('input.file-native', { type: 'file', id: `${id}-cam`, accept: 'image/*', capture: 'environment', onChange: () => takeFiles(camInput, true) });
+  const camInput = h('input.file-native', { type: 'file', id: `${id}-cam`, accept: 'image/*', capture: 'environment', onChange: () => (camTarget ? takePage(camInput) : takeFiles(camInput, true)) });
   const setError = (msg) => {
     errEl.textContent = msg || '';
     errEl.hidden = !msg;
@@ -105,7 +108,13 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           'li.co-up-item',
           { class: `is-${e.status}` },
           h('span.co-up-icon', { 'aria-hidden': 'true' }, icon(/^image\//.test(e.mime) ? 'paperclip' : 'fileText', { size: 18 })),
-          h('span.co-up-main', h('span.co-up-name', { dir: 'auto' }, e.name), status, e.status === 'uploading' ? h('span.co-up-bar', { 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.round(e.pct * 100)}%` } })) : null),
+          h(
+            'span.co-up-main',
+            h('span.co-up-name', { dir: 'auto' }, e.name),
+            status,
+            e.status === 'uploading' ? h('span.co-up-bar', { 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.round(e.pct * 100)}%` } })) : null,
+            scanExtras(e),
+          ),
           h('button.co-up-remove', { type: 'button', 'aria-label': copy('uploader.remove_name', { name: e.name }), onClick: () => remove(e) }, icon('x', { size: 16 })),
         );
       }),
@@ -113,7 +122,53 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
     listEl.hidden = !entries.length;
     const done = entries.filter((e) => e.status === 'done').length;
     live.textContent = entries.length ? copy('uploader.progress', { k: done, n: entries.length }) : '';
-    another.hidden = !(photoN > 0 && entries.length < limit);
+    const lastScan = [...entries].reverse().find((x) => x.file && scanPages(x.file));
+    another.hidden = !(photoN > 0 && (entries.length < limit || (lastScan && scanPages(lastScan.file) < 12)));
+  }
+  /** مستند ممسوح: عدد صفحاته، و«تعديل المستند»، وملاحظة الحدود (مقصوصة أو غير مكتشفة) بزريها */
+  function scanExtras(e) {
+    if (!e.file || !sheetMod || !scanPages(e.file)) return null;
+    const n = scanPages(e.file);
+    const w = scanProblem(e.file);
+    const busy = e.status === 'uploading';
+    return h(
+      'span.co-up-scan',
+      n > 1 ? sheetMod.pagesBadge(n) : null,
+      h('button.scn-btn.scn-btn--text.scn-btn--sm', { type: 'button', disabled: busy, onClick: (ev) => rescan(e, () => scanEditPage(e.file, { register: 'company', trigger: ev.currentTarget })), tag: 'CK-01' }, 'تعديل المستند'),
+      w >= 0
+        ? sheetMod.scanNote(scanDoc(e.file).pages[w], {
+            register: 'company',
+            onRetake: busy ? null : () => {
+              camTarget = { e, replace: w };
+              camInput.click();
+            },
+            onKeep: busy ? null : () => rescan(e, () => scanKeepPage(e.file, w)),
+          })
+        : null,
+    );
+  }
+  /** المستند تغيّر (صفحة، أركان، «كما هي») ← يُرفع من جديد؛ المرفق المرحلي القديم ينتهي وحده بعد 24 ساعة */
+  async function rescan(e, fn) {
+    let out = null;
+    try {
+      out = await fn();
+    } catch {
+      out = null;
+    }
+    if (!out || e.removed) return;
+    if (out.size > maxMb * 1024 * 1024) return setError(copy('uploader.size', { max: maxMb }));
+    Object.assign(e, { file: out, size: out.size, mime: mimeOf(out), name: e.baseName ? (out.type === 'application/pdf' ? `${e.baseName.replace(/\s*[—-]\s*صفحة\s*\d+$/, '')}.pdf` : e.baseName) : e.name, status: 'queued', pct: 0, upload_id: null, error: null });
+    render();
+    emit();
+    pump();
+  }
+  function takePage(input) {
+    const raw = (input.files || [])[0];
+    input.value = '';
+    const tg = camTarget;
+    camTarget = null;
+    if (!raw || !tg || !tg.e.file || tg.e.removed) return takeFiles({ files: raw ? [raw] : [], set value(v) {} }, true);
+    return rescan(tg.e, () => scanAddPage(tg.e.file, raw, { replace: Number.isInteger(tg.replace) ? tg.replace : null }));
   }
   let raf = 0;
   const schedule = () => {
@@ -151,10 +206,18 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           photoN += 1;
           name = `${titlePrefix}${copy('uploader.photo_title', { i: photoN })}`;
         }
-        try {
-          file = await compressToBlob(f, { maxSide: 2000, quality: 0.8, name });
-        } catch {
-          file = f;
+        // v12 media (MD-3): صورة المستند تمر بالماسح (نظيفة + الأصل، §5.8)، وأي فشل ← التصغير العادي كما في 10.0
+        live.textContent = '';
+        const scanned = await scanImage(f, { name, register: 'company', onStatus: (txt) => (live.textContent = txt) });
+        if (scanned) {
+          file = scanned;
+          sheetMod = (await loadScanner()).sheet;
+        } else {
+          try {
+            file = await compressToBlob(f, { maxSide: 2000, quality: 0.8, name });
+          } catch {
+            file = f;
+          }
         }
         if (fromCamera) name = file.name || name;
       }
@@ -162,7 +225,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
         setError(copy('uploader.size', { max: maxMb }));
         continue;
       }
-      entries.push({ key: uid('f'), name, size: file.size, mime: mimeOf(file) || mime, status: 'queued', pct: 0, file, title: fromCamera ? name : `${titlePrefix}${name}` });
+      entries.push({ key: uid('f'), name, baseName: scanPages(file) ? name.replace(/\.[A-Za-z0-9]{1,5}$/, '') : null, size: file.size, mime: mimeOf(file) || mime, status: 'queued', pct: 0, file, title: fromCamera ? name : `${titlePrefix}${name}` });
     }
     render();
     emit();
@@ -190,7 +253,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
     let payload;
     try {
       const up = await fileToUpload(e.file);
-      payload = { file: { name: e.name, mime: e.mime, data_base64: up.data_base64 }, title: (e.title || e.name).slice(0, 200) };
+      payload = { file: { name: e.name, mime: e.mime, data_base64: up.data_base64, ...(up.scan ? { scan: up.scan } : {}) }, title: (e.title || e.name).slice(0, 200) };
     } catch {
       e.status = 'failed';
       e.error = copy('uploader.failed', { name: e.name });
@@ -205,7 +268,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           },
         });
         if (e.removed) return;
-        Object.assign(e, { status: 'done', pct: 1, upload_id: res.upload_id, size: res.size || e.size, expires_at: res.expires_at || null, file: null });
+        Object.assign(e, { status: 'done', pct: 1, upload_id: res.upload_id, size: res.size || e.size, expires_at: res.expires_at || null, file: scanPages(e.file) ? e.file : null });
         return;
       } catch (err) {
         if (err.status === 401) window.dispatchEvent(new CustomEvent('auth:expired'));
@@ -234,7 +297,23 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
 
   const camBtn = capture && isCoarse() ? h('label.btn.btn-secondary.co-up-btn', { htmlFor: camInput.id }, icon('upload', { size: 18 }), h('span', W.uploader.camera)) : null;
   const pickBtn = h('label.btn.btn-secondary.co-up-btn', { htmlFor: fileInput.id }, icon('paperclip', { size: 18 }), h('span', isCoarse() ? W.uploader.choose : W.uploader.choose_many));
-  mount(another, h('label.btn.btn-ghost.btn-sm', { htmlFor: camInput.id }, icon('plus', { size: 16 }), h('span', W.uploader.another_page)));
+  mount(
+    another,
+    h(
+      'label.btn.btn-ghost.btn-sm',
+      {
+        htmlFor: camInput.id,
+        // v12 media (L12-38): الصفحة التالية تُضاف لآخر مستند ممسوح ← PDF واحد
+        onClick: () => {
+          const last = [...entries].reverse().find((x) => x.file && scanPages(x.file));
+          camTarget = last && scanPages(last.file) < 12 ? { e: last } : null;
+        },
+        tag: 'CK-02',
+      },
+      icon('plus', { size: 16 }),
+      h('span', W.uploader.another_page),
+    ),
+  );
   // لوحة المفاتيح: الحقل الأصلي مخفي، فحلقة التركيز تظهر على زره الظاهر (WCAG 2.4.7)؛ وبلا زر تصوير (الحاسوب) لا يُوقف
   // Tab على حقل كاميرا غير مرئي
   if (!camBtn) camInput.tabIndex = -1;

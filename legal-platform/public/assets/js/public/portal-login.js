@@ -18,6 +18,8 @@ try {
 }
 const P = (k, f) => (PC && typeof PC[k] === 'string' ? PC[k] : f);
 const titleEl = document.getElementById('page-title');
+// v12 entry (E12-13): فاصل العنوان « | » على صفحات الأفراد والشركات، و«—» على «خيري» كما كان
+const SEP = document.body?.dataset.side === 'paid' ? ' | ' : ' — ';
 let meta = { org: '', phone: '', phoneHref: '', wa: '', hours: '', otp: true, demo: false, setup_required: false };
 let timers = [];
 
@@ -108,7 +110,7 @@ const safety = () => h('p.bp-safety', ic('shield', 20), h('span', P('safety', '�
 function phoneStep(prefill = '') {
   clearTimers();
   titleEl.textContent = P('h1', 'تابعي طلبك');
-  document.title = `${titleEl.textContent} — ${meta.org || 'المؤسسة'}`;
+  document.title = `${titleEl.textContent}${SEP}${meta.org || 'المؤسسة'}`;
   const input = h('input.bp-input', {
     id: 'pl-phone',
     type: 'tel',
@@ -155,7 +157,7 @@ function phoneStep(prefill = '') {
     linkCard(),
     safety(),
     demoNote(),
-    h('p.bp-new', h('a', { href: P('newHref', '/intake') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
+    h('p.bp-new', h('a', { href: P('newHref', '/intake?seg=charity') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
   ];
   mount(root, cards);
 }
@@ -165,7 +167,7 @@ function phoneStep(prefill = '') {
 function codeStep({ phone, challenge, message, expiresIn = 600, resendAfter = 60 }) {
   clearTimers();
   titleEl.textContent = P('codeH1', 'اكتبي الكود');
-  document.title = `${titleEl.textContent} — ${meta.org || 'المؤسسة'}`;
+  document.title = `${titleEl.textContent}${SEP}${meta.org || 'المؤسسة'}`;
   let currentChallenge = challenge;
   let resendAt = Date.now() + resendAfter * 1000;
   const input = h('input.bp-input.bp-code-input', {

@@ -134,7 +134,9 @@ async function readyStory(t, text = PEN_STORY, phone = newPhone()) {
 }
 /** طلب من الموقع (عميلة جديدة: رقم غير مؤكد) */
 async function webIntake(t, { phone = newPhone(), name = 'سعاد محمود', description = DESC } = {}) {
-  const r = ok(await t.client().post('/api/public/intake', { name, phone, description, consent: true }), 201, 'public intake');
+  // v12 staff-lines: intended (L12-09): a «خيري» website story as in 11.0 (its default); with «خيري» archived a POST without
+  // segment is «أفراد وشركات», so the helper names the side explicitly (the charity web form sends segment: 'charity')
+  const r = ok(await t.client().post('/api/public/intake', { name, phone, description, consent: true, segment: 'charity' }), 201, 'public intake');
   const i = t.app.db.get('SELECT * FROM intakes WHERE code = ?', r.reference);
   t.app.ai.cancelTimers(i.id);
   return { ...r, id: i.id, phone };

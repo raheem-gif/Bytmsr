@@ -14,7 +14,10 @@ import { normalizeArabic, conflict } from '../util.js';
 import { STORY_AUTO_RULES } from '../constants.js';
 import { topicByKey, topicFromWaPrefill } from '../../public/assets/js/public/topics.js';
 // v11 segment-server (SS-2/SS-3): جملة الأفراد والشركات الجاهزة ليست من الوقائع
-import { paidPrefillOf, choiceFromText } from '../../public/assets/js/public/segment.js';
+import { choiceFromText } from '../../public/assets/js/public/segment.js';
+// v12 staff-lines (SL-4/SL-5، L12-77): جمل الشجرة والجملة العامة ليست من الوقائع، ورسائل آلية تتوقف بكلمة إيقاف
+import { paidSentenceOf } from '../services/segments.js';
+import { OPT_OUT_RULES, AREA_CODES } from '../constants.js';
 
 const REF_RE = /REQ-(\d{4})-(\d{5})/i;
 // v9.1 b-site: «… وكود التأكيد 482913» في رسالة واتساب الجاهزة من شاشة نجاح الطلب (يقبل الأرقام العربية)
@@ -86,7 +89,8 @@ export function stripFollowupPrefill(text) {
  */
 export function stripSegmentPrefill(text) {
   const s = String(text ?? '');
-  const p = paidPrefillOf(s);
+  // v12 staff-lines (E12-07/E12-28): + جملة ورقة الشجرة والجملة العامة للأفراد والشركات (الأولوية نفسها في segments.tagOf)
+  const p = paidSentenceOf(s);
   return p ? p.rest : s;
 }
 /** نص رسالة واردة كما يدخل التحليل والوقائع: رسالة تأكيد الرقم بلا رقم الطلب والكود */
@@ -167,6 +171,7 @@ export function isFactual(msg, text, ctx = {}) {
   if (isCannedCallback(meta, text)) return false;
   if (meta.story_done || meta.topic_prefill) return false;
   if (meta.company_lead_canned === true || meta.segment_choice) return false; // v11 segment-server
+  if (meta.lines_reply || meta.opt_out) return false; // v12 staff-lines: رد قائمة الخدمات وكلمة الإيقاف ليسا من الوقائع
   if (/^(evt|svy|topic|seg):/.test(replyId)) return false; // v11 segment-server: + seg: (أزرار نوع الخدمة)
   if (meta.invoice_response || meta.event_response) return false;
   const kinds = (msg?.attachments || []).map((a) => a?.kind || (/^audio\//.test(String(a?.mime || '')) ? 'audio' : /^image\//.test(String(a?.mime || '')) ? 'image' : 'document'));
@@ -654,7 +659,12 @@ export function createEngine(app) {
           }
           // v11 segment-server (S11 §3.3 + L11-21): نوع الخدمة ومصدره صراحة دائمًا — null حين لا إشارة (L11-41)
           const seg = app.segments ? app.segments.resolveInbound({ msg, line: waLine, client, signal }) : { segment: 'charity', source: null };
-          const prefillTopic = msg.channel === 'whatsapp' && !staffEntry ? paidPrefillOf(text)?.topic || null : null;
+          // v12 staff-lines (E12-07): + موضوع ورقة الشجرة في جملتها الجاهزة
+          const prefillSentence = msg.channel === 'whatsapp' && !staffEntry ? paidSentenceOf(text) : null;
+          const prefillTopic = prefillSentence?.topic || null;
+          // v12 staff-lines review (F6): جملة ورقة الشجرة تحفظ مجال الورقة على طلب «أفراد وشركات» جديد، كما يحفظه الموقع
+          // (public.js: legal_area_hint = leaf.area حين لا مجال) — فيظهر الطلب تحت «كل المجالات» قبل التحليل
+          const prefillArea = prefillSentence?.kind === 'tree' && seg.segment === 'paid' && AREA_CODES.includes(prefillSentence.area) ? prefillSentence.area : null;
           const id = db.insert('intakes', {
             code: nextIntakeCode(t),
             client_id: client.id,
@@ -666,7 +676,7 @@ export function createEngine(app) {
             source: LABELS.source[attribution.source] ? attribution.source : 'unknown',
             source_detail: JSON.stringify(attribution.detail || {}),
             campaign: attribution.campaign || null,
-            legal_area: msg.legal_area_hint || null,
+            legal_area: msg.legal_area_hint || prefillArea || null, // v12 staff-lines review (F6)
             // [بوابة 9.2 S1/K1] طلب موقع بلا اسم برقم مسجل: لا نأخذ اسم صاحب الرقم ولا محافظته (لا تظهر لمقدّمة الطلب
             // في صفحتها ولا في المسودات، ولا تُسقط إجابة «كمان سؤالين»)؛ المرسل غير الموثّق لا يرث شيئًا من ملف العميل
             contact_name: msg.contact_name || (verifiedSender ? client.name : null) || null,
@@ -722,9 +732,10 @@ export function createEngine(app) {
             meta.topic_prefill = true;
           } else {
             // v11 segment-server (S11-21): موضوع جملة الحجز للأفراد والشركات؛ الجملة وحدها ليست حكاية
-            const pp = paidPrefillOf(text);
+            // v12 staff-lines (E12-07): وجملة ورقة الشجرة كذلك؛ الجملة العامة ليست موضوعًا (تبقى القائمة أو الترحيب ممكنين)
+            const pp = paidSentenceOf(text);
             if (pp?.topic && topicByKey(pp.topic)) meta.topic = pp.topic;
-            if (pp && !String(pp.rest || '').trim()) meta.topic_prefill = true;
+            if (pp && pp.kind !== 'generic' && !String(pp.rest || '').trim()) meta.topic_prefill = true;
           }
         }
         // v11 segment-server: الجملة الجاهزة (للتحليل والوقائع) وعلامة «كتب على رقم آخر» للإدارة [r2 S7]
@@ -736,6 +747,14 @@ export function createEngine(app) {
           const choice = rid || (!(msg.attachments || []).length ? choiceFromText(text) : null);
           if (choice) meta.segment_choice = choice;
         }
+        // v12 staff-lines (SL-5، E12-84/85، L12-79): رد على قائمة الخدمات (زر، صف، أو كلمة/رقم مكتوب) — ليس من الوقائع،
+        // ويُطبَّق بعد الحفظ (segments.onLinesReply). على رقم وطلب «أفراد وشركات» فقط؛ غير ذلك نص عادي
+        if (!staffEntry && msg.channel === 'whatsapp' && intake && app.segments?.linesReplyOf) {
+          const lr = app.segments.linesReplyOf({ intake, msg, text, line: waLine });
+          if (lr) meta.lines_reply = lr;
+        }
+        // v12 staff-lines (L12-77): الرسالة كلها كلمة إيقاف ← لا رسائل آلية لهذا الشخص بعد الآن (بلا رد آلي)
+        if (!staffEntry && msg.channel === 'whatsapp' && !(msg.attachments || []).length && !msg.reply?.id && app.segments?.isStopWord?.(text)) meta.opt_out = true;
         if (target.line_mismatch) meta.line_mismatch = target.line_mismatch;
         if (noAuto) meta.unknown_line = true;
         if (!staffEntry && !msg.reply?.id && isDoneWord(text, doneWords)) meta.story_done = true;
@@ -767,6 +786,8 @@ export function createEngine(app) {
         });
         // v11 segment-server [r2 S14]: الاقتراح المحلي لنوع الخدمة لكل طلب جديد (لا يُطبَّق أبدًا)
         if (createdIntake && app.segments) app.segments.storeHint(intake.id, factsText(text, meta));
+        // v12 staff-lines (L12-77): تسجيل الإيقاف مرة واحدة وسطر في سجل الطلب
+        if (meta.opt_out && app.segments?.optOut) app.segments.optOut(client.id, { intakeId: intake?.id ?? null, messageId });
 
         // 5) المرفقات القادمة من الواجهة (base64) تُحفظ فورًا؛ وسائط واتساب تُنزَّل لاحقًا بشكل غير متزامن
         const documentIds = [];
@@ -920,6 +941,9 @@ export function createEngine(app) {
             choice: meta.segment_choice ?? null,
           },
           no_auto: noAuto,
+          // v12 staff-lines (SL-5): رد قائمة الخدمات (يُطبَّق بعد الحفظ) والرد التفاعلي (ليس «أول رسالة قصيرة» أبدًا، L12-79)
+          lines_reply: meta.lines_reply ?? null,
+          interactive: !!msg.reply?.id,
         };
       });
       // v9.1 b-site (B91-01): ردّ واتساب فوري بعد تأكيد الرقم برابط صفحتها (نطاق الرقم نفسه، مثل الدخول برمز)
@@ -952,6 +976,15 @@ export function createEngine(app) {
         // تنزيل وسائط واتساب في الخلفية (عينات المحاكي في الوضع التجريبي تُحفظ فورًا)
         const pendingMedia = (msg.attachments || []).filter((a) => a.media_id);
         if (pendingMedia.length) engine.fetchWhatsAppMedia(result, pendingMedia).catch((e) => app.log('media', e));
+        // v12 staff-lines (SL-4، E12-07): جملة الأفراد والشركات الجاهزة على طلب جديد «أفراد وشركات» ← المسار (من رسالة واتساب
+        // الجاهزة) قبل القصة، فلا تصل قائمة الخدمات من اختار مساره بالفعل. فشل المسار لا يُسقط الاستقبال أبدًا
+        if (result.created_intake && signal?.pathway && result.intake?.segment === 'paid' && app.pathways) {
+          try {
+            app.pathways.set(result.intake.id, signal.pathway, { source: 'wa_tag' });
+          } catch (e) {
+            app.log('pathway from WhatsApp sentence failed', e);
+          }
+        }
         // v9.2 [R2-A14]: القصة (العدادات، «خلاص»، الترحيب، جدولة الملخص) بعد الحفظ؛ لا تُسقط استقبال الرسالة أبدًا.
         // (تحل محل app.ai.scheduleIntakeAnalysis المباشر: الجدولة الآن في app.stories حسب حالة القصة وقواعد التكلفة)
         try {
@@ -1127,6 +1160,9 @@ export function createEngine(app) {
       if (!body || !String(body).trim()) throw badRequest('نص الرسالة فارغ');
       const client = app.clients.require(client_id);
       if (client.company_id) return companyClientSkip(client, { automated, rule }); // v10 b2b-server (حارس #19، L-33): لا واتساب للشركات
+      // v12 staff-lines (L12-77): من أرسل كلمة إيقاف لا تصله الرسائل الآلية (الترحيب والطلب والتأكيد، سؤال النوع، قائمة الخدمات،
+      // الاستبيان)؛ ردود الفريق وتذكيرات الجلسات ورسائل الأتعاب وصفحة المتابعة لا تتأثر
+      if (automated && OPT_OUT_RULES.includes(rule) && client.wa_auto_opt_out_at) return { skipped: 'opted_out', id: null, channel: null, status: 'skipped' };
       const story = { clientId: client.id, intakeId: intake_id, caseId: case_id, matterId: matter_id };
       // v9.1 b-site (B91-01): الرسائل الآلية لقصة غير مؤكدة لا تصل الرقم أبدًا. التذكيرات تُتخطى ({ skipped: 'unconfirmed' })
       // ويُبلَّغ المستدعي، وما سواها (unconfirmed: 'portal') يُتاح في صفحة المتابعة فقط.

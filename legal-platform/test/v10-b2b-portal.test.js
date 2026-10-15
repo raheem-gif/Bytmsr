@@ -633,10 +633,11 @@ describe('v10 b2b-portal — company-ui.js pure helpers (§8.5-7)', () => {
     assert.match(r5b.text, /11 ساعة عمل/, 'number–noun agreement');
     const past = inDays(-1);
     const r6 = UI.promiseText({ delivery_by: past, state: 'late' }, { stage: 'working' });
-    assert.equal(r6.text, `تأخرنا عن الموعد المتوقع (${UI.whenLong(past)}). نعتذر — للطلب أولوية الآن.`);
+    // v12 look: intended (LK-3, L12-34): company words without «—»
+    assert.equal(r6.text, `تأخرنا عن الموعد المتوقع (${UI.whenLong(past)}). نعتذر، وللطلب أولوية الآن.`);
     assert.equal(r6.tone, 'danger');
     const r7 = UI.promiseText({ first_response_by: past, state: 'late' }, { stage: 'received' });
-    assert.equal(r7.text, 'تأخرنا في تأكيد الموعد — نعتذر. نؤكده لكم في أقرب وقت.');
+    assert.equal(r7.text, 'تأخرنا في تأكيد الموعد، ونعتذر. نؤكده لكم في أقرب وقت.'); // v12 look: intended (LK-3, L12-34)
     const dAt = inDays(-3);
     const r8 = UI.promiseText({ delivery_by: inDays(-2), delivered_at: dAt, state: 'met' }, { stage: 'delivered' });
     assert.equal(r8.text, `سُلِّم في الموعد (${UI.whenLong(dAt)}).`);
@@ -650,7 +651,7 @@ describe('v10 b2b-portal — company-ui.js pure helpers (§8.5-7)', () => {
     for (const st of ['closed', 'declined', 'cancelled']) assert.equal(UI.promiseText({ delivery_by: db, state: 'on_track' }, { stage: st }).text, '', st);
     assert.equal(UI.promiseText(null).text, '');
     // الصيغ القصيرة للصفوف
-    assert.equal(UI.promiseText({ delivery_by: past, state: 'late' }, { stage: 'working', short: true }).text, 'تأخرنا — نعتذر');
+    assert.equal(UI.promiseText({ delivery_by: past, state: 'late' }, { stage: 'working', short: true }).text, 'تأخرنا، ونعتذر'); // v12 look: intended (LK-3, L12-34)
     assert.equal(UI.promiseText({ delivery_by: db, state: 'paused', paused: true }, { stage: 'needs_you', short: true }).text, 'متوقف حتى يصلنا ردكم');
     assert.match(UI.promiseText({ delivery_by: db, state: 'on_track' }, { stage: 'working', short: true }).text, /^التسليم /);
   });

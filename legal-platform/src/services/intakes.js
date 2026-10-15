@@ -7,9 +7,22 @@ import { mapMessage, isPortalUnverifiedIntake } from '../channels/engine.js';
 // v9.2 (admin-ai): حالة القصة (SQL واحد) وترتيب الفرز واختيارات الموقع والمسار المقترح
 import { STORY_VIEW_SQL, STORY_TRIAGE_RANK_SQL } from './stories.js';
 import { STORY_TRACKS, STORY_AUTO_RULES } from '../constants.js';
+// v12 staff-lines (SL-1، E12-49/50، L12-81): نوع الطلب ومساره، والنوع المقترح من المجال القانوني لطلب بلا مسار
+import { AREA_TO_PATH, LINES } from '../../public/assets/js/public/entry-tree.js';
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 const OPEN_STATUSES = ['new', 'in_review', 'awaiting_client'];
+
+/**
+ * v12 staff-lines review (F1، L12-81): «لم يُحدَّد النوع» = طلب «أفراد وشركات» بلا نوع طلب. نوع الطلب (استشارة / دعوى / شركات)
+ * من مفاهيم الأفراد والشركات وحدها، فطلبات «خيري» و«غير محدد» لا تُعد فيه (كانت تُضخّم العدد في صندوق الوارد ولوحة المتابعة).
+ */
+export const NONE_LINE_SQL = (a = 'i') => `${a}.service_line IS NULL AND ${a}.segment = 'paid'`;
+/** شرط مرشح نوع الطلب ← { sql, params } أو null (consultation|litigation|company من app.pathways.lineSql، و none أعلاه) */
+export function lineCondition(app, line, alias = 'i') {
+  if (line === 'none') return { sql: NONE_LINE_SQL(alias), params: [] };
+  return app.pathways?.lineSql ? app.pathways.lineSql(line, alias) : null;
+}
 // v9.1 fixes: معاينة آخر رسالة في صندوق الوارد تتخطى رسالة تأكيد الرقم (رقم الطلب + كود التأكيد) والرد الآلي عليها
 // (v9.2 [R2-A19]: ولا الرسائل الآلية للقصص — الترحيب و«احكيلنا» و«وصلتنا حكايتك» — حتى تبقى آخر رسالة منها ظاهرة)
 const PREVIEW_SQL = `json_extract(m.meta, '$.identity_confirm') IS NULL AND COALESCE(m.automation_rule, '') != 'identity_confirm' AND COALESCE(m.automation_rule, '') NOT IN (${STORY_AUTO_RULES.map((r) => `'${r}'`).join(', ')})`;
@@ -25,7 +38,7 @@ export function createIntakes(app) {
       return i;
     },
 
-    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0, story, track, sort, segment } = {}) {
+    list({ status, channel, source, q, area, priority, scope = 'open', limit = 100, offset = 0, story, track, sort, segment, line } = {}) {
       const where = ['1=1'];
       const params = [];
       // شروط الفلاتر غير الحالة (تُستخدم أيضًا لحساب عدد كل حالة ضمن نفس الفلاتر)
@@ -78,6 +91,14 @@ export function createIntakes(app) {
         fWhere.push('i.segment = ?');
         fParams.push(segment);
       } else if (segment === 'unset') fWhere.push('i.segment IS NULL');
+      // v12 staff-lines (SL-1، E12-49): أعداد نوع الطلب للطلبات المفتوحة تحت بقية المرشحات (قبل مرشح النوع نفسه)، ثم المرشح
+      // review (F1): «لم يُحدَّد النوع» = طلبات الأفراد والشركات بلا نوع فقط (نوع الطلب لا يُحدَّد لطلب «خيري» أو «غير محدد»)
+      const lineCounts = app.pathways ? { ...app.pathways.lineCounts(fWhere.join(' AND '), fParams), none: app.pathways.lineCounts(`${fWhere.join(' AND ')} AND ${NONE_LINE_SQL('i')}`, fParams).none } : null;
+      const lineCond = app.pathways ? lineCondition(app, line, 'i') : null;
+      if (lineCond) {
+        fWhere.push(lineCond.sql);
+        fParams.push(...lineCond.params);
+      }
       where.push(...fWhere.slice(1));
       params.push(...fParams);
       // v9.2 [R2-A11]: حالة القصة من نفس تعريف SQL (لا يُعاد حسابها من نص الرسائل)
@@ -110,7 +131,8 @@ export function createIntakes(app) {
            (SELECT COUNT(*) FROM documents d WHERE d.intake_id = i.id) AS documents_count,
            (SELECT COUNT(*) FROM intakes o WHERE o.client_id = i.client_id AND o.id != i.id) AS client_other_intakes,
            (SELECT m.wa_line FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' AND m.channel = 'whatsapp' ORDER BY m.id DESC LIMIT 1) AS last_wa_line,
-           (SELECT json_extract(m.meta, '$.line_mismatch.line') FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' AND json_extract(m.meta, '$.line_mismatch') IS NOT NULL ORDER BY m.id DESC LIMIT 1) AS line_mismatch_line
+           (SELECT json_extract(m.meta, '$.line_mismatch.line') FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in' AND json_extract(m.meta, '$.line_mismatch') IS NOT NULL ORDER BY m.id DESC LIMIT 1) AS line_mismatch_line,
+           cl.wa_auto_opt_out_at AS client_auto_opt_out_at
          ${base}
          ORDER BY ${order}
          LIMIT ? OFFSET ?`,
@@ -140,6 +162,7 @@ export function createIntakes(app) {
         counts,
         story_counts: storyCounts,
         segment_counts: segmentCounts, // v11 segment-server
+        line_counts: lineCounts, // v12 staff-lines
         items: rows.map((r) => {
           // v9.2: آخر تحليل كامل، وإلا الملخص المبدئي أثناء كتابة القصة (preview)
           const ai = app.ai.latestStory ? app.ai.latestStory(r.id) : app.ai.latest('intake', r.id, 'intake_analysis');
@@ -201,8 +224,29 @@ export function createIntakes(app) {
             wa_line: r.last_wa_line || r.wa_line || null,
             line_mismatch: r.line_mismatch_line ? { line: r.line_mismatch_line } : null,
             requester_kind: parseJson(r.form_answers, {})?.requester?.kind === 'company' ? 'company' : null,
+            // v12 staff-lines (SL-1/SL-2): نوع الطلب ومساره بكلمات الفريق، والنوع المقترح، وعلامتا «خيري» السابق والإيقاف
+            ...svc.pathwayFields(r),
+            auto_opt_out: !!r.client_auto_opt_out_at,
           };
         }),
+      };
+    },
+
+    /**
+     * v12 staff-lines (SL-1، E12-49، L12-81): حقول المسار لصف أو تفاصيل طلب — service_line، pathway، pathway_labels
+     * (كلمات الفريق «الخط › المجال › الموضوع»)، والنوع المقترح من المجال القانوني لطلب أفراد وشركات بلا مسار
+     * (أول جزء من AREA_TO_PATH[area])، وreturning_charity (L12-75). للإدارة فقط: لا يمر شيء منها في واجهات المحامين والشركات.
+     */
+    pathwayFields(r) {
+      const f = app.pathways ? app.pathways.rowFields(r) : { service_line: r?.service_line ?? null, pathway: r?.pathway ?? null, pathway_labels: null };
+      const area = r?.legal_area || null;
+      const suggested = !f.pathway && r?.segment === 'paid' && area && AREA_TO_PATH[area] ? String(AREA_TO_PATH[area]).split('/')[0] : null;
+      const hint = parseJson(r?.segment_hint, null);
+      return {
+        ...f,
+        suggested_line: suggested,
+        suggested_line_label: suggested && LINES[suggested] ? LINES[suggested].staff : null,
+        returning_charity: !!(hint && typeof hint === 'object' && hint.returning_charity),
       };
     },
 
@@ -299,6 +343,15 @@ export function createIntakes(app) {
         case: i.case_id ? db.get('SELECT id, code, title, status FROM cases WHERE id = ?', i.case_id) : null,
         activity: app.activity.forIntake(i.id),
         staff: db.all("SELECT id, name, role FROM users WHERE role IN ('admin','case_manager') AND active = 1 ORDER BY name"),
+        // v12 staff-lines (SL-1، E12-50): كتلة المسار { path, line, labels, staff_labels, tags, source, source_label, set_at } أو null،
+        // والنوع المقترح، و«سبق التعامل مع خيري»، و«أوقف الرسائل الآلية» (للإدارة فقط)
+        pathway: app.pathways ? app.pathways.block(i) : null,
+        pathway_suggest: (() => {
+          const pf = svc.pathwayFields(i);
+          return pf.suggested_line ? { line: pf.suggested_line, label: pf.suggested_line_label } : null;
+        })(),
+        returning_charity: svc.pathwayFields(i).returning_charity,
+        auto_opt_out_at: client ? client.wa_auto_opt_out_at ?? null : null,
         // v11 segment-server (§5.6، L11-61): نوع الخدمة، والنبرة، والرقم الذي سيُرسل منه
         ...(app.segments
           ? {

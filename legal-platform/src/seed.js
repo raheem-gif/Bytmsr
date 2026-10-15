@@ -1039,7 +1039,15 @@ export async function seedDemo(app) {
 
     // <seed:v91-b-portal> رد نهى بخلاصة وخطوات، «هاتي معاكي» لجلستها، طلب ورق ببندين لسامية، وتعليمات الدفع
     seedPortalDemo(app, { manager });
-    seedPublicDemo(app, { at });
+    // v12 entry (L12-09، L12-41): طلبات 9.2 التجريبية من نموذج «خيري»؛ وما دام «خيري» متوقفًا يصير طلب الموقع بلا segment
+    // «أفراد وشركات»، فتُزرع و«خيري» معروض لهذه الخطوة وحدها (بيانات «خيري» تبقى كما هي)
+    const charityWas = app.settings.get('charity_public');
+    app.settings.set('charity_public', true);
+    try {
+      seedPublicDemo(app, { at });
+    } finally {
+      app.settings.set('charity_public', charityWas);
+    }
 
     // <seed:v10-b2b> خدمة الشركات: الباقات، شركة النيل للأغذية (Growth) وتك سوليوشنز (Starter، تجريبية) ومستخدموهما،
     // وطلباتهما (NFD-0001…0006، TSL-0001…0003) والذاكرة القانونية والتكاليف — قبل تشغيل الأتمتة (حراس الأفراد #1–#3، #19)
@@ -1048,6 +1056,10 @@ export async function seedDemo(app) {
     // <seed:v11-segment> نوعا الخدمة: «خيري» و«أفراد وشركات» (01092000301…306) — رقم الأفراد والشركات المُتحقق منه (عرض فقط)،
     // الرقم المشترك بالمحاكاة، طلب عرض شركة، تغيير الإدارة لنوع الخدمة، وأتعاب وافق عليها العميل من صفحة المتابعة
     await seedSegmentDemo(app, { at, realNow });
+    // <seed:v12-entry> الصفحة الأولى (الشجرة): ستة طلبات من أوراقها (منها رد على دعوى بجلسة قريبة وحكم حديث، وطلب عرض شركة)،
+    // وأسبوع من عدادات الزيارات، واسم المكتب «إمام وشركاه» للعرض (E12-59، L12-41)
+    (await import('./seed-v12-entry.js')).seedV12Entry(app, { at, realNow });
+    await (await import('./seed-v12-lines.js')).seedV12Lines(app, { at, realNow }); // v12 staff-lines (H-E4, SL-10): قائمة الخدمات على واتساب ومسار الطلب
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

@@ -1,11 +1,17 @@
 // محاكي واتساب (للعرض التجريبي فقط): يبني Webhook مطابقًا لصيغة منصة واتساب للأعمال من Meta
 // ويمرره على نفس مسار الاستقبال الحقيقي — نفس تحديد العميل والربط بالطلب أو الملف والتحليل والإشعارات.
 
-import { h, mount } from '../../../lib/h.js';
+import { h, mount, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName, label, localPhone } from '../../../lib/fmt.js';
 import { pageHeader, card, button, asyncButton, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
 import { segmentChip, segLabel } from '../../components/segment-ui.js'; // v11 segment-staff (ST-7)
+import { pathLine } from '../../components/pathway-ui.js'; // v12 staff-lines (SL-9)
+
+// v12 staff-lines (SL-9، E12-53): أزرار W-01 وصفوف W-02…W-04 تُضغط هنا كما يضغطها العميل (يُرسل معرّف الرد نفسه)
+export const LINES_MENU_OFF_NOTE = 'قائمة الخدمات على واتساب متوقفة من الإعدادات، فلن تصل الأزرار الثلاثة.';
+const isLineReply = (id) => /^line:/.test(String(id || ''));
+const isPathReply = (id) => /^path:/.test(String(id || ''));
 
 // v9.2 (admin-ai): حالة القصة بعد الرسالة، ورسائلنا الآلية (قائمة المواضيع تُضغط هنا كما تضغطها المستفيدة)
 const VIEW_TONES = { callback: 'info', collecting: 'info', blocked: 'warning', stale: 'warning', ready: 'success', awaiting: 'neutral', decided: 'muted' };
@@ -192,17 +198,25 @@ export default async function render(ctx) {
           rows.length
             ? h(
                 'div.pa-sim-rows',
-                { role: 'group', 'aria-label': 'اختيارات القائمة — اضغط كما تضغط المستفيدة' },
+                {
+                  role: 'group',
+                  'aria-label': rows.some((row) => isPathReply(row.id)) ? 'صفوف قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة' : 'اختيارات القائمة — اضغط كما تضغط المستفيدة',
+                  tag: rows.some((row) => isPathReply(row.id)) ? 'SIM-02' : null, // v12 staff-lines (SL-9)
+                },
                 rows.map((row) =>
-                  asyncButton(row.title, () => sendQuick('list_reply', { reply_id: row.id }, row.title), { size: 'sm', className: 'pa-sim-row', title: row.description || '' }),
+                  asyncButton(row.title, () => sendQuick('list_reply', { reply_id: row.id }, row.title), { size: 'sm', className: 'pa-sim-row', title: row.description || '', dataset: { reply: row.id } }),
                 ),
               )
             : null,
           btns.length
             ? h(
                 'div.pa-sim-rows.pa-sim-segbtns',
-                { role: 'group', 'aria-label': 'زرّا اختيار نوع الخدمة — اضغط كما يضغطها صاحب الرسالة' },
-                btns.map((b) => asyncButton(b.title, () => sendQuick('seg_reply', { reply_id: b.id }, b.title), { size: 'sm', className: 'pa-sim-row', dataset: { reply: b.id } })),
+                btns.some((b) => isLineReply(b.id))
+                  ? { role: 'group', 'aria-label': 'أزرار قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة', tag: 'SIM-01' } // v12 staff-lines (SL-9)
+                  : { role: 'group', 'aria-label': 'زرّا اختيار نوع الخدمة — اضغط كما يضغطها صاحب الرسالة' },
+                btns.map((b) =>
+                  asyncButton(b.title, () => sendQuick(isLineReply(b.id) ? 'button_reply' : 'seg_reply', { reply_id: b.id }, b.title), { size: 'sm', className: 'pa-sim-row', dataset: { reply: b.id } }),
+                ),
               )
             : null,
         );
@@ -254,9 +268,15 @@ export default async function render(ctx) {
               icon(res.line === 'unknown' ? 'alert' : 'whatsapp', { size: 14 }),
               h('span', res.line === 'unknown' ? 'وصلت على رقم غير مضبوط — حُفظت ولم يُرسل أي رد آلي' : `وصلت على: ${(SIM_LINES.find((l) => l.key === res.line) || SIM_LINES[0]).label}`),
             ),
+          // v12 staff-lines (SL-9): المسار الناتج (من قائمة واتساب أو الجملة الجاهزة)، أو تنبيه أن القائمة متوقفة
+          res.intake_id && res.pathway ? tagged('SIM-03', h('div.pa-sim-path', pathLine(res.pathway))) : null,
+          res.intake_id && res.segment === 'paid' && res.lines_menu_enabled === false
+            ? h('p.pa-note.small', { tag: 'SIM-04' }, icon('info', { size: 15 }), h('span', LINES_MENU_OFF_NOTE))
+            : null,
           res.story_view &&
             h('p.pa-sim-story', h('span', 'حالة القصة الآن: '), badge(res.story_view_label || label('story_view', res.story_view), VIEW_TONES[res.story_view] || 'neutral', { className: 'pa-sim-view' })),
-          res.welcome_enabled === false && res.intake_id && h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.')),
+          // v12 staff-lines (SL-9): على خط الأفراد والشركات تحل قائمة الخدمات محل الترحيب، فلا تنبيه عن الترحيب
+          res.welcome_enabled === false && res.intake_id && !(res.segment === 'paid' && res.lines_menu_enabled) && h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.')),
           repliesBlock(res),
           res.intake_id && h('div.pa-sim-quick', h('p.small.muted', 'تكمل نفس المستفيدة:'), quickButtons()),
           h(

@@ -285,6 +285,10 @@ export const LABELS = {
     // v11 segment-server: أزرار نوع الخدمة على الرقم المشترك وتأكيد الاختيار
     segment_choice: 'سؤال نوع الخدمة على الرقم المشترك',
     segment_chosen: 'تأكيد اختيار نوع الخدمة',
+    // v12 staff-lines (E12-80…83): قائمة الخدمات على واتساب لخط الأفراد والشركات
+    lines_menu: 'أزرار الخدمات الثلاث على واتساب',
+    lines_list: 'قائمة تفاصيل الخدمة على واتساب',
+    lines_next: 'رسالة بعد اختيار الخدمة على واتساب',
   },
   actor_kind: {
     staff: 'الإدارة',
@@ -1115,6 +1119,41 @@ export const LABELS = {
     'integration.wa_mode_changed': 'تغيير وضع رقم واتساب',
     'segment.case_fee': 'أتعاب مقترحة لملف أفراد وشركات',
   },
+  // <labels:v12-lines> — مسار الطلب ونوعه (v12 staff-lines). الكلمات نفسها في entry-tree.js (PATHWAY_SOURCES، LINES[*].staff)؛
+  // اختبار v12-staff-lines يتحقق أنها مطابقة. المحامون والشركات لا يرون شيئًا منها.
+  pathway_source: { website: 'من الموقع', wa_menu: 'من قائمة واتساب', wa_tag: 'من رسالة واتساب الجاهزة', staff: 'عدّله الفريق' },
+  service_line: { consultation: 'استشارة', litigation: 'دعوى قضائية', company: 'شركات', none: 'لم يُحدَّد النوع' },
+  // review (F3): قيم charity_archived_landing كما في بطاقة «الصفحة الأولى» (لملخص سجل الأمان بدل notice/redirect)
+  charity_archived_landing: { notice: 'صفحة تقول إن الخدمة متوقفة', redirect: 'تحويل إلى الصفحة الأولى' },
+  // أحداث سجل الأمان (تُدمج في security_event أدناه)
+  lines_security_event: {
+    'intake.pathway_changed': 'تغيير مسار الطلب',
+    'client.auto_opt_out_cleared': 'إلغاء إيقاف الرسائل الآلية لشخص',
+    'settings.charity_public_changed': 'تغيير ظهور «خيري» على الموقع',
+    'settings.charity_landing_changed': 'تغيير ما تفتحه روابط «خيري» القديمة',
+    'settings.wa_lines_menu_changed': 'تغيير قائمة الخدمات على واتساب',
+    'settings.firm_partners_changed': 'تعديل الشركاء في صفحة «عن المكتب»',
+    'analytics.viewed': 'عرض تقرير تحليلات', // SL-8: data.report = 'entry_tree'
+  },
+  // v12 media (H-M1): حالات المعالجة (طابور media_jobs والنص الآلي) ومزوّدات القراءة وتحويل الصوت
+  media_state: { queued: 'في الانتظار', running: 'جارٍ الآن', done: 'تم', empty: 'لا يوجد كلام مفهوم', failed: 'تعذّر', skipped: 'لم يُعالَج', cancelled: 'أُلغي' },
+  ocr_provider: { auto: 'تلقائي', tesseract: 'Tesseract على الخادم', claude: 'Claude', off: 'متوقفة' },
+  stt_provider: { off: 'متوقف', openai_compatible: 'خدمة متوافقة مع OpenAI (OpenAI أو Groq أو خادم Whisper)', google: 'Google Speech-to-Text' },
+  // أحداث سجل الأمان (تُدمج في security_event أدناه). أنواع media.* وvoice.* تُضاف مع مجموعتيهما في صفحة «سجل الأمان»
+  media_security_event: {
+    'document.cleaned': 'تحسين صورة مستند',
+    'document.display_changed': 'تغيير النسخة المعروضة من مستند',
+    'document.files_viewed': 'عرض معلومات نسخ مستند',
+    'document.text_viewed': 'عرض النص المستخرج من مستند',
+    'document.text_corrected': 'تصحيح النص المستخرج من مستند',
+    'document.ocr_requested': 'طلب قراءة نص مستند',
+    'voice.auto_requested': 'طلب تحويل رسالة صوتية إلى نص الآن',
+    'voice.transcribed': 'مراجعة النص الآلي لرسالة صوتية',
+    'settings.web_voice_changed': 'تغيير الرسائل الصوتية من الموقع',
+    'settings.stt_charity_changed': 'تغيير تحويل صوت «خيري» عند جهة خارجية',
+    'settings.ocr_claude_changed': 'تغيير إرسال صور المستندات إلى Claude',
+    'settings.ocr_claude_companies_changed': 'تغيير قراءة مستندات الشركات بـ Claude',
+  },
 };
 
 // مسميات أحداث سجل الأمان التي تعرّفها كل وحدة في مجموعتها (platform_security_event، messaging_security_event، …)
@@ -1304,10 +1343,42 @@ export const SEGMENT_CHANGE_TEXTS = {
     'مرحبًا {first_name}، بعد مراجعة طلبكم ({ref_no}) يسعدنا إبلاغكم أن موضوعكم يدخل ضمن برنامج الدعم القانوني المجاني، فلن تُطلب منكم أي أتعاب. سنوافيكم بالخطوات هنا.\n— {org_name}',
 };
 
+// v12 staff-lines (E12-81…83 + r2 §5.10، L12-78، L12-85): قائمة الخدمات على واتساب لخط الأفراد والشركات — نصوص ثابتة لا يكتبها
+// الذكاء الاصطناعي، بصيغة الجمع المهذبة وبلا «—». أزرار W-01 من LINES[*].label وصفوف W-02…W-04 من pageOf(line) في entry-tree.js
+// (لا تُكتب الكلمات مرتين، L12-82)؛ رأس القائمة وعنوان قسمها = اسم الخط. {firm_name} = firm_legal_name وإلا brand_name.
+// عناوين القوائم هنا هي أسئلة صفحات الشجرة نفسها (اختبار test/v12-staff-lines يتحقق من التطابق).
+export const LINES_MENU_TEXTS = {
+  lines_menu: 'أهلًا بكم في {firm_name}. اختاروا نوع الخدمة، أو اكتبوا موضوعكم مباشرة.',
+  lines_menu_footer: 'ويمكنكم إرسال صور المستندات هنا.',
+  lines_list_consultation: 'في أي مجال؟',
+  lines_list_litigation: 'ما وضع القضية؟',
+  lines_list_company: 'ما الذي تحتاجونه؟',
+  lines_list_button: 'عرض الاختيارات',
+  lines_next: 'شكرًا لكم. اكتبوا الموضوع باختصار، ويمكنكم إرسال صور المستندات أو رسالة صوتية، وعند الانتهاء أرسلوا «خلاص». نتفق معكم على الأتعاب قبل بدء أي عمل.',
+  lines_counsel: 'شكرًا لكم. سيتواصل معكم فريقنا لترتيب عرض يناسب شركتكم.',
+  // يُضاف إلى W-06 فقط حين تكون بوابة الشركات مفتوحة وللمنصة رابط عام
+  lines_counsel_account: 'وإن كان لشركتكم حساب لدينا، فادخلوا من: {base_url}/company',
+};
+// رموز رسائل واتساب (T12-20): المفتاح = مفتاح النص في CLIENT_TEXTS* أو LINES_MENU_TEXTS أو 'rule:<قاعدة>'. لا يظهر الرمز داخل
+// أي رسالة مرسلة أبدًا (L12-88). W-01…W-06 لقائمة الخدمات (staff-lines)؛ مسح الرموز يضيف الباقي بعدها.
+export const TEXT_TAGS = Object.freeze({
+  lines_menu: 'W-01',
+  lines_list_consultation: 'W-02',
+  lines_list_litigation: 'W-03',
+  lines_list_company: 'W-04',
+  lines_next: 'W-05',
+  lines_counsel: 'W-06',
+});
+
 // v9.2 — مسارات الطلب التي يقترحها الذكاء الاصطناعي وتعتمدها الإدارة، وقواعد الرسائل الآلية للقصص
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 // (v11 segment-server: + سؤال نوع الخدمة وتأكيده — آليان مرتبطان بنافذة الـ 24 ساعة مثل رسائل القصة)
-export const STORY_AUTO_RULES = ['story_welcome', 'story_topic_nudge', 'story_ack', 'segment_choice', 'segment_chosen'];
+export const STORY_AUTO_RULES = ['story_welcome', 'story_topic_nudge', 'story_ack', 'segment_choice', 'segment_chosen', 'lines_menu', 'lines_list', 'lines_next'];
+// v12 staff-lines (L12-77): رسائل آلية تتوقف لمن أرسل كلمة إيقاف («توقف»، «إيقاف»، «stop»…): الترحيب والطلب والتأكيد،
+// سؤال نوع الخدمة، قائمة الخدمات، والاستبيان. ردود الفريق وتذكيرات الجلسات ورسائل الأتعاب وصفحة المتابعة لا تتأثر.
+export const OPT_OUT_RULES = ['story_welcome', 'story_topic_nudge', 'story_ack', 'segment_choice', 'segment_chosen', 'lines_menu', 'lines_list', 'lines_next', 'satisfaction_survey'];
+// الرسالة كلها (بعد التطبيع وحذف الترقيم) إحدى هذه الكلمات ← إيقاف الرسائل الآلية لهذا الشخص (لا جزء من رسالة أطول)
+export const OPT_OUT_WORDS = ['توقف', 'إيقاف', 'ايقاف', 'الغاء', 'إلغاء', 'stop', 'unsubscribe'];
 
 export const DEFAULT_SETTINGS = {
   org_name: 'مؤسسة بيوت مصر',
@@ -1447,7 +1518,7 @@ export const DEFAULT_SETTINGS = {
   company_email_max_per_hour: 20,
   // <settings:v11-segment> — نوع الخدمة «خيري» / «أفراد وشركات» (§5.3)
   // شاشة الاختيار في / لأول زيارة (مفتاح الإيقاف: متوقفة = الصفحة الرئيسية «خيري» دائمًا)
-  site_gate_enabled: true,
+  site_gate_enabled: true, // متقاعد في 12.0، لا يُقرأ (v12 entry: H-E3، L12-09)
   // هاتف صفحات الأفراد والشركات (فارغ = org_phone)
   org_phone_paid: '',
   // طلب من الموقع بلا اختيار صالح وبلا كعكة bm_seg (روابط ما قبل 11.0 كلها روابط خيري)
@@ -1463,6 +1534,49 @@ export const DEFAULT_SETTINGS = {
   callback_from_number_paid: '',
   // تنبيه أسفل «الإفادة القانونية» المطبوعة لعملاء الأفراد والشركات (بلا «دون مقابل»)
   print_answer_disclaimer_paid: 'هذه الإفادة مبنية على الوقائع والمستندات التي قدمها صاحب الشأن حتى تاريخها، ولا تُعد توكيلًا بالحضور أمام أي جهة.',
+  // <settings:v12-entry> — الصفحة الأولى «كيف نساعدكم؟» وأرشفة «خيري» على الموقع (§5.4؛ v12 entry: H-E3)
+  // ظهور الخدمة الخيرية على الموقع (متوقفة = لا «خيري» في أي صفحة عامة؛ الطلبات ورقم واتساب الخيري يعملان كما هما)
+  charity_public: false,
+  // الاسم القانوني للمكتب في سطر © وأول رسالة واتساب (فارغ = brand_name)
+  firm_legal_name: '',
+  // روابط «خيري» القديمة أثناء الأرشفة: 'notice' صفحة تقول إن الخدمة متوقفة، أو 'redirect' تحويل إلى الصفحة الأولى
+  charity_archived_landing: 'notice',
+  // «عن المكتب» في /services (اختيارية، لا تُملأ في البيانات التجريبية): المدينة، سنة التأسيس، الشركاء [{ name, title }] ≤ 8
+  firm_city: '',
+  firm_founded: '',
+  firm_partners: [],
+  // <settings:v12-lines> — قائمة الخدمات على واتساب (E12-80…87، §5.10؛ v12 staff-lines): أول رسالة قصيرة من شخص جديد
+  // على خط الأفراد والشركات تصلها ثلاثة أزرار ثم قائمة قصيرة؛ نصوص ثابتة داخل نافذة 24 ساعة ومرة لكل شخص (متوقفة افتراضيًا)
+  wa_lines_menu_enabled: false,
+  // <settings:v12-media> — الرسائل الصوتية والنص الآلي، وتحسين صور المستندات وقراءتها (§5.4؛ v12 media: H-M1)
+  // تسجيل الرسائل الصوتية في الموقع وصفحة المتابعة (مؤرشف: متوقف = لا ميكروفون؛ رسائل واتساب الصوتية تصل دائمًا)
+  web_voice_enabled: false,
+  // تحويل رسائل العملاء الصوتية إلى نص آلي (مسودة للفريق) تلقائيًا بعد ضبط الخدمة في «التكاملات»
+  stt_auto: true,
+  // تحويل صوت «خيري» عند جهة خارجية (متوقف: الجهة الخارجية لطلبات الأفراد والشركات فقط؛ خادم المكتب للجميع، L12-62)
+  stt_charity_third_party: false,
+  // أقصى دقائق تحويل آلي لكل شخص في اليوم (1–240؛ «حوّل الآن» من الفريق يتجاوزه ويُسجَّل)
+  stt_minutes_per_client_day: 20,
+  // يضبطه الخادم عند حفظ مزوّد خارجي بعد أن كان متوقفًا؛ لا يُحوَّل عند جهة خارجية صوت أقدم منه (لا يُعدَّل من PATCH)
+  stt_third_party_since: '',
+  // ماسح المستندات على جهاز المرسل (الموقع، صفحة المتابعة، بوابة الشركات، منصة الفريق)
+  scan_client_enabled: true,
+  // تنظيف الصور الواردة على الخادم (صور واتساب والصور المرفوعة دون تحسين؛ يحتاج ImageMagick)
+  scan_server_auto: true,
+  // قراءة نص المستندات: auto (Tesseract إن وُجد) | tesseract | claude | off
+  ocr_provider: 'auto',
+  // السماح بإرسال صور المستندات إلى Claude لقراءتها (يغيّر سياسة الخصوصية؛ متوقف افتراضيًا)
+  ocr_claude_allowed: false,
+  // السماح بقراءة مستندات الشركات بـ Claude (متوقف افتراضيًا)
+  ocr_claude_companies: false,
+  // نسبة ميزانية الذكاء الاصطناعي الشهرية المتاحة لقراءة المستندات بـ Claude (0–100)
+  ocr_claude_budget_pct: 20,
+  // يضبطه الخادم عند تشغيل ocr_claude_allowed؛ لا يُرسل إلى Claude مستند أقدم منه (لا يُعدَّل من PATCH)
+  ocr_claude_since: '',
+  // نموذج القراءة (فارغ = نموذج تكامل الذكاء الاصطناعي)
+  ocr_model: '',
+  // أقصى عدد صفحات تُقرأ من المستند (1–30)
+  ocr_max_pages: 10,
 };
 
 export const CODE_PREFIX = {

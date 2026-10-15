@@ -247,14 +247,20 @@ function requestPathname(res) {
   }
 }
 
-export function securityHeaders(res, pathname = requestPathname(res)) {
+/**
+ * v12 media (L12-22): opts.mic — هل يُسمح بالميكروفون في صفحة التسجيل هذه؟ يحسبه app.js لكل طلب من الإعداد
+ * web_voice_enabled (التسجيل من الموقع مؤرشف افتراضيًا = microphone=()). بلا opts يبقى سلوك 11.0 (صفحات التسجيل فقط).
+ * الميكروفون لا يُفتح أبدًا خارج /intake و/p/ مهما كانت القيمة.
+ */
+export function securityHeaders(res, pathname = requestPathname(res), { mic } = {}) {
   const capture = isCapturePage(pathname);
+  const micOn = capture && (mic === undefined ? true : mic === true);
   const base = APP_PAGE_RE.test(String(pathname || '')) ? CSP_APP : CSP;
   res.setHeader('Content-Security-Policy', capture ? `${base}; media-src 'self' blob:` : base);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Permissions-Policy', capture ? 'camera=(), microphone=(self), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', micOn ? 'camera=(), microphone=(self), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 }
 

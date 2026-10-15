@@ -15,6 +15,8 @@ import { addressForm } from '../util.js';
 import { ApiError } from '../util.js';
 import { isPlainName, collapseSpaces } from '../brand.js';
 import { REQUESTER_EMPLOYEES, REQUESTER_NEEDS } from '../../public/assets/js/public/segment.js';
+// v12 entry (E12-47): مسار الشجرة — الورقة تحدد الموضوع والمجال والأسئلة والاستعجال
+import { leafOf, sanitizePathAnswers, isUrgent } from '../../public/assets/js/public/entry-tree.js';
 
 const DEMO_ACCOUNTS = [
   { username: 'admin', password: 'Admin@2026', role: 'admin', name: 'كريم منصور — إدارة النظام' },
@@ -32,7 +34,7 @@ const MAX_INTAKE_AUDIO = 3;
 const VOICE_ONLY_TEXT = '[رسالة صوتية]';
 const SUBMISSION_RE = /^[A-Za-z0-9_-]{16,64}$/;
 // v9.2 public (§3.3): من أين بدأ الطلب، وأي شكل للنموذج
-const ENTRIES = ['home_tile', 'home_callback', 'intake_tiles', 'direct', 'company_band']; // v11 segment-server: + company_band
+const ENTRIES = ['home_tile', 'home_callback', 'intake_tiles', 'direct', 'company_band', 'tree']; // v11 segment-server: + company_band؛ v12 entry: + tree
 const MODES = ['form', 'guided', 'tiles', 'callback'];
 const NAME_MSG = 'اكتبي اسمك كامل، أو سيبيه فاضي.';
 const MAX_AUDIO_SECONDS = 600;
@@ -192,7 +194,8 @@ export function registerPublicRoutes(router, app) {
     const doc = app.documents.get(idParam(ctx.params));
     // 404 (وليس 403) للمستندات غير المتاحة حتى لا نكشف وجودها
     if (!doc || !app.documents.canAccess(user, doc)) throw notFound('المستند غير موجود');
-    app.documents.send(ctx.res, doc, { inline: ctx.query.inline === '1' });
+    // v12 media (H-M2 b، L12-61): النسخة المعروضة افتراضيًا، أو ?file=clean|original&page=n لنفس المستند وحده
+    app.media.downloadVariant(doc, user, { file: ctx.query.file, page: ctx.query.page, inline: ctx.query.inline === '1', res: ctx.res });
     ctx.streamed = true;
   });
 
@@ -225,7 +228,22 @@ export function registerPublicRoutes(router, app) {
   function v92Fields(current) {
     const fa = parseJson(current?.form_answers, null);
     const callback = fa && CALLBACK_WHEN[fa.callback] ? fa.callback : null;
-    return { callback, callback_from: callbackFrom(current?.segment === 'paid' ? 'paid' : 'charity'), callback_eta_days: callbackEtaDays(), about_governorates: aboutGovernorates() };
+    const paid = current?.segment === 'paid';
+    return {
+      callback,
+      callback_from: callbackFrom(paid ? 'paid' : 'charity'),
+      callback_eta_days: callbackEtaDays(),
+      about_governorates: aboutGovernorates(),
+      // v12 entry (L12-65): موعد قريب محتمل (سطر «وصلنا طلبكم» I-67)، ورقم الأفراد والشركات إن كان المكتب يعمل الآن (I-68)
+      urgent: !!fa?.inferred?.urgent_hint,
+      call_now: paid ? callNow() : null,
+    };
+  }
+  /** v12 entry (L12-65): هاتف الأفراد والشركات (أو هاتف المكتب) ما دامت مواعيد العمل مفتوحة الآن، وإلا null */
+  function callNow() {
+    const open = app.portal?.officeOpen ? app.portal.officeOpen(app.settings.get('office_hours_schedule')) : null;
+    if (open !== true) return null;
+    return String(app.settings.get('org_phone_paid') || '').trim() || String(app.settings.get('org_phone') || '').trim() || null;
   }
 
   function intakeResponse(intake, clientId) {
@@ -291,8 +309,23 @@ export function registerPublicRoutes(router, app) {
   function submitIntakeInner(b, { limits = true, cookieHeader = null } = {}) {
     if (b.website) return { status: 200, body: { reference: null, ok: true } }; // حقل فخ للبرامج الآلية
     if (b.consent !== true) throw badRequest('لازم توافقي عشان نقدر نساعدك.');
+    // v12 entry (E12-47): مسار الشجرة — نص ≤ 80 يُحل بالشجرة (والمعرّفات المتقاعدة)؛ مسار غير معروف أو مخرج يُسقط بصمت
+    // (لا يُرفض الطلب أبدًا بسبب صفحة قديمة) مع pathway_invalid في المصدر. المسار الصالح (ورقة أو صفحة) طلب أفراد وشركات دائمًا.
+    let pathR = null;
+    let pathwayInvalid = false;
+    if (b.pathway !== undefined && b.pathway !== null && b.pathway !== '') {
+      const r0 = typeof b.pathway === 'string' && b.pathway.length <= 80 && app.pathways ? app.pathways.resolve(b.pathway) : null;
+      if (r0 && !r0.exit) pathR = r0;
+      else pathwayInvalid = true;
+    }
+    const leaf = pathR?.leaf ? leafOf(pathR.path) : null;
     // v11 segment-server (SS-1): نوع الخدمة segment › كعكة bm_seg › الافتراضي — قيمة غير صالحة لا ترفض الطلب أبدًا
-    const seg = app.segments ? app.segments.fromWebsite({ body: b, cookieHeader }) : { segment: 'charity', source: 'website_default', via: 'default' };
+    // (v12 L12-09: بلا segment والموقع بلا «خيري» = أفراد وشركات، segments.fromWebsite)
+    const seg = pathR
+      ? { segment: 'paid', source: 'website', via: 'pathway' }
+      : app.segments
+        ? app.segments.fromWebsite({ body: b, cookieHeader })
+        : { segment: 'charity', source: 'website_default', via: 'default' };
     const requester = cleanRequester(b.requester, seg.segment);
     // الاسم اختياري: «سيبيه فاضي» = لا يُرسل أصلًا (النموذج لا يرسله فاضيًا)؛ أما إن أُرسل فحرفان على الأقل
     let name = null;
@@ -308,9 +341,10 @@ export function registerPublicRoutes(router, app) {
       throw withCode(e, 'bad_phone');
     }
     // v9.2: الموضوع (مفتاح أو اسم قديم، وإلا بلا موضوع بصمت) وإجابات الصور (كائن فقط) ووقت المكالمة
-    const topic = topicByKey(b.topic);
+    // v12 entry (E12-47 #3): الورقة تغلب الموضوع المرسل، والإجابات = أسئلة الورقة فقط + ما أجابت عنه الشجرة (pre)
+    const topic = leaf ? topicByKey(leaf.topic) : topicByKey(b.topic);
     if (b.answers !== undefined && b.answers !== null && (typeof b.answers !== 'object' || Array.isArray(b.answers))) throw badRequest('اختيارات غير صالحة.');
-    const answers = sanitizeAnswers(topic?.key, b.answers || {});
+    const answers = leaf ? sanitizePathAnswers(leaf.path, b.answers || {}) : sanitizeAnswers(topic?.key, b.answers || {});
     const callback = b.callback === undefined || b.callback === null || b.callback === '' ? null : v.oneOf(b.callback, Object.keys(CALLBACK_WHEN), 'الوقت المناسب');
     const entry = ENTRIES.includes(b.entry) ? b.entry : 'direct';
     const consentV = Number.isInteger(b.consent_v) && b.consent_v >= 1 && b.consent_v <= 99 ? b.consent_v : null;
@@ -334,7 +368,14 @@ export function registerPublicRoutes(router, app) {
     const governorate = b.governorate ? v.oneOf(b.governorate, GOVERNORATES, 'المحافظة') : null;
     const codes = LEGAL_AREAS.map((a) => a.code);
     let area = b.legal_area ? v.oneOf(b.legal_area, codes, 'نوع المشكلة') : null;
+    if (!area && leaf?.area && codes.includes(leaf.area)) area = leaf.area;
     if (!area && topic?.area && codes.includes(topic.area)) area = topic.area;
+    // v12 entry (E12-47 #4): اسم الشركة لخط الشركات وحده (2–120 حرفًا، اسم عادي)، وإلا يُسقط بصمت
+    let companyName = null;
+    if (pathR && pathR.path.startsWith('company') && typeof b.company_name === 'string') {
+      const cn = collapseSpaces(b.company_name);
+      if (cn.length >= 2 && cn.length <= 120 && isPlainName(cn)) companyName = cn;
+    }
     // v9.1 b-forms: حتى 5 صور/مستندات و3 رسائل صوتية؛ الرسالة الصوتية تغني عن الكتابة،
     // وبدونها يكفي وصف من 10 حروف («جوزي مات ومعاش» مقبول)، أو طلب مكالمة (v9.2)
     const files = b.documents == null ? [] : Array.isArray(b.documents) ? b.documents : badRequestFiles();
@@ -348,6 +389,11 @@ export function registerPublicRoutes(router, app) {
       const n = Number(seconds);
       return app.documents.isAudio(f) && seconds !== undefined && seconds !== null && Number.isFinite(n) ? { ...rest, seconds: Math.max(0, Math.min(MAX_AUDIO_SECONDS, n)) } : rest;
     });
+    // v12 media (H-M2 a، H-M13، L12-70): كل مرفق وكل صورة أصلية (scan) يُفحص كاملًا قبل أي كتابة؛ القرص الممتلئ ← 503
+    if (files.length && app.media) {
+      if (app.media.diskLow()) throw app.media.diskLowError();
+      app.media.checkAttachments(attachments, { surface: 'intake' });
+    }
     let description = v.str(b.description, 'وصف المشكلة', { max: 10000 }) || '';
     // v11 segment-server (G11-44): طلب عرض الشركات بلا تفاصيل مقبول بنص ثابت لا يُعد من الوقائع
     const companyCanned = !!requester && !audioCount && nonSpace(description) < MIN_DESC_CHARS && !callback;
@@ -370,6 +416,9 @@ export function registerPublicRoutes(router, app) {
     // v9 practice: بيانات الأسرة الاختيارية (يذكرها مقدم الطلب ولا يُتحقق منها) تُتحقق قبل إنشاء أي شيء.
     // v9.2: ما يُستنتج من الإجابات (الصفة، عدد الأطفال، السكن) وما ترسله صراحةً يغلب عليه
     const inferred = infer(answers);
+    // v12 entry (L12-52، L12-55): الاستعجال من أسئلة الورقة (جلسة قريبة، حكم حديث، «لا أعرف» في الرد على دعوى)، و«لا يوجد» أبناء = 0
+    if (leaf && isUrgent(leaf.path, answers)) inferred.urgent_hint = true;
+    if (answers.children === 'none') inferred.children_count = 0;
     let beneficiary = null;
     // v11 segment-server: لا بيانات أسرة لطلبات الأفراد والشركات (لا بحث اجتماعي ولا أولوية من وضع الأسرة)
     if (app.practice && seg.segment !== 'paid') {
@@ -381,7 +430,7 @@ export function registerPublicRoutes(router, app) {
       beneficiary = Object.keys(merged).length ? merged : null;
     }
     const attribution = sourceFromWebAttribution(b.attribution || {});
-    attribution.detail = { ...attribution.detail, intake_mode: mode, gate: seg.segment, gate_via: seg.via, ...(requester ? { requester } : {}) };
+    attribution.detail = { ...attribution.detail, intake_mode: mode, gate: seg.segment, gate_via: seg.via, ...(requester ? { requester } : {}), ...(pathwayInvalid ? { pathway_invalid: true } : {}) };
     const r = app.engine.receive({
       channel: 'website',
       from_phone: phone,
@@ -412,12 +461,28 @@ export function registerPublicRoutes(router, app) {
     // فلا يُصدر رابط أبدًا لطلب لم يُنشئه هذا الإرسال نفسه
     if (!r.created_intake || !r.intake) throw new Error('public intake did not create a new intake');
     // v9.2 (§3.3): اختيارات الصور كما ضغطت عليها (تقرأها الإدارة والتحليل تحت «قد تكون غير دقيقة»)
-    const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV, ...(requester ? { requester } : {}) };
+    const formAnswers = { v: 1, topic: topic?.key || null, answers, callback: callback || null, story, entry, inferred, consent_v: consentV, ...(requester ? { requester } : {}), ...(companyName ? { company_name: companyName } : {}) };
     // v9.2 (بوابة الدمج K1): اسم الطلب = ما كتبه هذا الإرسال وحده. الرقم المكتوب في الموقع غير مثبت، فطلب بلا اسم
     // على رقم عميل موجود لا يرث اسم صاحب الرقم (وإلا عرضته صفحة /p/… والردود الجاهزة لمن كتب الرقم: «أهلًا يا رامي»).
     // الموظفون يرون اسم ملف العميل كما هو (intakes.list: contact_name || client_name).
     db.update('intakes', r.intake.id, { form_answers: JSON.stringify(formAnswers), contact_name: name });
     if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
+    // v12 entry (L12-27، L12-75): مسار الطلب (service_line, pathway, نسخة الكلمات) ثم «سبق التعامل مع خيري» للفريق — كلاهما لا يُفشل
+    // الطلب أبدًا (الطلب وصل؛ الخطأ يُسجَّل فقط)
+    if (pathR) {
+      try {
+        app.pathways.set(r.intake.id, pathR.path, { source: 'website', onlyIfEmpty: true });
+      } catch (e) {
+        app.log?.('pathway set failed', e);
+      }
+    }
+    if (seg.segment === 'paid') {
+      try {
+        app.segments?.markReturningCharity?.(r.intake.id);
+      } catch (e) {
+        app.log?.('returning charity check failed', e);
+      }
+    }
     if (callback) {
       const form = name ? addressForm({ name }) : null;
       const summary = !name

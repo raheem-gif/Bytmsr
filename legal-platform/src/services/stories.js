@@ -305,6 +305,10 @@ export function createStories(app) {
       }
       const lines = staffLines(formJson(intake) || {});
       if (lines.length) contextText = `[${STAFF_LINES_TITLE}: ${lines.join(' · ')}]\n${contextText}`;
+      // v12 staff-lines (SL-6، E12-54، L12-28): المسار الذي اختاره (كلمات الفريق) سطر واحد في أول السياق — لطلبات الأفراد والشركات
+      // ذات المسار فقط، فطلب «خيري» لا يتغير (بصمة طلب Claude ثابتة)، ولا يدخل نص صاحب الطلب (clientText)
+      const pathLine = app.pathways?.storyLine ? app.pathways.storyLine(intake) : null;
+      if (pathLine) contextText = `${pathLine}\n${contextText}`;
       const meaningful = lettersOf(clientText, doneWords);
       const typedLetters = lettersOf(typed.join('\n'), doneWords);
       const otherMedia = docs.some((d) => d.uploaded_by_kind === 'client' && !/^audio\//.test(String(d.mime || '')));
@@ -484,8 +488,10 @@ export function createStories(app) {
       if (s.done) svc.markReady(i.id, 'client_done');
       if (msg?.channel === 'whatsapp' && !s.staff_entry) {
         // v11 segment-server (S11-20، P1): جواب أزرار نوع الخدمة، أو الأزرار نفسها قبل الترحيب على الرقم المشترك
+        // v12 staff-lines (SL-5، E12-80): ثم رد قائمة الخدمات، أو القائمة نفسها قبل الترحيب (حين تُرسل لا يُرسل ترحيب ولا طلب الحكاية)
         if (result.segment?.choice && app.segments) app.segments.onChoice(row(i.id), result.segment.choice, msg);
-        else if (result.created_intake && !(app.segments && app.segments.maybeChoice(row(i.id), result))) svc.maybeWelcome(row(i.id), result);
+        else if (result.lines_reply && app.segments?.onLinesReply) app.segments.onLinesReply(row(i.id), result.lines_reply, msg);
+        else if (result.created_intake && !(app.segments && (app.segments.maybeChoice(row(i.id), result) || app.segments.maybeLinesMenu?.(row(i.id), result, msg)))) svc.maybeWelcome(row(i.id), result);
         if (s.topic && !s.topic_prefill) svc.maybeNudge(row(i.id));
       }
     },
@@ -505,6 +511,8 @@ export function createStories(app) {
     maybeWelcome(i, result) {
       if (!i || !setting('story_welcome_enabled')) return false;
       if (result.identity_confirm || result.story?.mentioned_ref || result.story?.topic_prefill) return false;
+      // v12 staff-lines (L12-79): الرد التفاعلي ليس «أول رسالة» أبدًا، والطلب الذي وصلته قائمة الخدمات لا يصله ترحيب ثانٍ
+      if (result.interactive || i.lines_menu_sent_at) return false;
       // v11 segment-server (S11 §6.3/§10.2): الترحيب بنبرة الطلب؛ «غير محدد» لا يصله ترحيب أبدًا (ينتظر اختيار نوع الخدمة)
       if (toneOf(i) === 'neutral') return false;
       if (!svc.autoEligible(i)) return false;
@@ -545,6 +553,7 @@ export function createStories(app) {
     /** [A92-06] بعد اختيار الموضوع من القائمة بلا حكاية بعد: «احكيلنا حصل إيه» مرة واحدة (مع الترحيب فقط) */
     maybeNudge(i) {
       if (!i || !setting('story_welcome_enabled') || !svc.autoEligible(i)) return false;
+      if (i.lines_menu_sent_at) return false; // v12 staff-lines (E12-80): القائمة بدل الترحيب وطلب الحكاية
       const st = svc.storyText(i.id);
       if (st.meaningfulLetters >= 25 || st.hasMedia) return false;
       if (db.get("SELECT 1 FROM messages WHERE intake_id = ? AND automation_rule = 'story_topic_nudge'", i.id)) return false;

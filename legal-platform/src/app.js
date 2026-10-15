@@ -3,6 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { Db } from './db.js';
 import { Router, sendJson, sendError, readBody, parseCookies, securityHeaders, serveStatic, sendFile } from './http.js';
+import { isCapturePage } from './http.js'; // v12 media (L12-22): الميكروفون لكل طلب
 import { sendBody } from './http.js'; // v9.1 b-site: صفحة 404 مضغوطة (تُفتح غالبًا من رابط واتساب مقطوع على باقة بطيئة)
 import { ApiError, badRequest, forbidden } from './util.js';
 import { createAuth, RateLimiter } from './auth.js';
@@ -67,6 +68,11 @@ import { createCompanyMemory } from './services/company-memory.js';
 import { createCompanyRequests } from './services/company-requests.js';
 // v11 segment-server: نوع الخدمة «خيري» / «أفراد وشركات» (المكان الوحيد الذي يقرر)
 import { createSegments } from './services/segments.js';
+import { createPathways } from './services/pathways.js'; // v12 entry: H-E1 (§5.2)
+// v12 media: تحويل الرسائل الصوتية إلى نص، ماسح المستندات ونسخها، قراءة النص (D6، D7)
+import { createStt } from './ai/stt.js';
+import { createMedia } from './services/media.js';
+import { registerMediaRoutes } from './routes/media.js';
 
 const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -97,9 +103,12 @@ export function createApp(config, { logger = console } = {}) {
   app.auth = createAuth(app);
   app.documents = createDocuments(app);
   app.voice = createVoice(app); // v9.2: نصوص الرسائل الصوتية (تكتبها الإدارة)
+  app.stt = createStt(app); // v12 media: النص الآلي للرسائل الصوتية (مسودة للفريق فقط)
+  app.media = createMedia(app); // v12 media: الطابور، نسخ المستندات، النص المقروء آليًا، media.process / media.gc
   app.clients = createClients(app);
   app.whatsapp = createWhatsApp(config, app.log, app);
   app.segments = createSegments(app); // v11 segment-server (§5.5)
+  app.pathways = createPathways(app); // v12 entry (§5.2)
   app.engine = createEngine(app);
   app.ai = createAi(app);
   app.visibility = createVisibility(app);
@@ -159,6 +168,7 @@ export function createApp(config, { logger = console } = {}) {
   registerPublicRoutes(router, app);
   registerAdminRoutes(router, app);
   registerLawyerRoutes(router, app);
+  registerMediaRoutes(router, app); // v12 media: قبل مسارات system حتى يسبق POST /api/admin/integrations/stt/test المسار العام
   registerSystemRoutes(router, app);
   registerAccountsRoutes(router, app);
   registerMessagingRoutes(router, app);
@@ -276,8 +286,24 @@ export function createApp(config, { logger = console } = {}) {
     }
   }
 
+  /** v12 media (L12-22): المسار كما يقرؤه الموجّه، والميكروفون مسموح فقط في صفحتي التسجيل ومع web_voice_enabled */
+  function micAllowed(pathname) {
+    if (!isCapturePage(pathname)) return false;
+    try {
+      return app.settings.get('web_voice_enabled') === true;
+    } catch {
+      return false;
+    }
+  }
+
   async function handle(req, res) {
-    securityHeaders(res);
+    let hp;
+    try {
+      hp = new URL(req.url, 'http://localhost').pathname;
+    } catch {
+      hp = String(req.url || '').split('?')[0];
+    }
+    securityHeaders(res, hp, { mic: micAllowed(hp) });
     let url;
     try {
       url = new URL(req.url, 'http://localhost');
@@ -389,13 +415,19 @@ export function createApp(config, { logger = console } = {}) {
       if (timer) clearInterval(timer);
       app.ai.cancelTimers();
       app.stories?.cancelTimers(); // v9.2: مؤقتات «السكوت» للقصص
+      // v12 media (L12-69): إيقاف أدوات المعالجة وإعادة الوحدة الجارية إلى الانتظار قبل إغلاق قاعدة البيانات
+      const mediaClosed = Promise.resolve()
+        .then(() => app.media?.close?.())
+        .catch(() => {});
       const done = () => {
-        try {
-          app.db.close();
-        } catch {
-          // مغلقة بالفعل
-        }
-        resolve();
+        mediaClosed.finally(() => {
+          try {
+            app.db.close();
+          } catch {
+            // مغلقة بالفعل
+          }
+          resolve();
+        });
       };
       if (app.server.listening) app.server.close(done);
       else done();

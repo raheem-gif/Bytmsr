@@ -17,6 +17,8 @@ const RECHECK_MS = 1000; // إعادة فحص تواريخ تعديل الملف
 const STATIC_RE = /(\b(?:import|export)\b[\s\w*{},$]*?\bfrom\s*|\bimport\s*)(['"])(\.{1,2}\/[^'"\s?#]+?\.m?js)\2/g;
 // import('./d.js')
 const DYNAMIC_RE = /(\bimport\(\s*)(['"])(\.{1,2}\/[^'"\s?#]+?\.m?js)\2(\s*\))/g;
+// v12 media (H-M5): new Worker(new URL('./scan-worker.js', import.meta.url), { type: 'module' }) — عامل وحدة برقم إصداره
+const WORKER_RE = /(\bnew\s+URL\(\s*)(['"])(\.{1,2}\/[^'"\s?#]+?\.m?js)\2(\s*,\s*import\.meta\.url\s*\))/g;
 // url(/assets/fonts/x.woff2) · url("../img/y.svg")
 const CSS_URL_RE = /(url\(\s*)(['"]?)((?:\/assets\/|\.{1,2}\/)[^'")\s?#]+\.(?:woff2|woff|png|svg|jpe?g|webp|gif|ico))\2(\s*\))/g;
 
@@ -71,6 +73,7 @@ function rawInfo(file) {
     if (info.kind === 'js') {
       for (const m of text.matchAll(STATIC_RE)) add(info.deps, m[3]);
       for (const m of text.matchAll(DYNAMIC_RE)) add(info.dynamic, m[3]);
+      for (const m of text.matchAll(WORKER_RE)) add(info.dynamic, m[3]); // v12 media (H-M5)
     } else {
       for (const m of text.matchAll(CSS_URL_RE)) add(info.deps, m[3]);
     }
@@ -259,7 +262,8 @@ export function transformAsset(file) {
   if (info.kind === 'js') {
     text = stripJsCommentLines(info.text)
       .replace(STATIC_RE, (m, pre, q, spec) => `${pre}${q}${ver(spec)}${q}`)
-      .replace(DYNAMIC_RE, (m, pre, q, spec, post) => `${pre}${q}${ver(spec)}${q}${post}`);
+      .replace(DYNAMIC_RE, (m, pre, q, spec, post) => `${pre}${q}${ver(spec)}${q}${post}`)
+      .replace(WORKER_RE, (m, pre, q, spec, post) => `${pre}${q}${ver(spec)}${q}${post}`); // v12 media (H-M5)
   } else {
     text = info.text.replace(CSS_URL_RE, (m, pre, q, spec, post) => `${pre}${q}${ver(spec)}${q}${post}`);
   }

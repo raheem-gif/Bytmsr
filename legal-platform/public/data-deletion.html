@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>طلب حذف البيانات — {{site_name}}</title>
+    <title>طلب حذف البيانات {{title_sep}} {{site_name}}</title>
     <!-- v11 fixer-public (K11، G11-51): الوصف و«بالمختصر» والمقدمة وزر واتساب حسب جانب الزائر؛ نص «خيري» كما في 10.0 حرفيًا -->
     <meta name="description" content="<!--#if side_charity-->كيف تطلب حذف بياناتك الشخصية من برنامج {{program_name}} في {{org_legal_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة المقر، وما الذي يحدث بعد الطلب.<!--/if side_charity--><!--#if side_paid-->كيف تطلبون حذف بياناتكم الشخصية لدى {{brand_name}} عبر واتساب أو الهاتف أو البريد أو بزيارة مكتبنا، وما الذي يحدث بعد الطلب.<!--/if side_paid-->" />
     <!--site:head-->
@@ -11,7 +11,6 @@
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
   <body class="site pub v91" data-side="{{side}}">
-    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -141,6 +140,8 @@
               <li>بيانات الأسرة الاختيارية، وأي ملاحظات تخص حالتك.</li>
               <li>روابط المتابعة الخاصة بك، فتتوقف عن العمل فورًا.</li>
             </ul>
+            <!-- v12 entry (L12-29، §5.5): ما يُحذف من النسخ المحسّنة والنص المقروء آليًا وتحويل الصوت (media) -->
+            {{{media_deletion}}}
           </section>
 
           <section id="kept" aria-labelledby="kept-title">

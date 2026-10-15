@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- v12 entry (L12-49، O-44): روابط «خيري» القديمة ورموز QR المطبوعة تفتح هذه الصفحة الواحدة ما دام «خيري» متوقفًا على
+         الموقع، بدل أن تصل الأرملة إلى صفحة الأتعاب. بنبرة «خيري» وألوانه، بلا قائمة، لا تُفهرس ولا تظهر في خريطة الموقع. -->
+    <title>خيري | {{brand_name}}</title>
+    <meta name="description" content="خدمة «خيري» لا تستقبل طلبات جديدة من الموقع حاليًا." />
+    <meta name="robots" content="noindex, follow" />
+    <!--site:head-->
+    <!--site:critical-css:legal-->
+    <link rel="stylesheet" href="/assets/css/public-site.css" />
+  </head>
+  <body class="site pub pub-charity kh-paused" data-side="charity">
+    {{{header}}}
+
+    <main id="main" class="pub-section" tabindex="-1">
+      <div class="pub-container">
+        <h1 id="page-title">خيري</h1>
+        <p data-tag="KH-01">خدمة «خيري» لا تستقبل طلبات جديدة من الموقع حاليًا.</p>
+        <!--#if charity_wa_href--><p><a class="pub-btn pub-btn-whatsapp" href="{{charity_wa_href}}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-tag="KH-02">واتساب «خيري»<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></p><!--/if charity_wa_href-->
+        <p><a class="pub-btn pub-btn-outline" href="/portal{{campaign_q}}" data-tag="KH-03">متابعة طلب سابق</a></p>
+        <p class="pub-legal-links" data-tag="KH-04"><a href="/privacy?side=charity{{campaign_amp}}">الخصوصية</a> · <a href="/terms?side=charity{{campaign_amp}}">الشروط</a></p>
+      </div>
+    </main>
+  </body>
+</html>

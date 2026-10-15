@@ -685,11 +685,13 @@ export function createAi(app) {
   }
 
   // ───────────── تحليل المستندات ─────────────
+  // v12 media (L12-61): يُقرأ الملف المعروض (النسخة المحسّنة أو الأصل حسب display_file_id) ونوعه؛ PDF متعدد الصفحات كاملًا
   function readDocument(doc) {
+    const f = app.documents.displayFile ? app.documents.displayFile(doc) : { storage_key: doc.storage_key, mime: doc.mime };
     const root = path.resolve(config.uploadsDir);
-    const abs = path.resolve(root, doc.storage_key);
+    const abs = path.resolve(root, f.storage_key);
     if (!abs.startsWith(root + path.sep)) return null;
-    return fs.readFileSync(abs);
+    return { buffer: fs.readFileSync(abs), mime: f.mime };
   }
 
   function normalizeDocResult(o) {
@@ -938,6 +940,15 @@ export function createAi(app) {
       const byFeature = db
         .all(`SELECT feature, ${agg} FROM ai_usage WHERE period = ? GROUP BY feature ORDER BY cost_micro DESC, calls DESC`, p)
         .map((r) => ({ feature: r.feature, label: LABELS.ai_feature?.[r.feature] || r.feature, ...norm(r) }));
+      // v12 media (MD-6): سطر «تحويل الصوت» من media_usage (ميزانيته منفصلة في تكامل تحويل الصوت، فلا يدخل في المجموع)
+      try {
+        const st = db.get("SELECT COUNT(*) AS calls, SUM(ok = 0) AS errors, COALESCE(SUM(cost_micro_usd), 0) AS cost_micro, COALESCE(SUM(seconds), 0) AS seconds FROM media_usage WHERE period = ? AND kind = 'stt'", p);
+        if (Number(st?.calls) > 0) {
+          byFeature.push({ ...norm({ calls: st.calls, errors: st.errors, cost_micro: st.cost_micro }), feature: 'stt', label: 'تحويل الصوت', separate_budget: true, seconds: Number(st.seconds) || 0 });
+        }
+      } catch (e) {
+        app.log('stt usage line failed', e);
+      }
       const byModel = db
         .all(`SELECT model, ${agg} FROM ai_usage WHERE period = ? AND provider = 'anthropic' GROUP BY model ORDER BY cost_micro DESC`, p)
         .map((r) => ({ model: r.model, ...norm(r) }));
@@ -1487,12 +1498,15 @@ export function createAi(app) {
       if (a.provider) {
         // لا يُقرأ الملف ولا يُرسل إلا عند تفعيل Claude فعليًا
         let buffer = null;
+        let mime = doc.mime;
         try {
-          buffer = readDocument(doc);
+          const f = readDocument(doc);
+          buffer = f ? f.buffer : null;
+          if (f) mime = f.mime;
         } catch {
           buffer = null;
         }
-        ({ block, reason: blockReason = null } = documentBlockFor({ mime: doc.mime, buffer }));
+        ({ block, reason: blockReason = null } = documentBlockFor({ mime, buffer }));
       }
       if (a.provider && !block) {
         recordUsage({ ...meta, provider: 'heuristic', model: HEURISTIC_MODEL, ok: true, fallback: true, fallback_reason: blockReason });
