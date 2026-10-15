@@ -7,7 +7,7 @@
 import { h, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { time as fmtTime } from '../../lib/fmt.js';
-import { icon, button, badge, codeTag, kv, stepTracker, toast, errorMessage, setBusy, confirmDanger, alertBox, field } from '../../lib/ui.js';
+import { icon, button, badge, codeTag, kv, stepTracker, toast, errorMessage, setBusy, confirmDanger, alertBox, field, fileName } from '../../lib/ui.js';
 import { haptic } from '../../lib/haptics.js';
 import {
   coPromise,
@@ -54,7 +54,7 @@ function msgDocs(m) {
   if (!m.documents?.length) return null;
   return h(
     'div.co-msg-docs',
-    m.documents.map((d) => h('a.doc-chip', { href: companyUrlFor(d), download: '', title: d.filename, tag: 'CQ-04' }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.title || d.filename))),
+    m.documents.map((d) => h('a.doc-chip', { href: companyUrlFor(d), download: '', title: d.filename, tag: 'CQ-04' }, icon('paperclip', { size: 14 }), fileName(d.title || d.filename))),
   );
 }
 function dayKey(iso) {
@@ -623,7 +623,7 @@ function actionCard(view, ctx) {
     const msg = open[0];
     const card = coClarificationCard(msg, {
       canAnswer: !!can.answer,
-      uploader: (i, label) => coUploader({ max: 5, perRequestLeft: docsLeft(view), titlePrefix: `${label} — ` }),
+      uploader: (i, label) => coUploader({ max: 5, perRequestLeft: docsLeft(view), titlePrefix: `${label}: ` }),
       onReply: async (payload) => {
         await api.post(`/company/requests/${encodeURIComponent(r.code)}/clarifications/${encodeURIComponent(msg.id)}/reply`, payload);
         toast(W.clarification.sent, 'success');
@@ -697,7 +697,7 @@ function detailsBlock(view) {
   const pairs = [[W.req.type, r.type_label || typeLabel(r.type)]];
   if (r.entity?.name) pairs.push([W.req.entity, h('span', { dir: 'auto' }, r.entity.name)]);
   const pri = PRIORITY[r.priority] || r.priority;
-  pairs.push([W.req.priority, r.priority_changed ? h('span', pri, h('span.co-muted', ` — ${copy('req.priority_changed', { x: pri })}`)) : pri]);
+  pairs.push([W.req.priority, r.priority_changed ? h('span', pri, h('span.co-muted', `، ${copy('req.priority_changed', { x: pri })}`)) : pri]);
   if (r.urgent_reason) pairs.push([W.req.urgent_reason, h('span', { dir: 'auto' }, r.urgent_reason)]);
   if (r.needed_by) pairs.push([W.req.needed_by, dayText(r.needed_by, { year: true })]);
   const by = r.submitted_by?.id === S.user?.id ? W.thread.you : r.submitted_by?.name || '—';

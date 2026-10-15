@@ -119,7 +119,7 @@ function phoneStep(prefill = '') {
     autocomplete: 'tel',
     dir: 'ltr',
     required: true,
-    placeholder: '01XXXXXXXXX',
+    placeholder: '01xxxxxxxxx', // v12 gate (V-22): صيغة واحدة مع نموذج الطلب
     value: prefill,
     'aria-describedby': 'pl-phone-hint pl-phone-err',
     tag: 'PL-12',

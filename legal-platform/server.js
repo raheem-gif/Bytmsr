@@ -48,8 +48,10 @@ function printSetupBanner(url, expiresAt) {
 app.server.listen(config.port, config.host, () => {
   const base = config.publicBaseUrl || `http://localhost:${config.port}`;
   console.log('');
-  console.log(`  منصة بيوت مصر للتشغيل القانوني تعمل الآن — الإصدار ${app.version}`);
-  console.log(`  • الموقع العام (للمواطنين):      ${base}/`);
+  // v12 gate fixer-server (JR-16): اسم المكتب (الاسم القانوني وإلا الاسم كما يراه العملاء)، لا اسم المؤسسة الخيرية
+  const firm = String(app.settings.get('firm_legal_name') || '').trim() || (app.brand?.displayName ? app.brand.displayName() : '');
+  console.log(`  منصة المكتب${firm ? ` (${firm})` : ''} تعمل الآن — الإصدار ${app.version}`);
+  console.log(`  • الموقع العام:                  ${base}/`);
   console.log(`  • نموذج الطلب على الموقع:        ${base}/intake`);
   console.log(`  • منصة الإدارة والمحامين:         ${base}/app`);
   console.log(`  • Webhook واتساب:                ${base}/webhooks/whatsapp`);

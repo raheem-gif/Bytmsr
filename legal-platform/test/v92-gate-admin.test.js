@@ -613,8 +613,9 @@ describe('v9.2 gate (admin) — system health, phone formatting, colours and cop
   test('N7/G15/N6 copy: the form card does not say «قالت إن…» for a picture tap; the simulated suffix belongs to the message; masculine call labels exist', () => {
     const det = read('public/assets/js/app/pages/admin/intake-detail.js');
     assert.ok(!det.includes('قالت إن فيه تهديدًا بالطرد'));
-    assert.ok(det.includes('اختارت صورة التهديد بالطرد — تأكدوا منها'));
-    assert.ok(det.includes("male ? 'اتصل به' : 'اتصل بها'"));
+    assert.ok(det.includes('اختارت صورة التهديد بالطرد، تأكدوا منها')); // v12 gate (K-S6, intended): no «—» on the request page
+    // v12 gate (JR-06, intended): طلب بأتعاب بلا صيغة معروفة ← «اتصل» بلا ضمير؛ الخيري «اتصل بها»
+    assert.ok(det.includes("male ? 'اتصل به' : isPaid || requester ? 'اتصل' : 'اتصل بها'"));
     const sheet = read('public/assets/js/app/components/story-sheet.js');
     assert.ok(sheet.includes('وأُرسلت لها رسالة${sim} — اختر الآن المحامي'));
   });

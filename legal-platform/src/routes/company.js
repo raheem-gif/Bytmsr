@@ -9,7 +9,7 @@ import { idParam, assetVersion, sendBody } from '../http.js';
 import { ApiError, sha256 } from '../util.js';
 import { LABELS } from '../constants.js';
 import { REQUEST_TYPES } from '../../public/assets/js/lib/company-catalog.js';
-import { calendars, businessHoursText, urgentHoursText } from '../../public/assets/js/lib/company-sla.js';
+import { calendars, businessHoursPlain, urgentHoursText } from '../../public/assets/js/lib/company-sla.js';
 import * as siteAssets from '../site-assets.js';
 
 const ADMIN = ['company_admin'];
@@ -98,10 +98,12 @@ export function registerCompanyRoutes(router, app) {
         files_per_memory_item: 10,
         mime: COMPANY_UPLOAD_MIME,
       },
-      business_hours_text: businessHoursText(cals.business),
+      business_hours_text: businessHoursPlain(cals.business), // v12 gate (V-23): بلا «–» في نص البوابة
       urgent_hours_text: urgentHoursText(cals.urgent),
       email_enabled: !!app.email?.enabled?.(),
       terms_url: String(app.settings.get('b2b_terms_url') || '') || null,
+      // v12 gate (K-P2): «تحسين صور المستندات على جهاز المرسل» (scan_client_enabled)؛ false ← رفع الصور بالتصغير العادي كما في 11.0
+      scan: app.settings.get('scan_client_enabled') !== false,
     };
   }
   router.get('/api/company/meta', (ctx) => {

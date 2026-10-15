@@ -410,6 +410,16 @@ export function businessHoursText(cal) {
   return `${daysText(cal.days)}، ${timeText(cal.fromMin)} – ${timeText(cal.toMin)} بتوقيت القاهرة`;
 }
 
+/**
+ * v12 gate (V-23، §5.11): المواعيد بلا «–» لنصوص بوابة الشركات — «من السبت إلى الخميس، من 10 ص إلى 4 م بتوقيت القاهرة»
+ * (businessHoursText أعلاه يبقى لشاشات الفريق كما هو)
+ */
+export function businessHoursPlain(cal) {
+  const d = daysText(cal.days);
+  const days = d.includes(' – ') ? `من ${d.replace(' – ', ' إلى ')}` : d;
+  return `${days}، من ${timeText(cal.fromMin)} إلى ${timeText(cal.toMin)} بتوقيت القاهرة`;
+}
+
 /** «بين 8 ص و10 م يوميًا» (أو «على مدار الساعة يوميًا») */
 export function urgentHoursText(cal) {
   const all = cal.days.length === 7;

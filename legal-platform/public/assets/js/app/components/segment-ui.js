@@ -42,13 +42,36 @@ export function segLabel(group, key) {
 
 /**
  * v11 gate fix (J-13/V13): اسم صاحب الطلب في نصوص الإدارة حسب نوع الخدمة — «المستفيد/ة» للخيري (ولـ«غير محدد» كما كان قبل 11)،
- * «العميل/ة» للأفراد والشركات، «الشركة» لملف شركة. للإدارة فقط: نصوص المحامين لا تتغير أبدًا (لا يُكشف النوع للمحامي).
+ * «الشركة» لملف شركة. v12 gate (V-08، JR-06): للأفراد والشركات «صاحب الطلب» بلا «/ة» (كان «العميل/ة»).
+ * للإدارة فقط: نصوص المحامين لا تتغير أبدًا (لا يُكشف النوع للمحامي).
  * def = المعرّف، li = مع لام الجر، bi = مع الباء، bare = نكرة، acc = نكرة منصوبة.
  */
 export function clientNoun(segment, { company = false } = {}) {
   if (company) return { def: 'الشركة', li: 'للشركة', bi: 'بالشركة', bare: 'شركة', acc: 'شركةً' };
-  if (parseSeg(segment) === 'paid') return { def: 'العميل/ة', li: 'للعميل/ة', bi: 'بالعميل/ة', bare: 'عميل/ة', acc: 'عميلًا' };
+  if (parseSeg(segment) === 'paid') return { def: 'صاحب الطلب', li: 'لصاحب الطلب', bi: 'بصاحب الطلب', bare: 'صاحب طلب', acc: 'صاحبَ طلب' };
   return { def: 'المستفيد/ة', li: 'للمستفيد/ة', bi: 'بالمستفيد/ة', bare: 'مستفيد/ة', acc: 'مستفيدًا' };
+}
+
+/** v12 gate (V-08، JR-06): اسمنا في نصوص الإدارة — «المؤسسة» للخيري (و«غير محدد» كما قبل 11)، «المكتب» للأفراد والشركات */
+export function firmNoun(segment, { company = false } = {}) {
+  return company || parseSeg(segment) === 'paid' ? 'المكتب' : 'المؤسسة';
+}
+
+/**
+ * v12 gate (JR-06): مسميات مسار «نسأل الأول» (story_track · story_track_long · story_track_action) بضمير من نكلّمه:
+ * «ـه» لرجل، «ـهم» لطلب شركة، وفعل محايد لطلب أفراد وشركات بلا صيغة معروفة (كان «نسألها/اسألها» لكل طلب). غيرها من LABELS.
+ */
+const NEED_INFO_WORDS = {
+  story_track: { m: 'نسأله الأول', company: 'نسألهم الأول', neutral: 'نسأل أولًا' },
+  story_track_long: { m: 'محتاجين نسأله قبل القرار', company: 'محتاجين نسألهم قبل القرار', neutral: 'نحتاج سؤالًا قبل القرار' },
+  story_track_action: { m: 'اسأله', company: 'اسألهم', neutral: 'اسأل أولًا' },
+};
+export function trackWord(group, t, { form = 'f', company = false, paid = false } = {}) {
+  const w = t === 'need_info' ? NEED_INFO_WORDS[group] : null;
+  if (w && company) return w.company;
+  if (w && form === 'm') return w.m;
+  if (w && paid) return w.neutral;
+  return metaLabel(group, t);
 }
 
 /** v11 gate fix (J-13): ضمير المخاطَب في نصوص الإدارة — «ها» للمؤنث، «ه» للمذكر، «هم» لطلب شركة */

@@ -411,7 +411,7 @@ export default async function render(ctx) {
     const rb = view.requested_by;
     return h(
       'section.lw-brief',
-      { tag: 'ASG-18' }, h('h2.lw-sec-title', { tag: 'ASG-19' }, icon('flag', { size: 18 }), 'المطلوب منك'),
+      { tag: 'ASG-18' }, h('h2.lw-sec-title', { tag: 'ASG-19' }, 'المطلوب منك'), // v12 gate (V-25، K12-37): لا أيقونة في رأس القسم
       a.brief ? h('p.lw-brief-text.pre', { dir: 'auto' }, richText(a.brief)) : h('p.lw-muted', 'لم تحدد الإدارة تكليفًا تفصيليًا؛ ادرس المسائل المتاحة لك وأبدِ رأيك فيها.'),
       rb && h('p.lw-brief-by', `بطلب من ${rb.lawyer_name} — `, bidiText(rb.kind_label || label('counsel_kind', rb.kind)), rb.specialty_label ? ` — ${rb.specialty_label}` : ''),
     );

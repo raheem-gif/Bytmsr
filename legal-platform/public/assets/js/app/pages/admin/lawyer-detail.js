@@ -231,6 +231,7 @@ export default async function render(ctx) {
     icon: 'chart',
     actions: periodSelect({
       label: 'شهر المؤشرات',
+      tag: 'LWF-100', // v12 gate (TA-05)
       value: period,
       onChange: (v) => {
         replaceQuery(`/lawyers/${l.id}`, { period: v === currentPeriod() ? '' : v });
@@ -557,6 +558,7 @@ export default async function render(ctx) {
   const specialtiesText = (l.specialties_labels || (l.specialties || []).map(areaLabel)).join('، ');
   return frag(
     pageHeader({
+      record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
       // الصورة الرمزية خارج <h1>: نص العنوان هو اسم المحامي فقط
       title: l.display_name,
       titleMedia: avatar(l.display_name, { size: 'lg' }),

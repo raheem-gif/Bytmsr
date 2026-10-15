@@ -2,7 +2,7 @@
 // الإدارة ترى كل شيء (العميل، المصدر، المحادثة، التكلفة)، وتحدد لكل محامٍ بدقة ما يطّلع عليه،
 // وتتوسط بينه وبين العميل في كل طلب، وتراجع رأيه قبل إعداد نسخة مبسطة للعميل وإرسالها، وهي وحدها من يغلق الملف.
 
-import { h, frag, mount, clear } from '../../../lib/h.js';
+import { h, frag, mount, clear, tagged } from '../../../lib/h.js';
 import { api, ApiError, filesToUploads, downloadUrl, formatBytes } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, money, percent, count, hours, date, dateTime, relative, isoToCairoInput, monthLabel, localPhone } from '../../../lib/fmt.js';
 import {
@@ -39,6 +39,7 @@ import {
   loading,
   errorState,
   selectInput,
+  fileName,
 } from '../../../lib/ui.js';
 import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
@@ -49,6 +50,8 @@ import { quickReplyPicker, bindQuickReplyShortcuts, insertAtCursor } from '../..
 import { aiReplyButton } from '../../components/ai-reply.js'; // v9 ai
 import { docAiButton, docAiPanel } from '../../components/doc-ai.js'; // v9 ai
 import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
+// v12 gate (K-S1، L12-59): المستندات تُفتح في العارض (النسخة المحسّنة + «الأصل» + «نظّف المستند») مع سطر DOC-16 في القائمة
+import { staffDocParts, openDocument, docKind } from '../../components/doc-viewer.js';
 // v11 segment-staff (ST-4): نوع الخدمة في الملف — الرقاقة و«تغيير» والأتعاب للأفراد ورأس الإرسال
 import {
   segmentChip,
@@ -60,6 +63,7 @@ import {
   FEES_NOT_AGREED,
   PAID_CASE_NOTE,
   clientNoun,
+  firmNoun,
 } from '../../components/segment-ui.js';
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
@@ -441,12 +445,12 @@ function activityIcon(type) {
 }
 
 /** السجل الزمني مع تصفية حسب الفاعل (الأحدث أولًا). */
-export function activityTimeline(activity = []) {
+export function activityTimeline(activity = [], { clientLabel = 'المستفيد/ة' } = {}) {
   const groups = [
     ['all', 'الكل'],
     ['staff', 'الإدارة'],
     ['lawyer', 'المحامون'],
-    ['client', 'المستفيد/ة'],
+    ['client', clientLabel], // v12 gate (JR-06): «صاحب الطلب» لملف بأتعاب
     ['auto', 'النظام والذكاء الاصطناعي'],
   ];
   const match = (a, k) => (k === 'all' ? true : k === 'auto' ? a.actor_kind === 'system' || a.actor_kind === 'ai' : a.actor_kind === k);
@@ -666,6 +670,8 @@ export default async function render(ctx) {
   // v11 gate fix (J-13/V13): الطرف الآخر في نصوص الإدارة — «المستفيد/ة» للخيري، «العميل/ة» لملف الأفراد بأتعاب، «الشركة» لملف شركة
   const N = clientNoun(segValue, { company: Boolean(company) });
   const WHO = N.def; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
+  // v12 gate (JR-06): اسمنا في نصوص الإدارة — «المكتب» لملف بأتعاب أو شركة، «المؤسسة» للخيري
+  const FIRM = firmNoun(segValue, { company: Boolean(company) });
   const channelOpts = CHANNEL_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, label: `تلقائي — آخر قناة تواصل منها ${N.def}` } : o));
   const fees = data.fees || null;
   const feesPending = paidIndividual && !closed && !(fees && fees.agreed);
@@ -763,6 +769,7 @@ export default async function render(ctx) {
   }
 
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: c.title,
     breadcrumbs: [
       { label: 'ملفات الاستشارات', href: '#/cases', tag: 'CSF-30' },
@@ -1200,7 +1207,7 @@ export default async function render(ctx) {
     const sim = data.ai?.similar || { items: [], total: 0 };
     const items = sim.items || [];
     return card({
-      title: 'حالات مشابهة تعاملت معها المؤسسة',
+      title: 'حالات مشابهة تعاملنا معها', // v12 gate (JR-06): بلا «المؤسسة» في ملف بأتعاب
       subtitle: items.length ? `عدد الحالات المشابهة: ${sim.total || items.length}` : null,
       icon: 'book',
       body: items.length
@@ -2032,9 +2039,23 @@ export default async function render(ctx) {
     if (!docs || !docs.length) return null;
     return h(
       'div.pb-doc-chips',
-      docs.map((d) =>
-        h('a.doc-chip', { href: downloadUrl(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename || d.title}`, tag: 'CSF-118' }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.title || d.filename)),
-      ),
+      docs.map((d) => {
+        // v12 gate (K-S1): الصورة وملف PDF يُفتحان في العارض (النسخة المحسّنة و«الأصل»)، وغيرهما تنزيل كما كان
+        const viewable = docKind(d) !== 'doc';
+        return h(
+          'a.doc-chip',
+          {
+            href: downloadUrl(d.id),
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            title: `${viewable ? 'عرض' : 'تنزيل'} ${d.filename || d.title}`,
+            onClick: viewable ? (e) => (e.preventDefault(), openDocument(d)) : null,
+            tag: 'CSF-118',
+          },
+          icon('paperclip', { size: 14 }),
+          fileName(d.title || d.filename), // gate V-10
+        );
+      }),
     );
   }
 
@@ -2146,7 +2167,7 @@ export default async function render(ctx) {
       alertBox(
         company // v10 b2b-staff (U10-S10)
           ? 'المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة عبر بوابتها، ثم تراجع الإدارة الرد وتتيحه للمحامي بعد حذف أسماء موظفي الشركة وبياناتهم تلقائيًا.'
-          : `المحامي لا يتواصل مع ${N.def} أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع ${N.def}، ثم تراجع الإدارة الرد وتتيحه للمحامي.`,
+          : `المحامي لا يتواصل مع ${N.def} أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل مع ${N.def}، ثم تراجع الإدارة الرد وتتيحه للمحامي.`,
         'info',
         { icon: 'shield', tag: 'CSF-133' },
       ),
@@ -2174,7 +2195,7 @@ export default async function render(ctx) {
     const res = await formModal({
       title: `طلب معلومة أو مستند من ${N.def} مباشرة`,
       // (إصلاح 9.1) لا يصلها كود الملف أبدًا (رقم واحد: رقم طلبها)
-      intro: `تُرسل الرسالة باسم المؤسسة. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
+      intro: `تُرسل الرسالة باسم ${FIRM}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم الطلب ورابط صفحة المتابعة وطريقة الرد.`,
       fields: [
         { name: 'kind', label: 'نوع الطلب', type: 'select', required: true, placeholder: false, options: options('info_request_kind').filter((o) => o.value === 'document' || o.value === 'information'), tag: 'CSF-225' }, // v9.1 l-work
         { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-226' },
@@ -2224,7 +2245,7 @@ export default async function render(ctx) {
     }
     const res = await formModal({
       title: `موافقة وإرسال الطلب ${N.li}`,
-      intro: `صِغ السؤال بكلام بسيط مناسب ${N.li}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
+      intro: `صِغ السؤال بكلام بسيط مناسب ${N.li}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم الطلب ورابط صفحة المتابعة وطريقة الرد.`,
       before: textBlock(r.assignment_id ? `صياغة المحامي (لن يراها ${N.def})` : 'المطلوب', r.question, { iconName: 'fileText' }),
       fields: [
         { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', required: true, maxLength: 3000, rows: 5, tag: 'CSF-232' },
@@ -2380,7 +2401,7 @@ export default async function render(ctx) {
   async function cancelIr(r) {
     const ok = await confirmAction({
       title: 'إلغاء طلب المعلومات',
-      message: `سيُلغى الطلب ولن تتابعه المؤسسة مع ${N.def}، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟`,
+      message: `سيُلغى الطلب ولن نتابعه مع ${N.def}، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟`,
       confirmLabel: 'نعم، إلغاء الطلب',
     });
     if (!ok) return;
@@ -2808,6 +2829,12 @@ export default async function render(ctx) {
     const irById = new Map(data.info_requests.map((r) => [r.id, r]));
     // (v9 ai) آخر تحليل لكل مستند: مستندات الملف، وما حُلل منها وهي في الطلب الوارد قبل التحويل
     const analyses = docAnalysisStore([{ case_id: c.id }, data.intake && data.intake.id && { intake_id: data.intake.id }]);
+    // v12 gate (K-S1): سطر DOC-16 في خانة المستند وزر «عرض» في الإجراءات لكل صف (عقدتان مربوطتان)
+    const docParts = new Map();
+    const partsOf = (d) => {
+      if (!docParts.has(d.id)) docParts.set(d.id, staffDocParts(d));
+      return docParts.get(d.id);
+    };
     const columns = [
       {
         key: 'title',
@@ -2816,15 +2843,17 @@ export default async function render(ctx) {
         render: (d) =>
           h(
             'div',
-            h('div.cell-title', { dir: 'auto' }, d.title),
-            d.filename !== d.title && h('div.cell-sub', { dir: 'auto' }, d.filename),
+            h('div.cell-title', fileName(d.title)), // gate V-10: «الميراث-1.jpg» لا «1-الميراث.jpg»
+            d.filename !== d.title && h('div.cell-sub', fileName(d.filename)),
             d.info_request_id && irById.has(d.info_request_id) && h('div.cell-sub', `مرفق بطلب: ${truncate(irById.get(d.info_request_id).question, 60)}`),
+            partsOf(d).note,
             // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
             String(d.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(d.id), 'aria-label': `رسالة صوتية: ${d.title}` }),
             docAiBadge(analyses, d.id),
           ),
       },
-      { key: 'by', label: 'أضافه', render: (d) => statusBadge('actor_kind', d.uploaded_by_kind) },
+      // v12 gate (JR-06): «أضافه: صاحب الطلب» في ملف بأتعاب (كان «المستفيد/ة» من LABELS.actor_kind لكل ملف)
+      { key: 'by', label: 'أضافه', render: (d) => (d.uploaded_by_kind === 'client' ? badge(N.def, 'neutral', { dot: true }) : statusBadge('actor_kind', d.uploaded_by_kind)) },
       { key: 'date', label: 'التاريخ', render: (d) => h('span.small.nowrap', dateTime(d.created_at)) },
       { key: 'size', label: 'الحجم', render: (d) => h('span.small.nowrap', formatBytes(d.size)) },
       {
@@ -2841,6 +2870,7 @@ export default async function render(ctx) {
         render: (d) =>
           h(
             'div.btn-group.pb-table-actions',
+            tagged('CSF-282', partsOf(d).view),
             button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(d.id), target: '_blank', ariaLabel: `تنزيل ${d.title}`, tag: 'CSF-168' }),
             button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}`, tag: 'CSF-169' }),
             // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
@@ -2901,7 +2931,7 @@ export default async function render(ctx) {
       failed > 0 && alertBox(`رسائل تعذر إرسالها: ${failed}. يمكنك إعادة المحاولة من داخل الرسالة.`, 'danger', { tag: 'CSF-179' }),
       messageThread(data.messages, {
         inLabel: data.client?.name || `${N.def}`,
-        outLabel: 'المؤسسة',
+        outLabel: FIRM,
         onRetry: async (m) => {
           await api.post(`/admin/messages/${m.id}/retry`);
           await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'conversation' });
@@ -2996,7 +3026,7 @@ export default async function render(ctx) {
     const res = await formModal({
       title: `رسالة ${N.li}`,
       before: sendHeader(sendInfo), // v11 segment-staff (r2 P13)
-      intro: `تُرسل باسم المؤسسة إلى ${data.client?.name || `${N.def}`}، وتظهر في تبويب المحادثة.`,
+      intro: `تُرسل باسم ${FIRM} إلى ${data.client?.name || `${N.def}`}، وتظهر في تبويب المحادثة.`,
       fields: [
         { name: 'body', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5, tag: 'CSF-257' },
         { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-258' },
@@ -3198,7 +3228,7 @@ export default async function render(ctx) {
       { key: 'opinions', label: 'الآراء والمراجعة', icon: 'fileText', count: nz(submittedOps), render: renderOpinions, tag: 'CSF-201' },
       { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(data.documents.length), render: renderDocuments, tag: 'CSF-202' },
       { key: 'conversation', label: 'المحادثة', icon: 'message', count: nz(data.messages.length), render: renderConversation, tag: 'CSF-203' },
-      { key: 'timeline', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف', icon: 'clock', body: activityTimeline(data.activity), titleTag: 'CSF-204', tag: 'CSF-205' }), tag: 'CSF-206' },
+      { key: 'timeline', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف', icon: 'clock', body: activityTimeline(data.activity, { clientLabel: N.def }), titleTag: 'CSF-204', tag: 'CSF-205' }), tag: 'CSF-206' },
       { key: 'cost', label: 'التكلفة', icon: 'wallet', render: renderCost, tag: 'CSF-207' },
     ],
     { active: initialTab, onChange: (key) => syncTab(key), className: 'pb-case-tabs', tag: 'CSF-208' },

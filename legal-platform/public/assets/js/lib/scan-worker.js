@@ -1,10 +1,4 @@
-// v12 media (MD-2) — محرك الماسح: يعمل في عامل وحدة (module Worker، نفس الأصل، مسموح بـ script-src 'self')، وتستورده
-// scanner.js نفسه في الخيط الرئيسي حين لا يتوفر العامل أو OffscreenCanvas (Safari القديم). صورة واحدة في المرة (L12-72):
-// تُغلق الصورة المفكوكة فور رسم النسخ الثلاث، وتُصفَّر اللوحات بعد كل استخدام، والجلسة تُحذف عند close.
-//
-// العمليات: open(file, opts) · detect() · render(opts) · preview(opts) · pdf(pages, opts) · close()
-// الأخطاء تحمل code: too_large (> 50 ميجابكسل قبل الفك، L12-67) · unsupported (ليست JPEG/PNG/WebP) · bad_bitmap (اتجاه
-// الصورة المفكوكة لا يطابق الترويسة) · blank (صفحة فارغة: تباين < 2) · no_session · no_offscreen (عامل بلا OffscreenCanvas).
+// v12 media (MD-2): scanner engine (module worker or main thread), one image at a time (L12-72); errors carry err.code.
 import { detectQuad, pageSize, warp, enhance, rotate, uprightTurns, jpegInfo, imageDims, buildPdf, packBits1, buildPng1, grayOf, lumaStd } from './scan-core.js';
 
 const MAX_PIXELS = 50e6;
@@ -28,7 +22,7 @@ const zero = (c) => {
 };
 const ctx2d = (c) => c.getContext('2d', { willReadFrequently: true });
 
-/** رسم مصدر (صورة أو لوحة) على لوحة أطول ضلع فيها ≤ maxSide */
+/** draw onto a canvas with long side ≤ maxSide */
 function scaled(src, sw, sh, maxSide) {
   const s = Math.min(1, maxSide / Math.max(sw, sh));
   const w = Math.max(1, Math.round(sw * s));
@@ -60,10 +54,7 @@ async function deflate(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/**
- * فك الصورة مرة واحدة مع تطبيق اتجاه EXIF والتصغير أثناء الفك، وتجهيز: المصدر (≤ sourceMax)، نسخة الاكتشاف 480،
- * والنسخة الرمادية 1200، والأصل المرفوع (اليوم: ≤ origMax بجودة origQuality؛ ملف JPEG صغير مستقيم يُرفع كما هو).
- */
+/** one decode → source, work 480, fine gray 1200, original */
 export async function open(file, { sourceMax = 2400, origMax = 1600, origQuality = 0.72 } = {}) {
   S = null;
   const head = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
@@ -80,13 +71,17 @@ export async function open(file, { sourceMax = 2400, origMax = 1600, origQuality
   const bmp = await createImageBitmap(file, opts);
   const canvases = [];
   try {
-    // L12-72: نسبة أبعاد الصورة المفكوكة يجب أن تطابق الترويسة بعد الاتجاه (وإلا لم يُطبق EXIF)؛ الحجم يُصحح بالرسم
+    // L12-72: decoded aspect must match the oriented header
     const aspect = bmp.width / bmp.height;
     if (Math.abs(aspect - W / H) / (W / H) > 0.05) throw fail('bad_bitmap');
     const src = scaled(bmp, bmp.width, bmp.height, sourceMax);
-    canvases.push(src);
+    // K-M3: detection images drawn from the bitmap itself
+    const workC = scaled(bmp, bmp.width, bmp.height, 480);
+    const fineC = scaled(bmp, bmp.width, bmp.height, 1200);
+    canvases.push(src, workC, fineC);
     let original = null;
-    if (dims.format === 'jpeg' && dims.orientation === 1 && file.size <= KEEP_BYTES && Math.max(W, H) <= origMax) original = file.slice(0, file.size, 'image/jpeg');
+    const kept = dims.format === 'jpeg' && dims.orientation === 1 && file.size <= KEEP_BYTES && Math.max(W, H) <= origMax;
+    if (kept) original = file.slice(0, file.size, 'image/jpeg');
     else {
       const oc = scaled(bmp, bmp.width, bmp.height, origMax);
       canvases.push(oc);
@@ -94,31 +89,29 @@ export async function open(file, { sourceMax = 2400, origMax = 1600, origQuality
     }
     bmp.close?.();
     const source = pixels(src);
-    // L12-72: لوحة تُقرأ فارغة (متصفح يمنع القراءة أو يعيد أصفارًا) ← رجوع صامت إلى التصغير العادي
+    // L12-72: blank readback → silent fallback
     if (lumaStd(source) < 2) throw fail('blank');
-    const workC = scaled(src, src.width, src.height, 480);
-    const fineC = scaled(src, src.width, src.height, 1200);
-    canvases.push(workC, fineC);
     const work = pixels(workC);
     const fine = pixels(fineC);
     S = { source, work, refine: { width: fine.width, height: fine.height, gray: grayOf(fine) } };
-    return { width: source.width, height: source.height, photoW: W, photoH: H, original };
+    // SEC-7: re-encoded unless kept
+    return { width: source.width, height: source.height, photoW: W, photoH: H, original, reencoded: !kept };
   } finally {
     bmp.close?.();
     for (const c of canvases) zero(c);
   }
 }
 
-/** → { quad: [[x,y]…] (0..1 من الصورة بعد الاتجاه) | null, score, partial, method } */
+/** → { quad 0..1 | null, score, partial, nested (K-M1), method } */
 export function detect() {
   if (!S) throw fail('no_session');
   const t = Date.now();
   const r = detectQuad(S.work, { refine: S.refine });
   const ms = Date.now() - t;
-  if (!r || !r.quad) return { quad: null, score: r?.score ?? 0, partial: false, method: r?.method ?? null, ms };
+  if (!r || !r.quad) return { quad: null, score: r?.score ?? 0, partial: false, nested: false, method: r?.method ?? null, ms };
   const { width: w, height: h } = S.work;
   const quad = r.quad.map((p) => [Math.min(1, Math.max(0, p.x / w)), Math.min(1, Math.max(0, p.y / h))]);
-  return { quad, score: r.score, partial: !!r.partial, method: r.method, ms };
+  return { quad, score: r.score, partial: !!r.partial, nested: !!r.nested, method: r.method, ms };
 }
 
 const FULL = [
@@ -128,10 +121,7 @@ const FULL = [
   [0, 1],
 ];
 
-/**
- * الصفحة النظيفة: quad بين 0..1 (null = الصورة كاملة). أبيض وأسود ← PNG بت واحد (+ bits لملف PDF)، وغيره JPEG.
- * → { blob, width, height, mode, turns, bits }
- */
+/** clean page: bw → 1-bit PNG (+ PDF bits), else JPEG */
 export async function render({ quad = null, mode = 'auto', turns = null, maxSide = 1754, quality = 0.7 } = {}) {
   if (!S) throw fail('no_session');
   const { source } = S;
@@ -156,7 +146,7 @@ export async function render({ quad = null, mode = 'auto', turns = null, maxSide
   return { blob, width: clean.width, height: clean.height, mode: outMode, turns: rot, bits };
 }
 
-/** صورة المصدر مصغّرة لمحرر الأركان */
+/** source preview for the corner sheet */
 export async function preview({ maxSide = 900, quality = 0.8 } = {}) {
   if (!S) throw fail('no_session');
   const src = canvasOf(S.source.width, S.source.height);
@@ -170,7 +160,7 @@ export async function preview({ maxSide = 900, quality = 0.8 } = {}) {
   }
 }
 
-/** صفحات → PDF واحد: [{ blob (JPEG) } | { bits, width, height } (أبيض وأسود)] */
+/** pages → one PDF */
 export async function pdf(pages, { title = 'Scan' } = {}) {
   const out = [];
   for (const p of pages) {
@@ -191,7 +181,30 @@ export function close() {
   return true;
 }
 
-const OPS = { open, detect, render, preview, pdf, close };
+/** K-M3: JIT warm-up on a synthetic page */
+export function warmup() {
+  const w = 240, h = 320;
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0, i = 0; y < h; y++) {
+    for (let x = 0; x < w; x++, i += 4) {
+      const paper = x > 40 + y * 0.05 && x < 200 + y * 0.05 && y > 30 && y < 290;
+      const ink = paper && y % 18 < 4 && x % 23 < 9 && x > 70 && x < 180;
+      const v = ink ? 40 : paper ? 232 : 90 + ((x * 7 + y * 13) % 17);
+      data[i] = v;
+      data[i + 1] = v - (paper ? 2 : 20);
+      data[i + 2] = v - (paper ? 6 : 34);
+      data[i + 3] = 255;
+    }
+  }
+  const img = { width: w, height: h, data };
+  const r = detectQuad(img, { refine: { width: w, height: h, gray: grayOf(img) } });
+  const quad = r?.quad || [{ x: 40, y: 30 }, { x: 200, y: 30 }, { x: 214, y: 290 }, { x: 54, y: 290 }];
+  const size = pageSize(quad, w, h, { maxSide: 300 });
+  lumaStd(rotate(enhance(warp(img, quad, size.w, size.h), 'auto'), 0));
+  return true;
+}
+
+const OPS = { open, detect, render, preview, pdf, close, warmup };
 
 if (inWorker) {
   self.onmessage = async (e) => {

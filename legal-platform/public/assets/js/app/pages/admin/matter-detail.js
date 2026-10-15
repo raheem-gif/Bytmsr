@@ -1,7 +1,7 @@
 // الملف المستمر للإدارة: بيانات الدعوى، الجلسات والمواعيد (مع تذكير العميل آليًا)، المهام الإجرائية،
 // الفواتير والمدفوعات، المصروفات، أتعاب المحامي، المستندات، الرسائل، والسجل.
 
-import { h, frag } from '../../../lib/h.js';
+import { h, frag, tagged } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
 import { label, options, money, date, dateTime, relative, calendarParts, weekday, time, cairoToday, localPhone } from '../../../lib/fmt.js';
 import {
@@ -24,16 +24,19 @@ import {
   ltr,
   statCard,
   progressBar,
+  fileName,
 } from '../../../lib/ui.js';
 import { formModal, confirmAction, CHANNEL_OPTIONS, messageThread, messageComposer, activityTimeline, uploadPanel, textBlock } from './case-detail.js';
 import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
 import { docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js'; // v9 ai: تحليل المستندات
 import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
+// v12 gate (K-S1، L12-59): المستندات تُفتح في العارض (النسخة المحسّنة + «الأصل» + «نظّف المستند») مع سطر DOC-16 في القائمة
+import { staffDocParts } from '../../components/doc-viewer.js';
 import { partiesCard } from '../../components/parties.js'; // v9 practice
 import { outcomeCard } from '../../components/outcome.js'; // v9 practice
 // v11 segment-staff (ST-4): رقاقة النوع (يتبع ملف الاستشارة) ورأس الإرسال
-import { segmentChip, sendHeader } from '../../components/segment-ui.js';
+import { segmentChip, sendHeader, clientNoun, firmNoun } from '../../components/segment-ui.js';
 
 const TAB_KEYS = ['events', 'tasks', 'invoices', 'expenses', 'fees', 'documents', 'messages', 'activity'];
 
@@ -56,6 +59,8 @@ export default async function render(ctx) {
   const expenses = d.expenses || [];
   const fees = d.lawyer_fees || [];
   const documents = d.documents || [];
+  // v12 gate fixer-server (JR-03): مستندات الطلب والاستشارة المرتبطة (لا يراها المحامي المسؤول إلا بعد إتاحتها)
+  const caseDocuments = d.case_documents || [];
   const messages = [...(d.messages || [])].sort((a, b) => a.id - b.id);
   const now = Date.now();
   let tabsEl = null;
@@ -63,6 +68,10 @@ export default async function render(ctx) {
   const seg = d.segment || { value: m.segment || 'charity' };
   const segValue = seg.company ? 'paid' : seg.value || 'charity';
   const sendInfo = { segment: segValue, tone: d.tone || segValue, sendLine: d.send_line || null, company: Boolean(seg.company) };
+  // v12 gate (JR-06): الطرف الآخر واسمنا بنوع الملف — «المستفيد/ة» و«المؤسسة» للخيري، «صاحب الطلب» و«المكتب» للأفراد والشركات
+  const N = clientNoun(segValue, { company: Boolean(seg.company) });
+  const FIRM = firmNoun(segValue, { company: Boolean(seg.company) });
+  const isCharity = !seg.company && segValue !== 'paid';
 
   // ── التبويبات والتحديث ──
   function syncTab(key) {
@@ -94,6 +103,7 @@ export default async function render(ctx) {
   // ───────────────────────── الترويسة والملخص ─────────────────────────
 
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: m.title,
     breadcrumbs: [{ label: 'الملفات المستمرة', href: '#/matters', tag: 'MTF-01' }, { label: m.code }],
     meta: [
@@ -108,7 +118,7 @@ export default async function render(ctx) {
     ],
     actions: [
       d.case && button('الاستشارة الأصلية', { icon: 'briefcase', href: `#/cases/${d.case.id}`, tag: 'MTF-03' }),
-      button('رسالة للمستفيد/ة', { icon: 'message', onClick: () => goTab('messages'), tag: 'MTF-04' }),
+      button(`رسالة ${N.li}`, { icon: 'message', onClick: () => goTab('messages'), tag: 'MTF-04' }),
       asyncButton(
         'تعديل بيانات الملف',
         async () => {
@@ -151,7 +161,7 @@ export default async function render(ctx) {
       tag: 'MTF-09',
     }),
     statCard({
-      label: 'المتبقي على المستفيد/ة',
+      label: `المتبقي على ${N.def}`,
       value: money(balance),
       hint: `فُوتر ${money(totals.invoiced)} · حُصّل ${money(totals.paid)}`,
       icon: 'wallet',
@@ -177,7 +187,7 @@ export default async function render(ctx) {
           ['الدائرة', m.circuit],
           ['الدعوى', lawsuit],
           ['الخصم', m.opponent],
-          ['الأتعاب المتفق عليها مع المستفيد/ة', m.agreed_fee != null ? money(m.agreed_fee) : null],
+          [`الأتعاب المتفق عليها مع ${N.def}`, m.agreed_fee != null ? money(m.agreed_fee) : null],
           ['تاريخ الفتح', date(m.opened_at)],
           m.closed_at && ['تاريخ الإغلاق', date(m.closed_at)],
         ]),
@@ -187,12 +197,12 @@ export default async function render(ctx) {
       tag: 'MTF-13',
     }),
     card({
-      title: 'المستفيد/ة والمحامي المسؤول',
+      title: `${N.def} والمحامي المسؤول`,
       icon: 'users',
       body: h(
         'div.stack',
         kv([
-          ['المستفيد/ة', d.client ? inline(h('a', { href: `#/clients/${d.client.id}`, tag: 'MTF-14' }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
+          [`${N.def}`, d.client ? inline(h('a', { href: `#/clients/${d.client.id}`, tag: 'MTF-14' }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
           ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(localPhone(d.client.phone)), copyButton(localPhone(d.client.phone), '', { tag: 'MTF-15' })) : null],
           ['المحامي المسؤول', d.responsible_lawyer ? h('a', { href: `#/lawyers/${d.responsible_lawyer.id}`, tag: 'MTF-16' }, d.responsible_lawyer.name) : h('span.muted', 'لم يُحدَّد بعد')],
           [
@@ -202,7 +212,7 @@ export default async function render(ctx) {
               : null,
           ],
         ]),
-        h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل المستفيد/ة أو الفواتير.')),
+        h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', `يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل ${N.def} أو الفواتير.`)),
       ),
       titleTag: 'MTF-18',
       tag: 'MTF-19',
@@ -220,13 +230,13 @@ export default async function render(ctx) {
     {
       name: 'client_attendance_required',
       type: 'checkbox',
-      text: 'يلزم حضور المستفيد/ة شخصيًا',
-      hint: 'سيرسل النظام تذكيرًا آليًا للمستفيد/ة عبر واتساب قبل الموعد.',
+      text: `يلزم حضور ${N.def} شخصيًا`,
+      hint: `سيرسل النظام تذكيرًا آليًا ${N.li} عبر واتساب قبل الموعد.`,
       full: true,
       tag: 'MTF-118',
     },
     // v9.1 b-portal (B91-13): ما تحضره معها، يظهر لها في صفحة المتابعة (الافتراضي: بطاقتك الشخصية وأي ورق يخص القضية)
-    { name: 'client_note', label: 'هاتي معاكي (للمستفيد/ة، بند في كل سطر)', type: 'textarea', rows: 2, maxLength: 400, placeholder: 'بطاقتك الشخصية\nشهادات ميلاد الأولاد', hint: 'اختياري. ويمكن كتابة «المحامي هيقابلك عند…». لا تكتب اسم المحامي.', tag: 'MTF-119' },
+    { name: 'client_note', label: `${isCharity ? 'هاتي معاكي' : 'أحضر معك'} (${N.li}، بند في كل سطر)`, type: 'textarea', rows: 2, maxLength: 400, placeholder: 'بطاقتك الشخصية\nشهادات ميلاد الأولاد', hint: 'اختياري. ويمكن كتابة «المحامي هيقابلك عند…». لا تكتب اسم المحامي.', tag: 'MTF-119' },
     forEdit && { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 3, maxLength: 5000, tag: 'MTF-120' },
     { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 3000, tag: 'MTF-121' },
   ];
@@ -249,14 +259,14 @@ export default async function render(ctx) {
           notes: v.notes || null,
         }),
     });
-    if (res) await refresh(res.client_attendance_required ? 'أُضيف الموعد، وسيُذكَّر المستفيد/ة آليًا قبله' : 'أُضيف الموعد', { tab: 'events' });
+    if (res) await refresh(res.client_attendance_required ? `أُضيف الموعد، وسيُذكَّر ${N.def} آليًا قبله` : 'أُضيف الموعد', { tab: 'events' });
   }
 
   async function openEditEvent(e) {
     const res = await formModal({
       title: `تعديل ${label('event_kind', e.kind)}`,
       intro: e.reminder_pending_approval
-        ? 'أضاف المحامي هذا الموعد أو عدّله ولم يُعتمد تذكير المستفيد/ة بعد. حفظ التعديل يعتمد التذكير، فراجع العنوان والمكان كما سيصلان للمستفيد/ة.'
+        ? `أضاف المحامي هذا الموعد أو عدّله ولم يُعتمد تذكير ${N.def} بعد. حفظ التعديل يعتمد التذكير، فراجع العنوان والمكان كما سيصلان ${N.li}.`
         : null,
       fields: eventFields(true),
       values: { ...e, client_attendance_required: Boolean(e.client_attendance_required) },
@@ -278,7 +288,7 @@ export default async function render(ctx) {
   async function openRecordOutcome(e) {
     const res = await formModal({
       title: `تسجيل ما تم — ${e.title}`,
-      intro: 'سجّل نتيجة الموعد. إن تأجلت الجلسة أضف موعدها التالي ليُجدول تلقائيًا بنفس المكان وإعداد حضور المستفيد/ة.',
+      intro: `سجّل نتيجة الموعد. إن تأجلت الجلسة أضف موعدها التالي ليُجدول تلقائيًا بنفس المكان وإعداد حضور ${N.def}.`,
       fields: [
         { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status').filter((o) => o.value !== 'scheduled'), tag: 'MTF-122' },
         { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime', tag: 'MTF-123' },
@@ -307,14 +317,14 @@ export default async function render(ctx) {
   // نص المحامي لا يصل للعميل قبل مراجعة الإدارة: تذكير الموعد ينتظر الاعتماد
   async function approveReminder(e) {
     const ok = await confirmAction({
-      title: 'اعتماد تذكير المستفيد/ة',
-      message: `سيُرسل للمستفيد/ة تذكير آلي قبل الموعد يتضمن: «${e.title}» يوم ${weekday(e.starts_at)} ${date(e.starts_at)}، ${time(e.starts_at)}${e.location ? ` في «${e.location}»` : ''}. إن احتاج النص تعديلًا فاستخدم «تعديل» بدلًا من ذلك (حفظ التعديل يعتمد التذكير أيضًا).`,
+      title: `اعتماد تذكير ${N.def}`,
+      message: `سيُرسل ${N.li} تذكير آلي قبل الموعد يتضمن: «${e.title}» يوم ${weekday(e.starts_at)} ${date(e.starts_at)}، ${time(e.starts_at)}${e.location ? ` في «${e.location}»` : ''}. إن احتاج النص تعديلًا فاستخدم «تعديل» بدلًا من ذلك (حفظ التعديل يعتمد التذكير أيضًا).`,
       confirmLabel: 'اعتماد التذكير',
       danger: false,
     });
     if (!ok) return;
     await api.post(`/admin/matter-events/${e.id}/approve-reminder`);
-    await refresh('اعتُمد تذكير المستفيد/ة بهذا الموعد', { tab: 'events' });
+    await refresh(`اعتُمد تذكير ${N.def} بهذا الموعد`, { tab: 'events' });
   }
 
   function eventItem(e) {
@@ -324,7 +334,7 @@ export default async function render(ctx) {
     const acts = !closed
       ? h(
           'div.btn-group.mt-2',
-          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير المستفيد/ة', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle', tag: 'MTF-20' }),
+          pendingReminder && e.status === 'scheduled' && asyncButton(`اعتماد تذكير ${N.def}`, () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle', tag: 'MTF-20' }),
           e.status === 'scheduled' && button('تسجيل ما تم', { size: 'sm', variant: past ? 'primary' : 'secondary', icon: 'check', onClick: () => openRecordOutcome(e), tag: 'MTF-21' }),
           button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditEvent(e), tag: 'MTF-22' }),
         )
@@ -347,13 +357,13 @@ export default async function render(ctx) {
           statusBadge('event_status', e.status),
           e.client_attendance_required
             ? pendingReminder
-              ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' })
-              : badge('يلزم حضور المستفيد/ة — تذكير آلي عبر واتساب', 'warning', { icon: 'zap' })
+              ? badge(`يلزم حضور ${N.def}`, 'warning', { icon: 'user' })
+              : badge(`يلزم حضور ${N.def} — تذكير آلي عبر واتساب`, 'warning', { icon: 'zap' })
             : null,
           pendingReminder
-            ? badge('تذكير المستفيد/ة بانتظار الاعتماد', 'warning', {
+            ? badge(`تذكير ${N.def} بانتظار الاعتماد`, 'warning', {
                 icon: 'clock',
-                title: 'أضاف المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير للمستفيد/ة قبل أن تعتمده الإدارة',
+                title: `أضاف المحامي هذا الموعد أو عدّله، ولن يُرسل التذكير ${N.li} قبل أن تعتمده الإدارة`,
               })
             : null,
           e.status === 'scheduled' && past && badge('مضى موعده ولم تُسجَّل نتيجته', 'warning', { icon: 'alert' }),
@@ -375,9 +385,9 @@ export default async function render(ctx) {
     const pendingReminders = events.filter((e) => e.reminder_pending_approval && e.status === 'scheduled').length;
     return h(
       'div.stack',
-      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل للمستفيد/ة بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap', tag: 'MTF-23' }),
+      alertBox(`المواعيد التي يلزم فيها حضور ${N.def} يُرسَل ${N.li} بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».`, 'info', { icon: 'zap', tag: 'MTF-23' }),
       pendingReminders > 0 &&
-        alertBox('أضاف المحامي مواعيد يلزم فيها حضور المستفيد/ة أو عدّلها، ولن يُرسل تذكيرها للمستفيد/ة قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير المستفيد/ة».', 'warning', {
+        alertBox(`أضاف المحامي مواعيد يلزم فيها حضور ${N.def} أو عدّلها، ولن يُرسل تذكيرها ${N.li} قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير ${N.def}».`, 'warning', {
           title: 'تذكيرات بانتظار الاعتماد',
           icon: 'alert',
           tag: 'MTF-24',
@@ -532,8 +542,8 @@ export default async function render(ctx) {
 
   async function openAddInvoice() {
     const res = await formModal({
-      title: 'إصدار فاتورة للمستفيد/ة',
-      intro: 'إن تأخر السداد بعد تاريخ الاستحقاق يُرسل النظام تذكيرًا آليًا للمستفيد/ة.',
+      title: `إصدار فاتورة ${N.li}`,
+      intro: `إن تأخر السداد بعد تاريخ الاستحقاق يُرسل النظام تذكيرًا آليًا ${N.li}.`,
       fields: [
         { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true, tag: 'MTF-133' },
         { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, tag: 'MTF-134' },
@@ -606,10 +616,10 @@ export default async function render(ctx) {
             i.client_response === 'cannot_pay'
               ? badge('طلبت إعفاء: «مش قادرة أدفع»', 'warning', { icon: 'alert' })
               : i.client_agreed_at
-                ? h('span.cell-sub', `وافقت المستفيدة ${date(i.client_agreed_at)}`)
+                ? h('span.cell-sub', `${isCharity ? 'وافقت المستفيدة' : `وافق ${N.def}`} ${date(i.client_agreed_at)}`)
                 : i.client_response === 'question'
                   ? h('span.cell-sub', 'عندها سؤال على المبلغ (في الرسائل)')
-                  : ['unpaid', 'partially_paid'].includes(i.status) && !(i.paid_amount > 0) && h('span.cell-sub', 'لم توافق المستفيدة بعد — لا تذكير آلي'),
+                  : ['unpaid', 'partially_paid'].includes(i.status) && !(i.paid_amount > 0) && h('span.cell-sub', isCharity ? 'لم توافق المستفيدة بعد — لا تذكير آلي' : `لم يوافق ${N.def} بعد، لا تذكير آلي`),
           ),
       },
       {
@@ -723,7 +733,7 @@ export default async function render(ctx) {
     const total = expenses.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     return card({
       title: 'المصروفات',
-      subtitle: `الإجمالي: ${money(total)} — ما يدفعه المحامي يُضاف تلقائيًا لمستحقاته، وما تدفعه المؤسسة يدخل في تكلفة الملف`,
+      subtitle: `الإجمالي: ${money(total)} — ما يدفعه المحامي يُضاف تلقائيًا لمستحقاته، وما يدفعه ${FIRM} يدخل في تكلفة الملف`,
       icon: 'wallet',
       flush: true,
       actions: asyncButton(
@@ -821,6 +831,12 @@ export default async function render(ctx) {
   function renderDocuments() {
     // (v9 ai) آخر تحليل لكل مستند: مستندات الملف المستمر، وما حُلل منها ضمن الاستشارة الأصلية
     const analyses = docAnalysisStore([{ matter_id: m.id }, d.case && d.case.id && { case_id: d.case.id }]);
+    // v12 gate (K-S1): سطر DOC-16 في خانة المستند وزر «عرض» في الإجراءات لكل صف (عقدتان مربوطتان)
+    const docParts = new Map();
+    const partsOf = (x) => {
+      if (!docParts.has(x.id)) docParts.set(x.id, staffDocParts(x));
+      return docParts.get(x.id);
+    };
     return h(
       'div.stack',
       card({
@@ -837,8 +853,9 @@ export default async function render(ctx) {
               render: (x) =>
                 h(
                   'div',
-                  h('div.cell-title', { dir: 'auto' }, x.title),
-                  x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename),
+                  h('div.cell-title', fileName(x.title)), // gate V-10
+                  x.filename !== x.title && h('div.cell-sub', fileName(x.filename)),
+                  partsOf(x).note,
                   docAiBadge(analyses, x.id),
                 ),
                 tag: 'MTF-87',
@@ -852,6 +869,7 @@ export default async function render(ctx) {
               render: (x) =>
                 h(
                   'div.btn-group',
+                  tagged('MTF-159', partsOf(x).view),
                   button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}`, tag: 'MTF-91' }),
                   // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
                   sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }), sendInfo }),
@@ -863,13 +881,66 @@ export default async function render(ctx) {
           ],
           rows: documents,
           caption: 'مستندات الملف المستمر',
-          empty: 'لا توجد مستندات في هذا الملف بعد',
+          empty: caseDocuments.length ? 'لم يُتح للمحامي المسؤول مستند بعد' : 'لا توجد مستندات في هذا الملف بعد',
           rowTag: 'MTF-93',
           tag: 'MTF-94',
         }),
         titleTag: 'MTF-95',
         tag: 'MTF-96',
       }),
+      // v12 gate fixer-server (JR-03): ما أرسله صاحب الطلب (النسخة المحسّنة أولًا، والأصل محفوظ) — يُتاح للمحامي مستندًا مستندًا
+      caseDocuments.length
+        ? card({
+            title: 'مستندات من الطلب والاستشارة',
+            subtitle: 'لا يراها المحامي المسؤول إلا بعد إتاحتها',
+            icon: 'paperclip',
+            flush: true,
+            body: table({
+              columns: [
+                {
+                  key: 'title',
+                  label: 'المستند',
+                  className: 'col-wide',
+                  render: (x) => h('div', h('div.cell-title', fileName(x.title)), x.filename !== x.title && h('div.cell-sub', fileName(x.filename)), partsOf(x).note),
+                  tag: 'MTF-161',
+                },
+                { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', dateTime(x.created_at)), tag: 'MTF-162' },
+                {
+                  key: 'act',
+                  label: 'إجراءات',
+                  render: (x) =>
+                    h(
+                      'div.btn-group',
+                      tagged('MTF-163', partsOf(x).view),
+                      x.lawyer_granted ? badge('أُتيح للمحامي في الاستشارة', 'success', { icon: 'eye', tag: 'MTF-164' }) : null,
+                      asyncButton(
+                        'إتاحة للمحامي المسؤول',
+                        async () => {
+                          await api.patch(`/admin/documents/${x.id}`, { matter_id: m.id });
+                          await refresh('أصبح المستند متاحًا للمحامي المسؤول', { tab: 'documents' });
+                        },
+                        {
+                          size: 'sm',
+                          variant: 'secondary',
+                          icon: 'eye',
+                          title: !d.responsible_lawyer ? 'لم يُحدَّد محامٍ مسؤول بعد؛ سيراه المحامي عند تحديده' : null,
+                          tag: 'MTF-165',
+                        },
+                      ),
+                    ),
+                  tag: 'MTF-166',
+                },
+              ],
+              rows: caseDocuments,
+              stack: true, // على الهاتف بطاقات مكدسة: زرا «عرض» و«إتاحة» ظاهران بلا تمرير أفقي
+              caption: 'مستندات من الطلب والاستشارة',
+              rowTag: 'MTF-167',
+              tag: 'MTF-168',
+            }),
+            titleTag: 'MTF-169',
+            tag: 'MTF-170',
+          })
+        : null,
       docAiResultsCard(analyses, documents),
       card({
         title: 'رفع مستندات',
@@ -900,7 +971,9 @@ export default async function render(ctx) {
             const shared = Boolean(doc.shared_with_matter);
             return h(
               'div.pb-msg-share',
-              h('span.pb-msg-share-name', { dir: 'auto' }, icon('paperclip', { size: 13 }), doc.filename || doc.title || `مستند #${doc.id}`),
+              h('span.pb-msg-share-name', icon('paperclip', { size: 13 }), fileName(doc.filename || doc.title || `مستند #${doc.id}`)),
+              // v12 gate (K-S1): مرفق المستفيد/ة يُفتح في العارض (النسخة المحسّنة و«الأصل») قبل إتاحته للمحامي
+              tagged('MTF-160', staffDocParts(doc).view),
               shared ? badge('متاح للمحامي', 'success', { icon: 'eye' }) : null,
               asyncButton(
                 shared ? 'سحب من المحامي' : 'إتاحة للمحامي المسؤول',
@@ -927,11 +1000,11 @@ export default async function render(ctx) {
   function renderMessages() {
     return h(
       'div.stack',
-      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات المستفيد/ة لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message', tag: 'MTF-100' }),
+      alertBox(`سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات ${N.def} لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.`, 'info', { icon: 'message', tag: 'MTF-100' }),
       attachmentShareControls(
         messageThread(messages, {
-          inLabel: d.client ? d.client.name : 'المستفيد/ة',
-          outLabel: 'المؤسسة',
+          inLabel: d.client ? d.client.name : `${N.def}`,
+          outLabel: FIRM,
           onRetry: async (msg) => {
             await api.post(`/admin/messages/${msg.id}/retry`);
             await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'messages' });
@@ -954,7 +1027,7 @@ export default async function render(ctx) {
         sendInfo, // v11 segment-staff (r2 P13)
         onSend: async ({ body, channel }) => {
           await api.post(`/admin/matters/${id}/messages`, { body, channel });
-          await refresh('أُرسلت الرسالة للمستفيد/ة', { tab: 'messages' });
+          await refresh(`أُرسلت الرسالة ${N.li}`, { tab: 'messages' });
         },
       }),
     );
@@ -976,7 +1049,7 @@ export default async function render(ctx) {
         { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind'), tag: 'MTF-149' },
         { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('matter_status'), hint: 'إغلاق الملف المستمر يوقف إضافة المواعيد والمهام الجديدة.', tag: 'MTF-150' },
         { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يُبلَّغ المحامي الجديد ويرى الملف من بوابته.', tag: 'MTF-151' },
-        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0, tag: 'MTF-152' },
+        { name: 'agreed_fee', label: `الأتعاب المتفق عليها مع ${N.def}`, type: 'money', min: 0, tag: 'MTF-152' },
         { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150, tag: 'MTF-153' },
         { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100, tag: 'MTF-154' },
         { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true, tag: 'MTF-155' },
@@ -1023,9 +1096,9 @@ export default async function render(ctx) {
     { key: 'invoices', label: 'الفواتير والمدفوعات', icon: 'fileText', count: nz(invoices.filter((i) => ['unpaid', 'partially_paid'].includes(i.status)).length), render: renderInvoices, tag: 'MTF-107' },
     { key: 'expenses', label: 'المصروفات', icon: 'wallet', count: nz(expenses.length), render: renderExpenses, tag: 'MTF-108' },
     isAdmin && { key: 'fees', label: 'أتعاب المحامي', icon: 'scale', count: nz(fees.length), render: renderFees, tag: 'MTF-109' },
-    { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(documents.length), render: renderDocuments, tag: 'MTF-110' },
+    { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(documents.length + caseDocuments.length), render: renderDocuments, tag: 'MTF-110' },
     { key: 'messages', label: 'الرسائل', icon: 'message', count: nz(messages.length), render: renderMessages, tag: 'MTF-111' },
-    { key: 'activity', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف المستمر', icon: 'clock', body: activityTimeline(d.activity || []), titleTag: 'MTF-101', tag: 'MTF-102' }), tag: 'MTF-112' },
+    { key: 'activity', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف المستمر', icon: 'clock', body: activityTimeline(d.activity || [], { clientLabel: N.def }), titleTag: 'MTF-101', tag: 'MTF-102' }), tag: 'MTF-112' },
   ].filter(Boolean);
   const requested = TAB_KEYS.includes(ctx.query.tab) && items.some((i) => i.key === ctx.query.tab) ? ctx.query.tab : 'events';
   tabsEl = tabs(items, { active: requested, onChange: (key) => syncTab(key), className: 'pb-case-tabs', tag: 'MTF-103' });
@@ -1036,7 +1109,7 @@ export default async function render(ctx) {
     stats,
     summary,
     // v9 practice: أطراف الدعوى وتعارض المصالح، والأثر المتحقق للمستفيد
-    h('div.grid-2.v9p-grid', partiesCard({ matterId: m.id }), outcomeCard({ kind: 'matter', id: m.id })),
+    h('div.grid-2.v9p-grid', partiesCard({ matterId: m.id }), outcomeCard({ kind: 'matter', id: m.id, paid: !isCharity })), // v12 gate (JR-06): ملف بأتعاب ← «الأثر المتحقق لصاحب الطلب»
     tabsEl,
   );
 }

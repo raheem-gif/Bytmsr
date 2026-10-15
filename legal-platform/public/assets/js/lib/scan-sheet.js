@@ -1,15 +1,8 @@
-// v12 media (MD-2) — ورقة تعديل المستند المصوَّر (M §5.3، L12-72): الصورة بأربعة أركان هي أزرار <button> (لا role=slider)
-// بتسمية عربية وتعليمات، سحب باللمس، الأسهم تحرك 4 px، أو المس الركن ثم المس مكانه. «تدوير»، وعلى الطلب المدفوع والشركات
-// والفريق «ألوان · رمادي · أبيض وأسود». «استخدام الصورة كما هي» متاح دائمًا. معاينة صغيرة للنتيجة تتحدث مع كل تعديل.
-//
-//   SCAN_COPY[register] · registerOf(address) · pagesAr(n) · loadScanStyles()
-//   editPage(page, { register, trigger }) → Promise<{ action: 'done', page } | { action: 'asis' } | { action: 'cancel' }>
-//   scanNote(page, { register, onRetake, onKeep }) → عنصر «الورقة مش باينة كلها…» بزرين (أو null إن كانت الصفحة سليمة)
-// register: 'f' | 'm' (خيري، بلا أوضاع ولا صفحات) · 'p' (الأفراد والشركات بصيغة الجمع) · 'company' (مثل p) · 'staff'
+// v12 media (MD-2): corner sheet (M §5.3, L12-72): <button> corners, drag, arrows, tap-then-point, rotate, modes, as-is, preview.
 import { h, svg } from './h.js';
 import { session, applyRender } from './scanner.js';
 
-/** «صفحة واحدة» · «صفحتان» · «3 صفحات» · «11 صفحة» (نسخة من entry-tree.js pagesAr، L12-86؛ الاختبارات نفسها) */
+/** Arabic page count (copy of entry-tree.js pagesAr, L12-86) */
 export function pagesAr(n) {
   const k = Math.max(0, Math.round(Number(n) || 0));
   if (k === 1) return 'صفحة واحدة';
@@ -30,6 +23,7 @@ const P = {
   rotate: 'تدوير',
   done: 'تم',
   addPage: 'صفحة أخرى',
+  addHint: 'صفحة ثانية من نفس المستند؟',
   corners: ['الركن العلوي الأيسر', 'الركن العلوي الأيمن', 'الركن السفلي الأيمن', 'الركن السفلي الأيسر'],
   modes: true,
   pages: true,
@@ -64,7 +58,6 @@ export const SCAN_COPY = {
     pages: false,
   },
   p: P,
-  // بوابة الشركات تخاطب بصيغة الجمع مثل صفحات الطلب المدفوع
   company: P,
   staff: {
     ...P,
@@ -76,7 +69,7 @@ export const SCAN_COPY = {
     reset: 'إعادة الضبط',
   },
 };
-// أوضاع الحفظ (الطلب المدفوع والشركات والفريق)
+// modes (p, company, staff)
 const MODES = [
   { mode: 'color', label: 'ألوان', tag: 'SC-07' },
   { mode: 'gray', label: 'رمادي', tag: 'SC-08' },
@@ -97,7 +90,7 @@ export function loadScanStyles() {
   }
 }
 
-/** ملاحظة تحت الصورة المصغّرة حين لم تُكتشف الحدود أو كانت الورقة مقصوصة: سطر وزران */
+/** note under a thumb when the page is cut or not found */
 export function scanNote(page, { register = 'f', onRetake, onKeep } = {}) {
   if (!page || (page.state !== 'partial' && page.state !== 'notfound')) return null;
   const t = SCAN_COPY[registerOf(register)];
@@ -113,17 +106,19 @@ export function scanNote(page, { register = 'f', onRetake, onKeep } = {}) {
   );
 }
 
-/** زر «صفحة أخرى» تحت مستند مصوَّر (الطلب المدفوع والشركات والفريق): الصورة التالية تُضاف صفحةً لنفس المستند */
-export function addPageButton({ register = 'p', onClick, disabled = false } = {}) {
-  return h('button.scn-btn.scn-btn--line.scn-btn--sm.scn-add', { type: 'button', onClick, disabled, tag: 'SC-17' }, SCAN_COPY[registerOf(register)].addPage || P.addPage);
+/** «صفحة أخرى»: next photo = a page of the same document; hint (JR-09) beside it */
+export function addPageButton({ register = 'p', onClick, disabled = false, hint = false } = {}) {
+  const t = SCAN_COPY[registerOf(register)];
+  const btn = h('button.scn-btn.scn-btn--line.scn-btn--sm.scn-add', { type: 'button', onClick, disabled, tag: 'SC-17' }, t.addPage || P.addPage);
+  return hint && t.addHint ? h('div.scn-add-row', h('span.scn-add__hint', { tag: 'SC-21' }, t.addHint), btn) : btn;
 }
 
-/** عدد صفحات المستند: «صفحتان» · «3 صفحات» */
+/** page count badge */
 export function pagesBadge(n) {
   return h('span.scn-pages', { tag: 'SC-18' }, pagesAr(n));
 }
 
-/** نص التجهيز: صورة واحدة «جارٍ تجهيز المستند…»، وأكثر «جارٍ تجهيز الصورة 2 من 3…» (L12-58) */
+/** preparing text (L12-58) */
 export function prepText(register, i = 1, n = 1) {
   const t = SCAN_COPY[registerOf(register)];
   return n > 1 && t.batch ? t.batch(i, n) : t.preparing;
@@ -138,10 +133,7 @@ const DEFAULT_QUAD = [
 ];
 let uid = 0;
 
-/**
- * يفتح الورقة على صفحة مصوّرة. «تم» يعيد التنظيف بالأركان والوضع والدوران المختارة.
- * maxSide/quality: حجم الصفحة النظيفة (الفريق 2339).
- */
+/** opens the sheet on a page; «تم» re-renders with the chosen corners, mode and turns */
 export function editPage(page, { register = 'p', trigger = null, maxSide = 1754, quality = 0.7, sourceMax = 2400 } = {}) {
   loadScanStyles();
   const t = SCAN_COPY[registerOf(register)];
@@ -259,7 +251,7 @@ export function editPage(page, { register = 'p', trigger = null, maxSide = 1754,
           changed();
         }
 
-        // ───────── السحب واللمس ─────────
+        // drag / touch
         let drag = null;
         let suppressClick = false;
         frame.addEventListener('pointerdown', (e) => {
@@ -324,7 +316,7 @@ export function editPage(page, { register = 'p', trigger = null, maxSide = 1754,
           });
         });
 
-        // ───────── الفتح والإغلاق ─────────
+        // open / close
         const onKey = (e) => {
           if (e.key === 'Escape') {
             e.preventDefault();

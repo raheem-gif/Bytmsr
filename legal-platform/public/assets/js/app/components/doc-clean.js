@@ -24,6 +24,8 @@ const OCR_WHY = {
   no_text: 'لم يُعثر على نص في المستند.',
   needs_imagemagick: 'الصورة كبيرة وتحتاج ImageMagick على الخادم.',
   timeout: 'استغرقت القراءة وقتًا أطول من المسموح.',
+  too_large: 'الصورة أكبر من أن تُقرأ على هذا الخادم.',
+  tool_error: 'لم تستطع أداة القراءة فتح الملف. قد يكون تالفًا.',
   crashed: 'توقفت القراءة فجأة.',
   claude_not_allowed: 'إرسال صور المستندات إلى Claude غير مسموح.',
   claude_company: 'قراءة مستندات الشركات بـ Claude غير مسموحة.',
@@ -33,6 +35,39 @@ const OCR_WHY = {
   claude_ai_off: 'Claude غير مضبوط في «التكاملات».',
 };
 const why = (code) => OCR_WHY[code] || 'تعذرت القراءة.';
+
+// ───────── V-14: أسطر النص المقروء آليًا ─────────
+const AR_LETTER = /[\u0621-\u064A\u0671-\u06D3]/g;
+const LATIN_LETTER = /[A-Za-z]/g;
+/** اتجاه السطر بأغلب حروفه (لا بأول حرف): سطر عربي بدأ بكلمة لاتينية خاطئة يبقى من اليمين */
+export const lineDir = (line) => ((String(line).match(AR_LETTER) || []).length >= (String(line).match(LATIN_LETTER) || []).length ? 'rtl' : 'ltr');
+/** في سطر عربي: الأرقام (هندية أو لاتينية، مع / . - : بينها) والكلمات اللاتينية = غير مؤكدة في قراءة Tesseract */
+const DOUBT = /([0-9\u0660-\u0669\u06F0-\u06F9](?:[0-9\u0660-\u0669\u06F0-\u06F9/.\-:]*[0-9\u0660-\u0669\u06F0-\u06F9])?|[A-Za-z\u20AC\u00A3][^\s]*)/u;
+/**
+ * نص الصفحة ← أسطر بعناصر span (كتلة لكل سطر باتجاهه)؛ flag: تظليل ما قراءته الآلية غير مؤكدة في الأسطر العربية.
+ * → { nodes, flagged }
+ */
+export function ocrLines(text, flag = false) {
+  let flagged = 0;
+  const nodes = String(text)
+    .split('\n')
+    .map((line) => {
+      const dir = lineDir(line);
+      if (!line) return h('span.ocr-panel__line', { dir }, '\u00a0');
+      if (!flag || dir !== 'rtl') return h('span.ocr-panel__line', { dir }, line);
+      const parts = line.split(new RegExp(DOUBT.source, 'gu'));
+      return h(
+        'span.ocr-panel__line',
+        { dir },
+        parts.map((part, i) => {
+          if (i % 2 === 0) return part;
+          flagged += 1;
+          return h('mark.ocr-doubt', { dir: 'auto', title: 'قراءة آلية غير مؤكدة' }, part);
+        }),
+      );
+    });
+  return { nodes, flagged };
+}
 
 async function copyText(text) {
   try {
@@ -89,13 +124,18 @@ export function textPanel(d) {
   }
 
   function pageBlock(p, many) {
-    const pre = h('pre.ocr-panel__text', { dir: 'auto' }, p.text || 'لا يوجد نص مقروء في هذه الصفحة.');
+    // V-14: كل سطر باتجاهه (عربي أو لاتيني بأغلب حروفه) فلا تنقلب علامات سطر بدأ بكلمة لاتينية، والأرقام المقروءة آليًا مظللة
+    const flag = p.provider === 'tesseract' && p.status !== 'corrected';
+    const lines = p.text ? ocrLines(p.text, flag) : null;
+    const pre = h('pre.ocr-panel__text', { dir: 'rtl' }, lines ? lines.nodes : 'لا يوجد نص مقروء في هذه الصفحة.');
+    const conf = Number.isFinite(p.confidence) && p.status !== 'corrected' ? ` · ثقة القراءة ${Math.round(p.confidence * 100)}٪` : '';
     const head = h(
       'p.ocr-panel__meta',
       many ? h('strong', `صفحة ${p.page}`) : null,
       many ? ' · ' : null,
-      p.status === 'corrected' ? 'صحّحه الفريق' : `قرأه ${p.provider_label || p.provider}`,
+      p.status === 'corrected' ? 'صحّحه الفريق' : `قرأه ${p.provider_label || p.provider}${conf}`,
     );
+    const legend = lines?.flagged ? h('p.ocr-panel__doubt', { tag: 'DOC-41' }, h('mark.ocr-doubt', '١٢٣'), ' الأرقام والكلمات المظللة غير مؤكدة: طابقها مع الصورة.') : null;
     const box = h('div.ocr-panel__page');
     const copy = h('button.btn-link', { type: 'button', onClick: () => copyText(p.text || ''), tag: 'DOC-34' }, 'نسخ');
     const edit = h(
@@ -123,7 +163,7 @@ export function textPanel(d) {
             },
             'حفظ التصحيح',
           );
-          const cancel = h('button.btn.btn--text.btn-sm', { type: 'button', onClick: () => mount(box, head, pre, tools), tag: 'DOC-37' }, 'إلغاء');
+          const cancel = h('button.btn.btn--text.btn-sm', { type: 'button', onClick: () => mount(box, head, legend, pre, tools), tag: 'DOC-37' }, 'إلغاء');
           mount(box, head, ta, h('div.ocr-panel__actions', save, cancel));
           ta.focus();
         },
@@ -132,7 +172,7 @@ export function textPanel(d) {
       'تصحيح',
     );
     const tools = h('p.ocr-panel__tools', copy, ' · ', edit);
-    mount(box, head, pre, tools);
+    mount(box, head, legend, pre, tools);
     return box;
   }
 
@@ -234,7 +274,9 @@ export function infoLine(info) {
     ? [MODE_TEXT[p.mode] || null, Number.isFinite(p.score) ? `الثقة ${Math.round(p.score * 100)}٪` : null, p.partial ? 'الورقة مقصوصة' : null, p.adjusted ? 'الأركان عُدّلت يدويًا' : null].filter(Boolean).join('، ')
     : '';
   const parts = [];
-  if (original) parts.push(h('span', 'الأصل: ', hash(original.sha256)));
+  // gate SEC-7: صورة الهاتف بعد تصغيرها (L12-58)، فالبصمة بصمة النسخة المحفوظة لا ملف الكاميرا
+  const reduced = !!(original && (original.params?.reencoded || p?.reencoded));
+  if (original) parts.push(h('span', reduced ? 'الأصل المحفوظ (صورة الهاتف مصغّرة): ' : 'الأصل: ', hash(original.sha256)));
   if (clean) parts.push(h('span', 'المحسّنة: ', hash(clean.sha256)));
   if (src) parts.push(h('span', `المصدر: ${src.source_label}`));
   if (params) parts.push(h('span', `المعاملات: ${params}`));

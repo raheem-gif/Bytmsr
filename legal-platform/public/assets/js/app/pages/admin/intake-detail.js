@@ -1,7 +1,7 @@
 // شاشة فرز الطلب الوارد: المحادثة، تحليل الذكاء الاصطناعي (مساعد فقط)، بيانات الفرز، العميل الموحد عبر القنوات،
 // ثم قرار الإدارة: تحويل إلى ملف قانوني له كود مستقل، أو تعامل داخلي دون محامٍ، أو أرشفة.
 
-import { h, frag, mount } from '../../../lib/h.js';
+import { h, frag, mount, tagged } from '../../../lib/h.js';
 import { api, downloadUrl, formatBytes } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, date, percent, count, toLatinDigits, cairoToday, localPhone } from '../../../lib/fmt.js';
 import {
@@ -31,9 +31,10 @@ import {
   chips,
   richText,
   errorMessage,
+  fileName,
 } from '../../../lib/ui.js';
 import { channelIcons, similarText, CHANNEL_ICONS, reloadAndFocus, replaceQuery } from './inbox.js';
-// v12 staff-lines (SL-2/SL-3، L12-75/77/81): مسار الطلب وتعديله، «مقترح» بتأكيد، و«سبق التعامل مع خيري» و«أوقف الرسائل الآلية»
+// v12 staff-lines (SL-2/SL-3، L12-75/77/81): مسار الطلب وتعديله، «نوع الطلب: …؟» بتأكيد، و«سبق التعامل مع خيري» و«أوقف الرسائل الآلية»
 import { returningCharityChip, optOutChip } from './inbox.js';
 import { lineChip, pathLine, suggestRow, openPathwaySheet } from '../../components/pathway-ui.js';
 import { pickClient } from './clients.js';
@@ -44,6 +45,8 @@ import { MERGE_LABEL, mergeLabel } from '../../labels.js';
 import { composerTools, docAnalysisStore, docAiBadge, docAiAction, docAiResultsCard } from './case-detail.js';
 // v9.2 (admin-ai): القصة ← اقتراح ← طلب بنقرة؛ نصوص الرسائل الصوتية؛ المكالمات
 import { openStorySheet } from '../../components/story-sheet.js';
+// v12 gate (K-S1، L12-59): المستندات تُفتح في العارض (النسخة المحسّنة + «الأصل» + «نظّف المستند») مع سطر DOC-16 في القائمة
+import { staffDocParts } from '../../components/doc-viewer.js';
 import { voiceTranscriptEditor, voiceLeftText } from '../../components/voice-transcript.js';
 import { openCallNote, openCallAttempt, attemptsList, closeUnreachable, attemptsCountText } from '../../components/call-note.js';
 // v11 segment-staff (ST-2): نوع الخدمة في ترويسة الطلب، بطاقة «غير محدد»، ورأس الإرسال «سيُرسل من»
@@ -60,6 +63,8 @@ import {
   segmentChoice,
   segLabel,
   clientNoun,
+  firmNoun,
+  trackWord,
   pronounOf,
   ON_CASE_HINT,
   REQUIRED_TEXT,
@@ -75,7 +80,7 @@ const replyChannelsFor = (noun = 'المستفيد/ة') => [
   { value: 'website', label: 'الموقع (صفحة المتابعة)' },
 ];
 
-const SOURCE_DETAIL_LABELS = {
+export const SOURCE_DETAIL_LABELS = {
   utm_source: 'مصدر الزيارة (utm_source)',
   utm_medium: 'الوسيط (utm_medium)',
   utm_campaign: 'الحملة (utm_campaign)',
@@ -95,10 +100,16 @@ const SOURCE_DETAIL_LABELS = {
   // v11 gate fix J-02: اختيار الزائر في الموقع وطريقة تحديده بالعربية لا بمفاتيح خام
   gate: 'اختيار الزائر',
   gate_via: 'طريقة التحديد',
+  // v12 gate (V-09): رمز مسار لا نعرفه (رابط قديم أو معدّل) — حُدد النوع بالطريقة المعتادة
+  pathway_invalid: 'مسار الصفحة الأولى',
 };
 const SOURCE_TYPE_LABELS = { ad: 'إعلان ممول', post: 'منشور' };
-const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة' };
-export const GATE_VIA_LABELS = { param: 'من رابط الصفحة', cookie: 'اختيار سابق محفوظ في المتصفح', default: 'الإعداد الافتراضي للموقع' };
+// v12 gate (V-09): كل قيمة يكتبها نموذج الموقع (src/routes/public.js MODES وsegments via) بالعربية — «tiles» و«pathway» ظهرتا خامًا
+export const INTAKE_MODE_LABELS = { form: 'نموذج منظم', guided: 'خطوة بخطوة', tiles: 'سؤال في كل شاشة', callback: 'طلب مكالمة' };
+export const GATE_VIA_LABELS = { param: 'من رابط الصفحة', cookie: 'اختيار سابق محفوظ في المتصفح', default: 'الإعداد الافتراضي للموقع', pathway: 'من أسئلة الصفحة الأولى' };
+/** v12 gate (V-08): بطاقة إجابات الموقع لطلب أفراد وشركات (أسئلة نصية، بلا صور وبلا ضمير مؤنث) */
+export const PAID_FORM_TITLE = 'إجابات صاحب الطلب في الموقع';
+export const PAID_FORM_HINT = 'اختيارات من أسئلة الموقع وقد تكون غير دقيقة؛ ما يُكتب في المحادثة هو المعتمد.';
 // مفاتيح داخلية في source_detail (التحقق من الهوية) تُعرض بتنبيه مخصص لا كصفوف خام
 // (v9.1 b-forms) وكود تأكيد الرقم برسالة واتساب (confirm_*) لا يُعرض كذلك
 // (v11 gate fix J-02) وبيانات الشركة صاحبة طلب العرض (requester) تظهر في بطاقة «طلب عرض من شركة» لا هنا
@@ -109,6 +120,7 @@ export function sourceDetailValue(k, v) {
   if (k === 'intake_mode') return INTAKE_MODE_LABELS[v] || String(v);
   if (k === 'gate') return v === 'charity' || v === 'paid' ? segLabel('segment', v) : String(v);
   if (k === 'gate_via') return GATE_VIA_LABELS[v] || String(v);
+  if (k === 'pathway_invalid') return 'رمز غير معروف، فحُدد النوع بالطريقة المعتادة';
   return null;
 }
 
@@ -157,6 +169,9 @@ export default async function render(ctx) {
   const sendInfo = { segment: segValue, tone: d.tone || null, sendLine: d.send_line || null, requesterKind: requester ? 'company' : null };
   // v11 gate fix (J-13/V13): اسم صاحب الطلب في نصوص الإدارة حسب النوع — «المستفيد/ة» / «العميل/ة» / «الشركة» (طلب عرض)
   const N = clientNoun(segValue, { company: Boolean(requester) });
+  // v12 gate (V-08، JR-06): «المكتب» للأفراد والشركات و«المؤسسة» للخيري؛ مسميات «نسأل الأول» بلا ضمير مؤنث لطلب بأتعاب
+  const FIRM = firmNoun(segValue, { company: Boolean(requester) });
+  const TW = (group, t) => trackWord(group, t, { form: prop && prop.identity && prop.identity.form === 'm' ? 'm' : 'f', company: Boolean(requester), paid: isPaid });
   const REPLY_CHANNELS = replyChannelsFor(N.def);
   // رقم من نموذج الموقع يطابق عميلًا مسجلًا دون إثبات أن المرسل صاحبه
   const identity = it.identity || {
@@ -345,7 +360,7 @@ export default async function render(ctx) {
       h('button.pa-decide-opt', { type: 'button', class: cls, onClick, tag: 'RQT-16' }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
     return card({
       title: 'ما القرار في هذا الطلب؟',
-      subtitle: 'الرسالة لا تتحول تلقائيًا إلى ملف — تقرر الإدارة بعد قراءة الطلب وفرزه.',
+      subtitle: 'الرسالة لا تتحول تلقائيًا إلى ملف. تقرر الإدارة بعد قراءة الطلب وفرزه.',
       icon: 'scale',
       className: 'pa-decide-card',
       body: h(
@@ -390,7 +405,7 @@ export default async function render(ctx) {
           minLength: 5,
           maxLength: 3000,
           rows: 3,
-          hint: 'مثال: أُجيب المستفيد/ة بخطوات استخراج إعلام الوراثة والمستندات المطلوبة. يُحفظ داخليًا فقط.',
+          hint: `مثال: أُجيب ${N.def} بخطوات استخراج إعلام الوراثة والمستندات المطلوبة. يُحفظ داخليًا فقط.`,
           tag: 'RQT-20',
         },
         { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), hint: 'يساعد في قياس دقة تصنيف الذكاء الاصطناعي وتحليل الطلبات', tag: 'RQT-21' },
@@ -436,11 +451,11 @@ export default async function render(ctx) {
     const line = (b, text) => h('div.pa-story-ribbon', { class: `is-${view}` }, b, text ? h('span.pa-story-ribbon-text', text) : null);
     switch (view) {
       case 'callback':
-        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد — الوقت المناسب: ${(webForm && webForm.callback_label) || 'أي وقت'}`);
+        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد. الوقت المناسب: ${(webForm && webForm.callback_label) || 'أي وقت'}`);
       case 'collecting':
         return line(
           h('span.badge.badge-info.pa-story-live', h('span.pa-live-dot', { 'aria-hidden': 'true' }), h('span', 'القصة لسه بتتكتب…')),
-          `آخر رسالة ${relative(it.last_inbound_at || it.last_message_at || it.created_at)} — تُلخَّص تلقائيًا بعد ${count(quiet, MINUTES)} بلا رسائل`,
+          `آخر رسالة ${relative(it.last_inbound_at || it.last_message_at || it.created_at)}، وتُلخَّص تلقائيًا بعد ${count(quiet, MINUTES)} بلا رسائل`,
         );
       case 'blocked':
         return line(badge(st.media_failed ? 'تعذّر تنزيل رسالة صوتية' : 'فيها رسالة صوتية لم تُكتب', 'warning', { icon: 'mic' }), null);
@@ -483,7 +498,8 @@ export default async function render(ctx) {
 
   // [بوابة 9.2 N6] أزرار الإدارة بصيغة المخاطَب حين نعرف أنه رجل («أبو …» أو صيغة حددتها الإدارة)
   const male = Boolean(prop && prop.identity && prop.identity.form === 'm');
-  const CALL_LABEL = male ? 'اتصل به' : 'اتصل بها';
+  // v12 gate (JR-06): طلب بأتعاب بلا صيغة معروفة: «اتصل» بلا ضمير
+  const CALL_LABEL = male ? 'اتصل به' : isPaid || requester ? 'اتصل' : 'اتصل بها';
 
   async function callHer(script) {
     const r = await openCallNote({
@@ -501,7 +517,7 @@ export default async function render(ctx) {
     const ta = firstMissingVoice();
     if (!ta) {
       // [مراجعة 9.2] لا ملف صوتي يمكن سماعه هنا (تنزيله من واتساب لم يكتمل أو فشل): لا نترك الزر بلا أثر
-      toast(story && story.media_failed ? 'تعذّر تنزيل الرسالة الصوتية — اطلبوا منها إعادة إرسالها، أو اتصلوا بها.' : 'الرسالة الصوتية لم تصل بعد إلى المنصة — حاولوا بعد دقائق، أو اتصلوا بها.', 'warning', 8000);
+      toast(story && story.media_failed ? 'تعذّر تنزيل الرسالة الصوتية. اطلبوا منها إعادة إرسالها، أو اتصلوا بها.' : 'الرسالة الصوتية لم تصل بعد إلى المنصة. حاولوا بعد دقائق، أو اتصلوا بها.', 'warning', 8000);
       return;
     }
     ta.closest('.pa-vt').scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -544,7 +560,7 @@ export default async function render(ctx) {
     const att = (prop && prop.call_attempts) || { count: 0, days: 0, can_close_unreachable: false, items: [] };
     return card({
       title: 'طلبت مكالمة',
-      subtitle: 'لم تحكِ مشكلتها بعد — اسمعها في المكالمة',
+      subtitle: 'لم تحكِ مشكلتها بعد. اسمعها في المكالمة.',
       icon: 'phone',
       className: 'pa-prop-card pa-callback-card',
       body: h(
@@ -610,7 +626,7 @@ export default async function render(ctx) {
       // tags:skip sheet() opens the story sheet (STY codes)
       if (unconf) actions.push(asyncButton(male ? 'إرسال لصفحته فقط' : 'إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe', tag: 'RQT-39' }));
       // tags:skip sheet() opens the story sheet (STY codes)
-      else if (rec) actions.push(asyncButton(label('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send', tag: 'RQT-40' }));
+      else if (rec) actions.push(asyncButton(TW('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send', tag: 'RQT-40' }));
     } else if (!prop.analyzed_at) {
       actions.push(
         asyncButton(
@@ -625,7 +641,7 @@ export default async function render(ctx) {
       );
     } else {
       // tags:skip sheet() opens the story sheet (STY codes)
-      actions.push(asyncButton(rec ? `اعمله طلب: ${label('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary', tag: 'RQT-42' }));
+      actions.push(asyncButton(rec ? `اعمله طلب: ${TW('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary', tag: 'RQT-42' }));
     }
     // tags:skip sheet() opens the story sheet (STY codes)
     actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: view === 'awaiting' ? 'secondary' : 'ghost', icon: 'list', tag: 'RQT-43' }));
@@ -634,17 +650,17 @@ export default async function render(ctx) {
     const trackBlock = rec
       ? h(
           'div.pa-prop-track',
-          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', label('story_track_long', rec)), ' ', badge(label('story_track', rec), 'neutral', { icon: 'sparkle' })), // review (r2 P12): اقتراح الذكاء الاصطناعي حبة محايدة — الذهبي والأخضر لنوع الخدمة وحده
+          h('p', h('span.pa-prop-label', 'المقترح: '), h('strong', TW('story_track_long', rec)), ' ', badge(TW('story_track', rec), 'neutral', { icon: 'sparkle' })), // review (r2 P12): اقتراح الذكاء الاصطناعي حبة محايدة — الذهبي والأخضر لنوع الخدمة وحده
           reason && h('p.pa-prop-why', h('strong', 'ليه؟ '), reason),
           conf != null &&
             conf > 0 &&
             progressBar(Math.round(conf * 100), 100, conf >= 0.7 ? 'success' : conf >= 0.5 ? 'warning' : 'danger', { label: `درجة الثقة ${percent(conf)}` }),
         )
-      : h('p.pa-prop-why.is-empty', reason || 'لم يقترح الذكاء الاصطناعي مسارًا بعد — اختر المسار بنفسك.');
+      : h('p.pa-prop-why.is-empty', reason || 'لم يقترح الذكاء الاصطناعي مسارًا بعد. اختر المسار بنفسك.');
 
     return card({
       title: 'تحويل القصة إلى طلب',
-      subtitle: 'اقتراح الذكاء الاصطناعي — القرار لك',
+      subtitle: 'اقتراح الذكاء الاصطناعي، والقرار لك',
       icon: 'sparkle',
       className: 'pa-prop-card',
       body: h(
@@ -658,7 +674,7 @@ export default async function render(ctx) {
             h('span.pa-story-line-text', { dir: 'auto' }, prop.one_line),
           ),
         trackBlock,
-        view === 'awaiting' && h('p.pa-prop-why', icon('clock', { size: 14 }), ' ', 'سألناها وننتظر ردها؛ عندما ترد يُعاد التلخيص تلقائيًا.'),
+        view === 'awaiting' && h('p.pa-prop-why', icon('clock', { size: 14 }), ' ', isPaid || requester ? `سألنا ${N.def} وننتظر الرد؛ عند وصوله يُعاد التلخيص تلقائيًا.` : 'سألناها وننتظر ردها؛ عندما ترد يُعاد التلخيص تلقائيًا.'),
         warningsList(prop.warnings),
         h('div.pa-prop-actions', actions),
         att.count > 0 && h('div.pa-prop-attempts', h('p.small', attemptsCountText(att.count)), attemptsList(att.items || [])),
@@ -673,17 +689,20 @@ export default async function render(ctx) {
     if (!webForm || !(webForm.lines && webForm.lines.length) && !webForm.about) return null;
     const about = webForm.about;
     const aboutBits = about ? [about.governorate && `المحافظة ${about.governorate}`, about.relation_label && `الصفة ${about.relation_label}`].filter(Boolean) : [];
+    // v12 gate (V-08): طلبات الأفراد والشركات تأتي من أسئلة نصية (الصفحة الأولى ← الأسئلة) لا من صور، ومن رجال ونساء:
+    // عنوان وتلميح بلا ضمير مؤنث وبلا «صور». بطاقة الخيري كما كانت (عنوانها من الخادم، STAFF_LINES_TITLE)
+    const rows = isPaid || Boolean(requester);
     return card({
-      title: webForm.title || 'اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة)',
+      title: rows ? PAID_FORM_TITLE : webForm.title || 'اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة)',
       icon: 'globe',
       className: 'pa-form-card',
       body: h(
         'div.stack-sm',
         webForm.lines && webForm.lines.length ? h('ul.pa-form-lines', webForm.lines.map((x) => h('li', x))) : null,
         // [بوابة 9.2 N7] ضغطة على صورة وليست كلامها (R2-B4): لا «قالت إن…»
-        webForm.urgent_hint && badge('اختارت صورة التهديد بالطرد — تأكدوا منها', 'danger', { icon: 'alert' }),
-        aboutBits.length ? h('p.small.muted', `أضافت بعد الإرسال: ${aboutBits.join('، ')}`) : null,
-        h('p.field-hint', 'ضغطات على صور وقد تكون غير دقيقة؛ كلامها في المحادثة هو المعتمد.'),
+        webForm.urgent_hint && badge(rows ? 'في الإجابات ما يدل على استعجال، تأكدوا منه' : 'اختارت صورة التهديد بالطرد، تأكدوا منها', 'danger', { icon: 'alert' }),
+        aboutBits.length ? h('p.small.muted', rows ? `أُضيف بعد الإرسال: ${aboutBits.join('، ')}` : `أضافت بعد الإرسال: ${aboutBits.join('، ')}`) : null,
+        h('p.field-hint', rows ? PAID_FORM_HINT : 'ضغطات على صور وقد تكون غير دقيقة؛ كلامها في المحادثة هو المعتمد.'),
       ),
       titleTag: 'RQT-47',
       tag: 'RQT-48',
@@ -695,12 +714,12 @@ export default async function render(ctx) {
     const left = res && res.story ? Number(res.story.voice_missing) || 0 : 0;
     const docId = res && res.document_id;
     if (left > 0) toast(voiceLeftText(left), 'success');
-    else if (localAi || !isOpen) toast(isOpen ? 'كل الرسائل الصوتية مكتوبة — حُدِّث الملخص' : 'حُفظ النص', 'success');
+    else if (localAi || !isOpen) toast(isOpen ? 'كل الرسائل الصوتية مكتوبة، وحُدِّث الملخص' : 'حُفظ النص', 'success');
     else {
       const t = toast(
         h(
           'span.pa-toast-row',
-          h('span', 'كل الرسائل الصوتية مكتوبة — سيُحدَّث الملخص خلال دقيقة'),
+          h('span', 'كل الرسائل الصوتية مكتوبة. سيُحدَّث الملخص خلال دقيقة.'),
           button('حدّث الآن', {
             variant: 'link',
             size: 'sm',
@@ -754,7 +773,7 @@ export default async function render(ctx) {
           type: 'textarea',
           rows: 6,
           maxLength: 20000,
-          hint: `هذا ما يمكن إتاحته للمحامين لاحقًا — لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر ${N.def}.`,
+          hint: `هذا ما يمكن إتاحته للمحامين لاحقًا. لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر ${N.def}.`,
           tag: 'RQT-126',
         },
         { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000, tag: 'RQT-127' },
@@ -776,7 +795,7 @@ export default async function render(ctx) {
     const clientForm = form(
       [
         { name: 'name', label: `اسم ${N.def}`, maxLength: 150, tag: 'RQT-129' },
-        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري', tag: 'RQT-130' },
+        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا، اختياري', tag: 'RQT-130' },
         { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), tag: 'RQT-131' },
       ],
       { footer: false, columns: 2, values: { name: (cl && cl.name) || it.contact_name || '', national_id: (cl && cl.national_id) || '', governorate: (cl && cl.governorate) || it.governorate || null }, tag: 'RQT-132' },
@@ -976,7 +995,7 @@ export default async function render(ctx) {
       ],
       onClose: () => {
         if (created) {
-          toast(`تم إنشاء الملف ${created.code} — اختر الآن فريق المحامين وصلاحياتهم`, 'success', 6000);
+          toast(`تم إنشاء الملف ${created.code}. اختر الآن فريق المحامين وصلاحياتهم.`, 'success', 6000);
           ctx.navigate(`/cases/${created.id}`);
         }
       },
@@ -990,7 +1009,7 @@ export default async function render(ctx) {
     const conflicts = msgs.filter((m) => m.meta && m.meta.identity_conflict);
     const thread = chatThread(msgs, {
       inLabel: it.contact_name || (cl && cl.name) || N.def,
-      outLabel: 'المؤسسة',
+      outLabel: FIRM,
       emptyText: 'لا توجد رسائل في هذا الطلب بعد',
     });
     // علامات داخل المحادثة: رقم يذكر طلبًا لعميل آخر، ورسائل فشل إرسالها
@@ -1044,7 +1063,7 @@ export default async function render(ctx) {
         if (meta.topic_prefill) tags.push(badge('اختارت الموضوع من الموقع', 'info', { icon: 'globe' }));
         else if (meta.topic) tags.push(badge('اختارت من القائمة', 'info', { icon: 'list' }));
         if (meta.story_done) tags.push(badge('أنهت حكايتها', 'success', { icon: 'check' }));
-        if (meta.call_note) tags.push(badge('مكالمة — كتبتها الإدارة', 'info', { icon: 'phone' }));
+        if (meta.call_note) tags.push(badge('مكالمة كتبتها الإدارة', 'info', { icon: 'phone' }));
       }
       const bubble = node.querySelector('.msg-bubble');
       if (tags.length && bubble) bubble.append(h('div.pa-msg-tags', tags));
@@ -1073,7 +1092,7 @@ export default async function render(ctx) {
             `رسالة بتاريخ ${dateTime(m.created_at)} من رقم غير مسجل لصاحب الطلب تذكر رقم الطلب `,
             codeTag(ic.intake_code),
             ic.client_code ? [` الخاص ${N.bi} `, codeTag(ic.client_code)] : null,
-            '. لم يدمج النظام الملفين تلقائيًا حماية للخصوصية — تحقق من هوية المرسل أولًا.',
+            '. لم يدمج النظام الملفين تلقائيًا حماية للخصوصية، فتحقق من هوية المرسل أولًا.',
           ),
           h(
             'span.row',
@@ -1126,7 +1145,7 @@ export default async function render(ctx) {
     const generic = allDocs.filter((doc) => !String(doc.mime || '').startsWith('audio/') && GENERIC_DOC_NAME.test(doc.title || doc.filename || '')).length;
     const el = card({
       title: 'مستندات الطلب',
-      subtitle: `عدد المستندات: ${allDocs.length} — حلّل المستند لمعرفة نوعه ووقائعه وما يثبته`,
+      subtitle: `عدد المستندات: ${allDocs.length}. حلّل المستند لمعرفة نوعه ووقائعه وما يثبته.`,
       icon: 'paperclip',
       body: frag(
         generic
@@ -1139,17 +1158,20 @@ export default async function render(ctx) {
           const isAudio = String(doc.mime || '').startsWith('audio/');
           // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
           const player = isAudio && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(doc.id), 'aria-label': `رسالة صوتية: ${name}` });
+          const parts = staffDocParts(doc);
           return h(
             'li.pc-doc',
             h('span.pc-doc-icon', icon('fileText', { size: 18 })),
             h(
               'div.pc-doc-text',
-              // (إصلاح 9.1) اسم ملف بامتداد («ورقة-1.jpg») يُعرض LTR: كان يظهر «jpg.1-ورقة»
-              h('span.pc-doc-name', { dir: /\.[A-Za-z0-9]{2,5}$/.test(name) ? 'ltr' : 'auto', title: name }, name),
+              // (إصلاح 9.1، gate V-10) اسم ملف بامتداد («ورقة-1.jpg»): الاسم معزول والامتداد معزول LTR بعده (fileName)؛
+              // dir=ltr على الكل كان يُظهر «1-ورقة.jpg»، وdir=auto «jpg.1-ورقة»
+              h('span.pc-doc-name', { title: name }, fileName(name)),
               h(
                 'span.pc-doc-meta',
                 [formatBytes(doc.size), inMessages.has(doc.id) ? 'مرفق في المحادثة' : 'مرفق بالطلب', doc.created_at && dateTime(doc.created_at)].filter(Boolean).join(' · '),
               ),
+              parts.note,
               player,
               docAiBadge(analyses, doc.id),
               // v9.2: نص الرسالة الصوتية (تكتبه الإدارة) تحت المشغل نفسه
@@ -1157,6 +1179,7 @@ export default async function render(ctx) {
             ),
             h(
               'div.pc-doc-actions',
+              tagged('RQT-144', parts.view),
               button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(doc.id), target: '_blank', ariaLabel: `تنزيل ${name}`, tag: 'RQT-66' }),
               !String(doc.mime || '').startsWith('audio/') && button('تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => renameDoc(doc), ariaLabel: `تسمية ${name}`, tag: 'RQT-67' }),
               docAiAction(analyses, doc),
@@ -1182,7 +1205,7 @@ export default async function render(ctx) {
     const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: `اكتب ردك على ${N.def}…`, tag: 'RQT-71' });
     // v9.1 b-site (B91-01): أين يصل الرد؟ «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
     const replyChannel = it.identity && it.identity.reply_channel ? `يصل الرد: ${it.identity.reply_channel.text}. ` : '';
-    const wrap = field(`الرد على ${N.def}`, ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.`, tag: 'RQT-72' });
+    const wrap = field(`الرد على ${N.def}`, ta, { hint: `${replyChannel}يُرسل من قناة ${FIRM} الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.`, tag: 'RQT-72' });
     // (v9) ردود جاهزة واقتراح رد. الهوية غير المؤكدة: الاسم كما كتبه المرسل فقط، دون ربط بملف العميل المسجل
     const tools = composerTools(ta, {
       context: {
@@ -1229,12 +1252,12 @@ export default async function render(ctx) {
       'div.composer.pa-composer',
       // v11 segment-staff (r2 P13): النوع والنبرة و«سيُرسل من» قبل أي إرسال
       sendHeader(sendInfo),
-      unknownLine && h('p.pa-note.is-warning', icon('alert', { size: 15 }), h('span', `${unknownLineText(seg.wa_pid_last4)} — الإرسال لصفحة المتابعة فقط.`)),
+      unknownLine && h('p.pa-note.is-warning', icon('alert', { size: 15 }), h('span', `${unknownLineText(seg.wa_pid_last4)}. الإرسال لصفحة المتابعة فقط.`)),
       unverified &&
         h(
           'p.pa-note.is-warning',
           icon('alert', { size: 15 }),
-          h('span', `الهوية غير مؤكدة: الرد عبر واتساب يصل إلى صاحب الرقم المسجل، والرد عبر الموقع يصل إلى من أرسل النموذج — فلا تذكر تفاصيل من ملفات ${N.def} الأخرى.`),
+          h('span', `الهوية غير مؤكدة: الرد عبر واتساب يصل إلى صاحب الرقم المسجل، والرد عبر الموقع يصل إلى من أرسل النموذج، فلا تذكر تفاصيل من ملفات ${N.def} الأخرى.`),
         ),
       wrap,
       h(
@@ -1366,10 +1389,10 @@ export default async function render(ctx) {
                 if (cur.priority === 'normal' && value !== 'normal') patch.priority = value;
               } else if (!cur[name]) patch[name] = value;
             }
-            if (!Object.keys(patch).length) toast('الحقول ممتلئة بالفعل — استخدم «استخدام الاقتراح» بجوار كل حقل للاستبدال', 'info');
+            if (!Object.keys(patch).length) toast('الحقول ممتلئة بالفعل. استخدم «استخدام الاقتراح» بجوار كل حقل للاستبدال.', 'info');
             else {
               f.setValues(patch);
-              toast('مُلئت الحقول الفارغة من اقتراح الذكاء الاصطناعي — راجعها ثم احفظ', 'success');
+              toast('مُلئت الحقول الفارغة من اقتراح الذكاء الاصطناعي. راجعها ثم احفظ.', 'success');
             }
           },
           tag: 'RQT-79',
@@ -1378,7 +1401,7 @@ export default async function render(ctx) {
 
     return card({
       title: 'بيانات الفرز',
-      subtitle: `تصنيف الطلب وأولويته ومصدره — بيانات داخلية لا يراها ${N.def}`,
+      subtitle: `تصنيف الطلب وأولويته ومصدره. بيانات داخلية لا يراها ${N.def}.`,
       icon: 'filter',
       actions: fillAll,
       body: f.el,
@@ -1410,7 +1433,7 @@ export default async function render(ctx) {
       await api.post(`${base}/ai-feedback`, { field: fieldName, verdict, ai_value: aiValue });
       current = verdict;
       sync();
-      toast('سُجّل تقييمك — يُستخدم لقياس دقة الذكاء الاصطناعي وتحسينه', 'success', 2500);
+      toast('سُجّل تقييمك. يُستخدم لقياس دقة الذكاء الاصطناعي وتحسينه.', 'success', 2500);
     };
     okBtn = asyncButton('صحيح', send('accepted'), { variant: 'ghost', size: 'sm', icon: 'check', className: 'pa-fb-btn is-ok', tag: 'RQT-82' });
     badBtn = asyncButton('غير دقيق', send('rejected'), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-fb-btn is-bad', tag: 'RQT-83' });
@@ -1429,7 +1452,7 @@ export default async function render(ctx) {
         title: 'تحليل الذكاء الاصطناعي',
         icon: 'sparkle',
         className: 'pa-ai-card',
-        body: h('p.small.muted', 'طلب عرض تجاري من شركة — لا يُعرض له تحليل قانوني. بيانات الشركة واحتياجاتها في بطاقة «طلب عرض — تواصل تجاري».'),
+        body: h('p.small.muted', 'طلب عرض تجاري من شركة، لا يُعرض له تحليل قانوني. بيانات الشركة واحتياجاتها في بطاقة «طلب عرض — تواصل تجاري».'),
         titleTag: 'RQT-86',
         tag: 'RQT-87',
       });
@@ -1534,7 +1557,7 @@ export default async function render(ctx) {
                 ),
               ),
             )
-          : h('p.pa-ai-text.muted', 'لم يجد الذكاء الاصطناعي حالات مشابهة في ملفات المؤسسة السابقة.'),
+          : h('p.pa-ai-text.muted', `لم يجد الذكاء الاصطناعي حالات مشابهة في ملفات ${FIRM} السابقة.`),
       ),
     ];
 
@@ -1557,7 +1580,7 @@ export default async function render(ctx) {
 
     return card({
       title: 'تحليل الذكاء الاصطناعي',
-      subtitle: 'مساعد فقط — القرار للإدارة، وتقييمك يُسجَّل لتحسينه',
+      subtitle: 'مساعد فقط، والقرار للإدارة. تقييمك يُسجَّل لتحسينه.',
       icon: 'sparkle',
       className: 'pa-ai-card',
       body: h('div.pa-ai', blocks, history),
@@ -1595,7 +1618,7 @@ export default async function render(ctx) {
     if (!ok) return;
     await run(async () => {
       await api.post(`${base}/link-client`, { client_id: target.id });
-      toast(`تم الدمج — أصبح الطلب مرتبطًا ${N.bi} ${target.code}`, 'success');
+      toast(`تم الدمج، وأصبح الطلب مرتبطًا ${N.bi} ${target.code}`, 'success');
       await reloadAndFocus(ctx, '#pa-client');
     });
   }
@@ -1660,7 +1683,7 @@ export default async function render(ctx) {
           : null,
         h(
           'div',
-          h('h3.pa-mini-h', { tag: 'RQT-106' }, `تاريخ ${N.def} مع المؤسسة`),
+          h('h3.pa-mini-h', { tag: 'RQT-106' }, `تاريخ ${N.def} مع ${FIRM}`),
           others.length || cases.length
             ? h(
                 'ul.pa-hist',
@@ -1675,7 +1698,7 @@ export default async function render(ctx) {
                   ),
                 ),
               )
-            : h('p.small.muted', `هذا أول تواصل لهذا ${N.def} مع المؤسسة.`),
+            : h('p.small.muted', `هذا أول تواصل ${N.li} مع ${FIRM}.`),
         ),
         N.bare === 'مستفيد/ة' ? button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: () => mergeFlow(), tag: 'RQT-109' }) : button(mergeLabel(N.bare), { size: 'sm', icon: 'users', onClick: () => mergeFlow(), tag: 'RQT-110' }),
       ),
@@ -1721,7 +1744,8 @@ export default async function render(ctx) {
       .map((a) => ({
         time: a.created_at,
         title: a.summary,
-        actor: a.actor_name || label('actor_kind', a.actor_kind),
+        // v12 gate (V-08): «صاحب الطلب» لا «المستفيد/ة» في سجل طلب بأتعاب
+        actor: a.actor_name || (a.actor_kind === 'client' ? N.def : label('actor_kind', a.actor_kind)),
         tone: ACTOR_TONES[a.actor_kind] || 'neutral',
         icon: activityIcon(a.type),
       }));
@@ -1780,6 +1804,7 @@ export default async function render(ctx) {
   // عنوان واحد ثابت لكل الحالات («الطلب REQ-…» كعنوان المتصفح)، والموضوع تحته: لا يتبدل العنوان بين اسم المرسل
   // وموضوع الطلب بحسب حالته
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: `الطلب ${it.code}`,
     breadcrumbs: [
       { label: 'صندوق الوارد', href: '#/inbox', tag: 'RQT-117' },

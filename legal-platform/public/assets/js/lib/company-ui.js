@@ -15,7 +15,7 @@
 //   copy(key, vars) → string · copyParts(key, vars) → [string|Node]  نصوص company/words.js (تحذف جمل البريد حين لا بريد)
 //   whenLong(iso) · whenShort(iso) · dayText('YYYY-MM-DD')          مواعيد بتوقيت القاهرة (U10-06)
 import { h } from './h.js';
-import { icon, badge, button, uid, toast, errorMessage, setBusy } from './ui.js';
+import { icon, badge, button, uid, toast, errorMessage, setBusy, fileName } from './ui.js';
 import { api } from './api.js';
 import { isoToCairoDate, monthLabel } from './fmt.js';
 import { W } from '../company/words-flows.js';
@@ -165,7 +165,7 @@ export function coFileRow(doc, { docUrl = defaultDocUrl } = {}) {
     'li.co-file',
     { tag: 'CU-17' },
     h('bdi.co-file-type', { dir: 'ltr' }, ext || 'FILE'),
-    h('span.co-file-name', { dir: 'auto' }, name),
+    h('span.co-file-name', fileName(name)), // gate V-10
     h(
       'span.co-file-actions',
       viewable(doc) ? h('a.btn.btn-ghost.btn-sm', { href: docUrl(doc, { inline: true }), target: '_blank', rel: 'noopener noreferrer', 'aria-label': copy('deliverable.view_name', { name }), tag: 'CU-18' }, W.deliverable.view) : null,

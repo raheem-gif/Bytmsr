@@ -561,7 +561,8 @@ describe('gate staff copy and UI checks', () => {
     assert.match(q, /label: `مرفقات \$\{whoOf\(r\)\} التي تُتاح مع الرد`/);
     assert.match(q, /head: \[caseLink\(r, 'requests'\), companyChip\(r\)/);
     const { QUEUE_LABELS } = await import('../public/assets/js/app/labels.js');
-    assert.equal(QUEUE_LABELS.client_replies, 'ردود المستفيدين والشركات بانتظار المراجعة');
+    // v12 gate (V-08, intended): «أصحاب الطلبات» بدل «المستفيدين» (أغلب الطلبات بأتعاب، والخيري مؤرشف)
+    assert.equal(QUEUE_LABELS.client_replies, 'ردود أصحاب الطلبات والشركات بانتظار المراجعة');
   });
 
   test('J-11: the deliverable sheet re-checks «إرسال للشركة» after modal() re-enables its buttons', () => {

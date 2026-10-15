@@ -6,7 +6,7 @@
 // تعتمد على: h.js، portal-ui.js (هذا المسار)، words.js (b-site)، upload.js وrecorder.js وdrafts.js (b-forms).
 
 import { h, mount } from '../lib/h.js';
-import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, forgetThisPhone, SAVED_KEY, SAVED_OFF_KEY, savedWaConfirm, WA_CONFIRM_KEY, haptic } from './portal-ui.js';
+import { ic, btn, toast, sheet, getJson, postJson, waUrl, pageContact, initMenu, storage, savedPortal, SAVED_KEY, SAVED_OFF_KEY, savedWaConfirm, WA_CONFIRM_KEY, haptic } from './portal-ui.js';
 import { addressName, say, genderize, spokenTime, spokenDate, dayWord, countWord, withoutPortalLinks, brandName } from './words.js';
 
 // (إصلاح 9.1، B91-11/B91-20) الكاميرا والتسجيل ومسودات الإرسال (upload.js وrecorder.js وdrafts.js ≈ 18 KB مضغوطة)
@@ -25,6 +25,13 @@ const VOICE_ON = (() => {
   }
 })();
 const AUDIO_EXT = { 'audio/webm': '.webm', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/mpeg': '.mp3' };
+// v12 gate (V-10): اسم ملف عربي بامتداد («الميراث-1.jpg»): الاسم معزول RTL والامتداد معزول LTR بعده (كان LTR كله: «1-الميراث.jpg»)
+function fileName(n) {
+  const s = String(n || '');
+  const m = /^(.*\S)(\.[A-Za-z0-9]{1,5})$/.exec(s);
+  if (!m || !/^[^A-Za-z֐-ࣿ]*[֐-ࣿ]/.test(s)) return h('bdi.bp-fname', { dir: 'ltr' }, s);
+  return h('bdi.bp-fname', { dir: 'rtl' }, m[1], h('bdi.bp-fname-ext', { dir: 'ltr' }, m[2]));
+}
 /** تسجيل محفوظ في مسودة ← مرفق، دون تحميل recorder.js */
 function voiceBlobToUpload(blob) {
   const mime = String(blob.type || '').split(';')[0].trim().toLowerCase() || 'audio/webm';
@@ -135,6 +142,8 @@ try {
 }
 const P = (k, f) => (PC && typeof PC[k] === 'string' ? PC[k] : f);
 const fillP = (k, f, o) => P(k, f).replace(/\{([a-z]+)\}/g, (m, x) => (x in o ? o[x] : m));
+// v12 gate (V-22، L12-86): عدد الرسائل الجديدة للأفراد والشركات بالعدد والمعدود («رسالتان جديدتان» لا «2 جديدة»)؛ «خيري» كما هو
+const freshWords = (n) => (!PC ? `${n} جديدة` : [, 'رسالة جديدة', 'رسالتان جديدتان'][n] || `${n} ${n < 11 ? 'رسائل' : 'رسالة'} جديدة`);
 const money = (n) => `${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })} ج.م`;
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 function shortDate(iso) {
@@ -466,7 +475,7 @@ function sectionList() {
     rows.push(['#money', 'wallet', P('moneyTitle', 'مصاريف'), m.needs_agreement ? pill(P('aw', 'محتاجين موافقتك'), 'amber') : m.unpaid_total > 0 ? pill(money(m.unpaid_total), 'amber') : pill(P('nd', 'مفيش مبالغ'), 'ok')]);
   }
   const fresh = newMessages();
-  rows.push(['#messages', 'message', 'الرسائل', fresh ? pill(`${fresh} جديدة`, 'ok') : null]);
+  rows.push(['#messages', 'message', 'الرسائل', fresh ? pill(freshWords(fresh), 'ok') : null]);
   if (papers().length) rows.push(['#papers', 'file', 'الورق', pill(String(papers().length))]);
   return h(
     'nav.bp-card.bp-list',
@@ -539,24 +548,6 @@ function waConfirmCard() {
     h('h2.bp-card-title#bp-wa-title', { tag: 'P-49' }, g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))),
     h('p.bp-hint', g(P('waText', 'ابعت{ي}لنا رقم طلبك برسالة واحدة على واتساب، وبعدها هنبعتلك كل جديد هناك.'))),
     btn(g(P('waBtn', 'ابعت{ي} رقم طلبك')), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true, tag: 'P-50' }),
-  );
-}
-
-function forgetLine() {
-  return h(
-    'p.bp-forget',
-    h(
-      'button.bp-linkbtn',
-      {
-        type: 'button',
-        onClick: async () => {
-          await forgetThisPhone();
-          toast(g('مسحنا الصفحة من الموبايل ده. الرابط نفسه لسه شغال لو احتجتيه.'), 'info');
-        },
-        tag: 'P-51',
-      },
-      g('مش موبايلك؟ امسح{ي} الصفحة من الموبايل ده'),
-    ),
   );
 }
 
@@ -1185,7 +1176,7 @@ function bubble(m) {
       /^audio\//.test(d.mime || '')
         ? h('audio', { controls: true, preload: 'metadata', src: docHref(d.id), 'aria-label': 'رسالة صوتية' })
         : // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr>: كان يظهر «jpg.1-ورقة»
-          h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-95' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), h('bdi.bp-fname', { dir: 'ltr' }, d.filename)),
+          h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-95' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), fileName(d.filename)),
     ),
     h('p.bp-bubble-time', whenSent(m.created_at)),
   );
@@ -1340,7 +1331,7 @@ function papersView() {
     ];
   }
   // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr> حتى لا يظهر «jpg.1-ورقة»
-  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-105' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', h('bdi.bp-fname', { dir: 'ltr' }, d.filename)), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
+  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-105' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', fileName(d.filename)), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
   const mine = list.filter((d) => d.mine);
   const ours = list.filter((d) => !d.mine);
   return [

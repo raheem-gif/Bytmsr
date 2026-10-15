@@ -554,11 +554,12 @@ describe('v10 b2b-portal — budgets as served (§8.4, §8.5-6)', () => {
     return set;
   };
 
-  test('entry closure (company/main.js + static imports + pages/overview.js) ≤ 60 KB br; lazy modules stay out of it', () => {
+  test('entry closure (company/main.js + static imports + pages/overview.js) ≤ 63 KB br; lazy modules stay out of it', () => {
     const files = new Set([...closureOf('assets/js/company/main.js'), ...closureOf('assets/js/company/pages/overview.js')]);
     let total = 0;
     for (const f of files) total += served(f);
-    assert.ok(total <= 60 * 1024, `entry closure ${total} B br > 60 KB`);
+    // v12 tags (T12-84): +≈1.4 KB for the owner's element codes — 61,440 → 64,512 B br (v12 gate K-P6, lead decision; measured 62,852 B br)
+    assert.ok(total <= 64512, `entry closure ${total} B br > 64,512 B`);
     const names = [...files].map((f) => path.relative(PUB, f).split(path.sep).join('/'));
     for (const lazy of ['assets/js/lib/company-forms.js', 'assets/js/lib/company-catalog-fields.js', 'assets/js/lib/company-sla.js', 'assets/js/app/components/doc-viewer.js', 'assets/js/app/components/two-factor.js', 'assets/js/lib/qr.js', 'assets/js/public/upload.js']) {
       assert.ok(!names.includes(lazy), `${lazy} is in the entry closure`);

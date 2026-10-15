@@ -199,7 +199,7 @@ export function createMediaTools({ tmpDir, policyDir = POLICY_DIR, env = process
           .split('\n')
           .slice(1)
           .map((l) => l.trim())
-          .filter((l) => /^[A-Za-z_]{2,20}$/.test(l));
+          .filter((l) => /^(?:script\/)?[A-Za-z_]{2,20}$/.test(l)); // V-14: نموذج الخط العربي script/Arabic في بعض التوزيعات
       } catch {
         langs = [];
       }

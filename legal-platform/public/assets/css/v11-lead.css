@@ -12,6 +12,11 @@
 .lead-group > .lead-row {
   border-bottom: 1px solid var(--rule);
 }
+/* v12 gate (K-P5): كل مجموعة تبدأ بخطها العلوي؛ آخر سطر في مجموعة تليها مجموعة لا يرسم خطه السفلي، فبين «المسمى الوظيفي»
+   و«رقم الموبايل» مسافة ثم خط واحد بدل خطين بينهما فراغ */
+.lead-group:has(+ .lead-group) > .lead-row:last-child {
+  border-bottom: 0;
+}
 .lead-row {
   display: grid;
   gap: 8px;

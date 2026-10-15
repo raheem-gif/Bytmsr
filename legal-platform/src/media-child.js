@@ -6,7 +6,7 @@
 // البروتوكول: الأب يرسل { id, type: 'clean', input } ويستقبل { id, ok: true, result } أو { id, ok: false, code, message }.
 // input: { file (مسار مطلق داخل uploads)، mime، width، height (الأبعاد بعد اتجاه EXIF، من الترويسة)، orientation، bin (convert
 //          بمسار مطلق)، tmpDir، policyDir، out (مسار ملف الناتج داخل المجلد المؤقت) }
-// result: { skipped: السبب، score? } أو { out، width، height، bytes، params: { quad، score، area، chroma، ink، turns } }
+// result: { skipped: السبب، score? } أو { out، width، height، bytes، params: { quad، score، area، chroma، ink، turns، nested } }
 //
 // الخط (spike server-scan.mjs بعد مراجعة الأمن والأداء): فك متتابع (لا متوازٍ) بثلاثة أحجام 480 ثم 1200 ثم 2000 بحد أقصى
 // (-define jpeg:size = ضعف المطلوب، -auto-orient، -resize بلا «!» ثم التحقق من الحجم الناتج: اتجاه خاطئ يغيّر الحجم)،
@@ -142,6 +142,8 @@ export async function cleanPipeline(input, codec) {
       chroma,
       ink: r4(ink),
       turns,
+      // K-M1: ورق خارج الحدود المكتشفة (إطار مطبوع داخل الورقة) ← المعروض أولًا يبقى الأصل
+      nested: !!det.nested,
     },
   };
 }

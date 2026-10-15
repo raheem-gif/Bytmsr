@@ -832,7 +832,9 @@ describe('v12 media MD-4 — upload contract: clean main + originals, validate b
     assert.equal(d.display_file_id, null, 'a confident scan displays the clean main');
   });
 
-  test('display default (L12-59): partial, score 0.5, quad area 0.4 and bw show the original; adjusted counts as confident', () => {
+  // K-M1 (gate, intended edit): the 60 % area rule became «confident detection» — quad area 0.4 now shows the clean copy first;
+  // a page under 15 % of the photo, a printed frame inside the paper (nested) and a crossed (non-convex) quad stay original-first.
+  test('display default (L12-59 r3): partial, score 0.5, area < 15 %, nested, bow-tie and bw show the original; area 0.4 and adjusted show the clean copy', () => {
     const save = (extra) => t.app.documents.save({ ...cleanJpeg(), scan: scanOf(extra) }, {}, { kind: 'client' });
     const shown = (id) => {
       const d = t.app.documents.get(id);
@@ -840,7 +842,11 @@ describe('v12 media MD-4 — upload contract: clean main + originals, validate b
     };
     assert.equal(shown(save({ partial: true })), 'original');
     assert.equal(shown(save({ score: 0.5 })), 'original');
-    assert.equal(shown(save({ quad: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.86], [0.2, 0.86]] })), 'original');
+    assert.equal(shown(save({ quad: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.86], [0.2, 0.86]] })), 'main', 'page 40 % of the photo → clean first');
+    assert.equal(shown(save({ quad: [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7]] })), 'main', 'page 16 % of the photo → clean first');
+    assert.equal(shown(save({ quad: [[0.4, 0.4], [0.68, 0.4], [0.68, 0.9], [0.4, 0.9]] })), 'original', 'page 14 % of the photo');
+    assert.equal(shown(save({ nested: true })), 'original', 'printed frame inside the paper (PW-M11 n01)');
+    assert.equal(shown(save({ quad: [[0.05, 0.05], [0.95, 0.95], [0.95, 0.05], [0.05, 0.95]] })), 'original', 'crossed quad');
     assert.equal(shown(save({ mode: 'bw' })), 'original');
     assert.equal(shown(save({ score: 0.3, adjusted: true })), 'main');
     assert.equal(shown(save({})), 'main');
@@ -1895,7 +1901,7 @@ describe('v12 media MD-9 — server auto-clean: forked child, hardened codec, ga
     assert.ok(fs.existsSync(path.join(t.app.config.uploadsDir, f.storage_key)));
     const after = t.app.documents.get(id);
     assert.equal(after.scan_state, 'server');
-    assert.equal(after.display_file_id, f.id, 'confident (page ≥ 60 % of the photo) → clean first');
+    assert.equal(after.display_file_id, f.id, 'confident detection (L12-59 r3) → clean first');
     assert.equal(after.sha256, before.sha256, 'main file untouched');
     assert.equal(sha(fs.readFileSync(path.join(t.app.config.uploadsDir, after.storage_key))), before.sha256);
     const p = JSON.parse(f.params);
@@ -2065,7 +2071,7 @@ require('fs').writeFileSync(a.at(-1) + (a.includes('-jpeg') ? '.jpg' : '.png'), 
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  test('an image is read by Tesseract (ara+eng, one page): document_text + FTS + ocr_state; the panel route is staff-only and audited', async () => {
+  test('an image is read by Tesseract (ara, one page): document_text + FTS + ocr_state; the panel route is staff-only and audited', async () => {
     const id = t.app.documents.save({ filename: 'شهادة.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1000, 1400)) }, { intake_id: 1 }, { kind: 'client' });
     t.app.db.run("DELETE FROM media_jobs WHERE kind = 'clean' AND document_id = ?", id);
     await t.app.media.processDue({ budgetMs: 10_000 });
@@ -2076,7 +2082,8 @@ require('fs').writeFileSync(a.at(-1) + (a.includes('-jpeg') ? '.jpg' : '.png'), 
     assert.ok(!row.text.includes('\f'));
     assert.equal(t.app.documents.get(id).ocr_state, 'done');
     const argv = fs.readFileSync(path.join(dir, 'argv.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).filter((a) => a[0] === 'tesseract' && a[2] === 'stdout');
-    assert.deepEqual(argv.at(-1).slice(2), ['stdout', '-l', 'ara+eng', '--oem', '1', '--psm', '3']);
+    // gate V-14: «ara» first with TSV words (ara+eng read Arabic-Indic digits as Latin letters); a plain-text answer is kept as is
+    assert.deepEqual(argv.at(-1).slice(2), ['stdout', '-l', 'ara', '--oem', '1', '--psm', '3', 'tsv']);
     const text = okBody(await admin.get(`/api/admin/documents/${id}/text`));
     assert.equal(text.label, 'نص مستخرج آليًا من المستند، راجعه قبل الاعتماد عليه.');
     assert.equal(text.pages.length, 1);
@@ -2387,7 +2394,7 @@ describe('v12 media MD-12 — demo seed (written directly, no jobs) and the Dock
   test('both Dockerfiles: ARG MEDIA_TOOLS=1 with the tools (no ffmpeg), tini as PID 1, the vendored policy copied to /etc/ImageMagick-6', () => {
     for (const df of [read('Dockerfile'), fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8')]) {
       assert.match(df, /ARG MEDIA_TOOLS=1/);
-      assert.match(df, /apt-get install -y --no-install-recommends imagemagick tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng poppler-utils/);
+      assert.match(df, /apt-get install -y --no-install-recommends imagemagick tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng tesseract-ocr-script-arab poppler-utils/);
       assert.match(df, /install -y --no-install-recommends tini/);
       assert.match(df, /ENTRYPOINT \["\/usr\/bin\/tini", "--"\]/);
       assert.match(df, /COPY (legal-platform\/)?deploy\/imagemagick\/policy\.xml \/etc\/ImageMagick-6\/policy\.xml/);

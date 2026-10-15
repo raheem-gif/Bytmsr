@@ -82,6 +82,7 @@ const SKIP_SHORT = {
   setup: 'وضع الإعداد',
 };
 const ENV_TONE = { demo: 'warning', production: 'success', development: 'info' };
+const STATE_OF = { ok: 'ok', info: 'info', warning: 'warn', danger: 'bad' };
 const CHECK_STYLE = {
   ok: { tone: 'success', icon: 'checkCircle', text: 'جاهز' },
   info: { tone: 'info', icon: 'info', text: 'معلومة' },
@@ -124,7 +125,8 @@ function readiness(checks) {
           'li.pf-check',
           // v12 media (H-M10): رمزا تنبيهي الذاكرة والقرص (SYS-09، SYS-10)
           { class: `is-${c.level}`, tag: c.key === 'media_memory' ? 'SYS-09' : c.key === 'media_disk' ? 'SYS-10' : undefined },
-          h('span.pf-check-icon', { class: `tone-${st.tone}` }, icon(st.icon, { size: 18, label: st.text })),
+          // v12 gate (V-25، K12-28): حالة البند نقطة ملونة وكلمة، لا أيقونة في دائرة ملونة
+          h('span.state.pf-check-state', { class: `state--${STATE_OF[c.level] || 'info'}` }, st.text),
           h(
             'div.pf-check-body',
             h('div.pf-check-title', c.title),
@@ -285,6 +287,7 @@ const MEDIA_WHY = {
   uncertain: 'حدود الورقة غير مؤكدة',
   partial: 'الورقة مقصوصة في الصورة',
   too_large: 'الصورة أكبر من المسموح',
+  tool_error: 'لم تستطع الأداة فتح الملف',
   unknown_size: 'مقاس الصورة غير معروف',
   heic: 'صيغة HEIC',
   tool_missing: 'الأداة غير مثبتة على الخادم',

@@ -654,8 +654,11 @@ export function registerAdminRoutes(router, app) {
       if (!(k in DEFAULT_SETTINGS)) continue;
       app.settings.set(k, val);
     }
-    const changedKeys = Object.keys(before).filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(app.settings.get(k) ?? null));
-    if (Object.keys(out).length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${Object.keys(out).join('، ')}` });
+    // v12 gate fixer-server (JR-12): تُقارن القيم بعد التوحيد (null = '' ، المصفوفات والكائنات بـ JSON)، فبطاقة ترسل كل
+    // حقولها لا تسجّل حقولًا لم تتغير؛ وحفظ بلا تغيير لا يكتب صف «تعديل الإعدادات»
+    const normSetting = (x) => JSON.stringify(x === null || x === undefined ? '' : x);
+    const changedKeys = Object.keys(before).filter((k) => normSetting(before[k]) !== normSetting(app.settings.get(k)));
+    if (changedKeys.length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${changedKeys.join('، ')}` });
     for (const k of changedKeys) {
       const spec = SETTINGS_AUDIT[k];
       if (!spec) continue;

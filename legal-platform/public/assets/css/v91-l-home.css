@@ -204,6 +204,33 @@
   white-space: pre;
 }
 
+/* v12 gate (V-26): السطر الملتف — كل جزء يبدأ بفاصله، والسطر مزاح بعرض فاصل (مقصوص) فلا «·» في أول السطر ولا في آخره */
+.lh-row-sub.is-wrap {
+  display: block;
+  white-space: normal;
+}
+
+.lh-sub-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  margin-inline-start: -1.1em;
+}
+
+.lh-sub-part {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.lh-sub-part > .lh-sep {
+  width: 1.1em;
+  text-align: center;
+}
+
 .lh-code {
   flex: none;
   white-space: nowrap;

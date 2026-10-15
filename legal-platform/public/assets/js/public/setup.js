@@ -468,7 +468,7 @@ function renderDone(res) {
       ),
     ),
   );
-  document.title = 'تم الإعداد — منصة الدعم القانوني';
+  document.title = 'تم الإعداد | منصة المكتب'; // v12 gate (K-S7)
 }
 
 function renderAlreadyDone() {
@@ -504,8 +504,8 @@ async function start() {
     'div.pf-setup-card',
     h(
       'div.pf-setup-head',
-      h('h1.pf-setup-h1', { tag: 'SU-24' }, 'إعداد منصة الدعم القانوني'),
-      h('p.pf-setup-sub', `الإصدار ${info.version || ''} — خمس خطوات قصيرة لتجهيز المنصة للعمل.`),
+      h('h1.pf-setup-h1', { tag: 'SU-24' }, 'إعداد منصة المكتب'), // v12 gate (K-S7): اسم المنصة كما في رأسها
+      h('p.pf-setup-sub', `الإصدار ${info.version || ''}. خمس خطوات قصيرة لتجهيز المنصة للعمل.`),
     ),
     h('nav', { 'aria-label': 'خطوات الإعداد', tag: 'SU-25' }, stepperEl),
     liveEl,

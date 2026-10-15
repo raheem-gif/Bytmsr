@@ -43,7 +43,7 @@ export default async function render(ctx) {
     ctx.setTitle(`حساب داخلي — ${co.name}`);
     return h(
       'div.page',
-      pageHeader({ title: co.name, breadcrumbs: [{ label: 'المستفيدون', href: '#/clients', tag: 'CLF-01' }, { label: c.code }], titleTag: 'CLF-02', tag: 'CLF-03' }),
+      pageHeader({ record: true, title: co.name, breadcrumbs: [{ label: 'أصحاب الطلبات', href: '#/clients', tag: 'CLF-01' }, { label: c.code }], titleTag: 'CLF-02', tag: 'CLF-03' }),
       card({
         body: h(
           'div.cd-shadow',
@@ -62,7 +62,7 @@ export default async function render(ctx) {
   const matters = d.matters || [];
   const invoices = d.invoices || [];
   const hasPhone = identities.some((x) => x.kind === 'phone');
-  ctx.setTitle(`ملف المستفيد/ة ${c.code}`);
+  ctx.setTitle(`ملف صاحب الطلب ${c.code}`); // v12 gate (V-08)
 
   // إذا فُتح رابط عميل دُمج في آخر، يعيد الخادم العميل الأساسي: نصحح الرابط
   if (String(c.id) !== String(ctx.params.id)) {
@@ -465,8 +465,9 @@ export default async function render(ctx) {
 
   const phone = identities.find((x) => x.kind === 'phone');
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: c.name || 'بدون اسم',
-    breadcrumbs: [{ label: 'المستفيدون', href: '#/clients', tag: 'CLF-57' }, { label: c.code }],
+    breadcrumbs: [{ label: 'أصحاب الطلبات', href: '#/clients', tag: 'CLF-57' }, { label: c.code }],
     meta: [
       codeTag(c.code),
       phone && h('span.pa-chan-line', icon('phone', { size: 14 }), ltr(phone.value)),

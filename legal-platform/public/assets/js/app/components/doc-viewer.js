@@ -18,6 +18,8 @@
 //   variantOf(d) → { mainClean, pages, initial: 'clean' | 'original', pdf } | null
 //   docVariantNote(d) → سطر DOC-16 (أو DOC-17 لـ HEIC عند الفريق) أو null
 //   docViewButton(d, { onChange }) → زر «عرض» لقوائم الفريق (لصفحات تريد العارض بدل التنزيل)
+//   staffDocParts(d, { onChange }) → { note, view, open }: سطر DOC-16 وزر «عرض» لقوائم الفريق، والسطر يتحدّث بعد التنظيف
+//     (gate K-S1)؛ open() يفتح المستند كما يفتحه «عرض» (لاسم المستند حين يكون رابطًا، gate JR-04)
 import { h, svg, mount } from '../../lib/h.js';
 import { downloadUrl, formatBytes } from '../../lib/api.js';
 import { icon, modal, button } from '../../lib/ui.js';
@@ -288,14 +290,14 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
   }
 
   // أدوات الفريق (doc-clean.js، تُحمَّل عند فتح العارض للفريق فقط)
-  function drawTools() {
+  function drawTools({ refocus = false } = {}) {
     if (role !== 'staff') {
       tools.hidden = true;
       return;
     }
     tools.hidden = false;
     import('./doc-clean.js')
-      .then((m) =>
+      .then((m) => {
         mount(
           tools,
           m.cleanActions(d, {
@@ -305,13 +307,15 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
               st.view = model ? model.initial : 'clean';
               st.page = 1;
               drawBar();
-              drawTools();
+              drawTools({ refocus: true });
               show();
               if (onChange) onChange(d);
             },
           }),
-        ),
-      )
+        );
+        // v12 gate (K-S1): الأدوات تُرسم من جديد بعد التنظيف أو تغيير المعروض، فيبقى التركيز داخل العارض لا على <body>
+        if (refocus) tools.querySelector('button')?.focus({ preventScroll: true });
+      })
       .catch(() => {
         tools.hidden = true;
       });
@@ -368,10 +372,40 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
  * v12 media (MD-5): زر «عرض» لقوائم مستندات الفريق — يفتح العارض (مع «الأصل» و«نظّف المستند») بدل التنزيل.
  * للصور وملفات PDF فقط (غيرها null). onChange(d) بعد تنظيف أو تغيير المعروض.
  */
+/** فتح مستند لقوائم الفريق: ملف PDF ممسوح في العارض نفسه، وغيره كما في openDocument (gate K-S1، JR-04) */
+export function openStaffDocument(d, { onChange } = {}) {
+  return docKind(d) === 'pdf' && variantOf(d) ? openImageViewer(d, { onChange }) : openDocument(d, { onChange });
+}
+
 export function docViewButton(d, { onChange } = {}) {
   const k = docKind(d);
   if (k === 'doc') return null;
-  return button('عرض', { size: 'sm', variant: 'ghost', icon: 'eye', ariaLabel: `عرض ${docName(d)}`, dataset: { tag: 'DOC-15' }, onClick: () => openDocument(d, { onChange }), tag: 'DOC-26' });
+  // v12 gate (K-S1): ملف PDF ممسوح يُفتح بنسخته المحسّنة في العارض نفسه (DOC-16 + «الأصل» + أدوات الفريق) لا في تبويب جديد
+  const open = () => (k === 'pdf' && variantOf(d) ? openImageViewer(d, { onChange }) : openDocument(d, { onChange }));
+  return button('عرض', { size: 'sm', variant: 'ghost', icon: 'eye', ariaLabel: `عرض ${docName(d)}`, dataset: { tag: 'DOC-15' }, onClick: open, tag: 'DOC-26' });
+}
+
+/**
+ * v12 gate (K-S1، L12-59): لقوائم مستندات الفريق (صفحة الطلب، الملف، الملف المستمر) — سطر DOC-16 وزر «عرض» مربوطان.
+ * بعد «نظّف المستند» أو «رجّع الأصل» داخل العارض يتحدّث السطر في مكانه دون إعادة تحميل الصفحة (التركيز يبقى في العارض).
+ * → { note: <span> مخفي حين لا سطر، view: زر «عرض» أو null (ملفات Word/Excel والصوت: «تنزيل» وحده) }
+ */
+export function staffDocParts(d, { onChange } = {}) {
+  const note = h('span.doc-variant-slot');
+  const draw = (x) => {
+    const n = docVariantNote(x);
+    mount(note, n);
+    note.hidden = !n;
+  };
+  draw(d);
+  const changed = (fresh) => {
+    draw(fresh);
+    if (onChange) onChange(fresh);
+  };
+  const view = docViewButton(d, { onChange: changed });
+  // gate JR-04: اسم المستند في القائمة يفتح ما يفتحه «عرض» (العارض مع «الأصل» و«النص»)، لا ملف PDF في تبويب جديد
+  const open = () => openStaffDocument(d, { onChange: changed });
+  return { note, view, open };
 }
 
 /**

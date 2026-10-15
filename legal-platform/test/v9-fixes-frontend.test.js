@@ -166,8 +166,9 @@ describe('v9 frontend fixes — terminology', () => {
   });
 
   test('route titles are the sidebar labels (one name per page): «المستفيدون», «ملف المستفيد/ة», «إسناداتي»', () => {
-    assert.equal(routeTitle('/clients'), 'المستفيدون');
-    assert.equal(routeTitle('/clients/:id'), 'ملف المستفيد/ة');
+    // v12 gate (V-08, intended): «أصحاب الطلبات» / «ملف صاحب الطلب» — يشمل الأفراد والشركات والخيري، بلا «/ة» ولا «العملاء»
+    assert.equal(routeTitle('/clients'), 'أصحاب الطلبات');
+    assert.equal(routeTitle('/clients/:id'), 'ملف صاحب الطلب');
     // v9.1 l-home (L-01): /my أصبحت «اليوم»، وقائمة الإسنادات انتقلت إلى /my/assignments «إسناداتي»
     assert.equal(routeTitle('/my'), 'اليوم');
     assert.equal(routeTitle('/my/assignments'), 'إسناداتي');

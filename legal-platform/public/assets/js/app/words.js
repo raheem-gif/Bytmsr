@@ -21,7 +21,7 @@
 import { count as fmtCount, weekday, shortDate, time, isoToCairoDate, num } from '../lib/fmt.js';
 
 export const BENEFICIARY = 'المستفيد/ة';
-export const BRAND = 'منصة الدعم القانوني';
+export const BRAND = 'منصة المكتب'; // v12 gate (K-S7): كانت «منصة الدعم القانوني»
 
 /** أسماء أقسام بوابة المحامي (القائمة، الشريط السفلي، عناوين الصفحات). */
 export const NAV = Object.freeze({

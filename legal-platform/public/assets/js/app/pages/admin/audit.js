@@ -50,6 +50,13 @@ const GROUP_LABELS = {
   company_auth: 'دخول الشركات', // v10 b2b-server
   email: 'البريد الإلكتروني', // v10 b2b-server
   segment: 'نوع الخدمة (خيري / أفراد وشركات)', // v11 segment-staff (ST-6): segment.changed و segment.case_fee؛ و integration.wa_mode_changed ضمن «التكاملات»
+  // v12 (gate K-S3): مجموعات الأحداث الجديدة في 12.0
+  intake: 'الطلبات', // intake.pathway_changed (staff-lines / entry)
+  client: 'أصحاب الطلبات', // client.auto_opt_out_cleared (staff-lines)؛ كما في القائمة الجانبية (v12 gate V-08؛ v9-fixes-frontend يمنع «العملاء»)
+  analytics: 'التحليلات', // analytics.viewed (staff-lines)
+  voice: 'الرسائل الصوتية', // voice.auto_requested، voice.transcribed (media)
+  media: 'المستندات والصوت', // media.job_requested، media.backfill_queued، media.status_viewed (media؛ اسم بطاقة «النظام»)
+  tags: 'رموز العناصر', // tags.registry_viewed (tags)
 };
 const FILTER_KEYS = ['q', 'type', 'severity', 'user_id', 'from', 'to'];
 

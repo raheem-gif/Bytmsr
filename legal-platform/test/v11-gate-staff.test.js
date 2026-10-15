@@ -422,7 +422,8 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('clientNoun / pronounOf', () => {
     assert.deepEqual(SEG.clientNoun('charity'), { def: 'المستفيد/ة', li: 'للمستفيد/ة', bi: 'بالمستفيد/ة', bare: 'مستفيد/ة', acc: 'مستفيدًا' });
     assert.equal(SEG.clientNoun(null).def, 'المستفيد/ة', '«غير محدد» keeps the pre-11 wording');
-    assert.deepEqual(SEG.clientNoun('paid'), { def: 'العميل/ة', li: 'للعميل/ة', bi: 'بالعميل/ة', bare: 'عميل/ة', acc: 'عميلًا' });
+    // v12 gate (V-08/JR-06, intended): «صاحب الطلب» بلا «/ة» للأفراد والشركات (كان «العميل/ة»)
+    assert.deepEqual(SEG.clientNoun('paid'), { def: 'صاحب الطلب', li: 'لصاحب الطلب', bi: 'بصاحب الطلب', bare: 'صاحب طلب', acc: 'صاحبَ طلب' });
     assert.equal(SEG.clientNoun('paid', { company: true }).def, 'الشركة');
     assert.equal(SEG.pronounOf('f'), 'ها');
     assert.equal(SEG.pronounOf('m'), 'ه');
@@ -460,9 +461,10 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('the case composer label and auto channel follow the noun', async () => {
     const CD = await import('../public/assets/js/app/pages/admin/case-detail.js');
     const paid = CD.messageComposer({ onSend() {}, noun: SEG.clientNoun('paid') });
-    assert.match(text(paid), /رسالة جديدة للعميل\/ة/);
-    assert.equal(paid.querySelector('textarea').attrs.placeholder ?? paid.querySelector('textarea').placeholder, 'اكتب رسالة للعميل/ة…');
-    assert.ok(paid.querySelectorAll('option').map(text).includes('تلقائي — آخر قناة تواصل منها العميل/ة'));
+    // v12 gate (V-08/JR-06, intended): «صاحب الطلب» بدل «العميل/ة»
+    assert.match(text(paid), /رسالة جديدة لصاحب الطلب/);
+    assert.equal(paid.querySelector('textarea').attrs.placeholder ?? paid.querySelector('textarea').placeholder, 'اكتب رسالة لصاحب الطلب…');
+    assert.ok(paid.querySelectorAll('option').map(text).includes('تلقائي — آخر قناة تواصل منها صاحب الطلب'));
     const charity = CD.messageComposer({ onSend() {} });
     assert.match(text(charity), /رسالة جديدة للمستفيد\/ة/);
   });
@@ -470,7 +472,7 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('a paid case’s outcome card and close dialog say «العميل/ة» and that the impact report is charity-only', async () => {
     const O = await import('../public/assets/js/app/components/outcome.js');
     const [paidKind] = O.outcomeFields({ paid: true });
-    assert.equal(paidKind.label, 'الأثر المتحقق للعميل/ة');
+    assert.equal(paidKind.label, 'الأثر المتحقق لصاحب الطلب'); // v12 gate (JR-06, intended)
     assert.equal(paidKind.hint, 'لا يدخل تقرير الأثر ما دام الملف بأتعاب — التقرير يخص الخدمة الخيرية فقط.');
     const [charityKind] = O.outcomeFields();
     assert.equal(charityKind.label, 'الأثر المتحقق للمستفيد');

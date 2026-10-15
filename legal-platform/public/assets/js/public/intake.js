@@ -11,7 +11,7 @@ import { h, svg, mount } from '../lib/h.js';
 // v9.2 مراجعة: menu.js وsaved.js مباشرة (محمّلان من الصفحة الرئيسية)، وwords.js وcommon.js بعد أول شاشة (loadExtras):
 // أول سؤال يحتاج 6 طلبات جديدة فقط على نت 3G بطيء (الموبايل يفتح 6 اتصالات بالموقع في نفس الوقت)
 import { captureAttribution, initSiteChrome } from './menu.js';
-import { savedCard, rememberPortal, forgetSaved } from './saved.js';
+import { savedCard, rememberPortal, forgetSaved, followSaved } from './saved.js';
 import { draftStore, clearAllDrafts } from './drafts.js';
 import { TOPICS, QUESTIONS, UNKNOWN, CALLBACK_WHEN, topicByKey, flowFor, sanitizeAnswers, infer, waPrefill } from './topics.js';
 // v12 entry: صور «خيري» (pictos.js) تُحمَّل لنموذج «خيري» وحده بعد فتح الصفحة (والخادم يضيف modulepreload لصفحته)؛
@@ -500,8 +500,9 @@ function ensurePicker() {
     picker = U.photoPicker({
       max: MAX_PHOTOS,
       tip: true,
-      // v12 entry (E12-35، §5.8): اسم الملف = اسم الورقة، و«صفحة أخرى» تجمع صفحات المستند في PDF واحد
-      namePrefix: P?.name_prefix || COPY.docName,
+      // v12 entry (E12-35، §5.8): «صفحة أخرى» تجمع صفحات المستند في PDF واحد. gate JR-09: الملف «مستند-1» (أو «ورقة-1»)،
+      // لا اسم الخدمة («أسرة-وميراث-1») — المسار ظاهر للفريق في الطلب نفسه
+      namePrefix: COPY.docName,
       address: ADDR,
       pages: !!P,
       label: X && COPY.photo,
@@ -704,13 +705,11 @@ const trustLine = () => h('p.bmf-trust', ic('lock', 18), h('span', COPY.trust));
 /**
  * v12 entry (§5.6، L12-03/L12-04): خط الخطوة «1 من 4» في صفحة الأفراد والشركات — عنصر واحد قبل #intake-root يبقى بين
  * الشاشات (aria-live يعلن التغيير)، وامتلاؤه بـ --p (CSSOM، بلا style في الصفحة). total = 0 يخفيه.
+ * v12 gate (R-01): الخادم يرسمه (I-02، src/site.js lh_step) بنص أول شاشة، فلا يُدرج هنا ولا تتحرك الشاشة الأولى لأسفل.
  */
 let stepEl = null;
 function stepLine(idx, total) {
-  if (!stepEl) {
-    stepEl = h('p.step', { 'aria-live': 'polite', tag: 'I-02' }, h('span.step__n'), h('span.step__bar', { 'aria-hidden': 'true' }, h('i')));
-    root.before(stepEl);
-  }
+  stepEl ||= document.querySelector('p.step');
   stepEl.hidden = !total;
   stepEl.firstChild.textContent = `${idx} ${COPY.of} ${total}`;
   stepEl.querySelector('i').style.setProperty('--p', total ? idx / total : 0);
@@ -748,10 +747,12 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null, 
 // بطاقة «عندك طلب عندنا» (B91-06) من saved.js المشترك مع الصفحة الرئيسية؛ تُبنى مرة واحدة وتبقى فوق الشاشات
 let savedEl;
 function topCards() {
+  // v12 gate (V-04، K12-29): صفحة الأفراد والشركات بلا بطاقة «لديكم طلب لدينا» بزر ممتلئ فوق كل سؤال؛ مثل «/» يصير رابط
+  // «متابعة طلب» في تذييل الصفحة «صفحة طلبكم» (init أدناه) فلا ينافس السؤال شيء
+  if (X) return [banner];
   if (savedEl === undefined) {
     savedEl = savedCard({
       headingLevel: 2,
-      t: X && { title: COPY.savedTitle, open: COPY.savedOpen, forget: COPY.savedForget },
       onForget: () => {
         savedEl = null;
         current?.heading.focus();
@@ -958,7 +959,8 @@ function docsScreen() {
     const k = photos().length;
     next.hidden = !k;
     skip.hidden = !!k;
-    count.textContent = k ? `${k} ${COPY.of} ${MAX_PHOTOS}` : '';
+    // v12 gate (V-05، L12-86): «صورة واحدة» · «صورتان» · «3 صور، والحد 5» (bm-copy)، لا «2 من 5» الذي يُقرأ خطوةً تحت «4 من 5»
+    count.textContent = k ? fill(COPY[k < 3 ? `photos${k}` : 'photosN'], { n: k, max: MAX_PHOTOS }) : '';
   };
   const put = () => {
     onPhotosChanged = paint;
@@ -968,7 +970,7 @@ function docsScreen() {
   if (U) put();
   else loadUpload().then(() => state.screen === 'docs' && put(), () => {});
   paint();
-  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id, tag: 'I-153' }, head, h('div.bmf-body', box, count, h('div.bmf-actions', next, skip))), heading };
+  return { el: h('section.bmf-step.bmf-docs', { 'aria-labelledby': heading.id, tag: 'I-153' }, head, h('div.bmf-body', box, count, h('div.bmf-actions', next, skip))), heading };
 }
 
 // ═════ «احكيلنا» ═════
@@ -1750,8 +1752,9 @@ function paidDone(res, { ref, num, portal, confirmUrl, callback }) {
       portal && h('div.bmf-actions', h('a.btn.btn--primary', { href: portal, tag: 'I-63' }, COPY.bOpen), shareLink(portal, 'btn btn--text', COPY.bShare)),
       confirmUrl && h('div.bmf-card', { tag: 'I-64' }, h('h2', { tag: 'I-174' }, COPY.waT), h('p.bmf-card-text', COPY.waX), h('a.bmf-btn.bmf-btn-wa', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', tag: 'I-175' }, COPY.aBtn)),
       h('p.bmf-fine', { tag: 'I-65' }, COPY.noFee),
+      // v12 gate (JR-10، V-21): «الصفحة الأولى» وحدها؛ «عن المكتب» في تذييل الشجرة تحتها مباشرة
       // tags:skip inline link inside a <p> (T12-09)
-      h('p.lh__links', { tag: 'I-66' }, h('a', { href: '/services' }, COPY.aboutUs), h('a', { href: '/' }, COPY.home1)),
+      h('p.lh__links', { tag: 'I-66' }, h('a', { href: '/' }, COPY.home1)),
     ),
   );
   current = { heading };
@@ -2398,6 +2401,8 @@ function tappedOverDraft(screen) {
 async function init() {
   captureAttribution();
   initSiteChrome();
+  // v12 gate (V-04): «متابعة طلب» في التذييل ← «صفحة طلبكم» إن حُفظت صفحة على هذا الجهاز
+  followSaved(document.querySelector('.lh__foot [data-follow]'));
   let meta;
   try {
     meta = await loadMeta();

@@ -729,9 +729,10 @@ export function createEmail(app) {
         items.push(o.error ? { key: 'email', level: 'danger', title: 'إعدادات SMTP ناقصة', detail: o.error, href: '#/integrations' } : { key: 'email', level: 'ok', title: 'البريد الإلكتروني للشركات عبر SMTP', detail: `${o.host}:${o.port}`, href: '#/integrations' });
       }
       if (!config.publicBaseUrl && !config.demo) items.push({ key: 'b2b_base_url', level: 'danger', title: 'PUBLIC_BASE_URL غير مضبوط وتوجد شركات', detail: 'بدونه لا تُرسل رسائل الشركات (لا روابط للبوابة ولا للدعوات).', href: null });
-      const legal = String(app.settings.get('org_legal_name') || '');
-      if (!legal || legal === DEFAULT_SETTINGS.org_legal_name) {
-        items.push({ key: 'contracting_entity', level: 'danger', title: 'بيانات الجهة المتعاقدة ما زالت الافتراضية', detail: 'تظهر للشركات في «الباقة والاستخدام» و«بيانات الشركة». اضبط الاسم القانوني والسجل التجاري من «ملف المؤسسة».', href: '#/settings?section=org' });
+      // v12 gate fixer-server (V-01): الجهة المتعاقدة = اسم المكتب القانوني وقيده (لا اسم المؤسسة الخيرية)
+      const legal = String(app.settings.get('firm_legal_name') || '').trim();
+      if (!legal) {
+        items.push({ key: 'contracting_entity', level: 'danger', title: 'اسم المكتب القانوني لم يُضبط بعد', detail: 'تظهر الجهة المتعاقدة للشركات في «الباقة والاستخدام» و«بيانات الشركة» باسم المكتب كما يراه العملاء. اكتبوا الاسم القانوني وقيد المكتب من «الإعدادات › الصفحة الأولى».', href: '#/settings?section=first-page' });
       }
       return items;
     },

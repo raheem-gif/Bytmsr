@@ -113,7 +113,7 @@ const CSS = `
 .bmt-tip{position:absolute;top:0;left:0;max-width:260px;pointer-events:none;background:#15181d;color:#fff;border-radius:8px;padding:6px 8px;
  font:500 12px/1.5 "IBM Plex Sans Arabic",system-ui,sans-serif;direction:rtl;text-align:right;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .bmt-tip b{font:600 11px ui-monospace,Menlo,monospace;color:#ffd54a;direction:ltr;unicode-bidi:isolate}
-.bmt-fab{position:fixed;left:0;top:42%;z-index:2147483601;display:flex;align-items:center;gap:6px;height:44px;padding:0 10px 0 8px;opacity:.94;
+.bmt-fab{position:fixed;left:0;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147483601;display:flex;align-items:center;gap:6px;height:44px;padding:0 10px 0 8px;opacity:.94;
  border:1px solid #fff;border-left:0;border-radius:0 22px 22px 0;background:#15181d;color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 4px 14px rgba(0,0,0,.25);
  font:600 13px/1 "IBM Plex Sans Arabic",system-ui,sans-serif;direction:rtl;cursor:pointer;margin:0}
 .bmt-fab b{font:700 12px ui-monospace,Menlo,monospace;color:#ffd54a}
@@ -140,10 +140,31 @@ const CSS = `
 .bmt-note{margin:0 12px 10px;font-size:12px;color:#5b616b}
 .bmt-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483603;background:#15181d;color:#fff;border-radius:10px;padding:8px 14px;
  font:600 13px "IBM Plex Sans Arabic",system-ui,sans-serif;direction:rtl;pointer-events:none}
+/* gate TA-02: page resets (body.pub button{font:inherit} 0,1,2; :where(body.bmf-page) button) never restyle the overlay */
+.bmt-layer .bmt-badge.bmt-badge,.bmt-layer .bmt-ghost.bmt-ghost{font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono","Liberation Mono",monospace!important;
+ letter-spacing:.01em!important;height:18px;min-height:0;min-width:30px;padding:0 5px;margin:0;text-transform:none}
+button.bmt-fab.bmt-fab{font:600 13px/1 "IBM Plex Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important;min-height:0;height:44px}
+.bmt-panel .bmt-x,.bmt-panel .bmt-off,.bmt-panel .bmt-tg,.bmt-panel .bmt-list button,.bmt-panel .bmt-search{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important}
 @media (prefers-reduced-motion:reduce){.bmt-badge{transition:none}.bmt-badge:hover,.bmt-badge:focus-visible{transform:none}.bmt-box.is-flash{animation:none}}
 @media (forced-colors:active){.bmt-badge,.bmt-ghost,.bmt-fab{forced-color-adjust:none;background:Canvas;color:CanvasText;border:2px solid Highlight}}
 @media print{.bmt-layer,.bmt-fab,.bmt-panel,.bmt-toast{display:none!important}}
 `;
+
+/**
+ * gate TA-06: الاستثناءات الموثقة نفسها التي يطبقها الزحف واختبار التغطية — عنصر يغطيه رمز وحدته لا يُرسم أحمر:
+ * حقل أو خيار داخل وحدة حقل مرمّزة (أو بتسمية مرمّزة)، و<summary> لـ<details> مرمّز، وعنوان نافذة أو حالة فارغة أو حقل مرمّز.
+ */
+const UNIT_NOT = 'section,form,main,header,nav,table,ul,ol,.card,.page,[role=dialog]';
+function covered(n) {
+  if (n.closest('[aria-hidden="true"],[inert]')) return true;
+  if (n.matches('input,select,textarea,button.chip-toggle,[role=radio],[role=checkbox],[role=option]')) {
+    const t = n.parentElement && n.parentElement.closest('[data-tag]');
+    if (t && !t.matches(UNIT_NOT)) return true;
+    if (n.id && document.querySelector(`label[for="${CSS.escape(n.id)}"][data-tag]`)) return true;
+  }
+  if (n.tagName === 'SUMMARY' && n.parentElement && n.parentElement.hasAttribute('data-tag')) return true;
+  return /^H[1-3]$/.test(n.tagName) && Boolean(n.closest('[role=dialog][data-tag] :is(.modal-header,.sheet-header,.p-sheet__head,.bp-sheet-head,.modal-title,.sheet-title),.empty-state[data-tag],.error-state[data-tag],.field[data-tag]'));
+}
 
 // العناصر «الأساسية» التي يجب أن تحمل رمزًا (لوضع «غير المرمَّز» فقط، T12-44). الروابط داخل فقرات النص مستثناة.
 const KEY_SEL = 'main section, header, footer, nav, h1, h2, h3, button, a[href], [role=button], [role=tab], summary, input:not([type=hidden]), select, textarea, [role=dialog]';
@@ -380,6 +401,49 @@ function build() {
     for (const b of list) if (!b._w) b._w = b.offsetWidth || 8 + b.dataset.code.length * 7;
   };
 
+  // gate K-S8: لسان «الرموز» في الركن الأسفل الأيسر (فوق حافة الشاشة الآمنة)، ويصعد على الحافة نفسها حتى أول موضع لا
+  // يغطي زرًا أو رابطًا أو حقلًا (شريط المحامي السفلي، أزرار الأوراق، «مراجعة العرض» في بوابة الشركات). يُحسب في التمريرة
+  // الكاملة فقط واللسان مخفي (visibility) فلا يعترض اختبار الموضع.
+  const CONTROL = 'a[href],button,input,select,textarea,summary,label,[role=button],[role=tab],[role=link],[role=menuitem]';
+  function placeFab() {
+    fab.style.top = '';
+    const r0 = fab.getBoundingClientRect();
+    const w = r0.width || 80;
+    const ht = r0.height || 44;
+    // 0 = لا يغطي شيئًا · 1 = يغطي عنصرًا يمر مع التمرير · 2 = يغطي عنصرًا ثابتًا (fixed/sticky: شريط التبويبات السفلي، الرأس)
+    const pinned = (e) => {
+      for (let x = e; x && x.nodeType === 1; x = x.parentElement) {
+        const p = getComputedStyle(x).position;
+        if (p === 'fixed' || p === 'sticky') return true;
+      }
+      return false;
+    };
+    const covers = (y) => {
+      let worst = 0;
+      for (const x of [3, w / 2, w - 3]) {
+        for (const yy of [y + 3, y + ht / 2, y + ht - 3]) {
+          const n = document.elementsFromPoint(x, yy).find((e) => !ours(e));
+          const c = n && n.closest && n.closest(CONTROL);
+          if (c) worst = Math.max(worst, pinned(c) ? 2 : 1);
+          if (worst === 2) return 2;
+        }
+      }
+      return worst;
+    };
+    // gate TA-07: لا موضع حرًّا (صفحة «المتابعة» في بوابة الشركات: كل 52 px صف رابط بعرض الشاشة) ← أول موضع يغطي
+    // محتوى يمر مع التمرير فقط، فلا يبقى اللسان فوق «المزيد» (CC-20) في شريط التبويبات الثابت
+    let fallback = null;
+    for (let y = r0.top; y > 72; y -= 52) {
+      const c = covers(y);
+      if (c === 0) {
+        if (y !== r0.top) fab.style.top = `${Math.round(y)}px`;
+        return;
+      }
+      if (c === 1 && fallback === null) fallback = y;
+    }
+    if (fallback !== null && fallback !== r0.top) fab.style.top = `${Math.round(fallback)}px`;
+  }
+
   function frame() {
     s.raf = 0;
     const full = s.dirty || !s.scrolling;
@@ -417,6 +481,7 @@ function build() {
         for (const n of document.querySelectorAll(KEY_SEL)) {
           if (n.hasAttribute('data-tag') || n.closest('[data-notag]') || ours(n)) continue;
           if (n.tagName === 'A' && n.closest('p')) continue; // رابط داخل فقرة نص: ليس عنصرًا أساسيًا (T12-09)
+          if (covered(n)) continue; // gate TA-06: مغطّى برمز وحدته (الحقل، <details>، عنوان النافذة/الحالة الفارغة)
           if (scope && !scope.contains(n)) continue;
           const r = n.getBoundingClientRect();
           if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
@@ -424,6 +489,7 @@ function build() {
           misses.push(n);
         }
       }
+      placeFab();
       // لسان «الرموز» عند الحافة: لا توضع شارة تحته (review: كان يخفي INB-01 على /app#/inbox بعرض 1366)
       const fr = fab.getBoundingClientRect();
       s.fabRect = fr.width ? { x: fr.left - 2, y: fr.top - 2, w: fr.width + 4, h: fr.height + 4 } : null;

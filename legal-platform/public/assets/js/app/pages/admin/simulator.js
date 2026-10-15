@@ -467,7 +467,8 @@ export default async function render(ctx) {
     icon: 'info',
     body: h(
       'ol.pa-steps',
-      pipeline.map(([t, x], i) => h('li', h('span.pa-step-n', String(i + 1)), h('span.pa-step-text', h('strong', t), h('span', x)))),
+      // v12 gate (V-25): قائمة مرقّمة عادية — الرقم كلمة بلون الحبر الخافت، لا دائرة «1-2-3»
+      pipeline.map(([t, x], i) => h('li', h('span.pa-step-n', `${i + 1}.`), h('span.pa-step-text', h('strong', t), h('span', x)))),
     ),
     titleTag: 'SIM-24',
     tag: 'SIM-25',

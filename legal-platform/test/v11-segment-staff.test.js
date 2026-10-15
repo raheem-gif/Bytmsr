@@ -797,7 +797,7 @@ describe('v11 segment-staff — ST-6 settings, integrations, audit', () => {
     assert.equal(card.id, 'first-page');
     assert.ok(!text(card).includes('شاشة الاختيار'));
     assert.ok(text(card).includes('هاتف خدمات الأفراد والشركات (اختياري)'));
-    assert.ok(text(card).includes('فارغ = نفس هاتف المؤسسة'));
+    assert.ok(text(card).includes('فارغ = نفس الهاتف الأساسي')); // v12 gate (V-08, intended): بلا «المؤسسة»
     card.querySelector('form').dispatch('submit');
     await settle();
     const patch = calls.find((c) => c.method === 'PATCH');

@@ -1,18 +1,4 @@
-// v12 media (MD-2) — ماسح المستندات في المتصفح (الواجهة البرمجية). يُحمَّل عند أول صورة مختارة فقط، ولا يدخل ذاكرة
-// /app المسبقة (L12-89). المحرك في scan-worker.js داخل عامل وحدة، وفي الخيط الرئيسي إن تعذر العامل.
-//
-//   supportsScanner() → boolean
-//   networkProfile() → { slow, origMax, origQuality }      Save-Data أو 2g/3g ← الأصل 1200 px بجودة 0.7 (L12-58)
-//   openScan(file, { sourceMax = 2400, origMax, origQuality }) → Scan
-//     Scan: { width, height, photoW, photoH, original (Blob), detect(), render({ quad, mode, turns, maxSide, quality }),
-//             preview({ maxSide }), close() }
-//   scanPage(file, { sourceMax, maxSide, quality, mode }) → page   (فتح ← اكتشاف ← تنظيف ← إغلاق) أو يرفض بـ err.code
-//     page: { raw, original, quad, detected, score, partial, method, adjusted, mode, outMode, turns, clean, bits, width,
-//             height, state: 'ok'|'partial'|'notfound'|'asis' }
-//   rerender(page, { quad, mode, turns, maxSide, quality, sourceMax }) → page (تعديل الأركان أو الوضع أو الدوران)
-//   docFile(pages, { name, title }) → { file (File), scan (كتلة §5.4 بلا base64، الأصول Blobs) | null }
-//   makePdf(pages, { title }) → Blob
-// كل فشل (فك، عامل، مهلة 12 ثانية، ذاكرة، صفحة فارغة) يرفض الوعد، والمنتقي يرجع بصمت إلى التصغير العادي (compressToBlob).
+// v12 media (MD-2): browser scanner API (lazy, never precached, L12-89); engine in scan-worker.js; failures reject with err.code.
 const TIMEOUT_MS = 12_000;
 export const SCAN_ALGO = 'scan-core@1';
 
@@ -78,7 +64,7 @@ function getWorker() {
       p.reject(fail(code || 'error'));
     }
   };
-  // متصفح بلا عامل وحدة (module worker) أو خطأ تحميل: نكمل في الخيط الرئيسي
+  // no module worker / load error → main thread
   worker.onerror = (e) => {
     e?.preventDefault?.();
     workerBroken = true;
@@ -92,7 +78,24 @@ async function engine() {
   return mainEngine;
 }
 
-/** عملية واحدة على المحرك: في العامل بمهلة 12 ثانية (تنهي العامل عند تجاوزها)، أو في الخيط الرئيسي */
+/** K-M3: load + warm the engine on the camera/gallery press */
+let warmed = false;
+export function warm() {
+  try {
+    if (!supportsScanner()) return false;
+    if (warmed) return true;
+    warmed = true;
+    // serial with the photos; on the main thread after the camera/gallery has opened
+    const run = () => serial(() => call('warmup')).catch(() => {});
+    if (getWorker()) run();
+    else setTimeout(run, 600);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** one engine op: worker with a 12 s timeout, or main thread */
 async function call(op, ...args) {
   const w = getWorker();
   if (!w) return (await engine())[op](...args);
@@ -114,7 +117,7 @@ async function call(op, ...args) {
   });
 }
 
-/** صورة واحدة في المرة: كل جلسة تنتظر انتهاء السابقة */
+/** one image at a time */
 function serial(fn) {
   const run = chain.then(fn, fn);
   chain = run.catch(() => {});
@@ -129,7 +132,7 @@ export async function openScan(file, { sourceMax = 2400, origMax, origQuality } 
   try {
     info = await call('open', file, opts);
   } catch (e) {
-    // العامل لم يعمل (لا وحدات في العامل، لا OffscreenCanvas): مرة واحدة في الخيط الرئيسي
+    // worker unusable → once on the main thread
     if (!['worker_error', 'no_offscreen'].includes(e.code)) throw e;
     workerBroken = true;
     info = await call('open', file, opts);
@@ -146,7 +149,7 @@ export async function openScan(file, { sourceMax = 2400, origMax, origQuality } 
 const roundQuad = (q) => q && q.map(([x, y]) => [Math.round(x * 10000) / 10000, Math.round(y * 10000) / 10000]);
 const sameQuad = (a, b) => !!a && !!b && a.every((p, i) => Math.abs(p[0] - b[i][0]) < 0.002 && Math.abs(p[1] - b[i][1]) < 0.002);
 
-/** صورة من الكاميرا أو المعرض ← صفحة (نظيفة إن وُجدت حدود الورقة) */
+/** photo → page (clean when the paper is found) */
 export function scanPage(file, { sourceMax = 2400, maxSide = 1754, quality = 0.7, mode = 'auto' } = {}) {
   return serial(async () => {
     const s = await openScan(file, { sourceMax });
@@ -155,10 +158,12 @@ export function scanPage(file, { sourceMax = 2400, maxSide = 1754, quality = 0.7
       const page = {
         raw: file,
         original: s.original,
+        reencoded: !!s.reencoded,
         quad: roundQuad(d.quad),
         detected: roundQuad(d.quad),
         score: Number.isFinite(d.score) ? d.score : null,
         partial: !!d.partial,
+        nested: !!d.nested,
         method: d.method || null,
         adjusted: false,
         mode,
@@ -181,7 +186,7 @@ export function scanPage(file, { sourceMax = 2400, maxSide = 1754, quality = 0.7
   });
 }
 
-/** جلسة مفتوحة على صورة الصفحة الخام طوال fn (ورقة تعديل الأركان)، ثم تُغلق */
+/** session on the raw page for fn (corner sheet) */
 export function session(file, fn, { sourceMax = 2400 } = {}) {
   return serial(async () => {
     const s = await openScan(file, { sourceMax });
@@ -193,7 +198,7 @@ export function session(file, fn, { sourceMax = 2400 } = {}) {
   });
 }
 
-/** نتيجة تنظيف جديدة على الصفحة (أركان أو وضع أو دوران من ورقة التعديل) */
+/** new render result on a page (sheet edits) */
 export function applyRender(page, q, mode, r) {
   const quad = roundQuad(q);
   const adjusted = page.adjusted || !sameQuad(quad, page.detected);
@@ -202,8 +207,9 @@ export function applyRender(page, q, mode, r) {
     quad,
     mode,
     adjusted,
-    // أركان حددها الشخص بنفسه تُعامل كواثقة (L12-59)
+    // corners set by the person count as confident (L12-59)
     partial: adjusted ? false : page.partial,
+    nested: adjusted ? false : !!page.nested,
     clean: r.blob,
     bits: r.bits || null,
     width: r.width,
@@ -214,7 +220,7 @@ export function applyRender(page, q, mode, r) {
   };
 }
 
-/** إعادة التنظيف دون واجهة */
+/** re-render without UI */
 export function rerender(page, { quad, mode = page.mode, turns = page.turns, maxSide = 1754, quality = 0.7, sourceMax = 2400 } = {}) {
   return session(page.raw, async (s) => applyRender(page, quad || page.quad, mode, await s.render({ quad: roundQuad(quad || page.quad), mode, turns, maxSide, quality })), { sourceMax });
 }
@@ -234,10 +240,7 @@ function asFile(blob, name, type) {
 }
 const extOf = (type) => (type === 'image/png' ? '.png' : type === 'application/pdf' ? '.pdf' : type === 'image/webp' ? '.webp' : '.jpg');
 
-/**
- * صفحات مستند واحد ← الملف المرفوع وكتلة scan (§5.4). صفحة واحدة بلا نسخة نظيفة ← الأصل وحده بلا scan.
- * أكثر من صفحة ← PDF واحد (الصفحة بلا نسخة نظيفة تدخل بصورتها الأصلية).
- */
+/** pages → file + scan block (§5.4); several pages = one PDF */
 export async function docFile(pages, { name = 'مستند', title } = {}) {
   const base = String(name || 'مستند').replace(/\.[A-Za-z0-9]{1,5}$/, '');
   if (pages.length === 1 && !pages[0].clean) {
@@ -261,7 +264,10 @@ export async function docFile(pages, { name = 'مستند', title } = {}) {
     quad: multi ? pages.map((p) => (p.clean && p.quad) || [[0, 0], [1, 0], [1, 1], [0, 1]]) : pages[0].quad || [[0, 0], [1, 0], [1, 1], [0, 1]],
     score: scores.length ? Math.round(Math.min(...scores) * 1000) / 1000 : null,
     partial: pages.some((p) => p.clean && p.partial),
+    // K-M1: printed frame won → original first (L12-59)
+    nested: pages.some((p) => p.clean && p.nested && !p.adjusted),
     adjusted: pages.some((p) => p.adjusted),
+    reencoded: pages.some((p) => p.reencoded),
     originals: pages.map((p, i) => ({ filename: `${base}-الأصل${multi ? `-${i + 1}` : ''}${extOf(p.original.type)}`, mime: p.original.type || 'image/jpeg', blob: p.original })),
   };
   return { file, scan };

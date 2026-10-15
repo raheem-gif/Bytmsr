@@ -154,7 +154,7 @@ export default async function memoryItem(ctx) {
   );
   return h(
     'div.co-page.co-mem-item',
-    pageHead(h('span', { dir: 'auto' }, item.title), null, { actions: actions.length ? h('div.co-row-actions', actions) : null }),
+    pageHead(h('span', { dir: 'auto' }, item.title), null, { record: true, actions: actions.length ? h('div.co-row-actions', actions) : null }),
     h('div.co-mem-head', h('span.co-mem-kind-icon', { 'aria-hidden': 'true' }, kindIcon(item.kind)), badges),
     h('p.co-muted.co-mem-prov', prov, source),
     h('div.co-columns', main, aside),

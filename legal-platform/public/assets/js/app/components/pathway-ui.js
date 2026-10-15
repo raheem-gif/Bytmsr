@@ -45,13 +45,15 @@ export function linePath(row) {
 }
 
 /**
- * طلب بلا مسار له مجال قانوني: «مقترح: {النوع}» رمادي + «تأكيد» بضغطة واحدة (PUT …/pathway { path: <line>, reason: 'suggested' }).
- * row.suggested_line + row.suggested_line_label من الخادم. onConfirm(result) بعد الحفظ. withButton=false: النص وحده
- * (داخل رابط صف القائمة لا يوضع زر).
+ * طلب بلا مسار له مجال قانوني: «نوع الطلب: {النوع}؟» رمادي + «تأكيد النوع» بضغطة واحدة (PUT …/pathway { path: <line>,
+ * reason: 'suggested' }). row.suggested_line + row.suggested_line_label من الخادم. onConfirm(result) بعد الحفظ.
+ * withButton=false: النص وحده (داخل رابط صف القائمة لا يوضع زر).
+ * v12 gate (K-S5): كان «مقترح: استشارة» + «تأكيد» بجوار حبة الذكاء الاصطناعي «المقترح: استشارة» (مسار القصة) وزر «اعمله
+ * استشارة»؛ الآن الكلمات تقول إنه نوع الطلب لا المسار الذي يقترحه التحليل.
  */
 export function suggestRow(row, { onConfirm, withButton = true } = {}) {
   if (!row || row.pathway || !row.suggested_line) return null;
-  const text = h('span.line-path.line-path--suggest', { tag: 'PTH-05' }, `مقترح: ${row.suggested_line_label || row.suggested_line}`);
+  const text = h('span.line-path.line-path--suggest', { tag: 'PTH-05' }, `نوع الطلب: ${row.suggested_line_label || row.suggested_line}؟`);
   if (!withButton) return text;
   const btn = h(
     'button.btn-link',
@@ -77,7 +79,7 @@ export function suggestRow(row, { onConfirm, withButton = true } = {}) {
         }
       },
     },
-    'تأكيد',
+    'تأكيد النوع',
   );
   return h('span.line-suggest', text, ' ', btn);
 }

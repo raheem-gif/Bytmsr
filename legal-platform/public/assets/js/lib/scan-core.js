@@ -1,24 +1,6 @@
-// v12 media (MD-1) — نواة ماسح المستندات: JS خالص بلا DOM ولا مكتبات. تعمل في المتصفح (العامل أو الخيط الرئيسي) وفي
-// Node (تنظيف الصور على الخادم داخل عملية فرعية، L12-66). الواجهة مجمّدة (M §5.1)؛ الإضافات بعدها لا تغيّر ما قبلها.
-//
-// الصور كائنات { width, height, data: Uint8ClampedArray|Uint8Array RGBA } (ImageData يصلح)، والقنوات الرمادية Float32Array.
-//
-// API
-//   detectQuad(work, { refine }) → { quad:[TL,TR,BR,BL] (work px), score, support, method:'lines'|'segment', refined, bow,
-//        partial, candidates, lines } | { quad:null, score } | null
-//        work: RGBA ≈ 480 px؛ refine (اختياري): { gray, width, height } ≈ 1200 px بنفس الإطار
-//   pageSize(quad, srcW, srcH, { maxSide = 2000, snap = true }) → { w, h, aspect, a4, method:'zhang'|'sides' }
-//   warp(src, quad /* src px */, outW, outH) → RGBA
-//   enhance(img, 'auto'|'color'|'gray'|'bw') → RGBA + .mode
-//   autoMode(img) → 'color'|'gray' · uprightTurns(img) → 0|1|3 · rotate(img, quarterTurns) → RGBA
-//   jpegInfo(bytes) → { width, height, components, orientation } | null · packBits1(img, { png }) → Uint8Array
-//   buildPdf([{ kind:'jpeg', bytes, width, height, components } | { kind:'flate1', bytes, width, height }], { title, producer })
-//        → Uint8Array
-//   homography(src4, dst4) → number[9] · orderQuad(pts) → [TL,TR,BR,BL]
-//   إضافات MD-1: imageDims(bytes) (الأبعاد من الترويسة فقط) · buildPng1(zlibBytes, width, height) → PNG رمادي 1-bit · crc32(bytes) · lumaStd(img) (صفحة فارغة < 2،
-//   L12-72) · quadFraction(quad, w, h) (مساحة الصفحة من الصورة، L12-59)
+// v12 media (MD-1): scan-core — pure JS document scanner (browser worker/main thread and Node, L12-66); frozen API (M §5.1).
 
-// ───────────────────────── small image helpers ─────────────────────────
+// ── image helpers
 
 export function grayOf(img) {
   const { width: w, height: h, data: d } = img;
@@ -37,27 +19,35 @@ function chromaOf(img) {
   return c;
 }
 
-/** separable box blur, radius r, in place-safe (returns new array) */
-function boxBlur(src, w, h, r) {
+/** box blur radius r; K-M3: vertical pass row-major */
+function boxBlur(src, w, h, r, tmp = new Float32Array(w * h), out = new Float32Array(w * h)) {
   if (r < 1) return src.slice();
-  const tmp = new Float32Array(w * h);
-  const out = new Float32Array(w * h);
   const norm = 1 / (2 * r + 1);
+  const last = w - 1;
   for (let y = 0; y < h; y++) {
     const row = y * w;
     let acc = 0;
-    for (let k = -r; k <= r; k++) acc += src[row + Math.min(w - 1, Math.max(0, k))];
+    for (let k = -r; k <= r; k++) acc += src[row + (k < 0 ? 0 : k > last ? last : k)];
     for (let x = 0; x < w; x++) {
       tmp[row + x] = acc * norm;
-      acc += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)];
+      const a = x + r + 1;
+      const s = x - r;
+      acc += src[row + (a < last ? a : last)] - src[row + (s > 0 ? s : 0)];
     }
   }
-  for (let x = 0; x < w; x++) {
-    let acc = 0;
-    for (let k = -r; k <= r; k++) acc += tmp[Math.min(h - 1, Math.max(0, k)) * w + x];
-    for (let y = 0; y < h; y++) {
-      out[y * w + x] = acc * norm;
-      acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
+  const col = new Float64Array(w);
+  for (let k = -r; k <= r; k++) {
+    const rr = (k < 0 ? 0 : k > h - 1 ? h - 1 : k) * w;
+    for (let x = 0; x < w; x++) col[x] += tmp[rr + x];
+  }
+  for (let y = 0; y < h; y++) {
+    const ro = y * w;
+    const ra = (y + r + 1 < h - 1 ? y + r + 1 : h - 1) * w;
+    const rs = (y - r > 0 ? y - r : 0) * w;
+    for (let x = 0; x < w; x++) {
+      const acc = col[x];
+      out[ro + x] = acc * norm;
+      col[x] = acc + (tmp[ra + x] - tmp[rs + x]);
     }
   }
   return out;
@@ -66,7 +56,38 @@ function boxBlur(src, w, h, r) {
 /** ≈ gaussian: three box passes */
 function gaussBlur(src, w, h, sigma) {
   const r = Math.max(1, Math.round(Math.sqrt((12 * sigma * sigma) / 3 + 1) / 2));
-  return boxBlur(boxBlur(boxBlur(src, w, h, r), w, h, r), w, h, r);
+  const n = w * h;
+  const tmp = new Float32Array(n), a = new Float32Array(n), b = new Float32Array(n);
+  return boxBlur(boxBlur(boxBlur(src, w, h, r, tmp, a), w, h, r, tmp, b), w, h, r, tmp, a);
+}
+
+/** K-M3: sobel() computed only where refineQuad reads it */
+function lazySobel(g, w, h) {
+  const n = w * h;
+  const gx = new Float32Array(n), gy = new Float32Array(n), mag = new Float32Array(n), done = new Uint8Array(n);
+  const at = (i) => {
+    if (done[i]) return;
+    done[i] = 1;
+    const x = i % w, y = (i - x) / w;
+    if (x < 1 || y < 1 || x > w - 2 || y > h - 2) return;
+    const a = g[i - w - 1], b = g[i - w], c = g[i - w + 1], d = g[i - 1], f = g[i + 1], p = g[i + w - 1], q = g[i + w], r = g[i + w + 1];
+    const sx = c + 2 * f + r - (a + 2 * d + p);
+    const sy = p + 2 * q + r - (a + 2 * b + c);
+    gx[i] = sx;
+    gy[i] = sy;
+    mag[i] = Math.sqrt(sx * sx + sy * sy);
+  };
+  const magAt = (x, y) => {
+    if (x < 0 || y < 0 || x > w - 1 || y > h - 1) return NaN;
+    const x0 = Math.min(w - 2, Math.floor(x)), y0 = Math.min(h - 2, Math.floor(y));
+    const i = y0 * w + x0;
+    at(i);
+    at(i + 1);
+    at(i + w);
+    at(i + w + 1);
+    return sample(mag, w, h, x, y);
+  };
+  return { gx, gy, mag, at, magAt };
 }
 
 function sobel(g, w, h) {
@@ -87,12 +108,41 @@ function sobel(g, w, h) {
   return { gx, gy, mag };
 }
 
+/** k-th smallest value in place (quickselect) */
+function kth(a, k) {
+  let lo = 0;
+  let hi = a.length - 1;
+  for (let guard = 0; hi > lo; guard++) {
+    if (guard > 64) {
+      a.subarray(lo, hi + 1).sort();
+      return a[k];
+    }
+    const x = a[lo], y = a[(lo + hi) >> 1], z = a[hi];
+    const pivot = x < y ? (y < z ? y : x < z ? z : x) : x < z ? x : y < z ? z : y;
+    let i = lo, j = hi;
+    while (i <= j) {
+      while (a[i] < pivot) i++;
+      while (a[j] > pivot) j--;
+      if (i <= j) {
+        const t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+        i++;
+        j--;
+      }
+    }
+    if (k <= j) hi = j;
+    else if (k >= i) lo = i;
+    else return a[k];
+  }
+  return a[k];
+}
+
 function percentile(arr, p, step = 1) {
   const n = Math.floor(arr.length / step);
   const s = new Float32Array(n);
   for (let i = 0; i < n; i++) s[i] = arr[i * step];
-  s.sort();
-  return s[Math.min(n - 1, Math.max(0, Math.floor(p * (n - 1))))];
+  return kth(s, Math.min(n - 1, Math.max(0, Math.floor(p * (n - 1)))));
 }
 
 function sample(a, w, h, x, y) {
@@ -129,14 +179,14 @@ function otsu(values, step = 1) {
   return thr;
 }
 
-// ───────────────────────── geometry ─────────────────────────
+// ── geometry
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 export function orderQuad(pts) {
   const cx = pts.reduce((s, p) => s + p.x, 0) / 4, cy = pts.reduce((s, p) => s + p.y, 0) / 4;
   const sorted = pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
-  // clockwise on screen (y down): start at the point with the smallest x+y
+  // clockwise from the smallest x+y
   let k = 0;
   for (let i = 1; i < 4; i++) if (sorted[i].x + sorted[i].y < sorted[k].x + sorted[k].y) k = i;
   return [0, 1, 2, 3].map((i) => sorted[(k + i) % 4]);
@@ -198,7 +248,7 @@ function convexHull(points) {
   return lower.concat(upper);
 }
 
-/** largest-area quadrilateral with vertices on a convex polygon (polygon simplified to ≤ 28 vertices first) */
+/** largest quad on a convex polygon (≤ 28 vertices) */
 function maxAreaQuad(hull) {
   let poly = hull;
   if (poly.length > 28) {
@@ -247,12 +297,9 @@ export function homography(src, dst) {
   return [...A.map((row, i) => row[8] / row[i]), 1];
 }
 
-// ───────────────────────── detection ─────────────────────────
+// ── detection
 
-/**
- * Scores a quad by: edge support along each side (strong gradient perpendicular to the side), paper-vs-table contrast
- * across the side, and size. Sides lying on the image border count as half-supported (page runs off the frame).
- */
+/** edge support + contrast + size; frame sides half */
 function scoreQuad(q, F) {
   const { w, h, mag, gx, gy, L, magHi } = F;
   if (!isConvex(q)) return null;
@@ -270,7 +317,7 @@ function scoreQuad(q, F) {
   const thr = magHi * 0.22;
   const sides = [];
   const onFrame = [];
-  // paperness: sample a 9×9 grid inside the quad (bilinear in quad coordinates)
+  // paperness: 9×9 grid inside the quad
   const chromaIn = [];
   for (let gy = 1; gy <= 9; gy++)
     for (let gx = 1; gx <= 9; gx++) {
@@ -356,7 +403,7 @@ function houghLines(F, maxLines = 22) {
       }
     }
   }
-  // peaks with non-maximum suppression (θ ±4, ρ ±6), wrap-aware duplicate removal afterwards
+  // peaks: NMS θ ±4, ρ ±6, then wrap-aware duplicates
   const peaks = [];
   let accMax = 0;
   for (let i = 0; i < acc.length; i++) if (acc[i] > accMax) accMax = acc[i];
@@ -432,9 +479,10 @@ function lineQuads(lines, F) {
   return quads;
 }
 
-function segmentQuad(F, img) {
+function segmentQuad(F) {
   const { w, h, L } = F;
-  const C = gaussBlur(chromaOf(img), w, h, 1.5);
+  // = features() C (same radius)
+  const C = F.C;
   const P = new Float32Array(w * h);
   for (let i = 0; i < P.length; i++) P[i] = Math.max(0, Math.min(255, L[i] - 1.5 * C[i]));
   const T = otsu(P, 2);
@@ -509,7 +557,7 @@ function features(work) {
   const g = grayOf(work);
   const L = gaussBlur(g, w, h, 1.6);
   const C = gaussBlur(chromaOf(work), w, h, 1.6);
-  // gradient of luminance + chroma (a white page on a coloured cloth has chroma edges even at equal brightness)
+  // luminance + chroma gradient (white page on coloured cloth)
   const s1 = sobel(L, w, h), s2 = sobel(C, w, h);
   const gx = new Float32Array(w * h), gy = new Float32Array(w * h), mag = new Float32Array(w * h);
   for (let i = 0; i < mag.length; i++) {
@@ -542,20 +590,17 @@ function features(work) {
   return { w, h, L, C, mag, gx, gy, nms, magHi, thrLow: magHi * 0.18 };
 }
 
-/**
- * Refine each side on a higher-resolution gray image: search along the normal for the strongest consistent edge,
- * fit d(t) = c0 + c1·t + c2·t² per side (a bowed page edge is a curve, not a line), then intersect adjacent curves.
- */
+/** refine sides on the fine image (quadratic fit) */
 function refineQuad(quad, scale, R, { searchFrac = 0.014, signed = true, prior = null } = {}) {
   const { width: w, height: h } = R;
   const L = R.blurred || (R.blurred = gaussBlur(R.gray, w, h, 1.2));
-  const S = R.sobel || (R.sobel = sobel(L, w, h));
+  const S = R.sobel || (R.sobel = lazySobel(L, w, h));
   const q = quad.map((p) => ({ x: p.x * scale, y: p.y * scale }));
   const diag = Math.hypot(w, h);
   const searchR = Math.max(6, Math.round(diag * searchFrac));
   const sides = [];
   for (let i = 0; i < 4; i++) {
-    // with a prior pass: same side frame, search centred on the prior curve (a bowed edge leaves the chord)
+    // prior pass: search around the prior curve
     const P = prior && prior[i];
     const a = P ? P.a : q[i], b = q[(i + 1) % 4];
     const len = P ? P.len : dist(a, b);
@@ -572,9 +617,10 @@ function refineQuad(quad, scale, R, { searchFrac = 0.014, signed = true, prior =
         const sx = Math.round(px + side.nx * d), sy = Math.round(py + side.ny * d);
         if (sx < 1 || sy < 1 || sx > w - 2 || sy > h - 2) continue;
         const j = sy * w + sx;
+        S.at(j);
         const m = S.mag[j];
         if (m <= best) continue;
-        // the page is the brighter side: brightness grows inward, so the gradient points against the outward normal
+        // page = brighter side: gradient against the outward normal
         const dot = (S.gx[j] * side.nx + S.gy[j] * side.ny) / (m + 1e-6);
         if (signed ? dot < -0.8 : Math.abs(dot) > 0.8) {
           best = m;
@@ -582,8 +628,8 @@ function refineQuad(quad, scale, R, { searchFrac = 0.014, signed = true, prior =
         }
       }
       if (best > 0) {
-        const m0 = sample(S.mag, w, h, px + side.nx * (bestD - 1), py + side.ny * (bestD - 1));
-        const m2 = sample(S.mag, w, h, px + side.nx * (bestD + 1), py + side.ny * (bestD + 1));
+        const m0 = S.magAt(px + side.nx * (bestD - 1), py + side.ny * (bestD - 1));
+        const m2 = S.magAt(px + side.nx * (bestD + 1), py + side.ny * (bestD + 1));
         let off = 0;
         if (!Number.isNaN(m0) && !Number.isNaN(m2)) {
           const den = m0 - 2 * best + m2;
@@ -626,7 +672,7 @@ function solve3(A, b) {
   return M.map((r, i) => r[3] / r[i]);
 }
 
-/** robust quadratic d(t) with outlier rejection; falls back to a line when the bow is under ~0.75 px */
+/** robust quadratic d(t); a line when the bow < 0.75 px */
 function fitCurve(pts) {
   let use = pts;
   let c = [0, 0, 0];
@@ -649,7 +695,7 @@ function fitCurve(pts) {
     use = next;
   }
   if (Math.abs(c[2]) / 4 < 0.75) {
-    // straight edge: plain least-squares line through the inliers
+    // straight edge: least squares
     let st = 0, sd = 0, stt = 0, std = 0;
     for (const p of use) {
       st += p.t;
@@ -676,7 +722,7 @@ const curveDeriv = (S, t) => {
   return { x: S.dx * S.len + S.nx * dd, y: S.dy * S.len + S.ny * dd };
 };
 
-/** end of side S1 (t≈1) meets start of side S2 (t≈0): Newton on C1(s) − C2(t) = 0 */
+/** S1 end meets S2 start (Newton) */
 function intersectCurves(S1, S2) {
   let s = 1, t = 0;
   for (let it = 0; it < 8; it++) {
@@ -696,11 +742,64 @@ function intersectCurves(S1, S2) {
   return curvePoint(S1, s);
 }
 
+/** K-M1: paper beyond a side at a constant offset (printed frame, n01) */
+function insidePaper(sides, L, w, h) {
+  const diag = Math.hypot(w, h);
+  const D = Math.max(12, Math.round(diag * 0.045));
+  const startMax = Math.max(4, Math.round(diag * 0.012));
+  const prof = new Float32Array(D + 1);
+  const N = 40;
+  for (const S of sides) {
+    let valid = 0;
+    const offs = [];
+    for (let j = 0; j < N; j++) {
+      const t = 0.1 + (0.8 * j) / (N - 1);
+      const p = curvePoint(S, t);
+      const dv = curveDeriv(S, t);
+      const dl = Math.hypot(dv.x, dv.y) || 1;
+      const nx = dv.y / dl, ny = -dv.x / dl; // outward (clockwise order)
+      let pin = 0;
+      for (let d = 3; d <= 10; d++) {
+        const v = sample(L, w, h, p.x - nx * d, p.y - ny * d);
+        if (v > pin) pin = v;
+      }
+      if (!(pin > 50)) continue;
+      let inFrame = true;
+      for (let d = 0; d <= D; d++) {
+        const v = sample(L, w, h, p.x + nx * d, p.y + ny * d);
+        if (Number.isNaN(v)) {
+          inFrame = false;
+          break;
+        }
+        prof[d] = v;
+      }
+      if (!inFrame) continue;
+      valid++;
+      const bright = pin - Math.max(12, 0.07 * pin);
+      let d = 1;
+      while (d <= startMax && prof[d] < bright) d++;
+      if (d > startMax) continue;
+      const start = d;
+      while (d <= D && prof[d] >= bright) d++;
+      if (d - start < 3 || d > D - 5) continue;
+      let m = 0, n = 0;
+      for (let e = d + 2; e <= Math.min(D, d + 7); e++) (m += prof[e]), n++;
+      if (pin - m / n >= Math.max(18, 0.1 * pin)) offs.push(d);
+    }
+    if (valid < 12 || offs.length < 0.7 * valid) continue;
+    offs.sort((x, y) => x - y);
+    const med = offs[offs.length >> 1];
+    const iqr = offs[Math.floor(offs.length * 0.75)] - offs[Math.floor(offs.length * 0.25)];
+    if (iqr <= Math.max(2, 0.15 * med)) return true;
+  }
+  return false;
+}
+
 export function detectQuad(work, { refine = null } = {}) {
   const F = features(work);
   const cands = [];
   const lines = houghLines(F);
-  // the frame itself as optional sides (a page bigger than the photo); a quad may use at most two of them
+  // frame edges as optional sides (≤ 2 per quad)
   const frame = [
     { t: 0, r: 1, frame: true },
     { t: 0, r: F.w - 2, frame: true },
@@ -711,7 +810,7 @@ export function detectQuad(work, { refine = null } = {}) {
     const s = scoreQuad(q, F);
     if (s) cands.push({ quad: q, method: 'lines', ...s });
   }
-  const seg = segmentQuad(F, work);
+  const seg = segmentQuad(F);
   if (seg) {
     const s = scoreQuad(seg, F);
     if (s) cands.push({ quad: seg, method: 'segment', ...s });
@@ -723,7 +822,7 @@ export function detectQuad(work, { refine = null } = {}) {
   let quad = best.quad;
   let refined = false;
   if (refine) {
-    // wide pass (a bowed edge can sit ~3 % away from the coarse line at the corners), then a tight pass
+    // wide pass (bowed edges ~3 % off), then tight
     const k = refine.width / work.width;
     const wide = refineQuad(quad, k, refine, { searchFrac: 0.03 }) || refineQuad(quad, k, refine, { searchFrac: 0.03, signed: false });
     const base = wide || quad;
@@ -738,23 +837,28 @@ export function detectQuad(work, { refine = null } = {}) {
   }
   const W = work.width, H = work.height;
   const tol = 0.01 * Math.max(W, H);
-  // a corner on (or beyond) the frame edge: the page is probably cut — the UI suggests a retake
+  // corner on the frame edge: page probably cut
   const partial = best.frameSides > 0 || quad.some((p) => p.x < tol || p.y < tol || p.x > W - 1 - tol || p.y > H - 1 - tol);
-  return { quad, score: best.score, support: best.support, method: best.method, refined, bow: quad.bow ?? null, partial, candidates: cands.length, lines: lines.length };
+  const nested = refined && quad.sides
+    ? insidePaper(quad.sides, refine.blurred, refine.width, refine.height)
+    : insidePaper(quad.map((a, i) => {
+        const b = quad[(i + 1) % 4];
+        const len = dist(a, b);
+        const dx = (b.x - a.x) / len, dy = (b.y - a.y) / len;
+        return { a, dx, dy, nx: dy, ny: -dx, len, c: [0, 0, 0] };
+      }), F.L, W, H);
+  return { quad, score: best.score, support: best.support, method: best.method, refined, bow: quad.bow ?? null, partial, nested, candidates: cands.length, lines: lines.length };
 }
 
-// ───────────────────────── page size ─────────────────────────
+// ── page size
 
-/**
- * Output size for a quad (src px). Aspect from the Zhang–He rectification (focal length from the quad) when perspective
- * is measurable, else from side lengths; snapped to A4 when within 6 %.
- */
+/** output size (Zhang–He aspect, A4 snap) */
 export function pageSize(quad, srcW, srcH, { maxSide = 2000, snap = true } = {}) {
   const [tl, tr, br, bl] = quad;
   const wSide = Math.max(dist(tl, tr), dist(bl, br));
   const hSide = Math.max(dist(tl, bl), dist(tr, br));
   let aspect = hSide / wSide;
-  // Zhang & He (2007): m1=TL, m2=TR, m3=BL, m4=BR around the principal point
+  // Zhang & He (2007) around the principal point
   const u0 = srcW / 2, v0 = srcH / 2;
   const m = [tl, tr, bl, br].map((p) => [p.x - u0, p.y - v0, 1]);
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -769,7 +873,7 @@ export function pageSize(quad, srcW, srcH, { maxSide = 2000, snap = true } = {})
     const f2 = -(n2[0] * n3[0] + n2[1] * n3[1]) / (n2[2] * n3[2]);
     if (f2 > 0) {
       const f = Math.sqrt(f2);
-      // reject absurd focal lengths (phone cameras: ~0.6–1.6 × image diagonal)
+      // phone focal lengths ~0.6–1.6 × diagonal
       const diag = Math.hypot(srcW, srcH);
       if (f > 0.4 * diag && f < 3 * diag) {
         const wh = Math.sqrt((n2[0] ** 2 + n2[1] ** 2 + f2 * n2[2] ** 2) / (n3[0] ** 2 + n3[1] ** 2 + f2 * n3[2] ** 2));
@@ -790,7 +894,7 @@ export function pageSize(quad, srcW, srcH, { maxSide = 2000, snap = true } = {})
       }
     }
   }
-  // resolution: no upsampling beyond what the photo holds, capped by maxSide
+  // no upsampling, capped by maxSide
   const longPx = Math.max(wSide, hSide);
   const long = Math.min(maxSide, Math.round(longPx));
   const w = aspect >= 1 ? Math.round(long / aspect) : long;
@@ -798,7 +902,7 @@ export function pageSize(quad, srcW, srcH, { maxSide = 2000, snap = true } = {})
   return { w, h, aspect, a4, method };
 }
 
-// ───────────────────────── warp ─────────────────────────
+// ── warp
 
 export function warp(src, quad, outW, outH) {
   const H = homography(
@@ -809,18 +913,27 @@ export function warp(src, quad, outW, outH) {
   const sd = src.data, od = out.data;
   const sw = src.width, sh = src.height;
   const [h0, h1, h2, h3, h4, h5, h6, h7] = H;
+  // K-M3: X/Y products hoisted
+  const hx0 = new Float64Array(outW), hx3 = new Float64Array(outW), hx6 = new Float64Array(outW);
+  for (let x = 0; x < outW; x++) {
+    const X = x + 0.5;
+    hx0[x] = h0 * X;
+    hx3[x] = h3 * X;
+    hx6[x] = h6 * X;
+  }
+  const uMax = sw - 1.001, vMax = sh - 1.001;
   let o = 0;
   for (let y = 0; y < outH; y++) {
     const Y = y + 0.5;
+    const h1Y = h1 * Y, h4Y = h4 * Y, h7Y = h7 * Y;
     for (let x = 0; x < outW; x++) {
-      const X = x + 0.5;
-      const den = h6 * X + h7 * Y + 1;
-      let u = (h0 * X + h1 * Y + h2) / den - 0.5;
-      let v = (h3 * X + h4 * Y + h5) / den - 0.5;
+      const inv = 1 / (hx6[x] + h7Y + 1);
+      let u = (hx0[x] + h1Y + h2) * inv - 0.5;
+      let v = (hx3[x] + h4Y + h5) * inv - 0.5;
       if (u < 0) u = 0;
-      else if (u > sw - 1.001) u = sw - 1.001;
+      else if (u > uMax) u = uMax;
       if (v < 0) v = 0;
-      else if (v > sh - 1.001) v = sh - 1.001;
+      else if (v > vMax) v = vMax;
       const u0 = u | 0, v0 = v | 0;
       const fu = u - u0, fv = v - v0;
       const i00 = (v0 * sw + u0) << 2, i01 = i00 + (sw << 2);
@@ -835,27 +948,38 @@ export function warp(src, quad, outW, outH) {
   return out;
 }
 
-// ───────────────────────── enhancement ─────────────────────────
+// ── enhancement
 
-/** paper background per channel: block mean → max filter (removes text) → blur → bilinear upsample */
+/** paper background per channel: block mean → max filter → blur */
 function backgroundPlanes(img) {
   const { width: w, height: h, data: d } = img;
   const B = Math.max(4, Math.round(Math.max(w, h) / 160)); // block ≈ 1/160 of the page
   const bw = Math.ceil(w / B), bh = Math.ceil(h / B);
   const planes = [new Float32Array(bw * bh), new Float32Array(bw * bh), new Float32Array(bw * bh)];
   const counts = new Float32Array(bw * bh);
+  // K-M3: run sums per block (exact integers)
+  const S0 = planes[0], S1 = planes[1], S2 = planes[2];
   for (let y = 0; y < h; y++) {
-    const by = (y / B) | 0;
-    for (let x = 0; x < w; x++) {
-      const k = by * bw + ((x / B) | 0);
-      const i = (y * w + x) << 2;
-      planes[0][k] += d[i];
-      planes[1][k] += d[i + 1];
-      planes[2][k] += d[i + 2];
-      counts[k]++;
+    const base = ((y / B) | 0) * bw;
+    let i = y * w * 4;
+    for (let bx = 0; bx < bw; bx++) {
+      const x1 = Math.min(w, (bx + 1) * B);
+      let s0 = 0, s1 = 0, s2 = 0;
+      for (let x = bx * B; x < x1; x++, i += 4) {
+        s0 += d[i];
+        s1 += d[i + 1];
+        s2 += d[i + 2];
+      }
+      S0[base + bx] += s0;
+      S1[base + bx] += s1;
+      S2[base + bx] += s2;
     }
   }
-  const R = 4; // max filter radius in blocks (≈ 2.5 % of the page: wider than a text line)
+  for (let by = 0; by < bh; by++) {
+    const rows = Math.min(h, (by + 1) * B) - by * B;
+    for (let bx = 0; bx < bw; bx++) counts[by * bw + bx] = rows * (Math.min(w, (bx + 1) * B) - bx * B);
+  }
+  const R = 4; // max filter radius (blocks)
   return planes.map((p) => {
     for (let k = 0; k < p.length; k++) p[k] /= counts[k];
     // separable max filter
@@ -883,7 +1007,7 @@ function upsampleAt(bg, x, y) {
   return sample(bg.plane, bg.bw, bg.bh, fx, fy);
 }
 
-/** colourfulness after cleaning: share of clearly coloured pixels (stamps, signatures in blue ink, coloured forms) */
+/** share of clearly coloured pixels (stamps, blue ink) */
 export function autoMode(img) {
   const d = img.data;
   let coloured = 0, n = 0;
@@ -901,8 +1025,7 @@ export function enhance(img, mode = 'auto') {
   const bgs = backgroundPlanes(img);
   const out = { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) };
   const od = out.data;
-  // 1) shading correction per channel (white paper becomes white, shadows and colour cast disappear).
-  //    Bilinear upsampling of the block maps with per-column weights computed once (no per-pixel function calls).
+  // 1) shading correction per channel
   const { bw, bh, B } = bgs[0];
   const P0 = bgs[0].plane, P1 = bgs[1].plane, P2 = bgs[2].plane;
   const xi = new Int32Array(w), xf = new Float32Array(w);
@@ -911,24 +1034,30 @@ export function enhance(img, mode = 'auto') {
     xi[x] = f | 0;
     xf[x] = f - (f | 0);
   }
+  // K-M3: separable bilinear
+  const V0 = new Float64Array(bw), V1 = new Float64Array(bw), V2 = new Float64Array(bw);
   for (let y = 0; y < h; y++) {
     const fy = Math.min(bh - 1.001, Math.max(0, (y + 0.5) / B - 0.5));
-    const y0 = fy | 0, wy = fy - y0;
+    const y0 = fy | 0, wy = fy - y0, vy = 1 - wy;
     const r0 = y0 * bw, r1 = r0 + bw;
+    for (let k = 0; k < bw; k++) {
+      V0[k] = P0[r0 + k] * vy + P0[r1 + k] * wy;
+      V1[k] = P1[r0 + k] * vy + P1[r1 + k] * wy;
+      V2[k] = P2[r0 + k] * vy + P2[r1 + k] * wy;
+    }
     let i = y * w * 4;
     for (let x = 0; x < w; x++, i += 4) {
-      const k0 = r0 + xi[x], k1 = r1 + xi[x], wx = xf[x];
-      const a = (1 - wx) * (1 - wy), b = wx * (1 - wy), c = (1 - wx) * wy, e = wx * wy;
-      const g0 = P0[k0] * a + P0[k0 + 1] * b + P0[k1] * c + P0[k1 + 1] * e;
-      const g1 = P1[k0] * a + P1[k0 + 1] * b + P1[k1] * c + P1[k1 + 1] * e;
-      const g2 = P2[k0] * a + P2[k0 + 1] * b + P2[k1] * c + P2[k1 + 1] * e;
+      const k = xi[x], wx = xf[x], vx = 1 - wx;
+      const g0 = V0[k] * vx + V0[k + 1] * wx;
+      const g1 = V1[k] * vx + V1[k + 1] * wx;
+      const g2 = V2[k] * vx + V2[k + 1] * wx;
       od[i] = (d[i] * 250) / (g0 > 30 ? g0 : 30);
       od[i + 1] = (d[i + 1] * 250) / (g1 > 30 ? g1 : 30);
       od[i + 2] = (d[i + 2] * 250) / (g2 > 30 ? g2 : 30);
       od[i + 3] = 255;
     }
   }
-  // 2) levels: black point at the 0.5th percentile of luminance (ink), white point 245; gamma 1.25 deepens strokes
+  // 2) levels: black = 0.5th percentile, white 238, gamma 1.25
   const lum = new Float32Array(Math.ceil((w * h) / 7));
   for (let i = 0, j = 0; j < lum.length && i < od.length; i += 28, j++) lum[j] = 0.299 * od[i] + 0.587 * od[i + 1] + 0.114 * od[i + 2];
   const black = Math.min(110, percentile(lum, 0.005));
@@ -941,7 +1070,7 @@ export function enhance(img, mode = 'auto') {
   const m = mode === 'auto' ? autoMode(out) : mode;
   if (m === 'color') {
     for (let i = 0; i < od.length; i += 4) {
-      // stretch luminance through the LUT and keep chroma (stamps stay blue)
+      // luminance through the LUT, chroma kept
       const r = od[i], g = od[i + 1], b = od[i + 2];
       const Y = 0.299 * r + 0.587 * g + 0.114 * b;
       const Y2 = lut[Y | 0];
@@ -961,7 +1090,7 @@ export function enhance(img, mode = 'auto') {
   return out;
 }
 
-/** Sauvola binarisation with integral images (window ≈ 1/40 of the width, k = 0.2) */
+/** Sauvola (integral images, k 0.2) */
 function sauvola(img) {
   const { width: w, height: h, data: d } = img;
   const I = new Float64Array((w + 1) * (h + 1)), I2 = new Float64Array((w + 1) * (h + 1));
@@ -1004,7 +1133,7 @@ function inkMask(img, maxSide = 700) {
   return { m, W, H };
 }
 
-/** coefficient of variation of a profile over its central 80 % (text lines → rows alternate ink / gap) */
+/** CV of a profile over its central 80 % */
 function profileCv(p) {
   const a = Math.floor(p.length * 0.1), b = Math.ceil(p.length * 0.9);
   let s = 0, s2 = 0;
@@ -1016,7 +1145,7 @@ function profileCv(p) {
   return mean ? Math.sqrt(Math.max(0, s2 / n - mean * mean)) / mean : 0;
 }
 
-/** 'h' when text lines run horizontally, 'v' when vertically, null when unclear */
+/** text line direction: 'h' | 'v' | null */
 export function lineDirection(img) {
   const { m, W, H } = inkMask(img);
   const rows = new Float64Array(H), cols = new Float64Array(W);
@@ -1027,7 +1156,7 @@ export function lineDirection(img) {
   return null;
 }
 
-/** Arabic prior: more text lines end flush at the right margin than at the left (positive = upright RTL) */
+/** RTL prior: lines flush right (positive = upright) */
 function rtlScore(img) {
   const { m, W, H } = inkMask(img);
   const lefts = [], rights = [];
@@ -1047,7 +1176,7 @@ function rtlScore(img) {
   return (right - left) / lefts.length;
 }
 
-/** quarter turns that make a cleaned page upright: only a landscape page whose text runs vertically is turned */
+/** quarter turns to upright (landscape pages with vertical lines only) */
 export function uprightTurns(img) {
   if (img.width <= img.height) return 0;
   if (lineDirection(img) !== 'v') return 0;
@@ -1076,9 +1205,9 @@ export function rotate(img, quarterTurns) {
   return out;
 }
 
-// ───────────────────────── JPEG + PDF ─────────────────────────
+// ── JPEG + PDF
 
-/** SOF dimensions, component count and EXIF orientation from JPEG bytes (reads markers only) */
+/** JPEG SOF size, components, EXIF orientation */
 export function jpegInfo(b) {
   if (!b || b[0] !== 0xff || b[1] !== 0xd8) return null;
   let i = 2, orientation = 1;
@@ -1113,10 +1242,7 @@ export function jpegInfo(b) {
   return null;
 }
 
-/**
- * Image size from the header only, never decoding (L12-67): JPEG SOFn (+ EXIF orientation), PNG IHDR, WebP VP8/VP8L/VP8X.
- * → { format: 'jpeg'|'png'|'webp', width, height, orientation } | null
- */
+/** size from the header only (L12-67) */
 export function imageDims(b) {
   if (!b || b.length < 30) return null;
   if (b[0] === 0xff && b[1] === 0xd8) {
@@ -1137,7 +1263,7 @@ export function imageDims(b) {
   return null;
 }
 
-/** 1-bit rows (MSB first), 1 = white — DeviceGray /BitsPerComponent 1. { png: true } prefixes each row with filter byte 0. */
+/** 1-bit rows, MSB first, 1 = white; { png } adds filter byte 0 */
 export function packBits1(img, { png = false } = {}) {
   const { width: w, height: h, data: d } = img;
   const rowBytes = (w + 7) >> 3;
@@ -1164,7 +1290,7 @@ export function crc32(bytes, crc = 0) {
   return ~c >>> 0;
 }
 
-/** 1-bit grey PNG from zlib-deflated rows (packBits1(img, { png: true }) → deflate) */
+/** 1-bit grey PNG from deflated packBits1 rows */
 export function buildPng1(zlib, width, height) {
   const enc = new TextEncoder();
   const u32 = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
@@ -1187,7 +1313,7 @@ export function buildPng1(zlib, width, height) {
   return out;
 }
 
-/** luminance standard deviation on a sparse grid (a blank/failed render is < 2, L12-72) */
+/** sparse luminance SD (blank < 2, L12-72) */
 export function lumaStd(img) {
   const d = img.data;
   const step = Math.max(4, ((d.length / 4 / 40000) | 0) * 4);
@@ -1203,15 +1329,12 @@ export function lumaStd(img) {
   return Math.sqrt(Math.max(0, s2 / n - m * m));
 }
 
-/** share of the frame covered by a quad (0..1); quad in the same px as w×h */
+/** share of the frame covered by a quad */
 export function quadFraction(quad, w, h) {
   return w > 0 && h > 0 ? Math.min(1, quadArea(quad) / (w * h)) : 0;
 }
 
-/**
- * Minimal PDF 1.4 writer: one image per page, page box A4-long-side (842 pt) scaled to the image aspect.
- * pages: [{ bytes, width, height, kind: 'jpeg' (DCTDecode) | 'flate1' (1-bit FlateDecode, zlib bytes) , components }]
- */
+/** PDF 1.4, one image per page */
 export function buildPdf(pages, { title = 'Scan', producer = 'scan-core' } = {}) {
   const enc = new TextEncoder();
   const chunks = [];

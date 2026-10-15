@@ -17,11 +17,11 @@
   background: var(--surface);
   color: var(--primary-800);
   font-weight: 700;
-  box-shadow: var(--shadow-lg);
 }
 
 .co-skip:focus {
   inset-block-start: 8px;
+  box-shadow: var(--shadow-lg);
 }
 
 .co-chrome .k-chrome-start {
@@ -622,6 +622,15 @@
   overflow-wrap: anywhere;
 }
 
+/* v12 gate (V-11، L12-13 ب): عنوان ثابت في البوابة (pageHead بلا record) بوجه العناوين كما في /app وصفحة /start/company؛
+   التحية وعنوان الطلب وعنصر الذاكرة (بيانات مستخدم) تبقى .co-h1 بخط الواجهة */
+@media screen {
+  .page-title {
+    font: var(--d2);
+    color: var(--ink);
+  }
+}
+
 .co-sub {
   margin: 4px 0 0;
   color: var(--text-muted);
@@ -796,6 +805,10 @@
 
   .co-attn-row:has(.btn:hover) {
     background-color: var(--fill-1);
+  }
+
+  .co-attn-row .k-row-trailing .btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--act);
   }
 }
 

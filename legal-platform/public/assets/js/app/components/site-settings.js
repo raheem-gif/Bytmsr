@@ -120,7 +120,7 @@ export function siteSettingsCard(settings = {}) {
 // الاسم القانوني وهاتف الأفراد والشركات و«عن المكتب» تُحفظ بزر «حفظ». الخادم يتحقق من كل قيمة (site.validateSettings)
 // ويسجّل تغيّر charity_public وcharity_archived_landing وfirm_partners في سجل الأمان (SETTINGS_AUDIT في admin.js).
 
-export const FIRST_PAGE_KEYS = ['charity_public', 'charity_archived_landing', 'firm_legal_name', 'org_phone_paid', 'firm_city', 'firm_founded', 'firm_partners'];
+export const FIRST_PAGE_KEYS = ['charity_public', 'charity_archived_landing', 'firm_legal_name', 'firm_registration', 'org_phone_paid', 'firm_city', 'firm_founded', 'firm_partners'];
 export const FIRST_PAGE_TITLE = 'الصفحة الأولى';
 export const CHARITY_TOGGLE_TEXT = 'إظهار الخدمة الخيرية («خيري») على الموقع';
 export const CHARITY_CONFIRM = Object.freeze({ title: 'تغيير ظهور «خيري» على الموقع؟', confirm: 'تغيير', cancel: 'إلغاء' });
@@ -303,7 +303,9 @@ export function firstPageSettingsCard(settings = {}) {
         placeholder: 'مثال: إمام وشركاه',
         hint: 'يظهر في سطر الحقوق أسفل صفحات الموقع وفي أول رسالة على واتساب. فارغ = اسم المكتب كما يراه العملاء.',
       },
-      { name: 'org_phone_paid', label: 'هاتف خدمات الأفراد والشركات (اختياري)', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'فارغ = نفس هاتف المؤسسة' },
+      // v12 gate fixer-server (V-01): الجهة المتعاقدة في بوابة الشركات = الاسم القانوني + هذا القيد
+      { name: 'firm_registration', label: 'قيد المكتب (اختياري)', maxLength: 120, placeholder: 'مثال: سجل تجاري رقم …', hint: 'يظهر للشركات بجوار «الجهة المتعاقدة». فارغ = الاسم وحده.' },
+      { name: 'org_phone_paid', label: 'هاتف خدمات الأفراد والشركات (اختياري)', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'فارغ = نفس الهاتف الأساسي' }, // v12 gate (V-08)
       // tags:skip العنوان داخل غلافه المرمَّز SET-10 (العنوان وتلميحه معًا)
       { name: 'about_heading', type: 'static', full: true, render: () => h('div', h('h3.pa-mini-h', ABOUT_TITLE), h('p.field-hint', PARTNERS_HINT)) },
       { name: 'firm_city', label: 'المدينة', maxLength: 40, placeholder: 'مثال: القاهرة', hint: 'اختياري. تظهر أسفل صفحات الموقع وفي سطر سنة التأسيس.' },
@@ -311,7 +313,7 @@ export function firstPageSettingsCard(settings = {}) {
       { name: 'partners_box', type: 'static', full: true, render: () => h('div.stack-sm', h('span.field-label', 'الشركاء'), partners.el), tag: 'SET-249' },
     ],
     {
-      values: { firm_legal_name: settings.firm_legal_name || '', org_phone_paid: settings.org_phone_paid || '', firm_city: settings.firm_city || '', firm_founded: settings.firm_founded || '' },
+      values: { firm_legal_name: settings.firm_legal_name || '', firm_registration: settings.firm_registration || '', org_phone_paid: settings.org_phone_paid || '', firm_city: settings.firm_city || '', firm_founded: settings.firm_founded || '' },
       submitLabel: 'حفظ',
       submitIcon: 'check',
       onSubmit: async (v, fapi) => {
@@ -321,7 +323,7 @@ export function firstPageSettingsCard(settings = {}) {
         if (raw && (digits.length < 8 || digits.length > 15)) throw fieldError('org_phone_paid', 'أدخل رقم هاتف صحيحًا مثل 01211114662');
         const year = toLatinDigits(v.firm_founded || '').trim();
         if (year && !/^\d{4}$/.test(year)) throw fieldError('firm_founded', 'اكتب سنة التأسيس بأربعة أرقام، أو اتركها فارغة.');
-        for (const k of ['firm_legal_name', 'firm_city']) if (NOT_PLAIN_RE.test(String(v[k] ?? ''))) throw fieldError(k, PLAIN_NAME_ERROR);
+        for (const k of ['firm_legal_name', 'firm_registration', 'firm_city']) if (NOT_PLAIN_RE.test(String(v[k] ?? ''))) throw fieldError(k, PLAIN_NAME_ERROR);
         const list = partners.get();
         if (list.some((p) => [...p.name].length < 2)) throw new Error('اكتبوا اسم كل شريك (حرفان على الأقل) أو احذفوا صفه.');
         // review (F4): رسالة محددة قبل الإرسال بدل رسالة الخادم العامة («8 على الأكثر…») حين يحوي اسم أو صفة رموزًا مثل < >
@@ -329,13 +331,14 @@ export function firstPageSettingsCard(settings = {}) {
         if (badAt >= 0) throw new Error(`الشريك ${badAt + 1}: ${PLAIN_NAME_ERROR}.`);
         const saved = await api.patch('/admin/settings', {
           firm_legal_name: String(v.firm_legal_name || '').trim(),
+          firm_registration: String(v.firm_registration || '').trim(),
           org_phone_paid: phone,
           firm_city: String(v.firm_city || '').trim(),
           firm_founded: year,
           firm_partners: list,
         });
         if (saved && typeof saved === 'object') {
-          fapi.setValues({ firm_legal_name: saved.firm_legal_name ?? '', org_phone_paid: saved.org_phone_paid ?? '', firm_city: saved.firm_city ?? '', firm_founded: saved.firm_founded ?? '' });
+          fapi.setValues({ firm_legal_name: saved.firm_legal_name ?? '', firm_registration: saved.firm_registration ?? '', org_phone_paid: saved.org_phone_paid ?? '', firm_city: saved.firm_city ?? '', firm_founded: saved.firm_founded ?? '' });
           if (Array.isArray(saved.firm_partners)) partners.set(saved.firm_partners);
         }
         toast('تم حفظ بيانات الصفحة الأولى و«عن المكتب». تظهر للزوار فورًا.', 'success', 5000);
@@ -345,6 +348,7 @@ export function firstPageSettingsCard(settings = {}) {
   );
   tagged('SET-07', f.control('firm_legal_name').wrap);
   tagged('SET-08', f.control('org_phone_paid').wrap);
+  tagged('SET-347', f.control('firm_registration').wrap);
   tagged('SET-10', f.control('about_heading').wrap);
   tagged('SET-11', f.control('firm_city').wrap);
   tagged('SET-12', f.control('firm_founded').wrap);

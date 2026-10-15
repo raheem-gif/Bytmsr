@@ -14,6 +14,8 @@ import { textSheet, menuButton, sheetError, showError } from '../page-kit.js';
 
 const T = W.team;
 const ROLES = ['company_admin', 'member', 'viewer'];
+// v12 gate (TA-05): رمز لكل دور في «دعوة زميل» و«تغيير الدور» (كانت الثلاثة تحت رمز الحقل CT-01)
+const ROLE_OPTION_TAGS = { company_admin: 'CT-35', member: 'CT-36', viewer: 'CT-37' };
 const STATE_TONE = { active: 'success', invite_pending: 'warning', inactive: 'neutral', locked: 'danger' };
 const STATE_ICON = { invite_pending: 'clock', locked: 'lock' };
 const roleLabel = (r) => ({ company_admin: 'مدير البوابة', member: 'عضو', viewer: 'اطلاع فقط' })[r] || r;
@@ -26,7 +28,7 @@ const desktop = () => {
 };
 
 function roleTiles(value, onChange) {
-  return choiceTiles({ label: T.role, value, columns: 1, options: ROLES.map((r) => ({ value: r, label: roleLabel(r), hint: T[`role_${r}`] })), onChange, tag: 'CT-01' });
+  return choiceTiles({ label: T.role, value, columns: 1, options: ROLES.map((r) => ({ value: r, label: roleLabel(r), hint: T[`role_${r}`], tag: ROLE_OPTION_TAGS[r] })), onChange, tag: 'CT-01' });
 }
 
 /** الرابط للنسخ مرة واحدة (الدعوة حين لا تُرسل بالبريد) */
@@ -184,12 +186,20 @@ function actionsOf(u, ctx) {
   if (u.me || readOnly()) return [];
   const id = encodeURIComponent(u.id);
   const items = [];
-  if (u.active) items.push({ label: T.change_role, icon: 'userCog', onClick: () => roleSheet(u, ctx) });
-  if (u.active) items.push({ label: u.billing_contact ? T.billing_off : T.billing_on, icon: 'wallet', onClick: () => patchUser(u, { billing_contact: !u.billing_contact }, ctx) });
+  // v12 gate (TA-03): لكل إجراء رمزه (القائمة على الحاسوب وصفوف الورقة على الهاتف) — كانت الخمسة بلا رمز أو كلها CT-21
+  if (u.active) items.push({ label: T.change_role, icon: 'userCog', onClick: () => roleSheet(u, ctx), tag: 'CT-38' });
+  if (u.active) {
+    items.push(
+      u.billing_contact
+        ? { label: T.billing_off, icon: 'wallet', onClick: () => patchUser(u, { billing_contact: false }, ctx), tag: 'CT-39' }
+        : { label: T.billing_on, icon: 'wallet', onClick: () => patchUser(u, { billing_contact: true }, ctx), tag: 'CT-40' },
+    );
+  }
   if (u.active && u.state !== 'invite_pending') {
     items.push({
       label: T.reset,
       icon: 'mail',
+      tag: 'CT-41',
       onClick: async () => {
         try {
           await api.post(`/company/team/${id}/reset-link`, {});
@@ -204,6 +214,7 @@ function actionsOf(u, ctx) {
     items.push({
       label: T.resend,
       icon: 'send',
+      tag: 'CT-42',
       onClick: async () => {
         let res;
         try {
@@ -221,6 +232,7 @@ function actionsOf(u, ctx) {
     items.push({
       label: T.revoke,
       icon: 'logout',
+      tag: 'CT-43',
       onClick: async () => {
         try {
           await api.post(`/company/team/${id}/sessions/revoke`, {});
@@ -236,12 +248,13 @@ function actionsOf(u, ctx) {
       label: T.deactivate,
       icon: 'x',
       danger: true,
+      tag: 'CT-44',
       onClick: async () => {
         const ok = await confirmDanger({ title: copy('team.deactivate_title', { name: u.name }), message: T.deactivate_text, confirmLabel: T.deactivate, cancelLabel: W.state.cancel, tag: 'CT-18' });
         if (ok) patchUser(u, { active: false }, ctx, T.deactivated);
       },
     });
-  } else items.push({ label: T.reactivate, icon: 'refresh', onClick: () => patchUser(u, { active: true }, ctx, T.reactivated) });
+  } else items.push({ label: T.reactivate, icon: 'refresh', onClick: () => patchUser(u, { active: true }, ctx, T.reactivated), tag: 'CT-45' });
   return items;
 }
 
@@ -261,7 +274,7 @@ function rowMenu(u, ctx) {
           sheet: true,
           body: h(
             'ul.k-list.co-sheet-menu',
-            items.map((it) => h('li', kRow({ icon: it.icon, title: it.label, className: it.danger ? 'is-danger' : '', chevron: false, onClick: () => { sheet.close('action'); it.onClick(); }, tag: 'CT-21' }))),
+            items.map((it) => h('li', kRow({ icon: it.icon, title: it.label, className: it.danger ? 'is-danger' : '', chevron: false, onClick: () => { sheet.close('action'); it.onClick(); }, tag: it.tag || 'CT-21' }))),
           ),
           tag: 'CT-22',
         });

@@ -46,6 +46,15 @@
 
   /* spec 5.7 (media): the low-confidence line under a machine draft (K12-29 warn notice) */
   .vt-warn { margin: 8px 0 0; padding: 8px 12px; border-inline-start: 2px solid var(--warn); background: var(--paper-2); color: var(--ink); font: var(--t-small); }
+
+  /* gate K-S1/K-S4/K-S5 and v12 gate V-12/JR-13, V-15, V-24, V-25, V-27: staff-only rules live at the end of v10-desk.css
+     (/app only), so /company does not download them (its 30,000 B br budget) */
+
+  /* gate V-15 (K12-34): the AI «اقتراح» mark is a word, not a grey pill (after v11-segment.css's pill rule) */
+  .pa-ai-tag, :is(.pa-story, .pa-irow, #pa-proposal) .pa-ai-tag { padding: 0; border-radius: 0; background: none; color: var(--ink-3); font: var(--t-small); }
+
+  /* gate V-10: «الميراث-1.jpg» = the name (rtl isolate) then «.jpg» (ltr isolate) on its left, a hair apart */
+  .fname__ext { margin-right: 0.15em; }
 }
 
 /* PW-L3: at 200 % zoom (≤ 340 CSS px) the four segment words wrap instead of pushing the page sideways */

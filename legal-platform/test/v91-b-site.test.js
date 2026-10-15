@@ -515,9 +515,14 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     const specs = [...body.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"](\.{1,2}\/[^'"]+)['"]/g)].map((m) => m[1]);
     assert.ok(specs.length >= 2, 'portal.js has relative imports');
     for (const s of specs) assert.match(s, /\?v=[\w-]{10}$/, s);
-    // نسخة بلا ?v (منصة /app) تُخدم كما هي دون إعادة كتابة
-    const plain = await (await fetch(`${t.base}/assets/js/public/portal.js`)).text();
-    assert.ok(!/\.js\?v=/.test(plain));
+    // v12 gate r2 (R-02, intended edit): a module requested without ?v (a computed dynamic import such as tags-boot → tags.js)
+    // is served transformed too (comment lines stripped, imports versioned, so it shares module instances with the versioned
+    // graph), but revalidated (no-cache) with the graph ETag instead of cached for a year. /app itself loads versioned URLs.
+    const pr = await fetch(`${t.base}/assets/js/public/portal.js`);
+    const plain = await pr.text();
+    assert.equal(plain, body, 'same body as the versioned URL');
+    assert.equal(pr.headers.get('cache-control'), 'no-cache');
+    assert.equal(pr.headers.get('etag'), r.headers.get('etag'));
     // تعديل ملف مستورَد يغيّر رقم كل من يستورده
     const deps = preloadClosure(path.join(PUB, 'assets/js/public/landing.js'), PUB);
     assert.ok(deps.some((d) => d.startsWith('/assets/js/public/menu.js?v=')));

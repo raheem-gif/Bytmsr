@@ -69,7 +69,7 @@ function row(id, label, input, required = false, tag = null, hint = null) {
 }
 
 /** شرائح اختيار (واحد أو أكثر) */
-function chips(items, multi) {
+function chips(items, multi, tag) {
   const picked = new Set();
   const btns = items.map(([v, label]) =>
     h(
@@ -85,7 +85,7 @@ function chips(items, multi) {
           btns.forEach((b, i) => b.setAttribute('aria-pressed', String(picked.has(items[i][0]))));
           e.currentTarget.focus();
         },
-        tag: 'IC-17',
+        tag,
       },
       label,
     ),
@@ -106,16 +106,18 @@ export function companyLead(ctx) {
   }
   // v11 fixer-public (J-14): عنوان التبويب يبقى عنوان الخادم G11-05 «طلب عرض لخدمات الشركات — …» (لا يُستبدل بعنوان الشاشة)
   const sid = ctx.newSubmissionId();
-  const input = (attrs) => h('input.bmf-input', { type: 'text', ...attrs, tag: 'IC-18' });
-  const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }), true, 'IC-03');
-  const contact = row('lead-contact', T.contact, input({ autocomplete: 'name', maxlength: 120 }), true, 'IC-04');
-  const job = row('lead-job', T.job, input({ autocomplete: 'organization-title', maxlength: 80 }), false, 'IC-05');
+  // v12 gate (JR-14): رمز لكل حقل (كانت الخمسة IC-18) فيسمّي المالك الحقل الذي يريده
+  const input = (attrs, tag) => h('input.bmf-input', { type: 'text', ...attrs, tag });
+  const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }, 'IC-18'), true, 'IC-03');
+  const contact = row('lead-contact', T.contact, input({ autocomplete: 'name', maxlength: 120 }, 'IC-26'), true, 'IC-04');
+  const job = row('lead-job', T.job, input({ autocomplete: 'organization-title', maxlength: 80 }, 'IC-27'), false, 'IC-05');
   // v12 entry (L12-84، IC-16): رقم من خارج مصر؟ ← واتساب (فقط مع رقم واتساب للأفراد والشركات)
   const abroad = ctx.wa ? h('p.bmf-hint', { tag: 'IC-16' }, T.abroad, h('a', { href: ctx.wa, target: '_blank', rel: 'noopener noreferrer', tag: 'IC-19' }, T.abroadGo)) : null;
-  const phone = row('lead-phone', T.phone, input({ type: 'tel', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: 20, placeholder: '01xxxxxxxxx' }), true, 'IC-06', abroad);
-  const email = row('lead-email', T.email, input({ type: 'email', autocomplete: 'email', dir: 'ltr', maxlength: 120 }), false, 'IC-07');
-  const size = chips(SIZES, false);
-  const needs = chips(NEEDS, true);
+  const phone = row('lead-phone', T.phone, input({ type: 'tel', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: 20, placeholder: '01xxxxxxxxx' }, 'IC-28'), true, 'IC-06', abroad);
+  const email = row('lead-email', T.email, input({ type: 'email', autocomplete: 'email', dir: 'ltr', maxlength: 120 }, 'IC-29'), false, 'IC-07');
+  // v12 gate (JR-14): شرائح عدد الموظفين IC-17 وشرائح «ما الذي يهمكم؟» IC-30 (كانت كلها IC-17)
+  const size = chips(SIZES, false, 'IC-17');
+  const needs = chips(NEEDS, true, 'IC-30');
   const details = h('textarea.bmf-textarea', { id: 'lead-more', rows: 4, maxlength: 4000, placeholder: T.morePh, tag: 'IC-20' });
   const status = h('div.lead-status', { role: 'status' });
   const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.lead-submit', { type: 'button', tag: 'IC-12' }, h('span', T.send));

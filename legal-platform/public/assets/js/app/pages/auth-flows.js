@@ -30,8 +30,8 @@ function screen(meta, { wide = false } = {}, ...children) {
   return h(
     'div.auth-screen',
     staffChrome().on
-      ? h('header.auth-brand.auth-brand--lockup', { tag: 'LGN-16' }, brandLockup({ width: 220 }), h('span.auth-brand-sub', 'منصة الدعم القانوني')) // v11 visual: الشعار الذهبي الكامل على الأبيض
-      : h('header.auth-brand', { tag: 'LGN-17' }, brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
+      ? h('header.auth-brand.auth-brand--lockup', { tag: 'LGN-16' }, brandLockup({ width: 220 }), h('span.auth-brand-sub', 'منصة المكتب')) // v11 visual: الشعار الذهبي الكامل على الأبيض
+      : h('header.auth-brand', { tag: 'LGN-17' }, brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة المكتب'))),
     cardEl,
     staffChrome().on ? h('a.auth-back', { href: '/', tag: 'LGN-18' }, 'العودة إلى موقع ', brandEl()) : h('a.auth-back', { href: '/', tag: 'LGN-19' }, `العودة إلى موقع ${orgOf(meta)}`),
   );

@@ -161,12 +161,14 @@ export function brandSettingsCard({ user } = {}) {
   };
 
   // ── الحقلان ──
+  // v12 gate (TA-05): رمزان لكل حقل (اللون الأساسي SET-61/62، اللون الثانوي برمزين آخرين) — كانا مشتركين بين الحقلين
+  const PICKER_TAGS = { primary: { color: 'SET-61', hex: 'SET-62' }, accent: { color: 'SET-345', hex: 'SET-346' } };
   const fields = {};
   const buildField = (role) => {
     const copy = T[role];
     const hexId = `brp-${role}-hex`;
     const errId = `brp-${role}-err`;
-    const color = h('input.brp-color', { type: 'color', 'aria-label': copy.pick, value: state.values[role], tag: 'SET-61' });
+    const color = h('input.brp-color', { type: 'color', 'aria-label': copy.pick, value: state.values[role], tag: PICKER_TAGS[role].color });
     const hex = h('input.input.brp-hex', {
       id: hexId,
       type: 'text',
@@ -178,7 +180,7 @@ export function brandSettingsCard({ user } = {}) {
       'aria-label': copy.code,
       'aria-describedby': errId,
       value: state.values[role],
-      tag: 'SET-62',
+      tag: PICKER_TAGS[role].hex,
     });
     const err = h('p.field-error.brp-err', { id: errId, hidden: true });
     const sugg = h('div.brp-sugg', { hidden: true });

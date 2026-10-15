@@ -103,20 +103,47 @@ export function headerDims(mime, buf) {
 export const isTooLarge = (d) => !!d && (d.rawWidth * d.rawHeight > IMAGE_MAX_PIXELS || d.rawWidth > IMAGE_MAX_SIDE || d.rawHeight > IMAGE_MAX_SIDE);
 const tooLargeError = (name) => new ApiError(400, 'الصورة كبيرة جدًا', 'image_too_large', { fields: { file: name ? `الصورة «${name}» كبيرة جدًا` : 'الصورة كبيرة جدًا' } });
 
-/** L12-73: نسخة JPEG بلا مقاطع APP1 (EXIF/GPS وXMP)؛ أي بنية غير متوقعة ← null (يُرسل الملف كما هو) */
+/** مقاطع APPn التي تبقى: JFIF (APP0)، ملف الألوان ICC (APP2) وAdobe (APP14، لتحويل الألوان)؛ وكل ما ليس APPn أو تعليقًا */
+function keepJpegSegment(marker, data) {
+  if (marker === 0xfe) return false; // COM
+  if (marker < 0xe0 || marker > 0xef) return true;
+  const sig = data.toString('latin1', 0, 12);
+  return (marker === 0xe0 && sig.startsWith('JFIF')) || (marker === 0xe2 && sig.startsWith('ICC_PROFILE')) || (marker === 0xee && sig.startsWith('Adobe'));
+}
+
+/**
+ * L12-73 (+ مراجعة البوابة SEC-3): نسخة JPEG بلا بيانات وصفية — كل APPn إلا JFIF وICC وAdobe (فيسقط EXIF/GPS وXMP وIPTC
+ * وMPF)، والتعليقات COM، وما بعد نهاية الصورة الأولى — مع تخطي بايتات الحشو بين المقاطع كما يفعل libjpeg (0xFF الزائدة أو بايتات شاردة قبل العلامة التالية). بنية لا تُفهم ← null
+ * (والمستدعي يرفض التنزيل للمحامي بدل إرسال الملف كما هو).
+ */
 export function stripJpegApp1(buf) {
-  if (!(buf[0] === 0xff && buf[1] === 0xd8)) return null;
+  if (!(buf && buf[0] === 0xff && buf[1] === 0xd8)) return null;
   const parts = [buf.subarray(0, 2)];
   let i = 2;
   while (i + 4 <= buf.length) {
-    if (buf[i] !== 0xff) return null;
+    if (buf[i] !== 0xff) {
+      // بايتات شاردة قبل العلامة (يقبلها libjpeg بتحذير): تُتخطى حتى 0xFF التالية
+      const next = buf.indexOf(0xff, i);
+      if (next < 0) return null;
+      i = next;
+      continue;
+    }
     const marker = buf[i + 1];
     if (marker === 0xff) {
       i += 1;
       continue;
     }
-    if (marker === 0xd9 || marker === 0xda) {
-      parts.push(buf.subarray(i));
+    if (marker === 0x00) return null;
+    if (marker === 0xd9) {
+      parts.push(buf.subarray(i, i + 2));
+      return Buffer.concat(parts);
+    }
+    if (marker === 0xda) {
+      // الصورة حتى أول EOI فقط: ما يُلحق بعدها (صور MPF الثانوية في صور الهاتف) قد يحمل EXIF/GPS خاصًا به.
+      // داخل البيانات المرمّزة لا تظهر 0xFF إلا متبوعة بـ 0x00 أو RSTn، فأول FF D9 نهاية الصورة.
+      let e = i + 2;
+      while ((e = buf.indexOf(0xff, e)) >= 0 && e + 1 < buf.length && buf[e + 1] !== 0xd9) e += 1;
+      parts.push(e >= 0 && e + 1 < buf.length ? buf.subarray(i, e + 2) : buf.subarray(i));
       return Buffer.concat(parts);
     }
     if ((marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
@@ -126,9 +153,66 @@ export function stripJpegApp1(buf) {
     }
     const len = (buf[i + 2] << 8) | buf[i + 3];
     if (len < 2 || i + 2 + len > buf.length) return null;
-    if (marker !== 0xe1) parts.push(buf.subarray(i, i + 2 + len));
+    if (keepJpegSegment(marker, buf.subarray(i + 4, i + 2 + len))) parts.push(buf.subarray(i, i + 2 + len));
     i += 2 + len;
   }
+  return null;
+}
+
+/** PNG بلا مقاطع eXIf وtEXt وiTXt وzTXt وtIME (EXIF/GPS والنصوص الحرة)؛ بنية لا تُفهم ← null */
+export function stripPngMeta(buf) {
+  const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buf || buf.length < 8 || !buf.subarray(0, 8).equals(SIG)) return null;
+  const DROP = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt', 'tIME']);
+  const parts = [buf.subarray(0, 8)];
+  let i = 8;
+  while (i + 12 <= buf.length) {
+    const len = buf.readUInt32BE(i);
+    const type = buf.toString('latin1', i + 4, i + 8);
+    if (!/^[A-Za-z]{4}$/.test(type) || len > buf.length - i - 12) return null;
+    const end = i + 12 + len;
+    if (!DROP.has(type)) parts.push(buf.subarray(i, end));
+    i = end;
+    if (type === 'IEND') return Buffer.concat(parts);
+  }
+  return null;
+}
+
+const WEBP_KEEP = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ANIM', 'ANMF', 'ICCP']);
+/** WebP بمقاطع الصورة وحدها (بلا EXIF وXMP وأي مقطع آخر)، مع مسح علامتيهما في VP8X (0x08 و0x04) وتصحيح طول RIFF؛ بنية لا تُفهم ← null */
+export function stripWebpMeta(buf) {
+  if (!buf || buf.length < 12 || buf.toString('latin1', 0, 4) !== 'RIFF' || buf.toString('latin1', 8, 12) !== 'WEBP') return null;
+  const parts = [];
+  let i = 12;
+  while (i + 8 <= buf.length) {
+    const type = buf.toString('latin1', i, i + 4);
+    const len = buf.readUInt32LE(i + 4);
+    const padded = len + (len & 1);
+    if (!/^[A-Za-z0-9 ]{4}$/.test(type) || len > buf.length - i - 8) return null;
+    const chunk = Buffer.from(buf.subarray(i, Math.min(buf.length, i + 8 + padded)));
+    if (type === 'VP8X' && len >= 1) chunk[8] &= ~0x0c;
+    if (WEBP_KEEP.has(type)) parts.push(chunk);
+    i += 8 + padded;
+  }
+  if (i < buf.length - 1 || !parts.length) return null;
+  const body = Buffer.concat(parts);
+  const head = Buffer.alloc(12);
+  head.write('RIFF', 0, 'latin1');
+  head.writeUInt32LE(body.length + 4, 4);
+  head.write('WEBP', 8, 'latin1');
+  return Buffer.concat([head, body]);
+}
+
+/** أثر لبيانات وصفية في ملف لم تُحلَّل بنيته (EXIF، XMP، IPTC، مقاطع النص في PNG، مقطعا WebP) */
+export function hasMetadataTrace(buf) {
+  return /Exif\0|<x:xmpmeta|http:\/\/ns\.adobe\.com\/xap|Photoshop 3\.0|eXIf|tEXt|iTXt|zTXt|XMP /.test(Buffer.from(buf).toString('latin1'));
+}
+
+/** SEC-3: الصورة بلا بياناتها الوصفية حسب نوعها (JPEG وPNG وWebP) → Buffer، أو null (نوع آخر مثل HEIC أو بنية لا تُفهم) */
+export function stripImageMetadata(mime, buf) {
+  if (mime === 'image/jpeg') return stripJpegApp1(buf);
+  if (mime === 'image/png') return stripPngMeta(buf);
+  if (mime === 'image/webp') return stripWebpMeta(buf);
   return null;
 }
 
@@ -142,13 +226,53 @@ function quadArea(q) {
   }
   return Math.abs(a) / 2;
 }
-/** L12-59: النسخة النظيفة تُعرض أولًا فقط حين تكون واثقة؛ الأركان التي حددها الشخص بنفسه تُعامل كواثقة */
-export function scanConfident(params) {
-  if (!params || params.mode === 'bw' || params.partial) return false;
+/**
+ * L12-59 (r3، K-M1): حدود ثقة الاكتشاف. كانت «الورقة ≥ 60 % من الصورة» فلم تُعرض النسخة النظيفة أولًا إلا لصورة واحدة من 21؛
+ * الآن تكفي ورقة ≥ 15 % من الصورة بحواف قوية وشكل معقول، ويبقى الأصل أولًا للمقطوعة (partial) ولما وُجد ورق خارج حدودها
+ * (nested: إطار مطبوع داخل الورقة، PW-M11 n01).
+ */
+export const SCAN_CONFIDENCE = Object.freeze({ score: 0.75, minArea: 0.15, minAngle: 45, maxAngle: 135, maxSideRatio: 2.2, maxAspect: 3 });
+
+/** الشكل الرباعي (0..1 من الصورة) صالح كصفحة: مساحة كافية، محدب، زوايا وأضلاع ونسبة أبعاد معقولة (بالبكسل حين تُعرف الأبعاد) */
+function saneQuad(q, dims) {
+  if (!Array.isArray(q) || q.length !== 4) return false;
+  if (!q.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => Number.isFinite(v) && v >= 0 && v <= 1))) return false;
+  if (quadArea(q) < SCAN_CONFIDENCE.minArea) return false;
+  const W = dims && dims.width > 0 ? dims.width : 1;
+  const H = dims && dims.height > 0 ? dims.height : 1;
+  const P = q.map(([x, y]) => [x * W, y * H]);
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = P[i], b = P[(i + 1) % 4], c = P[(i + 2) % 4];
+    const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (!cross || (sign && Math.sign(cross) !== sign)) return false;
+    sign = Math.sign(cross);
+  }
+  const side = (i) => Math.hypot(P[(i + 1) % 4][0] - P[i][0], P[(i + 1) % 4][1] - P[i][1]);
+  const s = [0, 1, 2, 3].map(side);
+  if (!dims) return true; // بلا أبعاد: المساحة والتحدب فقط (لا معنى للزوايا في إحداثيات نسبية)
+  for (let i = 0; i < 4; i++) {
+    const a = P[(i + 3) % 4], b = P[i], c = P[(i + 1) % 4];
+    const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+    const ang = (Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(...v1) * Math.hypot(...v2))))) * 180) / Math.PI;
+    if (!(ang >= SCAN_CONFIDENCE.minAngle && ang <= SCAN_CONFIDENCE.maxAngle)) return false;
+  }
+  const ratio = (x, y) => Math.max(x, y) / Math.min(x, y);
+  if (ratio(s[0], s[2]) > SCAN_CONFIDENCE.maxSideRatio || ratio(s[1], s[3]) > SCAN_CONFIDENCE.maxSideRatio) return false;
+  return ratio((s[0] + s[2]) / 2, (s[1] + s[3]) / 2) <= SCAN_CONFIDENCE.maxAspect;
+}
+
+/**
+ * L12-59: النسخة النظيفة تُعرض أولًا حين يكون الاكتشاف واثقًا (SCAN_CONFIDENCE)، وإلا الأصل والنظيفة على بعد لمسة.
+ * الأركان التي حددها الشخص بنفسه تُعامل كواثقة. dims: أبعاد صورة كل صفحة بعد الاتجاه (اختيارية).
+ */
+export function scanConfident(params, { dims = [] } = {}) {
+  // nested قبل adjusted: الماسح لا يضعها إلا لصفحة لم تُعدّل أركانها، فصفحة معدّلة في المستند لا تغطي صفحة أخرى بإطار
+  if (!params || params.mode === 'bw' || params.partial || params.nested) return false;
   if (params.adjusted) return true;
-  if (!(Number(params.score) >= 0.6)) return false;
+  if (!(Number(params.score) >= SCAN_CONFIDENCE.score)) return false;
   const quads = Array.isArray(params.quads) ? params.quads : [];
-  return quads.length > 0 && quads.every((q) => Array.isArray(q) && q.length === 4 && quadArea(q) >= 0.6);
+  return quads.length > 0 && quads.every((q, i) => saneQuad(q, dims[i] || null));
 }
 
 export function createDocuments(app) {
@@ -322,8 +446,10 @@ export function createDocuments(app) {
               });
               if (vt.page === 1 && !firstOriginal) firstOriginal = fid;
             }
-            // L12-59: المعروض أولًا = الأصل ما لم تكن النسخة النظيفة واثقة
-            if (!scanConfident(scan.params) && firstOriginal) db.run('UPDATE documents SET display_file_id = ? WHERE id = ?', firstOriginal, id);
+            // L12-59: المعروض أولًا = الأصل ما لم تكن النسخة النظيفة واثقة (أبعاد أصل كل صفحة للزوايا ونسبة الأبعاد)
+            const pageDims = [];
+            for (const vt of variants) if (!pageDims[vt.page - 1]) pageDims[vt.page - 1] = vt.o.dims || null;
+            if (!scanConfident(scan.params, { dims: pageDims }) && firstOriginal) db.run('UPDATE documents SET display_file_id = ? WHERE id = ?', firstOriginal, id);
           }
           // v9.2 (admin-ai): رسالة صوتية من المستفيدة ← «لم تُكتب بعد» حتى تكتب الإدارة ما قالته (مدتها من الواجهة أو من ملف Ogg)
           if (realMime.startsWith('audio/') && uploader?.kind === 'client' && app.voice?.onAudioSaved) {
@@ -515,9 +641,9 @@ export function createDocuments(app) {
 
     /**
      * إرسال الملف للمتصفح بعد التحقق. variant (v12): صف من document_files لنفس المستند (مساره ونوعه وحجمه واسمه)،
-     * strip: حذف APP1 من JPEG (المحامي، L12-73).
+     * strip: الصورة بلا بياناتها الوصفية (المحامي، L12-73، SEC-3)؛ تعذّر ذلك ← 409 strip_failed.
      */
-    send(res, doc, { inline = false, variant = null, strip = false } = {}) {
+    send(res, doc, { inline = false, variant = null, strip = false, forLawyer = false } = {}) {
       if (variant && variant.document_id !== doc.id) throw notFound('الملف غير موجود على الخادم');
       const key = variant ? variant.storage_key : doc.storage_key;
       const mime = variant ? variant.mime : doc.mime;
@@ -530,8 +656,20 @@ export function createDocuments(app) {
       const huge = Number(w) * Number(hgt) > IMAGE_MAX_PIXELS;
       const safeInline = inline && !huge && (mime === 'application/pdf' || mime.startsWith('image/'));
       let body = null;
-      if (strip && mime === 'image/jpeg') body = stripJpegApp1(fs.readFileSync(abs));
-      const base = (doc.filename.replace(/\.[^.]*$/, '') || 'document') + (variant?.role === 'original' ? (variant.page > 1 ? `-الأصل-${variant.page}` : '-الأصل') : '');
+      // SEC-3: كل صورة تصل لمحامٍ بلا EXIF/GPS (JPEG وPNG وWebP)؛ صورة لا تُحلَّل بنيتها (أو HEIC) لا تُرسل كما هي
+      if (strip && mime.startsWith('image/')) {
+        const raw = fs.readFileSync(abs);
+        body = stripImageMetadata(mime, raw);
+        if (!body) {
+          // بنية لا تُفهم (أو HEIC): تُرسل كما هي فقط إن لم يكن فيها أثر لبيانات وصفية، وإلا تُرفض للمحامي
+          if (hasMetadataTrace(raw)) throw new ApiError(409, 'تعذّر تجهيز هذه الصورة للتنزيل دون بياناتها الوصفية. اطلب نسخة منها من الفريق.', 'strip_failed');
+          body = raw;
+        }
+      }
+      // v12 gate fixer-server (SEC-8): مستند شركة يُنزّله محامٍ يحمل اسمًا محايدًا (قد يحمل اسم الملف الأصلي اسم موظف أو هاتفه،
+      // L-57) — كما تعرضه قوائمه بلا بيانات موظفي الشركة
+      const baseName = forLawyer && doc.company_id ? `document-${doc.id}` : doc.filename.replace(/\.[^.]*$/, '') || 'document';
+      const base = baseName + (variant?.role === 'original' ? (variant.page > 1 ? `-الأصل-${variant.page}` : '-الأصل') : '');
       res.statusCode = 200;
       res.setHeader('Content-Type', mime);
       res.setHeader('Content-Length', body ? body.length : variant ? variant.size : doc.size);

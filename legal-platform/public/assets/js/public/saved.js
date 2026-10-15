@@ -41,6 +41,15 @@ export function readSaved() {
 }
 
 /**
+ * v12 gate (V-04، K12-29): رابط «متابعة طلب» في تذييل صفحة الطلب يصير «صفحة طلبكم» إلى الصفحة المحفوظة على هذا الجهاز
+ * (كما في entry.js لـ«/»)، بدل بطاقة «لديكم طلب لدينا» بزر ممتلئ فوق كل سؤال
+ */
+export function followSaved(a) {
+  const s = readSaved();
+  if (a && s) Object.assign(a, { href: s.url, textContent: 'صفحة طلبكم' });
+}
+
+/**
  * حفظ صفحة المتابعة على هذا الموبايل. لا يحفظ إن مسحتها المستفيدة من قبل (bm_portal_off) إلا مع force
  * (مثل تقديم طلب جديد من نفس الموبايل). يعيد true إذا حُفظت.
  */
@@ -74,36 +83,29 @@ export function forgetSaved() {
  * بطاقة «عندك طلب عندنا» بزر «افتحي صفحة طلبك» (56px) ورابط «مش موبايلك؟ امسحي» (15px).
  * تعيد null إن لم توجد صفحة محفوظة.
  */
-export function savedCard({ onForget, headingLevel = 2, t } = {}) {
-  // v11 gate-public: t = نصوص الأفراد والشركات ({ title, open, forget }) من صفحة /intake لهم
+export function savedCard({ onForget, headingLevel = 2 } = {}) {
+  // v12 gate (V-04): بطاقة «خيري» وحدها؛ طلب الأفراد والشركات يعرض سطرًا هادئًا تحت الشاشة الأولى (intake.js savedNote، I-192…I-195)
   const saved = readSaved();
   if (!saved) return null;
   const card = document.createElement('section');
   card.className = 'pub-saved';
-  card.setAttribute('aria-label', t?.title || 'عندك طلب عندنا');
+  card.setAttribute('aria-label', 'عندك طلب عندنا');
   card.dataset.saved = '';
   const title = document.createElement(`h${Math.min(6, Math.max(2, headingLevel))}`);
-  title.textContent = t?.title || 'عندك طلب عندنا';
+  title.textContent = 'عندك طلب عندنا';
   const open = document.createElement('a');
   open.className = 'pub-btn pub-btn-teal pub-btn-primary';
   open.href = saved.url;
-  open.textContent = t?.open || 'افتحي صفحة طلبك';
+  open.textContent = 'افتحي صفحة طلبك';
   const forget = document.createElement('button');
   forget.type = 'button';
   forget.className = 'pub-saved-forget';
-  forget.textContent = t?.forget || 'مش موبايلك؟ امسحي';
+  forget.textContent = 'مش موبايلك؟ امسحي';
   forget.addEventListener('click', () => {
     forgetSaved();
     card.remove();
     if (typeof onForget === 'function') onForget();
   });
-  // v12 tags (TG-6): رموز البطاقة على صفحات الأفراد والشركات وحدها (t = نصوصهم)؛ بطاقة «خيري» بلا رموز (§5.9)
-  if (t) {
-    card.dataset.tag = 'I-192';
-    title.dataset.tag = 'I-193';
-    open.dataset.tag = 'I-194';
-    forget.dataset.tag = 'I-195';
-  }
   card.append(title, open, forget);
   return card;
 }

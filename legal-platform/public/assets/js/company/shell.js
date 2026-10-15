@@ -6,6 +6,18 @@ import { icon, button, brandMark, brandEl, wordmark, avatar, modal, toast, error
 import { api } from '../lib/api.js';
 import { relative } from '../lib/fmt.js';
 import { MEMORY_KINDS } from '../lib/company-catalog.js';
+// v12 gate (TA-05): رمز لكل نوع ذاكرة في القائمة الجانبية (كانت التسعة CC-25)
+const MEMORY_NAV_TAGS = {
+  contract: 'CC-25',
+  template: 'CC-58',
+  licence: 'CC-59',
+  resolution: 'CC-60',
+  position: 'CC-61',
+  person: 'CC-62',
+  policy: 'CC-63',
+  dispute: 'CC-64',
+  key_date: 'CC-65',
+};
 import { copy } from '../lib/company-ui-core.js';
 import { W } from './words.js';
 import { S, isAdmin, isViewer, readOnly } from './state.js';
@@ -192,7 +204,7 @@ export function mountShell(root, { onLogout } = {}) {
     );
     mount(
       sideMemory,
-      MEMORY_KINDS.filter((k) => isAdmin() || !ADMIN_KINDS.has(k.key)).map((k) => h('li', h('a.co-side-sublink', { href: k.key === 'key_date' ? '#/memory/calendar' : `#/memory/${k.slug}`, tag: 'CC-25' }, k.key === 'key_date' ? W.nav.calendar : k.list_label))),
+      MEMORY_KINDS.filter((k) => isAdmin() || !ADMIN_KINDS.has(k.key)).map((k) => h('li', h('a.co-side-sublink', { href: k.key === 'key_date' ? '#/memory/calendar' : `#/memory/${k.slug}`, tag: MEMORY_NAV_TAGS[k.key] }, k.key === 'key_date' ? W.nav.calendar : k.list_label))),
       h('li', h('a.co-side-sublink', { href: '#/memory/entities', tag: 'CC-26' }, W.nav.entities)),
       h('li', h('a.co-side-sublink', { href: '#/memory/counterparties', tag: 'CC-27' }, W.nav.counterparties)),
     );

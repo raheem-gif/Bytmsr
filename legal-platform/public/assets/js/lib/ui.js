@@ -1927,6 +1927,18 @@ export function timeline(items = [], { empty = 'لا توجد أحداث مسج�
   );
 }
 
+/**
+ * v12 gate (V-10): اسم ملف كما رُفع («الميراث-1.jpg»). الاسم معزول باتجاه أول حرف قوي فيه، والامتداد اللاتيني في عزل LTR
+ * مستقل بعده، فلا يتفرّق الرقم والامتداد حول الاسم العربي («1-الميراث.jpg» أو «jpg.1-الميراث»). اسم لاتيني يبقى كما هو.
+ */
+export function fileName(name, attrs = {}) {
+  const s = String(name ?? '');
+  const m = /^(.*\S)(\.[A-Za-z0-9]{1,5})$/.exec(s);
+  const rtl = /^[^A-Za-z\u0590-\u08FF]*[\u0590-\u08FF]/.test(s);
+  if (!m || !rtl) return h('bdi.fname', { dir: 'auto', ...attrs }, s);
+  return h('bdi.fname', { dir: 'rtl', ...attrs }, m[1], h('bdi.fname__ext', { dir: 'ltr' }, m[2]));
+}
+
 // v9.1 b-forms: مستند صوتي (بالنوع، أو بالامتداد إن لم يُرسل النوع)
 export const isAudioDoc = (d) => /^audio\//.test(String(d?.mime || '')) || /\.(webm|ogg|oga|opus|m4a|mp3|aac)$/i.test(String(d?.filename || ''));
 const CHANNEL_SHORT = { whatsapp: 'واتساب', website: 'الموقع', portal: 'الموقع', phone: 'مكالمة', email: 'بريد', walk_in: 'حضور', simulator: 'محاكاة' };
@@ -1955,9 +1967,9 @@ export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl,
       docHref
         ? isAudioDoc(d)
           ? // v9.1 b-forms: الرسالة الصوتية تُسمع داخل المحادثة (لا تُحمَّل قبل الضغط على تشغيل)
-            h('span.doc-audio', h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': `رسالة صوتية: ${d.filename}` }), h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-20' }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)))
-          : h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-21' }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename))
-        : h('span.doc-chip', icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)),
+            h('span.doc-audio', h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': `رسالة صوتية: ${d.filename}` }), h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-20' }, icon('paperclip', { size: 14 }), fileName(d.filename)))
+          : h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-21' }, icon('paperclip', { size: 14 }), fileName(d.filename))
+        : h('span.doc-chip', icon('paperclip', { size: 14 }), fileName(d.filename)),
     );
     const statusEl =
       m.direction === 'out' && m.status
@@ -2045,7 +2057,11 @@ export function alertBox(message, tone = 'info', { title, icon: iconName, tag } 
  * فيبقى نص العنوان نظيفًا لقارئات الشاشة وللنسخ («أ. أحمد عبد العظيم» لا «أأ. أحمد…»).
  */
 // v12 tags (TG-3، T12-16): tag على الرأس، وtitleTag على <h1> حين يحمل الرأس إجراءات، وbreadcrumbs[].tag على روابط المسار
-export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleMedia, tag, titleTag } = {}) {
+/**
+ * v12 gate (V-11، L12-13 ب): record = عنوان فيه بيانات مستخدم (اسم، عنوان ملف، تحية) فيبقى بخط الواجهة؛ غيره عنوان ثابت
+ * بوجه العناوين. كان الفاصل «للصفحة مسار تنقل» فاختلف الخط بين صفحات القوائم الثابتة.
+ */
+export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleMedia, tag, titleTag, record = false } = {}) {
   const crumbs =
     breadcrumbs && breadcrumbs.length
       ? h(
@@ -2066,7 +2082,7 @@ export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleM
       : null;
   return h(
     'header.page-header',
-    { tag },
+    { tag, class: record && 'is-record' },
     crumbs,
     h(
       'div.page-header-row',

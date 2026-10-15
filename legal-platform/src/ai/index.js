@@ -128,6 +128,16 @@ function forHer(s, orgPhone) {
     });
   return tidy(t);
 }
+/** v12 gate fixer-server (JR-02): طلب من الشجرة أجاب بما يدل على موعد قريب (form_answers.inferred.urgent_hint، public.js) */
+function treeUrgent(intake) {
+  try {
+    const f = JSON.parse(intake?.form_answers || 'null');
+    return !!(f && (f.entry === 'tree' || f.pathway?.path) && f.inferred?.urgent_hint === true);
+  } catch {
+    return false;
+  }
+}
+
 const clipOrNull = (x, n) => (x === null || x === undefined || String(x).trim() === '' ? null : clip(x, n));
 
 /**
@@ -817,6 +827,8 @@ export function createAi(app) {
     const o = output;
     const d = o.request_draft && typeof o.request_draft === 'object' ? { ...o.request_draft } : null;
     if (!d) return o;
+    // v12 gate fixer-server (JR-05): سؤال المحامي لطلب أفراد وشركات (أو غير محدد) بلا «المستفيدة» — «صاحب الطلب»
+    if (typeof d.brief_for_lawyer === 'string') d.brief_for_lawyer = d.brief_for_lawyer.replace(/(?:لل|ال)مستفيد(?:ة|ه)?(?:\/ة)?/gu, (m) => (m.startsWith('لل') ? 'لصاحب الطلب' : 'صاحب الطلب'));
     const forPaid = (r) => Array.isArray(r?.segments) && r.segments.includes('paid');
     const charityNames = (Array.isArray(ctxReferrals) ? ctxReferrals : []).filter((r) => !forPaid(r)).map((r) => String(r?.label || '').trim()).filter((x) => x.length >= 3);
     const charityWords = (t) => !!t && (PAID_BANNED_RE.test(String(t)) || charityNames.some((nm) => String(t).includes(nm)));
@@ -1266,6 +1278,8 @@ export function createAi(app) {
       const aiHint = result.provider === 'anthropic' ? result.output?.segment_hint : null;
       if (result.output) delete result.output.segment_hint;
       result.output = forAudience(norm(result.output), audience, ctx.referrals);
+      // v12 gate fixer-server (JR-02): علامة الاستعجال من أسئلة الشجرة تبقى «عالية» على الأقل (المحلل لا يخفضها)
+      if (treeUrgent(intake) && !['high', 'urgent'].includes(result.output.urgency)) result.output.urgency = 'high';
       result.output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: result.output.legal_area });
       // v11 segment-server (S11-30، r2 S14): الاقتراح يُحفظ في segment_hint فقط ولا يلمس segment أبدًا
       const segHint = refreshHint(intakeId, audience, aiHint, st.clientText);
@@ -1288,7 +1302,7 @@ export function createAi(app) {
             intake_id: intakeId,
             actor: { kind: 'ai' },
             type: 'ai.similar_alert',
-            summary: `هذا الطلب يشبه ${arabicCount(similarCount, AR_UNITS.similar)} تعاملت معها المؤسسة من قبل`,
+            summary: `هذا الطلب يشبه ${arabicCount(similarCount, AR_UNITS.similar)} تعاملنا معها من قبل`, // v12 gate (JR-06): بلا «المؤسسة»
             data: { count: similarCount },
           });
           app.notifications.notifyStaff({

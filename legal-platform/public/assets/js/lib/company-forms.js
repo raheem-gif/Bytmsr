@@ -227,7 +227,8 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
         }
         // v12 media (MD-3): صورة المستند تمر بالماسح (نظيفة + الأصل، §5.8)، وأي فشل ← التصغير العادي كما في 10.0
         live.textContent = '';
-        const scanned = await scanImage(f, { name, register: 'company', onStatus: (txt) => (live.textContent = txt) });
+        // v12 gate (K-P2): الإعداد scan_client_enabled يصل في meta.scan (لا كتلة bm-public في /company)
+        const scanned = meta.scan === false ? null : await scanImage(f, { name, register: 'company', onStatus: (txt) => (live.textContent = txt) });
         if (scanned) {
           file = scanned;
           sheetMod = (await loadScanner()).sheet;
@@ -379,7 +380,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
 }
 
 // ───────────────────────── عارض الحقول المشترك ─────────────────────────
-const PLACEHOLDER = '— اختاروا —';
+const PLACEHOLDER = 'اختاروا'; // v12 gate (V-23، §5.11): بلا «—» في نص بوابة الشركات
 function optionLabel(spec, v) {
   if (Array.isArray(v)) return v.map((x) => optionLabel(spec, x)).join('، ');
   return spec.options?.find((o) => String(o.key) === String(v))?.label ?? v;

@@ -7,7 +7,8 @@ import { card, button, kv, emptyState, loading, errorState, formDialog, toast, b
 
 /** حقول الأثر لاستخدامها داخل نوافذ أخرى (مثل نافذة إغلاق الملف) */
 // v11 gate fix (J-13/V13): ملف الأفراد بأتعاب — «العميل/ة» بدل «المستفيد»، وتقرير الأثر يخص الخدمة الخيرية فقط (L11-24)
-const PAID_OUTCOME_TITLE = 'الأثر المتحقق للعميل/ة';
+// v12 gate (JR-06): «صاحب الطلب» بلا «/ة» (كان «العميل/ة»)
+const PAID_OUTCOME_TITLE = 'الأثر المتحقق لصاحب الطلب';
 const PAID_OUTCOME_NOTE = 'لا يدخل تقرير الأثر ما دام الملف بأتعاب — التقرير يخص الخدمة الخيرية فقط.';
 
 export function outcomeFields({ required = false, paid = false } = {}) {
@@ -96,7 +97,7 @@ export function outcomeCard({ kind, id, title, paid = false }) {
     const o = current || {};
     const res = await formDialog({
       title: heading,
-      intro: `سجّل ما استرده ${paid ? 'العميل/ة' : 'المستفيد'} فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الواحدة + الشهري × 12.`,
+      intro: `سجّل ما استرده ${paid ? 'صاحب الطلب' : 'المستفيد'} فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الواحدة + الشهري × 12.`,
       fields: outcomeFields({ paid }),
       values: { outcome_kind: o.outcome_kind, recovered_one_time: o.recovered_one_time, recovered_monthly: o.recovered_monthly, outcome_notes: o.notes },
       onSubmit: (v) =>

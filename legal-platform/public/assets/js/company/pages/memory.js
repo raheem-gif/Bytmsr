@@ -88,6 +88,20 @@ export default async function memoryHub(ctx) {
   );
 
   const visibleKinds = MEMORY_KINDS.filter((k) => isAdmin() || !ADMIN_KINDS.has(k.key));
+  // v12 gate (TA-05): رمز لكل بلاطة (كانت الإحدى عشرة CM-05)
+  const MEMORY_TILE_TAGS = {
+    contract: 'CM-05',
+    template: 'CM-26',
+    licence: 'CM-27',
+    resolution: 'CM-28',
+    position: 'CM-29',
+    person: 'CM-30',
+    policy: 'CM-31',
+    dispute: 'CM-32',
+    key_date: 'CM-33',
+    entities: 'CM-34',
+    counterparties: 'CM-35',
+  };
   const tiles = [
     ...visibleKinds.map((k) => {
       const c = counts[k.key] || { total: 0, soon: 0 };
@@ -104,7 +118,7 @@ export default async function memoryHub(ctx) {
         'li',
         h(
           'a.co-mem-kind',
-          { href: t.href, dataset: { kind: t.key }, tag: 'CM-05' },
+          { href: t.href, dataset: { kind: t.key }, tag: MEMORY_TILE_TAGS[t.key] },
           h('span.co-mem-kind-icon', { 'aria-hidden': 'true' }, t.icon ? icon(t.icon, { size: 22 }) : kindIcon(t.key)),
           h('span.co-mem-kind-text', h('span.co-mem-kind-title', t.title), h('span.co-mem-kind-line', { class: t.warn && 'is-warn' }, t.warn ? icon('clock', { size: 14 }) : null, t.line)),
           h('span.co-mem-kind-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 })),

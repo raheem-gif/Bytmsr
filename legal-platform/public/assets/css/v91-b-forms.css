@@ -2390,8 +2390,10 @@ body.pub .bmf-listen {
     margin-top: 12px;
   }
 
+  /* v12 gate (V-17): 600 لا 700 (الأفراد والشركات لا يطلبون ملف Plex 700) */
   body[data-side="paid"] .bmf-ref {
     color: var(--ink);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
 
@@ -2427,6 +2429,24 @@ body.pub .bmf-listen {
   body[data-side="paid"] .bmf-progress-fill {
     border-radius: 0;
     background: var(--act);
+  }
+
+  /* v12 gate (V-05): «هل لديكم مستندات؟» بعد أول صورة: «تصوير مستند» خطّي فيبقى «التالي» الزر الممتلئ الوحيد، وأزرار الماسح
+     («صفحة أخرى»، «إعادة التصوير»، «استخدام الصورة كما هي») بخط الأزرار الأخرى (600 16px) لا 400 18px الموروث */
+  body[data-side="paid"] .bmf-docs .bmf-pick:not([data-count="0"]) .bmf-pick-camera,
+  body[data-side="paid"] .bmf-docs .bmf-pick:not([data-count="0"]) .bmf-pick-camera:hover:not(:disabled) {
+    border-color: var(--ink);
+    background: none;
+    color: var(--ink);
+    font-size: 16px;
+  }
+
+  body[data-side="paid"] .bmf-docs .bmf-pick:not([data-count="0"]) .bmf-pick-camera:hover:not(:disabled) {
+    background: var(--paper-2);
+  }
+
+  body[data-side="paid"] .bmf-pick .scn-btn {
+    font: 600 16px/1.2 var(--f-ui);
   }
 }
 

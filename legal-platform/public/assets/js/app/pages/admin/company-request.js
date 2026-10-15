@@ -3,7 +3,7 @@
 // بطاقة مرسل الطلب (للإدارة فقط)، المحادثة (رسالة للشركة · ملاحظة داخلية)، العمل وفريقه وصلاحيات الذاكرة، التسليمات،
 // عروض الأسعار والتكاليف (مدير النظام)، والسجل. الخادم هو المرجع في كل صلاحية وكل بوابة (409 تُعرض في مكانها).
 
-import { h, mount } from '../../../lib/h.js';
+import { h, mount, tagged } from '../../../lib/h.js';
 import { api, downloadUrl, filesToUploads, formatBytes } from '../../../lib/api.js';
 import { label, areaLabel, relative, dateTime, percent, isoToCairoDate, count } from '../../../lib/fmt.js';
 import {
@@ -25,6 +25,7 @@ import {
   toast,
   fileInput,
   setBusy,
+  fileName,
 } from '../../../lib/ui.js';
 import { typeByKey, stageByKey, PRIORITIES, labelOf } from '../../../lib/company-catalog.js';
 /** gate C-12: كلمات الاستعجال كما تراها الشركة */
@@ -44,7 +45,7 @@ import { coRequestFields } from '../../../lib/company-forms.js';
 import { typeFields } from '../../../lib/company-catalog-fields.js';
 import { docAiButton } from '../../components/doc-ai.js';
 import { assignNotices } from '../../components/company-accept-sheet.js';
-import { openDocument } from '../../components/doc-viewer.js';
+import { staffDocParts } from '../../components/doc-viewer.js';
 
 const OPEN = ['submitted', 'awaiting_company', 'in_progress', 'delivered'];
 const SEVERITY = { high: ['مرتفعة', 'danger'], medium: ['متوسطة', 'warning'], low: ['منخفضة', 'neutral'] };
@@ -96,13 +97,22 @@ function requestFieldsEl(typeKey, fields) {
   }
 }
 
-/** مستند للفريق: عرض + تحليل */
+/**
+ * مستند للفريق: الاسم يفتح العارض، و«عرض» (الأصل والنص ونظّف المستند للمستند الممسوح)، و«تحليل».
+ * gate JR-04: عقد صوّرته الشركة بالماسح يصل نسخة محسّنة وأصولًا: سطر DOC-16 تحت الاسم كما في صفحة الطلب (RQT-144).
+ */
 function docItem(d, { analyze = true } = {}) {
+  const parts = staffDocParts(d);
   return h(
     'li.cr-doc',
     icon('paperclip', { size: 15 }),
-    h('a.cr-doc-name', { href: downloadUrl(d.id), dir: 'auto', onClick: (e) => (e.preventDefault(), openDocument(d)), tag: 'CRF-01' }, d.title || d.filename),
-    h('span.cr-doc-meta', [d.size ? formatBytes(d.size) : null, d.uploaded_by_kind === 'client' ? 'من الشركة' : d.uploaded_by_kind === 'lawyer' ? 'من المحامي' : 'من الفريق'].filter(Boolean).join(' · ')),
+    h(
+      'span.cr-doc-text',
+      h('a.cr-doc-name', { href: downloadUrl(d.id), onClick: (e) => (e.preventDefault(), parts.open()), tag: 'CRF-01' }, fileName(d.title || d.filename)),
+      h('span.cr-doc-meta', [d.size ? formatBytes(d.size) : null, d.uploaded_by_kind === 'client' ? 'من الشركة' : d.uploaded_by_kind === 'lawyer' ? 'من المحامي' : 'من الفريق'].filter(Boolean).join(' · ')),
+      parts.note,
+    ),
+    tagged('CRF-216', parts.view),
     analyze ? docAiButton({ documentId: d.id, label: 'تحليل' }) : null,
   );
 }
@@ -352,6 +362,7 @@ export default async function render(ctx) {
       actions.push(button('إعادة فتح الطلب', { variant: 'secondary', icon: 'refresh', onClick: reopen, tag: 'CRF-25' }));
     }
     return pageHeader({
+      record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
       title: r.title,
       breadcrumbs: [{ label: 'طلبات الشركات', href: '#/company-requests', tag: 'CRF-26' }, { label: r.code }],
       meta: h(

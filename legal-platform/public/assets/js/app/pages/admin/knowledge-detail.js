@@ -402,6 +402,7 @@ export default async function render(ctx) {
 
   return frag(
     pageHeader({
+      record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
       title: h('span', richText(rec.title)),
       subtitle: `${rec.legal_area_label || areaLabel(rec.legal_area)}${rec.outcome ? ` — ${label('case_outcome', rec.outcome)}` : ''}`,
       breadcrumbs: [

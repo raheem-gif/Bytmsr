@@ -486,6 +486,7 @@ async function renderDetail(ctx) {
   }
 
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: p.name,
     breadcrumbs: [{ label: 'البرامج والتمويل', href: '#/programs', tag: 'PRG-35' }, { label: p.code }],
     meta: [codeTag(p.code), programStatusBadge(p), funderBadge(p), !closed && forecastBadge(s)],

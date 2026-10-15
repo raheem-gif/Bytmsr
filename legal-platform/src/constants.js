@@ -48,14 +48,14 @@ export const LABELS = {
     direct: 'دخول مباشر',
     referral: 'إحالة من جهة متعاونة',
     social_organic: 'وسائل التواصل (غير ممول)',
-    returning: 'مستفيد/ة سابق/ة',
+    returning: 'صاحب طلب سابق', // v12 gate (V-08): بلا «/ة» (المصدر نفسه في الخيري وفي الأفراد والشركات)
     other: 'أخرى',
     unknown: 'غير معروف',
   },
   intake_status: {
     new: 'جديد',
     in_review: 'قيد الفرز',
-    awaiting_client: 'بانتظار المستفيد/ة',
+    awaiting_client: 'بانتظار صاحب الطلب', // v12 gate (V-08): تبويب الوارد بلا «/ة» (الطلبات بأتعاب وخيري)
     handled_internally: 'تم التعامل داخليًا',
     converted: 'تحوّل إلى ملف',
     archived: 'مؤرشف',
@@ -1598,6 +1598,8 @@ export const DEFAULT_SETTINGS = {
   charity_public: false,
   // الاسم القانوني للمكتب في سطر © وأول رسالة واتساب (فارغ = brand_name)
   firm_legal_name: '',
+  // v12 gate fixer-server (V-01): قيد المكتب (نقابة المحامين أو السجل التجاري) في «الجهة المتعاقدة» لبوابة الشركات (فارغ = بلا سطر السجل)
+  firm_registration: '',
   // روابط «خيري» القديمة أثناء الأرشفة: 'notice' صفحة تقول إن الخدمة متوقفة، أو 'redirect' تحويل إلى الصفحة الأولى
   charity_archived_landing: 'notice',
   // «عن المكتب» في /services (اختيارية، لا تُملأ في البيانات التجريبية): المدينة، سنة التأسيس، الشركاء [{ name, title }] ≤ 8

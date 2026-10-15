@@ -13,15 +13,19 @@ const CASE_ORDER = ['new', 'assigned', 'in_progress', 'under_review', 'approved'
 const caseTone = (k) => statusTone('case_status', k);
 
 // المسميات من QUEUE_LABELS: نفس اسم القسم هنا وفي صفحة «بانتظار قرار الإدارة»
+// v12 gate (TA-05): رمز لكل قسم (كانت السبعة DSH-34)
 const DECISIONS = [
-  { key: 'info_requests', icon: 'info' },
-  { key: 'client_replies', icon: 'message' },
-  { key: 'counsel_requests', icon: 'users' },
-  { key: 'opinions', icon: 'fileText' },
-  { key: 'proposed_issues', icon: 'flag' },
-  { key: 'approved_unanswered', icon: 'send' },
-  { key: 'identity_conflicts', icon: 'shield' },
+  { key: 'info_requests', icon: 'info', tag: 'DSH-34' },
+  { key: 'client_replies', icon: 'message', tag: 'DSH-63' },
+  { key: 'counsel_requests', icon: 'users', tag: 'DSH-64' },
+  { key: 'opinions', icon: 'fileText', tag: 'DSH-65' },
+  { key: 'proposed_issues', icon: 'flag', tag: 'DSH-66' },
+  { key: 'approved_unanswered', icon: 'send', tag: 'DSH-67' },
+  { key: 'identity_conflicts', icon: 'shield', tag: 'DSH-68' },
 ].map((d) => ({ ...d, label: QUEUE_LABELS[d.key] }));
+// v12 gate (TA-05): رمز لكل حالة في «ملفات الاستشارة حسب الحالة» (كانت السبعة DSH-38) ولكل صف في «حسب نوع الطلب» (DSH-03 ×4)
+const CASE_ROW_TAGS = { new: 'DSH-38', assigned: 'DSH-69', in_progress: 'DSH-70', under_review: 'DSH-71', approved: 'DSH-72', answered: 'DSH-73', closed: 'DSH-74' };
+const LINE_ROW_TAGS = { consultation: 'DSH-03', litigation: 'DSH-75', company: 'DSH-76', none: 'DSH-77' };
 
 const MONTHS = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const SHORT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -151,12 +155,12 @@ export function segmentStrip(seg) {
   if (!seg || !seg.charity || !seg.paid) return null;
   const c = seg.charity;
   const p = seg.paid;
-  const row = ({ href, ico, tone, title, sub, extra, data }) =>
+  const row = ({ href, ico, tone, title, sub, extra, data, tag }) =>
     h(
       'li',
       h(
         'a.g-row.pa-seg-row',
-        { href, dataset: data, tag: 'DSH-17' },
+        { href, dataset: data, tag },
         h('span.g-ico', { class: tone, 'aria-hidden': 'true' }, icon(ico, { className: data.seg ? 'seg-glyph' : null })),
         h('span.g-main', h('span.g-title', title), sub ? h('span.g-sub.pa-seg-line', sub) : null, extra || null),
         h('span.g-trail', icon('chevronLeft', { size: 16 })),
@@ -164,7 +168,8 @@ export function segmentStrip(seg) {
     );
   const line = (d) => ['جديد اليوم ', h('strong', num(d.new_today)), ' · مفتوح ', h('strong', num(d.open))];
   const rows = [
-    row({ href: '#/inbox?segment=charity', ico: 'heart', tone: 'is-gold', title: segLabel('segment', 'charity'), sub: line(c), data: { seg: 'charity' } }),
+    // v12 gate (TA-05): رمز لكل صف (كانت الأربعة DSH-17)
+    row({ href: '#/inbox?segment=charity', ico: 'heart', tone: 'is-gold', title: segLabel('segment', 'charity'), sub: line(c), data: { seg: 'charity' }, tag: 'DSH-17' }),
     row({
       href: '#/inbox?segment=paid',
       ico: 'briefcase',
@@ -174,13 +179,14 @@ export function segmentStrip(seg) {
       // P1 (S11-33): لمدير النظام فقط (الخادم لا يرسل الرقم لغيره)
       extra: p.revenue_month != null ? h('span.g-sub.pa-seg-rev', 'إيرادات الأفراد هذا الشهر: ', h('strong', money(p.revenue_month))) : null,
       data: { seg: 'paid' },
+      tag: 'DSH-78',
     }),
   ];
   if (Number(seg.unset_open) > 0)
-    rows.push(row({ href: '#/inbox?segment=unset', ico: 'helpCircle', tone: 'is-warn', title: `طلبات نوع خدمتها غير محدد: ${num(seg.unset_open)}`, sub: 'اختاروا النوع من صفحة كل طلب.', data: { alert: 'unset' } }));
+    rows.push(row({ href: '#/inbox?segment=unset', ico: 'helpCircle', tone: 'is-warn', title: `طلبات نوع خدمتها غير محدد: ${num(seg.unset_open)}`, sub: 'اختاروا النوع من صفحة كل طلب.', data: { alert: 'unset' }, tag: 'DSH-79' }));
   // r2 S9: طلبات أفراد من الموقع بلا واتساب مؤكد — قائمة المكالمات
   if (Number(p.unconfirmed_wa) > 0)
-    rows.push(row({ href: '#/inbox?segment=paid&channel=website', ico: 'phone', tone: 'is-warn', title: `طلبات أفراد بلا واتساب مؤكد: ${num(p.unconfirmed_wa)}`, sub: 'لم يؤكدوا رقمهم على واتساب — اتصلوا بهم.', data: { alert: 'unconfirmed_wa' } }));
+    rows.push(row({ href: '#/inbox?segment=paid&channel=website', ico: 'phone', tone: 'is-warn', title: `طلبات أفراد بلا واتساب مؤكد: ${num(p.unconfirmed_wa)}`, sub: 'لم يؤكدوا رقمهم على واتساب — اتصلوا بهم.', data: { alert: 'unconfirmed_wa' }, tag: 'DSH-80' }));
   const moved = Number(seg.ineligible_overrides) || 0;
   return h(
     'section.g-section.pa-seg-strip',
@@ -198,7 +204,7 @@ export function segmentStrip(seg) {
  */
 export function lineStrip(lines) {
   if (!Array.isArray(lines) || !lines.length) return null;
-  // tags:skip القسم يُعرف بعنوانه DSH-01 وقائمته DSH-02، وكل صف DSH-03
+  // tags:skip القسم يُعرف بعنوانه DSH-01 وقائمته DSH-02، وكل صف برمزه (LINE_ROW_TAGS)
   return h(
     'section.g-section.pa-line-strip',
     { 'aria-labelledby': 'pa-line-strip-h' },
@@ -213,7 +219,7 @@ export function lineStrip(lines) {
             'a.g-row.pa-line-row',
             // review (F1): الأعداد لطلبات «أفراد وشركات» وحدها، فالرابط يفتح صندوق الوارد على النطاق نفسه (لا على آخر نوع خدمة محفوظ)
             // review-2 (T12-78): صف النوع رابط أساسي برمز واحد لموضعه (DSH-03؛ كلماته من LABELS.service_line)
-            { href: `#/inbox?segment=paid&line=${encodeURIComponent(l.line)}`, dataset: { line: l.line }, tag: 'DSH-03' },
+            { href: `#/inbox?segment=paid&line=${encodeURIComponent(l.line)}`, dataset: { line: l.line }, tag: LINE_ROW_TAGS[l.line] },
             h(
               'span.g-main',
               h('span.g-title', l.label),
@@ -242,7 +248,7 @@ export default async function render(ctx) {
   // ───────────── الترويسة ─────────────
   const header = pageHeader({
     title: `${greeting()}، ${(user.name || '').split(' ')[0] || ''}`.replace(/،\s*$/, ''),
-    subtitle: 'هذه نظرة اليوم على ما يصل إلى المؤسسة وما ينتظر قرارك.',
+    subtitle: 'هذه نظرة اليوم على ما يصلنا وما ينتظر قرارك.', // v12 gate (V-08): بلا «المؤسسة» (المكتب يخدم الأفراد والشركات)
     meta: [
       badge(`الذكاء الاصطناعي: ${ai.label || '—'}`, ai.provider === 'anthropic' ? 'info' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
       whatsappBadge(d),
@@ -349,7 +355,7 @@ export default async function render(ctx) {
   // ───────────── بانتظار قرارك ─────────────
   const decisionsCard = card({
     title: 'بانتظار قرارك',
-    subtitle: 'لا يصل شيء للمستفيد/ة أو للمحامي قبل قرار الإدارة',
+    subtitle: 'لا يصل شيء لصاحب الطلب أو للمحامي قبل قرار الإدارة', // v12 gate (V-08)
     icon: 'queue',
     actions: badge(String(pendingTotal), pendingTotal ? 'warning' : 'success'),
     body: h(
@@ -360,7 +366,7 @@ export default async function render(ctx) {
           'li',
           h(
             'a.pa-dlist-row',
-            { href: `#/queue?section=${x.key}`, class: n ? 'is-pending' : 'is-zero', tag: 'DSH-34' },
+            { href: `#/queue?section=${x.key}`, class: n ? 'is-pending' : 'is-zero', tag: x.tag },
             h('span.pa-dlist-icon', icon(x.icon, { size: 16 })),
             h('span.pa-dlist-label', x.label),
             h('span.pa-dlist-n', String(n)),
@@ -389,7 +395,7 @@ export default async function render(ctx) {
           'li',
           h(
             'a.pa-hbar',
-            { href: `#/cases?status=${k}`, class: !n && 'is-zero', tag: 'DSH-38' },
+            { href: `#/cases?status=${k}`, class: !n && 'is-zero', tag: CASE_ROW_TAGS[k] },
             h('span.pa-hbar-label', label('case_status', k)),
             h('span.pa-hbar-n', String(n)),
             h('span.pa-hbar-track', { 'aria-hidden': 'true' }, n ? h('span.pa-hbar-fill', { class: `tone-${caseTone(k)}`, style: { width: `${Math.max(2, (n / caseMax) * 100)}%` } }) : null),
@@ -458,7 +464,7 @@ export default async function render(ctx) {
   const events = d.upcoming_events || [];
   const eventsCard = card({
     title: 'مواعيد الأيام السبعة القادمة',
-    subtitle: 'تذكير المستفيد/ة آليًا قبل 3 أيام من أي موعد يلزم حضوره',
+    subtitle: 'تذكير صاحب الطلب آليًا قبل 3 أيام من أي موعد يلزم حضوره',
     icon: 'calendar',
     body: events.length
       ? h(
@@ -480,7 +486,7 @@ export default async function render(ctx) {
                     codeTag(e.matter_code),
                     h('time.small.muted', { datetime: e.starts_at, title: dateTime(e.starts_at) }, `${p.weekday} ${time(e.starts_at)} · ${relative(e.starts_at)}`),
                   ),
-                  e.client_attendance_required ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' }) : null,
+                  e.client_attendance_required ? badge('يلزم حضور صاحب الطلب', 'warning', { icon: 'user' }) : null,
                 ),
               ),
             );
@@ -495,7 +501,7 @@ export default async function render(ctx) {
   const alerts = d.similar_alerts || [];
   const similarCard = card({
     title: 'تنبيهات الحالات المشابهة',
-    subtitle: 'طلبات مفتوحة تشبه حالات تعاملت معها المؤسسة من قبل',
+    subtitle: 'طلبات مفتوحة تشبه حالات تعاملنا معها من قبل',
     icon: 'sparkle',
     body: alerts.length
       ? h(

@@ -466,6 +466,21 @@ export function registerPublicRoutes(router, app) {
     // على رقم عميل موجود لا يرث اسم صاحب الرقم (وإلا عرضته صفحة /p/… والردود الجاهزة لمن كتب الرقم: «أهلًا يا رامي»).
     // الموظفون يرون اسم ملف العميل كما هو (intakes.list: contact_name || client_name).
     db.update('intakes', r.intake.id, { form_answers: JSON.stringify(formAnswers), contact_name: name });
+    // v12 gate fixer-server (JR-02): موعد قريب من إجابات الشجرة (جلسة خلال أسبوعين، حكم حديث، «لا أعرف» في ورقة المحكمة)
+    // ← أولوية «عالية» من البداية (الفرز وشارة القائمة والتنبيه العاجل لا تعتمد على ما كتبه)، قرار يعدّله الفريق
+    if (leaf && inferred.urgent_hint) {
+      const up = db.run("UPDATE intakes SET priority = 'high' WHERE id = ? AND COALESCE(priority, 'normal') IN ('low','normal')", r.intake.id);
+      if (up.changes) {
+        app.activity.log({
+          intake_id: r.intake.id,
+          client_id: r.client.id,
+          actor: { kind: 'system' },
+          type: 'intake.urgent_hint',
+          summary: 'أولوية عالية: في إجابات الموقع ما يدل على موعد قريب، تأكدوا منه',
+          data: { path: leaf.path, answers: Object.keys(answers) },
+        });
+      }
+    }
     if (beneficiary) app.practice.beneficiary.savePublic(r.intake, r.client, beneficiary, { createdClient: !!r.created_client });
     // v12 entry (L12-27، L12-75): مسار الطلب (service_line, pathway, نسخة الكلمات) ثم «سبق التعامل مع خيري» للفريق — كلاهما لا يُفشل
     // الطلب أبدًا (الطلب وصل؛ الخطأ يُسجَّل فقط)

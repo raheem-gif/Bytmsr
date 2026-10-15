@@ -154,16 +154,17 @@ export default async function memoryList(ctx) {
       h('button.co-seg-btn', { type: 'button', 'aria-pressed': st.chip === k ? 'true' : 'false', onClick: (e) => { st.chip = k; chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); syncHash(); load(); }, tag: 'CM-22' }, label),
     ),
   );
-  const select = (label, value, options, onChange) => {
-    const sel = h('select.input', { 'aria-label': label, onChange: () => onChange(sel.value), tag: 'CM-23' }, h('option', { value: '' }, `${label}: ${M.any}`), options.map(([v, l]) => h('option', { value: String(v) }, l)));
+  // v12 gate (TA-05): رمز لكل قائمة تصفية (الكيان CM-23، الطرف الآخر، التجديد) — كانت الثلاث CM-23
+  const select = (label, value, options, onChange, tag) => {
+    const sel = h('select.input', { 'aria-label': label, onChange: () => onChange(sel.value), tag }, h('option', { value: '' }, `${label}: ${M.any}`), options.map(([v, l]) => h('option', { value: String(v) }, l)));
     sel.value = String(value || '');
     return h('div.select-wrap.co-mem-select', sel);
   };
   const selects = [];
-  if (ents.length > 1) selects.push(select(M.entity, st.entity_id, ents.map((e) => [e.id, e.name]), (v) => { st.entity_id = v; syncHash(); load(); }));
-  if (isContract && cps.length) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }));
-  else if (st.counterparty_id) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }));
-  if (isContract) selects.push(select(M.renewal, st.renewal_type, [['auto', M.renewal_auto], ['manual', M.renewal_manual], ['none', M.renewal_none]], (v) => { st.renewal_type = v; syncHash(); load(); }));
+  const SELECT_TAGS = { entity: 'CM-23', counterparty: 'CM-36', renewal: 'CM-37' };
+  if (ents.length > 1) selects.push(select(M.entity, st.entity_id, ents.map((e) => [e.id, e.name]), (v) => { st.entity_id = v; syncHash(); load(); }, SELECT_TAGS.entity));
+  if ((isContract && cps.length) || st.counterparty_id) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }, SELECT_TAGS.counterparty));
+  if (isContract) selects.push(select(M.renewal, st.renewal_type, [['auto', M.renewal_auto], ['manual', M.renewal_manual], ['none', M.renewal_none]], (v) => { st.renewal_type = v; syncHash(); load(); }, SELECT_TAGS.renewal));
   let timer = 0;
   const search = h('input.input', {
     type: 'search',

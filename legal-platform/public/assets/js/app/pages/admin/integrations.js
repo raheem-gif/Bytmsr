@@ -414,11 +414,14 @@ const STT_TEST_TEXT = {
   timeout: 'انتهت المهلة دون رد',
   network: 'تعذر الاتصال بالمزوّد',
   blocked_host: 'عنوان الخدمة غير مسموح',
+  // v12 gate fixer-server (JR-11): العلاج لخادم Whisper على الجهاز نفسه
+  blocked_local: 'عنوان على الجهاز نفسه غير مسموح افتراضيًا. شغّلوا المنصة بـ STT_ALLOW_LOCAL=1 لخادم على الجهاز نفسه، أو اكتبوا عنوانه في شبكة المكتب',
   http: 'رفض المزوّد الطلب',
   off: 'التحويل متوقف',
   not_configured: 'الإعدادات ناقصة',
   too_big: 'المقطع أكبر من المسموح',
   no_clip: 'مقطع الاختبار غير موجود على الخادم',
+  env_key_host: 'المفتاح مضبوط من الخادم؛ غيّر العنوان من الخادم أيضًا',
 };
 const sttVal = (item) => Object.fromEntries((item.fields || []).map((f) => [f.key, f]));
 

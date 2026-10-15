@@ -113,7 +113,10 @@ describe('v9 integration — client portal page /p/<token> uses the public site 
     assert.match(html, /id="portal-root"/);
     assert.match(html, /\/assets\/css\/public-site\.css/);
     // «متابعة طلب» هي الصفحة الحالية في القائمة
-    assert.match(html, /href="\/portal" aria-current="page"/);
+    // v12 gate r2 (V-07, K12-54, intended edit): the paid /p/ header is the letterhead mark only (no marketing nav, no CTA);
+    // the charity /p/ keeps its menu with «متابعة طلب» current
+    if (/<body[^>]*data-side="paid"/.test(html)) assert.ok(!/class="pub-nav"|pub-nav-cta|pub-menu-toggle/.test(html), 'paid /p/: letterhead header');
+    else assert.match(html, /href="\/portal" aria-current="page"/);
     assert.ok(!html.includes(token), 'the secret token must not be written into the page (canonical, og:url, JSON-LD)');
     // v9.1 b-site (تغيير مقصود، B91-11): كتلة بيانات JSON ‎#bm-public‎ غير تنفيذية تُستثنى مثل ld+json
     const withoutLd = html.replace(/<script type="application\/(?:ld\+)?json"[^>]*>[\s\S]*?<\/script>/g, '');

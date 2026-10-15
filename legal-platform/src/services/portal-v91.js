@@ -31,6 +31,15 @@ import { paidHours } from '../site-copy-paid.js'; // v11 fixer-public (V2): ال
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
 
+/** v12 gate (V-22): نص حتى n حرفًا مقصوصًا عند آخر مسافة (إن لم تكن مبكرة جدًا) بلا علامة ترقيم معلّقة، ثم «…» */
+export function wordClip(text, n) {
+  const s = String(text || '');
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const at = cut.lastIndexOf(' ');
+  return `${(at >= n * 0.6 ? cut.slice(0, at) : cut).replace(/[\s،,.؛:!?؟-]+$/u, '')}…`;
+}
+
 // ───────────── أدوات النص (تُستخدم أدوات util.js إن وُجدت — وحدة b-site — وإلا البديل المحلي بنفس القواعد) ─────────────
 
 const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -697,7 +706,8 @@ export function createPortalV91(app, { scopeOf, inList }) {
     for (const r of (view.requests || []).filter((x) => x.can_reply)) next.push({ kind: 'request', id: r.id, story_ref: r.story_ref, at: r.created_at });
     // آخر رسالة كتبها فريقنا بنفسه (لا التذكيرات الآلية، ولا رسالة الرد أو طلب الورق: لهما بطاقتهما)
     const lastOut = [...(view.messages || [])].reverse().find((m) => m.direction === 'out' && !m.kind);
-    const excerpt = (m) => truncate(String(m.body || '').replace(/\s+/g, ' '), 80);
+    // v12 gate (V-22): المقتطف يُقص عند حد كلمة («…وفق ما ا...» كان يقطع الكلمة)
+    const excerpt = (m) => wordClip(String(m.body || '').replace(/\s+/g, ' ').trim(), 80);
     // طلب مستنيين ردها عليه من غير طلب ورق/معلومة منظم (الإدارة سألتها في رسالة): «محتاجين ردّك» يفضل ظاهرًا
     // لحد ما ترد (أول رسالة منها ترجع الطلب للمراجعة)، فلا يقول الشريط «مستنيين ردّك» والبطاقة «مفيش حاجة مطلوبة»
     let replyMsgId = null;

@@ -65,14 +65,15 @@ export function recentPeriods(n = 18, include) {
 }
 
 /** قائمة اختيار الشهر. */
-export function periodSelect({ value, onChange, label: aria = 'الشهر', allLabel = null, months = 18 } = {}) {
+// v12 gate (TA-05): رمز الصفحة التي تعرض القائمة (LWL-01 هنا، وACC في «المحاسبة»، وصفحة المحامي برمزها)
+export function periodSelect({ value, onChange, label: aria = 'الشهر', allLabel = null, months = 18, tag } = {}) {
   return selectInput({
     label: aria,
     value: value || '',
     allLabel,
     options: recentPeriods(months, value).map((p) => ({ value: p, label: periodLabel(p) })),
     onChange,
-    tag: 'LWL-01',
+    tag,
   });
 }
 
@@ -720,6 +721,7 @@ export default async function render(ctx) {
   });
   const periodSel = periodSelect({
     label: 'شهر المؤشرات',
+    tag: 'LWL-01',
     value: state.period,
     onChange: (v) => {
       state.period = v;

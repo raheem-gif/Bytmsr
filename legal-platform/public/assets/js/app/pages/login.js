@@ -13,6 +13,8 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
   const org = settings.org_name || 'بيوت مصر';
   const chrome = staffChrome();
   const year = new Date().getFullYear();
+  // v12 gate (K-S7): المنصة منصة المكتب («خيري» مؤرشف) — سطر © باسم المكتب كما في تذييل الموقع (firm_legal_name › brand_name)
+  const firm = String((meta && meta.site && meta.site.firm_name) || '').trim() || (chrome.on ? chrome.name : org);
 
   const loginForm = form(
     [
@@ -81,32 +83,32 @@ export default function renderLogin({ meta, expired = false, onLogin }) {
       // v11 visual (V-4، V11-04 القاعدة 1): الشعار الذهبي الكامل (≥ 200px، النص البديل = اسم المكتب) على لوحة فاتحة،
       // أو اسم المؤسسة ورمز الميزان كما في 9.2 حين يُوقف اسم المكتب في الإعدادات
       { tag: 'LGN-05' }, chrome.on
-        ? h('div.brand.brand--lockup', brandLockup({ width: 260 }), h('span.brand-sub', 'منصة الدعم القانوني'))
-        : h('div.brand', brandMark({ size: 28 }), h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة الدعم القانوني'))),
+        ? h('div.brand.brand--lockup', brandLockup({ width: 260 }), h('span.brand-sub', 'منصة المكتب'))
+        : h('div.brand', brandMark({ size: 28 }), h('span.brand-text', h('span.brand-name', org), h('span.brand-sub', 'منصة المكتب'))),
       h(
         'div.login-pitch',
         h('h2', { tag: 'LGN-06' }, 'كل طلب قانوني، من أول رسالة حتى الرد المعتمد، في مكان واحد'),
         h(
           'p',
-          'منصة داخلية لفريق الإدارة وشبكة المحامين: استقبال الطلبات من الموقع وواتساب، وإسناد الملفات، ومراجعة الآراء القانونية قبل وصولها إلى المستفيد/ة.',
+          'منصة داخلية لفريق المكتب وشبكة المحامين: استقبال الطلبات من الموقع وواتساب، وإسناد الملفات، ومراجعة الآراء القانونية قبل وصولها إلى أصحابها.',
         ),
         h(
           'ul.login-points',
           [
             ['inbox', 'صندوق وارد موحد لطلبات الموقع وواتساب'],
             ['shield', 'صلاحيات دقيقة لكل محامٍ على كل ملف'],
-            ['checkCircle', 'لا يصل أي رد للمستفيد/ة قبل اعتماد الإدارة'],
+            ['checkCircle', 'لا يصل أي رد لصاحب الطلب قبل اعتماد الإدارة'],
           ].map(([ic, text]) => h('li', h('span.pt-icon', icon(ic, { size: 18 })), h('span', text))),
         ),
       ),
-      h('p.login-foot', `© ${year} ${org}. جميع الحقوق محفوظة.`),
+      h('p.login-foot', { tag: 'LGN-54' }, `© ${year} `, h('bdi', firm), '. جميع الحقوق محفوظة.'),
     ),
     h(
       'main.login-main',
       h(
         'div.login-card',
         h('h1', { tag: 'LGN-07' }, 'تسجيل الدخول'),
-        h('p.login-sub', 'لفريق الإدارة والمحامين المعتمدين لدى المؤسسة'),
+        h('p.login-sub', 'لفريق المكتب والمحامين المعتمدين لديه'),
         expired && h('div.mb-3', alertBox('انتهت جلستك، يرجى تسجيل الدخول مرة أخرى للمتابعة.', 'warning', { tag: 'LGN-08' })),
         loginForm.el,
         // v9.1 l-home (L-10/L-21): «نسيت كلمة المرور؟» تفتح ورقة: اتصال بالمؤسسة، واتساب، أو رابط على واتساب للمحامين المشتركين

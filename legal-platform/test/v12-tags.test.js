@@ -698,6 +698,20 @@ describe('v12 tags TG-7 — coverage enforced, registry in sync, budgets (T12-73
     assert.ok(!pc.some((f) => /^tags/.test(f)), `/p/ closure: ${pc.join(', ')}`);
     const app = await startTestApp();
     try {
+      // v12 gate r2 (R-02, intended edit): measure the URL the browser actually requests — tags-boot.js imports tags.js without
+      // ?v= (a built path), and that response is now the same comment-stripped transform as the versioned one (no-cache kept)
+      for (const u of ['/assets/js/lib/tags.js', '/assets/js/lib/tags-pages.js', '/assets/js/lib/tags-boot.js']) {
+        const r = await fetch(`${app.base}${u}`, { headers: { 'accept-encoding': 'br' } });
+        const body = Buffer.from(await r.arrayBuffer());
+        assert.equal(r.status, 200, u);
+        assert.equal(r.headers.get('cache-control'), 'no-cache', u);
+        assert.ok(body.equals(transformAsset(path.join(PUB, u.slice(1)))), `${u} served as transformAsset`);
+        assert.doesNotMatch(body.toString('utf8'), /^\s*\/\/ /m, `${u}: no comment lines served`);
+        if (u.endsWith('/tags.js')) {
+          const served = r.headers.get('content-encoding') === 'br' ? Number(r.headers.get('content-length')) : br(body);
+          assert.ok(served <= 9216, `tags.js ${served} B br as served (unversioned)`);
+        }
+      }
       const html = await (await fetch(`${app.base}/services`)).text();
       const n = (html.match(/ data-tag="[A-Z]{1,3}-\d{2,3}"/g) || []).length;
       const growth = br(Buffer.from(html)) - br(Buffer.from(html.replace(/ data-tag="[A-Z]{1,3}-\d{2,3}"/g, '')));

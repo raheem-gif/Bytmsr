@@ -1336,7 +1336,8 @@ describe('v12 entry EN-1…EN-4: the tree pages, redirects, charity archive, /se
       assert.match(h, /<li><span class="partners__name" dir="auto">سارة علي<\/span><\/li>/);
       assert.match(h, /<p class="partners__since" data-tag="S-47">تأسس المكتب عام 1998 في القاهرة\.<\/p>/);
       assert.ok(h.indexOf('id="partners"') > h.indexOf('id="trust"') && h.indexOf('id="partners"') < h.indexOf('id="faq"'));
-      assert.match(h, /<p class="pub-footer-desktop" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات في القاهرة\.<\/p>/);
+      // v12 gate r2 (V-18, intended edit): the firm line shows on phones too (pub-footer-statement, no pub-footer-desktop)
+      assert.match(h, /<p class="pub-footer-statement" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات في القاهرة\.<\/p>/);
       const svc = JSON.parse(/application\/ld\+json">([\s\S]*?)<\/script>/.exec(h)[1])['@graph'][0];
       assert.equal(svc.address.addressLocality, 'القاهرة');
       assert.equal(svc.foundingDate, '1998');
@@ -1358,8 +1359,9 @@ describe('v12 entry EN-1…EN-4: the tree pages, redirects, charity archive, /se
       assert.ok(!/pub-seg-pill|تغيير نوع الخدمة|اختيار نوع الخدمة|href="\/khayri/.test(bodyOf(r.body)), u);
     }
     const nf = (await get('/nothing-here')).body;
-    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/" data-cta="intake"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>طلب جديد<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
-    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الصفحة الأولى<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    // v12 gate r2 (V-19, intended edit): one filled button («متابعة طلب») and two text links on the paid 404
+    assert.match(nf, /<a class="pub-nf-link" href="\/" data-cta="intake"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>طلب جديد<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    assert.match(nf, /<a class="pub-nf-link" href="\/"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الصفحة الأولى<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
     assert.equal(titleOf(nf), 'الصفحة غير موجودة | Emam Legal and Consultancy');
     const side = await get('/privacy?side=charity');
     assert.match(side.body, /data-side="charity"/);
@@ -1556,7 +1558,11 @@ describe('v12 entry EN-5…EN-9: the minimal paid intake, POST with a pathway, l
     assert.match(pq, /h\('div\.opts', \{ role: 'group', 'aria-labelledby': heading\.id \}/);
     assert.match(pq, /button\.opt\.opt--choice/);
     assert.match(pq, /v === 'unknown' && 'opt--unknown'/);
-    assert.match(src, /h\('p\.step', \{ 'aria-live': 'polite', tag: 'I-02' \}/);
+    // v12 gate r2 (R-01, intended edit): the polite step line (I-02) is server markup (intakeChromeView lh_step, «1 من N» on the
+    // first question) so it takes no space late; intake.js only updates it
+    assert.match(src, /stepEl \|\|= document\.querySelector\('p\.step'\);/);
+    assert.ok(!/h\('p\.step'/.test(src), 'the step line is not created in the browser');
+    assert.match(readSrc('src/site.js'), /lh_step: `<p class="step" aria-live="polite" data-tag="I-02"/);
     assert.match(src, /stepEl\.querySelector\('i'\)\.style\.setProperty\('--p'/, 'CSSOM fill, no style attribute (L12-14)');
     assert.match(src, /view\.heading\.focus\(\{ preventScroll: true \}\)/);
     assert.match(src, /if \(PUB\.charity && !P && !params\.get\('seg'\)/, 'L11-53 only while «خيري» is public and never on a leaf (E12-40)');
@@ -1565,7 +1571,9 @@ describe('v12 entry EN-5…EN-9: the minimal paid intake, POST with a pathway, l
     assert.match(src, /path: P\?\.path,/, 'drafts keyed on path (E12-40)');
     assert.match(src, /const samePath = !P \|\| d\.path === P\.path;/);
     assert.match(src, /pages: !!P,/, 'multi-page documents on the paid intake (L12-38)');
-    assert.match(src, /namePrefix: P\?\.name_prefix \|\| COPY\.docName,/);
+    // v12 gate r2 (JR-09, intended edit): files are named by the document (COPY.docName: «مستند» paid via bm-copy, «ورقة»
+    // charity), not by the leaf label («أسرة-وميراث-1.jpg»)
+    assert.match(src, /namePrefix: COPY\.docName,/);
     // رموز الطلب في نطاقات entry
     for (const c of new Set([...src.matchAll(/'(I|IC)-(\d+)'/g)].map((m) => `${m[1]}-${m[2]}`))) assert.ok(c.startsWith('I-') ? IN_RANGE_I(codeNum(c)) || codeNum(c) >= SWEPT_FROM.I : false, c); // v12 tags: intended (TG-6)
     const co = readSrc('public/assets/js/public/intake-company.js');
@@ -1716,10 +1724,12 @@ describe('v12 entry EN-5…EN-9: the minimal paid intake, POST with a pathway, l
     const paid = (await get('/privacy')).body;
     assert.ok(paid.includes('الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا، وكل رد على موضوعكم يكتبه أو يراجعه شخص مختص قبل إرساله.'));
     assert.ok(!paid.includes('كل رد يصلك يراجعه شخص مختص ويعتمده'));
-    assert.ok(paid.includes('ولإيقاف الرسائل الآلية وحدها أرسل كلمة «توقف».'));
+    // v12 gate (K-P3): intended — the paid privacy body is the firm's, in the plural («أرسلوا»); the charity page keeps «أرسل»
+    assert.ok(paid.includes('ولإيقاف الرسائل الآلية وحدها أرسلوا كلمة «توقف».'));
     assert.ok(paid.includes('قد يكون في متصفحكم ملف ارتباط قديم اسمه bm_seg من زيارة سابقة. لم نعد نستخدمه، ونحذفه عند زيارتكم التالية.'));
     const ch = (await get('/privacy?side=charity')).body;
     assert.ok(ch.includes('الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا، وكل رد على موضوعك يكتبه أو يراجعه شخص مختص قبل إرساله.'));
+    assert.ok(ch.includes('ولإيقاف الرسائل الآلية وحدها أرسل كلمة «توقف».'));
     assert.ok(!(await get('/terms')).body.includes('المساعدة القانونية المجانية («خيري»)'));
     t.app.settings.set('charity_public', true);
     try {

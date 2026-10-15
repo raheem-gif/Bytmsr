@@ -50,6 +50,10 @@ const RAW_KEYS = new Set(['brand_inline', 'header', 'footer', 'contact_list', 's
   'tree_main', 'tree_preload',
   // v12 entry: إطار طلب الأفراد والشركات (E12-31): العلامة، و«رجوع» والمسار، وتذييل الشجرة
   'lh_head', 'lh_trail', 'lh_foot',
+  // v12 gate (R-01): خط الخطوة «1 من N» من الخادم فوق #intake-root، فلا يدفع intake.js الشاشة الأولى لأسفل عند ظهورها
+  'lh_step',
+  // v12 gate (JR-15): نص زر التواصل في صفحة «خيري» المتوقفة (ثابت أو رقم مُهرَّب)
+  'charity_contact_label',
   // v12 entry (L12-29، §5.5): فقرات media الثابتة في الخصوصية وحذف البيانات (لا مدخلات مستخدم)
   'media_privacy', 'media_deletion',
   // v11 fixer-public (K5، GP-6 P1): شعار شاشة الدخول /portal
@@ -202,6 +206,7 @@ const FIRM_ERR = {
   year: 'اكتب سنة التأسيس بأربعة أرقام من 1900 حتى السنة الحالية، أو اتركها فارغة.',
   partners: 'الشركاء 8 على الأكثر: لكل شريك اسم من 2 إلى 60 حرفًا وصفة حتى 60 حرفًا، بحروف عادية بلا روابط.',
   landing: 'اختر ما يظهر عند فتح روابط «خيري» القديمة.',
+  registration: 'اكتب قيد المكتب (نقابة المحامين أو السجل التجاري) بحروف عادية، 120 حرفًا على الأكثر، بلا روابط.',
 };
 const URLISH_RE = /(?:[a-z][a-z0-9+.-]*:\/\/|www\.|\/\/|[a-z0-9-]+\.[a-z]{2,}(?:[/:?#]|$|\s))/i;
 const DIGITS_ONLY_RE = /^[\d٠-٩\s.,،-]+$/;
@@ -216,6 +221,13 @@ function firmText(x, { max, min = 0, msg }) {
     return '';
   }
   if ([...s].length > max || [...s].length < min || URLISH_RE.test(s) || DIGITS_ONLY_RE.test(s)) throw badRequest(msg);
+  return s;
+}
+function firmRegistration(x) {
+  if (x === null || x === undefined) return '';
+  if (typeof x !== 'string' || !isPlainName(x)) throw badRequest(FIRM_ERR.registration);
+  const s = collapseSpaces(x);
+  if ([...s].length > 120 || URLISH_RE.test(s)) throw badRequest(FIRM_ERR.registration);
   return s;
 }
 function firmYear(x) {
@@ -275,6 +287,8 @@ export function validateSiteSettings(body = {}) {
   take('org_instagram_url', (x) => socialUrl(x, 'حساب إنستجرام', ['instagram.com']));
   // v12 entry (§5.4، L12-12، L12-49، L12-56): الصفحة الأولى و«عن المكتب» — نص عادي بلا روابط، وبلا قيم كلها أرقام
   take('firm_legal_name', (x) => firmText(x, { max: 80, msg: FIRM_ERR.name }));
+  // v12 gate fixer-server (V-01): قيد المكتب للجهة المتعاقدة — نص عادي بلا روابط، والأرقام مسموحة («سجل تجاري 12345»)
+  take('firm_registration', (x) => firmRegistration(x));
   // المدينة قد تحمل رقمًا («مدينة 6 أكتوبر»): الممنوع الروابط والأرقام وحدها
   take('firm_city', (x) => firmText(x, { max: 40, msg: FIRM_ERR.city }));
   take('firm_founded', (x) => firmYear(x));
@@ -512,6 +526,9 @@ function jsonForScript(obj) {
 const HOST_RE = /^[a-z0-9.-]+(:\d{1,5})?$|^\[[0-9a-f:.]+\](:\d{1,5})?$/i;
 
 /** محرك القوالب: الكتل الشرطية ثم القيم في تمريرة واحدة (القيم المُدرجة لا تُعالج مرة أخرى كقوالب). */
+/** v12 gate (K-P4، H-L1): الصفحات التي يتغير رأسها بترويسة «Save-Data» (تحميل وجه العناوين المسبق)، فيحمل ردها «Vary: …, Save-Data» */
+const SAVE_DATA_PAGES = new Set(['/services']);
+
 export function renderTemplate(text, view) {
   let out = text;
   // كتل شرطية (تتكرر حتى تُحل المتداخلة)
@@ -717,6 +734,8 @@ export function registerSite(app) {
       // v12 entry (L12-45): «خيري» ظاهر على الموقع؟ (charity_public)، والرسائل الصوتية من الموقع مفعّلة؟ (web_voice_enabled، media)
       charity: app.settings.get('charity_public') === true,
       voice: app.settings.get('web_voice_enabled') === true,
+      // v12 gate (K-P2): «تحسين صور المستندات على جهاز المرسل» (scan_client_enabled، media)؛ upload.js يقرأ scan === false
+      scan: app.settings.get('scan_client_enabled') !== false,
     };
   }
 
@@ -750,7 +769,8 @@ export function registerSite(app) {
     const attrs = wa
       ? `class="pub-head-contact pub-head-contact--wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب (يفتح في نافذة جديدة)"`
       : `class="pub-head-contact" href="tel:${esc(tel)}" aria-label="${ps.side === 'paid' ? 'اتصال بالهاتف' : 'اتصال بالتليفون'}"`;
-    return `<a ${attrs} data-tag="H-08">${iconSvg(wa ? 'whatsapp' : 'phone', 22)}</a>`;
+    // v12 gate (V-18): دائرة الأيقونة لرأس «خيري» وحده (بلا رموز H-)؛ الأفراد والشركات: كلمة «واتساب» داخل القائمة (H-08)
+    return `<a ${attrs}>${iconSvg(wa ? 'whatsapp' : 'phone', 22)}</a>`;
   }
 
   /** v9.2: صورة موضوع/إجابة (SVG داخلي من pictos.js، زخرفية: الكلمة بجانبها هي الاسم) */
@@ -843,11 +863,13 @@ export function registerSite(app) {
     const toggle = paid
       ? '<span class="pub-menu-word">القائمة</span>'
       : `${iconSvg('menu', 22, 'pub-menu-open')}${iconSvg('x', 22, 'pub-menu-close')}<span class="pub-sr">القائمة</span>`;
+    // v12 gate (V-18، K12-21): على الهاتف «القائمة» كلمة وحدها في رأس الأفراد والشركات؛ واتساب كلمة داخل القائمة (تُخفى على الشاشة الكبيرة)
+    const waWord = paid && wa ? `\n      <a class="pub-nav-link pub-nav-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-tag="H-08">واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>` : '';
     const menu = nav
-      ? `${headerContactHtml(ps, wa)}<button class="pub-menu-toggle${paid ? ' pub-menu-toggle--word' : ''}" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu data-tag="H-09">${toggle}</button>
+      ? `${paid ? '' : headerContactHtml(ps, wa)}<button class="pub-menu-toggle${paid ? ' pub-menu-toggle--word' : ''}" type="button" aria-expanded="false" aria-controls="pub-nav" data-pub-menu data-tag="H-09">${toggle}</button>
     <nav id="pub-nav" class="pub-nav" aria-label="القائمة الرئيسية" data-tag="H-11">
       ${links}
-      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''} data-tag="H-06">${paid ? '' : iconSvg('search', 18)}<span>${followLabel}</span></a>${ctaHtml}
+      <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''} data-tag="H-06">${paid ? '' : iconSvg('search', 18)}<span>${followLabel}</span></a>${waWord}${ctaHtml}
     </nav>`
       : '';
     const out = `<a class="skip-link" href="#main" data-tag="H-10">انتقال إلى المحتوى</a>
@@ -1010,6 +1032,8 @@ export function registerSite(app) {
    * v11 gate-public (G11-23) + v12 entry (E12-66، L12-12، L12-56، §5.9 F-01…F-20): تذييل الأفراد والشركات — سطر
    * «محاماة واستشارات قانونية…» (+ « في {المدينة}» حين تُكتب)، «روابط» (الصفحة الأولى، عن المكتب، متابعة طلب، للشركات،
    * دخول الشركات، و«خيري» حين يُعاد)، السياسات، التواصل، وسطر © باسم المكتب (firm_legal_name › brand_name) في <bdi>.
+   * v12 gate (V-18، A23): الأعمدة نفسها على الهاتف قوائم بخطوط رفيعة (بلا «روابط مهمة» المطوية ولا سطر «للتواصل» المكرر)،
+   * وسطر المكتب (F-02) ظاهر على كل الشاشات.
    */
   function paidFooterHtml(ps, wa) {
     const year = new Date().getFullYear();
@@ -1023,10 +1047,10 @@ export function registerSite(app) {
         ${footerLogoHtml()}
         <span class="pub-brand-lockup">${wordmarkHtml(ps.brand_name, ps.brand_short)}</span>
       </a>
-      <p class="pub-footer-desktop" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات${ps.firm_city ? ` في ${esc(ps.firm_city)}` : ''}.</p>
+      <p class="pub-footer-statement" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات${ps.firm_city ? ` في ${esc(ps.firm_city)}` : ''}.</p>
       ${socialHtml(ps, { fbTag: 'F-22', igTag: 'F-23' })}
     </div>
-    <nav class="pub-footer-col pub-footer-desktop" aria-label="روابط الموقع" data-tag="F-24">
+    <nav class="pub-footer-col" aria-label="روابط الموقع" data-tag="F-24">
       <h2 data-tag="F-03">روابط</h2>
       <ul>
         <li><a href="/" data-tag="F-04">الصفحة الأولى</a></li>
@@ -1037,7 +1061,7 @@ export function registerSite(app) {
         ${charityPublic() ? '<li><a href="/khayri" data-tag="F-16">خيري</a></li>' : ''}
       </ul>
     </nav>
-    <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات" data-tag="F-25">
+    <nav class="pub-footer-col" aria-label="السياسات" data-tag="F-25">
       <h2 data-tag="F-09">السياسات</h2>
       <ul>
         <li><a href="/privacy" data-tag="F-10">سياسة الخصوصية</a></li>
@@ -1045,23 +1069,11 @@ export function registerSite(app) {
         <li><a href="/data-deletion" data-tag="F-12">حذف البيانات</a></li>
       </ul>
     </nav>
-    <div class="pub-footer-col pub-footer-contact pub-footer-desktop">
+    <div class="pub-footer-col pub-footer-contact">
       <h2 data-tag="F-13">تواصلوا معنا</h2>
       ${paidContactListHtml(ps, wa, { tag: 'F-14', mapTag: 'F-26', telTag: 'F-27', waTag: 'F-28', mailTag: 'F-29' })}
     </div>
   </div>
-  <details class="pub-footer-more" data-tag="F-15">
-    <summary><span>روابط مهمة</span>${iconSvg('chevronDown', 20, 'pub-faq-chevron')}</summary>
-    <ul>
-      <li><a href="/privacy" data-tag="F-10">الخصوصية</a></li><!-- tags:variant -->
-      <li><a href="/terms" data-tag="F-11">الشروط</a></li><!-- tags:variant -->
-      <li><a href="/data-deletion" data-tag="F-12">حذف البيانات</a></li><!-- tags:variant -->
-      ${charityPublic() ? '<li><a href="/khayri" data-tag="F-16">خيري</a></li>' : ''}<!-- tags:variant -->
-      ${company ? '<li><a href="/company" data-tag="F-08">دخول الشركات</a></li>' : ''}<!-- tags:variant -->
-      <li><a href="/app" data-tag="F-31">دخول فريق العمل والمحامين</a></li><!-- tags:variant -->
-    </ul>
-  </details>
-  ${ps.org_phone ? `<p class="pub-footer-call" data-tag="F-30">للتواصل: <a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></p>` : ''}
   <div class="pub-footer-bottom">
     <div class="pub-container pub-footer-bottom-inner">
       <p class="pub-legal" data-tag="F-20">© ${year} <bdi>${esc(ps.firm_name)}</bdi>. جميع الحقوق محفوظة.</p>
@@ -1447,7 +1459,7 @@ export function registerSite(app) {
       // v9.1 (B91-11): خط عربي مستضاف محليًا (الوزن العادي يُحمّل مبكرًا) وبيانات الصفحة دون طلب /api/meta
       '<link rel="preload" href="/assets/fonts/plex-arabic-400.woff2" as="font" type="font/woff2" crossorigin />',
       // v12 look (H-L1, L12-13): وجه العناوين (Amiri) يُحمَّل مبكرًا في /services وحدها، ولا يُحمَّل مع «Save-Data: on»
-      pagePath === '/services' && !saveData ? '<link rel="preload" href="/assets/fonts/amiri-arabic-400-sub.woff2" as="font" type="font/woff2" crossorigin />' : '',
+      SAVE_DATA_PAGES.has(pagePath) && !saveData ? '<link rel="preload" href="/assets/fonts/amiri-arabic-400-sub.woff2" as="font" type="font/woff2" crossorigin />' : '',
       // v12 entry: صفحات الشجرة لا تقرأ bm-public (entry.js بلا بيانات) فلا تحمله
       publicData ? `<script type="application/json" id="bm-public">${jsonForScript(publicBlock(ps))}</script>` : '',
     ]
@@ -1473,7 +1485,8 @@ export function registerSite(app) {
   // كتل مسماة (/* @critical-start:legal */) تُضاف للكتل العامة في الصفحات التي تطلبها (<!--site:critical-css:legal-->):
   // الصفحات القانونية وصفحة 404 (تُفتح غالبًا لأول مرة من رابط واتساب مقطوع) ترسم عنوانها و«بالمختصر» دون انتظار الملف.
   const criticalCache = new Map(); // الاسم ← { key, css }
-  function criticalCss(name = '') {
+  // v12 gate (K-P7): only = الكتلة المسماة وحدها (بلا الكتل العامة) لإلحاقها بكتلة أخرى (legal-paid بعد legal)
+  function criticalCss(name = '', { only = false } = {}) {
     const file = path.join(pub, 'assets/css/public-site.css');
     let st;
     try {
@@ -1482,14 +1495,15 @@ export function registerSite(app) {
       return '';
     }
     const key = `${st.size}-${st.mtimeMs}`;
-    const hit = criticalCache.get(name);
+    const ck = only ? `only:${name}` : name;
+    const hit = criticalCache.get(ck);
     if (hit && hit.key === key) return hit.css;
     const text = fs.readFileSync(file, 'utf8');
     let css = '';
     // v11 gate-public: العلامة تبدأ التعليق نفسه (/* @critical-start…)، فتعليق يذكر «@critical-start:legal» وسط الملف لا يفتح كتلة؛
     // والكتل المسماة بعد علامة H-G2 تُغلق بـ /* @critical-end:<name> */ (CRITICAL_RE مصدر واحد للخادم والاختبارات)
     for (const m of text.matchAll(CRITICAL_RE)) {
-      if (!m[1] || m[1] === name) css += m[2];
+      if (only ? m[1] === name : !m[1] || m[1] === name) css += m[2];
     }
     css = css
       .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -1503,8 +1517,25 @@ export function registerSite(app) {
       })
       .replace(/<\/?style/gi, '')
       .trim();
-    criticalCache.set(name, { key, css });
+    criticalCache.set(ck, { key, css });
     return css;
+  }
+
+  /**
+   * v12 gate (K-P7): نص الصفحات القانونية للأفراد والشركات (و404) طويل، فوصول IBM Plex بعد أول رسم على 3G يعيد لف الفقرات
+   * ويزيح ما تحتها (CLS ‎0.012–0.023 على /privacy بـ Fast 3G + 4× CPU). هنا الأوجه نفسها (الملف والمدى نفسيهما من الكتلة
+   * العامة، فلا نسخة ثانية تُحمَّل) باسم «Emam Text» و font-display: optional، و--f-ui/--f-display/--pub-font تشير إليه
+   * (:root:root تغلب :root في public-site.css الذي يُحمَّل بعد الرأس). زيارة أولى بطيئة تقرأ الصفحة بخط النظام دون إزاحة، والصفحة
+   * التالية تجد الخط في الذاكرة فتعرضه. «خيري» لا يمسه شيء (الجانب paid وحده).
+   */
+  function legalTextFontCss(css) {
+    const faces = (css.match(/@font-face\{font-family:"IBM Plex Sans Arabic";[^}]*\}/g) || []).map((r) =>
+      r.replace('font-family:"IBM Plex Sans Arabic"', 'font-family:"Emam Text"').replace('font-display:swap', 'font-display:optional'),
+    );
+    if (!faces.length) return '';
+    // v12 gate (V-16): + «Emam Latin» (Plex اللاتيني 400، optional) للأرقام؛ :root:root:root يغلب :root:has(> body[data-side=paid])
+    const stack = '"Emam Text","Emam Latin","Segoe UI",Tahoma,sans-serif';
+    return `${faces.join('')}:root:root:root{--f-ui:${stack};--pub-font:${stack};--f-display:"Emam Display","Emam Text","Times New Roman",serif}`;
   }
 
   const RENDER_CONTROL_KEYS = new Set(['side', 'canonical', 'ld', 'faq', 'company', 'view', 'publicData']);
@@ -1532,14 +1563,15 @@ export function registerSite(app) {
   }
 
   /**
+   * v12 gate (V-19): للأفراد والشركات زر ممتلئ واحد («متابعة طلب») ورابطان نصيان (nf_alt)، وعنوان عادي لا سؤال بلاغي (§5.11).
    * v11 gate-public (G11-52، P1) + v12 entry (E12-71 #14): صفحة 404 — «خيري» = نص 10.0 حرفيًا (يظهر فقط حين يُعاد «خيري»
    * وكعكة الزائر «خيري»)؛ الأفراد والشركات: «الصفحة الأولى» و«طلب جديد» ← «/».
    */
   function notFoundView(ps, side) {
     if (side !== 'paid') {
-      return { nf_title: `الصفحة غير موجودة — ${ps.site_name}`, nf_h1: 'الصفحة دي مش موجودة', nf_text: 'ممكن الرابط يكون ناقص أو اتقطع منه حتة وهو بيتنسخ من واتساب.', nf_h2: 'تحبي تعملي إيه؟', nf_follow: 'تابعي طلبك', nf_new: 'احكيلنا مشكلتك', nf_new_href: '/intake?seg=charity', nf_home_href: '/khayri', nf_home: 'الصفحة الرئيسية', nf_crumb: 'الرئيسية', nf_call: 'للمساعدة كلمينا:', nf_sep: ' — ' };
+      return { nf_title: `الصفحة غير موجودة — ${ps.site_name}`, nf_h1: 'الصفحة دي مش موجودة', nf_text: 'ممكن الرابط يكون ناقص أو اتقطع منه حتة وهو بيتنسخ من واتساب.', nf_h2: 'تحبي تعملي إيه؟', nf_follow: 'تابعي طلبك', nf_new: 'احكيلنا مشكلتك', nf_new_href: '/intake?seg=charity', nf_home_href: '/khayri', nf_home: 'الصفحة الرئيسية', nf_crumb: 'الرئيسية', nf_call: 'للمساعدة كلمينا:', nf_sep: ' — ', nf_alt: 'pub-btn pub-btn-outline' };
     }
-    return { nf_title: `الصفحة غير موجودة | ${ps.brand_name}`, nf_h1: 'الصفحة غير موجودة', nf_text: 'قد يكون الرابط ناقصًا، أو انقطع جزء منه عند نسخه.', nf_h2: 'ماذا تريدون أن تفعلوا؟', nf_follow: 'متابعة طلب', nf_new: 'طلب جديد', nf_new_href: '/', nf_home_href: '/', nf_home: 'الصفحة الأولى', nf_crumb: 'الصفحة الأولى', nf_call: 'للمساعدة اتصلوا بنا:', nf_sep: '، ' };
+    return { nf_title: `الصفحة غير موجودة | ${ps.brand_name}`, nf_h1: 'الصفحة غير موجودة', nf_text: 'قد يكون الرابط ناقصًا، أو انقطع جزء منه عند نسخه.', nf_h2: 'اختاروا ما تريدون:', nf_follow: 'متابعة طلب', nf_new: 'طلب جديد', nf_new_href: '/', nf_home_href: '/', nf_home: 'الصفحة الأولى', nf_crumb: 'الصفحة الأولى', nf_call: 'للمساعدة اتصلوا بنا:', nf_sep: '، ', nf_alt: 'pub-nf-link' };
   }
 
   /** v11 gate-public (G11-47، P1): نصوص /portal الثابتة حسب جانب الزائر (والباقي في bm-copy لـ portal-login.js) */
@@ -1577,6 +1609,9 @@ export function registerSite(app) {
       };
     }
     return {
+      // v12 gate (V-07، K12-54): صفحة الطلب الخاصة برأس الورقة وحده (العلامة → «/»)، بلا قائمة الموقع ولا «ابدأوا طلبكم»،
+      // فيبقى «قراءة الرسالة» الزر الممتلئ الوحيد
+      header: headerHtml(ps, '/p/', { nav: false }),
       pv_title: `متابعة طلبكم | ${ps.brand_name}`,
       pv_desc: `صفحة طلبكم الخاصة لدى ${ps.brand_name}: المطلوب منكم، وحالة الطلب، والرد، والمواعيد، والرسائل.`,
       pv_loading: PORTAL_PAID.loading,
@@ -1618,7 +1653,8 @@ export function registerSite(app) {
    * الصفحة تعتمد على الكعكة حين يُعاد «خيري»: ردها يحمل Vary: Cookie دائمًا (req.bmVary، E12-12).
    */
   function renderPage(file, req, pagePath, extra = {}) {
-    if (req) req.bmVary = 'Cookie';
+    // v12 gate (K-P4): الصفحة التي يتغير رأسها بـ«Save-Data» (تحميل Amiri المسبق في /services) تقول ذلك في Vary أيضًا
+    if (req) req.bmVary = SAVE_DATA_PAGES.has(pagePath) ? 'Cookie, Save-Data' : 'Cookie';
     const side = pageSide(req, extra.side);
     const ps = sideSettings(publicSettings(), side);
     const base = baseUrl(req);
@@ -1704,7 +1740,9 @@ export function registerSite(app) {
     html = html.replace(/<!--(?!site:)[\s\S]*?-->\s*/g, '');
     // <!--site:critical-css--> (الكتل العامة) أو <!--site:critical-css:legal--> (العامة + كتل «legal»)
     html = html.replace(/<!--site:critical-css(?::([a-z0-9-]+))?-->/, (m, name) => {
-      const css = criticalCss(name || '');
+      let css = criticalCss(name || '');
+      // v12 gate (K-P7): صفحات الأفراد والشركات القانونية و404 بلا إزاحة عند وصول الخط (انظر legalTextFontCss)
+      if (css && name === 'legal' && side === 'paid') css += legalTextFontCss(css);
       return css ? `<style>${css}</style>` : '';
     });
     return versionAssets(html);
@@ -1749,7 +1787,7 @@ export function registerSite(app) {
     // ويتغير ردها بالكعكة (Vary: Accept-Encoding, Cookie) حتى لا يخدم وسيط تخزين جانبًا لزائر من الجانب الآخر.
     res.setHeader('Cache-Control', noStore ? 'no-store' : 'private, no-cache');
     // مضغوطة (gzip) لمن يقبلها: الموقع العام يُفتح غالبًا من هواتف بباقات بيانات محدودة
-    sendBody(res, 200, html, { req, vary: 'Cookie' });
+    sendBody(res, 200, html, { req, vary: req?.bmVary || 'Cookie' }); // v12 gate (K-P4): «Cookie, Save-Data» على /services
   }
 
   /**
@@ -1910,14 +1948,26 @@ export function registerSite(app) {
   function serveCharityArchived(req, res, url) {
     if (app.settings.get('charity_archived_landing') === 'redirect') return redirectTo(res, url, '/', 302);
     const q = campaignQuery(url);
+    const waHref = waLink(charityDigits(), SITE_GREETING);
     const html = renderPage('khayri-paused.html', req, '/khayri', {
       side: 'charity',
       noindex: true,
       ld: 'none',
       faq: false,
       publicData: false,
-      view: (ps) => ({ header: headerHtml(ps, '/khayri', { nav: false, home: null }) }),
-      charity_wa_href: waLink(charityDigits(), SITE_GREETING),
+      view: (ps) => {
+        // v12 gate (JR-15): بلا رقم واتساب لـ«خيري» يبقى طريق للتواصل: زر اتصال بهاتف «خيري» (رقم المؤسسة في الإعدادات)
+        const tel = !waHref && ps.org_phone ? ps.org_phone_e164 || ps.org_phone : '';
+        return {
+          header: headerHtml(ps, '/khayri', { nav: false, home: null }),
+          charity_contact_href: waHref || (tel ? `tel:${tel}` : ''),
+          charity_contact_class: waHref ? 'pub-btn-whatsapp' : 'pub-btn-teal',
+          charity_contact_label: waHref
+            ? 'واتساب «خيري»<span class="pub-sr"> (يفتح في نافذة جديدة)</span>'
+            : `اتصال بـ«خيري» <bdi dir="ltr">${esc(ps.org_phone || '')}</bdi>`,
+        };
+      },
+      charity_wa_href: waHref,
       campaign_q: q,
       campaign_amp: q ? `&${q.slice(1)}` : '',
     });
@@ -1978,8 +2028,10 @@ export function registerSite(app) {
     }
     // v11 gate-public (GP-5): نصوص الأفراد والشركات للنموذج — في صفحتهم فقط، فصفحة «خيري» كما في 10.0 بايتًا ببايت (<main>)
     // v12 entry: وصور «خيري» (pictos.js) تُحمَّل مسبقًا في صفحته وحدها (intake.js يستوردها عند الحاجة)
+    // v12 gate (R-01): طلب عرض الشركات يحمّل v11-lead.css في <head> (كان intake-company.js يضيفه بعد رسم الحقول فتتحرك)
+    const leadCss = company ? `\n    <link rel="stylesheet" href="${imgUrl('/assets/css/v11-lead.css')}" data-lead-css />` : '';
     const extraHead = paid
-      ? intakeCopyBlock() + (bm ? `\n    <script type="application/json" id="bm-path">${jsonForScript(bm)}</script>` : '')
+      ? intakeCopyBlock() + leadCss + (bm ? `\n    <script type="application/json" id="bm-path">${jsonForScript(bm)}</script>` : '')
       : `<link rel="modulepreload" href="${imgUrl('/assets/js/public/pictos.js')}" />`;
     html = html.replace('</head>', () => `${extraHead}
   </head>`);
@@ -2006,6 +2058,11 @@ export function registerSite(app) {
         `<nav class="trail" aria-label="المسار" data-tag="I-196"><a class="trail__back" href="${esc(withQuery(back, q))}" data-tag="I-03">رجوع<span class="pub-sr">${to}</span></a>` +
         `<span class="trail__sep" aria-hidden="true"></span><span class="trail__path" data-tag="I-01"><span class="pub-sr">اخترتم: </span>${words.map(esc).join(' · ')}</span></nav>`,
       lh_foot: treeFootHtml(ps, q),
+      // v12 gate (R-01): خط الخطوة (I-02) من الخادم دائمًا، ويملؤه intake.js (stepLine) — أول شاشة في الورقة «1 من (أسئلتها + 3)»
+      // (السؤال الأول، أو «احكوا لنا» بلا أسئلة) فمكانها ثابت من أول رسم؛ طلب عرض الشركات و«نتصل بكم» يبدآن بلا خط (hidden)
+      lh_step: `<p class="step" aria-live="polite" data-tag="I-02"${bm && !bm.lead ? '' : ' hidden'}><span class="step__n">${bm && !bm.lead ? `1 من ${bm.ask.length + 3}` : ''}</span><span class="step__bar" aria-hidden="true"><i></i></span></p>`,
+      // شاشة أولى أطول من الشاشة (طلب عرض الشركات، ورقم «نتصل بكم»): #intake-root يحجز طول الشاشة من أول رسم (lh-long)
+      lh_long: !bm || bm.lead ? '1' : '',
     };
   }
 
@@ -2292,6 +2349,8 @@ export function registerSite(app) {
     return {
       site: {
         site_name: ps.site_name,
+        // v12 gate (K-S7): اسم المكتب في سطر © لصفحة دخول المنصة كما في تذييل الموقع (firm_legal_name › brand_name)
+        firm_name: ps.firm_name,
         program_name: ps.program_name,
         org_name: ps.org_name,
         org_full_name: ps.org_legal_name,

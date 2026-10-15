@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { startTestApp } from './helpers.js';
+import { setClock } from '../src/util.js';
 import { sendBody } from '../src/http.js';
 import { CRITICAL_RE, SITE_PAGES } from '../src/site.js';
 import { preloadClosure, transformAsset, setPublicRoot, stripJsCommentLines as stripJs } from '../src/site-assets.js';
@@ -197,7 +198,8 @@ describe('v11 gate-public — routing, cookie and caching (GP-0/GP-1)', () => {
         for (const enc of ['br', 'identity']) {
           const r = await fetch(`${t.base}${p}`, { method, headers: { 'accept-encoding': enc } });
           assert.equal(r.status, 200, `${method} ${p}`);
-          assert.equal(r.headers.get('vary'), 'Accept-Encoding, Cookie', `${method} ${p} ${enc}`);
+          // v12 gate (K-P4): intended — /services also varies by Save-Data (the Amiri preload is left out with «Save-Data: on», H-L1)
+          assert.equal(r.headers.get('vary'), p === '/services' ? 'Accept-Encoding, Cookie, Save-Data' : 'Accept-Encoding, Cookie', `${method} ${p} ${enc}`);
           assert.equal(r.headers.get('cache-control'), 'private, no-cache', `${method} ${p}`);
         }
       }
@@ -290,7 +292,10 @@ describe('v11 gate-public — header and footer per side (GP-2)', () => {
     assert.match(hd, /<span>متابعة طلب<\/span>/);
     assert.match(hd, /<a class="pub-btn pub-btn-gold pub-nav-cta" href="\/" data-cta="intake" data-tag="H-07"><span>ابدأوا طلبكم<\/span><\/a>/);
     assert.match(hd, /<button class="pub-menu-toggle pub-menu-toggle--word"[^>]*data-tag="H-09"><span class="pub-menu-word">القائمة<\/span><\/button>/);
-    const wa = decode(/<a class="pub-head-contact pub-head-contact--wa" href="([^"]+)"/.exec(hd)[1]);
+    // v12 gate r2 (V-18, K12-21, intended edit): the phone header shows the word «القائمة» alone; WhatsApp is the word «واتساب» inside
+    // the menu (H-08, hidden on the wide nav), not a glyph circle beside «القائمة»
+    assert.ok(!hd.includes('pub-head-contact'), 'no WhatsApp glyph in the paid header bar');
+    const wa = decode(/<a class="pub-nav-link pub-nav-wa" href="([^"]+)" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-tag="H-08">واتساب<span class="pub-sr">/.exec(hd)[1]);
     assert.equal(wa, `https://wa.me/201000000001?text=${encodeURIComponent(PAID_GENERIC)}`);
     assert.ok(!FEMININE.test(visible(hd)));
     assert.match(headerOf((await get('/privacy')).body), /<a class="pub-nav-link" href="\/services#faq" data-tag="H-05">أسئلة<\/a>/);
@@ -336,7 +341,11 @@ describe('v11 gate-public — header and footer per side (GP-2)', () => {
     assert.ok(!fp.includes(reg), 'no NGO registration on the paid footer');
     assert.ok(!fp.includes('pub-brand-desc') && !fp.includes(t.app.site.publicSettings().program_name), 'no programme name');
     assert.match(fp, /© \d{4} <bdi>Emam Legal and Consultancy<\/bdi>\. جميع الحقوق محفوظة\./, 'v12 entry: intended (L12-12) — © names the firm, not the foundation');
-    assert.ok(fp.includes('للتواصل:'));
+    // v12 gate r2 (V-18, A23, intended edit): the columns themselves are the phone footer (ruled lists) — no «روابط مهمة» accordion,
+    // no duplicate «للتواصل:» line, and the firm line (F-02) on every width
+    assert.ok(!fp.includes('pub-footer-more') && !fp.includes('pub-footer-call') && !fp.includes('pub-footer-desktop'), 'no phone-only accordion or call line');
+    assert.match(fp, /<p class="pub-footer-statement" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات\.<\/p>/);
+    assert.ok(fp.includes('تواصلوا معنا') && fp.includes('href="tel:'));
   });
 
   test('26. (L11-52, restored) every intake link on the charity home carries seg=charity; body[data-side] on every public page', async () => {
@@ -524,14 +533,27 @@ describe('v11 gate-public — /intake per side (GP-5)', () => {
     const vp = await get('/intake?seg=charity&via=p');
     assert.equal(bmCopyOf(vp.body), null);
     assert.match(vp.body, /data-side="charity"/);
-    const r = await restored(() => get('/intake?seg=charity'));
-    const h = r.body;
+    const norm = (h) => /<main[\s\S]*?<\/main>/.exec(h)[0].replace(/ stroke-width="[\d.]+"/g, '').replace(/seg=charity&(?:amp;)?/g, '').replace(/\?seg=charity"/g, '"');
+    // v12 gate (K-P1): the pinned 10.0 hash was taken while the office was closed (#intake-root carries data-office-closed="1"
+    // outside office_hours_schedule), so the test failed during office hours on every tree (10.0, 11.0 and 12.0 alike).
+    // The clock is pinned: a closed moment for the 10.0 hash, and an open moment must give the same <main> minus that attribute.
+    let h, openMain;
+    try {
+      setClock(() => new Date('2026-10-16T09:00:00Z')); // Friday: closed all day
+      h = (await restored(() => get('/intake?seg=charity'))).body;
+      setClock(() => new Date('2026-10-15T09:00:00Z')); // Thursday 12:00 Cairo: open
+      openMain = norm((await restored(() => get('/intake?seg=charity'))).body);
+    } finally {
+      setClock(null);
+    }
     assert.equal(bmCopyOf(h), null);
     assert.equal(JSON.parse(/<script type="application\/json" id="bm-public">([\s\S]*?)<\/script>/.exec(h)[1]).segment, 'charity');
     assert.equal(titleOf(h), `احكيلنا مشكلتك — ${BRAND}`);
-    const main = /<main[\s\S]*?<\/main>/.exec(h)[0].replace(/ stroke-width="[\d.]+"/g, '').replace(/seg=charity&(?:amp;)?/g, '').replace(/\?seg=charity"/g, '"');
-    // sha256 of the same normalisation of GET /intake on the 10.0 tree (6caa6d7, test helpers, seed none)
+    const main = norm(h);
+    // sha256 of the same normalisation of GET /intake on the 10.0 tree (6caa6d7, test helpers, seed none, office closed)
     assert.equal(crypto.createHash('sha256').update(main).digest('hex'), 'f08eadf8ae629749291d151f3d0e25a0a3c99d7fb9ce6af30bc942de8c66ba31');
+    assert.match(main, / data-office-closed="1"/);
+    assert.equal(openMain, main.replace(' data-office-closed="1"', ''), 'office hours change only the closed flag');
     assert.ok(Buffer.byteLength(h) <= 31002 + 4096, 'charity /intake HTML stays close to 10.0 (chrome only)');
   });
 
@@ -624,7 +646,8 @@ describe('v11 gate-public — /intake per side (GP-5)', () => {
     assert.equal(MSG.problem, 'سجّلي رسالة صوتية أو اكتبي جملة أو اتنين عن مشكلتك.');
     // keys the paid side shares on purpose (neutral words, file names, or charity-only steps)
     const paid = new Set([...Object.keys(INTAKE_COPY), ...Object.keys(INTAKE_SUCCESS), ...Object.keys(INTAKE_ABOUT)]);
-    assert.deepEqual(Object.keys(COPY).filter((k) => !paid.has(k)).sort(), ['ab2', 'abRel', 'back', 'bCopy', 'days', 'docName', 'home', 'hp', 'of', 'rel', 'share', 'shareB', 'topicAria', 'voiceName', 'wait'].sort());
+    // v12 gate r2 (JR-09, intended edit): docName is now overridden on the paid side («مستند-1», not «ورقة-1» or the leaf label)
+    assert.deepEqual(Object.keys(COPY).filter((k) => !paid.has(k)).sort(), ['ab2', 'abRel', 'back', 'bCopy', 'days', 'home', 'hp', 'of', 'rel', 'share', 'shareB', 'topicAria', 'voiceName', 'wait'].sort());
     assert.deepEqual(Object.keys(MSG).sort(), Object.keys(INTAKE_MSG).sort());
     assert.match(src, /if \(!X && !infer\(answers\)\.relation && form !== 'm'\) steps\.push\('rel'\);/, 'paid: governorate only (ab2/abRel/rel never shown)');
   });
@@ -730,8 +753,9 @@ describe('v11 gate-public — follow-up page, sign-in and legal pages (GP-6/GP-7
       assert.equal(titleOf(h), `متابعة طلبكم | ${BRAND}`, 'v12 entry: intended (§5.11) — « | » on the paid side');
       assert.ok(headerOf(h).includes('class="pub-brand" href="/"'), 'v12 entry: intended (L12-11) — brand → «/»');
       assert.ok(!headerOf(h).includes('pub-seg-pill'), 'no pill on /p/');
-      assert.match(headerOf(h), /<a class="pub-head-contact pub-head-contact--wa" href="https:\/\/wa\.me\/201000000001\?text=[^"]+"/, 'paid side: main digits + the paid sentence (default)');
-      assert.ok(decode(headerOf(h)).includes(encodeURIComponent(PAID_GENERIC)), 'v12 entry: intended (E12-61) — the generic paid sentence');
+      // v12 gate r2 (V-07, K12-54, intended edit): the client's private page has the letterhead mark only — no marketing nav, no
+      // «ابدأوا طلبكم» and no header contact; the page's own «اتصلوا بنا · واتساب» (portal.js, paid digits) stays in the body
+      assert.ok(!/pub-nav|pub-nav-cta|pub-head-contact|pub-menu-toggle/.test(headerOf(h)), 'letterhead header on /p/');
       assert.equal(r.headers.get('cache-control'), 'no-store');
       const data = JSON.parse(/<script type="application\/json" id="bm-portal-data">([\s\S]*?)<\/script>/.exec(h)[1]);
       assert.equal(data.tone, 'paid');

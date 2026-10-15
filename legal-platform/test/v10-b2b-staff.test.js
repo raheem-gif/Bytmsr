@@ -538,7 +538,8 @@ describe('v10 b2b-staff — lawyers and company work (STF-11)', () => {
     assert.ok(!b2c.sub.some((x) => x && x.chip));
     assert.deepEqual(companyParts({ company: false }), []);
     const home = read(`${LAWYER}home.js`);
-    assert.match(home, /p\.chip\) out\.push\(h\('span\.lh-co-chip', p\.chip\)\)/);
+    // v12 gate (V-26, intended): the parts render through subPart() (shared by the wrapping and the one-line sub line)
+    assert.match(home, /p\.chip\) return h\('span\.lh-co-chip', p\.chip\)/);
     const list = read(`${LAWYER}assignments.js`);
     assert.ok(list.includes("'طلبات الشركات'"));
     assert.ok(list.includes("h('span.lh-co-chip', 'شركة')"));

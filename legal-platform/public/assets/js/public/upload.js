@@ -613,6 +613,10 @@ export function photoPicker({
   const galLabel = galleryLabel || (variant === 'big' ? t.gallery : t.galleryShort);
   const iconOnly = (v) => variant === 'compact' || (variant === 'row' && v === 'gallery');
 
+  // K-M3: الضغط على زر التصوير يجهّز الماسح (لا عند تحميل الصفحة، ولا حين يكون متوقفًا)
+  const warm = () => {
+    if (scan !== 'off' && scanSwitchOn()) loadScanner().then((m) => m.scanner.warm?.(), () => {});
+  };
   const camBtn = h(
     'button.bmf-btn.bmf-pick-camera',
     {
@@ -620,9 +624,11 @@ export function photoPicker({
       class: variant === 'big' ? 'bmf-btn-primary bmf-btn-lg' : 'bmf-btn-primary',
       'aria-label': iconOnly('camera') ? camLabel : null,
       title: iconOnly('camera') ? camLabel : null,
+      onPointerdown: warm,
       onClick: () => {
         if (disabled) return;
         target = null;
+        warm();
         camInput.click();
       },
       tag: 'UP-01',
@@ -632,7 +638,18 @@ export function photoPicker({
   );
   const galBtn = h(
     'button.bmf-btn.bmf-btn-outline.bmf-pick-gallery',
-    { type: 'button', 'aria-label': iconOnly('gallery') ? galLabel : null, title: iconOnly('gallery') ? galLabel : null, onClick: () => !disabled && galInput.click(), tag: 'UP-02' },
+    {
+      type: 'button',
+      'aria-label': iconOnly('gallery') ? galLabel : null,
+      title: iconOnly('gallery') ? galLabel : null,
+      onPointerdown: warm,
+      onClick: () => {
+        if (disabled) return;
+        warm();
+        galInput.click();
+      },
+      tag: 'UP-02',
+    },
     ic('image', 22),
     !iconOnly('gallery') && h('span', galLabel),
   );
@@ -782,6 +799,8 @@ export function photoPicker({
       multiPage && !note && lastDoc && scanMods && lastDoc.pages.length < MAX_PAGES
         ? scanMods.sheet.addPageButton({
             register,
+            // gate JR-09: بعد الصفحة الأولى سؤال صغير بجانب الزر، فلا تصير الصفحة الثانية مستندًا منفصلًا
+            hint: lastDoc.pages.length === 1,
             disabled: disabled || pending > 0,
             onClick: () => {
               if (disabled) return;

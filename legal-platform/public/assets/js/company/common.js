@@ -7,11 +7,12 @@ import { copy } from '../lib/company-ui-core.js';
 import { S } from './state.js';
 
 /** رأس الصفحة: H1 يأخذ التركيز عند الوصول (U10-09/U10-94) وسطر يقول ما هنا */
-export function pageHead(title, sub = null, { actions = null, className = '' } = {}) {
+export function pageHead(title, sub = null, { actions = null, className = '', record = false } = {}) {
+  // v12 gate (V-11): record = عنوان فيه بيانات مستخدم (تحية، عنوان عنصر) ← خط الواجهة؛ غيره عنوان ثابت ← .page-title
   return h(
     'header.co-head',
     { class: className, tag: 'CC-36' },
-    h('div.co-head-text', h('h1.co-h1', { tabindex: '-1', tag: 'CC-37' }, title), sub ? h('p.co-sub', sub) : null),
+    h('div.co-head-text', h('h1.co-h1', { class: !record && 'page-title', tabindex: '-1', tag: 'CC-37' }, title), sub ? h('p.co-sub', sub) : null),
     actions ? h('div.co-head-actions', actions) : null,
   );
 }

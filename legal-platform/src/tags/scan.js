@@ -364,17 +364,25 @@ export function htmlContext(src, offset) {
     }
     if (depth) inner = src.slice(gt + 1, Math.min(src.length, gt + 1 + 400));
   }
-  let text = '';
-  if (CONTAINERS.has(el)) {
-    const head = /<(h[1-6]|summary|legend)\b[^>]*>([\s\S]*?)<\/\1>/i.exec(inner);
-    text = head ? cleanText(head[2]) : '';
-    if (!text) text = cleanText(named);
-    if (!text) text = cleanText(inner);
-  } else {
-    text = cleanText(inner) || cleanText(named);
+  const pick = (body) => {
+    if (CONTAINERS.has(el)) {
+      const head = /<(h[1-6]|summary|legend)\b[^>]*>([\s\S]*?)<\/\1>/i.exec(body);
+      return (head ? cleanText(head[2]) : '') || cleanText(named) || cleanText(body);
+    }
+    return cleanText(body) || cleanText(named);
+  };
+  // v12 gate fixer-server (TA-04): نص كل جانب وحده (<!--#if side_paid--> و<!--#if side_charity-->) بدل دمجهما في سطر
+  // واحد («بيانات تقدّمها أنت تقدّمونها»): النص = صيغة الأفراد والشركات، والصيغتان في texts
+  if (/<!--#if side_(?:paid|charity)-->/.test(inner)) {
+    const paid = pick(dropSide(inner, 'charity'));
+    const charity = pick(dropSide(inner, 'paid'));
+    if (paid !== charity) return { el, kind: ELEMENT_KIND[el] || 'عنصر', text: paid || charity, texts: [{ label: 'أفراد وشركات', text: paid || '—' }, { label: 'خيري', text: charity || '—' }] };
   }
-  return { el, kind: ELEMENT_KIND[el] || 'عنصر', text };
+  return { el, kind: ELEMENT_KIND[el] || 'عنصر', text: pick(inner) };
 }
+
+/** v12 gate fixer-server (TA-04): يحذف كتل جانب من قالب HTML */
+const dropSide = (s, side) => String(s).replace(new RegExp(`<!--#if side_${side}-->[\\s\\S]*?<!--/if side_${side}-->`, 'g'), ' ');
 
 // ───────────────────────── سياق JS ─────────────────────────
 
@@ -408,8 +416,20 @@ function fullTemplate(toks, k) {
   return [toks[k].s, toks[last].e, last];
 }
 
+/** v12 gate fixer-server (TA-04): آخر نص أعاده firstArabic ومفتاح نسخته إن كان الوسيط الثاني في P('key', '…') (portal.js) */
+let lastArabic = null;
+function copyKeyAt(src, toks, k) {
+  const comma = toks[k - 1];
+  const keyTok = toks[k - 2];
+  const open = toks[k - 3];
+  const fn = toks[k - 4];
+  if (comma?.v === ',' && keyTok?.t === 'str' && open?.v === '(' && fn?.t === 'id' && fn.v === 'P' && toks[k - 5]?.v !== '.') return strValue(src, keyTok);
+  return null;
+}
+
 /** أول نص عربي حرفي داخل مدى رموز [from, to) */
 function firstArabic(src, toks, from, to) {
+  lastArabic = null;
   for (let k = from; k < to; k++) {
     const tk = toks[k];
     if (tk.t !== 'str' && tk.t !== 'tpl') continue;
@@ -422,7 +442,11 @@ function firstArabic(src, toks, from, to) {
     const v = strValue(src, tk);
     if (ARABIC.test(v)) {
       const txt = cleanText(v);
-      if (txt && ARABIC.test(txt)) return txt;
+      if (txt && ARABIC.test(txt)) {
+        const key = copyKeyAt(src, toks, k);
+        if (key) lastArabic = { text: txt, key };
+        return txt;
+      }
     }
   }
   return '';
@@ -476,6 +500,28 @@ const REF_ROOTS = new Map([
   ['COPY', 'COPY'],
 ]);
 let refRoots = REF_ROOTS;
+
+/** v12 gate fixer-server (TA-04): نصوص كائنات const NAME = { key: 'نص عربي', … } في الملف نفسه: { NAME: { key: نص } } */
+let localWords = {};
+function localWordMaps(src, blank, toks) {
+  const out = {};
+  for (const m of String(blank).matchAll(/\bconst\s+([A-Z][A-Za-z0-9_]*)\s*=\s*\{/g)) {
+    // W وCOPY يحلّهما registry.js من وحدات الكلمات (نسخة الأفراد والشركات)، لا الكائن المحلي («خيري»)
+    if (/_TAGS$|^TAGS$/.test(m[1]) || REF_ROOTS.has(m[1])) continue;
+    const k = tokenAt(toks, m.index + m[0].length - 1);
+    if (k < 0 || toks[k].v !== '{') continue;
+    const props = objectProps(src, toks, k);
+    const words = {};
+    for (const [name, vi] of props) {
+      const tk = toks[vi];
+      if (tk?.t !== 'str' && !(tk?.t === 'tpl' && tk.end && src[tk.s] === '`')) continue;
+      const t = cleanText(strValue(src, tk));
+      if (t && ARABIC.test(t)) words[name] = t;
+    }
+    if (Object.keys(words).length) out[m[1]] = words;
+  }
+  return out;
+}
 
 /** أسماء مختصرة في الملف نفسه: const A = W.account; ← A.name يعني W.account.name */
 export function refAliases(src) {
@@ -533,6 +579,20 @@ function jsContext(src, toks, valIdx, key) {
   }
   if (!obj || obj.t !== 'p' || obj.v !== '{') return { kind: 'عنصر', text: '' };
   const props = objectProps(src, toks, objIdx);
+  // v12 gate fixer-server (TA-04): titleTag = عنوان البطاقة (title:)، submitTag = زر الإرسال (submitLabel:) — لا أول نص عربي
+  // في الاستدعاء كله (INT-44 «توجيه النموذج: …»، LGN-36 «اسم المستخدم»)
+  if (key === 'titleTag') {
+    const vi = props.get('title');
+    const text = propText(src, toks, props, ['title']);
+    return text ? { kind: 'عنوان', text } : { kind: 'عنوان', text: '', ref: vi != null ? firstRef(toks, vi, vi + 1) || undefined : undefined };
+  }
+  if (key === 'submitTag') return { kind: 'زر', text: propText(src, toks, props, ['submitLabel']) || 'حفظ' };
+  // عنصر كتالوج له تسمية للفريق وأخرى للشركة (company-catalog.js): ما تراه الشركة نصًا، والتسميتان صيغتين
+  if (props.has('company_label')) {
+    const staff = propText(src, toks, props, ['label']);
+    const company = propText(src, toks, props, ['company_label']);
+    if (company && staff && company !== staff) return { kind: 'عنصر قائمة', text: company, texts: [{ label: 'بوابة الشركات', text: company }, { label: 'الفريق', text: staff }] };
+  }
   if (key === 'qtag') return withRef({ kind: 'سؤال', text: propText(src, toks, props, ['q', 'title', 'label']) || firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) }, toks, objIdx + 1, obj.close ?? toks.length);
   const outer = obj.parent >= 0 ? toks[obj.parent] : null;
   if (outer && outer.v === '(') {
@@ -566,10 +626,83 @@ const PROP_RE = new RegExp(`(?<![\\w$.-])(['"]?)(tag|qtag|data-tag|[a-z][A-Za-z0
 const PROP_EXPR_RE = /(?<![\w$.-])(['"]?)(tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)\1\s*:\s*(?!['"`\s])([\w$.?[\]()'"]+)/g;
 const DOM_TAG_RE = new RegExp(`\\.dataset\\.tag\\s*=\\s*(['"])(${CODE_ANY})\\1|setAttribute\\(\\s*(['"])data-tag\\3\\s*,\\s*['"](${CODE_ANY})['"]`, 'g');
 const TAGGED_RE = new RegExp(`\\btagged\\(\\s*(['"\`])(${CODE_ANY})\\1`, 'g');
-const MAP_RE = /\b([A-Z][A-Z0-9_]*_TAGS)\s*=\s*(?:[\w$.]+\(\s*)?\{/g;
+// v12 gate fixer-server (TA-01): + خريطة محلية اسمها TAGS (integrations.js: const TAGS = { preset: 'INT-06', … })
+const MAP_RE = /\b([A-Z][A-Z0-9_]*_TAGS|TAGS)\s*=\s*(?:[\w$.]+\(\s*)?\{/g;
 const MAP_ENTRY_RE = new RegExp(`(?:(['"])([^'"\\n]+)\\1|([A-Za-z_$][\\w$]*))\\s*:\\s*(['"])(${CODE_ANY})\\4`, 'g');
 const POINTER_RE = new RegExp(`@tag-src\\s+(${CODE_ANY})`, 'g');
 const SETTING_RE = new RegExp(`@tag-setting\\s+(${CODE_ANY})\\s+([^\\n*]+)`, 'g');
+
+// v12 gate fixer-server (TA-01): رمز كامل (لا X-00، ولا أرقام بأكثر من 3 خانات)
+const LOOSE_CODE_RE = /^[A-Z]{1,6}-(?!00$)\d{2,3}$/;
+
+/** موضع الرمز الحرفي عند k: 'arg' | 'default' | 'var' | 'fallback' | 'ternary' أو null */
+function looseContext(toks, k) {
+  const p = toks[k - 1];
+  const nx = toks[k + 1];
+  if (!p || p.t !== 'p') return null;
+  const parentIdx = toks[k].parent;
+  const parent = parentIdx >= 0 ? toks[parentIdx] : null;
+  const endsArg = !nx || (nx.t === 'p' && (nx.v === ')' || nx.v === ','));
+  if ((p.v === '(' || p.v === ',') && parent?.v === '(' && endsArg && calleeOf(toks, parentIdx)) return 'arg';
+  if (p.v === '=' && toks[k - 2]?.t === 'id' && toks[k - 3]?.v !== '=' && toks[k - 3]?.v !== '!') {
+    if (parent?.v === '(') return 'default';
+    if (/^(?:const|let|var)$/.test(toks[k - 3]?.v || '')) return 'var';
+  }
+  if ((p.v === '|' && toks[k - 2]?.v === '|') || (p.v === '?' && toks[k - 2]?.v === '?')) return 'fallback';
+  if (p.v === '?' && nx?.v !== '.') return 'ternary';
+  if (p.v === ':') {
+    // فرع «وإلا» في شرط ثلاثي: «?» قبله في المستوى نفسه قبل أي «,» أو «;» أو بداية القوس
+    for (let j = k - 2; j > parentIdx; j--) {
+      const t = toks[j];
+      if (t.parent !== parentIdx) continue;
+      if (t.t === 'p' && (t.v === ',' || t.v === ';')) return null;
+      if (t.t === 'p' && t.v === '?' && toks[j + 1]?.v !== '.' && toks[j - 1]?.v !== '?') return 'ternary';
+    }
+  }
+  return null;
+}
+
+/** نوع ونص تعريف حرفي من looseContext: خاصية tag في كائن ← سياق الكائن؛ وسيط ← نص الاستدعاء */
+function looseInfo(src, toks, k, how) {
+  const parentIdx = toks[k].parent;
+  const parent = parentIdx >= 0 ? toks[parentIdx] : null;
+  if (parent?.v === '{' && (how === 'ternary' || how === 'fallback')) {
+    // نوع العنصر من سياق الكائن، والنص من خصائصه وحدها (لا أول نص عربي في أبنائه: «فتح» زر داخل البند ليس اسمه)
+    const ctx = jsContext(src, toks, k, 'tag');
+    return { kind: ctx.kind, text: propText(src, toks, objectProps(src, toks, parentIdx)) };
+  }
+  if (how === 'default' && toks[k - 2]?.t === 'id') {
+    // tag = 'L-01' في معاملات دالة تبني HTML: نوع العنصر الذي يحمل data-tag="${tag}" ونصوص aria-label الحرفية فيه
+    const name = toks[k - 2].v;
+    const at = src.indexOf(`data-tag="\${${name}}"`, toks[k].e);
+    if (at > 0 && at - toks[k].e < 4000) {
+      const ctx = htmlContext(src, at);
+      const lt = src.lastIndexOf('<', at);
+      const aria = /aria-label="([^"]*)"/.exec(src.slice(lt, src.indexOf('>', at) + 1))?.[1] || '';
+      const words = [...aria.matchAll(/'([^']+)'/g)].map((x) => x[1]).filter((x) => ARABIC.test(x));
+      return { kind: ctx?.kind || 'عنصر', text: words.join(' · ') || (ctx?.text && ctx.text !== '…' ? ctx.text : '') };
+    }
+  }
+  if (how === 'arg' && parent?.v === '(') {
+    const callee = calleeOf(toks, parentIdx);
+    const span = [parentIdx + 1, parent.close ?? toks.length];
+    const kind = (callee && (BUILDERS[callee.name]?.kind || OTHER_KIND[callee.name] || LOCAL_KIND[callee.name])) || 'عنصر';
+    const own = withRef({ kind, text: firstArabic(src, toks, ...span) }, toks, ...span);
+    if (own.text || own.ref) return own;
+    // input({…}, 'IC-18') داخل row('…', T.company, input(…), …): نص الاستدعاء المحيط (تسمية الحقل)
+    const outerIdx = parent.parent;
+    const outer = outerIdx >= 0 ? toks[outerIdx] : null;
+    if (outer?.v === '(' && calleeOf(toks, outerIdx)) {
+      const span2 = [outerIdx + 1, outer.close ?? toks.length];
+      return withRef({ kind, text: firstArabic(src, toks, ...span2) }, toks, ...span2);
+    }
+    return own;
+  }
+  return { kind: 'عنصر', text: '' };
+}
+
+// v12 gate fixer-server (TA-01): أنواع دوال مساعدة محلية شائعة
+const LOCAL_KIND = { input: 'حقل', row: 'حقل', group: 'مجموعة حقول', backfill: 'زر', chips: 'خيار' };
 
 const codeParts = (code) => {
   const m = /^([A-Za-z]+)-(\d+)$/.exec(code);
@@ -588,18 +721,33 @@ export function scanFile(rel, src) {
   const variantLine = (line) => /tags:variant/.test(lines[line - 1] || '') || /tags:variant/.test(lines[line - 2] || '');
   let toks = [];
   let blank;
+  localWords = {};
   if (isHtml) blank = blankRanges(src, htmlCommentRanges(src));
   else {
     const tk = tokenize(src);
     toks = tk.toks;
     blank = blankRanges(src, tk.comments);
     refRoots = refAliases(blank);
+    // v12 gate fixer-server (TA-04): كائنات نصوص محلية (const T = { company: 'اسم الشركة', … }) ← T.company يُقرأ نصًا
+    localWords = localWordMaps(src, blank, toks);
+    for (const name of Object.keys(localWords)) if (!refRoots.has(name)) refRoots.set(name, name);
   }
+  const taken = new Set(); // مواضع التعريفات (v12 gate fixer-server، TA-01)
   const add = (code, offset, form, ctx, extra = {}) => {
+    taken.add(offset);
     const { prefix, num } = codeParts(code);
     const line = lineOf(offset);
     const rec = { code, prefix, num, file: rel, line, form, kind: ctx?.kind || 'عنصر', text: ctx?.text || '', ...extra };
-    if (!rec.text && ctx?.ref) rec.ref = ctx.ref;
+    if (!rec.text && ctx?.ref) {
+      const [root, key, ...more] = String(ctx.ref).split('.');
+      const local = !more.length && localWords[root]?.[key];
+      if (local) rec.text = local;
+      else rec.ref = ctx.ref;
+    }
+    // v12 gate fixer-server (TA-04): صيغ النص (جانبا القالب، تسمية الفريق وتسمية الشركة) ومفتاح نسخة P('key', '…')
+    if (ctx?.texts?.length) rec.texts = ctx.texts;
+    if (ctx?.text && lastArabic && lastArabic.text === ctx.text) rec.copyKey = lastArabic.key;
+    lastArabic = null;
     if (variantLine(line)) rec.variant = true;
     if (num === PLACEHOLDER_NUM) rec.placeholder = true;
     defs.push(rec);
@@ -616,12 +764,15 @@ export function scanFile(rel, src) {
       const end = toks[toks[k].close]?.e ?? blank.length;
       mapSpans.push([braceAt, end]);
       const body = blank.slice(braceAt, end);
+      // v12 gate fixer-server (TA-01): خريطة TAGS المحلية تربط اسم حقل نموذج برمزه؛ النص = تسمية الحقل ({ name: 'x', label: '…' })
+      const fieldLabels = m[1] === 'TAGS' ? Object.fromEntries([...src.matchAll(/name:\s*'([\w-]+)'\s*,\s*label:\s*'([^'\n]+)'/g)].map((x) => [x[1], cleanText(x[2])])) : null;
       MAP_ENTRY_RE.lastIndex = 0;
       let e;
       while ((e = MAP_ENTRY_RE.exec(body))) {
         const key = e[2] ?? e[3];
         const at = braceAt + e.index + e[0].lastIndexOf(e[5]);
-        add(e[5], at, 'map', { kind: MAP_KIND[m[1]] || 'رسالة', text: '' }, { map: m[1], key });
+        if (fieldLabels) add(e[5], at, 'prop', { kind: 'حقل', text: fieldLabels[key] || '' }, { key: 'tag' });
+        else add(e[5], at, 'map', { kind: MAP_KIND[m[1]] || 'رسالة', text: '' }, { map: m[1], key });
       }
     }
   }
@@ -676,6 +827,33 @@ export function scanFile(rel, src) {
       const k = tokenAt(toks, at);
       if (k < 0 || toks[k].t !== 'str') continue;
       add(m[2], at, 'tagged', jsContext(src, toks, k, 'tagged'));
+    }
+    // v12 gate fixer-server (TA-01): رمز حرفي يصل إلى data-tag عبر دالة مساعدة — وسيط استدعاء (row(…, 'IC-03')،
+    // backfill(…, 'SYS-06'))، قيمة افتراضية (tag = 'L-01')، متغير (const tag = 'X-01')، بديل (it.tag || 'CT-21') أو فرع شرط
+    // (c ? 'SYS-09' : 'SYS-10'). قيمة خاصية عادية ({ crv: 'P-256' }) وعناصر المصفوفات ليست تعريفات.
+    for (let k = 0; k < toks.length; k++) {
+      const tk = toks[k];
+      if (tk.t !== 'str') continue;
+      const val = src.slice(tk.s + 1, tk.e - 1);
+      if (!LOOSE_CODE_RE.test(val)) continue;
+      const at = tk.s + 1;
+      if (taken.has(at) || inMap(at)) continue;
+      const how = looseContext(toks, k);
+      if (!how) continue;
+      const pIdx = tk.parent;
+      // اسم الدالة: المستدعاة (وسيط) أو المعرَّفة (قيمة افتراضية في function NAME(…))
+      const fn = pIdx >= 0 && toks[pIdx].v === '(' && toks[pIdx - 1]?.t === 'id' ? toks[pIdx - 1].v : null;
+      add(val, at, 'arg', looseInfo(src, toks, k, how), { how, fn });
+    }
+    // وسيط لدالة في الملف نفسه رمزها الافتراضي معرَّف (treeLogoHtml(…, 'I-04') ← tag = 'L-01'): نوعها ونصها
+    for (const d of defs) {
+      if (d.form !== 'arg' || d.how !== 'arg' || d.text || !d.fn) continue;
+      const base = defs.find((x) => x.form === 'arg' && x.how === 'default' && x.fn === d.fn && x.text);
+      if (base) {
+        d.kind = base.kind;
+        d.text = base.text;
+        delete d.ref;
+      }
     }
   }
   // مؤشرات @tag-src ومصادر @tag-setting (في التعليقات؛ T12-52)

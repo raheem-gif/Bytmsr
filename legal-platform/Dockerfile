@@ -27,12 +27,13 @@ WORKDIR /app
 
 # v12 media (L12-40، L12-68): tini دائمًا (PID 1 يحصد العمليات الفرعية). وأدوات المستندات الاختيارية (MEDIA_TOOLS=1 افتراضيًا):
 # ImageMagick لفك الصور وترميزها فقط، Tesseract بالعربية والإنجليزية لقراءة النص، poppler لصفحات PDF (+80–110 ميجابايت).
+# tesseract-ocr-script-arab (نموذج الخط العربي، نحو 2 ميجابايت): قراءة ثانية للأرقام الهندية العربية (قيد، تاريخ، رقم قومي).
 # MEDIA_TOOLS=0 يبني صورة بحجم 11.0: الماسح على هاتف المرسل و«نظّف المستند» في المتصفح يعملان، ولا قراءة نص على الخادم.
 ARG MEDIA_TOOLS=1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tini \
     && if [ "$MEDIA_TOOLS" = "1" ]; then \
-         apt-get install -y --no-install-recommends imagemagick tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng poppler-utils; \
+         apt-get install -y --no-install-recommends imagemagick tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng tesseract-ocr-script-arab poppler-utils; \
        fi \
     && rm -rf /var/lib/apt/lists/*
 # سياسة ImageMagick المرفقة (تمنع كل الصيغ عدا JPEG وPNG وWebP وRGBA وGRAY، وكل المفوَّضات، وقوائم @ الملفات، مع حدود الذاكرة):

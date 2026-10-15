@@ -1091,6 +1091,11 @@ body.pub .bp-viewtitle:focus-visible {
   word-break: break-all;
 }
 
+/* v12 gate (V-10): «.jpg» sits on the name's left, a hair apart */
+.bp-fname-ext {
+  margin-right: 0.15em;
+}
+
 .bp-bubble-time {
   font-size: 15px;
   color: var(--bp-soft);
@@ -2114,7 +2119,9 @@ html:has(#bm-theme) .bp-bar {
     font: var(--t-small);
   }
 
+  /* v12 gate (V-16): رقم الطلب بخط الصفحة (Plex اللاتيني) وأرقام ثابتة العرض، لا خط monospace للجهاز */
   body[data-side="paid"] .bp-code {
+    font-family: var(--f-ui);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }

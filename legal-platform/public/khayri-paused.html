@@ -19,7 +19,8 @@
       <div class="pub-container">
         <h1 id="page-title">خيري</h1>
         <p data-tag="KH-01">خدمة «خيري» لا تستقبل طلبات جديدة من الموقع حاليًا.</p>
-        <!--#if charity_wa_href--><p><a class="pub-btn pub-btn-whatsapp" href="{{charity_wa_href}}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-tag="KH-02">واتساب «خيري»<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></p><!--/if charity_wa_href-->
+        <!-- v12 gate (JR-15): KH-02 = واتساب «خيري»، وبلا رقم واتساب له زر اتصال بهاتفه (العنصر نفسه، من الخادم: charity_contact_*) -->
+        <!--#if charity_contact_href--><p><a class="pub-btn {{charity_contact_class}}" href="{{charity_contact_href}}"<!--#if charity_wa_href--> target="_blank" rel="noopener noreferrer" data-cta="whatsapp"<!--/if charity_wa_href--> data-tag="KH-02">{{{charity_contact_label}}}</a></p><!--/if charity_contact_href-->
         <p><a class="pub-btn pub-btn-outline" href="/portal{{campaign_q}}" data-tag="KH-03">متابعة طلب سابق</a></p>
         <p class="pub-legal-links" data-tag="KH-04"><a href="/privacy?side=charity{{campaign_amp}}">الخصوصية</a> · <a href="/terms?side=charity{{campaign_amp}}">الشروط</a></p>
       </div>

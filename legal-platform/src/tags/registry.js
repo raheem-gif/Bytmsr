@@ -560,8 +560,12 @@ export async function loadModuleData(root = ROOT) {
     out.errors.push(`${JS}/app/routes.js: ${err.message}`);
   }
   try {
-    const paid = (await importFresh(root, 'src/site-copy-paid.js')).intakePaidCopy?.({ voice: false });
+    const scp = await importFresh(root, 'src/site-copy-paid.js');
+    const paid = scp.intakePaidCopy?.({ voice: false });
     if (paid) out.words.COPY = { ...paid.COPY, ...paid.SUCCESS };
+    // v12 gate fixer-server (TA-04): نصوص /p/ و/portal للأفراد والشركات (P('key', نص «خيري») في portal.js وportal-login.js)
+    out.words.PORTAL = scp.PORTAL_PAID || null;
+    out.words.PORTAL_LOGIN = scp.PORTAL_LOGIN_PAID || null;
   } catch (err) {
     out.errors.push(`src/site-copy-paid.js: ${err.message}`);
   }
@@ -617,8 +621,65 @@ export async function loadModuleData(root = ROOT) {
   // v12 tags (TG-4): موضوع كل قالب بريد (EMAIL_TAGS) وسطرا التحية والتذييل، قراءة ثابتة لـ email.js (render يحتاج التطبيق)
   try {
     Object.assign(out.texts, emailTexts(root));
+    // v12 gate fixer-server (TA-08): كل قالب بريد كاملًا (الموضوع ونص الرسالة) مملوءًا بقيم مثال من render() نفسها
+    Object.assign(out.texts, await emailRendered(root));
   } catch (err) {
     out.errors.push(`src/services/email.js: ${err.message}`);
+  }
+  return out;
+}
+
+/** قيم مثال لقوالب البريد (لا بيانات حقيقية) */
+const EMAIL_SAMPLE = {
+  name: 'أ. مريم',
+  company: { id: 0, name: 'شركة النيل للأغذية' },
+  vars: {
+    code: 'NFD-0007',
+    until: 'الأحد 20 أكتوبر الساعة 6 مساءً',
+    inviter: 'أ. مريم حسن',
+    kind_label: 'تجديد السجل التجاري',
+    date: '1 نوفمبر 2026',
+    days: 14,
+    memory_id: 3,
+    amount: '1,500 جنيه',
+    request_id: 12,
+  },
+  // قيم يختلف بها موضوع القالب نفسه (الأمان، الفترة التجريبية، تنبيه الفريق)
+  by: {
+    security: { event: 'تغيّرت كلمة المرور لحسابكم' },
+    trial: { subject: 'تنتهي الفترة التجريبية بعد 3 أيام', line: 'تنتهي الفترة التجريبية لبوابة شركتكم بعد 3 أيام. للاستمرار اختاروا باقة من صفحة الباقة.' },
+    staff_alert: { subject: 'طلب جديد من شركة النيل للأغذية: NFD-0007' },
+  },
+};
+
+/** v12 gate fixer-server (TA-08): موضوع كل قالب ونصه من email.render بتطبيق مصغّر (بلا قاعدة بيانات ولا إرسال) */
+async function emailRendered(root) {
+  const mod = await importFresh(root, 'src/services/email.js');
+  if (typeof mod.createEmail !== 'function') return {};
+  const stub = {
+    db: { all: () => [], get: () => null, run: () => ({ changes: 0 }), value: () => 0, insert: () => 0 },
+    config: { publicBaseUrl: 'https://…', demo: false, port: 3000 },
+    settings: { get: () => undefined },
+    integrations: { get: () => ({}) },
+    brand: { displayName: () => '' },
+    log: () => {},
+  };
+  // اسم المكتب الافتراضي من الإعدادات (لا اسم حرفي في src/ خارج constants.js، G-2)
+  const brandName = String((await importFresh(root, 'src/constants.js')).DEFAULT_SETTINGS?.brand_name || '');
+  stub.brand.displayName = () => brandName;
+  const email = mod.createEmail(stub);
+  const out = {};
+  for (const key of Object.keys(mod.EMAIL_TAGS || {})) {
+    if (key === 'hello' || key === 'footer') continue;
+    let msg = null;
+    try {
+      msg = email.render(key, { name: EMAIL_SAMPLE.name, company: EMAIL_SAMPLE.company, vars: { ...EMAIL_SAMPLE.vars, ...(EMAIL_SAMPLE.by[key] || {}) } });
+    } catch {
+      msg = null;
+    }
+    if (!msg?.subject) continue;
+    const plain = (s) => String(s || '').replace(/[\u2066-\u2069\u200e\u200f]/g, '').trim();
+    out[key] = [{ label: 'الموضوع', text: plain(msg.subject) }, { label: 'نص الرسالة', text: plain(msg.text) }];
   }
   return out;
 }
@@ -759,6 +820,16 @@ export function buildRegistry(scan, { ledger = loadLedger(scan.root), moduleData
       if (MESSAGE_MAPS.has(d.map)) for (const loc of variantLocations(root, d.file, d.key, variantCache)) item.variants.push({ file: loc.file, line: loc.line, label: loc.label, text: '' });
     }
     if (!item.text && d.ref) item.text = resolveRef(md.words, d.file, d.ref);
+    // v12 gate fixer-server (TA-04): صيغ النص (جانبا القالب، تسمية الشركة والفريق)، ونسخة الأفراد والشركات لنص P('key', …)
+    if (d.texts?.length) item.texts = d.texts.map((x) => ({ label: x.label, text: x.text }));
+    if (d.copyKey) {
+      const map = d.file === `${PUB}/portal-login.js` ? md.words?.PORTAL_LOGIN : d.file === `${PUB}/portal.js` ? md.words?.PORTAL : null;
+      const paid = map && typeof map[d.copyKey] === 'string' ? cleanText(map[d.copyKey].replace(/\{[a-z_]+\}/g, '…')) : '';
+      if (paid && paid !== item.text) {
+        item.texts = [{ label: 'أفراد وشركات', text: paid }, { label: 'خيري', text: item.text }];
+        item.text = paid;
+      }
+    }
     if (!item.text) item.text = '(نص متغير)';
     items.set(d.code, item);
   }
@@ -840,6 +911,33 @@ export function searchRegistry(registry, q) {
 // ───────────────────────── TAGS.md (T12-61) ─────────────────────────
 
 const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+/**
+ * v12 gate fixer-server (TA-09): أين يظهر رمز شاشة مشتركة بلا رابط واحد (لغير المبرمج)، وملاحظة للشاشات بلا رموز خاصة بها
+ */
+export const PREFIX_WHERE = Object.freeze({
+  H: 'أعلى كل صفحات الموقع العام',
+  F: 'أسفل كل صفحات الموقع العام',
+  NF: 'صفحة «غير موجودة» وصفحة انقطاع الاتصال',
+  UP: 'إرفاق المستندات في نموذج الطلب وصفحة المتابعة وبوابة الشركات',
+  SC: 'شاشة تصوير المستند (الماسح) حيثما يُرفع مستند',
+  CU: 'داخل صفحات بوابة الشركات: الطلب والتسليم والاستيضاح',
+  KIT: 'عناصر مشتركة في كل صفحات المنصة (الإغلاق، التأكيد، إعادة المحاولة، اختيار ملف)',
+  SRC: 'نافذة البحث (Ctrl+K) في المنصة',
+  CNT: 'نافذة «تسجيل المكالمة» في صفحة الطلب',
+  SPL: 'نافذة «اعمل منها طلبًا جديدًا» في المحادثة',
+  SEG: 'شرائح نوع الخدمة ونافذة تغييره في الطلبات والملفات',
+  PTY: 'تبويب الأطراف في صفحة الملف',
+  OUT: 'نافذة نتيجة الجلسة وإغلاق الملف',
+  AIR: 'اقتراحات الرد تحت صندوق الكتابة',
+  DAI: 'تحليل المستند في صفحات الملفات',
+  DOC: 'عارض المستندات في الطلب والملف والملف المستمر وطلبات الشركات',
+  VTR: 'الرسائل الصوتية في المحادثة وصفحة الطلب',
+  RSH: 'نافذة طلب المحامي في صفحة الإسناد',
+  DRF: 'المسودات في صفحة الإسناد للمحامي',
+  D: 'المستندات المطبوعة من صفحات الملفات',
+});
+export const ZERO_NOTE = Object.freeze({ LCA: 'تستعمل رموز CAL (التقويم)' });
 const loc = (file, line) => (line ? `${file}:${line}` : file);
 
 /** نص TAGS.md الحتمي (بلا طوابع زمنية): يقارن اختبار التزامن النصين بعد حذف أرقام الأسطر */
@@ -851,11 +949,25 @@ export function renderMarkdown(reg) {
   out.push('> الاستعمال: شغّلوا الرموز (`?tags=1`، أو حسابي ← رموز العناصر، أو Ctrl+K «رموز العناصر»، أو Alt+Shift+T)، اضغطوا الشارة لنسخ الرمز، ثم اكتبوا مثلًا «غيّر S-14 …».');
   out.push('> للمهندسين: `npm run tags -- find S-14` يطبع الملف والسطر والنص.');
   out.push('');
+  // v12 gate (release lead, §13.1 step 9): دليل قصير للمالك في رأس الملف
+  out.push('## كيف تطلب تعديلًا بالرمز');
+  out.push('');
+  out.push('1. **شغّل الرموز.** أضف `?tags=1` إلى آخر رابط الصفحة، مثل `/services?tags=1` أو `/app?tags=1#/inbox`. في منصة المكتب يمكنك أيضًا: حسابي ← «رموز العناصر»، أو Ctrl+K ثم «رموز العناصر». تظهر بجانب كل عنصر شارة صغيرة فيها رمزه، مثل `S-14`.');
+  out.push('2. **اضغط الشارة.** يُنسخ الرمز وتظهر رسالة «نُسخ الرمز S-14». الشارات لا تغيّر الصفحة ولا يراها الزوار ما لم يفتحوا الرابط نفسه.');
+  out.push('3. **أرسل الرمز مع طلبك.** اكتب مثلًا: «S-14: اجعل العنوان أقصر» أو «غيّر INB-12 إلى …». رمز لكل عنصر، ويمكن أن تضم الرسالة أكثر من رمز.');
+  out.push('');
+  out.push('للإطفاء: `?tags=0` في الرابط، أو اضغط «الرموز» في ركن الصفحة ثم «إخفاء الرموز». لفتح صفحة على عنصر بعينه: `?tag=S-14`. القائمة الكاملة أدناه، وفي منصة المكتب على `/app#/tags` مع بحث بالرمز أو بالكلمات.');
+  out.push('');
   out.push('## الشاشات (Screens)');
   out.push('');
-  out.push('| Prefix | Surface | Screen | URL | Codes |');
+  // v12 gate fixer-server (TA-09): عناوين عربية، «يظهر في» للشاشات المشتركة، وبلا شاشات خالية (إلا بملاحظة)
+  out.push('| البادئة | السطح | الشاشة | الرابط أو مكان الظهور | عدد الرموز |');
   out.push('|---|---|---|---|---|');
-  for (const p of reg.prefixes) out.push(`| ${p.prefix} | ${cell(SURFACES[p.surface])} | ${cell(p.name)} | ${cell(p.url)} | ${p.count} |`);
+  for (const p of reg.prefixes) {
+    if (!p.count && !ZERO_NOTE[p.prefix]) continue;
+    const where = p.url || (PREFIX_WHERE[p.prefix] ? `يظهر في: ${PREFIX_WHERE[p.prefix]}` : '');
+    out.push(`| ${p.prefix} | ${cell(SURFACES[p.surface])} | ${cell(p.name)} | ${cell(where)} | ${p.count || `0 (${ZERO_NOTE[p.prefix]})`} |`);
+  }
   const byPrefix = new Map();
   for (const it of reg.items) {
     if (!byPrefix.has(it.prefix)) byPrefix.set(it.prefix, []);
@@ -865,14 +977,16 @@ export function renderMarkdown(reg) {
     const list = byPrefix.get(p.prefix);
     if (!list?.length) continue;
     out.push('');
-    out.push(`## ${p.prefix}: ${p.name}${p.url ? ` (\`${p.url}\`)` : ''}`);
+    out.push(`## ${p.prefix}: ${p.name}${p.url ? ` (\`${p.url}\`)` : PREFIX_WHERE[p.prefix] ? ` (يظهر في: ${PREFIX_WHERE[p.prefix]})` : ''}`);
     out.push('');
-    out.push('| Code | Kind | Text | Where |');
+    out.push('| الرمز | النوع | النص | مكانه في الملفات |');
     out.push('|---|---|---|---|');
     for (const it of list) {
       const notes = [];
       if (it.shared.length) notes.push(`يظهر النص نفسه أيضًا في: ${it.shared.map((s) => (s.where ? `${s.code} (${s.where})` : s.code)).join('، ')}`);
       if (it.setting) notes.push(`يُعدَّل من الإعدادات ← ${it.setting}`);
+      // v12 gate fixer-server (TA-04): صيغ النص (جانبا الموقع، الشركة والفريق) كل واحدة باسمها
+      if (it.texts?.length) notes.push(`الصيغ: ${it.texts.map((x) => `${x.label} «${shorten(x.text)}»`).join(' · ')}`);
       const text = [cell(it.text), ...notes.map(cell)].join('<br>');
       const where = [loc(it.file, it.line), ...it.variants.map((v) => `${loc(v.file, v.line)}${v.label ? ` (${v.label})` : ''}`), ...it.pointers.map((x) => `${loc(x.file, x.line)} (@tag-src)`)].join(' · ');
       out.push(`| ${it.code} | ${cell(it.kind)} | ${text} | ${cell(where)} |`);
@@ -882,20 +996,20 @@ export function renderMarkdown(reg) {
     out.push('');
     out.push('## بلا رقم بعد (X-00)');
     out.push('');
-    out.push('| Placeholder | Kind | Text | Where |');
+    out.push('| الرمز المؤقت | النوع | النص | مكانه في الملفات |');
     out.push('|---|---|---|---|');
     for (const p of reg.placeholders) out.push(`| ${p.code} | ${cell(p.kind)} | ${cell(p.text)} | ${loc(p.file, p.line)} |`);
   }
   out.push('');
   out.push('## النطاقات المحجوزة (Reserved ranges)');
   out.push('');
-  out.push('| Range | Lane | What |');
+  out.push('| النطاق | المسار | ملاحظة للمهندسين |');
   out.push('|---|---|---|');
   for (const r of reg.reserved) out.push(`| ${r.from}…${r.to} | ${cell(r.lane)} | ${cell(r.what)} |`);
   out.push('');
   out.push('## الرموز المتقاعدة (Retired codes)');
   out.push('');
-  out.push('| Code | Retired in | Was | Moved to |');
+  out.push('| الرمز | تقاعد في الإصدار | كان | انتقل إلى |');
   out.push('|---|---|---|---|');
   if (!reg.retired.length) out.push('| — | — | — | — |');
   for (const r of reg.retired) out.push(`| ${r.code} | ${cell(r.in)} | ${cell(r.was)} | ${cell(r.moved || '—')} |`);

@@ -230,8 +230,11 @@ export function formatBytes(bytes) {
   return `${(n / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} ميجابايت`;
 }
 
+// v12 media (H-M14، gate K-S2): ملفات الفريق تمر بالماسح (ui.js fileInput) وتحمل file.bmScan (الأصول بـ base64)
+export const UPLOAD_SCAN = true;
+
 /**
- * يحوّل ملفًا إلى { filename, mime, data_base64 } لإرساله داخل JSON.
+ * يحوّل ملفًا إلى { filename, mime, data_base64 } لإرساله داخل JSON (+ scan للصور الممسوحة، file.bmScan).
  * @param {File} file
  * @param {{maxBytes?:number}} [opts]
  */
@@ -258,6 +261,7 @@ export function fileToUpload(file, { maxBytes = 8 * 1024 * 1024 } = {}) {
         filename: file.name || 'document',
         mime: file.type || 'application/octet-stream',
         data_base64: comma >= 0 ? result.slice(comma + 1) : '',
+        ...(file.bmScan ? { scan: file.bmScan } : {}),
       });
     };
     reader.onerror = () => reject(new ApiError(`تعذرت قراءة الملف «${file.name}»`, { code: 'file_read_error' }));

@@ -20,7 +20,7 @@ import { ApiError, nowIso } from '../util.js';
 import { sttReason } from '../ai/stt.js';
 
 /** نتيجة «اختبار الاتصال» لتحويل الصوت بالعربية (الرمز فقط يُعاد للواجهة، L12-71) */
-export const STT_TEST_CODES = { ok: 'نجح', off: 'التحويل متوقف', not_configured: 'الإعدادات ناقصة', no_clip: 'مقطع الاختبار غير موجود' };
+export const STT_TEST_CODES = { ok: 'نجح', off: 'التحويل متوقف', not_configured: 'الإعدادات ناقصة', no_clip: 'مقطع الاختبار غير موجود', env_key_host: 'المفتاح مضبوط من الخادم؛ غيّر العنوان من الخادم أيضًا' };
 
 /** حد جسم «نظّف المستند»: ملف ≤ 20 ميجابايت بعد فك base64 + المعاملات */
 export const CLEAN_BODY_LIMIT = 28 * 1024 * 1024;

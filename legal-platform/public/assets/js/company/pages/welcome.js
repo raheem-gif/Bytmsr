@@ -158,7 +158,7 @@ function stepTeam(ctx, go) {
     role.value = 'member';
     return { name, email, role, el: h('fieldset.co-welcome-row', h('legend', copy('welcome.row', { i })), field(W.team.name, name, { tag: 'CW-21' }), field(W.team.email, email, { tag: 'CW-22' }), field(W.team.role, h('div.select-wrap', role), { tag: 'CW-23' })) };
   });
-  const help = h('details.co-details', { tag: 'CW-24' }, h('summary', { tag: 'CW-25' }, W.team.roles_help), h('ul.co-checks', ROLES.map((r) => h('li', h('strong', roleLabel(r)), ' — ', W.team[`role_${r}`]))));
+  const help = h('details.co-details', { tag: 'CW-24' }, h('summary', { tag: 'CW-25' }, W.team.roles_help), h('ul.co-checks', ROLES.map((r) => h('li', h('strong', roleLabel(r)), ': ', W.team[`role_${r}`]))));
   const err = sheetError();
   const links = h('div.co-welcome-links');
   const send = button(WL.send_invites, { variant: 'primary', size: 'lg', tag: 'CW-26' });

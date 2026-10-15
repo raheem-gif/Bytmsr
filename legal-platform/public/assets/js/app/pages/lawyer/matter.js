@@ -119,7 +119,7 @@ export default async function render(ctx) {
   function headerNode() {
     const m = data.matter;
     return h(
-      'header.lc-head',
+      'header.lc-head.is-record', // v12 gate (V-11): عنوان الملف بيانات مستخدم ← خط الواجهة
       { tag: 'LMF-03' }, h('div.lc-head-top', codeTag(m.code), m.status !== 'open' ? badge(matterStatus(m.status), m.status === 'closed' ? 'neutral' : 'warning', { dot: true }) : null),
       h('h1.page-title.lc-title', { tag: 'LMF-04' }, m.title),
       h('p.lc-court-line', courtLine(m)),

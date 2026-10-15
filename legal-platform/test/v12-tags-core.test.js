@@ -362,6 +362,11 @@ describe('v12 tags-core — registry, TAGS.md and numbering (TG-2, T12-56…T12-
       // v12 tags: intended (TG-6): the copy starts from the reservations alone (the live ledger carries the sweep's high-water marks)
       const live = JSON.parse(read('src/tags/ledger.json'));
       live.prefixes = Object.fromEntries(Object.entries(live.prefixes).filter(([, e]) => e.reserved?.length).map(([p, e]) => [p, { ...e, next: Math.max(...e.reserved.map((r) => r.to)) + 1, retired: {} }]));
+      // v12 gate (release lead, §13.1 step 7, intended): the live ledger is frozen at 12.0.0, so the copy starts unfrozen
+      // (no frozen/frozen_in/known) and the steps before `freeze` below run on a pre-freeze ledger exactly as before.
+      live.frozen = false;
+      delete live.frozen_in;
+      for (const e of Object.values(live.prefixes)) delete e.known;
       put('src/tags/ledger.json', `${JSON.stringify(live, null, 2)}\n`);
       put('src/constants.js', 'export const TEXT_TAGS = {};\n');
       put('public/assets/js/public/entry-tree.js', read('public/assets/js/public/entry-tree.js'));

@@ -270,7 +270,7 @@ function buildUi(ctx, data) {
   const ents = (data.entities || []).filter((e) => e.status !== 'inactive');
   let entityWrap = null;
   if (ents.length > 1) {
-    const sel = h('select.input', { 'aria-required': 'true', onChange: () => { f.entity_id = sel.value; entityWrap.setError(''); refreshSummary(); saveDraftSoon(); }, tag: 'CN-21' }, h('option', { value: '' }, '— اختاروا —'), ents.map((e) => h('option', { value: String(e.id) }, e.name)));
+    const sel = h('select.input', { 'aria-required': 'true', onChange: () => { f.entity_id = sel.value; entityWrap.setError(''); refreshSummary(); saveDraftSoon(); }, tag: 'CN-21' }, h('option', { value: '' }, 'اختاروا'), ents.map((e) => h('option', { value: String(e.id) }, e.name)));
     sel.value = String(f.entity_id || '');
     entityWrap = field(N.entity, h('div.select-wrap', sel), { required: true, tag: 'CN-22' });
   } else f.entity_id = ents[0]?.id || '';
@@ -683,7 +683,7 @@ export default async function newRequest(ctx) {
       tag: 'CN-42',
     }),
   );
-  ctx.setTitle(`${N.title} — ${t.company_label}`);
+  ctx.setTitle(`${N.title}: ${t.company_label}`); // v12 gate (V-23، §5.11): «طلب جديد: مراجعة عقد» بلا «—»
   // الرجوع من «الموعد والخصوصية» إلى «التفاصيل» (U10-28)
   window.dispatchEvent(new CustomEvent('co:back', { detail: f.step === 2 ? { label: N.step1, href: `#/requests/new/${type}` } : null }));
   return h(

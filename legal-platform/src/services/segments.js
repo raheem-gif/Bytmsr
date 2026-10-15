@@ -73,7 +73,8 @@ export function isStopWord(text) {
 
 /** «الزوج» في سطور اختيارات الموقع للإدارة ← «الزوج أو الزوجة» لطلبات الأفراد والشركات (للعرض فقط، لا يدخل التحليل) */
 export function paidStaffLines(lines) {
-  return (Array.isArray(lines) ? lines : []).map((l) => String(l).replace(/(:\s*)الزوج(?=$|\s*[،.])/u, '$1الزوج أو الزوجة'));
+  // v12 gate fixer-server (JR-01): «لا أعرف» بصيغة محايدة كما في entry-tree.PAID_UNKNOWN («لا يعرف»)
+  return (Array.isArray(lines) ? lines : []).map((l) => String(l).replace(/(:\s*)الزوج(?=$|\s*[،.])/u, '$1الزوج أو الزوجة').replace(/(:\s*)لا تعرف$/u, '$1لا يعرف'));
 }
 
 export function createSegments(app) {
@@ -1159,14 +1160,33 @@ export function createSegments(app) {
       return l ? { kind: 'line', path: l, via: 'typed' } : null;
     }
     if (intake.pathway_source === 'wa_menu' && !cur.includes('/')) {
+      // v12 gate fixer-server (SEC-5): رقم أو كلمة مكتوبة تُقرأ صفًّا في القائمة التي أُرسلت فعلًا لهذا الطلب وحدها — قائمة خط
+      // آخر (غيّر الخط بزر قديم) أو لا قائمة = نص عادي
+      if (listLineOf(intake.id) !== cur) return null;
       const p = rowFromText(cur, text, ctx);
       return p ? { kind: 'row', path: p, via: 'typed' } : null;
     }
     return null;
   }
 
+  /** v12 gate fixer-server (SEC-5): خط آخر قائمة صفوف أُرسلت للطلب (meta.lines_line، وإلا من معرّفات صفوفها) أو null */
+  function listLineOf(intakeId) {
+    const m = db.get("SELECT meta FROM messages WHERE intake_id = ? AND automation_rule = 'lines_list' ORDER BY id DESC LIMIT 1", intakeId);
+    if (!m) return null;
+    let meta = null;
+    try {
+      meta = JSON.parse(m.meta || 'null');
+    } catch {
+      meta = null;
+    }
+    if (meta?.lines_line) return String(meta.lines_line);
+    const id = String(meta?.wa?.sections?.[0]?.rows?.[0]?.id || '');
+    const lm = /^path:([a-z0-9-]+)\//.exec(id);
+    return lm ? lm[1] : null;
+  }
+
   /** رسالة آلية من قائمة الخدمات (داخل نافذة 24 ساعة فقط، لا تجعل الرسائل «مقروءة»، مخفية من صفحة المتابعة) */
-  function sendLinesMessage(i, rule, body, wa = {}) {
+  function sendLinesMessage(i, rule, body, wa = {}, extra = {}) {
     try {
       return app.engine.sendToClient({
         client_id: i.client_id,
@@ -1176,7 +1196,7 @@ export function createSegments(app) {
         automated: true,
         rule,
         keep_unread: true,
-        meta: { portal_hidden: true, wa: { session_only: true, ...wa } },
+        meta: { portal_hidden: true, ...extra, wa: { session_only: true, ...wa } },
       });
     } catch (e) {
       app.log?.(`lines menu message ${rule} failed`, e);
@@ -1259,6 +1279,9 @@ export function createSegments(app) {
   function onLinesReply(i, reply, msg = {}) {
     if (!i || !reply || !app.pathways) return false;
     if (reply.kind === 'line' && i.pathway && i.pathway.split('/')[0] === reply.path) return false;
+    // v12 gate fixer-server (SEC-5): زر خط قديم بعد اختيار صف (مسار أعمق من مستوى واحد) أو بعد W-05/W-06 لا يغيّر شيئًا
+    if (reply.kind === 'line' && i.pathway && i.pathway.includes('/')) return false;
+    if (reply.kind === 'line' && db.get("SELECT 1 FROM messages WHERE intake_id = ? AND automation_rule = 'lines_next' LIMIT 1", i.id)) return false;
     let res = null;
     try {
       res = app.pathways.set(i.id, reply.path, { source: 'wa_menu' });
@@ -1280,7 +1303,7 @@ export function createSegments(app) {
     if (reply.kind === 'line') {
       if (!sent('lines_list')) {
         const l = linesList(reply.path);
-        if (l) sendLinesMessage(row, 'lines_list', l.body, l.wa);
+        if (l) sendLinesMessage(row, 'lines_list', l.body, l.wa, { lines_line: reply.path });
       }
     } else if (!sent('lines_next')) {
       sendLinesMessage(row, 'lines_next', linesNextText(row.pathway));

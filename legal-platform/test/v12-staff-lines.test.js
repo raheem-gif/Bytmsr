@@ -1143,7 +1143,7 @@ describe('v12 staff-lines: staff copy, markup contract and tags', () => {
     for (const o of P.LINE_FILTER_OPTIONS) assert.equal(o.label, LABELS.service_line[o.value]);
     assert.deepEqual(['consultation', 'litigation', 'company'].map((k) => LINES[k].chip), ['استشارة', 'دعوى', 'شركات']);
     const src = read('public/assets/js/app/components/pathway-ui.js');
-    for (const s of ["'السبب (اختياري)'", "'نوع الطلب'", "'المجال أو الوضع'", "'الموضوع'", "'تعديل'", "'تحديد'", "'تأكيد'", 'مقترح: ']) assert.ok(src.includes(s), s);
+    for (const s of ["'السبب (اختياري)'", "'نوع الطلب'", "'المجال أو الوضع'", "'الموضوع'", "'تعديل'", "'تحديد'", "'تأكيد النوع'", 'نوع الطلب: ']) assert.ok(src.includes(s), s); // gate K-S5: «نوع الطلب: …؟» + «تأكيد النوع» (كان «مقترح: …» + «تأكيد»)
   });
 
   test('§5.7 classes and §5.9 codes: line-chip/line-path/path-line, PTH-01…15, INB-01…08, DSH-01/02; no inline styles, no segment hues in the new markup', () => {

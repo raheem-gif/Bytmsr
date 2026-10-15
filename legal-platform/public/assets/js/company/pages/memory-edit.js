@@ -80,5 +80,5 @@ export default async function memoryEdit(ctx) {
   }
   const cancel = button(M.cancel, { variant: 'ghost', href: back.href, tag: 'CE-02' });
   form.el.querySelector('.form-actions')?.append(cancel);
-  return h('div.co-page.co-mem-edit', pageHead(h('span', { dir: 'auto' }, title)), h('section.co-section.co-mem-form', { tag: 'CE-03' }, form.el));
+  return h('div.co-page.co-mem-edit', pageHead(h('span', { dir: 'auto' }, title), null, { record: true }), h('section.co-section.co-mem-form', { tag: 'CE-03' }, form.el));
 }

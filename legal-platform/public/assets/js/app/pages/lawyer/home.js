@@ -74,14 +74,22 @@ function clip(text, n) {
 }
 
 /** أجزاء السطر الثانوي: النصوص كما هي، والأكواد داخل <bdi dir=ltr> بلا التفاف */
-function subLine(parts) {
+function subPart(p) {
+  if (p && typeof p === 'object' && p.chip) return h('span.lh-co-chip', p.chip); // v10 b2b-staff (U10-L01): «شركة»
+  if (p && typeof p === 'object' && p.code) return h('bdi.lh-code', { dir: 'ltr' }, p.code);
+  if (p && typeof p === 'object' && p.keep) return h('span.lh-keep', String(p.keep));
+  return h('span.lh-sub-text', String(p));
+}
+/**
+ * سطر البيانات: أجزاء بينها «·». wrap (v12 gate V-26): السطر يلتف، وكل جزء يبدأ بـ«·» والسطر مزاح بعرض فاصل واحد
+ * (overflow مقصوص)، فيختفي الفاصل في أول كل سطر ولا تبقى «·» وحدها في طرفه («· CIV-2026-00002»).
+ */
+function subLine(parts, { wrap = false } = {}) {
+  if (wrap) return h('span.lh-sub-in', parts.map((p) => h('span.lh-sub-part', h('span.lh-sep', { 'aria-hidden': 'true' }, '·'), subPart(p))));
   const out = [];
   parts.forEach((p, i) => {
     if (i) out.push(h('span.lh-sep', { 'aria-hidden': 'true' }, ' · '));
-    if (p && typeof p === 'object' && p.chip) out.push(h('span.lh-co-chip', p.chip)); // v10 b2b-staff (U10-L01): «شركة»
-    else if (p && typeof p === 'object' && p.code) out.push(h('bdi.lh-code', { dir: 'ltr' }, p.code));
-    else if (p && typeof p === 'object' && p.keep) out.push(h('span.lh-keep', String(p.keep)));
-    else out.push(h('span.lh-sub-text', String(p)));
+    out.push(subPart(p));
   });
   return out;
 }
@@ -178,7 +186,8 @@ export default async function render(ctx) {
       'section.card.lh-now',
       { 'aria-labelledby': 'lh-now-title', tag: 'TDY-06' },
       h('h2.lh-card-title#lh-now-title', { tag: 'TDY-07' }, 'مطلوب الآن'),
-      h('ul.lh-rows', visible.map((a) => h('li', actionRow(a)))),
+      // v12 gate (V-26): زر ممتلئ واحد في القائمة (أول صف له زر)، وبقية الأزرار بحد خفيف
+      h('ul.lh-rows', visible.map((a, i) => h('li', actionRow(a, { primaryOk: !visible.slice(0, i).some((b) => actionCopy(b).button?.kind === 'primary') })))),
       rest > 0 &&
         h('button.lh-more', { type: 'button', onClick: () => { showAll = true; draw(); }, tag: 'TDY-08' }, `عرض ${num(rest)} أخرى`),
     );
@@ -202,7 +211,7 @@ export default async function render(ctx) {
     }
   }
 
-  function actionRow(a) {
+  function actionRow(a, { primaryOk = true } = {}) {
     // النص الحر يُختصر هنا (لا بالـ CSS وحده) فيبقى أعلى الصفحة قليل الكلمات؛ النص الكامل في التلميح
     const c = actionCopy({ ...a, case_title: clip(a.case_title, 26), title: clip(a.title, 26), location: clip(a.location, 22) });
     const href = hrefFor(a);
@@ -212,12 +221,12 @@ export default async function render(ctx) {
       isOutcome ? 'button.lh-row-main' : 'a.lh-row-main',
       isOutcome ? { type: 'button', title: actionCopy(a).title, onClick: () => openOutcome(a), tag: 'TDY-36' } : { href, title: actionCopy(a).title, tag: 'TDY-37' },
       h('span.lh-dot', { class: `lh-dot-${c.tone}`, 'aria-hidden': 'true' }),
-      h('span.lh-row-text', h('span.lh-row-title', c.title), c.sub.length ? h('span.lh-row-sub', subLine(c.sub)) : null),
+      h('span.lh-row-text', h('span.lh-row-title', c.title), c.sub.length ? h('span.lh-row-sub.is-wrap', subLine(c.sub, { wrap: true })) : null),
       c.chevron && h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 })),
     );
     let trailing = null;
     if (c.button) {
-      const variant = c.button.kind === 'primary' ? 'primary' : 'secondary';
+      const variant = c.button.kind === 'primary' && primaryOk ? 'primary' : 'secondary';
       if (isOutcome) trailing = button(c.button.label, { variant, className: 'lh-row-btn', onClick: () => openOutcome(a), tag: 'TDY-09' });
       else if (isTask) trailing = button(c.button.label, { variant, className: 'lh-row-btn', icon: 'check', onClick: (e) => markTaskDone(a, e.currentTarget), tag: 'TDY-10' });
       else trailing = button(c.button.label, { variant, className: 'lh-row-btn', href, tag: 'TDY-11' });
@@ -365,7 +374,7 @@ export default async function render(ctx) {
             sub = [{ code: u.case_code }, ...companyParts(u), clip(u.case_title, 22)].filter(Boolean); // v10 b2b-staff
             href = `#/my/assignments/${u.assignment_id}`;
           }
-          return h('li', h('a.lh-line', { href, tag: 'TDY-17' }, h('span.lh-line-text', h('span.lh-line-title', title), h('span.lh-row-sub', subLine(sub))), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 }))));
+          return h('li', h('a.lh-line', { href, tag: 'TDY-17' }, h('span.lh-line-text', h('span.lh-line-title', title), h('span.lh-row-sub.is-wrap', subLine(sub, { wrap: true }))), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 }))));
         }),
       ),
     );

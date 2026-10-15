@@ -113,6 +113,6 @@ export default async function render(ctx) {
     { className: 'pc-list-tabs', active: ctx.query.tab === 'history' ? 'history' : 'active', tag: 'ASL-09' },
   );
   const page = h('div.page.lh-assignments');
-  mount(page, h('h1.lh-h1.lh-page-h1', { tag: 'ASL-10' }, 'إسناداتي'), card({ flush: true, body: t, tag: 'ASL-11' }));
+  mount(page, h('h1.lh-h1.lh-page-h1.page-title', { tag: 'ASL-10' }, 'إسناداتي') /* v12 gate (V-11): عنوان ثابت كبقية الصفحات */, card({ flush: true, body: t, tag: 'ASL-11' }));
   return page;
 }

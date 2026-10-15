@@ -13,7 +13,8 @@ import { LABELS, CLIENT_TEXTS, STORY_TRACKS, ENUMS, AREA_CODES, CODE_PREFIX } fr
 import {
   factsText, isCannedCallback, isFactual, isPortalUnverifiedIntake, portalUnverifiedSql, storyWords, PORTAL_LINK_VAR, withoutLinkLines,
 } from '../channels/engine.js';
-import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
+import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN, QUESTIONS, UNKNOWN } from '../../public/assets/js/public/topics.js';
+import { leafOf, allLeaves, staffAnswerLines } from '../../public/assets/js/public/entry-tree.js';
 import { questionsFor, classify, paidQuestionsFor } from '../ai/heuristic.js';
 // v11 segment-server (L11-25، r2 P16): نصوص الأفراد والشركات وقائمة مواضيعهم، وسطور اختيارات الموقع للعرض فقط
 import { PAID_TOPICS } from '../../public/assets/js/public/segment.js';
@@ -90,6 +91,44 @@ export function spokenScript(text) {
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// v12 gate fixer-server (JR-01): سؤال الورقة ← أول ورقة تسأله (لعرض إجابة بعد أن غيّر الفريق المسار)
+let ASK_PATH = null;
+function askPathOf(id) {
+  if (!ASK_PATH) {
+    ASK_PATH = new Map();
+    for (const l of allLeaves()) for (const q of l?.ask || []) if (!ASK_PATH.has(q)) ASK_PATH.set(q, l.path);
+  }
+  return ASK_PATH.get(id) || null;
+}
+
+/**
+ * v12 gate fixer-server (JR-01): إجابات أسئلة الشجرة التي لا يعرضها staffLines (topics.js) — أقرب جلسة، تاريخ الحكم،
+ * النفقة لمن، المالك أو المستأجر، و«لا يوجد» أبناء — بكلمات الفريق (entry-tree.staffAnswerLines) وبترتيب أسئلة الورقة.
+ * لطلبات الشجرة وحدها (entry = 'tree' أو مسار موقع محفوظ)، فطلب «خيري» وسطوره وطلب Claude له لا تتغير. الورقة: مسار الموقع المحفوظ في
+ * form_answers.pathway ثم مسار الطلب الحالي؛ إجابة لا تسألها الورقة (غيّر الفريق المسار) تُعرض بأول ورقة تسألها.
+ */
+export function treeAnswerLines(i, f) {
+  if (!f || (f.entry !== 'tree' && !f.pathway?.path)) return [];
+  const answers = f.answers && typeof f.answers === 'object' && !Array.isArray(f.answers) ? f.answers : {};
+  const t = topicByKey(f.topic);
+  // ما يعرضه staffLines أصلًا (سؤال الموضوع بإجابة معروفة أو «لا أعرف») لا يتكرر
+  const shown = new Set(
+    (t ? t.questions : Object.keys(QUESTIONS)).filter(
+      (id) => Object.hasOwn(answers, id) && (answers[id] === UNKNOWN.value || !!QUESTIONS[id]?.answers.some((x) => x.value === String(answers[id]))),
+    ),
+  );
+  const path = [f.pathway?.path, i?.pathway].find((p) => typeof p === 'string' && leafOf(p));
+  const leaf = path ? leafOf(path) : null;
+  const out = [];
+  for (const id of new Set([...(leaf ? leaf.ask : []), ...Object.keys(answers)])) {
+    if (!Object.hasOwn(answers, id) || shown.has(id)) continue;
+    const p = leaf && leaf.ask.includes(id) ? leaf.path : askPathOf(id);
+    if (!p) continue;
+    for (const l of staffAnswerLines(p, { [id]: answers[id] })) if (!out.includes(l)) out.push(l);
+  }
+  return out;
+}
+
 export function createStories(app) {
   const { db } = app;
   const quietTimers = new Map();
@@ -141,7 +180,17 @@ export function createStories(app) {
       callback_label: f.callback && CALLBACK_WHEN[f.callback] ? CALLBACK_WHEN[f.callback].staff : null,
       story: f.story || null,
       // v11 segment-server (r2 P16): «الزوج أو الزوجة» لطلبات الأفراد والشركات — للعرض فقط (نص التحليل يبني سطوره بنفسه)
-      lines: i?.segment === 'paid' ? paidStaffLines(staffLines(f)) : staffLines(f),
+      // v12 gate fixer-server (JR-01): + إجابات أسئلة الشجرة (أقرب جلسة، تاريخ الحكم…) قبل سطر المكالمة
+      lines: (() => {
+        const base = staffLines(f);
+        const extra = treeAnswerLines(i, f);
+        if (extra.length) {
+          const cb = base.length && f.callback && CALLBACK_WHEN[f.callback] ? base.pop() : null;
+          base.push(...extra);
+          if (cb) base.push(cb);
+        }
+        return i?.segment === 'paid' ? paidStaffLines(base) : base;
+      })(),
       urgent_hint: !!f.inferred?.urgent_hint || f.answers?.['rent.evict'] === 'yes',
       about: about
         ? {
@@ -303,7 +352,11 @@ export function createStories(app) {
         clientText += `\n${line}`;
         contextText += `\n${line}`;
       }
-      const lines = staffLines(formJson(intake) || {});
+      const fj = formJson(intake) || {};
+      const lines = staffLines(fj);
+      // v12 gate fixer-server (JR-01): إجابات أسئلة الشجرة في سياق التحليل أيضًا (طلبات الشجرة وحدها؛ «خيري» كما هو)
+      const treeExtra = treeAnswerLines(intake, fj);
+      if (treeExtra.length) lines.splice(fj.callback && CALLBACK_WHEN[fj.callback] && lines.length ? lines.length - 1 : lines.length, 0, ...treeExtra);
       if (lines.length) contextText = `[${STAFF_LINES_TITLE}: ${lines.join(' · ')}]\n${contextText}`;
       // v12 staff-lines (SL-6، E12-54، L12-28): المسار الذي اختاره (كلمات الفريق) سطر واحد في أول السياق — لطلبات الأفراد والشركات
       // ذات المسار فقط، فطلب «خيري» لا يتغير (بصمة طلب Claude ثابتة)، ولا يدخل نص صاحب الطلب (clientText)
@@ -798,9 +851,10 @@ export function createStories(app) {
       const title = draft.title || out?.title || i.title || '';
       const priority = ['low', 'normal', 'high', 'urgent'].includes(out?.urgency) && out.urgency !== 'low' ? (rankP(out.urgency) > rankP(i.priority) ? out.urgency : i.priority) : i.priority || 'normal';
       const issues = (out?.suggested_issues || []).map((x) => ({ title: x.title, details: x.details ?? null, legal_area: x.legal_area || area, origin: 'ai' }));
-      const fallbackBrief = `المطلوب: رأي مبدئي في: ${issues[0]?.title || title || 'المسألة'}، مع المستندات اللازمة والخطوات العملية للمستفيدة.`;
-      const form = formOf(i);
       const tone = toneOf(i); // v11 segment-server (L11-25): مسودات الرسائل بنبرة الطلب
+      // v12 gate fixer-server (JR-05): «للمستفيدة» لطلب «خيري» وحده؛ الأفراد والشركات (وغير المحدد) «لصاحب الطلب»
+      const fallbackBrief = `المطلوب: رأي مبدئي في: ${issues[0]?.title || title || 'المسألة'}، مع المستندات اللازمة والخطوات العملية ${tone === 'charity' ? 'للمستفيدة' : 'لصاحب الطلب'}.`;
+      const form = formOf(i);
       const internalBits = [draft.internal_note, form?.lines?.length ? `${STAFF_LINES_TITLE}: ${form.lines.join(' · ')}` : null].filter(Boolean);
       const caseDraft = {
         legal_area: area,

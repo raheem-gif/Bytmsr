@@ -52,6 +52,16 @@
   unicode-range: U+0021-007E, U+00A9, U+00AB, U+00B7, U+00BB, U+2013-2014, U+2018-2019, U+201C-201D, U+2026;
 }
 
+/* v12 gate (V-16، K12-13): الأرقام والحروف اللاتينية بخط Plex (وزن 400 وحده، كما في الميزانية) في صفحات الأفراد والشركات —
+   «REQ-2026-00058»، الهواتف، المواعيد، «1 من 5»، «© 2026». المدى أرقام وحروف و© فقط (لا علامات الترقيم التي تكتب بها
+   الجمل العربية، فلا يُطلب الملف في «/» ولا الشجرة)؛ optional فلا إزاحة عند وصوله؛ «خيري» على مكدّسه كما هو */
+@font-face {
+  font-family: "Emam Latin";
+  font-display: optional;
+  src: url("/assets/fonts/plex-latin-400.woff2") format("woff2");
+  unicode-range: U+0030-0039, U+0041-005A, U+0061-007A, U+00A9;
+}
+
 :root {
   /* v9.2 «ألوان المؤسسة»: الدرجات الافتراضية (= LEGACY). ألوان المؤسسة تأتي من كتلة <style id="bm-theme"> في <head> وتغلب هذه القيم */
   /* @brand-defaults-start */
@@ -330,7 +340,8 @@ body.pub-landing .pub-nav-cta {
 
 .pub-head-contact,
 .pub-menu-close,
-.pub-menu-toggle {
+.pub-menu-toggle,
+.pub-nav-wa {
   display: none;
 }
 
@@ -407,25 +418,16 @@ body.pub[data-side="paid"] .pub-nav-link {
   font: var(--t-ui);
 }
 
+/* v12 gate (V-07، K12-21): زر الرأس خطّي (حد 1px بلون الحبر) في كل صفحات الأفراد والشركات، فزر الصفحة هو الممتلئ الوحيد */
 body.pub[data-side="paid"] .pub-nav-cta {
   min-height: 38px;
   margin-inline-start: 14px;
   padding: 0 18px;
   border-radius: 2px;
-  background: var(--act);
-  color: var(--on-act);
-  font: 600 14px/1.2 var(--f-ui);
-}
-
-body.pub-landing[data-side="paid"] .pub-nav-cta {
   background: none;
   color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-body.pub[data-side="paid"] .pub-head-contact {
-  background: none;
-  color: var(--ink);
+  font: 600 14px/1.2 var(--f-ui);
 }
 
 body.pub .pub-menu-toggle--word {
@@ -441,8 +443,13 @@ body.pub .pub-menu-toggle--word {
   }
 }
 
+:root:has(> body[data-side="paid"]) {
+  --pub-font: "IBM Plex Sans Arabic", "Emam Latin", "Noto Sans Arabic", Tahoma, sans-serif;
+  --f-ui: "IBM Plex Sans Arabic", "Emam Latin", "Segoe UI", Tahoma, sans-serif;
+}
+
 /* v12 look (K12-03، PW-L7): لا وزن 700 في صفحات الأفراد والشركات؛ ما يُرسم منه عند التحميل (رابط التخطي، الاسم اللاتيني، روابط التذييل)
-   يأخذ 600 فلا يُطلب ملف 700 أصلًا. «خيري» يبقى على 400/700 */
+   يأخذ 600 فلا يُطلب ملف 700 أصلًا. «خيري» يبقى على 400/700. (روابط «بالمختصر»: في كتلة :legal، V-17) */
 :root:has(> body:not([data-side="charity"], .pub-charity)) :is(b, strong, summary, .skip-link, .pub-ltr, .pub-social, .pub-contact-label, .pub-footer a, .pub-contact-list a, .bp-step-dot, .bp-label) {
   font-weight: 600;
 }
@@ -980,6 +987,11 @@ body.pub .pub-seg-pill:hover {
   body.pub .pub-nav-gate {
     display: flex;
     color: var(--label-2);
+  }
+
+  /* v12 gate (V-18، K12-21): واتساب كلمة داخل القائمة المفتوحة للأفراد والشركات (بدل دائرة الأيقونة بجانب «القائمة») */
+  body.pub .pub-nav-wa {
+    display: inline-flex;
   }
 }
 
@@ -1932,6 +1944,10 @@ body.pub .pub-staff-link {
 
 body.pub .pub-crumbs a {
   color: var(--label-2);
+  /* v12 gate (K-P5): هدف لمس 44px على الأقل دون أن يتغير مكان السطر (الحشو يقابله هامش سالب) */
+  display: inline-block;
+  padding-block: 14px;
+  margin-block: -14px;
 }
 
 body.pub .pub-page-hero h1 {
@@ -2005,6 +2021,11 @@ body.pub .pub-summary p {
 body.pub .pub-summary a {
   color: var(--primary-600);
   font-weight: 700;
+}
+
+/* v12 gate (V-17): روابط «بالمختصر» (DD-11 في حذف البيانات) 600 لا 700 في صفحات الأفراد والشركات (لا يُطلب ملف Plex 700) */
+body.pub[data-side="paid"] .pub-summary a {
+  font-weight: 600;
 }
 
 /* روابط التليفون وواتساب داخل الجمل («بالمختصر»، طرق طلب الحذف، صفحة 404): هدف لمس 48px دون تغيير السطر */
@@ -2105,11 +2126,6 @@ body.pub[data-side="paid"] .pub-summary .pub-icon {
   display: none;
 }
 
-body.pub[data-side="paid"]:has(.pub-doc .pub-btn-primary) .pub-nav-cta {
-  background: none;
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
-}
 /* @critical-end */
 
 .pub-doc-layout {
@@ -3284,6 +3300,30 @@ html:has(#bm-theme) .pub-header {
   background: var(--act);
 }
 
+/* v12 gate (R-01، CLS ≤ 0.01): بطاقة «الصفحة بطيئة» في إطار الطلب لا تأخذ مكانًا قبل ثوانيها الثماني (كانت مخفية بطولها 650px
+   فيبدأ التذييل تحت الشاشة ثم يقفز إليها حين يزيلها intake.js). وطلب عرض الشركات (حقول طويلة) يحجز طول الشاشة من أول رسم،
+   فيبقى التذييل تحتها قبل رسم الحقول وبعده؛ وكذلك شاشة رقم «نتصل بكم» (?mode=callback). */
+.lh .bmf-slow-box {
+  max-height: 0;
+  overflow: hidden;
+  animation: bmf-slow-box 0s 8s forwards;
+}
+
+@keyframes bmf-slow-box {
+  to {
+    max-height: 4000px;
+  }
+}
+
+.lh #intake-root.lh-long {
+  min-height: 100svh;
+}
+
+/* v12 gate (V-21، A11): الأفعال النصية («ليس الآن»، «حفظ رابط صفحة طلبكم») على البداية كباقي الصفحة، لا في وسط سطر كامل */
+.lh .bmf-actions > .btn--text {
+  justify-self: start;
+}
+
 /* v12 look: ما بعد الرسم الأول لصفحات الشجرة والطلب (التمرير، التركيز، الضغط، الحركة) */
 .opt {
   cursor: pointer;
@@ -3294,13 +3334,17 @@ html:has(#bm-theme) .pub-header {
   transition: transform 0.18s ease, color 0.18s ease;
 }
 
-.opt:hover {
-  background: var(--paper-2);
-}
+/* v12 gate (JR-07): المرور بالمؤشر فقط؛ على اللمس يبقى «المرور» عالقًا على الصف الذي وقع تحت الإصبع في الشاشة التالية فيبدو
+   كإجابة مختارة (مثل K-P5 لروابط .lh__links) */
+@media (hover: hover) {
+  .opt:hover {
+    background: var(--paper-2);
+  }
 
-.opt:hover .arrow {
-  color: var(--act);
-  transform: translateX(-4px);
+  .opt:hover .arrow {
+    color: var(--act);
+    transform: translateX(-4px);
+  }
 }
 
 .opt:active,
@@ -3323,13 +3367,17 @@ html:has(#bm-theme) .pub-header {
   color: var(--ink-2);
 }
 
-.lh .lh__links a:hover,
-.lh__alt a:hover,
-.lh .trail__back:hover {
-  color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 0.32em;
-  text-decoration-thickness: 1px;
+/* v12 gate (K-P5): الخط تحت الرابط عند المرور بالمؤشر فقط؛ على اللمس يبقى «المرور» عالقًا بعد الضغط فيظهر خط تحت رابط واحد
+   من رابطي «وصلنا طلبكم» (I-66) لأنه وقع مكان زر «إرسال الطلب» */
+@media (hover: hover) {
+  .lh .lh__links a:hover,
+  .lh__alt a:hover,
+  .lh .trail__back:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 0.32em;
+    text-decoration-thickness: 1px;
+  }
 }
 
 .lh :focus-visible,
@@ -3975,6 +4023,28 @@ body.pub .pub-band-more a {
   margin-block-start: 16px;
 }
 
+/* v12 gate (V-19): 404 للأفراد والشركات — «متابعة طلب» الزر الوحيد، و«طلب جديد» و«الصفحة الأولى» رابطان نصيان بهدف 44px */
+body.pub[data-side="paid"] .pub-nf-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 4px;
+  color: var(--act);
+  font: 600 16px/1.2 var(--f-ui);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+body.pub[data-side="paid"] .pub-nf-link:hover {
+  color: var(--act-hover);
+}
+
+body.pub[data-side="paid"] .pub-cta-row:has(.pub-nf-link) {
+  align-items: center;
+  gap: 8px 20px;
+}
+
 /* ── الرأس: ما بعد الرسم الأول (التمرير، التركيز، القائمة المفتوحة على الهاتف) ── */
 body.pub[data-side="paid"] .pub-nav-cta {
   position: relative;
@@ -4000,11 +4070,6 @@ body.pub[data-side="paid"] .pub-nav-portal {
 }
 
 body.pub[data-side="paid"] .pub-nav-cta:hover {
-  background: var(--act-hover);
-  color: var(--on-act);
-}
-
-body.pub-landing[data-side="paid"] .pub-nav-cta:hover {
   background: var(--paper-2);
   color: var(--ink);
 }
@@ -4047,6 +4112,11 @@ body.pub[data-side="paid"] :focus-visible {
     color: var(--on-act);
     box-shadow: none;
     font-size: 16px;
+  }
+
+  body.pub[data-side="paid"] .pub-nav-cta:hover {
+    background: var(--act-hover);
+    color: var(--on-act);
   }
 }
 
@@ -4107,6 +4177,14 @@ body.pub-paid #contact .pub-btn-whatsapp:hover,
 body.pub[data-side="paid"] .pub-btn-on-dark:hover {
   background: none;
   color: var(--act-hover);
+}
+
+/* v12 gate (V-02، WCAG 2.4.7): إعادة ضبط الأزرار أعلاه (box-shadow: none) بنفس أولوية قاعدة :focus-visible العامة وبعدها،
+   فكانت تمسح حلقة التركيز عن «اطلبوا عرضًا» و«دخول بوابة الشركات» و«واتساب» وأزرار 404 وبطاقة الطلب المحفوظ */
+body.pub[data-side="paid"] .pub-btn:focus-visible,
+body.pub-paid #contact .pub-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
 }
 
 @media (min-width: 601px) {
@@ -4355,6 +4433,20 @@ body.pub-paid .terms .g-sub {
 @media (min-width: 900px) {
   body.pub-paid .terms {
     column-gap: 48px;
+  }
+}
+
+/* v12 gate (V-18، L12-10): «التزامنا معكم» شريط من 4 أعمدة على الشاشة الكبيرة (كان 2×2)، كل عمود بخط رفيع فوقه */
+@media (min-width: 1100px) {
+  body.pub-paid .pub-trust-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+
+  body.pub-paid .pub-trust-row {
+    padding: 18px 0 0;
+    border-block-end: 0;
+    border-block-start: 1px solid var(--rule-2);
   }
 }
 
@@ -4609,6 +4701,31 @@ body.pub[data-side="paid"] .pub-footer-bottom {
   font: var(--t-num);
 }
 
+/* v12 gate (V-18، A23): على الهاتف أعمدة التذييل نفسها قوائم بخطوط رفيعة (لا «روابط مهمة» مطوية)، وسطر المكتب ظاهر،
+   و«دخول فريق العمل» في السطر الأخير */
+@media (max-width: 720px) {
+  body.pub[data-side="paid"] .pub-footer-grid {
+    padding-block: 40px 16px;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-about {
+    padding-block-end: 20px;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-col {
+    padding-block: 20px 12px;
+    border-block-start: 1px solid color-mix(in srgb, var(--on-act) 14%, transparent);
+  }
+
+  body.pub[data-side="paid"] .pub-footer-col ul {
+    gap: 0;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-bottom .pub-staff-link {
+    display: inline-flex;
+  }
+}
+
 /* ── الصفحات القانونية و404 بعد الرسم الأول (K12-55): المحتوى بعرض القراءة، الفهرس والملاحظات بخطوط ── */
 body.pub[data-side="paid"] .pub-doc-layout {
   gap: 64px;
@@ -4700,7 +4817,15 @@ body.pub[data-side="paid"] .pub-cta-row {
   }
 }
 
-/* «خيري» لا يستقبل طلبات جديدة (L12-49): صفحة الإشعار بأصناف «خيري» القائمة + قاعدة مسافات واحدة */
-.kh-paused main > * + * {
-  margin-block-start: 16px;
+/* «خيري» لا يستقبل طلبات جديدة (L12-49): صفحة الإشعار بأصناف «خيري» القائمة + قاعدة مسافات واحدة.
+   v12 gate (V-20): بين كتل الصفحة داخل .pub-container (كانت على أبناء main، وابنه الوحيد الحاوية، فتلاصقت الكتل 5–7px) */
+.kh-paused main .pub-container > * + * {
+  margin-block-start: 20px;
+}
+
+/* v12 gate (K-P5): رابطا الخصوصية والشروط (KH-04) سطر روابط مستقل، فهدف لمسهما 44px (الحشو يقابله هامش سالب فلا يتحرك السطر) */
+.kh-paused .pub-legal-links a {
+  display: inline-block;
+  padding-block: 13px;
+  margin-block: -13px;
 }

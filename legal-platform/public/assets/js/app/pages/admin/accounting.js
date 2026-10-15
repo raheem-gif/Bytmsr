@@ -747,6 +747,7 @@ export default async function render(ctx) {
 
   const periodSel = periodSelect({
     label: 'الفترة المحاسبية',
+    tag: 'ACC-92', // v12 gate (TA-05): رمز «المحاسبة» لا LWL-01 من صفحة المحامين
     value: period,
     onChange: (v) => {
       replaceQuery('/accounting', { period: v === currentPeriod() ? '' : v, tab: activeTab === 'summary' ? '' : activeTab });

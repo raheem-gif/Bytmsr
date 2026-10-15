@@ -12,6 +12,8 @@ import { S, isAdmin, isViewer, readOnly, seesMoney, getItem, setItem } from '../
 import { pageHead, greeting, errorView, sectionCard, searchSlot } from '../common.js';
 
 const QUICK = ['contract_review', 'nda', 'employment', 'legal_notice'];
+// v12 gate (TA-05): رمز لكل بلاطة طلب سريع (كانت الأربع CH-12)
+const QUICK_TAGS = { contract_review: 'CH-12', nda: 'CH-18', employment: 'CH-19', legal_notice: 'CH-20' };
 const ORDER = { clarification: 0, quote: 1, overage: 1, deliverable: 2, renewal: 3, charge: 4 };
 const MAX_ROWS = 6;
 
@@ -196,7 +198,7 @@ function quickCard() {
   const tiles = QUICK.map((k) => REQUEST_TYPES.find((t) => t.key === k)).filter(Boolean);
   return sectionCard(
     W.home.quick,
-    h('div.co-quick', tiles.map((t) => h('a.co-quick-tile', { href: `#/requests/new/${t.key}`, tag: 'CH-12' }, typeIcon(t.key, { size: 22 }), h('span', t.company_label)))),
+    h('div.co-quick', tiles.map((t) => h('a.co-quick-tile', { href: `#/requests/new/${t.key}`, tag: QUICK_TAGS[t.key] }, typeIcon(t.key, { size: 22 }), h('span', t.company_label)))),
     { actions: h('a.co-link', { href: '#/requests/new', tag: 'CH-13' }, W.home.all_types, ' ‹'), className: 'co-quick-card' },
   );
 }
@@ -238,7 +240,7 @@ export default async function overview(ctx) {
 
   const plan = home.company?.plan?.name || S.company?.plan_label;
   const manager = home.account_manager?.name ? h('p.co-manager', icon('user', { size: 18 }), h('span', copy('nav.manager', { name: home.account_manager.name }))) : null;
-  const head = pageHead(greeting(S.user?.name), [h('span', { dir: 'auto' }, home.company?.name || S.company?.name || ''), plan ? [' · باقة ', h('bdi', plan)] : null]);
+  const head = pageHead(greeting(S.user?.name), [h('span', { dir: 'auto' }, home.company?.name || S.company?.name || ''), plan ? [' · باقة ', h('bdi', plan)] : null], { record: true });
 
   return h(
     'div.co-page.co-overview',

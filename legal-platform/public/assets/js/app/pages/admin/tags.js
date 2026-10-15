@@ -32,13 +32,13 @@ const CSS = `
 .tgs-switch{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;max-width:520px;cursor:pointer}
 .tgs-switch span{font-weight:600}
 .tgs-status{margin:0;color:var(--text-muted);font-size:14px}
-.tgs-group{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 400px}
-.tgs-group-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--gray-50,transparent)}
+.tgs-group{display:flex;flex-direction:column;border:0;border-top:1px solid var(--ink,currentColor);border-radius:2px;background:none;overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 400px}
+.tgs-group-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:12px 0;border-bottom:1px solid var(--rule,var(--border));background:none}
 .tgs-group-head h2{margin:0;font-size:16px}
 .tgs-group-head .muted{font-size:13px}
-.tgs-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 16px;border-top:1px solid var(--border)}
+.tgs-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 0;border-top:1px solid var(--rule,var(--border))}
 .tgs-row:first-of-type{border-top:0}
-.tgs-row>.btn{grid-row:span 3;align-self:start;min-height:44px;min-width:92px;justify-content:center;direction:ltr;unicode-bidi:isolate;font-family:var(--font-mono,ui-monospace,monospace);font-weight:700}
+.tgs-row>.btn{grid-row:span 3;align-self:start;min-height:44px;min-width:92px;justify-content:flex-start;padding-inline:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--ink,inherit);direction:ltr;unicode-bidi:isolate;font-family:var(--font-mono,ui-monospace,monospace);font-weight:700;text-decoration:underline;text-decoration-color:var(--rule-2,currentColor);text-underline-offset:.3em}
 .tgs-kind{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--text-muted)}
 .tgs-text{margin:0;overflow-wrap:anywhere;white-space:pre-line}
 .tgs-note{margin:0;font-size:13px;color:var(--text-muted);overflow-wrap:anywhere}

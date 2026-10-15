@@ -10,6 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import http from 'node:http';
+import https from 'node:https';
 import { nowIso, periodOf, cairoDayKey, ApiError, badRequest } from '../util.js';
 
 export const STT_PROVIDERS = ['off', 'openai_compatible', 'google'];
@@ -51,6 +53,8 @@ export const sttReason = (code) => STT_REASONS[code] || 'تعذر التحويل
 
 /** رسالة الخطأ عند حفظ مزوّد خارجي بلا اسم أو بلا تأكيد شروطه (§10.2) */
 export const STT_VENDOR_REQUIRED = 'اكتب اسم المزوّد وأكّد شروطه قبل الحفظ.';
+/** SEC-1: المفتاح من متغير البيئة، فالعنوان يُغيَّر من الخادم أيضًا */
+export const STT_ENV_KEY_HOST = 'المفتاح مضبوط من الخادم؛ غيّر العنوان من الخادم أيضًا.';
 
 /** خطأ تحويل: code ∈ auth | http | network | timeout | too_long | too_big | budget | off | blocked_host | not_implemented */
 export class SttError extends Error {
@@ -102,10 +106,11 @@ export const STT_MAX_BYTES = 25 * 1024 * 1024;
 /** Google المتزامن ≤ 59 ثانية (MD-L6) */
 export const GOOGLE_MAX_SECONDS = 59;
 let timeoutMs = 90_000;
-let fetchImpl = (url, init) => fetch(url, init);
+/** null = الاتصال الحقيقي بالعنوان الذي فُحص (pinnedRequest)؛ دالة = بديل fetch للاختبارات */
+let fetchImpl = null;
 /** للاختبارات: بديل لـ fetch (null = الحقيقي) ومهلة أقصر */
 export function setFetch(fn) {
-  fetchImpl = typeof fn === 'function' ? fn : (url, init) => fetch(url, init);
+  fetchImpl = typeof fn === 'function' ? fn : null;
 }
 export function setTimeoutMs(ms) {
   timeoutMs = Number(ms) > 0 ? Number(ms) : 90_000;
@@ -175,6 +180,8 @@ let lookupImpl = (host) => dns.lookup(host, { all: true, verbatim: true });
 /**
  * يُرفض العنوان إن حُل إلى عنوان بيانات السحابة (دائمًا)، أو إلى شبكة خاصة أو المضيف المحلي لجهة خارجية، أو إلى المضيف
  * المحلي دون STT_ALLOW_LOCAL=1 (حتى لخادم المكتب). → يرمي SttError('blocked_host')
+ * → [{ address, family }] العناوين التي فُحصت؛ الاتصال يذهب إليها هي (pinnedRequest)، فلا يغيّرها حل ثانٍ للاسم
+ * (إعادة ربط DNS، مراجعة البوابة SEC-6).
  */
 export async function assertHostAllowed(urlStr, { hosting = 'third_party', env = process.env } = {}) {
   let u;
@@ -201,6 +208,7 @@ export async function assertHostAllowed(urlStr, { hosting = 'third_party', env =
     if (kind === 'loopback' && !allowLocal) throw new SttError('blocked_host', 'loopback');
     if (kind === 'private' && hosting !== 'own_server') throw new SttError('blocked_host', 'private address');
   }
+  return addrs.map(({ address, family }) => ({ address: String(address), family: Number(family) === 6 || net.isIPv6(String(address)) ? 6 : 4 }));
 }
 /** للاختبارات: بديل لـ dns.lookup (null = الحقيقي) */
 export function setLookup(fn) {
@@ -222,10 +230,103 @@ async function withRetry(fn, { tries = 3, baseMs = 400 } = {}) {
   throw last;
 }
 
-async function callFetch(url, init) {
+/** أقصى جسم رد يُقرأ من المزوّد (النص فقط؛ أكبر من ذلك خطأ) */
+const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+const sameIp = (a, b) => String(a || '').toLowerCase().replace(/^::ffff:/, '') === String(b || '').toLowerCase().replace(/^::ffff:/, '');
+
+/**
+ * طلب HTTP(S) واحد إلى العنوان الذي فحصه assertHostAllowed (SEC-6): `lookup` يعيد العناوين المفحوصة فقط، فلا يحل
+ * fetch الاسم مرة ثانية إلى عنوان داخلي. اسم المضيف يبقى في SNI وترويسة Host. لا تتبع للتحويلات (3xx = خطأ HTTP)، ولا
+ * مقبس مشترك (agent: false)، وعنوان المقبس بعد الاتصال يُقارن بالمفحوص. → { ok, status, text() } مثل Response.
+ */
+export async function pinnedRequest(urlStr, init = {}, addrs = [], { timeout = timeoutMs } = {}) {
+  const u = new URL(urlStr);
+  const isHttps = u.protocol === 'https:';
+  if (!isHttps && u.protocol !== 'http:') throw new SttError('blocked_host', 'bad protocol');
+  if (!addrs.length) throw new SttError('blocked_host', 'no vetted address');
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  let body = init.body ?? null;
+  const headers = { ...(init.headers || {}) };
+  if (body && typeof body !== 'string' && !Buffer.isBuffer(body)) {
+    // FormData (أو Blob): نفس الترميز الذي يرسله fetch، مع حدود multipart في نوع المحتوى
+    const r = new Response(body);
+    const ct = r.headers.get('content-type');
+    if (ct && !Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')) headers['Content-Type'] = ct;
+    body = Buffer.from(await r.arrayBuffer());
+  } else if (typeof body === 'string') body = Buffer.from(body, 'utf8');
+  if (body) headers['Content-Length'] = String(body.length);
+  const lookup = (_name, opts, cb) => {
+    const fam = Number(opts?.family) || 0;
+    const list = fam ? addrs.filter((a) => a.family === fam) : addrs;
+    if (!list.length) return cb(Object.assign(new Error('no vetted address for family'), { code: 'ENOTFOUND' }));
+    if (opts?.all) return cb(null, list.map((a) => ({ address: a.address, family: a.family })));
+    return cb(null, list[0].address, list[0].family);
+  };
+  return new Promise((resolve, reject) => {
+    let timedOut = false;
+    let settled = false;
+    const done = (fn, v) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(v);
+    };
+    const fail = (e) => done(reject, timedOut ? Object.assign(new Error('timeout'), { name: 'TimeoutError' }) : e);
+    const req = (isHttps ? https : http).request(
+      {
+        protocol: u.protocol,
+        hostname,
+        port: u.port || (isHttps ? 443 : 80),
+        path: `${u.pathname}${u.search}`,
+        method: init.method || 'GET',
+        headers,
+        agent: false,
+        lookup,
+        ...(isHttps && !net.isIP(hostname) ? { servername: hostname } : {}),
+      },
+      (res) => {
+        const chunks = [];
+        let n = 0;
+        res.on('data', (c) => {
+          n += c.length;
+          if (n > MAX_RESPONSE_BYTES) {
+            req.destroy(Object.assign(new Error('response too large'), { code: 'ERESPONSE_TOO_LARGE' }));
+            return;
+          }
+          chunks.push(c);
+        });
+        res.on('error', fail);
+        res.on('close', () => {
+          if (!res.complete) fail(Object.assign(new Error('aborted'), { code: 'ECONNRESET' }));
+        });
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          done(resolve, { ok: res.statusCode >= 200 && res.statusCode < 300, status: res.statusCode, headers: res.headers, text: async () => text });
+        });
+      },
+    );
+    const timer = setTimeout(() => {
+      timedOut = true;
+      req.destroy(Object.assign(new Error('timeout'), { name: 'TimeoutError' }));
+    }, timeout);
+    req.on('socket', (sock) => {
+      const check = () => {
+        if (!addrs.some((a) => sameIp(a.address, sock.remoteAddress))) req.destroy(new SttError('blocked_host', 'connected to an unvetted address'));
+      };
+      if (sock.remoteAddress && !sock.connecting) check();
+      else sock.once('connect', check);
+    });
+    req.on('error', fail);
+    req.end(body || undefined);
+  });
+}
+
+async function callFetch(url, init, addrs = []) {
   try {
+    if (!fetchImpl) return await pinnedRequest(url, init, addrs);
     return await fetchImpl(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) });
   } catch (e) {
+    if (e instanceof SttError) throw e;
     if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new SttError('timeout', 'timeout', { billed: true });
     const code = e?.cause?.code || e?.code;
     if (PRE_SEND.has(code)) throw new SttError('network', 'network', { retryable: true });
@@ -247,14 +348,32 @@ export function createStt(app) {
     return Number.isFinite(n) ? n : d;
   };
 
+  // SEC-1 (البوابة): مفتاح من متغير البيئة STT_API_KEY لا يذهب إلى عنوان كتبه أحد من الواجهة. يُستخدم مع OpenAI-compatible
+  // فقط إن كان العنوان من البيئة أيضًا (STT_BASE_URL) أو العنوان الافتراضي؛ وGoogle عنوانها ثابت في الكود أو البيئة.
+  const specField = (k) => app.integrations?.spec?.stt?.fields?.[k];
+  const fromEnv = (k) => {
+    try {
+      return !!specField(k)?.cfg?.(app.config);
+    } catch {
+      return false;
+    }
+  };
+  const normUrl = (u) => String(u || '').trim().replace(/\/+$/, '');
+  /** هل يذهب مفتاح البيئة إلى هذا العنوان؟ (عنوان البيئة أو الافتراضي فقط) */
+  const envKeyHostOk = (baseUrl) => fromEnv('base_url') || normUrl(baseUrl) === normUrl(specField('base_url')?.default);
+
   /** الإعدادات الفعلية (البيئة أولًا ثم المحفوظ ثم الافتراضي) بأنواعها */
   function settingsOf(raw) {
     const r = raw || {};
     const provider = STT_PROVIDERS.includes(r.provider) ? r.provider : 'off';
+    const baseUrl = normUrl(r.base_url);
+    // مفتاح البيئة لا يُرسل إلى عنوان محفوظ من الواجهة (SEC-1)
+    const keyWithheld = provider === 'openai_compatible' && !!r.api_key && fromEnv('api_key') && !envKeyHostOk(baseUrl);
     return {
       provider,
-      baseUrl: String(r.base_url || '').trim().replace(/\/+$/, ''),
-      apiKey: r.api_key || '',
+      baseUrl,
+      apiKey: keyWithheld ? '' : r.api_key || '',
+      keyWithheld,
       model: String(r.model || '').trim(),
       language: String(r.language || 'ar').trim() || 'ar',
       prompt: String(r.prompt || STT_DEFAULT_PROMPT),
@@ -332,8 +451,14 @@ export function createStt(app) {
       if (isThirdPartyOf(after) && (!after.vendorName || !after.noTrainingAttested)) {
         throw new ApiError(400, STT_VENDOR_REQUIRED, 'stt_vendor_required', { fields: { vendor_name: STT_VENDOR_REQUIRED } });
       }
+      // SEC-1: المفتاح من البيئة (STT_API_KEY) ← لا يُغيَّر من الواجهة المزوّد أو العنوان إلى عنوان غير عنوان البيئة أو الافتراضي،
+      // وإلا ذهب مفتاح الخادم إلى عنوان يكتبه أي مدير. (مسح المفتاح أدناه لا يمس مفتاح البيئة.)
+      const changed = prev.provider !== after.provider || prev.baseUrl !== after.baseUrl;
+      if (changed && fromEnv('api_key') && after.provider === 'openai_compatible' && !envKeyHostOk(after.baseUrl)) {
+        throw new ApiError(400, STT_ENV_KEY_HOST, 'stt_env_key', { fields: { base_url: STT_ENV_KEY_HOST } });
+      }
       // تغيير المزوّد أو العنوان يمسح المفتاح المحفوظ (إلا إن أُرسل مفتاح جديد في الطلب نفسه)
-      if ((prev.provider !== after.provider || prev.baseUrl !== after.baseUrl) && !('api_key' in (patch || {}))) delete next.api_key;
+      if (changed && !('api_key' in (patch || {}))) delete next.api_key;
       return { thirdPartyStarted: !isThirdPartyOf(prev) && isThirdPartyOf(after) };
     },
 
@@ -348,7 +473,9 @@ export function createStt(app) {
     estimateSeconds({ mime = '', buffer = null, seconds = null } = {}) {
       const vals = [];
       const claimed = Number(seconds);
-      if (Number.isFinite(claimed) && claimed > 0) vals.push(claimed);
+      // v12 gate fixer-server (SEC-2): ما يعلنه المرسل (مدة المتصفح، يكتبها أي زائر) لا يرفع التقدير فوق ما يُقاس من الملف
+      // نفسه (الحاوية أو الحجم / 2000)؛ يُستعمل وحده حين لا ملف
+      if (Number.isFinite(claimed) && claimed > 0 && !buffer?.length) vals.push(claimed);
       if (buffer && /ogg/.test(String(mime))) {
         const info = oggOpusInfo(buffer);
         if (info?.seconds) vals.push(info.seconds);
@@ -380,7 +507,7 @@ export function createStt(app) {
       if (s.provider === 'google') {
         if (seconds !== null && Number(seconds) > GOOGLE_MAX_SECONDS) throw new SttError('too_long', 'google sync limit');
         const base = process.env.STT_GOOGLE_BASE_URL || GOOGLE_BASE;
-        await assertHostAllowed(base, { hosting: 'third_party' });
+        const pin = await assertHostAllowed(base, { hosting: 'third_party' });
         const isOgg = /ogg/.test(type);
         const info = isOgg ? oggOpusInfo(buffer) : null;
         const config = {
@@ -396,7 +523,7 @@ export function createStt(app) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': s.apiKey },
             body: JSON.stringify({ config, audio: { content: Buffer.from(buffer).toString('base64') } }),
-          });
+          }, pin);
           const body = await res.text();
           if (!res.ok) throw httpError(res.status);
           let data;
@@ -413,12 +540,14 @@ export function createStt(app) {
             language: config.languageCode,
             model: s.model || null,
             provider: 'google',
+            // v12 gate fixer-server (SEC-2): «12.5s» ← 12.5 (المدة التي يحاسب بها المزوّد)
+            duration: /^\d+(?:\.\d+)?s$/.test(String(data.totalBilledTime || '')) ? Number(String(data.totalBilledTime).slice(0, -1)) || null : null,
             raw: { results: alts.length },
           };
         });
       }
       // openai_compatible
-      await assertHostAllowed(s.baseUrl, { hosting: s.hosting });
+      const pin = await assertHostAllowed(s.baseUrl, { hosting: s.hosting });
       const model = s.model || 'gpt-4o-transcribe';
       return withRetry(async () => {
         const fd = new FormData();
@@ -431,7 +560,7 @@ export function createStt(app) {
           method: 'POST',
           headers: s.apiKey ? { Authorization: `Bearer ${s.apiKey}` } : {},
           body: fd,
-        });
+        }, pin);
         const body = await res.text();
         if (!res.ok) throw httpError(res.status);
         let data;
@@ -448,6 +577,7 @@ export function createStt(app) {
           language: data.language || s.language,
           model,
           provider: 'openai_compatible',
+          duration: Number.isFinite(Number(data.duration)) && Number(data.duration) > 0 ? Number(data.duration) : null, // v12 gate fixer-server (SEC-2)
           raw: segs.length ? { segments: segs.slice(0, 200).map((x) => ({ start: x.start, end: x.end, text: String(x.text || '').slice(0, 500), no_speech_prob: x.no_speech_prob ?? null })) } : null,
         };
       });
@@ -460,6 +590,7 @@ export function createStt(app) {
       const t0 = Date.now();
       const s = svc.settings();
       if (s.provider === 'off') return { ok: false, status: null, code: 'off', latency_ms: 0 };
+      if (s.keyWithheld) return { ok: false, status: null, code: 'env_key_host', latency_ms: 0 };
       if (!svc.configured()) return { ok: false, status: null, code: 'not_configured', latency_ms: 0 };
       let buffer;
       try {
@@ -472,8 +603,11 @@ export function createStt(app) {
         svc.recordUsage({ seconds: 1.2, ok: true, documentId: null, provider: s.provider, model: s.model || null });
         return { ok: true, status: 200, code: 'ok', latency_ms: Date.now() - t0 };
       } catch (e) {
-        const code = e instanceof SttError ? e.code : 'network';
+        let code = e instanceof SttError ? e.code : 'network';
         if (e?.billed) svc.recordUsage({ seconds: 1.2, ok: false, error: code, documentId: null, provider: s.provider, model: s.model || null });
+        // v12 gate fixer-server (JR-11): عنوان على الجهاز نفسه (127.0.0.1) محجوب ما لم يُشغَّل الخادم بـ STT_ALLOW_LOCAL=1 — رمز
+        // مستقل تشرحه صفحة التكاملات بالعلاج بدل «عنوان الخدمة غير مسموح» وحده
+        if (code === 'blocked_host' && e?.message === 'loopback') code = 'blocked_local';
         return { ok: false, status: e?.status ?? null, code, latency_ms: Date.now() - t0 };
       }
     },
@@ -616,6 +750,12 @@ export function createStt(app) {
     /** بعد حفظ صوت من العميل (documents.save → voice.onAudioSaved): مهمة تحويل إن كان التحويل التلقائي مضبوطًا */
     onClientAudio(documentId) {
       if (app.settings.get('stt_auto') === false || !svc.configured() || !app.media) return null;
+      // v12 gate fixer-server (SEC-2): التسجيل من الموقع مؤرشف (web_voice_enabled ≠ true) ← صوت وصل من الموقع أو صفحة المتابعة
+      // (مسودة محفوظة من قبل) لا يُحوَّل تلقائيًا — لا يستهلك زائر مجهول ميزانية التحويل؛ الفريق يضغط «حوّل» عند الحاجة
+      if (app.settings.get('web_voice_enabled') !== true) {
+        const ch = app.db.value('SELECT m.channel FROM documents d JOIN messages m ON m.id = d.message_id WHERE d.id = ?', documentId);
+        if (ch === 'website') return null;
+      }
       try {
         return app.media.enqueue('stt', documentId);
       } catch (e) {
@@ -647,7 +787,9 @@ export function createStt(app) {
       }
       try {
         const r = await svc.transcribe({ buffer, mime: doc.mime, filename: doc.filename, seconds: pol.seconds });
-        svc.recordUsage({ seconds: pol.seconds || 0, ok: true, documentId: doc.id, provider: r.provider, model: r.model });
+        // v12 gate fixer-server (SEC-2): المدة التي أعلنها المزوّد (يحاسب بها) حين يعلنها، وإلا التقدير
+        const billed = Number.isFinite(r.duration) && r.duration > 0 ? Math.round(r.duration * 10) / 10 : pol.seconds || 0;
+        svc.recordUsage({ seconds: billed, ok: true, documentId: doc.id, provider: r.provider, model: r.model });
         svc.saveDraft(doc.id, { state: r.text ? 'done' : 'empty', text: r.text || null, provider: r.provider, model: r.model, language: r.language, confidence: r.confidence, seconds: pol.seconds, raw: r.raw });
         return { state: 'done', provider: r.provider };
       } catch (e) {

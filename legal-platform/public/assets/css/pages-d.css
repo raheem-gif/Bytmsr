@@ -5,9 +5,9 @@
 
 :root {
   /* ألوان الرسوم البيانية الفئوية (تحقق: تباين CVD وحد التشبع والتباين مع السطح) */
-  --pd-c1: #00809d;
+  --pd-c1: var(--primary-700); /* v12 gate (V-24): أخضر اللوحة بدل الأزرق المخضر #00809d */
   --pd-c2: #b8862e; /* @brand-exempt — لوحة فئوية ثابتة للرسوم البيانية، لا تتبع ألوان المؤسسة */
-  --pd-c3: #5d55b8;
+  --pd-c3: var(--primary-300); /* v12 gate (V-24) */
   --pd-ok: var(--success-600);
   --pd-warn: var(--warning-500);
   --pd-bad: var(--danger-600);
@@ -1663,7 +1663,7 @@ html[dir="rtl"] .pd-hbar-fill {
   transform: translateX(50%);
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--gray-800);
+  color: var(--ink); /* v12 gate (V-24): فوق العمود بلون الحبر، لا على العمود */
   white-space: nowrap;
 }
 

@@ -12,6 +12,9 @@
 // الكلمات: أسماء ومصادر فقط في الاختيارات، والأسئلة بصيغة الجمع المهذبة، بلا «—» ولا علامة تعجب ولا صور.
 import { QUESTIONS } from './topics.js';
 
+/** v12 gate (JR-08): سطر المستندات لتأسيس شركة جديدة (الشركة لم توجد بعد، فلا سجل تجاري ولا ترخيص) */
+const CO_NEW_DOCS = 'بطاقات الشركاء أو أي ورقة تخص الشركة.';
+
 export const TREE_VERSION = 1;
 
 /** نسخة مجمدة بعمق (البيانات لا تُعدَّل وقت التشغيل) */
@@ -54,7 +57,7 @@ export const TREE = deepFreeze({
             { id: 'divorce', tag: 'T-06', label: 'الطلاق أو الخلع', to: { topic: null, area: 'FAM', ask: [] } },
             { id: 'alimony', tag: 'T-07', label: 'النفقة', to: { topic: 'alimony', area: 'FAM', ask: ['alimony.for', 'children'] } },
             { id: 'custody', tag: 'T-08', label: 'الحضانة والرؤية', to: { topic: 'custody', area: 'FAM', ask: ['custody.issue', 'children'] } },
-            { id: 'inheritance', tag: 'T-09', label: 'الميراث', to: { topic: 'inh', area: 'INH', ask: ['inh.deceased', 'inh.certificate'] } },
+            { id: 'inheritance', tag: 'T-09', label: 'الميراث', to: { topic: 'inh', area: 'INH', ask: ['inh.deceased', 'inh.certificate'], docs_sub: 'إعلام الوراثة أو شهادة الوفاة أو أي ورقة تخص التركة.' } },
             { id: 'minors', tag: 'T-10', label: 'أموال القاصرين', hint: 'الولاية على المال والنيابة الحسبية', to: { topic: 'guardianship', area: 'GRD', ask: ['guardianship.where', 'children'] } },
             { id: 'other', tag: 'T-11', label: 'موضوع آخر في الأسرة', to: { topic: null, area: 'FAM', ask: [] } },
           ],
@@ -171,12 +174,12 @@ export const TREE = deepFreeze({
           qtag: 'T-56',
           inherit: { ph: 'co_new' },
           children: [
-            { id: 'one-person', tag: 'T-57', label: 'شركة الشخص الواحد', to: { topic: null, area: 'COM', ask: [] } },
-            { id: 'llc', tag: 'T-58', label: 'ذات مسؤولية محدودة', to: { topic: null, area: 'COM', ask: [] } },
-            { id: 'jsc', tag: 'T-59', label: 'شركة مساهمة', to: { topic: null, area: 'COM', ask: [] } },
-            { id: 'partnership', tag: 'T-60', label: 'تضامن أو توصية بسيطة', to: { topic: null, area: 'COM', ask: [] } },
-            { id: 'foreign', tag: 'T-61', label: 'فرع لشركة أجنبية', hint: 'أو مكتب تمثيل', to: { topic: null, area: 'COM', ask: [] } },
-            { id: 'undecided', tag: 'T-62', label: 'لم نحدد بعد', hint: 'نساعدكم في الاختيار', to: { topic: null, area: 'COM', ask: [] } },
+            { id: 'one-person', tag: 'T-57', label: 'شركة الشخص الواحد', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
+            { id: 'llc', tag: 'T-58', label: 'ذات مسؤولية محدودة', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
+            { id: 'jsc', tag: 'T-59', label: 'شركة مساهمة', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
+            { id: 'partnership', tag: 'T-60', label: 'تضامن أو توصية بسيطة', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
+            { id: 'foreign', tag: 'T-61', label: 'فرع لشركة أجنبية', hint: 'أو مكتب تمثيل', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
+            { id: 'undecided', tag: 'T-62', label: 'لم نحدد بعد', hint: 'نساعدكم في الاختيار', to: { topic: null, area: 'COM', ask: [], docs_sub: CO_NEW_DOCS } },
           ],
         },
         {

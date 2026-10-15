@@ -11,7 +11,7 @@ import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
 import { haptic } from '../../lib/haptics.js';
 // v11 segment-staff (ST-3): نوع الخدمة في ورقة القرار — رأس الإرسال، واختيار إلزامي بلا افتراضي حين يكون «غير محدد»
-import { sendHeader, segmentChoice, parseSeg, segLabel, clientNoun, pronounOf, REQUIRED_TEXT } from './segment-ui.js';
+import { sendHeader, segmentChoice, parseSeg, segLabel, clientNoun, pronounOf, trackWord, REQUIRED_TEXT } from './segment-ui.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -40,11 +40,21 @@ function replyChannelsFor(segment, company) {
  * v11 gate fix (J-13): مسمى المسار بضمير المخاطَب — «نسألها الأول» / «نسأله الأول» / «نسألهم الأول» (طلب عرض شركة).
  * بقية المسارات بلا ضمير فتبقى كما في LABELS.
  */
-export function trackLabel(t, form = 'f', { company = false } = {}) {
-  if (t === 'need_info' && (company || form === 'm')) return `نسأل${pronounOf(form, { company })} الأول`;
-  return label('story_track', t);
+export function trackLabel(t, form = 'f', { company = false, paid = false } = {}) {
+  // v12 gate (JR-06): طلب أفراد وشركات بلا صيغة معروفة: «نسأل أولًا» (كان «نسألها الأول» لكل طلب) — segment-ui.trackWord
+  return trackWord('story_track', t, { form, company, paid });
 }
+// v12 gate (TA-05): رمز لكل مسار في «اعمله طلب» (كانت الخمسة تحت رمز الحقل STY-03 وحده)
+const TRACK_OPTION_TAGS = {
+  consultation: { tag: 'STY-56' },
+  matter: { tag: 'STY-57' },
+  internal: { tag: 'STY-58' },
+  refer: { tag: 'STY-59' },
+  need_info: { tag: 'STY-60' },
+};
 const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون رسالة';
+// v12 gate (JR-06): نفس الزر بلا ضمير مؤنث لطلب أفراد وشركات أو شركة
+const PHONE_DELIVERY_NEUTRAL = 'أبلغناه في مكالمة، أغلق بدون رسالة';
 
 /** رسالة تأكيد النجاح بعد القرار (§6.4/A92-19) + « (إرسال تجريبي)» عند المحاكاة */
 export function acceptToast(res, { form = 'f', company = false } = {}) {
@@ -211,9 +221,10 @@ export async function openStorySheet(opts = {}) {
     value: track,
     options: STORY_TRACKS.map((t) => ({
       value: t,
-      label: trackLabel(t, addrForm, { company: isCompanyLead }),
+      label: trackLabel(t, addrForm, { company: isCompanyLead, paid: !isCharityNoun() }),
       icon: t === recommended ? 'sparkle' : null,
       hint: t === recommended ? 'مقترح' : null,
+      tag: TRACK_OPTION_TAGS[t]?.tag,
     })),
     onChange: (v) => {
       if (!v) return;
@@ -239,9 +250,21 @@ export async function openStorySheet(opts = {}) {
     p.actions && p.actions.primary === 'call'
       ? h(
           'div.pa-sheet-call',
-          h('p', icon('phone', { size: 15 }), ' ', unconfirmed ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.' : 'كل رسائلها صوتية، والأفضل أن تكلّمها.'),
+          h(
+            'p',
+            icon('phone', { size: 15 }),
+            ' ',
+            // v12 gate (JR-06): طلب أفراد وشركات بلا صيغة معروفة: جملة محايدة
+            !isCharityNoun() && addrForm !== 'm'
+              ? unconfirmed
+                ? 'الرقم غير مؤكد ورسالة صفحة المتابعة غالبًا لن تُقرأ: الأفضل مكالمة.'
+                : 'كل الرسائل صوتية، والأفضل مكالمة.'
+              : unconfirmed
+                ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.'
+                : 'كل رسائلها صوتية، والأفضل أن تكلّمها.',
+          ),
           asyncButton(
-            addrForm === 'm' ? 'اتصل به' : 'اتصل بها',
+            addrForm === 'm' ? 'اتصل به' : isCharityNoun() ? 'اتصل بها' : 'اتصل',
             async () => {
               const r = await openCallNote({
                 intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions.call_intro, form: addrForm },
@@ -735,7 +758,7 @@ export async function openStorySheet(opts = {}) {
     msg.value = initialText;
     return {
       el: frag(
-        h('p.pa-sheet-info', icon('info', { size: 15 }), h('span', 'سيصبح الطلب "بانتظار المستفيد/ة"، وعندما ترد يُعاد التلخيص تلقائيًا.')),
+        h('p.pa-sheet-info', icon('info', { size: 15 }), h('span', `سيصبح الطلب «${label('intake_status', 'awaiting_client')}»، وعند الرد يُعاد التلخيص تلقائيًا.`)),
         h('fieldset.pa-fieldset', h('legend', 'الأسئلة (من 1 إلى 3)'), list, addBtn, err),
         msgWrap,
         resetLink,
@@ -881,7 +904,7 @@ export async function openStorySheet(opts = {}) {
   // (modal يعيد تفعيل الأزرار حسب disabled في هذه المصفوفة بعد كل ضغطة — فيبقى الإرسال معطلًا حتى يُختار النوع)
   const sheetActions = [
     { label: 'إلغاء', variant: 'ghost', tag: 'STY-53' },
-    { label: PHONE_DELIVERY, variant: 'link', icon: 'phone', onClick: () => deliverByPhone(), disabled: !segPick, tag: 'STY-54' },
+    { label: isCharityNoun() && addrForm !== 'm' ? PHONE_DELIVERY : PHONE_DELIVERY_NEUTRAL, variant: 'link', icon: 'phone', onClick: () => deliverByPhone(), disabled: !segPick, tag: 'STY-54' },
     {
       label: SUBMIT_LABELS[track],
       variant: 'primary',

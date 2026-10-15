@@ -67,7 +67,7 @@ export default async function companyPage(ctx) {
   const dash = '—';
   const ltr = (v) => (v ? h('bdi', { dir: 'ltr' }, v) : dash);
   const pairs = [
-    [F.name, h('span', h('span', { dir: 'auto' }, p.name), h('span.co-muted', ` — ${F.name_hint}`))],
+    [F.name, h('span', h('span', { dir: 'auto' }, p.name), h('span.co-muted', `، ${F.name_hint}`))],
     [F.legal_name, p.legal_name ? h('span', { dir: 'auto' }, p.legal_name) : dash],
     [F.cr, ltr(p.commercial_registry)],
     [F.tax, ltr(p.tax_id)],

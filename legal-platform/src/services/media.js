@@ -19,6 +19,7 @@ import { badRequest, notFound, nowIso, v, ApiError, randomToken, normalizeArabic
 import { createMediaTools, toolsMode, deprioritize, POLICY_DIR, IM_LIMITS, CODER_FOR_MIME } from '../media-tools.js';
 import { headerDims, scanConfident } from './documents.js';
 import { SERVER_CLEAN_MAX_PIXELS } from '../media-child.js';
+import { parseTesseractTsv, meanConfidence, textFromWords, mergeDigits, tidyOcrText, OCR_LATIN_TRY_BELOW, OCR_LATIN_MARGIN } from './ocr-text.js';
 
 export const JOB_KINDS = ['stt', 'clean', 'ocr'];
 const KIND_ORDER = "CASE kind WHEN 'stt' THEN 0 WHEN 'clean' THEN 1 ELSE 2 END";
@@ -99,6 +100,24 @@ export function readMemory() {
 }
 
 const codeErr = (code, message = code, extra = {}) => Object.assign(new Error(message), { code, ...extra });
+
+/**
+ * فشل أداة خارجية (ImageMagick، Tesseract، poppler) → { retry, code } (SEC-4): المهلة وتعطل العملية أو نقص موارد
+ * النظام المؤقت تُعاد لاحقًا؛ خروج الأداة برمز غير صفري (ملف تالف، ذاكرة ImageMagick لا تكفي صورة بهذا الحجم) نتيجته
+ * واحدة كل مرة، فلا يُعاد: «too_large» إن قالت الأداة ذلك، وإلا «tool_error» (لا رقم خروج خام مثل «1»).
+ */
+export function toolFailure(e) {
+  const code = e?.code;
+  const said = `${e?.message || ''}\n${e?.stderr ? String(e.stderr).slice(-2000) : ''}`;
+  if (code === 'timeout' || e?.retryable) return { retry: true, code: 'timeout' };
+  if (['EAGAIN', 'ENOMEM', 'EMFILE', 'ENFILE', 'child_killed', 'child_exit', 'child_error', 'fork_failed'].includes(code)) return { retry: true, code: String(code).toLowerCase() };
+  if (typeof code === 'number' || /^\d+$/.test(String(code ?? '')) || code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || code === 'bad_output' || code === 'unsupported') {
+    if (/cache resources exhausted|exceeds limit|width or height exceeds|memory allocation failed|too large|resource limit/i.test(said)) return { retry: false, code: 'too_large' };
+    return { retry: false, code: 'tool_error' };
+  }
+  if (code === 'tool_missing') return { retry: false, code: 'tool_missing' };
+  return { retry: true, code: String(code || 'error').slice(0, 40) };
+}
 const escHtml = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 /** حدود الماسح لكل سطح (L12-58): الصفحات، الأصول لكل صفحة، وحجم الأصول المفكوكة في الطلب الواحد */
@@ -196,6 +215,10 @@ function normalizeParams(rest, maxPages) {
     score: score === null ? null : Math.round(clamp01(score) * 1000) / 1000,
     partial: rest.partial === true,
     adjusted: rest.adjusted === true,
+    // K-M1: ورق خارج الحدود المكتشفة (إطار مطبوع داخل الورقة) ← الأصل أولًا (L12-59)
+    nested: rest.nested === true,
+    // gate SEC-7 (L12-58): «الأصل» المحفوظ نسخة أعاد الهاتف ترميزها (1600 أو 1200 بكسل)، لا ملف الكاميرا نفسه
+    ...(rest.reencoded === true ? { reencoded: true } : {}),
   };
 }
 
@@ -381,7 +404,9 @@ export function createMedia(app) {
       } catch (e) {
         if (stopping) throw e;
         app.log(`media clean #${job.id}: ${e.code || 'error'}`);
-        return { state: 'retry', error: e.code || 'child_failed' };
+        // SEC-4: خروج ImageMagick برمز غير صفري نتيجته واحدة كل مرة ← «تعذّر» بسبب مقروء، لا إعادة
+        const f = toolFailure(e);
+        return f.retry ? { state: 'retry', error: f.code || 'child_failed' } : { state: f.code === 'too_large' ? 'skipped' : 'failed', error: f.code };
       }
       if (!r || r.skipped) return { state: 'skipped', error: r?.skipped || 'no_result' };
       let buf;
@@ -392,8 +417,8 @@ export function createMedia(app) {
       }
       const f = app.documents.inspect({ filename: 'clean.jpg', mime: 'image/jpeg', buffer: buf }, { fetched: true });
       if (f.realMime !== 'image/jpeg' || !f.dims || f.dims.width !== r.width || f.dims.height !== r.height) return { state: 'failed', error: 'bad_output' };
-      const params = normalizeParams({ algo: 'scan-core@1', mode: 'auto', turns: r.params?.turns ?? 0, pages: 1, quad: r.params?.quad, score: r.params?.score }, 1);
-      const confident = scanConfident(params);
+      const params = normalizeParams({ algo: 'scan-core@1', mode: 'auto', turns: r.params?.turns ?? 0, pages: 1, quad: r.params?.quad, score: r.params?.score, nested: r.params?.nested === true }, 1);
+      const confident = scanConfident(params, { dims: [{ width: head.width, height: head.height }] });
       let saved = false;
       db.tx(() => {
         // نتيجة لجيل أقدم من المهمة (أُعيدت جدولتها) أو مستند نظّفه الفريق في هذه الأثناء ← لا تُكتب
@@ -405,7 +430,7 @@ export function createMedia(app) {
           { buf, realMime: 'image/jpeg', dims: f.dims },
           { role: 'clean', page: 1, source: 'server_auto', params: { ...params, area: r.params?.area ?? null, chroma: r.params?.chroma ?? null, ink: r.params?.ink ?? null }, createdByKind: 'system', createdBy: null, sub: path.join('variants', 'auto') },
         );
-        // L12-59: النسخة المحسّنة تُعرض أولًا فقط حين تكون واثقة (الورقة ≥ 60 % من الصورة)، وإلا يبقى الأصل
+        // L12-59: النسخة المحسّنة تُعرض أولًا فقط حين يكون الاكتشاف واثقًا (documents.SCAN_CONFIDENCE)، وإلا يبقى الأصل
         db.run("UPDATE documents SET scan_state = 'server', display_file_id = ? WHERE id = ?", confident ? fid : (cur.display_file_id ?? null), cur.id);
         saved = true;
       });
@@ -541,24 +566,59 @@ export function createMedia(app) {
     return `${prefix}.${fmt === 'jpeg' ? 'jpg' : 'png'}`;
   }
 
-  /** صورة جاهزة للقراءة بضلع أقصى max (ImageMagick إن وُجد: اتجاه EXIF ثم تصغير بلا «!») → { file, temp } أو null */
+  /**
+   * صورة جاهزة للقراءة بضلع أقصى max (ImageMagick إن وُجد: اتجاه EXIF ثم تصغير بلا «!») → { file, temp } أو null.
+   * SEC-4: JPEG يُفك مصغّرًا من البداية (-define jpeg:size، كما في media-child) فصورة 31–40 ميجابكسل يقبلها الرفع تُقرأ
+   * داخل حدود ذاكرة ImageMagick؛ وغير JPEG فوق حد التنظيف على الخادم (24 ميجابكسل) لا تُفك: «أكبر من المسموح».
+   */
   async function imageForOcr(abs, mime, dims, max, fmt = 'png') {
     if (tools.has('imagemagick') && CODER_FOR_MIME[mime]) {
+      const coder = CODER_FOR_MIME[mime];
+      if (coder !== 'jpeg' && dims && Number(dims.width) * Number(dims.height) > SERVER_CLEAN_MAX_PIXELS) throw codeErr('too_large', 'image too large to decode for OCR');
       const out = path.join(tmpDir, `ocr-${randomToken(8)}.${fmt === 'jpeg' ? 'jpg' : 'png'}`);
       const outArg = fmt === 'jpeg' ? ['-quality', '85', `jpeg:${out}`] : [`png:${out}`];
-      await runTool('imagemagick', [...IM_LIMITS, `${CODER_FOR_MIME[mime]}:${abs}`, '-auto-orient', '-resize', `${max}x${max}>`, '-strip', ...outArg]);
+      const hint = coder === 'jpeg' ? ['-define', `jpeg:size=${max}x${max}`] : [];
+      await runTool('imagemagick', [...IM_LIMITS, ...hint, `${coder}:${abs}`, '-auto-orient', '-resize', `${max}x${max}>`, '-strip', ...outArg]);
       return { file: out, temp: true };
     }
     if (dims && Math.max(dims.width, dims.height) <= max) return { file: abs, temp: false };
     return null;
   }
 
-  /** Tesseract على صورة صفحة: ara+eng (أو ara وحدها)، OMP_THREAD_LIMIT=1 من بيئة الأدوات، 60 ثانية */
+  /**
+   * Tesseract على صورة صفحة (V-14، src/services/ocr-text.js): «ara» أولًا بخرج TSV (كلمة كلمة بثقتها)؛ ثقة منخفضة ومعها
+   * eng ← تُجرَّب eng (صفحة إنجليزية)؛ ومع نموذج الخط العربي «Arabic» قراءة ثانية تأخذ منها الأرقام الهندية العربية فقط.
+   * لا «ara+eng» بعد الآن: كان يقرأ «٤٥٢٨» حروفًا لاتينية («EOPA»). OMP_THREAD_LIMIT=1، 60 ثانية لكل قراءة.
+   * → { text, confidence (0–1) أو null, lang }
+   */
   async function tesseract(file) {
     const langs = tools.status()?.tesseract?.langs || [];
-    const lang = langs.includes('eng') ? 'ara+eng' : 'ara';
-    const r = await runTool('tesseract', [file, 'stdout', '-l', lang, '--oem', '1', '--psm', '3'], { maxBuffer: 4 * 1024 * 1024 });
-    return String(r.stdout || '').replace(/\f/g, '').trim();
+    const pass = async (lang) => {
+      const r = await runTool('tesseract', [file, 'stdout', '-l', lang, '--oem', '1', '--psm', '3', 'tsv'], { maxBuffer: 8 * 1024 * 1024 });
+      const out = String(r.stdout || '');
+      return { out, words: parseTesseractTsv(out) };
+    };
+    const main = await pass('ara');
+    // خرج نصي (إصدار قديم بلا tsv أو أداة بديلة): يُحفظ كما هو بعد التنظيف
+    if (!main.words) return { text: tidyOcrText(main.out), confidence: null, lang: 'ara' };
+    let words = main.words;
+    let conf = meanConfidence(words);
+    let lang = 'ara';
+    if (langs.includes('eng') && (conf === null || conf < OCR_LATIN_TRY_BELOW)) {
+      const e = await pass('eng');
+      const ec = e.words ? meanConfidence(e.words) : null;
+      if (ec !== null && ec >= (conf ?? 0) + OCR_LATIN_MARGIN) {
+        words = e.words;
+        conf = ec;
+        lang = 'eng';
+      }
+    }
+    const script = langs.includes('Arabic') ? 'Arabic' : langs.includes('script/Arabic') ? 'script/Arabic' : null;
+    if (lang === 'ara' && script && words.length) {
+      const d = await pass(script);
+      if (d.words) words = mergeDigits(words, d.words);
+    }
+    return { text: tidyOcrText(textFromWords(words)), confidence: conf === null ? null : Math.round(conf * 10) / 1000, lang };
   }
 
   /** لماذا لا تُقرأ هذه الوثيقة بـ Claude؟ (L12-19) → null أو السبب */
@@ -664,6 +724,7 @@ export function createMedia(app) {
       let text = null;
       let provider = null;
       let model = null;
+      let confidence = null;
       let rasterFile = null;
       let rasterMime = 'image/png';
       if (isPdf) {
@@ -709,12 +770,14 @@ export function createMedia(app) {
           }
         }
         if (text === null && tools.has('tesseract')) {
-          text = await tesseract(rasterFile);
+          const r = await tesseract(rasterFile);
+          text = r.text;
+          confidence = r.confidence;
           provider = 'tesseract';
         }
       }
       if (provider && text !== null) {
-        writePage(job, doc.id, page, text, { provider, model, sourceFile: src.sourceFile });
+        writePage(job, doc.id, page, text, { provider, model, confidence, sourceFile: src.sourceFile });
         if (provider !== 'claude') ocrUsage(doc.id, provider, started, true);
       } else if (page === 1 && !isPdf) {
         return { state: 'skipped', error: claudeWhy ? `claude_${claudeWhy}` : 'tool_missing' };
@@ -729,9 +792,12 @@ export function createMedia(app) {
       return { state: 'done', provider: provider || null };
     } catch (e) {
       if (stopping) throw e;
-      ocrUsage(doc.id, 'tesseract', started, false, e?.code || 'error');
-      app.log(`media ocr #${job.id} page ${page}: ${e?.code || e?.message || 'error'}`);
-      return { state: e?.code === 'tool_missing' ? 'skipped' : 'retry', error: e?.code || 'ocr_failed' };
+      // SEC-4: المهلة وتعطل العملية فقط تُعاد؛ خروج الأداة بخطأ (PDF تالف، صورة أكبر من ذاكرة ImageMagick) «تعذّر» بسبب مقروء
+      const f = e?.code === 'too_large' ? { retry: false, code: 'too_large' } : toolFailure(e);
+      ocrUsage(doc.id, 'tesseract', started, false, f.code);
+      app.log(`media ocr #${job.id} page ${page}: ${f.code}${e?.code !== undefined && e?.code !== f.code ? ` (${String(e.code).slice(0, 40)})` : ''}`);
+      if (f.code === 'tool_missing' || f.code === 'too_large') return { state: 'skipped', error: f.code };
+      return { state: f.retry ? 'retry' : 'failed', error: f.code };
     } finally {
       for (const f of temps) rmQuiet(f);
     }
@@ -1072,7 +1138,7 @@ export function createMedia(app) {
       } else if (p !== 1) throw nf();
       // L12-73 (مراجعة 12.0): كل JPEG يصل لمحامٍ بلا EXIF/GPS، لا الأصل المطلوب بـ ?file=original وحده: صورة عميل لم تمر
       // بالماسح هي نفسها «الأصل» وتُنزَّل افتراضيًا. النسخ المحسّنة بلا بيانات وصفية أصلًا، والملف المخزّن وبصمته كما هما.
-      app.documents.send(res, doc, { inline, variant, strip });
+      app.documents.send(res, doc, { inline, variant, strip, forLawyer: user?.role === 'lawyer' }); // v12 gate fixer-server (SEC-8)
       return true;
     },
 
@@ -1186,7 +1252,7 @@ export function createMedia(app) {
           height: r.height,
           source: r.source,
           source_label: FILE_SOURCE_LABELS[r.source] || r.source,
-          params: pr ? { mode: pr.mode ?? null, score: pr.score ?? null, partial: !!pr.partial, adjusted: !!pr.adjusted, turns: pr.turns ?? 0 } : null,
+          params: pr ? { mode: pr.mode ?? null, score: pr.score ?? null, partial: !!pr.partial, adjusted: !!pr.adjusted, turns: pr.turns ?? 0, reencoded: !!pr.reencoded } : null,
           replaced: !!r.replaced_at,
           displayed: doc.display_file_id === r.id,
           created_at: r.created_at,
@@ -1385,7 +1451,22 @@ export function createMedia(app) {
       } catch (e) {
         app.log('media health: disk', e);
       }
-      const im = tools.status()?.imagemagick;
+      // K-M2 (gate): قراءة النص مفعّلة لكن Tesseract (أو لغته العربية) غير موجود ← تنبيه صريح بطريقة الإصلاح. الفحص كسول:
+      // إن لم تُفحص الأدوات بعد في هذه العملية يبدأ الفحص في الخلفية فيظهر التنبيه في التحديث التالي.
+      const st = tools.status();
+      if (!st && !process.env.NODE_TEST_CONTEXT) tools.probe().catch(() => {});
+      const ts = st?.tesseract;
+      if (ts && !ts.ok && ts.reason !== 'disabled' && svc.ocrProvider() !== 'off') {
+        out.push({
+          key: 'media_ocr_tool',
+          level: 'warning',
+          title: ts.reason === 'no_ara' ? 'Tesseract مثبت بلا اللغة العربية: لا يُقرأ نص المستندات' : 'Tesseract غير مثبت على الخادم: لا يُقرأ نص المستندات',
+          detail:
+            'الصور وملفات PDF الممسوحة تُحفظ وتُعرض كالمعتاد، لكن نصها لا يُقرأ ولا يظهر في البحث. صورة Docker تثبّته (MEDIA_TOOLS=1، الافتراضي)؛ وعلى خادم بلا Docker: apt-get install tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng tesseract-ocr-script-arab ثم «افحص الأدوات» و«نظّف واقرأ المستندات القديمة».',
+          href: null,
+        });
+      }
+      const im = st?.imagemagick;
       if (im && im.bin && !im.ok && im.reason === 'policy') {
         out.push({ key: 'media_policy', level: 'warning', title: 'ImageMagick مثبت لكن سياسة الأمان المرفقة غير مفعّلة', detail: 'لا تُنظَّف صور واتساب على الخادم حتى تُنسخ deploy/imagemagick/policy.xml إلى /etc/ImageMagick-6/policy.xml (صورة Docker تفعل ذلك). «نظّف المستند» في المتصفح يعمل.', href: null });
       }

@@ -134,6 +134,8 @@ export function createTagsRegistry(app, { root = ROOT } = {}) {
           const variants = it.key ? texts[it.key] || texts[`alert:${it.key}`] : null;
           if (variants?.length) row.variants = variants.map((v) => ({ label: v.label, text: sampleFill(v.text, toneOf(v.label), { firm_name: app.brand?.displayName?.() || '', org_name: app.brand?.displayName?.() || '' }) }));
         }
+        // v12 gate fixer-server (TA-04): صيغ نص العنصر (جانبا الموقع، الشركة والفريق) في «النص كاملًا»
+        if (!row.variants && it.texts?.length) row.variants = it.texts.map((v) => ({ label: v.label, text: v.text }));
         if (admin) {
           row.file = it.file;
           row.line = it.line || null;

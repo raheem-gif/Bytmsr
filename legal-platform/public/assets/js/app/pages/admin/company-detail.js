@@ -85,6 +85,7 @@ export default async function render(ctx) {
     mount(
       headerHost,
       pageHeader({
+        record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
         title: co.name,
         breadcrumbs: [{ label: 'الشركات العميلة', href: '#/companies', tag: 'COF-01' }, { label: co.name }],
         meta: h('div.cr-meta', codeTag(co.prefix), codeTag(co.code), statusBadgeOf(co), co.read_only ? badge('البوابة للاطلاع فقط', 'warning', { icon: 'alert' }) : null),

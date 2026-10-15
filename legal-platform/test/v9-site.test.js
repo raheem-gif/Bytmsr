@@ -175,7 +175,9 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.ok(privacy.includes('قد نستعين بأدوات ذكاء اصطناعي لتنظيم الطلبات تحت إشراف بشري'));
     assert.match(privacy, /WhatsApp Business Platform/);
     assert.match(privacy, /151 لسنة 2020/);
-    assert.match(privacy, /لا يطّلع أبدًا على رقم\s+هاتفك/);
+    // v12 gate (K-P3): intended — /privacy is the firm's page while «خيري» is archived (plural, the firm named); the charity text is unchanged
+    assert.match(privacy, /لا يطّلع أبدًا على\s+أرقام هواتفكم/);
+    assert.match((await t.client().get('/privacy?side=charity')).body, /لا يطّلع أبدًا على رقم\s+هاتفك/);
     const terms = (await t.client().get('/terms')).body;
     assert.match(terms, /لا ضمان للنتائج/);
     assert.match(terms, /حدود العلاقة مع المحامي/);

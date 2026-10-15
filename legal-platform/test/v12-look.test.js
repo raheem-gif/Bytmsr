@@ -171,7 +171,8 @@ describe('v12 look — the display face only on static headings (L12-13 b)', () 
     const entry = critical('entry');
     assert.match(entry, /\.opt__t\{[^}]*font:400 20px\/[\d.]+ var\(--f-ui\)[^}]*color:var\(--ink\)|\.opt__t\{[^}]*color:var\(--ink\)[^}]*font:400 20px\/[\d.]+ var\(--f-ui\)/);
     assert.match(css('v91-portal.css'), /body\[data-side="paid"\] \.bp-greet h1 \{[^}]*font: 600 [^;]*var\(--f-ui\)/);
-    assert.match(css('v10-desk.css'), /\.page-header:has\(\.breadcrumbs\) \.page-title,\s*\.pa-page-dashboard \.page-title \{ font: 600 26px\/1\.4 var\(--f-ui\); \}/);
+    // v12 gate (V-11, intended): an explicit record allow-list (pageHeader({ record: true }) → .is-record) instead of «has breadcrumbs»
+    assert.match(css('v10-desk.css'), /\.page-header\.is-record \.page-title,\s*\.lc-head\.is-record \.page-title,\s*\.pa-page-dashboard \.page-title \{ font: 600 26px\/1\.4 var\(--f-ui\); \}/);
     const coH1 = cssRules(css('v10-company.css')).filter((r) => r.sel === '.co-h1');
     assert.equal(coH1.length, 1);
     assert.doesNotMatch(coH1[0].body, /--d[1-4]|--f-display|Emam/);
@@ -441,7 +442,8 @@ describe('v12 look — review regressions (A02/A04/A06/A17/A19/A20/A21, K12-21/2
     const pub = R('public-site.css');
     assert.ok(pub.some((r) => r.sel === 'body.pub[data-side="paid"] .pub-btn:where(:not(.pub-nav-cta))' && /min-height: 48px/.test(r.body)));
     assert.ok(!pub.some((r) => r.sel === 'body.pub[data-side="paid"] .pub-btn'), 'an unscoped paid .pub-btn reset (same specificity as the CTA) overrides the critical header button');
-    assert.match(critical(''), /body\.pub-landing\[data-side="paid"\] \.pub-nav-cta\{[^}]*box-shadow:inset 0 0 0 1px var\(--ink\)/);
+    // v12 gate (V-07, intended edit): the line style is on every paid page now (one rule), not only on /services (body.pub-landing)
+    assert.match(critical(''), /body\.pub\[data-side="paid"\] \.pub-nav-cta\{[^}]*box-shadow:inset 0 0 0 1px var\(--ink\)/);
     assert.match(critical(''), /body\.pub\[data-side="paid"\] \.pub-nav-cta\{[^}]*min-height:38px/);
   });
 

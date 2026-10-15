@@ -1,89 +1,95 @@
 # رموز العناصر (Element tags registry)
 
-> يولّده `npm run tags` من المصدر، فلا يُعدَّل باليد. الإصدار 12.0.0 · 5320 رمزًا · 99 شاشة.
+> يولّده `npm run tags` من المصدر، فلا يُعدَّل باليد. الإصدار 12.0.0 · 5423 رمزًا · 99 شاشة.
 > الاستعمال: شغّلوا الرموز (`?tags=1`، أو حسابي ← رموز العناصر، أو Ctrl+K «رموز العناصر»، أو Alt+Shift+T)، اضغطوا الشارة لنسخ الرمز، ثم اكتبوا مثلًا «غيّر S-14 …».
 > للمهندسين: `npm run tags -- find S-14` يطبع الملف والسطر والنص.
 
+## كيف تطلب تعديلًا بالرمز
+
+1. **شغّل الرموز.** أضف `?tags=1` إلى آخر رابط الصفحة، مثل `/services?tags=1` أو `/app?tags=1#/inbox`. في منصة المكتب يمكنك أيضًا: حسابي ← «رموز العناصر»، أو Ctrl+K ثم «رموز العناصر». تظهر بجانب كل عنصر شارة صغيرة فيها رمزه، مثل `S-14`.
+2. **اضغط الشارة.** يُنسخ الرمز وتظهر رسالة «نُسخ الرمز S-14». الشارات لا تغيّر الصفحة ولا يراها الزوار ما لم يفتحوا الرابط نفسه.
+3. **أرسل الرمز مع طلبك.** اكتب مثلًا: «S-14: اجعل العنوان أقصر» أو «غيّر INB-12 إلى …». رمز لكل عنصر، ويمكن أن تضم الرسالة أكثر من رمز.
+
+للإطفاء: `?tags=0` في الرابط، أو اضغط «الرموز» في ركن الصفحة ثم «إخفاء الرموز». لفتح صفحة على عنصر بعينه: `?tag=S-14`. القائمة الكاملة أدناه، وفي منصة المكتب على `/app#/tags` مع بحث بالرمز أو بالكلمات.
+
 ## الشاشات (Screens)
 
-| Prefix | Surface | Screen | URL | Codes |
+| البادئة | السطح | الشاشة | الرابط أو مكان الظهور | عدد الرموز |
 |---|---|---|---|---|
-| L | الموقع | الصفحة الأولى وقالب صفحات الأسئلة | / | 12 |
+| L | الموقع | الصفحة الأولى وقالب صفحات الأسئلة | / | 13 |
 | T | الموقع | مسار الاختيار: الأسئلة والخيارات | /start | 83 |
 | S | الموقع | صفحة المكتب «الخدمات» | /services | 54 |
-| H | الموقع | رأس الموقع |  | 12 |
-| F | الموقع | تذييل الموقع |  | 34 |
+| H | الموقع | رأس الموقع | يظهر في: أعلى كل صفحات الموقع العام | 12 |
+| F | الموقع | تذييل الموقع | يظهر في: أسفل كل صفحات الموقع العام | 32 |
 | KH | الموقع | إشعار «خيري» (مؤرشف) | /khayri | 4 |
-| AB | الموقع | عن المكتب | /about | 0 |
 | PV | الموقع | سياسة الخصوصية | /privacy | 59 |
 | TM | الموقع | شروط الاستخدام | /terms | 45 |
 | DD | الموقع | حذف البيانات | /data-deletion | 33 |
-| NF | الموقع | صفحة غير موجودة أو بلا اتصال |  | 9 |
+| NF | الموقع | صفحة غير موجودة أو بلا اتصال | يظهر في: صفحة «غير موجودة» وصفحة انقطاع الاتصال | 9 |
 | SU | الموقع | معالج الإعداد الأول | /setup | 44 |
-| I | الطلب والمتابعة | نموذج الطلب | /intake | 159 |
-| IC | الطلب والمتابعة | طلب عرض لشركة | /intake?mode=company | 18 |
-| UP | الطلب والمتابعة | إرفاق المستندات |  | 14 |
-| SC | الطلب والمتابعة | تصوير المستندات وتحسينها |  | 18 |
-| RV | الطلب والمتابعة | التسجيل الصوتي (مؤرشف) |  | 0 |
-| P | الطلب والمتابعة | صفحة متابعة الطلب | /p/ | 115 |
+| I | الطلب والمتابعة | نموذج الطلب | /intake | 156 |
+| IC | الطلب والمتابعة | طلب عرض لشركة | /intake?mode=company | 30 |
+| UP | الطلب والمتابعة | إرفاق المستندات | يظهر في: إرفاق المستندات في نموذج الطلب وصفحة المتابعة وبوابة الشركات | 14 |
+| SC | الطلب والمتابعة | تصوير المستندات وتحسينها | يظهر في: شاشة تصوير المستند (الماسح) حيثما يُرفع مستند | 19 |
+| P | الطلب والمتابعة | صفحة متابعة الطلب | /p/ | 114 |
 | PL | الطلب والمتابعة | دخول صفحة المتابعة | /portal | 28 |
-| CC | بوابة الشركات | إطار البوابة: الشريط و«المزيد» والصفحة غير الموجودة | /company#/more | 57 |
+| CC | بوابة الشركات | إطار البوابة: الشريط و«المزيد» والصفحة غير الموجودة | /company#/more | 65 |
 | CS | بوابة الشركات | الدخول والروابط: الدعوة وتعيين كلمة المرور والحظر | /company | 48 |
 | CW | بوابة الشركات | الترحيب (أول دخول) | /company#/welcome | 35 |
-| CH | بوابة الشركات | المتابعة (الرئيسية) | /company#/overview | 17 |
+| CH | بوابة الشركات | المتابعة (الرئيسية) | /company#/overview | 20 |
 | CR | بوابة الشركات | قائمة الطلبات | /company#/requests | 24 |
 | CN | بوابة الشركات | طلب جديد | /company#/requests/new | 42 |
 | CK | بوابة الشركات | أنواع الطلبات وحقولها | /company#/requests/new | 134 |
 | CQ | بوابة الشركات | صفحة الطلب | /company#/requests/ | 60 |
-| CU | بوابة الشركات | مكوّنات البوابة: العرض والتسليم والاستيضاح والوعد والعدّاد |  | 50 |
-| CM | بوابة الشركات | الذاكرة القانونية وقوائمها | /company#/memory | 25 |
+| CU | بوابة الشركات | مكوّنات البوابة: العرض والتسليم والاستيضاح والوعد والعدّاد | يظهر في: داخل صفحات بوابة الشركات: الطلب والتسليم والاستيضاح | 50 |
+| CM | بوابة الشركات | الذاكرة القانونية وقوائمها | /company#/memory | 37 |
 | CD | بوابة الشركات | المواعيد المهمة | /company#/memory/calendar | 8 |
 | CG | بوابة الشركات | الكيانات | /company#/memory/entities | 14 |
 | CX | بوابة الشركات | الأطراف المتعاملة | /company#/memory/counterparties | 4 |
 | CI | بوابة الشركات | عنصر في الذاكرة | /company#/memory/item/ | 9 |
 | CE | بوابة الشركات | إضافة عنصر في الذاكرة أو تعديله | /company#/memory/ | 3 |
-| CT | بوابة الشركات | الفريق | /company#/team | 34 |
+| CT | بوابة الشركات | الفريق | /company#/team | 45 |
 | CP | بوابة الشركات | الباقة والاستخدام | /company#/plan | 16 |
 | CF | بوابة الشركات | بيانات الشركة | /company#/company | 13 |
 | CA | بوابة الشركات | حسابي والأمان | /company#/account | 28 |
 | CB | بوابة الشركات | الإشعارات | /company#/notifications | 3 |
 | NAV | المنصة | إطار المنصة: القائمة الجانبية والشريط العلوي والجرس وشريط المحامي | /app | 68 |
-| LGN | المنصة | الدخول والدعوة واستعادة كلمة المرور والتحقق بخطوتين | /app#/login | 53 |
-| KIT | المنصة | مكتبة المكوّنات: الإغلاق والتأكيد وتجاهل التعديلات وإعادة المحاولة واختيار ملف |  | 19 |
-| SRC | المنصة | البحث الشامل Ctrl+K |  | 8 |
-| DSH | المنصة | لوحة المتابعة | /app#/dashboard | 61 |
+| LGN | المنصة | الدخول والدعوة واستعادة كلمة المرور والتحقق بخطوتين | /app#/login | 54 |
+| KIT | المنصة | مكتبة المكوّنات: الإغلاق والتأكيد وتجاهل التعديلات وإعادة المحاولة واختيار ملف | يظهر في: عناصر مشتركة في كل صفحات المنصة (الإغلاق، التأكيد، إعادة المحاولة، اختيار ملف) | 19 |
+| SRC | المنصة | البحث الشامل Ctrl+K | يظهر في: نافذة البحث (Ctrl+K) في المنصة | 8 |
+| DSH | المنصة | لوحة المتابعة | /app#/dashboard | 79 |
 | INB | المنصة | صندوق الوارد | /app#/inbox | 54 |
-| RQT | المنصة | صفحة الطلب الوارد | /app#/inbox/ | 143 |
+| RQT | المنصة | صفحة الطلب الوارد | /app#/inbox/ | 144 |
 | PTH | المنصة | نوع الطلب ومساره: الشريحة وسطر المسار والتعديل | /app#/inbox | 18 |
-| STY | المنصة | ورقة «اعمله طلب» | /app#/inbox/ | 55 |
-| CNT | المنصة | تسجيل المكالمة |  | 12 |
-| SPL | المنصة | فصل رسالة إلى طلب جديد |  | 4 |
-| SEG | المنصة | نوع الخدمة: الشرائح والمفتاح وورقة التغيير |  | 28 |
+| STY | المنصة | ورقة «اعمله طلب» | /app#/inbox/ | 60 |
+| CNT | المنصة | تسجيل المكالمة | يظهر في: نافذة «تسجيل المكالمة» في صفحة الطلب | 12 |
+| SPL | المنصة | فصل رسالة إلى طلب جديد | يظهر في: نافذة «اعمل منها طلبًا جديدًا» في المحادثة | 4 |
+| SEG | المنصة | نوع الخدمة: الشرائح والمفتاح وورقة التغيير | يظهر في: شرائح نوع الخدمة ونافذة تغييره في الطلبات والملفات | 28 |
 | QUE | المنصة | بانتظار قرار الإدارة | /app#/queue | 63 |
 | CSL | المنصة | ملفات الاستشارات | /app#/cases | 21 |
-| CSF | المنصة | ملف استشارة (كل التبويبات) | /app#/cases/ | 281 |
-| PTY | المنصة | الأطراف وتعارض المصالح داخل الملف |  | 15 |
+| CSF | المنصة | ملف استشارة (كل التبويبات) | /app#/cases/ | 282 |
+| PTY | المنصة | الأطراف وتعارض المصالح داخل الملف | يظهر في: تبويب الأطراف في صفحة الملف | 15 |
 | MTL | المنصة | الملفات المستمرة | /app#/matters | 14 |
-| MTF | المنصة | ملف مستمر | /app#/matters/ | 158 |
-| OUT | المنصة | نتيجة الجلسة وإغلاق الملف |  | 46 |
+| MTF | المنصة | ملف مستمر | /app#/matters/ | 170 |
+| OUT | المنصة | نتيجة الجلسة وإغلاق الملف | يظهر في: نافذة نتيجة الجلسة وإغلاق الملف | 46 |
 | CLI | المنصة | المستفيدون | /app#/clients | 25 |
 | CLF | المنصة | ملف المستفيد/ة | /app#/clients/ | 90 |
 | LWL | المنصة | شبكة المحامين | /app#/lawyers | 66 |
-| LWF | المنصة | ملف المحامي | /app#/lawyers/ | 99 |
-| ACC | المنصة | المحاسبة | /app#/accounting | 91 |
+| LWF | المنصة | ملف المحامي | /app#/lawyers/ | 100 |
+| ACC | المنصة | المحاسبة | /app#/accounting | 92 |
 | AUT | المنصة | الأتمتة والرسائل وصندوق الصادر | /app#/automations | 51 |
 | QRP | المنصة | الردود الجاهزة وقوالب واتساب | /app#/quick-replies | 111 |
 | KNL | المنصة | المعرفة والذكاء الاصطناعي | /app#/knowledge | 116 |
 | KNF | المنصة | مادة معرفية | /app#/knowledge/ | 59 |
-| AIR | المنصة | اقتراحات الرد |  | 11 |
-| DAI | المنصة | تحليل المستند بالذكاء الاصطناعي |  | 15 |
-| DOC | المنصة | عارض المستندات: النسخة المحسّنة والأصل والنص |  | 39 |
-| VTR | المنصة | تفريغ الرسالة الصوتية والنص الآلي |  | 18 |
+| AIR | المنصة | اقتراحات الرد | يظهر في: اقتراحات الرد تحت صندوق الكتابة | 11 |
+| DAI | المنصة | تحليل المستند بالذكاء الاصطناعي | يظهر في: تحليل المستند في صفحات الملفات | 15 |
+| DOC | المنصة | عارض المستندات: النسخة المحسّنة والأصل والنص | يظهر في: عارض المستندات في الطلب والملف والملف المستمر وطلبات الشركات | 40 |
+| VTR | المنصة | تفريغ الرسالة الصوتية والنص الآلي | يظهر في: الرسائل الصوتية في المحادثة وصفحة الطلب | 18 |
 | ANL | المنصة | التسويق والتحليلات | /app#/analytics | 87 |
 | SIM | المنصة | محاكي واتساب | /app#/simulator | 50 |
-| SET | المنصة | الإعدادات والمستخدمون (كل البطاقات) | /app#/settings | 333 |
-| INT | المنصة | التكاملات | /app#/integrations | 81 |
-| SYS | المنصة | صحة النظام والنسخ الاحتياطي | /app#/system | 81 |
+| SET | المنصة | الإعدادات والمستخدمون (كل البطاقات) | /app#/settings | 336 |
+| INT | المنصة | التكاملات | /app#/integrations | 93 |
+| SYS | المنصة | صحة النظام والنسخ الاحتياطي | /app#/system | 85 |
 | AUD | المنصة | سجل الأمان | /app#/audit | 32 |
 | DAT | المنصة | استيراد وتصدير البيانات | /app#/data | 40 |
 | CAL | المنصة | التقويم | /app#/calendar | 48 |
@@ -91,14 +97,14 @@
 | CNF | المنصة | فحص تعارض المصالح | /app#/conflicts | 29 |
 | PRG | المنصة | البرامج والتمويل | /app#/programs | 131 |
 | CRL | المنصة | طلبات الشركات | /app#/company-requests | 33 |
-| CRF | المنصة | طلب شركة وأوراقه: القبول والاستيضاح والعرض والتسليم | /app#/company-requests/ | 215 |
+| CRF | المنصة | طلب شركة وأوراقه: القبول والاستيضاح والعرض والتسليم | /app#/company-requests/ | 216 |
 | COL | المنصة | قائمة الشركات | /app#/companies | 62 |
 | COF | المنصة | ملف شركة | /app#/companies/ | 255 |
 | NTF | المنصة | الإشعارات | /app#/notifications | 12 |
 | PRF | المنصة | حسابي والأمان | /app#/account | 81 |
 | TGS | المنصة | رموز العناصر | /app#/tags | 16 |
-| RSH | المنصة | طلب المحامي: معلومة أو مستند أو مساعدة |  | 22 |
-| DRF | المنصة | المسودات والمقارنة |  | 3 |
+| RSH | المنصة | طلب المحامي: معلومة أو مستند أو مساعدة | يظهر في: نافذة طلب المحامي في صفحة الإسناد | 22 |
+| DRF | المنصة | المسودات والمقارنة | يظهر في: المسودات في صفحة الإسناد للمحامي | 3 |
 | TDY | المنصة | اليوم (المحامي) | /app#/my | 37 |
 | ASL | المنصة | إسناداتي | /app#/my/assignments | 11 |
 | ASG | المنصة | صفحة الإسناد | /app#/my/assignments/ | 73 |
@@ -106,157 +112,157 @@
 | LMT | المنصة | ملفاتي المستمرة | /app#/my/matters | 11 |
 | LMF | المنصة | ملف مستمر (المحامي) | /app#/my/matters/ | 50 |
 | STM | المنصة | مستحقاتي | /app#/my/statement | 18 |
-| LCA | المنصة | تقويمي | /app#/my/calendar | 0 |
+| LCA | المنصة | تقويمي | /app#/my/calendar | 0 (تستعمل رموز CAL (التقويم)) |
 | W | الرسائل والمطبوعات | رسائل واتساب | /app#/tags | 54 |
 | E | الرسائل والمطبوعات | رسائل البريد الإلكتروني | /app#/tags | 15 |
-| D | الرسائل والمطبوعات | المستندات المطبوعة |  | 65 |
-| B | الرسائل والمطبوعات | نصوص الإشعارات (الجرس) | /app#/notifications | 0 |
+| D | الرسائل والمطبوعات | المستندات المطبوعة | يظهر في: المستندات المطبوعة من صفحات الملفات | 65 |
 
 ## L: الصفحة الأولى وقالب صفحات الأسئلة (`/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| L-02 | رابط | رجوع … | src/site.js:1788 |
-| L-03 | نص | اخترتم: … | src/site.js:1789 |
-| L-04 | قسم/بطاقة | … | src/site.js:1819 |
-| L-05 | رابط | عن المكتب | src/site.js:1808 |
-| L-06 | رابط | متابعة طلب | src/site.js:1809 |
-| L-07 | رابط | نتصل بكم | src/site.js:1810 |
-| L-08 | رابط | واتساب (يفتح في نافذة جديدة) | src/site.js:1812 |
-| L-09 | رابط | الخصوصية | src/site.js:1815 |
-| L-10 | رابط | الشروط | src/site.js:1815 |
-| L-11 | رابط | دخول الشركات | src/site.js:1816 |
-| L-12 | قسم/بطاقة | … | src/site.js:1780 |
-| L-13 | قائمة روابط | المسار | src/site.js:1788 |
+| L-01 | رابط | عن المكتب · الصفحة الأولى | src/site.js:1812 |
+| L-02 | رابط | رجوع … | src/site.js:1826 |
+| L-03 | نص | اخترتم: … | src/site.js:1827 |
+| L-04 | قسم/بطاقة | … | src/site.js:1857 |
+| L-05 | رابط | عن المكتب | src/site.js:1846 |
+| L-06 | رابط | متابعة طلب | src/site.js:1847 |
+| L-07 | رابط | نتصل بكم | src/site.js:1848 |
+| L-08 | رابط | واتساب (يفتح في نافذة جديدة) | src/site.js:1850 |
+| L-09 | رابط | الخصوصية | src/site.js:1853 |
+| L-10 | رابط | الشروط | src/site.js:1853 |
+| L-11 | رابط | دخول الشركات | src/site.js:1854 |
+| L-12 | قسم/بطاقة | … | src/site.js:1818 |
+| L-13 | قائمة روابط | المسار | src/site.js:1826 |
 
 ## T: مسار الاختيار: الأسئلة والخيارات (`/start`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| T-01 | سؤال | كيف نساعدكم؟ | public/assets/js/public/entry-tree.js:31 |
-| T-02 | خيار | استشارة<br>يظهر النص نفسه أيضًا في: S-12، W-01 (الزر الأول)، I-57 (الخيار الأول)، PTH-01 | public/assets/js/public/entry-tree.js:35 |
-| T-03 | سؤال | في أي مجال؟ | public/assets/js/public/entry-tree.js:42 |
-| T-04 | خيار | الأسرة والميراث | public/assets/js/public/entry-tree.js:47 |
-| T-05 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:52 |
-| T-06 | خيار | الطلاق أو الخلع | public/assets/js/public/entry-tree.js:54 |
-| T-07 | خيار | النفقة | public/assets/js/public/entry-tree.js:55 |
-| T-08 | خيار | الحضانة والرؤية | public/assets/js/public/entry-tree.js:56 |
-| T-09 | خيار | الميراث | public/assets/js/public/entry-tree.js:57 |
-| T-10 | خيار | أموال القاصرين | public/assets/js/public/entry-tree.js:58 |
-| T-11 | خيار | موضوع آخر في الأسرة | public/assets/js/public/entry-tree.js:59 |
-| T-12 | خيار | العقارات والإيجار | public/assets/js/public/entry-tree.js:64 |
-| T-13 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:69 |
-| T-14 | خيار | إيجار قديم | public/assets/js/public/entry-tree.js:71 |
-| T-15 | خيار | إيجار جديد | public/assets/js/public/entry-tree.js:72 |
-| T-16 | خيار | بيع أو شراء عقار | public/assets/js/public/entry-tree.js:73 |
-| T-17 | خيار | نزاع على ملكية أو وضع يد | public/assets/js/public/entry-tree.js:74 |
-| T-18 | خيار | موضوع آخر في العقارات | public/assets/js/public/entry-tree.js:75 |
-| T-19 | خيار | العمل والعمال | public/assets/js/public/entry-tree.js:80 |
-| T-20 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:85 |
-| T-21 | خيار | فصل من العمل | public/assets/js/public/entry-tree.js:87 |
-| T-22 | خيار | أجور أو مستحقات | public/assets/js/public/entry-tree.js:88 |
-| T-23 | خيار | عقد العمل | public/assets/js/public/entry-tree.js:89 |
-| T-24 | خيار | موضوع آخر في العمل | public/assets/js/public/entry-tree.js:90 |
-| T-25 | خيار | العقود والديون | public/assets/js/public/entry-tree.js:95 |
-| T-26 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:100 |
-| T-27 | خيار | مراجعة عقد قبل التوقيع | public/assets/js/public/entry-tree.js:102 |
-| T-28 | خيار | كتابة عقد | public/assets/js/public/entry-tree.js:103 |
-| T-29 | خيار | شيكات أو إيصالات أمانة | public/assets/js/public/entry-tree.js:104 |
-| T-30 | خيار | دين أو مطالبة مالية | public/assets/js/public/entry-tree.js:105 |
-| T-31 | خيار | موضوع آخر في العقود | public/assets/js/public/entry-tree.js:106 |
-| T-32 | خيار | المعاش والجهات الحكومية | public/assets/js/public/entry-tree.js:111 |
-| T-33 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:116 |
-| T-34 | خيار | المعاش | public/assets/js/public/entry-tree.js:118 |
-| T-35 | خيار | التأمينات الاجتماعية | public/assets/js/public/entry-tree.js:119 |
-| T-36 | خيار | مستند رسمي | public/assets/js/public/entry-tree.js:120 |
-| T-37 | خيار | قرار حكومي | public/assets/js/public/entry-tree.js:121 |
-| T-38 | خيار | جهة حكومية أخرى | public/assets/js/public/entry-tree.js:122 |
-| T-39 | خيار | موضوع آخر | public/assets/js/public/entry-tree.js:125 |
-| T-40 | خيار | رفع دعوى قضائية<br>يظهر النص نفسه أيضًا في: S-13، W-01 (الزر الثاني)، I-57 (الخيار الثاني)، PTH-01 | public/assets/js/public/entry-tree.js:130 |
-| T-41 | سؤال | ما وضع القضية؟ | public/assets/js/public/entry-tree.js:137 |
-| T-42 | خيار | رفع دعوى جديدة | public/assets/js/public/entry-tree.js:140 |
-| T-43 | خيار | الرد على دعوى مرفوعة | public/assets/js/public/entry-tree.js:141 |
-| T-44 | خيار | قضية أمام المحكمة الآن | public/assets/js/public/entry-tree.js:142 |
-| T-45 | خيار | صدر حكم | public/assets/js/public/entry-tree.js:143 |
-| T-46 | سؤال | ما نوع القضية؟ | public/assets/js/public/entry-tree.js:245 |
-| T-47 | خيار | أسرة وميراث | public/assets/js/public/entry-tree.js:247 |
-| T-48 | خيار | إيجار وعقارات | public/assets/js/public/entry-tree.js:248 |
-| T-49 | خيار | عمل وعمال | public/assets/js/public/entry-tree.js:249 |
-| T-50 | خيار | مدني وتجاري | public/assets/js/public/entry-tree.js:250 |
-| T-51 | خيار | جنائي | public/assets/js/public/entry-tree.js:251 |
-| T-52 | خيار | نوع آخر | public/assets/js/public/entry-tree.js:252 |
-| T-53 | خيار | تأسيس شركات<br>يظهر النص نفسه أيضًا في: S-14، W-01 (الزر الثالث)، I-57 (الخيار الثالث)، PTH-01 | public/assets/js/public/entry-tree.js:156 |
-| T-54 | سؤال | ما الذي تحتاجونه؟ | public/assets/js/public/entry-tree.js:164 |
-| T-55 | خيار | تأسيس شركة جديدة | public/assets/js/public/entry-tree.js:168 |
-| T-56 | سؤال | ما الشكل القانوني؟ | public/assets/js/public/entry-tree.js:171 |
-| T-57 | خيار | شركة الشخص الواحد | public/assets/js/public/entry-tree.js:174 |
-| T-58 | خيار | ذات مسؤولية محدودة | public/assets/js/public/entry-tree.js:175 |
-| T-59 | خيار | شركة مساهمة | public/assets/js/public/entry-tree.js:176 |
-| T-60 | خيار | تضامن أو توصية بسيطة | public/assets/js/public/entry-tree.js:177 |
-| T-61 | خيار | فرع لشركة أجنبية | public/assets/js/public/entry-tree.js:178 |
-| T-62 | خيار | لم نحدد بعد | public/assets/js/public/entry-tree.js:179 |
-| T-63 | خيار | مستشار قانوني للشركة | public/assets/js/public/entry-tree.js:184 |
-| T-64 | سؤال | هل لدى شركتكم حساب معنا؟ | public/assets/js/public/entry-tree.js:190 |
-| T-65 | خيار | نعم، الدخول إلى بوابة الشركات | public/assets/js/public/entry-tree.js:193 |
-| T-66 | خيار | لا، نريد عرضًا | public/assets/js/public/entry-tree.js:194 |
-| T-67 | خيار | تعديل شركة قائمة | public/assets/js/public/entry-tree.js:199 |
-| T-68 | سؤال | ما التعديل؟ | public/assets/js/public/entry-tree.js:203 |
-| T-69 | خيار | رأس المال | public/assets/js/public/entry-tree.js:206 |
-| T-70 | خيار | الشركاء أو المساهمون | public/assets/js/public/entry-tree.js:207 |
-| T-71 | خيار | المدير أو النشاط أو المقر | public/assets/js/public/entry-tree.js:208 |
-| T-72 | خيار | تغيير الشكل القانوني | public/assets/js/public/entry-tree.js:209 |
-| T-73 | خيار | تصفية الشركة | public/assets/js/public/entry-tree.js:210 |
-| T-74 | خيار | تعديل آخر | public/assets/js/public/entry-tree.js:211 |
-| T-75 | خيار | عقد أو ترخيص أو علامة تجارية | public/assets/js/public/entry-tree.js:216 |
-| T-76 | سؤال | ما المطلوب؟ | public/assets/js/public/entry-tree.js:222 |
-| T-77 | خيار | عقد | public/assets/js/public/entry-tree.js:225 |
-| T-78 | خيار | علامة تجارية | public/assets/js/public/entry-tree.js:226 |
-| T-79 | خيار | ترخيص أو سجل تجاري | public/assets/js/public/entry-tree.js:227 |
-| T-80 | خيار | موضوع آخر | public/assets/js/public/entry-tree.js:228 |
-| T-81 | رابط | تبحثون عن مساعدة قانونية مجانية؟ | public/assets/js/public/entry-tree.js:257 |
-| T-82 | خيار | موضوع آخر للشركة | public/assets/js/public/entry-tree.js:233 |
-| T-83 | خيار | ورقة من المحكمة أو القسم | public/assets/js/public/entry-tree.js:146 |
+| T-01 | سؤال | كيف نساعدكم؟ | public/assets/js/public/entry-tree.js:34 |
+| T-02 | خيار | استشارة<br>يظهر النص نفسه أيضًا في: S-12، W-01 (الزر الأول)، I-57 (الخيار الأول)، PTH-01 | public/assets/js/public/entry-tree.js:38 |
+| T-03 | سؤال | في أي مجال؟ | public/assets/js/public/entry-tree.js:45 |
+| T-04 | خيار | الأسرة والميراث | public/assets/js/public/entry-tree.js:50 |
+| T-05 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:55 |
+| T-06 | خيار | الطلاق أو الخلع | public/assets/js/public/entry-tree.js:57 |
+| T-07 | خيار | النفقة | public/assets/js/public/entry-tree.js:58 |
+| T-08 | خيار | الحضانة والرؤية | public/assets/js/public/entry-tree.js:59 |
+| T-09 | خيار | الميراث | public/assets/js/public/entry-tree.js:60 |
+| T-10 | خيار | أموال القاصرين | public/assets/js/public/entry-tree.js:61 |
+| T-11 | خيار | موضوع آخر في الأسرة | public/assets/js/public/entry-tree.js:62 |
+| T-12 | خيار | العقارات والإيجار | public/assets/js/public/entry-tree.js:67 |
+| T-13 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:72 |
+| T-14 | خيار | إيجار قديم | public/assets/js/public/entry-tree.js:74 |
+| T-15 | خيار | إيجار جديد | public/assets/js/public/entry-tree.js:75 |
+| T-16 | خيار | بيع أو شراء عقار | public/assets/js/public/entry-tree.js:76 |
+| T-17 | خيار | نزاع على ملكية أو وضع يد | public/assets/js/public/entry-tree.js:77 |
+| T-18 | خيار | موضوع آخر في العقارات | public/assets/js/public/entry-tree.js:78 |
+| T-19 | خيار | العمل والعمال | public/assets/js/public/entry-tree.js:83 |
+| T-20 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:88 |
+| T-21 | خيار | فصل من العمل | public/assets/js/public/entry-tree.js:90 |
+| T-22 | خيار | أجور أو مستحقات | public/assets/js/public/entry-tree.js:91 |
+| T-23 | خيار | عقد العمل | public/assets/js/public/entry-tree.js:92 |
+| T-24 | خيار | موضوع آخر في العمل | public/assets/js/public/entry-tree.js:93 |
+| T-25 | خيار | العقود والديون | public/assets/js/public/entry-tree.js:98 |
+| T-26 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:103 |
+| T-27 | خيار | مراجعة عقد قبل التوقيع | public/assets/js/public/entry-tree.js:105 |
+| T-28 | خيار | كتابة عقد | public/assets/js/public/entry-tree.js:106 |
+| T-29 | خيار | شيكات أو إيصالات أمانة | public/assets/js/public/entry-tree.js:107 |
+| T-30 | خيار | دين أو مطالبة مالية | public/assets/js/public/entry-tree.js:108 |
+| T-31 | خيار | موضوع آخر في العقود | public/assets/js/public/entry-tree.js:109 |
+| T-32 | خيار | المعاش والجهات الحكومية | public/assets/js/public/entry-tree.js:114 |
+| T-33 | سؤال | ما الموضوع؟ | public/assets/js/public/entry-tree.js:119 |
+| T-34 | خيار | المعاش | public/assets/js/public/entry-tree.js:121 |
+| T-35 | خيار | التأمينات الاجتماعية | public/assets/js/public/entry-tree.js:122 |
+| T-36 | خيار | مستند رسمي | public/assets/js/public/entry-tree.js:123 |
+| T-37 | خيار | قرار حكومي | public/assets/js/public/entry-tree.js:124 |
+| T-38 | خيار | جهة حكومية أخرى | public/assets/js/public/entry-tree.js:125 |
+| T-39 | خيار | موضوع آخر | public/assets/js/public/entry-tree.js:128 |
+| T-40 | خيار | رفع دعوى قضائية<br>يظهر النص نفسه أيضًا في: S-13، W-01 (الزر الثاني)، I-57 (الخيار الثاني)، PTH-01 | public/assets/js/public/entry-tree.js:133 |
+| T-41 | سؤال | ما وضع القضية؟ | public/assets/js/public/entry-tree.js:140 |
+| T-42 | خيار | رفع دعوى جديدة | public/assets/js/public/entry-tree.js:143 |
+| T-43 | خيار | الرد على دعوى مرفوعة | public/assets/js/public/entry-tree.js:144 |
+| T-44 | خيار | قضية أمام المحكمة الآن | public/assets/js/public/entry-tree.js:145 |
+| T-45 | خيار | صدر حكم | public/assets/js/public/entry-tree.js:146 |
+| T-46 | سؤال | ما نوع القضية؟ | public/assets/js/public/entry-tree.js:248 |
+| T-47 | خيار | أسرة وميراث | public/assets/js/public/entry-tree.js:250 |
+| T-48 | خيار | إيجار وعقارات | public/assets/js/public/entry-tree.js:251 |
+| T-49 | خيار | عمل وعمال | public/assets/js/public/entry-tree.js:252 |
+| T-50 | خيار | مدني وتجاري | public/assets/js/public/entry-tree.js:253 |
+| T-51 | خيار | جنائي | public/assets/js/public/entry-tree.js:254 |
+| T-52 | خيار | نوع آخر | public/assets/js/public/entry-tree.js:255 |
+| T-53 | خيار | تأسيس شركات<br>يظهر النص نفسه أيضًا في: S-14، W-01 (الزر الثالث)، I-57 (الخيار الثالث)، PTH-01 | public/assets/js/public/entry-tree.js:159 |
+| T-54 | سؤال | ما الذي تحتاجونه؟ | public/assets/js/public/entry-tree.js:167 |
+| T-55 | خيار | تأسيس شركة جديدة | public/assets/js/public/entry-tree.js:171 |
+| T-56 | سؤال | ما الشكل القانوني؟ | public/assets/js/public/entry-tree.js:174 |
+| T-57 | خيار | شركة الشخص الواحد | public/assets/js/public/entry-tree.js:177 |
+| T-58 | خيار | ذات مسؤولية محدودة | public/assets/js/public/entry-tree.js:178 |
+| T-59 | خيار | شركة مساهمة | public/assets/js/public/entry-tree.js:179 |
+| T-60 | خيار | تضامن أو توصية بسيطة | public/assets/js/public/entry-tree.js:180 |
+| T-61 | خيار | فرع لشركة أجنبية | public/assets/js/public/entry-tree.js:181 |
+| T-62 | خيار | لم نحدد بعد | public/assets/js/public/entry-tree.js:182 |
+| T-63 | خيار | مستشار قانوني للشركة | public/assets/js/public/entry-tree.js:187 |
+| T-64 | سؤال | هل لدى شركتكم حساب معنا؟ | public/assets/js/public/entry-tree.js:193 |
+| T-65 | خيار | نعم، الدخول إلى بوابة الشركات | public/assets/js/public/entry-tree.js:196 |
+| T-66 | خيار | لا، نريد عرضًا | public/assets/js/public/entry-tree.js:197 |
+| T-67 | خيار | تعديل شركة قائمة | public/assets/js/public/entry-tree.js:202 |
+| T-68 | سؤال | ما التعديل؟ | public/assets/js/public/entry-tree.js:206 |
+| T-69 | خيار | رأس المال | public/assets/js/public/entry-tree.js:209 |
+| T-70 | خيار | الشركاء أو المساهمون | public/assets/js/public/entry-tree.js:210 |
+| T-71 | خيار | المدير أو النشاط أو المقر | public/assets/js/public/entry-tree.js:211 |
+| T-72 | خيار | تغيير الشكل القانوني | public/assets/js/public/entry-tree.js:212 |
+| T-73 | خيار | تصفية الشركة | public/assets/js/public/entry-tree.js:213 |
+| T-74 | خيار | تعديل آخر | public/assets/js/public/entry-tree.js:214 |
+| T-75 | خيار | عقد أو ترخيص أو علامة تجارية | public/assets/js/public/entry-tree.js:219 |
+| T-76 | سؤال | ما المطلوب؟ | public/assets/js/public/entry-tree.js:225 |
+| T-77 | خيار | عقد | public/assets/js/public/entry-tree.js:228 |
+| T-78 | خيار | علامة تجارية | public/assets/js/public/entry-tree.js:229 |
+| T-79 | خيار | ترخيص أو سجل تجاري | public/assets/js/public/entry-tree.js:230 |
+| T-80 | خيار | موضوع آخر | public/assets/js/public/entry-tree.js:231 |
+| T-81 | رابط | تبحثون عن مساعدة قانونية مجانية؟ | public/assets/js/public/entry-tree.js:260 |
+| T-82 | خيار | موضوع آخر للشركة | public/assets/js/public/entry-tree.js:236 |
+| T-83 | خيار | ورقة من المحكمة أو القسم | public/assets/js/public/entry-tree.js:149 |
 
 ## S: صفحة المكتب «الخدمات» (`/services`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | S-10 | عنوان | كيف نساعدكم؟ | public/services.html:23 |
 | S-11 | نص | اختاروا ما تحتاجونه. نتفق معكم على الأتعاب كتابةً قبل أن نبدأ. | public/services.html:24 |
-| S-12 | عنصر قائمة | استشارة<br>يظهر النص نفسه أيضًا في: T-02، W-01 (الزر الأول)، I-57 (الخيار الأول)، PTH-01 | src/site.js:105 |
-| S-13 | عنصر قائمة | رفع دعوى قضائية<br>يظهر النص نفسه أيضًا في: T-40، W-01 (الزر الثاني)، I-57 (الخيار الثاني)، PTH-01 | src/site.js:106 |
-| S-14 | عنصر قائمة | تأسيس شركات<br>يظهر النص نفسه أيضًا في: T-53، W-01 (الزر الثالث)، I-57 (الخيار الثالث)، PTH-01 | src/site.js:107 |
-| S-15 | نص | … | src/site.js:1220 |
+| S-12 | عنصر قائمة | استشارة<br>يظهر النص نفسه أيضًا في: T-02، W-01 (الزر الأول)، I-57 (الخيار الأول)، PTH-01 | src/site.js:109 |
+| S-13 | عنصر قائمة | رفع دعوى قضائية<br>يظهر النص نفسه أيضًا في: T-40، W-01 (الزر الثاني)، I-57 (الخيار الثاني)، PTH-01 | src/site.js:110 |
+| S-14 | عنصر قائمة | تأسيس شركات<br>يظهر النص نفسه أيضًا في: T-53، W-01 (الزر الثالث)، I-57 (الخيار الثالث)، PTH-01 | src/site.js:111 |
+| S-15 | نص | … | src/site.js:1232 |
 | S-16 | نص | … | public/services.html:29 |
 | S-20 | عنوان | كيف نعمل؟ | public/services.html:41 |
-| S-21 | عنصر قائمة | تخبروننا بالموضوع | src/site.js:111 |
-| S-22 | عنصر قائمة | نتفق على الأتعاب | src/site.js:112 |
-| S-23 | عنصر قائمة | نبدأ العمل | src/site.js:113 |
-| S-30 | عنوان | مستشار قانوني لشركتكم | src/site.js:1242 |
-| S-31 | نص | إدارة قانونية خارجية باشتراك شهري. ترسلون الطلبات من بوابة الشركات، و… | src/site.js:1243 |
-| S-32 | قائمة | … | src/site.js:1244 |
-| S-33 | نص | الباقة الشهرية حسب حجم الشركة واحتياجها، ونرسل العرض مكتوبًا. | src/site.js:1245 |
-| S-34 | رابط | اطلبوا عرضًا | src/site.js:1247 |
-| S-35 | رابط | دخول بوابة الشركات | src/site.js:1248 |
-| S-36 | رابط | تأسيس شركة جديدة | src/site.js:1250 |
-| S-37 | نص | … | src/site.js:1251 |
+| S-21 | عنصر قائمة | تخبروننا بالموضوع | src/site.js:115 |
+| S-22 | عنصر قائمة | نتفق على الأتعاب | src/site.js:116 |
+| S-23 | عنصر قائمة | نبدأ العمل | src/site.js:117 |
+| S-30 | عنوان | مستشار قانوني لشركتكم | src/site.js:1254 |
+| S-31 | نص | إدارة قانونية خارجية باشتراك شهري. ترسلون الطلبات من بوابة الشركات، و… | src/site.js:1255 |
+| S-32 | قائمة | … | src/site.js:1256 |
+| S-33 | نص | الباقة الشهرية حسب حجم الشركة واحتياجها، ونرسل العرض مكتوبًا. | src/site.js:1257 |
+| S-34 | رابط | اطلبوا عرضًا | src/site.js:1259 |
+| S-35 | رابط | دخول بوابة الشركات | src/site.js:1260 |
+| S-36 | رابط | تأسيس شركة جديدة | src/site.js:1262 |
+| S-37 | نص | … | src/site.js:1263 |
 | S-40 | عنوان | التزامنا معكم | public/services.html:57 |
-| S-41 | عنصر قائمة | السرية | src/site.js:117 |
-| S-42 | عنصر قائمة | الأتعاب مكتوبة | src/site.js:118 |
-| S-43 | عنصر قائمة | محامون مقيدون بالنقابة | src/site.js:119 |
-| S-44 | عنصر قائمة | صفحة لكل طلب | src/site.js:120 |
-| S-45 | عنوان | الشركاء<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1278 |
-| S-46 | قائمة | …<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1270 |
-| S-47 | نص | تأسس المكتب عام … .<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1274 |
+| S-41 | عنصر قائمة | السرية | src/site.js:121 |
+| S-42 | عنصر قائمة | الأتعاب مكتوبة | src/site.js:122 |
+| S-43 | عنصر قائمة | محامون مقيدون بالنقابة | src/site.js:123 |
+| S-44 | عنصر قائمة | صفحة لكل طلب | src/site.js:124 |
+| S-45 | عنوان | الشركاء<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1290 |
+| S-46 | قائمة | …<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1282 |
+| S-47 | نص | تأسس المكتب عام … .<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب | src/site.js:1286 |
 | S-50 | عنوان | أسئلة شائعة | public/services.html:71 |
-| S-51 | عنصر قائمة | كم أتعاب الاستشارة؟ | src/site.js:1155 |
-| S-52 | عنصر قائمة | من يطّلع على بياناتي؟ | src/site.js:1160 |
-| S-53 | عنصر قائمة | متى يصلني الرد؟ | src/site.js:1166 |
-| S-54 | عنصر قائمة | هل تعملون مع الشركات؟ | src/site.js:1172 · src/site.js:1179 |
-| S-55 | عنصر قائمة | فقدت رابط صفحة طلبي، ماذا أفعل؟ | src/site.js:1184 |
+| S-51 | عنصر قائمة | كم أتعاب الاستشارة؟ | src/site.js:1167 |
+| S-52 | عنصر قائمة | من يطّلع على بياناتي؟ | src/site.js:1172 |
+| S-53 | عنصر قائمة | متى يصلني الرد؟ | src/site.js:1178 |
+| S-54 | عنصر قائمة | هل تعملون مع الشركات؟ | src/site.js:1184 · src/site.js:1191 |
+| S-55 | عنصر قائمة | فقدت رابط صفحة طلبي، ماذا أفعل؟ | src/site.js:1196 |
 | S-60 | عنوان | تواصلوا معنا | public/services.html:84 |
-| S-61 | عنصر | (نص متغير) | src/site.js:1608 |
-| S-62 | قسم/بطاقة | … | src/site.js:1289 |
+| S-61 | عنصر | (نص متغير) | src/site.js:1643 |
+| S-62 | قسم/بطاقة | … | src/site.js:1301 |
 | S-65 | عنوان | لديكم موضوع قانوني؟ | public/services.html:89 |
 | S-66 | نص | اختاروا نوع الخدمة، ثم اكتبوا الموضوع بكلماتكم. لا تحتاجون إلى معرفة… | public/services.html:90 |
 | S-67 | رابط | ابدأوا طلبكم | public/services.html:91 |
@@ -267,235 +273,233 @@
 | S-72 | قسم/بطاقة | التزامنا معكم | public/services.html:53 |
 | S-73 | قسم/بطاقة | أسئلة شائعة | public/services.html:67 |
 | S-74 | قسم/بطاقة | تواصلوا معنا | public/services.html:80 |
-| S-75 | قسم/بطاقة | مستشار قانوني لشركتكم | src/site.js:1238 |
-| S-76 | قسم/بطاقة | الشركاء | src/site.js:1275 |
-| S-77 | رابط | … واتساب (يفتح في نافذة جديدة) | src/site.js:1287 |
-| S-78 | رابط | … اتصال | src/site.js:1288 |
-| S-79 | عنصر | (نص متغير) | src/site.js:1608 |
-| S-80 | عنصر | (نص متغير) | src/site.js:1608 |
-| S-81 | عنصر | (نص متغير) | src/site.js:1608 |
-| S-82 | عنصر | (نص متغير) | src/site.js:1608 |
+| S-75 | قسم/بطاقة | مستشار قانوني لشركتكم | src/site.js:1250 |
+| S-76 | قسم/بطاقة | الشركاء | src/site.js:1287 |
+| S-77 | رابط | … واتساب (يفتح في نافذة جديدة) | src/site.js:1299 |
+| S-78 | رابط | … اتصال | src/site.js:1300 |
+| S-79 | عنصر | (نص متغير) | src/site.js:1643 |
+| S-80 | عنصر | (نص متغير) | src/site.js:1643 |
+| S-81 | عنصر | (نص متغير) | src/site.js:1643 |
+| S-82 | عنصر | (نص متغير) | src/site.js:1643 |
 
-## H: رأس الموقع
+## H: رأس الموقع (يظهر في: أعلى كل صفحات الموقع العام)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| H-01 | عنصر | (نص متغير) | src/site.js:856 |
-| H-02 | عنصر قائمة | الخدمات | src/site.js:734 |
-| H-03 | عنصر قائمة | كيف نعمل | src/site.js:735 |
-| H-04 | عنصر قائمة | للشركات | src/site.js:736 |
-| H-05 | عنصر قائمة | أسئلة | src/site.js:737 |
-| H-06 | رابط | … | src/site.js:850 |
-| H-07 | رابط | … | src/site.js:840 |
-| H-08 | رابط | … | src/site.js:753 |
-| H-09 | زر | … | src/site.js:847 |
-| H-10 | رابط | انتقال إلى المحتوى | src/site.js:853 |
-| H-11 | قائمة روابط | القائمة الرئيسية | src/site.js:848 |
-| H-12 | قسم/بطاقة | … | src/site.js:854 |
+| H-01 | عنصر | (نص متغير) | src/site.js:878 |
+| H-02 | عنصر قائمة | الخدمات | src/site.js:753 |
+| H-03 | عنصر قائمة | كيف نعمل | src/site.js:754 |
+| H-04 | عنصر قائمة | للشركات | src/site.js:755 |
+| H-05 | عنصر قائمة | أسئلة | src/site.js:756 |
+| H-06 | رابط | … | src/site.js:872 |
+| H-07 | رابط | … | src/site.js:860 |
+| H-08 | رابط | واتساب (يفتح في نافذة جديدة) | src/site.js:867 |
+| H-09 | زر | … | src/site.js:869 |
+| H-10 | رابط | انتقال إلى المحتوى | src/site.js:875 |
+| H-11 | قائمة روابط | القائمة الرئيسية | src/site.js:870 |
+| H-12 | قسم/بطاقة | … | src/site.js:876 |
 
-## F: تذييل الموقع
+## F: تذييل الموقع (يظهر في: أسفل كل صفحات الموقع العام)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| F-01 | رابط | … | src/site.js:1022 |
-| F-02 | نص | محاماة واستشارات قانونية للأفراد والشركات… .<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب (المدينة) | src/site.js:1026 |
-| F-03 | عنوان | روابط | src/site.js:1030 |
-| F-04 | رابط | الصفحة الأولى | src/site.js:1032 |
-| F-05 | رابط | عن المكتب | src/site.js:1033 |
-| F-06 | رابط | متابعة طلب | src/site.js:1034 |
-| F-07 | رابط | للشركات | src/site.js:1035 |
-| F-08 | رابط | دخول الشركات | src/site.js:1036 · src/site.js:1060 |
-| F-09 | عنوان | السياسات | src/site.js:1041 |
-| F-10 | رابط | سياسة الخصوصية | src/site.js:1043 · src/site.js:1056 |
-| F-11 | رابط | شروط الاستخدام | src/site.js:1044 · src/site.js:1057 |
-| F-12 | رابط | حذف البيانات | src/site.js:1045 · src/site.js:1058 |
-| F-13 | عنوان | تواصلوا معنا | src/site.js:1049 |
-| F-14 | عنصر | (نص متغير) | src/site.js:1050 |
-| F-15 | سؤال قابل للفتح | روابط مهمة … | src/site.js:1053 |
-| F-16 | رابط | خيري | src/site.js:1037 · src/site.js:1059 |
-| F-20 | نص | © … . جميع الحقوق محفوظة.<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← الاسم القانوني للمكتب | src/site.js:1067 |
-| F-21 | قسم/بطاقة | روابط | src/site.js:1019 |
-| F-22 | عنصر | (نص متغير) | src/site.js:1027 |
-| F-23 | عنصر | (نص متغير) | src/site.js:1027 |
-| F-24 | قائمة روابط | روابط | src/site.js:1029 |
-| F-25 | قائمة روابط | السياسات | src/site.js:1040 |
-| F-26 | عنصر | (نص متغير) | src/site.js:1050 |
-| F-27 | عنصر | (نص متغير) | src/site.js:1050 |
-| F-28 | عنصر | (نص متغير) | src/site.js:1050 |
-| F-29 | عنصر | (نص متغير) | src/site.js:1050 |
-| F-30 | نص | للتواصل: … | src/site.js:1064 |
-| F-31 | رابط | دخول فريق العمل والمحامين | src/site.js:1068 · src/site.js:1061 |
-| F-32 | رابط | دخول الشركات | src/site.js:1068 |
-| F-33 | عنصر | (نص متغير) | src/site.js:1645 |
-| F-34 | عنصر | (نص متغير) | src/site.js:1645 |
-| F-35 | عنصر | (نص متغير) | src/site.js:1645 |
-| F-36 | عنصر | (نص متغير) | src/site.js:1645 |
-| F-37 | عنصر | (نص متغير) | src/site.js:1645 |
+| F-01 | رابط | … | src/site.js:1046 |
+| F-02 | نص | محاماة واستشارات قانونية للأفراد والشركات… .<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← عن المكتب (المدينة) | src/site.js:1050 |
+| F-03 | عنوان | روابط | src/site.js:1054 |
+| F-04 | رابط | الصفحة الأولى | src/site.js:1056 |
+| F-05 | رابط | عن المكتب | src/site.js:1057 |
+| F-06 | رابط | متابعة طلب | src/site.js:1058 |
+| F-07 | رابط | للشركات | src/site.js:1059 |
+| F-08 | رابط | دخول الشركات | src/site.js:1060 |
+| F-09 | عنوان | السياسات | src/site.js:1065 |
+| F-10 | رابط | سياسة الخصوصية | src/site.js:1067 |
+| F-11 | رابط | شروط الاستخدام | src/site.js:1068 |
+| F-12 | رابط | حذف البيانات | src/site.js:1069 |
+| F-13 | عنوان | تواصلوا معنا | src/site.js:1073 |
+| F-14 | عنصر | (نص متغير) | src/site.js:1074 |
+| F-16 | رابط | خيري | src/site.js:1061 |
+| F-20 | نص | © … . جميع الحقوق محفوظة.<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← الاسم القانوني للمكتب | src/site.js:1079 |
+| F-21 | قسم/بطاقة | روابط | src/site.js:1043 |
+| F-22 | عنصر | (نص متغير) | src/site.js:1051 |
+| F-23 | عنصر | (نص متغير) | src/site.js:1051 |
+| F-24 | قائمة روابط | روابط | src/site.js:1053 |
+| F-25 | قائمة روابط | السياسات | src/site.js:1064 |
+| F-26 | عنصر | (نص متغير) | src/site.js:1074 |
+| F-27 | عنصر | (نص متغير) | src/site.js:1074 |
+| F-28 | عنصر | (نص متغير) | src/site.js:1074 |
+| F-29 | عنصر | (نص متغير) | src/site.js:1074 |
+| F-31 | رابط | دخول فريق العمل والمحامين | src/site.js:1080 |
+| F-32 | رابط | دخول الشركات | src/site.js:1080 |
+| F-33 | عنصر | (نص متغير) | src/site.js:1681 |
+| F-34 | عنصر | (نص متغير) | src/site.js:1681 |
+| F-35 | عنصر | (نص متغير) | src/site.js:1681 |
+| F-36 | عنصر | (نص متغير) | src/site.js:1681 |
+| F-37 | عنصر | (نص متغير) | src/site.js:1681 |
 
 ## KH: إشعار «خيري» (مؤرشف) (`/khayri`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | KH-01 | نص | خدمة «خيري» لا تستقبل طلبات جديدة من الموقع حاليًا. | public/khayri-paused.html:21 |
-| KH-02 | رابط | واتساب «خيري» (يفتح في نافذة جديدة)<br>يُعدَّل من الإعدادات ← التكاملات ← رقم واتساب «خيري» | public/khayri-paused.html:22 |
-| KH-03 | رابط | متابعة طلب سابق | public/khayri-paused.html:23 |
-| KH-04 | نص | الخصوصية · الشروط | public/khayri-paused.html:24 |
+| KH-02 | عنصر | (نص متغير)<br>يُعدَّل من الإعدادات ← التكاملات ← رقم واتساب «خيري» | public/khayri-paused.html:23 |
+| KH-03 | رابط | متابعة طلب سابق | public/khayri-paused.html:24 |
+| KH-04 | نص | الخصوصية · الشروط | public/khayri-paused.html:25 |
 
 ## PV: سياسة الخصوصية (`/privacy`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| PV-01 | نص | تحويل الرسائل الصوتية إلى نص. … ، قد نستعين بخدمة تحويل الكلام إلى نص… | src/services/media.js:1020 |
-| PV-02 | نص | تحويل الرسائل الصوتية إلى نص. … ، نحوّل الرسالة الصوتية إلى نص على أج… | src/services/media.js:1024 |
-| PV-03 | نص | تحسين صور المستندات وقراءتها. … ، نقصّ حوافها ونعدّل إضاءتها لتصبح وا… | src/services/media.js:1032 |
-| PV-04 | نص | وقد نستعين في قراءة النص بأداة الذكاء الاصطناعي Claude من شركة Anthro… | src/services/media.js:1029 |
-| PV-05 | قسم/بطاقة | سياسة الخصوصية | public/privacy.html:17 |
-| PV-06 | قائمة روابط | مسار التصفح | public/privacy.html:19 |
-| PV-07 | رابط | … | public/privacy.html:21 |
-| PV-08 | عنوان | سياسة الخصوصية | public/privacy.html:25 |
-| PV-09 | عنوان | بالمختصر | public/privacy.html:27 |
-| PV-10 | رابط | … | public/privacy.html:33 |
-| PV-11 | رابط | … | public/privacy.html:39 |
-| PV-12 | سؤال قابل للفتح | محتويات الصفحة | public/privacy.html:50 |
-| PV-13 | رابط | من نحن | public/privacy.html:53 |
-| PV-14 | رابط | البيانات التي نجمعها | public/privacy.html:54 |
-| PV-15 | رابط | لماذا نستخدمها | public/privacy.html:55 |
-| PV-16 | رابط | أساس المعالجة | public/privacy.html:56 |
-| PV-17 | رابط | من يطّلع على بياناتك | public/privacy.html:57 |
-| PV-18 | رابط | التواصل عبر واتساب | public/privacy.html:58 |
-| PV-19 | رابط | الذكاء الاصطناعي | public/privacy.html:59 |
-| PV-20 | رابط | مدة الاحتفاظ | public/privacy.html:60 |
-| PV-21 | رابط | حقوقك | public/privacy.html:61 |
-| PV-22 | رابط | حماية البيانات | public/privacy.html:62 |
-| PV-23 | رابط | بيانات الأطفال | public/privacy.html:63 |
-| PV-24 | رابط | ملفات تعريف الارتباط | public/privacy.html:64 |
-| PV-25 | رابط | تعديل السياسة | public/privacy.html:65 |
-| PV-26 | رابط | التواصل معنا | public/privacy.html:66 |
-| PV-27 | قسم/بطاقة | 1. من نحن | public/privacy.html:71 |
-| PV-28 | عنوان | 1. من نحن | public/privacy.html:72 |
-| PV-29 | قسم/بطاقة | 2. البيانات التي نجمعها | public/privacy.html:88 |
-| PV-30 | عنوان | 2. البيانات التي نجمعها | public/privacy.html:89 |
-| PV-31 | عنوان | بيانات تقدّمها أنت | public/privacy.html:90 |
-| PV-32 | عنوان | بيانات تصلنا عند التواصل عبر واتساب | public/privacy.html:101 |
-| PV-33 | عنوان | بيانات تقنية محدودة | public/privacy.html:107 |
-| PV-34 | قسم/بطاقة | 3. لماذا نستخدم بياناتك | public/privacy.html:118 |
-| PV-35 | عنوان | 3. لماذا نستخدم بياناتك | public/privacy.html:119 |
-| PV-36 | قسم/بطاقة | 4. أساس المعالجة | public/privacy.html:130 |
-| PV-37 | عنوان | 4. أساس المعالجة | public/privacy.html:131 |
-| PV-38 | قسم/بطاقة | 5. من يطّلع على بياناتك | public/privacy.html:138 |
-| PV-39 | عنوان | 5. من يطّلع على بياناتك | public/privacy.html:139 |
-| PV-40 | قسم/بطاقة | 6. التواصل عبر واتساب | public/privacy.html:157 |
-| PV-41 | عنوان | 6. التواصل عبر واتساب | public/privacy.html:158 |
-| PV-42 | رابط | حذف البيانات | public/privacy.html:168 |
-| PV-43 | قسم/بطاقة | 7. الذكاء الاصطناعي | public/privacy.html:172 |
-| PV-44 | عنوان | 7. الذكاء الاصطناعي | public/privacy.html:173 |
-| PV-45 | قسم/بطاقة | 8. مدة الاحتفاظ بالبيانات | public/privacy.html:192 |
-| PV-46 | عنوان | 8. مدة الاحتفاظ بالبيانات | public/privacy.html:193 |
-| PV-47 | قسم/بطاقة | 9. حقوقك | public/privacy.html:205 |
-| PV-48 | عنوان | 9. حقوقك | public/privacy.html:206 |
-| PV-49 | رابط | خطوات حذف البيانات | public/privacy.html:211 |
-| PV-50 | قسم/بطاقة | 10. كيف نحمي بياناتك | public/privacy.html:218 |
-| PV-51 | عنوان | 10. كيف نحمي بياناتك | public/privacy.html:219 |
-| PV-52 | قسم/بطاقة | 11. بيانات الأطفال | public/privacy.html:229 |
-| PV-53 | عنوان | 11. بيانات الأطفال | public/privacy.html:230 |
-| PV-54 | قسم/بطاقة | 12. ملفات تعريف الارتباط والتخزين في المتصفح | public/privacy.html:237 |
-| PV-55 | عنوان | 12. ملفات تعريف الارتباط والتخزين في المتصفح | public/privacy.html:238 |
-| PV-56 | قسم/بطاقة | 13. تعديل هذه السياسة | public/privacy.html:251 |
-| PV-57 | عنوان | 13. تعديل هذه السياسة | public/privacy.html:252 |
-| PV-58 | قسم/بطاقة | 14. التواصل معنا | public/privacy.html:256 |
-| PV-59 | عنوان | 14. التواصل معنا | public/privacy.html:257 |
+| PV-01 | نص | تحويل الرسائل الصوتية إلى نص. … ، قد نستعين بخدمة تحويل الكلام إلى نص… | src/services/media.js:1086 |
+| PV-02 | نص | تحويل الرسائل الصوتية إلى نص. … ، نحوّل الرسالة الصوتية إلى نص على أج… | src/services/media.js:1090 |
+| PV-03 | نص | تحسين صور المستندات وقراءتها. … ، نقصّ حوافها ونعدّل إضاءتها لتصبح وا… | src/services/media.js:1098 |
+| PV-04 | نص | وقد نستعين في قراءة النص بأداة الذكاء الاصطناعي Claude من شركة Anthro… | src/services/media.js:1095 |
+| PV-05 | قسم/بطاقة | سياسة الخصوصية | public/privacy.html:19 |
+| PV-06 | قائمة روابط | مسار التصفح | public/privacy.html:21 |
+| PV-07 | رابط | … | public/privacy.html:23 |
+| PV-08 | عنوان | سياسة الخصوصية | public/privacy.html:27 |
+| PV-09 | عنوان | بالمختصر | public/privacy.html:29 |
+| PV-10 | رابط | … | public/privacy.html:35 |
+| PV-11 | رابط | … | public/privacy.html:41 |
+| PV-12 | سؤال قابل للفتح | محتويات الصفحة | public/privacy.html:52 |
+| PV-13 | رابط | من نحن | public/privacy.html:55 |
+| PV-14 | رابط | البيانات التي نجمعها | public/privacy.html:56 |
+| PV-15 | رابط | لماذا نستخدمها | public/privacy.html:57 |
+| PV-16 | رابط | أساس المعالجة | public/privacy.html:58 |
+| PV-17 | رابط | من يطّلع على بياناتكم<br>الصيغ: أفراد وشركات «من يطّلع على بياناتكم» · خيري «من يطّلع على بياناتك» | public/privacy.html:59 |
+| PV-18 | رابط | التواصل عبر واتساب | public/privacy.html:60 |
+| PV-19 | رابط | الذكاء الاصطناعي | public/privacy.html:61 |
+| PV-20 | رابط | مدة الاحتفاظ | public/privacy.html:62 |
+| PV-21 | رابط | حقوقكم<br>الصيغ: أفراد وشركات «حقوقكم» · خيري «حقوقك» | public/privacy.html:63 |
+| PV-22 | رابط | حماية البيانات | public/privacy.html:64 |
+| PV-23 | رابط | بيانات الأطفال | public/privacy.html:65 |
+| PV-24 | رابط | ملفات تعريف الارتباط | public/privacy.html:66 |
+| PV-25 | رابط | تعديل السياسة | public/privacy.html:67 |
+| PV-26 | رابط | التواصل معنا | public/privacy.html:68 |
+| PV-27 | قسم/بطاقة | 1. من نحن | public/privacy.html:73 |
+| PV-28 | عنوان | 1. من نحن | public/privacy.html:74 |
+| PV-29 | قسم/بطاقة | 2. البيانات التي نجمعها | public/privacy.html:97 |
+| PV-30 | عنوان | 2. البيانات التي نجمعها | public/privacy.html:98 |
+| PV-31 | عنوان | بيانات تقدّمونها<br>الصيغ: أفراد وشركات «بيانات تقدّمونها» · خيري «بيانات تقدّمها أنت» | public/privacy.html:99 |
+| PV-32 | عنوان | بيانات تصلنا عند التواصل عبر واتساب | public/privacy.html:116 |
+| PV-33 | عنوان | بيانات تقنية محدودة | public/privacy.html:126 |
+| PV-34 | قسم/بطاقة | 3. لماذا نستخدم بياناتكم<br>الصيغ: أفراد وشركات «3. لماذا نستخدم بياناتكم» · خيري «3. لماذا نستخدم بياناتك» | public/privacy.html:144 |
+| PV-35 | عنوان | 3. لماذا نستخدم بياناتكم<br>الصيغ: أفراد وشركات «3. لماذا نستخدم بياناتكم» · خيري «3. لماذا نستخدم بياناتك» | public/privacy.html:145 |
+| PV-36 | قسم/بطاقة | 4. أساس المعالجة | public/privacy.html:163 |
+| PV-37 | عنوان | 4. أساس المعالجة | public/privacy.html:164 |
+| PV-38 | قسم/بطاقة | 5. من يطّلع على بياناتكم<br>الصيغ: أفراد وشركات «5. من يطّلع على بياناتكم» · خيري «5. من يطّلع على بياناتك» | public/privacy.html:174 |
+| PV-39 | عنوان | 5. من يطّلع على بياناتكم<br>الصيغ: أفراد وشركات «5. من يطّلع على بياناتكم» · خيري «5. من يطّلع على بياناتك» | public/privacy.html:175 |
+| PV-40 | قسم/بطاقة | 6. التواصل عبر واتساب | public/privacy.html:208 |
+| PV-41 | عنوان | 6. التواصل عبر واتساب | public/privacy.html:209 |
+| PV-42 | رابط | حذف البيانات | public/privacy.html:223 · public/privacy.html:225 |
+| PV-43 | قسم/بطاقة | 7. الذكاء الاصطناعي | public/privacy.html:229 |
+| PV-44 | عنوان | 7. الذكاء الاصطناعي | public/privacy.html:230 |
+| PV-45 | قسم/بطاقة | 8. مدة الاحتفاظ بالبيانات | public/privacy.html:249 |
+| PV-46 | عنوان | 8. مدة الاحتفاظ بالبيانات | public/privacy.html:250 |
+| PV-47 | قسم/بطاقة | 9. حقوقكم<br>الصيغ: أفراد وشركات «9. حقوقكم» · خيري «9. حقوقك» | public/privacy.html:270 |
+| PV-48 | عنوان | 9. حقوقكم<br>الصيغ: أفراد وشركات «9. حقوقكم» · خيري «9. حقوقك» | public/privacy.html:271 |
+| PV-49 | رابط | خطوات حذف البيانات | public/privacy.html:276 · public/privacy.html:285 |
+| PV-50 | قسم/بطاقة | 10. كيف نحمي بياناتكم<br>الصيغ: أفراد وشركات «10. كيف نحمي بياناتكم» · خيري «10. كيف نحمي بياناتك» | public/privacy.html:292 |
+| PV-51 | عنوان | 10. كيف نحمي بياناتكم<br>الصيغ: أفراد وشركات «10. كيف نحمي بياناتكم» · خيري «10. كيف نحمي بياناتك» | public/privacy.html:293 |
+| PV-52 | قسم/بطاقة | 11. بيانات الأطفال | public/privacy.html:303 |
+| PV-53 | عنوان | 11. بيانات الأطفال | public/privacy.html:304 |
+| PV-54 | قسم/بطاقة | 12. ملفات تعريف الارتباط والتخزين في المتصفح | public/privacy.html:314 |
+| PV-55 | عنوان | 12. ملفات تعريف الارتباط والتخزين في المتصفح | public/privacy.html:315 |
+| PV-56 | قسم/بطاقة | 13. تعديل هذه السياسة | public/privacy.html:328 |
+| PV-57 | عنوان | 13. تعديل هذه السياسة | public/privacy.html:329 |
+| PV-58 | قسم/بطاقة | 14. التواصل معنا | public/privacy.html:333 |
+| PV-59 | عنوان | 14. التواصل معنا | public/privacy.html:334 |
 
 ## TM: شروط الاستخدام (`/terms`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| TM-01 | قسم/بطاقة | شروط استخدام الخدمة | public/terms.html:17 |
-| TM-02 | قائمة روابط | مسار التصفح | public/terms.html:19 |
-| TM-03 | رابط | … | public/terms.html:21 |
-| TM-04 | عنوان | شروط استخدام الخدمة | public/terms.html:25 |
-| TM-05 | عنوان | بالمختصر | public/terms.html:27 |
-| TM-06 | سؤال قابل للفتح | محتويات الصفحة | public/terms.html:48 |
-| TM-07 | رابط | القبول بالشروط | public/terms.html:51 |
-| TM-08 | رابط | طبيعة الخدمة | public/terms.html:52 |
-| TM-09 | رابط | الاستحقاق وقبول الطلبات | public/terms.html:53 |
-| TM-10 | رابط | الرسوم والمقابل | public/terms.html:54 |
-| TM-11 | رابط | لا ضمان للنتائج | public/terms.html:55 |
-| TM-12 | رابط | العلاقة مع المحامي | public/terms.html:56 |
-| TM-13 | رابط | التزاماتك | public/terms.html:57 |
-| TM-14 | رابط | المواعيد والحالات العاجلة | public/terms.html:58 |
-| TM-15 | رابط | محتوى الموقع | public/terms.html:59 |
-| TM-16 | رابط | إيقاف الخدمة | public/terms.html:60 |
-| TM-17 | رابط | القانون الواجب التطبيق | public/terms.html:61 |
-| TM-18 | رابط | الخدمات بأتعاب للأفراد والشركات | public/terms.html:62 |
-| TM-19 | رابط | تعديل الشروط والتواصل | public/terms.html:63 |
-| TM-20 | قسم/بطاقة | 1. القبول بالشروط | public/terms.html:68 |
-| TM-21 | عنوان | 1. القبول بالشروط | public/terms.html:69 |
-| TM-22 | قسم/بطاقة | 2. طبيعة الخدمة | public/terms.html:76 |
-| TM-23 | عنوان | 2. طبيعة الخدمة | public/terms.html:77 |
-| TM-24 | قسم/بطاقة | 3. الاستحقاق وقبول الطلبات | public/terms.html:89 |
-| TM-25 | عنوان | 3. الاستحقاق وقبول الطلبات | public/terms.html:90 |
-| TM-26 | قسم/بطاقة | 4. الرسوم والمقابل | public/terms.html:99 |
-| TM-27 | عنوان | 4. الرسوم والمقابل | public/terms.html:100 |
-| TM-28 | قسم/بطاقة | 5. لا ضمان للنتائج | public/terms.html:114 |
-| TM-29 | عنوان | 5. لا ضمان للنتائج | public/terms.html:115 |
-| TM-30 | قسم/بطاقة | 6. حدود العلاقة مع المحامي | public/terms.html:122 |
-| TM-31 | عنوان | 6. حدود العلاقة مع المحامي | public/terms.html:123 |
-| TM-32 | قسم/بطاقة | 7. التزاماتك | public/terms.html:135 |
-| TM-33 | عنوان | 7. التزاماتك | public/terms.html:136 |
-| TM-34 | قسم/بطاقة | 8. المواعيد القانونية والحالات العاجلة | public/terms.html:146 |
-| TM-35 | عنوان | 8. المواعيد القانونية والحالات العاجلة | public/terms.html:147 |
-| TM-36 | قسم/بطاقة | 9. محتوى الموقع | public/terms.html:162 |
-| TM-37 | عنوان | 9. محتوى الموقع | public/terms.html:163 |
-| TM-38 | قسم/بطاقة | 10. إيقاف الخدمة | public/terms.html:170 |
-| TM-39 | عنوان | 10. إيقاف الخدمة | public/terms.html:171 |
-| TM-40 | قسم/بطاقة | 11. القانون الواجب التطبيق | public/terms.html:178 |
-| TM-41 | عنوان | 11. القانون الواجب التطبيق | public/terms.html:179 |
-| TM-42 | قسم/بطاقة | 12. الخدمات بأتعاب للأفراد والشركات | public/terms.html:184 |
-| TM-43 | عنوان | 12. الخدمات بأتعاب للأفراد والشركات | public/terms.html:185 |
-| TM-44 | قسم/بطاقة | 13. تعديل الشروط والتواصل | public/terms.html:195 |
-| TM-45 | عنوان | 13. تعديل الشروط والتواصل | public/terms.html:196 |
+| TM-01 | قسم/بطاقة | شروط استخدام الخدمة | public/terms.html:19 |
+| TM-02 | قائمة روابط | مسار التصفح | public/terms.html:21 |
+| TM-03 | رابط | … | public/terms.html:23 |
+| TM-04 | عنوان | شروط استخدام الخدمة | public/terms.html:27 |
+| TM-05 | عنوان | بالمختصر | public/terms.html:29 |
+| TM-06 | سؤال قابل للفتح | محتويات الصفحة | public/terms.html:50 |
+| TM-07 | رابط | القبول بالشروط | public/terms.html:53 |
+| TM-08 | رابط | طبيعة الخدمة | public/terms.html:54 |
+| TM-09 | رابط | قبول الطلبات<br>الصيغ: أفراد وشركات «قبول الطلبات» · خيري «الاستحقاق وقبول الطلبات» | public/terms.html:55 |
+| TM-10 | رابط | الأتعاب والرسوم<br>الصيغ: أفراد وشركات «الأتعاب والرسوم» · خيري «الرسوم والمقابل» | public/terms.html:56 |
+| TM-11 | رابط | لا ضمان للنتائج | public/terms.html:57 |
+| TM-12 | رابط | العلاقة مع المحامي | public/terms.html:58 |
+| TM-13 | رابط | التزاماتكم<br>الصيغ: أفراد وشركات «التزاماتكم» · خيري «التزاماتك» | public/terms.html:59 |
+| TM-14 | رابط | المواعيد والحالات العاجلة | public/terms.html:60 |
+| TM-15 | رابط | محتوى الموقع | public/terms.html:61 |
+| TM-16 | رابط | إيقاف الخدمة | public/terms.html:62 |
+| TM-17 | رابط | القانون الواجب التطبيق | public/terms.html:63 |
+| TM-18 | رابط | الخدمات بأتعاب للأفراد والشركات | public/terms.html:64 |
+| TM-19 | رابط | تعديل الشروط والتواصل | public/terms.html:65 |
+| TM-20 | قسم/بطاقة | 1. القبول بالشروط | public/terms.html:70 |
+| TM-21 | عنوان | 1. القبول بالشروط | public/terms.html:71 |
+| TM-22 | قسم/بطاقة | 2. طبيعة الخدمة | public/terms.html:81 |
+| TM-23 | عنوان | 2. طبيعة الخدمة | public/terms.html:82 |
+| TM-24 | قسم/بطاقة | 3. قبول الطلبات<br>الصيغ: أفراد وشركات «3. قبول الطلبات» · خيري «3. الاستحقاق وقبول الطلبات» | public/terms.html:99 |
+| TM-25 | عنوان | 3. قبول الطلبات<br>الصيغ: أفراد وشركات «3. قبول الطلبات» · خيري «3. الاستحقاق وقبول الطلبات» | public/terms.html:100 |
+| TM-26 | قسم/بطاقة | 4. الأتعاب والرسوم<br>الصيغ: أفراد وشركات «4. الأتعاب والرسوم» · خيري «4. الرسوم والمقابل» | public/terms.html:113 |
+| TM-27 | عنوان | 4. الأتعاب والرسوم<br>الصيغ: أفراد وشركات «4. الأتعاب والرسوم» · خيري «4. الرسوم والمقابل» | public/terms.html:114 |
+| TM-28 | قسم/بطاقة | 5. لا ضمان للنتائج | public/terms.html:138 |
+| TM-29 | عنوان | 5. لا ضمان للنتائج | public/terms.html:139 |
+| TM-30 | قسم/بطاقة | 6. حدود العلاقة مع المحامي | public/terms.html:149 |
+| TM-31 | عنوان | 6. حدود العلاقة مع المحامي | public/terms.html:150 |
+| TM-32 | قسم/بطاقة | 7. التزاماتكم<br>الصيغ: أفراد وشركات «7. التزاماتكم» · خيري «7. التزاماتك» | public/terms.html:167 |
+| TM-33 | عنوان | 7. التزاماتكم<br>الصيغ: أفراد وشركات «7. التزاماتكم» · خيري «7. التزاماتك» | public/terms.html:168 |
+| TM-34 | قسم/بطاقة | 8. المواعيد القانونية والحالات العاجلة | public/terms.html:185 |
+| TM-35 | عنوان | 8. المواعيد القانونية والحالات العاجلة | public/terms.html:186 |
+| TM-36 | قسم/بطاقة | 9. محتوى الموقع | public/terms.html:208 |
+| TM-37 | عنوان | 9. محتوى الموقع | public/terms.html:209 |
+| TM-38 | قسم/بطاقة | 10. إيقاف الخدمة | public/terms.html:219 |
+| TM-39 | عنوان | 10. إيقاف الخدمة | public/terms.html:220 |
+| TM-40 | قسم/بطاقة | 11. القانون الواجب التطبيق | public/terms.html:230 |
+| TM-41 | عنوان | 11. القانون الواجب التطبيق | public/terms.html:231 |
+| TM-42 | قسم/بطاقة | 12. الخدمات بأتعاب للأفراد والشركات | public/terms.html:236 |
+| TM-43 | عنوان | 12. الخدمات بأتعاب للأفراد والشركات | public/terms.html:237 |
+| TM-44 | قسم/بطاقة | 13. تعديل الشروط والتواصل | public/terms.html:247 |
+| TM-45 | عنوان | 13. تعديل الشروط والتواصل | public/terms.html:248 |
 
 ## DD: حذف البيانات (`/data-deletion`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| DD-01 | نص | ويشمل الحذف النسخ المحسّنة من صور مستندات… والنصوص المستخرجة منها ونص… | src/services/media.js:1039 |
-| DD-02 | قسم/بطاقة | طلب حذف بياناتك | public/data-deletion.html:17 |
+| DD-01 | نص | ويشمل الحذف النسخ المحسّنة من صور مستندات… والنصوص المستخرجة منها ونص… | src/services/media.js:1105 |
+| DD-02 | قسم/بطاقة | طلب حذف بياناتكم<br>الصيغ: أفراد وشركات «طلب حذف بياناتكم» · خيري «طلب حذف بياناتك» | public/data-deletion.html:17 |
 | DD-03 | قائمة روابط | مسار التصفح | public/data-deletion.html:19 |
 | DD-04 | رابط | … | public/data-deletion.html:21 |
 | DD-05 | رابط | سياسة الخصوصية | public/data-deletion.html:22 |
-| DD-06 | عنوان | طلب حذف بياناتك | public/data-deletion.html:26 |
+| DD-06 | عنوان | طلب حذف بياناتكم<br>الصيغ: أفراد وشركات «طلب حذف بياناتكم» · خيري «طلب حذف بياناتك» | public/data-deletion.html:26 |
 | DD-07 | عنوان | بالمختصر | public/data-deletion.html:28 |
 | DD-08 | رابط | … | public/data-deletion.html:31 |
 | DD-09 | رابط | ابعتيلنا على واتساب | public/data-deletion.html:31 |
 | DD-10 | رابط | … | public/data-deletion.html:34 |
 | DD-11 | رابط | راسلونا على واتساب | public/data-deletion.html:34 |
 | DD-12 | سؤال قابل للفتح | محتويات الصفحة | public/data-deletion.html:50 |
-| DD-13 | رابط | كيف تطلب الحذف | public/data-deletion.html:53 |
-| DD-14 | رابط | ما الذي تذكره في طلبك | public/data-deletion.html:54 |
+| DD-13 | رابط | كيف تطلبون الحذف<br>الصيغ: أفراد وشركات «كيف تطلبون الحذف» · خيري «كيف تطلب الحذف» | public/data-deletion.html:53 |
+| DD-14 | رابط | ما الذي تذكرونه في طلبكم<br>الصيغ: أفراد وشركات «ما الذي تذكرونه في طلبكم» · خيري «ما الذي تذكره في طلبك» | public/data-deletion.html:54 |
 | DD-15 | رابط | ماذا يحدث بعد الطلب | public/data-deletion.html:55 |
 | DD-16 | رابط | ما الذي يُحذف | public/data-deletion.html:56 |
 | DD-17 | رابط | ما قد نحتفظ به | public/data-deletion.html:57 |
 | DD-18 | رابط | محادثات واتساب | public/data-deletion.html:58 |
-| DD-19 | قسم/بطاقة | 1. كيف تطلب الحذف | public/data-deletion.html:63 |
-| DD-20 | عنوان | 1. كيف تطلب الحذف | public/data-deletion.html:64 |
-| DD-21 | رابط | ابعتي الطلب على واتساب أرسلوا الطلب على واتساب (يفتح في نافذة جديدة) | public/data-deletion.html:73 |
+| DD-19 | قسم/بطاقة | 1. كيف تطلبون الحذف<br>الصيغ: أفراد وشركات «1. كيف تطلبون الحذف» · خيري «1. كيف تطلب الحذف» | public/data-deletion.html:63 |
+| DD-20 | عنوان | 1. كيف تطلبون الحذف<br>الصيغ: أفراد وشركات «1. كيف تطلبون الحذف» · خيري «1. كيف تطلب الحذف» | public/data-deletion.html:64 |
+| DD-21 | رابط | أرسلوا الطلب على واتساب (يفتح في نافذة جديدة)<br>الصيغ: أفراد وشركات «أرسلوا الطلب على واتساب (يفتح في نافذة جديدة)» · خيري «ابعتي الطلب على واتساب (يفتح في نافذة جديدة)» | public/data-deletion.html:73 |
 | DD-22 | رابط | … | public/data-deletion.html:82 |
 | DD-23 | رابط | … | public/data-deletion.html:91 |
-| DD-24 | قسم/بطاقة | 2. ما الذي تذكره في طلبك | public/data-deletion.html:107 |
-| DD-25 | عنوان | 2. ما الذي تذكره في طلبك | public/data-deletion.html:108 |
+| DD-24 | قسم/بطاقة | 2. ما الذي تذكرونه في طلبكم<br>الصيغ: أفراد وشركات «2. ما الذي تذكرونه في طلبكم» · خيري «2. ما الذي تذكره في طلبك» | public/data-deletion.html:107 |
+| DD-25 | عنوان | 2. ما الذي تذكرونه في طلبكم<br>الصيغ: أفراد وشركات «2. ما الذي تذكرونه في طلبكم» · خيري «2. ما الذي تذكره في طلبك» | public/data-deletion.html:108 |
 | DD-26 | قسم/بطاقة | 3. ماذا يحدث بعد الطلب | public/data-deletion.html:120 |
 | DD-27 | عنوان | 3. ماذا يحدث بعد الطلب | public/data-deletion.html:121 |
-| DD-28 | قسم/بطاقة | 4. ما الذي يُحذف | public/data-deletion.html:134 |
-| DD-29 | عنوان | 4. ما الذي يُحذف | public/data-deletion.html:135 |
-| DD-30 | قسم/بطاقة | 5. ما قد نحتفظ به | public/data-deletion.html:147 |
-| DD-31 | عنوان | 5. ما قد نحتفظ به | public/data-deletion.html:148 |
-| DD-32 | قسم/بطاقة | 6. محادثات واتساب | public/data-deletion.html:157 |
-| DD-33 | عنوان | 6. محادثات واتساب | public/data-deletion.html:158 |
+| DD-28 | قسم/بطاقة | 4. ما الذي يُحذف | public/data-deletion.html:137 |
+| DD-29 | عنوان | 4. ما الذي يُحذف | public/data-deletion.html:138 |
+| DD-30 | قسم/بطاقة | 5. ما قد نحتفظ به | public/data-deletion.html:150 |
+| DD-31 | عنوان | 5. ما قد نحتفظ به | public/data-deletion.html:151 |
+| DD-32 | قسم/بطاقة | 6. محادثات واتساب | public/data-deletion.html:160 |
+| DD-33 | عنوان | 6. محادثات واتساب | public/data-deletion.html:161 |
 
-## NF: صفحة غير موجودة أو بلا اتصال
+## NF: صفحة غير موجودة أو بلا اتصال (يظهر في: صفحة «غير موجودة» وصفحة انقطاع الاتصال)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | NF-01 | قسم/بطاقة | … | public/404.html:18 |
 | NF-02 | قائمة روابط | مسار التصفح | public/404.html:20 |
@@ -509,7 +513,7 @@
 
 ## SU: معالج الإعداد الأول (`/setup`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | SU-01 | رابط | تخطَّ إلى المحتوى | public/setup.html:19 |
 | SU-02 | قسم/بطاقة | الإعداد الأول للمنصة | public/setup.html:21 |
@@ -534,7 +538,7 @@
 | SU-21 | زر | الدخول إلى المنصة | public/assets/js/public/setup.js:482 |
 | SU-22 | تنبيه | تعذر تحميل معالج الإعداد | public/assets/js/public/setup.js:495 |
 | SU-23 | زر | إعادة المحاولة | public/assets/js/public/setup.js:495 |
-| SU-24 | عنوان | إعداد منصة الدعم القانوني | public/assets/js/public/setup.js:507 |
+| SU-24 | عنوان | إعداد منصة المكتب | public/assets/js/public/setup.js:507 |
 | SU-25 | قائمة روابط | خطوات الإعداد | public/assets/js/public/setup.js:510 |
 | SU-26 | تنبيه | (نص متغير) | public/assets/js/public/setup.js:530 |
 | SU-27 | رسالة | tag | public/assets/js/public/setup.js:31 |
@@ -558,440 +562,449 @@
 
 ## I: نموذج الطلب (`/intake`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| I-01 | نص | اخترتم: … | src/site.js:2007 |
-| I-02 | نص | (نص متغير) | public/assets/js/public/intake.js:711 |
-| I-03 | رابط | رجوع … | src/site.js:2006 |
-| I-11 | سؤال | من المتوفى؟ | public/assets/js/public/entry-tree.js:271 |
-| I-12 | سؤال | هل صدر إعلام الوراثة؟ | public/assets/js/public/entry-tree.js:271 |
-| I-13 | سؤال | معاش مَن؟ | public/assets/js/public/entry-tree.js:271 |
-| I-14 | سؤال | هل يُصرف المعاش الآن؟ | public/assets/js/public/entry-tree.js:271 |
-| I-15 | سؤال | أين أموال القاصرين؟ | public/assets/js/public/entry-tree.js:272 |
-| I-16 | سؤال | النفقة: ما الوضع الآن؟ | public/assets/js/public/entry-tree.js:272 |
-| I-17 | سؤال | ما المشكلة؟ | public/assets/js/public/entry-tree.js:272 |
-| I-18 | سؤال | كم عدد الأبناء أقل من 18 سنة؟ | public/assets/js/public/entry-tree.js:272 |
-| I-19 | سؤال | هل السكن إيجار أم ملك؟ | public/assets/js/public/entry-tree.js:272 |
-| I-20 | سؤال | هل هناك مطالبة بإخلاء السكن؟ | public/assets/js/public/entry-tree.js:273 |
-| I-21 | سؤال | ما المستند المطلوب؟ | public/assets/js/public/entry-tree.js:273 |
-| I-22 | سؤال | هل هناك جلسة أو موعد قريب؟ | public/assets/js/public/entry-tree.js:273 |
-| I-23 | سؤال | متى صدر الحكم؟ | public/assets/js/public/entry-tree.js:274 |
-| I-24 | سؤال | النفقة لمن؟ | public/assets/js/public/entry-tree.js:274 |
-| I-25 | سؤال | أنتم المالك أم المستأجر؟ | public/assets/js/public/entry-tree.js:274 |
-| I-30 | عنصر | اكتبوا الموضوع باختصار | public/assets/js/public/intake.js:1048 |
-| I-31 | حقل | اكتبوا هنا ما حدث، وما الذي تحتاجونه… | public/assets/js/public/intake.js:1072 |
-| I-32 | زر | (نص متغير) | public/assets/js/public/intake.js:1120 |
-| I-33 | زر | تفضّلون أن نتصل بكم؟ | public/assets/js/public/intake.js:1165 |
-| I-34 | زر | (نص متغير) | public/assets/js/public/intake.js:1108 |
-| I-40 | عنصر | هل لديكم مستندات؟ | public/assets/js/public/intake.js:952 |
-| I-41 | زر | التالي | public/assets/js/public/intake.js:955 |
-| I-42 | نص | (نص متغير) | public/assets/js/public/intake.js:954 |
-| I-43 | زر | ليس الآن | public/assets/js/public/intake.js:956 |
-| I-50 | عنصر | (نص متغير) | public/assets/js/public/intake.js:1305 |
-| I-51 | حقل | رقم الموبايل | public/assets/js/public/intake.js:1319 |
-| I-52 | حقل | الاسم كما تحبون أن نناديكم | public/assets/js/public/intake.js:1462 |
-| I-53 | حقل | (نص متغير) | public/assets/js/public/intake.js:1454 |
-| I-54 | نص | اعرفوا المزيد | public/assets/js/public/intake.js:1473 |
-| I-55 | زر | طلب مكالمة | public/assets/js/public/intake.js:1474 |
-| I-56 | حقل | متى يناسبكم الاتصال؟ | public/assets/js/public/intake.js:1417 |
-| I-57 | حقل | نوع الطلب (اختياري)<br>يظهر النص نفسه أيضًا في: T-02، S-12، W-01 (الزر الأول)، PTH-01، T-40، S-13، T-53، S-14 | public/assets/js/public/intake.js:1448 |
-| I-58 | حقل | رقم من خارج مصر؟ | public/assets/js/public/intake.js:1324 |
-| I-60 | عنوان | وصلنا طلبكم | public/assets/js/public/intake.js:1732 |
-| I-61 | نص | رقم الطلب: | public/assets/js/public/intake.js:1746 |
-| I-62 | نص | سنتصل بكم {eta}{when} | public/assets/js/public/intake.js:1737 |
-| I-63 | رابط | فتح صفحة طلبكم | public/assets/js/public/intake.js:1750 |
-| I-64 | قسم/بطاقة | المتابعة على واتساب | public/assets/js/public/intake.js:1751 |
-| I-65 | نص | لا نطلب أي مبلغ إلا من صفحة طلبكم وبعد موافقتكم. | public/assets/js/public/intake.js:1752 |
-| I-66 | نص | عن المكتب | public/assets/js/public/intake.js:1754 |
-| I-67 | نص | قد يكون في موضوعكم ميعاد قريب، لذلك سنتصل بكم في أقرب وقت خلال مواعيد… | public/assets/js/public/intake.js:1734 |
-| I-68 | رابط | أو اتصلوا بنا الآن: | public/assets/js/public/intake.js:1748 |
-| I-80 | خيار | الزوج أو الزوجة | public/assets/js/public/entry-tree.js:352 |
-| I-81 | خيار | أحد الوالدين | public/assets/js/public/entry-tree.js:352 |
-| I-82 | خيار | ابن أو ابنة | public/assets/js/public/entry-tree.js:352 |
-| I-83 | خيار | شخص آخر | public/assets/js/public/entry-tree.js:353 |
-| I-84 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:353 |
-| I-85 | خيار | نعم، صدر | public/assets/js/public/entry-tree.js:353 |
-| I-86 | خيار | ليس بعد | public/assets/js/public/entry-tree.js:354 |
-| I-87 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:354 |
-| I-88 | خيار | معاش الزوج أو الزوجة | public/assets/js/public/entry-tree.js:354 |
-| I-89 | خيار | معاش أحد الوالدين | public/assets/js/public/entry-tree.js:355 |
-| I-90 | خيار | تكافل وكرامة | public/assets/js/public/entry-tree.js:355 |
-| I-91 | خيار | معاشي أو غير ذلك | public/assets/js/public/entry-tree.js:355 |
-| I-92 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:355 |
-| I-93 | خيار | لم يُصرف بعد | public/assets/js/public/entry-tree.js:356 |
-| I-94 | خيار | كان يُصرف وتوقف | public/assets/js/public/entry-tree.js:356 |
-| I-95 | خيار | يُصرف بقيمة أقل | public/assets/js/public/entry-tree.js:356 |
-| I-96 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:356 |
-| I-97 | خيار | في البنك | public/assets/js/public/entry-tree.js:357 |
-| I-98 | خيار | في البريد | public/assets/js/public/entry-tree.js:357 |
-| I-99 | خيار | تركة لم تُقسم | public/assets/js/public/entry-tree.js:357 |
-| I-100 | خيار | أخرى | public/assets/js/public/entry-tree.js:358 |
-| I-101 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:358 |
-| I-102 | خيار | الأب متوفى | public/assets/js/public/entry-tree.js:358 |
-| I-103 | خيار | الوالدان منفصلان | public/assets/js/public/entry-tree.js:359 |
-| I-104 | خيار | الأب لا ينفق | public/assets/js/public/entry-tree.js:359 |
-| I-105 | خيار | غير ذلك | public/assets/js/public/entry-tree.js:359 |
-| I-106 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:360 |
-| I-107 | خيار | نزاع على الحضانة | public/assets/js/public/entry-tree.js:360 |
-| I-108 | خيار | لا أرى أبنائي | public/assets/js/public/entry-tree.js:360 |
-| I-109 | خيار | مشكلة في مواعيد الرؤية | public/assets/js/public/entry-tree.js:361 |
-| I-110 | خيار | أخرى | public/assets/js/public/entry-tree.js:361 |
-| I-111 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:361 |
-| I-112 | خيار | لا يوجد | public/assets/js/public/entry-tree.js:362 |
-| I-113 | خيار | 1 | public/assets/js/public/entry-tree.js:362 |
-| I-114 | خيار | 2 | public/assets/js/public/entry-tree.js:362 |
-| I-115 | خيار | 3 | public/assets/js/public/entry-tree.js:362 |
-| I-116 | خيار | 4 أو أكثر | public/assets/js/public/entry-tree.js:362 |
-| I-117 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:363 |
-| I-118 | خيار | إيجار قديم | public/assets/js/public/entry-tree.js:363 |
-| I-119 | خيار | إيجار جديد | public/assets/js/public/entry-tree.js:363 |
-| I-120 | خيار | ملك | public/assets/js/public/entry-tree.js:364 |
-| I-121 | خيار | لدى الأسرة | public/assets/js/public/entry-tree.js:364 |
-| I-122 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:364 |
-| I-123 | خيار | نعم | public/assets/js/public/entry-tree.js:364 |
-| I-124 | خيار | لا | public/assets/js/public/entry-tree.js:365 |
-| I-125 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:365 |
-| I-126 | خيار | شهادة وفاة | public/assets/js/public/entry-tree.js:365 |
-| I-127 | خيار | قيد عائلي | public/assets/js/public/entry-tree.js:365 |
-| I-128 | خيار | بطاقة أو شهادة ميلاد | public/assets/js/public/entry-tree.js:366 |
-| I-129 | خيار | مستند آخر | public/assets/js/public/entry-tree.js:366 |
-| I-130 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:366 |
-| I-131 | خيار | خلال أسبوعين | public/assets/js/public/entry-tree.js:366 |
-| I-132 | خيار | بعد أكثر من أسبوعين | public/assets/js/public/entry-tree.js:367 |
-| I-133 | خيار | لا يوجد موعد بعد | public/assets/js/public/entry-tree.js:367 |
-| I-134 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:367 |
-| I-135 | خيار | خلال آخر أسبوعين | public/assets/js/public/entry-tree.js:367 |
-| I-136 | خيار | من أسبوعين إلى 40 يومًا | public/assets/js/public/entry-tree.js:368 |
-| I-137 | خيار | منذ أكثر من 40 يومًا | public/assets/js/public/entry-tree.js:368 |
-| I-138 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:368 |
-| I-139 | خيار | للزوجة | public/assets/js/public/entry-tree.js:369 |
-| I-140 | خيار | للأبناء | public/assets/js/public/entry-tree.js:369 |
-| I-141 | خيار | للزوجة والأبناء | public/assets/js/public/entry-tree.js:369 |
-| I-142 | خيار | مطلوب منّا دفعها | public/assets/js/public/entry-tree.js:370 |
-| I-143 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:370 |
-| I-144 | خيار | المالك | public/assets/js/public/entry-tree.js:370 |
-| I-145 | خيار | المستأجر | public/assets/js/public/entry-tree.js:371 |
-| I-146 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:371 |
-| I-150 | زر | (نص متغير) | public/assets/js/public/intake.js:636 |
-| I-151 | زر | (نص متغير) | public/assets/js/public/intake.js:736 |
-| I-152 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:944 |
-| I-153 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:971 |
-| I-154 | زر | حذفها | public/assets/js/public/intake.js:1081 |
-| I-155 | زر | (نص متغير) | public/assets/js/public/intake.js:1097 |
-| I-156 | زر | (نص متغير) | public/assets/js/public/intake.js:1131 |
-| I-157 | زر | (نص متغير) | public/assets/js/public/intake.js:1153 |
-| I-158 | رابط | (نص متغير) | public/assets/js/public/intake.js:1184 |
-| I-159 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1244 |
-| I-160 | زر | تعديل الموضوع | public/assets/js/public/intake.js:1303 |
-| I-161 | زر | الاستماع إلى الرقم | public/assets/js/public/intake.js:1335 |
-| I-162 | رابط | فتح واتساب | public/assets/js/public/intake.js:1376 |
-| I-163 | زر | لا تذكرون الرقم؟ | public/assets/js/public/intake.js:1387 |
-| I-164 | زر | (نص متغير) | public/assets/js/public/intake.js:1410 |
-| I-165 | زر | (نص متغير) | public/assets/js/public/intake.js:1442 |
-| I-166 | حقل | اسم الشركة (اختياري) | public/assets/js/public/intake.js:1455 |
-| I-167 | حقل | الاسم (اختياري) | public/assets/js/public/intake.js:1463 |
-| I-168 | زر | إعادة المحاولة | public/assets/js/public/intake.js:1611 |
-| I-169 | زر | العودة إلى الموضوع | public/assets/js/public/intake.js:1615 |
-| I-170 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1637 |
-| I-171 | زر | إرسال | public/assets/js/public/intake.js:1678 |
-| I-172 | رابط | (نص متغير) | public/assets/js/public/intake.js:1700 |
-| I-173 | قسم/بطاقة | رقم الطلب: | public/assets/js/public/intake.js:1744 |
-| I-174 | عنوان | المتابعة على واتساب | public/assets/js/public/intake.js:1751 |
-| I-175 | رابط | إرسال على واتساب | public/assets/js/public/intake.js:1751 |
-| I-176 | عنوان | وصلنا رسالتكم. شكرًا لكم. | public/assets/js/public/intake.js:1791 |
-| I-177 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1792 |
-| I-178 | رابط | (نص متغير) | public/assets/js/public/intake.js:1792 |
-| I-179 | قسم/بطاقة | الموقع قيد التجهيز | public/assets/js/public/intake.js:2208 |
-| I-180 | عنوان | الموقع قيد التجهيز | public/assets/js/public/intake.js:2209 |
-| I-181 | رابط | تواصلوا معنا على واتساب | public/assets/js/public/intake.js:2211 |
-| I-182 | رابط | اتصلوا بنا: | public/assets/js/public/intake.js:2212 |
-| I-183 | قسم/بطاقة | تعذّر فتح الصفحة | public/assets/js/public/intake.js:2222 |
-| I-184 | عنوان | تعذّر فتح الصفحة | public/assets/js/public/intake.js:2223 |
-| I-185 | زر | إعادة المحاولة | public/assets/js/public/intake.js:2225 |
-| I-186 | قسم/بطاقة | بدأتم طلبًا من قبل. | public/assets/js/public/intake.js:2297 |
-| I-187 | زر | متابعة الطلب | public/assets/js/public/intake.js:2302 |
-| I-188 | زر | البدء من جديد | public/assets/js/public/intake.js:2318 |
-| I-189 | رابط | … } واتساب | public/intake.html:28 |
-| I-190 | رابط | … } … | public/intake.html:29 |
-| I-191 | عنوان | … | public/intake.html:38 |
-| I-192 | عنصر | (نص متغير) | public/assets/js/public/saved.js:102 |
-| I-193 | عنصر | (نص متغير) | public/assets/js/public/saved.js:103 |
-| I-194 | عنصر | (نص متغير) | public/assets/js/public/saved.js:104 |
-| I-195 | عنصر | (نص متغير) | public/assets/js/public/saved.js:105 |
-| I-196 | قائمة روابط | المسار | src/site.js:2006 |
+| I-01 | نص | اخترتم: … | src/site.js:2059 |
+| I-02 | نص | … | src/site.js:2063 |
+| I-03 | رابط | رجوع … | src/site.js:2058 |
+| I-04 | رابط | عن المكتب · الصفحة الأولى | src/site.js:2056 |
+| I-11 | سؤال | من المتوفى؟ | public/assets/js/public/entry-tree.js:274 |
+| I-12 | سؤال | هل صدر إعلام الوراثة؟ | public/assets/js/public/entry-tree.js:274 |
+| I-13 | سؤال | معاش مَن؟ | public/assets/js/public/entry-tree.js:274 |
+| I-14 | سؤال | هل يُصرف المعاش الآن؟ | public/assets/js/public/entry-tree.js:274 |
+| I-15 | سؤال | أين أموال القاصرين؟ | public/assets/js/public/entry-tree.js:275 |
+| I-16 | سؤال | النفقة: ما الوضع الآن؟ | public/assets/js/public/entry-tree.js:275 |
+| I-17 | سؤال | ما المشكلة؟ | public/assets/js/public/entry-tree.js:275 |
+| I-18 | سؤال | كم عدد الأبناء أقل من 18 سنة؟ | public/assets/js/public/entry-tree.js:275 |
+| I-19 | سؤال | هل السكن إيجار أم ملك؟ | public/assets/js/public/entry-tree.js:275 |
+| I-20 | سؤال | هل هناك مطالبة بإخلاء السكن؟ | public/assets/js/public/entry-tree.js:276 |
+| I-21 | سؤال | ما المستند المطلوب؟ | public/assets/js/public/entry-tree.js:276 |
+| I-22 | سؤال | هل هناك جلسة أو موعد قريب؟ | public/assets/js/public/entry-tree.js:276 |
+| I-23 | سؤال | متى صدر الحكم؟ | public/assets/js/public/entry-tree.js:277 |
+| I-24 | سؤال | النفقة لمن؟ | public/assets/js/public/entry-tree.js:277 |
+| I-25 | سؤال | أنتم المالك أم المستأجر؟ | public/assets/js/public/entry-tree.js:277 |
+| I-30 | عنصر | اكتبوا الموضوع باختصار | public/assets/js/public/intake.js:1050 |
+| I-31 | حقل | اكتبوا هنا ما حدث، وما الذي تحتاجونه… | public/assets/js/public/intake.js:1074 |
+| I-32 | زر | (نص متغير) | public/assets/js/public/intake.js:1122 |
+| I-33 | زر | تفضّلون أن نتصل بكم؟ | public/assets/js/public/intake.js:1167 |
+| I-34 | زر | (نص متغير) | public/assets/js/public/intake.js:1110 |
+| I-40 | عنصر | هل لديكم مستندات؟ | public/assets/js/public/intake.js:953 |
+| I-41 | زر | التالي | public/assets/js/public/intake.js:956 |
+| I-42 | نص | (نص متغير) | public/assets/js/public/intake.js:955 |
+| I-43 | زر | ليس الآن | public/assets/js/public/intake.js:957 |
+| I-50 | عنصر | (نص متغير) | public/assets/js/public/intake.js:1307 |
+| I-51 | حقل | رقم الموبايل | public/assets/js/public/intake.js:1321 |
+| I-52 | حقل | الاسم كما تحبون أن نناديكم | public/assets/js/public/intake.js:1464 |
+| I-53 | حقل | (نص متغير) | public/assets/js/public/intake.js:1456 |
+| I-54 | نص | اعرفوا المزيد | public/assets/js/public/intake.js:1475 |
+| I-55 | زر | طلب مكالمة | public/assets/js/public/intake.js:1476 |
+| I-56 | حقل | متى يناسبكم الاتصال؟ | public/assets/js/public/intake.js:1419 |
+| I-57 | حقل | نوع الطلب (اختياري)<br>يظهر النص نفسه أيضًا في: T-02، S-12، W-01 (الزر الأول)، PTH-01، T-40، S-13، T-53، S-14 | public/assets/js/public/intake.js:1450 |
+| I-58 | حقل | رقم من خارج مصر؟ | public/assets/js/public/intake.js:1326 |
+| I-60 | عنوان | وصلنا طلبكم | public/assets/js/public/intake.js:1734 |
+| I-61 | نص | رقم الطلب: | public/assets/js/public/intake.js:1748 |
+| I-62 | نص | سنتصل بكم {eta}{when} | public/assets/js/public/intake.js:1739 |
+| I-63 | رابط | فتح صفحة طلبكم | public/assets/js/public/intake.js:1752 |
+| I-64 | قسم/بطاقة | المتابعة على واتساب | public/assets/js/public/intake.js:1753 |
+| I-65 | نص | لا نطلب أي مبلغ إلا من صفحة طلبكم وبعد موافقتكم. | public/assets/js/public/intake.js:1754 |
+| I-66 | نص | الصفحة الأولى | public/assets/js/public/intake.js:1757 |
+| I-67 | نص | قد يكون في موضوعكم ميعاد قريب، لذلك سنتصل بكم في أقرب وقت خلال مواعيد… | public/assets/js/public/intake.js:1736 |
+| I-68 | رابط | أو اتصلوا بنا الآن: | public/assets/js/public/intake.js:1750 |
+| I-80 | خيار | الزوج أو الزوجة | public/assets/js/public/entry-tree.js:355 |
+| I-81 | خيار | أحد الوالدين | public/assets/js/public/entry-tree.js:355 |
+| I-82 | خيار | ابن أو ابنة | public/assets/js/public/entry-tree.js:355 |
+| I-83 | خيار | شخص آخر | public/assets/js/public/entry-tree.js:356 |
+| I-84 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:356 |
+| I-85 | خيار | نعم، صدر | public/assets/js/public/entry-tree.js:356 |
+| I-86 | خيار | ليس بعد | public/assets/js/public/entry-tree.js:357 |
+| I-87 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:357 |
+| I-88 | خيار | معاش الزوج أو الزوجة | public/assets/js/public/entry-tree.js:357 |
+| I-89 | خيار | معاش أحد الوالدين | public/assets/js/public/entry-tree.js:358 |
+| I-90 | خيار | تكافل وكرامة | public/assets/js/public/entry-tree.js:358 |
+| I-91 | خيار | معاشي أو غير ذلك | public/assets/js/public/entry-tree.js:358 |
+| I-92 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:358 |
+| I-93 | خيار | لم يُصرف بعد | public/assets/js/public/entry-tree.js:359 |
+| I-94 | خيار | كان يُصرف وتوقف | public/assets/js/public/entry-tree.js:359 |
+| I-95 | خيار | يُصرف بقيمة أقل | public/assets/js/public/entry-tree.js:359 |
+| I-96 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:359 |
+| I-97 | خيار | في البنك | public/assets/js/public/entry-tree.js:360 |
+| I-98 | خيار | في البريد | public/assets/js/public/entry-tree.js:360 |
+| I-99 | خيار | تركة لم تُقسم | public/assets/js/public/entry-tree.js:360 |
+| I-100 | خيار | أخرى | public/assets/js/public/entry-tree.js:361 |
+| I-101 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:361 |
+| I-102 | خيار | الأب متوفى | public/assets/js/public/entry-tree.js:361 |
+| I-103 | خيار | الوالدان منفصلان | public/assets/js/public/entry-tree.js:362 |
+| I-104 | خيار | الأب لا ينفق | public/assets/js/public/entry-tree.js:362 |
+| I-105 | خيار | غير ذلك | public/assets/js/public/entry-tree.js:362 |
+| I-106 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:363 |
+| I-107 | خيار | نزاع على الحضانة | public/assets/js/public/entry-tree.js:363 |
+| I-108 | خيار | لا أرى أبنائي | public/assets/js/public/entry-tree.js:363 |
+| I-109 | خيار | مشكلة في مواعيد الرؤية | public/assets/js/public/entry-tree.js:364 |
+| I-110 | خيار | أخرى | public/assets/js/public/entry-tree.js:364 |
+| I-111 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:364 |
+| I-112 | خيار | لا يوجد | public/assets/js/public/entry-tree.js:365 |
+| I-113 | خيار | 1 | public/assets/js/public/entry-tree.js:365 |
+| I-114 | خيار | 2 | public/assets/js/public/entry-tree.js:365 |
+| I-115 | خيار | 3 | public/assets/js/public/entry-tree.js:365 |
+| I-116 | خيار | 4 أو أكثر | public/assets/js/public/entry-tree.js:365 |
+| I-117 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:366 |
+| I-118 | خيار | إيجار قديم | public/assets/js/public/entry-tree.js:366 |
+| I-119 | خيار | إيجار جديد | public/assets/js/public/entry-tree.js:366 |
+| I-120 | خيار | ملك | public/assets/js/public/entry-tree.js:367 |
+| I-121 | خيار | لدى الأسرة | public/assets/js/public/entry-tree.js:367 |
+| I-122 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:367 |
+| I-123 | خيار | نعم | public/assets/js/public/entry-tree.js:367 |
+| I-124 | خيار | لا | public/assets/js/public/entry-tree.js:368 |
+| I-125 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:368 |
+| I-126 | خيار | شهادة وفاة | public/assets/js/public/entry-tree.js:368 |
+| I-127 | خيار | قيد عائلي | public/assets/js/public/entry-tree.js:368 |
+| I-128 | خيار | بطاقة أو شهادة ميلاد | public/assets/js/public/entry-tree.js:369 |
+| I-129 | خيار | مستند آخر | public/assets/js/public/entry-tree.js:369 |
+| I-130 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:369 |
+| I-131 | خيار | خلال أسبوعين | public/assets/js/public/entry-tree.js:369 |
+| I-132 | خيار | بعد أكثر من أسبوعين | public/assets/js/public/entry-tree.js:370 |
+| I-133 | خيار | لا يوجد موعد بعد | public/assets/js/public/entry-tree.js:370 |
+| I-134 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:370 |
+| I-135 | خيار | خلال آخر أسبوعين | public/assets/js/public/entry-tree.js:370 |
+| I-136 | خيار | من أسبوعين إلى 40 يومًا | public/assets/js/public/entry-tree.js:371 |
+| I-137 | خيار | منذ أكثر من 40 يومًا | public/assets/js/public/entry-tree.js:371 |
+| I-138 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:371 |
+| I-139 | خيار | للزوجة | public/assets/js/public/entry-tree.js:372 |
+| I-140 | خيار | للأبناء | public/assets/js/public/entry-tree.js:372 |
+| I-141 | خيار | للزوجة والأبناء | public/assets/js/public/entry-tree.js:372 |
+| I-142 | خيار | مطلوب منّا دفعها | public/assets/js/public/entry-tree.js:373 |
+| I-143 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:373 |
+| I-144 | خيار | المالك | public/assets/js/public/entry-tree.js:373 |
+| I-145 | خيار | المستأجر | public/assets/js/public/entry-tree.js:374 |
+| I-146 | خيار | لا أعرف | public/assets/js/public/entry-tree.js:374 |
+| I-150 | زر | (نص متغير) | public/assets/js/public/intake.js:637 |
+| I-151 | زر | (نص متغير) | public/assets/js/public/intake.js:735 |
+| I-152 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:945 |
+| I-153 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:973 |
+| I-154 | زر | حذفها | public/assets/js/public/intake.js:1083 |
+| I-155 | زر | (نص متغير) | public/assets/js/public/intake.js:1099 |
+| I-156 | زر | (نص متغير) | public/assets/js/public/intake.js:1133 |
+| I-157 | زر | (نص متغير) | public/assets/js/public/intake.js:1155 |
+| I-158 | رابط | (نص متغير) | public/assets/js/public/intake.js:1186 |
+| I-159 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1246 |
+| I-160 | زر | تعديل الموضوع | public/assets/js/public/intake.js:1305 |
+| I-161 | زر | الاستماع إلى الرقم | public/assets/js/public/intake.js:1337 |
+| I-162 | رابط | فتح واتساب | public/assets/js/public/intake.js:1378 |
+| I-163 | زر | لا تذكرون الرقم؟ | public/assets/js/public/intake.js:1389 |
+| I-164 | زر | (نص متغير) | public/assets/js/public/intake.js:1412 |
+| I-165 | زر | (نص متغير) | public/assets/js/public/intake.js:1444 |
+| I-166 | حقل | اسم الشركة (اختياري) | public/assets/js/public/intake.js:1457 |
+| I-167 | حقل | الاسم (اختياري) | public/assets/js/public/intake.js:1465 |
+| I-168 | زر | إعادة المحاولة | public/assets/js/public/intake.js:1613 |
+| I-169 | زر | العودة إلى الموضوع | public/assets/js/public/intake.js:1617 |
+| I-170 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1639 |
+| I-171 | زر | إرسال | public/assets/js/public/intake.js:1680 |
+| I-172 | رابط | (نص متغير) | public/assets/js/public/intake.js:1702 |
+| I-173 | قسم/بطاقة | رقم الطلب: | public/assets/js/public/intake.js:1746 |
+| I-174 | عنوان | المتابعة على واتساب | public/assets/js/public/intake.js:1753 |
+| I-175 | رابط | إرسال على واتساب | public/assets/js/public/intake.js:1753 |
+| I-176 | عنوان | وصلنا رسالتكم. شكرًا لكم. | public/assets/js/public/intake.js:1794 |
+| I-177 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake.js:1795 |
+| I-178 | رابط | (نص متغير) | public/assets/js/public/intake.js:1795 |
+| I-179 | قسم/بطاقة | الموقع قيد التجهيز | public/assets/js/public/intake.js:2211 |
+| I-180 | عنوان | الموقع قيد التجهيز | public/assets/js/public/intake.js:2212 |
+| I-181 | رابط | تواصلوا معنا على واتساب | public/assets/js/public/intake.js:2214 |
+| I-182 | رابط | اتصلوا بنا: | public/assets/js/public/intake.js:2215 |
+| I-183 | قسم/بطاقة | تعذّر فتح الصفحة | public/assets/js/public/intake.js:2225 |
+| I-184 | عنوان | تعذّر فتح الصفحة | public/assets/js/public/intake.js:2226 |
+| I-185 | زر | إعادة المحاولة | public/assets/js/public/intake.js:2228 |
+| I-186 | قسم/بطاقة | بدأتم طلبًا من قبل. | public/assets/js/public/intake.js:2300 |
+| I-187 | زر | متابعة الطلب | public/assets/js/public/intake.js:2305 |
+| I-188 | زر | البدء من جديد | public/assets/js/public/intake.js:2321 |
+| I-189 | رابط | … } واتساب | public/intake.html:30 |
+| I-190 | رابط | … } … | public/intake.html:31 |
+| I-191 | عنوان | … | public/intake.html:40 |
+| I-196 | قائمة روابط | المسار | src/site.js:2058 |
 
 ## IC: طلب عرض لشركة (`/intake?mode=company`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| IC-01 | عنوان | (نص متغير) | public/assets/js/public/intake-company.js:122 |
-| IC-02 | نص | (نص متغير) | public/assets/js/public/intake-company.js:240 |
-| IC-10 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake-company.js:248 |
-| IC-11 | نص | (نص متغير) | public/assets/js/public/intake-company.js:249 |
-| IC-12 | زر | (نص متغير) | public/assets/js/public/intake-company.js:121 |
-| IC-13 | عنوان | (نص متغير) | public/assets/js/public/intake-company.js:206 |
-| IC-14 | نص | (نص متغير) | public/assets/js/public/intake-company.js:221 |
-| IC-15 | نص | (نص متغير) | public/assets/js/public/intake-company.js:223 |
-| IC-16 | نص | (نص متغير) | public/assets/js/public/intake-company.js:114 |
-| IC-17 | زر | (نص متغير) | public/assets/js/public/intake-company.js:88 |
-| IC-18 | حقل | (نص متغير) | public/assets/js/public/intake-company.js:109 |
-| IC-19 | رابط | (نص متغير) | public/assets/js/public/intake-company.js:114 |
-| IC-20 | حقل | (نص متغير) | public/assets/js/public/intake-company.js:119 |
-| IC-21 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake-company.js:218 |
-| IC-22 | رابط | (نص متغير) | public/assets/js/public/intake-company.js:223 |
-| IC-23 | رابط | (نص متغير) | public/assets/js/public/intake-company.js:224 |
-| IC-24 | قسم/بطاقة | (نص متغير) | public/assets/js/public/intake-company.js:235 |
-| IC-25 | رابط | (نص متغير) | public/assets/js/public/intake-company.js:238 |
+| IC-01 | عنوان | اطلبوا عرضًا لشركتكم | public/assets/js/public/intake-company.js:124 |
+| IC-02 | نص | املأوا البيانات، ويتواصل معكم فريقنا خلال يوم عمل لترتيب مكالمة تعريف… | public/assets/js/public/intake-company.js:242 |
+| IC-03 | حقل | اسم الشركة | public/assets/js/public/intake-company.js:111 |
+| IC-04 | حقل | اسم المسؤول عن التواصل | public/assets/js/public/intake-company.js:112 |
+| IC-05 | حقل | المسمى الوظيفي (اختياري) | public/assets/js/public/intake-company.js:113 |
+| IC-06 | حقل | رقم الموبايل | public/assets/js/public/intake-company.js:116 |
+| IC-07 | حقل | البريد الإلكتروني (اختياري) | public/assets/js/public/intake-company.js:117 |
+| IC-08 | مجموعة حقول | عدد الموظفين (اختياري) | public/assets/js/public/intake-company.js:248 |
+| IC-09 | مجموعة حقول | ما الذي يهمكم؟ (اختياري) | public/assets/js/public/intake-company.js:249 |
+| IC-10 | قسم/بطاقة | تفاصيل إضافية (اختياري) | public/assets/js/public/intake-company.js:250 |
+| IC-11 | نص | بالضغط على «إرسال الطلب» توافقون على استخدام هذه البيانات للتواصل معك… | public/assets/js/public/intake-company.js:251 |
+| IC-12 | زر | إرسال الطلب | public/assets/js/public/intake-company.js:123 |
+| IC-13 | عنوان | وصلنا طلبكم | public/assets/js/public/intake-company.js:208 |
+| IC-14 | نص | سيتواصل معكم فريقنا خلال يوم عمل. | public/assets/js/public/intake-company.js:223 |
+| IC-15 | نص | لديكم حساب في بوابة الشركات؟ | public/assets/js/public/intake-company.js:225 |
+| IC-16 | نص | رقم من خارج مصر؟ | public/assets/js/public/intake-company.js:115 |
+| IC-17 | خيار | (نص متغير) | public/assets/js/public/intake-company.js:119 |
+| IC-18 | حقل | اسم الشركة | public/assets/js/public/intake-company.js:111 |
+| IC-19 | رابط | راسلونا على واتساب | public/assets/js/public/intake-company.js:115 |
+| IC-20 | حقل | مثال: نحتاج مراجعة عقود الموردين وشؤون الموظفين، ولدينا 40 موظفًا. | public/assets/js/public/intake-company.js:121 |
+| IC-21 | قسم/بطاقة | سيتواصل معكم فريقنا خلال يوم عمل. | public/assets/js/public/intake-company.js:220 |
+| IC-22 | رابط | الدخول | public/assets/js/public/intake-company.js:225 |
+| IC-23 | رابط | صفحة الطلب | public/assets/js/public/intake-company.js:226 |
+| IC-24 | قسم/بطاقة | رجوع | public/assets/js/public/intake-company.js:237 |
+| IC-25 | رابط | رجوع | public/assets/js/public/intake-company.js:240 |
+| IC-26 | حقل | اسم المسؤول عن التواصل | public/assets/js/public/intake-company.js:112 |
+| IC-27 | حقل | المسمى الوظيفي (اختياري) | public/assets/js/public/intake-company.js:113 |
+| IC-28 | حقل | رقم الموبايل | public/assets/js/public/intake-company.js:116 |
+| IC-29 | حقل | البريد الإلكتروني (اختياري) | public/assets/js/public/intake-company.js:117 |
+| IC-30 | خيار | (نص متغير) | public/assets/js/public/intake-company.js:120 |
 
-## UP: إرفاق المستندات
+## UP: إرفاق المستندات (يظهر في: إرفاق المستندات في نموذج الطلب وصفحة المتابعة وبوابة الشركات)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| UP-01 | زر | (نص متغير) | public/assets/js/public/upload.js:628 |
-| UP-02 | زر | (نص متغير) | public/assets/js/public/upload.js:635 |
-| UP-03 | قائمة | الصور المختارة | public/assets/js/public/upload.js:641 |
-| UP-04 | زر | (نص متغير) | public/assets/js/public/upload.js:742 |
-| UP-05 | زر | (نص متغير) | public/assets/js/public/upload.js:761 |
-| UP-06 | نص | (نص متغير) | public/assets/js/public/upload.js:639 |
-| UP-07 | قسم/بطاقة | (نص متغير) | public/assets/js/public/upload.js:655 |
-| UP-08 | نص | (نص متغير) | public/assets/js/public/upload.js:640 |
+| UP-01 | زر | (نص متغير) | public/assets/js/public/upload.js:634 |
+| UP-02 | زر | (نص متغير) | public/assets/js/public/upload.js:651 |
+| UP-03 | قائمة | الصور المختارة | public/assets/js/public/upload.js:658 |
+| UP-04 | زر | (نص متغير) | public/assets/js/public/upload.js:759 |
+| UP-05 | زر | (نص متغير) | public/assets/js/public/upload.js:778 |
+| UP-06 | نص | (نص متغير) | public/assets/js/public/upload.js:656 |
+| UP-07 | قسم/بطاقة | (نص متغير) | public/assets/js/public/upload.js:672 |
+| UP-08 | نص | (نص متغير) | public/assets/js/public/upload.js:657 |
 | UP-09 | قسم/بطاقة | (نص متغير) | public/assets/js/public/upload.js:548 |
 | UP-10 | زر | تعديل | public/assets/js/public/upload.js:219 |
 | UP-11 | زر | (نص متغير) | public/assets/js/public/upload.js:552 |
 | UP-12 | حقل | (نص متغير) | public/assets/js/public/upload.js:610 |
 | UP-13 | حقل | (نص متغير) | public/assets/js/public/upload.js:611 |
-| UP-14 | زر | (نص متغير) | public/assets/js/public/upload.js:670 |
+| UP-14 | زر | (نص متغير) | public/assets/js/public/upload.js:687 |
 
-## SC: تصوير المستندات وتحسينها
+## SC: تصوير المستندات وتحسينها (يظهر في: شاشة تصوير المستند (الماسح) حيثما يُرفع مستند)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| SC-01 | قسم/بطاقة | إغلاق | public/assets/js/lib/scan-sheet.js:182 |
-| SC-02 | نص | (نص متغير) | public/assets/js/lib/scan-sheet.js:185 |
-| SC-03 | زر | إغلاق | public/assets/js/lib/scan-sheet.js:186 |
-| SC-04 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:169 |
-| SC-05 | صورة | الورقة بعد التحسين | public/assets/js/lib/scan-sheet.js:173 |
-| SC-06 | قسم/بطاقة | الألوان | public/assets/js/lib/scan-sheet.js:190 |
-| SC-07 | عنصر قائمة | ألوان | public/assets/js/lib/scan-sheet.js:81 |
-| SC-08 | عنصر قائمة | رمادي | public/assets/js/lib/scan-sheet.js:82 |
-| SC-09 | عنصر قائمة | أبيض وأسود | public/assets/js/lib/scan-sheet.js:83 |
-| SC-10 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:194 |
-| SC-11 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:199 |
-| SC-12 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:179 |
-| SC-13 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:195 |
-| SC-14 | قسم/بطاقة | (نص متغير) | public/assets/js/lib/scan-sheet.js:106 |
-| SC-15 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:110 |
-| SC-16 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:111 |
-| SC-17 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:118 |
-| SC-18 | نص | (نص متغير) | public/assets/js/lib/scan-sheet.js:123 |
+| SC-01 | قسم/بطاقة | إغلاق | public/assets/js/lib/scan-sheet.js:174 |
+| SC-02 | نص | (نص متغير) | public/assets/js/lib/scan-sheet.js:177 |
+| SC-03 | زر | إغلاق | public/assets/js/lib/scan-sheet.js:178 |
+| SC-04 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:161 |
+| SC-05 | صورة | الورقة بعد التحسين | public/assets/js/lib/scan-sheet.js:165 |
+| SC-06 | قسم/بطاقة | الألوان | public/assets/js/lib/scan-sheet.js:182 |
+| SC-07 | عنصر قائمة | ألوان | public/assets/js/lib/scan-sheet.js:74 |
+| SC-08 | عنصر قائمة | رمادي | public/assets/js/lib/scan-sheet.js:75 |
+| SC-09 | عنصر قائمة | أبيض وأسود | public/assets/js/lib/scan-sheet.js:76 |
+| SC-10 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:186 |
+| SC-11 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:191 |
+| SC-12 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:171 |
+| SC-13 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:187 |
+| SC-14 | قسم/بطاقة | (نص متغير) | public/assets/js/lib/scan-sheet.js:99 |
+| SC-15 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:103 |
+| SC-16 | زر | (نص متغير) | public/assets/js/lib/scan-sheet.js:104 |
+| SC-17 | زر | صفحة أخرى | public/assets/js/lib/scan-sheet.js:112 |
+| SC-18 | نص | (نص متغير) | public/assets/js/lib/scan-sheet.js:118 |
+| SC-21 | نص | (نص متغير) | public/assets/js/lib/scan-sheet.js:113 |
 
 ## P: صفحة متابعة الطلب (`/p/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| P-01 | نص | أو أرسلوا رسالة صوتية على واتساب | public/assets/js/public/portal.js:579 |
-| P-02 | نص | لديكم رسالة صوتية محفوظة من قبل، وستُرسل مع ردّكم. | public/assets/js/public/portal.js:569 |
-| P-03 | زر | حذفها | public/assets/js/public/portal.js:572 |
+| P-01 | نص | أو أرسلوا رسالة صوتية على واتساب | public/assets/js/public/portal.js:570 |
+| P-02 | نص | لديكم رسالة صوتية محفوظة من قبل، وستُرسل مع ردّكم. | public/assets/js/public/portal.js:560 |
+| P-03 | زر | حذفها | public/assets/js/public/portal.js:563 |
 | P-10 | زر | إغلاق | public/assets/js/public/portal-ui.js:192 |
-| P-11 | زر | … بينا | public/assets/js/public/portal.js:213 |
-| P-12 | زر | رجوع | public/assets/js/public/portal.js:252 |
-| P-13 | عنوان | (نص متغير) | public/assets/js/public/portal.js:253 |
-| P-14 | قسم/بطاقة | مطلوب منك | public/assets/js/public/portal.js:303 |
-| P-15 | عنوان | محتاجين منك: | public/assets/js/public/portal.js:305 |
-| P-16 | زر | صوّر{ي} الورقة | public/assets/js/public/portal.js:311 |
-| P-17 | زر | أو اختار{ي} صورة من الموبايل | public/assets/js/public/portal.js:312 |
-| P-18 | زر | ردّ{ي} علينا | public/assets/js/public/portal.js:316 |
-| P-19 | قسم/بطاقة | لازم تحضر{ي} بنفسك | public/assets/js/public/portal.js:323 |
-| P-20 | عنوان | (نص متغير) | public/assets/js/public/portal.js:325 |
-| P-21 | زر | إيه المطلوب مني؟ | public/assets/js/public/portal.js:327 |
-| P-22 | قسم/بطاقة | مطلوب منك | public/assets/js/public/portal.js:333 |
-| P-23 | عنوان | محتاجين ردّك | public/assets/js/public/portal.js:335 |
-| P-24 | زر | ردّ{ي} علينا | public/assets/js/public/portal.js:337 |
-| P-25 | قسم/بطاقة | وصلك ردّنا | public/assets/js/public/portal.js:343 |
-| P-26 | عنوان | ردّنا على مشكلتك جاهز | public/assets/js/public/portal.js:344 |
-| P-27 | زر | … الرد | public/assets/js/public/portal.js:345 |
-| P-28 | قسم/بطاقة | رسالة جديدة | public/assets/js/public/portal.js:350 |
-| P-29 | عنوان | وصلتك رسالة مننا | public/assets/js/public/portal.js:351 |
-| P-30 | زر | … الرسالة | public/assets/js/public/portal.js:352 |
-| P-31 | حقل | (نص متغير) | public/assets/js/public/portal.js:369 |
-| P-32 | قسم/بطاقة | أهلًا يا {name} | public/assets/js/public/portal.js:388 |
-| P-33 | عنوان | أهلًا يا {name} | public/assets/js/public/portal.js:388 |
-| P-34 | زر | … بينا | public/assets/js/public/portal.js:399 |
-| P-35 | زر | واتساب | public/assets/js/public/portal.js:401 |
-| P-36 | زر | اكتب{ي}لنا | public/assets/js/public/portal.js:402 |
-| P-37 | قسم/بطاقة | طلباتك | public/assets/js/public/portal.js:417 |
-| P-38 | عنوان | عندك … | public/assets/js/public/portal.js:418 |
-| P-39 | زر | طلب | public/assets/js/public/portal.js:426 |
-| P-40 | قسم/بطاقة | طلبك وصل لفين؟ | public/assets/js/public/portal.js:441 |
-| P-41 | عنوان | طلبك وصل لفين؟ | public/assets/js/public/portal.js:442 |
-| P-42 | قائمة روابط | أقسام صفحتك | public/assets/js/public/portal.js:473 |
-| P-43 | رابط | (نص متغير) | public/assets/js/public/portal.js:477 |
-| P-44 | رابط | وكمان … | public/assets/js/public/portal.js:504 |
-| P-45 | قسم/بطاقة | مفيش حاجة مطلوبة منك دلوقتي. | public/assets/js/public/portal.js:508 |
-| P-46 | عنوان | مفيش حاجة مطلوبة منك دلوقتي. | public/assets/js/public/portal.js:509 |
-| P-47 | زر | … مكالمة | public/assets/js/public/portal.js:519 |
-| P-48 | قسم/بطاقة | عايز{ة} يوصلك الجديد على واتساب؟ | public/assets/js/public/portal.js:538 |
-| P-49 | عنوان | عايز{ة} يوصلك الجديد على واتساب؟ | public/assets/js/public/portal.js:539 |
-| P-50 | زر | ابعت{ي} رقم طلبك | public/assets/js/public/portal.js:541 |
-| P-51 | زر | مسحنا الصفحة من الموبايل ده. الرابط نفسه لسه شغال لو احتجتيه. | public/assets/js/public/portal.js:556 |
-| P-52 | رابط | أو أرسلوا رسالة صوتية على واتساب | public/assets/js/public/portal.js:579 |
-| P-53 | رابط | صورة … · … | public/assets/js/public/portal.js:635 |
-| P-54 | زر | مش … الورقة دي | public/assets/js/public/portal.js:640 |
-| P-55 | حقل | اكتب{ي} هنا… | public/assets/js/public/portal.js:656 |
-| P-56 | سؤال قابل للفتح | عايز{ة} تقول{ي} حاجة؟ | public/assets/js/public/portal.js:675 |
-| P-57 | عنوان | عايز{ة} تقول{ي} حاجة؟ | public/assets/js/public/portal.js:675 |
-| P-58 | زر | ابعت{ي} الورق | public/assets/js/public/portal.js:685 |
-| P-59 | زر | ابعت{ي}ها | public/assets/js/public/portal.js:787 |
-| P-60 | زر | امسح{ي}ها | public/assets/js/public/portal.js:801 |
-| P-61 | زر | … أكتر | public/assets/js/public/portal.js:811 |
-| P-62 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:815 |
-| P-63 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:817 |
-| P-64 | زر | تمام | public/assets/js/public/portal.js:827 |
-| P-65 | زر | حاول{ي} تاني | public/assets/js/public/portal.js:870 |
-| P-66 | زر | ابعت{ي} | public/assets/js/public/portal.js:884 |
-| P-67 | زر | اسمع{ي} الرد | public/assets/js/public/portal.js:901 |
-| P-68 | قسم/بطاقة | تعمل{ي} إيه دلوقتي؟ | public/assets/js/public/portal.js:944 |
-| P-69 | عنوان | تعمل{ي} إيه دلوقتي؟ | public/assets/js/public/portal.js:944 |
-| P-70 | حقل | (نص متغير) | public/assets/js/public/portal.js:959 |
-| P-71 | قسم/بطاقة | الخلاصة | public/assets/js/public/portal.js:980 |
-| P-72 | عنوان | الخلاصة | public/assets/js/public/portal.js:980 |
-| P-73 | سؤال قابل للفتح | … الرد كامل | public/assets/js/public/portal.js:982 |
-| P-74 | عنوان | … الرد كامل | public/assets/js/public/portal.js:982 |
-| P-75 | زر | مش فاهم حاجة؟ اسألنا | public/assets/js/public/portal.js:990 |
-| P-76 | رابط | الساعة … (… ) | public/assets/js/public/portal.js:1013 |
-| P-77 | زر | غيّر{ي} الرد | public/assets/js/public/portal.js:1067 |
-| P-78 | زر | هحضر إن شاء الله | public/assets/js/public/portal.js:1072 |
-| P-79 | زر | مش هقدر أحضر | public/assets/js/public/portal.js:1073 |
-| P-80 | زر | عندي سؤال | public/assets/js/public/portal.js:1074 |
-| P-81 | قسم/بطاقة | الساعة … (… ) | public/assets/js/public/portal.js:1082 |
-| P-82 | زر | افتح{ي} الخريطة | public/assets/js/public/portal.js:1084 |
-| P-83 | عنوان | هات{ي} معاك{ي} | public/assets/js/public/portal.js:1085 |
-| P-84 | عنوان | المحامي هيقابلك فين؟ | public/assets/js/public/portal.js:1086 |
-| P-85 | رابط | ضيف{ي}ها لتقويم الموبايل | public/assets/js/public/portal.js:1088 |
-| P-86 | قسم/بطاقة | محتاجين موافقتك | public/assets/js/public/portal.js:1102 |
-| P-87 | عنوان | مصاريف للقضية: {a} ({d}) | public/assets/js/public/portal.js:1104 |
-| P-88 | زر | موافقة | public/assets/js/public/portal.js:1106 |
-| P-89 | زر | عندي سؤال | public/assets/js/public/portal.js:1107 |
-| P-90 | زر | مش قادر أدفع | public/assets/js/public/portal.js:1108 |
-| P-91 | زر | عندي سؤال على المبلغ | public/assets/js/public/portal.js:1137 |
-| P-92 | قسم/بطاقة | الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة. | public/assets/js/public/portal.js:1146 |
-| P-93 | سؤال قابل للفتح | إزاي أدفع؟ | public/assets/js/public/portal.js:1152 |
-| P-94 | عنوان | إزاي أدفع؟ | public/assets/js/public/portal.js:1152 |
-| P-95 | رابط | (نص متغير) | public/assets/js/public/portal.js:1188 |
-| P-96 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:1200 |
-| P-97 | زر | … مكالمة | public/assets/js/public/portal.js:1200 |
-| P-98 | حقل | اكتب{ي} رسالتك هنا… | public/assets/js/public/portal.js:1218 |
-| P-99 | زر | إلغاء | public/assets/js/public/portal.js:1240 |
-| P-100 | زر | إرسال | public/assets/js/public/portal.js:1245 |
-| P-101 | زر | (نص متغير) | public/assets/js/public/portal.js:1287 |
-| P-102 | قسم/بطاقة | رسالة جديدة | public/assets/js/public/portal.js:1299 |
-| P-103 | قسم/بطاقة | لسه مفيش ورق. | public/assets/js/public/portal.js:1339 |
-| P-104 | زر | صوّر{ي} ورقة وابعت{ي}ها | public/assets/js/public/portal.js:1339 |
-| P-105 | رابط | (نص متغير) | public/assets/js/public/portal.js:1343 |
-| P-106 | قسم/بطاقة | ورق بعتناهولك | public/assets/js/public/portal.js:1348 |
-| P-107 | عنوان | ورق بعتناهولك | public/assets/js/public/portal.js:1348 |
-| P-108 | قسم/بطاقة | ورق بعت{ي}هولنا | public/assets/js/public/portal.js:1349 |
-| P-109 | عنوان | ورق بعت{ي}هولنا | public/assets/js/public/portal.js:1349 |
-| P-110 | زر | (نص متغير) | public/assets/js/public/portal.js:1380 |
-| P-111 | زر | … المكالمة | public/assets/js/public/portal.js:1384 |
-| P-112 | نافذة | إمتى يناسبك نكلمك؟ | public/assets/js/public/portal.js:1385 |
-| P-113 | زر | جرب{ي} تاني | public/assets/js/public/portal.js:1432 |
-| P-114 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:1503 |
-| P-115 | عنوان | (نص متغير) | public/assets/js/public/portal.js:1503 |
-| P-116 | زر | حاولي تاني | public/assets/js/public/portal.js:1511 |
-| P-117 | زر | حاولي تاني | public/assets/js/public/portal.js:1520 |
-| P-118 | زر | افتحي آخر صفحة محفوظة | public/assets/js/public/portal.js:1534 |
-| P-119 | زر | واتساب | public/assets/js/public/portal.js:1536 |
-| P-120 | رابط | عندك مشكلة جديدة؟ احكيلنا من هنا | public/assets/js/public/portal.js:1538 |
+| P-11 | زر | … بينا | public/assets/js/public/portal.js:222 |
+| P-12 | زر | رجوع | public/assets/js/public/portal.js:261 |
+| P-13 | عنوان | (نص متغير) | public/assets/js/public/portal.js:262 |
+| P-14 | قسم/بطاقة | مطلوب منكم<br>الصيغ: أفراد وشركات «مطلوب منكم» · خيري «مطلوب منك» | public/assets/js/public/portal.js:312 |
+| P-15 | عنوان | نحتاج منكم:<br>الصيغ: أفراد وشركات «نحتاج منكم:» · خيري «محتاجين منك:» | public/assets/js/public/portal.js:314 |
+| P-16 | زر | تصوير المستند<br>الصيغ: أفراد وشركات «تصوير المستند» · خيري «صوّر{ي} الورقة» | public/assets/js/public/portal.js:320 |
+| P-17 | زر | أو اختيار صورة من الهاتف<br>الصيغ: أفراد وشركات «أو اختيار صورة من الهاتف» · خيري «أو اختار{ي} صورة من الموبايل» | public/assets/js/public/portal.js:321 |
+| P-18 | زر | الرد علينا<br>الصيغ: أفراد وشركات «الرد علينا» · خيري «ردّ{ي} علينا» | public/assets/js/public/portal.js:325 |
+| P-19 | قسم/بطاقة | مطلوب حضوركم بأنفسكم<br>الصيغ: أفراد وشركات «مطلوب حضوركم بأنفسكم» · خيري «لازم تحضر{ي} بنفسك» | public/assets/js/public/portal.js:332 |
+| P-20 | عنوان | (نص متغير) | public/assets/js/public/portal.js:334 |
+| P-21 | زر | ما المطلوب منكم؟<br>الصيغ: أفراد وشركات «ما المطلوب منكم؟» · خيري «إيه المطلوب مني؟» | public/assets/js/public/portal.js:336 |
+| P-22 | قسم/بطاقة | مطلوب منكم<br>الصيغ: أفراد وشركات «مطلوب منكم» · خيري «مطلوب منك» | public/assets/js/public/portal.js:342 |
+| P-23 | عنوان | نحتاج إلى ردكم<br>الصيغ: أفراد وشركات «نحتاج إلى ردكم» · خيري «محتاجين ردّك» | public/assets/js/public/portal.js:344 |
+| P-24 | زر | الرد علينا<br>الصيغ: أفراد وشركات «الرد علينا» · خيري «ردّ{ي} علينا» | public/assets/js/public/portal.js:346 |
+| P-25 | قسم/بطاقة | وصلكم ردنا<br>الصيغ: أفراد وشركات «وصلكم ردنا» · خيري «وصلك ردّنا» | public/assets/js/public/portal.js:352 |
+| P-26 | عنوان | الرد على طلبكم جاهز<br>الصيغ: أفراد وشركات «الرد على طلبكم جاهز» · خيري «ردّنا على مشكلتك جاهز» | public/assets/js/public/portal.js:353 |
+| P-27 | زر | … الرد | public/assets/js/public/portal.js:354 |
+| P-28 | قسم/بطاقة | رسالة جديدة | public/assets/js/public/portal.js:359 |
+| P-29 | عنوان | وصلتكم رسالة منا<br>الصيغ: أفراد وشركات «وصلتكم رسالة منا» · خيري «وصلتك رسالة مننا» | public/assets/js/public/portal.js:360 |
+| P-30 | زر | … الرسالة | public/assets/js/public/portal.js:361 |
+| P-31 | حقل | (نص متغير) | public/assets/js/public/portal.js:378 |
+| P-32 | قسم/بطاقة | أهلًا يا {name} | public/assets/js/public/portal.js:397 |
+| P-33 | عنوان | أهلًا يا {name} | public/assets/js/public/portal.js:397 |
+| P-34 | زر | … بينا | public/assets/js/public/portal.js:408 |
+| P-35 | زر | واتساب | public/assets/js/public/portal.js:410 |
+| P-36 | زر | راسلونا<br>الصيغ: أفراد وشركات «راسلونا» · خيري «اكتب{ي}لنا» | public/assets/js/public/portal.js:411 |
+| P-37 | قسم/بطاقة | طلباتك | public/assets/js/public/portal.js:426 |
+| P-38 | عنوان | عندك … | public/assets/js/public/portal.js:427 |
+| P-39 | زر | طلب | public/assets/js/public/portal.js:435 |
+| P-40 | قسم/بطاقة | حالة طلبكم<br>الصيغ: أفراد وشركات «حالة طلبكم» · خيري «طلبك وصل لفين؟» | public/assets/js/public/portal.js:450 |
+| P-41 | عنوان | حالة طلبكم<br>الصيغ: أفراد وشركات «حالة طلبكم» · خيري «طلبك وصل لفين؟» | public/assets/js/public/portal.js:451 |
+| P-42 | قائمة روابط | أقسام صفحتك | public/assets/js/public/portal.js:482 |
+| P-43 | رابط | (نص متغير) | public/assets/js/public/portal.js:486 |
+| P-44 | رابط | وكمان … | public/assets/js/public/portal.js:513 |
+| P-45 | قسم/بطاقة | لا يوجد مطلوب منكم الآن.<br>الصيغ: أفراد وشركات «لا يوجد مطلوب منكم الآن.» · خيري «مفيش حاجة مطلوبة منك دلوقتي.» | public/assets/js/public/portal.js:517 |
+| P-46 | عنوان | لا يوجد مطلوب منكم الآن.<br>الصيغ: أفراد وشركات «لا يوجد مطلوب منكم الآن.» · خيري «مفيش حاجة مطلوبة منك دلوقتي.» | public/assets/js/public/portal.js:518 |
+| P-47 | زر | … مكالمة | public/assets/js/public/portal.js:528 |
+| P-48 | قسم/بطاقة | هل تريدون استلام الجديد على واتساب؟<br>الصيغ: أفراد وشركات «هل تريدون استلام الجديد على واتساب؟» · خيري «عايز{ة} يوصلك الجديد على واتساب؟» | public/assets/js/public/portal.js:547 |
+| P-49 | عنوان | هل تريدون استلام الجديد على واتساب؟<br>الصيغ: أفراد وشركات «هل تريدون استلام الجديد على واتساب؟» · خيري «عايز{ة} يوصلك الجديد على واتساب؟» | public/assets/js/public/portal.js:548 |
+| P-50 | زر | إرسال رقم الطلب<br>الصيغ: أفراد وشركات «إرسال رقم الطلب» · خيري «ابعت{ي} رقم طلبك» | public/assets/js/public/portal.js:550 |
+| P-52 | رابط | أو أرسلوا رسالة صوتية على واتساب | public/assets/js/public/portal.js:570 |
+| P-53 | رابط | صورة … · … | public/assets/js/public/portal.js:626 |
+| P-54 | زر | مش … الورقة دي | public/assets/js/public/portal.js:631 |
+| P-55 | حقل | اكتب{ي} هنا… | public/assets/js/public/portal.js:647 |
+| P-56 | سؤال قابل للفتح | عايز{ة} تقول{ي} حاجة؟ | public/assets/js/public/portal.js:666 |
+| P-57 | عنوان | عايز{ة} تقول{ي} حاجة؟ | public/assets/js/public/portal.js:666 |
+| P-58 | زر | ابعت{ي} الورق | public/assets/js/public/portal.js:676 |
+| P-59 | زر | ابعت{ي}ها | public/assets/js/public/portal.js:778 |
+| P-60 | زر | امسح{ي}ها | public/assets/js/public/portal.js:792 |
+| P-61 | زر | … أكتر | public/assets/js/public/portal.js:802 |
+| P-62 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:806 |
+| P-63 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:808 |
+| P-64 | زر | تمام | public/assets/js/public/portal.js:818 |
+| P-65 | زر | حاول{ي} تاني | public/assets/js/public/portal.js:861 |
+| P-66 | زر | ابعت{ي} | public/assets/js/public/portal.js:875 |
+| P-67 | زر | اسمع{ي} الرد | public/assets/js/public/portal.js:892 |
+| P-68 | قسم/بطاقة | الخطوات التالية<br>الصيغ: أفراد وشركات «الخطوات التالية» · خيري «تعمل{ي} إيه دلوقتي؟» | public/assets/js/public/portal.js:935 |
+| P-69 | عنوان | الخطوات التالية<br>الصيغ: أفراد وشركات «الخطوات التالية» · خيري «تعمل{ي} إيه دلوقتي؟» | public/assets/js/public/portal.js:935 |
+| P-70 | حقل | (نص متغير) | public/assets/js/public/portal.js:950 |
+| P-71 | قسم/بطاقة | الخلاصة | public/assets/js/public/portal.js:971 |
+| P-72 | عنوان | الخلاصة | public/assets/js/public/portal.js:971 |
+| P-73 | سؤال قابل للفتح | … الرد كامل | public/assets/js/public/portal.js:973 |
+| P-74 | عنوان | … الرد كامل | public/assets/js/public/portal.js:973 |
+| P-75 | زر | مش فاهم حاجة؟ اسألنا | public/assets/js/public/portal.js:981 |
+| P-76 | رابط | الساعة … (… ) | public/assets/js/public/portal.js:1004 |
+| P-77 | زر | غيّر{ي} الرد | public/assets/js/public/portal.js:1058 |
+| P-78 | زر | هحضر إن شاء الله | public/assets/js/public/portal.js:1063 |
+| P-79 | زر | مش هقدر أحضر | public/assets/js/public/portal.js:1064 |
+| P-80 | زر | عندي سؤال | public/assets/js/public/portal.js:1065 |
+| P-81 | قسم/بطاقة | الساعة … (… ) | public/assets/js/public/portal.js:1073 |
+| P-82 | زر | افتح{ي} الخريطة | public/assets/js/public/portal.js:1075 |
+| P-83 | عنوان | هات{ي} معاك{ي} | public/assets/js/public/portal.js:1076 |
+| P-84 | عنوان | المحامي هيقابلك فين؟ | public/assets/js/public/portal.js:1077 |
+| P-85 | رابط | ضيف{ي}ها لتقويم الموبايل | public/assets/js/public/portal.js:1079 |
+| P-86 | قسم/بطاقة | بانتظار موافقتكم<br>الصيغ: أفراد وشركات «بانتظار موافقتكم» · خيري «محتاجين موافقتك» | public/assets/js/public/portal.js:1093 |
+| P-87 | عنوان | مصاريف للقضية: {a} ({d}) | public/assets/js/public/portal.js:1095 |
+| P-88 | زر | موافقة | public/assets/js/public/portal.js:1097 |
+| P-89 | زر | استفسار عن المبلغ<br>الصيغ: أفراد وشركات «استفسار عن المبلغ» · خيري «عندي سؤال» | public/assets/js/public/portal.js:1098 |
+| P-90 | زر | مش قادر أدفع | public/assets/js/public/portal.js:1099 |
+| P-91 | زر | استفسار عن المبلغ<br>الصيغ: أفراد وشركات «استفسار عن المبلغ» · خيري «عندي سؤال على المبلغ» | public/assets/js/public/portal.js:1128 |
+| P-92 | قسم/بطاقة | هذه الأتعاب والمصاريف المتفق عليها لطلبكم.<br>الصيغ: أفراد وشركات «هذه الأتعاب والمصاريف المتفق عليها لطلبكم.» · خيري «الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة.» | public/assets/js/public/portal.js:1137 |
+| P-93 | سؤال قابل للفتح | طريقة الدفع<br>الصيغ: أفراد وشركات «طريقة الدفع» · خيري «إزاي أدفع؟» | public/assets/js/public/portal.js:1143 |
+| P-94 | عنوان | طريقة الدفع<br>الصيغ: أفراد وشركات «طريقة الدفع» · خيري «إزاي أدفع؟» | public/assets/js/public/portal.js:1143 |
+| P-95 | رابط | (نص متغير) | public/assets/js/public/portal.js:1179 |
+| P-96 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:1191 |
+| P-97 | زر | … مكالمة | public/assets/js/public/portal.js:1191 |
+| P-98 | حقل | اكتب{ي} رسالتك هنا… | public/assets/js/public/portal.js:1209 |
+| P-99 | زر | إلغاء | public/assets/js/public/portal.js:1231 |
+| P-100 | زر | إرسال | public/assets/js/public/portal.js:1236 |
+| P-101 | زر | (نص متغير) | public/assets/js/public/portal.js:1278 |
+| P-102 | قسم/بطاقة | رسالة جديدة | public/assets/js/public/portal.js:1290 |
+| P-103 | قسم/بطاقة | لسه مفيش ورق. | public/assets/js/public/portal.js:1330 |
+| P-104 | زر | صوّر{ي} ورقة وابعت{ي}ها | public/assets/js/public/portal.js:1330 |
+| P-105 | رابط | (نص متغير) | public/assets/js/public/portal.js:1334 |
+| P-106 | قسم/بطاقة | ورق بعتناهولك | public/assets/js/public/portal.js:1339 |
+| P-107 | عنوان | ورق بعتناهولك | public/assets/js/public/portal.js:1339 |
+| P-108 | قسم/بطاقة | ورق بعت{ي}هولنا | public/assets/js/public/portal.js:1340 |
+| P-109 | عنوان | ورق بعت{ي}هولنا | public/assets/js/public/portal.js:1340 |
+| P-110 | زر | (نص متغير) | public/assets/js/public/portal.js:1371 |
+| P-111 | زر | … المكالمة | public/assets/js/public/portal.js:1375 |
+| P-112 | نافذة | إمتى يناسبك نكلمك؟ | public/assets/js/public/portal.js:1376 |
+| P-113 | زر | إعادة المحاولة<br>الصيغ: أفراد وشركات «إعادة المحاولة» · خيري «جرب{ي} تاني» | public/assets/js/public/portal.js:1423 |
+| P-114 | قسم/بطاقة | (نص متغير) | public/assets/js/public/portal.js:1494 |
+| P-115 | عنوان | (نص متغير) | public/assets/js/public/portal.js:1494 |
+| P-116 | زر | إعادة المحاولة<br>الصيغ: أفراد وشركات «إعادة المحاولة» · خيري «حاولي تاني» | public/assets/js/public/portal.js:1502 |
+| P-117 | زر | إعادة المحاولة<br>الصيغ: أفراد وشركات «إعادة المحاولة» · خيري «حاولي تاني» | public/assets/js/public/portal.js:1511 |
+| P-118 | زر | افتحي آخر صفحة محفوظة | public/assets/js/public/portal.js:1525 |
+| P-119 | زر | واتساب | public/assets/js/public/portal.js:1527 |
+| P-120 | رابط | لديكم موضوع جديد؟ أرسلوه من هنا<br>الصيغ: أفراد وشركات «لديكم موضوع جديد؟ أرسلوه من هنا» · خيري «عندك مشكلة جديدة؟ احكيلنا من هنا» | public/assets/js/public/portal.js:1529 |
 | P-123 | عنوان | (نص متغير) | public/assets/js/public/portal-ui.js:192 |
 
 ## PL: دخول صفحة المتابعة (`/portal`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | PL-01 | عنوان | … | public/portal-login.html:23 |
-| PL-02 | زر | اتصلي بينا | public/assets/js/public/portal-login.js:49 |
+| PL-02 | زر | اتصلوا بنا<br>الصيغ: أفراد وشركات «اتصلوا بنا» · خيري «اتصلي بينا» | public/assets/js/public/portal-login.js:49 |
 | PL-03 | زر | واتساب | public/assets/js/public/portal-login.js:52 |
-| PL-04 | قسم/بطاقة | عندك طلب عندنا | public/assets/js/public/portal-login.js:63 |
-| PL-05 | عنوان | عندك طلب عندنا | public/assets/js/public/portal-login.js:64 |
-| PL-06 | زر | افتحي صفحة طلبك | public/assets/js/public/portal-login.js:65 |
-| PL-07 | زر | مش موبايلك؟ امسحي | public/assets/js/public/portal-login.js:76 |
-| PL-08 | قسم/بطاقة | قدّمتي من الموقع ومش لاقية الرابط؟ | public/assets/js/public/portal-login.js:90 |
-| PL-09 | عنوان | قدّمتي من الموقع ومش لاقية الرابط؟ | public/assets/js/public/portal-login.js:91 |
+| PL-04 | قسم/بطاقة | لديكم طلب لدينا<br>الصيغ: أفراد وشركات «لديكم طلب لدينا» · خيري «عندك طلب عندنا» | public/assets/js/public/portal-login.js:63 |
+| PL-05 | عنوان | لديكم طلب لدينا<br>الصيغ: أفراد وشركات «لديكم طلب لدينا» · خيري «عندك طلب عندنا» | public/assets/js/public/portal-login.js:64 |
+| PL-06 | زر | فتح صفحة طلبكم<br>الصيغ: أفراد وشركات «فتح صفحة طلبكم» · خيري «افتحي صفحة طلبك» | public/assets/js/public/portal-login.js:65 |
+| PL-07 | زر | ليس هاتفكم؟ احذفوها<br>الصيغ: أفراد وشركات «ليس هاتفكم؟ احذفوها» · خيري «مش موبايلك؟ امسحي» | public/assets/js/public/portal-login.js:76 |
+| PL-08 | قسم/بطاقة | أرسلتم الطلب من الموقع ولا تجدون الرابط؟<br>الصيغ: أفراد وشركات «أرسلتم الطلب من الموقع ولا تجدون الرابط؟» · خيري «قدّمتي من الموقع ومش لاقية الرابط؟» | public/assets/js/public/portal-login.js:90 |
+| PL-09 | عنوان | أرسلتم الطلب من الموقع ولا تجدون الرابط؟<br>الصيغ: أفراد وشركات «أرسلتم الطلب من الموقع ولا تجدون الرابط؟» · خيري «قدّمتي من الموقع ومش لاقية الرابط؟» | public/assets/js/public/portal-login.js:91 |
 | PL-10 | سؤال قابل للفتح | للتجربة | public/assets/js/public/portal-login.js:102 |
 | PL-11 | عنوان | للتجربة | public/assets/js/public/portal-login.js:102 |
 | PL-12 | حقل | (نص متغير) | public/assets/js/public/portal-login.js:125 |
-| PL-13 | زر | ابعتولي كود على واتساب | public/assets/js/public/portal-login.js:128 |
-| PL-14 | نموذج | رقم موبايلك | public/assets/js/public/portal-login.js:131 |
-| PL-15 | قسم/بطاقة | بتكلمينا من رقم عليه واتساب؟ | public/assets/js/public/portal-login.js:158 |
-| PL-16 | عنوان | بتكلمينا من رقم عليه واتساب؟ | public/assets/js/public/portal-login.js:158 |
-| PL-17 | رابط | عندك مشكلة جديدة؟ احكيلنا من هنا | public/assets/js/public/portal-login.js:162 |
+| PL-13 | زر | إرسال الكود<br>الصيغ: أفراد وشركات «إرسال الكود» · خيري «ابعتولي كود على واتساب» | public/assets/js/public/portal-login.js:128 |
+| PL-14 | نموذج | رقم الموبايل<br>الصيغ: أفراد وشركات «رقم الموبايل» · خيري «رقم موبايلك» | public/assets/js/public/portal-login.js:131 |
+| PL-15 | قسم/بطاقة | اكتبوا رقم الموبايل الذي أرسلتم منه الطلب، وسيصلكم كود على واتساب.<br>الصيغ: أفراد وشركات «اكتبوا رقم الموبايل الذي أرسلتم منه الطلب، وسيصلكم كود على واتساب.» · خيري «بتكلمينا من رقم عليه واتساب؟» | public/assets/js/public/portal-login.js:158 |
+| PL-16 | عنوان | اكتبوا رقم الموبايل الذي أرسلتم منه الطلب، وسيصلكم كود على واتساب.<br>الصيغ: أفراد وشركات «اكتبوا رقم الموبايل الذي أرسلتم منه الطلب، وسيصلكم كود على واتساب.» · خيري «بتكلمينا من رقم عليه واتساب؟» | public/assets/js/public/portal-login.js:158 |
+| PL-17 | رابط | لديكم موضوع جديد؟ أرسلوه من هنا<br>الصيغ: أفراد وشركات «لديكم موضوع جديد؟ أرسلوه من هنا» · خيري «عندك مشكلة جديدة؟ احكيلنا من هنا» | public/assets/js/public/portal-login.js:162 |
 | PL-18 | حقل | (نص متغير) | public/assets/js/public/portal-login.js:184 |
-| PL-19 | زر | دخول | public/assets/js/public/portal-login.js:188 |
-| PL-20 | قسم/بطاقة | ما وصلكيش الكود؟ | public/assets/js/public/portal-login.js:284 |
-| PL-21 | عنوان | ما وصلكيش الكود؟ | public/assets/js/public/portal-login.js:285 |
-| PL-22 | زر | ابعتي كود تاني | public/assets/js/public/portal-login.js:288 |
-| PL-23 | زر | غيّري الرقم | public/assets/js/public/portal-login.js:288 |
+| PL-19 | زر | تأكيد<br>الصيغ: أفراد وشركات «تأكيد» · خيري «دخول» | public/assets/js/public/portal-login.js:188 |
+| PL-20 | قسم/بطاقة | لم يصلكم الكود؟<br>الصيغ: أفراد وشركات «لم يصلكم الكود؟» · خيري «ما وصلكيش الكود؟» | public/assets/js/public/portal-login.js:284 |
+| PL-21 | عنوان | لم يصلكم الكود؟<br>الصيغ: أفراد وشركات «لم يصلكم الكود؟» · خيري «ما وصلكيش الكود؟» | public/assets/js/public/portal-login.js:285 |
+| PL-22 | زر | إرسال كود جديد<br>الصيغ: أفراد وشركات «إرسال كود جديد» · خيري «ابعتي كود تاني» | public/assets/js/public/portal-login.js:288 |
+| PL-23 | زر | تغيير الرقم<br>الصيغ: أفراد وشركات «تغيير الرقم» · خيري «غيّري الرقم» | public/assets/js/public/portal-login.js:288 |
 | PL-24 | نموذج | لو رقمك متسجل عندنا، هيوصلك كود من 6 أرقام على واتساب خلال دقيقة. | public/assets/js/public/portal-login.js:296 |
-| PL-25 | قسم/بطاقة | غيّري الرقم | public/assets/js/public/portal-login.js:305 |
-| PL-26 | زر | غيّري الرقم | public/assets/js/public/portal-login.js:305 |
+| PL-25 | قسم/بطاقة | تغيير الرقم<br>الصيغ: أفراد وشركات «تغيير الرقم» · خيري «غيّري الرقم» | public/assets/js/public/portal-login.js:305 |
+| PL-26 | زر | تغيير الرقم<br>الصيغ: أفراد وشركات «تغيير الرقم» · خيري «غيّري الرقم» | public/assets/js/public/portal-login.js:305 |
 | PL-27 | قسم/بطاقة | الموقع قيد التجهيز | public/assets/js/public/portal-login.js:322 |
 | PL-28 | عنوان | الموقع قيد التجهيز | public/assets/js/public/portal-login.js:322 |
 
 ## CC: إطار البوابة: الشريط و«المزيد» والصفحة غير الموجودة (`/company#/more`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CC-01 | زر | طلب جديد | public/assets/js/company/shell.js:26 |
-| CC-02 | زر | طلب جديد | public/assets/js/company/shell.js:27 |
-| CC-03 | رابط | (نص متغير) | public/assets/js/company/shell.js:88 |
-| CC-04 | زر | تعليم الكل كمقروء | public/assets/js/company/shell.js:98 |
-| CC-05 | رابط | كل الإشعارات | public/assets/js/company/shell.js:100 |
-| CC-06 | قائمة روابط | مسار التنقل | public/assets/js/company/shell.js:114 |
-| CC-07 | رابط | (نص متغير) | public/assets/js/company/shell.js:117 |
-| CC-08 | رابط | إدارتكم القانونية | public/assets/js/company/shell.js:120 |
-| CC-09 | زر | الإشعارات | public/assets/js/company/shell.js:127 |
-| CC-10 | نافذة | الإشعارات | public/assets/js/company/shell.js:137 |
-| CC-11 | زر | قائمة الحساب | public/assets/js/company/shell.js:143 |
-| CC-12 | رابط | حسابي والأمان | public/assets/js/company/shell.js:149 |
-| CC-13 | رابط | الإشعارات | public/assets/js/company/shell.js:150 |
-| CC-14 | زر | تسجيل الخروج | public/assets/js/company/shell.js:151 |
-| CC-15 | قسم/بطاقة | (نص متغير) | public/assets/js/company/shell.js:161 |
-| CC-16 | قائمة روابط | التنقل الرئيسي | public/assets/js/company/shell.js:171 |
-| CC-17 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:176 |
-| CC-18 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:177 |
-| CC-19 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:178 |
-| CC-20 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:179 |
-| CC-21 | قائمة روابط | التنقل الرئيسي | public/assets/js/company/shell.js:181 |
-| CC-22 | عنصر | المتابعة | public/assets/js/company/shell.js:189 |
-| CC-23 | عنصر | الطلبات | public/assets/js/company/shell.js:190 |
-| CC-24 | رابط | الذاكرة القانونية | public/assets/js/company/shell.js:191 |
-| CC-25 | رابط | المواعيد المهمة | public/assets/js/company/shell.js:195 |
-| CC-26 | رابط | الكيانات | public/assets/js/company/shell.js:196 |
-| CC-27 | رابط | الأطراف المتعاملة | public/assets/js/company/shell.js:197 |
-| CC-28 | عنصر | الفريق | public/assets/js/company/shell.js:201 |
-| CC-29 | عنصر | الباقة والاستخدام | public/assets/js/company/shell.js:202 |
-| CC-30 | عنصر | بيانات الشركة | public/assets/js/company/shell.js:203 |
-| CC-31 | رابط | (نص متغير) | public/assets/js/company/shell.js:229 |
-| CC-32 | رابط | انتقال إلى المحتوى | public/assets/js/company/shell.js:317 |
+| CC-01 | زر | طلب جديد | public/assets/js/company/shell.js:38 |
+| CC-02 | زر | طلب جديد | public/assets/js/company/shell.js:39 |
+| CC-03 | رابط | (نص متغير) | public/assets/js/company/shell.js:100 |
+| CC-04 | زر | تعليم الكل كمقروء | public/assets/js/company/shell.js:110 |
+| CC-05 | رابط | كل الإشعارات | public/assets/js/company/shell.js:112 |
+| CC-06 | قائمة روابط | مسار التنقل | public/assets/js/company/shell.js:126 |
+| CC-07 | رابط | (نص متغير) | public/assets/js/company/shell.js:129 |
+| CC-08 | رابط | إدارتكم القانونية | public/assets/js/company/shell.js:132 |
+| CC-09 | زر | الإشعارات | public/assets/js/company/shell.js:139 |
+| CC-10 | نافذة | الإشعارات | public/assets/js/company/shell.js:149 |
+| CC-11 | زر | قائمة الحساب | public/assets/js/company/shell.js:155 |
+| CC-12 | رابط | حسابي والأمان | public/assets/js/company/shell.js:161 |
+| CC-13 | رابط | الإشعارات | public/assets/js/company/shell.js:162 |
+| CC-14 | زر | تسجيل الخروج | public/assets/js/company/shell.js:163 |
+| CC-15 | قسم/بطاقة | (نص متغير) | public/assets/js/company/shell.js:173 |
+| CC-16 | قائمة روابط | التنقل الرئيسي | public/assets/js/company/shell.js:183 |
+| CC-17 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:188 |
+| CC-18 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:189 |
+| CC-19 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:190 |
+| CC-20 | عنصر قائمة | (نص متغير) | public/assets/js/company/shell.js:191 |
+| CC-21 | قائمة روابط | التنقل الرئيسي | public/assets/js/company/shell.js:193 |
+| CC-22 | عنصر | المتابعة | public/assets/js/company/shell.js:201 |
+| CC-23 | عنصر | الطلبات | public/assets/js/company/shell.js:202 |
+| CC-24 | رابط | الذاكرة القانونية | public/assets/js/company/shell.js:203 |
+| CC-25 | رسالة | contract | public/assets/js/company/shell.js:11 |
+| CC-26 | رابط | الكيانات | public/assets/js/company/shell.js:208 |
+| CC-27 | رابط | الأطراف المتعاملة | public/assets/js/company/shell.js:209 |
+| CC-28 | عنصر | الفريق | public/assets/js/company/shell.js:213 |
+| CC-29 | عنصر | الباقة والاستخدام | public/assets/js/company/shell.js:214 |
+| CC-30 | عنصر | بيانات الشركة | public/assets/js/company/shell.js:215 |
+| CC-31 | رابط | (نص متغير) | public/assets/js/company/shell.js:241 |
+| CC-32 | رابط | انتقال إلى المحتوى | public/assets/js/company/shell.js:329 |
 | CC-33 | زر | إعادة المحاولة | public/assets/js/company/main.js:69 |
 | CC-34 | نافذة | تسجيل الخروج | public/assets/js/company/main.js:186 |
 | CC-35 | زر | إعادة المحاولة | public/assets/js/company/main.js:252 |
-| CC-36 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:13 |
-| CC-37 | عنوان | (نص متغير) | public/assets/js/company/common.js:14 |
-| CC-38 | زر | إعادة المحاولة | public/assets/js/company/common.js:39 |
-| CC-39 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:48 |
-| CC-40 | عنوان | (نص متغير) | public/assets/js/company/common.js:49 |
-| CC-41 | زر | (نص متغير) | public/assets/js/company/common.js:51 |
-| CC-42 | قسم/بطاقة | إعادة المحاولة | public/assets/js/company/common.js:60 |
-| CC-43 | عنوان | (نص متغير) | public/assets/js/company/common.js:62 |
-| CC-44 | زر | إعادة المحاولة | public/assets/js/company/common.js:64 |
-| CC-45 | عنصر قائمة | فهمت | public/assets/js/company/common.js:75 |
-| CC-46 | نافذة | حساب شركتكم في وضع الاطلاع فقط | public/assets/js/company/common.js:76 |
-| CC-47 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:89 |
-| CC-48 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:89 |
-| CC-49 | عنوان | (نص متغير) | public/assets/js/company/common.js:89 |
-| CC-50 | حقل | ابحثوا في الطلبات والذاكرة والمستندات | public/assets/js/company/common.js:96 |
+| CC-36 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:14 |
+| CC-37 | عنوان | (نص متغير) | public/assets/js/company/common.js:15 |
+| CC-38 | زر | إعادة المحاولة | public/assets/js/company/common.js:40 |
+| CC-39 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:49 |
+| CC-40 | عنوان | (نص متغير) | public/assets/js/company/common.js:50 |
+| CC-41 | زر | (نص متغير) | public/assets/js/company/common.js:52 |
+| CC-42 | قسم/بطاقة | إعادة المحاولة | public/assets/js/company/common.js:61 |
+| CC-43 | عنوان | (نص متغير) | public/assets/js/company/common.js:63 |
+| CC-44 | زر | إعادة المحاولة | public/assets/js/company/common.js:65 |
+| CC-45 | عنصر قائمة | فهمت | public/assets/js/company/common.js:76 |
+| CC-46 | نافذة | حساب شركتكم في وضع الاطلاع فقط | public/assets/js/company/common.js:77 |
+| CC-47 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:90 |
+| CC-48 | قسم/بطاقة | (نص متغير) | public/assets/js/company/common.js:90 |
+| CC-49 | عنوان | (نص متغير) | public/assets/js/company/common.js:90 |
+| CC-50 | حقل | ابحثوا في الطلبات والذاكرة والمستندات | public/assets/js/company/common.js:97 |
 | CC-51 | صف | الفريق | public/assets/js/company/pages/more.js:20 |
 | CC-52 | صف | الباقة والاستخدام | public/assets/js/company/pages/more.js:21 |
 | CC-53 | صف | بيانات الشركة والكيانات | public/assets/js/company/pages/more.js:22 |
@@ -999,10 +1012,18 @@
 | CC-55 | صف | حسابي والأمان | public/assets/js/company/pages/more.js:24 |
 | CC-56 | صف | (نص متغير) | public/assets/js/company/pages/more.js:26 |
 | CC-57 | صف | تسجيل الخروج | public/assets/js/company/pages/more.js:27 |
+| CC-58 | رسالة | template | public/assets/js/company/shell.js:12 |
+| CC-59 | رسالة | licence | public/assets/js/company/shell.js:13 |
+| CC-60 | رسالة | resolution | public/assets/js/company/shell.js:14 |
+| CC-61 | رسالة | position | public/assets/js/company/shell.js:15 |
+| CC-62 | رسالة | person | public/assets/js/company/shell.js:16 |
+| CC-63 | رسالة | policy | public/assets/js/company/shell.js:17 |
+| CC-64 | رسالة | dispute | public/assets/js/company/shell.js:18 |
+| CC-65 | رسالة | key_date | public/assets/js/company/shell.js:19 |
 
 ## CS: الدخول والروابط: الدعوة وتعيين كلمة المرور والحظر (`/company`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CS-01 | حقل | (نص متغير) | public/assets/js/company/pages/login.js:15 |
 | CS-02 | زر | إظهار | public/assets/js/company/pages/login.js:16 |
@@ -1055,7 +1076,7 @@
 
 ## CW: الترحيب (أول دخول) (`/company#/welcome`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CW-01 | حقل | (نص متغير) | public/assets/js/company/pages/welcome.js:27 |
 | CW-02 | قسم/بطاقة | إدارتكم القانونية | public/assets/js/company/pages/welcome.js:37 |
@@ -1095,29 +1116,32 @@
 
 ## CH: المتابعة (الرئيسية) (`/company#/overview`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CH-01 | زر | (نص متغير) | public/assets/js/company/pages/overview.js:88 |
-| CH-02 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:95 |
-| CH-03 | تنبيه | اليوم | public/assets/js/company/pages/overview.js:113 |
-| CH-04 | تنبيه | لديكم مطالبة مالية متأخرة. الخدمة مستمرة، ويُرجى السداد لتجنب إيقاف ا… | public/assets/js/company/pages/overview.js:115 |
-| CH-05 | تنبيه | حساب شركتكم في وضع الاطلاع فقط. يمكنكم عرض الطلبات والمستندات وتنزيله… | public/assets/js/company/pages/overview.js:116 |
-| CH-06 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:138 |
-| CH-07 | زر | إخفاء | public/assets/js/company/pages/overview.js:139 |
-| CH-08 | زر | فهمت | public/assets/js/company/pages/overview.js:147 |
-| CH-09 | رابط | الباقة والاستخدام | public/assets/js/company/pages/overview.js:157 |
-| CH-10 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:188 |
-| CH-11 | رابط | التقويم | public/assets/js/company/pages/overview.js:190 |
-| CH-12 | رابط | (نص متغير) | public/assets/js/company/pages/overview.js:199 |
-| CH-13 | رابط | كل الأنواع | public/assets/js/company/pages/overview.js:200 |
-| CH-14 | زر | (نص متغير) | public/assets/js/company/pages/overview.js:222 |
-| CH-15 | زر | طلب جديد | public/assets/js/company/pages/overview.js:235 |
-| CH-16 | حالة فارغة | أرسلوا أول طلب: مراجعة عقد، اتفاقية سرية، مسألة موظف، أو أي سؤال قانو… | public/assets/js/company/pages/overview.js:235 |
-| CH-17 | رابط | كل الطلبات | public/assets/js/company/pages/overview.js:236 |
+| CH-01 | زر | (نص متغير) | public/assets/js/company/pages/overview.js:90 |
+| CH-02 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:97 |
+| CH-03 | تنبيه | اليوم | public/assets/js/company/pages/overview.js:115 |
+| CH-04 | تنبيه | لديكم مطالبة مالية متأخرة. الخدمة مستمرة، ويُرجى السداد لتجنب إيقاف ا… | public/assets/js/company/pages/overview.js:117 |
+| CH-05 | تنبيه | حساب شركتكم في وضع الاطلاع فقط. يمكنكم عرض الطلبات والمستندات وتنزيله… | public/assets/js/company/pages/overview.js:118 |
+| CH-06 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:140 |
+| CH-07 | زر | إخفاء | public/assets/js/company/pages/overview.js:141 |
+| CH-08 | زر | فهمت | public/assets/js/company/pages/overview.js:149 |
+| CH-09 | رابط | الباقة والاستخدام | public/assets/js/company/pages/overview.js:159 |
+| CH-10 | صف | (نص متغير) | public/assets/js/company/pages/overview.js:190 |
+| CH-11 | رابط | التقويم | public/assets/js/company/pages/overview.js:192 |
+| CH-12 | رسالة | contract_review | public/assets/js/company/pages/overview.js:16 |
+| CH-13 | رابط | كل الأنواع | public/assets/js/company/pages/overview.js:202 |
+| CH-14 | زر | (نص متغير) | public/assets/js/company/pages/overview.js:224 |
+| CH-15 | زر | طلب جديد | public/assets/js/company/pages/overview.js:237 |
+| CH-16 | حالة فارغة | أرسلوا أول طلب: مراجعة عقد، اتفاقية سرية، مسألة موظف، أو أي سؤال قانو… | public/assets/js/company/pages/overview.js:237 |
+| CH-17 | رابط | كل الطلبات | public/assets/js/company/pages/overview.js:238 |
+| CH-18 | رسالة | nda | public/assets/js/company/pages/overview.js:16 |
+| CH-19 | رسالة | employment | public/assets/js/company/pages/overview.js:16 |
+| CH-20 | رسالة | legal_notice | public/assets/js/company/pages/overview.js:16 |
 
 ## CR: قائمة الطلبات (`/company#/requests`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CR-01 | زر | (نص متغير) | public/assets/js/company/pages/requests.js:27 |
 | CR-02 | زر | عرض المزيد | public/assets/js/company/pages/requests.js:47 |
@@ -1146,7 +1170,7 @@
 
 ## CN: طلب جديد (`/company#/requests/new`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CN-01 | زر | متابعة المسودة | public/assets/js/company/pages/new-request.js:56 |
 | CN-02 | نافذة | حذف المسودة؟ | public/assets/js/company/pages/new-request.js:60 |
@@ -1168,7 +1192,7 @@
 | CN-18 | حقل | لماذا هو عاجل؟ | public/assets/js/company/pages/new-request.js:254 |
 | CN-19 | حقل | (نص متغير) | public/assets/js/company/pages/new-request.js:261 |
 | CN-20 | حقل | تحتاجونه قبل (اختياري) | public/assets/js/company/pages/new-request.js:263 |
-| CN-21 | حقل | — اختاروا — | public/assets/js/company/pages/new-request.js:273 |
+| CN-21 | حقل | اختاروا | public/assets/js/company/pages/new-request.js:273 |
 | CN-22 | حقل | الكيان المعني | public/assets/js/company/pages/new-request.js:275 |
 | CN-23 | خيار | مَن يرى هذا الطلب في شركتكم؟ | public/assets/js/company/pages/new-request.js:288 |
 | CN-24 | زر | (نص متغير) | public/assets/js/company/pages/new-request.js:298 |
@@ -1193,21 +1217,21 @@
 
 ## CK: أنواع الطلبات وحقولها (`/company#/requests/new`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CK-01 | زر | تعديل المستند | public/assets/js/lib/company-forms.js:139 |
-| CK-02 | حقل | تصوير صفحة أخرى | public/assets/js/lib/company-forms.js:330 |
-| CK-06 | عنصر قائمة | مراجعة عقد قبل التوقيع | public/assets/js/lib/company-catalog.js:27 |
-| CK-07 | عنصر قائمة | إعداد عقد | public/assets/js/lib/company-catalog.js:46 |
-| CK-08 | عنصر قائمة | اتفاقية سرية (NDA) | public/assets/js/lib/company-catalog.js:66 |
-| CK-09 | عنصر قائمة | مسألة عمالية / موظف | public/assets/js/lib/company-catalog.js:85 |
+| CK-02 | حقل | تصوير صفحة أخرى | public/assets/js/lib/company-forms.js:331 |
+| CK-06 | عنصر قائمة | مراجعة عقد<br>الصيغ: بوابة الشركات «مراجعة عقد» · الفريق «مراجعة عقد قبل التوقيع» | public/assets/js/lib/company-catalog.js:27 |
+| CK-07 | عنصر قائمة | صياغة عقد<br>الصيغ: بوابة الشركات «صياغة عقد» · الفريق «إعداد عقد» | public/assets/js/lib/company-catalog.js:46 |
+| CK-08 | عنصر قائمة | اتفاقية سرية<br>الصيغ: بوابة الشركات «اتفاقية سرية» · الفريق «اتفاقية سرية (NDA)» | public/assets/js/lib/company-catalog.js:66 |
+| CK-09 | عنصر قائمة | مسألة موظف<br>الصيغ: بوابة الشركات «مسألة موظف» · الفريق «مسألة عمالية / موظف» | public/assets/js/lib/company-catalog.js:85 |
 | CK-10 | عنصر قائمة | مراجعة حملة تسويقية | public/assets/js/lib/company-catalog.js:104 |
-| CK-11 | عنصر قائمة | إنذار أو مطالبة وصلت للشركة | public/assets/js/lib/company-catalog.js:123 |
-| CK-12 | عنصر قائمة | قرار مجلس إدارة / جمعية | public/assets/js/lib/company-catalog.js:142 |
+| CK-11 | عنصر قائمة | إنذار أو مطالبة وصلتكم<br>الصيغ: بوابة الشركات «إنذار أو مطالبة وصلتكم» · الفريق «إنذار أو مطالبة وصلت للشركة» | public/assets/js/lib/company-catalog.js:123 |
+| CK-12 | عنصر قائمة | قرار مجلس إدارة أو جمعية<br>الصيغ: بوابة الشركات «قرار مجلس إدارة أو جمعية» · الفريق «قرار مجلس إدارة / جمعية» | public/assets/js/lib/company-catalog.js:142 |
 | CK-13 | عنصر قائمة | مشكلة مع مورد | public/assets/js/lib/company-catalog.js:161 |
 | CK-14 | عنصر قائمة | سؤال امتثال | public/assets/js/lib/company-catalog.js:180 |
-| CK-15 | عنصر قائمة | متابعة تجديد عقد أو ترخيص | public/assets/js/lib/company-catalog.js:199 |
-| CK-16 | عنصر قائمة | بدء نزاع | public/assets/js/lib/company-catalog.js:218 |
+| CK-15 | عنصر قائمة | تجديد عقد أو ترخيص<br>الصيغ: بوابة الشركات «تجديد عقد أو ترخيص» · الفريق «متابعة تجديد عقد أو ترخيص» | public/assets/js/lib/company-catalog.js:199 |
+| CK-16 | عنصر قائمة | بدء نزاع أو مطالبة<br>الصيغ: بوابة الشركات «بدء نزاع أو مطالبة» · الفريق «بدء نزاع» | public/assets/js/lib/company-catalog.js:218 |
 | CK-17 | عنصر قائمة | طلب آخر | public/assets/js/lib/company-catalog.js:237 |
 | CK-18 | عنصر | العملة | public/assets/js/lib/company-catalog-fields.js:15 |
 | CK-19 | عنصر | الطرف الآخر | public/assets/js/lib/company-catalog-fields.js:40 |
@@ -1318,12 +1342,12 @@
 | CK-124 | عنصر | التذكير قبل | public/assets/js/lib/company-catalog-fields.js:621 |
 | CK-125 | زر | إعادة المحاولة | public/assets/js/lib/company-forms.js:107 |
 | CK-126 | زر | (نص متغير) | public/assets/js/lib/company-forms.js:120 |
-| CK-127 | زر | (نص متغير) | public/assets/js/lib/company-forms.js:441 |
-| CK-128 | سؤال قابل للفتح | تفاصيل إضافية (اختياري) | public/assets/js/lib/company-forms.js:552 |
-| CK-129 | عنوان | تفاصيل إضافية (اختياري) | public/assets/js/lib/company-forms.js:552 |
-| CK-130 | رابط | عنصر في الذاكرة القانونية | public/assets/js/lib/company-forms.js:598 |
-| CK-131 | زر | حفظ العقد | public/assets/js/lib/company-forms.js:634 |
-| CK-132 | نموذج | (نص متغير) | public/assets/js/lib/company-forms.js:635 |
+| CK-127 | زر | (نص متغير) | public/assets/js/lib/company-forms.js:442 |
+| CK-128 | سؤال قابل للفتح | تفاصيل إضافية (اختياري) | public/assets/js/lib/company-forms.js:553 |
+| CK-129 | عنوان | تفاصيل إضافية (اختياري) | public/assets/js/lib/company-forms.js:553 |
+| CK-130 | رابط | عنصر في الذاكرة القانونية | public/assets/js/lib/company-forms.js:599 |
+| CK-131 | زر | حفظ العقد | public/assets/js/lib/company-forms.js:635 |
+| CK-132 | نموذج | (نص متغير) | public/assets/js/lib/company-forms.js:636 |
 | CK-133 | عنصر قائمة | العربية | public/assets/js/lib/company-catalog.js:345 |
 | CK-134 | عنصر قائمة | English | public/assets/js/lib/company-catalog.js:346 |
 | CK-135 | عنصر قائمة | العربية والإنجليزية | public/assets/js/lib/company-catalog.js:347 |
@@ -1332,7 +1356,7 @@
 
 ## CQ: صفحة الطلب (`/company#/requests/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CQ-01 | قسم/بطاقة | (نص متغير) | public/assets/js/company/pages/request.js:44 |
 | CQ-02 | قسم/بطاقة | (نص متغير) | public/assets/js/company/pages/request.js:44 |
@@ -1395,9 +1419,9 @@
 | CQ-59 | عنصر قائمة | نسخ رابط الطلب | public/assets/js/company/pages/request.js:572 |
 | CQ-60 | زر | خيارات الطلب | public/assets/js/company/pages/request.js:578 |
 
-## CU: مكوّنات البوابة: العرض والتسليم والاستيضاح والوعد والعدّاد
+## CU: مكوّنات البوابة: العرض والتسليم والاستيضاح والوعد والعدّاد (يظهر في: داخل صفحات بوابة الشركات: الطلب والتسليم والاستيضاح)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CU-01 | قسم/بطاقة | فريقكم القانوني يحتاج منكم | public/assets/js/lib/company-ui.js:97 |
 | CU-02 | عنوان | فريقكم القانوني يحتاج منكم | public/assets/js/lib/company-ui.js:99 |
@@ -1452,20 +1476,20 @@
 
 ## CM: الذاكرة القانونية وقوائمها (`/company#/memory`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CM-01 | صف | (نص متغير) | public/assets/js/company/pages/memory.js:21 |
 | CM-02 | صف | (نص متغير) | public/assets/js/company/pages/memory.js:26 |
 | CM-03 | حقل | ابحثوا في الذاكرة القانونية | public/assets/js/company/pages/memory.js:58 |
 | CM-04 | رابط | التقويم | public/assets/js/company/pages/memory.js:87 |
-| CM-05 | رابط | (نص متغير) | public/assets/js/company/pages/memory.js:107 |
-| CM-06 | زر | إضافة عقد | public/assets/js/company/pages/memory.js:122 |
-| CM-07 | زر | إضافة ترخيص | public/assets/js/company/pages/memory.js:123 |
-| CM-08 | حالة فارغة | تُبنى مع كل طلب يُنجَز، ويمكنكم البدء بإضافة عقودكم السارية لنذكّركم… | public/assets/js/company/pages/memory.js:126 |
-| CM-09 | قسم/بطاقة | (نص متغير) | public/assets/js/company/pages/memory.js:129 |
-| CM-10 | قسم/بطاقة | أقسام الذاكرة | public/assets/js/company/pages/memory.js:129 |
-| CM-11 | قسم/بطاقة | أقسام الذاكرة | public/assets/js/company/pages/memory.js:129 |
-| CM-12 | عنوان | أقسام الذاكرة | public/assets/js/company/pages/memory.js:129 |
+| CM-05 | رسالة | contract | public/assets/js/company/pages/memory.js:93 |
+| CM-06 | زر | إضافة عقد | public/assets/js/company/pages/memory.js:136 |
+| CM-07 | زر | إضافة ترخيص | public/assets/js/company/pages/memory.js:137 |
+| CM-08 | حالة فارغة | تُبنى مع كل طلب يُنجَز، ويمكنكم البدء بإضافة عقودكم السارية لنذكّركم… | public/assets/js/company/pages/memory.js:140 |
+| CM-09 | قسم/بطاقة | (نص متغير) | public/assets/js/company/pages/memory.js:143 |
+| CM-10 | قسم/بطاقة | أقسام الذاكرة | public/assets/js/company/pages/memory.js:143 |
+| CM-11 | قسم/بطاقة | أقسام الذاكرة | public/assets/js/company/pages/memory.js:143 |
+| CM-12 | عنوان | أقسام الذاكرة | public/assets/js/company/pages/memory.js:143 |
 | CM-13 | زر | مسح التصفية | public/assets/js/company/pages/memory-list.js:106 |
 | CM-14 | حالة فارغة | لا عناصر تطابق التصفية. | public/assets/js/company/pages/memory-list.js:106 |
 | CM-15 | زر | (نص متغير) | public/assets/js/company/pages/memory-list.js:107 |
@@ -1476,13 +1500,25 @@
 | CM-20 | جدول | (نص متغير) | public/assets/js/company/pages/memory-list.js:129 |
 | CM-21 | صف | (نص متغير) | public/assets/js/company/pages/memory-list.js:139 |
 | CM-22 | زر | (نص متغير) | public/assets/js/company/pages/memory-list.js:154 |
-| CM-23 | حقل | الكل | public/assets/js/company/pages/memory-list.js:158 |
-| CM-24 | حقل | ابحثوا في الذاكرة القانونية | public/assets/js/company/pages/memory-list.js:181 |
-| CM-25 | زر | (نص متغير) | public/assets/js/company/pages/memory-list.js:194 |
+| CM-23 | رسالة | entity | public/assets/js/company/pages/memory-list.js:164 |
+| CM-24 | حقل | ابحثوا في الذاكرة القانونية | public/assets/js/company/pages/memory-list.js:182 |
+| CM-25 | زر | (نص متغير) | public/assets/js/company/pages/memory-list.js:195 |
+| CM-26 | رسالة | template | public/assets/js/company/pages/memory.js:94 |
+| CM-27 | رسالة | licence | public/assets/js/company/pages/memory.js:95 |
+| CM-28 | رسالة | resolution | public/assets/js/company/pages/memory.js:96 |
+| CM-29 | رسالة | position | public/assets/js/company/pages/memory.js:97 |
+| CM-30 | رسالة | person | public/assets/js/company/pages/memory.js:98 |
+| CM-31 | رسالة | policy | public/assets/js/company/pages/memory.js:99 |
+| CM-32 | رسالة | dispute | public/assets/js/company/pages/memory.js:100 |
+| CM-33 | رسالة | key_date | public/assets/js/company/pages/memory.js:101 |
+| CM-34 | رسالة | entities | public/assets/js/company/pages/memory.js:102 |
+| CM-35 | رسالة | counterparties | public/assets/js/company/pages/memory.js:103 |
+| CM-36 | رسالة | counterparty | public/assets/js/company/pages/memory-list.js:164 |
+| CM-37 | رسالة | الموضوع: «موعد يقترب في ذاكرتكم القانونية» · نص الرسالة: «مرحبًا أ. مريم، يقترب موعد مهم في ذاكرتكم القانونية: تجديد السجل التجاري — 1 نوفمبر 2026…» | public/assets/js/company/pages/memory-list.js:164 |
 
 ## CD: المواعيد المهمة (`/company#/memory/calendar`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CD-01 | حالة فارغة | لا مواعيد في هذه الفترة. | public/assets/js/company/pages/calendar.js:52 |
 | CD-02 | قسم/بطاقة | (نص متغير) | public/assets/js/company/pages/calendar.js:64 |
@@ -1495,7 +1531,7 @@
 
 ## CG: الكيانات (`/company#/memory/entities`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CG-01 | حقل | (نص متغير) | public/assets/js/company/pages/entities.js:19 |
 | CG-02 | حقل | الاسم القانوني | public/assets/js/company/pages/entities.js:30 |
@@ -1514,7 +1550,7 @@
 
 ## CX: الأطراف المتعاملة (`/company#/memory/counterparties`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CX-01 | حالة فارغة | لا أطراف بعد. | public/assets/js/company/pages/counterparties.js:24 |
 | CX-02 | زر | عرض العناصر | public/assets/js/company/pages/counterparties.js:36 |
@@ -1523,7 +1559,7 @@
 
 ## CI: عنصر في الذاكرة (`/company#/memory/item/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CI-01 | عنصر قائمة | رفع المستندات | public/assets/js/company/pages/memory-item.js:86 |
 | CI-02 | نافذة | إضافة مستندات | public/assets/js/company/pages/memory-item.js:89 |
@@ -1537,7 +1573,7 @@
 
 ## CE: إضافة عنصر في الذاكرة أو تعديله (`/company#/memory/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CE-01 | حقل | المستندات | public/assets/js/company/pages/memory-edit.js:47 |
 | CE-02 | زر | إلغاء | public/assets/js/company/pages/memory-edit.js:81 |
@@ -1545,46 +1581,57 @@
 
 ## CT: الفريق (`/company#/team`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CT-01 | خيار | الدور | public/assets/js/company/pages/team.js:29 |
-| CT-02 | حقل | نسخ الرابط | public/assets/js/company/pages/team.js:34 |
-| CT-03 | زر | نسخ الرابط | public/assets/js/company/pages/team.js:53 |
-| CT-04 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:61 |
-| CT-05 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:62 |
-| CT-06 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:63 |
-| CT-07 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:65 |
-| CT-08 | حقل | الاسم | public/assets/js/company/pages/team.js:66 |
-| CT-09 | حقل | البريد الإلكتروني | public/assets/js/company/pages/team.js:67 |
-| CT-10 | حقل | الوظيفة | public/assets/js/company/pages/team.js:74 |
-| CT-11 | زر | إغلاق | public/assets/js/company/pages/team.js:130 |
-| CT-12 | عنصر قائمة | إرسال الدعوة | public/assets/js/company/pages/team.js:133 |
-| CT-13 | نافذة | دعوة زميل | public/assets/js/company/pages/team.js:136 |
-| CT-14 | عنصر قائمة | إغلاق | public/assets/js/company/pages/team.js:141 |
-| CT-15 | نافذة | إعادة إرسال الدعوة | public/assets/js/company/pages/team.js:141 |
-| CT-16 | عنصر قائمة | حفظ | public/assets/js/company/pages/team.js:176 |
-| CT-17 | نافذة | حفظ | public/assets/js/company/pages/team.js:179 |
-| CT-18 | نافذة | يُسجَّل خروجه فورًا ولن يتمكن من الدخول. تبقى طلباته ورسائله كما هي. | public/assets/js/company/pages/team.js:240 |
-| CT-19 | رابط | حسابي والأمان | public/assets/js/company/pages/team.js:251 |
-| CT-20 | زر | (نص متغير) | public/assets/js/company/pages/team.js:252 |
-| CT-21 | صف | (نص متغير) | public/assets/js/company/pages/team.js:264 |
-| CT-22 | نافذة | (نص متغير) | public/assets/js/company/pages/team.js:266 |
-| CT-23 | زر | (نص متغير) | public/assets/js/company/pages/team.js:269 |
-| CT-24 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:283 |
-| CT-25 | زر | دعوة زميل | public/assets/js/company/pages/team.js:319 |
-| CT-26 | عنصر قائمة | الاسم | public/assets/js/company/pages/team.js:338 |
-| CT-27 | عنصر قائمة | الدور | public/assets/js/company/pages/team.js:339 |
-| CT-28 | عنصر قائمة | الحالة | public/assets/js/company/pages/team.js:340 |
-| CT-29 | عنصر قائمة | التحقق بخطوتين | public/assets/js/company/pages/team.js:341 |
-| CT-30 | عنصر قائمة | آخر دخول | public/assets/js/company/pages/team.js:342 |
-| CT-31 | عنصر قائمة | (نص متغير) | public/assets/js/company/pages/team.js:343 |
-| CT-32 | جدول | الفريق | public/assets/js/company/pages/team.js:345 |
-| CT-33 | جدول | الفريق | public/assets/js/company/pages/team.js:346 |
-| CT-34 | زر | (نص متغير) | public/assets/js/company/pages/team.js:252 |
+| CT-01 | خيار | الدور | public/assets/js/company/pages/team.js:31 |
+| CT-02 | حقل | نسخ الرابط | public/assets/js/company/pages/team.js:36 |
+| CT-03 | زر | نسخ الرابط | public/assets/js/company/pages/team.js:55 |
+| CT-04 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:63 |
+| CT-05 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:64 |
+| CT-06 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:65 |
+| CT-07 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:67 |
+| CT-08 | حقل | الاسم | public/assets/js/company/pages/team.js:68 |
+| CT-09 | حقل | البريد الإلكتروني | public/assets/js/company/pages/team.js:69 |
+| CT-10 | حقل | الوظيفة | public/assets/js/company/pages/team.js:76 |
+| CT-11 | زر | إغلاق | public/assets/js/company/pages/team.js:132 |
+| CT-12 | عنصر قائمة | إرسال الدعوة | public/assets/js/company/pages/team.js:135 |
+| CT-13 | نافذة | دعوة زميل | public/assets/js/company/pages/team.js:138 |
+| CT-14 | عنصر قائمة | إغلاق | public/assets/js/company/pages/team.js:143 |
+| CT-15 | نافذة | إعادة إرسال الدعوة | public/assets/js/company/pages/team.js:143 |
+| CT-16 | عنصر قائمة | حفظ | public/assets/js/company/pages/team.js:178 |
+| CT-17 | نافذة | حفظ | public/assets/js/company/pages/team.js:181 |
+| CT-18 | نافذة | يُسجَّل خروجه فورًا ولن يتمكن من الدخول. تبقى طلباته ورسائله كما هي. | public/assets/js/company/pages/team.js:253 |
+| CT-19 | رابط | حسابي والأمان | public/assets/js/company/pages/team.js:264 |
+| CT-20 | زر | (نص متغير) | public/assets/js/company/pages/team.js:265 |
+| CT-21 | صف | (نص متغير) | public/assets/js/company/pages/team.js:277 |
+| CT-22 | نافذة | (نص متغير) | public/assets/js/company/pages/team.js:279 |
+| CT-23 | زر | (نص متغير) | public/assets/js/company/pages/team.js:282 |
+| CT-24 | حقل | (نص متغير) | public/assets/js/company/pages/team.js:296 |
+| CT-25 | زر | دعوة زميل | public/assets/js/company/pages/team.js:332 |
+| CT-26 | عنصر قائمة | الاسم | public/assets/js/company/pages/team.js:351 |
+| CT-27 | عنصر قائمة | الدور | public/assets/js/company/pages/team.js:352 |
+| CT-28 | عنصر قائمة | الحالة | public/assets/js/company/pages/team.js:353 |
+| CT-29 | عنصر قائمة | التحقق بخطوتين | public/assets/js/company/pages/team.js:354 |
+| CT-30 | عنصر قائمة | آخر دخول | public/assets/js/company/pages/team.js:355 |
+| CT-31 | عنصر قائمة | (نص متغير) | public/assets/js/company/pages/team.js:356 |
+| CT-32 | جدول | الفريق | public/assets/js/company/pages/team.js:358 |
+| CT-33 | جدول | الفريق | public/assets/js/company/pages/team.js:359 |
+| CT-34 | زر | (نص متغير) | public/assets/js/company/pages/team.js:265 |
+| CT-35 | رسالة | company_admin | public/assets/js/company/pages/team.js:18 |
+| CT-36 | رسالة | member | public/assets/js/company/pages/team.js:18 |
+| CT-37 | رسالة | viewer | public/assets/js/company/pages/team.js:18 |
+| CT-38 | عنصر | تغيير الدور | public/assets/js/company/pages/team.js:190 |
+| CT-39 | عنصر | إلغاء الاطلاع على التكاليف الإضافية | public/assets/js/company/pages/team.js:194 |
+| CT-40 | عنصر | إلغاء الاطلاع على التكاليف الإضافية | public/assets/js/company/pages/team.js:195 |
+| CT-41 | عنصر | إرسال رابط تعيين كلمة مرور | public/assets/js/company/pages/team.js:202 |
+| CT-42 | عنصر | إعادة إرسال الدعوة | public/assets/js/company/pages/team.js:217 |
+| CT-43 | عنصر | تسجيل خروجه من كل الأجهزة | public/assets/js/company/pages/team.js:235 |
+| CT-44 | عنصر | إيقاف الحساب | public/assets/js/company/pages/team.js:251 |
+| CT-45 | عنصر | إعادة التفعيل | public/assets/js/company/pages/team.js:257 |
 
 ## CP: الباقة والاستخدام (`/company#/plan`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CP-01 | سؤال قابل للفتح | أنواع الطلبات المشمولة | public/assets/js/company/pages/plan.js:60 |
 | CP-02 | عنوان | أنواع الطلبات المشمولة | public/assets/js/company/pages/plan.js:60 |
@@ -1605,7 +1652,7 @@
 
 ## CF: بيانات الشركة (`/company#/company`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CF-01 | حقل | (نص متغير) | public/assets/js/company/pages/company.js:18 |
 | CF-02 | حقل | (نص متغير) | public/assets/js/company/pages/company.js:25 |
@@ -1623,7 +1670,7 @@
 
 ## CA: حسابي والأمان (`/company#/account`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CA-01 | حقل | (نص متغير) | public/assets/js/company/pages/account.js:21 |
 | CA-02 | حقل | الاسم | public/assets/js/company/pages/account.js:28 |
@@ -1656,7 +1703,7 @@
 
 ## CB: الإشعارات (`/company#/notifications`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CB-01 | رابط | غير مقروء | public/assets/js/company/pages/notifications.js:44 |
 | CB-02 | حالة فارغة | لا إشعارات. | public/assets/js/company/pages/notifications.js:61 |
@@ -1664,7 +1711,7 @@
 
 ## NAV: إطار المنصة: القائمة الجانبية والشريط العلوي والجرس وشريط المحامي (`/app`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | NAV-01 | رابط | الإشعارات | public/assets/js/app/shell.js:20 |
 | NAV-02 | رابط | حسابي والأمان | public/assets/js/app/shell.js:21 |
@@ -1676,7 +1723,7 @@
 | NAV-08 | رابط | بانتظار قرار الإدارة | public/assets/js/app/shell.js:39 |
 | NAV-09 | رابط | ملفات الاستشارات | public/assets/js/app/shell.js:40 |
 | NAV-10 | رابط | الملفات المستمرة | public/assets/js/app/shell.js:41 |
-| NAV-11 | رابط | المستفيدون | public/assets/js/app/shell.js:42 |
+| NAV-11 | رابط | أصحاب الطلبات | public/assets/js/app/shell.js:42 |
 | NAV-12 | رابط | التقويم | public/assets/js/app/shell.js:43 |
 | NAV-13 | عنصر قائمة | الشركات | public/assets/js/app/shell.js:47 |
 | NAV-14 | رابط | طلبات الشركات | public/assets/js/app/shell.js:47 |
@@ -1737,25 +1784,25 @@
 
 ## LGN: الدخول والدعوة واستعادة كلمة المرور والتحقق بخطوتين (`/app#/login`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| LGN-01 | حقل | (نص متغير) | public/assets/js/app/pages/login.js:39 |
-| LGN-02 | قسم/بطاقة | حسابات تجريبية | public/assets/js/app/pages/login.js:49 |
-| LGN-03 | عنوان | حسابات تجريبية | public/assets/js/app/pages/login.js:50 |
-| LGN-04 | زر | دخول | public/assets/js/app/pages/login.js:69 |
-| LGN-05 | قسم/بطاقة | منصة الدعم القانوني | public/assets/js/app/pages/login.js:83 |
-| LGN-06 | عنوان | كل طلب قانوني، من أول رسالة حتى الرد المعتمد، في مكان واحد | public/assets/js/app/pages/login.js:88 |
-| LGN-07 | عنوان | تسجيل الدخول | public/assets/js/app/pages/login.js:108 |
-| LGN-08 | تنبيه | انتهت جلستك، يرجى تسجيل الدخول مرة أخرى للمتابعة. | public/assets/js/app/pages/login.js:110 |
-| LGN-09 | زر | نسيت كلمة المرور؟ | public/assets/js/app/pages/login.js:113 |
-| LGN-10 | رابط | العودة إلى موقع | public/assets/js/app/pages/login.js:117 |
-| LGN-11 | حقل | (نص متغير) | public/assets/js/app/pages/login.js:130 |
-| LGN-12 | زر | أرسل رابطًا إلى واتساب | public/assets/js/app/pages/login.js:132 |
-| LGN-13 | زر | اتصل بالمؤسسة | public/assets/js/app/pages/login.js:155 |
-| LGN-14 | زر | واتساب | public/assets/js/app/pages/login.js:155 |
-| LGN-15 | نافذة | اطلب رابطًا جديدًا من الإدارة | public/assets/js/app/pages/login.js:164 |
-| LGN-16 | قسم/بطاقة | منصة الدعم القانوني | public/assets/js/app/pages/auth-flows.js:33 |
-| LGN-17 | قسم/بطاقة | منصة الدعم القانوني | public/assets/js/app/pages/auth-flows.js:34 |
+| LGN-01 | حقل | (نص متغير) | public/assets/js/app/pages/login.js:41 |
+| LGN-02 | قسم/بطاقة | حسابات تجريبية | public/assets/js/app/pages/login.js:51 |
+| LGN-03 | عنوان | حسابات تجريبية | public/assets/js/app/pages/login.js:52 |
+| LGN-04 | زر | دخول | public/assets/js/app/pages/login.js:71 |
+| LGN-05 | قسم/بطاقة | منصة المكتب | public/assets/js/app/pages/login.js:85 |
+| LGN-06 | عنوان | كل طلب قانوني، من أول رسالة حتى الرد المعتمد، في مكان واحد | public/assets/js/app/pages/login.js:90 |
+| LGN-07 | عنوان | تسجيل الدخول | public/assets/js/app/pages/login.js:110 |
+| LGN-08 | تنبيه | انتهت جلستك، يرجى تسجيل الدخول مرة أخرى للمتابعة. | public/assets/js/app/pages/login.js:112 |
+| LGN-09 | زر | نسيت كلمة المرور؟ | public/assets/js/app/pages/login.js:115 |
+| LGN-10 | رابط | العودة إلى موقع | public/assets/js/app/pages/login.js:119 |
+| LGN-11 | حقل | (نص متغير) | public/assets/js/app/pages/login.js:132 |
+| LGN-12 | زر | أرسل رابطًا إلى واتساب | public/assets/js/app/pages/login.js:134 |
+| LGN-13 | زر | اتصل بالمؤسسة | public/assets/js/app/pages/login.js:157 |
+| LGN-14 | زر | واتساب | public/assets/js/app/pages/login.js:157 |
+| LGN-15 | نافذة | اطلب رابطًا جديدًا من الإدارة | public/assets/js/app/pages/login.js:166 |
+| LGN-16 | قسم/بطاقة | منصة المكتب | public/assets/js/app/pages/auth-flows.js:33 |
+| LGN-17 | قسم/بطاقة | منصة المكتب | public/assets/js/app/pages/auth-flows.js:34 |
 | LGN-18 | رابط | العودة إلى موقع | public/assets/js/app/pages/auth-flows.js:36 |
 | LGN-19 | رابط | العودة إلى موقع … | public/assets/js/app/pages/auth-flows.js:36 |
 | LGN-20 | عنوان | (نص متغير) | public/assets/js/app/pages/auth-flows.js:41 |
@@ -1772,30 +1819,31 @@
 | LGN-31 | عنصر قائمة | تأكيد | public/assets/js/app/lh-reauth.js:71 |
 | LGN-32 | نافذة | تأكيد كلمة المرور | public/assets/js/app/lh-reauth.js:80 |
 | LGN-33 | تنبيه | (نص متغير) | public/assets/js/app/main.js:439 |
-| LGN-34 | عنصر قائمة | اسم المستخدم | public/assets/js/app/pages/login.js:19 |
-| LGN-35 | عنصر قائمة | كلمة المرور | public/assets/js/app/pages/login.js:20 |
-| LGN-36 | نموذج | اسم المستخدم | public/assets/js/app/pages/login.js:33 |
-| LGN-37 | نموذج | اسم المستخدم | public/assets/js/app/pages/login.js:34 |
-| LGN-38 | نموذج | تفعيل والدخول | public/assets/js/app/pages/auth-flows.js:123 |
+| LGN-34 | عنصر قائمة | اسم المستخدم | public/assets/js/app/pages/login.js:21 |
+| LGN-35 | عنصر قائمة | كلمة المرور | public/assets/js/app/pages/login.js:22 |
+| LGN-36 | زر | تسجيل الدخول | public/assets/js/app/pages/login.js:35 |
+| LGN-37 | نموذج | اسم المستخدم | public/assets/js/app/pages/login.js:36 |
+| LGN-38 | زر | حفظ | public/assets/js/app/pages/auth-flows.js:123 |
 | LGN-39 | نموذج | تفعيل والدخول | public/assets/js/app/pages/auth-flows.js:124 |
 | LGN-40 | عنصر قائمة | رمز التحقق | public/assets/js/app/pages/auth-flows.js:155 |
 | LGN-41 | عنصر قائمة | رمز الاسترداد | public/assets/js/app/pages/auth-flows.js:156 |
-| LGN-42 | نموذج | رمز التحقق | public/assets/js/app/pages/auth-flows.js:186 |
+| LGN-42 | زر | تحقق ودخول | public/assets/js/app/pages/auth-flows.js:186 |
 | LGN-43 | نموذج | رمز التحقق | public/assets/js/app/pages/auth-flows.js:187 |
 | LGN-44 | عنصر قائمة | كلمة المرور المؤقتة الحالية | public/assets/js/app/pages/auth-flows.js:227 |
 | LGN-45 | عنصر قائمة | كلمة المرور الجديدة | public/assets/js/app/pages/auth-flows.js:228 |
 | LGN-46 | عنصر قائمة | تأكيد كلمة المرور الجديدة | public/assets/js/app/pages/auth-flows.js:229 |
-| LGN-47 | نموذج | كلمة المرور المؤقتة الحالية | public/assets/js/app/pages/auth-flows.js:243 |
+| LGN-47 | زر | حفظ ومتابعة | public/assets/js/app/pages/auth-flows.js:243 |
 | LGN-48 | نموذج | كلمة المرور المؤقتة الحالية | public/assets/js/app/pages/auth-flows.js:244 |
 | LGN-49 | عنصر قائمة | الاسم الكامل | public/assets/js/app/pages/auth-flows.js:76 |
 | LGN-50 | عنصر قائمة | username | public/assets/js/app/pages/auth-flows.js:83 |
 | LGN-51 | عنصر قائمة | password | public/assets/js/app/pages/auth-flows.js:85 |
 | LGN-52 | عنصر قائمة | تأكيد كلمة المرور | public/assets/js/app/pages/auth-flows.js:86 |
 | LGN-53 | عنصر قائمة | أتعهد بالحفاظ على سرية بيانات المستفيدين وعدم استخدامها خارج عمل المؤ… | public/assets/js/app/pages/auth-flows.js:95 |
+| LGN-54 | نص | . جميع الحقوق محفوظة. | public/assets/js/app/pages/login.js:104 |
 
-## KIT: مكتبة المكوّنات: الإغلاق والتأكيد وتجاهل التعديلات وإعادة المحاولة واختيار ملف
+## KIT: مكتبة المكوّنات: الإغلاق والتأكيد وتجاهل التعديلات وإعادة المحاولة واختيار ملف (يظهر في: عناصر مشتركة في كل صفحات المنصة (الإغلاق، التأكيد، إعادة المحاولة، اختيار ملف))
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | KIT-01 | حقل | حتى … ، وحجم الملف الواحد لا يزيد على … | public/assets/js/lib/ui.js:1111 |
 | KIT-06 | زر | إغلاق | public/assets/js/lib/ui.js:731 |
@@ -1809,17 +1857,17 @@
 | KIT-14 | زر | إزالة الملف … | public/assets/js/lib/ui.js:1159 |
 | KIT-15 | زر | إظهار كلمة المرور | public/assets/js/lib/ui.js:1404 |
 | KIT-16 | حالة فارغة | (نص متغير) | public/assets/js/lib/ui.js:1716 |
-| KIT-17 | قسم/بطاقة | (نص متغير) | public/assets/js/lib/ui.js:2005 |
-| KIT-18 | قسم/بطاقة | إعادة المحاولة | public/assets/js/lib/ui.js:2023 |
-| KIT-19 | زر | إعادة المحاولة | public/assets/js/lib/ui.js:2028 |
-| KIT-20 | رابط | تنزيل … | public/assets/js/lib/ui.js:1958 |
-| KIT-21 | رابط | تنزيل … | public/assets/js/lib/ui.js:1959 |
-| KIT-22 | قائمة روابط | مسار التنقل | public/assets/js/lib/ui.js:2053 |
-| KIT-23 | زر | إزالة … | public/assets/js/lib/ui.js:2135 |
+| KIT-17 | قسم/بطاقة | (نص متغير) | public/assets/js/lib/ui.js:2017 |
+| KIT-18 | قسم/بطاقة | إعادة المحاولة | public/assets/js/lib/ui.js:2035 |
+| KIT-19 | زر | إعادة المحاولة | public/assets/js/lib/ui.js:2040 |
+| KIT-20 | رابط | تنزيل … | public/assets/js/lib/ui.js:1970 |
+| KIT-21 | رابط | تنزيل … | public/assets/js/lib/ui.js:1971 |
+| KIT-22 | قائمة روابط | مسار التنقل | public/assets/js/lib/ui.js:2069 |
+| KIT-23 | زر | إزالة … | public/assets/js/lib/ui.js:2151 |
 
-## SRC: البحث الشامل Ctrl+K
+## SRC: البحث الشامل Ctrl+K (يظهر في: نافذة البحث (Ctrl+K) في المنصة)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | SRC-01 | عنصر قائمة | مستندات | public/assets/js/app/components/search.js:112 |
 | SRC-02 | خيار | صفحة … · … | public/assets/js/app/components/search.js:112 |
@@ -1832,363 +1880,387 @@
 
 ## DSH: لوحة المتابعة (`/app#/dashboard`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| DSH-01 | عنوان | حسب نوع الطلب | public/assets/js/app/pages/admin/dashboard.js:205 |
-| DSH-02 | قائمة | جديد اليوم | public/assets/js/app/pages/admin/dashboard.js:208 |
-| DSH-03 | رابط | جديد اليوم | public/assets/js/app/pages/admin/dashboard.js:216 |
-| DSH-05 | سؤال قابل للفتح | عرض البيانات كجدول | public/assets/js/app/pages/admin/dashboard.js:90 |
-| DSH-06 | عنوان | عرض البيانات كجدول | public/assets/js/app/pages/admin/dashboard.js:90 |
-| DSH-07 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:114 |
-| DSH-08 | زر | طلبات الشركات | public/assets/js/app/pages/admin/dashboard.js:125 |
-| DSH-09 | بطاقة رقم | بانتظار الفرز | public/assets/js/app/pages/admin/dashboard.js:128 |
-| DSH-10 | بطاقة رقم | يقترب موعدها | public/assets/js/app/pages/admin/dashboard.js:129 |
-| DSH-11 | بطاقة رقم | متأخرة | public/assets/js/app/pages/admin/dashboard.js:130 |
-| DSH-12 | بطاقة رقم | بانتظار الشركات | public/assets/js/app/pages/admin/dashboard.js:131 |
-| DSH-13 | بطاقة رقم | تجديدات خلال 30 يومًا | public/assets/js/app/pages/admin/dashboard.js:132 |
-| DSH-14 | بطاقة رقم | الاشتراكات الشهرية | public/assets/js/app/pages/admin/dashboard.js:133 |
-| DSH-15 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:135 |
-| DSH-16 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:136 |
-| DSH-17 | رابط | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:159 |
-| DSH-18 | قسم/بطاقة | حسب نوع الخدمة | public/assets/js/app/pages/admin/dashboard.js:187 |
-| DSH-19 | عنوان | حسب نوع الخدمة | public/assets/js/app/pages/admin/dashboard.js:188 |
-| DSH-20 | زر | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:251 |
-| DSH-21 | زر | صندوق الوارد | public/assets/js/app/pages/admin/dashboard.js:252 |
-| DSH-22 | عنوان | … ، … | public/assets/js/app/pages/admin/dashboard.js:254 |
-| DSH-23 | عنوان | … ، … | public/assets/js/app/pages/admin/dashboard.js:255 |
-| DSH-24 | بطاقة رقم | طلبات جديدة | public/assets/js/app/pages/admin/dashboard.js:268 |
-| DSH-25 | بطاقة رقم | عاجلة أو عالية الأولوية | public/assets/js/app/pages/admin/dashboard.js:277 |
-| DSH-26 | بطاقة رقم | ملفات مفتوحة | public/assets/js/app/pages/admin/dashboard.js:279 |
-| DSH-27 | بطاقة رقم | قرارات بانتظار الإدارة | public/assets/js/app/pages/admin/dashboard.js:287 |
-| DSH-28 | بطاقة رقم | إسنادات متأخرة | public/assets/js/app/pages/admin/dashboard.js:296 |
-| DSH-29 | بطاقة رقم | متوسط زمن أول رد | public/assets/js/app/pages/admin/dashboard.js:308 |
-| DSH-30 | بطاقة رقم | متأخرة عن مستوى الخدمة | public/assets/js/app/pages/admin/dashboard.js:318 |
-| DSH-31 | بطاقة رقم | فواتير متأخرة | public/assets/js/app/pages/admin/dashboard.js:327 |
-| DSH-32 | بطاقة رقم | رسائل فشل إرسالها | public/assets/js/app/pages/admin/dashboard.js:336 |
-| DSH-33 | بطاقة رقم | مواد معرفة بانتظار المراجعة | public/assets/js/app/pages/admin/dashboard.js:345 |
-| DSH-34 | رابط | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:363 |
-| DSH-35 | قسم/بطاقة | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:372 |
-| DSH-36 | قسم/بطاقة | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:373 |
-| DSH-37 | زر | كل الملفات | public/assets/js/app/pages/admin/dashboard.js:383 |
-| DSH-38 | رابط | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:392 |
-| DSH-39 | قسم/بطاقة | ملفات الاستشارة حسب الحالة | public/assets/js/app/pages/admin/dashboard.js:400 |
-| DSH-40 | قسم/بطاقة | ملفات الاستشارة حسب الحالة | public/assets/js/app/pages/admin/dashboard.js:401 |
-| DSH-41 | زر | شبكة المحامين | public/assets/js/app/pages/admin/dashboard.js:410 |
-| DSH-42 | عنوان | الأعلى تحميلًا | public/assets/js/app/pages/admin/dashboard.js:426 |
-| DSH-43 | رابط | … : الإسنادات المفتوحة … من … | public/assets/js/app/pages/admin/dashboard.js:435 |
-| DSH-44 | قسم/بطاقة | الطاقة القانونية | public/assets/js/app/pages/admin/dashboard.js:453 |
-| DSH-45 | قسم/بطاقة | الطاقة القانونية | public/assets/js/app/pages/admin/dashboard.js:454 |
-| DSH-46 | رابط | يلزم حضور المستفيد/ة | public/assets/js/app/pages/admin/dashboard.js:472 |
-| DSH-47 | حالة فارغة | لا توجد جلسات أو مواعيد خلال الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:489 |
-| DSH-48 | قسم/بطاقة | مواعيد الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:490 |
-| DSH-49 | قسم/بطاقة | مواعيد الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:491 |
-| DSH-50 | رابط | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:508 |
-| DSH-51 | حالة فارغة | لا توجد تنبيهات تشابه للطلبات المفتوحة حاليًا | public/assets/js/app/pages/admin/dashboard.js:516 |
-| DSH-52 | قسم/بطاقة | تنبيهات الحالات المشابهة | public/assets/js/app/pages/admin/dashboard.js:517 |
-| DSH-53 | قسم/بطاقة | تنبيهات الحالات المشابهة | public/assets/js/app/pages/admin/dashboard.js:518 |
-| DSH-54 | قسم/بطاقة | الخيري | public/assets/js/app/pages/admin/dashboard.js:537 |
-| DSH-55 | عنوان | الخيري | public/assets/js/app/pages/admin/dashboard.js:537 |
-| DSH-56 | قسم/بطاقة | الأفراد والشركات | public/assets/js/app/pages/admin/dashboard.js:540 |
-| DSH-57 | عنوان | الأفراد والشركات | public/assets/js/app/pages/admin/dashboard.js:541 |
-| DSH-58 | قسم/بطاقة | هذا الشهر — | public/assets/js/app/pages/admin/dashboard.js:553 |
-| DSH-59 | قسم/بطاقة | هذا الشهر — | public/assets/js/app/pages/admin/dashboard.js:554 |
-| DSH-60 | زر | التحليلات | public/assets/js/app/pages/admin/dashboard.js:561 |
-| DSH-61 | قسم/بطاقة | الحجم الأسبوعي | public/assets/js/app/pages/admin/dashboard.js:563 |
-| DSH-62 | قسم/بطاقة | الحجم الأسبوعي | public/assets/js/app/pages/admin/dashboard.js:564 |
+| DSH-01 | عنوان | حسب نوع الطلب | public/assets/js/app/pages/admin/dashboard.js:211 |
+| DSH-02 | قائمة | جديد اليوم | public/assets/js/app/pages/admin/dashboard.js:214 |
+| DSH-03 | رسالة | consultation | public/assets/js/app/pages/admin/dashboard.js:28 |
+| DSH-05 | سؤال قابل للفتح | عرض البيانات كجدول | public/assets/js/app/pages/admin/dashboard.js:94 |
+| DSH-06 | عنوان | عرض البيانات كجدول | public/assets/js/app/pages/admin/dashboard.js:94 |
+| DSH-07 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:118 |
+| DSH-08 | زر | طلبات الشركات | public/assets/js/app/pages/admin/dashboard.js:129 |
+| DSH-09 | بطاقة رقم | بانتظار الفرز | public/assets/js/app/pages/admin/dashboard.js:132 |
+| DSH-10 | بطاقة رقم | يقترب موعدها | public/assets/js/app/pages/admin/dashboard.js:133 |
+| DSH-11 | بطاقة رقم | متأخرة | public/assets/js/app/pages/admin/dashboard.js:134 |
+| DSH-12 | بطاقة رقم | بانتظار الشركات | public/assets/js/app/pages/admin/dashboard.js:135 |
+| DSH-13 | بطاقة رقم | تجديدات خلال 30 يومًا | public/assets/js/app/pages/admin/dashboard.js:136 |
+| DSH-14 | بطاقة رقم | الاشتراكات الشهرية | public/assets/js/app/pages/admin/dashboard.js:137 |
+| DSH-15 | عنوان | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:139 |
+| DSH-16 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/dashboard.js:140 |
+| DSH-17 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:172 |
+| DSH-18 | قسم/بطاقة | حسب نوع الخدمة | public/assets/js/app/pages/admin/dashboard.js:193 |
+| DSH-19 | عنوان | حسب نوع الخدمة | public/assets/js/app/pages/admin/dashboard.js:194 |
+| DSH-20 | زر | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:257 |
+| DSH-21 | زر | صندوق الوارد | public/assets/js/app/pages/admin/dashboard.js:258 |
+| DSH-22 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:260 |
+| DSH-23 | عنوان | … ، … | public/assets/js/app/pages/admin/dashboard.js:261 |
+| DSH-24 | بطاقة رقم | طلبات جديدة | public/assets/js/app/pages/admin/dashboard.js:274 |
+| DSH-25 | بطاقة رقم | عاجلة أو عالية الأولوية | public/assets/js/app/pages/admin/dashboard.js:283 |
+| DSH-26 | بطاقة رقم | ملفات مفتوحة | public/assets/js/app/pages/admin/dashboard.js:285 |
+| DSH-27 | بطاقة رقم | قرارات بانتظار الإدارة | public/assets/js/app/pages/admin/dashboard.js:293 |
+| DSH-28 | بطاقة رقم | إسنادات متأخرة | public/assets/js/app/pages/admin/dashboard.js:302 |
+| DSH-29 | بطاقة رقم | متوسط زمن أول رد | public/assets/js/app/pages/admin/dashboard.js:314 |
+| DSH-30 | بطاقة رقم | متأخرة عن مستوى الخدمة | public/assets/js/app/pages/admin/dashboard.js:324 |
+| DSH-31 | بطاقة رقم | فواتير متأخرة | public/assets/js/app/pages/admin/dashboard.js:333 |
+| DSH-32 | بطاقة رقم | رسائل فشل إرسالها | public/assets/js/app/pages/admin/dashboard.js:342 |
+| DSH-33 | بطاقة رقم | مواد معرفة بانتظار المراجعة | public/assets/js/app/pages/admin/dashboard.js:351 |
+| DSH-34 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:18 |
+| DSH-35 | عنوان | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:378 |
+| DSH-36 | قسم/بطاقة | بانتظار قرارك | public/assets/js/app/pages/admin/dashboard.js:379 |
+| DSH-37 | زر | كل الملفات | public/assets/js/app/pages/admin/dashboard.js:389 |
+| DSH-38 | رسالة | new | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-39 | عنوان | ملفات الاستشارة حسب الحالة | public/assets/js/app/pages/admin/dashboard.js:406 |
+| DSH-40 | قسم/بطاقة | ملفات الاستشارة حسب الحالة | public/assets/js/app/pages/admin/dashboard.js:407 |
+| DSH-41 | زر | شبكة المحامين | public/assets/js/app/pages/admin/dashboard.js:416 |
+| DSH-42 | عنوان | الأعلى تحميلًا | public/assets/js/app/pages/admin/dashboard.js:432 |
+| DSH-43 | رابط | … : الإسنادات المفتوحة … من … | public/assets/js/app/pages/admin/dashboard.js:441 |
+| DSH-44 | عنوان | الطاقة القانونية | public/assets/js/app/pages/admin/dashboard.js:459 |
+| DSH-45 | قسم/بطاقة | الطاقة القانونية | public/assets/js/app/pages/admin/dashboard.js:460 |
+| DSH-46 | رابط | يلزم حضور صاحب الطلب | public/assets/js/app/pages/admin/dashboard.js:478 |
+| DSH-47 | حالة فارغة | لا توجد جلسات أو مواعيد خلال الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:495 |
+| DSH-48 | عنوان | مواعيد الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:496 |
+| DSH-49 | قسم/بطاقة | مواعيد الأيام السبعة القادمة | public/assets/js/app/pages/admin/dashboard.js:497 |
+| DSH-50 | رابط | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:514 |
+| DSH-51 | حالة فارغة | لا توجد تنبيهات تشابه للطلبات المفتوحة حاليًا | public/assets/js/app/pages/admin/dashboard.js:522 |
+| DSH-52 | عنوان | تنبيهات الحالات المشابهة | public/assets/js/app/pages/admin/dashboard.js:523 |
+| DSH-53 | قسم/بطاقة | تنبيهات الحالات المشابهة | public/assets/js/app/pages/admin/dashboard.js:524 |
+| DSH-54 | قسم/بطاقة | الخيري | public/assets/js/app/pages/admin/dashboard.js:543 |
+| DSH-55 | عنوان | الخيري | public/assets/js/app/pages/admin/dashboard.js:543 |
+| DSH-56 | قسم/بطاقة | الأفراد والشركات | public/assets/js/app/pages/admin/dashboard.js:546 |
+| DSH-57 | عنوان | الأفراد والشركات | public/assets/js/app/pages/admin/dashboard.js:547 |
+| DSH-58 | عنوان | هذا الشهر — | public/assets/js/app/pages/admin/dashboard.js:559 |
+| DSH-59 | قسم/بطاقة | هذا الشهر — | public/assets/js/app/pages/admin/dashboard.js:560 |
+| DSH-60 | زر | التحليلات | public/assets/js/app/pages/admin/dashboard.js:567 |
+| DSH-61 | عنوان | الحجم الأسبوعي | public/assets/js/app/pages/admin/dashboard.js:569 |
+| DSH-62 | قسم/بطاقة | الحجم الأسبوعي | public/assets/js/app/pages/admin/dashboard.js:570 |
+| DSH-63 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:19 |
+| DSH-64 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:20 |
+| DSH-65 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:21 |
+| DSH-66 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:22 |
+| DSH-67 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:23 |
+| DSH-68 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/dashboard.js:24 |
+| DSH-69 | رسالة | assigned | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-70 | رسالة | in_progress | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-71 | رسالة | under_review | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-72 | رسالة | approved | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-73 | رسالة | answered | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-74 | رسالة | closed | public/assets/js/app/pages/admin/dashboard.js:27 |
+| DSH-75 | رسالة | litigation | public/assets/js/app/pages/admin/dashboard.js:28 |
+| DSH-76 | رسالة | company | public/assets/js/app/pages/admin/dashboard.js:28 |
+| DSH-77 | رسالة | none | public/assets/js/app/pages/admin/dashboard.js:28 |
+| DSH-78 | عنصر | إيرادات الأفراد هذا الشهر: | public/assets/js/app/pages/admin/dashboard.js:182 |
+| DSH-79 | عنصر | طلبات نوع خدمتها غير محدد: | public/assets/js/app/pages/admin/dashboard.js:186 |
+| DSH-80 | عنصر | طلبات أفراد بلا واتساب مؤكد: | public/assets/js/app/pages/admin/dashboard.js:189 |
 
 ## INB: صندوق الوارد (`/app#/inbox`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| INB-01 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:806 |
-| INB-02 | عنصر | كل الأنواع | public/assets/js/app/pages/admin/inbox.js:187 |
-| INB-03 | عنصر | استشارة | public/assets/js/app/pages/admin/inbox.js:188 |
-| INB-04 | عنصر | دعوى قضائية | public/assets/js/app/pages/admin/inbox.js:189 |
-| INB-05 | عنصر | شركات | public/assets/js/app/pages/admin/inbox.js:190 |
-| INB-06 | عنصر | لم يُحدَّد النوع | public/assets/js/app/pages/admin/inbox.js:191 |
-| INB-07 | نص | لهذا الرقم طلب أو ملف «خيري» خلال آخر سنة؛ نوع الخدمة لم يتغير | public/assets/js/app/pages/admin/inbox.js:174 |
-| INB-08 | نص | أرسل كلمة إيقاف: لا تصله الرسائل الآلية، وردود الفريق تصله كما هي | public/assets/js/app/pages/admin/inbox.js:178 |
-| INB-09 | زر | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:153 |
-| INB-10 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:278 |
-| INB-11 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:328 |
-| INB-12 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:354 |
-| INB-13 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:382 |
-| INB-14 | رابط | بدون اسم | public/assets/js/app/pages/admin/inbox.js:485 |
-| INB-15 | زر | سجّل المكالمة | public/assets/js/app/pages/admin/inbox.js:683 |
-| INB-16 | زر | لم يرد | public/assets/js/app/pages/admin/inbox.js:684 |
-| INB-17 | زر | اسمع الرسالة الصوتية | public/assets/js/app/pages/admin/inbox.js:687 |
-| INB-18 | زر | لخّصها الآن | public/assets/js/app/pages/admin/inbox.js:689 |
-| INB-19 | زر | حلّل الآن | public/assets/js/app/pages/admin/inbox.js:695 |
-| INB-20 | زر | اتصل به | public/assets/js/app/pages/admin/inbox.js:698 |
-| INB-21 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:700 |
-| INB-22 | زر | فتح الطلب | public/assets/js/app/pages/admin/inbox.js:703 |
-| INB-23 | رابط | بدون اسم | public/assets/js/app/pages/admin/inbox.js:713 |
-| INB-24 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/inbox.js:744 |
-| INB-25 | زر | عرض كل الأنواع | public/assets/js/app/pages/admin/inbox.js:756 |
-| INB-26 | حالة فارغة | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:768 |
-| INB-27 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:768 |
-| INB-28 | قسم/بطاقة | الطلبات الواردة | public/assets/js/app/pages/admin/inbox.js:773 |
-| INB-29 | زر | عرض المزيد (… ) | public/assets/js/app/pages/admin/inbox.js:780 |
-| INB-30 | حقل | بحث في الطلبات | public/assets/js/app/pages/admin/inbox.js:840 |
-| INB-31 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:853 |
-| INB-32 | حقل | بحث في الطلبات | public/assets/js/app/pages/admin/inbox.js:863 |
-| INB-33 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:865 |
-| INB-34 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:884 |
-| INB-35 | عنصر قائمة | مسح الفلاتر | public/assets/js/app/pages/admin/inbox.js:910 |
-| INB-36 | عنصر قائمة | عرض النتائج | public/assets/js/app/pages/admin/inbox.js:911 |
-| INB-37 | نافذة | تصفية | public/assets/js/app/pages/admin/inbox.js:913 |
-| INB-38 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:940 |
-| INB-39 | عنصر قائمة | كيف وصل الطلب؟ (القناة) | public/assets/js/app/pages/admin/inbox.js:961 |
-| INB-40 | عنصر قائمة | segment | public/assets/js/app/pages/admin/inbox.js:963 |
-| INB-41 | عنصر قائمة | اسم المستفيد/ة | public/assets/js/app/pages/admin/inbox.js:964 |
-| INB-42 | عنصر قائمة | رقم الموبايل | public/assets/js/app/pages/admin/inbox.js:965 |
-| INB-43 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/inbox.js:966 |
-| INB-44 | عنصر قائمة | المحافظة | public/assets/js/app/pages/admin/inbox.js:967 |
-| INB-45 | عنصر قائمة | كيف عرف المستفيد/ة بالمؤسسة؟ (المصدر) | public/assets/js/app/pages/admin/inbox.js:968 |
-| INB-46 | عنصر قائمة | الحملة أو جهة الإحالة | public/assets/js/app/pages/admin/inbox.js:969 |
-| INB-47 | عنصر قائمة | وصف الطلب كما رواه المستفيد/ة | public/assets/js/app/pages/admin/inbox.js:970 |
-| INB-48 | نافذة | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:1000 |
-| INB-49 | سؤال قابل للفتح | عن صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1018 |
-| INB-50 | عنوان | عن صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1018 |
-| INB-51 | زر | تحديث | public/assets/js/app/pages/admin/inbox.js:1035 |
-| INB-52 | زر | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:1037 |
-| INB-53 | عنوان | صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1039 |
-| INB-54 | عنوان | صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1040 |
+| INB-01 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:818 |
+| INB-02 | عنصر | كل الأنواع | public/assets/js/app/pages/admin/inbox.js:191 |
+| INB-03 | عنصر | استشارة | public/assets/js/app/pages/admin/inbox.js:192 |
+| INB-04 | عنصر | دعوى قضائية | public/assets/js/app/pages/admin/inbox.js:193 |
+| INB-05 | عنصر | شركات | public/assets/js/app/pages/admin/inbox.js:194 |
+| INB-06 | عنصر | لم يُحدَّد النوع | public/assets/js/app/pages/admin/inbox.js:195 |
+| INB-07 | نص | لهذا الرقم طلب أو ملف «خيري» خلال آخر سنة؛ نوع الخدمة لم يتغير | public/assets/js/app/pages/admin/inbox.js:178 |
+| INB-08 | نص | أرسل كلمة إيقاف: لا تصله الرسائل الآلية، وردود الفريق تصله كما هي | public/assets/js/app/pages/admin/inbox.js:182 |
+| INB-09 | زر | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:157 |
+| INB-10 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:287 |
+| INB-11 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:337 |
+| INB-12 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:363 |
+| INB-13 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:391 |
+| INB-14 | رابط | بدون اسم | public/assets/js/app/pages/admin/inbox.js:494 |
+| INB-15 | زر | سجّل المكالمة | public/assets/js/app/pages/admin/inbox.js:695 |
+| INB-16 | زر | لم يرد | public/assets/js/app/pages/admin/inbox.js:696 |
+| INB-17 | زر | اسمع الرسالة الصوتية | public/assets/js/app/pages/admin/inbox.js:699 |
+| INB-18 | زر | لخّصها الآن | public/assets/js/app/pages/admin/inbox.js:701 |
+| INB-19 | زر | حلّل الآن | public/assets/js/app/pages/admin/inbox.js:707 |
+| INB-20 | زر | اتصل به | public/assets/js/app/pages/admin/inbox.js:710 |
+| INB-21 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:712 |
+| INB-22 | زر | فتح الطلب | public/assets/js/app/pages/admin/inbox.js:715 |
+| INB-23 | رابط | بدون اسم | public/assets/js/app/pages/admin/inbox.js:725 |
+| INB-24 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/inbox.js:756 |
+| INB-25 | زر | عرض كل الأنواع | public/assets/js/app/pages/admin/inbox.js:768 |
+| INB-26 | حالة فارغة | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:780 |
+| INB-27 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:780 |
+| INB-28 | قسم/بطاقة | الطلبات الواردة | public/assets/js/app/pages/admin/inbox.js:785 |
+| INB-29 | زر | عرض المزيد (… ) | public/assets/js/app/pages/admin/inbox.js:792 |
+| INB-30 | حقل | بحث في الطلبات | public/assets/js/app/pages/admin/inbox.js:852 |
+| INB-31 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:865 |
+| INB-32 | حقل | بحث في الطلبات | public/assets/js/app/pages/admin/inbox.js:875 |
+| INB-33 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:877 |
+| INB-34 | زر | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:896 |
+| INB-35 | عنصر قائمة | مسح الفلاتر | public/assets/js/app/pages/admin/inbox.js:922 |
+| INB-36 | عنصر قائمة | عرض النتائج | public/assets/js/app/pages/admin/inbox.js:923 |
+| INB-37 | نافذة | تصفية | public/assets/js/app/pages/admin/inbox.js:925 |
+| INB-38 | حقل | (نص متغير) | public/assets/js/app/pages/admin/inbox.js:952 |
+| INB-39 | عنصر قائمة | كيف وصل الطلب؟ (القناة) | public/assets/js/app/pages/admin/inbox.js:973 |
+| INB-40 | عنصر قائمة | segment | public/assets/js/app/pages/admin/inbox.js:975 |
+| INB-41 | عنصر قائمة | اسم صاحب الطلب | public/assets/js/app/pages/admin/inbox.js:976 |
+| INB-42 | عنصر قائمة | رقم الموبايل | public/assets/js/app/pages/admin/inbox.js:977 |
+| INB-43 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/inbox.js:978 |
+| INB-44 | عنصر قائمة | المحافظة | public/assets/js/app/pages/admin/inbox.js:979 |
+| INB-45 | عنصر قائمة | كيف عرف بنا؟ (المصدر) | public/assets/js/app/pages/admin/inbox.js:980 |
+| INB-46 | عنصر قائمة | الحملة أو جهة الإحالة | public/assets/js/app/pages/admin/inbox.js:981 |
+| INB-47 | عنصر قائمة | وصف الطلب كما رواه صاحبه | public/assets/js/app/pages/admin/inbox.js:982 |
+| INB-48 | نافذة | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:1012 |
+| INB-49 | سؤال قابل للفتح | عن صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1030 |
+| INB-50 | عنوان | عن صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1030 |
+| INB-51 | زر | تحديث | public/assets/js/app/pages/admin/inbox.js:1047 |
+| INB-52 | زر | تسجيل طلب يدوي | public/assets/js/app/pages/admin/inbox.js:1049 |
+| INB-53 | عنوان | صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1051 |
+| INB-54 | عنوان | صندوق الوارد | public/assets/js/app/pages/admin/inbox.js:1052 |
 
 ## RQT: صفحة الطلب الوارد (`/app#/inbox/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| RQT-01 | زر | تغيير | public/assets/js/app/pages/admin/intake-detail.js:195 |
-| RQT-02 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:196 |
-| RQT-03 | زر | إضافة كشركة عميلة | public/assets/js/app/pages/admin/intake-detail.js:230 |
-| RQT-04 | قسم/بطاقة | طلب عرض — تواصل تجاري | public/assets/js/app/pages/admin/intake-detail.js:231 |
-| RQT-05 | قسم/بطاقة | طلب عرض — تواصل تجاري | public/assets/js/app/pages/admin/intake-detail.js:232 |
-| RQT-06 | نافذة | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:242 |
-| RQT-07 | نافذة | إلغاء روابط البوابة | public/assets/js/app/pages/admin/intake-detail.js:255 |
-| RQT-08 | زر | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:274 |
-| RQT-09 | زر | إلغاء روابط البوابة | public/assets/js/app/pages/admin/intake-detail.js:275 |
-| RQT-10 | تنبيه | تنبيه: هوية المرسل غير مؤكدة | public/assets/js/app/pages/admin/intake-detail.js:279 |
-| RQT-11 | زر | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:292 |
-| RQT-12 | زر | فتح الملف | public/assets/js/app/pages/admin/intake-detail.js:312 |
-| RQT-13 | تنبيه | تحوّل الطلب إلى ملف قانوني | public/assets/js/app/pages/admin/intake-detail.js:315 |
-| RQT-14 | زر | إعادة فتح الطلب | public/assets/js/app/pages/admin/intake-detail.js:338 |
-| RQT-15 | تنبيه | ملخص ما تم: | public/assets/js/app/pages/admin/intake-detail.js:341 |
-| RQT-16 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:345 |
-| RQT-17 | قسم/بطاقة | ما القرار في هذا الطلب؟ | public/assets/js/app/pages/admin/intake-detail.js:357 |
-| RQT-18 | قسم/بطاقة | ما القرار في هذا الطلب؟ | public/assets/js/app/pages/admin/intake-detail.js:358 |
-| RQT-19 | نافذة | إعادة فتح الطلب | public/assets/js/app/pages/admin/intake-detail.js:367 |
-| RQT-20 | عنصر قائمة | ملخص ما تم | public/assets/js/app/pages/admin/intake-detail.js:394 |
-| RQT-21 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:396 |
-| RQT-22 | عنصر قائمة | قناة الرد | public/assets/js/app/pages/admin/intake-detail.js:397 |
-| RQT-23 | عنصر قائمة | رد يُرسل | public/assets/js/app/pages/admin/intake-detail.js:398 |
-| RQT-24 | نافذة | تعامل داخلي دون محامٍ | public/assets/js/app/pages/admin/intake-detail.js:407 |
-| RQT-25 | عنصر قائمة | سبب الأرشفة | public/assets/js/app/pages/admin/intake-detail.js:420 |
-| RQT-26 | نافذة | أرشفة الطلب | public/assets/js/app/pages/admin/intake-detail.js:422 |
-| RQT-27 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:519 |
-| RQT-28 | سؤال قابل للفتح | قرار يدوي | public/assets/js/app/pages/admin/intake-detail.js:522 |
-| RQT-29 | عنوان | قرار يدوي | public/assets/js/app/pages/admin/intake-detail.js:523 |
-| RQT-30 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:555 |
-| RQT-31 | زر | سجّل المكالمة | public/assets/js/app/pages/admin/intake-detail.js:562 |
-| RQT-32 | زر | لم ترد | public/assets/js/app/pages/admin/intake-detail.js:569 |
-| RQT-33 | زر | إغلاق: تعذّر الوصول إليها | public/assets/js/app/pages/admin/intake-detail.js:578 |
-| RQT-34 | قسم/بطاقة | طلبت مكالمة | public/assets/js/app/pages/admin/intake-detail.js:586 |
-| RQT-35 | قسم/بطاقة | طلبت مكالمة | public/assets/js/app/pages/admin/intake-detail.js:587 |
-| RQT-36 | زر | اسمع الرسالة الصوتية | public/assets/js/app/pages/admin/intake-detail.js:606 |
-| RQT-37 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:607 |
-| RQT-38 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:609 |
-| RQT-39 | زر | إرسال لصفحته فقط | public/assets/js/app/pages/admin/intake-detail.js:611 |
-| RQT-40 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:613 |
-| RQT-41 | زر | حلّل الآن | public/assets/js/app/pages/admin/intake-detail.js:623 |
-| RQT-42 | زر | اعمله طلب: … | public/assets/js/app/pages/admin/intake-detail.js:628 |
-| RQT-43 | زر | اختيار مسار آخر | public/assets/js/app/pages/admin/intake-detail.js:631 |
-| RQT-44 | زر | حدّث الملخص الآن | public/assets/js/app/pages/admin/intake-detail.js:632 |
-| RQT-45 | قسم/بطاقة | تحويل القصة إلى طلب | public/assets/js/app/pages/admin/intake-detail.js:667 |
-| RQT-46 | قسم/بطاقة | تحويل القصة إلى طلب | public/assets/js/app/pages/admin/intake-detail.js:668 |
-| RQT-47 | قسم/بطاقة | اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة) | public/assets/js/app/pages/admin/intake-detail.js:688 |
-| RQT-48 | قسم/بطاقة | اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة) | public/assets/js/app/pages/admin/intake-detail.js:689 |
-| RQT-49 | زر | حدّث الآن | public/assets/js/app/pages/admin/intake-detail.js:715 |
-| RQT-50 | حقل | اكتب مسألة قانونية أخرى… | public/assets/js/app/pages/admin/intake-detail.js:794 |
-| RQT-51 | حقل | مجال المسألة الجديدة | public/assets/js/app/pages/admin/intake-detail.js:797 |
-| RQT-52 | حقل | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:819 |
-| RQT-53 | زر | حذف المسألة: | public/assets/js/app/pages/admin/intake-detail.js:844 |
-| RQT-54 | زر | إضافة مسألة | public/assets/js/app/pages/admin/intake-detail.js:914 |
-| RQT-55 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/intake-detail.js:927 |
-| RQT-56 | عنصر قائمة | تحويل وإصدار كود الملف | public/assets/js/app/pages/admin/intake-detail.js:974 |
-| RQT-57 | نافذة | تحويل الطلب إلى ملف قانوني | public/assets/js/app/pages/admin/intake-detail.js:983 |
-| RQT-58 | زر | إعادة المحاولة | public/assets/js/app/pages/admin/intake-detail.js:1025 |
-| RQT-59 | زر | فتح الطلب المذكور | public/assets/js/app/pages/admin/intake-detail.js:1080 |
-| RQT-60 | زر | دمج بعد التحقق | public/assets/js/app/pages/admin/intake-detail.js:1081 |
-| RQT-61 | تنبيه | يذكر رقم طلب ل | public/assets/js/app/pages/admin/intake-detail.js:1085 |
-| RQT-62 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/intake-detail.js:1097 |
-| RQT-63 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/intake-detail.js:1098 |
-| RQT-64 | عنصر قائمة | اسم المستند | public/assets/js/app/pages/admin/intake-detail.js:1112 |
-| RQT-65 | نافذة | تسمية المستند | public/assets/js/app/pages/admin/intake-detail.js:1115 |
-| RQT-66 | زر | تنزيل | public/assets/js/app/pages/admin/intake-detail.js:1160 |
-| RQT-67 | زر | تسمية | public/assets/js/app/pages/admin/intake-detail.js:1161 |
-| RQT-68 | قسم/بطاقة | مستندات الطلب | public/assets/js/app/pages/admin/intake-detail.js:1168 |
-| RQT-69 | قسم/بطاقة | مستندات الطلب | public/assets/js/app/pages/admin/intake-detail.js:1169 |
-| RQT-70 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1179 |
-| RQT-71 | حقل | اكتب ردك على … | public/assets/js/app/pages/admin/intake-detail.js:1182 |
-| RQT-72 | حقل | الرد على … | public/assets/js/app/pages/admin/intake-detail.js:1185 |
-| RQT-73 | حقل | قناة الإرسال | public/assets/js/app/pages/admin/intake-detail.js:1198 |
-| RQT-74 | حقل | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1199 |
-| RQT-75 | زر | إرسال الرد | public/assets/js/app/pages/admin/intake-detail.js:1220 |
-| RQT-76 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1275 |
-| RQT-77 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1276 |
-| RQT-78 | زر | استخدام اقتراح الذكاء الاصطناعي في حقل | public/assets/js/app/pages/admin/intake-detail.js:1351 |
-| RQT-79 | زر | يملأ الحقول الفارغة فقط من اقتراحات الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1375 |
-| RQT-80 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1385 |
-| RQT-81 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1386 |
-| RQT-82 | زر | صحيح | public/assets/js/app/pages/admin/intake-detail.js:1415 |
-| RQT-83 | زر | غير دقيق | public/assets/js/app/pages/admin/intake-detail.js:1416 |
-| RQT-84 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1422 |
-| RQT-85 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1422 |
-| RQT-86 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1433 |
-| RQT-87 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1434 |
-| RQT-88 | زر | إعادة التحليل | public/assets/js/app/pages/admin/intake-detail.js:1444 |
-| RQT-89 | حالة فارغة | لم يُحلَّل هذا الطلب بعد. يقترح التحليل عنوانًا وتصنيفًا وملخصًا والم… | public/assets/js/app/pages/admin/intake-detail.js:1451 |
-| RQT-90 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1452 |
-| RQT-91 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1453 |
-| RQT-92 | تنبيه | تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: … | public/assets/js/app/pages/admin/intake-detail.js:1470 |
-| RQT-93 | رابط | تشابه … | public/assets/js/app/pages/admin/intake-detail.js:1529 |
-| RQT-94 | سؤال قابل للفتح | سجل تقييمات الإدارة لهذا التحليل (… ) | public/assets/js/app/pages/admin/intake-detail.js:1545 |
-| RQT-95 | عنوان | سجل تقييمات الإدارة لهذا التحليل (… ) | public/assets/js/app/pages/admin/intake-detail.js:1545 |
-| RQT-96 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1564 |
-| RQT-97 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1565 |
-| RQT-98 | نافذة | تأكيد دمج الملفين | public/assets/js/app/pages/admin/intake-detail.js:1593 |
-| RQT-99 | حالة فارغة | لا يوجد … مرتبط بهذا الطلب | public/assets/js/app/pages/admin/intake-detail.js:1605 |
-| RQT-100 | قسم/بطاقة | لا يوجد … مرتبط بهذا الطلب | public/assets/js/app/pages/admin/intake-detail.js:1605 |
-| RQT-101 | قسم/بطاقة | لا يوجد … مرتبط بهذا الطلب | public/assets/js/app/pages/admin/intake-detail.js:1605 |
-| RQT-102 | زر | ملف … | public/assets/js/app/pages/admin/intake-detail.js:1614 |
-| RQT-103 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1618 |
-| RQT-104 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1620 |
-| RQT-105 | عنوان | وسائل التواصل المرتبطة | public/assets/js/app/pages/admin/intake-detail.js:1647 |
-| RQT-106 | عنوان | تاريخ … مع المؤسسة | public/assets/js/app/pages/admin/intake-detail.js:1663 |
-| RQT-107 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1668 |
-| RQT-108 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1673 |
-| RQT-109 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1680 |
-| RQT-110 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1680 |
-| RQT-111 | قسم/بطاقة | ملف … | public/assets/js/app/pages/admin/intake-detail.js:1682 |
-| RQT-112 | قسم/بطاقة | ملف … | public/assets/js/app/pages/admin/intake-detail.js:1683 |
-| RQT-113 | قسم/بطاقة | المصدر والقناة | public/assets/js/app/pages/admin/intake-detail.js:1711 |
-| RQT-114 | قسم/بطاقة | المصدر والقناة | public/assets/js/app/pages/admin/intake-detail.js:1712 |
-| RQT-115 | قسم/بطاقة | سجل النشاط | public/assets/js/app/pages/admin/intake-detail.js:1728 |
-| RQT-116 | قسم/بطاقة | سجل النشاط | public/assets/js/app/pages/admin/intake-detail.js:1728 |
-| RQT-117 | عنصر قائمة | صندوق الوارد | public/assets/js/app/pages/admin/intake-detail.js:1785 |
-| RQT-118 | زر | فتح الملف … | public/assets/js/app/pages/admin/intake-detail.js:1809 |
-| RQT-119 | عنوان | الطلب | public/assets/js/app/pages/admin/intake-detail.js:1810 |
-| RQT-120 | عنوان | الطلب | public/assets/js/app/pages/admin/intake-detail.js:1811 |
-| RQT-121 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:740 |
-| RQT-122 | عنصر قائمة | عنوان الملف | public/assets/js/app/pages/admin/intake-detail.js:741 |
-| RQT-123 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/intake-detail.js:742 |
-| RQT-124 | عنصر قائمة | الموعد المستهدف للرد على | public/assets/js/app/pages/admin/intake-detail.js:743 |
-| RQT-125 | عنصر قائمة | مدير الحالة | public/assets/js/app/pages/admin/intake-detail.js:749 |
-| RQT-126 | عنصر قائمة | ملخص الوقائع للمحامين | public/assets/js/app/pages/admin/intake-detail.js:758 |
-| RQT-127 | عنصر قائمة | ملاحظات داخلية (لا تظهر للمحامين) | public/assets/js/app/pages/admin/intake-detail.js:760 |
-| RQT-128 | نموذج | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:772 |
-| RQT-129 | عنصر قائمة | اسم | public/assets/js/app/pages/admin/intake-detail.js:778 |
-| RQT-130 | عنصر قائمة | الرقم القومي | public/assets/js/app/pages/admin/intake-detail.js:779 |
-| RQT-131 | عنصر قائمة | المحافظة | public/assets/js/app/pages/admin/intake-detail.js:780 |
-| RQT-132 | نموذج | اسم … | public/assets/js/app/pages/admin/intake-detail.js:782 |
-| RQT-133 | عنصر قائمة | موضوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1282 |
-| RQT-134 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:1283 |
-| RQT-135 | عنصر قائمة | نوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1284 |
-| RQT-136 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/intake-detail.js:1285 |
-| RQT-137 | عنصر قائمة | المسؤول عن الفرز | public/assets/js/app/pages/admin/intake-detail.js:1286 |
-| RQT-138 | عنصر قائمة | مصدر | public/assets/js/app/pages/admin/intake-detail.js:1287 |
-| RQT-139 | عنصر قائمة | الحملة / جهة الإحالة | public/assets/js/app/pages/admin/intake-detail.js:1288 |
-| RQT-140 | عنصر قائمة | ملخص الطلب | public/assets/js/app/pages/admin/intake-detail.js:1289 |
-| RQT-141 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/intake-detail.js:1290 |
-| RQT-142 | نموذج | موضوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1322 |
-| RQT-143 | نموذج | موضوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1323 |
+| RQT-01 | زر | تغيير | public/assets/js/app/pages/admin/intake-detail.js:210 |
+| RQT-02 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:211 |
+| RQT-03 | زر | إضافة كشركة عميلة | public/assets/js/app/pages/admin/intake-detail.js:245 |
+| RQT-04 | عنوان | طلب عرض — تواصل تجاري | public/assets/js/app/pages/admin/intake-detail.js:246 |
+| RQT-05 | قسم/بطاقة | طلب عرض — تواصل تجاري | public/assets/js/app/pages/admin/intake-detail.js:247 |
+| RQT-06 | نافذة | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:257 |
+| RQT-07 | نافذة | إلغاء روابط البوابة | public/assets/js/app/pages/admin/intake-detail.js:270 |
+| RQT-08 | زر | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:289 |
+| RQT-09 | زر | إلغاء روابط البوابة | public/assets/js/app/pages/admin/intake-detail.js:290 |
+| RQT-10 | تنبيه | تنبيه: هوية المرسل غير مؤكدة | public/assets/js/app/pages/admin/intake-detail.js:294 |
+| RQT-11 | زر | تأكيد هوية المرسل | public/assets/js/app/pages/admin/intake-detail.js:307 |
+| RQT-12 | زر | فتح الملف | public/assets/js/app/pages/admin/intake-detail.js:327 |
+| RQT-13 | تنبيه | تحوّل الطلب إلى ملف قانوني | public/assets/js/app/pages/admin/intake-detail.js:330 |
+| RQT-14 | زر | إعادة فتح الطلب | public/assets/js/app/pages/admin/intake-detail.js:353 |
+| RQT-15 | تنبيه | ملخص ما تم: | public/assets/js/app/pages/admin/intake-detail.js:356 |
+| RQT-16 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:360 |
+| RQT-17 | عنوان | ما القرار في هذا الطلب؟ | public/assets/js/app/pages/admin/intake-detail.js:372 |
+| RQT-18 | قسم/بطاقة | ما القرار في هذا الطلب؟ | public/assets/js/app/pages/admin/intake-detail.js:373 |
+| RQT-19 | نافذة | إعادة فتح الطلب | public/assets/js/app/pages/admin/intake-detail.js:382 |
+| RQT-20 | عنصر قائمة | ملخص ما تم | public/assets/js/app/pages/admin/intake-detail.js:409 |
+| RQT-21 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:411 |
+| RQT-22 | عنصر قائمة | قناة الرد | public/assets/js/app/pages/admin/intake-detail.js:412 |
+| RQT-23 | عنصر قائمة | رد يُرسل | public/assets/js/app/pages/admin/intake-detail.js:413 |
+| RQT-24 | نافذة | تعامل داخلي دون محامٍ | public/assets/js/app/pages/admin/intake-detail.js:422 |
+| RQT-25 | عنصر قائمة | سبب الأرشفة | public/assets/js/app/pages/admin/intake-detail.js:435 |
+| RQT-26 | نافذة | أرشفة الطلب | public/assets/js/app/pages/admin/intake-detail.js:437 |
+| RQT-27 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:535 |
+| RQT-28 | سؤال قابل للفتح | قرار يدوي | public/assets/js/app/pages/admin/intake-detail.js:538 |
+| RQT-29 | عنوان | قرار يدوي | public/assets/js/app/pages/admin/intake-detail.js:539 |
+| RQT-30 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:571 |
+| RQT-31 | زر | سجّل المكالمة | public/assets/js/app/pages/admin/intake-detail.js:578 |
+| RQT-32 | زر | لم ترد | public/assets/js/app/pages/admin/intake-detail.js:585 |
+| RQT-33 | زر | إغلاق: تعذّر الوصول إليها | public/assets/js/app/pages/admin/intake-detail.js:594 |
+| RQT-34 | عنوان | طلبت مكالمة | public/assets/js/app/pages/admin/intake-detail.js:602 |
+| RQT-35 | قسم/بطاقة | طلبت مكالمة | public/assets/js/app/pages/admin/intake-detail.js:603 |
+| RQT-36 | زر | اسمع الرسالة الصوتية | public/assets/js/app/pages/admin/intake-detail.js:622 |
+| RQT-37 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:623 |
+| RQT-38 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:625 |
+| RQT-39 | زر | إرسال لصفحته فقط | public/assets/js/app/pages/admin/intake-detail.js:627 |
+| RQT-40 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:629 |
+| RQT-41 | زر | حلّل الآن | public/assets/js/app/pages/admin/intake-detail.js:639 |
+| RQT-42 | زر | اعمله طلب: … | public/assets/js/app/pages/admin/intake-detail.js:644 |
+| RQT-43 | زر | اختيار مسار آخر | public/assets/js/app/pages/admin/intake-detail.js:647 |
+| RQT-44 | زر | حدّث الملخص الآن | public/assets/js/app/pages/admin/intake-detail.js:648 |
+| RQT-45 | عنوان | تحويل القصة إلى طلب | public/assets/js/app/pages/admin/intake-detail.js:683 |
+| RQT-46 | قسم/بطاقة | تحويل القصة إلى طلب | public/assets/js/app/pages/admin/intake-detail.js:684 |
+| RQT-47 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:707 |
+| RQT-48 | قسم/بطاقة | اختيارات ضغطت عليها في الموقع (قد تكون غير دقيقة) | public/assets/js/app/pages/admin/intake-detail.js:708 |
+| RQT-49 | زر | حدّث الآن | public/assets/js/app/pages/admin/intake-detail.js:734 |
+| RQT-50 | حقل | اكتب مسألة قانونية أخرى… | public/assets/js/app/pages/admin/intake-detail.js:813 |
+| RQT-51 | حقل | مجال المسألة الجديدة | public/assets/js/app/pages/admin/intake-detail.js:816 |
+| RQT-52 | حقل | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:838 |
+| RQT-53 | زر | حذف المسألة: | public/assets/js/app/pages/admin/intake-detail.js:863 |
+| RQT-54 | زر | إضافة مسألة | public/assets/js/app/pages/admin/intake-detail.js:933 |
+| RQT-55 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/intake-detail.js:946 |
+| RQT-56 | عنصر قائمة | تحويل وإصدار كود الملف | public/assets/js/app/pages/admin/intake-detail.js:993 |
+| RQT-57 | نافذة | تحويل الطلب إلى ملف قانوني | public/assets/js/app/pages/admin/intake-detail.js:1002 |
+| RQT-58 | زر | إعادة المحاولة | public/assets/js/app/pages/admin/intake-detail.js:1044 |
+| RQT-59 | زر | فتح الطلب المذكور | public/assets/js/app/pages/admin/intake-detail.js:1099 |
+| RQT-60 | زر | دمج بعد التحقق | public/assets/js/app/pages/admin/intake-detail.js:1100 |
+| RQT-61 | تنبيه | يذكر رقم طلب ل | public/assets/js/app/pages/admin/intake-detail.js:1104 |
+| RQT-62 | عنوان | المحادثة | public/assets/js/app/pages/admin/intake-detail.js:1116 |
+| RQT-63 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/intake-detail.js:1117 |
+| RQT-64 | عنصر قائمة | اسم المستند | public/assets/js/app/pages/admin/intake-detail.js:1131 |
+| RQT-65 | نافذة | تسمية المستند | public/assets/js/app/pages/admin/intake-detail.js:1134 |
+| RQT-66 | زر | تنزيل | public/assets/js/app/pages/admin/intake-detail.js:1183 |
+| RQT-67 | زر | تسمية | public/assets/js/app/pages/admin/intake-detail.js:1184 |
+| RQT-68 | عنوان | مستندات الطلب | public/assets/js/app/pages/admin/intake-detail.js:1191 |
+| RQT-69 | قسم/بطاقة | مستندات الطلب | public/assets/js/app/pages/admin/intake-detail.js:1192 |
+| RQT-70 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1202 |
+| RQT-71 | حقل | اكتب ردك على … | public/assets/js/app/pages/admin/intake-detail.js:1205 |
+| RQT-72 | حقل | الرد على … | public/assets/js/app/pages/admin/intake-detail.js:1208 |
+| RQT-73 | حقل | قناة الإرسال | public/assets/js/app/pages/admin/intake-detail.js:1221 |
+| RQT-74 | حقل | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1222 |
+| RQT-75 | زر | إرسال الرد | public/assets/js/app/pages/admin/intake-detail.js:1243 |
+| RQT-76 | عنوان | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1298 |
+| RQT-77 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1299 |
+| RQT-78 | زر | استخدام اقتراح الذكاء الاصطناعي في حقل | public/assets/js/app/pages/admin/intake-detail.js:1374 |
+| RQT-79 | زر | يملأ الحقول الفارغة فقط من اقتراحات الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1398 |
+| RQT-80 | عنوان | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1408 |
+| RQT-81 | قسم/بطاقة | بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1409 |
+| RQT-82 | زر | صحيح | public/assets/js/app/pages/admin/intake-detail.js:1438 |
+| RQT-83 | زر | غير دقيق | public/assets/js/app/pages/admin/intake-detail.js:1439 |
+| RQT-84 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1445 |
+| RQT-85 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1445 |
+| RQT-86 | عنوان | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1456 |
+| RQT-87 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1457 |
+| RQT-88 | زر | إعادة التحليل | public/assets/js/app/pages/admin/intake-detail.js:1467 |
+| RQT-89 | حالة فارغة | لم يُحلَّل هذا الطلب بعد. يقترح التحليل عنوانًا وتصنيفًا وملخصًا والم… | public/assets/js/app/pages/admin/intake-detail.js:1474 |
+| RQT-90 | عنوان | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1475 |
+| RQT-91 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1476 |
+| RQT-92 | تنبيه | تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: … | public/assets/js/app/pages/admin/intake-detail.js:1493 |
+| RQT-93 | رابط | تشابه … | public/assets/js/app/pages/admin/intake-detail.js:1552 |
+| RQT-94 | سؤال قابل للفتح | سجل تقييمات الإدارة لهذا التحليل (… ) | public/assets/js/app/pages/admin/intake-detail.js:1568 |
+| RQT-95 | عنوان | سجل تقييمات الإدارة لهذا التحليل (… ) | public/assets/js/app/pages/admin/intake-detail.js:1568 |
+| RQT-96 | عنوان | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1587 |
+| RQT-97 | قسم/بطاقة | تحليل الذكاء الاصطناعي | public/assets/js/app/pages/admin/intake-detail.js:1588 |
+| RQT-98 | نافذة | تأكيد دمج الملفين | public/assets/js/app/pages/admin/intake-detail.js:1616 |
+| RQT-99 | حالة فارغة | لا يوجد … مرتبط بهذا الطلب | public/assets/js/app/pages/admin/intake-detail.js:1628 |
+| RQT-100 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1628 |
+| RQT-101 | قسم/بطاقة | لا يوجد … مرتبط بهذا الطلب | public/assets/js/app/pages/admin/intake-detail.js:1628 |
+| RQT-102 | زر | ملف … | public/assets/js/app/pages/admin/intake-detail.js:1637 |
+| RQT-103 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1641 |
+| RQT-104 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1643 |
+| RQT-105 | عنوان | وسائل التواصل المرتبطة | public/assets/js/app/pages/admin/intake-detail.js:1670 |
+| RQT-106 | عنوان | تاريخ … مع … | public/assets/js/app/pages/admin/intake-detail.js:1686 |
+| RQT-107 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1691 |
+| RQT-108 | رابط | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1696 |
+| RQT-109 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1703 |
+| RQT-110 | زر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1703 |
+| RQT-111 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1705 |
+| RQT-112 | قسم/بطاقة | ملف … | public/assets/js/app/pages/admin/intake-detail.js:1706 |
+| RQT-113 | عنوان | المصدر والقناة | public/assets/js/app/pages/admin/intake-detail.js:1734 |
+| RQT-114 | قسم/بطاقة | المصدر والقناة | public/assets/js/app/pages/admin/intake-detail.js:1735 |
+| RQT-115 | عنوان | سجل النشاط | public/assets/js/app/pages/admin/intake-detail.js:1752 |
+| RQT-116 | قسم/بطاقة | سجل النشاط | public/assets/js/app/pages/admin/intake-detail.js:1752 |
+| RQT-117 | عنصر قائمة | صندوق الوارد | public/assets/js/app/pages/admin/intake-detail.js:1810 |
+| RQT-118 | زر | فتح الملف … | public/assets/js/app/pages/admin/intake-detail.js:1834 |
+| RQT-119 | عنوان | الطلب | public/assets/js/app/pages/admin/intake-detail.js:1835 |
+| RQT-120 | عنوان | الطلب | public/assets/js/app/pages/admin/intake-detail.js:1836 |
+| RQT-121 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:759 |
+| RQT-122 | عنصر قائمة | عنوان الملف | public/assets/js/app/pages/admin/intake-detail.js:760 |
+| RQT-123 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/intake-detail.js:761 |
+| RQT-124 | عنصر قائمة | الموعد المستهدف للرد على | public/assets/js/app/pages/admin/intake-detail.js:762 |
+| RQT-125 | عنصر قائمة | مدير الحالة | public/assets/js/app/pages/admin/intake-detail.js:768 |
+| RQT-126 | عنصر قائمة | ملخص الوقائع للمحامين | public/assets/js/app/pages/admin/intake-detail.js:777 |
+| RQT-127 | عنصر قائمة | ملاحظات داخلية (لا تظهر للمحامين) | public/assets/js/app/pages/admin/intake-detail.js:779 |
+| RQT-128 | نموذج | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:791 |
+| RQT-129 | عنصر قائمة | اسم | public/assets/js/app/pages/admin/intake-detail.js:797 |
+| RQT-130 | عنصر قائمة | الرقم القومي | public/assets/js/app/pages/admin/intake-detail.js:798 |
+| RQT-131 | عنصر قائمة | المحافظة | public/assets/js/app/pages/admin/intake-detail.js:799 |
+| RQT-132 | نموذج | اسم … | public/assets/js/app/pages/admin/intake-detail.js:801 |
+| RQT-133 | عنصر قائمة | موضوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1305 |
+| RQT-134 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/intake-detail.js:1306 |
+| RQT-135 | عنصر قائمة | نوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1307 |
+| RQT-136 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/intake-detail.js:1308 |
+| RQT-137 | عنصر قائمة | المسؤول عن الفرز | public/assets/js/app/pages/admin/intake-detail.js:1309 |
+| RQT-138 | عنصر قائمة | مصدر | public/assets/js/app/pages/admin/intake-detail.js:1310 |
+| RQT-139 | عنصر قائمة | الحملة / جهة الإحالة | public/assets/js/app/pages/admin/intake-detail.js:1311 |
+| RQT-140 | عنصر قائمة | ملخص الطلب | public/assets/js/app/pages/admin/intake-detail.js:1312 |
+| RQT-141 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/intake-detail.js:1313 |
+| RQT-142 | زر | حفظ بيانات الفرز | public/assets/js/app/pages/admin/intake-detail.js:1345 |
+| RQT-143 | نموذج | موضوع الطلب | public/assets/js/app/pages/admin/intake-detail.js:1346 |
+| RQT-144 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/intake-detail.js:1182 |
 
 ## PTH: نوع الطلب ومساره: الشريحة وسطر المسار والتعديل (`/app#/inbox`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | PTH-01 | نص | (نص متغير)<br>يظهر النص نفسه أيضًا في: T-02، S-12، W-01 (الزر الأول)، I-57 (الخيار الأول)، T-40، S-13، T-53، S-14 | public/assets/js/app/components/pathway-ui.js:37 |
-| PTH-02 | نص | تعديل | public/assets/js/app/components/pathway-ui.js:94 |
-| PTH-03 | زر | تعديل | public/assets/js/app/components/pathway-ui.js:99 |
+| PTH-02 | نص | تعديل | public/assets/js/app/components/pathway-ui.js:96 |
+| PTH-03 | زر | تعديل | public/assets/js/app/components/pathway-ui.js:101 |
 | PTH-04 | نص | (نص متغير) | public/assets/js/app/components/pathway-ui.js:44 |
-| PTH-05 | نص | مقترح: … | public/assets/js/app/components/pathway-ui.js:54 |
-| PTH-06 | زر | تأكيد نوع الطلب: … | public/assets/js/app/components/pathway-ui.js:60 |
-| PTH-07 | قسم/بطاقة | نوع الطلب | public/assets/js/app/components/pathway-ui.js:184 |
-| PTH-08 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:135 |
-| PTH-09 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:165 |
-| PTH-10 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:155 |
-| PTH-11 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:143 |
-| PTH-12 | عنصر | (نص متغير) | public/assets/js/app/components/pathway-ui.js:220 |
-| PTH-13 | عنصر | (نص متغير) | public/assets/js/app/components/pathway-ui.js:219 |
-| PTH-14 | نص | (نص متغير) | public/assets/js/app/components/pathway-ui.js:144 |
-| PTH-15 | زر | إلغاء الإيقاف | public/assets/js/app/pages/admin/intake-detail.js:1776 |
-| PTH-16 | عنصر قائمة | إلغاء | public/assets/js/app/components/pathway-ui.js:194 |
-| PTH-17 | عنصر قائمة | حفظ | public/assets/js/app/components/pathway-ui.js:214 |
-| PTH-18 | نافذة | نوع الطلب | public/assets/js/app/components/pathway-ui.js:181 |
+| PTH-05 | نص | نوع الطلب: … ؟ | public/assets/js/app/components/pathway-ui.js:56 |
+| PTH-06 | زر | تأكيد نوع الطلب: … | public/assets/js/app/components/pathway-ui.js:62 |
+| PTH-07 | قسم/بطاقة | نوع الطلب | public/assets/js/app/components/pathway-ui.js:186 |
+| PTH-08 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:137 |
+| PTH-09 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:167 |
+| PTH-10 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:157 |
+| PTH-11 | حقل | (نص متغير) | public/assets/js/app/components/pathway-ui.js:145 |
+| PTH-12 | عنصر | (نص متغير) | public/assets/js/app/components/pathway-ui.js:222 |
+| PTH-13 | عنصر | (نص متغير) | public/assets/js/app/components/pathway-ui.js:221 |
+| PTH-14 | نص | (نص متغير) | public/assets/js/app/components/pathway-ui.js:146 |
+| PTH-15 | زر | إلغاء الإيقاف | public/assets/js/app/pages/admin/intake-detail.js:1800 |
+| PTH-16 | عنصر قائمة | إلغاء | public/assets/js/app/components/pathway-ui.js:196 |
+| PTH-17 | عنصر قائمة | حفظ | public/assets/js/app/components/pathway-ui.js:216 |
+| PTH-18 | نافذة | نوع الطلب | public/assets/js/app/components/pathway-ui.js:183 |
 
 ## STY: ورقة «اعمله طلب» (`/app#/inbox/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| STY-01 | سؤال قابل للفتح | تغيير نوع الخدمة عند اعتماد القرار | public/assets/js/app/components/story-sheet.js:195 |
-| STY-02 | عنوان | تغيير نوع الخدمة عند اعتماد القرار | public/assets/js/app/components/story-sheet.js:195 |
-| STY-03 | خيار | المسار | public/assets/js/app/components/story-sheet.js:229 |
-| STY-04 | زر | اتصل به | public/assets/js/app/components/story-sheet.js:254 |
-| STY-05 | حقل | اكتب مسألة قانونية أخرى… | public/assets/js/app/components/story-sheet.js:274 |
-| STY-06 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:290 |
-| STY-07 | زر | حذف المسألة: | public/assets/js/app/components/story-sheet.js:311 |
-| STY-08 | زر | إضافة مسألة | public/assets/js/app/components/story-sheet.js:351 |
-| STY-09 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:361 |
-| STY-10 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:366 |
-| STY-11 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:367 |
-| STY-12 | سؤال قابل للفتح | بيانات المستفيدة والتمويل | public/assets/js/app/components/story-sheet.js:513 |
-| STY-13 | عنوان | بيانات المستفيدة والتمويل | public/assets/js/app/components/story-sheet.js:513 |
-| STY-14 | زر | إضافة سؤال | public/assets/js/app/components/story-sheet.js:665 |
-| STY-15 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:667 |
-| STY-16 | زر | رجّعها للنص التلقائي | public/assets/js/app/components/story-sheet.js:676 |
-| STY-17 | حقل | الرسالة كما ستصلها | public/assets/js/app/components/story-sheet.js:679 |
-| STY-18 | حقل | السؤال … | public/assets/js/app/components/story-sheet.js:708 |
-| STY-19 | زر | حذف السؤال | public/assets/js/app/components/story-sheet.js:727 |
-| STY-20 | زر | متابعة رغم ذلك | public/assets/js/app/components/story-sheet.js:813 |
-| STY-21 | زر | مراجعة الرسائل | public/assets/js/app/components/story-sheet.js:831 |
-| STY-22 | تنبيه | وصلت رسائل جديدة من المستفيدة بعد فتح الاقتراح. راجعها ثم حاول مرة أخ… | public/assets/js/app/components/story-sheet.js:837 |
-| STY-23 | تنبيه | (نص متغير) | public/assets/js/app/components/story-sheet.js:846 |
-| STY-24 | تنبيه | (نص متغير) | public/assets/js/app/components/story-sheet.js:851 |
-| STY-25 | نافذة | اعمله طلب | public/assets/js/app/components/story-sheet.js:938 |
-| STY-26 | عنصر قائمة | عنوان الملف | public/assets/js/app/components/story-sheet.js:413 |
-| STY-27 | عنصر قائمة | الأولوية | public/assets/js/app/components/story-sheet.js:414 |
-| STY-28 | عنصر قائمة | مدير الحالة | public/assets/js/app/components/story-sheet.js:415 |
-| STY-29 | عنصر قائمة | الموعد المستهدف للرد على | public/assets/js/app/components/story-sheet.js:416 |
-| STY-30 | عنصر قائمة | ملخص الوقائع للمحامين | public/assets/js/app/components/story-sheet.js:424 |
-| STY-31 | عنصر قائمة | سؤال المحامي المقترح | public/assets/js/app/components/story-sheet.js:433 |
-| STY-32 | عنصر قائمة | ملاحظات داخلية (لا تظهر للمحامين) | public/assets/js/app/components/story-sheet.js:435 |
-| STY-33 | نموذج | عنوان الملف | public/assets/js/app/components/story-sheet.js:448 |
-| STY-34 | عنصر قائمة | نوع الملف | public/assets/js/app/components/story-sheet.js:458 |
-| STY-35 | عنصر قائمة | المحكمة | public/assets/js/app/components/story-sheet.js:459 |
-| STY-36 | عنصر قائمة | الخصم | public/assets/js/app/components/story-sheet.js:460 |
-| STY-37 | عنصر قائمة | رقم الدعوى | public/assets/js/app/components/story-sheet.js:461 |
-| STY-38 | عنصر قائمة | السنة | public/assets/js/app/components/story-sheet.js:462 |
-| STY-39 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/components/story-sheet.js:463 |
-| STY-40 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/components/story-sheet.js:464 |
-| STY-41 | نموذج | نوع الملف | public/assets/js/app/components/story-sheet.js:466 |
-| STY-42 | عنصر قائمة | اسم | public/assets/js/app/components/story-sheet.js:488 |
-| STY-43 | عنصر قائمة | الرقم القومي | public/assets/js/app/components/story-sheet.js:489 |
-| STY-44 | عنصر قائمة | المحافظة | public/assets/js/app/components/story-sheet.js:490 |
-| STY-45 | نموذج | اسم … | public/assets/js/app/components/story-sheet.js:492 |
-| STY-46 | نموذج | (نص متغير) | public/assets/js/app/components/story-sheet.js:605 |
-| STY-47 | نموذج | (نص متغير) | public/assets/js/app/components/story-sheet.js:684 |
-| STY-48 | عنصر قائمة | الجهة | public/assets/js/app/components/story-sheet.js:587 |
-| STY-49 | عنصر قائمة | ملخص ما تم (داخلي) | public/assets/js/app/components/story-sheet.js:589 |
-| STY-50 | عنصر قائمة | ملخص ما تم (داخلي) | public/assets/js/app/components/story-sheet.js:594 |
-| STY-51 | خيار | المجال القانوني | public/assets/js/app/components/story-sheet.js:260 |
-| STY-52 | خيار | قناة الرد | public/assets/js/app/components/story-sheet.js:268 |
-| STY-53 | عنصر قائمة | إلغاء | public/assets/js/app/components/story-sheet.js:883 |
-| STY-54 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/story-sheet.js:884 |
-| STY-55 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/story-sheet.js:899 |
+| STY-01 | سؤال قابل للفتح | تغيير نوع الخدمة عند اعتماد القرار | public/assets/js/app/components/story-sheet.js:205 |
+| STY-02 | عنوان | تغيير نوع الخدمة عند اعتماد القرار | public/assets/js/app/components/story-sheet.js:205 |
+| STY-03 | خيار | المسار | public/assets/js/app/components/story-sheet.js:240 |
+| STY-04 | زر | اتصل به | public/assets/js/app/components/story-sheet.js:277 |
+| STY-05 | حقل | اكتب مسألة قانونية أخرى… | public/assets/js/app/components/story-sheet.js:297 |
+| STY-06 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:313 |
+| STY-07 | زر | حذف المسألة: | public/assets/js/app/components/story-sheet.js:334 |
+| STY-08 | زر | إضافة مسألة | public/assets/js/app/components/story-sheet.js:374 |
+| STY-09 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:384 |
+| STY-10 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:389 |
+| STY-11 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:390 |
+| STY-12 | سؤال قابل للفتح | بيانات المستفيدة والتمويل | public/assets/js/app/components/story-sheet.js:536 |
+| STY-13 | عنوان | بيانات المستفيدة والتمويل | public/assets/js/app/components/story-sheet.js:536 |
+| STY-14 | زر | إضافة سؤال | public/assets/js/app/components/story-sheet.js:688 |
+| STY-15 | حقل | (نص متغير) | public/assets/js/app/components/story-sheet.js:690 |
+| STY-16 | زر | رجّعها للنص التلقائي | public/assets/js/app/components/story-sheet.js:699 |
+| STY-17 | حقل | الرسالة كما ستصلها | public/assets/js/app/components/story-sheet.js:702 |
+| STY-18 | حقل | السؤال … | public/assets/js/app/components/story-sheet.js:731 |
+| STY-19 | زر | حذف السؤال | public/assets/js/app/components/story-sheet.js:750 |
+| STY-20 | زر | متابعة رغم ذلك | public/assets/js/app/components/story-sheet.js:836 |
+| STY-21 | زر | مراجعة الرسائل | public/assets/js/app/components/story-sheet.js:854 |
+| STY-22 | تنبيه | وصلت رسائل جديدة من المستفيدة بعد فتح الاقتراح. راجعها ثم حاول مرة أخ… | public/assets/js/app/components/story-sheet.js:860 |
+| STY-23 | تنبيه | (نص متغير) | public/assets/js/app/components/story-sheet.js:869 |
+| STY-24 | تنبيه | (نص متغير) | public/assets/js/app/components/story-sheet.js:874 |
+| STY-25 | نافذة | اعمله طلب | public/assets/js/app/components/story-sheet.js:961 |
+| STY-26 | عنصر قائمة | عنوان الملف | public/assets/js/app/components/story-sheet.js:436 |
+| STY-27 | عنصر قائمة | الأولوية | public/assets/js/app/components/story-sheet.js:437 |
+| STY-28 | عنصر قائمة | مدير الحالة | public/assets/js/app/components/story-sheet.js:438 |
+| STY-29 | عنصر قائمة | الموعد المستهدف للرد على | public/assets/js/app/components/story-sheet.js:439 |
+| STY-30 | عنصر قائمة | ملخص الوقائع للمحامين | public/assets/js/app/components/story-sheet.js:447 |
+| STY-31 | عنصر قائمة | سؤال المحامي المقترح | public/assets/js/app/components/story-sheet.js:456 |
+| STY-32 | عنصر قائمة | ملاحظات داخلية (لا تظهر للمحامين) | public/assets/js/app/components/story-sheet.js:458 |
+| STY-33 | نموذج | عنوان الملف | public/assets/js/app/components/story-sheet.js:471 |
+| STY-34 | عنصر قائمة | نوع الملف | public/assets/js/app/components/story-sheet.js:481 |
+| STY-35 | عنصر قائمة | المحكمة | public/assets/js/app/components/story-sheet.js:482 |
+| STY-36 | عنصر قائمة | الخصم | public/assets/js/app/components/story-sheet.js:483 |
+| STY-37 | عنصر قائمة | رقم الدعوى | public/assets/js/app/components/story-sheet.js:484 |
+| STY-38 | عنصر قائمة | السنة | public/assets/js/app/components/story-sheet.js:485 |
+| STY-39 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/components/story-sheet.js:486 |
+| STY-40 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/components/story-sheet.js:487 |
+| STY-41 | نموذج | نوع الملف | public/assets/js/app/components/story-sheet.js:489 |
+| STY-42 | عنصر قائمة | اسم | public/assets/js/app/components/story-sheet.js:511 |
+| STY-43 | عنصر قائمة | الرقم القومي | public/assets/js/app/components/story-sheet.js:512 |
+| STY-44 | عنصر قائمة | المحافظة | public/assets/js/app/components/story-sheet.js:513 |
+| STY-45 | نموذج | اسم … | public/assets/js/app/components/story-sheet.js:515 |
+| STY-46 | نموذج | (نص متغير) | public/assets/js/app/components/story-sheet.js:628 |
+| STY-47 | نموذج | (نص متغير) | public/assets/js/app/components/story-sheet.js:707 |
+| STY-48 | عنصر قائمة | الجهة | public/assets/js/app/components/story-sheet.js:610 |
+| STY-49 | عنصر قائمة | ملخص ما تم (داخلي) | public/assets/js/app/components/story-sheet.js:612 |
+| STY-50 | عنصر قائمة | ملخص ما تم (داخلي) | public/assets/js/app/components/story-sheet.js:617 |
+| STY-51 | خيار | المجال القانوني | public/assets/js/app/components/story-sheet.js:283 |
+| STY-52 | خيار | قناة الرد | public/assets/js/app/components/story-sheet.js:291 |
+| STY-53 | عنصر قائمة | إلغاء | public/assets/js/app/components/story-sheet.js:906 |
+| STY-54 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/story-sheet.js:907 |
+| STY-55 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/story-sheet.js:922 |
+| STY-56 | رسالة | tag | public/assets/js/app/components/story-sheet.js:49 |
+| STY-57 | رسالة | tag | public/assets/js/app/components/story-sheet.js:50 |
+| STY-58 | رسالة | tag | public/assets/js/app/components/story-sheet.js:51 |
+| STY-59 | رسالة | tag | public/assets/js/app/components/story-sheet.js:52 |
+| STY-60 | رسالة | tag | public/assets/js/app/components/story-sheet.js:53 |
 
-## CNT: تسجيل المكالمة
+## CNT: تسجيل المكالمة (يظهر في: نافذة «تسجيل المكالمة» في صفحة الطلب)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CNT-01 | حقل | (نص متغير) | public/assets/js/app/components/call-note.js:56 |
 | CNT-02 | حقل | ما قالته المستفيدة في المكالمة | public/assets/js/app/components/call-note.js:57 |
@@ -2203,51 +2275,51 @@
 | CNT-11 | رابط | (نص متغير) | public/assets/js/app/components/call-note.js:211 |
 | CNT-12 | تنبيه | اتصل على | public/assets/js/app/components/call-note.js:213 |
 
-## SPL: فصل رسالة إلى طلب جديد
+## SPL: فصل رسالة إلى طلب جديد (يظهر في: نافذة «اعمل منها طلبًا جديدًا» في المحادثة)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | SPL-01 | حقل | يمكن نقل … رسالة على الأكثر في المرة الواحدة | public/assets/js/app/components/split-dialog.js:52 |
 | SPL-02 | عنصر قائمة | إلغاء | public/assets/js/app/components/split-dialog.js:92 |
 | SPL-03 | عنصر قائمة | اعمل طلب جديد | public/assets/js/app/components/split-dialog.js:108 |
 | SPL-04 | نافذة | طلب جديد من رسائل هذا الملف | public/assets/js/app/components/split-dialog.js:118 |
 
-## SEG: نوع الخدمة: الشرائح والمفتاح وورقة التغيير
+## SEG: نوع الخدمة: الشرائح والمفتاح وورقة التغيير (يظهر في: شرائح نوع الخدمة ونافذة تغييره في الطلبات والملفات)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| SEG-01 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:211 |
-| SEG-02 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:277 |
-| SEG-03 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:321 |
-| SEG-04 | حقل | اختاروا النوع قبل الإرسال — لا يوجد اختيار افتراضي. | public/assets/js/app/components/segment-ui.js:331 |
-| SEG-05 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:361 |
-| SEG-06 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:371 |
-| SEG-07 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:379 |
-| SEG-08 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:404 |
-| SEG-09 | حقل | السبب | public/assets/js/app/components/segment-ui.js:410 |
-| SEG-10 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:413 |
-| SEG-11 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:414 |
-| SEG-12 | حقل | نص الرسالة | public/assets/js/app/components/segment-ui.js:425 |
-| SEG-13 | عنصر قائمة | إلغاء | public/assets/js/app/components/segment-ui.js:515 |
-| SEG-14 | عنصر قائمة | حفظ | public/assets/js/app/components/segment-ui.js:531 |
-| SEG-15 | نافذة | نوع الخدمة لهذا الملف | public/assets/js/app/components/segment-ui.js:540 |
-| SEG-16 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:574 |
-| SEG-17 | زر | استخدم الاقتراح | public/assets/js/app/components/segment-ui.js:583 |
-| SEG-18 | قسم/بطاقة | نوع الخدمة غير محدد | public/assets/js/app/components/segment-ui.js:591 |
-| SEG-19 | عنوان | نوع الخدمة غير محدد | public/assets/js/app/components/segment-ui.js:592 |
-| SEG-20 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:604 |
-| SEG-21 | حقل | أتعاب استشارة قانونية | public/assets/js/app/components/segment-ui.js:605 |
-| SEG-22 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:606 |
-| SEG-23 | حقل | المبلغ | public/assets/js/app/components/segment-ui.js:607 |
-| SEG-24 | حقل | الوصف | public/assets/js/app/components/segment-ui.js:608 |
-| SEG-25 | حقل | تاريخ الاستحقاق | public/assets/js/app/components/segment-ui.js:609 |
-| SEG-26 | عنصر قائمة | إلغاء | public/assets/js/app/components/segment-ui.js:657 |
-| SEG-27 | عنصر قائمة | إرسال للعميل للموافقة | public/assets/js/app/components/segment-ui.js:674 |
-| SEG-28 | نافذة | إضافة أتعاب لهذا الملف | public/assets/js/app/components/segment-ui.js:682 |
+| SEG-01 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:234 |
+| SEG-02 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:300 |
+| SEG-03 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:344 |
+| SEG-04 | حقل | اختاروا النوع قبل الإرسال — لا يوجد اختيار افتراضي. | public/assets/js/app/components/segment-ui.js:354 |
+| SEG-05 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:384 |
+| SEG-06 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:394 |
+| SEG-07 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:402 |
+| SEG-08 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:427 |
+| SEG-09 | حقل | السبب | public/assets/js/app/components/segment-ui.js:433 |
+| SEG-10 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:436 |
+| SEG-11 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:437 |
+| SEG-12 | حقل | نص الرسالة | public/assets/js/app/components/segment-ui.js:448 |
+| SEG-13 | عنصر قائمة | إلغاء | public/assets/js/app/components/segment-ui.js:538 |
+| SEG-14 | عنصر قائمة | حفظ | public/assets/js/app/components/segment-ui.js:554 |
+| SEG-15 | نافذة | نوع الخدمة لهذا الملف | public/assets/js/app/components/segment-ui.js:563 |
+| SEG-16 | زر | (نص متغير) | public/assets/js/app/components/segment-ui.js:597 |
+| SEG-17 | زر | استخدم الاقتراح | public/assets/js/app/components/segment-ui.js:606 |
+| SEG-18 | قسم/بطاقة | نوع الخدمة غير محدد | public/assets/js/app/components/segment-ui.js:614 |
+| SEG-19 | عنوان | نوع الخدمة غير محدد | public/assets/js/app/components/segment-ui.js:615 |
+| SEG-20 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:627 |
+| SEG-21 | حقل | أتعاب استشارة قانونية | public/assets/js/app/components/segment-ui.js:628 |
+| SEG-22 | حقل | (نص متغير) | public/assets/js/app/components/segment-ui.js:629 |
+| SEG-23 | حقل | المبلغ | public/assets/js/app/components/segment-ui.js:630 |
+| SEG-24 | حقل | الوصف | public/assets/js/app/components/segment-ui.js:631 |
+| SEG-25 | حقل | تاريخ الاستحقاق | public/assets/js/app/components/segment-ui.js:632 |
+| SEG-26 | عنصر قائمة | إلغاء | public/assets/js/app/components/segment-ui.js:680 |
+| SEG-27 | عنصر قائمة | إرسال للعميل للموافقة | public/assets/js/app/components/segment-ui.js:697 |
+| SEG-28 | نافذة | إضافة أتعاب لهذا الملف | public/assets/js/app/components/segment-ui.js:705 |
 
 ## QUE: بانتظار قرار الإدارة (`/app#/queue`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | QUE-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/queue.js:42 |
 | QUE-02 | رابط | (نص متغير) | public/assets/js/app/pages/admin/queue.js:52 |
@@ -2303,7 +2375,7 @@
 | QUE-52 | قسم/بطاقة | لا يوجد | public/assets/js/app/pages/admin/queue.js:468 |
 | QUE-53 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/queue.js:471 |
 | QUE-54 | حالة فارغة | (نص متغير) | public/assets/js/app/pages/admin/queue.js:482 |
-| QUE-55 | قسم/بطاقة | العدد: … | public/assets/js/app/pages/admin/queue.js:483 |
+| QUE-55 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/queue.js:483 |
 | QUE-56 | قسم/بطاقة | العدد: … | public/assets/js/app/pages/admin/queue.js:484 |
 | QUE-57 | قائمة روابط | أقسام قائمة القرارات | public/assets/js/app/pages/admin/queue.js:502 |
 | QUE-58 | زر | (نص متغير) | public/assets/js/app/pages/admin/queue.js:507 |
@@ -2315,7 +2387,7 @@
 
 ## CSL: ملفات الاستشارات (`/app#/cases`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CSL-01 | بطاقة رقم | ملفات مفتوحة | public/assets/js/app/pages/admin/cases.js:135 |
 | CSL-02 | بطاقة رقم | بحاجة إلى قرار الإدارة | public/assets/js/app/pages/admin/cases.js:136 |
@@ -2341,298 +2413,299 @@
 
 ## CSF: ملف استشارة (كل التبويبات) (`/app#/cases/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CSF-01 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:98 |
-| CSF-02 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:99 |
-| CSF-03 | نافذة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:102 |
-| CSF-04 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:120 |
-| CSF-05 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:127 |
-| CSF-06 | نافذة | هل أنت متأكد من تنفيذ هذا الإجراء؟ | public/assets/js/app/pages/admin/case-detail.js:131 |
-| CSF-07 | زر | إعادة المحاولة | public/assets/js/app/pages/admin/case-detail.js:183 |
-| CSF-08 | زر | اعمل منها طلب جديد | public/assets/js/app/pages/admin/case-detail.js:189 |
-| CSF-09 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:255 |
-| CSF-10 | حقل | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:260 |
-| CSF-11 | زر | إرسال | public/assets/js/app/pages/admin/case-detail.js:279 |
-| CSF-12 | سؤال قابل للفتح | مستند | public/assets/js/app/pages/admin/case-detail.js:390 |
-| CSF-13 | عنوان | مستند | public/assets/js/app/pages/admin/case-detail.js:393 |
-| CSF-14 | قسم/بطاقة | نتائج تحليل المستندات | public/assets/js/app/pages/admin/case-detail.js:403 |
-| CSF-15 | قسم/بطاقة | نتائج تحليل المستندات | public/assets/js/app/pages/admin/case-detail.js:404 |
-| CSF-16 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:470 |
-| CSF-17 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:499 |
-| CSF-18 | حقل | مثال: صورة إعلام الوراثة | public/assets/js/app/pages/admin/case-detail.js:500 |
-| CSF-19 | حقل | عنوان المستند (اختياري) | public/assets/js/app/pages/admin/case-detail.js:501 |
-| CSF-20 | زر | رفع المستندات | public/assets/js/app/pages/admin/case-detail.js:515 |
-| CSF-21 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:660 |
-| CSF-22 | رابط | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:661 |
-| CSF-23 | زر | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:710 |
-| CSF-24 | زر | رسالة … | public/assets/js/app/pages/admin/case-detail.js:715 |
-| CSF-25 | زر | فتح الملف المستمر | public/assets/js/app/pages/admin/case-detail.js:716 |
-| CSF-26 | زر | تحويل إلى ملف مستمر | public/assets/js/app/pages/admin/case-detail.js:725 |
-| CSF-27 | زر | إعادة فتح الملف | public/assets/js/app/pages/admin/case-detail.js:730 |
-| CSF-28 | زر | إغلاق الملف | public/assets/js/app/pages/admin/case-detail.js:731 |
-| CSF-29 | زر | تغيير | public/assets/js/app/pages/admin/case-detail.js:759 |
-| CSF-30 | عنصر قائمة | ملفات الاستشارات | public/assets/js/app/pages/admin/case-detail.js:768 |
-| CSF-31 | عنوان | ملفات الاستشارات | public/assets/js/app/pages/admin/case-detail.js:780 |
-| CSF-32 | عنوان | ملفات الاستشارات | public/assets/js/app/pages/admin/case-detail.js:781 |
-| CSF-33 | تنبيه | الملف مغلق | public/assets/js/app/pages/admin/case-detail.js:788 |
-| CSF-34 | تنبيه | الملف مغلق | public/assets/js/app/pages/admin/case-detail.js:798 |
-| CSF-35 | قسم/بطاقة | ما يحتاج إلى قرار الإدارة في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:822 |
-| CSF-36 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:831 |
-| CSF-37 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:852 |
-| CSF-38 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:853 |
-| CSF-39 | قسم/بطاقة | الشركة | public/assets/js/app/pages/admin/case-detail.js:856 |
-| CSF-40 | قسم/بطاقة | الشركة | public/assets/js/app/pages/admin/case-detail.js:857 |
-| CSF-41 | رابط | بدون اسم | public/assets/js/app/pages/admin/case-detail.js:865 |
-| CSF-42 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:866 |
-| CSF-43 | رابط | فتح الطلب الوارد … | public/assets/js/app/pages/admin/case-detail.js:871 |
-| CSF-44 | قسم/بطاقة | … ومصدره | public/assets/js/app/pages/admin/case-detail.js:874 |
-| CSF-45 | قسم/بطاقة | … ومصدره | public/assets/js/app/pages/admin/case-detail.js:875 |
-| CSF-46 | زر | تعديل البيانات | public/assets/js/app/pages/admin/case-detail.js:882 |
-| CSF-47 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:887 |
-| CSF-48 | رابط | السجل المعرفي #… | public/assets/js/app/pages/admin/case-detail.js:893 |
-| CSF-49 | قسم/بطاقة | متابعة الملف | public/assets/js/app/pages/admin/case-detail.js:906 |
-| CSF-50 | قسم/بطاقة | متابعة الملف | public/assets/js/app/pages/admin/case-detail.js:907 |
-| CSF-51 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:921 |
-| CSF-52 | حالة فارغة | لم تُسجَّل وقائع داخلية بعد | public/assets/js/app/pages/admin/case-detail.js:928 |
-| CSF-53 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:935 |
-| CSF-54 | زر | حفظ | public/assets/js/app/pages/admin/case-detail.js:942 |
-| CSF-55 | تنبيه | لا تكتب في الملخص رقم الهاتف أو العنوان أو أي بيانات تواصل. سيُبلَّغ… | public/assets/js/app/pages/admin/case-detail.js:949 |
-| CSF-56 | زر | إلغاء | public/assets/js/app/pages/admin/case-detail.js:950 |
-| CSF-57 | قسم/بطاقة | يظهر فقط لأعضاء الفريق الممنوحين صلاحية «ملخص الوقائع» | public/assets/js/app/pages/admin/case-detail.js:972 |
-| CSF-58 | زر | اعتماد المسألة | public/assets/js/app/pages/admin/case-detail.js:999 |
-| CSF-59 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:1004 |
-| CSF-60 | زر | عدم الاعتماد | public/assets/js/app/pages/admin/case-detail.js:1018 |
-| CSF-61 | زر | إعادة تفعيل | public/assets/js/app/pages/admin/case-detail.js:1029 |
-| CSF-62 | زر | إضافة | public/assets/js/app/pages/admin/case-detail.js:1098 |
-| CSF-63 | زر | اقتراح مسائل بالذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:1117 |
-| CSF-64 | زر | إضافة مسألة | public/assets/js/app/pages/admin/case-detail.js:1119 |
-| CSF-65 | حالة فارغة | لا توجد مسائل معتمدة بعد. أضف المسائل التي يجب أن يجيب عنها الفريق. | public/assets/js/app/pages/admin/case-detail.js:1131 |
-| CSF-66 | سؤال قابل للفتح | المسائل المستبعدة (… ) | public/assets/js/app/pages/admin/case-detail.js:1134 |
-| CSF-67 | عنوان | المسائل المستبعدة (… ) | public/assets/js/app/pages/admin/case-detail.js:1134 |
-| CSF-68 | قسم/بطاقة | المسائل القانونية | public/assets/js/app/pages/admin/case-detail.js:1136 |
-| CSF-69 | قسم/بطاقة | المسائل القانونية | public/assets/js/app/pages/admin/case-detail.js:1137 |
-| CSF-70 | حالة فارغة | لا يوجد تحليل آلي للطلب الأصلي | public/assets/js/app/pages/admin/case-detail.js:1144 |
-| CSF-71 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1144 |
-| CSF-72 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1144 |
-| CSF-73 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1169 |
-| CSF-74 | زر | اطلب من … | public/assets/js/app/pages/admin/case-detail.js:1186 |
-| CSF-75 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1194 |
-| CSF-76 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1195 |
-| CSF-77 | رابط | مادة معرفية | public/assets/js/app/pages/admin/case-detail.js:1214 |
-| CSF-78 | حالة فارغة | لا توجد حالات مشابهة بالقدر الكافي | public/assets/js/app/pages/admin/case-detail.js:1227 |
-| CSF-79 | قسم/بطاقة | حالات مشابهة تعاملت معها المؤسسة | public/assets/js/app/pages/admin/case-detail.js:1228 |
-| CSF-80 | قسم/بطاقة | حالات مشابهة تعاملت معها المؤسسة | public/assets/js/app/pages/admin/case-detail.js:1229 |
-| CSF-81 | زر | إضافة أتعاب | public/assets/js/app/pages/admin/case-detail.js:1289 |
-| CSF-82 | قسم/بطاقة | الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1291 |
-| CSF-83 | قسم/بطاقة | الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1292 |
-| CSF-84 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1318 |
-| CSF-85 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1319 |
-| CSF-86 | زر | تحديد الكل | public/assets/js/app/pages/admin/case-detail.js:1343 |
-| CSF-87 | زر | إلغاء التحديد | public/assets/js/app/pages/admin/case-detail.js:1352 |
-| CSF-88 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1364 |
-| CSF-89 | زر | تعديل الصلاحيات | public/assets/js/app/pages/admin/case-detail.js:1558 |
-| CSF-90 | زر | تعديل الإسناد | public/assets/js/app/pages/admin/case-detail.js:1559 |
-| CSF-91 | زر | إعادة فتح الإسناد للمحامي | public/assets/js/app/pages/admin/case-detail.js:1560 |
-| CSF-92 | زر | سحب الإسناد | public/assets/js/app/pages/admin/case-detail.js:1561 |
-| CSF-93 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1572 |
-| CSF-94 | تنبيه | ما تراه الإدارة ليس بالضرورة ما يراه المحامي: كل عضو يرى فقط ما منحته… | public/assets/js/app/pages/admin/case-detail.js:1612 |
-| CSF-95 | زر | إسناد محامٍ | public/assets/js/app/pages/admin/case-detail.js:1614 |
-| CSF-96 | زر | إسناد محامٍ | public/assets/js/app/pages/admin/case-detail.js:1618 |
-| CSF-97 | حالة فارغة | لم يُسند الملف لأي محامٍ بعد | public/assets/js/app/pages/admin/case-detail.js:1618 |
-| CSF-98 | سؤال قابل للفتح | إسنادات مسحوبة (… ) | public/assets/js/app/pages/admin/case-detail.js:1619 |
-| CSF-99 | عنوان | إسنادات مسحوبة (… ) | public/assets/js/app/pages/admin/case-detail.js:1619 |
-| CSF-100 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1669 |
-| CSF-101 | حالة فارغة | لا يوجد محامون نشطون غير أعضاء الفريق الحاليين | public/assets/js/app/pages/admin/case-detail.js:1701 |
-| CSF-102 | حقل | التخصص المطلوب | public/assets/js/app/pages/admin/case-detail.js:1717 |
-| CSF-103 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1782 |
-| CSF-104 | تنبيه | طلب مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:1796 |
-| CSF-105 | قسم/بطاقة | اختيار المحامي | public/assets/js/app/pages/admin/case-detail.js:1800 |
-| CSF-106 | عنوان | اختيار المحامي | public/assets/js/app/pages/admin/case-detail.js:1800 |
-| CSF-107 | قسم/بطاقة | الدور والتكليف والأتعاب | public/assets/js/app/pages/admin/case-detail.js:1804 |
-| CSF-108 | عنوان | الدور والتكليف والأتعاب | public/assets/js/app/pages/admin/case-detail.js:1804 |
-| CSF-109 | قسم/بطاقة | ما يراه هذا المحامي | public/assets/js/app/pages/admin/case-detail.js:1807 |
-| CSF-110 | عنوان | ما يراه هذا المحامي | public/assets/js/app/pages/admin/case-detail.js:1807 |
-| CSF-111 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:1825 |
-| CSF-112 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1833 |
-| CSF-113 | عنصر قائمة | إسناد المحامي | public/assets/js/app/pages/admin/case-detail.js:1868 |
-| CSF-114 | نافذة | إسناد طلب المساعدة إلى محامٍ | public/assets/js/app/pages/admin/case-detail.js:1876 |
-| CSF-115 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:1893 |
-| CSF-116 | عنصر قائمة | حفظ الصلاحيات | public/assets/js/app/pages/admin/case-detail.js:1902 |
-| CSF-117 | نافذة | ما يراه | public/assets/js/app/pages/admin/case-detail.js:1908 |
-| CSF-118 | رابط | تنزيل … | public/assets/js/app/pages/admin/case-detail.js:2036 |
-| CSF-119 | زر | الرد على طلب المهلة | public/assets/js/app/pages/admin/case-detail.js:2049 |
-| CSF-120 | زر | رفض الطلب | public/assets/js/app/pages/admin/case-detail.js:2050 |
-| CSF-121 | زر | موافقة وإرسال للشركة | public/assets/js/app/pages/admin/case-detail.js:2052 |
-| CSF-122 | زر | الرد مباشرة دون سؤال الشركة | public/assets/js/app/pages/admin/case-detail.js:2053 |
-| CSF-123 | زر | رفض الطلب | public/assets/js/app/pages/admin/case-detail.js:2054 |
-| CSF-124 | زر | تسجيل رد … | public/assets/js/app/pages/admin/case-detail.js:2056 |
-| CSF-125 | زر | إتاحة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2057 |
-| CSF-126 | زر | إلغاء الطلب | public/assets/js/app/pages/admin/case-detail.js:2058 |
-| CSF-127 | زر | مراجعة وإتاحة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2060 |
-| CSF-128 | زر | تسجيل رد إضافي | public/assets/js/app/pages/admin/case-detail.js:2061 |
-| CSF-129 | زر | إلغاء الطلب | public/assets/js/app/pages/admin/case-detail.js:2062 |
-| CSF-130 | زر | إسناد إلى محامٍ | public/assets/js/app/pages/admin/case-detail.js:2105 |
-| CSF-131 | زر | رفض | public/assets/js/app/pages/admin/case-detail.js:2106 |
-| CSF-132 | زر | عرض في الفريق | public/assets/js/app/pages/admin/case-detail.js:2133 |
-| CSF-133 | تنبيه | المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة… | public/assets/js/app/pages/admin/case-detail.js:2151 |
-| CSF-134 | زر | طلب من … مباشرة | public/assets/js/app/pages/admin/case-detail.js:2157 |
-| CSF-135 | حالة فارغة | لا توجد طلبات معلومات أو مستندات في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:2158 |
-| CSF-136 | قسم/بطاقة | طلبات المعلومات والمستندات | public/assets/js/app/pages/admin/case-detail.js:2159 |
-| CSF-137 | قسم/بطاقة | طلبات المعلومات والمستندات | public/assets/js/app/pages/admin/case-detail.js:2160 |
-| CSF-138 | حالة فارغة | لم يطلب أي محامٍ مساعدة في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:2166 |
-| CSF-139 | قسم/بطاقة | طلبات مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:2167 |
-| CSF-140 | قسم/بطاقة | طلبات مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:2168 |
-| CSF-141 | تنبيه | لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبوي… | public/assets/js/app/pages/admin/case-detail.js:2274 |
-| CSF-142 | تنبيه | يصل الرد نفسه تلقائيًا أيضًا إلى: … (طلبوا الشيء نفسه). | public/assets/js/app/pages/admin/case-detail.js:2276 |
-| CSF-143 | تنبيه | لم يصل بعد من … : … .… | public/assets/js/app/pages/admin/case-detail.js:2278 |
-| CSF-144 | قسم/بطاقة | مسار الرأي حتى يصل … | public/assets/js/app/pages/admin/case-detail.js:2426 |
-| CSF-145 | زر | اعتماد الرأي | public/assets/js/app/pages/admin/case-detail.js:2448 |
-| CSF-146 | زر | إعادة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2449 |
-| CSF-147 | زر | إعداد رد … من هذا الرأي | public/assets/js/app/pages/admin/case-detail.js:2453 |
-| CSF-148 | حالة فارغة | لم يقدّم أي محامٍ رأيه بعد. ستظهر الآراء هنا فور تقديمها للإدارة. | public/assets/js/app/pages/admin/case-detail.js:2482 |
-| CSF-149 | قسم/بطاقة | آراء المحامين | public/assets/js/app/pages/admin/case-detail.js:2483 |
-| CSF-150 | قسم/بطاقة | آراء المحامين | public/assets/js/app/pages/admin/case-detail.js:2484 |
-| CSF-151 | سؤال قابل للفتح | الإصدارات السابقة (… ) | public/assets/js/app/pages/admin/case-detail.js:2502 |
-| CSF-152 | عنوان | الإصدارات السابقة (… ) | public/assets/js/app/pages/admin/case-detail.js:2502 |
-| CSF-153 | قسم/بطاقة | عضو #… | public/assets/js/app/pages/admin/case-detail.js:2504 |
-| CSF-154 | قسم/بطاقة | عضو #… | public/assets/js/app/pages/admin/case-detail.js:2505 |
-| CSF-155 | زر | إرسال … | public/assets/js/app/pages/admin/case-detail.js:2533 |
-| CSF-156 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:2534 |
-| CSF-157 | زر | متابعة مسودة الرد | public/assets/js/app/pages/admin/case-detail.js:2545 |
-| CSF-158 | حالة فارغة | لم يُعَدّ رد … بعد. ابدأ من رأي معتمد. | public/assets/js/app/pages/admin/case-detail.js:2548 |
-| CSF-159 | قسم/بطاقة | الرد الموجه | public/assets/js/app/pages/admin/case-detail.js:2549 |
-| CSF-160 | قسم/بطاقة | الرد الموجه | public/assets/js/app/pages/admin/case-detail.js:2550 |
-| CSF-161 | قسم/بطاقة | التسليم للشركة | public/assets/js/app/pages/admin/case-detail.js:2560 |
-| CSF-162 | قسم/بطاقة | التسليم للشركة | public/assets/js/app/pages/admin/case-detail.js:2560 |
-| CSF-163 | زر | إعادة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2574 |
-| CSF-164 | تنبيه | وصل للمحامي رد على طلبه بعد التقديم (… ). | public/assets/js/app/pages/admin/case-detail.js:2577 |
-| CSF-165 | زر | صياغة مبسطة بالذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:2648 |
-| CSF-166 | زر | اقتراح | public/assets/js/app/pages/admin/case-detail.js:2692 |
-| CSF-167 | زر | اقتراح | public/assets/js/app/pages/admin/case-detail.js:2701 |
-| CSF-168 | زر | تنزيل | public/assets/js/app/pages/admin/case-detail.js:2844 |
-| CSF-169 | زر | إعادة تسمية | public/assets/js/app/pages/admin/case-detail.js:2845 |
-| CSF-170 | جدول | لا توجد مستندات في هذا الملف بعد | public/assets/js/app/pages/admin/case-detail.js:2861 |
-| CSF-171 | جدول | لا توجد مستندات في هذا الملف بعد | public/assets/js/app/pages/admin/case-detail.js:2861 |
-| CSF-172 | قسم/بطاقة | مستندات الملف | public/assets/js/app/pages/admin/case-detail.js:2862 |
-| CSF-173 | قسم/بطاقة | مستندات الملف | public/assets/js/app/pages/admin/case-detail.js:2863 |
-| CSF-174 | قسم/بطاقة | رفع مستندات جديدة | public/assets/js/app/pages/admin/case-detail.js:2876 |
-| CSF-175 | قسم/بطاقة | رفع مستندات جديدة | public/assets/js/app/pages/admin/case-detail.js:2877 |
-| CSF-176 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/case-detail.js:2896 |
-| CSF-177 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/case-detail.js:2896 |
-| CSF-178 | تنبيه | المحادثة الأصلية مع … تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل… | public/assets/js/app/pages/admin/case-detail.js:2900 |
-| CSF-179 | تنبيه | رسائل تعذر إرسالها: … . يمكنك إعادة المحاولة من داخل الرسالة. | public/assets/js/app/pages/admin/case-detail.js:2901 |
-| CSF-180 | حالة فارغة | لا تتوفر بيانات التكلفة لهذا الملف | public/assets/js/app/pages/admin/case-detail.js:2939 |
-| CSF-181 | بطاقة رقم | إجمالي تكلفة الملف | public/assets/js/app/pages/admin/case-detail.js:2963 |
-| CSF-182 | بطاقة رقم | التكلفة المباشرة | public/assets/js/app/pages/admin/case-detail.js:2964 |
-| CSF-183 | بطاقة رقم | التكلفة المحمّلة | public/assets/js/app/pages/admin/case-detail.js:2965 |
-| CSF-184 | بطاقة رقم | قيمة المساهمات التطوعية | public/assets/js/app/pages/admin/case-detail.js:2966 |
-| CSF-185 | تنبيه | التكلفة المحمّلة تقديرية (حصة من المبالغ الشهرية أو الباقات). التكلفة… | public/assets/js/app/pages/admin/case-detail.js:2968 |
-| CSF-186 | قسم/بطاقة | مكونات التكلفة | public/assets/js/app/pages/admin/case-detail.js:2969 |
-| CSF-187 | قسم/بطاقة | مكونات التكلفة | public/assets/js/app/pages/admin/case-detail.js:2969 |
-| CSF-188 | عنصر قائمة | البند | public/assets/js/app/pages/admin/case-detail.js:2976 |
-| CSF-189 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/case-detail.js:2977 |
-| CSF-190 | عنصر قائمة | حالة القيد | public/assets/js/app/pages/admin/case-detail.js:2978 |
-| CSF-191 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/case-detail.js:2979 |
-| CSF-192 | جدول | البند | public/assets/js/app/pages/admin/case-detail.js:2984 |
-| CSF-193 | جدول | البند | public/assets/js/app/pages/admin/case-detail.js:2985 |
-| CSF-194 | قسم/بطاقة | بنود التكلفة | public/assets/js/app/pages/admin/case-detail.js:2987 |
-| CSF-195 | قسم/بطاقة | بنود التكلفة | public/assets/js/app/pages/admin/case-detail.js:2988 |
-| CSF-196 | رابط | افتح المحادثة ورد عليها | public/assets/js/app/pages/admin/case-detail.js:3066 |
-| CSF-197 | تنبيه | فيه رسالة من … لم يُرد عليها (… ): «… ». | public/assets/js/app/pages/admin/case-detail.js:3069 |
-| CSF-198 | عنصر قائمة | نظرة عامة | public/assets/js/app/pages/admin/case-detail.js:3195 |
-| CSF-199 | عنصر قائمة | الفريق والصلاحيات | public/assets/js/app/pages/admin/case-detail.js:3196 |
-| CSF-200 | عنصر قائمة | الطلبات | public/assets/js/app/pages/admin/case-detail.js:3197 |
-| CSF-201 | عنصر قائمة | الآراء والمراجعة | public/assets/js/app/pages/admin/case-detail.js:3198 |
-| CSF-202 | عنصر قائمة | المستندات | public/assets/js/app/pages/admin/case-detail.js:3199 |
-| CSF-203 | عنصر قائمة | المحادثة | public/assets/js/app/pages/admin/case-detail.js:3200 |
-| CSF-204 | قسم/بطاقة | السجل الزمني للملف | public/assets/js/app/pages/admin/case-detail.js:3201 |
-| CSF-205 | قسم/بطاقة | السجل الزمني للملف | public/assets/js/app/pages/admin/case-detail.js:3201 |
-| CSF-206 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/case-detail.js:3201 |
-| CSF-207 | عنصر قائمة | التكلفة | public/assets/js/app/pages/admin/case-detail.js:3202 |
-| CSF-208 | خيار | نظرة عامة | public/assets/js/app/pages/admin/case-detail.js:3204 |
-| CSF-209 | زر | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:3213 |
-| CSF-210 | نموذج | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:91 |
-| CSF-211 | قسم/بطاقة | يظهر فقط لأعضاء الفريق الممنوحين صلاحية «ملخص الوقائع» | public/assets/js/app/pages/admin/case-detail.js:973 |
-| CSF-212 | عنصر قائمة | دور المحامي في الملف | public/assets/js/app/pages/admin/case-detail.js:1735 |
-| CSF-213 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1737 |
-| CSF-214 | عنصر قائمة | معاملة الأتعاب لهذا الإسناد | public/assets/js/app/pages/admin/case-detail.js:1749 |
-| CSF-215 | عنصر قائمة | مبلغ الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1751 |
-| CSF-216 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1762 |
-| CSF-217 | نموذج | دور المحامي في الملف | public/assets/js/app/pages/admin/case-detail.js:1773 |
-| CSF-218 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1918 |
-| CSF-219 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1919 |
-| CSF-220 | عنصر قائمة | معاملة الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1930 |
-| CSF-221 | عنصر قائمة | مبلغ الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1932 |
-| CSF-222 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1975 |
-| CSF-223 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1983 |
-| CSF-224 | عنصر قائمة | سبب السحب (يصل للمحامي) | public/assets/js/app/pages/admin/case-detail.js:2001 |
-| CSF-225 | عنصر قائمة | نوع الطلب | public/assets/js/app/pages/admin/case-detail.js:2179 |
-| CSF-226 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2180 |
-| CSF-227 | عنصر قائمة | المطلوب (للسجل الداخلي) | public/assets/js/app/pages/admin/case-detail.js:2181 |
-| CSF-228 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:2182 |
-| CSF-229 | عنصر قائمة | البنود المطلوبة (لطلب المستند، بند في كل سطر) | public/assets/js/app/pages/admin/case-detail.js:2184 |
-| CSF-230 | عنصر قائمة | نص الرسالة للشركة | public/assets/js/app/pages/admin/case-detail.js:2214 |
-| CSF-231 | عنصر قائمة | البنود المطلوبة (بند في كل سطر، حتى 5) | public/assets/js/app/pages/admin/case-detail.js:2215 |
-| CSF-232 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:2230 |
-| CSF-233 | عنصر قائمة | البنود المطلوبة من | public/assets/js/app/pages/admin/case-detail.js:2232 |
-| CSF-234 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2233 |
-| CSF-235 | عنصر قائمة | سبب الرفض | public/assets/js/app/pages/admin/case-detail.js:2250 |
-| CSF-236 | عنصر قائمة | اطلب الباقي من | public/assets/js/app/pages/admin/case-detail.js:2282 |
-| CSF-237 | عنصر قائمة | تمديد الموعد إلى | public/assets/js/app/pages/admin/case-detail.js:2284 |
-| CSF-238 | عنصر قائمة | الرد المتاح للمحامي | public/assets/js/app/pages/admin/case-detail.js:2293 |
-| CSF-239 | عنصر قائمة | المستندات التي تُتاح معه | public/assets/js/app/pages/admin/case-detail.js:2302 |
-| CSF-240 | عنصر قائمة | share_with_assignment_ids | public/assets/js/app/pages/admin/case-detail.js:2311 |
-| CSF-241 | عنصر قائمة | رسائل | public/assets/js/app/pages/admin/case-detail.js:2353 |
-| CSF-242 | عنصر قائمة | رسائل | public/assets/js/app/pages/admin/case-detail.js:2354 |
-| CSF-243 | عنصر قائمة | مستندات أخرى في الملف تخص هذا الطلب | public/assets/js/app/pages/admin/case-detail.js:2360 |
-| CSF-244 | عنصر قائمة | ملخص الرد (اختياري) | public/assets/js/app/pages/admin/case-detail.js:2362 |
-| CSF-245 | عنصر قائمة | سبب الرفض | public/assets/js/app/pages/admin/case-detail.js:2401 |
-| CSF-246 | عنصر قائمة | تقييم جودة الرأي | public/assets/js/app/pages/admin/case-detail.js:2591 |
-| CSF-247 | عنصر قائمة | ملاحظة للمحامي (اختيارية) | public/assets/js/app/pages/admin/case-detail.js:2592 |
-| CSF-248 | عنصر قائمة | ملاحظات الإعادة | public/assets/js/app/pages/admin/case-detail.js:2605 |
-| CSF-249 | عنصر قائمة | الرأي المعتمد الذي يُبنى عليه الرد | public/assets/js/app/pages/admin/case-detail.js:2733 |
-| CSF-250 | عنصر قائمة | مساعدة الذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:2735 |
-| CSF-251 | عنصر قائمة | الخلاصة بكلام بسيط (أول حاجة تظهر | public/assets/js/app/pages/admin/case-detail.js:2737 |
-| CSF-252 | عنصر قائمة | الخطوات المطلوبة منها (خطوة في كل سطر) | public/assets/js/app/pages/admin/case-detail.js:2739 |
-| CSF-253 | عنصر قائمة | رسالة صوتية | public/assets/js/app/pages/admin/case-detail.js:2742 |
-| CSF-254 | عنصر قائمة | نص الرد | public/assets/js/app/pages/admin/case-detail.js:2744 |
-| CSF-255 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2795 |
-| CSF-256 | عنصر قائمة | عنوان المستند | public/assets/js/app/pages/admin/case-detail.js:2885 |
-| CSF-257 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:3001 |
-| CSF-258 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:3002 |
-| CSF-259 | عنصر قائمة | عنوان الملف | public/assets/js/app/pages/admin/case-detail.js:3021 |
-| CSF-260 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/case-detail.js:3022 |
-| CSF-261 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/case-detail.js:3023 |
-| CSF-262 | عنصر قائمة | الموعد المستهدف | public/assets/js/app/pages/admin/case-detail.js:3024 |
-| CSF-263 | عنصر قائمة | مدير الحالة | public/assets/js/app/pages/admin/case-detail.js:3025 |
-| CSF-264 | عنصر قائمة | نتيجة الملف | public/assets/js/app/pages/admin/case-detail.js:3083 |
-| CSF-265 | عنصر قائمة | ملاحظة الإغلاق | public/assets/js/app/pages/admin/case-detail.js:3084 |
-| CSF-266 | عنصر قائمة | سبب إعادة الفتح (اختياري) | public/assets/js/app/pages/admin/case-detail.js:3097 |
-| CSF-267 | عنصر قائمة | نوع الملف | public/assets/js/app/pages/admin/case-detail.js:3116 |
-| CSF-268 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/pages/admin/case-detail.js:3117 |
-| CSF-269 | عنصر قائمة | عنوان الملف المستمر | public/assets/js/app/pages/admin/case-detail.js:3118 |
-| CSF-270 | عنصر قائمة | المحكمة | public/assets/js/app/pages/admin/case-detail.js:3119 |
-| CSF-271 | عنصر قائمة | الدائرة | public/assets/js/app/pages/admin/case-detail.js:3120 |
-| CSF-272 | عنصر قائمة | رقم الدعوى | public/assets/js/app/pages/admin/case-detail.js:3121 |
-| CSF-273 | عنصر قائمة | سنة الدعوى | public/assets/js/app/pages/admin/case-detail.js:3122 |
-| CSF-274 | عنصر قائمة | الخصم | public/assets/js/app/pages/admin/case-detail.js:3123 |
-| CSF-275 | عنصر قائمة | الأتعاب المتفق عليها مع | public/assets/js/app/pages/admin/case-detail.js:3124 |
-| CSF-276 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/pages/admin/case-detail.js:3125 |
-| CSF-277 | عنصر قائمة | أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بل… | public/assets/js/app/pages/admin/case-detail.js:3127 |
-| CSF-278 | عنصر قائمة | إغلاق ملف الاستشارة بنتيجة «تحوّل إلى ملف عمل مستمر» | public/assets/js/app/pages/admin/case-detail.js:3128 |
-| CSF-279 | عنصر قائمة | عنوان المسألة | public/assets/js/app/pages/admin/case-detail.js:3171 |
-| CSF-280 | عنصر قائمة | مجال المسألة | public/assets/js/app/pages/admin/case-detail.js:3172 |
-| CSF-281 | عنصر قائمة | تفاصيل (اختيارية) | public/assets/js/app/pages/admin/case-detail.js:3173 |
+| CSF-01 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:102 |
+| CSF-02 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:103 |
+| CSF-03 | نافذة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:106 |
+| CSF-04 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:124 |
+| CSF-05 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:131 |
+| CSF-06 | نافذة | هل أنت متأكد من تنفيذ هذا الإجراء؟ | public/assets/js/app/pages/admin/case-detail.js:135 |
+| CSF-07 | زر | إعادة المحاولة | public/assets/js/app/pages/admin/case-detail.js:187 |
+| CSF-08 | زر | اعمل منها طلب جديد | public/assets/js/app/pages/admin/case-detail.js:193 |
+| CSF-09 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:259 |
+| CSF-10 | حقل | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:264 |
+| CSF-11 | زر | إرسال | public/assets/js/app/pages/admin/case-detail.js:283 |
+| CSF-12 | سؤال قابل للفتح | مستند | public/assets/js/app/pages/admin/case-detail.js:394 |
+| CSF-13 | عنوان | مستند | public/assets/js/app/pages/admin/case-detail.js:397 |
+| CSF-14 | عنوان | نتائج تحليل المستندات | public/assets/js/app/pages/admin/case-detail.js:407 |
+| CSF-15 | قسم/بطاقة | نتائج تحليل المستندات | public/assets/js/app/pages/admin/case-detail.js:408 |
+| CSF-16 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:474 |
+| CSF-17 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:503 |
+| CSF-18 | حقل | مثال: صورة إعلام الوراثة | public/assets/js/app/pages/admin/case-detail.js:504 |
+| CSF-19 | حقل | عنوان المستند (اختياري) | public/assets/js/app/pages/admin/case-detail.js:505 |
+| CSF-20 | زر | رفع المستندات | public/assets/js/app/pages/admin/case-detail.js:519 |
+| CSF-21 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:664 |
+| CSF-22 | رابط | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:665 |
+| CSF-23 | زر | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:716 |
+| CSF-24 | زر | رسالة … | public/assets/js/app/pages/admin/case-detail.js:721 |
+| CSF-25 | زر | فتح الملف المستمر | public/assets/js/app/pages/admin/case-detail.js:722 |
+| CSF-26 | زر | تحويل إلى ملف مستمر | public/assets/js/app/pages/admin/case-detail.js:731 |
+| CSF-27 | زر | إعادة فتح الملف | public/assets/js/app/pages/admin/case-detail.js:736 |
+| CSF-28 | زر | إغلاق الملف | public/assets/js/app/pages/admin/case-detail.js:737 |
+| CSF-29 | زر | تغيير | public/assets/js/app/pages/admin/case-detail.js:765 |
+| CSF-30 | عنصر قائمة | ملفات الاستشارات | public/assets/js/app/pages/admin/case-detail.js:775 |
+| CSF-31 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:787 |
+| CSF-32 | عنوان | ملفات الاستشارات | public/assets/js/app/pages/admin/case-detail.js:788 |
+| CSF-33 | تنبيه | الملف مغلق | public/assets/js/app/pages/admin/case-detail.js:795 |
+| CSF-34 | تنبيه | الملف مغلق | public/assets/js/app/pages/admin/case-detail.js:805 |
+| CSF-35 | قسم/بطاقة | ما يحتاج إلى قرار الإدارة في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:829 |
+| CSF-36 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:838 |
+| CSF-37 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:859 |
+| CSF-38 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:860 |
+| CSF-39 | عنوان | الشركة | public/assets/js/app/pages/admin/case-detail.js:863 |
+| CSF-40 | قسم/بطاقة | الشركة | public/assets/js/app/pages/admin/case-detail.js:864 |
+| CSF-41 | رابط | بدون اسم | public/assets/js/app/pages/admin/case-detail.js:872 |
+| CSF-42 | زر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:873 |
+| CSF-43 | رابط | فتح الطلب الوارد … | public/assets/js/app/pages/admin/case-detail.js:878 |
+| CSF-44 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:881 |
+| CSF-45 | قسم/بطاقة | … ومصدره | public/assets/js/app/pages/admin/case-detail.js:882 |
+| CSF-46 | زر | تعديل البيانات | public/assets/js/app/pages/admin/case-detail.js:889 |
+| CSF-47 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:894 |
+| CSF-48 | رابط | السجل المعرفي #… | public/assets/js/app/pages/admin/case-detail.js:900 |
+| CSF-49 | عنوان | متابعة الملف | public/assets/js/app/pages/admin/case-detail.js:913 |
+| CSF-50 | قسم/بطاقة | متابعة الملف | public/assets/js/app/pages/admin/case-detail.js:914 |
+| CSF-51 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:928 |
+| CSF-52 | حالة فارغة | لم تُسجَّل وقائع داخلية بعد | public/assets/js/app/pages/admin/case-detail.js:935 |
+| CSF-53 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:942 |
+| CSF-54 | زر | حفظ | public/assets/js/app/pages/admin/case-detail.js:949 |
+| CSF-55 | تنبيه | لا تكتب في الملخص رقم الهاتف أو العنوان أو أي بيانات تواصل. سيُبلَّغ… | public/assets/js/app/pages/admin/case-detail.js:956 |
+| CSF-56 | زر | إلغاء | public/assets/js/app/pages/admin/case-detail.js:957 |
+| CSF-57 | قسم/بطاقة | يظهر فقط لأعضاء الفريق الممنوحين صلاحية «ملخص الوقائع» | public/assets/js/app/pages/admin/case-detail.js:979 |
+| CSF-58 | زر | اعتماد المسألة | public/assets/js/app/pages/admin/case-detail.js:1006 |
+| CSF-59 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:1011 |
+| CSF-60 | زر | عدم الاعتماد | public/assets/js/app/pages/admin/case-detail.js:1025 |
+| CSF-61 | زر | إعادة تفعيل | public/assets/js/app/pages/admin/case-detail.js:1036 |
+| CSF-62 | زر | إضافة | public/assets/js/app/pages/admin/case-detail.js:1105 |
+| CSF-63 | زر | اقتراح مسائل بالذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:1124 |
+| CSF-64 | زر | إضافة مسألة | public/assets/js/app/pages/admin/case-detail.js:1126 |
+| CSF-65 | حالة فارغة | لا توجد مسائل معتمدة بعد. أضف المسائل التي يجب أن يجيب عنها الفريق. | public/assets/js/app/pages/admin/case-detail.js:1138 |
+| CSF-66 | سؤال قابل للفتح | المسائل المستبعدة (… ) | public/assets/js/app/pages/admin/case-detail.js:1141 |
+| CSF-67 | عنوان | المسائل المستبعدة (… ) | public/assets/js/app/pages/admin/case-detail.js:1141 |
+| CSF-68 | عنوان | المسائل القانونية | public/assets/js/app/pages/admin/case-detail.js:1143 |
+| CSF-69 | قسم/بطاقة | المسائل القانونية | public/assets/js/app/pages/admin/case-detail.js:1144 |
+| CSF-70 | حالة فارغة | لا يوجد تحليل آلي للطلب الأصلي | public/assets/js/app/pages/admin/case-detail.js:1151 |
+| CSF-71 | عنوان | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1151 |
+| CSF-72 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1151 |
+| CSF-73 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1176 |
+| CSF-74 | زر | اطلب من … | public/assets/js/app/pages/admin/case-detail.js:1193 |
+| CSF-75 | عنوان | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1201 |
+| CSF-76 | قسم/بطاقة | تحليل الذكاء الاصطناعي للطلب | public/assets/js/app/pages/admin/case-detail.js:1202 |
+| CSF-77 | رابط | مادة معرفية | public/assets/js/app/pages/admin/case-detail.js:1221 |
+| CSF-78 | حالة فارغة | لا توجد حالات مشابهة بالقدر الكافي | public/assets/js/app/pages/admin/case-detail.js:1234 |
+| CSF-79 | عنوان | حالات مشابهة تعاملنا معها | public/assets/js/app/pages/admin/case-detail.js:1235 |
+| CSF-80 | قسم/بطاقة | حالات مشابهة تعاملنا معها | public/assets/js/app/pages/admin/case-detail.js:1236 |
+| CSF-81 | زر | إضافة أتعاب | public/assets/js/app/pages/admin/case-detail.js:1296 |
+| CSF-82 | عنوان | الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1298 |
+| CSF-83 | قسم/بطاقة | الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1299 |
+| CSF-84 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1325 |
+| CSF-85 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1326 |
+| CSF-86 | زر | تحديد الكل | public/assets/js/app/pages/admin/case-detail.js:1350 |
+| CSF-87 | زر | إلغاء التحديد | public/assets/js/app/pages/admin/case-detail.js:1359 |
+| CSF-88 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1371 |
+| CSF-89 | زر | تعديل الصلاحيات | public/assets/js/app/pages/admin/case-detail.js:1565 |
+| CSF-90 | زر | تعديل الإسناد | public/assets/js/app/pages/admin/case-detail.js:1566 |
+| CSF-91 | زر | إعادة فتح الإسناد للمحامي | public/assets/js/app/pages/admin/case-detail.js:1567 |
+| CSF-92 | زر | سحب الإسناد | public/assets/js/app/pages/admin/case-detail.js:1568 |
+| CSF-93 | رابط | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1579 |
+| CSF-94 | تنبيه | ما تراه الإدارة ليس بالضرورة ما يراه المحامي: كل عضو يرى فقط ما منحته… | public/assets/js/app/pages/admin/case-detail.js:1619 |
+| CSF-95 | زر | إسناد محامٍ | public/assets/js/app/pages/admin/case-detail.js:1621 |
+| CSF-96 | زر | إسناد محامٍ | public/assets/js/app/pages/admin/case-detail.js:1625 |
+| CSF-97 | حالة فارغة | لم يُسند الملف لأي محامٍ بعد | public/assets/js/app/pages/admin/case-detail.js:1625 |
+| CSF-98 | سؤال قابل للفتح | إسنادات مسحوبة (… ) | public/assets/js/app/pages/admin/case-detail.js:1626 |
+| CSF-99 | عنوان | إسنادات مسحوبة (… ) | public/assets/js/app/pages/admin/case-detail.js:1626 |
+| CSF-100 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1676 |
+| CSF-101 | حالة فارغة | لا يوجد محامون نشطون غير أعضاء الفريق الحاليين | public/assets/js/app/pages/admin/case-detail.js:1708 |
+| CSF-102 | حقل | التخصص المطلوب | public/assets/js/app/pages/admin/case-detail.js:1724 |
+| CSF-103 | حقل | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1789 |
+| CSF-104 | تنبيه | طلب مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:1803 |
+| CSF-105 | قسم/بطاقة | اختيار المحامي | public/assets/js/app/pages/admin/case-detail.js:1807 |
+| CSF-106 | عنوان | اختيار المحامي | public/assets/js/app/pages/admin/case-detail.js:1807 |
+| CSF-107 | قسم/بطاقة | الدور والتكليف والأتعاب | public/assets/js/app/pages/admin/case-detail.js:1811 |
+| CSF-108 | عنوان | الدور والتكليف والأتعاب | public/assets/js/app/pages/admin/case-detail.js:1811 |
+| CSF-109 | قسم/بطاقة | ما يراه هذا المحامي | public/assets/js/app/pages/admin/case-detail.js:1814 |
+| CSF-110 | عنوان | ما يراه هذا المحامي | public/assets/js/app/pages/admin/case-detail.js:1814 |
+| CSF-111 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:1832 |
+| CSF-112 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:1840 |
+| CSF-113 | عنصر قائمة | إسناد المحامي | public/assets/js/app/pages/admin/case-detail.js:1875 |
+| CSF-114 | نافذة | إسناد طلب المساعدة إلى محامٍ | public/assets/js/app/pages/admin/case-detail.js:1883 |
+| CSF-115 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/case-detail.js:1900 |
+| CSF-116 | عنصر قائمة | حفظ الصلاحيات | public/assets/js/app/pages/admin/case-detail.js:1909 |
+| CSF-117 | نافذة | ما يراه | public/assets/js/app/pages/admin/case-detail.js:1915 |
+| CSF-118 | رابط | عرض | public/assets/js/app/pages/admin/case-detail.js:2053 |
+| CSF-119 | زر | الرد على طلب المهلة | public/assets/js/app/pages/admin/case-detail.js:2070 |
+| CSF-120 | زر | رفض الطلب | public/assets/js/app/pages/admin/case-detail.js:2071 |
+| CSF-121 | زر | موافقة وإرسال للشركة | public/assets/js/app/pages/admin/case-detail.js:2073 |
+| CSF-122 | زر | الرد مباشرة دون سؤال الشركة | public/assets/js/app/pages/admin/case-detail.js:2074 |
+| CSF-123 | زر | رفض الطلب | public/assets/js/app/pages/admin/case-detail.js:2075 |
+| CSF-124 | زر | تسجيل رد … | public/assets/js/app/pages/admin/case-detail.js:2077 |
+| CSF-125 | زر | إتاحة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2078 |
+| CSF-126 | زر | إلغاء الطلب | public/assets/js/app/pages/admin/case-detail.js:2079 |
+| CSF-127 | زر | مراجعة وإتاحة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2081 |
+| CSF-128 | زر | تسجيل رد إضافي | public/assets/js/app/pages/admin/case-detail.js:2082 |
+| CSF-129 | زر | إلغاء الطلب | public/assets/js/app/pages/admin/case-detail.js:2083 |
+| CSF-130 | زر | إسناد إلى محامٍ | public/assets/js/app/pages/admin/case-detail.js:2126 |
+| CSF-131 | زر | رفض | public/assets/js/app/pages/admin/case-detail.js:2127 |
+| CSF-132 | زر | عرض في الفريق | public/assets/js/app/pages/admin/case-detail.js:2154 |
+| CSF-133 | تنبيه | المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة… | public/assets/js/app/pages/admin/case-detail.js:2172 |
+| CSF-134 | زر | طلب من … مباشرة | public/assets/js/app/pages/admin/case-detail.js:2178 |
+| CSF-135 | حالة فارغة | لا توجد طلبات معلومات أو مستندات في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:2179 |
+| CSF-136 | عنوان | طلبات المعلومات والمستندات | public/assets/js/app/pages/admin/case-detail.js:2180 |
+| CSF-137 | قسم/بطاقة | طلبات المعلومات والمستندات | public/assets/js/app/pages/admin/case-detail.js:2181 |
+| CSF-138 | حالة فارغة | لم يطلب أي محامٍ مساعدة في هذا الملف | public/assets/js/app/pages/admin/case-detail.js:2187 |
+| CSF-139 | عنوان | طلبات مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:2188 |
+| CSF-140 | قسم/بطاقة | طلبات مساعدة محامٍ | public/assets/js/app/pages/admin/case-detail.js:2189 |
+| CSF-141 | تنبيه | لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبوي… | public/assets/js/app/pages/admin/case-detail.js:2295 |
+| CSF-142 | تنبيه | يصل الرد نفسه تلقائيًا أيضًا إلى: … (طلبوا الشيء نفسه). | public/assets/js/app/pages/admin/case-detail.js:2297 |
+| CSF-143 | تنبيه | لم يصل بعد من … : … .… | public/assets/js/app/pages/admin/case-detail.js:2299 |
+| CSF-144 | قسم/بطاقة | مسار الرأي حتى يصل … | public/assets/js/app/pages/admin/case-detail.js:2447 |
+| CSF-145 | زر | اعتماد الرأي | public/assets/js/app/pages/admin/case-detail.js:2469 |
+| CSF-146 | زر | إعادة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2470 |
+| CSF-147 | زر | إعداد رد … من هذا الرأي | public/assets/js/app/pages/admin/case-detail.js:2474 |
+| CSF-148 | حالة فارغة | لم يقدّم أي محامٍ رأيه بعد. ستظهر الآراء هنا فور تقديمها للإدارة. | public/assets/js/app/pages/admin/case-detail.js:2503 |
+| CSF-149 | عنوان | آراء المحامين | public/assets/js/app/pages/admin/case-detail.js:2504 |
+| CSF-150 | قسم/بطاقة | آراء المحامين | public/assets/js/app/pages/admin/case-detail.js:2505 |
+| CSF-151 | سؤال قابل للفتح | الإصدارات السابقة (… ) | public/assets/js/app/pages/admin/case-detail.js:2523 |
+| CSF-152 | عنوان | الإصدارات السابقة (… ) | public/assets/js/app/pages/admin/case-detail.js:2523 |
+| CSF-153 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:2525 |
+| CSF-154 | قسم/بطاقة | عضو #… | public/assets/js/app/pages/admin/case-detail.js:2526 |
+| CSF-155 | زر | إرسال … | public/assets/js/app/pages/admin/case-detail.js:2554 |
+| CSF-156 | زر | تعديل | public/assets/js/app/pages/admin/case-detail.js:2555 |
+| CSF-157 | زر | متابعة مسودة الرد | public/assets/js/app/pages/admin/case-detail.js:2566 |
+| CSF-158 | حالة فارغة | لم يُعَدّ رد … بعد. ابدأ من رأي معتمد. | public/assets/js/app/pages/admin/case-detail.js:2569 |
+| CSF-159 | عنوان | الرد الموجه | public/assets/js/app/pages/admin/case-detail.js:2570 |
+| CSF-160 | قسم/بطاقة | الرد الموجه | public/assets/js/app/pages/admin/case-detail.js:2571 |
+| CSF-161 | عنوان | التسليم للشركة | public/assets/js/app/pages/admin/case-detail.js:2581 |
+| CSF-162 | قسم/بطاقة | التسليم للشركة | public/assets/js/app/pages/admin/case-detail.js:2581 |
+| CSF-163 | زر | إعادة للمحامي | public/assets/js/app/pages/admin/case-detail.js:2595 |
+| CSF-164 | تنبيه | وصل للمحامي رد على طلبه بعد التقديم (… ). | public/assets/js/app/pages/admin/case-detail.js:2598 |
+| CSF-165 | زر | صياغة مبسطة بالذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:2669 |
+| CSF-166 | زر | اقتراح | public/assets/js/app/pages/admin/case-detail.js:2713 |
+| CSF-167 | زر | اقتراح | public/assets/js/app/pages/admin/case-detail.js:2722 |
+| CSF-168 | زر | تنزيل | public/assets/js/app/pages/admin/case-detail.js:2874 |
+| CSF-169 | زر | إعادة تسمية | public/assets/js/app/pages/admin/case-detail.js:2875 |
+| CSF-170 | جدول | لا توجد مستندات في هذا الملف بعد | public/assets/js/app/pages/admin/case-detail.js:2891 |
+| CSF-171 | جدول | لا توجد مستندات في هذا الملف بعد | public/assets/js/app/pages/admin/case-detail.js:2891 |
+| CSF-172 | عنوان | مستندات الملف | public/assets/js/app/pages/admin/case-detail.js:2892 |
+| CSF-173 | قسم/بطاقة | مستندات الملف | public/assets/js/app/pages/admin/case-detail.js:2893 |
+| CSF-174 | عنوان | رفع مستندات جديدة | public/assets/js/app/pages/admin/case-detail.js:2906 |
+| CSF-175 | قسم/بطاقة | رفع مستندات جديدة | public/assets/js/app/pages/admin/case-detail.js:2907 |
+| CSF-176 | عنوان | المحادثة | public/assets/js/app/pages/admin/case-detail.js:2926 |
+| CSF-177 | قسم/بطاقة | المحادثة | public/assets/js/app/pages/admin/case-detail.js:2926 |
+| CSF-178 | تنبيه | المحادثة الأصلية مع … تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل… | public/assets/js/app/pages/admin/case-detail.js:2930 |
+| CSF-179 | تنبيه | رسائل تعذر إرسالها: … . يمكنك إعادة المحاولة من داخل الرسالة. | public/assets/js/app/pages/admin/case-detail.js:2931 |
+| CSF-180 | حالة فارغة | لا تتوفر بيانات التكلفة لهذا الملف | public/assets/js/app/pages/admin/case-detail.js:2969 |
+| CSF-181 | بطاقة رقم | إجمالي تكلفة الملف | public/assets/js/app/pages/admin/case-detail.js:2993 |
+| CSF-182 | بطاقة رقم | التكلفة المباشرة | public/assets/js/app/pages/admin/case-detail.js:2994 |
+| CSF-183 | بطاقة رقم | التكلفة المحمّلة | public/assets/js/app/pages/admin/case-detail.js:2995 |
+| CSF-184 | بطاقة رقم | قيمة المساهمات التطوعية | public/assets/js/app/pages/admin/case-detail.js:2996 |
+| CSF-185 | تنبيه | التكلفة المحمّلة تقديرية (حصة من المبالغ الشهرية أو الباقات). التكلفة… | public/assets/js/app/pages/admin/case-detail.js:2998 |
+| CSF-186 | عنوان | مكونات التكلفة | public/assets/js/app/pages/admin/case-detail.js:2999 |
+| CSF-187 | قسم/بطاقة | مكونات التكلفة | public/assets/js/app/pages/admin/case-detail.js:2999 |
+| CSF-188 | عنصر قائمة | البند | public/assets/js/app/pages/admin/case-detail.js:3006 |
+| CSF-189 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/case-detail.js:3007 |
+| CSF-190 | عنصر قائمة | حالة القيد | public/assets/js/app/pages/admin/case-detail.js:3008 |
+| CSF-191 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/case-detail.js:3009 |
+| CSF-192 | جدول | البند | public/assets/js/app/pages/admin/case-detail.js:3014 |
+| CSF-193 | جدول | البند | public/assets/js/app/pages/admin/case-detail.js:3015 |
+| CSF-194 | عنوان | بنود التكلفة | public/assets/js/app/pages/admin/case-detail.js:3017 |
+| CSF-195 | قسم/بطاقة | بنود التكلفة | public/assets/js/app/pages/admin/case-detail.js:3018 |
+| CSF-196 | رابط | افتح المحادثة ورد عليها | public/assets/js/app/pages/admin/case-detail.js:3096 |
+| CSF-197 | تنبيه | فيه رسالة من … لم يُرد عليها (… ): «… ». | public/assets/js/app/pages/admin/case-detail.js:3099 |
+| CSF-198 | عنصر قائمة | نظرة عامة | public/assets/js/app/pages/admin/case-detail.js:3225 |
+| CSF-199 | عنصر قائمة | الفريق والصلاحيات | public/assets/js/app/pages/admin/case-detail.js:3226 |
+| CSF-200 | عنصر قائمة | الطلبات | public/assets/js/app/pages/admin/case-detail.js:3227 |
+| CSF-201 | عنصر قائمة | الآراء والمراجعة | public/assets/js/app/pages/admin/case-detail.js:3228 |
+| CSF-202 | عنصر قائمة | المستندات | public/assets/js/app/pages/admin/case-detail.js:3229 |
+| CSF-203 | عنصر قائمة | المحادثة | public/assets/js/app/pages/admin/case-detail.js:3230 |
+| CSF-204 | عنوان | السجل الزمني للملف | public/assets/js/app/pages/admin/case-detail.js:3231 |
+| CSF-205 | قسم/بطاقة | السجل الزمني للملف | public/assets/js/app/pages/admin/case-detail.js:3231 |
+| CSF-206 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/case-detail.js:3231 |
+| CSF-207 | عنصر قائمة | التكلفة | public/assets/js/app/pages/admin/case-detail.js:3232 |
+| CSF-208 | خيار | نظرة عامة | public/assets/js/app/pages/admin/case-detail.js:3234 |
+| CSF-209 | زر | فتح طلب الشركة | public/assets/js/app/pages/admin/case-detail.js:3243 |
+| CSF-210 | نموذج | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:95 |
+| CSF-211 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:980 |
+| CSF-212 | عنصر قائمة | دور المحامي في الملف | public/assets/js/app/pages/admin/case-detail.js:1742 |
+| CSF-213 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1744 |
+| CSF-214 | عنصر قائمة | معاملة الأتعاب لهذا الإسناد | public/assets/js/app/pages/admin/case-detail.js:1756 |
+| CSF-215 | عنصر قائمة | مبلغ الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1758 |
+| CSF-216 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1769 |
+| CSF-217 | نموذج | دور المحامي في الملف | public/assets/js/app/pages/admin/case-detail.js:1780 |
+| CSF-218 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1925 |
+| CSF-219 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1926 |
+| CSF-220 | عنصر قائمة | معاملة الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1937 |
+| CSF-221 | عنصر قائمة | مبلغ الأتعاب | public/assets/js/app/pages/admin/case-detail.js:1939 |
+| CSF-222 | عنصر قائمة | السؤال المطلوب تحديدًا | public/assets/js/app/pages/admin/case-detail.js:1982 |
+| CSF-223 | عنصر قائمة | موعد التسليم | public/assets/js/app/pages/admin/case-detail.js:1990 |
+| CSF-224 | عنصر قائمة | سبب السحب (يصل للمحامي) | public/assets/js/app/pages/admin/case-detail.js:2008 |
+| CSF-225 | عنصر قائمة | نوع الطلب | public/assets/js/app/pages/admin/case-detail.js:2200 |
+| CSF-226 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2201 |
+| CSF-227 | عنصر قائمة | المطلوب (للسجل الداخلي) | public/assets/js/app/pages/admin/case-detail.js:2202 |
+| CSF-228 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:2203 |
+| CSF-229 | عنصر قائمة | البنود المطلوبة (لطلب المستند، بند في كل سطر) | public/assets/js/app/pages/admin/case-detail.js:2205 |
+| CSF-230 | عنصر قائمة | نص الرسالة للشركة | public/assets/js/app/pages/admin/case-detail.js:2235 |
+| CSF-231 | عنصر قائمة | البنود المطلوبة (بند في كل سطر، حتى 5) | public/assets/js/app/pages/admin/case-detail.js:2236 |
+| CSF-232 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:2251 |
+| CSF-233 | عنصر قائمة | البنود المطلوبة من | public/assets/js/app/pages/admin/case-detail.js:2253 |
+| CSF-234 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2254 |
+| CSF-235 | عنصر قائمة | سبب الرفض | public/assets/js/app/pages/admin/case-detail.js:2271 |
+| CSF-236 | عنصر قائمة | اطلب الباقي من | public/assets/js/app/pages/admin/case-detail.js:2303 |
+| CSF-237 | عنصر قائمة | تمديد الموعد إلى | public/assets/js/app/pages/admin/case-detail.js:2305 |
+| CSF-238 | عنصر قائمة | الرد المتاح للمحامي | public/assets/js/app/pages/admin/case-detail.js:2314 |
+| CSF-239 | عنصر قائمة | المستندات التي تُتاح معه | public/assets/js/app/pages/admin/case-detail.js:2323 |
+| CSF-240 | عنصر قائمة | share_with_assignment_ids | public/assets/js/app/pages/admin/case-detail.js:2332 |
+| CSF-241 | عنصر قائمة | رسائل | public/assets/js/app/pages/admin/case-detail.js:2374 |
+| CSF-242 | عنصر قائمة | رسائل | public/assets/js/app/pages/admin/case-detail.js:2375 |
+| CSF-243 | عنصر قائمة | مستندات أخرى في الملف تخص هذا الطلب | public/assets/js/app/pages/admin/case-detail.js:2381 |
+| CSF-244 | عنصر قائمة | ملخص الرد (اختياري) | public/assets/js/app/pages/admin/case-detail.js:2383 |
+| CSF-245 | عنصر قائمة | سبب الرفض | public/assets/js/app/pages/admin/case-detail.js:2422 |
+| CSF-246 | عنصر قائمة | تقييم جودة الرأي | public/assets/js/app/pages/admin/case-detail.js:2612 |
+| CSF-247 | عنصر قائمة | ملاحظة للمحامي (اختيارية) | public/assets/js/app/pages/admin/case-detail.js:2613 |
+| CSF-248 | عنصر قائمة | ملاحظات الإعادة | public/assets/js/app/pages/admin/case-detail.js:2626 |
+| CSF-249 | عنصر قائمة | الرأي المعتمد الذي يُبنى عليه الرد | public/assets/js/app/pages/admin/case-detail.js:2754 |
+| CSF-250 | عنصر قائمة | مساعدة الذكاء الاصطناعي | public/assets/js/app/pages/admin/case-detail.js:2756 |
+| CSF-251 | عنصر قائمة | الخلاصة بكلام بسيط (أول حاجة تظهر | public/assets/js/app/pages/admin/case-detail.js:2758 |
+| CSF-252 | عنصر قائمة | الخطوات المطلوبة منها (خطوة في كل سطر) | public/assets/js/app/pages/admin/case-detail.js:2760 |
+| CSF-253 | عنصر قائمة | رسالة صوتية | public/assets/js/app/pages/admin/case-detail.js:2763 |
+| CSF-254 | عنصر قائمة | نص الرد | public/assets/js/app/pages/admin/case-detail.js:2765 |
+| CSF-255 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:2816 |
+| CSF-256 | عنصر قائمة | عنوان المستند | public/assets/js/app/pages/admin/case-detail.js:2915 |
+| CSF-257 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/case-detail.js:3031 |
+| CSF-258 | عنصر قائمة | قناة الإرسال | public/assets/js/app/pages/admin/case-detail.js:3032 |
+| CSF-259 | عنصر قائمة | عنوان الملف | public/assets/js/app/pages/admin/case-detail.js:3051 |
+| CSF-260 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/case-detail.js:3052 |
+| CSF-261 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/case-detail.js:3053 |
+| CSF-262 | عنصر قائمة | الموعد المستهدف | public/assets/js/app/pages/admin/case-detail.js:3054 |
+| CSF-263 | عنصر قائمة | مدير الحالة | public/assets/js/app/pages/admin/case-detail.js:3055 |
+| CSF-264 | عنصر قائمة | نتيجة الملف | public/assets/js/app/pages/admin/case-detail.js:3113 |
+| CSF-265 | عنصر قائمة | ملاحظة الإغلاق | public/assets/js/app/pages/admin/case-detail.js:3114 |
+| CSF-266 | عنصر قائمة | سبب إعادة الفتح (اختياري) | public/assets/js/app/pages/admin/case-detail.js:3127 |
+| CSF-267 | عنصر قائمة | نوع الملف | public/assets/js/app/pages/admin/case-detail.js:3146 |
+| CSF-268 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/pages/admin/case-detail.js:3147 |
+| CSF-269 | عنصر قائمة | عنوان الملف المستمر | public/assets/js/app/pages/admin/case-detail.js:3148 |
+| CSF-270 | عنصر قائمة | المحكمة | public/assets/js/app/pages/admin/case-detail.js:3149 |
+| CSF-271 | عنصر قائمة | الدائرة | public/assets/js/app/pages/admin/case-detail.js:3150 |
+| CSF-272 | عنصر قائمة | رقم الدعوى | public/assets/js/app/pages/admin/case-detail.js:3151 |
+| CSF-273 | عنصر قائمة | سنة الدعوى | public/assets/js/app/pages/admin/case-detail.js:3152 |
+| CSF-274 | عنصر قائمة | الخصم | public/assets/js/app/pages/admin/case-detail.js:3153 |
+| CSF-275 | عنصر قائمة | الأتعاب المتفق عليها مع | public/assets/js/app/pages/admin/case-detail.js:3154 |
+| CSF-276 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/pages/admin/case-detail.js:3155 |
+| CSF-277 | عنصر قائمة | أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بل… | public/assets/js/app/pages/admin/case-detail.js:3157 |
+| CSF-278 | عنصر قائمة | إغلاق ملف الاستشارة بنتيجة «تحوّل إلى ملف عمل مستمر» | public/assets/js/app/pages/admin/case-detail.js:3158 |
+| CSF-279 | عنصر قائمة | عنوان المسألة | public/assets/js/app/pages/admin/case-detail.js:3201 |
+| CSF-280 | عنصر قائمة | مجال المسألة | public/assets/js/app/pages/admin/case-detail.js:3202 |
+| CSF-281 | عنصر قائمة | تفاصيل (اختيارية) | public/assets/js/app/pages/admin/case-detail.js:3203 |
+| CSF-282 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/case-detail.js:2873 |
 
-## PTY: الأطراف وتعارض المصالح داخل الملف
+## PTY: الأطراف وتعارض المصالح داخل الملف (يظهر في: تبويب الأطراف في صفحة الملف)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | PTY-01 | رابط | مستفيد/ة | public/assets/js/app/components/parties.js:15 |
 | PTY-02 | رابط | (نص متغير) | public/assets/js/app/components/parties.js:20 |
 | PTY-03 | زر | إضافة طرف | public/assets/js/app/components/parties.js:66 |
-| PTY-04 | قسم/بطاقة | أطراف الملف وتعارض المصالح | public/assets/js/app/components/parties.js:74 |
+| PTY-04 | عنوان | أطراف الملف وتعارض المصالح | public/assets/js/app/components/parties.js:74 |
 | PTY-05 | قسم/بطاقة | أطراف الملف وتعارض المصالح | public/assets/js/app/components/parties.js:75 |
 | PTY-06 | زر | تعديل بيانات « | public/assets/js/app/components/parties.js:99 |
 | PTY-07 | زر | حذف « | public/assets/js/app/components/parties.js:101 |
@@ -2647,7 +2720,7 @@
 
 ## MTL: الملفات المستمرة (`/app#/matters`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | MTL-01 | بطاقة رقم | ملفات مستمرة نشطة | public/assets/js/app/pages/admin/matters.js:95 |
 | MTL-02 | بطاقة رقم | مواعيد خلال 7 أيام | public/assets/js/app/pages/admin/matters.js:96 |
@@ -2666,170 +2739,182 @@
 
 ## MTF: ملف مستمر (`/app#/matters/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| MTF-01 | عنصر قائمة | الملفات المستمرة | public/assets/js/app/pages/admin/matter-detail.js:98 |
-| MTF-02 | رابط | صفحة الملف | public/assets/js/app/pages/admin/matter-detail.js:103 |
-| MTF-03 | زر | الاستشارة الأصلية | public/assets/js/app/pages/admin/matter-detail.js:110 |
-| MTF-04 | زر | رسالة للمستفيد/ة | public/assets/js/app/pages/admin/matter-detail.js:111 |
-| MTF-05 | زر | تعديل بيانات الملف | public/assets/js/app/pages/admin/matter-detail.js:118 |
-| MTF-06 | عنوان | الملفات المستمرة | public/assets/js/app/pages/admin/matter-detail.js:121 |
-| MTF-07 | عنوان | الملفات المستمرة | public/assets/js/app/pages/admin/matter-detail.js:122 |
-| MTF-08 | بطاقة رقم | الموعد القادم | public/assets/js/app/pages/admin/matter-detail.js:142 |
-| MTF-09 | بطاقة رقم | مهام مفتوحة | public/assets/js/app/pages/admin/matter-detail.js:151 |
-| MTF-10 | بطاقة رقم | المتبقي على المستفيد/ة | public/assets/js/app/pages/admin/matter-detail.js:160 |
-| MTF-11 | بطاقة رقم | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:162 |
-| MTF-12 | قسم/بطاقة | بيانات الدعوى | public/assets/js/app/pages/admin/matter-detail.js:186 |
-| MTF-13 | قسم/بطاقة | بيانات الدعوى | public/assets/js/app/pages/admin/matter-detail.js:187 |
-| MTF-14 | رابط | بدون اسم | public/assets/js/app/pages/admin/matter-detail.js:195 |
-| MTF-15 | زر | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:196 |
-| MTF-16 | رابط | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:197 |
-| MTF-17 | رابط | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:201 |
-| MTF-18 | قسم/بطاقة | المستفيد/ة والمحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:207 |
-| MTF-19 | قسم/بطاقة | المستفيد/ة والمحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:208 |
-| MTF-20 | زر | اعتماد تذكير المستفيد/ة | public/assets/js/app/pages/admin/matter-detail.js:327 |
-| MTF-21 | زر | تسجيل ما تم | public/assets/js/app/pages/admin/matter-detail.js:328 |
-| MTF-22 | زر | تعديل | public/assets/js/app/pages/admin/matter-detail.js:329 |
-| MTF-23 | تنبيه | المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل للمستفيد/ة بشأنها تذكي… | public/assets/js/app/pages/admin/matter-detail.js:378 |
-| MTF-24 | تنبيه | تذكيرات بانتظار الاعتماد | public/assets/js/app/pages/admin/matter-detail.js:383 |
-| MTF-25 | زر | إضافة جلسة أو موعد | public/assets/js/app/pages/admin/matter-detail.js:388 |
-| MTF-26 | حالة فارغة | لا توجد مواعيد قادمة مجدولة | public/assets/js/app/pages/admin/matter-detail.js:389 |
-| MTF-27 | قسم/بطاقة | المواعيد القادمة | public/assets/js/app/pages/admin/matter-detail.js:390 |
-| MTF-28 | قسم/بطاقة | المواعيد القادمة | public/assets/js/app/pages/admin/matter-detail.js:391 |
-| MTF-29 | قسم/بطاقة | مواعيد سابقة أو منتهية | public/assets/js/app/pages/admin/matter-detail.js:393 |
-| MTF-30 | قسم/بطاقة | مواعيد سابقة أو منتهية | public/assets/js/app/pages/admin/matter-detail.js:393 |
-| MTF-31 | زر | تم الإنجاز | public/assets/js/app/pages/admin/matter-detail.js:496 |
-| MTF-32 | زر | تعديل | public/assets/js/app/pages/admin/matter-detail.js:497 |
-| MTF-33 | زر | إلغاء | public/assets/js/app/pages/admin/matter-detail.js:505 |
-| MTF-34 | زر | إعادة فتح | public/assets/js/app/pages/admin/matter-detail.js:507 |
-| MTF-35 | زر | إضافة مهمة | public/assets/js/app/pages/admin/matter-detail.js:516 |
-| MTF-36 | جدول | مهام الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:523 |
-| MTF-37 | جدول | مهام الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:524 |
-| MTF-38 | قسم/بطاقة | المهام والمواعيد الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:526 |
-| MTF-39 | قسم/بطاقة | المهام والمواعيد الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:527 |
-| MTF-40 | زر | تسجيل دفعة | public/assets/js/app/pages/admin/matter-detail.js:621 |
-| MTF-41 | زر | إلغاء | public/assets/js/app/pages/admin/matter-detail.js:622 |
-| MTF-42 | بطاقة رقم | إجمالي الفواتير | public/assets/js/app/pages/admin/matter-detail.js:632 |
-| MTF-43 | بطاقة رقم | المحصّل | public/assets/js/app/pages/admin/matter-detail.js:633 |
-| MTF-44 | بطاقة رقم | المتبقي | public/assets/js/app/pages/admin/matter-detail.js:634 |
-| MTF-45 | بطاقة رقم | الأتعاب المتفق عليها | public/assets/js/app/pages/admin/matter-detail.js:635 |
-| MTF-46 | قسم/بطاقة | المحصّل من الأتعاب المتفق عليها (… من … ) | public/assets/js/app/pages/admin/matter-detail.js:640 |
-| MTF-47 | زر | إصدار فاتورة | public/assets/js/app/pages/admin/matter-detail.js:646 |
-| MTF-48 | جدول | فواتير الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:647 |
-| MTF-49 | جدول | فواتير الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:647 |
-| MTF-50 | قسم/بطاقة | الفواتير | public/assets/js/app/pages/admin/matter-detail.js:648 |
-| MTF-51 | قسم/بطاقة | الفواتير | public/assets/js/app/pages/admin/matter-detail.js:649 |
-| MTF-52 | عنصر قائمة | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:657 |
-| MTF-53 | عنصر قائمة | الفاتورة | public/assets/js/app/pages/admin/matter-detail.js:658 |
-| MTF-54 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:659 |
-| MTF-55 | عنصر قائمة | تاريخ الدفع | public/assets/js/app/pages/admin/matter-detail.js:660 |
-| MTF-56 | عنصر قائمة | الطريقة | public/assets/js/app/pages/admin/matter-detail.js:661 |
-| MTF-57 | عنصر قائمة | المرجع | public/assets/js/app/pages/admin/matter-detail.js:662 |
-| MTF-58 | عنصر قائمة | إيصال | public/assets/js/app/pages/admin/matter-detail.js:663 |
-| MTF-59 | جدول | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:668 |
-| MTF-60 | جدول | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:669 |
-| MTF-61 | قسم/بطاقة | المدفوعات | public/assets/js/app/pages/admin/matter-detail.js:671 |
-| MTF-62 | قسم/بطاقة | المدفوعات | public/assets/js/app/pages/admin/matter-detail.js:672 |
-| MTF-63 | زر | تسجيل مصروفات | public/assets/js/app/pages/admin/matter-detail.js:735 |
-| MTF-64 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:739 |
-| MTF-65 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:740 |
-| MTF-66 | عنصر قائمة | من دفعها | public/assets/js/app/pages/admin/matter-detail.js:741 |
-| MTF-67 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:742 |
-| MTF-68 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:743 |
-| MTF-69 | جدول | البيان | public/assets/js/app/pages/admin/matter-detail.js:748 |
-| MTF-70 | جدول | البيان | public/assets/js/app/pages/admin/matter-detail.js:749 |
-| MTF-71 | قسم/بطاقة | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:751 |
-| MTF-72 | قسم/بطاقة | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:752 |
-| MTF-73 | تنبيه | أتعاب المحامي عن الملف المستمر تُقيَّد في كشف حسابه وتُصرف من صفحة ال… | public/assets/js/app/pages/admin/matter-detail.js:779 |
-| MTF-74 | زر | المحاسبة | public/assets/js/app/pages/admin/matter-detail.js:786 |
-| MTF-75 | زر | تسجيل أتعاب | public/assets/js/app/pages/admin/matter-detail.js:793 |
-| MTF-76 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:798 |
-| MTF-77 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/matter-detail.js:799 |
-| MTF-78 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:800 |
-| MTF-79 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:801 |
-| MTF-80 | عنصر قائمة | الشهر | public/assets/js/app/pages/admin/matter-detail.js:802 |
-| MTF-81 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:803 |
-| MTF-82 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:804 |
-| MTF-83 | جدول | المحامي | public/assets/js/app/pages/admin/matter-detail.js:810 |
-| MTF-84 | جدول | المحامي | public/assets/js/app/pages/admin/matter-detail.js:811 |
-| MTF-85 | قسم/بطاقة | أتعاب ومستحقات المحامين | public/assets/js/app/pages/admin/matter-detail.js:813 |
-| MTF-86 | قسم/بطاقة | أتعاب ومستحقات المحامين | public/assets/js/app/pages/admin/matter-detail.js:814 |
-| MTF-87 | عنصر قائمة | المستند | public/assets/js/app/pages/admin/matter-detail.js:844 |
-| MTF-88 | عنصر قائمة | أضافه | public/assets/js/app/pages/admin/matter-detail.js:846 |
-| MTF-89 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:847 |
-| MTF-90 | عنصر قائمة | الحجم | public/assets/js/app/pages/admin/matter-detail.js:848 |
-| MTF-91 | زر | تنزيل | public/assets/js/app/pages/admin/matter-detail.js:855 |
-| MTF-92 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/matter-detail.js:861 |
-| MTF-93 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:867 |
-| MTF-94 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:868 |
-| MTF-95 | قسم/بطاقة | مستندات الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:870 |
-| MTF-96 | قسم/بطاقة | مستندات الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:871 |
-| MTF-97 | قسم/بطاقة | رفع مستندات | public/assets/js/app/pages/admin/matter-detail.js:883 |
-| MTF-98 | قسم/بطاقة | رفع مستندات | public/assets/js/app/pages/admin/matter-detail.js:884 |
-| MTF-99 | زر | سحب من المحامي | public/assets/js/app/pages/admin/matter-detail.js:916 |
-| MTF-100 | تنبيه | سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات و… | public/assets/js/app/pages/admin/matter-detail.js:930 |
-| MTF-101 | قسم/بطاقة | السجل الزمني للملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:1028 |
-| MTF-102 | قسم/بطاقة | السجل الزمني للملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:1028 |
-| MTF-103 | خيار | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:1031 |
-| MTF-104 | تنبيه | الملف المستمر مغلق منذ … . يمكنك إعادة فتحه بتعديل الحالة. | public/assets/js/app/pages/admin/matter-detail.js:1035 |
-| MTF-105 | عنصر قائمة | الجلسات والمواعيد | public/assets/js/app/pages/admin/matter-detail.js:1021 |
-| MTF-106 | عنصر قائمة | المهام الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:1022 |
-| MTF-107 | عنصر قائمة | الفواتير والمدفوعات | public/assets/js/app/pages/admin/matter-detail.js:1023 |
-| MTF-108 | عنصر قائمة | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:1024 |
-| MTF-109 | عنصر قائمة | أتعاب المحامي | public/assets/js/app/pages/admin/matter-detail.js:1025 |
-| MTF-110 | عنصر قائمة | المستندات | public/assets/js/app/pages/admin/matter-detail.js:1026 |
-| MTF-111 | عنصر قائمة | الرسائل | public/assets/js/app/pages/admin/matter-detail.js:1027 |
-| MTF-112 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/matter-detail.js:1028 |
-| MTF-113 | عنصر قائمة | نوع الموعد | public/assets/js/app/pages/admin/matter-detail.js:215 |
-| MTF-114 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/matter-detail.js:216 |
-| MTF-115 | عنصر قائمة | التاريخ والوقت | public/assets/js/app/pages/admin/matter-detail.js:217 |
-| MTF-116 | عنصر قائمة | المكان | public/assets/js/app/pages/admin/matter-detail.js:218 |
-| MTF-117 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:219 |
-| MTF-118 | عنصر قائمة | يلزم حضور المستفيد/ة شخصيًا | public/assets/js/app/pages/admin/matter-detail.js:226 |
-| MTF-119 | عنصر قائمة | هاتي معاكي (للمستفيد/ة، بند في كل سطر) | public/assets/js/app/pages/admin/matter-detail.js:229 |
-| MTF-120 | عنصر قائمة | ما تم في الجلسة / القرار | public/assets/js/app/pages/admin/matter-detail.js:230 |
-| MTF-121 | عنصر قائمة | ملاحظات | public/assets/js/app/pages/admin/matter-detail.js:231 |
-| MTF-122 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:283 |
-| MTF-123 | عنصر قائمة | موعد الجلسة التالية (اختياري) | public/assets/js/app/pages/admin/matter-detail.js:284 |
-| MTF-124 | عنصر قائمة | ما تم في الجلسة / القرار | public/assets/js/app/pages/admin/matter-detail.js:285 |
-| MTF-125 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/matter-detail.js:416 |
-| MTF-126 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/matter-detail.js:417 |
-| MTF-127 | عنصر قائمة | المسؤول عن المهمة | public/assets/js/app/pages/admin/matter-detail.js:418 |
-| MTF-128 | عنصر قائمة | تفاصيل | public/assets/js/app/pages/admin/matter-detail.js:420 |
-| MTF-129 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/matter-detail.js:441 |
-| MTF-130 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/matter-detail.js:442 |
-| MTF-131 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:443 |
-| MTF-132 | عنصر قائمة | تفاصيل | public/assets/js/app/pages/admin/matter-detail.js:445 |
-| MTF-133 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:538 |
-| MTF-134 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:539 |
-| MTF-135 | عنصر قائمة | تاريخ الاستحقاق | public/assets/js/app/pages/admin/matter-detail.js:540 |
-| MTF-136 | عنصر قائمة | المبلغ المدفوع | public/assets/js/app/pages/admin/matter-detail.js:555 |
-| MTF-137 | عنصر قائمة | تاريخ الدفع | public/assets/js/app/pages/admin/matter-detail.js:556 |
-| MTF-138 | عنصر قائمة | طريقة الدفع | public/assets/js/app/pages/admin/matter-detail.js:557 |
-| MTF-139 | عنصر قائمة | رقم مرجعي | public/assets/js/app/pages/admin/matter-detail.js:558 |
-| MTF-140 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:683 |
-| MTF-141 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:684 |
-| MTF-142 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:685 |
-| MTF-143 | عنصر قائمة | من دفعها | public/assets/js/app/pages/admin/matter-detail.js:695 |
-| MTF-144 | عنصر قائمة | المحامي الذي دفعها | public/assets/js/app/pages/admin/matter-detail.js:697 |
-| MTF-145 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:763 |
-| MTF-146 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:764 |
-| MTF-147 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:765 |
-| MTF-148 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/matter-detail.js:975 |
-| MTF-149 | عنصر قائمة | نوع الملف | public/assets/js/app/pages/admin/matter-detail.js:976 |
-| MTF-150 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:977 |
-| MTF-151 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:978 |
-| MTF-152 | عنصر قائمة | الأتعاب المتفق عليها مع المستفيد/ة | public/assets/js/app/pages/admin/matter-detail.js:979 |
-| MTF-153 | عنصر قائمة | المحكمة | public/assets/js/app/pages/admin/matter-detail.js:980 |
-| MTF-154 | عنصر قائمة | الدائرة | public/assets/js/app/pages/admin/matter-detail.js:981 |
-| MTF-155 | عنصر قائمة | رقم الدعوى | public/assets/js/app/pages/admin/matter-detail.js:982 |
-| MTF-156 | عنصر قائمة | سنة الدعوى | public/assets/js/app/pages/admin/matter-detail.js:983 |
-| MTF-157 | عنصر قائمة | الخصم | public/assets/js/app/pages/admin/matter-detail.js:984 |
-| MTF-158 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/pages/admin/matter-detail.js:985 |
+| MTF-01 | عنصر قائمة | الملفات المستمرة | public/assets/js/app/pages/admin/matter-detail.js:108 |
+| MTF-02 | رابط | صفحة الملف | public/assets/js/app/pages/admin/matter-detail.js:113 |
+| MTF-03 | زر | الاستشارة الأصلية | public/assets/js/app/pages/admin/matter-detail.js:120 |
+| MTF-04 | زر | رسالة … | public/assets/js/app/pages/admin/matter-detail.js:121 |
+| MTF-05 | زر | تعديل بيانات الملف | public/assets/js/app/pages/admin/matter-detail.js:128 |
+| MTF-06 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:131 |
+| MTF-07 | عنوان | الملفات المستمرة | public/assets/js/app/pages/admin/matter-detail.js:132 |
+| MTF-08 | بطاقة رقم | الموعد القادم | public/assets/js/app/pages/admin/matter-detail.js:152 |
+| MTF-09 | بطاقة رقم | مهام مفتوحة | public/assets/js/app/pages/admin/matter-detail.js:161 |
+| MTF-10 | بطاقة رقم | المتبقي على | public/assets/js/app/pages/admin/matter-detail.js:170 |
+| MTF-11 | بطاقة رقم | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:172 |
+| MTF-12 | عنوان | بيانات الدعوى | public/assets/js/app/pages/admin/matter-detail.js:196 |
+| MTF-13 | قسم/بطاقة | بيانات الدعوى | public/assets/js/app/pages/admin/matter-detail.js:197 |
+| MTF-14 | رابط | بدون اسم | public/assets/js/app/pages/admin/matter-detail.js:205 |
+| MTF-15 | زر | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:206 |
+| MTF-16 | رابط | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:207 |
+| MTF-17 | رابط | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:211 |
+| MTF-18 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:217 |
+| MTF-19 | قسم/بطاقة | … والمحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:218 |
+| MTF-20 | زر | اعتماد تذكير … | public/assets/js/app/pages/admin/matter-detail.js:337 |
+| MTF-21 | زر | تسجيل ما تم | public/assets/js/app/pages/admin/matter-detail.js:338 |
+| MTF-22 | زر | تعديل | public/assets/js/app/pages/admin/matter-detail.js:339 |
+| MTF-23 | تنبيه | المواعيد التي يلزم فيها حضور … يُرسَل … بشأنها تذكير آلي عبر واتساب ق… | public/assets/js/app/pages/admin/matter-detail.js:388 |
+| MTF-24 | تنبيه | تذكيرات بانتظار الاعتماد | public/assets/js/app/pages/admin/matter-detail.js:393 |
+| MTF-25 | زر | إضافة جلسة أو موعد | public/assets/js/app/pages/admin/matter-detail.js:398 |
+| MTF-26 | حالة فارغة | لا توجد مواعيد قادمة مجدولة | public/assets/js/app/pages/admin/matter-detail.js:399 |
+| MTF-27 | عنوان | المواعيد القادمة | public/assets/js/app/pages/admin/matter-detail.js:400 |
+| MTF-28 | قسم/بطاقة | المواعيد القادمة | public/assets/js/app/pages/admin/matter-detail.js:401 |
+| MTF-29 | عنوان | مواعيد سابقة أو منتهية | public/assets/js/app/pages/admin/matter-detail.js:403 |
+| MTF-30 | قسم/بطاقة | مواعيد سابقة أو منتهية | public/assets/js/app/pages/admin/matter-detail.js:403 |
+| MTF-31 | زر | تم الإنجاز | public/assets/js/app/pages/admin/matter-detail.js:506 |
+| MTF-32 | زر | تعديل | public/assets/js/app/pages/admin/matter-detail.js:507 |
+| MTF-33 | زر | إلغاء | public/assets/js/app/pages/admin/matter-detail.js:515 |
+| MTF-34 | زر | إعادة فتح | public/assets/js/app/pages/admin/matter-detail.js:517 |
+| MTF-35 | زر | إضافة مهمة | public/assets/js/app/pages/admin/matter-detail.js:526 |
+| MTF-36 | جدول | مهام الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:533 |
+| MTF-37 | جدول | مهام الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:534 |
+| MTF-38 | عنوان | المهام والمواعيد الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:536 |
+| MTF-39 | قسم/بطاقة | المهام والمواعيد الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:537 |
+| MTF-40 | زر | تسجيل دفعة | public/assets/js/app/pages/admin/matter-detail.js:631 |
+| MTF-41 | زر | إلغاء | public/assets/js/app/pages/admin/matter-detail.js:632 |
+| MTF-42 | بطاقة رقم | إجمالي الفواتير | public/assets/js/app/pages/admin/matter-detail.js:642 |
+| MTF-43 | بطاقة رقم | المحصّل | public/assets/js/app/pages/admin/matter-detail.js:643 |
+| MTF-44 | بطاقة رقم | المتبقي | public/assets/js/app/pages/admin/matter-detail.js:644 |
+| MTF-45 | بطاقة رقم | الأتعاب المتفق عليها | public/assets/js/app/pages/admin/matter-detail.js:645 |
+| MTF-46 | قسم/بطاقة | المحصّل من الأتعاب المتفق عليها (… من … ) | public/assets/js/app/pages/admin/matter-detail.js:650 |
+| MTF-47 | زر | إصدار فاتورة | public/assets/js/app/pages/admin/matter-detail.js:656 |
+| MTF-48 | جدول | فواتير الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:657 |
+| MTF-49 | جدول | فواتير الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:657 |
+| MTF-50 | عنوان | الفواتير | public/assets/js/app/pages/admin/matter-detail.js:658 |
+| MTF-51 | قسم/بطاقة | الفواتير | public/assets/js/app/pages/admin/matter-detail.js:659 |
+| MTF-52 | عنصر قائمة | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:667 |
+| MTF-53 | عنصر قائمة | الفاتورة | public/assets/js/app/pages/admin/matter-detail.js:668 |
+| MTF-54 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:669 |
+| MTF-55 | عنصر قائمة | تاريخ الدفع | public/assets/js/app/pages/admin/matter-detail.js:670 |
+| MTF-56 | عنصر قائمة | الطريقة | public/assets/js/app/pages/admin/matter-detail.js:671 |
+| MTF-57 | عنصر قائمة | المرجع | public/assets/js/app/pages/admin/matter-detail.js:672 |
+| MTF-58 | عنصر قائمة | إيصال | public/assets/js/app/pages/admin/matter-detail.js:673 |
+| MTF-59 | جدول | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:678 |
+| MTF-60 | جدول | رقم الإيصال | public/assets/js/app/pages/admin/matter-detail.js:679 |
+| MTF-61 | عنوان | المدفوعات | public/assets/js/app/pages/admin/matter-detail.js:681 |
+| MTF-62 | قسم/بطاقة | المدفوعات | public/assets/js/app/pages/admin/matter-detail.js:682 |
+| MTF-63 | زر | تسجيل مصروفات | public/assets/js/app/pages/admin/matter-detail.js:745 |
+| MTF-64 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:749 |
+| MTF-65 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:750 |
+| MTF-66 | عنصر قائمة | من دفعها | public/assets/js/app/pages/admin/matter-detail.js:751 |
+| MTF-67 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:752 |
+| MTF-68 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:753 |
+| MTF-69 | جدول | البيان | public/assets/js/app/pages/admin/matter-detail.js:758 |
+| MTF-70 | جدول | البيان | public/assets/js/app/pages/admin/matter-detail.js:759 |
+| MTF-71 | عنوان | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:761 |
+| MTF-72 | قسم/بطاقة | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:762 |
+| MTF-73 | تنبيه | أتعاب المحامي عن الملف المستمر تُقيَّد في كشف حسابه وتُصرف من صفحة ال… | public/assets/js/app/pages/admin/matter-detail.js:789 |
+| MTF-74 | زر | المحاسبة | public/assets/js/app/pages/admin/matter-detail.js:796 |
+| MTF-75 | زر | تسجيل أتعاب | public/assets/js/app/pages/admin/matter-detail.js:803 |
+| MTF-76 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:808 |
+| MTF-77 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/matter-detail.js:809 |
+| MTF-78 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:810 |
+| MTF-79 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:811 |
+| MTF-80 | عنصر قائمة | الشهر | public/assets/js/app/pages/admin/matter-detail.js:812 |
+| MTF-81 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:813 |
+| MTF-82 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:814 |
+| MTF-83 | جدول | المحامي | public/assets/js/app/pages/admin/matter-detail.js:820 |
+| MTF-84 | جدول | المحامي | public/assets/js/app/pages/admin/matter-detail.js:821 |
+| MTF-85 | عنوان | أتعاب ومستحقات المحامين | public/assets/js/app/pages/admin/matter-detail.js:823 |
+| MTF-86 | قسم/بطاقة | أتعاب ومستحقات المحامين | public/assets/js/app/pages/admin/matter-detail.js:824 |
+| MTF-87 | عنصر قائمة | المستند | public/assets/js/app/pages/admin/matter-detail.js:861 |
+| MTF-88 | عنصر قائمة | أضافه | public/assets/js/app/pages/admin/matter-detail.js:863 |
+| MTF-89 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:864 |
+| MTF-90 | عنصر قائمة | الحجم | public/assets/js/app/pages/admin/matter-detail.js:865 |
+| MTF-91 | زر | تنزيل | public/assets/js/app/pages/admin/matter-detail.js:873 |
+| MTF-92 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/matter-detail.js:879 |
+| MTF-93 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:885 |
+| MTF-94 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:886 |
+| MTF-95 | عنوان | مستندات الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:888 |
+| MTF-96 | قسم/بطاقة | مستندات الملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:889 |
+| MTF-97 | عنوان | رفع مستندات | public/assets/js/app/pages/admin/matter-detail.js:954 |
+| MTF-98 | قسم/بطاقة | رفع مستندات | public/assets/js/app/pages/admin/matter-detail.js:955 |
+| MTF-99 | زر | سحب من المحامي | public/assets/js/app/pages/admin/matter-detail.js:989 |
+| MTF-100 | تنبيه | سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات و… | public/assets/js/app/pages/admin/matter-detail.js:1003 |
+| MTF-101 | عنوان | السجل الزمني للملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:1101 |
+| MTF-102 | قسم/بطاقة | السجل الزمني للملف المستمر | public/assets/js/app/pages/admin/matter-detail.js:1101 |
+| MTF-103 | خيار | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:1104 |
+| MTF-104 | تنبيه | الملف المستمر مغلق منذ … . يمكنك إعادة فتحه بتعديل الحالة. | public/assets/js/app/pages/admin/matter-detail.js:1108 |
+| MTF-105 | عنصر قائمة | الجلسات والمواعيد | public/assets/js/app/pages/admin/matter-detail.js:1094 |
+| MTF-106 | عنصر قائمة | المهام الإجرائية | public/assets/js/app/pages/admin/matter-detail.js:1095 |
+| MTF-107 | عنصر قائمة | الفواتير والمدفوعات | public/assets/js/app/pages/admin/matter-detail.js:1096 |
+| MTF-108 | عنصر قائمة | المصروفات | public/assets/js/app/pages/admin/matter-detail.js:1097 |
+| MTF-109 | عنصر قائمة | أتعاب المحامي | public/assets/js/app/pages/admin/matter-detail.js:1098 |
+| MTF-110 | عنصر قائمة | المستندات | public/assets/js/app/pages/admin/matter-detail.js:1099 |
+| MTF-111 | عنصر قائمة | الرسائل | public/assets/js/app/pages/admin/matter-detail.js:1100 |
+| MTF-112 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/matter-detail.js:1101 |
+| MTF-113 | عنصر قائمة | نوع الموعد | public/assets/js/app/pages/admin/matter-detail.js:225 |
+| MTF-114 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/matter-detail.js:226 |
+| MTF-115 | عنصر قائمة | التاريخ والوقت | public/assets/js/app/pages/admin/matter-detail.js:227 |
+| MTF-116 | عنصر قائمة | المكان | public/assets/js/app/pages/admin/matter-detail.js:228 |
+| MTF-117 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:229 |
+| MTF-118 | عنصر قائمة | يلزم حضور | public/assets/js/app/pages/admin/matter-detail.js:236 |
+| MTF-119 | عنصر قائمة | client_note | public/assets/js/app/pages/admin/matter-detail.js:239 |
+| MTF-120 | عنصر قائمة | ما تم في الجلسة / القرار | public/assets/js/app/pages/admin/matter-detail.js:240 |
+| MTF-121 | عنصر قائمة | ملاحظات | public/assets/js/app/pages/admin/matter-detail.js:241 |
+| MTF-122 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:293 |
+| MTF-123 | عنصر قائمة | موعد الجلسة التالية (اختياري) | public/assets/js/app/pages/admin/matter-detail.js:294 |
+| MTF-124 | عنصر قائمة | ما تم في الجلسة / القرار | public/assets/js/app/pages/admin/matter-detail.js:295 |
+| MTF-125 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/matter-detail.js:426 |
+| MTF-126 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/matter-detail.js:427 |
+| MTF-127 | عنصر قائمة | المسؤول عن المهمة | public/assets/js/app/pages/admin/matter-detail.js:428 |
+| MTF-128 | عنصر قائمة | تفاصيل | public/assets/js/app/pages/admin/matter-detail.js:430 |
+| MTF-129 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/matter-detail.js:451 |
+| MTF-130 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/matter-detail.js:452 |
+| MTF-131 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:453 |
+| MTF-132 | عنصر قائمة | تفاصيل | public/assets/js/app/pages/admin/matter-detail.js:455 |
+| MTF-133 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:548 |
+| MTF-134 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:549 |
+| MTF-135 | عنصر قائمة | تاريخ الاستحقاق | public/assets/js/app/pages/admin/matter-detail.js:550 |
+| MTF-136 | عنصر قائمة | المبلغ المدفوع | public/assets/js/app/pages/admin/matter-detail.js:565 |
+| MTF-137 | عنصر قائمة | تاريخ الدفع | public/assets/js/app/pages/admin/matter-detail.js:566 |
+| MTF-138 | عنصر قائمة | طريقة الدفع | public/assets/js/app/pages/admin/matter-detail.js:567 |
+| MTF-139 | عنصر قائمة | رقم مرجعي | public/assets/js/app/pages/admin/matter-detail.js:568 |
+| MTF-140 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:693 |
+| MTF-141 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:694 |
+| MTF-142 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:695 |
+| MTF-143 | عنصر قائمة | من دفعها | public/assets/js/app/pages/admin/matter-detail.js:705 |
+| MTF-144 | عنصر قائمة | المحامي الذي دفعها | public/assets/js/app/pages/admin/matter-detail.js:707 |
+| MTF-145 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/matter-detail.js:773 |
+| MTF-146 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/matter-detail.js:774 |
+| MTF-147 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/matter-detail.js:775 |
+| MTF-148 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/matter-detail.js:1048 |
+| MTF-149 | عنصر قائمة | نوع الملف | public/assets/js/app/pages/admin/matter-detail.js:1049 |
+| MTF-150 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/matter-detail.js:1050 |
+| MTF-151 | عنصر قائمة | المحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:1051 |
+| MTF-152 | عنصر قائمة | الأتعاب المتفق عليها مع | public/assets/js/app/pages/admin/matter-detail.js:1052 |
+| MTF-153 | عنصر قائمة | المحكمة | public/assets/js/app/pages/admin/matter-detail.js:1053 |
+| MTF-154 | عنصر قائمة | الدائرة | public/assets/js/app/pages/admin/matter-detail.js:1054 |
+| MTF-155 | عنصر قائمة | رقم الدعوى | public/assets/js/app/pages/admin/matter-detail.js:1055 |
+| MTF-156 | عنصر قائمة | سنة الدعوى | public/assets/js/app/pages/admin/matter-detail.js:1056 |
+| MTF-157 | عنصر قائمة | الخصم | public/assets/js/app/pages/admin/matter-detail.js:1057 |
+| MTF-158 | عنصر قائمة | ملاحظات وتكليف المحامي | public/assets/js/app/pages/admin/matter-detail.js:1058 |
+| MTF-159 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:872 |
+| MTF-160 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:976 |
+| MTF-161 | عنصر قائمة | المستند | public/assets/js/app/pages/admin/matter-detail.js:905 |
+| MTF-162 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/matter-detail.js:907 |
+| MTF-163 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/matter-detail.js:914 |
+| MTF-164 | شارة | أُتيح للمحامي في الاستشارة | public/assets/js/app/pages/admin/matter-detail.js:915 |
+| MTF-165 | زر | إتاحة للمحامي المسؤول | public/assets/js/app/pages/admin/matter-detail.js:927 |
+| MTF-166 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/matter-detail.js:931 |
+| MTF-167 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:937 |
+| MTF-168 | جدول | المستند | public/assets/js/app/pages/admin/matter-detail.js:938 |
+| MTF-169 | عنوان | مستندات من الطلب والاستشارة | public/assets/js/app/pages/admin/matter-detail.js:940 |
+| MTF-170 | قسم/بطاقة | مستندات من الطلب والاستشارة | public/assets/js/app/pages/admin/matter-detail.js:941 |
 
-## OUT: نتيجة الجلسة وإغلاق الملف
+## OUT: نتيجة الجلسة وإغلاق الملف (يظهر في: نافذة نتيجة الجلسة وإغلاق الملف)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | OUT-01 | حقل | (نص متغير) | public/assets/js/app/components/outcome-sheet.js:121 |
 | OUT-02 | زر | (نص متغير) | public/assets/js/app/components/outcome-sheet.js:127 |
@@ -2859,15 +2944,15 @@
 | OUT-26 | زر | حفظ الموعد | public/assets/js/app/components/outcome-sheet.js:604 |
 | OUT-27 | نافذة | تجاهل ما أدخلته؟ | public/assets/js/app/components/outcome-sheet.js:636 |
 | OUT-28 | نافذة | تعديل الموعد | public/assets/js/app/components/outcome-sheet.js:638 |
-| OUT-29 | زر | تسجيل الأثر | public/assets/js/app/components/outcome.js:51 |
-| OUT-30 | قسم/بطاقة | الحقوق التي استردها المستفيد بفضل الخدمة | public/assets/js/app/components/outcome.js:52 |
-| OUT-31 | قسم/بطاقة | الحقوق التي استردها المستفيد بفضل الخدمة | public/assets/js/app/components/outcome.js:52 |
-| OUT-32 | حالة فارغة | لم يُسجَّل الأثر المتحقق لهذا الملف بعد. سجّله ليُحتسب في تقرير الأثر. | public/assets/js/app/components/outcome.js:74 |
-| OUT-33 | نافذة | سجّل ما استرده … فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الو… | public/assets/js/app/components/outcome.js:109 |
-| OUT-34 | عنصر قائمة | outcome_kind | public/assets/js/app/components/outcome.js:23 |
-| OUT-35 | عنصر قائمة | حقوق مستردة دفعة واحدة | public/assets/js/app/components/outcome.js:25 |
-| OUT-36 | عنصر قائمة | حقوق شهرية مستردة | public/assets/js/app/components/outcome.js:26 |
-| OUT-37 | عنصر قائمة | ملاحظات الأثر | public/assets/js/app/components/outcome.js:27 |
+| OUT-29 | زر | تسجيل الأثر | public/assets/js/app/components/outcome.js:52 |
+| OUT-30 | عنوان | (نص متغير) | public/assets/js/app/components/outcome.js:53 |
+| OUT-31 | قسم/بطاقة | الحقوق التي استردها المستفيد بفضل الخدمة | public/assets/js/app/components/outcome.js:53 |
+| OUT-32 | حالة فارغة | لم يُسجَّل الأثر المتحقق لهذا الملف بعد. سجّله ليُحتسب في تقرير الأثر. | public/assets/js/app/components/outcome.js:75 |
+| OUT-33 | نافذة | سجّل ما استرده … فعليًا (بالجنيه المصري). القيمة السنوية = الدفعة الو… | public/assets/js/app/components/outcome.js:110 |
+| OUT-34 | عنصر قائمة | outcome_kind | public/assets/js/app/components/outcome.js:24 |
+| OUT-35 | عنصر قائمة | حقوق مستردة دفعة واحدة | public/assets/js/app/components/outcome.js:26 |
+| OUT-36 | عنصر قائمة | حقوق شهرية مستردة | public/assets/js/app/components/outcome.js:27 |
+| OUT-37 | عنصر قائمة | ملاحظات الأثر | public/assets/js/app/components/outcome.js:28 |
 | OUT-38 | عنصر قائمة | للاطلاع | public/assets/js/app/components/outcome-sheet.js:32 |
 | OUT-39 | عنصر قائمة | لتقديم مستندات | public/assets/js/app/components/outcome-sheet.js:33 |
 | OUT-40 | عنصر قائمة | للإعلان | public/assets/js/app/components/outcome-sheet.js:34 |
@@ -2880,7 +2965,7 @@
 
 ## CLI: المستفيدون (`/app#/clients`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CLI-01 | حالة فارغة | لا يوجد مستفيد/ة مطابق لهذا البحث | public/assets/js/app/pages/admin/clients.js:48 |
 | CLI-02 | زر | بدون اسم | public/assets/js/app/pages/admin/clients.js:62 |
@@ -2904,17 +2989,17 @@
 | CLI-20 | جدول | قائمة المستفيدين | public/assets/js/app/pages/admin/clients.js:206 |
 | CLI-21 | زر | عرض المزيد (… ) | public/assets/js/app/pages/admin/clients.js:218 |
 | CLI-22 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/clients.js:230 |
-| CLI-23 | عنوان | المستفيدون | public/assets/js/app/pages/admin/clients.js:236 |
-| CLI-24 | عنوان | المستفيدون | public/assets/js/app/pages/admin/clients.js:237 |
+| CLI-23 | عنوان | أصحاب الطلبات | public/assets/js/app/pages/admin/clients.js:236 |
+| CLI-24 | عنوان | أصحاب الطلبات | public/assets/js/app/pages/admin/clients.js:237 |
 | CLI-25 | حقل | بحث في المستفيدين | public/assets/js/app/pages/admin/clients.js:248 |
 
 ## CLF: ملف المستفيد/ة (`/app#/clients/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CLF-01 | عنصر قائمة | المستفيدون | public/assets/js/app/pages/admin/client-detail.js:46 |
-| CLF-02 | عنوان | المستفيدون | public/assets/js/app/pages/admin/client-detail.js:46 |
-| CLF-03 | عنوان | المستفيدون | public/assets/js/app/pages/admin/client-detail.js:46 |
+| CLF-01 | عنصر قائمة | أصحاب الطلبات | public/assets/js/app/pages/admin/client-detail.js:46 |
+| CLF-02 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/client-detail.js:46 |
+| CLF-03 | عنوان | أصحاب الطلبات | public/assets/js/app/pages/admin/client-detail.js:46 |
 | CLF-04 | زر | فتح صفحة الشركة | public/assets/js/app/pages/admin/client-detail.js:52 |
 | CLF-05 | قسم/بطاقة | هذا حساب داخلي لشركة عميلة — … | public/assets/js/app/pages/admin/client-detail.js:54 |
 | CLF-06 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/client-detail.js:87 |
@@ -2934,23 +3019,23 @@
 | CLF-20 | نافذة | إرسال رابط البوابة للمستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:231 |
 | CLF-21 | زر | إرسال عبر واتساب | public/assets/js/app/pages/admin/client-detail.js:238 |
 | CLF-22 | زر | تعديل | public/assets/js/app/pages/admin/client-detail.js:246 |
-| CLF-23 | قسم/بطاقة | بيانات المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:257 |
+| CLF-23 | عنوان | بيانات المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:257 |
 | CLF-24 | قسم/بطاقة | بيانات المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:258 |
 | CLF-25 | زر | إضافة | public/assets/js/app/pages/admin/client-detail.js:267 |
 | CLF-26 | حالة فارغة | لا توجد وسائل تواصل مسجلة | public/assets/js/app/pages/admin/client-detail.js:280 |
-| CLF-27 | قسم/بطاقة | وسائل التواصل | public/assets/js/app/pages/admin/client-detail.js:281 |
+| CLF-27 | عنوان | وسائل التواصل | public/assets/js/app/pages/admin/client-detail.js:281 |
 | CLF-28 | قسم/بطاقة | وسائل التواصل | public/assets/js/app/pages/admin/client-detail.js:282 |
 | CLF-29 | نافذة | إلغاء روابط البوابة | public/assets/js/app/pages/admin/client-detail.js:292 |
 | CLF-30 | زر | إلغاء روابط البوابة | public/assets/js/app/pages/admin/client-detail.js:314 |
-| CLF-31 | قسم/بطاقة | صفحة المتابعة | public/assets/js/app/pages/admin/client-detail.js:317 |
+| CLF-31 | عنوان | صفحة المتابعة | public/assets/js/app/pages/admin/client-detail.js:317 |
 | CLF-32 | قسم/بطاقة | صفحة المتابعة | public/assets/js/app/pages/admin/client-detail.js:318 |
 | CLF-33 | زر | (نص متغير) | public/assets/js/app/pages/admin/client-detail.js:329 |
-| CLF-34 | قسم/بطاقة | ملف مكرر؟ | public/assets/js/app/pages/admin/client-detail.js:331 |
+| CLF-34 | عنوان | ملف مكرر؟ | public/assets/js/app/pages/admin/client-detail.js:331 |
 | CLF-35 | قسم/بطاقة | ملف مكرر؟ | public/assets/js/app/pages/admin/client-detail.js:332 |
 | CLF-36 | رابط | طلب وارد | public/assets/js/app/pages/admin/client-detail.js:343 |
 | CLF-37 | رابط | ملف استشارة | public/assets/js/app/pages/admin/client-detail.js:358 |
 | CLF-38 | رابط | ملف مستمر | public/assets/js/app/pages/admin/client-detail.js:376 |
-| CLF-39 | قسم/بطاقة | تاريخ العلاقة مع المؤسسة | public/assets/js/app/pages/admin/client-detail.js:395 |
+| CLF-39 | عنوان | تاريخ العلاقة مع المؤسسة | public/assets/js/app/pages/admin/client-detail.js:395 |
 | CLF-40 | قسم/بطاقة | تاريخ العلاقة مع المؤسسة | public/assets/js/app/pages/admin/client-detail.js:396 |
 | CLF-41 | عنصر قائمة | رقم الفاتورة | public/assets/js/app/pages/admin/client-detail.js:412 |
 | CLF-42 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/client-detail.js:413 |
@@ -2960,19 +3045,19 @@
 | CLF-46 | جدول | فواتير المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:425 |
 | CLF-47 | جدول | فواتير المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:426 |
 | CLF-48 | حالة فارغة | لا توجد فواتير لهذا المستفيد/ة | public/assets/js/app/pages/admin/client-detail.js:428 |
-| CLF-49 | قسم/بطاقة | الفواتير | public/assets/js/app/pages/admin/client-detail.js:429 |
+| CLF-49 | عنوان | الفواتير | public/assets/js/app/pages/admin/client-detail.js:429 |
 | CLF-50 | قسم/بطاقة | الفواتير | public/assets/js/app/pages/admin/client-detail.js:430 |
-| CLF-51 | قسم/بطاقة | سجل النشاط | public/assets/js/app/pages/admin/client-detail.js:441 |
+| CLF-51 | عنوان | سجل النشاط | public/assets/js/app/pages/admin/client-detail.js:441 |
 | CLF-52 | قسم/بطاقة | سجل النشاط | public/assets/js/app/pages/admin/client-detail.js:441 |
 | CLF-53 | بطاقة رقم | الطلبات الواردة | public/assets/js/app/pages/admin/client-detail.js:454 |
 | CLF-54 | بطاقة رقم | ملفات الاستشارة | public/assets/js/app/pages/admin/client-detail.js:455 |
 | CLF-55 | بطاقة رقم | الملفات المستمرة | public/assets/js/app/pages/admin/client-detail.js:456 |
 | CLF-56 | بطاقة رقم | فواتير غير مسددة | public/assets/js/app/pages/admin/client-detail.js:462 |
-| CLF-57 | عنصر قائمة | المستفيدون | public/assets/js/app/pages/admin/client-detail.js:469 |
-| CLF-58 | زر | تعديل البيانات | public/assets/js/app/pages/admin/client-detail.js:477 |
-| CLF-59 | زر | (نص متغير) | public/assets/js/app/pages/admin/client-detail.js:478 |
-| CLF-60 | عنوان | بدون اسم | public/assets/js/app/pages/admin/client-detail.js:480 |
-| CLF-61 | عنوان | بدون اسم | public/assets/js/app/pages/admin/client-detail.js:481 |
+| CLF-57 | عنصر قائمة | أصحاب الطلبات | public/assets/js/app/pages/admin/client-detail.js:470 |
+| CLF-58 | زر | تعديل البيانات | public/assets/js/app/pages/admin/client-detail.js:478 |
+| CLF-59 | زر | (نص متغير) | public/assets/js/app/pages/admin/client-detail.js:479 |
+| CLF-60 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/client-detail.js:481 |
+| CLF-61 | عنوان | بدون اسم | public/assets/js/app/pages/admin/client-detail.js:482 |
 | CLF-62 | حقل | (نص متغير) | public/assets/js/app/components/beneficiary.js:35 |
 | CLF-63 | حقل | — النوع — | public/assets/js/app/components/beneficiary.js:38 |
 | CLF-64 | زر | حذف هذا السطر | public/assets/js/app/components/beneficiary.js:55 |
@@ -2982,7 +3067,7 @@
 | CLF-68 | نافذة | تعديل بطاقة المستفيد | public/assets/js/app/components/beneficiary.js:182 |
 | CLF-69 | سؤال قابل للفتح | كيف حُسبت الدرجة؟ | public/assets/js/app/components/beneficiary.js:199 |
 | CLF-70 | عنوان | كيف حُسبت الدرجة؟ | public/assets/js/app/components/beneficiary.js:199 |
-| CLF-71 | قسم/بطاقة | بطاقة المستفيد | public/assets/js/app/components/beneficiary.js:220 |
+| CLF-71 | عنوان | بطاقة المستفيد | public/assets/js/app/components/beneficiary.js:220 |
 | CLF-72 | قسم/بطاقة | بطاقة المستفيد | public/assets/js/app/components/beneficiary.js:221 |
 | CLF-73 | زر | تُملأ الحقول الفارغة فقط ولا يُستبدل ما سجلته الإدارة | public/assets/js/app/components/beneficiary.js:262 |
 | CLF-74 | زر | تعديل | public/assets/js/app/components/beneficiary.js:272 |
@@ -3005,78 +3090,78 @@
 
 ## LWL: شبكة المحامين (`/app#/lawyers`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| LWL-01 | حقل | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:75 |
-| LWL-02 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:281 |
-| LWL-03 | عنوان | البيانات الأساسية | public/assets/js/app/pages/admin/lawyers.js:416 |
-| LWL-04 | عنوان | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyers.js:418 |
-| LWL-05 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/lawyers.js:428 |
-| LWL-06 | عنصر قائمة | إضافة المحامي | public/assets/js/app/pages/admin/lawyers.js:475 |
-| LWL-07 | نافذة | إضافة محامٍ إلى الشبكة | public/assets/js/app/pages/admin/lawyers.js:478 |
-| LWL-08 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:515 |
-| LWL-09 | رابط | ملف … | public/assets/js/app/pages/admin/lawyers.js:537 |
-| LWL-10 | بطاقة رقم | المحامون النشطون | public/assets/js/app/pages/admin/lawyers.js:596 |
-| LWL-11 | بطاقة رقم | الإسنادات المفتوحة مقابل الطاقة | public/assets/js/app/pages/admin/lawyers.js:603 |
-| LWL-12 | بطاقة رقم | إسنادات متأخرة | public/assets/js/app/pages/admin/lawyers.js:611 |
-| LWL-13 | بطاقة رقم | إسنادات مُنجزة ومعتمدة | public/assets/js/app/pages/admin/lawyers.js:613 |
-| LWL-14 | بطاقة رقم | استشارات تطوعية | public/assets/js/app/pages/admin/lawyers.js:614 |
-| LWL-15 | زر | مسح التصفية | public/assets/js/app/pages/admin/lawyers.js:638 |
-| LWL-16 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/lawyers.js:639 |
-| LWL-17 | حالة فارغة | لا يوجد محامون مطابقون للتصفية الحالية | public/assets/js/app/pages/admin/lawyers.js:640 |
-| LWL-18 | قسم/بطاقة | لا يوجد محامون مطابقون للتصفية الحالية | public/assets/js/app/pages/admin/lawyers.js:642 |
-| LWL-19 | عنصر قائمة | المحامي والتخصصات | public/assets/js/app/pages/admin/lawyers.js:655 |
-| LWL-20 | عنصر قائمة | الاتفاق | public/assets/js/app/pages/admin/lawyers.js:656 |
-| LWL-21 | عنصر قائمة | الحمل الحالي | public/assets/js/app/pages/admin/lawyers.js:657 |
-| LWL-22 | عنصر قائمة | السرعة والتأخير | public/assets/js/app/pages/admin/lawyers.js:667 |
-| LWL-23 | عنصر قائمة | المنجز في الشهر | public/assets/js/app/pages/admin/lawyers.js:678 |
-| LWL-24 | عنصر قائمة | الجودة | public/assets/js/app/pages/admin/lawyers.js:691 |
-| LWL-25 | جدول | قائمة محامي الشبكة ومؤشرات أدائهم | public/assets/js/app/pages/admin/lawyers.js:694 |
-| LWL-26 | جدول | قائمة محامي الشبكة ومؤشرات أدائهم | public/assets/js/app/pages/admin/lawyers.js:695 |
-| LWL-27 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:699 |
-| LWL-28 | حقل | التخصص | public/assets/js/app/pages/admin/lawyers.js:719 |
-| LWL-29 | حقل | حالة الحساب | public/assets/js/app/pages/admin/lawyers.js:742 |
-| LWL-30 | حقل | بحث في المحامين | public/assets/js/app/pages/admin/lawyers.js:751 |
-| LWL-31 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/lawyers.js:781 |
-| LWL-32 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/lawyers.js:782 |
-| LWL-33 | عنوان | شبكة المحامين | public/assets/js/app/pages/admin/lawyers.js:783 |
-| LWL-34 | عنوان | شبكة المحامين | public/assets/js/app/pages/admin/lawyers.js:784 |
-| LWL-35 | عنصر قائمة | نوع الاتفاق | public/assets/js/app/pages/admin/lawyers.js:237 |
-| LWL-36 | نموذج | نوع الاتفاق | public/assets/js/app/pages/admin/lawyers.js:240 |
-| LWL-37 | نموذج | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:251 |
-| LWL-38 | عنصر قائمة | اسم المحامي | public/assets/js/app/pages/admin/lawyers.js:332 |
-| LWL-39 | عنصر قائمة | اللقب | public/assets/js/app/pages/admin/lawyers.js:333 |
-| LWL-40 | عنصر قائمة | اسم المستخدم للدخول | public/assets/js/app/pages/admin/lawyers.js:343 |
-| LWL-41 | عنصر قائمة | طريقة تفعيل الحساب | public/assets/js/app/pages/admin/lawyers.js:361 |
-| LWL-42 | عنصر قائمة | كلمة المرور المؤقتة | public/assets/js/app/pages/admin/lawyers.js:363 |
-| LWL-43 | عنصر قائمة | رقم الموبايل | public/assets/js/app/pages/admin/lawyers.js:364 |
-| LWL-44 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/lawyers.js:365 |
-| LWL-45 | عنصر قائمة | رقم القيد بالنقابة | public/assets/js/app/pages/admin/lawyers.js:366 |
-| LWL-46 | عنصر قائمة | درجة القيد | public/assets/js/app/pages/admin/lawyers.js:367 |
-| LWL-47 | عنصر قائمة | مكتب المحاماة (إن وُجد) | public/assets/js/app/pages/admin/lawyers.js:368 |
-| LWL-48 | عنصر قائمة | الطاقة الاستيعابية | public/assets/js/app/pages/admin/lawyers.js:379 |
-| LWL-49 | عنصر قائمة | التخصصات | public/assets/js/app/pages/admin/lawyers.js:381 |
-| LWL-50 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/lawyers.js:382 |
-| LWL-51 | نموذج | اسم المحامي | public/assets/js/app/pages/admin/lawyers.js:400 |
-| LWL-52 | عنصر قائمة | اسم مكتب المحاماة | public/assets/js/app/pages/admin/lawyers.js:186 |
-| LWL-53 | عنصر قائمة | فترة الالتزام | public/assets/js/app/pages/admin/lawyers.js:197 |
-| LWL-54 | عنصر قائمة | عدد الساعات الملتزم بها | public/assets/js/app/pages/admin/lawyers.js:200 |
-| LWL-55 | خيار | متى تُستحق الأتعاب؟ | public/assets/js/app/pages/admin/lawyers.js:161 |
-| LWL-56 | عنصر | أجر الاستشارة المعتمدة | public/assets/js/app/pages/admin/lawyers.js:165 |
-| LWL-57 | عنصر | المبلغ الشهري الثابت | public/assets/js/app/pages/admin/lawyers.js:167 |
-| LWL-58 | عنصر | المبلغ الشهري | public/assets/js/app/pages/admin/lawyers.js:170 |
-| LWL-59 | عنصر | عدد الاستشارات المشمولة شهريًا | public/assets/js/app/pages/admin/lawyers.js:171 |
-| LWL-60 | عنصر | سعر الاستشارة الزائدة على الحصة | public/assets/js/app/pages/admin/lawyers.js:172 |
-| LWL-61 | عنصر | عدد استشارات الباقة | public/assets/js/app/pages/admin/lawyers.js:177 |
-| LWL-62 | عنصر | قيمة الباقة | public/assets/js/app/pages/admin/lawyers.js:178 |
-| LWL-63 | عنصر | سعر الاستشارة بعد نفاد الباقة | public/assets/js/app/pages/admin/lawyers.js:179 |
-| LWL-64 | عنصر | القيمة التقديرية للاستشارة | public/assets/js/app/pages/admin/lawyers.js:183 |
-| LWL-65 | عنصر | عدد الاستشارات الملتزم بها | public/assets/js/app/pages/admin/lawyers.js:199 |
-| LWL-66 | عنصر | القيمة التقديرية للاستشارة | public/assets/js/app/pages/admin/lawyers.js:201 |
+| LWL-01 | عنصر | شهر المؤشرات | public/assets/js/app/pages/admin/lawyers.js:724 |
+| LWL-02 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:282 |
+| LWL-03 | عنوان | البيانات الأساسية | public/assets/js/app/pages/admin/lawyers.js:417 |
+| LWL-04 | عنوان | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyers.js:419 |
+| LWL-05 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/lawyers.js:429 |
+| LWL-06 | عنصر قائمة | إضافة المحامي | public/assets/js/app/pages/admin/lawyers.js:476 |
+| LWL-07 | نافذة | إضافة محامٍ إلى الشبكة | public/assets/js/app/pages/admin/lawyers.js:479 |
+| LWL-08 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:516 |
+| LWL-09 | رابط | ملف … | public/assets/js/app/pages/admin/lawyers.js:538 |
+| LWL-10 | بطاقة رقم | المحامون النشطون | public/assets/js/app/pages/admin/lawyers.js:597 |
+| LWL-11 | بطاقة رقم | الإسنادات المفتوحة مقابل الطاقة | public/assets/js/app/pages/admin/lawyers.js:604 |
+| LWL-12 | بطاقة رقم | إسنادات متأخرة | public/assets/js/app/pages/admin/lawyers.js:612 |
+| LWL-13 | بطاقة رقم | إسنادات مُنجزة ومعتمدة | public/assets/js/app/pages/admin/lawyers.js:614 |
+| LWL-14 | بطاقة رقم | استشارات تطوعية | public/assets/js/app/pages/admin/lawyers.js:615 |
+| LWL-15 | زر | مسح التصفية | public/assets/js/app/pages/admin/lawyers.js:639 |
+| LWL-16 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/lawyers.js:640 |
+| LWL-17 | حالة فارغة | لا يوجد محامون مطابقون للتصفية الحالية | public/assets/js/app/pages/admin/lawyers.js:641 |
+| LWL-18 | قسم/بطاقة | لا يوجد محامون مطابقون للتصفية الحالية | public/assets/js/app/pages/admin/lawyers.js:643 |
+| LWL-19 | عنصر قائمة | المحامي والتخصصات | public/assets/js/app/pages/admin/lawyers.js:656 |
+| LWL-20 | عنصر قائمة | الاتفاق | public/assets/js/app/pages/admin/lawyers.js:657 |
+| LWL-21 | عنصر قائمة | الحمل الحالي | public/assets/js/app/pages/admin/lawyers.js:658 |
+| LWL-22 | عنصر قائمة | السرعة والتأخير | public/assets/js/app/pages/admin/lawyers.js:668 |
+| LWL-23 | عنصر قائمة | المنجز في الشهر | public/assets/js/app/pages/admin/lawyers.js:679 |
+| LWL-24 | عنصر قائمة | الجودة | public/assets/js/app/pages/admin/lawyers.js:692 |
+| LWL-25 | جدول | قائمة محامي الشبكة ومؤشرات أدائهم | public/assets/js/app/pages/admin/lawyers.js:695 |
+| LWL-26 | جدول | قائمة محامي الشبكة ومؤشرات أدائهم | public/assets/js/app/pages/admin/lawyers.js:696 |
+| LWL-27 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:700 |
+| LWL-28 | حقل | التخصص | public/assets/js/app/pages/admin/lawyers.js:720 |
+| LWL-29 | حقل | حالة الحساب | public/assets/js/app/pages/admin/lawyers.js:744 |
+| LWL-30 | حقل | بحث في المحامين | public/assets/js/app/pages/admin/lawyers.js:753 |
+| LWL-31 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/lawyers.js:783 |
+| LWL-32 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/lawyers.js:784 |
+| LWL-33 | عنوان | شبكة المحامين | public/assets/js/app/pages/admin/lawyers.js:785 |
+| LWL-34 | عنوان | شبكة المحامين | public/assets/js/app/pages/admin/lawyers.js:786 |
+| LWL-35 | عنصر قائمة | نوع الاتفاق | public/assets/js/app/pages/admin/lawyers.js:238 |
+| LWL-36 | نموذج | نوع الاتفاق | public/assets/js/app/pages/admin/lawyers.js:241 |
+| LWL-37 | نموذج | (نص متغير) | public/assets/js/app/pages/admin/lawyers.js:252 |
+| LWL-38 | عنصر قائمة | اسم المحامي | public/assets/js/app/pages/admin/lawyers.js:333 |
+| LWL-39 | عنصر قائمة | اللقب | public/assets/js/app/pages/admin/lawyers.js:334 |
+| LWL-40 | عنصر قائمة | اسم المستخدم للدخول | public/assets/js/app/pages/admin/lawyers.js:344 |
+| LWL-41 | عنصر قائمة | طريقة تفعيل الحساب | public/assets/js/app/pages/admin/lawyers.js:362 |
+| LWL-42 | عنصر قائمة | كلمة المرور المؤقتة | public/assets/js/app/pages/admin/lawyers.js:364 |
+| LWL-43 | عنصر قائمة | رقم الموبايل | public/assets/js/app/pages/admin/lawyers.js:365 |
+| LWL-44 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/lawyers.js:366 |
+| LWL-45 | عنصر قائمة | رقم القيد بالنقابة | public/assets/js/app/pages/admin/lawyers.js:367 |
+| LWL-46 | عنصر قائمة | درجة القيد | public/assets/js/app/pages/admin/lawyers.js:368 |
+| LWL-47 | عنصر قائمة | مكتب المحاماة (إن وُجد) | public/assets/js/app/pages/admin/lawyers.js:369 |
+| LWL-48 | عنصر قائمة | الطاقة الاستيعابية | public/assets/js/app/pages/admin/lawyers.js:380 |
+| LWL-49 | عنصر قائمة | التخصصات | public/assets/js/app/pages/admin/lawyers.js:382 |
+| LWL-50 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/lawyers.js:383 |
+| LWL-51 | نموذج | اسم المحامي | public/assets/js/app/pages/admin/lawyers.js:401 |
+| LWL-52 | عنصر قائمة | اسم مكتب المحاماة | public/assets/js/app/pages/admin/lawyers.js:187 |
+| LWL-53 | عنصر قائمة | فترة الالتزام | public/assets/js/app/pages/admin/lawyers.js:198 |
+| LWL-54 | عنصر قائمة | عدد الساعات الملتزم بها | public/assets/js/app/pages/admin/lawyers.js:201 |
+| LWL-55 | خيار | متى تُستحق الأتعاب؟ | public/assets/js/app/pages/admin/lawyers.js:162 |
+| LWL-56 | عنصر | أجر الاستشارة المعتمدة | public/assets/js/app/pages/admin/lawyers.js:166 |
+| LWL-57 | عنصر | المبلغ الشهري الثابت | public/assets/js/app/pages/admin/lawyers.js:168 |
+| LWL-58 | عنصر | المبلغ الشهري | public/assets/js/app/pages/admin/lawyers.js:171 |
+| LWL-59 | عنصر | عدد الاستشارات المشمولة شهريًا | public/assets/js/app/pages/admin/lawyers.js:172 |
+| LWL-60 | عنصر | سعر الاستشارة الزائدة على الحصة | public/assets/js/app/pages/admin/lawyers.js:173 |
+| LWL-61 | عنصر | عدد استشارات الباقة | public/assets/js/app/pages/admin/lawyers.js:178 |
+| LWL-62 | عنصر | قيمة الباقة | public/assets/js/app/pages/admin/lawyers.js:179 |
+| LWL-63 | عنصر | سعر الاستشارة بعد نفاد الباقة | public/assets/js/app/pages/admin/lawyers.js:180 |
+| LWL-64 | عنصر | القيمة التقديرية للاستشارة | public/assets/js/app/pages/admin/lawyers.js:184 |
+| LWL-65 | عنصر | عدد الاستشارات الملتزم بها | public/assets/js/app/pages/admin/lawyers.js:200 |
+| LWL-66 | عنصر | القيمة التقديرية للاستشارة | public/assets/js/app/pages/admin/lawyers.js:202 |
 
 ## LWF: ملف المحامي (`/app#/lawyers/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | LWF-01 | زر | تعديل البيانات والاتفاق | public/assets/js/app/pages/admin/lawyer-detail.js:96 |
 | LWF-02 | عنصر قائمة | عدد استشارات الباقة الجديدة | public/assets/js/app/pages/admin/lawyer-detail.js:109 |
@@ -3101,86 +3186,87 @@
 | LWF-21 | بطاقة رقم | استشارات تطوعية | public/assets/js/app/pages/admin/lawyer-detail.js:211 |
 | LWF-22 | بطاقة رقم | المستحق عن الشهر | public/assets/js/app/pages/admin/lawyer-detail.js:215 |
 | LWF-23 | بطاقة رقم | رصيد غير مصروف | public/assets/js/app/pages/admin/lawyer-detail.js:223 |
-| LWF-24 | قسم/بطاقة | مؤشرات الأداء | public/assets/js/app/pages/admin/lawyer-detail.js:241 |
-| LWF-25 | قسم/بطاقة | مؤشرات الأداء | public/assets/js/app/pages/admin/lawyer-detail.js:242 |
-| LWF-26 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:266 |
-| LWF-27 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:267 |
-| LWF-28 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/lawyer-detail.js:269 |
-| LWF-29 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:279 |
-| LWF-30 | عنصر قائمة | الموعد المطلوب | public/assets/js/app/pages/admin/lawyer-detail.js:285 |
-| LWF-31 | عنصر قائمة | التواريخ | public/assets/js/app/pages/admin/lawyer-detail.js:301 |
-| LWF-32 | جدول | إسنادات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:304 |
-| LWF-33 | جدول | إسنادات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:305 |
-| LWF-34 | زر | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:326 |
-| LWF-35 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:345 |
-| LWF-36 | عنصر قائمة | الكود | public/assets/js/app/pages/admin/lawyer-detail.js:345 |
-| LWF-37 | عنصر قائمة | الموضوع | public/assets/js/app/pages/admin/lawyer-detail.js:346 |
-| LWF-38 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:347 |
-| LWF-39 | جدول | الملفات المستمرة التي يتولاها المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:349 |
-| LWF-40 | جدول | الملفات المستمرة التي يتولاها المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:350 |
-| LWF-41 | بطاقة رقم | رصيد غير مصروف | public/assets/js/app/pages/admin/lawyer-detail.js:362 |
-| LWF-42 | بطاقة رقم | إجمالي ما صُرف | public/assets/js/app/pages/admin/lawyer-detail.js:363 |
-| LWF-43 | بطاقة رقم | مساهمات تطوعية | public/assets/js/app/pages/admin/lawyer-detail.js:364 |
-| LWF-44 | بطاقة رقم | المتبقي في الباقة | public/assets/js/app/pages/admin/lawyer-detail.js:365 |
-| LWF-45 | قسم/بطاقة | قيود الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:369 |
-| LWF-46 | عنوان | قيود الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:369 |
-| LWF-47 | زر | فتح في دفتر المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:369 |
-| LWF-48 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/lawyer-detail.js:376 |
-| LWF-49 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/lawyer-detail.js:377 |
-| LWF-50 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/lawyer-detail.js:378 |
-| LWF-51 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:386 |
-| LWF-52 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:387 |
-| LWF-53 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:390 |
-| LWF-54 | عنصر قائمة | الفترة | public/assets/js/app/pages/admin/lawyer-detail.js:392 |
-| LWF-55 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/lawyer-detail.js:393 |
-| LWF-56 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:394 |
-| LWF-57 | جدول | قيود حساب المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:396 |
-| LWF-58 | جدول | قيود حساب المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:397 |
-| LWF-59 | قسم/بطاقة | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:402 |
-| LWF-60 | عنوان | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:402 |
-| LWF-61 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/lawyer-detail.js:409 |
-| LWF-62 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:413 |
-| LWF-63 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:414 |
-| LWF-64 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/lawyer-detail.js:416 |
-| LWF-65 | عنصر قائمة | المعالجة المالية | public/assets/js/app/pages/admin/lawyer-detail.js:417 |
-| LWF-66 | عنصر قائمة | المبلغ المستحق | public/assets/js/app/pages/admin/lawyer-detail.js:418 |
-| LWF-67 | عنصر قائمة | القيمة التقديرية | public/assets/js/app/pages/admin/lawyer-detail.js:419 |
-| LWF-68 | جدول | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:421 |
-| LWF-69 | جدول | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:422 |
-| LWF-70 | قسم/بطاقة | عمليات الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:427 |
-| LWF-71 | عنوان | عمليات الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:427 |
-| LWF-72 | عنصر قائمة | تاريخ الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:433 |
-| LWF-73 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/lawyer-detail.js:434 |
-| LWF-74 | عنصر قائمة | طريقة الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:435 |
-| LWF-75 | عنصر قائمة | المرجع | public/assets/js/app/pages/admin/lawyer-detail.js:436 |
-| LWF-76 | جدول | عمليات صرف المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:438 |
-| LWF-77 | جدول | عمليات صرف المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:439 |
-| LWF-78 | خيار | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:454 |
-| LWF-79 | قسم/بطاقة | بيانات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:479 |
-| LWF-80 | قسم/بطاقة | بيانات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:480 |
-| LWF-81 | عنصر قائمة | الاسم بالإنجليزية | public/assets/js/app/pages/admin/lawyer-detail.js:495 |
-| LWF-82 | عنصر قائمة | مهارات طلبات الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:496 |
-| LWF-83 | عنصر قائمة | b2b_rate | public/assets/js/app/pages/admin/lawyer-detail.js:498 |
-| LWF-84 | نافذة | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:509 |
-| LWF-85 | زر | تعديل | public/assets/js/app/pages/admin/lawyer-detail.js:516 |
-| LWF-86 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:524 |
-| LWF-87 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:525 |
-| LWF-88 | قسم/بطاقة | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyer-detail.js:555 |
-| LWF-89 | قسم/بطاقة | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyer-detail.js:555 |
-| LWF-90 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/lawyer-detail.js:564 |
-| LWF-91 | عنصر قائمة | شبكة المحامين | public/assets/js/app/pages/admin/lawyer-detail.js:564 |
-| LWF-92 | عنوان | التخصصات: … | public/assets/js/app/pages/admin/lawyer-detail.js:567 |
-| LWF-93 | عنوان | التخصصات: … | public/assets/js/app/pages/admin/lawyer-detail.js:568 |
-| LWF-94 | تنبيه | الحساب موقوف | public/assets/js/app/pages/admin/lawyer-detail.js:570 |
-| LWF-95 | تنبيه | بانتظار قبول الدعوة | public/assets/js/app/pages/admin/lawyer-detail.js:571 |
-| LWF-96 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:577 |
-| LWF-97 | عنصر قائمة | الملفات | public/assets/js/app/pages/admin/lawyer-detail.js:446 |
-| LWF-98 | عنصر قائمة | الملفات المستمرة | public/assets/js/app/pages/admin/lawyer-detail.js:447 |
-| LWF-99 | عنصر | كشف الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:449 |
+| LWF-24 | عنوان | مؤشرات الأداء | public/assets/js/app/pages/admin/lawyer-detail.js:242 |
+| LWF-25 | قسم/بطاقة | مؤشرات الأداء | public/assets/js/app/pages/admin/lawyer-detail.js:243 |
+| LWF-26 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:267 |
+| LWF-27 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:268 |
+| LWF-28 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/lawyer-detail.js:270 |
+| LWF-29 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:280 |
+| LWF-30 | عنصر قائمة | الموعد المطلوب | public/assets/js/app/pages/admin/lawyer-detail.js:286 |
+| LWF-31 | عنصر قائمة | التواريخ | public/assets/js/app/pages/admin/lawyer-detail.js:302 |
+| LWF-32 | جدول | إسنادات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:305 |
+| LWF-33 | جدول | إسنادات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:306 |
+| LWF-34 | زر | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:327 |
+| LWF-35 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:346 |
+| LWF-36 | عنصر قائمة | الكود | public/assets/js/app/pages/admin/lawyer-detail.js:346 |
+| LWF-37 | عنصر قائمة | الموضوع | public/assets/js/app/pages/admin/lawyer-detail.js:347 |
+| LWF-38 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:348 |
+| LWF-39 | جدول | الملفات المستمرة التي يتولاها المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:350 |
+| LWF-40 | جدول | الملفات المستمرة التي يتولاها المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:351 |
+| LWF-41 | بطاقة رقم | رصيد غير مصروف | public/assets/js/app/pages/admin/lawyer-detail.js:363 |
+| LWF-42 | بطاقة رقم | إجمالي ما صُرف | public/assets/js/app/pages/admin/lawyer-detail.js:364 |
+| LWF-43 | بطاقة رقم | مساهمات تطوعية | public/assets/js/app/pages/admin/lawyer-detail.js:365 |
+| LWF-44 | بطاقة رقم | المتبقي في الباقة | public/assets/js/app/pages/admin/lawyer-detail.js:366 |
+| LWF-45 | قسم/بطاقة | قيود الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:370 |
+| LWF-46 | عنوان | قيود الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:370 |
+| LWF-47 | زر | فتح في دفتر المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:370 |
+| LWF-48 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/lawyer-detail.js:377 |
+| LWF-49 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/lawyer-detail.js:378 |
+| LWF-50 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/lawyer-detail.js:379 |
+| LWF-51 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:387 |
+| LWF-52 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:388 |
+| LWF-53 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:391 |
+| LWF-54 | عنصر قائمة | الفترة | public/assets/js/app/pages/admin/lawyer-detail.js:393 |
+| LWF-55 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/lawyer-detail.js:394 |
+| LWF-56 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/lawyer-detail.js:395 |
+| LWF-57 | جدول | قيود حساب المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:397 |
+| LWF-58 | جدول | قيود حساب المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:398 |
+| LWF-59 | قسم/بطاقة | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:403 |
+| LWF-60 | عنوان | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:403 |
+| LWF-61 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/lawyer-detail.js:410 |
+| LWF-62 | رابط | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:414 |
+| LWF-63 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/lawyer-detail.js:415 |
+| LWF-64 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/lawyer-detail.js:417 |
+| LWF-65 | عنصر قائمة | المعالجة المالية | public/assets/js/app/pages/admin/lawyer-detail.js:418 |
+| LWF-66 | عنصر قائمة | المبلغ المستحق | public/assets/js/app/pages/admin/lawyer-detail.js:419 |
+| LWF-67 | عنصر قائمة | القيمة التقديرية | public/assets/js/app/pages/admin/lawyer-detail.js:420 |
+| LWF-68 | جدول | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:422 |
+| LWF-69 | جدول | وقائع الاستحقاق | public/assets/js/app/pages/admin/lawyer-detail.js:423 |
+| LWF-70 | قسم/بطاقة | عمليات الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:428 |
+| LWF-71 | عنوان | عمليات الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:428 |
+| LWF-72 | عنصر قائمة | تاريخ الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:434 |
+| LWF-73 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/lawyer-detail.js:435 |
+| LWF-74 | عنصر قائمة | طريقة الصرف | public/assets/js/app/pages/admin/lawyer-detail.js:436 |
+| LWF-75 | عنصر قائمة | المرجع | public/assets/js/app/pages/admin/lawyer-detail.js:437 |
+| LWF-76 | جدول | عمليات صرف المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:439 |
+| LWF-77 | جدول | عمليات صرف المستحقات | public/assets/js/app/pages/admin/lawyer-detail.js:440 |
+| LWF-78 | خيار | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:455 |
+| LWF-79 | عنوان | بيانات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:480 |
+| LWF-80 | قسم/بطاقة | بيانات المحامي | public/assets/js/app/pages/admin/lawyer-detail.js:481 |
+| LWF-81 | عنصر قائمة | الاسم بالإنجليزية | public/assets/js/app/pages/admin/lawyer-detail.js:496 |
+| LWF-82 | عنصر قائمة | مهارات طلبات الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:497 |
+| LWF-83 | عنصر قائمة | b2b_rate | public/assets/js/app/pages/admin/lawyer-detail.js:499 |
+| LWF-84 | نافذة | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:510 |
+| LWF-85 | زر | تعديل | public/assets/js/app/pages/admin/lawyer-detail.js:517 |
+| LWF-86 | عنوان | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:525 |
+| LWF-87 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/pages/admin/lawyer-detail.js:526 |
+| LWF-88 | عنوان | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyer-detail.js:556 |
+| LWF-89 | قسم/بطاقة | اتفاق المحاسبة | public/assets/js/app/pages/admin/lawyer-detail.js:556 |
+| LWF-90 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/lawyer-detail.js:566 |
+| LWF-91 | عنصر قائمة | شبكة المحامين | public/assets/js/app/pages/admin/lawyer-detail.js:566 |
+| LWF-92 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:569 |
+| LWF-93 | عنوان | التخصصات: … | public/assets/js/app/pages/admin/lawyer-detail.js:570 |
+| LWF-94 | تنبيه | الحساب موقوف | public/assets/js/app/pages/admin/lawyer-detail.js:572 |
+| LWF-95 | تنبيه | بانتظار قبول الدعوة | public/assets/js/app/pages/admin/lawyer-detail.js:573 |
+| LWF-96 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/lawyer-detail.js:579 |
+| LWF-97 | عنصر قائمة | الملفات | public/assets/js/app/pages/admin/lawyer-detail.js:447 |
+| LWF-98 | عنصر قائمة | الملفات المستمرة | public/assets/js/app/pages/admin/lawyer-detail.js:448 |
+| LWF-99 | عنصر | كشف الحساب | public/assets/js/app/pages/admin/lawyer-detail.js:450 |
+| LWF-100 | عنصر | شهر المؤشرات | public/assets/js/app/pages/admin/lawyer-detail.js:234 |
 
 ## ACC: المحاسبة (`/app#/accounting`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | ACC-01 | نافذة | إصدار المبالغ الشهرية — | public/assets/js/app/pages/admin/accounting.js:97 |
 | ACC-02 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/accounting.js:112 |
@@ -3258,25 +3344,26 @@
 | ACC-74 | عنصر قائمة | دفتر المستحقات | public/assets/js/app/pages/admin/accounting.js:735 |
 | ACC-75 | عنصر قائمة | تكلفة الملفات | public/assets/js/app/pages/admin/accounting.js:736 |
 | ACC-76 | خيار | المحامون والاتفاقات | public/assets/js/app/pages/admin/accounting.js:744 |
-| ACC-77 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/accounting.js:761 |
-| ACC-78 | عنوان | المحاسبة | public/assets/js/app/pages/admin/accounting.js:763 |
-| ACC-79 | عنوان | المحاسبة | public/assets/js/app/pages/admin/accounting.js:764 |
-| ACC-80 | بطاقة رقم | مستحقات | public/assets/js/app/pages/admin/accounting.js:774 |
-| ACC-81 | بطاقة رقم | رصيد غير مصروف | public/assets/js/app/pages/admin/accounting.js:793 |
-| ACC-82 | بطاقة رقم | المصروف خلال الفترة | public/assets/js/app/pages/admin/accounting.js:795 |
-| ACC-83 | بطاقة رقم | وقائع الاستحقاق | public/assets/js/app/pages/admin/accounting.js:796 |
-| ACC-84 | بطاقة رقم | وقائع تطوعية ومسؤولية مجتمعية | public/assets/js/app/pages/admin/accounting.js:797 |
-| ACC-85 | بطاقة رقم | قيمة المساهمات | public/assets/js/app/pages/admin/accounting.js:798 |
-| ACC-86 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/accounting.js:800 |
+| ACC-77 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/accounting.js:762 |
+| ACC-78 | عنوان | المحاسبة | public/assets/js/app/pages/admin/accounting.js:764 |
+| ACC-79 | عنوان | المحاسبة | public/assets/js/app/pages/admin/accounting.js:765 |
+| ACC-80 | بطاقة رقم | مستحقات | public/assets/js/app/pages/admin/accounting.js:775 |
+| ACC-81 | بطاقة رقم | رصيد غير مصروف | public/assets/js/app/pages/admin/accounting.js:794 |
+| ACC-82 | بطاقة رقم | المصروف خلال الفترة | public/assets/js/app/pages/admin/accounting.js:796 |
+| ACC-83 | بطاقة رقم | وقائع الاستحقاق | public/assets/js/app/pages/admin/accounting.js:797 |
+| ACC-84 | بطاقة رقم | وقائع تطوعية ومسؤولية مجتمعية | public/assets/js/app/pages/admin/accounting.js:798 |
+| ACC-85 | بطاقة رقم | قيمة المساهمات | public/assets/js/app/pages/admin/accounting.js:799 |
+| ACC-86 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/accounting.js:801 |
 | ACC-87 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/accounting.js:497 |
 | ACC-88 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/accounting.js:499 |
 | ACC-89 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/accounting.js:500 |
 | ACC-90 | عنصر قائمة | الملف المرتبط (اختياري) | public/assets/js/app/pages/admin/accounting.js:501 |
 | ACC-91 | نموذج | المحامي | public/assets/js/app/pages/admin/accounting.js:503 |
+| ACC-92 | عنصر | الفترة المحاسبية | public/assets/js/app/pages/admin/accounting.js:750 |
 
 ## AUT: الأتمتة والرسائل وصندوق الصادر (`/app#/automations`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | AUT-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/automations.js:165 |
 | AUT-02 | زر | مفعّلة | public/assets/js/app/pages/admin/automations.js:203 |
@@ -3332,7 +3419,7 @@
 
 ## QRP: الردود الجاهزة وقوالب واتساب (`/app#/quick-replies`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | QRP-01 | زر | رد جاهز جديد | public/assets/js/app/pages/admin/quick-replies.js:97 |
 | QRP-02 | حالة فارغة | لا توجد ردود جاهزة بعد | public/assets/js/app/pages/admin/quick-replies.js:100 |
@@ -3372,20 +3459,20 @@
 | QRP-36 | زر | تفعيل الدخول إلى صفحة المتابعة برمز واتساب | public/assets/js/app/pages/admin/quick-replies.js:523 |
 | QRP-37 | نافذة | إيقاف الدخول برمز واتساب | public/assets/js/app/pages/admin/quick-replies.js:536 |
 | QRP-38 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/quick-replies.js:555 |
-| QRP-39 | قسم/بطاقة | الدخول إلى صفحة المتابعة برمز واتساب | public/assets/js/app/pages/admin/quick-replies.js:556 |
+| QRP-39 | عنوان | الدخول إلى صفحة المتابعة برمز واتساب | public/assets/js/app/pages/admin/quick-replies.js:556 |
 | QRP-40 | قسم/بطاقة | الدخول إلى صفحة المتابعة برمز واتساب | public/assets/js/app/pages/admin/quick-replies.js:557 |
 | QRP-41 | زر | مزامنة القوالب | public/assets/js/app/pages/admin/quick-replies.js:579 |
 | QRP-42 | زر | اختبار الاتصال | public/assets/js/app/pages/admin/quick-replies.js:588 |
 | QRP-43 | زر | إعدادات التكاملات | public/assets/js/app/pages/admin/quick-replies.js:590 |
-| QRP-44 | قسم/بطاقة | ربط القوالب بأغراض الإرسال | public/assets/js/app/pages/admin/quick-replies.js:603 |
+| QRP-44 | عنوان | ربط القوالب بأغراض الإرسال | public/assets/js/app/pages/admin/quick-replies.js:603 |
 | QRP-45 | قسم/بطاقة | ربط القوالب بأغراض الإرسال | public/assets/js/app/pages/admin/quick-replies.js:604 |
-| QRP-46 | قسم/بطاقة | القوالب المتزامنة | public/assets/js/app/pages/admin/quick-replies.js:612 |
+| QRP-46 | عنوان | القوالب المتزامنة | public/assets/js/app/pages/admin/quick-replies.js:612 |
 | QRP-47 | قسم/بطاقة | القوالب المتزامنة | public/assets/js/app/pages/admin/quick-replies.js:613 |
 | QRP-48 | حقل | … من 5… — … | public/assets/js/app/pages/admin/quick-replies.js:626 |
 | QRP-49 | زر | حفظ | public/assets/js/app/pages/admin/quick-replies.js:641 |
 | QRP-50 | حقل | التقييم المنخفض الذي يُنبَّه عنده مدير الحالة فورًا | public/assets/js/app/pages/admin/quick-replies.js:652 |
 | QRP-51 | رابط | صفحة الأتمتة | public/assets/js/app/pages/admin/quick-replies.js:656 |
-| QRP-52 | قسم/بطاقة | إعدادات الاستبيان | public/assets/js/app/pages/admin/quick-replies.js:658 |
+| QRP-52 | عنوان | إعدادات الاستبيان | public/assets/js/app/pages/admin/quick-replies.js:658 |
 | QRP-53 | قسم/بطاقة | إعدادات الاستبيان | public/assets/js/app/pages/admin/quick-replies.js:659 |
 | QRP-54 | بطاقة رقم | متوسط رضا المستفيدين | public/assets/js/app/pages/admin/quick-replies.js:668 |
 | QRP-55 | بطاقة رقم | نسبة الاستجابة | public/assets/js/app/pages/admin/quick-replies.js:669 |
@@ -3394,7 +3481,7 @@
 | QRP-58 | زر | إعدادات الاستبيان في الأتمتة | public/assets/js/app/pages/admin/quick-replies.js:678 |
 | QRP-59 | حالة فارغة | لم تُرسل استبيانات بعد | public/assets/js/app/pages/admin/quick-replies.js:678 |
 | QRP-60 | قسم/بطاقة | يُرسل استبيان الرضا تلقائيًا بعد إرسال الرد النهائي للمستفيد/ة بيوم (… | public/assets/js/app/pages/admin/quick-replies.js:679 |
-| QRP-61 | قسم/بطاقة | توزيع التقييمات | public/assets/js/app/pages/admin/quick-replies.js:700 |
+| QRP-61 | عنوان | توزيع التقييمات | public/assets/js/app/pages/admin/quick-replies.js:700 |
 | QRP-62 | قسم/بطاقة | توزيع التقييمات | public/assets/js/app/pages/admin/quick-replies.js:701 |
 | QRP-63 | عنصر قائمة | الشهر | public/assets/js/app/pages/admin/quick-replies.js:712 |
 | QRP-64 | عنصر قائمة | أُرسل | public/assets/js/app/pages/admin/quick-replies.js:713 |
@@ -3402,7 +3489,7 @@
 | QRP-66 | عنصر قائمة | المتوسط | public/assets/js/app/pages/admin/quick-replies.js:715 |
 | QRP-67 | جدول | رضا المستفيدين بالشهر | public/assets/js/app/pages/admin/quick-replies.js:718 |
 | QRP-68 | جدول | رضا المستفيدين بالشهر | public/assets/js/app/pages/admin/quick-replies.js:719 |
-| QRP-69 | قسم/بطاقة | بالشهر | public/assets/js/app/pages/admin/quick-replies.js:721 |
+| QRP-69 | عنوان | بالشهر | public/assets/js/app/pages/admin/quick-replies.js:721 |
 | QRP-70 | قسم/بطاقة | بالشهر | public/assets/js/app/pages/admin/quick-replies.js:722 |
 | QRP-71 | عنصر قائمة | المجال | public/assets/js/app/pages/admin/quick-replies.js:732 |
 | QRP-72 | عنصر قائمة | التقييمات | public/assets/js/app/pages/admin/quick-replies.js:733 |
@@ -3410,7 +3497,7 @@
 | QRP-74 | عنصر قائمة | منخفض | public/assets/js/app/pages/admin/quick-replies.js:735 |
 | QRP-75 | جدول | رضا المستفيدين بالمجال القانوني | public/assets/js/app/pages/admin/quick-replies.js:738 |
 | QRP-76 | جدول | رضا المستفيدين بالمجال القانوني | public/assets/js/app/pages/admin/quick-replies.js:739 |
-| QRP-77 | قسم/بطاقة | بالمجال القانوني | public/assets/js/app/pages/admin/quick-replies.js:741 |
+| QRP-77 | عنوان | بالمجال القانوني | public/assets/js/app/pages/admin/quick-replies.js:741 |
 | QRP-78 | قسم/بطاقة | بالمجال القانوني | public/assets/js/app/pages/admin/quick-replies.js:742 |
 | QRP-79 | رابط | (نص متغير) | public/assets/js/app/pages/admin/quick-replies.js:752 |
 | QRP-80 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/quick-replies.js:752 |
@@ -3419,11 +3506,11 @@
 | QRP-83 | عنصر قائمة | منخفض | public/assets/js/app/pages/admin/quick-replies.js:755 |
 | QRP-84 | جدول | رضا المستفيدين بالمحامي الأساسي | public/assets/js/app/pages/admin/quick-replies.js:759 |
 | QRP-85 | جدول | رضا المستفيدين بالمحامي الأساسي | public/assets/js/app/pages/admin/quick-replies.js:760 |
-| QRP-86 | قسم/بطاقة | بالمحامي الأساسي | public/assets/js/app/pages/admin/quick-replies.js:762 |
+| QRP-86 | عنوان | بالمحامي الأساسي | public/assets/js/app/pages/admin/quick-replies.js:762 |
 | QRP-87 | قسم/بطاقة | بالمحامي الأساسي | public/assets/js/app/pages/admin/quick-replies.js:763 |
 | QRP-88 | رابط | فتح الملف … | public/assets/js/app/pages/admin/quick-replies.js:779 |
 | QRP-89 | حالة فارغة | لا توجد تقييمات بعد | public/assets/js/app/pages/admin/quick-replies.js:789 |
-| QRP-90 | قسم/بطاقة | آخر التقييمات والتعليقات | public/assets/js/app/pages/admin/quick-replies.js:790 |
+| QRP-90 | عنوان | آخر التقييمات والتعليقات | public/assets/js/app/pages/admin/quick-replies.js:790 |
 | QRP-91 | قسم/بطاقة | آخر التقييمات والتعليقات | public/assets/js/app/pages/admin/quick-replies.js:791 |
 | QRP-92 | رابط | إعدادات توقيت الاستبيان ونصه | public/assets/js/app/pages/admin/quick-replies.js:795 |
 | QRP-93 | عنصر قائمة | الردود الجاهزة | public/assets/js/app/pages/admin/quick-replies.js:806 |
@@ -3448,7 +3535,7 @@
 
 ## KNL: المعرفة والذكاء الاصطناعي (`/app#/knowledge`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | KNL-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/knowledge.js:87 |
 | KNL-02 | زر | عرض كل التصحيحات (… ) | public/assets/js/app/pages/admin/knowledge.js:115 |
@@ -3524,7 +3611,7 @@
 | KNL-72 | تنبيه | فشل اختبار الاتصال | public/assets/js/app/components/ai-usage.js:66 |
 | KNL-73 | زر | يرسل طلبًا صغيرًا حقيقيًا للتحقق من المفتاح والنموذج | public/assets/js/app/components/ai-usage.js:70 |
 | KNL-74 | رابط | صفحة التكاملات | public/assets/js/app/components/ai-usage.js:79 |
-| KNL-75 | قسم/بطاقة | مزود التحليل الحالي | public/assets/js/app/components/ai-usage.js:98 |
+| KNL-75 | عنوان | مزود التحليل الحالي | public/assets/js/app/components/ai-usage.js:98 |
 | KNL-76 | قسم/بطاقة | مزود التحليل الحالي | public/assets/js/app/components/ai-usage.js:99 |
 | KNL-77 | قسم/بطاقة | الاستهلاك والتكلفة | public/assets/js/app/components/ai-usage.js:106 |
 | KNL-78 | عنوان | الاستهلاك والتكلفة | public/assets/js/app/components/ai-usage.js:106 |
@@ -3569,7 +3656,7 @@
 
 ## KNF: مادة معرفية (`/app#/knowledge/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | KNF-01 | سؤال قابل للفتح | عرض | public/assets/js/app/pages/admin/knowledge-detail.js:78 |
 | KNF-02 | عنوان | عرض | public/assets/js/app/pages/admin/knowledge-detail.js:78 |
@@ -3591,7 +3678,7 @@
 | KNF-18 | زر | إعادة البناء من الملف | public/assets/js/app/pages/admin/knowledge-detail.js:198 |
 | KNF-19 | تنبيه | راجع النص للتأكد من إخفاء كل البيانات الشخصية قبل الاعتماد؛ الإخفاء ا… | public/assets/js/app/pages/admin/knowledge-detail.js:222 |
 | KNF-20 | تنبيه | بيانات محتملة غير مخفية | public/assets/js/app/pages/admin/knowledge-detail.js:232 |
-| KNF-21 | قسم/بطاقة | إخفاء البيانات الشخصية | public/assets/js/app/pages/admin/knowledge-detail.js:236 |
+| KNF-21 | عنوان | إخفاء البيانات الشخصية | public/assets/js/app/pages/admin/knowledge-detail.js:236 |
 | KNF-22 | قسم/بطاقة | إخفاء البيانات الشخصية | public/assets/js/app/pages/admin/knowledge-detail.js:237 |
 | KNF-23 | قسم/بطاقة | الوسوم | public/assets/js/app/pages/admin/knowledge-detail.js:251 |
 | KNF-24 | عنوان | الوسوم | public/assets/js/app/pages/admin/knowledge-detail.js:251 |
@@ -3600,24 +3687,24 @@
 | KNF-27 | تنبيه | هذا السجل معتمد: تعديل العنوان أو الوقائع أو المسائل أو الإجابات يعيد… | public/assets/js/app/pages/admin/knowledge-detail.js:333 |
 | KNF-28 | زر | إلغاء | public/assets/js/app/pages/admin/knowledge-detail.js:335 |
 | KNF-29 | زر | تعديل المحتوى | public/assets/js/app/pages/admin/knowledge-detail.js:339 |
-| KNF-30 | قسم/بطاقة | المراجعة والاستخدام | public/assets/js/app/pages/admin/knowledge-detail.js:364 |
+| KNF-30 | عنوان | المراجعة والاستخدام | public/assets/js/app/pages/admin/knowledge-detail.js:364 |
 | KNF-31 | قسم/بطاقة | المراجعة والاستخدام | public/assets/js/app/pages/admin/knowledge-detail.js:365 |
-| KNF-32 | قسم/بطاقة | ما طُلب من المستفيد/ة أثناء الدراسة | public/assets/js/app/pages/admin/knowledge-detail.js:376 |
+| KNF-32 | عنوان | ما طُلب من المستفيد/ة أثناء الدراسة | public/assets/js/app/pages/admin/knowledge-detail.js:376 |
 | KNF-33 | قسم/بطاقة | ما طُلب من المستفيد/ة أثناء الدراسة | public/assets/js/app/pages/admin/knowledge-detail.js:377 |
-| KNF-34 | قسم/بطاقة | المتخصصون المشاركون | public/assets/js/app/pages/admin/knowledge-detail.js:396 |
+| KNF-34 | عنوان | المتخصصون المشاركون | public/assets/js/app/pages/admin/knowledge-detail.js:396 |
 | KNF-35 | قسم/بطاقة | المتخصصون المشاركون | public/assets/js/app/pages/admin/knowledge-detail.js:397 |
-| KNF-36 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/knowledge-detail.js:408 |
-| KNF-37 | عنصر قائمة | المعرفة المؤسسية | public/assets/js/app/pages/admin/knowledge-detail.js:409 |
-| KNF-38 | رابط | فتح ملف الاستشارة الأصلي (للإدارة فقط) | public/assets/js/app/pages/admin/knowledge-detail.js:415 |
-| KNF-39 | عنوان | لوحة المتابعة | public/assets/js/app/pages/admin/knowledge-detail.js:418 |
-| KNF-40 | عنوان | لوحة المتابعة | public/assets/js/app/pages/admin/knowledge-detail.js:419 |
-| KNF-41 | قسم/بطاقة | المحتوى المجهّل | public/assets/js/app/pages/admin/knowledge-detail.js:426 |
-| KNF-42 | قسم/بطاقة | المحتوى المجهّل | public/assets/js/app/pages/admin/knowledge-detail.js:426 |
-| KNF-43 | حالة فارغة | قبلت الإدارة والمحامون اقتراحات الذكاء الاصطناعي كما هي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:431 |
-| KNF-44 | قسم/بطاقة | تصحيحات الذكاء الاصطناعي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:432 |
-| KNF-45 | قسم/بطاقة | تصحيحات الذكاء الاصطناعي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:433 |
-| KNF-46 | قسم/بطاقة | رحلة الحالة: من الرسالة الأولى حتى الإجابة المعتمدة | public/assets/js/app/pages/admin/knowledge-detail.js:440 |
-| KNF-47 | قسم/بطاقة | رحلة الحالة: من الرسالة الأولى حتى الإجابة المعتمدة | public/assets/js/app/pages/admin/knowledge-detail.js:441 |
+| KNF-36 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/knowledge-detail.js:409 |
+| KNF-37 | عنصر قائمة | المعرفة المؤسسية | public/assets/js/app/pages/admin/knowledge-detail.js:410 |
+| KNF-38 | رابط | فتح ملف الاستشارة الأصلي (للإدارة فقط) | public/assets/js/app/pages/admin/knowledge-detail.js:416 |
+| KNF-39 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/knowledge-detail.js:419 |
+| KNF-40 | عنوان | لوحة المتابعة | public/assets/js/app/pages/admin/knowledge-detail.js:420 |
+| KNF-41 | عنوان | المحتوى المجهّل | public/assets/js/app/pages/admin/knowledge-detail.js:427 |
+| KNF-42 | قسم/بطاقة | المحتوى المجهّل | public/assets/js/app/pages/admin/knowledge-detail.js:427 |
+| KNF-43 | حالة فارغة | قبلت الإدارة والمحامون اقتراحات الذكاء الاصطناعي كما هي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:432 |
+| KNF-44 | عنوان | تصحيحات الذكاء الاصطناعي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:433 |
+| KNF-45 | قسم/بطاقة | تصحيحات الذكاء الاصطناعي في هذه الحالة | public/assets/js/app/pages/admin/knowledge-detail.js:434 |
+| KNF-46 | عنوان | رحلة الحالة: من الرسالة الأولى حتى الإجابة المعتمدة | public/assets/js/app/pages/admin/knowledge-detail.js:441 |
+| KNF-47 | قسم/بطاقة | رحلة الحالة: من الرسالة الأولى حتى الإجابة المعتمدة | public/assets/js/app/pages/admin/knowledge-detail.js:442 |
 | KNF-48 | عنصر قائمة | نطاق الاستخدام | public/assets/js/app/pages/admin/knowledge-detail.js:109 |
 | KNF-49 | عنصر قائمة | راجعتُ إخفاء البيانات الشخصية، وأؤكد أن النص لا يكشف هوية المستفيد/ة… | public/assets/js/app/pages/admin/knowledge-detail.js:117 |
 | KNF-50 | عنصر قائمة | ملاحظة المراجعة (اختياري) | public/assets/js/app/pages/admin/knowledge-detail.js:119 |
@@ -3631,9 +3718,9 @@
 | KNF-58 | عنصر قائمة | نسخة الرد للمستفيد/ة | public/assets/js/app/pages/admin/knowledge-detail.js:273 |
 | KNF-59 | نموذج | العنوان | public/assets/js/app/pages/admin/knowledge-detail.js:275 |
 
-## AIR: اقتراحات الرد
+## AIR: اقتراحات الرد (يظهر في: اقتراحات الرد تحت صندوق الكتابة)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | AIR-01 | حقل | (نص متغير) | public/assets/js/app/components/ai-reply.js:30 |
 | AIR-02 | زر | (نص متغير) | public/assets/js/app/components/ai-reply.js:72 |
@@ -3647,9 +3734,9 @@
 | AIR-10 | نافذة | ردود مقترحة على المستفيد | public/assets/js/app/components/ai-reply.js:193 |
 | AIR-11 | زر | ردود مقترحة قصيرة جاهزة للإرسال عبر واتساب | public/assets/js/app/components/ai-reply.js:219 |
 
-## DAI: تحليل المستند بالذكاء الاصطناعي
+## DAI: تحليل المستند بالذكاء الاصطناعي (يظهر في: تحليل المستند في صفحات الملفات)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | DAI-01 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-ai.js:18 |
 | DAI-02 | عنوان | (نص متغير) | public/assets/js/app/components/doc-ai.js:18 |
@@ -3667,67 +3754,68 @@
 | DAI-14 | نافذة | تحليل المستند | public/assets/js/app/components/doc-ai.js:150 |
 | DAI-15 | تنبيه | (نص متغير) | public/assets/js/app/components/doc-ai.js:156 |
 
-## DOC: عارض المستندات: النسخة المحسّنة والأصل والنص
+## DOC: عارض المستندات: النسخة المحسّنة والأصل والنص (يظهر في: عارض المستندات في الطلب والملف والملف المستمر وطلبات الشركات)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| DOC-01 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-viewer.js:220 |
-| DOC-02 | زر | اعرض النسخة المحسّنة | public/assets/js/app/components/doc-viewer.js:265 |
-| DOC-03 | نص | السابقة | public/assets/js/app/components/doc-viewer.js:280 |
-| DOC-04 | رابط | فتح ملف PDF | public/assets/js/app/components/doc-viewer.js:243 |
-| DOC-05 | زر | نظّفه مرة أخرى | public/assets/js/app/components/doc-clean.js:283 |
-| DOC-06 | زر | نظّفه مرة أخرى | public/assets/js/app/components/doc-clean.js:283 |
-| DOC-07 | زر | رجّع الأصل | public/assets/js/app/components/doc-clean.js:289 |
-| DOC-08 | زر | اعرض النسخة المحسّنة | public/assets/js/app/components/doc-clean.js:290 |
-| DOC-09 | زر | تفاصيل النسخ | public/assets/js/app/components/doc-clean.js:294 |
-| DOC-10 | نص | لا توجد نسخ أخرى لهذا المستند. | public/assets/js/app/components/doc-clean.js:243 |
-| DOC-11 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-clean.js:320 |
-| DOC-12 | زر | النص | public/assets/js/app/components/doc-clean.js:317 · public/assets/js/app/components/doc-viewer.js:188 |
-| DOC-13 | قسم/بطاقة | جارٍ التحميل… | public/assets/js/app/components/doc-clean.js:48 |
-| DOC-14 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-clean.js:63 |
-| DOC-15 | خيار | (نص متغير) | public/assets/js/app/components/doc-viewer.js:374 |
-| DOC-16 | نص | (نص متغير) | public/assets/js/app/components/doc-viewer.js:78 · public/assets/js/app/components/doc-viewer.js:287 |
-| DOC-17 | نص | (نص متغير) | public/assets/js/app/components/doc-viewer.js:79 |
-| DOC-18 | زر | (نص متغير) | public/assets/js/app/components/doc-viewer.js:173 |
-| DOC-19 | نافذة | تنزيل على الهاتف | public/assets/js/app/components/doc-viewer.js:191 |
-| DOC-20 | زر | تنزيل | public/assets/js/app/components/doc-viewer.js:213 |
-| DOC-21 | زر | السابقة | public/assets/js/app/components/doc-viewer.js:281 |
-| DOC-22 | زر | التالية | public/assets/js/app/components/doc-viewer.js:283 |
-| DOC-23 | نافذة | (نص متغير) | public/assets/js/app/components/doc-viewer.js:346 |
-| DOC-24 | زر | رجوع | public/assets/js/app/components/doc-viewer.js:350 |
-| DOC-25 | زر | خيارات المستند | public/assets/js/app/components/doc-viewer.js:351 |
-| DOC-26 | زر | عرض | public/assets/js/app/components/doc-viewer.js:374 |
-| DOC-27 | زر | تنزيل … | public/assets/js/app/components/doc-viewer.js:393 |
-| DOC-28 | زر | خيارات … | public/assets/js/app/components/doc-viewer.js:405 |
-| DOC-29 | عنصر قائمة | طريقة الإرسال | public/assets/js/app/components/send-document.js:39 |
-| DOC-30 | عنصر قائمة | نص مرافق (اختياري) | public/assets/js/app/components/send-document.js:48 |
-| DOC-31 | نافذة | إرسال مستند للمستفيد/ة | public/assets/js/app/components/send-document.js:56 |
-| DOC-32 | زر | إرسال « | public/assets/js/app/components/send-document.js:80 |
-| DOC-33 | زر | طُلبت قراءة النص. تظهر خلال دقائق. | public/assets/js/app/components/doc-clean.js:81 |
-| DOC-34 | زر | نسخ | public/assets/js/app/components/doc-clean.js:100 |
-| DOC-35 | حقل | تصحيح نص الصفحة … | public/assets/js/app/components/doc-clean.js:106 |
-| DOC-36 | زر | حُفظ التصحيح | public/assets/js/app/components/doc-clean.js:122 |
-| DOC-37 | زر | إلغاء | public/assets/js/app/components/doc-clean.js:126 |
-| DOC-38 | زر | تصحيح نص الصفحة … | public/assets/js/app/components/doc-clean.js:130 |
-| DOC-39 | نافذة | النص المقروء آليًا | public/assets/js/app/components/doc-clean.js:163 |
+| DOC-01 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-viewer.js:222 |
+| DOC-02 | زر | اعرض النسخة المحسّنة | public/assets/js/app/components/doc-viewer.js:267 |
+| DOC-03 | نص | السابقة | public/assets/js/app/components/doc-viewer.js:282 |
+| DOC-04 | رابط | فتح ملف PDF | public/assets/js/app/components/doc-viewer.js:245 |
+| DOC-05 | زر | نظّفه مرة أخرى | public/assets/js/app/components/doc-clean.js:325 |
+| DOC-06 | زر | نظّفه مرة أخرى | public/assets/js/app/components/doc-clean.js:325 |
+| DOC-07 | زر | رجّع الأصل | public/assets/js/app/components/doc-clean.js:331 |
+| DOC-08 | زر | اعرض النسخة المحسّنة | public/assets/js/app/components/doc-clean.js:332 |
+| DOC-09 | زر | تفاصيل النسخ | public/assets/js/app/components/doc-clean.js:336 |
+| DOC-10 | نص | لا توجد نسخ أخرى لهذا المستند. | public/assets/js/app/components/doc-clean.js:285 |
+| DOC-11 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-clean.js:362 |
+| DOC-12 | زر | النص | public/assets/js/app/components/doc-clean.js:359 · public/assets/js/app/components/doc-viewer.js:190 |
+| DOC-13 | قسم/بطاقة | جارٍ التحميل… | public/assets/js/app/components/doc-clean.js:83 |
+| DOC-14 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/doc-clean.js:98 |
+| DOC-15 | خيار | (نص متغير) | public/assets/js/app/components/doc-viewer.js:385 |
+| DOC-16 | نص | (نص متغير) | public/assets/js/app/components/doc-viewer.js:80 · public/assets/js/app/components/doc-viewer.js:289 |
+| DOC-17 | نص | (نص متغير) | public/assets/js/app/components/doc-viewer.js:81 |
+| DOC-18 | زر | (نص متغير) | public/assets/js/app/components/doc-viewer.js:175 |
+| DOC-19 | نافذة | تنزيل على الهاتف | public/assets/js/app/components/doc-viewer.js:193 |
+| DOC-20 | زر | تنزيل | public/assets/js/app/components/doc-viewer.js:215 |
+| DOC-21 | زر | السابقة | public/assets/js/app/components/doc-viewer.js:283 |
+| DOC-22 | زر | التالية | public/assets/js/app/components/doc-viewer.js:285 |
+| DOC-23 | نافذة | (نص متغير) | public/assets/js/app/components/doc-viewer.js:350 |
+| DOC-24 | زر | رجوع | public/assets/js/app/components/doc-viewer.js:354 |
+| DOC-25 | زر | خيارات المستند | public/assets/js/app/components/doc-viewer.js:355 |
+| DOC-26 | زر | عرض | public/assets/js/app/components/doc-viewer.js:385 |
+| DOC-27 | زر | تنزيل … | public/assets/js/app/components/doc-viewer.js:427 |
+| DOC-28 | زر | خيارات … | public/assets/js/app/components/doc-viewer.js:439 |
+| DOC-29 | عنصر قائمة | طريقة الإرسال | public/assets/js/app/components/send-document.js:43 |
+| DOC-30 | عنصر قائمة | نص مرافق (اختياري) | public/assets/js/app/components/send-document.js:52 |
+| DOC-31 | نافذة | إرسال مستند | public/assets/js/app/components/send-document.js:60 |
+| DOC-32 | زر | إرسال « | public/assets/js/app/components/send-document.js:85 |
+| DOC-33 | زر | طُلبت قراءة النص. تظهر خلال دقائق. | public/assets/js/app/components/doc-clean.js:116 |
+| DOC-34 | زر | نسخ | public/assets/js/app/components/doc-clean.js:140 |
+| DOC-35 | حقل | تصحيح نص الصفحة … | public/assets/js/app/components/doc-clean.js:146 |
+| DOC-36 | زر | حُفظ التصحيح | public/assets/js/app/components/doc-clean.js:162 |
+| DOC-37 | زر | إلغاء | public/assets/js/app/components/doc-clean.js:166 |
+| DOC-38 | زر | تصحيح نص الصفحة … | public/assets/js/app/components/doc-clean.js:170 |
+| DOC-39 | نافذة | النص المقروء آليًا | public/assets/js/app/components/doc-clean.js:203 |
+| DOC-41 | نص | ١٢٣ | public/assets/js/app/components/doc-clean.js:138 |
 
-## VTR: تفريغ الرسالة الصوتية والنص الآلي
+## VTR: تفريغ الرسالة الصوتية والنص الآلي (يظهر في: الرسائل الصوتية في المحادثة وصفحة الطلب)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | VTR-01 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/voice-transcript.js:86 |
-| VTR-02 | نص | (نص متغير) | public/assets/js/app/components/voice-transcript.js:331 |
-| VTR-03 | نص | (نص متغير) | public/assets/js/app/components/voice-transcript.js:219 |
+| VTR-02 | نص | نص آلي للمراجعة | public/assets/js/app/components/voice-transcript.js:331 |
+| VTR-03 | نص | النص الآلي غير مؤكد. استمع إلى الرسالة قبل التأكيد. | public/assets/js/app/components/voice-transcript.js:219 |
 | VTR-04 | حقل | (نص متغير) | public/assets/js/app/components/voice-transcript.js:178 |
 | VTR-05 | عنصر | (نص متغير) | public/assets/js/app/components/voice-transcript.js:197 |
 | VTR-06 | عنصر | (نص متغير) | public/assets/js/app/components/voice-transcript.js:199 |
-| VTR-07 | نص | (نص متغير) | public/assets/js/app/components/voice-transcript.js:165 |
-| VTR-08 | زر | (نص متغير) | public/assets/js/app/components/voice-transcript.js:167 |
-| VTR-09 | نص | (نص متغير) | public/assets/js/app/components/voice-transcript.js:181 |
-| VTR-10 | نص | (نص متغير) | public/assets/js/app/components/voice-transcript.js:220 |
+| VTR-07 | نص | جارٍ التحويل إلى نص… | public/assets/js/app/components/voice-transcript.js:165 |
+| VTR-08 | زر | حوّل الآن | public/assets/js/app/components/voice-transcript.js:167 |
+| VTR-09 | نص | استمع إلى الرسالة أولًا. | public/assets/js/app/components/voice-transcript.js:181 |
+| VTR-10 | نص | لا يوجد كلام مفهوم | public/assets/js/app/components/voice-transcript.js:220 |
 | VTR-11 | حقل | (نص متغير) | public/assets/js/app/components/voice-transcript.js:65 |
 | VTR-12 | زر | اكتب ما سمعته أولًا، أو اختر «الرسالة غير مفهومة». | public/assets/js/app/components/voice-transcript.js:195 |
-| VTR-13 | زر | (نص متغير) | public/assets/js/app/components/voice-transcript.js:198 |
+| VTR-13 | زر | الرسالة غير مفهومة | public/assets/js/app/components/voice-transcript.js:198 |
 | VTR-14 | حقل | اكتب ما قالته المستفيدة بكلامها | public/assets/js/app/components/voice-transcript.js:238 |
 | VTR-15 | زر | حفظ النص | public/assets/js/app/components/voice-transcript.js:256 |
 | VTR-16 | زر | الرسالة مش مفهومة | public/assets/js/app/components/voice-transcript.js:258 |
@@ -3736,7 +3824,7 @@
 
 ## ANL: التسويق والتحليلات (`/app#/analytics`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | ANL-01 | حقل | نوع الطلب | public/assets/js/app/pages/admin/analytics.js:465 |
 | ANL-02 | قسم/بطاقة | كم زائرًا فتح كل صفحة من الصفحة الأولى، وكم طلبًا وصل من كل مسار في ا… | public/assets/js/app/pages/admin/analytics.js:25 |
@@ -3751,7 +3839,7 @@
 | ANL-11 | عنصر قائمة | المسار | public/assets/js/app/pages/admin/analytics.js:60 |
 | ANL-12 | عنصر قائمة | الطلبات | public/assets/js/app/pages/admin/analytics.js:61 |
 | ANL-13 | جدول | الطلبات حسب المسار | public/assets/js/app/pages/admin/analytics.js:63 |
-| ANL-14 | قسم/بطاقة | كم زائرًا فتح كل صفحة من الصفحة الأولى، وكم طلبًا وصل من كل مسار في ا… | public/assets/js/app/pages/admin/analytics.js:68 |
+| ANL-14 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/analytics.js:68 |
 | ANL-15 | سؤال قابل للفتح | عرض البيانات كجدول | public/assets/js/app/pages/admin/analytics.js:180 |
 | ANL-16 | عنوان | عرض البيانات كجدول | public/assets/js/app/pages/admin/analytics.js:180 |
 | ANL-17 | عنصر قائمة | الأسبوع الذي يبدأ في | public/assets/js/app/pages/admin/analytics.js:185 |
@@ -3771,7 +3859,7 @@
 | ANL-31 | بطاقة رقم | ملفات أُغلقت | public/assets/js/app/pages/admin/analytics.js:260 |
 | ANL-32 | بطاقة رقم | تكلفة الملفات | public/assets/js/app/pages/admin/analytics.js:261 |
 | ANL-33 | بطاقة رقم | الإنفاق الإعلاني | public/assets/js/app/pages/admin/analytics.js:269 |
-| ANL-34 | قسم/بطاقة | ماذا حدث للطلبات الواردة؟ | public/assets/js/app/pages/admin/analytics.js:288 |
+| ANL-34 | عنوان | ماذا حدث للطلبات الواردة؟ | public/assets/js/app/pages/admin/analytics.js:288 |
 | ANL-35 | قسم/بطاقة | ماذا حدث للطلبات الواردة؟ | public/assets/js/app/pages/admin/analytics.js:289 |
 | ANL-36 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/analytics.js:311 |
 | ANL-37 | عنصر قائمة | الحجم | public/assets/js/app/pages/admin/analytics.js:317 |
@@ -3782,7 +3870,7 @@
 | ANL-42 | عنصر قائمة | التكلفة | public/assets/js/app/pages/admin/analytics.js:385 |
 | ANL-43 | جدول | قمع التحويل حسب … | public/assets/js/app/pages/admin/analytics.js:388 |
 | ANL-44 | جدول | قمع التحويل حسب … | public/assets/js/app/pages/admin/analytics.js:389 |
-| ANL-45 | قسم/بطاقة | النتائج حسب | public/assets/js/app/pages/admin/analytics.js:391 |
+| ANL-45 | عنوان | النتائج حسب | public/assets/js/app/pages/admin/analytics.js:391 |
 | ANL-46 | قسم/بطاقة | النتائج حسب | public/assets/js/app/pages/admin/analytics.js:392 |
 | ANL-47 | زر | حسب … | public/assets/js/app/pages/admin/analytics.js:426 |
 | ANL-48 | حقل | (نص متغير) | public/assets/js/app/pages/admin/analytics.js:433 |
@@ -3798,10 +3886,10 @@
 | ANL-58 | عنصر قائمة | تحولت لعمل مستمر | public/assets/js/app/pages/admin/analytics.js:557 |
 | ANL-59 | جدول | الملفات حسب المجال | public/assets/js/app/pages/admin/analytics.js:559 |
 | ANL-60 | جدول | الملفات حسب المجال | public/assets/js/app/pages/admin/analytics.js:560 |
-| ANL-61 | قسم/بطاقة | الملفات حسب المجال القانوني | public/assets/js/app/pages/admin/analytics.js:563 |
+| ANL-61 | عنوان | الملفات حسب المجال القانوني | public/assets/js/app/pages/admin/analytics.js:563 |
 | ANL-62 | قسم/بطاقة | الملفات حسب المجال القانوني | public/assets/js/app/pages/admin/analytics.js:564 |
 | ANL-63 | حالة فارغة | لا توجد بيانات أسبوعية بعد | public/assets/js/app/pages/admin/analytics.js:571 |
-| ANL-64 | قسم/بطاقة | الحجم الأسبوعي — آخر 12 أسبوعًا | public/assets/js/app/pages/admin/analytics.js:572 |
+| ANL-64 | عنوان | الحجم الأسبوعي — آخر 12 أسبوعًا | public/assets/js/app/pages/admin/analytics.js:572 |
 | ANL-65 | قسم/بطاقة | الحجم الأسبوعي — آخر 12 أسبوعًا | public/assets/js/app/pages/admin/analytics.js:573 |
 | ANL-66 | عنصر قائمة | الشهر | public/assets/js/app/pages/admin/analytics.js:610 |
 | ANL-67 | عنصر قائمة | المصدر | public/assets/js/app/pages/admin/analytics.js:611 |
@@ -3820,7 +3908,7 @@
 | ANL-80 | عنصر قائمة | تعديل | public/assets/js/app/pages/admin/analytics.js:676 |
 | ANL-81 | جدول | سجلات الإنفاق الإعلاني | public/assets/js/app/pages/admin/analytics.js:679 |
 | ANL-82 | جدول | سجلات الإنفاق الإعلاني | public/assets/js/app/pages/admin/analytics.js:680 |
-| ANL-83 | قسم/بطاقة | الإنفاق على الإعلانات | public/assets/js/app/pages/admin/analytics.js:683 |
+| ANL-83 | عنوان | الإنفاق على الإعلانات | public/assets/js/app/pages/admin/analytics.js:683 |
 | ANL-84 | قسم/بطاقة | الإنفاق على الإعلانات | public/assets/js/app/pages/admin/analytics.js:684 |
 | ANL-85 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/analytics.js:694 |
 | ANL-86 | عنوان | التسويق والتحليلات | public/assets/js/app/pages/admin/analytics.js:695 |
@@ -3828,7 +3916,7 @@
 
 ## SIM: محاكي واتساب (`/app#/simulator`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | SIM-01 | قسم/بطاقة | أزرار قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة | public/assets/js/app/pages/admin/simulator.js:220 |
 | SIM-02 | قسم/بطاقة | صفوف قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة | public/assets/js/app/pages/admin/simulator.js:209 |
@@ -3841,36 +3929,36 @@
 | SIM-09 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:261 |
 | SIM-10 | زر | فتح الطلب في صندوق الوارد | public/assets/js/app/pages/admin/simulator.js:289 |
 | SIM-11 | زر | فتح الملف | public/assets/js/app/pages/admin/simulator.js:290 |
-| SIM-12 | قسم/بطاقة | نتيجة المحاكاة | public/assets/js/app/pages/admin/simulator.js:301 |
+| SIM-12 | عنوان | نتيجة المحاكاة | public/assets/js/app/pages/admin/simulator.js:301 |
 | SIM-13 | قسم/بطاقة | نتيجة المحاكاة | public/assets/js/app/pages/admin/simulator.js:302 |
 | SIM-14 | رابط | الطلب | public/assets/js/app/pages/admin/simulator.js:317 |
 | SIM-15 | رابط | الملف | public/assets/js/app/pages/admin/simulator.js:318 |
-| SIM-16 | قسم/بطاقة | رسائل هذه الجلسة | public/assets/js/app/pages/admin/simulator.js:323 |
+| SIM-16 | عنوان | رسائل هذه الجلسة | public/assets/js/app/pages/admin/simulator.js:323 |
 | SIM-17 | قسم/بطاقة | رسائل هذه الجلسة | public/assets/js/app/pages/admin/simulator.js:324 |
 | SIM-18 | حقل | رقم الطلب من الموقع | public/assets/js/app/pages/admin/simulator.js:332 |
 | SIM-19 | حقل | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:333 |
 | SIM-20 | زر | تجهيز | public/assets/js/app/pages/admin/simulator.js:395 |
 | SIM-21 | زر | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:436 |
-| SIM-22 | قسم/بطاقة | سيناريوهات جاهزة | public/assets/js/app/pages/admin/simulator.js:448 |
+| SIM-22 | عنوان | سيناريوهات جاهزة | public/assets/js/app/pages/admin/simulator.js:448 |
 | SIM-23 | قسم/بطاقة | سيناريوهات جاهزة | public/assets/js/app/pages/admin/simulator.js:449 |
-| SIM-24 | قسم/بطاقة | ماذا يحدث للرسالة؟ | public/assets/js/app/pages/admin/simulator.js:472 |
-| SIM-25 | قسم/بطاقة | ماذا يحدث للرسالة؟ | public/assets/js/app/pages/admin/simulator.js:473 |
-| SIM-26 | زر | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:488 |
-| SIM-27 | عنوان | متغيرات البيئة المطلوبة | public/assets/js/app/pages/admin/simulator.js:489 |
-| SIM-28 | قسم/بطاقة | الربط الفعلي مع واتساب | public/assets/js/app/pages/admin/simulator.js:493 |
-| SIM-29 | قسم/بطاقة | الربط الفعلي مع واتساب | public/assets/js/app/pages/admin/simulator.js:494 |
-| SIM-30 | زر | إرسال رسالة صوتية تجريبية | public/assets/js/app/pages/admin/simulator.js:501 |
-| SIM-31 | زر | إرسال صورة ورقة | public/assets/js/app/pages/admin/simulator.js:502 |
-| SIM-32 | زر | خلاص | public/assets/js/app/pages/admin/simulator.js:503 |
-| SIM-33 | زر | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:513 |
-| SIM-34 | سؤال قابل للفتح | عرض شكل الـ Webhook المرسل (صيغة Meta) | public/assets/js/app/pages/admin/simulator.js:521 |
-| SIM-35 | عنوان | عرض شكل الـ Webhook المرسل (صيغة Meta) | public/assets/js/app/pages/admin/simulator.js:521 |
-| SIM-36 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/simulator.js:533 |
-| SIM-37 | زر | صندوق الوارد | public/assets/js/app/pages/admin/simulator.js:535 |
-| SIM-38 | عنوان | محاكي واتساب | public/assets/js/app/pages/admin/simulator.js:536 |
-| SIM-39 | عنوان | محاكي واتساب | public/assets/js/app/pages/admin/simulator.js:537 |
-| SIM-40 | قسم/بطاقة | رسالة واتساب واردة | public/assets/js/app/pages/admin/simulator.js:544 |
-| SIM-41 | قسم/بطاقة | رسالة واتساب واردة | public/assets/js/app/pages/admin/simulator.js:544 |
+| SIM-24 | عنوان | ماذا يحدث للرسالة؟ | public/assets/js/app/pages/admin/simulator.js:473 |
+| SIM-25 | قسم/بطاقة | ماذا يحدث للرسالة؟ | public/assets/js/app/pages/admin/simulator.js:474 |
+| SIM-26 | زر | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:489 |
+| SIM-27 | عنوان | متغيرات البيئة المطلوبة | public/assets/js/app/pages/admin/simulator.js:490 |
+| SIM-28 | عنوان | الربط الفعلي مع واتساب | public/assets/js/app/pages/admin/simulator.js:494 |
+| SIM-29 | قسم/بطاقة | الربط الفعلي مع واتساب | public/assets/js/app/pages/admin/simulator.js:495 |
+| SIM-30 | زر | إرسال رسالة صوتية تجريبية | public/assets/js/app/pages/admin/simulator.js:502 |
+| SIM-31 | زر | إرسال صورة ورقة | public/assets/js/app/pages/admin/simulator.js:503 |
+| SIM-32 | زر | خلاص | public/assets/js/app/pages/admin/simulator.js:504 |
+| SIM-33 | زر | (نص متغير) | public/assets/js/app/pages/admin/simulator.js:514 |
+| SIM-34 | سؤال قابل للفتح | عرض شكل الـ Webhook المرسل (صيغة Meta) | public/assets/js/app/pages/admin/simulator.js:522 |
+| SIM-35 | عنوان | عرض شكل الـ Webhook المرسل (صيغة Meta) | public/assets/js/app/pages/admin/simulator.js:522 |
+| SIM-36 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/simulator.js:534 |
+| SIM-37 | زر | صندوق الوارد | public/assets/js/app/pages/admin/simulator.js:536 |
+| SIM-38 | عنوان | محاكي واتساب | public/assets/js/app/pages/admin/simulator.js:537 |
+| SIM-39 | عنوان | محاكي واتساب | public/assets/js/app/pages/admin/simulator.js:538 |
+| SIM-40 | عنوان | رسالة واتساب واردة | public/assets/js/app/pages/admin/simulator.js:545 |
+| SIM-41 | قسم/بطاقة | رسالة واتساب واردة | public/assets/js/app/pages/admin/simulator.js:545 |
 | SIM-42 | عنصر قائمة | رقم المرسل | public/assets/js/app/pages/admin/simulator.js:112 |
 | SIM-43 | عنصر قائمة | اسم المرسل كما يظهر في واتساب | public/assets/js/app/pages/admin/simulator.js:113 |
 | SIM-44 | عنصر قائمة | نص الرسالة | public/assets/js/app/pages/admin/simulator.js:114 |
@@ -3878,28 +3966,28 @@
 | SIM-46 | عنصر قائمة | منصة الإعلان | public/assets/js/app/pages/admin/simulator.js:132 |
 | SIM-47 | عنصر قائمة | عنوان الإعلان | public/assets/js/app/pages/admin/simulator.js:134 |
 | SIM-48 | عنصر قائمة | رقم الإعلان (اختياري) | public/assets/js/app/pages/admin/simulator.js:135 |
-| SIM-49 | نموذج | رقم المرسل | public/assets/js/app/pages/admin/simulator.js:148 |
+| SIM-49 | زر | إرسال عبر المحاكي | public/assets/js/app/pages/admin/simulator.js:148 |
 | SIM-50 | نموذج | رقم المرسل | public/assets/js/app/pages/admin/simulator.js:149 |
 
 ## SET: الإعدادات والمستخدمون (كل البطاقات) (`/app#/settings`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| SET-01 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:365 |
+| SET-01 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:369 |
 | SET-02 | حقل | (نص متغير) | public/assets/js/app/components/site-settings.js:237 |
 | SET-03 | نص | (نص متغير) | public/assets/js/app/components/site-settings.js:238 |
 | SET-04 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/site-settings.js:247 |
 | SET-05 | عنصر | صفحة تقول إن الخدمة متوقفة | public/assets/js/app/components/site-settings.js:129 |
 | SET-06 | عنصر | تحويل إلى الصفحة الأولى | public/assets/js/app/components/site-settings.js:130 |
-| SET-07 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:346 |
-| SET-08 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:347 |
-| SET-09 | زر | معاينة | public/assets/js/app/components/site-settings.js:353 |
-| SET-10 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:348 |
-| SET-11 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:349 |
-| SET-12 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:350 |
+| SET-07 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:349 |
+| SET-08 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:350 |
+| SET-09 | زر | معاينة | public/assets/js/app/components/site-settings.js:357 |
+| SET-10 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:352 |
+| SET-11 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:353 |
+| SET-12 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:354 |
 | SET-13 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/site-settings.js:216 |
 | SET-14 | زر | إضافة شريك | public/assets/js/app/components/site-settings.js:166 |
-| SET-15 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:351 |
+| SET-15 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:355 |
 | SET-16 | عنصر | (نص متغير) | public/assets/js/app/components/story-settings.js:121 |
 | SET-17 | زر | أعلى | public/assets/js/app/components/site-settings.js:185 |
 | SET-18 | زر | أسفل | public/assets/js/app/components/site-settings.js:186 |
@@ -3922,36 +4010,36 @@
 | SET-35 | عنصر | (نص متغير) | public/assets/js/app/components/media-settings.js:155 |
 | SET-40 | رابط | صفحة قوالب واتساب | public/assets/js/app/pages/admin/settings.js:125 |
 | SET-41 | زر | إدارة التكاملات | public/assets/js/app/pages/admin/settings.js:218 |
-| SET-42 | قسم/بطاقة | حالة التكاملات | public/assets/js/app/pages/admin/settings.js:220 |
+| SET-42 | عنوان | حالة التكاملات | public/assets/js/app/pages/admin/settings.js:220 |
 | SET-43 | قسم/بطاقة | حالة التكاملات | public/assets/js/app/pages/admin/settings.js:221 |
 | SET-44 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/settings.js:233 |
 | SET-45 | عنوان | الإعدادات والمستخدمون | public/assets/js/app/pages/admin/settings.js:234 |
 | SET-46 | عنوان | الإعدادات والمستخدمون | public/assets/js/app/pages/admin/settings.js:235 |
-| SET-47 | قسم/بطاقة | إعدادات المؤسسة | public/assets/js/app/pages/admin/settings.js:237 |
+| SET-47 | عنوان | إعدادات المؤسسة | public/assets/js/app/pages/admin/settings.js:237 |
 | SET-48 | قسم/بطاقة | إعدادات المؤسسة | public/assets/js/app/pages/admin/settings.js:237 |
 | SET-49 | زر | عرض الموقع | public/assets/js/app/components/site-settings.js:111 |
-| SET-50 | قسم/بطاقة | الموقع العام وبيانات التواصل | public/assets/js/app/components/site-settings.js:113 |
+| SET-50 | عنوان | الموقع العام وبيانات التواصل | public/assets/js/app/components/site-settings.js:113 |
 | SET-51 | قسم/بطاقة | الموقع العام وبيانات التواصل | public/assets/js/app/components/site-settings.js:114 |
 | SET-52 | حقل | اسم الشريك … | public/assets/js/app/components/site-settings.js:174 |
 | SET-53 | حقل | مثال: … | public/assets/js/app/components/site-settings.js:175 |
 | SET-54 | حقل | الاسم | public/assets/js/app/components/site-settings.js:200 |
 | SET-55 | حقل | الصفة | public/assets/js/app/components/site-settings.js:200 |
 | SET-56 | نافذة | (نص متغير) | public/assets/js/app/components/site-settings.js:261 |
-| SET-57 | قسم/بطاقة | أول ما يراه الزائر: ثلاثة اختيارات (استشارة، رفع دعوى قضائية، تأسيس ش… | public/assets/js/app/components/site-settings.js:361 |
-| SET-58 | قسم/بطاقة | أول ما يراه الزائر: ثلاثة اختيارات (استشارة، رفع دعوى قضائية، تأسيس ش… | public/assets/js/app/components/site-settings.js:362 |
-| SET-59 | قسم/بطاقة | القصص الواردة على واتساب | public/assets/js/app/components/story-settings.js:145 |
+| SET-57 | عنوان | (نص متغير) | public/assets/js/app/components/site-settings.js:365 |
+| SET-58 | قسم/بطاقة | أول ما يراه الزائر: ثلاثة اختيارات (استشارة، رفع دعوى قضائية، تأسيس ش… | public/assets/js/app/components/site-settings.js:366 |
+| SET-59 | عنوان | القصص الواردة على واتساب | public/assets/js/app/components/story-settings.js:145 |
 | SET-60 | قسم/بطاقة | القصص الواردة على واتساب | public/assets/js/app/components/story-settings.js:146 |
-| SET-61 | حقل | (نص متغير) | public/assets/js/app/components/brand-settings.js:169 |
-| SET-62 | حقل | (نص متغير) | public/assets/js/app/components/brand-settings.js:181 |
-| SET-63 | حقل | (نص متغير) | public/assets/js/app/components/brand-settings.js:242 |
-| SET-64 | زر | (نص متغير) | public/assets/js/app/components/brand-settings.js:245 |
-| SET-65 | زر | (نص متغير) | public/assets/js/app/components/brand-settings.js:278 |
-| SET-66 | عنوان | (نص متغير) | public/assets/js/app/components/brand-settings.js:300 |
-| SET-67 | زر | (نص متغير) | public/assets/js/app/components/brand-settings.js:330 |
-| SET-68 | زر | (نص متغير) | public/assets/js/app/components/brand-settings.js:331 |
-| SET-69 | نافذة | (نص متغير) | public/assets/js/app/components/brand-settings.js:399 |
-| SET-70 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/brand-settings.js:428 |
-| SET-71 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/brand-settings.js:428 |
+| SET-61 | رسالة | color | public/assets/js/app/components/brand-settings.js:165 |
+| SET-62 | رسالة | hex | public/assets/js/app/components/brand-settings.js:165 |
+| SET-63 | حقل | (نص متغير) | public/assets/js/app/components/brand-settings.js:244 |
+| SET-64 | زر | اختر صورة الشعار لاقتراح الألوان | public/assets/js/app/components/brand-settings.js:247 |
+| SET-65 | زر | (نص متغير) | public/assets/js/app/components/brand-settings.js:280 |
+| SET-66 | عنوان | معاينة | public/assets/js/app/components/brand-settings.js:302 |
+| SET-67 | زر | حفظ الألوان | public/assets/js/app/components/brand-settings.js:332 |
+| SET-68 | زر | رجوع للألوان الأصلية | public/assets/js/app/components/brand-settings.js:333 |
+| SET-69 | نافذة | الرجوع للألوان الأصلية؟ | public/assets/js/app/components/brand-settings.js:401 |
+| SET-70 | عنوان | ألوان المؤسسة | public/assets/js/app/components/brand-settings.js:430 |
+| SET-71 | قسم/بطاقة | ألوان المؤسسة | public/assets/js/app/components/brand-settings.js:430 |
 | SET-72 | تنبيه | البريد غير مُعدّ للشركات | public/assets/js/app/components/email-settings.js:54 |
 | SET-73 | تنبيه | PUBLIC_BASE_URL غير مضبوط على الخادم: لا تُرسل روابط الدعوات وتعيين ك… | public/assets/js/app/components/email-settings.js:55 |
 | SET-74 | تنبيه | تغيّر مفتاح التشفير بعد حفظ كلمة مرور SMTP فلم يعد ممكنًا فك تشفيرها.… | public/assets/js/app/components/email-settings.js:56 |
@@ -3959,7 +4047,7 @@
 | SET-76 | زر | إرسال رسالة تجربة إلى بريدي | public/assets/js/app/components/email-settings.js:71 |
 | SET-77 | زر | تعديل | public/assets/js/app/components/email-settings.js:78 |
 | SET-78 | عنوان | رسالة التجربة | public/assets/js/app/components/email-settings.js:92 |
-| SET-79 | قسم/بطاقة | البريد الإلكتروني | public/assets/js/app/components/email-settings.js:95 |
+| SET-79 | عنوان | البريد الإلكتروني | public/assets/js/app/components/email-settings.js:95 |
 | SET-80 | قسم/بطاقة | البريد الإلكتروني | public/assets/js/app/components/email-settings.js:96 |
 | SET-81 | تنبيه | أُرسلت رسالة التجربة. | public/assets/js/app/components/email-settings.js:102 |
 | SET-82 | حقل | (نص متغير) | public/assets/js/app/components/email-settings.js:117 |
@@ -3982,7 +4070,7 @@
 | SET-99 | حقل | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:64 |
 | SET-100 | حقل | … : من | public/assets/js/app/components/company-b2b-settings.js:65 |
 | SET-101 | حقل | … : إلى | public/assets/js/app/components/company-b2b-settings.js:66 |
-| SET-102 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/components/company-b2b-settings.js:106 |
+| SET-102 | عنوان | خدمة الشركات | public/assets/js/app/components/company-b2b-settings.js:106 |
 | SET-103 | قسم/بطاقة | خدمة الشركات | public/assets/js/app/components/company-b2b-settings.js:107 |
 | SET-104 | حقل | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:130 |
 | SET-105 | حقل | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:137 |
@@ -3994,7 +4082,7 @@
 | SET-111 | قسم/بطاقة | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:254 |
 | SET-112 | عنوان | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:254 |
 | SET-113 | زر | باقة جديدة | public/assets/js/app/components/company-b2b-settings.js:293 |
-| SET-114 | قسم/بطاقة | باقات الشركات | public/assets/js/app/components/company-b2b-settings.js:295 |
+| SET-114 | عنوان | باقات الشركات | public/assets/js/app/components/company-b2b-settings.js:295 |
 | SET-115 | قسم/بطاقة | باقات الشركات | public/assets/js/app/components/company-b2b-settings.js:296 |
 | SET-116 | عنصر قائمة | الباقة | public/assets/js/app/components/company-b2b-settings.js:312 |
 | SET-117 | عنصر قائمة | الشروط | public/assets/js/app/components/company-b2b-settings.js:313 |
@@ -4045,7 +4133,7 @@
 | SET-162 | سؤال قابل للفتح | آخر أحداث الأمان (… ) | public/assets/js/app/components/account-admin.js:279 |
 | SET-163 | عنوان | آخر أحداث الأمان (… ) | public/assets/js/app/components/account-admin.js:279 |
 | SET-164 | رابط | عرض كل أحداث هذا الحساب في سجل الأمان | public/assets/js/app/components/account-admin.js:290 |
-| SET-165 | قسم/بطاقة | الحساب والأمان | public/assets/js/app/components/account-admin.js:308 |
+| SET-165 | عنوان | الحساب والأمان | public/assets/js/app/components/account-admin.js:308 |
 | SET-166 | قسم/بطاقة | الحساب والأمان | public/assets/js/app/components/account-admin.js:308 |
 | SET-167 | عنصر قائمة | إغلاق | public/assets/js/app/components/account-admin.js:323 |
 | SET-168 | نافذة | أمان حساب … | public/assets/js/app/components/account-admin.js:323 |
@@ -4073,11 +4161,11 @@
 | SET-190 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/account-admin.js:471 |
 | SET-191 | جدول | الدعوات المعلقة | public/assets/js/app/components/account-admin.js:474 |
 | SET-192 | جدول | الدعوات المعلقة | public/assets/js/app/components/account-admin.js:475 |
-| SET-193 | قسم/بطاقة | الدعوات المعلقة | public/assets/js/app/components/account-admin.js:483 |
+| SET-193 | عنوان | الدعوات المعلقة | public/assets/js/app/components/account-admin.js:483 |
 | SET-194 | قسم/بطاقة | الدعوات المعلقة | public/assets/js/app/components/account-admin.js:483 |
 | SET-195 | رابط | صفحة حسابي والأمان | public/assets/js/app/components/account-admin.js:554 |
 | SET-196 | تنبيه | لتفعيل إلزام مديري النظام بالتحقق بخطوتين فعّله لحسابك أولًا من | public/assets/js/app/components/account-admin.js:554 |
-| SET-197 | قسم/بطاقة | سياسة الأمان | public/assets/js/app/components/account-admin.js:562 |
+| SET-197 | عنوان | سياسة الأمان | public/assets/js/app/components/account-admin.js:562 |
 | SET-198 | قسم/بطاقة | سياسة الأمان | public/assets/js/app/components/account-admin.js:562 |
 | SET-199 | عنصر قائمة | الاسم | public/assets/js/app/components/account-admin.js:597 |
 | SET-200 | عنصر قائمة | الدور | public/assets/js/app/components/account-admin.js:599 |
@@ -4093,10 +4181,10 @@
 | SET-210 | زر | إضافة مستخدم | public/assets/js/app/components/account-admin.js:645 |
 | SET-211 | رابط | شبكة المحامين | public/assets/js/app/components/account-admin.js:650 |
 | SET-212 | رابط | سجل الأمان | public/assets/js/app/components/account-admin.js:650 |
-| SET-213 | قسم/بطاقة | المستخدمون | public/assets/js/app/components/account-admin.js:652 |
+| SET-213 | عنوان | المستخدمون | public/assets/js/app/components/account-admin.js:652 |
 | SET-214 | قسم/بطاقة | المستخدمون | public/assets/js/app/components/account-admin.js:653 |
 | SET-215 | نافذة | تأكيد | public/assets/js/app/components/media-settings.js:119 |
-| SET-216 | قسم/بطاقة | الرسائل الصوتية، وتحسين صور المستندات، وقراءة نصها. النص الآلي مسودة… | public/assets/js/app/components/media-settings.js:176 |
+| SET-216 | عنوان | المستندات والصوت | public/assets/js/app/components/media-settings.js:176 |
 | SET-217 | قسم/بطاقة | الرسائل الصوتية، وتحسين صور المستندات، وقراءة نصها. النص الآلي مسودة… | public/assets/js/app/components/media-settings.js:177 |
 | SET-218 | عنصر قائمة | اسم المؤسسة | public/assets/js/app/pages/admin/settings.js:92 |
 | SET-219 | عنصر قائمة | الشعار التعريفي | public/assets/js/app/pages/admin/settings.js:93 |
@@ -4108,7 +4196,7 @@
 | SET-225 | عنصر قائمة | موعد صرف مستحقات المحامين | public/assets/js/app/pages/admin/settings.js:150 |
 | SET-226 | عنصر قائمة | تعليمات الدفع للمستفيد/ة | public/assets/js/app/pages/admin/settings.js:162 |
 | SET-227 | عنصر قائمة | حد التشابه للحالات المشابهة | public/assets/js/app/pages/admin/settings.js:172 |
-| SET-228 | نموذج | اسم المؤسسة | public/assets/js/app/pages/admin/settings.js:206 |
+| SET-228 | زر | حفظ الإعدادات | public/assets/js/app/pages/admin/settings.js:206 |
 | SET-229 | نموذج | اسم المؤسسة | public/assets/js/app/pages/admin/settings.js:207 |
 | SET-230 | عنصر قائمة | اسم المكتب كما يراه العملاء | public/assets/js/app/components/site-settings.js:61 |
 | SET-231 | عنصر قائمة | الاسم المختصر | public/assets/js/app/components/site-settings.js:63 |
@@ -4122,10 +4210,10 @@
 | SET-239 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/components/site-settings.js:78 |
 | SET-240 | عنصر قائمة | صفحة فيسبوك | public/assets/js/app/components/site-settings.js:79 |
 | SET-241 | عنصر قائمة | حساب إنستجرام | public/assets/js/app/components/site-settings.js:80 |
-| SET-242 | نموذج | اسم المكتب كما يراه العملاء | public/assets/js/app/components/site-settings.js:103 |
+| SET-242 | زر | حفظ بيانات الموقع | public/assets/js/app/components/site-settings.js:103 |
 | SET-243 | نموذج | اسم المكتب كما يراه العملاء | public/assets/js/app/components/site-settings.js:104 |
-| SET-249 | عنصر قائمة | partners_box | public/assets/js/app/components/site-settings.js:311 |
-| SET-251 | نموذج | اسم المكتب القانوني | public/assets/js/app/components/site-settings.js:343 |
+| SET-249 | عنصر قائمة | partners_box | public/assets/js/app/components/site-settings.js:313 |
+| SET-251 | نموذج | اسم المكتب القانوني | public/assets/js/app/components/site-settings.js:346 |
 | SET-252 | عنصر قائمة | مدة السكوت قبل التلخيص (بالدقائق) | public/assets/js/app/components/story-settings.js:40 |
 | SET-253 | عنصر قائمة | إرسال ترحيب بقائمة المواضيع لأول رسالة على واتساب | public/assets/js/app/components/story-settings.js:48 |
 | SET-255 | عنصر قائمة | إرسال «وصلتنا حكايتك» ورقم الطلب عندما تكتمل القصة | public/assets/js/app/components/story-settings.js:58 |
@@ -4133,7 +4221,7 @@
 | SET-257 | عنصر قائمة | نتصل خلال (أيام عمل) | public/assets/js/app/components/story-settings.js:69 |
 | SET-258 | عنصر قائمة | wa_segment_choice_enabled | public/assets/js/app/components/story-settings.js:78 |
 | SET-259 | عنصر قائمة | segment_returning_days | public/assets/js/app/components/story-settings.js:80 |
-| SET-260 | نموذج | مدة السكوت قبل التلخيص (بالدقائق) | public/assets/js/app/components/story-settings.js:116 |
+| SET-260 | زر | حفظ | public/assets/js/app/components/story-settings.js:116 |
 | SET-261 | نموذج | مدة السكوت قبل التلخيص (بالدقائق) | public/assets/js/app/components/story-settings.js:117 |
 | SET-262 | عنصر قائمة | خادم SMTP | public/assets/js/app/components/email-settings.js:125 |
 | SET-263 | عنصر قائمة | المنفذ | public/assets/js/app/components/email-settings.js:126 |
@@ -4176,7 +4264,7 @@
 | SET-300 | عنصر قائمة | صلاحية رابط الدعوة | public/assets/js/app/components/account-admin.js:527 |
 | SET-301 | عنصر قائمة | صلاحية رابط إعادة التعيين | public/assets/js/app/components/account-admin.js:528 |
 | SET-302 | عنصر قائمة | مدة الاحتفاظ بأحداث سجل الأمان | public/assets/js/app/components/account-admin.js:529 |
-| SET-303 | نموذج | إلزام كل حسابات «إدارة النظام» بالتحقق بخطوتين (من لم يفعّله يُطلب من… | public/assets/js/app/components/account-admin.js:548 |
+| SET-303 | زر | حفظ سياسة الأمان | public/assets/js/app/components/account-admin.js:548 |
 | SET-304 | نموذج | إلزام كل حسابات «إدارة النظام» بالتحقق بخطوتين (من لم يفعّله يُطلب من… | public/assets/js/app/components/account-admin.js:549 |
 | SET-305 | عنصر قائمة | web_voice_enabled | public/assets/js/app/components/media-settings.js:85 |
 | SET-306 | عنصر قائمة | stt_auto | public/assets/js/app/components/media-settings.js:86 |
@@ -4190,7 +4278,7 @@
 | SET-314 | عنصر قائمة | ocr_claude_budget_pct | public/assets/js/app/components/media-settings.js:94 |
 | SET-315 | عنصر قائمة | ocr_model | public/assets/js/app/components/media-settings.js:95 |
 | SET-316 | عنصر قائمة | ocr_max_pages | public/assets/js/app/components/media-settings.js:96 |
-| SET-317 | نموذج | حفظ | public/assets/js/app/components/media-settings.js:136 |
+| SET-317 | زر | حفظ | public/assets/js/app/components/media-settings.js:136 |
 | SET-318 | نموذج | حفظ | public/assets/js/app/components/media-settings.js:137 |
 | SET-319 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:29 |
 | SET-320 | عنصر قائمة | (نص متغير) | public/assets/js/app/components/company-b2b-settings.js:30 |
@@ -4218,16 +4306,31 @@
 | SET-342 | عنصر قائمة | المفتاح | public/assets/js/app/components/company-b2b-settings.js:334 |
 | SET-343 | عنصر قائمة | الوصف | public/assets/js/app/components/company-b2b-settings.js:335 |
 | SET-344 | عنصر قائمة | متاحة للاشتراكات الجديدة | public/assets/js/app/components/company-b2b-settings.js:336 |
+| SET-345 | رسالة | color | public/assets/js/app/components/brand-settings.js:165 |
+| SET-346 | رسالة | hex | public/assets/js/app/components/brand-settings.js:165 |
+| SET-347 | عنصر | (نص متغير) | public/assets/js/app/components/site-settings.js:351 |
 
 ## INT: التكاملات (`/app#/integrations`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| INT-01 | قسم/بطاقة | توجيه النموذج: … | public/assets/js/app/pages/admin/integrations.js:559 |
-| INT-02 | قسم/بطاقة | مضبوط | public/assets/js/app/pages/admin/integrations.js:545 |
-| INT-03 | زر | تعديل | public/assets/js/app/pages/admin/integrations.js:541 |
-| INT-04 | زر | اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:530 |
-| INT-05 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:528 |
+| INT-01 | قسم/بطاقة | توجيه النموذج: … | public/assets/js/app/pages/admin/integrations.js:562 |
+| INT-02 | قسم/بطاقة | مضبوط | public/assets/js/app/pages/admin/integrations.js:548 |
+| INT-03 | زر | تعديل | public/assets/js/app/pages/admin/integrations.js:544 |
+| INT-04 | زر | اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:533 |
+| INT-05 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:531 |
+| INT-06 | حقل | نوع الخدمة | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-07 | حقل | مزوّد التحويل | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-08 | حقل | عنوان الخدمة | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-09 | حقل | المفتاح | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-10 | حقل | النموذج | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-11 | حقل | اللغة | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-12 | حقل | توجيه النموذج | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-13 | حقل | مكان التشغيل | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-14 | حقل | السعر لكل دقيقة (دولار) | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-15 | حقل | حد الإنفاق الشهري (دولار) | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-16 | حقل | اسم المزوّد | public/assets/js/app/pages/admin/integrations.js:483 |
+| INT-17 | حقل | شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا… | public/assets/js/app/pages/admin/integrations.js:483 |
 | INT-18 | نافذة | تأكيد التغيير | public/assets/js/app/pages/admin/integrations.js:44 |
 | INT-19 | تنبيه | نجح الاتصال | public/assets/js/app/pages/admin/integrations.js:127 |
 | INT-20 | تنبيه | مفتاح التشفير مؤقت | public/assets/js/app/pages/admin/integrations.js:136 |
@@ -4247,37 +4350,37 @@
 | INT-34 | تنبيه | سر التطبيق غير مضبوط | public/assets/js/app/pages/admin/integrations.js:370 |
 | INT-35 | زر | نسخ | public/assets/js/app/pages/admin/integrations.js:376 |
 | INT-36 | عنوان | نتيجة اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:397 |
-| INT-37 | قسم/بطاقة | نتيجة اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:398 |
+| INT-37 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:398 |
 | INT-38 | قسم/بطاقة | نتيجة اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:399 |
-| INT-39 | تنبيه | آخر اختبار: ناجح | public/assets/js/app/pages/admin/integrations.js:441 |
-| INT-40 | نافذة | تعديل | public/assets/js/app/pages/admin/integrations.js:517 |
-| INT-41 | تنبيه | تعذر فك تشفير القيم المحفوظة | public/assets/js/app/pages/admin/integrations.js:555 |
-| INT-42 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:556 |
-| INT-43 | عنوان | نتيجة اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:572 |
-| INT-44 | قسم/بطاقة | توجيه النموذج: … | public/assets/js/app/pages/admin/integrations.js:574 |
-| INT-45 | سؤال قابل للفتح | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:582 |
-| INT-46 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:582 |
-| INT-47 | قسم/بطاقة | دليل الربط خطوة بخطوة | public/assets/js/app/pages/admin/integrations.js:622 |
-| INT-48 | قسم/بطاقة | دليل الربط خطوة بخطوة | public/assets/js/app/pages/admin/integrations.js:623 |
-| INT-49 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:642 |
-| INT-50 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:642 |
-| INT-51 | زر | تحديث | public/assets/js/app/pages/admin/integrations.js:650 |
-| INT-52 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:651 |
-| INT-53 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:652 |
-| INT-54 | رابط | سجل الأمان | public/assets/js/app/pages/admin/integrations.js:663 |
-| INT-55 | عنصر قائمة | نوع الخدمة | public/assets/js/app/pages/admin/integrations.js:466 |
-| INT-56 | عنصر قائمة | مزوّد التحويل | public/assets/js/app/pages/admin/integrations.js:467 |
-| INT-57 | عنصر قائمة | مكان التشغيل | public/assets/js/app/pages/admin/integrations.js:468 |
-| INT-58 | عنصر قائمة | عنوان الخدمة | public/assets/js/app/pages/admin/integrations.js:469 |
-| INT-59 | عنصر قائمة | المفتاح | public/assets/js/app/pages/admin/integrations.js:470 |
-| INT-60 | عنصر قائمة | اسم المزوّد | public/assets/js/app/pages/admin/integrations.js:471 |
-| INT-61 | عنصر قائمة | النموذج | public/assets/js/app/pages/admin/integrations.js:472 |
-| INT-62 | عنصر قائمة | اللغة | public/assets/js/app/pages/admin/integrations.js:473 |
-| INT-63 | عنصر قائمة | شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا… | public/assets/js/app/pages/admin/integrations.js:474 |
-| INT-64 | عنصر قائمة | توجيه النموذج | public/assets/js/app/pages/admin/integrations.js:475 |
-| INT-65 | عنصر قائمة | السعر لكل دقيقة (دولار) | public/assets/js/app/pages/admin/integrations.js:476 |
-| INT-66 | عنصر قائمة | حد الإنفاق الشهري (دولار) | public/assets/js/app/pages/admin/integrations.js:477 |
-| INT-67 | عنصر قائمة | أقصى مدة للرسالة (ثانية) | public/assets/js/app/pages/admin/integrations.js:478 |
+| INT-39 | تنبيه | آخر اختبار: ناجح | public/assets/js/app/pages/admin/integrations.js:444 |
+| INT-40 | نافذة | تعديل | public/assets/js/app/pages/admin/integrations.js:520 |
+| INT-41 | تنبيه | تعذر فك تشفير القيم المحفوظة | public/assets/js/app/pages/admin/integrations.js:558 |
+| INT-42 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:559 |
+| INT-43 | عنوان | نتيجة اختبار الاتصال | public/assets/js/app/pages/admin/integrations.js:575 |
+| INT-44 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:577 |
+| INT-45 | سؤال قابل للفتح | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:585 |
+| INT-46 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/integrations.js:585 |
+| INT-47 | عنوان | دليل الربط خطوة بخطوة | public/assets/js/app/pages/admin/integrations.js:625 |
+| INT-48 | قسم/بطاقة | دليل الربط خطوة بخطوة | public/assets/js/app/pages/admin/integrations.js:626 |
+| INT-49 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:645 |
+| INT-50 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:645 |
+| INT-51 | زر | تحديث | public/assets/js/app/pages/admin/integrations.js:653 |
+| INT-52 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:654 |
+| INT-53 | عنوان | التكاملات | public/assets/js/app/pages/admin/integrations.js:655 |
+| INT-54 | رابط | سجل الأمان | public/assets/js/app/pages/admin/integrations.js:666 |
+| INT-55 | عنصر قائمة | نوع الخدمة | public/assets/js/app/pages/admin/integrations.js:469 |
+| INT-56 | عنصر قائمة | مزوّد التحويل | public/assets/js/app/pages/admin/integrations.js:470 |
+| INT-57 | عنصر قائمة | مكان التشغيل | public/assets/js/app/pages/admin/integrations.js:471 |
+| INT-58 | عنصر قائمة | عنوان الخدمة | public/assets/js/app/pages/admin/integrations.js:472 |
+| INT-59 | عنصر قائمة | المفتاح | public/assets/js/app/pages/admin/integrations.js:473 |
+| INT-60 | عنصر قائمة | اسم المزوّد | public/assets/js/app/pages/admin/integrations.js:474 |
+| INT-61 | عنصر قائمة | النموذج | public/assets/js/app/pages/admin/integrations.js:475 |
+| INT-62 | عنصر قائمة | اللغة | public/assets/js/app/pages/admin/integrations.js:476 |
+| INT-63 | عنصر قائمة | شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا… | public/assets/js/app/pages/admin/integrations.js:477 |
+| INT-64 | عنصر قائمة | توجيه النموذج | public/assets/js/app/pages/admin/integrations.js:478 |
+| INT-65 | عنصر قائمة | السعر لكل دقيقة (دولار) | public/assets/js/app/pages/admin/integrations.js:479 |
+| INT-66 | عنصر قائمة | حد الإنفاق الشهري (دولار) | public/assets/js/app/pages/admin/integrations.js:480 |
+| INT-67 | عنصر قائمة | أقصى مدة للرسالة (ثانية) | public/assets/js/app/pages/admin/integrations.js:481 |
 | INT-68 | رسالة | tag | public/assets/js/app/pages/admin/integrations.js:159 |
 | INT-69 | رسالة | tag | public/assets/js/app/pages/admin/integrations.js:160 |
 | INT-70 | رسالة | tag | public/assets/js/app/pages/admin/integrations.js:161 |
@@ -4307,130 +4410,134 @@
 
 ## SYS: صحة النظام والنسخ الاحتياطي (`/app#/system`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| SYS-01 | قائمة | (نص متغير) | public/assets/js/app/pages/admin/system.js:349 |
-| SYS-02 | نص | افحص الأدوات | public/assets/js/app/pages/admin/system.js:365 |
-| SYS-03 | قسم/بطاقة | لا شيء في الطابور الآن. | public/assets/js/app/pages/admin/system.js:355 |
-| SYS-04 | قائمة | … · مستند … : | public/assets/js/app/pages/admin/system.js:360 |
-| SYS-05 | نص | شغّل الآن | public/assets/js/app/pages/admin/system.js:370 |
-| SYS-08 | نص | الذاكرة المتاحة الآن: … من … . البحث في النص: … . | public/assets/js/app/pages/admin/system.js:352 |
-| SYS-11 | زر | فتح | public/assets/js/app/pages/admin/system.js:134 |
-| SYS-12 | قسم/بطاقة | جاهزية الإطلاق | public/assets/js/app/pages/admin/system.js:138 |
-| SYS-13 | قسم/بطاقة | جاهزية الإطلاق | public/assets/js/app/pages/admin/system.js:139 |
-| SYS-14 | بطاقة رقم | الإصدار | public/assets/js/app/pages/admin/system.js:147 |
-| SYS-15 | بطاقة رقم | مدة التشغيل | public/assets/js/app/pages/admin/system.js:148 |
-| SYS-16 | بطاقة رقم | قاعدة البيانات | public/assets/js/app/pages/admin/system.js:149 |
-| SYS-17 | بطاقة رقم | المرفقات | public/assets/js/app/pages/admin/system.js:150 |
-| SYS-18 | بطاقة رقم | المساحة الحرة على القرص | public/assets/js/app/pages/admin/system.js:157 |
-| SYS-19 | بطاقة رقم | آخر نسخة احتياطية | public/assets/js/app/pages/admin/system.js:166 |
-| SYS-20 | بطاقة رقم | رسائل صادرة فاشلة | public/assets/js/app/pages/admin/system.js:175 |
-| SYS-21 | قسم/بطاقة | الخادم | public/assets/js/app/pages/admin/system.js:195 |
-| SYS-22 | قسم/بطاقة | الخادم | public/assets/js/app/pages/admin/system.js:196 |
-| SYS-23 | عنصر قائمة | الجدول | public/assets/js/app/pages/admin/system.js:216 |
-| SYS-24 | عنصر قائمة | عدد السجلات | public/assets/js/app/pages/admin/system.js:217 |
-| SYS-25 | جدول | عدد السجلات في الجداول الرئيسية | public/assets/js/app/pages/admin/system.js:220 |
-| SYS-26 | جدول | عدد السجلات في الجداول الرئيسية | public/assets/js/app/pages/admin/system.js:221 |
-| SYS-27 | قسم/بطاقة | قاعدة البيانات والسجلات | public/assets/js/app/pages/admin/system.js:224 |
-| SYS-28 | قسم/بطاقة | قاعدة البيانات والسجلات | public/assets/js/app/pages/admin/system.js:225 |
-| SYS-29 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/system.js:240 |
-| SYS-30 | عنصر قائمة | التكرار | public/assets/js/app/pages/admin/system.js:241 |
-| SYS-31 | عنصر قائمة | آخر تشغيل | public/assets/js/app/pages/admin/system.js:242 |
-| SYS-32 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/system.js:247 |
-| SYS-33 | عنصر قائمة | مرات التشغيل | public/assets/js/app/pages/admin/system.js:249 |
-| SYS-34 | زر | تشغيل الآن | public/assets/js/app/pages/admin/system.js:263 |
-| SYS-35 | عنصر قائمة | إجراء | public/assets/js/app/pages/admin/system.js:265 |
-| SYS-36 | جدول | المهام الدورية | public/assets/js/app/pages/admin/system.js:269 |
-| SYS-37 | جدول | المهام الدورية | public/assets/js/app/pages/admin/system.js:270 |
-| SYS-38 | قسم/بطاقة | المهام الدورية | public/assets/js/app/pages/admin/system.js:272 |
-| SYS-39 | قسم/بطاقة | المهام الدورية | public/assets/js/app/pages/admin/system.js:273 |
-| SYS-40 | قسم/بطاقة | المستندات والصوت | public/assets/js/app/pages/admin/system.js:309 |
-| SYS-41 | قسم/بطاقة | المستندات والصوت | public/assets/js/app/pages/admin/system.js:309 |
-| SYS-42 | تنبيه | تعذر تحميل حالة المعالجة | public/assets/js/app/pages/admin/system.js:316 |
-| SYS-43 | زر | أُضيف … إلى الطابور | public/assets/js/app/pages/admin/system.js:342 |
-| SYS-44 | زر | افحص الأدوات | public/assets/js/app/pages/admin/system.js:366 |
-| SYS-45 | زر | شغّل الآن | public/assets/js/app/pages/admin/system.js:378 |
-| SYS-46 | زر | فتح صندوق الصادر | public/assets/js/app/pages/admin/system.js:405 |
-| SYS-47 | قسم/بطاقة | صندوق الصادر | public/assets/js/app/pages/admin/system.js:407 |
-| SYS-48 | قسم/بطاقة | صندوق الصادر | public/assets/js/app/pages/admin/system.js:408 |
-| SYS-49 | زر | إدارة التكاملات | public/assets/js/app/pages/admin/system.js:429 |
-| SYS-50 | قسم/بطاقة | التكاملات | public/assets/js/app/pages/admin/system.js:431 |
-| SYS-51 | قسم/بطاقة | التكاملات | public/assets/js/app/pages/admin/system.js:432 |
-| SYS-52 | عنصر قائمة | النسخ الاحتياطي اليومي التلقائي | public/assets/js/app/pages/admin/system.js:442 |
-| SYS-53 | عنصر قائمة | عدد النسخ المحتفظ بها | public/assets/js/app/pages/admin/system.js:443 |
-| SYS-54 | نافذة | إعدادات النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:447 |
-| SYS-55 | زر | تنزيل | public/assets/js/app/pages/admin/system.js:463 |
-| SYS-56 | نافذة | حذف نسخة احتياطية | public/assets/js/app/pages/admin/system.js:472 |
-| SYS-57 | زر | حذف | public/assets/js/app/pages/admin/system.js:482 |
-| SYS-58 | تنبيه | النسخ الاحتياطي متأخر | public/assets/js/app/pages/admin/system.js:486 |
-| SYS-59 | تنبيه | لا توجد نسخ احتياطية | public/assets/js/app/pages/admin/system.js:488 |
-| SYS-60 | زر | الإعدادات | public/assets/js/app/pages/admin/system.js:499 |
-| SYS-61 | زر | نسخ احتياطي الآن | public/assets/js/app/pages/admin/system.js:508 |
-| SYS-62 | تنبيه | قاعدة البيانات تعمل في الذاكرة؛ النسخ الاحتياطي غير متاح. | public/assets/js/app/pages/admin/system.js:515 |
-| SYS-63 | تنبيه | النسخ الاحتياطي اليومي التلقائي متوقف. فعّله من «الإعدادات». | public/assets/js/app/pages/admin/system.js:516 |
-| SYS-64 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/system.js:523 |
-| SYS-65 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/system.js:524 |
-| SYS-66 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/system.js:525 |
-| SYS-67 | عنصر قائمة | الحجم | public/assets/js/app/pages/admin/system.js:526 |
-| SYS-68 | عنصر قائمة | فحص السلامة | public/assets/js/app/pages/admin/system.js:527 |
-| SYS-69 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/system.js:528 |
-| SYS-70 | جدول | النسخ الاحتياطية المتاحة على الخادم | public/assets/js/app/pages/admin/system.js:531 |
-| SYS-71 | جدول | النسخ الاحتياطية المتاحة على الخادم | public/assets/js/app/pages/admin/system.js:532 |
-| SYS-72 | حالة فارغة | لا توجد نسخ احتياطية محفوظة على الخادم بعد. | public/assets/js/app/pages/admin/system.js:534 |
-| SYS-73 | قسم/بطاقة | النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:537 |
-| SYS-74 | قسم/بطاقة | النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:538 |
-| SYS-75 | حقل | (نص متغير) | public/assets/js/app/pages/admin/system.js:548 |
-| SYS-76 | نافذة | تصدير كامل للمنصة | public/assets/js/app/pages/admin/system.js:562 |
-| SYS-77 | تنبيه | مفتاح التشفير مضبوط من APP_SECRET: اضبط نفس القيمة على الخادم الجديد… | public/assets/js/app/pages/admin/system.js:588 |
-| SYS-78 | زر | تنزيل التصدير الكامل | public/assets/js/app/pages/admin/system.js:591 |
-| SYS-79 | قسم/بطاقة | التصدير الكامل ونقل الخادم | public/assets/js/app/pages/admin/system.js:593 |
-| SYS-80 | قسم/بطاقة | التصدير الكامل ونقل الخادم | public/assets/js/app/pages/admin/system.js:594 |
-| SYS-81 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:608 |
-| SYS-82 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:608 |
-| SYS-83 | زر | تحديث | public/assets/js/app/pages/admin/system.js:617 |
-| SYS-84 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:618 |
-| SYS-85 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:619 |
+| SYS-01 | قائمة | (نص متغير) | public/assets/js/app/pages/admin/system.js:352 |
+| SYS-02 | نص | افحص الأدوات | public/assets/js/app/pages/admin/system.js:368 |
+| SYS-03 | قسم/بطاقة | لا شيء في الطابور الآن. | public/assets/js/app/pages/admin/system.js:358 |
+| SYS-04 | قائمة | … · مستند … : | public/assets/js/app/pages/admin/system.js:363 |
+| SYS-05 | نص | شغّل الآن | public/assets/js/app/pages/admin/system.js:373 |
+| SYS-06 | زر | حوّل الرسائل الصوتية المعلقة (آخر 30 يومًا) | public/assets/js/app/pages/admin/system.js:384 |
+| SYS-07 | زر | نظّف واقرأ المستندات القديمة | public/assets/js/app/pages/admin/system.js:385 |
+| SYS-08 | نص | الذاكرة المتاحة الآن: … من … . البحث في النص: … . | public/assets/js/app/pages/admin/system.js:355 |
+| SYS-09 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/system.js:127 |
+| SYS-10 | عنصر قائمة | (نص متغير) | public/assets/js/app/pages/admin/system.js:127 |
+| SYS-11 | زر | فتح | public/assets/js/app/pages/admin/system.js:136 |
+| SYS-12 | عنوان | جاهزية الإطلاق | public/assets/js/app/pages/admin/system.js:140 |
+| SYS-13 | قسم/بطاقة | جاهزية الإطلاق | public/assets/js/app/pages/admin/system.js:141 |
+| SYS-14 | بطاقة رقم | الإصدار | public/assets/js/app/pages/admin/system.js:149 |
+| SYS-15 | بطاقة رقم | مدة التشغيل | public/assets/js/app/pages/admin/system.js:150 |
+| SYS-16 | بطاقة رقم | قاعدة البيانات | public/assets/js/app/pages/admin/system.js:151 |
+| SYS-17 | بطاقة رقم | المرفقات | public/assets/js/app/pages/admin/system.js:152 |
+| SYS-18 | بطاقة رقم | المساحة الحرة على القرص | public/assets/js/app/pages/admin/system.js:159 |
+| SYS-19 | بطاقة رقم | آخر نسخة احتياطية | public/assets/js/app/pages/admin/system.js:168 |
+| SYS-20 | بطاقة رقم | رسائل صادرة فاشلة | public/assets/js/app/pages/admin/system.js:177 |
+| SYS-21 | عنوان | الخادم | public/assets/js/app/pages/admin/system.js:197 |
+| SYS-22 | قسم/بطاقة | الخادم | public/assets/js/app/pages/admin/system.js:198 |
+| SYS-23 | عنصر قائمة | الجدول | public/assets/js/app/pages/admin/system.js:218 |
+| SYS-24 | عنصر قائمة | عدد السجلات | public/assets/js/app/pages/admin/system.js:219 |
+| SYS-25 | جدول | عدد السجلات في الجداول الرئيسية | public/assets/js/app/pages/admin/system.js:222 |
+| SYS-26 | جدول | عدد السجلات في الجداول الرئيسية | public/assets/js/app/pages/admin/system.js:223 |
+| SYS-27 | عنوان | قاعدة البيانات والسجلات | public/assets/js/app/pages/admin/system.js:226 |
+| SYS-28 | قسم/بطاقة | قاعدة البيانات والسجلات | public/assets/js/app/pages/admin/system.js:227 |
+| SYS-29 | عنصر قائمة | المهمة | public/assets/js/app/pages/admin/system.js:242 |
+| SYS-30 | عنصر قائمة | التكرار | public/assets/js/app/pages/admin/system.js:243 |
+| SYS-31 | عنصر قائمة | آخر تشغيل | public/assets/js/app/pages/admin/system.js:244 |
+| SYS-32 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/system.js:249 |
+| SYS-33 | عنصر قائمة | مرات التشغيل | public/assets/js/app/pages/admin/system.js:251 |
+| SYS-34 | زر | تشغيل الآن | public/assets/js/app/pages/admin/system.js:265 |
+| SYS-35 | عنصر قائمة | إجراء | public/assets/js/app/pages/admin/system.js:267 |
+| SYS-36 | جدول | المهام الدورية | public/assets/js/app/pages/admin/system.js:271 |
+| SYS-37 | جدول | المهام الدورية | public/assets/js/app/pages/admin/system.js:272 |
+| SYS-38 | عنوان | المهام الدورية | public/assets/js/app/pages/admin/system.js:274 |
+| SYS-39 | قسم/بطاقة | المهام الدورية | public/assets/js/app/pages/admin/system.js:275 |
+| SYS-40 | عنوان | المستندات والصوت | public/assets/js/app/pages/admin/system.js:312 |
+| SYS-41 | قسم/بطاقة | المستندات والصوت | public/assets/js/app/pages/admin/system.js:312 |
+| SYS-42 | تنبيه | تعذر تحميل حالة المعالجة | public/assets/js/app/pages/admin/system.js:319 |
+| SYS-43 | زر | أُضيف … إلى الطابور | public/assets/js/app/pages/admin/system.js:345 |
+| SYS-44 | زر | افحص الأدوات | public/assets/js/app/pages/admin/system.js:369 |
+| SYS-45 | زر | شغّل الآن | public/assets/js/app/pages/admin/system.js:381 |
+| SYS-46 | زر | فتح صندوق الصادر | public/assets/js/app/pages/admin/system.js:408 |
+| SYS-47 | عنوان | صندوق الصادر | public/assets/js/app/pages/admin/system.js:410 |
+| SYS-48 | قسم/بطاقة | صندوق الصادر | public/assets/js/app/pages/admin/system.js:411 |
+| SYS-49 | زر | إدارة التكاملات | public/assets/js/app/pages/admin/system.js:432 |
+| SYS-50 | عنوان | التكاملات | public/assets/js/app/pages/admin/system.js:434 |
+| SYS-51 | قسم/بطاقة | التكاملات | public/assets/js/app/pages/admin/system.js:435 |
+| SYS-52 | عنصر قائمة | النسخ الاحتياطي اليومي التلقائي | public/assets/js/app/pages/admin/system.js:445 |
+| SYS-53 | عنصر قائمة | عدد النسخ المحتفظ بها | public/assets/js/app/pages/admin/system.js:446 |
+| SYS-54 | نافذة | إعدادات النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:450 |
+| SYS-55 | زر | تنزيل | public/assets/js/app/pages/admin/system.js:466 |
+| SYS-56 | نافذة | حذف نسخة احتياطية | public/assets/js/app/pages/admin/system.js:475 |
+| SYS-57 | زر | حذف | public/assets/js/app/pages/admin/system.js:485 |
+| SYS-58 | تنبيه | النسخ الاحتياطي متأخر | public/assets/js/app/pages/admin/system.js:489 |
+| SYS-59 | تنبيه | لا توجد نسخ احتياطية | public/assets/js/app/pages/admin/system.js:491 |
+| SYS-60 | زر | الإعدادات | public/assets/js/app/pages/admin/system.js:502 |
+| SYS-61 | زر | نسخ احتياطي الآن | public/assets/js/app/pages/admin/system.js:511 |
+| SYS-62 | تنبيه | قاعدة البيانات تعمل في الذاكرة؛ النسخ الاحتياطي غير متاح. | public/assets/js/app/pages/admin/system.js:518 |
+| SYS-63 | تنبيه | النسخ الاحتياطي اليومي التلقائي متوقف. فعّله من «الإعدادات». | public/assets/js/app/pages/admin/system.js:519 |
+| SYS-64 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/system.js:526 |
+| SYS-65 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/system.js:527 |
+| SYS-66 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/system.js:528 |
+| SYS-67 | عنصر قائمة | الحجم | public/assets/js/app/pages/admin/system.js:529 |
+| SYS-68 | عنصر قائمة | فحص السلامة | public/assets/js/app/pages/admin/system.js:530 |
+| SYS-69 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/system.js:531 |
+| SYS-70 | جدول | النسخ الاحتياطية المتاحة على الخادم | public/assets/js/app/pages/admin/system.js:534 |
+| SYS-71 | جدول | النسخ الاحتياطية المتاحة على الخادم | public/assets/js/app/pages/admin/system.js:535 |
+| SYS-72 | حالة فارغة | لا توجد نسخ احتياطية محفوظة على الخادم بعد. | public/assets/js/app/pages/admin/system.js:537 |
+| SYS-73 | عنوان | النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:540 |
+| SYS-74 | قسم/بطاقة | النسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:541 |
+| SYS-75 | حقل | (نص متغير) | public/assets/js/app/pages/admin/system.js:551 |
+| SYS-76 | نافذة | تصدير كامل للمنصة | public/assets/js/app/pages/admin/system.js:565 |
+| SYS-77 | تنبيه | مفتاح التشفير مضبوط من APP_SECRET: اضبط نفس القيمة على الخادم الجديد… | public/assets/js/app/pages/admin/system.js:591 |
+| SYS-78 | زر | تنزيل التصدير الكامل | public/assets/js/app/pages/admin/system.js:594 |
+| SYS-79 | عنوان | التصدير الكامل ونقل الخادم | public/assets/js/app/pages/admin/system.js:596 |
+| SYS-80 | قسم/بطاقة | التصدير الكامل ونقل الخادم | public/assets/js/app/pages/admin/system.js:597 |
+| SYS-81 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:611 |
+| SYS-82 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:611 |
+| SYS-83 | زر | تحديث | public/assets/js/app/pages/admin/system.js:620 |
+| SYS-84 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:621 |
+| SYS-85 | عنوان | صحة النظام والنسخ الاحتياطي | public/assets/js/app/pages/admin/system.js:622 |
 
 ## AUD: سجل الأمان (`/app#/audit`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| AUD-01 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/audit.js:164 |
-| AUD-02 | نافذة | الوقت | public/assets/js/app/pages/admin/audit.js:165 |
-| AUD-03 | بطاقة رقم | دخول ناجح (24 ساعة) | public/assets/js/app/pages/admin/audit.js:202 |
-| AUD-04 | بطاقة رقم | محاولات فاشلة (24 ساعة) | public/assets/js/app/pages/admin/audit.js:203 |
-| AUD-05 | بطاقة رقم | إيقاف مؤقت (7 أيام) | public/assets/js/app/pages/admin/audit.js:204 |
-| AUD-06 | بطاقة رقم | أحداث حرجة (7 أيام) | public/assets/js/app/pages/admin/audit.js:205 |
-| AUD-07 | بطاقة رقم | جلسات نشطة الآن | public/assets/js/app/pages/admin/audit.js:206 |
-| AUD-08 | بطاقة رقم | مديرو نظام بدون تحقق بخطوتين | public/assets/js/app/pages/admin/audit.js:207 |
-| AUD-09 | حقل | بحث في سجل الأمان | public/assets/js/app/pages/admin/audit.js:215 |
-| AUD-10 | حقل | نوع الحدث | public/assets/js/app/pages/admin/audit.js:216 |
-| AUD-11 | حقل | درجة الخطورة | public/assets/js/app/pages/admin/audit.js:217 |
-| AUD-12 | حقل | المستخدم | public/assets/js/app/pages/admin/audit.js:218 |
-| AUD-13 | حقل | (نص متغير) | public/assets/js/app/pages/admin/audit.js:220 |
-| AUD-14 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/audit.js:223 |
-| AUD-15 | زر | تصدير CSV | public/assets/js/app/pages/admin/audit.js:231 |
-| AUD-16 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/audit.js:266 |
-| AUD-17 | حالة فارغة | لا توجد أحداث تطابق الفلاتر المحددة | public/assets/js/app/pages/admin/audit.js:266 |
-| AUD-18 | عنصر قائمة | الوقت | public/assets/js/app/pages/admin/audit.js:278 |
-| AUD-19 | عنصر قائمة | الخطورة | public/assets/js/app/pages/admin/audit.js:279 |
-| AUD-20 | عنصر قائمة | الحدث | public/assets/js/app/pages/admin/audit.js:280 |
-| AUD-21 | عنصر قائمة | المستخدم | public/assets/js/app/pages/admin/audit.js:281 |
-| AUD-22 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/audit.js:282 |
-| AUD-23 | عنصر قائمة | العنوان والجهاز | public/assets/js/app/pages/admin/audit.js:283 |
-| AUD-24 | جدول | أحداث سجل الأمان | public/assets/js/app/pages/admin/audit.js:285 |
-| AUD-25 | جدول | أحداث سجل الأمان | public/assets/js/app/pages/admin/audit.js:286 |
-| AUD-26 | قائمة روابط | صفحات النتائج | public/assets/js/app/pages/admin/audit.js:291 |
-| AUD-27 | زر | السابق | public/assets/js/app/pages/admin/audit.js:292 |
-| AUD-28 | زر | التالي | public/assets/js/app/pages/admin/audit.js:294 |
-| AUD-29 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/audit.js:309 |
-| AUD-30 | عنوان | سجل الأمان | public/assets/js/app/pages/admin/audit.js:311 |
-| AUD-31 | عنوان | سجل الأمان | public/assets/js/app/pages/admin/audit.js:312 |
-| AUD-32 | قسم/بطاقة | من | public/assets/js/app/pages/admin/audit.js:322 |
+| AUD-01 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/audit.js:171 |
+| AUD-02 | نافذة | الوقت | public/assets/js/app/pages/admin/audit.js:172 |
+| AUD-03 | بطاقة رقم | دخول ناجح (24 ساعة) | public/assets/js/app/pages/admin/audit.js:209 |
+| AUD-04 | بطاقة رقم | محاولات فاشلة (24 ساعة) | public/assets/js/app/pages/admin/audit.js:210 |
+| AUD-05 | بطاقة رقم | إيقاف مؤقت (7 أيام) | public/assets/js/app/pages/admin/audit.js:211 |
+| AUD-06 | بطاقة رقم | أحداث حرجة (7 أيام) | public/assets/js/app/pages/admin/audit.js:212 |
+| AUD-07 | بطاقة رقم | جلسات نشطة الآن | public/assets/js/app/pages/admin/audit.js:213 |
+| AUD-08 | بطاقة رقم | مديرو نظام بدون تحقق بخطوتين | public/assets/js/app/pages/admin/audit.js:214 |
+| AUD-09 | حقل | بحث في سجل الأمان | public/assets/js/app/pages/admin/audit.js:222 |
+| AUD-10 | حقل | نوع الحدث | public/assets/js/app/pages/admin/audit.js:223 |
+| AUD-11 | حقل | درجة الخطورة | public/assets/js/app/pages/admin/audit.js:224 |
+| AUD-12 | حقل | المستخدم | public/assets/js/app/pages/admin/audit.js:225 |
+| AUD-13 | حقل | (نص متغير) | public/assets/js/app/pages/admin/audit.js:227 |
+| AUD-14 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/audit.js:230 |
+| AUD-15 | زر | تصدير CSV | public/assets/js/app/pages/admin/audit.js:238 |
+| AUD-16 | زر | مسح الفلاتر | public/assets/js/app/pages/admin/audit.js:273 |
+| AUD-17 | حالة فارغة | لا توجد أحداث تطابق الفلاتر المحددة | public/assets/js/app/pages/admin/audit.js:273 |
+| AUD-18 | عنصر قائمة | الوقت | public/assets/js/app/pages/admin/audit.js:285 |
+| AUD-19 | عنصر قائمة | الخطورة | public/assets/js/app/pages/admin/audit.js:286 |
+| AUD-20 | عنصر قائمة | الحدث | public/assets/js/app/pages/admin/audit.js:287 |
+| AUD-21 | عنصر قائمة | المستخدم | public/assets/js/app/pages/admin/audit.js:288 |
+| AUD-22 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/audit.js:289 |
+| AUD-23 | عنصر قائمة | العنوان والجهاز | public/assets/js/app/pages/admin/audit.js:290 |
+| AUD-24 | جدول | أحداث سجل الأمان | public/assets/js/app/pages/admin/audit.js:292 |
+| AUD-25 | جدول | أحداث سجل الأمان | public/assets/js/app/pages/admin/audit.js:293 |
+| AUD-26 | قائمة روابط | صفحات النتائج | public/assets/js/app/pages/admin/audit.js:298 |
+| AUD-27 | زر | السابق | public/assets/js/app/pages/admin/audit.js:299 |
+| AUD-28 | زر | التالي | public/assets/js/app/pages/admin/audit.js:301 |
+| AUD-29 | عنصر قائمة | لوحة المتابعة | public/assets/js/app/pages/admin/audit.js:316 |
+| AUD-30 | عنوان | سجل الأمان | public/assets/js/app/pages/admin/audit.js:318 |
+| AUD-31 | عنوان | سجل الأمان | public/assets/js/app/pages/admin/audit.js:319 |
+| AUD-32 | قسم/بطاقة | من | public/assets/js/app/pages/admin/audit.js:329 |
 
 ## DAT: استيراد وتصدير البيانات (`/app#/data`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | DAT-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/data.js:52 |
 | DAT-02 | تنبيه | تنبيه خصوصية | public/assets/js/app/pages/admin/data.js:78 |
@@ -4468,14 +4575,14 @@
 | DAT-34 | عنصر قائمة | تصدير | public/assets/js/app/pages/admin/data.js:303 |
 | DAT-35 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/admin/data.js:304 |
 | DAT-36 | عنصر قائمة | استيراد | public/assets/js/app/pages/admin/data.js:304 |
-| DAT-37 | قسم/بطاقة | آخر العمليات | public/assets/js/app/pages/admin/data.js:305 |
+| DAT-37 | عنوان | آخر العمليات | public/assets/js/app/pages/admin/data.js:305 |
 | DAT-38 | قسم/بطاقة | آخر العمليات | public/assets/js/app/pages/admin/data.js:305 |
 | DAT-39 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/data.js:305 |
 | DAT-40 | خيار | تصدير | public/assets/js/app/pages/admin/data.js:307 |
 
 ## CAL: التقويم (`/app#/calendar`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CAL-01 | زر | سجّل النتيجة | public/assets/js/app/pages/admin/calendar.js:85 |
 | CAL-02 | رابط | (نص متغير) | public/assets/js/app/pages/admin/calendar.js:97 |
@@ -4499,7 +4606,7 @@
 | CAL-20 | سؤال قابل للفتح | متأخرات تجاوزت تاريخها دون إنجاز: … | public/assets/js/app/pages/admin/calendar.js:344 |
 | CAL-21 | عنوان | متأخرات تجاوزت تاريخها دون إنجاز: … | public/assets/js/app/pages/admin/calendar.js:344 |
 | CAL-22 | حالة فارغة | لا توجد مواعيد في هذا اليوم | public/assets/js/app/pages/admin/calendar.js:355 |
-| CAL-23 | قسم/بطاقة | اليوم — … | public/assets/js/app/pages/admin/calendar.js:356 |
+| CAL-23 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/calendar.js:356 |
 | CAL-24 | قسم/بطاقة | اليوم — … | public/assets/js/app/pages/admin/calendar.js:357 |
 | CAL-25 | زر | موعد واحد | public/assets/js/app/pages/admin/calendar.js:386 |
 | CAL-26 | زر | +… أخرى | public/assets/js/app/pages/admin/calendar.js:405 |
@@ -4528,7 +4635,7 @@
 
 ## IMP: تقرير الأثر (`/app#/impact`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | IMP-01 | حالة فارغة | (نص متغير) | public/assets/js/app/pages/admin/impact.js:16 |
 | IMP-02 | سؤال قابل للفتح | عرض البيانات كجدول | public/assets/js/app/pages/admin/impact.js:39 |
@@ -4549,25 +4656,25 @@
 | IMP-17 | بطاقة رقم | متوسط زمن أول رد | public/assets/js/app/pages/admin/impact.js:229 |
 | IMP-18 | بطاقة رقم | رضا المستفيدين | public/assets/js/app/pages/admin/impact.js:231 |
 | IMP-19 | حالة فارغة | لم يُسجَّل أثر مالي للملفات المغلقة في هذه الفترة. سجّله من بطاقة «ال… | public/assets/js/app/pages/admin/impact.js:250 |
-| IMP-20 | قسم/بطاقة | الحقوق المستردة للمستفيدين | public/assets/js/app/pages/admin/impact.js:251 |
+| IMP-20 | عنوان | الحقوق المستردة للمستفيدين | public/assets/js/app/pages/admin/impact.js:251 |
 | IMP-21 | قسم/بطاقة | الحقوق المستردة للمستفيدين | public/assets/js/app/pages/admin/impact.js:252 |
-| IMP-22 | قسم/بطاقة | الملفات المغلقة حسب النتيجة | public/assets/js/app/pages/admin/impact.js:259 |
+| IMP-22 | عنوان | الملفات المغلقة حسب النتيجة | public/assets/js/app/pages/admin/impact.js:259 |
 | IMP-23 | قسم/بطاقة | الملفات المغلقة حسب النتيجة | public/assets/js/app/pages/admin/impact.js:260 |
-| IMP-24 | قسم/بطاقة | المستفيدون | public/assets/js/app/pages/admin/impact.js:272 |
+| IMP-24 | عنوان | المستفيدون | public/assets/js/app/pages/admin/impact.js:272 |
 | IMP-25 | قسم/بطاقة | المستفيدون | public/assets/js/app/pages/admin/impact.js:273 |
-| IMP-26 | قسم/بطاقة | حسب المجال القانوني | public/assets/js/app/pages/admin/impact.js:280 |
+| IMP-26 | عنوان | حسب المجال القانوني | public/assets/js/app/pages/admin/impact.js:280 |
 | IMP-27 | قسم/بطاقة | حسب المجال القانوني | public/assets/js/app/pages/admin/impact.js:281 |
-| IMP-28 | قسم/بطاقة | حسب المحافظة | public/assets/js/app/pages/admin/impact.js:287 |
+| IMP-28 | عنوان | حسب المحافظة | public/assets/js/app/pages/admin/impact.js:287 |
 | IMP-29 | قسم/بطاقة | حسب المحافظة | public/assets/js/app/pages/admin/impact.js:288 |
 | IMP-30 | عنوان | القيمة السنوية للحقوق المستردة شهريًا | public/assets/js/app/pages/admin/impact.js:297 |
-| IMP-31 | قسم/بطاقة | الاتجاه الشهري | public/assets/js/app/pages/admin/impact.js:300 |
+| IMP-31 | عنوان | الاتجاه الشهري | public/assets/js/app/pages/admin/impact.js:300 |
 | IMP-32 | قسم/بطاقة | الاتجاه الشهري | public/assets/js/app/pages/admin/impact.js:301 |
-| IMP-33 | قسم/بطاقة | المحامون المتطوعون وبرامج المسؤولية المجتمعية | public/assets/js/app/pages/admin/impact.js:314 |
+| IMP-33 | عنوان | المحامون المتطوعون وبرامج المسؤولية المجتمعية | public/assets/js/app/pages/admin/impact.js:314 |
 | IMP-34 | قسم/بطاقة | المحامون المتطوعون وبرامج المسؤولية المجتمعية | public/assets/js/app/pages/admin/impact.js:315 |
 | IMP-35 | زر | ضبط المهلة | public/assets/js/app/pages/admin/impact.js:321 |
-| IMP-36 | قسم/بطاقة | زمن الاستجابة ومستوى الخدمة | public/assets/js/app/pages/admin/impact.js:332 |
+| IMP-36 | عنوان | زمن الاستجابة ومستوى الخدمة | public/assets/js/app/pages/admin/impact.js:332 |
 | IMP-37 | قسم/بطاقة | زمن الاستجابة ومستوى الخدمة | public/assets/js/app/pages/admin/impact.js:333 |
-| IMP-38 | قسم/بطاقة | منهجية الحساب | public/assets/js/app/pages/admin/impact.js:348 |
+| IMP-38 | عنوان | منهجية الحساب | public/assets/js/app/pages/admin/impact.js:348 |
 | IMP-39 | قسم/بطاقة | منهجية الحساب | public/assets/js/app/pages/admin/impact.js:349 |
 | IMP-40 | تنبيه | لا توجد الآن طلبات تجاوزت مهلة أول رد (… ). | public/assets/js/app/pages/admin/impact.js:371 |
 | IMP-41 | تنبيه | متأخرة عن مستوى الخدمة | public/assets/js/app/pages/admin/impact.js:378 |
@@ -4582,12 +4689,12 @@
 | IMP-50 | عنصر قائمة | إلى تاريخ | public/assets/js/app/pages/admin/impact.js:394 |
 | IMP-51 | عنصر قائمة | المجال القانوني | public/assets/js/app/pages/admin/impact.js:395 |
 | IMP-52 | عنصر قائمة | المحافظة | public/assets/js/app/pages/admin/impact.js:396 |
-| IMP-53 | نموذج | من تاريخ | public/assets/js/app/pages/admin/impact.js:410 |
+| IMP-53 | زر | عرض التقرير | public/assets/js/app/pages/admin/impact.js:410 |
 | IMP-54 | نموذج | من تاريخ | public/assets/js/app/pages/admin/impact.js:411 |
 
 ## CNF: فحص تعارض المصالح (`/app#/conflicts`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CNF-01 | تنبيه | تعارض مصالح محتمل | public/assets/js/app/pages/admin/conflicts.js:63 |
 | CNF-02 | تنبيه | يحتاج مراجعة | public/assets/js/app/pages/admin/conflicts.js:65 |
@@ -4605,23 +4712,23 @@
 | CNF-14 | جدول | آخر نتائج فحص تعارض المصالح التي وُجد فيها تطابق | public/assets/js/app/pages/admin/conflicts.js:111 |
 | CNF-15 | جدول | آخر نتائج فحص تعارض المصالح التي وُجد فيها تطابق | public/assets/js/app/pages/admin/conflicts.js:112 |
 | CNF-16 | حالة فارغة | اكتب اسمًا أو رقمًا قوميًا ثم اضغط «افحص». | public/assets/js/app/pages/admin/conflicts.js:120 |
-| CNF-17 | قسم/بطاقة | كيف يعمل الفحص؟ | public/assets/js/app/pages/admin/conflicts.js:134 |
+| CNF-17 | عنوان | كيف يعمل الفحص؟ | public/assets/js/app/pages/admin/conflicts.js:134 |
 | CNF-18 | قسم/بطاقة | كيف يعمل الفحص؟ | public/assets/js/app/pages/admin/conflicts.js:135 |
 | CNF-19 | عنوان | فحص تعارض المصالح | public/assets/js/app/pages/admin/conflicts.js:143 |
 | CNF-20 | عنوان | فحص تعارض المصالح | public/assets/js/app/pages/admin/conflicts.js:144 |
-| CNF-21 | قسم/بطاقة | فحص اسم | public/assets/js/app/pages/admin/conflicts.js:146 |
+| CNF-21 | عنوان | فحص اسم | public/assets/js/app/pages/admin/conflicts.js:146 |
 | CNF-22 | قسم/بطاقة | فحص اسم | public/assets/js/app/pages/admin/conflicts.js:146 |
-| CNF-23 | قسم/بطاقة | آخر التنبيهات | public/assets/js/app/pages/admin/conflicts.js:146 |
+| CNF-23 | عنوان | آخر التنبيهات | public/assets/js/app/pages/admin/conflicts.js:146 |
 | CNF-24 | قسم/بطاقة | آخر التنبيهات | public/assets/js/app/pages/admin/conflicts.js:146 |
 | CNF-25 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/conflicts.js:15 |
 | CNF-26 | عنصر قائمة | الرقم القومي (اختياري) | public/assets/js/app/pages/admin/conflicts.js:16 |
 | CNF-27 | عنصر قائمة | صفة الشخص المطلوب فحصه | public/assets/js/app/pages/admin/conflicts.js:27 |
-| CNF-28 | نموذج | الاسم | public/assets/js/app/pages/admin/conflicts.js:53 |
+| CNF-28 | زر | افحص | public/assets/js/app/pages/admin/conflicts.js:53 |
 | CNF-29 | نموذج | الاسم | public/assets/js/app/pages/admin/conflicts.js:54 |
 
 ## PRG: البرامج والتمويل (`/app#/programs`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | PRG-01 | نافذة | تعديل البرنامج … | public/assets/js/app/pages/admin/programs.js:163 |
 | PRG-02 | عنصر قائمة | نسب التنبيه من الميزانية | public/assets/js/app/pages/admin/programs.js:206 |
@@ -4657,77 +4764,77 @@
 | PRG-32 | زر | إعادة فتح البرنامج | public/assets/js/app/pages/admin/programs.js:467 |
 | PRG-33 | نافذة | حذف البرنامج | public/assets/js/app/pages/admin/programs.js:476 |
 | PRG-34 | زر | حذف | public/assets/js/app/pages/admin/programs.js:482 |
-| PRG-35 | عنصر قائمة | البرامج والتمويل | public/assets/js/app/pages/admin/programs.js:490 |
-| PRG-36 | عنوان | البرامج والتمويل | public/assets/js/app/pages/admin/programs.js:493 |
-| PRG-37 | عنوان | البرامج والتمويل | public/assets/js/app/pages/admin/programs.js:494 |
-| PRG-38 | تنبيه | أُغلق البرنامج … . لا يقبل ربط ملفات جديدة. | public/assets/js/app/pages/admin/programs.js:499 |
-| PRG-39 | تنبيه | تجاوز الميزانية | public/assets/js/app/pages/admin/programs.js:501 |
-| PRG-40 | تنبيه | اقتراب من حد الميزانية | public/assets/js/app/pages/admin/programs.js:502 |
-| PRG-41 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/programs.js:503 |
-| PRG-42 | بطاقة رقم | الميزانية | public/assets/js/app/pages/admin/programs.js:509 |
-| PRG-43 | بطاقة رقم | الإنفاق الفعلي | public/assets/js/app/pages/admin/programs.js:510 |
-| PRG-44 | بطاقة رقم | المتبقي | public/assets/js/app/pages/admin/programs.js:511 |
-| PRG-45 | بطاقة رقم | معدل الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:512 |
-| PRG-46 | بطاقة رقم | الأسر المستفيدة | public/assets/js/app/pages/admin/programs.js:513 |
-| PRG-47 | بطاقة رقم | متوسط الإنفاق للملف | public/assets/js/app/pages/admin/programs.js:515 |
-| PRG-48 | قسم/بطاقة | الميزانية والإنفاق | public/assets/js/app/pages/admin/programs.js:534 |
-| PRG-49 | قسم/بطاقة | الميزانية والإنفاق | public/assets/js/app/pages/admin/programs.js:535 |
-| PRG-50 | عنوان | قيود الصرف وشروط الجهة الممولة | public/assets/js/app/pages/admin/programs.js:551 |
-| PRG-51 | عنوان | الوصف | public/assets/js/app/pages/admin/programs.js:552 |
-| PRG-52 | قسم/بطاقة | بيانات البرنامج والجهة الممولة | public/assets/js/app/pages/admin/programs.js:554 |
-| PRG-53 | قسم/بطاقة | بيانات البرنامج والجهة الممولة | public/assets/js/app/pages/admin/programs.js:555 |
-| PRG-54 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:561 |
-| PRG-55 | رابط | دون اسم | public/assets/js/app/pages/admin/programs.js:562 |
-| PRG-56 | رابط | فتح الملف المستمر … | public/assets/js/app/pages/admin/programs.js:564 |
-| PRG-57 | نافذة | إلغاء ربط الملف بالبرنامج | public/assets/js/app/pages/admin/programs.js:584 |
-| PRG-58 | زر | إلغاء الربط | public/assets/js/app/pages/admin/programs.js:590 |
-| PRG-59 | زر | ربط ملف | public/assets/js/app/pages/admin/programs.js:601 |
-| PRG-60 | جدول | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:602 |
-| PRG-61 | جدول | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:602 |
-| PRG-62 | قسم/بطاقة | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:603 |
-| PRG-63 | قسم/بطاقة | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:604 |
-| PRG-64 | قسم/بطاقة | الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:628 |
-| PRG-65 | قسم/بطاقة | الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:629 |
-| PRG-66 | قسم/بطاقة | الإنفاق حسب البند | public/assets/js/app/pages/admin/programs.js:631 |
-| PRG-67 | قسم/بطاقة | الإنفاق حسب البند | public/assets/js/app/pages/admin/programs.js:631 |
-| PRG-68 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/programs.js:643 |
-| PRG-69 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/programs.js:644 |
-| PRG-70 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:645 |
-| PRG-71 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:645 |
-| PRG-72 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/programs.js:645 |
-| PRG-73 | عنصر قائمة | البند | public/assets/js/app/pages/admin/programs.js:646 |
-| PRG-74 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/programs.js:647 |
-| PRG-75 | جدول | بنود الإنفاق على البرنامج | public/assets/js/app/pages/admin/programs.js:649 |
-| PRG-76 | جدول | بنود الإنفاق على البرنامج | public/assets/js/app/pages/admin/programs.js:650 |
-| PRG-77 | قسم/بطاقة | بنود الإنفاق | public/assets/js/app/pages/admin/programs.js:652 |
-| PRG-78 | قسم/بطاقة | بنود الإنفاق | public/assets/js/app/pages/admin/programs.js:653 |
-| PRG-79 | بطاقة رقم | الأسر المستفيدة | public/assets/js/app/pages/admin/programs.js:666 |
-| PRG-80 | بطاقة رقم | استشارات أُرسل ردها للمستفيد | public/assets/js/app/pages/admin/programs.js:667 |
-| PRG-81 | بطاقة رقم | ملفات مستمرة (تقاضٍ ومتابعة) | public/assets/js/app/pages/admin/programs.js:668 |
-| PRG-82 | بطاقة رقم | جلسات حُضرت | public/assets/js/app/pages/admin/programs.js:669 |
-| PRG-83 | قسم/بطاقة | نتائج الملفات المغلقة (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:674 |
-| PRG-84 | قسم/بطاقة | نتائج الملفات المغلقة (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:674 |
-| PRG-85 | قسم/بطاقة | حالة الملفات (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:675 |
-| PRG-86 | قسم/بطاقة | حالة الملفات (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:675 |
-| PRG-87 | قسم/بطاقة | المجالات القانونية (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:676 |
-| PRG-88 | قسم/بطاقة | المجالات القانونية (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:676 |
-| PRG-89 | قسم/بطاقة | التوزيع الجغرافي (عدد الأسر) | public/assets/js/app/pages/admin/programs.js:677 |
-| PRG-90 | قسم/بطاقة | التوزيع الجغرافي (عدد الأسر) | public/assets/js/app/pages/admin/programs.js:677 |
-| PRG-91 | قسم/بطاقة | مؤشرات الأثر | public/assets/js/app/pages/admin/programs.js:680 |
-| PRG-92 | قسم/بطاقة | مؤشرات الأثر | public/assets/js/app/pages/admin/programs.js:680 |
-| PRG-93 | حالة فارغة | لم يصدر أي تنبيه لهذا البرنامج بعد | public/assets/js/app/pages/admin/programs.js:704 |
-| PRG-94 | قسم/بطاقة | تنبيهات الميزانية | public/assets/js/app/pages/admin/programs.js:705 |
-| PRG-95 | قسم/بطاقة | تنبيهات الميزانية | public/assets/js/app/pages/admin/programs.js:706 |
-| PRG-96 | حالة فارغة | لا توجد ملفات مطابقة غير مرتبطة بهذا البرنامج | public/assets/js/app/pages/admin/programs.js:726 |
-| PRG-97 | زر | رُبط الملف … بالبرنامج | public/assets/js/app/pages/admin/programs.js:754 |
-| PRG-98 | حقل | البحث عن ملف | public/assets/js/app/pages/admin/programs.js:775 |
-| PRG-99 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/programs.js:778 |
-| PRG-100 | نافذة | ربط ملف ببرنامج | public/assets/js/app/pages/admin/programs.js:779 |
-| PRG-101 | عنصر قائمة | الملفات | public/assets/js/app/pages/admin/programs.js:787 |
-| PRG-102 | عنصر قائمة | الإنفاق | public/assets/js/app/pages/admin/programs.js:788 |
-| PRG-103 | عنصر قائمة | النتائج والأثر | public/assets/js/app/pages/admin/programs.js:789 |
-| PRG-104 | عنصر قائمة | التنبيهات | public/assets/js/app/pages/admin/programs.js:790 |
-| PRG-105 | خيار | الملفات | public/assets/js/app/pages/admin/programs.js:792 |
+| PRG-35 | عنصر قائمة | البرامج والتمويل | public/assets/js/app/pages/admin/programs.js:491 |
+| PRG-36 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/programs.js:494 |
+| PRG-37 | عنوان | البرامج والتمويل | public/assets/js/app/pages/admin/programs.js:495 |
+| PRG-38 | تنبيه | أُغلق البرنامج … . لا يقبل ربط ملفات جديدة. | public/assets/js/app/pages/admin/programs.js:500 |
+| PRG-39 | تنبيه | تجاوز الميزانية | public/assets/js/app/pages/admin/programs.js:502 |
+| PRG-40 | تنبيه | اقتراب من حد الميزانية | public/assets/js/app/pages/admin/programs.js:503 |
+| PRG-41 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/programs.js:504 |
+| PRG-42 | بطاقة رقم | الميزانية | public/assets/js/app/pages/admin/programs.js:510 |
+| PRG-43 | بطاقة رقم | الإنفاق الفعلي | public/assets/js/app/pages/admin/programs.js:511 |
+| PRG-44 | بطاقة رقم | المتبقي | public/assets/js/app/pages/admin/programs.js:512 |
+| PRG-45 | بطاقة رقم | معدل الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:513 |
+| PRG-46 | بطاقة رقم | الأسر المستفيدة | public/assets/js/app/pages/admin/programs.js:514 |
+| PRG-47 | بطاقة رقم | متوسط الإنفاق للملف | public/assets/js/app/pages/admin/programs.js:516 |
+| PRG-48 | عنوان | الميزانية والإنفاق | public/assets/js/app/pages/admin/programs.js:535 |
+| PRG-49 | قسم/بطاقة | الميزانية والإنفاق | public/assets/js/app/pages/admin/programs.js:536 |
+| PRG-50 | عنوان | قيود الصرف وشروط الجهة الممولة | public/assets/js/app/pages/admin/programs.js:552 |
+| PRG-51 | عنوان | الوصف | public/assets/js/app/pages/admin/programs.js:553 |
+| PRG-52 | عنوان | بيانات البرنامج والجهة الممولة | public/assets/js/app/pages/admin/programs.js:555 |
+| PRG-53 | قسم/بطاقة | بيانات البرنامج والجهة الممولة | public/assets/js/app/pages/admin/programs.js:556 |
+| PRG-54 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:562 |
+| PRG-55 | رابط | دون اسم | public/assets/js/app/pages/admin/programs.js:563 |
+| PRG-56 | رابط | فتح الملف المستمر … | public/assets/js/app/pages/admin/programs.js:565 |
+| PRG-57 | نافذة | إلغاء ربط الملف بالبرنامج | public/assets/js/app/pages/admin/programs.js:585 |
+| PRG-58 | زر | إلغاء الربط | public/assets/js/app/pages/admin/programs.js:591 |
+| PRG-59 | زر | ربط ملف | public/assets/js/app/pages/admin/programs.js:602 |
+| PRG-60 | جدول | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:603 |
+| PRG-61 | جدول | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:603 |
+| PRG-62 | عنوان | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:604 |
+| PRG-63 | قسم/بطاقة | الملفات المرتبطة بالبرنامج | public/assets/js/app/pages/admin/programs.js:605 |
+| PRG-64 | عنوان | الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:629 |
+| PRG-65 | قسم/بطاقة | الإنفاق الشهري | public/assets/js/app/pages/admin/programs.js:630 |
+| PRG-66 | عنوان | الإنفاق حسب البند | public/assets/js/app/pages/admin/programs.js:632 |
+| PRG-67 | قسم/بطاقة | الإنفاق حسب البند | public/assets/js/app/pages/admin/programs.js:632 |
+| PRG-68 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/programs.js:644 |
+| PRG-69 | عنصر قائمة | البيان | public/assets/js/app/pages/admin/programs.js:645 |
+| PRG-70 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:646 |
+| PRG-71 | رابط | (نص متغير) | public/assets/js/app/pages/admin/programs.js:646 |
+| PRG-72 | عنصر قائمة | الملف | public/assets/js/app/pages/admin/programs.js:646 |
+| PRG-73 | عنصر قائمة | البند | public/assets/js/app/pages/admin/programs.js:647 |
+| PRG-74 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/programs.js:648 |
+| PRG-75 | جدول | بنود الإنفاق على البرنامج | public/assets/js/app/pages/admin/programs.js:650 |
+| PRG-76 | جدول | بنود الإنفاق على البرنامج | public/assets/js/app/pages/admin/programs.js:651 |
+| PRG-77 | عنوان | بنود الإنفاق | public/assets/js/app/pages/admin/programs.js:653 |
+| PRG-78 | قسم/بطاقة | بنود الإنفاق | public/assets/js/app/pages/admin/programs.js:654 |
+| PRG-79 | بطاقة رقم | الأسر المستفيدة | public/assets/js/app/pages/admin/programs.js:667 |
+| PRG-80 | بطاقة رقم | استشارات أُرسل ردها للمستفيد | public/assets/js/app/pages/admin/programs.js:668 |
+| PRG-81 | بطاقة رقم | ملفات مستمرة (تقاضٍ ومتابعة) | public/assets/js/app/pages/admin/programs.js:669 |
+| PRG-82 | بطاقة رقم | جلسات حُضرت | public/assets/js/app/pages/admin/programs.js:670 |
+| PRG-83 | عنوان | نتائج الملفات المغلقة (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:675 |
+| PRG-84 | قسم/بطاقة | نتائج الملفات المغلقة (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:675 |
+| PRG-85 | عنوان | حالة الملفات (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:676 |
+| PRG-86 | قسم/بطاقة | حالة الملفات (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:676 |
+| PRG-87 | عنوان | المجالات القانونية (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:677 |
+| PRG-88 | قسم/بطاقة | المجالات القانونية (عدد الملفات) | public/assets/js/app/pages/admin/programs.js:677 |
+| PRG-89 | عنوان | التوزيع الجغرافي (عدد الأسر) | public/assets/js/app/pages/admin/programs.js:678 |
+| PRG-90 | قسم/بطاقة | التوزيع الجغرافي (عدد الأسر) | public/assets/js/app/pages/admin/programs.js:678 |
+| PRG-91 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/programs.js:681 |
+| PRG-92 | قسم/بطاقة | مؤشرات الأثر | public/assets/js/app/pages/admin/programs.js:681 |
+| PRG-93 | حالة فارغة | لم يصدر أي تنبيه لهذا البرنامج بعد | public/assets/js/app/pages/admin/programs.js:705 |
+| PRG-94 | عنوان | تنبيهات الميزانية | public/assets/js/app/pages/admin/programs.js:706 |
+| PRG-95 | قسم/بطاقة | تنبيهات الميزانية | public/assets/js/app/pages/admin/programs.js:707 |
+| PRG-96 | حالة فارغة | لا توجد ملفات مطابقة غير مرتبطة بهذا البرنامج | public/assets/js/app/pages/admin/programs.js:727 |
+| PRG-97 | زر | رُبط الملف … بالبرنامج | public/assets/js/app/pages/admin/programs.js:755 |
+| PRG-98 | حقل | البحث عن ملف | public/assets/js/app/pages/admin/programs.js:776 |
+| PRG-99 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/programs.js:779 |
+| PRG-100 | نافذة | ربط ملف ببرنامج | public/assets/js/app/pages/admin/programs.js:780 |
+| PRG-101 | عنصر قائمة | الملفات | public/assets/js/app/pages/admin/programs.js:788 |
+| PRG-102 | عنصر قائمة | الإنفاق | public/assets/js/app/pages/admin/programs.js:789 |
+| PRG-103 | عنصر قائمة | النتائج والأثر | public/assets/js/app/pages/admin/programs.js:790 |
+| PRG-104 | عنصر قائمة | التنبيهات | public/assets/js/app/pages/admin/programs.js:791 |
+| PRG-105 | خيار | الملفات | public/assets/js/app/pages/admin/programs.js:793 |
 | PRG-106 | حقل | جارٍ تحميل البرامج… | public/assets/js/app/components/program-picker.js:59 |
 | PRG-107 | حقل | يُحتسب ما يُصرف على الملف وملفه المستمر ضمن ميزانية البرنامج المختار.… | public/assets/js/app/components/program-picker.js:64 |
 | PRG-108 | نافذة | الملف خارج نطاق أهلية البرنامج | public/assets/js/app/components/program-picker.js:128 |
@@ -4757,7 +4864,7 @@
 
 ## CRL: طلبات الشركات (`/app#/company-requests`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | CRL-01 | زر | (نص متغير) | public/assets/js/app/pages/admin/company-requests.js:324 |
 | CRL-02 | زر | فتح | public/assets/js/app/pages/admin/company-requests.js:326 |
@@ -4795,109 +4902,109 @@
 
 ## CRF: طلب شركة وأوراقه: القبول والاستيضاح والعرض والتسليم (`/app#/company-requests/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| CRF-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:104 |
-| CRF-02 | عنصر قائمة | موعد التسليم الجديد | public/assets/js/app/pages/admin/company-request.js:195 |
-| CRF-03 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:196 |
-| CRF-04 | نافذة | تعديل موعد التسليم | public/assets/js/app/pages/admin/company-request.js:199 |
-| CRF-05 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:219 |
-| CRF-06 | عنصر قائمة | ما تراه الشركة | public/assets/js/app/pages/admin/company-request.js:220 |
-| CRF-07 | عنصر قائمة | ملاحظة داخلية | public/assets/js/app/pages/admin/company-request.js:221 |
-| CRF-08 | نافذة | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:225 |
-| CRF-09 | عنصر قائمة | النتيجة | public/assets/js/app/pages/admin/company-request.js:240 |
-| CRF-10 | عنصر قائمة | ملاحظة للشركة | public/assets/js/app/pages/admin/company-request.js:241 |
-| CRF-11 | نافذة | إغلاق الطلب | public/assets/js/app/pages/admin/company-request.js:244 |
-| CRF-12 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:257 |
-| CRF-13 | نافذة | إعادة فتح الطلب | public/assets/js/app/pages/admin/company-request.js:259 |
-| CRF-14 | عنصر قائمة | ملاحظة المتابعة | public/assets/js/app/pages/admin/company-request.js:271 |
-| CRF-15 | نافذة | تم الاطلاع على التصعيد | public/assets/js/app/pages/admin/company-request.js:273 |
-| CRF-16 | عنصر قائمة | السبب (داخلي) | public/assets/js/app/pages/admin/company-request.js:286 |
-| CRF-17 | نافذة | سحب العرض | public/assets/js/app/pages/admin/company-request.js:288 |
-| CRF-18 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:301 |
-| CRF-19 | نافذة | سحب التسليم | public/assets/js/app/pages/admin/company-request.js:303 |
-| CRF-20 | حقل | المسؤول عن الطلب | public/assets/js/app/pages/admin/company-request.js:340 |
-| CRF-21 | زر | سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:347 |
-| CRF-22 | زر | إعداد تسليم | public/assets/js/app/pages/admin/company-request.js:348 |
-| CRF-23 | زر | إغلاق الطلب | public/assets/js/app/pages/admin/company-request.js:349 |
-| CRF-24 | زر | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:350 |
-| CRF-25 | زر | إعادة فتح الطلب | public/assets/js/app/pages/admin/company-request.js:352 |
-| CRF-26 | عنصر قائمة | طلبات الشركات | public/assets/js/app/pages/admin/company-request.js:356 |
-| CRF-27 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:360 |
-| CRF-28 | عنوان | طلبات الشركات | public/assets/js/app/pages/admin/company-request.js:368 |
-| CRF-29 | عنوان | طلبات الشركات | public/assets/js/app/pages/admin/company-request.js:369 |
-| CRF-30 | زر | تعديل موعد التسليم | public/assets/js/app/pages/admin/company-request.js:418 |
-| CRF-31 | قسم/بطاقة | المواعيد | public/assets/js/app/pages/admin/company-request.js:420 |
-| CRF-32 | قسم/بطاقة | المواعيد | public/assets/js/app/pages/admin/company-request.js:421 |
-| CRF-33 | زر | إسناد من ملف العمل | public/assets/js/app/pages/admin/company-request.js:437 |
-| CRF-34 | زر | إخفاء التنبيه | public/assets/js/app/pages/admin/company-request.js:438 |
-| CRF-35 | زر | تم الاطلاع | public/assets/js/app/pages/admin/company-request.js:449 |
-| CRF-36 | زر | بدء العمل | public/assets/js/app/pages/admin/company-request.js:464 |
-| CRF-37 | زر | مراجعة العقد في الذاكرة | public/assets/js/app/pages/admin/company-request.js:475 |
-| CRF-38 | زر | عرض الرد | public/assets/js/app/pages/admin/company-request.js:491 |
-| CRF-39 | زر | إعداد التسليم | public/assets/js/app/pages/admin/company-request.js:496 |
-| CRF-40 | زر | إعادة إشراك المحامي | public/assets/js/app/pages/admin/company-request.js:513 |
-| CRF-41 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:548 |
-| CRF-42 | رابط | طلب سابق … | public/assets/js/app/pages/admin/company-request.js:550 |
-| CRF-43 | عنوان | المخاطر | public/assets/js/app/pages/admin/company-request.js:582 |
-| CRF-44 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:589 |
-| CRF-45 | عنوان | ينقصه | public/assets/js/app/pages/admin/company-request.js:593 |
-| CRF-46 | زر | اسأل الشركة عن المحدد | public/assets/js/app/pages/admin/company-request.js:595 |
-| CRF-47 | عنوان | من ذاكرة الشركة | public/assets/js/app/pages/admin/company-request.js:599 |
-| CRF-48 | عنوان | أسئلة مقترحة للشركة | public/assets/js/app/pages/admin/company-request.js:604 |
-| CRF-49 | زر | نقلها إلى سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:606 |
-| CRF-50 | عنوان | فحص الباقة | public/assets/js/app/pages/admin/company-request.js:621 |
-| CRF-51 | زر | إعادة التحليل | public/assets/js/app/pages/admin/company-request.js:634 |
-| CRF-52 | زر | تحليل الآن | public/assets/js/app/pages/admin/company-request.js:637 |
-| CRF-53 | زر | بدء العمل… | public/assets/js/app/pages/admin/company-request.js:644 |
-| CRF-54 | زر | سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:645 |
-| CRF-55 | زر | عرض سعر | public/assets/js/app/pages/admin/company-request.js:647 |
-| CRF-56 | زر | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:651 |
-| CRF-57 | سؤال قابل للفتح | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:656 |
-| CRF-58 | عنوان | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:656 |
-| CRF-59 | عنوان | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:656 |
-| CRF-60 | قسم/بطاقة | الفرز المقترح | public/assets/js/app/pages/admin/company-request.js:658 |
-| CRF-61 | قسم/بطاقة | الفرز المقترح | public/assets/js/app/pages/admin/company-request.js:658 |
-| CRF-62 | عنوان | الوصف | public/assets/js/app/pages/admin/company-request.js:673 |
-| CRF-63 | عنوان | مرسل الطلب | public/assets/js/app/pages/admin/company-request.js:689 |
-| CRF-64 | عنوان | المستندات (… ) | public/assets/js/app/pages/admin/company-request.js:700 |
-| CRF-65 | قسم/بطاقة | الطلب كما أرسلته الشركة | public/assets/js/app/pages/admin/company-request.js:702 |
-| CRF-66 | قسم/بطاقة | الطلب كما أرسلته الشركة | public/assets/js/app/pages/admin/company-request.js:703 |
-| CRF-67 | حقل | نص الرسالة | public/assets/js/app/pages/admin/company-request.js:750 |
-| CRF-68 | حقل | إرفاق ملفات للشركة | public/assets/js/app/pages/admin/company-request.js:753 |
-| CRF-69 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:755 |
-| CRF-70 | زر | إرسال للشركة | public/assets/js/app/pages/admin/company-request.js:764 |
-| CRF-71 | زر | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:781 |
-| CRF-72 | قسم/بطاقة | المحادثة مع الشركة | public/assets/js/app/pages/admin/company-request.js:849 |
-| CRF-73 | عنوان | المحادثة مع الشركة | public/assets/js/app/pages/admin/company-request.js:850 |
-| CRF-74 | حالة فارغة | لا رسائل بعد. | public/assets/js/app/pages/admin/company-request.js:851 |
-| CRF-75 | زر | فتح | public/assets/js/app/pages/admin/company-request.js:864 |
-| CRF-76 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-request.js:870 |
-| CRF-77 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/company-request.js:871 |
-| CRF-78 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-request.js:872 |
-| CRF-79 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/company-request.js:873 |
-| CRF-80 | زر | تعديل | public/assets/js/app/pages/admin/company-request.js:880 |
-| CRF-81 | عنصر قائمة | صلاحيات الذاكرة | public/assets/js/app/pages/admin/company-request.js:881 |
-| CRF-82 | جدول | فريق العمل | public/assets/js/app/pages/admin/company-request.js:884 |
-| CRF-83 | جدول | فريق العمل | public/assets/js/app/pages/admin/company-request.js:885 |
-| CRF-84 | عنوان | الآراء | public/assets/js/app/pages/admin/company-request.js:888 |
-| CRF-85 | عنوان | ملفات عمل المحامين | public/assets/js/app/pages/admin/company-request.js:890 |
-| CRF-86 | عنوان | عناصر الذاكرة المرتبطة بالطلب | public/assets/js/app/pages/admin/company-request.js:891 |
-| CRF-87 | قسم/بطاقة | العمل | public/assets/js/app/pages/admin/company-request.js:893 |
-| CRF-88 | قسم/بطاقة | العمل | public/assets/js/app/pages/admin/company-request.js:894 |
-| CRF-89 | زر | إعداد تسليم | public/assets/js/app/pages/admin/company-request.js:907 |
-| CRF-90 | زر | متابعة | public/assets/js/app/pages/admin/company-request.js:918 |
-| CRF-91 | زر | سحب التسليم | public/assets/js/app/pages/admin/company-request.js:920 |
-| CRF-92 | حالة فارغة | لا تسليمات بعد. | public/assets/js/app/pages/admin/company-request.js:925 |
-| CRF-93 | قسم/بطاقة | التسليمات | public/assets/js/app/pages/admin/company-request.js:926 |
-| CRF-94 | قسم/بطاقة | التسليمات | public/assets/js/app/pages/admin/company-request.js:927 |
-| CRF-95 | زر | سحب العرض | public/assets/js/app/pages/admin/company-request.js:953 |
-| CRF-96 | عنوان | التكاليف على هذا الطلب | public/assets/js/app/pages/admin/company-request.js:961 |
-| CRF-97 | قسم/بطاقة | عروض الأسعار والرسوم | public/assets/js/app/pages/admin/company-request.js:966 |
-| CRF-98 | قسم/بطاقة | عروض الأسعار والرسوم | public/assets/js/app/pages/admin/company-request.js:967 |
-| CRF-99 | سؤال قابل للفتح | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:973 |
-| CRF-100 | عنوان | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:973 |
-| CRF-101 | عنوان | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:973 |
+| CRF-01 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:111 |
+| CRF-02 | عنصر قائمة | موعد التسليم الجديد | public/assets/js/app/pages/admin/company-request.js:205 |
+| CRF-03 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:206 |
+| CRF-04 | نافذة | تعديل موعد التسليم | public/assets/js/app/pages/admin/company-request.js:209 |
+| CRF-05 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:229 |
+| CRF-06 | عنصر قائمة | ما تراه الشركة | public/assets/js/app/pages/admin/company-request.js:230 |
+| CRF-07 | عنصر قائمة | ملاحظة داخلية | public/assets/js/app/pages/admin/company-request.js:231 |
+| CRF-08 | نافذة | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:235 |
+| CRF-09 | عنصر قائمة | النتيجة | public/assets/js/app/pages/admin/company-request.js:250 |
+| CRF-10 | عنصر قائمة | ملاحظة للشركة | public/assets/js/app/pages/admin/company-request.js:251 |
+| CRF-11 | نافذة | إغلاق الطلب | public/assets/js/app/pages/admin/company-request.js:254 |
+| CRF-12 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:267 |
+| CRF-13 | نافذة | إعادة فتح الطلب | public/assets/js/app/pages/admin/company-request.js:269 |
+| CRF-14 | عنصر قائمة | ملاحظة المتابعة | public/assets/js/app/pages/admin/company-request.js:281 |
+| CRF-15 | نافذة | تم الاطلاع على التصعيد | public/assets/js/app/pages/admin/company-request.js:283 |
+| CRF-16 | عنصر قائمة | السبب (داخلي) | public/assets/js/app/pages/admin/company-request.js:296 |
+| CRF-17 | نافذة | سحب العرض | public/assets/js/app/pages/admin/company-request.js:298 |
+| CRF-18 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-request.js:311 |
+| CRF-19 | نافذة | سحب التسليم | public/assets/js/app/pages/admin/company-request.js:313 |
+| CRF-20 | حقل | المسؤول عن الطلب | public/assets/js/app/pages/admin/company-request.js:350 |
+| CRF-21 | زر | سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:357 |
+| CRF-22 | زر | إعداد تسليم | public/assets/js/app/pages/admin/company-request.js:358 |
+| CRF-23 | زر | إغلاق الطلب | public/assets/js/app/pages/admin/company-request.js:359 |
+| CRF-24 | زر | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:360 |
+| CRF-25 | زر | إعادة فتح الطلب | public/assets/js/app/pages/admin/company-request.js:362 |
+| CRF-26 | عنصر قائمة | طلبات الشركات | public/assets/js/app/pages/admin/company-request.js:367 |
+| CRF-27 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:371 |
+| CRF-28 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:379 |
+| CRF-29 | عنوان | طلبات الشركات | public/assets/js/app/pages/admin/company-request.js:380 |
+| CRF-30 | زر | تعديل موعد التسليم | public/assets/js/app/pages/admin/company-request.js:429 |
+| CRF-31 | عنوان | المواعيد | public/assets/js/app/pages/admin/company-request.js:431 |
+| CRF-32 | قسم/بطاقة | المواعيد | public/assets/js/app/pages/admin/company-request.js:432 |
+| CRF-33 | زر | إسناد من ملف العمل | public/assets/js/app/pages/admin/company-request.js:448 |
+| CRF-34 | زر | إخفاء التنبيه | public/assets/js/app/pages/admin/company-request.js:449 |
+| CRF-35 | زر | تم الاطلاع | public/assets/js/app/pages/admin/company-request.js:460 |
+| CRF-36 | زر | بدء العمل | public/assets/js/app/pages/admin/company-request.js:475 |
+| CRF-37 | زر | مراجعة العقد في الذاكرة | public/assets/js/app/pages/admin/company-request.js:486 |
+| CRF-38 | زر | عرض الرد | public/assets/js/app/pages/admin/company-request.js:502 |
+| CRF-39 | زر | إعداد التسليم | public/assets/js/app/pages/admin/company-request.js:507 |
+| CRF-40 | زر | إعادة إشراك المحامي | public/assets/js/app/pages/admin/company-request.js:524 |
+| CRF-41 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:559 |
+| CRF-42 | رابط | طلب سابق … | public/assets/js/app/pages/admin/company-request.js:561 |
+| CRF-43 | عنوان | المخاطر | public/assets/js/app/pages/admin/company-request.js:593 |
+| CRF-44 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:600 |
+| CRF-45 | عنوان | ينقصه | public/assets/js/app/pages/admin/company-request.js:604 |
+| CRF-46 | زر | اسأل الشركة عن المحدد | public/assets/js/app/pages/admin/company-request.js:606 |
+| CRF-47 | عنوان | من ذاكرة الشركة | public/assets/js/app/pages/admin/company-request.js:610 |
+| CRF-48 | عنوان | أسئلة مقترحة للشركة | public/assets/js/app/pages/admin/company-request.js:615 |
+| CRF-49 | زر | نقلها إلى سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:617 |
+| CRF-50 | عنوان | فحص الباقة | public/assets/js/app/pages/admin/company-request.js:632 |
+| CRF-51 | زر | إعادة التحليل | public/assets/js/app/pages/admin/company-request.js:645 |
+| CRF-52 | زر | تحليل الآن | public/assets/js/app/pages/admin/company-request.js:648 |
+| CRF-53 | زر | بدء العمل… | public/assets/js/app/pages/admin/company-request.js:655 |
+| CRF-54 | زر | سؤال للشركة | public/assets/js/app/pages/admin/company-request.js:656 |
+| CRF-55 | زر | عرض سعر | public/assets/js/app/pages/admin/company-request.js:658 |
+| CRF-56 | زر | اعتذار عن الطلب | public/assets/js/app/pages/admin/company-request.js:662 |
+| CRF-57 | سؤال قابل للفتح | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:667 |
+| CRF-58 | عنوان | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:667 |
+| CRF-59 | عنوان | الفرز وقت القبول | public/assets/js/app/pages/admin/company-request.js:667 |
+| CRF-60 | عنوان | الفرز المقترح | public/assets/js/app/pages/admin/company-request.js:669 |
+| CRF-61 | قسم/بطاقة | الفرز المقترح | public/assets/js/app/pages/admin/company-request.js:669 |
+| CRF-62 | عنوان | الوصف | public/assets/js/app/pages/admin/company-request.js:684 |
+| CRF-63 | عنوان | مرسل الطلب | public/assets/js/app/pages/admin/company-request.js:700 |
+| CRF-64 | عنوان | المستندات (… ) | public/assets/js/app/pages/admin/company-request.js:711 |
+| CRF-65 | عنوان | الطلب كما أرسلته الشركة | public/assets/js/app/pages/admin/company-request.js:713 |
+| CRF-66 | قسم/بطاقة | الطلب كما أرسلته الشركة | public/assets/js/app/pages/admin/company-request.js:714 |
+| CRF-67 | حقل | نص الرسالة | public/assets/js/app/pages/admin/company-request.js:761 |
+| CRF-68 | حقل | إرفاق ملفات للشركة | public/assets/js/app/pages/admin/company-request.js:764 |
+| CRF-69 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:766 |
+| CRF-70 | زر | إرسال للشركة | public/assets/js/app/pages/admin/company-request.js:775 |
+| CRF-71 | زر | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:792 |
+| CRF-72 | قسم/بطاقة | المحادثة مع الشركة | public/assets/js/app/pages/admin/company-request.js:860 |
+| CRF-73 | عنوان | المحادثة مع الشركة | public/assets/js/app/pages/admin/company-request.js:861 |
+| CRF-74 | حالة فارغة | لا رسائل بعد. | public/assets/js/app/pages/admin/company-request.js:862 |
+| CRF-75 | زر | فتح | public/assets/js/app/pages/admin/company-request.js:875 |
+| CRF-76 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-request.js:881 |
+| CRF-77 | عنصر قائمة | المحامي | public/assets/js/app/pages/admin/company-request.js:882 |
+| CRF-78 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-request.js:883 |
+| CRF-79 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/company-request.js:884 |
+| CRF-80 | زر | تعديل | public/assets/js/app/pages/admin/company-request.js:891 |
+| CRF-81 | عنصر قائمة | صلاحيات الذاكرة | public/assets/js/app/pages/admin/company-request.js:892 |
+| CRF-82 | جدول | فريق العمل | public/assets/js/app/pages/admin/company-request.js:895 |
+| CRF-83 | جدول | فريق العمل | public/assets/js/app/pages/admin/company-request.js:896 |
+| CRF-84 | عنوان | الآراء | public/assets/js/app/pages/admin/company-request.js:899 |
+| CRF-85 | عنوان | ملفات عمل المحامين | public/assets/js/app/pages/admin/company-request.js:901 |
+| CRF-86 | عنوان | عناصر الذاكرة المرتبطة بالطلب | public/assets/js/app/pages/admin/company-request.js:902 |
+| CRF-87 | عنوان | العمل | public/assets/js/app/pages/admin/company-request.js:904 |
+| CRF-88 | قسم/بطاقة | العمل | public/assets/js/app/pages/admin/company-request.js:905 |
+| CRF-89 | زر | إعداد تسليم | public/assets/js/app/pages/admin/company-request.js:918 |
+| CRF-90 | زر | متابعة | public/assets/js/app/pages/admin/company-request.js:929 |
+| CRF-91 | زر | سحب التسليم | public/assets/js/app/pages/admin/company-request.js:931 |
+| CRF-92 | حالة فارغة | لا تسليمات بعد. | public/assets/js/app/pages/admin/company-request.js:936 |
+| CRF-93 | عنوان | التسليمات | public/assets/js/app/pages/admin/company-request.js:937 |
+| CRF-94 | قسم/بطاقة | التسليمات | public/assets/js/app/pages/admin/company-request.js:938 |
+| CRF-95 | زر | سحب العرض | public/assets/js/app/pages/admin/company-request.js:964 |
+| CRF-96 | عنوان | التكاليف على هذا الطلب | public/assets/js/app/pages/admin/company-request.js:972 |
+| CRF-97 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:977 |
+| CRF-98 | قسم/بطاقة | عروض الأسعار والرسوم | public/assets/js/app/pages/admin/company-request.js:978 |
+| CRF-99 | سؤال قابل للفتح | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:984 |
+| CRF-100 | عنوان | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:984 |
+| CRF-101 | عنوان | السجل (… ) | public/assets/js/app/pages/admin/company-request.js:984 |
 | CRF-102 | حقل | (نص متغير) | public/assets/js/app/components/company-accept-sheet.js:223 |
 | CRF-103 | حقل | (نص متغير) | public/assets/js/app/components/company-accept-sheet.js:274 |
 | CRF-104 | زر | حذفها من النص | public/assets/js/app/components/company-accept-sheet.js:343 |
@@ -5012,10 +5119,11 @@
 | CRF-213 | عنصر قائمة | تسليم نهائي | public/assets/js/app/components/company-deliverable-sheet.js:68 |
 | CRF-214 | عنصر قائمة | رسالة مع التسليم (اختياري) | public/assets/js/app/components/company-deliverable-sheet.js:69 |
 | CRF-215 | نموذج | نوع التسليم | public/assets/js/app/components/company-deliverable-sheet.js:71 |
+| CRF-216 | عنصر | (نص متغير) | public/assets/js/app/pages/admin/company-request.js:115 |
 
 ## COL: قائمة الشركات (`/app#/companies`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | COL-01 | زر | إضافة شركة | public/assets/js/app/pages/admin/companies.js:117 |
 | COL-02 | حالة فارغة | لا توجد شركات بعد | public/assets/js/app/pages/admin/companies.js:118 |
@@ -5082,267 +5190,267 @@
 
 ## COF: ملف شركة (`/app#/companies/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| COF-01 | عنصر قائمة | الشركات العميلة | public/assets/js/app/pages/admin/company-detail.js:89 |
-| COF-02 | زر | تعديل بيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:91 |
-| COF-03 | عنوان | الشركات العميلة | public/assets/js/app/pages/admin/company-detail.js:92 |
-| COF-04 | عنوان | الشركات العميلة | public/assets/js/app/pages/admin/company-detail.js:93 |
-| COF-05 | عنصر قائمة | الاسم المعروض | public/assets/js/app/pages/admin/company-detail.js:107 |
-| COF-06 | عنصر قائمة | البادئة | public/assets/js/app/pages/admin/company-detail.js:108 |
-| COF-07 | عنصر قائمة | الاسم القانوني | public/assets/js/app/pages/admin/company-detail.js:109 |
-| COF-08 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:110 |
-| COF-09 | عنصر قائمة | البطاقة الضريبية | public/assets/js/app/pages/admin/company-detail.js:111 |
-| COF-10 | عنصر قائمة | النشاط | public/assets/js/app/pages/admin/company-detail.js:112 |
-| COF-11 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/company-detail.js:113 |
-| COF-12 | عنصر قائمة | نهاية الفترة التجريبية | public/assets/js/app/pages/admin/company-detail.js:114 |
-| COF-13 | عنصر قائمة | الظهور الافتراضي للطلبات الجديدة | public/assets/js/app/pages/admin/company-detail.js:115 |
-| COF-14 | عنصر قائمة | من يوافق على عروض الأسعار | public/assets/js/app/pages/admin/company-detail.js:126 |
-| COF-15 | عنصر قائمة | إظهار اسم مدير العلاقة للشركة («مدير علاقتكم لدينا») | public/assets/js/app/pages/admin/company-detail.js:128 |
-| COF-16 | عنصر قائمة | إلزام كل مستخدمي الشركة بالتحقق بخطوتين | public/assets/js/app/pages/admin/company-detail.js:129 |
-| COF-17 | نافذة | تعديل بيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:173 |
-| COF-18 | زر | تغيير الحالة | public/assets/js/app/pages/admin/company-detail.js:193 |
-| COF-19 | تنبيه | البوابة للاطلاع فقط: لا تستطيع الشركة إرسال طلبات أو الرد الآن. | public/assets/js/app/pages/admin/company-detail.js:207 |
-| COF-20 | قسم/بطاقة | الحالة والاشتراك | public/assets/js/app/pages/admin/company-detail.js:209 |
-| COF-21 | قسم/بطاقة | الحالة والاشتراك | public/assets/js/app/pages/admin/company-detail.js:210 |
-| COF-22 | قسم/بطاقة | الاستخدام في الدورة الحالية | public/assets/js/app/pages/admin/company-detail.js:230 |
-| COF-23 | قسم/بطاقة | الاستخدام في الدورة الحالية | public/assets/js/app/pages/admin/company-detail.js:231 |
-| COF-24 | زر | كل الطلبات | public/assets/js/app/pages/admin/company-detail.js:237 |
-| COF-25 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:245 |
-| COF-26 | حالة فارغة | لا طلبات مفتوحة لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:251 |
-| COF-27 | قسم/بطاقة | الطلبات المفتوحة | public/assets/js/app/pages/admin/company-detail.js:252 |
-| COF-28 | قسم/بطاقة | الطلبات المفتوحة | public/assets/js/app/pages/admin/company-detail.js:253 |
-| COF-29 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:266 |
-| COF-30 | حالة فارغة | لا مواعيد خلال الشهرين القادمين. | public/assets/js/app/pages/admin/company-detail.js:271 |
-| COF-31 | قسم/بطاقة | مواعيد قادمة | public/assets/js/app/pages/admin/company-detail.js:272 |
-| COF-32 | قسم/بطاقة | مواعيد قادمة | public/assets/js/app/pages/admin/company-detail.js:273 |
-| COF-33 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:277 |
-| COF-34 | حقل | مدير العلاقة | public/assets/js/app/pages/admin/company-detail.js:284 |
-| COF-35 | زر | حفظ | public/assets/js/app/pages/admin/company-detail.js:308 |
-| COF-36 | قسم/بطاقة | مدير العلاقة والملاحظات | public/assets/js/app/pages/admin/company-detail.js:312 |
-| COF-37 | قسم/بطاقة | مدير العلاقة والملاحظات | public/assets/js/app/pages/admin/company-detail.js:313 |
-| COF-38 | قسم/بطاقة | تشابه أسماء محتمل | public/assets/js/app/pages/admin/company-detail.js:329 |
-| COF-39 | قسم/بطاقة | تشابه أسماء محتمل | public/assets/js/app/pages/admin/company-detail.js:330 |
-| COF-40 | عنصر قائمة | الحالة الجديدة | public/assets/js/app/pages/admin/company-detail.js:340 |
-| COF-41 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-detail.js:341 |
-| COF-42 | نافذة | تغيير حالة الشركة | public/assets/js/app/pages/admin/company-detail.js:350 |
-| COF-43 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:375 |
-| COF-44 | عنصر قائمة | الطلب | public/assets/js/app/pages/admin/company-detail.js:375 |
-| COF-45 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:376 |
-| COF-46 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:377 |
-| COF-47 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/company-detail.js:378 |
-| COF-48 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/company-detail.js:379 |
-| COF-49 | عنصر قائمة | المسؤول | public/assets/js/app/pages/admin/company-detail.js:380 |
-| COF-50 | عنصر قائمة | آخر تحديث | public/assets/js/app/pages/admin/company-detail.js:381 |
-| COF-51 | جدول | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:383 |
-| COF-52 | جدول | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:384 |
-| COF-53 | قسم/بطاقة | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:386 |
-| COF-54 | حقل | الحالة | public/assets/js/app/pages/admin/company-detail.js:406 |
-| COF-55 | حقل | بحث في طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:408 |
-| COF-56 | زر | دعوة مستخدم | public/assets/js/app/pages/admin/company-detail.js:425 |
-| COF-57 | عنصر قائمة | المستخدم | public/assets/js/app/pages/admin/company-detail.js:437 |
-| COF-58 | عنصر قائمة | البريد والهاتف | public/assets/js/app/pages/admin/company-detail.js:439 |
-| COF-59 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:444 |
-| COF-60 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:446 |
-| COF-61 | عنصر قائمة | آخر دخول | public/assets/js/app/pages/admin/company-detail.js:447 |
-| COF-62 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:448 |
-| COF-63 | جدول | مستخدمو بوابة الشركة | public/assets/js/app/pages/admin/company-detail.js:450 |
-| COF-64 | جدول | مستخدمو بوابة الشركة | public/assets/js/app/pages/admin/company-detail.js:451 |
-| COF-65 | قسم/بطاقة | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:453 |
-| COF-66 | قسم/بطاقة | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:454 |
-| COF-67 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:459 |
-| COF-68 | زر | إعادة إرسال الدعوة | public/assets/js/app/pages/admin/company-detail.js:460 |
-| COF-69 | زر | أمان الحساب | public/assets/js/app/pages/admin/company-detail.js:461 |
-| COF-70 | تنبيه | البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط. | public/assets/js/app/pages/admin/company-detail.js:477 |
-| COF-71 | حقل | رابط الدعوة | public/assets/js/app/pages/admin/company-detail.js:478 |
-| COF-72 | زر | نسخ | public/assets/js/app/pages/admin/company-detail.js:478 |
-| COF-73 | عنصر قائمة | تم | public/assets/js/app/pages/admin/company-detail.js:480 |
-| COF-74 | نافذة | رابط الدعوة | public/assets/js/app/pages/admin/company-detail.js:481 |
-| COF-75 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:492 |
-| COF-76 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:493 |
-| COF-77 | عنصر قائمة | الوظيفة | public/assets/js/app/pages/admin/company-detail.js:494 |
-| COF-78 | عنصر قائمة | الهاتف | public/assets/js/app/pages/admin/company-detail.js:495 |
-| COF-79 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:504 |
-| COF-80 | عنصر قائمة | جهة الفواتير (تتلقى إشعارات التكاليف الإضافية) | public/assets/js/app/pages/admin/company-detail.js:506 |
-| COF-81 | نافذة | دعوة مستخدم | public/assets/js/app/pages/admin/company-detail.js:515 |
-| COF-82 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:524 |
-| COF-83 | عنصر قائمة | الوظيفة | public/assets/js/app/pages/admin/company-detail.js:525 |
-| COF-84 | عنصر قائمة | الهاتف | public/assets/js/app/pages/admin/company-detail.js:526 |
-| COF-85 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:534 |
-| COF-86 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:544 |
-| COF-87 | عنصر قائمة | جهة الفواتير (تتلقى إشعارات التكاليف الإضافية) | public/assets/js/app/pages/admin/company-detail.js:546 |
-| COF-88 | عنصر قائمة | الحساب نشط | public/assets/js/app/pages/admin/company-detail.js:547 |
-| COF-89 | نافذة | تغيير البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:560 |
-| COF-90 | نافذة | تعديل | public/assets/js/app/pages/admin/company-detail.js:570 |
-| COF-91 | نافذة | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:590 |
-| COF-92 | تنبيه | أرسلنا الرابط بالبريد أيضًا. انسخه الآن إن احتجت — يظهر الآن فقط. | public/assets/js/app/pages/admin/company-detail.js:602 |
-| COF-93 | حقل | رابط تعيين كلمة المرور | public/assets/js/app/pages/admin/company-detail.js:603 |
-| COF-94 | زر | نسخ | public/assets/js/app/pages/admin/company-detail.js:603 |
-| COF-95 | عنصر قائمة | تم | public/assets/js/app/pages/admin/company-detail.js:605 |
-| COF-96 | نافذة | رابط تعيين كلمة المرور | public/assets/js/app/pages/admin/company-detail.js:606 |
-| COF-97 | زر | رابط تعيين كلمة مرور | public/assets/js/app/pages/admin/company-detail.js:622 |
-| COF-98 | زر | إلغاء التحقق بخطوتين | public/assets/js/app/pages/admin/company-detail.js:623 |
-| COF-99 | زر | فك القفل | public/assets/js/app/pages/admin/company-detail.js:624 |
-| COF-100 | زر | تسجيل الخروج من كل الأجهزة | public/assets/js/app/pages/admin/company-detail.js:625 |
-| COF-101 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/company-detail.js:627 |
-| COF-102 | نافذة | أمان حساب | public/assets/js/app/pages/admin/company-detail.js:628 |
-| COF-103 | زر | إضافة كيان | public/assets/js/app/pages/admin/company-detail.js:647 |
-| COF-104 | عنصر قائمة | الكيان | public/assets/js/app/pages/admin/company-detail.js:656 |
-| COF-105 | عنصر قائمة | العلاقة | public/assets/js/app/pages/admin/company-detail.js:657 |
-| COF-106 | عنصر قائمة | الشكل القانوني | public/assets/js/app/pages/admin/company-detail.js:658 |
-| COF-107 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:659 |
-| COF-108 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:660 |
-| COF-109 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:661 |
-| COF-110 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:661 |
-| COF-111 | جدول | كيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:663 |
-| COF-112 | جدول | كيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:664 |
-| COF-113 | قسم/بطاقة | الكيانات | public/assets/js/app/pages/admin/company-detail.js:666 |
-| COF-114 | قسم/بطاقة | الكيانات | public/assets/js/app/pages/admin/company-detail.js:667 |
-| COF-115 | زر | إضافة طرف | public/assets/js/app/pages/admin/company-detail.js:673 |
-| COF-116 | عنصر قائمة | الطرف | public/assets/js/app/pages/admin/company-detail.js:681 |
-| COF-117 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:682 |
-| COF-118 | عنصر قائمة | المخاطر | public/assets/js/app/pages/admin/company-detail.js:693 |
-| COF-119 | عنصر قائمة | في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:695 |
-| COF-120 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:696 |
-| COF-121 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:696 |
-| COF-122 | جدول | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:698 |
-| COF-123 | جدول | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:699 |
-| COF-124 | قسم/بطاقة | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:701 |
-| COF-125 | قسم/بطاقة | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:702 |
-| COF-126 | عنصر قائمة | الاسم القانوني | public/assets/js/app/pages/admin/company-detail.js:716 |
-| COF-127 | عنصر قائمة | الشكل القانوني | public/assets/js/app/pages/admin/company-detail.js:717 |
-| COF-128 | عنصر قائمة | العلاقة | public/assets/js/app/pages/admin/company-detail.js:718 |
-| COF-129 | عنصر قائمة | تابع لـ | public/assets/js/app/pages/admin/company-detail.js:719 |
-| COF-130 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:720 |
-| COF-131 | عنصر قائمة | البطاقة الضريبية | public/assets/js/app/pages/admin/company-detail.js:721 |
-| COF-132 | عنصر قائمة | جهة التسجيل | public/assets/js/app/pages/admin/company-detail.js:722 |
-| COF-133 | عنصر قائمة | الكيان نشط | public/assets/js/app/pages/admin/company-detail.js:723 |
-| COF-134 | عنصر قائمة | سبب تجاوز حد الباقة | public/assets/js/app/pages/admin/company-detail.js:724 |
-| COF-135 | نافذة | إضافة كيان | public/assets/js/app/pages/admin/company-detail.js:741 |
-| COF-136 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:750 |
-| COF-137 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:751 |
-| COF-138 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:752 |
-| COF-139 | عنصر قائمة | درجة المخاطر | public/assets/js/app/pages/admin/company-detail.js:753 |
-| COF-140 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:754 |
-| COF-141 | عنصر قائمة | محظور التعامل | public/assets/js/app/pages/admin/company-detail.js:755 |
-| COF-142 | نافذة | تعديل … | public/assets/js/app/pages/admin/company-detail.js:765 |
-| COF-143 | زر | تغيير الباقة | public/assets/js/app/pages/admin/company-detail.js:780 |
-| COF-144 | زر | بدء اشتراك | public/assets/js/app/pages/admin/company-detail.js:797 |
-| COF-145 | حالة فارغة | لا اشتراك نشط لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:797 |
-| COF-146 | قسم/بطاقة | الاشتراك | public/assets/js/app/pages/admin/company-detail.js:798 |
-| COF-147 | قسم/بطاقة | الاشتراك | public/assets/js/app/pages/admin/company-detail.js:799 |
-| COF-148 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/company-detail.js:815 |
-| COF-149 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:816 |
-| COF-150 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/company-detail.js:817 |
-| COF-151 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:818 |
-| COF-152 | عنصر قائمة | الطلب | public/assets/js/app/pages/admin/company-detail.js:818 |
-| COF-153 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/company-detail.js:819 |
-| COF-154 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:820 |
-| COF-155 | زر | استبدال بمبلغ أقل | public/assets/js/app/pages/admin/company-detail.js:831 |
-| COF-156 | زر | إلغاء | public/assets/js/app/pages/admin/company-detail.js:832 |
-| COF-157 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:834 |
-| COF-158 | جدول | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:837 |
-| COF-159 | جدول | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:838 |
-| COF-160 | حقل | الدورة | public/assets/js/app/pages/admin/company-detail.js:849 |
-| COF-161 | زر | تصدير CSV | public/assets/js/app/pages/admin/company-detail.js:865 |
-| COF-162 | زر | إضافة تكلفة | public/assets/js/app/pages/admin/company-detail.js:866 |
-| COF-163 | قسم/بطاقة | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:869 |
-| COF-164 | قسم/بطاقة | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:870 |
-| COF-165 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:880 |
-| COF-166 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/company-detail.js:881 |
-| COF-167 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/company-detail.js:882 |
-| COF-168 | عنصر قائمة | كود الطلب (اختياري) | public/assets/js/app/pages/admin/company-detail.js:883 |
-| COF-169 | نافذة | استبدال بمبلغ أقل | public/assets/js/app/pages/admin/company-detail.js:898 |
-| COF-170 | عنصر قائمة | سبب الإلغاء | public/assets/js/app/pages/admin/company-detail.js:906 |
-| COF-171 | نافذة | إلغاء تكلفة | public/assets/js/app/pages/admin/company-detail.js:913 |
-| COF-172 | قسم/بطاقة | الاستخدام في الدورة | public/assets/js/app/pages/admin/company-detail.js:933 |
-| COF-173 | قسم/بطاقة | الاستخدام في الدورة | public/assets/js/app/pages/admin/company-detail.js:934 |
-| COF-174 | تنبيه | ينتهي الاشتراك الحالي اليوم ويبدأ الجديد بلقطة من الشروط أدناه؛ يبقى… | public/assets/js/app/pages/admin/company-detail.js:979 |
-| COF-175 | عنوان | شروط الاشتراك | public/assets/js/app/pages/admin/company-detail.js:982 |
-| COF-176 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:986 |
-| COF-177 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1004 |
-| COF-178 | عنصر قائمة | حفظ الاشتراك | public/assets/js/app/pages/admin/company-detail.js:1008 |
-| COF-179 | نافذة | تغيير الباقة | public/assets/js/app/pages/admin/company-detail.js:1016 |
-| COF-180 | تنبيه | … بانتظار مراجعة الفريق (حفظتها الشركة عند اعتماد تسليم). | public/assets/js/app/pages/admin/company-detail.js:1031 |
-| COF-181 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:1041 |
-| COF-182 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1045 |
-| COF-183 | عنصر قائمة | العنصر | public/assets/js/app/pages/admin/company-detail.js:1046 |
-| COF-184 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:1052 |
-| COF-185 | عنصر قائمة | أقرب موعد | public/assets/js/app/pages/admin/company-detail.js:1054 |
-| COF-186 | عنصر قائمة | من يراه في الشركة | public/assets/js/app/pages/admin/company-detail.js:1055 |
-| COF-187 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1056 |
-| COF-188 | عنصر قائمة | من طلب | public/assets/js/app/pages/admin/company-detail.js:1056 |
-| COF-189 | عنصر قائمة | مستندات | public/assets/js/app/pages/admin/company-detail.js:1057 |
-| COF-190 | جدول | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1059 |
-| COF-191 | جدول | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1060 |
-| COF-192 | قسم/بطاقة | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1062 |
-| COF-193 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1070 |
-| COF-194 | حقل | النوع | public/assets/js/app/pages/admin/company-detail.js:1076 |
-| COF-195 | حقل | بحث في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1077 |
-| COF-196 | زر | إضافة عنصر | public/assets/js/app/pages/admin/company-detail.js:1080 |
-| COF-197 | حقل | المحامي | public/assets/js/app/pages/admin/company-detail.js:1102 |
-| COF-198 | حقل | الدور | public/assets/js/app/pages/admin/company-detail.js:1103 |
-| COF-199 | حقل | ملاحظة | public/assets/js/app/pages/admin/company-detail.js:1104 |
-| COF-200 | زر | حذف | public/assets/js/app/pages/admin/company-detail.js:1105 |
-| COF-201 | حالة فارغة | لا محامين مفضلين أو مستبعدين لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:1109 |
-| COF-202 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/company-detail.js:1121 |
-| COF-203 | زر | حفظ الفريق | public/assets/js/app/pages/admin/company-detail.js:1131 |
-| COF-204 | قسم/بطاقة | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1134 |
-| COF-205 | قسم/بطاقة | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1135 |
-| COF-206 | عنصر قائمة | الوقت | public/assets/js/app/pages/admin/company-detail.js:1153 |
-| COF-207 | عنصر قائمة | الحدث | public/assets/js/app/pages/admin/company-detail.js:1154 |
-| COF-208 | عنصر قائمة | بواسطة | public/assets/js/app/pages/admin/company-detail.js:1155 |
-| COF-209 | عنصر قائمة | التفاصيل | public/assets/js/app/pages/admin/company-detail.js:1156 |
-| COF-210 | جدول | سجل الشركة | public/assets/js/app/pages/admin/company-detail.js:1158 |
-| COF-211 | جدول | سجل الشركة | public/assets/js/app/pages/admin/company-detail.js:1159 |
-| COF-212 | قسم/بطاقة | السجل | public/assets/js/app/pages/admin/company-detail.js:1161 |
-| COF-213 | قسم/بطاقة | السجل | public/assets/js/app/pages/admin/company-detail.js:1162 |
-| COF-214 | خيار | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1178 |
-| COF-215 | حقل | الحالة | public/assets/js/app/pages/admin/company-detail.js:1235 |
-| COF-216 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:1236 |
-| COF-217 | حقل | إضافة مستندات | public/assets/js/app/pages/admin/company-detail.js:1238 |
-| COF-218 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1247 |
-| COF-219 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1270 |
-| COF-220 | زر | استعادة من الأرشيف | public/assets/js/app/pages/admin/company-detail.js:1287 |
-| COF-221 | زر | حذف نهائي | public/assets/js/app/pages/admin/company-detail.js:1288 |
-| COF-222 | حقل | اكتب اسم العنصر للتأكيد | public/assets/js/app/pages/admin/company-detail.js:1292 |
-| COF-223 | تنبيه | يُحذف العنصر ومستنداته غير المشتركة وتذكيراته وصلاحيات المحامين عليه.… | public/assets/js/app/pages/admin/company-detail.js:1299 |
-| COF-224 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1303 |
-| COF-225 | عنصر قائمة | حذف نهائي | public/assets/js/app/pages/admin/company-detail.js:1325 |
-| COF-226 | نافذة | حذف نهائي من الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1328 |
-| COF-227 | تنبيه | حفظت الشركة هذا العقد في ذاكرتها القانونية عند اعتماد التسليم. راجِع… | public/assets/js/app/pages/admin/company-detail.js:1342 |
-| COF-228 | قسم/بطاقة | المستندات | public/assets/js/app/pages/admin/company-detail.js:1350 |
-| COF-229 | عنوان | المستندات | public/assets/js/app/pages/admin/company-detail.js:1350 |
-| COF-230 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1355 |
-| COF-231 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1364 |
-| COF-232 | عنصر قائمة | حفظ وتأكيد | public/assets/js/app/pages/admin/company-detail.js:1366 |
-| COF-233 | عنصر قائمة | حفظ | public/assets/js/app/pages/admin/company-detail.js:1367 |
-| COF-234 | نافذة | مراجعة العقد في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1374 |
-| COF-235 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:1387 |
-| COF-236 | حقل | المستندات | public/assets/js/app/pages/admin/company-detail.js:1388 |
-| COF-237 | حقل | النوع | public/assets/js/app/pages/admin/company-detail.js:1394 |
-| COF-238 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1413 |
-| COF-239 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1429 |
-| COF-240 | عنصر قائمة | إضافة | public/assets/js/app/pages/admin/company-detail.js:1433 |
-| COF-241 | نافذة | إضافة عنصر إلى الذاكرة القانونية | public/assets/js/app/pages/admin/company-detail.js:1441 |
-| COF-242 | عنصر قائمة | الباقة | public/assets/js/app/pages/admin/company-detail.js:950 |
-| COF-243 | عنصر قائمة | يبدأ الاشتراك الجديد في | public/assets/js/app/pages/admin/company-detail.js:951 |
-| COF-244 | عنصر قائمة | التجديد | public/assets/js/app/pages/admin/company-detail.js:962 |
-| COF-245 | عنصر قائمة | ينتهي في (اختياري) | public/assets/js/app/pages/admin/company-detail.js:964 |
-| COF-246 | عنصر قائمة | ملاحظة | public/assets/js/app/pages/admin/company-detail.js:965 |
-| COF-247 | نموذج | الباقة | public/assets/js/app/pages/admin/company-detail.js:967 |
-| COF-248 | عنصر قائمة | نظرة عامة | public/assets/js/app/pages/admin/company-detail.js:1168 |
-| COF-249 | عنصر قائمة | الطلبات | public/assets/js/app/pages/admin/company-detail.js:1169 |
-| COF-250 | عنصر قائمة | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:1170 |
-| COF-251 | عنصر قائمة | الكيانات والأطراف | public/assets/js/app/pages/admin/company-detail.js:1171 |
-| COF-252 | عنصر قائمة | الباقة والتكاليف | public/assets/js/app/pages/admin/company-detail.js:1172 |
-| COF-253 | عنصر قائمة | الذاكرة القانونية | public/assets/js/app/pages/admin/company-detail.js:1173 |
-| COF-254 | عنصر قائمة | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1174 |
-| COF-255 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/company-detail.js:1175 |
+| COF-01 | عنصر قائمة | الشركات العميلة | public/assets/js/app/pages/admin/company-detail.js:90 |
+| COF-02 | زر | تعديل بيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:92 |
+| COF-03 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:93 |
+| COF-04 | عنوان | الشركات العميلة | public/assets/js/app/pages/admin/company-detail.js:94 |
+| COF-05 | عنصر قائمة | الاسم المعروض | public/assets/js/app/pages/admin/company-detail.js:108 |
+| COF-06 | عنصر قائمة | البادئة | public/assets/js/app/pages/admin/company-detail.js:109 |
+| COF-07 | عنصر قائمة | الاسم القانوني | public/assets/js/app/pages/admin/company-detail.js:110 |
+| COF-08 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:111 |
+| COF-09 | عنصر قائمة | البطاقة الضريبية | public/assets/js/app/pages/admin/company-detail.js:112 |
+| COF-10 | عنصر قائمة | النشاط | public/assets/js/app/pages/admin/company-detail.js:113 |
+| COF-11 | عنصر قائمة | العنوان | public/assets/js/app/pages/admin/company-detail.js:114 |
+| COF-12 | عنصر قائمة | نهاية الفترة التجريبية | public/assets/js/app/pages/admin/company-detail.js:115 |
+| COF-13 | عنصر قائمة | الظهور الافتراضي للطلبات الجديدة | public/assets/js/app/pages/admin/company-detail.js:116 |
+| COF-14 | عنصر قائمة | من يوافق على عروض الأسعار | public/assets/js/app/pages/admin/company-detail.js:127 |
+| COF-15 | عنصر قائمة | إظهار اسم مدير العلاقة للشركة («مدير علاقتكم لدينا») | public/assets/js/app/pages/admin/company-detail.js:129 |
+| COF-16 | عنصر قائمة | إلزام كل مستخدمي الشركة بالتحقق بخطوتين | public/assets/js/app/pages/admin/company-detail.js:130 |
+| COF-17 | نافذة | تعديل بيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:174 |
+| COF-18 | زر | تغيير الحالة | public/assets/js/app/pages/admin/company-detail.js:194 |
+| COF-19 | تنبيه | البوابة للاطلاع فقط: لا تستطيع الشركة إرسال طلبات أو الرد الآن. | public/assets/js/app/pages/admin/company-detail.js:208 |
+| COF-20 | عنوان | الحالة والاشتراك | public/assets/js/app/pages/admin/company-detail.js:210 |
+| COF-21 | قسم/بطاقة | الحالة والاشتراك | public/assets/js/app/pages/admin/company-detail.js:211 |
+| COF-22 | عنوان | الاستخدام في الدورة الحالية | public/assets/js/app/pages/admin/company-detail.js:231 |
+| COF-23 | قسم/بطاقة | الاستخدام في الدورة الحالية | public/assets/js/app/pages/admin/company-detail.js:232 |
+| COF-24 | زر | كل الطلبات | public/assets/js/app/pages/admin/company-detail.js:238 |
+| COF-25 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:246 |
+| COF-26 | حالة فارغة | لا طلبات مفتوحة لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:252 |
+| COF-27 | عنوان | الطلبات المفتوحة | public/assets/js/app/pages/admin/company-detail.js:253 |
+| COF-28 | قسم/بطاقة | الطلبات المفتوحة | public/assets/js/app/pages/admin/company-detail.js:254 |
+| COF-29 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:267 |
+| COF-30 | حالة فارغة | لا مواعيد خلال الشهرين القادمين. | public/assets/js/app/pages/admin/company-detail.js:272 |
+| COF-31 | عنوان | مواعيد قادمة | public/assets/js/app/pages/admin/company-detail.js:273 |
+| COF-32 | قسم/بطاقة | مواعيد قادمة | public/assets/js/app/pages/admin/company-detail.js:274 |
+| COF-33 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:278 |
+| COF-34 | حقل | مدير العلاقة | public/assets/js/app/pages/admin/company-detail.js:285 |
+| COF-35 | زر | حفظ | public/assets/js/app/pages/admin/company-detail.js:309 |
+| COF-36 | عنوان | مدير العلاقة والملاحظات | public/assets/js/app/pages/admin/company-detail.js:313 |
+| COF-37 | قسم/بطاقة | مدير العلاقة والملاحظات | public/assets/js/app/pages/admin/company-detail.js:314 |
+| COF-38 | عنوان | تشابه أسماء محتمل | public/assets/js/app/pages/admin/company-detail.js:330 |
+| COF-39 | قسم/بطاقة | تشابه أسماء محتمل | public/assets/js/app/pages/admin/company-detail.js:331 |
+| COF-40 | عنصر قائمة | الحالة الجديدة | public/assets/js/app/pages/admin/company-detail.js:341 |
+| COF-41 | عنصر قائمة | السبب | public/assets/js/app/pages/admin/company-detail.js:342 |
+| COF-42 | نافذة | تغيير حالة الشركة | public/assets/js/app/pages/admin/company-detail.js:351 |
+| COF-43 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:376 |
+| COF-44 | عنصر قائمة | الطلب | public/assets/js/app/pages/admin/company-detail.js:376 |
+| COF-45 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:377 |
+| COF-46 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:378 |
+| COF-47 | عنصر قائمة | الموعد | public/assets/js/app/pages/admin/company-detail.js:379 |
+| COF-48 | عنصر قائمة | الأولوية | public/assets/js/app/pages/admin/company-detail.js:380 |
+| COF-49 | عنصر قائمة | المسؤول | public/assets/js/app/pages/admin/company-detail.js:381 |
+| COF-50 | عنصر قائمة | آخر تحديث | public/assets/js/app/pages/admin/company-detail.js:382 |
+| COF-51 | جدول | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:384 |
+| COF-52 | جدول | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:385 |
+| COF-53 | قسم/بطاقة | طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:387 |
+| COF-54 | حقل | الحالة | public/assets/js/app/pages/admin/company-detail.js:407 |
+| COF-55 | حقل | بحث في طلبات الشركة | public/assets/js/app/pages/admin/company-detail.js:409 |
+| COF-56 | زر | دعوة مستخدم | public/assets/js/app/pages/admin/company-detail.js:426 |
+| COF-57 | عنصر قائمة | المستخدم | public/assets/js/app/pages/admin/company-detail.js:438 |
+| COF-58 | عنصر قائمة | البريد والهاتف | public/assets/js/app/pages/admin/company-detail.js:440 |
+| COF-59 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:445 |
+| COF-60 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:447 |
+| COF-61 | عنصر قائمة | آخر دخول | public/assets/js/app/pages/admin/company-detail.js:448 |
+| COF-62 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:449 |
+| COF-63 | جدول | مستخدمو بوابة الشركة | public/assets/js/app/pages/admin/company-detail.js:451 |
+| COF-64 | جدول | مستخدمو بوابة الشركة | public/assets/js/app/pages/admin/company-detail.js:452 |
+| COF-65 | عنوان | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:454 |
+| COF-66 | قسم/بطاقة | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:455 |
+| COF-67 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:460 |
+| COF-68 | زر | إعادة إرسال الدعوة | public/assets/js/app/pages/admin/company-detail.js:461 |
+| COF-69 | زر | أمان الحساب | public/assets/js/app/pages/admin/company-detail.js:462 |
+| COF-70 | تنبيه | البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط. | public/assets/js/app/pages/admin/company-detail.js:478 |
+| COF-71 | حقل | رابط الدعوة | public/assets/js/app/pages/admin/company-detail.js:479 |
+| COF-72 | زر | نسخ | public/assets/js/app/pages/admin/company-detail.js:479 |
+| COF-73 | عنصر قائمة | تم | public/assets/js/app/pages/admin/company-detail.js:481 |
+| COF-74 | نافذة | رابط الدعوة | public/assets/js/app/pages/admin/company-detail.js:482 |
+| COF-75 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:493 |
+| COF-76 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:494 |
+| COF-77 | عنصر قائمة | الوظيفة | public/assets/js/app/pages/admin/company-detail.js:495 |
+| COF-78 | عنصر قائمة | الهاتف | public/assets/js/app/pages/admin/company-detail.js:496 |
+| COF-79 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:505 |
+| COF-80 | عنصر قائمة | جهة الفواتير (تتلقى إشعارات التكاليف الإضافية) | public/assets/js/app/pages/admin/company-detail.js:507 |
+| COF-81 | نافذة | دعوة مستخدم | public/assets/js/app/pages/admin/company-detail.js:516 |
+| COF-82 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:525 |
+| COF-83 | عنصر قائمة | الوظيفة | public/assets/js/app/pages/admin/company-detail.js:526 |
+| COF-84 | عنصر قائمة | الهاتف | public/assets/js/app/pages/admin/company-detail.js:527 |
+| COF-85 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:535 |
+| COF-86 | عنصر قائمة | الدور | public/assets/js/app/pages/admin/company-detail.js:545 |
+| COF-87 | عنصر قائمة | جهة الفواتير (تتلقى إشعارات التكاليف الإضافية) | public/assets/js/app/pages/admin/company-detail.js:547 |
+| COF-88 | عنصر قائمة | الحساب نشط | public/assets/js/app/pages/admin/company-detail.js:548 |
+| COF-89 | نافذة | تغيير البريد الإلكتروني | public/assets/js/app/pages/admin/company-detail.js:561 |
+| COF-90 | نافذة | تعديل | public/assets/js/app/pages/admin/company-detail.js:571 |
+| COF-91 | نافذة | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:591 |
+| COF-92 | تنبيه | أرسلنا الرابط بالبريد أيضًا. انسخه الآن إن احتجت — يظهر الآن فقط. | public/assets/js/app/pages/admin/company-detail.js:603 |
+| COF-93 | حقل | رابط تعيين كلمة المرور | public/assets/js/app/pages/admin/company-detail.js:604 |
+| COF-94 | زر | نسخ | public/assets/js/app/pages/admin/company-detail.js:604 |
+| COF-95 | عنصر قائمة | تم | public/assets/js/app/pages/admin/company-detail.js:606 |
+| COF-96 | نافذة | رابط تعيين كلمة المرور | public/assets/js/app/pages/admin/company-detail.js:607 |
+| COF-97 | زر | رابط تعيين كلمة مرور | public/assets/js/app/pages/admin/company-detail.js:623 |
+| COF-98 | زر | إلغاء التحقق بخطوتين | public/assets/js/app/pages/admin/company-detail.js:624 |
+| COF-99 | زر | فك القفل | public/assets/js/app/pages/admin/company-detail.js:625 |
+| COF-100 | زر | تسجيل الخروج من كل الأجهزة | public/assets/js/app/pages/admin/company-detail.js:626 |
+| COF-101 | عنصر قائمة | إغلاق | public/assets/js/app/pages/admin/company-detail.js:628 |
+| COF-102 | نافذة | أمان حساب | public/assets/js/app/pages/admin/company-detail.js:629 |
+| COF-103 | زر | إضافة كيان | public/assets/js/app/pages/admin/company-detail.js:648 |
+| COF-104 | عنصر قائمة | الكيان | public/assets/js/app/pages/admin/company-detail.js:657 |
+| COF-105 | عنصر قائمة | العلاقة | public/assets/js/app/pages/admin/company-detail.js:658 |
+| COF-106 | عنصر قائمة | الشكل القانوني | public/assets/js/app/pages/admin/company-detail.js:659 |
+| COF-107 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:660 |
+| COF-108 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:661 |
+| COF-109 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:662 |
+| COF-110 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:662 |
+| COF-111 | جدول | كيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:664 |
+| COF-112 | جدول | كيانات الشركة | public/assets/js/app/pages/admin/company-detail.js:665 |
+| COF-113 | عنوان | الكيانات | public/assets/js/app/pages/admin/company-detail.js:667 |
+| COF-114 | قسم/بطاقة | الكيانات | public/assets/js/app/pages/admin/company-detail.js:668 |
+| COF-115 | زر | إضافة طرف | public/assets/js/app/pages/admin/company-detail.js:674 |
+| COF-116 | عنصر قائمة | الطرف | public/assets/js/app/pages/admin/company-detail.js:682 |
+| COF-117 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:683 |
+| COF-118 | عنصر قائمة | المخاطر | public/assets/js/app/pages/admin/company-detail.js:694 |
+| COF-119 | عنصر قائمة | في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:696 |
+| COF-120 | زر | تعديل | public/assets/js/app/pages/admin/company-detail.js:697 |
+| COF-121 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:697 |
+| COF-122 | جدول | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:699 |
+| COF-123 | جدول | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:700 |
+| COF-124 | عنوان | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:702 |
+| COF-125 | قسم/بطاقة | الأطراف المتعاملة | public/assets/js/app/pages/admin/company-detail.js:703 |
+| COF-126 | عنصر قائمة | الاسم القانوني | public/assets/js/app/pages/admin/company-detail.js:717 |
+| COF-127 | عنصر قائمة | الشكل القانوني | public/assets/js/app/pages/admin/company-detail.js:718 |
+| COF-128 | عنصر قائمة | العلاقة | public/assets/js/app/pages/admin/company-detail.js:719 |
+| COF-129 | عنصر قائمة | تابع لـ | public/assets/js/app/pages/admin/company-detail.js:720 |
+| COF-130 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:721 |
+| COF-131 | عنصر قائمة | البطاقة الضريبية | public/assets/js/app/pages/admin/company-detail.js:722 |
+| COF-132 | عنصر قائمة | جهة التسجيل | public/assets/js/app/pages/admin/company-detail.js:723 |
+| COF-133 | عنصر قائمة | الكيان نشط | public/assets/js/app/pages/admin/company-detail.js:724 |
+| COF-134 | عنصر قائمة | سبب تجاوز حد الباقة | public/assets/js/app/pages/admin/company-detail.js:725 |
+| COF-135 | نافذة | إضافة كيان | public/assets/js/app/pages/admin/company-detail.js:742 |
+| COF-136 | عنصر قائمة | الاسم | public/assets/js/app/pages/admin/company-detail.js:751 |
+| COF-137 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:752 |
+| COF-138 | عنصر قائمة | السجل التجاري | public/assets/js/app/pages/admin/company-detail.js:753 |
+| COF-139 | عنصر قائمة | درجة المخاطر | public/assets/js/app/pages/admin/company-detail.js:754 |
+| COF-140 | عنصر قائمة | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:755 |
+| COF-141 | عنصر قائمة | محظور التعامل | public/assets/js/app/pages/admin/company-detail.js:756 |
+| COF-142 | نافذة | تعديل … | public/assets/js/app/pages/admin/company-detail.js:766 |
+| COF-143 | زر | تغيير الباقة | public/assets/js/app/pages/admin/company-detail.js:781 |
+| COF-144 | زر | بدء اشتراك | public/assets/js/app/pages/admin/company-detail.js:798 |
+| COF-145 | حالة فارغة | لا اشتراك نشط لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:798 |
+| COF-146 | عنوان | الاشتراك | public/assets/js/app/pages/admin/company-detail.js:799 |
+| COF-147 | قسم/بطاقة | الاشتراك | public/assets/js/app/pages/admin/company-detail.js:800 |
+| COF-148 | عنصر قائمة | التاريخ | public/assets/js/app/pages/admin/company-detail.js:816 |
+| COF-149 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:817 |
+| COF-150 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/company-detail.js:818 |
+| COF-151 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:819 |
+| COF-152 | عنصر قائمة | الطلب | public/assets/js/app/pages/admin/company-detail.js:819 |
+| COF-153 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/company-detail.js:820 |
+| COF-154 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:821 |
+| COF-155 | زر | استبدال بمبلغ أقل | public/assets/js/app/pages/admin/company-detail.js:832 |
+| COF-156 | زر | إلغاء | public/assets/js/app/pages/admin/company-detail.js:833 |
+| COF-157 | عنصر قائمة | إجراءات | public/assets/js/app/pages/admin/company-detail.js:835 |
+| COF-158 | جدول | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:838 |
+| COF-159 | جدول | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:839 |
+| COF-160 | حقل | الدورة | public/assets/js/app/pages/admin/company-detail.js:850 |
+| COF-161 | زر | تصدير CSV | public/assets/js/app/pages/admin/company-detail.js:866 |
+| COF-162 | زر | إضافة تكلفة | public/assets/js/app/pages/admin/company-detail.js:867 |
+| COF-163 | عنوان | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:870 |
+| COF-164 | قسم/بطاقة | التكاليف الإضافية | public/assets/js/app/pages/admin/company-detail.js:871 |
+| COF-165 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:881 |
+| COF-166 | عنصر قائمة | الوصف | public/assets/js/app/pages/admin/company-detail.js:882 |
+| COF-167 | عنصر قائمة | المبلغ | public/assets/js/app/pages/admin/company-detail.js:883 |
+| COF-168 | عنصر قائمة | كود الطلب (اختياري) | public/assets/js/app/pages/admin/company-detail.js:884 |
+| COF-169 | نافذة | استبدال بمبلغ أقل | public/assets/js/app/pages/admin/company-detail.js:899 |
+| COF-170 | عنصر قائمة | سبب الإلغاء | public/assets/js/app/pages/admin/company-detail.js:907 |
+| COF-171 | نافذة | إلغاء تكلفة | public/assets/js/app/pages/admin/company-detail.js:914 |
+| COF-172 | عنوان | الاستخدام في الدورة | public/assets/js/app/pages/admin/company-detail.js:934 |
+| COF-173 | قسم/بطاقة | الاستخدام في الدورة | public/assets/js/app/pages/admin/company-detail.js:935 |
+| COF-174 | تنبيه | ينتهي الاشتراك الحالي اليوم ويبدأ الجديد بلقطة من الشروط أدناه؛ يبقى… | public/assets/js/app/pages/admin/company-detail.js:980 |
+| COF-175 | عنوان | شروط الاشتراك | public/assets/js/app/pages/admin/company-detail.js:983 |
+| COF-176 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:987 |
+| COF-177 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1005 |
+| COF-178 | عنصر قائمة | حفظ الاشتراك | public/assets/js/app/pages/admin/company-detail.js:1009 |
+| COF-179 | نافذة | تغيير الباقة | public/assets/js/app/pages/admin/company-detail.js:1017 |
+| COF-180 | تنبيه | … بانتظار مراجعة الفريق (حفظتها الشركة عند اعتماد تسليم). | public/assets/js/app/pages/admin/company-detail.js:1032 |
+| COF-181 | عنصر قائمة | النوع | public/assets/js/app/pages/admin/company-detail.js:1042 |
+| COF-182 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1046 |
+| COF-183 | عنصر قائمة | العنصر | public/assets/js/app/pages/admin/company-detail.js:1047 |
+| COF-184 | عنصر قائمة | الحالة | public/assets/js/app/pages/admin/company-detail.js:1053 |
+| COF-185 | عنصر قائمة | أقرب موعد | public/assets/js/app/pages/admin/company-detail.js:1055 |
+| COF-186 | عنصر قائمة | من يراه في الشركة | public/assets/js/app/pages/admin/company-detail.js:1056 |
+| COF-187 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1057 |
+| COF-188 | عنصر قائمة | من طلب | public/assets/js/app/pages/admin/company-detail.js:1057 |
+| COF-189 | عنصر قائمة | مستندات | public/assets/js/app/pages/admin/company-detail.js:1058 |
+| COF-190 | جدول | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1060 |
+| COF-191 | جدول | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1061 |
+| COF-192 | قسم/بطاقة | الذاكرة القانونية للشركة | public/assets/js/app/pages/admin/company-detail.js:1063 |
+| COF-193 | حقل | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1071 |
+| COF-194 | حقل | النوع | public/assets/js/app/pages/admin/company-detail.js:1077 |
+| COF-195 | حقل | بحث في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1078 |
+| COF-196 | زر | إضافة عنصر | public/assets/js/app/pages/admin/company-detail.js:1081 |
+| COF-197 | حقل | المحامي | public/assets/js/app/pages/admin/company-detail.js:1103 |
+| COF-198 | حقل | الدور | public/assets/js/app/pages/admin/company-detail.js:1104 |
+| COF-199 | حقل | ملاحظة | public/assets/js/app/pages/admin/company-detail.js:1105 |
+| COF-200 | زر | حذف | public/assets/js/app/pages/admin/company-detail.js:1106 |
+| COF-201 | حالة فارغة | لا محامين مفضلين أو مستبعدين لهذه الشركة. | public/assets/js/app/pages/admin/company-detail.js:1110 |
+| COF-202 | زر | إضافة محامٍ | public/assets/js/app/pages/admin/company-detail.js:1122 |
+| COF-203 | زر | حفظ الفريق | public/assets/js/app/pages/admin/company-detail.js:1132 |
+| COF-204 | عنوان | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1135 |
+| COF-205 | قسم/بطاقة | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1136 |
+| COF-206 | عنصر قائمة | الوقت | public/assets/js/app/pages/admin/company-detail.js:1154 |
+| COF-207 | عنصر قائمة | الحدث | public/assets/js/app/pages/admin/company-detail.js:1155 |
+| COF-208 | عنصر قائمة | بواسطة | public/assets/js/app/pages/admin/company-detail.js:1156 |
+| COF-209 | عنصر قائمة | التفاصيل | public/assets/js/app/pages/admin/company-detail.js:1157 |
+| COF-210 | جدول | سجل الشركة | public/assets/js/app/pages/admin/company-detail.js:1159 |
+| COF-211 | جدول | سجل الشركة | public/assets/js/app/pages/admin/company-detail.js:1160 |
+| COF-212 | عنوان | السجل | public/assets/js/app/pages/admin/company-detail.js:1162 |
+| COF-213 | قسم/بطاقة | السجل | public/assets/js/app/pages/admin/company-detail.js:1163 |
+| COF-214 | خيار | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1179 |
+| COF-215 | حقل | الحالة | public/assets/js/app/pages/admin/company-detail.js:1236 |
+| COF-216 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:1237 |
+| COF-217 | حقل | إضافة مستندات | public/assets/js/app/pages/admin/company-detail.js:1239 |
+| COF-218 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1248 |
+| COF-219 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1271 |
+| COF-220 | زر | استعادة من الأرشيف | public/assets/js/app/pages/admin/company-detail.js:1288 |
+| COF-221 | زر | حذف نهائي | public/assets/js/app/pages/admin/company-detail.js:1289 |
+| COF-222 | حقل | اكتب اسم العنصر للتأكيد | public/assets/js/app/pages/admin/company-detail.js:1293 |
+| COF-223 | تنبيه | يُحذف العنصر ومستنداته غير المشتركة وتذكيراته وصلاحيات المحامين عليه.… | public/assets/js/app/pages/admin/company-detail.js:1300 |
+| COF-224 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1304 |
+| COF-225 | عنصر قائمة | حذف نهائي | public/assets/js/app/pages/admin/company-detail.js:1326 |
+| COF-226 | نافذة | حذف نهائي من الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1329 |
+| COF-227 | تنبيه | حفظت الشركة هذا العقد في ذاكرتها القانونية عند اعتماد التسليم. راجِع… | public/assets/js/app/pages/admin/company-detail.js:1343 |
+| COF-228 | قسم/بطاقة | المستندات | public/assets/js/app/pages/admin/company-detail.js:1351 |
+| COF-229 | عنوان | المستندات | public/assets/js/app/pages/admin/company-detail.js:1351 |
+| COF-230 | رابط | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1356 |
+| COF-231 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1365 |
+| COF-232 | عنصر قائمة | حفظ وتأكيد | public/assets/js/app/pages/admin/company-detail.js:1367 |
+| COF-233 | عنصر قائمة | حفظ | public/assets/js/app/pages/admin/company-detail.js:1368 |
+| COF-234 | نافذة | مراجعة العقد في الذاكرة | public/assets/js/app/pages/admin/company-detail.js:1375 |
+| COF-235 | حقل | ملاحظات داخلية | public/assets/js/app/pages/admin/company-detail.js:1388 |
+| COF-236 | حقل | المستندات | public/assets/js/app/pages/admin/company-detail.js:1389 |
+| COF-237 | حقل | النوع | public/assets/js/app/pages/admin/company-detail.js:1395 |
+| COF-238 | عنصر قائمة | إلغاء | public/assets/js/app/pages/admin/company-detail.js:1414 |
+| COF-239 | تنبيه | (نص متغير) | public/assets/js/app/pages/admin/company-detail.js:1430 |
+| COF-240 | عنصر قائمة | إضافة | public/assets/js/app/pages/admin/company-detail.js:1434 |
+| COF-241 | نافذة | إضافة عنصر إلى الذاكرة القانونية | public/assets/js/app/pages/admin/company-detail.js:1442 |
+| COF-242 | عنصر قائمة | الباقة | public/assets/js/app/pages/admin/company-detail.js:951 |
+| COF-243 | عنصر قائمة | يبدأ الاشتراك الجديد في | public/assets/js/app/pages/admin/company-detail.js:952 |
+| COF-244 | عنصر قائمة | التجديد | public/assets/js/app/pages/admin/company-detail.js:963 |
+| COF-245 | عنصر قائمة | ينتهي في (اختياري) | public/assets/js/app/pages/admin/company-detail.js:965 |
+| COF-246 | عنصر قائمة | ملاحظة | public/assets/js/app/pages/admin/company-detail.js:966 |
+| COF-247 | نموذج | الباقة | public/assets/js/app/pages/admin/company-detail.js:968 |
+| COF-248 | عنصر قائمة | نظرة عامة | public/assets/js/app/pages/admin/company-detail.js:1169 |
+| COF-249 | عنصر قائمة | الطلبات | public/assets/js/app/pages/admin/company-detail.js:1170 |
+| COF-250 | عنصر قائمة | المستخدمون | public/assets/js/app/pages/admin/company-detail.js:1171 |
+| COF-251 | عنصر قائمة | الكيانات والأطراف | public/assets/js/app/pages/admin/company-detail.js:1172 |
+| COF-252 | عنصر قائمة | الباقة والتكاليف | public/assets/js/app/pages/admin/company-detail.js:1173 |
+| COF-253 | عنصر قائمة | الذاكرة القانونية | public/assets/js/app/pages/admin/company-detail.js:1174 |
+| COF-254 | عنصر قائمة | الفريق المفضل | public/assets/js/app/pages/admin/company-detail.js:1175 |
+| COF-255 | عنصر قائمة | السجل | public/assets/js/app/pages/admin/company-detail.js:1176 |
 
 ## NTF: الإشعارات (`/app#/notifications`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | NTF-01 | زر | تحديد الكل كمقروء | public/assets/js/app/pages/notifications.js:28 |
 | NTF-02 | زر | (نص متغير) | public/assets/js/app/pages/notifications.js:31 |
@@ -5359,14 +5467,14 @@
 
 ## PRF: حسابي والأمان (`/app#/account`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | PRF-01 | قسم/بطاقة | رموز العناصر | public/assets/js/app/pages/account.js:488 |
 | PRF-02 | حقل | إظهار رموز العناصر على هذا الجهاز | public/assets/js/app/pages/account.js:491 |
 | PRF-03 | زر | قائمة كل الرموز | public/assets/js/app/pages/account.js:493 |
-| PRF-04 | قسم/بطاقة | البيانات الشخصية | public/assets/js/app/pages/account.js:97 |
+| PRF-04 | عنوان | البيانات الشخصية | public/assets/js/app/pages/account.js:97 |
 | PRF-05 | قسم/بطاقة | البيانات الشخصية | public/assets/js/app/pages/account.js:98 |
-| PRF-06 | قسم/بطاقة | كلمة المرور | public/assets/js/app/pages/account.js:134 |
+| PRF-06 | عنوان | كلمة المرور | public/assets/js/app/pages/account.js:134 |
 | PRF-07 | قسم/بطاقة | كلمة المرور | public/assets/js/app/pages/account.js:135 |
 | PRF-08 | تنبيه | حسابك بدور «إدارة النظام» ويطّلع على بيانات المستفيدين وهواتفهم؛ تفعي… | public/assets/js/app/pages/account.js:149 |
 | PRF-09 | زر | تفعيل التحقق بخطوتين | public/assets/js/app/pages/account.js:154 |
@@ -5376,27 +5484,27 @@
 | PRF-13 | نافذة | إصدار رموز استرداد جديدة | public/assets/js/app/pages/account.js:202 |
 | PRF-14 | نافذة | رموز الاسترداد الجديدة | public/assets/js/app/pages/account.js:211 |
 | PRF-15 | نافذة | إلغاء التحقق بخطوتين | public/assets/js/app/pages/account.js:222 |
-| PRF-16 | قسم/بطاقة | التحقق بخطوتين | public/assets/js/app/pages/account.js:230 |
+| PRF-16 | عنوان | التحقق بخطوتين | public/assets/js/app/pages/account.js:230 |
 | PRF-17 | قسم/بطاقة | التحقق بخطوتين | public/assets/js/app/pages/account.js:230 |
 | PRF-18 | نافذة | إنهاء الجلسة | public/assets/js/app/pages/account.js:269 |
 | PRF-19 | زر | إنهاء | public/assets/js/app/pages/account.js:274 |
 | PRF-20 | حالة فارغة | لا توجد جلسات نشطة | public/assets/js/app/pages/account.js:278 |
 | PRF-21 | نافذة | تسجيل الخروج من الأجهزة الأخرى | public/assets/js/app/pages/account.js:289 |
 | PRF-22 | زر | تسجيل الخروج من كل الأجهزة الأخرى | public/assets/js/app/pages/account.js:295 |
-| PRF-23 | قسم/بطاقة | الأجهزة والجلسات النشطة | public/assets/js/app/pages/account.js:298 |
+| PRF-23 | عنوان | الأجهزة والجلسات النشطة | public/assets/js/app/pages/account.js:298 |
 | PRF-24 | قسم/بطاقة | الأجهزة والجلسات النشطة | public/assets/js/app/pages/account.js:298 |
-| PRF-25 | قسم/بطاقة | آخر أحداث الأمان على حسابك | public/assets/js/app/pages/account.js:324 |
+| PRF-25 | عنوان | آخر أحداث الأمان على حسابك | public/assets/js/app/pages/account.js:324 |
 | PRF-26 | قسم/بطاقة | آخر أحداث الأمان على حسابك | public/assets/js/app/pages/account.js:324 |
 | PRF-27 | حقل | (نص متغير) | public/assets/js/app/pages/account.js:330 |
 | PRF-28 | حقل | (نص متغير) | public/assets/js/app/pages/account.js:331 |
 | PRF-29 | زر | جرّب التنبيه | public/assets/js/app/pages/account.js:339 |
-| PRF-30 | قسم/بطاقة | التنبيهات | public/assets/js/app/pages/account.js:415 |
+| PRF-30 | عنوان | التنبيهات | public/assets/js/app/pages/account.js:415 |
 | PRF-31 | قسم/بطاقة | التنبيهات | public/assets/js/app/pages/account.js:416 |
 | PRF-32 | حقل | (نص متغير) | public/assets/js/app/pages/account.js:435 |
-| PRF-33 | قسم/بطاقة | تنبيهات على هذا الجهاز | public/assets/js/app/pages/account.js:459 |
+| PRF-33 | عنوان | تنبيهات على هذا الجهاز | public/assets/js/app/pages/account.js:459 |
 | PRF-34 | قسم/بطاقة | تنبيهات على هذا الجهاز | public/assets/js/app/pages/account.js:459 |
 | PRF-35 | حقل | (نص متغير) | public/assets/js/app/pages/account.js:473 |
-| PRF-36 | قسم/بطاقة | رموز العناصر | public/assets/js/app/pages/account.js:495 |
+| PRF-36 | عنوان | رموز العناصر | public/assets/js/app/pages/account.js:495 |
 | PRF-37 | عنوان | حسابي | public/assets/js/app/pages/account.js:510 |
 | PRF-38 | تنبيه | نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا… | public/assets/js/app/pages/account.js:511 |
 | PRF-39 | زر | تسجيل الخروج | public/assets/js/app/pages/account.js:513 |
@@ -5425,19 +5533,19 @@
 | PRF-62 | عنصر قائمة | الاسم | public/assets/js/app/pages/account.js:51 |
 | PRF-63 | عنصر قائمة | البريد الإلكتروني | public/assets/js/app/pages/account.js:52 |
 | PRF-64 | عنصر قائمة | رقم الموبايل | public/assets/js/app/pages/account.js:53 |
-| PRF-65 | نموذج | الاسم | public/assets/js/app/pages/account.js:76 |
+| PRF-65 | زر | حفظ البيانات | public/assets/js/app/pages/account.js:76 |
 | PRF-66 | نموذج | الاسم | public/assets/js/app/pages/account.js:77 |
 | PRF-67 | عنصر قائمة | كلمة المرور الحالية | public/assets/js/app/pages/account.js:107 |
 | PRF-68 | عنصر قائمة | كلمة المرور الجديدة | public/assets/js/app/pages/account.js:108 |
 | PRF-69 | عنصر قائمة | تأكيد كلمة المرور الجديدة | public/assets/js/app/pages/account.js:109 |
-| PRF-70 | نموذج | كلمة المرور الحالية | public/assets/js/app/pages/account.js:124 |
+| PRF-70 | زر | تغيير كلمة المرور | public/assets/js/app/pages/account.js:124 |
 | PRF-71 | نموذج | كلمة المرور الحالية | public/assets/js/app/pages/account.js:125 |
 | PRF-72 | عنصر قائمة | password | public/assets/js/app/components/two-factor.js:131 |
-| PRF-73 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:138 |
+| PRF-73 | زر | حفظ | public/assets/js/app/components/two-factor.js:138 |
 | PRF-74 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:139 |
 | PRF-75 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:140 |
 | PRF-76 | عنصر قائمة | code | public/assets/js/app/components/two-factor.js:158 |
-| PRF-77 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:171 |
+| PRF-77 | زر | حفظ | public/assets/js/app/components/two-factor.js:171 |
 | PRF-78 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:172 |
 | PRF-79 | نموذج | (نص متغير) | public/assets/js/app/components/two-factor.js:173 |
 | PRF-80 | عنصر قائمة | كلمة المرور الحالية | public/assets/js/app/pages/account.js:191 |
@@ -5445,7 +5553,7 @@
 
 ## TGS: رموز العناصر (`/app#/tags`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | TGS-01 | عنوان | رموز العناصر | public/assets/js/app/pages/admin/tags.js:204 |
 | TGS-02 | حقل | ابحث في الرموز | public/assets/js/app/pages/admin/tags.js:213 |
@@ -5464,9 +5572,9 @@
 | TGS-15 | عنوان | (نص متغير) | public/assets/js/app/pages/admin/tags.js:170 |
 | TGS-16 | عنوان | رموز العناصر | public/assets/js/app/pages/admin/tags.js:205 |
 
-## RSH: طلب المحامي: معلومة أو مستند أو مساعدة
+## RSH: طلب المحامي: معلومة أو مستند أو مساعدة (يظهر في: نافذة طلب المحامي في صفحة الإسناد)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | RSH-01 | نافذة | ماذا تحتاج؟ | public/assets/js/app/components/request-sheet.js:90 |
 | RSH-02 | قسم/بطاقة | مطلوب بالفعل من المستفيد/ة: | public/assets/js/app/components/request-sheet.js:131 |
@@ -5491,9 +5599,9 @@
 | RSH-21 | حقل | (نص متغير) | public/assets/js/app/components/request-sheet.js:465 |
 | RSH-22 | زر | أرسل للإدارة | public/assets/js/app/components/request-sheet.js:479 |
 
-## DRF: المسودات والمقارنة
+## DRF: المسودات والمقارنة (يظهر في: المسودات في صفحة الإسناد للمحامي)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | DRF-01 | عنصر قائمة | ارجع واحفظ | public/assets/js/app/components/draft-store.js:285 |
 | DRF-02 | عنصر قائمة | سجّل الخروج | public/assets/js/app/components/draft-store.js:286 |
@@ -5501,49 +5609,49 @@
 
 ## TDY: اليوم (المحامي) (`/app#/my`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| TDY-01 | عنوان | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:93 |
-| TDY-02 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:97 |
-| TDY-03 | زر | إعادة المحاولة | public/assets/js/app/pages/lawyer/home.js:129 |
-| TDY-04 | قسم/بطاقة | تعذر تحميل مهامك. تحقق من الاتصال ثم أعد المحاولة. | public/assets/js/app/pages/lawyer/home.js:138 |
-| TDY-05 | زر | إعادة المحاولة | public/assets/js/app/pages/lawyer/home.js:139 |
-| TDY-06 | قسم/بطاقة | مطلوب الآن | public/assets/js/app/pages/lawyer/home.js:179 |
-| TDY-07 | عنوان | مطلوب الآن | public/assets/js/app/pages/lawyer/home.js:180 |
-| TDY-08 | زر | عرض … أخرى | public/assets/js/app/pages/lawyer/home.js:183 |
-| TDY-09 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:221 |
-| TDY-10 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:222 |
-| TDY-11 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:223 |
-| TDY-12 | زر | تراجع | public/assets/js/app/pages/lawyer/home.js:283 |
-| TDY-13 | زر | فعّل التنبيهات | public/assets/js/app/pages/lawyer/home.js:338 |
-| TDY-14 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:340 |
-| TDY-15 | قسم/بطاقة | قادم | public/assets/js/app/pages/lawyer/home.js:348 |
-| TDY-16 | عنوان | قادم | public/assets/js/app/pages/lawyer/home.js:348 |
-| TDY-17 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:368 |
-| TDY-18 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:380 |
-| TDY-19 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:383 |
-| TDY-20 | قسم/بطاقة | عملي الجاري | public/assets/js/app/pages/lawyer/home.js:388 |
-| TDY-21 | عنوان | عملي الجاري | public/assets/js/app/pages/lawyer/home.js:388 |
-| TDY-22 | رابط | الإسنادات السابقة › | public/assets/js/app/pages/lawyer/home.js:390 |
-| TDY-23 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:400 |
-| TDY-24 | قسم/بطاقة | أهلًا … — جهّز هاتفك في دقيقة | public/assets/js/app/pages/lawyer/home.js:423 |
-| TDY-25 | عنوان | أهلًا … — جهّز هاتفك في دقيقة | public/assets/js/app/pages/lawyer/home.js:424 |
-| TDY-26 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:433 |
-| TDY-27 | عنوان | كيف تعمل المنصة؟ | public/assets/js/app/pages/lawyer/home.js:439 |
-| TDY-28 | زر | تم | public/assets/js/app/pages/lawyer/home.js:446 |
-| TDY-29 | زر | لاحقًا | public/assets/js/app/pages/lawyer/home.js:446 |
-| TDY-30 | زر | جرّب التنبيه | public/assets/js/app/pages/lawyer/home.js:463 |
-| TDY-31 | حقل | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:478 |
-| TDY-32 | زر | فعّل التنبيهات | public/assets/js/app/pages/lawyer/home.js:480 |
-| TDY-33 | عنصر قائمة | حسنًا | public/assets/js/app/pages/lawyer/home.js:533 |
-| TDY-34 | نافذة | أضف المنصة إلى شاشتك الرئيسية | public/assets/js/app/pages/lawyer/home.js:534 |
-| TDY-35 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:571 |
-| TDY-36 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:213 |
-| TDY-37 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:213 |
+| TDY-01 | عنوان | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:101 |
+| TDY-02 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:105 |
+| TDY-03 | زر | إعادة المحاولة | public/assets/js/app/pages/lawyer/home.js:137 |
+| TDY-04 | قسم/بطاقة | تعذر تحميل مهامك. تحقق من الاتصال ثم أعد المحاولة. | public/assets/js/app/pages/lawyer/home.js:146 |
+| TDY-05 | زر | إعادة المحاولة | public/assets/js/app/pages/lawyer/home.js:147 |
+| TDY-06 | قسم/بطاقة | مطلوب الآن | public/assets/js/app/pages/lawyer/home.js:187 |
+| TDY-07 | عنوان | مطلوب الآن | public/assets/js/app/pages/lawyer/home.js:188 |
+| TDY-08 | زر | عرض … أخرى | public/assets/js/app/pages/lawyer/home.js:192 |
+| TDY-09 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:230 |
+| TDY-10 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:231 |
+| TDY-11 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:232 |
+| TDY-12 | زر | تراجع | public/assets/js/app/pages/lawyer/home.js:292 |
+| TDY-13 | زر | فعّل التنبيهات | public/assets/js/app/pages/lawyer/home.js:347 |
+| TDY-14 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:349 |
+| TDY-15 | قسم/بطاقة | قادم | public/assets/js/app/pages/lawyer/home.js:357 |
+| TDY-16 | عنوان | قادم | public/assets/js/app/pages/lawyer/home.js:357 |
+| TDY-17 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:377 |
+| TDY-18 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:389 |
+| TDY-19 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:392 |
+| TDY-20 | قسم/بطاقة | عملي الجاري | public/assets/js/app/pages/lawyer/home.js:397 |
+| TDY-21 | عنوان | عملي الجاري | public/assets/js/app/pages/lawyer/home.js:397 |
+| TDY-22 | رابط | الإسنادات السابقة › | public/assets/js/app/pages/lawyer/home.js:399 |
+| TDY-23 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:409 |
+| TDY-24 | قسم/بطاقة | أهلًا … — جهّز هاتفك في دقيقة | public/assets/js/app/pages/lawyer/home.js:432 |
+| TDY-25 | عنوان | أهلًا … — جهّز هاتفك في دقيقة | public/assets/js/app/pages/lawyer/home.js:433 |
+| TDY-26 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:442 |
+| TDY-27 | عنوان | كيف تعمل المنصة؟ | public/assets/js/app/pages/lawyer/home.js:448 |
+| TDY-28 | زر | تم | public/assets/js/app/pages/lawyer/home.js:455 |
+| TDY-29 | زر | لاحقًا | public/assets/js/app/pages/lawyer/home.js:455 |
+| TDY-30 | زر | جرّب التنبيه | public/assets/js/app/pages/lawyer/home.js:472 |
+| TDY-31 | حقل | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:487 |
+| TDY-32 | زر | فعّل التنبيهات | public/assets/js/app/pages/lawyer/home.js:489 |
+| TDY-33 | عنصر قائمة | حسنًا | public/assets/js/app/pages/lawyer/home.js:542 |
+| TDY-34 | نافذة | أضف المنصة إلى شاشتك الرئيسية | public/assets/js/app/pages/lawyer/home.js:543 |
+| TDY-35 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:580 |
+| TDY-36 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:222 |
+| TDY-37 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/home.js:222 |
 
 ## ASL: إسناداتي (`/app#/my/assignments`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | ASL-01 | رابط | (نص متغير) | public/assets/js/app/pages/lawyer/assignments.js:47 |
 | ASL-02 | حالة فارغة | لا توجد إسنادات سابقة بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أ… | public/assets/js/app/pages/lawyer/assignments.js:59 |
@@ -5559,7 +5667,7 @@
 
 ## ASG: صفحة الإسناد (`/app#/my/assignments/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | ASG-01 | سؤال قابل للفتح | آخر موعد للإخطار: … | public/assets/js/app/pages/lawyer/assignment.js:80 |
 | ASG-02 | عنوان | (نص متغير) | public/assets/js/app/pages/lawyer/assignment.js:80 |
@@ -5637,7 +5745,7 @@
 
 ## WRT: وضع الكتابة «رأيي» (`/app#/my/assignments/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | WRT-01 | حقل | (نص متغير) | public/assets/js/app/pages/lawyer/write.js:86 |
 | WRT-02 | زر | (نص متغير) | public/assets/js/app/pages/lawyer/write.js:175 |
@@ -5686,7 +5794,7 @@
 
 ## LMT: ملفاتي المستمرة (`/app#/my/matters`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | LMT-01 | رابط | فتح الملف المستمر … : … | public/assets/js/app/pages/lawyer/matters.js:50 |
 | LMT-02 | عنوان | الملفات المستمرة | public/assets/js/app/pages/lawyer/matters.js:74 |
@@ -5702,7 +5810,7 @@
 
 ## LMF: ملف مستمر (المحامي) (`/app#/my/matters/`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | LMF-01 | عنوان | ملف مستمر | public/assets/js/app/pages/lawyer/matter.js:58 |
 | LMF-02 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/matter.js:58 |
@@ -5724,7 +5832,7 @@
 | LMF-18 | زر | عرض الكل (… ) | public/assets/js/app/pages/lawyer/matter.js:239 |
 | LMF-19 | زر | إضافة جلسة | public/assets/js/app/pages/lawyer/matter.js:249 |
 | LMF-20 | حالة فارغة | لم تُسجَّل جلسات في هذا الملف بعد. | public/assets/js/app/pages/lawyer/matter.js:249 |
-| LMF-21 | قسم/بطاقة | الجلسات | public/assets/js/app/pages/lawyer/matter.js:250 |
+| LMF-21 | عنوان | الجلسات | public/assets/js/app/pages/lawyer/matter.js:250 |
 | LMF-22 | قسم/بطاقة | الجلسات | public/assets/js/app/pages/lawyer/matter.js:250 |
 | LMF-23 | زر | تعديل الموعد | public/assets/js/app/pages/lawyer/matter.js:261 |
 | LMF-24 | زر | أُلغيت الجلسة | public/assets/js/app/pages/lawyer/matter.js:264 |
@@ -5734,7 +5842,7 @@
 | LMF-28 | زر | تمّت | public/assets/js/app/pages/lawyer/matter.js:334 |
 | LMF-29 | زر | افتح | public/assets/js/app/pages/lawyer/matter.js:354 |
 | LMF-30 | حالة فارغة | لا توجد مهام في هذا الملف. | public/assets/js/app/pages/lawyer/matter.js:368 |
-| LMF-31 | قسم/بطاقة | المهام | public/assets/js/app/pages/lawyer/matter.js:369 |
+| LMF-31 | عنوان | المهام | public/assets/js/app/pages/lawyer/matter.js:369 |
 | LMF-32 | قسم/بطاقة | المهام | public/assets/js/app/pages/lawyer/matter.js:370 |
 | LMF-33 | حقل | مثال: تقديم مذكرة بالدفاع قبل الجلسة | public/assets/js/app/pages/lawyer/matter.js:379 |
 | LMF-34 | حقل | (نص متغير) | public/assets/js/app/pages/lawyer/matter.js:382 |
@@ -5745,7 +5853,7 @@
 | LMF-39 | نافذة | تجاهل ما أدخلته؟ | public/assets/js/app/pages/lawyer/matter.js:444 |
 | LMF-40 | نافذة | إضافة مهمة | public/assets/js/app/pages/lawyer/matter.js:452 |
 | LMF-41 | حالة فارغة | لا توجد مستندات في هذا الملف. تضيف الإدارة مستندات الدعوى عند استلامه… | public/assets/js/app/pages/lawyer/matter.js:466 |
-| LMF-42 | قسم/بطاقة | المستندات | public/assets/js/app/pages/lawyer/matter.js:467 |
+| LMF-42 | عنوان | المستندات | public/assets/js/app/pages/lawyer/matter.js:467 |
 | LMF-43 | قسم/بطاقة | المستندات | public/assets/js/app/pages/lawyer/matter.js:468 |
 | LMF-44 | سؤال قابل للفتح | بيانات الدعوى | public/assets/js/app/pages/lawyer/matter.js:481 |
 | LMF-45 | عنوان | بيانات الدعوى | public/assets/js/app/pages/lawyer/matter.js:481 |
@@ -5757,7 +5865,7 @@
 
 ## STM: مستحقاتي (`/app#/my/statement`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | STM-01 | عنوان | مستحقاتي | public/assets/js/app/pages/lawyer/statement.js:46 |
 | STM-02 | قسم/بطاقة | (نص متغير) | public/assets/js/app/pages/lawyer/statement.js:46 |
@@ -5780,7 +5888,7 @@
 
 ## W: رسائل واتساب (`/app#/tags`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | W-01 | رسالة واتساب | أفراد وشركات: «أهلًا بكم في {firm_name}. اختاروا نوع الخدمة، أو اكتبوا موضوعكم مباشرة.»<br>يظهر النص نفسه أيضًا في: T-02، S-12، I-57 (الخيار الأول)، PTH-01، T-40، S-13، T-53، S-14<br>يُعدَّل من الإعدادات ← الصفحة الأولى ← الاسم القانوني للمكتب | src/constants.js:1372 · src/constants.js:289 (LABELS) · src/constants.js:1358 (LINES_MENU_TEXTS) · src/constants.js:1421 |
 | W-02 | رسالة واتساب | أفراد وشركات: «في أي مجال؟» | src/constants.js:1373 · src/constants.js:1360 (LINES_MENU_TEXTS) |
@@ -5804,7 +5912,7 @@
 | W-20 | رسالة واتساب | خيري: «{hello}، ده الدعم القانوني في {org_name}. الاستشارة ببلاش وكلامك سر عندنا. اختار{ي} موضوع…» · أفراد وشركات: «{hello}، شكرًا لتواصلكم مع {org_name}. اختاروا موضوع الاستشارة من القائمة، أو اكتبوا موضو…» | src/constants.js:1392 · src/constants.js:282 (LABELS) · src/constants.js:1282 (CLIENT_TEXTS) · src/constants.js:1312 (CLIENT_TEXTS_PAID) |
 | W-21 | رسالة واتساب | خيري: «الدعم القانوني — {org_name}» · أفراد وشركات: «خدمات قانونية — {org_name}» | src/constants.js:1393 · src/constants.js:1284 (CLIENT_TEXTS) · src/constants.js:1314 (CLIENT_TEXTS_PAID) |
 | W-22 | رسالة واتساب | خيري: «اختار{ي} الموضوع» · أفراد وشركات: «اختيار الموضوع» | src/constants.js:1394 · src/constants.js:1285 (CLIENT_TEXTS) · src/constants.js:1315 (CLIENT_TEXTS_PAID) |
-| W-23 | رسالة واتساب | خيري: «مواضيع بنساعد فيها» · أفراد وشركات: «مجالات الاستشارة» | src/constants.js:1395 · src/constants.js:1286 (CLIENT_TEXTS) · src/constants.js:1316 (CLIENT_TEXTS_PAID) · src/services/stories.js:543 (@tag-src) |
+| W-23 | رسالة واتساب | خيري: «مواضيع بنساعد فيها» · أفراد وشركات: «مجالات الاستشارة» | src/constants.js:1395 · src/constants.js:1286 (CLIENT_TEXTS) · src/constants.js:1316 (CLIENT_TEXTS_PAID) · src/services/stories.js:596 (@tag-src) |
 | W-24 | رسالة واتساب | خيري: «مش لازم تختار{ي} — اكتب{ي} أو سجّل{ي} على طول» · أفراد وشركات: «يمكنكم الكتابة مباشرة دون اختيار» | src/constants.js:1396 · src/constants.js:1287 (CLIENT_TEXTS) · src/constants.js:1317 (CLIENT_TEXTS_PAID) |
 | W-25 | رسالة واتساب | خيري: «تمام. احكيلنا حصل إيه بالكتابة أو برسالة صوتية، ولما تخلّص{ي} ابعت{ي} «خلاص»، أو اصبر{ي}…» · أفراد وشركات: «شكرًا. يرجى كتابة تفاصيل موضوعكم أو إرسالها في رسالة صوتية، وعند الانتهاء أرسلوا «خلاص».» | src/constants.js:1397 · src/constants.js:283 (LABELS) · src/constants.js:1288 (CLIENT_TEXTS) · src/constants.js:1318 (CLIENT_TEXTS_PAID) |
 | W-26 | رسالة واتساب | خيري: «{hello}. وصلتنا حكايتك، وده {ref_no}. فريقنا هيشوفها ويرد عليك{ي} هنا. لو افتكرت{ي} حاجة…» · أفراد وشركات: «{hello}، وصلنا طلبكم، وهذا {ref_no}. سيراجعه فريقنا ويتواصل معكم هنا لتحديد الخطوة التالي…» | src/constants.js:1398 · src/constants.js:284 (LABELS) · src/constants.js:1289 (CLIENT_TEXTS) · src/constants.js:1319 (CLIENT_TEXTS_PAID) |
@@ -5839,27 +5947,27 @@
 
 ## E: رسائل البريد الإلكتروني (`/app#/tags`)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
-| E-01 | بريد | الموضوع: «دعوة للانضمام إلى إدارتكم القانونية» | src/services/email.js:293 |
-| E-02 | بريد | الموضوع: «تعيين كلمة مرور جديدة لحسابكم» | src/services/email.js:294 |
-| E-03 | بريد | الموضوع: «(نص متغير)» | src/services/email.js:295 |
-| E-04 | بريد | الموضوع: «تغيّر البريد الإلكتروني لحسابكم» | src/services/email.js:296 |
-| E-05 | بريد | الموضوع: «تحديث على طلبكم — …» | src/services/email.js:297 |
-| E-06 | بريد | الموضوع: «فريقكم القانوني يحتاج معلومة — …» | src/services/email.js:298 |
-| E-07 | بريد | الموضوع: «عرض سعر بانتظار موافقتكم — …» | src/services/email.js:299 |
-| E-08 | بريد | الموضوع: «جاهز للمراجعة — …» | src/services/email.js:300 |
-| E-09 | بريد | الموضوع: «موعد يقترب في ذاكرتكم القانونية» | src/services/email.js:301 |
-| E-10 | بريد | الموضوع: «تكلفة إضافية — …» | src/services/email.js:302 |
-| E-11 | بريد | الموضوع: «الفترة التجريبية» | src/services/email.js:303 |
-| E-12 | بريد | الموضوع: «(نص متغير)» | src/services/email.js:304 |
-| E-13 | بريد | الموضوع: «رسالة تجربة من منصة المكتب» | src/services/email.js:305 |
+| E-01 | بريد | الموضوع: «دعوة للانضمام إلى إدارتكم القانونية» · نص الرسالة: «مرحبًا أ. مريم، تلقّيتم دعوة من أ. مريم حسن للانضمام إلى بوابة شركة النيل للأغذية لدى Ema…» | src/services/email.js:293 |
+| E-02 | بريد | الموضوع: «تعيين كلمة مرور جديدة لحسابكم» · نص الرسالة: «مرحبًا أ. مريم، لتعيين كلمة مرور جديدة لحسابكم على بوابة شركة النيل للأغذية افتحوا الرابط…» | src/services/email.js:294 |
+| E-03 | بريد | الموضوع: «تغيّرت كلمة المرور لحسابكم» · نص الرسالة: «مرحبًا أ. مريم، تغيّرت كلمة المرور لحسابكم. إن لم تكونوا أنتم فتواصلوا مع مديري البوابة ف…» | src/services/email.js:295 |
+| E-04 | بريد | الموضوع: «تغيّر البريد الإلكتروني لحسابكم» · نص الرسالة: «مرحبًا أ. مريم، غيّر فريقكم القانوني البريد الإلكتروني المسجل لحسابكم على بوابة شركة الني…» | src/services/email.js:296 |
+| E-05 | بريد | الموضوع: «تحديث على طلبكم — NFD-0007» · نص الرسالة: «مرحبًا أ. مريم، يوجد تحديث على طلبكم NFD-0007. للتفاصيل افتحوا البوابة: https://…/company…» | src/services/email.js:297 |
+| E-06 | بريد | الموضوع: «فريقكم القانوني يحتاج معلومة — NFD-0007» · نص الرسالة: «مرحبًا أ. مريم، يحتاج فريقكم القانوني معلومة منكم لاستكمال الطلب NFD-0007. للتفاصيل افتحو…» | src/services/email.js:298 |
+| E-07 | بريد | الموضوع: «عرض سعر بانتظار موافقتكم — NFD-0007» · نص الرسالة: «مرحبًا أ. مريم، وصلكم عرض سعر على الطلب NFD-0007 بانتظار موافقتكم. للتفاصيل افتحوا البواب…» | src/services/email.js:299 |
+| E-08 | بريد | الموضوع: «جاهز للمراجعة — NFD-0007» · نص الرسالة: «مرحبًا أ. مريم، التسليم الخاص بالطلب NFD-0007 جاهز للمراجعة. للتفاصيل افتحوا البوابة: htt…» | src/services/email.js:300 |
+| E-09 | بريد | الموضوع: «موعد يقترب في ذاكرتكم القانونية» · نص الرسالة: «مرحبًا أ. مريم، يقترب موعد مهم في ذاكرتكم القانونية: تجديد السجل التجاري — 1 نوفمبر 2026…» | src/services/email.js:301 |
+| E-10 | بريد | الموضوع: «تكلفة إضافية — NFD-0007» · نص الرسالة: «مرحبًا أ. مريم، أُضيفت تكلفة إضافية 1,500 جنيه — NFD-0007. للتفاصيل افتحوا البوابة: https…» | src/services/email.js:302 |
+| E-11 | بريد | الموضوع: «تنتهي الفترة التجريبية بعد 3 أيام» · نص الرسالة: «مرحبًا أ. مريم، تنتهي الفترة التجريبية لبوابة شركتكم بعد 3 أيام. للاستمرار اختاروا باقة م…» | src/services/email.js:303 |
+| E-12 | بريد | الموضوع: «طلب جديد من شركة النيل للأغذية: NFD-0007» · نص الرسالة: «طلب جديد من شركة النيل للأغذية: NFD-0007 https://…/app#/company-requests/12» | src/services/email.js:304 |
+| E-13 | بريد | الموضوع: «رسالة تجربة من منصة المكتب» · نص الرسالة: «هذه رسالة تجربة للتأكد من إعدادات البريد الإلكتروني. — فريقكم القانوني في Emam Legal and…» | src/services/email.js:305 |
 | E-14 | بريد | التحية: «مرحبًا …،» | src/services/email.js:306 |
 | E-15 | بريد | التذييل: «— فريقكم القانوني في … · رسالة آلية؛ للرد استخدموا البوابة.» | src/services/email.js:307 |
 
-## D: المستندات المطبوعة
+## D: المستندات المطبوعة (يظهر في: المستندات المطبوعة من صفحات الملفات)
 
-| Code | Kind | Text | Where |
+| الرمز | النوع | النص | مكانه في الملفات |
 |---|---|---|---|
 | D-01 | مستند مطبوع | الرقم: | public/assets/js/app/pages/print.js:491 |
 | D-02 | مستند مطبوع | الرقم: | public/assets/js/app/pages/print.js:499 |
@@ -5929,7 +6037,7 @@
 
 ## النطاقات المحجوزة (Reserved ranges)
 
-| Range | Lane | What |
+| النطاق | المسار | ملاحظة للمهندسين |
 |---|---|---|
 | L-01…L-11 | entry | entry and tree page chrome (L-07 = نتصل بكم) |
 | T-01…T-83 | entry | tree questions and options (E12-02 + r2 T-82, T-83) |
@@ -5977,6 +6085,6 @@
 
 ## الرموز المتقاعدة (Retired codes)
 
-| Code | Retired in | Was | Moved to |
+| الرمز | تقاعد في الإصدار | كان | انتقل إلى |
 |---|---|---|---|
 | — | — | — | — |
