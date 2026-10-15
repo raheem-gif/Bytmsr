@@ -12,12 +12,12 @@ const LEVEL_ICON = { high: 'alert', review: 'flag', info: 'info' };
 export function matchItem(m) {
   let target;
   if (m.target === 'client' && m.client) {
-    target = h('a', { href: `#/clients/${m.client.id}` }, m.client.name || 'مستفيد/ة', ' ', codeTag(m.client.code));
+    target = h('a', { href: `#/clients/${m.client.id}`, tag: 'PTY-01' }, m.client.name || 'مستفيد/ة', ' ', codeTag(m.client.code));
   } else if (m.party) {
     const p = m.party;
     const href = p.matter_id ? `#/matters/${p.matter_id}` : p.case_id ? `#/cases/${p.case_id}` : null;
     const code = p.matter_code || p.case_code;
-    target = h('span', `«${p.name}» (${label('party_role', p.role)}) في `, href ? h('a', { href }, codeTag(code)) : codeTag(code));
+    target = h('span', `«${p.name}» (${label('party_role', p.role)}) في `, href ? h('a', { href, tag: 'PTY-02' }, codeTag(code)) : codeTag(code));
   }
   return h(
     'li.v9p-match',
@@ -39,10 +39,10 @@ export function matchList(matches) {
 function partyFields({ lockRole = false } = {}) {
   return [
     // الخصم المأخوذ من بيانات الدعوى: صفته ثابتة، ويُحدَّث اسمه في بيانات الملف المستمر أيضًا
-    !lockRole && { name: 'role', label: 'صفة الطرف', type: 'select', required: true, placeholder: false, options: options('party_role') },
-    { name: 'name', label: 'الاسم كاملًا', required: true, maxLength: 150, hint: 'اكتب الاسم الرباعي إن أمكن لدقة الفحص.' },
-    { name: 'national_id', label: 'الرقم القومي (اختياري)', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3' },
-    { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 1000 },
+    !lockRole && { name: 'role', label: 'صفة الطرف', type: 'select', required: true, placeholder: false, options: options('party_role'), tag: 'PTY-12' },
+    { name: 'name', label: 'الاسم كاملًا', required: true, maxLength: 150, hint: 'اكتب الاسم الرباعي إن أمكن لدقة الفحص.', tag: 'PTY-13' },
+    { name: 'national_id', label: 'الرقم القومي (اختياري)', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3', tag: 'PTY-14' },
+    { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 1000, tag: 'PTY-15' },
   ].filter(Boolean);
 }
 
@@ -63,7 +63,7 @@ function checkNid(v) {
 export function partiesCard({ caseId = null, matterId = null, readOnly = false } = {}) {
   const base = matterId ? `/admin/matters/${matterId}/parties` : `/admin/cases/${caseId}/parties`;
   const body = h('div.v9p-parties', loading());
-  const addBtn = !readOnly && button('إضافة طرف', { size: 'sm', icon: 'userPlus', onClick: () => edit(null) });
+  const addBtn = !readOnly && button('إضافة طرف', { size: 'sm', icon: 'userPlus', onClick: () => edit(null), tag: 'PTY-03' });
   const el = card({
     title: 'أطراف الملف وتعارض المصالح',
     subtitle: 'الخصوم والأطراف ذات الصلة — يُفحص كل اسم مقابل كل المستفيدين وأطراف الملفات الأخرى',
@@ -71,6 +71,8 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
     actions: addBtn,
     body,
     className: 'v9p-parties-card',
+    titleTag: 'PTY-04',
+    tag: 'PTY-05',
   });
   let data = null;
 
@@ -94,9 +96,9 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
         !readOnly &&
           h(
             'div.row',
-            button('', { size: 'sm', variant: 'ghost', icon: 'edit', title: `تعديل بيانات «${p.name}»`, onClick: () => edit(p) }),
+            button('', { size: 'sm', variant: 'ghost', icon: 'edit', title: `تعديل بيانات «${p.name}»`, onClick: () => edit(p), tag: 'PTY-06' }),
             // الخصم المأخوذ من بيانات الدعوى يُحذف من حقل «الخصم» في الملف المستمر لا من هنا
-            p.origin !== 'matter_opponent' && button('', { size: 'sm', variant: 'ghost', icon: 'trash', title: `حذف «${p.name}» من أطراف الملف`, onClick: () => remove(p) }),
+            p.origin !== 'matter_opponent' && button('', { size: 'sm', variant: 'ghost', icon: 'trash', title: `حذف «${p.name}» من أطراف الملف`, onClick: () => remove(p), tag: 'PTY-07' }),
           ),
       ),
       p.national_id && h('div.small.muted', 'الرقم القومي: ', h('span.ltr', { dir: 'ltr' }, `••••${p.national_id.slice(-4)}`)),
@@ -123,8 +125,8 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
       parts.push(
         emptyState(
           readOnly ? 'لم يُسجَّل أي طرف لهذا الملف.' : 'سجّل الخصم والأطراف ذات الصلة ليُفحص تعارض المصالح تلقائيًا.',
-          addBtn ? button('إضافة طرف', { size: 'sm', variant: 'primary', icon: 'userPlus', onClick: () => edit(null) }) : null,
-          { compact: true, icon: 'users' },
+          addBtn ? button('إضافة طرف', { size: 'sm', variant: 'primary', icon: 'userPlus', onClick: () => edit(null), tag: 'PTY-08' }) : null,
+          { compact: true, icon: 'users', tag: 'PTY-09' },
         ),
       );
     } else parts.push(h('ul.v9p-party-list', data.items.map(partyRow)));
@@ -146,6 +148,7 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
         if (!fromMatter) payload.role = v.role;
         return p ? api.patch(`/admin/parties/${p.id}`, payload) : api.post(base, payload);
       },
+      tag: 'PTY-10',
     });
     if (!res) return;
     const high = (res.matches || []).filter((m) => m.level === 'high').length;
@@ -155,7 +158,7 @@ export function partiesCard({ caseId = null, matterId = null, readOnly = false }
   }
 
   async function remove(p) {
-    const ok = await confirmDanger({ title: 'حذف طرف من الملف', message: `سيُحذف «${p.name}» من أطراف الملف ولن يدخل في فحوص تعارض المصالح القادمة. هل تريد المتابعة؟`, confirmLabel: 'حذف الطرف' });
+    const ok = await confirmDanger({ title: 'حذف طرف من الملف', message: `سيُحذف «${p.name}» من أطراف الملف ولن يدخل في فحوص تعارض المصالح القادمة. هل تريد المتابعة؟`, confirmLabel: 'حذف الطرف', tag: 'PTY-11' });
     if (!ok) return;
     try {
       await api.del(`/admin/parties/${p.id}`);

@@ -78,6 +78,21 @@ export function compareCodes(a, b) {
   return pa === pb ? Number(na) - Number(nb) : pa < pb ? -1 : 1;
 }
 
+/**
+ * البحث بالكلمات (اللوحة، صفحة الرموز، الخادم، npm run tags -- find): «تاسيس» تجد «تأسيس» (review). يطوي الهمزات على
+ * الألف (أ إ آ ٱ ← ا)، والألف المقصورة (ى ← ي)، والتاء المربوطة (ة ← ه)، وؤ ← و، وئ ← ي، ويحذف التشكيل والتطويل.
+ */
+export function foldAr(s) {
+  return String(s == null ? '' : s)
+    .replace(/[ً-ٰٟـ]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .toLowerCase();
+}
+
 /** 'INB-04' ← 'INB' (أو null) */
 export function prefixOf(code) {
   const m = /^([A-Z]{1,3})-\d{2,3}$/.exec(String(code || ''));

@@ -1060,6 +1060,7 @@ export async function seedDemo(app) {
     // وأسبوع من عدادات الزيارات، واسم المكتب «إمام وشركاه» للعرض (E12-59، L12-41)
     (await import('./seed-v12-entry.js')).seedV12Entry(app, { at, realNow });
     await (await import('./seed-v12-lines.js')).seedV12Lines(app, { at, realNow }); // v12 staff-lines (H-E4, SL-10): قائمة الخدمات على واتساب ومسار الطلب
+    (await import('./seed-v12-media.js')).seedV12Media(app); // v12 media (H-E4، MD-12): مسودة نص آلي، نسخة محسّنة لصورة، ونص مقروء آليًا (بلا مهام)
 
     // ================= تشغيل الأتمتة على الوضع الحالي =================
     T = realNow;

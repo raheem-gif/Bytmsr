@@ -88,12 +88,12 @@ const RULES = {
 };
 
 const PARAM_FIELDS = {
-  days_before: { label: 'عدد الأيام قبل الموعد', hint: 'متى يبدأ التذكير أو التنبيه قبل الموعد', suffix: 'يوم' },
-  after_days: { label: 'بعد كم يوم من إرسال الطلب للمستفيد/ة', hint: 'لا يُرسل التذكير قبل مرور هذه المدة', suffix: 'يوم' },
-  repeat_every_days: { label: 'الفاصل بين التذكيرات', hint: 'أقل مدة بين تذكيرين لنفس العنصر', suffix: 'يوم' },
-  max_reminders: { label: 'الحد الأقصى للتذكيرات', hint: 'لكل فاتورة أو طلب', suffix: 'تذكير' },
-  after_hours: { label: 'بعد كم ساعة من إرسال الرد', hint: 'يُرسل الاستبيان بعد هذه المدة من إرسال الرد النهائي للمستفيد/ة', suffix: 'ساعة' },
-  expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود المستفيد/ة بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم' },
+  days_before: { label: 'عدد الأيام قبل الموعد', hint: 'متى يبدأ التذكير أو التنبيه قبل الموعد', suffix: 'يوم', tag: 'AUT-44' },
+  after_days: { label: 'بعد كم يوم من إرسال الطلب للمستفيد/ة', hint: 'لا يُرسل التذكير قبل مرور هذه المدة', suffix: 'يوم', tag: 'AUT-45' },
+  repeat_every_days: { label: 'الفاصل بين التذكيرات', hint: 'أقل مدة بين تذكيرين لنفس العنصر', suffix: 'يوم', tag: 'AUT-46' },
+  max_reminders: { label: 'الحد الأقصى للتذكيرات', hint: 'لكل فاتورة أو طلب', suffix: 'تذكير', tag: 'AUT-47' },
+  after_hours: { label: 'بعد كم ساعة من إرسال الرد', hint: 'يُرسل الاستبيان بعد هذه المدة من إرسال الرد النهائي للمستفيد/ة', suffix: 'ساعة', tag: 'AUT-48' },
+  expire_days: { label: 'مدة قبول التقييم', hint: 'تُقبل ردود المستفيد/ة بالأرقام خلال هذه المدة من إرسال الاستبيان', suffix: 'يوم', tag: 'AUT-49' },
 };
 const PARAM_ORDER = ['days_before', 'after_days', 'repeat_every_days', 'max_reminders', 'after_hours', 'expire_days'];
 // v11 segment-staff (ST-6، S11 §9.9): مسميا نصّي القاعدة لكل نوع خدمة (template / template_paid)
@@ -162,7 +162,7 @@ function runEntity(run) {
   if (!run.entity_code) return h('span', what, ' ', h('span.muted', '(لم يعد موجودًا)'));
   const href = runHref(run);
   const code = codeTag(run.entity_code);
-  return h('span', `${what} `, href ? h('a', { href, 'aria-label': `${what} ${run.entity_code}` }, code) : code, run.client_name ? ` — ${run.client_name}` : null);
+  return h('span', `${what} `, href ? h('a', { href, 'aria-label': `${what} ${run.entity_code}`, tag: 'AUT-01' }, code) : code, run.client_name ? ` — ${run.client_name}` : null);
 }
 
 function runText(run) {
@@ -200,7 +200,7 @@ function fillTemplate(tpl, values) {
 function switchControl({ checked, label: text, onToggle }) {
   const btn = h(
     'button.pd-switch',
-    { type: 'button', role: 'switch', 'aria-checked': String(Boolean(checked)), 'aria-label': text },
+    { type: 'button', role: 'switch', 'aria-checked': String(Boolean(checked)), 'aria-label': text, tag: 'AUT-02' },
     h('span.pd-switch-track', { 'aria-hidden': 'true' }, h('span.pd-switch-thumb')),
     h('span.pd-switch-text', checked ? 'مفعّلة' : 'موقوفة'),
   );
@@ -244,11 +244,11 @@ export default async function render(ctx) {
         'p.pd-wa-note',
         h('strong', 'نافذة الـ 24 ساعة: '),
         'يسمح واتساب بالرسائل الحرة خلال 24 ساعة من آخر رسالة أرسلها المستفيد/ة فقط؛ خارجها لا تُرسل إلا قوالب معتمدة مسبقًا من ميتا، وتستخدم المنصة تلقائيًا القالب المحدد في الإعدادات.',
-        isAdmin ? [' ', h('a', { href: '#/settings' }, 'إعدادات واتساب والتكاملات')] : null,
+        isAdmin ? [' ', h('a', { href: '#/settings', tag: 'AUT-03' }, 'إعدادات واتساب والتكاملات')] : null,
       ),
     ),
     waConfigured ? 'success' : 'warning',
-    { title: waConfigured ? 'واتساب متصل — الإرسال حقيقي' : 'واتساب في وضع المحاكاة', icon: 'whatsapp' },
+    { title: waConfigured ? 'واتساب متصل — الإرسال حقيقي' : 'واتساب في وضع المحاكاة', icon: 'whatsapp', tag: 'AUT-04' },
   );
 
   // ───────────── القواعد ─────────────
@@ -277,6 +277,7 @@ export default async function render(ctx) {
                 message: `لن ${meta.audience === 'client' ? 'تُرسل رسائل' : 'تُرسل تنبيهات'} «${r.label}» حتى تعيد تفعيلها. هل تريد المتابعة؟`,
                 confirmLabel: 'إيقاف القاعدة',
                 danger: true,
+                tag: 'AUT-05',
               });
               if (!ok) return;
             }
@@ -295,11 +296,11 @@ export default async function render(ctx) {
 
     return h(
       'article.pd-rule',
-      { class: !r.enabled && 'is-off' },
+      { class: !r.enabled && 'is-off', tag: r.tag }, // v12 tags (TG-4، T12-19): رمز W لنص القاعدة من الخادم
       h(
         'header.pd-rule-head',
-        h('span.pd-rule-icon', { class: meta.audience === 'client' ? 'tone-success' : 'tone-info' }, icon(meta.icon, { size: 20 })),
-        h('div.pd-rule-title', h('h3', r.label)),
+        { tag: 'AUT-06' }, h('span.pd-rule-icon', { class: meta.audience === 'client' ? 'tone-success' : 'tone-info' }, icon(meta.icon, { size: 20 })),
+        h('div.pd-rule-title', h('h3', { tag: 'AUT-07' }, r.label)),
         h('div.pd-rule-toggle', toggle),
       ),
       h(
@@ -337,14 +338,14 @@ export default async function render(ctx) {
           : null,
       ),
       isAdmin && (paramKeys.length || params.template)
-        ? h('footer.pd-rule-foot', button('تعديل الإعدادات', { size: 'sm', icon: 'edit', onClick: () => openEdit(r) }))
+        ? h('footer.pd-rule-foot', { tag: 'AUT-08' }, button('تعديل الإعدادات', { size: 'sm', icon: 'edit', onClick: () => openEdit(r), tag: 'AUT-09' }))
         : null,
     );
   }
 
   function drawRules() {
     if (!rules.length) {
-      mount(rulesHost, emptyState('لا توجد قواعد أتمتة معرّفة', null, { icon: 'zap' }));
+      mount(rulesHost, emptyState('لا توجد قواعد أتمتة معرّفة', null, { icon: 'zap', tag: 'AUT-10' }));
       return;
     }
     mount(rulesHost, rules.map(ruleCard));
@@ -366,10 +367,11 @@ export default async function render(ctx) {
       min: 1,
       max: 365,
       suffix: PARAM_FIELDS[k].suffix,
+      tag: PARAM_FIELDS[k].tag,
     }));
-    if (hasTemplate) fields.push({ name: 'template', label: hasPaid ? TPL_CHARITY : 'نص الرسالة', type: 'textarea', rows: 5, required: true, maxLength: 1000, full: true, dir: 'auto' });
-    if (hasPaid) fields.push({ name: 'template_paid', label: TPL_PAID, type: 'textarea', rows: 5, required: true, maxLength: 600, full: true, dir: 'auto', hint: 'يصل للأفراد والشركات (ولمن نوع خدمته غير محدد) بصيغة الجمع وبلا كلمة «مجاني».' });
-    const f = form(fields, { footer: false, values: params });
+    if (hasTemplate) fields.push({ name: 'template', label: hasPaid ? TPL_CHARITY : 'نص الرسالة', type: 'textarea', rows: 5, required: true, maxLength: 1000, full: true, dir: 'auto', tag: 'AUT-50' });
+    if (hasPaid) fields.push({ name: 'template_paid', label: TPL_PAID, type: 'textarea', rows: 5, required: true, maxLength: 600, full: true, dir: 'auto', hint: 'يصل للأفراد والشركات (ولمن نوع خدمته غير محدد) بصيغة الجمع وبلا كلمة «مجاني».', tag: 'AUT-51' });
+    const f = form(fields, { footer: false, values: params, tag: 'AUT-40' });
     const preview = h('p.pd-template-body', { dir: 'auto' });
     const previewPaid = h('p.pd-template-body', { dir: 'auto' });
     const placeholders = meta.placeholders || {};
@@ -408,6 +410,7 @@ export default async function render(ctx) {
                   ta.setSelectionRange(start + token.length, start + token.length);
                   ta.dispatchEvent(new Event('input', { bubbles: true }));
                 },
+                tag: 'AUT-11',
               },
               h('code', { dir: 'ltr' }, `{${k}}`),
               h('span', desc),
@@ -427,7 +430,7 @@ export default async function render(ctx) {
         hasPaid ? h('div.pd-template.pd-template-preview', h('div.pd-template-label', icon('eye', { size: 14 }), `معاينة بمثال واقعي — ${TPL_PAID}`), previewPaid) : null,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'AUT-12' },
         {
           label: 'حفظ الإعدادات',
           variant: 'primary',
@@ -454,8 +457,10 @@ export default async function render(ctx) {
             refreshRules().catch(() => ctx.reload());
             return undefined;
           },
+          tag: 'AUT-13',
         },
       ],
+      tag: 'AUT-14',
     });
   }
 
@@ -500,6 +505,7 @@ export default async function render(ctx) {
         toggleBtn.setAttribute('aria-expanded', String(open));
         toggleBtn.querySelector('.btn-label').textContent = open ? 'إخفاء' : 'عرض النص كاملًا';
       },
+      tag: 'AUT-15',
     });
     toggleBtn.setAttribute('aria-expanded', 'false');
     return h('div.pd-msg', p, toggleBtn);
@@ -525,20 +531,23 @@ export default async function render(ctx) {
         rows,
         empty: outboxState.status ? 'لا توجد رسائل بهذه الحالة' : 'لم تُرسل أي رسائل بعد',
         rowClass: (m) => m.status === 'failed' && 'pd-row-failed',
+        rowTag: (m) => m.tag, // v12 tags (TG-4، T12-19): رمز W للنص الذي أنتج الرسالة
         columns: [
           {
             key: 'time',
             label: 'الوقت',
             render: (m) =>
               h('div.pd-cell-stack', h('time.nowrap', { datetime: m.created_at, title: dateTime(m.created_at) }, relative(m.created_at)), h('span.cell-sub.nowrap', dateTime(m.created_at))),
+              tag: 'AUT-16',
           },
           {
             key: 'client',
             label: 'المستفيد/ة',
             render: (m) =>
               m.client_id
-                ? h('div.pd-cell-stack', h('a.cell-title', { href: `#/clients/${m.client_id}` }, m.client_name || 'مستفيد/ة'), m.client_code && codeTag(m.client_code))
+                ? h('div.pd-cell-stack', h('a.cell-title', { href: `#/clients/${m.client_id}`, tag: 'AUT-17' }, m.client_name || 'مستفيد/ة'), m.client_code && codeTag(m.client_code))
                 : h('span.muted', '—'),
+                tag: 'AUT-18',
           },
           {
             key: 'file',
@@ -547,15 +556,17 @@ export default async function render(ctx) {
               m.case_code || m.matter_code
                 ? h(
                     'div.pd-cell-stack',
-                    m.case_code && h('a', { href: `#/cases/${m.case_id}` }, codeTag(m.case_code)),
-                    m.matter_code && h('a', { href: `#/matters/${m.matter_id}` }, codeTag(m.matter_code)),
+                    m.case_code && h('a', { href: `#/cases/${m.case_id}`, tag: 'AUT-19' }, codeTag(m.case_code)),
+                    m.matter_code && h('a', { href: `#/matters/${m.matter_id}`, tag: 'AUT-20' }, codeTag(m.matter_code)),
                   )
                 : h('span.muted', 'طلب وارد'),
+                tag: 'AUT-21',
           },
           {
             key: 'status',
             label: 'القناة والحالة',
             render: (m) => h('div.pd-cell-stack', h('span.nowrap', m.channel === 'whatsapp' && icon('whatsapp', { size: 14 }), ' ', label('channel', m.channel)), statusBadge('message_status', m.status)),
+            tag: 'AUT-22',
           },
           {
             key: 'source',
@@ -564,8 +575,9 @@ export default async function render(ctx) {
               m.automated
                 ? h('div.pd-cell-stack', badge('رسالة آلية', 'accent', { icon: 'zap' }), h('span.cell-sub', label('automation_rule', m.automation_rule)))
                 : h('div.pd-cell-stack', h('span', 'يدويًا'), h('span.cell-sub', m.author_name || 'النظام')),
+                tag: 'AUT-23',
           },
-          { key: 'body', label: 'نص الرسالة', className: 'pd-col-body', render: bodyCell },
+          { key: 'body', label: 'نص الرسالة', className: 'pd-col-body', render: bodyCell, tag: 'AUT-24' },
           rows.some((m) => m.status === 'failed' || m.error) && {
             key: 'actions',
             label: '',
@@ -581,14 +593,16 @@ export default async function render(ctx) {
                         toast('أُعيدت الرسالة إلى قائمة الإرسال', 'success');
                         loadOutbox();
                       },
-                      { size: 'sm', icon: 'refresh' },
+                      { size: 'sm', icon: 'refresh', tag: 'AUT-25' },
                     ),
                   )
                 : m.error
                   ? h('span.pd-text-danger.small', m.error)
                   : null,
+                  tag: 'AUT-26',
           },
         ].filter(Boolean),
+        tag: 'AUT-27',
       }),
     );
   }
@@ -604,21 +618,22 @@ export default async function render(ctx) {
         syncUrl();
         loadOutbox();
       },
+      tag: 'AUT-28',
     });
     loadOutbox();
     return h(
       'div.stack',
       h('p.pd-section-hint.pd-intro', 'كل ما أرسلته المؤسسة للمستفيدين — آليًا أو يدويًا — من نفس محرك الرسائل، مع حالته الفعلية. الرسائل الفاشلة يمكن إعادة إرسالها.'),
-      filterBar([statusSel, button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: loadOutbox })]),
+      filterBar([statusSel, button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: loadOutbox, tag: 'AUT-29' })]),
       outboxHost,
     );
   }
 
   const tabsEl = tabs(
     [
-      { key: 'rules', label: 'قواعد الأتمتة', icon: 'zap', count: rules.filter((r) => r.enabled).length, render: rulesPanel },
-      { key: 'outbox', label: 'صندوق الصادر', icon: 'send', render: outboxPanel },
-      isAdmin ? { key: 'email', label: 'صادر البريد', icon: 'mail', render: () => emailOutboxPanel() } : null, // v10 b2b-staff (U10-S24)
+      { key: 'rules', label: 'قواعد الأتمتة', icon: 'zap', count: rules.filter((r) => r.enabled).length, render: rulesPanel, tag: 'AUT-41' },
+      { key: 'outbox', label: 'صندوق الصادر', icon: 'send', render: outboxPanel, tag: 'AUT-42' },
+      isAdmin ? { key: 'email', label: 'صادر البريد', icon: 'mail', render: () => emailOutboxPanel(), tag: 'AUT-43' } : null, // v10 b2b-staff (U10-S24)
     ].filter(Boolean),
     {
       active: activeTab,
@@ -626,6 +641,7 @@ export default async function render(ctx) {
         activeTab = key;
         syncUrl();
       },
+      tag: 'AUT-30',
     },
   );
 
@@ -656,7 +672,7 @@ export default async function render(ctx) {
         if (notes) parts.push(`وسيصل للفريق ${count(notes, ['تنبيه واحد', 'تنبيهان', 'تنبيهات', 'تنبيهًا'])}.`);
         message = `${parts.join(' ')} لا تُكرر القواعد ما نُفّذ من قبل.`;
       }
-      const go = await confirmDialog({ title: 'تشغيل قواعد الأتمتة الآن', message, confirmLabel: msgs ? 'تشغيل وإرسال' : 'تشغيل' });
+      const go = await confirmDialog({ title: 'تشغيل قواعد الأتمتة الآن', message, confirmLabel: msgs ? 'تشغيل وإرسال' : 'تشغيل', tag: 'AUT-31' });
       if (!go) return;
       const res = await api.post('/admin/automations/run');
       if (res && res.skipped) {
@@ -693,22 +709,25 @@ export default async function render(ctx) {
             }),
           ),
         ),
-        actions: [{ label: 'تم', variant: 'primary' }],
+        actions: [{ label: 'تم', variant: 'primary', tag: 'AUT-32' }],
         onClose: () => ctx.reload(),
+        tag: 'AUT-33',
       });
     },
-    { variant: 'primary', icon: 'zap' },
+    { variant: 'primary', icon: 'zap', tag: 'AUT-34' },
   );
 
   return frag(
     pageHeader({
       title: 'الأتمتة والرسائل',
       subtitle: 'الرسائل الآلية مرتبطة بما يحدث داخل الملف، وليست رسائل تسويقية عامة.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الأتمتة والرسائل' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'AUT-35' }, { label: 'الأتمتة والرسائل' }],
       actions: runBtn,
+      titleTag: 'AUT-36',
+      tag: 'AUT-37',
     }),
     waBanner,
-    !isAdmin && alertBox('تعديل القواعد وتفعيلها أو إيقافها متاح لدور «إدارة النظام» فقط.', 'info'),
-    card({ body: tabsEl }),
+    !isAdmin && alertBox('تعديل القواعد وتفعيلها أو إيقافها متاح لدور «إدارة النظام» فقط.', 'info', { tag: 'AUT-38' }),
+    card({ body: tabsEl, tag: 'AUT-39' }),
   );
 }

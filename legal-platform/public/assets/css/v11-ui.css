@@ -25,7 +25,7 @@
   .btn-secondary:hover:not(:disabled), .btn-accent:hover:not(:disabled) { background: var(--tint-weak-2); color: var(--tint); border-color: transparent; }
   .btn-ghost, .btn-link { background: transparent; color: var(--tint); border-color: transparent; }
   .btn-ghost:hover:not(:disabled) { background: var(--fill-1); color: var(--tint); }
-  .btn-danger { background: var(--bad-weak); color: var(--bad); border-color: transparent; }
+  .btn-danger { background: none; color: var(--bad); border-color: var(--bad); }
   .btn-danger:hover:not(:disabled) { background: var(--bad); color: var(--on-tint); }
   .icon-btn { flex: none; width: 44px; height: 44px; border-radius: var(--r-1); border-color: transparent; }
 

@@ -36,7 +36,7 @@ export async function openMemoryGrants({ detail, assignment, onDone } = {}) {
       listHost,
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CRF-175' },
       {
         label: 'حفظ الصلاحيات',
         variant: 'primary',
@@ -46,10 +46,11 @@ export async function openMemoryGrants({ detail, assignment, onDone } = {}) {
             saved = await api.put(`/admin/assignments/${assignment.assignment_id}/memory-grants`, { memory_ids: [...selected] });
             return undefined;
           } catch (err) {
-            mount(alertHost, alertBox(errorMessage(err), 'danger'));
+            mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-176' }));
             return false;
           }
         },
+        tag: 'CRF-177',
       },
     ],
     onClose: () => {
@@ -57,6 +58,7 @@ export async function openMemoryGrants({ detail, assignment, onDone } = {}) {
       toast(`حُفظت صلاحيات الذاكرة (${saved.memory_ids.length}).`, 'success');
       if (onDone) onDone(saved);
     },
+    tag: 'CRF-178',
   });
 
   try {
@@ -68,14 +70,14 @@ export async function openMemoryGrants({ detail, assignment, onDone } = {}) {
         ? items.map((m) =>
             h(
               'label.check',
-              h('input', { type: 'checkbox', checked: selected.has(m.id), onChange: (e) => (e.target.checked ? selected.add(m.id) : selected.delete(m.id)) }),
+              h('input', { type: 'checkbox', checked: selected.has(m.id), onChange: (e) => (e.target.checked ? selected.add(m.id) : selected.delete(m.id)), tag: 'CRF-179' }),
               h('span', `${m.kind_label} · `, h('span', { dir: 'auto' }, m.title), m.kind === 'position' ? badge('موقف معتمد', 'info') : null, m.under_review ? badge('قيد المراجعة', 'warning') : null),
             ),
           )
         : h('p.muted', 'لا عناصر في ذاكرة الشركة يمكن إتاحتها للمحامين.'),
     );
   } catch (err) {
-    mount(listHost, alertBox(errorMessage(err), 'danger'));
+    mount(listHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-180' }));
   }
   return handle;
 }

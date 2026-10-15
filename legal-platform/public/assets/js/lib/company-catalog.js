@@ -24,6 +24,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'العقد (مسودة أو نسخة للتوقيع)',
     description_label: 'ما الذي يهمكم في هذا العقد؟',
     description_hint: 'مثل: بنود تقلقكم، شروط لا تقبلونها، ما اتُّفق عليه شفهيًا ولم يُكتب.',
+    tag: 'CK-06',
   },
   {
     key: 'contract_drafting',
@@ -42,6 +43,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'مسودات أو مراسلات سابقة',
     description_label: 'ما الذي تريدون أن يحققه العقد؟',
     description_hint: 'الطرفان، محل العقد، المدة، المقابل، وأي شروط خاصة.',
+    tag: 'CK-07',
   },
   {
     key: 'nda',
@@ -61,6 +63,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: null,
     description_label: 'ما المعلومات التي ستتبادلونها؟',
     description_hint: 'مثل: بيانات عملاء، أسعار، خطط منتج.',
+    tag: 'CK-08',
   },
   {
     key: 'employment',
@@ -79,6 +82,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'عقد العمل، الإنذارات، آخر قسيمة مرتب',
     description_label: 'ماذا حدث؟',
     description_hint: 'اذكروا الوقائع والتواريخ بلا أسماء.',
+    tag: 'CK-09',
   },
   {
     key: 'marketing_review',
@@ -97,6 +101,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'التصميمات أو النصوص',
     description_label: 'ما فكرة الحملة؟',
     description_hint: 'الرسالة الأساسية، العروض أو الأسعار، أي جوائز أو مسابقات.',
+    tag: 'CK-10',
   },
   {
     key: 'legal_notice',
@@ -115,6 +120,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'صورة الإنذار أو المطالبة',
     description_label: 'ما الذي تعرفونه عن هذا الإنذار؟',
     description_hint: 'علاقتكم بالجهة المرسِلة، وهل هناك عقد أو فواتير مرتبطة.',
+    tag: 'CK-11',
   },
   {
     key: 'board_resolution',
@@ -133,6 +139,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'النظام الأساسي، آخر قرار مماثل',
     description_label: 'ما المطلوب في القرار؟',
     description_hint: 'مثل: إضافة مفوض جديد على الحساب البنكي وحدود صلاحياته.',
+    tag: 'CK-12',
   },
   {
     key: 'supplier_issue',
@@ -151,6 +158,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: null,
     description_label: 'ماذا حدث مع المورد؟',
     description_hint: 'الوقائع والتواريخ والمبالغ، وما تريدونه: الاستمرار أو التعويض أو الإنهاء.',
+    tag: 'CK-13',
   },
   {
     key: 'compliance_question',
@@ -169,6 +177,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: 'أي خطاب من جهة رسمية',
     description_label: 'سؤالكم',
     description_hint: 'صفوا النشاط أو الموقف، واذكروا أي خطاب من جهة رسمية.',
+    tag: 'CK-14',
   },
   {
     key: 'renewal_followup',
@@ -187,6 +196,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: null,
     description_label: 'ما الذي تحتاجونه؟',
     description_hint: 'تجديد بنفس الشروط، تعديل شروط، أو إنهاء.',
+    tag: 'CK-15',
   },
   {
     key: 'dispute',
@@ -205,6 +215,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: null,
     description_label: 'ما خلفية النزاع؟',
     description_hint: 'الوقائع، المراسلات، والمبالغ.',
+    tag: 'CK-16',
   },
   {
     key: 'other',
@@ -223,6 +234,7 @@ export const REQUEST_TYPES = Object.freeze([
     document_label: null,
     description_label: 'اكتبوا طلبكم',
     description_hint: 'كلما كانت التفاصيل أوضح كان الرد أسرع.',
+    tag: 'CK-17',
   },
 ].map((t) => Object.freeze({ ...t, default_skills: Object.freeze([...t.default_skills]) })));
 
@@ -330,9 +342,9 @@ export const CURRENCIES = Object.freeze([
 
 /** «لغة التسليم» (U10-D1) */
 export const OUTPUT_LANGUAGES = Object.freeze([
-  { key: 'ar', label: 'العربية' },
-  { key: 'en', label: 'English', lang: 'en' },
-  { key: 'both', label: 'العربية والإنجليزية' },
+  { key: 'ar', label: 'العربية', tag: 'CK-133' },
+  { key: 'en', label: 'English', lang: 'en', tag: 'CK-134' },
+  { key: 'both', label: 'العربية والإنجليزية', tag: 'CK-135' },
 ].map((x) => Object.freeze(x)));
 
 /** أساس عرض السعر في 10.0: مبلغ ثابت أو بحد أقصى (L-31) */
@@ -365,8 +377,8 @@ export const COMPANY_ROLES = Object.freeze([
 
 /** مَن يرى الطلب داخل الشركة (فريق المكتب يرى الطلب في الحالتين) */
 export const VISIBILITIES = Object.freeze([
-  { key: 'company', label: 'كل فريق الشركة على البوابة' },
-  { key: 'private', label: 'أنا ومديرو البوابة فقط' },
+  { key: 'company', label: 'كل فريق الشركة على البوابة', tag: 'CK-136' },
+  { key: 'private', label: 'أنا ومديرو البوابة فقط', tag: 'CK-137' },
 ].map((x) => Object.freeze(x)));
 
 /**

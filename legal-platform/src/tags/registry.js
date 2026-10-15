@@ -4,9 +4,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT, scanSources } from './scan.js';
+import { ROOT, scanSources, cleanText } from './scan.js';
 import { PAGES, SURFACES, FORBIDDEN_PREFIXES, CODE_RE, compareCodes, normalizeCode } from '../../public/assets/js/lib/tags-pages-app.js';
-import { PAGES as PUBLIC_PAGES } from '../../public/assets/js/lib/tags-pages.js';
+import { PAGES as PUBLIC_PAGES, foldAr } from '../../public/assets/js/lib/tags-pages.js';
 
 export { PAGES, SURFACES, FORBIDDEN_PREFIXES, CODE_RE, compareCodes, normalizeCode, PUBLIC_PAGES };
 
@@ -70,8 +70,8 @@ export const FILES = Object.freeze({
   CA: [`${CO}/pages/account.js`],
   CB: [`${CO}/pages/notifications.js`],
   // المنصة
-  NAV: [`${APP}/shell.js`, `${APP}/lawyer-shell.js`, `${APP}/notif.js`, `${APP}/router.js`],
-  LGN: [`${APP}/pages/login.js`, `${APP}/pages/auth-flows.js`, `${APP}/lh-reauth.js`],
+  NAV: [`${APP}/shell.js`, `${APP}/lawyer-shell.js`, `${APP}/notif.js`, `${APP}/router.js`, `${APP}/main.js`],
+  LGN: [`${APP}/pages/login.js`, `${APP}/pages/auth-flows.js`, `${APP}/lh-reauth.js`, `${APP}/main.js`],
   KIT: [`${LIB}/ui.js`],
   SRC: [`${CMP}/search.js`],
   DSH: [`${ADM}/dashboard.js`],
@@ -224,6 +224,34 @@ export const SETTINGS_SOURCES = Object.freeze({
 });
 
 /**
+ * v12 tags (TG-7، T12-94، T12-76، T12-22): فرض التغطية. مفتاح واحد: TAGS_ENFORCE = '1' منذ TG-7، ويبقى دائمًا بعد
+ * `npm run tags -- freeze` (الدفتر المجمَّد يفرضها مهما كان المتغير). TAGS_ENFORCE=0 في البيئة يعيد وضع التقرير قبل التجميد.
+ */
+export const TAGS_ENFORCE = '1';
+export const enforceCoverage = (ledger, env = process.env) => Boolean(ledger?.frozen) || String(env.TAGS_ENFORCE ?? TAGS_ENFORCE) === '1';
+
+/**
+ * عناصر أساسية بلا رمز عن قصد (تُذكر في تقرير البوابة «محجوزة، بلا رمز عن قصد»): شاشات «خيري» المؤرشفة تبقى بصيغة 11.0
+ * وبصمتها (T12-22، T12-76؛ KH-05… محجوزة لـ 12.1)، والمسجّل المؤرشف (RV). max = أقصى عدد في الملف، null = الملف كله.
+ * أي عنصر بلا رمز خارج هذه القائمة يُفشل `npm run tags -- --check` وtest/v12-tags.test.js ما دام الفرض قائمًا.
+ */
+export const UNTAGGED_BY_DESIGN = Object.freeze({
+  'public/about.html': { max: null, why: 'صفحة «عن البرنامج» لـ«خيري» وحده (تُعرض فقط حين يُعاد «خيري»)' },
+  'public/index.html': { max: null, why: 'صفحة «خيري» الرئيسية /khayri (تُعرض فقط حين يُعاد «خيري»)' },
+  'public/assets/js/public/recorder.js': { max: null, why: 'مسجّل الصوت على الموقع مؤرشف (RV، لا يظهر في 12.0)' },
+  'public/intake.html': { max: 3, why: 'بدائل «خيري» حين يبطئ النت أو بلا JavaScript (بصمة /intake الخيرية)' },
+  'public/khayri-paused.html': { max: 1, why: 'عنوان إشعار «خيري» المتوقف؛ KH-05… محجوزة لـ 12.1' },
+});
+
+/** صفوف تقرير التغطية التي تتجاوز المسموح (TG-7): [{ file, keys, untagged, allowed, sample }] */
+export function coverageGaps(report) {
+  return report.rows
+    .filter((r) => r.untagged)
+    .map((r) => ({ ...r, allowed: UNTAGGED_BY_DESIGN[r.file] ? (UNTAGGED_BY_DESIGN[r.file].max ?? Infinity) : 0 }))
+    .filter((r) => r.untagged > r.allowed);
+}
+
+/**
  * العدد مع المعدود بقواعد العربية: 1 «رمز واحد» · 2 «رمزان» · 3–10 «رموز» · 11–99 «رمزًا» · 100، 101، 102… «رمز».
  * forms = { zero, one, two, few, many, hundred }
  */
@@ -242,6 +270,7 @@ export const AR = Object.freeze({
   screen: { zero: 'لا شاشات', one: 'شاشة واحدة', two: 'شاشتان', few: 'شاشات', many: 'شاشة', hundred: 'شاشة' },
   placeholder: { zero: 'لا عناصر نائبة', one: 'عنصر نائب واحد', two: 'عنصران نائبان', few: 'عناصر نائبة', many: 'عنصرًا نائبًا', hundred: 'عنصر نائب' },
   error: { zero: 'لا أخطاء', one: 'خطأ واحد', two: 'خطآن', few: 'أخطاء', many: 'خطأً', hundred: 'خطأ' },
+  element: { zero: 'لا عناصر', one: 'عنصر واحد', two: 'عنصران', few: 'عناصر', many: 'عنصرًا', hundred: 'عنصر' },
 });
 
 const SURFACE_ORDER = Object.keys(SURFACES);
@@ -429,7 +458,8 @@ export function applyPlan(plan, { root = ROOT, write = true } = {}) {
     const lines = fs.readFileSync(full, 'utf8').split('\n');
     for (const a of list) {
       const i = a.line - 1;
-      const re = new RegExp(`(data-tag\\s*=\\s*\\\\?["']|(?:tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)['"]?\\s*:\\s*['"\`]|tagged\\(\\s*['"\`]|:\\s*['"])${a.from}(?=\\\\?['"\`])`);
+      // v12 tags (TG-6): also a guarded literal (tag: X && 'I-00' · tag: PC ? 'P-00' : null), as the scanner reads it
+      const re = new RegExp(`(data-tag\\s*=\\s*\\\\?["']|(?:tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)['"]?\\s*:\\s*(?:!?[\\w$.]+(?:\\([^()]*\\))?\\s*(?:&&|\\?)\\s*)?['"\`]|tagged\\(\\s*['"\`]|dataset\\.tag\\s*=\\s*['"]|['"]data-tag['"]\\s*,\\s*['"]|:\\s*['"])${a.from}(?=\\\\?['"\`])`);
       if (!re.test(lines[i])) throw new Error(`${file}:${a.line}: ${a.from} not found where the scan saw it`);
       lines[i] = lines[i].replace(re, `$1${a.to}`);
     }
@@ -496,7 +526,9 @@ const textOf = (v) => {
   if (Array.isArray(v)) return v.map(textOf).filter(Boolean).join(' · ');
   if (typeof v === 'object') {
     const parts = [v.header, v.body ?? v.text ?? v.title ?? v.template, ...(Array.isArray(v.buttons) ? v.buttons.map((b) => (typeof b === 'string' ? b : b?.title)) : [])];
-    return parts.map(textOf).filter(Boolean).join(' · ');
+    const known = parts.map(textOf).filter(Boolean);
+    // v12 tags (TG-4): مجموعة نصوص بلا مفاتيح معروفة (أزرار WA_BUTTON_TEXTS) ← كل قيمها
+    return (known.length ? known : Object.values(v).map(textOf).filter(Boolean)).join(' · ');
   }
   return String(v);
 };
@@ -512,7 +544,27 @@ async function importFresh(root, rel) {
  * من constants.js لمفاتيح TEXT_TAGS. أي فشل يُسجَّل في errors ولا يوقف السجل.
  */
 export async function loadModuleData(root = ROOT) {
-  const out = { tree: [], lines: {}, texts: {}, errors: [] };
+  const out = { tree: [], lines: {}, texts: {}, words: {}, errors: [] };
+  // review: نصوص «W.…» (كلمات بوابة الشركات، words-pages.js يجمع الثلاثة) و«COPY.…» (نموذج الطلب بصيغة الأفراد والشركات)
+  // لتعريفات نصها من وحدة كلمات لا نص حرفي، فيقرأ المالك النص في TAGS.md وصفحة الرموز بدل «(نص متغير)»
+  try {
+    out.words.W = (await importFresh(root, `${JS}/company/words-pages.js`)).W || null;
+  } catch (err) {
+    out.errors.push(`${JS}/company/words-pages.js: ${err.message}`);
+  }
+  // عناوين مسارات المنصة (navItem يأخذ اسمه من routeTitle): قراءة ثابتة لـ routes.js
+  try {
+    const src = fs.readFileSync(path.join(root, `${JS}/app/routes.js`), 'utf8');
+    out.words.ROUTE = Object.fromEntries([...src.matchAll(/\{\s*path:\s*'([^']+)'[^\n]*?\btitle:\s*'([^']+)'/g)].map((m) => [m[1], m[2]]));
+  } catch (err) {
+    out.errors.push(`${JS}/app/routes.js: ${err.message}`);
+  }
+  try {
+    const paid = (await importFresh(root, 'src/site-copy-paid.js')).intakePaidCopy?.({ voice: false });
+    if (paid) out.words.COPY = { ...paid.COPY, ...paid.SUCCESS };
+  } catch (err) {
+    out.errors.push(`src/site-copy-paid.js: ${err.message}`);
+  }
   const treeRel = `${PUB}/entry-tree.js`;
   if (fs.existsSync(path.join(root, treeRel))) {
     try {
@@ -535,6 +587,7 @@ export async function loadModuleData(root = ROOT) {
       ['SEGMENT_CHOICE_TEXTS', 'محايد'],
       ['SEGMENT_CHANGE_TEXTS', 'تغيير النوع'],
       ['LINES_MENU_TEXTS', 'أفراد وشركات'],
+      ['WA_BUTTON_TEXTS', 'أزرار'], // v12 tags (TG-4): أزرار تفاعلية نُقلت من الكود بنصها
     ];
     for (const key of Object.keys(c.TEXT_TAGS || {})) {
       const variants = [];
@@ -550,12 +603,66 @@ export async function loadModuleData(root = ROOT) {
   } catch (err) {
     out.errors.push(`src/constants.js: ${err.message}`);
   }
+  // v12 tags (TG-4): نصوص تنبيهات المحامين (ALERT_TAGS) بقيم مثال؛ الدوال نقية
+  try {
+    const la = await importFresh(root, 'src/services/lawyer-alerts.js');
+    const sample = { code: 'CS-2026-00012', due: '2026-10-20T10:00:00.000Z', at: null, sendAt: null, n: 3 };
+    for (const key of Object.keys(la.ALERT_TAGS || {})) {
+      const f = la.ALERT_TEXT?.[key];
+      if (typeof f === 'function') out.texts[`alert:${key}`] = [{ label: 'المحامي', text: String(f(sample)) }];
+    }
+  } catch (err) {
+    out.errors.push(`src/services/lawyer-alerts.js: ${err.message}`);
+  }
+  // v12 tags (TG-4): موضوع كل قالب بريد (EMAIL_TAGS) وسطرا التحية والتذييل، قراءة ثابتة لـ email.js (render يحتاج التطبيق)
+  try {
+    Object.assign(out.texts, emailTexts(root));
+  } catch (err) {
+    out.errors.push(`src/services/email.js: ${err.message}`);
+  }
+  return out;
+}
+
+const literalText = (lit) => String(lit || '').replace(/\$\{([^}]*)\}/g, (m, e) => (/vars\.(subject|line)|inviter/.test(e) ? '(نص متغير)' : '…')).replace(/\s+/g, ' ').trim();
+
+/** { key: [{ label, text }] } لمفاتيح EMAIL_TAGS: الموضوع من «case 'key'» والتحية والتذييل من تعريفهما */
+export function emailTexts(root = ROOT) {
+  const rel = 'src/services/email.js';
+  let src = '';
+  try {
+    src = fs.readFileSync(path.join(root, rel), 'utf8');
+  } catch {
+    return {};
+  }
+  const lines = src.split('\n');
+  const map = /export const EMAIL_TAGS = Object\.freeze\(\{([\s\S]*?)\}\);/.exec(src);
+  if (!map) return {};
+  const keys = [...map[1].matchAll(/([A-Za-z_]+)\s*:\s*'[A-Z]{1,3}-\d+'/g)].map((m) => m[1]);
+  const out = {};
+  for (const key of keys) {
+    if (key === 'hello' || key === 'footer') {
+      const m = new RegExp(`const ${key} = \`([^\`]*)\``).exec(src);
+      if (m) out[key] = [{ label: key === 'hello' ? 'التحية' : 'التذييل', text: literalText(m[1]) }];
+      continue;
+    }
+    const at = lines.findIndex((l) => new RegExp(`\\bcase\\s+'${key}'`).test(l));
+    if (at < 0) continue;
+    for (let i = at; i < Math.min(lines.length, at + 10); i++) {
+      // أول نص حرفي بعد «subject:» في السطر (قد يسبقه vars.x ? … أو vars.subject ||)، وإلا موضوع متغير
+      const m = /subject:[^'`\n]*?(['`])((?:(?!\1).)*)\1/.exec(lines[i]) || (/subject:/.test(lines[i]) ? [null, '', '(نص متغير)'] : null);
+      if (m) {
+        out[key] = [{ label: 'الموضوع', text: literalText(m[2]) }];
+        break;
+      }
+      if (i > at && /\bcase\s+'/.test(lines[i])) break;
+    }
+  }
   return out;
 }
 
 // ───────────────────────── السجل ─────────────────────────
 
-const MESSAGE_MAPS = new Set(['TEXT_TAGS', 'EMAIL_TAGS', 'NOTIF_TAGS']);
+const MESSAGE_MAPS = new Set(['TEXT_TAGS', 'EMAIL_TAGS', 'NOTIF_TAGS', 'ALERT_TAGS']);
 const KIND_BY_TREE = { question: 'سؤال', option: 'خيار', restored: 'رابط', intake_question: 'سؤال', intake_answer: 'خيار' };
 
 /** مواقع النصوص البديلة لمفتاح خريطة *_TAGS في الملف نفسه (كائنات *_TEXTS وحالات case 'key') */
@@ -585,6 +692,18 @@ function variantLocations(root, file, key, cacheMap) {
     if (re.test(line) && !/_TAGS$/.test(owner[i] || '')) out.push({ file, line: i + 1, label: owner[i] || '' });
   });
   return out;
+}
+
+/** نص مرجع كلمات (W.account.name في ملفات بوابة الشركات، COPY.done في intake.js) أو '' */
+export function resolveRef(words, file, ref) {
+  if (String(ref).startsWith('ROUTE:')) return cleanText(words?.ROUTE?.[String(ref).slice(6)] || '');
+  const [root, ...keys] = String(ref || '').split('.');
+  let v = null;
+  if (root === 'W' && /^public\/assets\/js\/(?:company\/|lib\/company-)/.test(file)) v = words?.W;
+  else if (root === 'COPY' && file === `${PUB}/intake.js`) v = words?.COPY;
+  for (const k of keys) v = v != null && typeof v === 'object' ? v[k] : null;
+  if (Array.isArray(v)) v = v.find((x) => typeof x === 'string');
+  return typeof v === 'string' ? cleanText(v.replace(/[⟦⟧]/g, '')) : '';
 }
 
 /**
@@ -625,6 +744,7 @@ export function buildRegistry(scan, { ledger = loadLedger(scan.root), moduleData
       setting: SETTINGS_SOURCES[d.code] || '',
       reserved: reservationOf(ledger, d.prefix, d.num)?.lane || '',
     };
+    if (d.form === 'map') item.key = d.key; // v12 tags (TG-5): مفتاح الرسالة في خريطتها (لنصوصها في /app#/tags)
     if (d.variant) item.variantOnly = true;
     const fromTree = treeByCode.get(d.code);
     if (fromTree) {
@@ -632,12 +752,13 @@ export function buildRegistry(scan, { ledger = loadLedger(scan.root), moduleData
       if (KIND_BY_TREE[fromTree.kind]) item.kind = KIND_BY_TREE[fromTree.kind];
     }
     if (d.form === 'map') {
-      const texts = md.texts[d.key];
+      const texts = md.texts[d.map === 'ALERT_TAGS' ? `alert:${d.key}` : d.key];
       if (texts?.length) {
         item.text = texts.map((v) => `${v.label}: «${shorten(v.text)}»`).join(' · ');
       } else if (!item.text) item.text = d.key;
       if (MESSAGE_MAPS.has(d.map)) for (const loc of variantLocations(root, d.file, d.key, variantCache)) item.variants.push({ file: loc.file, line: loc.line, label: loc.label, text: '' });
     }
+    if (!item.text && d.ref) item.text = resolveRef(md.words, d.file, d.ref);
     if (!item.text) item.text = '(نص متغير)';
     items.set(d.code, item);
   }
@@ -708,8 +829,12 @@ export function searchRegistry(registry, q) {
     const exact = registry.items.filter((it) => it.code === code);
     if (exact.length) return exact;
   }
+  // كلمات عربية بلا همزات أو تشكيل تكفي: «تاسيس» تجد «تأسيس» (foldAr، review)
   const words = raw.split(/\s+/).filter(Boolean);
-  return registry.items.filter((it) => words.every((w) => it.text.includes(w) || it.screen.includes(w) || it.code === w.toUpperCase()));
+  return registry.items.filter((it) => {
+    const hay = foldAr(`${it.text} ${it.screen}`);
+    return words.every((w) => hay.includes(foldAr(w)) || it.code === w.toUpperCase());
+  });
 }
 
 // ───────────────────────── TAGS.md (T12-61) ─────────────────────────

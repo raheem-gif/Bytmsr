@@ -26,6 +26,16 @@ const STEPS = [
 
 const WA_FIELDS = ['token', 'phone_number_id', 'waba_id', 'app_secret', 'verify_token', 'number'];
 const AI_FIELDS = ['api_key'];
+// v12 tags (TG-6): رمز كل حقل من حقول التكاملات (تأتي أوصافها من الخادم)
+const FIELD_TAGS = {
+  token: { tag: 'SU-27' },
+  phone_number_id: { tag: 'SU-28' },
+  waba_id: { tag: 'SU-29' },
+  app_secret: { tag: 'SU-30' },
+  verify_token: { tag: 'SU-31' },
+  number: { tag: 'SU-32' },
+  api_key: { tag: 'SU-33' },
+};
 const PLACEHOLDER_WA = /100\s*000\s*0000/;
 
 let token = '';
@@ -112,13 +122,13 @@ function goTo(index, { focus = true } = {}) {
 function stepActions({ back = true, nextLabel = 'التالي', onNext, nextIcon = 'arrowLeft' } = {}) {
   return h(
     'div.pf-setup-actions',
-    back ? button('السابق', { variant: 'ghost', icon: 'arrowRight', onClick: () => goTo(step - 1) }) : h('span'),
-    onNext && button(nextLabel, { variant: 'primary', iconEnd: nextIcon, onClick: onNext }),
+    back ? button('السابق', { variant: 'ghost', icon: 'arrowRight', onClick: () => goTo(step - 1), tag: 'SU-03' }) : h('span'),
+    onNext && button(nextLabel, { variant: 'primary', iconEnd: nextIcon, onClick: onNext, tag: 'SU-04' }),
   );
 }
 
 function panel(key, title, intro, ...children) {
-  const el = h('section.pf-setup-panel', { 'aria-labelledby': `pf-step-${key}` }, h('h2.pf-setup-title', { id: `pf-step-${key}` }, title), intro && h('p.pf-setup-intro', intro), children);
+  const el = h('section.pf-setup-panel', { 'aria-labelledby': `pf-step-${key}`, tag: 'SU-05' }, h('h2.pf-setup-title', { id: `pf-step-${key}`, tag: 'SU-06' }, title), intro && h('p.pf-setup-intro', intro), children);
   panels[key] = el;
   return el;
 }
@@ -137,9 +147,10 @@ function tokenPanel() {
         autocomplete: 'off',
         hint: 'يظهر في سجل تشغيل الخادم (Logs) بعد ‎#token=‎ في رابط الإعداد. الرابط صالح لمرة واحدة.',
         full: true,
+        tag: 'SU-34',
       },
     ],
-    { values: { token }, footer: false, columns: 1 },
+    { values: { token }, footer: false, columns: 1, tag: 'SU-35' },
   );
   forms.token = f;
   const verify = async () => {
@@ -153,7 +164,7 @@ function tokenPanel() {
       goTo(1);
     } catch (err) {
       if (err.status === 404) return renderAlreadyDone();
-      mount(status, alertBox(errorMessage(err), 'danger'));
+      mount(status, alertBox(errorMessage(err), 'danger', { tag: 'SU-07' }));
     }
   };
   f.el.addEventListener('submit', (e) => {
@@ -171,7 +182,7 @@ function tokenPanel() {
     f.el,
     status,
     stepActions({ back: false, nextLabel: 'تحقق من الرمز', onNext: verify, nextIcon: 'shieldCheck' }),
-    token ? null : alertBox('لم نجد الرمز في الرابط. انسخ رابط الإعداد كاملًا من سجل تشغيل الخادم، أو الصق الرمز هنا.', 'info'),
+    token ? null : alertBox('لم نجد الرمز في الرابط. انسخ رابط الإعداد كاملًا من سجل تشغيل الخادم، أو الصق الرمز هنا.', 'info', { tag: 'SU-08' }),
   );
 }
 
@@ -197,7 +208,7 @@ function orgPanel() {
     autocomplete: f.key === 'org_phone' ? 'tel' : 'off',
     ...typeOf(f.key),
   }));
-  const f = form(fields, { values: d, footer: false });
+  const f = form(fields, { values: d, footer: false, tag: 'SU-36' });
   forms.org = f;
   onEnter(f.el, () => f.validate() && goTo(2));
   return panel(
@@ -213,13 +224,13 @@ function orgPanel() {
 function adminPanel() {
   const f = form(
     [
-      { name: 'name', label: 'الاسم الكامل', required: true, maxLength: 100, autocomplete: 'name', hint: 'يظهر في سجل الأمان وسجل الإجراءات.' },
-      { name: 'username', label: 'اسم المستخدم', required: true, maxLength: 40, ltr: true, autocomplete: 'username', hint: 'حروف لاتينية وأرقام ونقطة وشرطة فقط، مثل director.' },
-      { name: 'email', label: 'البريد الإلكتروني (اختياري)', type: 'email', maxLength: 200 },
-      { name: 'password', label: 'كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
-      { name: 'password_confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
+      { name: 'name', label: 'الاسم الكامل', required: true, maxLength: 100, autocomplete: 'name', hint: 'يظهر في سجل الأمان وسجل الإجراءات.', tag: 'SU-37' },
+      { name: 'username', label: 'اسم المستخدم', required: true, maxLength: 40, ltr: true, autocomplete: 'username', hint: 'حروف لاتينية وأرقام ونقطة وشرطة فقط، مثل director.', tag: 'SU-38' },
+      { name: 'email', label: 'البريد الإلكتروني (اختياري)', type: 'email', maxLength: 200, tag: 'SU-39' },
+      { name: 'password', label: 'كلمة المرور', type: 'password', required: true, autocomplete: 'new-password', tag: 'SU-40' },
+      { name: 'password_confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password', tag: 'SU-41' },
     ],
-    { footer: false },
+    { footer: false, tag: 'SU-42' },
   );
   forms.admin = f;
   const list = h('ul.pf-pw-checks', { 'aria-live': 'polite' });
@@ -268,7 +279,7 @@ function integrationFields(name, keys, extra = {}) {
     .filter(Boolean)
     .map((f) =>
       f.from_env
-        ? { name: f.key, label: f.label, type: 'static', value: 'مضبوط من متغيرات البيئة على الخادم', hint: `المتغير ${f.env}` }
+        ? { name: f.key, label: f.label, type: 'static', value: 'مضبوط من متغيرات البيئة على الخادم', hint: `المتغير ${f.env}`, tag: FIELD_TAGS[f.key]?.tag }
         : {
             name: f.key,
             label: f.label,
@@ -277,6 +288,7 @@ function integrationFields(name, keys, extra = {}) {
             autocomplete: f.secret ? 'new-password' : 'off',
             hint: extra[f.key],
             full: f.secret,
+            tag: FIELD_TAGS[f.key]?.tag,
           },
     );
 }
@@ -290,10 +302,10 @@ function integrationsPanel() {
     verify_token: 'نص سري تختاره أنت وتكتبه أيضًا في إعدادات Webhook على ميتا.',
     number: 'رقم واتساب المؤسسة بالصيغة الدولية، مثل 201211114662.',
   };
-  const wa = form(integrationFields('whatsapp', WA_FIELDS, waHints), { footer: false });
+  const wa = form(integrationFields('whatsapp', WA_FIELDS, waHints), { footer: false, tag: 'SU-43' });
   const ai = form(
     integrationFields('anthropic', AI_FIELDS, { api_key: `من ${menu('console.anthropic.com', 'API Keys', 'Create Key')}. يبدأ بـ ${en('sk-ant-')}` }),
-    { footer: false, columns: 1 },
+    { footer: false, columns: 1, tag: 'SU-44' },
   );
   forms.whatsapp = wa;
   forms.anthropic = ai;
@@ -313,6 +325,7 @@ function integrationsPanel() {
             verifyCtl.input.type = 'text';
             announce('تم توليد رمز تحقق جديد؛ انسخه واحفظه لاستخدامه في إعدادات Webhook على ميتا.');
           },
+          tag: 'SU-09',
         })
       : null;
   // الزر بجوار حقل «رمز التحقق» نفسه لا في آخر النموذج
@@ -329,7 +342,7 @@ function integrationsPanel() {
       h(
         'div.pf-webhook',
         h('span.pf-muted', 'رابط Webhook الذي تضعه في إعدادات تطبيق ميتا:'),
-        h('div.pf-webhook-row', h('code.pf-code', { dir: 'ltr' }, info.webhook_url), copyButton(info.webhook_url, 'نسخ')),
+        h('div.pf-webhook-row', h('code.pf-code', { dir: 'ltr' }, info.webhook_url), copyButton(info.webhook_url, 'نسخ', { tag: 'SU-10' })),
       ),
       wa.el,
       genBtn && !genInField ? h('div.pf-inline-actions', genBtn) : null,
@@ -362,18 +375,18 @@ function renderReview() {
   const label = (key) => (info.org_fields || []).find((f) => f.key === key)?.label || key;
   mount(
     reviewBody,
-    h('h3.pf-review-title', 'ملف المؤسسة'),
+    h('h3.pf-review-title', { tag: 'SU-11' }, 'ملف المؤسسة'),
     kv(
       (info.org_fields || []).map((f) => [label(f.key), org[f.key] ? (/phone|number|url/.test(f.key) ? ltr(org[f.key]) : org[f.key]) : null]),
       { columns: 1 },
     ),
-    h('h3.pf-review-title', 'حساب مدير النظام'),
+    h('h3.pf-review-title', { tag: 'SU-12' }, 'حساب مدير النظام'),
     kv([
       ['الاسم', admin.name],
       ['اسم المستخدم', ltr(admin.username)],
       ['البريد الإلكتروني', admin.email ? ltr(admin.email) : null],
     ]),
-    h('h3.pf-review-title', 'التكاملات'),
+    h('h3.pf-review-title', { tag: 'SU-13' }, 'التكاملات'),
     kv([
       ['واتساب', Object.keys(wa).length ? badge(`ستُحفظ ${count(Object.keys(wa).length, ['قيمة واحدة', 'قيمتان', 'قيم', 'قيمة'])}`, 'success') : badge('لاحقًا (وضع المحاكاة)', 'muted')],
       ['Claude', ai.api_key ? badge('سيُحفظ المفتاح مشفرًا', 'success') : badge('لاحقًا (المحلل المحلي)', 'muted')],
@@ -406,7 +419,7 @@ async function submit(btn) {
     if (err.status === 404) return renderAlreadyDone();
     if (err.status === 403) {
       goTo(0);
-      return mount(panels.token.querySelector('.pf-setup-status'), alertBox(errorMessage(err), 'danger'));
+      return mount(panels.token.querySelector('.pf-setup-status'), alertBox(errorMessage(err), 'danger', { tag: 'SU-14' }));
     }
     const target = d.step === 'integrations' ? forms[d.integration] || forms.whatsapp : d.step === 'admin' ? forms.admin : d.fields && Object.keys(d.fields).some((k) => k.startsWith('org_') || k === 'whatsapp_display_number') ? forms.org : null;
     if (target) {
@@ -415,19 +428,19 @@ async function submit(btn) {
       target.showError(err);
       return;
     }
-    mount(submitStatus, alertBox(errorMessage(err), 'danger'));
+    mount(submitStatus, alertBox(errorMessage(err), 'danger', { tag: 'SU-15' }));
   }
 }
 
 function reviewPanel() {
-  const finish = button('إنهاء الإعداد وإنشاء الحساب', { variant: 'primary', icon: 'check', onClick: () => submit(finish) });
+  const finish = button('إنهاء الإعداد وإنشاء الحساب', { variant: 'primary', icon: 'check', onClick: () => submit(finish), tag: 'SU-16' });
   return panel(
     'review',
     'المراجعة والإنهاء',
     'راجع البيانات ثم اضغط «إنهاء الإعداد». بعد الإنهاء يُلغى رمز الإعداد نهائيًا ولا تعود هذه الصفحة متاحة.',
     reviewBody,
     submitStatus,
-    h('div.pf-setup-actions', button('السابق', { variant: 'ghost', icon: 'arrowRight', onClick: () => goTo(3) }), finish),
+    h('div.pf-setup-actions', button('السابق', { variant: 'ghost', icon: 'arrowRight', onClick: () => goTo(3), tag: 'SU-17' }), finish),
   );
 }
 
@@ -440,7 +453,7 @@ function renderDone(res) {
     h(
       'div.pf-setup-card.pf-setup-done',
       h('span.pf-done-icon', icon('checkCircle', { size: 40 })),
-      h('h1.pf-setup-h1', 'تم إعداد المنصة بنجاح'),
+      h('h1.pf-setup-h1', { tag: 'SU-18' }, 'تم إعداد المنصة بنجاح'),
       h('p.pf-setup-intro', 'أُنشئ حساب مدير النظام وأُلغي رمز الإعداد نهائيًا. الخطوات المقترحة الآن:'),
       h(
         'ol.pf-next-steps',
@@ -451,7 +464,7 @@ function renderDone(res) {
       ),
       h(
         'div.pf-setup-actions.pf-center',
-        button(loggedIn ? 'الدخول إلى المنصة' : 'الانتقال إلى صفحة الدخول', { variant: 'primary', icon: 'arrowLeft', href: loggedIn ? '/app#/integrations' : '/app' }),
+        button(loggedIn ? 'الدخول إلى المنصة' : 'الانتقال إلى صفحة الدخول', { variant: 'primary', icon: 'arrowLeft', href: loggedIn ? '/app#/integrations' : '/app', tag: 'SU-19' }),
       ),
     ),
   );
@@ -464,9 +477,9 @@ function renderAlreadyDone() {
     h(
       'div.pf-setup-card.pf-setup-done',
       h('span.pf-done-icon', icon('lock', { size: 36 })),
-      h('h1.pf-setup-h1', 'تم إعداد المنصة بالفعل'),
+      h('h1.pf-setup-h1', { tag: 'SU-20' }, 'تم إعداد المنصة بالفعل'),
       h('p.pf-setup-intro', 'معالج الإعداد يعمل مرة واحدة فقط. ادخل إلى المنصة بحساب مدير النظام. إذا فقدت كلمة المرور، يمكن لمسؤول الخادم إعادة تعيينها بالأمر: npm run admin'),
-      h('div.pf-setup-actions.pf-center', button('الدخول إلى المنصة', { variant: 'primary', href: '/app' })),
+      h('div.pf-setup-actions.pf-center', button('الدخول إلى المنصة', { variant: 'primary', href: '/app', tag: 'SU-21' })),
     ),
   );
 }
@@ -479,7 +492,7 @@ async function start() {
     info = await api.get('/setup/status');
   } catch (err) {
     if (err.status === 404) return renderAlreadyDone();
-    mount(root, alertBox(errorMessage(err), 'danger', { title: 'تعذر تحميل معالج الإعداد' }), h('p', button('إعادة المحاولة', { icon: 'refresh', onClick: () => start() })));
+    mount(root, alertBox(errorMessage(err), 'danger', { title: 'تعذر تحميل معالج الإعداد', tag: 'SU-22' }), h('p', button('إعادة المحاولة', { icon: 'refresh', onClick: () => start(), tag: 'SU-23' })));
     return;
   }
   liveEl = h('p.sr-only', { 'aria-live': 'polite' });
@@ -491,10 +504,10 @@ async function start() {
     'div.pf-setup-card',
     h(
       'div.pf-setup-head',
-      h('h1.pf-setup-h1', 'إعداد منصة الدعم القانوني'),
+      h('h1.pf-setup-h1', { tag: 'SU-24' }, 'إعداد منصة الدعم القانوني'),
       h('p.pf-setup-sub', `الإصدار ${info.version || ''} — خمس خطوات قصيرة لتجهيز المنصة للعمل.`),
     ),
-    h('nav', { 'aria-label': 'خطوات الإعداد' }, stepperEl),
+    h('nav', { 'aria-label': 'خطوات الإعداد', tag: 'SU-25' }, stepperEl),
     liveEl,
     tokenPanel(),
     orgPanel(),
@@ -514,7 +527,7 @@ async function start() {
       goTo(1, { focus: false });
     } catch (err) {
       if (err.status === 404) return renderAlreadyDone();
-      mount(status, alertBox(errorMessage(err), 'danger'));
+      mount(status, alertBox(errorMessage(err), 'danger', { tag: 'SU-26' }));
     }
   }
 }

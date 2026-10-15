@@ -12,6 +12,7 @@ import {
 import { LABELS, ENUMS, LEGAL_AREAS } from '../constants.js';
 import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { DEFAULT_AUTOMATION_RULES } from '../constants.js'; // v11 segment-server: template_paid الافتراضي
+import { WA_BUTTON_TEXTS } from '../constants.js'; // v12 tags (TG-4): أزرار الاستبيان (W-46)
 import { RateLimiter } from '../auth.js';
 import { countTemplateParams, graphErrorArabic } from '../channels/whatsapp.js';
 import { mapMessage } from '../channels/engine.js';
@@ -64,9 +65,9 @@ const TEMPLATES_UNIT = ['قالب واحد', 'قالبان', 'قوالب', 'قا
 
 // ===== الاستبيان =====
 const SURVEY_BUTTONS = [
-  { rating: 5, title: 'ممتاز' },
-  { rating: 3, title: 'جيد' },
-  { rating: 1, title: 'غير راضٍ' },
+  { rating: 5, title: WA_BUTTON_TEXTS.survey_buttons.excellent },
+  { rating: 3, title: WA_BUTTON_TEXTS.survey_buttons.good },
+  { rating: 1, title: WA_BUTTON_TEXTS.survey_buttons.unhappy },
 ];
 const COMMENT_WINDOW_HOURS = 24;
 
@@ -954,7 +955,7 @@ export function createMessaging(app) {
                 survey_id: surveyId,
                 text: fillW(T('survey_question')),
                 footer: fillW(T('survey_footer')),
-                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.rating === 1 ? (sTone !== 'charity' ? b.title : words.form === 'm' ? 'مش راضي' : 'مش راضية') : b.title })),
+                buttons: SURVEY_BUTTONS.map((b) => ({ id: `svy:${surveyId}:${b.rating}`, title: b.rating === 1 ? (sTone !== 'charity' ? b.title : words.form === 'm' ? WA_BUTTON_TEXTS.survey_buttons.unhappy_charity_m : WA_BUTTON_TEXTS.survey_buttons.unhappy_charity_f) : b.title })),
               },
             },
           });

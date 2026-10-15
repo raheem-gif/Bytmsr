@@ -95,29 +95,31 @@ export default async function render(ctx) {
 
   const header = pageHeader({
     title: m.title,
-    breadcrumbs: [{ label: 'الملفات المستمرة', href: '#/matters' }, { label: m.code }],
+    breadcrumbs: [{ label: 'الملفات المستمرة', href: '#/matters', tag: 'MTF-01' }, { label: m.code }],
     meta: [
       h(
         'div.seg-head',
         segmentChip(segValue, { company: Boolean(seg.company), size: 'label' }),
-        d.case ? h('span.seg-src', 'يتبع ملف الاستشارة — يُغيَّر من ', h('a', { href: `#/cases/${d.case.id}` }, 'صفحة الملف')) : null,
+        d.case ? h('span.seg-src', 'يتبع ملف الاستشارة — يُغيَّر من ', h('a', { href: `#/cases/${d.case.id}`, tag: 'MTF-02' }, 'صفحة الملف')) : null,
       ),
       codeTag(m.code, { className: 'pb-code-lg' }),
       statusBadge('matter_status', m.status),
       statusBadge('matter_kind', m.kind),
     ],
     actions: [
-      d.case && button('الاستشارة الأصلية', { icon: 'briefcase', href: `#/cases/${d.case.id}` }),
-      button('رسالة للمستفيد/ة', { icon: 'message', onClick: () => goTab('messages') }),
+      d.case && button('الاستشارة الأصلية', { icon: 'briefcase', href: `#/cases/${d.case.id}`, tag: 'MTF-03' }),
+      button('رسالة للمستفيد/ة', { icon: 'message', onClick: () => goTab('messages'), tag: 'MTF-04' }),
       asyncButton(
         'تعديل بيانات الملف',
         async () => {
           const lawyers = await activeLawyers();
           openEditDialog(lawyers);
         },
-        { icon: 'edit', variant: 'primary' },
+        { icon: 'edit', variant: 'primary', tag: 'MTF-05' },
       ),
     ],
+    titleTag: 'MTF-06',
+    tag: 'MTF-07',
   });
 
   const nextEvent = events
@@ -137,6 +139,7 @@ export default async function render(ctx) {
       icon: 'calendar',
       tone: nextEvent ? 'info' : 'muted', // v11 gate fix (K1): الذهبي لرقاقة «خيري» وحدها
       onClick: () => goTab('events'),
+      tag: 'MTF-08',
     }),
     statCard({
       label: 'مهام مفتوحة',
@@ -145,6 +148,7 @@ export default async function render(ctx) {
       icon: 'check',
       tone: overdueTasks.length ? 'danger' : 'info',
       onClick: () => goTab('tasks'),
+      tag: 'MTF-09',
     }),
     statCard({
       label: 'المتبقي على المستفيد/ة',
@@ -153,8 +157,9 @@ export default async function render(ctx) {
       icon: 'wallet',
       tone: balance > 0 ? 'warning' : 'success',
       onClick: () => goTab('invoices'),
+      tag: 'MTF-10',
     }),
-    statCard({ label: 'المصروفات', value: money(totals.expenses), hint: 'كل ما سُجل على الملف', icon: 'fileText', tone: 'neutral', onClick: () => goTab('expenses') }),
+    statCard({ label: 'المصروفات', value: money(totals.expenses), hint: 'كل ما سُجل على الملف', icon: 'fileText', tone: 'neutral', onClick: () => goTab('expenses'), tag: 'MTF-11' }),
   );
 
   // «رقم 1874 لسنة 2026» كما تُكتب أرقام الدعاوى في مصر (وكما تعرضها بوابة المحامي)
@@ -178,6 +183,8 @@ export default async function render(ctx) {
         ]),
         textBlock('ملاحظات وتكليف المحامي', m.notes, { iconName: 'fileText' }),
       ),
+      titleTag: 'MTF-12',
+      tag: 'MTF-13',
     }),
     card({
       title: 'المستفيد/ة والمحامي المسؤول',
@@ -185,40 +192,43 @@ export default async function render(ctx) {
       body: h(
         'div.stack',
         kv([
-          ['المستفيد/ة', d.client ? inline(h('a', { href: `#/clients/${d.client.id}` }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
-          ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(localPhone(d.client.phone)), copyButton(localPhone(d.client.phone), '')) : null],
-          ['المحامي المسؤول', d.responsible_lawyer ? h('a', { href: `#/lawyers/${d.responsible_lawyer.id}` }, d.responsible_lawyer.name) : h('span.muted', 'لم يُحدَّد بعد')],
+          ['المستفيد/ة', d.client ? inline(h('a', { href: `#/clients/${d.client.id}`, tag: 'MTF-14' }, d.client.name || 'بدون اسم'), codeTag(d.client.code)) : null],
+          ['الهاتف (للإدارة فقط)', d.client && d.client.phone ? inline(ltr(localPhone(d.client.phone)), copyButton(localPhone(d.client.phone), '', { tag: 'MTF-15' })) : null],
+          ['المحامي المسؤول', d.responsible_lawyer ? h('a', { href: `#/lawyers/${d.responsible_lawyer.id}`, tag: 'MTF-16' }, d.responsible_lawyer.name) : h('span.muted', 'لم يُحدَّد بعد')],
           [
             'الاستشارة الأصلية',
             d.case
-              ? h('span.stack-sm', inline(h('a.pb-code-link', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code)), statusBadge('case_status', d.case.status)), h('span.cell-sub', d.case.title))
+              ? h('span.stack-sm', inline(h('a.pb-code-link', { href: `#/cases/${d.case.id}`, tag: 'MTF-17' }, codeTag(d.case.code)), statusBadge('case_status', d.case.status)), h('span.cell-sub', d.case.title))
               : null,
           ],
         ]),
         h('p.small.muted.pb-note', icon('lock', { size: 14 }), h('span', 'يرى المحامي المسؤول بيانات الدعوى والجلسات والمهام والمستندات فقط — دون بيانات تواصل المستفيد/ة أو الفواتير.')),
       ),
+      titleTag: 'MTF-18',
+      tag: 'MTF-19',
     }),
   );
 
   // ───────────────────────── الجلسات والمواعيد ─────────────────────────
 
   const eventFields = (forEdit) => [
-    !forEdit && { name: 'kind', label: 'نوع الموعد', type: 'select', required: true, placeholder: false, options: options('event_kind') },
-    { name: 'title', label: 'العنوان', type: 'text', required: forEdit, maxLength: 200, placeholder: 'مثال: الجلسة الثانية — تقديم حافظة المستندات' },
-    { name: 'starts_at', label: 'التاريخ والوقت', type: 'datetime', required: true },
-    { name: 'location', label: 'المكان', type: 'text', maxLength: 200 },
-    forEdit && { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status') },
+    !forEdit && { name: 'kind', label: 'نوع الموعد', type: 'select', required: true, placeholder: false, options: options('event_kind'), tag: 'MTF-113' },
+    { name: 'title', label: 'العنوان', type: 'text', required: forEdit, maxLength: 200, placeholder: 'مثال: الجلسة الثانية — تقديم حافظة المستندات', tag: 'MTF-114' },
+    { name: 'starts_at', label: 'التاريخ والوقت', type: 'datetime', required: true, tag: 'MTF-115' },
+    { name: 'location', label: 'المكان', type: 'text', maxLength: 200, tag: 'MTF-116' },
+    forEdit && { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status'), tag: 'MTF-117' },
     {
       name: 'client_attendance_required',
       type: 'checkbox',
       text: 'يلزم حضور المستفيد/ة شخصيًا',
       hint: 'سيرسل النظام تذكيرًا آليًا للمستفيد/ة عبر واتساب قبل الموعد.',
       full: true,
+      tag: 'MTF-118',
     },
     // v9.1 b-portal (B91-13): ما تحضره معها، يظهر لها في صفحة المتابعة (الافتراضي: بطاقتك الشخصية وأي ورق يخص القضية)
-    { name: 'client_note', label: 'هاتي معاكي (للمستفيد/ة، بند في كل سطر)', type: 'textarea', rows: 2, maxLength: 400, placeholder: 'بطاقتك الشخصية\nشهادات ميلاد الأولاد', hint: 'اختياري. ويمكن كتابة «المحامي هيقابلك عند…». لا تكتب اسم المحامي.' },
-    forEdit && { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 3, maxLength: 5000 },
-    { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 3000 },
+    { name: 'client_note', label: 'هاتي معاكي (للمستفيد/ة، بند في كل سطر)', type: 'textarea', rows: 2, maxLength: 400, placeholder: 'بطاقتك الشخصية\nشهادات ميلاد الأولاد', hint: 'اختياري. ويمكن كتابة «المحامي هيقابلك عند…». لا تكتب اسم المحامي.', tag: 'MTF-119' },
+    forEdit && { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', rows: 3, maxLength: 5000, tag: 'MTF-120' },
+    { name: 'notes', label: 'ملاحظات', type: 'textarea', rows: 2, maxLength: 3000, tag: 'MTF-121' },
   ];
 
   async function openAddEvent() {
@@ -270,9 +280,9 @@ export default async function render(ctx) {
       title: `تسجيل ما تم — ${e.title}`,
       intro: 'سجّل نتيجة الموعد. إن تأجلت الجلسة أضف موعدها التالي ليُجدول تلقائيًا بنفس المكان وإعداد حضور المستفيد/ة.',
       fields: [
-        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status').filter((o) => o.value !== 'scheduled') },
-        { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime' },
-        { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', required: true, rows: 4, maxLength: 5000 },
+        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('event_status').filter((o) => o.value !== 'scheduled'), tag: 'MTF-122' },
+        { name: 'next_starts_at', label: 'موعد الجلسة التالية (اختياري)', type: 'datetime', tag: 'MTF-123' },
+        { name: 'outcome', label: 'ما تم في الجلسة / القرار', type: 'textarea', required: true, rows: 4, maxLength: 5000, tag: 'MTF-124' },
       ],
       values: { status: 'done' },
       submitLabel: 'حفظ',
@@ -314,9 +324,9 @@ export default async function render(ctx) {
     const acts = !closed
       ? h(
           'div.btn-group.mt-2',
-          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير المستفيد/ة', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle' }),
-          e.status === 'scheduled' && button('تسجيل ما تم', { size: 'sm', variant: past ? 'primary' : 'secondary', icon: 'check', onClick: () => openRecordOutcome(e) }),
-          button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditEvent(e) }),
+          pendingReminder && e.status === 'scheduled' && asyncButton('اعتماد تذكير المستفيد/ة', () => approveReminder(e), { size: 'sm', variant: 'primary', icon: 'checkCircle', tag: 'MTF-20' }),
+          e.status === 'scheduled' && button('تسجيل ما تم', { size: 'sm', variant: past ? 'primary' : 'secondary', icon: 'check', onClick: () => openRecordOutcome(e), tag: 'MTF-21' }),
+          button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditEvent(e), tag: 'MTF-22' }),
         )
       : null;
     return h(
@@ -365,19 +375,22 @@ export default async function render(ctx) {
     const pendingReminders = events.filter((e) => e.reminder_pending_approval && e.status === 'scheduled').length;
     return h(
       'div.stack',
-      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل للمستفيد/ة بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap' }),
+      alertBox('المواعيد التي يلزم فيها حضور المستفيد/ة يُرسَل للمستفيد/ة بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم. بدون بيانات اعتماد واتساب تُسجَّل الرسائل «إرسال تجريبي (محاكاة)».', 'info', { icon: 'zap', tag: 'MTF-23' }),
       pendingReminders > 0 &&
         alertBox('أضاف المحامي مواعيد يلزم فيها حضور المستفيد/ة أو عدّلها، ولن يُرسل تذكيرها للمستفيد/ة قبل اعتماد الإدارة. راجع العنوان والمكان ثم اضغط «اعتماد تذكير المستفيد/ة».', 'warning', {
           title: 'تذكيرات بانتظار الاعتماد',
           icon: 'alert',
+          tag: 'MTF-24',
         }),
       card({
         title: 'المواعيد القادمة',
         icon: 'calendar',
-        actions: !closed && button('إضافة جلسة أو موعد', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddEvent }),
-        body: upcoming.length ? h('div.stack-sm', upcoming.map(eventItem)) : emptyState('لا توجد مواعيد قادمة مجدولة', null, { compact: true, icon: 'calendar' }),
+        actions: !closed && button('إضافة جلسة أو موعد', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddEvent, tag: 'MTF-25' }),
+        body: upcoming.length ? h('div.stack-sm', upcoming.map(eventItem)) : emptyState('لا توجد مواعيد قادمة مجدولة', null, { compact: true, icon: 'calendar', tag: 'MTF-26' }),
+        titleTag: 'MTF-27',
+        tag: 'MTF-28',
       }),
-      rest.length > 0 && card({ title: 'مواعيد سابقة أو منتهية', icon: 'clock', body: h('div.stack-sm', rest.map(eventItem)) }),
+      rest.length > 0 && card({ title: 'مواعيد سابقة أو منتهية', icon: 'clock', body: h('div.stack-sm', rest.map(eventItem)), titleTag: 'MTF-29', tag: 'MTF-30' }),
     );
   }
 
@@ -400,11 +413,11 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'إضافة مهمة أو موعد إجرائي',
       fields: [
-        { name: 'title', label: 'المهمة', type: 'text', required: true, maxLength: 300, full: true },
-        { name: 'due_at', label: 'الموعد', type: 'datetime' },
-        assigneeOptions.length > 0 && { name: 'assignee_user_id', label: 'المسؤول عن المهمة', type: 'select', options: assigneeOptions },
+        { name: 'title', label: 'المهمة', type: 'text', required: true, maxLength: 300, full: true, tag: 'MTF-125' },
+        { name: 'due_at', label: 'الموعد', type: 'datetime', tag: 'MTF-126' },
+        assigneeOptions.length > 0 && { name: 'assignee_user_id', label: 'المسؤول عن المهمة', type: 'select', options: assigneeOptions, tag: 'MTF-127' },
         proceduralField,
-        { name: 'details', label: 'تفاصيل', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'details', label: 'تفاصيل', type: 'textarea', rows: 3, maxLength: 3000, tag: 'MTF-128' },
       ],
       values: { assignee_user_id: d.responsible_lawyer ? d.responsible_lawyer.id : null },
       submitLabel: 'إضافة المهمة',
@@ -425,11 +438,11 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'تعديل المهمة',
       fields: [
-        { name: 'title', label: 'المهمة', type: 'text', required: true, maxLength: 300, full: true },
-        { name: 'due_at', label: 'الموعد', type: 'datetime' },
-        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('task_status') },
+        { name: 'title', label: 'المهمة', type: 'text', required: true, maxLength: 300, full: true, tag: 'MTF-129' },
+        { name: 'due_at', label: 'الموعد', type: 'datetime', tag: 'MTF-130' },
+        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('task_status'), tag: 'MTF-131' },
         proceduralField,
-        { name: 'details', label: 'تفاصيل', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'details', label: 'تفاصيل', type: 'textarea', rows: 3, maxLength: 3000, tag: 'MTF-132' },
       ],
       values: { ...t, procedural: Boolean(t.procedural) },
       onSubmit: (v) =>
@@ -480,8 +493,8 @@ export default async function render(ctx) {
             ? null
             : h(
                 'div.btn-group.pb-table-actions',
-                t.status === 'open' && asyncButton('تم الإنجاز', () => setTaskStatus(t, 'done', 'سُجلت المهمة منجزة'), { size: 'sm', variant: 'primary', icon: 'check' }),
-                button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditTask(t), ariaLabel: `تعديل المهمة ${t.title}` }),
+                t.status === 'open' && asyncButton('تم الإنجاز', () => setTaskStatus(t, 'done', 'سُجلت المهمة منجزة'), { size: 'sm', variant: 'primary', icon: 'check', tag: 'MTF-31' }),
+                button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditTask(t), ariaLabel: `تعديل المهمة ${t.title}`, tag: 'MTF-32' }),
                 t.status === 'open' &&
                   asyncButton(
                     'إلغاء',
@@ -489,9 +502,9 @@ export default async function render(ctx) {
                       const ok = await confirmAction({ title: 'إلغاء المهمة', message: `سيتم إلغاء المهمة «${t.title}» ولن تصدر بشأنها تنبيهات. هل تريد المتابعة؟`, confirmLabel: 'نعم، إلغاء المهمة' });
                       if (ok) await setTaskStatus(t, 'cancelled', 'أُلغيت المهمة');
                     },
-                    { size: 'sm', variant: 'ghost', icon: 'x' },
+                    { size: 'sm', variant: 'ghost', icon: 'x', tag: 'MTF-33' },
                   ),
-                t.status !== 'open' && asyncButton('إعادة فتح', () => setTaskStatus(t, 'open', 'أُعيد فتح المهمة'), { size: 'sm', variant: 'ghost', icon: 'refresh' }),
+                t.status !== 'open' && asyncButton('إعادة فتح', () => setTaskStatus(t, 'open', 'أُعيد فتح المهمة'), { size: 'sm', variant: 'ghost', icon: 'refresh', tag: 'MTF-34' }),
               ),
       },
     ];
@@ -500,14 +513,18 @@ export default async function render(ctx) {
       subtitle: 'المواعيد الإجرائية تولّد تنبيهات آلية قبل حلولها إن لم يُسجَّل الإجراء',
       icon: 'check',
       flush: true,
-      actions: !closed && button('إضافة مهمة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddTask }),
+      actions: !closed && button('إضافة مهمة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddTask, tag: 'MTF-35' }),
       body: table({
         columns,
         rows,
         caption: 'مهام الملف المستمر',
         empty: 'لا توجد مهام مسجلة',
         rowClass: (t) => (t.status !== 'open' ? 'is-muted' : t.due_at && new Date(t.due_at).getTime() < now ? 'is-highlight' : null),
+        rowTag: 'MTF-36',
+        tag: 'MTF-37',
       }),
+      titleTag: 'MTF-38',
+      tag: 'MTF-39',
     });
   }
 
@@ -518,9 +535,9 @@ export default async function render(ctx) {
       title: 'إصدار فاتورة للمستفيد/ة',
       intro: 'إن تأخر السداد بعد تاريخ الاستحقاق يُرسل النظام تذكيرًا آليًا للمستفيد/ة.',
       fields: [
-        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true },
-        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01 },
-        { name: 'due_at', label: 'تاريخ الاستحقاق', type: 'date', required: true, endOfDay: true },
+        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true, tag: 'MTF-133' },
+        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, tag: 'MTF-134' },
+        { name: 'due_at', label: 'تاريخ الاستحقاق', type: 'date', required: true, endOfDay: true, tag: 'MTF-135' },
       ],
       values: { due_at: cairoToday() },
       submitLabel: 'إصدار الفاتورة',
@@ -535,10 +552,10 @@ export default async function render(ctx) {
       title: `تسجيل دفعة على الفاتورة ${inv.number}`,
       intro: `المتبقي على هذه الفاتورة: ${money(inv.balance)}.`,
       fields: [
-        { name: 'amount', label: 'المبلغ المدفوع', type: 'money', required: true, min: 0.01, max: inv.balance },
-        { name: 'paid_at', label: 'تاريخ الدفع', type: 'date' },
-        { name: 'method', label: 'طريقة الدفع', type: 'text', maxLength: 60, placeholder: 'نقدًا / تحويل بنكي / إنستاباي' },
-        { name: 'reference', label: 'رقم مرجعي', type: 'text', maxLength: 120, ltr: true },
+        { name: 'amount', label: 'المبلغ المدفوع', type: 'money', required: true, min: 0.01, max: inv.balance, tag: 'MTF-136' },
+        { name: 'paid_at', label: 'تاريخ الدفع', type: 'date', tag: 'MTF-137' },
+        { name: 'method', label: 'طريقة الدفع', type: 'text', maxLength: 60, placeholder: 'نقدًا / تحويل بنكي / إنستاباي', tag: 'MTF-138' },
+        { name: 'reference', label: 'رقم مرجعي', type: 'text', maxLength: 120, ltr: true, tag: 'MTF-139' },
       ],
       values: { amount: inv.balance, paid_at: cairoToday() },
       submitLabel: 'تسجيل الدفعة',
@@ -601,8 +618,8 @@ export default async function render(ctx) {
         render: (i) =>
           h(
             'div.btn-group.pb-table-actions',
-            ['unpaid', 'partially_paid'].includes(i.status) && button('تسجيل دفعة', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => openPayment(i) }),
-            i.status === 'unpaid' && !(i.paid_amount > 0) && asyncButton('إلغاء', () => cancelInvoice(i), { size: 'sm', variant: 'ghost', icon: 'x' }),
+            ['unpaid', 'partially_paid'].includes(i.status) && button('تسجيل دفعة', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => openPayment(i), tag: 'MTF-40' }),
+            i.status === 'unpaid' && !(i.paid_amount > 0) && asyncButton('إلغاء', () => cancelInvoice(i), { size: 'sm', variant: 'ghost', icon: 'x', tag: 'MTF-41' }),
             printButton({ kind: 'invoice', id: i.id, label: 'طباعة', variant: 'ghost', title: `طباعة الفاتورة ${i.number}` }),
           ),
       },
@@ -612,21 +629,24 @@ export default async function render(ctx) {
       'div.stack',
       h(
         'div.stats-grid',
-        statCard({ label: 'إجمالي الفواتير', value: money(totals.invoiced), icon: 'fileText', tone: 'primary', hint: 'باستثناء الملغاة' }),
-        statCard({ label: 'المحصّل', value: money(totals.paid), icon: 'checkCircle', tone: 'success' }),
-        statCard({ label: 'المتبقي', value: money(balance), icon: 'wallet', tone: balance > 0 ? 'warning' : 'muted' }),
-        statCard({ label: 'الأتعاب المتفق عليها', value: m.agreed_fee != null ? money(m.agreed_fee) : '—', icon: 'scale', tone: 'neutral' }),
+        statCard({ label: 'إجمالي الفواتير', value: money(totals.invoiced), icon: 'fileText', tone: 'primary', hint: 'باستثناء الملغاة', tag: 'MTF-42' }),
+        statCard({ label: 'المحصّل', value: money(totals.paid), icon: 'checkCircle', tone: 'success', tag: 'MTF-43' }),
+        statCard({ label: 'المتبقي', value: money(balance), icon: 'wallet', tone: balance > 0 ? 'warning' : 'muted', tag: 'MTF-44' }),
+        statCard({ label: 'الأتعاب المتفق عليها', value: m.agreed_fee != null ? money(m.agreed_fee) : '—', icon: 'scale', tone: 'neutral', tag: 'MTF-45' }),
       ),
       agreed > 0 &&
         card({
           body: progressBar(Math.min(totals.paid || 0, agreed), agreed, 'success', { label: `المحصّل من الأتعاب المتفق عليها (${money(totals.paid)} من ${money(agreed)})` }),
+          tag: 'MTF-46',
         }),
       card({
         title: 'الفواتير',
         icon: 'fileText',
         flush: true,
-        actions: button('إصدار فاتورة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddInvoice }),
-        body: table({ columns, rows: invoices, caption: 'فواتير الملف المستمر', empty: 'لم تصدر فواتير لهذا الملف بعد', rowClass: (i) => (i.status === 'cancelled' ? 'is-muted' : null) }),
+        actions: button('إصدار فاتورة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openAddInvoice, tag: 'MTF-47' }),
+        body: table({ columns, rows: invoices, caption: 'فواتير الملف المستمر', empty: 'لم تصدر فواتير لهذا الملف بعد', rowClass: (i) => (i.status === 'cancelled' ? 'is-muted' : null), rowTag: 'MTF-48', tag: 'MTF-49' }),
+        titleTag: 'MTF-50',
+        tag: 'MTF-51',
       }),
       card({
         title: 'المدفوعات',
@@ -634,18 +654,22 @@ export default async function render(ctx) {
         flush: true,
         body: table({
           columns: [
-            { key: 'receipt', label: 'رقم الإيصال', render: (p) => (p.receipt_number ? codeTag(p.receipt_number) : null) },
-            { key: 'invoice', label: 'الفاتورة', render: (p) => codeTag(p.invoice_number) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => h('strong.nowrap', money(p.amount)) },
-            { key: 'paid_at', label: 'تاريخ الدفع', render: (p) => h('span.small.nowrap', date(p.paid_at)) },
-            { key: 'method', label: 'الطريقة', render: (p) => p.method },
-            { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null) },
-            { key: 'print', label: '', render: (p) => printButton({ kind: 'receipt', id: p.id, label: 'إيصال', variant: 'ghost', title: `طباعة إيصال الاستلام${p.receipt_number ? ` ${p.receipt_number}` : ''}` }) },
+            { key: 'receipt', label: 'رقم الإيصال', render: (p) => (p.receipt_number ? codeTag(p.receipt_number) : null), tag: 'MTF-52' },
+            { key: 'invoice', label: 'الفاتورة', render: (p) => codeTag(p.invoice_number), tag: 'MTF-53' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => h('strong.nowrap', money(p.amount)), tag: 'MTF-54' },
+            { key: 'paid_at', label: 'تاريخ الدفع', render: (p) => h('span.small.nowrap', date(p.paid_at)), tag: 'MTF-55' },
+            { key: 'method', label: 'الطريقة', render: (p) => p.method, tag: 'MTF-56' },
+            { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null), tag: 'MTF-57' },
+            { key: 'print', label: '', render: (p) => printButton({ kind: 'receipt', id: p.id, label: 'إيصال', variant: 'ghost', title: `طباعة إيصال الاستلام${p.receipt_number ? ` ${p.receipt_number}` : ''}` }), tag: 'MTF-58' },
           ],
           rows: payments,
           caption: 'المدفوعات المسجلة',
           empty: 'لا توجد مدفوعات مسجلة',
+          rowTag: 'MTF-59',
+          tag: 'MTF-60',
         }),
+        titleTag: 'MTF-61',
+        tag: 'MTF-62',
       }),
     );
   }
@@ -656,9 +680,9 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'تسجيل مصروفات على الملف',
       fields: [
-        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true, placeholder: 'مثال: رسوم قيد الدعوى' },
-        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01 },
-        { name: 'incurred_at', label: 'التاريخ', type: 'date' },
+        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true, placeholder: 'مثال: رسوم قيد الدعوى', tag: 'MTF-140' },
+        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, tag: 'MTF-141' },
+        { name: 'incurred_at', label: 'التاريخ', type: 'date', tag: 'MTF-142' },
         {
           name: 'paid_by',
           label: 'من دفعها',
@@ -668,8 +692,9 @@ export default async function render(ctx) {
           onChange: (v, fapi) => {
             fapi.control('lawyer_id').wrap.hidden = v !== 'lawyer';
           },
+          tag: 'MTF-143',
         },
-        { name: 'lawyer_id', label: 'المحامي الذي دفعها', type: 'select', options: lawyerOptions, hint: 'يُضاف المبلغ تلقائيًا لمستحقات المحامي (استرداد مصروفات).' },
+        { name: 'lawyer_id', label: 'المحامي الذي دفعها', type: 'select', options: lawyerOptions, hint: 'يُضاف المبلغ تلقائيًا لمستحقات المحامي (استرداد مصروفات).', tag: 'MTF-144' },
       ],
       values: { paid_by: 'organization', incurred_at: cairoToday(), lawyer_id: d.responsible_lawyer ? d.responsible_lawyer.id : null },
       setup: (f) => {
@@ -707,20 +732,24 @@ export default async function render(ctx) {
           const lawyers = await activeLawyers();
           openAddExpense(lawyers);
         },
-        { size: 'sm', variant: 'primary', icon: 'plus' },
+        { size: 'sm', variant: 'primary', icon: 'plus', tag: 'MTF-63' },
       ),
       body: table({
         columns: [
-          { key: 'description', label: 'البيان', className: 'col-wide' },
-          { key: 'amount', label: 'المبلغ', align: 'end', render: (x) => h('strong.nowrap', money(x.amount)) },
-          { key: 'paid_by', label: 'من دفعها', render: (x) => statusBadge('expense_paid_by', x.paid_by) },
-          { key: 'lawyer', label: 'المحامي', render: (x) => x.lawyer_name || null },
-          { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', date(x.incurred_at)) },
+          { key: 'description', label: 'البيان', className: 'col-wide', tag: 'MTF-64' },
+          { key: 'amount', label: 'المبلغ', align: 'end', render: (x) => h('strong.nowrap', money(x.amount)), tag: 'MTF-65' },
+          { key: 'paid_by', label: 'من دفعها', render: (x) => statusBadge('expense_paid_by', x.paid_by), tag: 'MTF-66' },
+          { key: 'lawyer', label: 'المحامي', render: (x) => x.lawyer_name || null, tag: 'MTF-67' },
+          { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', date(x.incurred_at)), tag: 'MTF-68' },
         ],
         rows: expenses,
         caption: 'مصروفات الملف المستمر',
         empty: 'لا توجد مصروفات مسجلة',
+        rowTag: 'MTF-69',
+        tag: 'MTF-70',
       }),
+      titleTag: 'MTF-71',
+      tag: 'MTF-72',
     });
   }
 
@@ -731,9 +760,9 @@ export default async function render(ctx) {
       title: 'تسجيل أتعاب للمحامي عن هذا الملف',
       intro: 'يُقيَّد المبلغ في كشف حساب المحامي كمستحق، ويُصرف لاحقًا من صفحة المحاسبة.',
       fields: [
-        { name: 'lawyer_id', label: 'المحامي', type: 'select', required: true, options: lawyerOptions },
-        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01 },
-        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true },
+        { name: 'lawyer_id', label: 'المحامي', type: 'select', required: true, options: lawyerOptions, tag: 'MTF-145' },
+        { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, tag: 'MTF-146' },
+        { name: 'description', label: 'البيان', type: 'text', required: true, maxLength: 300, full: true, tag: 'MTF-147' },
       ],
       values: { lawyer_id: d.responsible_lawyer ? d.responsible_lawyer.id : null, description: `أتعاب ${label('matter_kind', m.kind)} — ${m.code}` },
       submitLabel: 'تسجيل الأتعاب',
@@ -747,38 +776,42 @@ export default async function render(ctx) {
     const total = fees.filter((f) => f.status !== 'void').reduce((s, f) => s + (Number(f.amount) || 0), 0);
     return h(
       'div.stack',
-      alertBox('أتعاب المحامي عن الملف المستمر تُقيَّد في كشف حسابه وتُصرف من صفحة المحاسبة. استرداد المصروفات التي دفعها المحامي يُضاف هنا تلقائيًا.', 'info', { icon: 'wallet' }),
+      alertBox('أتعاب المحامي عن الملف المستمر تُقيَّد في كشف حسابه وتُصرف من صفحة المحاسبة. استرداد المصروفات التي دفعها المحامي يُضاف هنا تلقائيًا.', 'info', { icon: 'wallet', tag: 'MTF-73' }),
       card({
         title: 'أتعاب ومستحقات المحامين',
         subtitle: `إجمالي القيود غير الملغاة: ${money(total)}`,
         icon: 'wallet',
         flush: true,
         actions: [
-          button('المحاسبة', { size: 'sm', variant: 'ghost', icon: 'externalLink', href: '#/accounting' }),
+          button('المحاسبة', { size: 'sm', variant: 'ghost', icon: 'externalLink', href: '#/accounting', tag: 'MTF-74' }),
           asyncButton(
             'تسجيل أتعاب',
             async () => {
               const lawyers = await activeLawyers();
               openAddFee(lawyers);
             },
-            { size: 'sm', variant: 'primary', icon: 'plus' },
+            { size: 'sm', variant: 'primary', icon: 'plus', tag: 'MTF-75' },
           ),
         ],
         body: table({
           columns: [
-            { key: 'lawyer', label: 'المحامي', render: (f) => f.lawyer_name },
-            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'neutral') },
-            { key: 'description', label: 'البيان', className: 'col-wide' },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (f) => h('strong.nowrap', money(f.amount)) },
-            { key: 'period', label: 'الشهر', render: (f) => (f.period ? ltr(f.period) : null) },
-            { key: 'status', label: 'الحالة', render: (f) => statusBadge('ledger_status', f.status) },
-            { key: 'date', label: 'التاريخ', render: (f) => h('span.small.nowrap', date(f.created_at)) },
+            { key: 'lawyer', label: 'المحامي', render: (f) => f.lawyer_name, tag: 'MTF-76' },
+            { key: 'kind', label: 'النوع', render: (f) => badge(label('ledger_kind', f.kind), f.kind === 'reimbursement' ? 'info' : 'neutral'), tag: 'MTF-77' },
+            { key: 'description', label: 'البيان', className: 'col-wide', tag: 'MTF-78' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (f) => h('strong.nowrap', money(f.amount)), tag: 'MTF-79' },
+            { key: 'period', label: 'الشهر', render: (f) => (f.period ? ltr(f.period) : null), tag: 'MTF-80' },
+            { key: 'status', label: 'الحالة', render: (f) => statusBadge('ledger_status', f.status), tag: 'MTF-81' },
+            { key: 'date', label: 'التاريخ', render: (f) => h('span.small.nowrap', date(f.created_at)), tag: 'MTF-82' },
           ],
           rows: fees,
           caption: 'قيود أتعاب المحامين على الملف',
           empty: 'لا توجد قيود أتعاب لهذا الملف بعد',
           rowClass: (f) => (f.status === 'void' ? 'is-muted' : null),
+          rowTag: 'MTF-83',
+          tag: 'MTF-84',
         }),
+        titleTag: 'MTF-85',
+        tag: 'MTF-86',
       }),
     );
   }
@@ -808,28 +841,34 @@ export default async function render(ctx) {
                   x.filename !== x.title && h('div.cell-sub', { dir: 'auto' }, x.filename),
                   docAiBadge(analyses, x.id),
                 ),
+                tag: 'MTF-87',
             },
-            { key: 'by', label: 'أضافه', render: (x) => statusBadge('actor_kind', x.uploaded_by_kind) },
-            { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', dateTime(x.created_at)) },
-            { key: 'size', label: 'الحجم', render: (x) => h('span.small.nowrap', formatBytes(x.size)) },
+            { key: 'by', label: 'أضافه', render: (x) => statusBadge('actor_kind', x.uploaded_by_kind), tag: 'MTF-88' },
+            { key: 'date', label: 'التاريخ', render: (x) => h('span.small.nowrap', dateTime(x.created_at)), tag: 'MTF-89' },
+            { key: 'size', label: 'الحجم', render: (x) => h('span.small.nowrap', formatBytes(x.size)), tag: 'MTF-90' },
             {
               key: 'dl',
               label: 'إجراءات',
               render: (x) =>
                 h(
                   'div.btn-group',
-                  button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}` }),
+                  button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(x.id), target: '_blank', ariaLabel: `تنزيل ${x.title}`, tag: 'MTF-91' }),
                   // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
                   sendDocumentButton(x, { onSent: () => refresh(null, { tab: 'documents' }), sendInfo }),
                   // (v9 ai) تحليل المستند؛ النتيجة تظهر في «نتائج تحليل المستندات» أدناه
                   docAiAction(analyses, x),
                 ),
+                tag: 'MTF-92',
             },
           ],
           rows: documents,
           caption: 'مستندات الملف المستمر',
           empty: 'لا توجد مستندات في هذا الملف بعد',
+          rowTag: 'MTF-93',
+          tag: 'MTF-94',
         }),
+        titleTag: 'MTF-95',
+        tag: 'MTF-96',
       }),
       docAiResultsCard(analyses, documents),
       card({
@@ -841,6 +880,8 @@ export default async function render(ctx) {
             await refresh('رُفعت المستندات إلى الملف المستمر', { tab: 'documents' });
           },
         }),
+        titleTag: 'MTF-97',
+        tag: 'MTF-98',
       }),
     );
   }
@@ -872,6 +913,7 @@ export default async function render(ctx) {
                   variant: shared ? 'ghost' : 'secondary',
                   icon: shared ? 'eyeOff' : 'eye',
                   title: !shared && !d.responsible_lawyer ? 'لم يُحدَّد محامٍ مسؤول بعد؛ سيراه المحامي عند تحديده' : null,
+                  tag: 'MTF-99',
                 },
               ),
             );
@@ -885,7 +927,7 @@ export default async function render(ctx) {
   function renderMessages() {
     return h(
       'div.stack',
-      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات المستفيد/ة لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message' }),
+      alertBox('سجل الرسائل المرتبطة بهذا الملف، بما فيها التذكيرات الآلية بالجلسات والفواتير (آخر 50 رسالة). مرفقات المستفيد/ة لا يراها المحامي المسؤول إلا بعد أن تتيحها الإدارة.', 'info', { icon: 'message', tag: 'MTF-100' }),
       attachmentShareControls(
         messageThread(messages, {
           inLabel: d.client ? d.client.name : 'المستفيد/ة',
@@ -930,17 +972,17 @@ export default async function render(ctx) {
       title: 'تعديل بيانات الملف المستمر',
       size: 'lg',
       fields: [
-        { name: 'title', label: 'العنوان', type: 'text', required: true, maxLength: 200, full: true },
-        { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind') },
-        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('matter_status'), hint: 'إغلاق الملف المستمر يوقف إضافة المواعيد والمهام الجديدة.' },
-        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يُبلَّغ المحامي الجديد ويرى الملف من بوابته.' },
-        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0 },
-        { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150 },
-        { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100 },
-        { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true },
-        { name: 'lawsuit_year', label: 'سنة الدعوى', type: 'text', maxLength: 10, ltr: true },
-        { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200, full: true },
-        { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000 },
+        { name: 'title', label: 'العنوان', type: 'text', required: true, maxLength: 200, full: true, tag: 'MTF-148' },
+        { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind'), tag: 'MTF-149' },
+        { name: 'status', label: 'الحالة', type: 'select', required: true, placeholder: false, options: options('matter_status'), hint: 'إغلاق الملف المستمر يوقف إضافة المواعيد والمهام الجديدة.', tag: 'MTF-150' },
+        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: 'يُبلَّغ المحامي الجديد ويرى الملف من بوابته.', tag: 'MTF-151' },
+        { name: 'agreed_fee', label: 'الأتعاب المتفق عليها مع المستفيد/ة', type: 'money', min: 0, tag: 'MTF-152' },
+        { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150, tag: 'MTF-153' },
+        { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100, tag: 'MTF-154' },
+        { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true, tag: 'MTF-155' },
+        { name: 'lawsuit_year', label: 'سنة الدعوى', type: 'text', maxLength: 10, ltr: true, tag: 'MTF-156' },
+        { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200, full: true, tag: 'MTF-157' },
+        { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000, tag: 'MTF-158' },
       ],
       values: { ...m },
       onSubmit: async (v) => {
@@ -976,21 +1018,21 @@ export default async function render(ctx) {
 
   const nz = (n) => (n > 0 ? n : null);
   const items = [
-    { key: 'events', label: 'الجلسات والمواعيد', icon: 'calendar', count: nz(events.filter((e) => e.status === 'scheduled').length), render: renderEvents },
-    { key: 'tasks', label: 'المهام الإجرائية', icon: 'check', count: nz(openTasks.length), render: renderTasks },
-    { key: 'invoices', label: 'الفواتير والمدفوعات', icon: 'fileText', count: nz(invoices.filter((i) => ['unpaid', 'partially_paid'].includes(i.status)).length), render: renderInvoices },
-    { key: 'expenses', label: 'المصروفات', icon: 'wallet', count: nz(expenses.length), render: renderExpenses },
-    isAdmin && { key: 'fees', label: 'أتعاب المحامي', icon: 'scale', count: nz(fees.length), render: renderFees },
-    { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(documents.length), render: renderDocuments },
-    { key: 'messages', label: 'الرسائل', icon: 'message', count: nz(messages.length), render: renderMessages },
-    { key: 'activity', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف المستمر', icon: 'clock', body: activityTimeline(d.activity || []) }) },
+    { key: 'events', label: 'الجلسات والمواعيد', icon: 'calendar', count: nz(events.filter((e) => e.status === 'scheduled').length), render: renderEvents, tag: 'MTF-105' },
+    { key: 'tasks', label: 'المهام الإجرائية', icon: 'check', count: nz(openTasks.length), render: renderTasks, tag: 'MTF-106' },
+    { key: 'invoices', label: 'الفواتير والمدفوعات', icon: 'fileText', count: nz(invoices.filter((i) => ['unpaid', 'partially_paid'].includes(i.status)).length), render: renderInvoices, tag: 'MTF-107' },
+    { key: 'expenses', label: 'المصروفات', icon: 'wallet', count: nz(expenses.length), render: renderExpenses, tag: 'MTF-108' },
+    isAdmin && { key: 'fees', label: 'أتعاب المحامي', icon: 'scale', count: nz(fees.length), render: renderFees, tag: 'MTF-109' },
+    { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(documents.length), render: renderDocuments, tag: 'MTF-110' },
+    { key: 'messages', label: 'الرسائل', icon: 'message', count: nz(messages.length), render: renderMessages, tag: 'MTF-111' },
+    { key: 'activity', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف المستمر', icon: 'clock', body: activityTimeline(d.activity || []), titleTag: 'MTF-101', tag: 'MTF-102' }), tag: 'MTF-112' },
   ].filter(Boolean);
   const requested = TAB_KEYS.includes(ctx.query.tab) && items.some((i) => i.key === ctx.query.tab) ? ctx.query.tab : 'events';
-  tabsEl = tabs(items, { active: requested, onChange: (key) => syncTab(key), className: 'pb-case-tabs' });
+  tabsEl = tabs(items, { active: requested, onChange: (key) => syncTab(key), className: 'pb-case-tabs', tag: 'MTF-103' });
 
   return frag(
     header,
-    closed && alertBox(`الملف المستمر مغلق منذ ${date(m.closed_at)}. يمكنك إعادة فتحه بتعديل الحالة.`, 'info', { icon: 'lock' }),
+    closed && alertBox(`الملف المستمر مغلق منذ ${date(m.closed_at)}. يمكنك إعادة فتحه بتعديل الحالة.`, 'info', { icon: 'lock', tag: 'MTF-104' }),
     stats,
     summary,
     // v9 practice: أطراف الدعوى وتعارض المصالح، والأثر المتحقق للمستفيد

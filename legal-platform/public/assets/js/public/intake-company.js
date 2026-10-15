@@ -35,10 +35,11 @@ const T = {
   abroadGo: 'راسلونا على واتساب',
 };
 // نفس قيم REQUESTER_EMPLOYEES وREQUESTER_NEEDS (segment.js) بكلمات G11-45
+// v12 entry review (R5، §5.11): بلا «–» في نص الأفراد والشركات الظاهر: «من 1 إلى 10» (القيم نفسها لا تتغير)
 const SIZES = [
-  ['1-10', '1–10'],
-  ['11-50', '11–50'],
-  ['51-200', '51–200'],
+  ['1-10', 'من 1 إلى 10'],
+  ['11-50', 'من 11 إلى 50'],
+  ['51-200', 'من 51 إلى 200'],
   ['200+', 'أكثر من 200'],
 ];
 const NEEDS = [
@@ -76,8 +77,6 @@ function chips(items, multi) {
       {
         type: 'button',
         'aria-pressed': 'false',
-        // «1–10» تُقرأ من اليسار (بدونها تنعكس الأرقام في سطر عربي: «10–1»)
-        dir: /^[\d–+]+$/.test(label) ? 'ltr' : null,
         onClick: (e) => {
           const on = !picked.has(v);
           if (!multi) picked.clear();
@@ -86,6 +85,7 @@ function chips(items, multi) {
           btns.forEach((b, i) => b.setAttribute('aria-pressed', String(picked.has(items[i][0]))));
           e.currentTarget.focus();
         },
+        tag: 'IC-17',
       },
       label,
     ),
@@ -106,17 +106,17 @@ export function companyLead(ctx) {
   }
   // v11 fixer-public (J-14): عنوان التبويب يبقى عنوان الخادم G11-05 «طلب عرض لخدمات الشركات — …» (لا يُستبدل بعنوان الشاشة)
   const sid = ctx.newSubmissionId();
-  const input = (attrs) => h('input.bmf-input', { type: 'text', ...attrs });
+  const input = (attrs) => h('input.bmf-input', { type: 'text', ...attrs, tag: 'IC-18' });
   const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }), true, 'IC-03');
   const contact = row('lead-contact', T.contact, input({ autocomplete: 'name', maxlength: 120 }), true, 'IC-04');
   const job = row('lead-job', T.job, input({ autocomplete: 'organization-title', maxlength: 80 }), false, 'IC-05');
   // v12 entry (L12-84، IC-16): رقم من خارج مصر؟ ← واتساب (فقط مع رقم واتساب للأفراد والشركات)
-  const abroad = ctx.wa ? h('p.bmf-hint', { tag: 'IC-16' }, T.abroad, h('a', { href: ctx.wa, target: '_blank', rel: 'noopener noreferrer' }, T.abroadGo)) : null;
+  const abroad = ctx.wa ? h('p.bmf-hint', { tag: 'IC-16' }, T.abroad, h('a', { href: ctx.wa, target: '_blank', rel: 'noopener noreferrer', tag: 'IC-19' }, T.abroadGo)) : null;
   const phone = row('lead-phone', T.phone, input({ type: 'tel', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: 20, placeholder: '01xxxxxxxxx' }), true, 'IC-06', abroad);
   const email = row('lead-email', T.email, input({ type: 'email', autocomplete: 'email', dir: 'ltr', maxlength: 120 }), false, 'IC-07');
   const size = chips(SIZES, false);
   const needs = chips(NEEDS, true);
-  const details = h('textarea.bmf-textarea', { id: 'lead-more', rows: 4, maxlength: 4000, placeholder: T.morePh });
+  const details = h('textarea.bmf-textarea', { id: 'lead-more', rows: 4, maxlength: 4000, placeholder: T.morePh, tag: 'IC-20' });
   const status = h('div.lead-status', { role: 'status' });
   const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.lead-submit', { type: 'button', tag: 'IC-12' }, h('span', T.send));
   const heading = h('h1.bmf-title', { tabindex: '-1', id: 'lead-title', class: ctx.path && 'q__title', tag: 'IC-01' }, T.h1);
@@ -215,13 +215,13 @@ export function companyLead(ctx) {
       root,
       h(
         'section.bmf-success.lead-done',
-        { 'aria-labelledby': 'lead-done' },
+        { 'aria-labelledby': 'lead-done', tag: 'IC-21' },
         h('span.bmf-done-icon', ic('check', 36)),
         title,
         h('p.bmf-thanks', { tag: 'IC-14' }, T.doneText),
         r.reference && h('p.lead-ref', T.ref, h('span.bmf-ref.bmf-ltr', r.reference)),
-        X.company?.portal && h('p.lead-portal', { tag: 'IC-15' }, T.portalQ, h('a', { href: '/company' }, T.portalGo)),
-        portal && h('a.lead-page', { href: portal }, T.page),
+        X.company?.portal && h('p.lead-portal', { tag: 'IC-15' }, T.portalQ, h('a', { href: '/company', tag: 'IC-22' }, T.portalGo)),
+        portal && h('a.lead-page', { href: portal, tag: 'IC-23' }, T.page),
       ),
     );
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -232,10 +232,10 @@ export function companyLead(ctx) {
     root,
     h(
       'section.bmf-step.lead',
-      { 'aria-labelledby': 'lead-title' },
+      { 'aria-labelledby': 'lead-title', tag: 'IC-24' },
       h(
         'div.bmf-head',
-        !ctx.path && h('div.bmf-qbar', h('a.bmf-btn.bmf-btn-text.bmf-back', { href: '/services#companies' }, ic('arrowRight', 20), h('span', T.back))),
+        !ctx.path && h('div.bmf-qbar', h('a.bmf-btn.bmf-btn-text.bmf-back', { href: '/services#companies', tag: 'IC-25' }, ic('arrowRight', 20), h('span', T.back))),
         heading,
         h('p.bmf-sub', { tag: 'IC-02' }, T.sub),
       ),

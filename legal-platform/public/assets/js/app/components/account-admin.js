@@ -61,7 +61,7 @@ function fieldError(name, msg) {
 export function showLinkDialog(link, { onClose } = {}) {
   const isInvite = link.kind === 'invite';
   const who = link.user?.display_name || link.user?.name || '';
-  const urlInput = h('input.input.acc-link-input', { type: 'text', readonly: true, value: link.url, dir: 'ltr', 'aria-label': isInvite ? 'رابط الدعوة' : 'رابط إعادة التعيين', onFocus: (e) => e.target.select() });
+  const urlInput = h('input.input.acc-link-input', { type: 'text', readonly: true, value: link.url, dir: 'ltr', 'aria-label': isInvite ? 'رابط الدعوة' : 'رابط إعادة التعيين', onFocus: (e) => e.target.select(), tag: 'SET-133' });
   modal({
     title: isInvite ? `رابط دعوة ${who}` : `رابط إعادة تعيين كلمة مرور ${who}`,
     size: 'md',
@@ -73,18 +73,19 @@ export function showLinkDialog(link, { onClose } = {}) {
           ? `أرسل هذا الرابط إلى ${who} ليؤكد اسمه ويختار كلمة المرور ويفعّل حسابه. الرابط صالح للاستخدام مرة واحدة حتى ${dateTime(link.expires_at)}.`
           : `أرسل هذا الرابط إلى ${who} ليختار كلمة مرور جديدة. الرابط صالح للاستخدام مرة واحدة حتى ${dateTime(link.expires_at)}، وعند استخدامه تُنهى كل جلسات الحساب.`,
       ),
-      h('div.acc-link-row', urlInput, copyButton(link.url, 'نسخ الرابط', { variant: 'secondary' })),
+      h('div.acc-link-row', urlInput, copyButton(link.url, 'نسخ الرابط', { variant: 'secondary', tag: 'SET-134' })),
       h(
         'div.acc-actions-row',
-        button('إرسال عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: link.whatsapp_url, target: '_blank' }),
-        copyButton(link.message, 'نسخ نص الرسالة', { variant: 'ghost' }),
+        button('إرسال عبر واتساب', { variant: 'whatsapp', icon: 'whatsapp', href: link.whatsapp_url, target: '_blank', tag: 'SET-135' }),
+        copyButton(link.message, 'نسخ نص الرسالة', { variant: 'ghost', tag: 'SET-136' }),
       ),
       !link.phone_known && h('p.small.muted', 'لا يوجد رقم موبايل مسجل لهذا الحساب؛ سيفتح واتساب لتختار جهة الاتصال بنفسك.'),
-      h('details.acc-message-preview', h('summary', 'معاينة نص الرسالة'), h('p.pre', { dir: 'auto' }, link.message)),
-      alertBox('لا يُعرض الرابط مرة أخرى بعد إغلاق هذه النافذة. يمكنك إصدار رابط جديد في أي وقت، ويُلغى الرابط السابق تلقائيًا.', 'info'),
+      h('details.acc-message-preview', { tag: 'SET-137' }, h('summary', { tag: 'SET-138' }, 'معاينة نص الرسالة'), h('p.pre', { dir: 'auto' }, link.message)),
+      alertBox('لا يُعرض الرابط مرة أخرى بعد إغلاق هذه النافذة. يمكنك إصدار رابط جديد في أي وقت، ويُلغى الرابط السابق تلقائيًا.', 'info', { tag: 'SET-139' }),
     ),
-    actions: [{ label: 'تم', variant: 'primary', icon: 'check' }],
+    actions: [{ label: 'تم', variant: 'primary', icon: 'check', tag: 'SET-140' }],
     onClose: () => onClose && onClose(),
+    tag: 'SET-141',
   });
 }
 
@@ -95,8 +96,8 @@ export function openTempPasswordDialog(acc, onDone) {
     intro: 'سيُطلب من المستخدم تغيير هذه الكلمة فور دخوله، وتُنهى جلساته الحالية. سلّمها له بطريقة آمنة (ويُفضَّل استخدام «رابط إعادة التعيين» بدلًا منها).',
     submitLabel: 'تعيين كلمة المرور المؤقتة',
     fields: [
-      { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT },
-      { name: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
+      { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT, tag: 'SET-142' },
+      { name: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password', tag: 'SET-143' },
     ],
     setup: (f) => attachStrength(f, 'password', () => acc.username),
     onSubmit: async (v) => {
@@ -105,6 +106,7 @@ export function openTempPasswordDialog(acc, onDone) {
       if (v.password !== v.confirm) throw fieldError('confirm', 'كلمتا المرور غير متطابقتين');
       return api.post(`/admin/accounts/${encodeURIComponent(acc.id)}/temp-password`, { password: v.password });
     },
+    tag: 'SET-144',
   }).then((res) => {
     if (!res) return;
     toast('عُيّنت كلمة المرور المؤقتة وأُنهيت جلسات المستخدم', 'success');
@@ -129,17 +131,17 @@ export function accountActions(acc, { me, onChanged }) {
         const link = await api.post(`/admin/accounts/${id}/invite`);
         showLinkDialog(link);
         changed();
-      }, { variant: 'primary', size: 'sm', icon: 'send' }),
+      }, { variant: 'primary', size: 'sm', icon: 'send', tag: 'SET-145' }),
     );
     if (acc.invite && acc.invite.status === 'active') {
       out.push(
         asyncButton('إلغاء الدعوة', async () => {
-          const ok = await confirmDanger({ title: 'إلغاء الدعوة', message: `سيتوقف رابط الدعوة المرسل إلى ${acc.display_name || acc.name} عن العمل فورًا. يمكنك إصدار دعوة جديدة لاحقًا.`, confirmLabel: 'إلغاء الدعوة' });
+          const ok = await confirmDanger({ title: 'إلغاء الدعوة', message: `سيتوقف رابط الدعوة المرسل إلى ${acc.display_name || acc.name} عن العمل فورًا. يمكنك إصدار دعوة جديدة لاحقًا.`, confirmLabel: 'إلغاء الدعوة', tag: 'SET-146' });
           if (!ok) return;
           await api.post(`/admin/accounts/${id}/invite/revoke`);
           toast('أُلغيت الدعوة', 'success');
           changed();
-        }, { variant: 'ghost', size: 'sm', icon: 'x' }),
+        }, { variant: 'ghost', size: 'sm', icon: 'x', tag: 'SET-147' }),
       );
     }
     return out;
@@ -150,11 +152,12 @@ export function accountActions(acc, { me, onChanged }) {
         title: 'إصدار رابط إعادة تعيين',
         message: `سيُصدر رابط للاستخدام مرة واحدة يتيح لـ${acc.display_name || acc.name} اختيار كلمة مرور جديدة، ويلغي أي رابط سابق. عند استخدامه تُنهى كل جلسات الحساب.`,
         confirmLabel: 'إصدار الرابط',
+        tag: 'SET-148',
       });
       if (!ok) return;
       showLinkDialog(await api.post(`/admin/accounts/${id}/reset-link`));
       changed();
-    }, { variant: 'secondary', size: 'sm', icon: 'link' }),
+    }, { variant: 'secondary', size: 'sm', icon: 'link', tag: 'SET-149' }),
   );
   if (acc.reset_link) {
     out.push(
@@ -162,17 +165,17 @@ export function accountActions(acc, { me, onChanged }) {
         await api.post(`/admin/accounts/${id}/reset-link/revoke`);
         toast('أُلغي رابط إعادة التعيين', 'success');
         changed();
-      }, { variant: 'ghost', size: 'sm', icon: 'x' }),
+      }, { variant: 'ghost', size: 'sm', icon: 'x', tag: 'SET-150' }),
     );
   }
-  if (!self) out.push(button('كلمة مرور مؤقتة', { variant: 'ghost', size: 'sm', icon: 'lock', onClick: () => openTempPasswordDialog(acc, changed) }));
+  if (!self) out.push(button('كلمة مرور مؤقتة', { variant: 'ghost', size: 'sm', icon: 'lock', onClick: () => openTempPasswordDialog(acc, changed), tag: 'SET-151' }));
   if (acc.state === 'locked') {
     out.push(
       asyncButton('رفع الإيقاف المؤقت', async () => {
         await api.post(`/admin/accounts/${id}/unlock`);
         toast('رُفع الإيقاف المؤقت عن الحساب', 'success');
         changed();
-      }, { variant: 'secondary', size: 'sm', icon: 'refresh' }),
+      }, { variant: 'secondary', size: 'sm', icon: 'refresh', tag: 'SET-152' }),
     );
   }
   if (acc.two_factor_enabled && !self) {
@@ -182,24 +185,25 @@ export function accountActions(acc, { me, onChanged }) {
           title: 'إلغاء التحقق بخطوتين',
           message: `استخدم هذا الإجراء فقط إذا فقد ${acc.display_name || acc.name} هاتفه ورموز الاسترداد معًا، بعد التحقق من هويته. ستُنهى جلساته ويُسجل الإجراء في سجل الأمان.`,
           confirmLabel: 'إلغاء التحقق بخطوتين',
+          tag: 'SET-153',
         });
         if (!ok) return;
         await api.post(`/admin/accounts/${id}/2fa/reset`);
         toast('أُلغي التحقق بخطوتين لهذا الحساب', 'success');
         changed();
-      }, { variant: 'ghost', size: 'sm', icon: 'shield' }),
+      }, { variant: 'ghost', size: 'sm', icon: 'shield', tag: 'SET-154' }),
     );
   }
   if (acc.sessions > 0 && !self) {
     out.push(
       asyncButton('إنهاء كل الجلسات', async () => {
         const feedNote = acc.calendar_feed && acc.calendar_feed.active ? ' ويتوقف رابط اشتراك التقويم الخاص به' : '';
-        const ok = await confirmDanger({ title: 'إنهاء الجلسات', message: `سيُسجَّل خروج ${acc.display_name || acc.name} من كل الأجهزة (${count(acc.sessions, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])})${feedNote}.`, confirmLabel: 'إنهاء الجلسات' });
+        const ok = await confirmDanger({ title: 'إنهاء الجلسات', message: `سيُسجَّل خروج ${acc.display_name || acc.name} من كل الأجهزة (${count(acc.sessions, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])})${feedNote}.`, confirmLabel: 'إنهاء الجلسات', tag: 'SET-155' });
         if (!ok) return;
         const r = await api.post(`/admin/accounts/${id}/sessions/revoke`);
         toast(`${r.revoked ? `أُنهيت ${count(r.revoked, ['جلسة واحدة', 'جلستان', 'جلسات', 'جلسة'])}` : 'لا توجد جلسات نشطة'}${r.calendar_feed_revoked ? ' وأُلغي رابط التقويم' : ''}`, 'success');
         changed();
-      }, { variant: 'ghost', size: 'sm', icon: 'logout' }),
+      }, { variant: 'ghost', size: 'sm', icon: 'logout', tag: 'SET-156' }),
     );
   }
   if (acc.calendar_feed && acc.calendar_feed.active) {
@@ -209,12 +213,13 @@ export function accountActions(acc, { me, onChanged }) {
           title: 'إلغاء رابط اشتراك التقويم',
           message: `سيتوقف فورًا رابط التقويم الذي يعرض مواعيد ${acc.display_name || acc.name} في تطبيقات التقويم على أجهزته، ويستطيع إصدار رابط جديد بعد الدخول.`,
           confirmLabel: 'إلغاء الرابط',
+          tag: 'SET-157',
         });
         if (!ok) return;
         await api.post(`/admin/accounts/${id}/calendar-feed/revoke`);
         toast('أُلغي رابط اشتراك التقويم', 'success');
         changed();
-      }, { variant: 'ghost', size: 'sm', icon: 'calendar' }),
+      }, { variant: 'ghost', size: 'sm', icon: 'calendar', tag: 'SET-158' }),
     );
   }
   return out;
@@ -237,7 +242,7 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
           return 'المصدر الذي تكررت منه';
         })()} المحاولات الفاشلة (${count(acc.failed_login_count, ['محاولة فاشلة واحدة', 'محاولتين فاشلتين', 'محاولات فاشلة', 'محاولة فاشلة'])} متتالية على الحساب). يستطيع صاحب الحساب الدخول من جهاز سبق أن دخل منه أو من شبكة أخرى.`,
         'danger',
-        { title: 'محاولات دخول موقوفة مؤقتًا' },
+        { title: 'محاولات دخول موقوفة مؤقتًا', tag: 'SET-159' },
       ),
     acc.invite_pending &&
       alertBox(
@@ -245,9 +250,9 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
           ? `لم يفعّل المستخدم حسابه بعد. الدعوة ${inviteStatusText(acc.invite)}${acc.invite.reissued ? ` (أُعيد إصدارها ${count(acc.invite.reissued, ['مرة واحدة', 'مرتين', 'مرات', 'مرة'])})` : ''}.`
           : `لم يفعّل المستخدم حسابه، والدعوة ${inviteStatusText(acc.invite)}. أصدر دعوة جديدة وأرسلها إليه.`,
         acc.invite?.status === 'active' ? 'info' : 'warning',
-        { title: 'بانتظار قبول الدعوة' },
+        { title: 'بانتظار قبول الدعوة', tag: 'SET-160' },
       ),
-    acc.password_change_required && !acc.invite_pending && alertBox('عُيّنت لهذا الحساب كلمة مرور مؤقتة، وسيُطلب منه تغييرها فور الدخول.', 'warning'),
+    acc.password_change_required && !acc.invite_pending && alertBox('عُيّنت لهذا الحساب كلمة مرور مؤقتة، وسيُطلب منه تغييرها فور الدخول.', 'warning', { tag: 'SET-161' }),
     kv(
       [
         ['حالة الحساب', accountStateBadge(acc)],
@@ -271,7 +276,7 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
     Array.isArray(events) && events.length
       ? h(
           'details.acc-events',
-          h('summary', `آخر أحداث الأمان (${num(events.length)})`),
+          { tag: 'SET-162' }, h('summary', { tag: 'SET-163' }, `آخر أحداث الأمان (${num(events.length)})`),
           h(
             'ul.acc-event-list',
             events.map((e) =>
@@ -282,7 +287,7 @@ export function accountSecurityPanel(acc, { me, onChanged, events = acc.recent_e
               ),
             ),
           ),
-          h('a.small', { href: `#/audit?user_id=${encodeURIComponent(acc.id)}` }, 'عرض كل أحداث هذا الحساب في سجل الأمان'),
+          h('a.small', { href: `#/audit?user_id=${encodeURIComponent(acc.id)}`, tag: 'SET-164' }, 'عرض كل أحداث هذا الحساب في سجل الأمان'),
         )
       : null,
   );
@@ -300,7 +305,7 @@ export function accountSecurityCard({ userId, me }) {
     }
   }
   load();
-  return card({ title: 'الحساب والأمان', subtitle: 'الدخول، الدعوة، التحقق بخطوتين، والجلسات', icon: 'shield', body: host, className: 'acc-security-card' });
+  return card({ title: 'الحساب والأمان', subtitle: 'الدخول، الدعوة، التحقق بخطوتين، والجلسات', icon: 'shield', body: host, className: 'acc-security-card', titleTag: 'SET-165', tag: 'SET-166' });
 }
 
 /** نافذة تفاصيل الأمان لحساب (من جدول المستخدمين) */
@@ -315,7 +320,7 @@ export function openAccountDialog(userId, { me, onChanged, name = null } = {}) {
       mount(host, errorState(err, load));
     }
   }
-  modal({ title: name ? `أمان حساب ${name}` : 'أمان الحساب', size: 'lg', body: host, actions: [{ label: 'إغلاق', variant: 'ghost' }], onClose: () => changedOnce && onChanged && onChanged() });
+  modal({ title: name ? `أمان حساب ${name}` : 'أمان الحساب', size: 'lg', body: host, actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'SET-167' }], onClose: () => changedOnce && onChanged && onChanged(), tag: 'SET-168' });
   load();
 }
 
@@ -328,11 +333,11 @@ function openAddUser(onCreated) {
     submitLabel: 'إضافة المستخدم',
     size: 'lg',
     fields: [
-      { name: 'role', label: 'الدور', type: 'select', required: true, placeholder: false, options: [{ value: 'case_manager', label: label('user_role', 'case_manager') }, { value: 'admin', label: label('user_role', 'admin') }] },
-      { name: 'name', label: 'الاسم', required: true, maxLength: 120 },
-      { name: 'username', label: 'اسم المستخدم', required: true, ltr: true, minLength: 3, maxLength: 40, autocomplete: 'off', hint: 'حروف لاتينية وأرقام فقط' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'لإرسال رابط الدعوة عبر واتساب' },
-      { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
+      { name: 'role', label: 'الدور', type: 'select', required: true, placeholder: false, options: [{ value: 'case_manager', label: label('user_role', 'case_manager') }, { value: 'admin', label: label('user_role', 'admin') }], tag: 'SET-169' },
+      { name: 'name', label: 'الاسم', required: true, maxLength: 120, tag: 'SET-170' },
+      { name: 'username', label: 'اسم المستخدم', required: true, ltr: true, minLength: 3, maxLength: 40, autocomplete: 'off', hint: 'حروف لاتينية وأرقام فقط', tag: 'SET-171' },
+      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'لإرسال رابط الدعوة عبر واتساب', tag: 'SET-172' },
+      { name: 'email', label: 'البريد الإلكتروني', type: 'email', tag: 'SET-173' },
       {
         name: 'method',
         label: 'طريقة تفعيل الحساب',
@@ -347,8 +352,9 @@ function openAddUser(onCreated) {
           const c = f.control('password');
           if (c && c.wrap) c.wrap.hidden = val !== 'password';
         },
+        tag: 'SET-174',
       },
-      { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: `${PASSWORD_HINT}. سيُطلب تغييرها عند أول دخول.` },
+      { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: `${PASSWORD_HINT}. سيُطلب تغييرها عند أول دخول.`, tag: 'SET-175' },
     ],
     values: { role: 'case_manager', method: 'invite' },
     setup: (f) => {
@@ -367,6 +373,7 @@ function openAddUser(onCreated) {
       }
       return api.post('/admin/users', payload);
     },
+    tag: 'SET-176',
   }).then((res) => {
     if (!res) return;
     toast(`تمت إضافة ${res.name} (${label('user_role', res.role)})`, 'success');
@@ -382,7 +389,7 @@ function openEditUser(u, me, onSaved) {
     intro: self ? 'هذا حسابك: لا يمكنك إيقافه أو خفض صلاحياتك بنفسك، حتى لا تبقى المنصة بلا حساب بدور «إدارة النظام». لتغيير كلمة مرورك استخدم صفحة «حسابي والأمان».' : 'لتغيير كلمة المرور استخدم «رابط إعادة التعيين» أو «كلمة مرور مؤقتة» من نافذة أمان الحساب.',
     submitLabel: 'حفظ التعديلات',
     fields: [
-      { name: 'name', label: 'الاسم', required: true, maxLength: 120 },
+      { name: 'name', label: 'الاسم', required: true, maxLength: 120, tag: 'SET-177' },
       {
         name: 'role',
         label: 'الدور',
@@ -394,15 +401,17 @@ function openEditUser(u, me, onSaved) {
           { value: 'admin', label: label('user_role', 'admin') },
           { value: 'case_manager', label: label('user_role', 'case_manager') },
         ],
+        tag: 'SET-178',
       },
-      { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone' },
+      { name: 'email', label: 'البريد الإلكتروني', type: 'email', tag: 'SET-179' },
+      { name: 'phone', label: 'رقم الموبايل', type: 'phone', tag: 'SET-180' },
       {
         name: 'active',
         type: 'checkbox',
         text: self ? 'الحساب نشط (لا يمكنك إيقاف حسابك)' : 'الحساب نشط ويمكنه الدخول — أزل العلامة لإيقافه وإنهاء جلساته',
         disabled: self,
         full: true,
+        tag: 'SET-181',
       },
     ],
     values: { name: u.name, role: u.role, email: u.email, phone: u.phone, active: Boolean(u.active) },
@@ -411,7 +420,7 @@ function openEditUser(u, me, onSaved) {
       if (!self) {
         if (v.role !== u.role) {
           if (v.role === 'admin') {
-            const ok = await confirmDialog({ title: 'منح صلاحية «إدارة النظام»', message: `سيحصل ${u.name} على كل الصلاحيات بما فيها المحاسبة والإعدادات وإدارة الحسابات وسجل الأمان. يُسجَّل هذا الإجراء ويُنبَّه بقية مديري النظام.`, confirmLabel: 'منح الصلاحية' });
+            const ok = await confirmDialog({ title: 'منح صلاحية «إدارة النظام»', message: `سيحصل ${u.name} على كل الصلاحيات بما فيها المحاسبة والإعدادات وإدارة الحسابات وسجل الأمان. يُسجَّل هذا الإجراء ويُنبَّه بقية مديري النظام.`, confirmLabel: 'منح الصلاحية', tag: 'SET-182' });
             if (!ok) throw fieldError('role', 'لم يُغيَّر الدور');
           }
           patch.role = v.role;
@@ -420,6 +429,7 @@ function openEditUser(u, me, onSaved) {
       }
       return api.patch(`/admin/users/${encodeURIComponent(u.id)}`, patch);
     },
+    tag: 'SET-183',
   }).then((res) => {
     if (!res) return;
     toast('تم حفظ بيانات المستخدم', 'success');
@@ -434,7 +444,7 @@ export function pendingInvitesCard({ me, onChanged } = {}) {
     try {
       const { items } = await api.get('/admin/accounts/invites');
       if (!items.length) {
-        mount(host, emptyState('لا توجد دعوات معلقة؛ كل الحسابات المدعوة فُعّلت.', null, { compact: true, icon: 'checkCircle' }));
+        mount(host, emptyState('لا توجد دعوات معلقة؛ كل الحسابات المدعوة فُعّلت.', null, { compact: true, icon: 'checkCircle', tag: 'SET-184' }));
         return;
       }
       mount(
@@ -448,17 +458,21 @@ export function pendingInvitesCard({ me, onChanged } = {}) {
               key: 'name',
               label: 'المستخدم',
               render: (x) =>
-                h('div.acc-person', avatar(x.name, { size: 'sm' }), h('div', x.role === 'lawyer' ? h('a.cell-title', { href: `#/lawyers/${x.id}` }, x.display_name) : h('span.cell-title', x.display_name), h('div.cell-sub', codeTag(x.username)))),
+                h('div.acc-person', avatar(x.name, { size: 'sm' }), h('div', x.role === 'lawyer' ? h('a.cell-title', { href: `#/lawyers/${x.id}`, tag: 'SET-185' }, x.display_name) : h('span.cell-title', x.display_name), h('div.cell-sub', codeTag(x.username)))),
+                tag: 'SET-186',
             },
-            { key: 'role', label: 'الدور', render: (x) => statusBadge('user_role', x.role, { dot: false }) },
-            { key: 'invite', label: 'الدعوة', render: (x) => badge(inviteStatusText(x.invite), inviteTone(x.invite), { icon: 'clock' }) },
-            { key: 'by', label: 'أصدرها', render: (x) => (x.invite?.created_by_name ? h('span', x.invite.created_by_name, h('div.cell-sub', relative(x.invite.created_at))) : null) },
+            { key: 'role', label: 'الدور', render: (x) => statusBadge('user_role', x.role, { dot: false }), tag: 'SET-187' },
+            { key: 'invite', label: 'الدعوة', render: (x) => badge(inviteStatusText(x.invite), inviteTone(x.invite), { icon: 'clock' }), tag: 'SET-188' },
+            { key: 'by', label: 'أصدرها', render: (x) => (x.invite?.created_by_name ? h('span', x.invite.created_by_name, h('div.cell-sub', relative(x.invite.created_at))) : null), tag: 'SET-189' },
             {
               key: 'actions',
               label: '',
               render: (x) => h('div.acc-actions-row', accountActions({ ...x, active: true, invite_pending: true }, { me, onChanged: () => { load(); if (onChanged) onChanged(); } })),
+              tag: 'SET-190',
             },
           ],
+          rowTag: 'SET-191',
+          tag: 'SET-192',
         }),
       );
     } catch (err) {
@@ -466,7 +480,7 @@ export function pendingInvitesCard({ me, onChanged } = {}) {
     }
   }
   load();
-  const el = card({ title: 'الدعوات المعلقة', subtitle: 'حسابات أُنشئت بدعوة ولم تُفعَّل بعد (محامون وإدارة)', icon: 'send', body: host });
+  const el = card({ title: 'الدعوات المعلقة', subtitle: 'حسابات أُنشئت بدعوة ولم تُفعَّل بعد (محامون وإدارة)', icon: 'send', body: host, titleTag: 'SET-193', tag: 'SET-194' });
   el.reload = load;
   return el;
 }
@@ -486,9 +500,10 @@ export function securityPolicyCard({ me }) {
             text: 'إلزام كل حسابات «إدارة النظام» بالتحقق بخطوتين (من لم يفعّله يُطلب منه ذلك فور الدخول)',
             full: true,
             disabled: !myTwoFa && !p.security_require_2fa_admins,
+            tag: 'SET-294',
           },
-          { name: 'session_idle_hours', label: 'إنهاء الجلسة بعد عدم النشاط', type: 'number', required: true, min: 0.25, max: 720, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'عمر الجلسة مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'يُسجَّل خروج المستخدم تلقائيًا إذا لم يستخدم المنصة طوال هذه المدة' },
-          { name: 'session_max_hours', label: 'الحد الأقصى لعمر الجلسة', type: 'number', integer: true, required: true, min: 1, max: 2160, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'بعدها يلزم تسجيل الدخول من جديد أيًا كان النشاط' },
+          { name: 'session_idle_hours', label: 'إنهاء الجلسة بعد عدم النشاط', type: 'number', required: true, min: 0.25, max: 720, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'عمر الجلسة مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'يُسجَّل خروج المستخدم تلقائيًا إذا لم يستخدم المنصة طوال هذه المدة', tag: 'SET-295' },
+          { name: 'session_max_hours', label: 'الحد الأقصى لعمر الجلسة', type: 'number', integer: true, required: true, min: 1, max: 2160, suffix: 'ساعة', disabled: p.session_ttl_from_env, hint: p.session_ttl_from_env ? 'مضبوط من متغير البيئة SESSION_TTL_HOURS على الخادم' : 'بعدها يلزم تسجيل الدخول من جديد أيًا كان النشاط', tag: 'SET-296' },
           // v9.1 fixes: «تذكّرني على هذا الجهاز» للمحامين قرار صريح بجانب سياسة الجلسات
           {
             name: 'lawyer_remember',
@@ -505,12 +520,13 @@ export function securityPolicyCard({ me }) {
             hint: p.lawyer_remember_capped
               ? 'مطفأ لأن عمر الجلسة أو مهلة عدم النشاط أقصر من الافتراضي. اختر «متاح» لتسمح به رغم ذلك.'
               : 'جلسة «تذكّرني» أطول من مدة الجلسة أعلاه، حتى لو ضاع الهاتف. يمكن إنهاؤها من «الجلسات النشطة».',
+              tag: 'SET-297',
           },
-          { name: 'lawyer_remember_days', label: 'مدة «تذكّرني» بلا تحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 30, suffix: 'يوم', disabled: p.session_ttl_from_env },
-          { name: 'lawyer_remember_days_2fa', label: 'مدة «تذكّرني» مع التحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 90, suffix: 'يوم', disabled: p.session_ttl_from_env },
-          { name: 'invite_valid_hours', label: 'صلاحية رابط الدعوة', type: 'number', integer: true, required: true, min: 1, max: 336, suffix: 'ساعة' },
-          { name: 'reset_valid_hours', label: 'صلاحية رابط إعادة التعيين', type: 'number', integer: true, required: true, min: 1, max: 168, suffix: 'ساعة' },
-          { name: 'security_audit_retention_days', label: 'مدة الاحتفاظ بأحداث سجل الأمان', type: 'number', integer: true, required: true, min: 30, max: 3650, suffix: 'يوم', hint: 'التحذيرات والأحداث الحرجة تُحفظ ضعف هذه المدة' },
+          { name: 'lawyer_remember_days', label: 'مدة «تذكّرني» بلا تحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 30, suffix: 'يوم', disabled: p.session_ttl_from_env, tag: 'SET-298' },
+          { name: 'lawyer_remember_days_2fa', label: 'مدة «تذكّرني» مع التحقق بخطوتين', type: 'number', integer: true, required: true, min: 1, max: 90, suffix: 'يوم', disabled: p.session_ttl_from_env, tag: 'SET-299' },
+          { name: 'invite_valid_hours', label: 'صلاحية رابط الدعوة', type: 'number', integer: true, required: true, min: 1, max: 336, suffix: 'ساعة', tag: 'SET-300' },
+          { name: 'reset_valid_hours', label: 'صلاحية رابط إعادة التعيين', type: 'number', integer: true, required: true, min: 1, max: 168, suffix: 'ساعة', tag: 'SET-301' },
+          { name: 'security_audit_retention_days', label: 'مدة الاحتفاظ بأحداث سجل الأمان', type: 'number', integer: true, required: true, min: 30, max: 3650, suffix: 'يوم', hint: 'التحذيرات والأحداث الحرجة تُحفظ ضعف هذه المدة', tag: 'SET-302' },
         ],
         {
           values: p,
@@ -529,11 +545,13 @@ export function securityPolicyCard({ me }) {
             f.setValues(saved);
             toast('حُفظت سياسة الأمان', 'success');
           },
+          submitTag: 'SET-303',
+          tag: 'SET-304',
         },
       );
       mount(
         host,
-        !myTwoFa && alertBox(h('span', 'لتفعيل إلزام مديري النظام بالتحقق بخطوتين فعّله لحسابك أولًا من ', h('a', { href: '#/account' }, 'صفحة حسابي والأمان'), '.'), 'info'),
+        !myTwoFa && alertBox(h('span', 'لتفعيل إلزام مديري النظام بالتحقق بخطوتين فعّله لحسابك أولًا من ', h('a', { href: '#/account', tag: 'SET-195' }, 'صفحة حسابي والأمان'), '.'), 'info', { tag: 'SET-196' }),
         f.el,
       );
     } catch (err) {
@@ -541,7 +559,7 @@ export function securityPolicyCard({ me }) {
     }
   }
   load();
-  return card({ title: 'سياسة الأمان', subtitle: 'الجلسات، التحقق بخطوتين، وصلاحية روابط الدعوة وإعادة التعيين', icon: 'shieldCheck', body: host });
+  return card({ title: 'سياسة الأمان', subtitle: 'الجلسات، التحقق بخطوتين، وصلاحية روابط الدعوة وإعادة التعيين', icon: 'shieldCheck', body: host, titleTag: 'SET-197', tag: 'SET-198' });
 }
 
 /**
@@ -576,23 +594,27 @@ export function usersAdminSection({ me }) {
               key: 'name',
               label: 'الاسم',
               render: (u) => h('div.acc-person', avatar(u.name, { size: 'sm' }), h('div', h('span.cell-title', u.name), h('div.cell-sub', codeTag(u.username), u.id === me.id ? badge('أنت', 'primary') : null))),
+              tag: 'SET-199',
             },
-            { key: 'role', label: 'الدور', render: (u) => statusBadge('user_role', u.role, { dot: false }) },
-            { key: 'state', label: 'الحالة', render: (u) => accountStateBadge(u) },
+            { key: 'role', label: 'الدور', render: (u) => statusBadge('user_role', u.role, { dot: false }), tag: 'SET-200' },
+            { key: 'state', label: 'الحالة', render: (u) => accountStateBadge(u), tag: 'SET-201' },
             {
               key: 'twofa',
               label: 'التحقق بخطوتين',
               render: (u) => (u.invite_pending ? h('span.muted', '—') : u.two_factor_enabled ? badge('مفعّل', 'success', { icon: 'shieldCheck' }) : badge('غير مفعّل', u.role === 'admin' ? 'warning' : 'muted')),
+              tag: 'SET-202',
             },
             {
               key: 'contact',
               label: 'التواصل',
               render: (u) => (u.email || u.phone ? h('div.acc-cell-stack', u.email ? ltr(u.email) : null, u.phone ? ltr(u.phone) : null) : null),
+              tag: 'SET-203',
             },
             {
               key: 'last_login',
               label: 'آخر دخول',
               render: (u) => (u.last_login_at ? h('time.nowrap', { datetime: u.last_login_at, title: dateTime(u.last_login_at) }, relative(u.last_login_at)) : h('span.muted', 'لم يدخل بعد')),
+              tag: 'SET-204',
             },
             {
               key: 'actions',
@@ -600,11 +622,14 @@ export function usersAdminSection({ me }) {
               render: (u) =>
                 h(
                   'div.acc-actions-row',
-                  button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditUser(u, me, reload) }),
-                  button('الأمان', { size: 'sm', variant: 'ghost', icon: 'shield', ariaLabel: `أمان حساب ${u.name}`, onClick: () => openAccountDialog(u.id, { me, onChanged: reload, name: u.name }) }),
+                  button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditUser(u, me, reload), tag: 'SET-205' }),
+                  button('الأمان', { size: 'sm', variant: 'ghost', icon: 'shield', ariaLabel: `أمان حساب ${u.name}`, onClick: () => openAccountDialog(u.id, { me, onChanged: reload, name: u.name }), tag: 'SET-206' }),
                 ),
+                tag: 'SET-207',
             },
           ],
+          rowTag: 'SET-208',
+          tag: 'SET-209',
         }),
       );
       if (invitesCard) invitesCard.reload();
@@ -617,13 +642,15 @@ export function usersAdminSection({ me }) {
     title: 'المستخدمون',
     subtitle: 'حسابات فريق الإدارة (إدارة النظام وإدارة الحالات) وحالة أمانها',
     icon: 'users',
-    actions: button('إضافة مستخدم', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: () => openAddUser(reload) }),
+    actions: button('إضافة مستخدم', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: () => openAddUser(reload), tag: 'SET-210' }),
     body: h(
       'div.stack',
       summaryHost,
       usersHost,
-      h('p.acc-footnote', 'حسابات المحامين تُدار من ', h('a', { href: '#/lawyers' }, 'شبكة المحامين'), ' مع تخصصاتهم واتفاقاتهم المالية، وتظهر دعواتهم المعلقة أدناه. كل إجراءات الحسابات تُسجَّل في ', h('a', { href: '#/audit' }, 'سجل الأمان'), '.'),
+      h('p.acc-footnote', 'حسابات المحامين تُدار من ', h('a', { href: '#/lawyers', tag: 'SET-211' }, 'شبكة المحامين'), ' مع تخصصاتهم واتفاقاتهم المالية، وتظهر دعواتهم المعلقة أدناه. كل إجراءات الحسابات تُسجَّل في ', h('a', { href: '#/audit', tag: 'SET-212' }, 'سجل الأمان'), '.'),
     ),
+    titleTag: 'SET-213',
+    tag: 'SET-214',
   });
   invitesCard = pendingInvitesCard({ me, onChanged: reload });
   reload();

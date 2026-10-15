@@ -59,7 +59,7 @@ export function isPhoneSetup() {
 export function downloadText(filename, text) {
   const blob = new Blob([`﻿${text}`], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = h('a', { href: url, download: filename, hidden: true });
+  const a = h('a', { href: url, download: filename, hidden: true, tag: 'PRF-43' });
   document.body.append(a);
   a.click();
   setTimeout(() => {
@@ -84,17 +84,17 @@ export function recoveryCodesPanel(codes, { username = '', onDone, doneLabel, co
     '',
     ...codes.map((c, i) => `${String(i + 1).padStart(2, ' ')}. ${c}`),
   ].join('\n');
-  const confirm = h('input', { type: 'checkbox', id: 'acc-rc-confirm' });
-  const doneBtn = button(doneLabel || c.codes_done, { variant: 'primary', icon: 'check', disabled: true, onClick: () => onDone && onDone() });
+  const confirm = h('input', { type: 'checkbox', id: 'acc-rc-confirm', tag: 'PRF-44' });
+  const doneBtn = button(doneLabel || c.codes_done, { variant: 'primary', icon: 'check', disabled: true, onClick: () => onDone && onDone(), tag: 'PRF-45' });
   confirm.addEventListener('change', () => (doneBtn.disabled = !confirm.checked));
   return h(
     'div.acc-recovery',
-    alertBox(c.codes_warning, 'warning', { title: c.codes_title }),
+    alertBox(c.codes_warning, 'warning', { title: c.codes_title, tag: 'PRF-46' }),
     h('ol.acc-codes', { dir: 'ltr', 'aria-label': 'رموز الاسترداد' }, codes.map((c) => h('li', h('code', c)))),
     h(
       'div.acc-actions-row',
-      copyButton(codes.join('\n'), isPhoneSetup() ? c.codes_copy_phone : c.codes_copy, { variant: 'secondary' }),
-      button(isPhoneSetup() ? c.codes_download_phone : c.codes_download, { variant: 'secondary', size: 'sm', icon: 'download', onClick: () => downloadText(`recovery-codes-${username || 'account'}.txt`, text) }),
+      copyButton(codes.join('\n'), isPhoneSetup() ? c.codes_copy_phone : c.codes_copy, { variant: 'secondary', tag: 'PRF-47' }),
+      button(isPhoneSetup() ? c.codes_download_phone : c.codes_download, { variant: 'secondary', size: 'sm', icon: 'download', onClick: () => downloadText(`recovery-codes-${username || 'account'}.txt`, text), tag: 'PRF-48' }),
     ),
     onDone && h('label.check.check-single.acc-confirm', { htmlFor: 'acc-rc-confirm' }, confirm, h('span', c.codes_saved)),
     onDone && h('div.acc-actions-row', doneBtn),
@@ -128,13 +128,16 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
 
   function showPassword() {
     setStep(0);
-    const f = form([{ name: 'password', label: c.password, type: 'password', required: true, autocomplete: 'current-password', hint: c.password_hint }], {
+    const f = form([{ name: 'password', label: c.password, type: 'password', required: true, autocomplete: 'current-password', hint: c.password_hint, tag: 'PRF-72' }], {
       columns: 1,
       submitLabel: c.next,
       cancelLabel: c.cancel,
       submitIcon: 'arrowLeft',
       cancel: onCancel,
       onSubmit: async (v) => start(v.password),
+      submitTag: 'PRF-73',
+      cancelTag: 'PRF-74',
+      tag: 'PRF-75',
     });
     mount(body, h('p.acc-lead', fill(c.lead, { apps })), f.el);
   }
@@ -152,6 +155,7 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
           placeholder: '123456',
           maxLength: 7,
           hint: c.code_hint,
+          tag: 'PRF-76',
         },
       ],
       {
@@ -164,6 +168,9 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
           const res = await api.post(`${base}/2fa/enable`, { code: String(v.code).replace(/\s/g, '') });
           showCodes(res);
         },
+        submitTag: 'PRF-77',
+        cancelTag: 'PRF-78',
+        tag: 'PRF-79',
       },
     );
     const codeInput = codeForm.control('code')?.input;
@@ -175,7 +182,7 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
     try {
       qr = qrSvg(setup.otpauth_uri, { size: 196, label: 'رمز QR لإضافة الحساب إلى تطبيق المصادقة' });
     } catch {
-      qr = alertBox(c.qr_failed, 'warning');
+      qr = alertBox(c.qr_failed, 'warning', { tag: 'PRF-49' });
     }
     // v9.1 l-home (L-11): على الهاتف نفسه لا يمكن مسح رمز معروض عليه — فتح التطبيق مباشرة أو نسخ المفتاح أولًا،
     // والرمز تحت «لديك جهاز آخر؟». الحاسوب بلا تغيير (الرمز أولًا).
@@ -185,12 +192,12 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
         body,
         h(
           'div.lh-2fa-phone',
-          h('h3.acc-lead', c.phone_title),
-          button(c.open_app, { variant: 'primary', icon: 'externalLink', href: setup.otpauth_uri, block: true }),
+          h('h3.acc-lead', { tag: 'PRF-50' }, c.phone_title),
+          button(c.open_app, { variant: 'primary', icon: 'externalLink', href: setup.otpauth_uri, block: true, tag: 'PRF-51' }),
           h('div.lh-2fa-key', { dir: 'ltr', translate: 'no', 'aria-label': 'المفتاح السري' }, groups.join(' ')),
-          copyButton(setup.secret, c.copy_key, { variant: 'secondary', size: 'md' }),
+          copyButton(setup.secret, c.copy_key, { variant: 'secondary', size: 'md', tag: 'PRF-52' }),
           h('p.lh-2fa-tip', c.no_app),
-          h('details.lh-2fa-other', h('summary', c.other_device), h('div.acc-qr', qr)),
+          h('details.lh-2fa-other', { tag: 'PRF-53' }, h('summary', { tag: 'PRF-54' }, c.other_device), h('div.acc-qr', qr)),
           h('p.small.muted', fill(c.finish_before, { when: dateTime(setup.expires_at) })),
         ),
         codeForm.el,
@@ -207,10 +214,10 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
           h('ol.acc-howto', c.howto.map((x) => h('li', fill(x, { apps })))),
           h(
             'details.acc-manual',
-            h('summary', c.manual),
+            { tag: 'PRF-55' }, h('summary', { tag: 'PRF-56' }, c.manual),
             h('p.small.muted', `اسم الحساب: ${setup.issuer} (${setup.account}) — النوع: حسب الوقت`),
             h('div.acc-secret', { dir: 'ltr', translate: 'no', 'aria-label': 'المفتاح السري' }, setup.secret_groups.map((g) => h('span', g))),
-            h('div.acc-actions-row', copyButton(setup.secret, 'نسخ المفتاح', { variant: 'secondary' }), button('فتح في تطبيق المصادقة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: setup.otpauth_uri })),
+            h('div.acc-actions-row', copyButton(setup.secret, 'نسخ المفتاح', { variant: 'secondary', tag: 'PRF-57' }), button('فتح في تطبيق المصادقة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: setup.otpauth_uri, tag: 'PRF-58' })),
           ),
           h('p.small.muted', fill(c.finish_before, { when: dateTime(setup.expires_at) })),
         ),
@@ -224,7 +231,7 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
     setStep(2);
     mount(
       body,
-      alertBox(c.enabled, 'success', { title: c.enabled_title }),
+      alertBox(c.enabled, 'success', { title: c.enabled_title, tag: 'PRF-59' }),
       recoveryCodesPanel(res.recovery_codes, { username, copy, onDone: () => onEnabled && onEnabled(res) }),
     );
   }
@@ -244,8 +251,8 @@ export function twoFactorWizard({ username, askPassword = true, onEnabled, onCan
             return;
           }
           throw err;
-        }), { variant: 'primary', icon: 'shieldCheck' }),
-        onCancel && button(c.cancel, { variant: 'ghost', onClick: onCancel }),
+        }), { variant: 'primary', icon: 'shieldCheck', tag: 'PRF-60' }),
+        onCancel && button(c.cancel, { variant: 'ghost', onClick: onCancel, tag: 'PRF-61' }),
       ),
     );
   }

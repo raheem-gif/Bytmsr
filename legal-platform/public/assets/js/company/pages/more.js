@@ -17,14 +17,14 @@ export default function more() {
     pageHead(W.nav.more),
     h(
       'ul.k-list',
-      isAdmin() ? h('li', kRow({ icon: 'users', title: W.nav.team, href: '#/team' })) : null,
-      h('li', kRow({ icon: 'chart', title: W.nav.plan, href: '#/plan' })),
-      h('li', kRow({ icon: 'building', title: W.nav.company_more, href: '#/company' })),
-      h('li', kRow({ icon: 'bell', title: W.nav.notifications, badges: unread, href: '#/notifications' })),
-      h('li', kRow({ icon: 'lock', title: W.nav.account, href: '#/account' })),
+      isAdmin() ? h('li', kRow({ icon: 'users', title: W.nav.team, href: '#/team', tag: 'CC-51' })) : null,
+      h('li', kRow({ icon: 'chart', title: W.nav.plan, href: '#/plan', tag: 'CC-52' })),
+      h('li', kRow({ icon: 'building', title: W.nav.company_more, href: '#/company', tag: 'CC-53' })),
+      h('li', kRow({ icon: 'bell', title: W.nav.notifications, badges: unread, href: '#/notifications', tag: 'CC-54' })),
+      h('li', kRow({ icon: 'lock', title: W.nav.account, href: '#/account', tag: 'CC-55' })),
     ),
-    mgr ? h('ul.k-list.co-more-info', h('li', kRow({ icon: 'user', title: copy('nav.manager', { name: mgr }) }))) : null,
-    h('ul.k-list.co-more-logout', h('li', kRow({ icon: icon('logout', { size: 22 }), title: W.nav.logout, onClick: () => window.dispatchEvent(new CustomEvent('co:logout')), className: 'is-danger', chevron: false }))),
+    mgr ? h('ul.k-list.co-more-info', h('li', kRow({ icon: 'user', title: copy('nav.manager', { name: mgr }), tag: 'CC-56' }))) : null,
+    h('ul.k-list.co-more-logout', h('li', kRow({ icon: icon('logout', { size: 22 }), title: W.nav.logout, onClick: () => window.dispatchEvent(new CustomEvent('co:logout')), className: 'is-danger', chevron: false, tag: 'CC-57' }))),
     h('p.co-more-foot', copyParts('brand.version', { short: h('bdi', { dir: 'ltr', lang: 'en' }, meta.brand?.short || ''), version: String(meta.version || '').replace(/\.0$/, '') })),
   );
 }

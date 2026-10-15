@@ -30,15 +30,15 @@ function screen(meta, { wide = false } = {}, ...children) {
   return h(
     'div.auth-screen',
     staffChrome().on
-      ? h('header.auth-brand.auth-brand--lockup', brandLockup({ width: 220 }), h('span.auth-brand-sub', 'منصة الدعم القانوني')) // v11 visual: الشعار الذهبي الكامل على الأبيض
-      : h('header.auth-brand', brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
+      ? h('header.auth-brand.auth-brand--lockup', { tag: 'LGN-16' }, brandLockup({ width: 220 }), h('span.auth-brand-sub', 'منصة الدعم القانوني')) // v11 visual: الشعار الذهبي الكامل على الأبيض
+      : h('header.auth-brand', { tag: 'LGN-17' }, brandMark({ size: 22 }), h('span.auth-brand-text', h('strong', orgOf(meta)), h('span', 'منصة الدعم القانوني'))),
     cardEl,
-    staffChrome().on ? h('a.auth-back', { href: '/' }, 'العودة إلى موقع ', brandEl()) : h('a.auth-back', { href: '/' }, `العودة إلى موقع ${orgOf(meta)}`),
+    staffChrome().on ? h('a.auth-back', { href: '/', tag: 'LGN-18' }, 'العودة إلى موقع ', brandEl()) : h('a.auth-back', { href: '/', tag: 'LGN-19' }, `العودة إلى موقع ${orgOf(meta)}`),
   );
 }
 
 function heading(iconName, title, sub) {
-  return h('div.auth-head', h('span.auth-head-icon', icon(iconName, { size: 22 })), h('h1', title), sub && h('p.auth-sub', sub));
+  return h('div.auth-head', h('span.auth-head-icon', icon(iconName, { size: 22 })), h('h1', { tag: 'LGN-20' }, title), sub && h('p.auth-sub', sub));
 }
 
 /**
@@ -54,9 +54,9 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
     mount(
       host,
       heading('alert', kind === 'invite' ? 'تعذر تفعيل الحساب' : 'تعذر استخدام رابط إعادة التعيين'),
-      alertBox(errorMessage(err), 'danger'),
+      alertBox(errorMessage(err), 'danger', { tag: 'LGN-21' }),
       h('p.auth-sub', `يمكنك التواصل مع إدارة ${orgOf(meta)} لإرسال رابط جديد.`),
-      h('div.auth-actions', button('الذهاب إلى تسجيل الدخول', { variant: 'primary', icon: 'arrowLeft', onClick: () => onGoLogin() })),
+      h('div.auth-actions', button('الذهاب إلى تسجيل الدخول', { variant: 'primary', icon: 'arrowLeft', onClick: () => onGoLogin(), tag: 'LGN-22' })),
     );
   }
 
@@ -73,16 +73,17 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
     const isInvite = kind === 'invite';
     // v9.1 l-home (L-10): شاشة التفعيل في أقل من 60 كلمة — حقلان للكتابة ولمستان (التعهد ثم الزر)
     const fields = [
-      isInvite && { name: 'name', label: 'الاسم الكامل', required: true, minLength: 3, maxLength: 120, autocomplete: 'name' },
+      isInvite && { name: 'name', label: 'الاسم الكامل', required: true, minLength: 3, maxLength: 120, autocomplete: 'name', tag: 'LGN-49' },
       {
         name: 'username',
         label: isInvite ? 'اسم الدخول' : 'اسم المستخدم للدخول',
         type: 'static',
         value: u.username,
-        render: (x) => h('span.lh-copy-row', h('bdi.ltr.mono', { dir: 'ltr' }, x), copyButton(x, '', { size: 'sm', variant: 'ghost' })),
+        render: (x) => h('span.lh-copy-row', h('bdi.ltr.mono', { dir: 'ltr' }, x), copyButton(x, '', { size: 'sm', variant: 'ghost', tag: 'LGN-23' })),
+        tag: 'LGN-50',
       },
-      { name: 'password', label: isInvite ? 'كلمة المرور' : 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: isInvite ? '8 أحرف على الأقل، حروف وأرقام' : PASSWORD_HINT },
-      { name: 'password_confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
+      { name: 'password', label: isInvite ? 'كلمة المرور' : 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: isInvite ? '8 أحرف على الأقل، حروف وأرقام' : PASSWORD_HINT, tag: 'LGN-51' },
+      { name: 'password_confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password', tag: 'LGN-52' },
       isInvite && {
         name: 'pledge',
         type: 'checkbox',
@@ -91,6 +92,7 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
         requiredMessage: PLEDGE_REQUIRED,
         checkClass: 'lh-pledge',
         full: true,
+        tag: 'LGN-53',
       },
     ].filter(Boolean);
     const f = form(fields, {
@@ -113,11 +115,13 @@ export function renderLinkFlow({ kind, token, meta, onLoggedIn, onGoLogin }) {
           mount(
             host,
             heading('checkCircle', 'تم تعيين كلمة المرور الجديدة', 'أُنهيت كل الجلسات السابقة على حسابك. سجّل الدخول الآن بكلمة المرور الجديدة.'),
-            res.two_factor_enabled ? alertBox('التحقق بخطوتين ما زال مفعّلًا لحسابك؛ جهّز تطبيق المصادقة أو أحد رموز الاسترداد.', 'info') : null,
-            h('div.auth-actions', button('تسجيل الدخول', { variant: 'primary', icon: 'arrowLeft', onClick: () => onGoLogin({ username: res.username }) })),
+            res.two_factor_enabled ? alertBox('التحقق بخطوتين ما زال مفعّلًا لحسابك؛ جهّز تطبيق المصادقة أو أحد رموز الاسترداد.', 'info', { tag: 'LGN-24' }) : null,
+            h('div.auth-actions', button('تسجيل الدخول', { variant: 'primary', icon: 'arrowLeft', onClick: () => onGoLogin({ username: res.username }), tag: 'LGN-25' })),
           );
         }
       },
+      submitTag: 'LGN-38',
+      tag: 'LGN-39',
     });
     f.el.querySelector('button[type=submit]')?.classList.add('btn-block', 'btn-lg');
     attachStrength(f, 'password', () => u.username);
@@ -148,8 +152,8 @@ export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onC
     const f = form(
       [
         isTotp
-          ? { name: 'code', label: 'رمز التحقق', required: true, ltr: true, autocomplete: 'one-time-code', placeholder: '123456', maxLength: 7, hint: 'الرمز المكوّن من ستة أرقام الظاهر الآن في تطبيق المصادقة' }
-          : { name: 'code', label: 'رمز الاسترداد', required: true, ltr: true, autocomplete: 'off', placeholder: 'xxxxx-xxxxx', maxLength: 20, hint: 'أحد رموز الاسترداد العشرة التي حفظتها عند تفعيل التحقق بخطوتين (يُستخدم مرة واحدة)' },
+          ? { name: 'code', label: 'رمز التحقق', required: true, ltr: true, autocomplete: 'one-time-code', placeholder: '123456', maxLength: 7, hint: 'الرمز المكوّن من ستة أرقام الظاهر الآن في تطبيق المصادقة', tag: 'LGN-40' }
+          : { name: 'code', label: 'رمز الاسترداد', required: true, ltr: true, autocomplete: 'off', placeholder: 'xxxxx-xxxxx', maxLength: 20, hint: 'أحد رموز الاسترداد العشرة التي حفظتها عند تفعيل التحقق بخطوتين (يُستخدم مرة واحدة)', tag: 'LGN-41' },
       ],
       {
         columns: 1,
@@ -179,6 +183,8 @@ export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onC
             throw Object.assign(new Error(left !== undefined ? `${errorMessage(err)} (المحاولات المتبقية: ${left})` : errorMessage(err)), { details: { fields: { code: errorMessage(err) } } });
           }
         },
+        submitTag: 'LGN-42',
+        tag: 'LGN-43',
       },
     );
     f.el.querySelector('button[type=submit]')?.classList.add('btn-block', 'btn-lg');
@@ -194,8 +200,8 @@ export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onC
       f.el,
       h(
         'div.auth-links',
-        button(isTotp ? 'فقدت هاتفي — استخدام رمز استرداد' : 'استخدام رمز تطبيق المصادقة', { variant: 'link', size: 'sm', onClick: () => { mode = isTotp ? 'recovery' : 'totp'; draw(); } }),
-        button('العودة إلى تسجيل الدخول', { variant: 'link', size: 'sm', onClick: () => onCancel() }),
+        button(isTotp ? 'فقدت هاتفي — استخدام رمز استرداد' : 'استخدام رمز تطبيق المصادقة', { variant: 'link', size: 'sm', onClick: () => { mode = isTotp ? 'recovery' : 'totp'; draw(); }, tag: 'LGN-26' }),
+        button('العودة إلى تسجيل الدخول', { variant: 'link', size: 'sm', onClick: () => onCancel(), tag: 'LGN-27' }),
       ),
       !isTotp && h('p.small.muted', 'إن فقدت الهاتف ورموز الاسترداد معًا فتواصل مع الإدارة لإلغاء التحقق بخطوتين بعد التحقق من هويتك.'),
     );
@@ -212,15 +218,15 @@ export function renderTwoFactorStep({ meta, challenge, expiresAt, onSuccess, onC
 export function renderRestricted({ user, meta, onDone, onLogout }) {
   const host = h('div');
   const root = screen(meta, { wide: user.restricted === 'two_factor_enrollment' }, host);
-  const logout = h('div.auth-links', button('تسجيل الخروج', { variant: 'link', size: 'sm', icon: 'logout', onClick: onLogout }));
+  const logout = h('div.auth-links', button('تسجيل الخروج', { variant: 'link', size: 'sm', icon: 'logout', onClick: onLogout, tag: 'LGN-28' }));
 
   if (user.restricted === 'password_change') {
     document.title = `تغيير كلمة المرور — ${orgOf(meta)}`;
     const f = form(
       [
-        { name: 'current_password', label: 'كلمة المرور المؤقتة الحالية', type: 'password', required: true, autocomplete: 'current-password' },
-        { name: 'new_password', label: 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT },
-        { name: 'new_password_confirm', label: 'تأكيد كلمة المرور الجديدة', type: 'password', required: true, autocomplete: 'new-password' },
+        { name: 'current_password', label: 'كلمة المرور المؤقتة الحالية', type: 'password', required: true, autocomplete: 'current-password', tag: 'LGN-44' },
+        { name: 'new_password', label: 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT, tag: 'LGN-45' },
+        { name: 'new_password_confirm', label: 'تأكيد كلمة المرور الجديدة', type: 'password', required: true, autocomplete: 'new-password', tag: 'LGN-46' },
       ],
       {
         columns: 1,
@@ -234,6 +240,8 @@ export function renderRestricted({ user, meta, onDone, onLogout }) {
           toast('حُفظت كلمة المرور الجديدة', 'success');
           onDone(res.user);
         },
+        submitTag: 'LGN-47',
+        tag: 'LGN-48',
       },
     );
     f.el.querySelector('button[type=submit]')?.classList.add('btn-block', 'btn-lg');

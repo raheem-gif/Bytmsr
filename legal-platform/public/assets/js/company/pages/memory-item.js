@@ -83,8 +83,10 @@ function addDocsSheet(item, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CI-01',
       },
     ],
+    tag: 'CI-02',
   });
 }
 
@@ -104,12 +106,12 @@ export default async function memoryItem(ctx) {
   const writable = canWrite();
   const actions = writable
     ? [
-        can.edit ? button(M.edit, { variant: 'secondary', icon: 'edit', href: `#/memory/item/${encodeURIComponent(item.id)}/edit` }) : null,
+        can.edit ? button(M.edit, { variant: 'secondary', icon: 'edit', href: `#/memory/item/${encodeURIComponent(item.id)}/edit`, tag: 'CI-03' }) : null,
         can.archive
           ? button(M.archive, {
               variant: 'ghost',
               onClick: async () => {
-                const ok = await confirmDialog({ title: copy('memory.archive_title', { title: item.title }), message: M.archive_text, confirmLabel: M.archive, cancelLabel: M.cancel, danger: true });
+                const ok = await confirmDialog({ title: copy('memory.archive_title', { title: item.title }), message: M.archive_text, confirmLabel: M.archive, cancelLabel: M.cancel, danger: true, tag: 'CI-04' });
                 if (!ok) return;
                 try {
                   await api.post(`/company/memory/${encodeURIComponent(item.id)}/archive`, {});
@@ -119,6 +121,7 @@ export default async function memoryItem(ctx) {
                 toast(M.archived_toast, 'success');
                 ctx.navigate(kind ? `/memory/${kind.slug}` : '/memory');
               },
+              tag: 'CI-05',
             })
           : null,
       ].filter(Boolean)
@@ -132,22 +135,22 @@ export default async function memoryItem(ctx) {
     item.access === 'admins' ? badge(item.access_label, 'neutral', { className: 'co-badge', icon: 'lock' }) : null,
   );
   const prov = item.created_by?.kind === 'user' ? copy('memory.by_user', { name: item.created_by.name, date: whenLong(item.created_at, { time: false }) }) : copy('memory.by_team', { date: whenLong(item.created_at, { time: false }) });
-  const source = item.source_request?.code ? h('span', ' · ', M.from_request, ' ', h('a.co-link', { href: `#/requests/${encodeURIComponent(item.source_request.code)}` }, h('bdi', { dir: 'ltr' }, item.source_request.code))) : null;
+  const source = item.source_request?.code ? h('span', ' · ', M.from_request, ' ', h('a.co-link', { href: `#/requests/${encodeURIComponent(item.source_request.code)}`, tag: 'CI-06' }, h('bdi', { dir: 'ltr' }, item.source_request.code))) : null;
   const sc = writable && can.start_request ? shortcuts(item, res.requests) : [];
-  const docsAdd = writable && can.add_documents && (item.documents_count || 0) < 10 ? button(M.add_docs, { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => addDocsSheet(item, ctx) }) : null;
+  const docsAdd = writable && can.add_documents && (item.documents_count || 0) < 10 ? button(M.add_docs, { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => addDocsSheet(item, ctx), tag: 'CI-07' }) : null;
   const main = h(
     'div.co-col-main',
     item.status === 'under_review' ? h('div.co-state-note', icon('info', { size: 18 }), h('p', M.under_review)) : null,
     sectionCard(M.details, h('div', coMemoryFields(item), item.summary ? [h('p.co-card-label', M.summary), h('p.co-desc', { dir: 'auto' }, item.summary)] : null)),
     sectionCard(M.documents, docItems(res.documents || [], { origin: (d) => (d.from === 'company' ? W.docs.from_company : W.docs.from_team), empty: W.docs.empty }), { actions: docsAdd }),
     res.requests?.length
-      ? sectionCard(M.requests, h('ul.k-list', res.requests.map((r) => h('li', kRow({ icon: 'inbox', title: h('span', { dir: 'auto' }, r.title), sub: h('bdi', { dir: 'ltr' }, r.code), badges: stageBadge(r.stage, { short: true }), href: `#/requests/${encodeURIComponent(r.code)}`, className: 'co-row' })))))
+      ? sectionCard(M.requests, h('ul.k-list', res.requests.map((r) => h('li', kRow({ icon: 'inbox', title: h('span', { dir: 'auto' }, r.title), sub: h('bdi', { dir: 'ltr' }, r.code), badges: stageBadge(r.stage, { short: true }), href: `#/requests/${encodeURIComponent(r.code)}`, className: 'co-row', tag: 'CI-08' })))))
       : null,
   );
   const aside = h(
     'aside.co-col-aside',
     datesBlock(item),
-    sc.length ? sectionCard(M.shortcuts, h('ul.k-list', sc.map(([label, href, ic]) => h('li', kRow({ icon: ic, title: label, href }))))) : null,
+    sc.length ? sectionCard(M.shortcuts, h('ul.k-list', sc.map(([label, href, ic]) => h('li', kRow({ icon: ic, title: label, href, tag: 'CI-09' }))))) : null,
   );
   return h(
     'div.co-page.co-mem-item',

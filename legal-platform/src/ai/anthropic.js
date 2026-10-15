@@ -190,6 +190,27 @@ ${AREA_GUIDE}
 - red_flags: انتهاء صلاحية، عدم وضوح، صفحات ناقصة، بيانات متعارضة، أو ما يحتاج إلى تحقق من الأصل.
 - missing_related: المستندات المرتبطة التي يُستحسن طلبها لاستكمال الإثبات.
 - legible=false إذا تعذرت قراءة معظم المستند.`,
+  // v12 media (MD-10، L12-19، M §5.8): قراءة نص صفحة مستند (صورة صفحة واحدة، لا PDF أبدًا)؛ النص للفريق فقط ويُراجع
+  document_ocr: `انسخ كل النص الظاهر في المستند حرفيًا كما هو صفحةً صفحة، بالعربية والإنجليزية، مع الأرقام كما كُتبت. لا تلخّص ولا تصحّح ولا تترجم. اكتب [غير مقروء] مكان الكلمة غير الواضحة، و[ختم] أو [توقيع] مكانهما. حافظ على ترتيب السطور.`,
+};
+
+/** v12 media (MD-10): مخطط قراءة النص (M §5.8) */
+export const OCR_SCHEMA = {
+  type: 'object',
+  properties: {
+    pages: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { page: { type: 'integer' }, text: { type: 'string' }, legible: { type: 'boolean' } },
+        required: ['page', 'text', 'legible'],
+        additionalProperties: false,
+      },
+    },
+    language: { type: 'string', enum: ['ar', 'en', 'mixed'] },
+  },
+  required: ['pages', 'language'],
+  additionalProperties: false,
 };
 
 // ───────────── v10 b2b-server (L-29، B10 §10.1/§10.3): خدمة الشركات — نظام منفصل لا يمس SYSTEM_BASE ─────────────
@@ -602,11 +623,14 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
     const Anthropic = await loadSdk();
     // v10 b2b-server (B10 §10.3): base 'b2b' يختار SYSTEM_B2B لطلبات الشركات؛ نظام الأفراد كما هو
     const baseText = base === 'b2b' ? SYSTEM_B2B : SYSTEM_BASE;
-    const system = [
-      // الجزء الثابت أولًا مع نقطة تخزين مؤقت، ثم تعليمات الوظيفة (ثابتة لكل وظيفة) بنقطة ثانية
-      { type: 'text', text: baseText.replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: PROMPTS[feature].replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
-    ];
+    // v12 media (MD-10): base 'none' = تعليمات الوظيفة وحدها (قراءة النص لا تحتاج سياق المؤسسة ولا الملف)
+    const system = base === 'none'
+      ? [{ type: 'text', text: PROMPTS[feature], cache_control: { type: 'ephemeral' } }]
+      : [
+          // الجزء الثابت أولًا مع نقطة تخزين مؤقت، ثم تعليمات الوظيفة (ثابتة لكل وظيفة) بنقطة ثانية
+          { type: 'text', text: baseText.replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: PROMPTS[feature].replaceAll('{ORG}', org()), cache_control: { type: 'ephemeral' } },
+        ];
     const started = Date.now();
     let response;
     try {
@@ -735,6 +759,25 @@ export function createAnthropicProvider({ apiKey, model, effort = 'medium', log,
         schema: DOC_SCHEMA,
       });
       return { ...data, _model: m };
+    },
+
+    /**
+     * v12 media (MD-10، L12-19): قراءة نص صفحة واحدة من صورتها (block = image). جهد منخفض؛ النص مسودة للفريق فقط.
+     * → { text, legible, language, _model }
+     */
+    async ocrPage({ block, page = 1 }, meta = {}) {
+      const { data, model: m } = await structured({
+        meta,
+        feature: 'document_ocr',
+        base: 'none',
+        effortLevel: 'low',
+        maxTokens: 8000,
+        content: [block, { type: 'text', text: `هذه الصفحة رقم ${page} من المستند. انسخ نصها.` }],
+        schema: OCR_SCHEMA,
+      });
+      const pages = Array.isArray(data?.pages) ? data.pages : [];
+      const text = pages.map((p) => String(p?.text ?? '')).join('\n\n').trim();
+      return { text, legible: pages.every((p) => p?.legible !== false), language: data?.language || null, _model: m };
     },
 
     /** طلب صغير حقيقي للتحقق من المفتاح والنموذج والاتصال */

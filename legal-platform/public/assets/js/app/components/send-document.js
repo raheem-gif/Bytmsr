@@ -36,6 +36,7 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
         placeholder: false,
         options: CHANNELS,
         hint: 'لا يسمح واتساب بإرسال المستندات خارج نافذة الـ 24 ساعة من آخر رسالة أرسلها المستفيد/ة؛ في الوضع التلقائي يُتاح المستند في البوابة عندئذٍ.',
+        tag: 'DOC-29',
       },
       {
         name: 'caption',
@@ -44,6 +45,7 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
         rows: 3,
         maxLength: 1000,
         placeholder: 'مثال: مرفق لكم نموذج صحيفة الدعوى، نرجو مراجعته والتوقيع عليه.',
+        tag: 'DOC-30',
       },
     ],
     values: { channel: 'auto' },
@@ -51,6 +53,7 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
       if (sendInfo) f.el.prepend(sendHeader(sendInfo));
     },
     onSubmit: (v) => api.post(`/admin/documents/${encodeURIComponent(doc.id)}/send-to-client`, { channel: v.channel || 'auto', caption: v.caption || null }),
+    tag: 'DOC-31',
   });
   if (!result) return null;
   const via = result.channel === 'whatsapp' ? 'عبر واتساب' : 'في صفحة المتابعة';
@@ -74,6 +77,7 @@ export function sendDocumentButton(doc, { onSent, label = 'إرسال للمست
       const r = await openSendDocumentDialog(doc, { sendInfo });
       if (r && onSent) onSent(r);
     },
+    tag: 'DOC-32',
   });
   btn.setAttribute('aria-haspopup', 'dialog');
   return btn;

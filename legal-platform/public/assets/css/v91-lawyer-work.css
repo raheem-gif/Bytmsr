@@ -496,7 +496,7 @@
 .lw-version,
 .lw-versions {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r-1);
   background: var(--surface);
 }
 .lw-team-row,
@@ -1210,9 +1210,8 @@ body.lw-kb-open .lw-actionbar {
   gap: 5px;
   padding: 4px 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-700);
+  border-radius: var(--r-1); /* v12 look (review, K12-28): a state word, not a tinted pill */
+  color: var(--ink-2);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -1221,17 +1220,15 @@ body.lw-kb-open .lw-actionbar {
   cursor: default;
 }
 .lw-savechip[data-state='saved'] {
-  background: var(--success-100);
-  color: var(--success-700);
+  color: var(--ok);
 }
 .lw-savechip[data-state='offline'],
 .lw-savechip[data-state='error'],
 .lw-savechip[data-state='expired'],
 .lw-savechip[data-state='conflict'],
 .lw-savechip[data-state='gone'] {
-  background: var(--warning-100);
-  color: var(--warning-700);
-  border-color: #f1cf8c;
+  color: var(--warn);
+  border-color: var(--warn);
 }
 .lw-savechip[data-state='error'],
 .lw-savechip[data-state='offline'],
@@ -1425,8 +1422,8 @@ body.lw-kb-open .lw-actionbar {
   justify-content: center;
   gap: 4px;
   padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-1);
   background: var(--surface);
   color: var(--gray-800);
   font: inherit;
@@ -1489,7 +1486,7 @@ body.lw-kb-open .lw-actionbar {
   min-height: 44px;
   padding: 4px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-1);
   background: transparent;
   color: var(--gray-700);
   font: inherit;
@@ -1544,9 +1541,6 @@ body.lw-kb-open .lw-actionbar {
     height: var(--lw-vv-h);
     z-index: 90;
     background: var(--surface);
-  }
-  .lw-write .lw-write-toolbar {
-    box-shadow: 0 -4px 14px rgb(var(--primary-900-rgb) / 0.06);
   }
   body.lw-writing {
     overflow: hidden;

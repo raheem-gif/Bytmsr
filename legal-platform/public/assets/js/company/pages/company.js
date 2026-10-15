@@ -15,17 +15,17 @@ const SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 
 function editSheet(p, ctx) {
   const mk = (v, { dir = 'auto', max = 200 } = {}) => {
-    const el = h('input.input', { type: 'text', dir, maxlength: max, autocomplete: 'off' });
+    const el = h('input.input', { type: 'text', dir, maxlength: max, autocomplete: 'off', tag: 'CF-01' });
     el.value = v || '';
     return el;
   };
   const legal = mk(p.legal_name);
   const cr = mk(p.commercial_registry, { dir: 'ltr', max: 60 });
   const tax = mk(p.tax_id, { dir: 'ltr', max: 60 });
-  const address = h('textarea.input', { rows: 2, dir: 'auto', maxlength: 500 });
+  const address = h('textarea.input', { rows: 2, dir: 'auto', maxlength: 500, tag: 'CF-02' });
   address.value = p.address || '';
   const industry = mk(p.industry, { max: 120 });
-  const size = h('select.input', h('option', { value: '' }, '—'), SIZES.map((s) => h('option', { value: s }, F.sizes[s])));
+  const size = h('select.input', { tag: 'CF-03' }, h('option', { value: '' }, '—'), SIZES.map((s) => h('option', { value: s }, F.sizes[s])));
   size.value = p.size_band || '';
   const all = [legal, cr, tax, address, industry];
   const initial = JSON.stringify(all.map((x) => x.value));
@@ -33,7 +33,7 @@ function editSheet(p, ctx) {
   textSheet({
     title: F.edit_title,
     dirty: () => JSON.stringify(all.map((x) => x.value)) !== initial,
-    body: h('div.co-sheet-body', field(F.legal_name, legal), field(F.cr, cr), field(F.tax, tax), field(F.address, address, { full: true }), field(F.industry, industry), field(F.size, h('div.select-wrap', size)), err),
+    body: h('div.co-sheet-body', field(F.legal_name, legal, { tag: 'CF-04' }), field(F.cr, cr, { tag: 'CF-05' }), field(F.tax, tax, { tag: 'CF-06' }), field(F.address, address, { full: true, tag: 'CF-07' }), field(F.industry, industry, { tag: 'CF-08' }), field(F.size, h('div.select-wrap', size), { tag: 'CF-09' }), err),
     actions: [
       {
         label: F.save,
@@ -50,8 +50,10 @@ function editSheet(p, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CF-10',
       },
     ],
+    tag: 'CF-11',
   });
 }
 
@@ -77,12 +79,12 @@ export default async function companyPage(ctx) {
   ];
   if (p.account_manager?.name) pairs.push([W.nav.manager_label, p.account_manager.name]);
   const ce = p.contracting_entity;
-  const edit = isAdmin() && p.can_edit && !readOnly() ? button(F.edit, { variant: 'secondary', icon: 'edit', onClick: () => editSheet(p, ctx) }) : null;
+  const edit = isAdmin() && p.can_edit && !readOnly() ? button(F.edit, { variant: 'secondary', icon: 'edit', onClick: () => editSheet(p, ctx), tag: 'CF-12' }) : null;
   return h(
     'div.co-page.co-company',
     pageHead(W.nav.company, F.sub, { actions: edit }),
     sectionCard(null, kv(pairs, { className: 'co-fields-kv' })),
     ce?.legal_name ? h('p.co-contracting', icon('landmark', { size: 16 }), h('span', ce.registration ? copy('plan.contracting', { legal_name: ce.legal_name, registration: ce.registration }) : copy('plan.contracting_plain', { legal_name: ce.legal_name }))) : null,
-    h('ul.k-list.co-more-info', h('li', h('a.k-row', { href: '#/memory/entities' }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('building', { size: 22 })), h('span.k-row-main', h('span.k-row-title', F.entities), h('span.k-row-sub', countOf(p.entities_count ?? 0, 'entity_nom'))), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 }))))),
+    h('ul.k-list.co-more-info', h('li', h('a.k-row', { href: '#/memory/entities', tag: 'CF-13' }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('building', { size: 22 })), h('span.k-row-main', h('span.k-row-title', F.entities), h('span.k-row-sub', countOf(p.entities_count ?? 0, 'entity_nom'))), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 }))))),
   );
 }

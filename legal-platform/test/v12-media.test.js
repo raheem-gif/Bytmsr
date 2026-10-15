@@ -476,13 +476,15 @@ describe('v12 media MD-0 — the job runner: kick, claim, gen, crashes, outside 
 
   const job = (kind) => t.app.db.get('SELECT * FROM media_jobs WHERE kind = ? AND document_id = ?', kind, docId);
 
-  test('kick() is a no-op under node --test; jobs without a handler stay queued', async () => {
+  test('kick() is a no-op under node --test; with the tools off (test mode) a unit ends skipped: tool_missing', async () => {
+    // v12 media (MD-10): كل الأنواع لها معالج الآن؛ تحت الاختبار لا أداة إلا بـ *_BIN ← «لم يُعالَج» بلا خطأ
     assert.equal(t.app.media.kick(), false);
     const id = t.app.media.enqueue('ocr', docId);
     assert.ok(id);
     assert.equal(job('ocr').state, 'queued');
-    assert.deepEqual(await t.app.media.processDue({ budgetMs: 1000 }), { ran: 0 });
-    assert.equal(job('ocr').state, 'queued');
+    assert.deepEqual(await t.app.media.processDue({ budgetMs: 1000 }), { ran: 1 });
+    assert.equal(job('ocr').state, 'skipped');
+    assert.equal(job('ocr').error, 'tool_missing');
     assert.throws(() => t.app.media.enqueue('nope', docId), /unknown media job kind/);
   });
 
@@ -670,13 +672,13 @@ describe('v12 media MD-0 — new routes: server-side role checks first, 501 unti
     ['POST', '/api/admin/documents/1/clean', 'S', 'MD-5'],
     ['PUT', '/api/admin/documents/1/display', 'S', 'MD-5'],
     ['GET', '/api/admin/documents/1/files', 'S', 'MD-5'],
-    ['POST', '/api/admin/documents/1/rescan', 'S'],
-    ['GET', '/api/admin/documents/1/text', 'S'],
-    ['PUT', '/api/admin/documents/1/text/1', 'S'],
-    ['POST', '/api/admin/documents/1/ocr', 'S'],
+    ['POST', '/api/admin/documents/1/rescan', 'S', 'MD-9'],
+    ['GET', '/api/admin/documents/1/text', 'S', 'MD-10'],
+    ['PUT', '/api/admin/documents/1/text/1', 'S', 'MD-10'],
+    ['POST', '/api/admin/documents/1/ocr', 'S', 'MD-10'],
     ['POST', '/api/admin/voice-notes/1/auto', 'S', 'MD-6'],
-    ['GET', '/api/admin/media/status', 'A'],
-    ['POST', '/api/admin/media/backfill', 'A'],
+    ['GET', '/api/admin/media/status', 'A', 'MD-11'],
+    ['POST', '/api/admin/media/backfill', 'A', 'MD-11'],
     ['POST', '/api/admin/integrations/stt/test', 'A', 'MD-6'],
   ];
 
@@ -1679,6 +1681,9 @@ describe('v12 media MD-7 — voice archived on /p/ (M12-01…04, L12-22)', () =>
     assert.ok(src.includes("'لديكم رسالة صوتية محفوظة من قبل، وستُرسل مع ردّكم.'"));
     assert.ok(src.includes("P('voiceFrom', 'رسالة صوتية من المؤسسة')"), 'staff voice playback to the client stays');
     assert.ok(!/—/.test(src.split('\n').filter((l) => /PC \?/.test(l)).join('\n')), 'no em dash in the new paid strings');
+    // L12-34: عنوان صفحة الأفراد والشركات بنفس فاصل pv_title (« | »)، وسطر الدفع المتأخر بلا «—» وبصيغة الجمع
+    assert.match(src, /const sep = PC\s*\?\s*' \| '\s*:\s*' — ';\s*document\.title = `\$\{P\('title', 'صفحتك'\)\}\$\{sep\}/);
+    assert.ok(src.includes("'انتهى موعد السداد. تواصلوا معنا إن احتجتم وقتًا.'") && src.includes("PC ? 'مسددة' : 'اتدفعت ✓'") && src.includes("PC ? 'وافقتم'"));
     // upload.js لم يعد يستورد recorder.js (لا طلب للمسجّل مع المنتقي)
     assert.ok(!/from '\.\/recorder\.js'/.test(read('public/assets/js/public/upload.js')));
   });
@@ -1787,5 +1792,700 @@ describe('v12 media MD-8 — the voice box: machine draft review outcomes (L12-6
     assert.match(src, /from_auto: true, listened: ratio >= 0\.8/);
     assert.match(src, /POLL_MS = 10_000/);
     assert.match(src, /if \(busyEditor\(\)\) return;/);
+  });
+});
+
+// ───────────────────────── MD-9: التنظيف على الخادم في عملية فرعية ─────────────────────────
+import { pathToFileURL } from 'node:url';
+import { cleanPipeline, decodeArgs, encodeArgs, rgbaSize, fitBox, SERVER_CLEAN_MAX_PIXELS } from '../src/media-child.js';
+import { paperScene, doorScene, tinyJpeg } from './fixtures/v12-media/fake-convert.mjs';
+import { headerDims } from '../src/services/documents.js';
+import { IM_LIMITS } from '../src/media-tools.js';
+import { readTarBuffer } from '../src/services/system-tar.js';
+import { setSdkLoader } from '../src/ai/anthropic.js';
+
+const FAKE_CONVERT = path.join(ROOT, 'test/fixtures/v12-media/fake-convert.mjs');
+/** ImageMagick مزيف (fixtures/v12-media/fake-convert.mjs) بسجل argv اختياري */
+function fakeConvert(dir, log = null) {
+  return fakeBin(dir, 'convert', `import(${JSON.stringify(pathToFileURL(FAKE_CONVERT).href)}).then((m) => m.main(process.argv.slice(2), { log: ${JSON.stringify(log)} })).catch((e) => { process.stderr.write(String(e && e.stack || e)); process.exit(3); });`);
+}
+const injected = (gen, calls = []) => ({
+  async decode(w, h) {
+    calls.push([w, h]);
+    return { width: w, height: h, data: gen(w, h) };
+  },
+  async encode(img) {
+    return tinyJpeg(img.width, img.height);
+  },
+});
+
+describe('v12 media MD-9 — server auto-clean: forked child, hardened codec, gate, variants/auto (L12-21, L12-66…L12-68)', () => {
+  let t;
+  let dir;
+  let staff;
+  const media = () => t.app.media;
+  const job = (kind, id) => t.app.db.get('SELECT * FROM media_jobs WHERE kind = ? AND document_id = ?', kind, id);
+  const waPhoto = (comment = 'scene=paper', w = 1200, hh = 1600) => t.app.documents.save({ filename: `image-wa-${phoneN++}.jpg`, mime: 'image/jpeg', buffer: tinyJpeg(w, hh, comment) }, {}, { kind: 'client' });
+  before(async () => {
+    t = await startTestApp();
+    staff = await t.login('admin');
+    dir = tmp('v12-md9-');
+    media().setMemoryProbe(() => ({ limit: 4 * 1024 ** 3, headroom: 2 * 1024 ** 3, source: 'test' }));
+    media().tools.configure({ env: { NODE_TEST_CONTEXT: '1', IMAGEMAGICK_BIN: fakeConvert(dir, path.join(dir, 'argv.log')) } });
+  });
+  after(async () => {
+    if (t) await t.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('pipeline with an injected codec: a paper photo is cropped and cleaned; decodes are sequential 480 → 1200 → 2000; a door photo is skipped', async () => {
+    const calls = [];
+    const r = await cleanPipeline({ width: 1200, height: 1600 }, injected(paperScene, calls));
+    assert.deepEqual(calls, [fitBox(1200, 1600, 480), fitBox(1200, 1600, 1200), fitBox(1200, 1600, 2000)]);
+    assert.ok(r.jpeg && r.width > 0 && r.height > r.width, 'portrait page');
+    assert.ok(r.params.score >= 0.6, `score ${r.params.score}`);
+    assert.ok(r.params.area >= 0.6, `area ${r.params.area}`);
+    assert.ok(r.params.ink >= 0.01 && r.params.ink <= 0.35, `ink ${r.params.ink}`);
+    assert.equal(r.params.quad.length, 4);
+    const door = [];
+    const d = await cleanPipeline({ width: 1200, height: 1600 }, injected(doorScene, door));
+    assert.ok(['no_paper', 'not_paper', 'uncertain'].includes(d.skipped), d.skipped);
+    assert.ok(door.length <= 2, 'no source decode for a door');
+    const big = [];
+    assert.deepEqual(await cleanPipeline({ width: 6000, height: 4500 }, injected(paperScene, big)), { skipped: 'too_large' });
+    assert.equal(big.length, 0, 'over 24 MP: never decoded');
+    assert.equal(SERVER_CLEAN_MAX_PIXELS, 24_000_000);
+  });
+
+  test('hardened codec argv (L12-67/68): coder prefix from the MIME, limits, -auto-orient, -resize W×H without «!», jpeg:size in raw orientation; output size verified', () => {
+    const head = headerDims('image/jpeg', fixture('orient-6.jpg'));
+    assert.equal(head.orientation, 6);
+    assert.ok(head.height > head.width, 'Orientation 6: oriented portrait');
+    const [w, hh] = fitBox(head.width, head.height, 480);
+    const argv = decodeArgs({ file: '/data/uploads/x.jpg', mime: 'image/jpeg', orientation: 6 }, w, hh);
+    assert.deepEqual(argv.slice(0, IM_LIMITS.length), IM_LIMITS);
+    assert.ok(argv.includes('jpeg:/data/uploads/x.jpg'));
+    assert.equal(argv[argv.indexOf('-resize') + 1], `${w}x${hh}`);
+    assert.ok(!argv.some((a) => a.includes('!')), 'no «!»');
+    assert.ok(argv.indexOf('-auto-orient') < argv.indexOf('-resize'));
+    assert.equal(argv[argv.indexOf('-define') + 1], `jpeg:size=${2 * hh}x${2 * w}`, 'jpeg:size in the raw (unrotated) orientation');
+    assert.equal(argv.at(-1), 'rgba:-');
+    assert.deepEqual(decodeArgs({ file: '/x.png', mime: 'image/png' }, 10, 10).filter((a) => a.startsWith('png:')), ['png:/x.png']);
+    assert.throws(() => decodeArgs({ file: '/x.heic', mime: 'image/heic' }, 10, 10), /no coder/);
+    assert.throws(() => decodeArgs({ file: 'relative.jpg', mime: 'image/jpeg' }, 10, 10), /absolute/);
+    const enc = encodeArgs(100, 140);
+    assert.ok(enc.includes('-strip') && enc.at(-1) === 'jpeg:-' && enc.includes('rgba:-'));
+    // اتجاه خاطئ: الخرج يأخذ نسبة أخرى داخل الصندوق فيختلف حجمه ← يُرفض
+    assert.deepEqual(rgbaSize(w * hh * 4, w, hh), [w, hh]);
+    assert.deepEqual(rgbaSize((w - 1) * hh * 4, w, hh), [w - 1, hh]);
+    assert.throws(() => rgbaSize(w * Math.round((w * w) / hh) * 4, w, hh), /size_mismatch|decoded/);
+  });
+
+  test('a WhatsApp photo is queued (clean + ocr) and cleaned in a forked child: clean row server_auto under variants/auto, display → clean, original untouched, usage row', async () => {
+    const id = waPhoto();
+    assert.equal(job('clean', id).state, 'queued');
+    assert.equal(job('ocr', id).state, 'queued');
+    const before = t.app.documents.get(id);
+    await media().processDue({ budgetMs: 60_000 });
+    assert.equal(job('clean', id).state, 'done', JSON.stringify(job('clean', id)));
+    const f = t.app.db.get("SELECT * FROM document_files WHERE document_id = ? AND role = 'clean'", id);
+    assert.equal(f.source, 'server_auto');
+    assert.equal(f.created_by_kind, 'system');
+    assert.match(f.storage_key, /^variants\/auto\/\d{4}\/\d{2}\//);
+    assert.ok(fs.existsSync(path.join(t.app.config.uploadsDir, f.storage_key)));
+    const after = t.app.documents.get(id);
+    assert.equal(after.scan_state, 'server');
+    assert.equal(after.display_file_id, f.id, 'confident (page ≥ 60 % of the photo) → clean first');
+    assert.equal(after.sha256, before.sha256, 'main file untouched');
+    assert.equal(sha(fs.readFileSync(path.join(t.app.config.uploadsDir, after.storage_key))), before.sha256);
+    const p = JSON.parse(f.params);
+    assert.ok(p.score >= 0.6 && Array.isArray(p.quads));
+    assert.equal(t.app.db.get("SELECT kind, provider, ok FROM media_usage WHERE document_id = ? AND kind = 'clean_server'", id).ok, 1);
+    // التنزيلات: الافتراضي = النسخة المحسّنة، والأصل = الملف الرئيسي كما وصل
+    const dflt = await staff.get(`/api/documents/${id}/download`);
+    assert.equal(sha(dflt.body), f.sha256);
+    const orig = await staff.get(`/api/documents/${id}/download?file=original`);
+    assert.equal(sha(orig.body), before.sha256);
+    // الوسائط: argv مصفوفة بلا «!»، والعملية الفرعية لا ترث أسرار البيئة (البيئة الدنيا)
+    const lines = fs.readFileSync(path.join(dir, 'argv.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const decodes = lines.filter((a) => a.at(-1) === 'rgba:-');
+    assert.equal(decodes.length, 3, 'three sequential decodes');
+    for (const a of decodes) assert.ok(!a.some((x) => x.includes('!')));
+  });
+
+  test('a door photo is skipped (no clean row, still cleanable by staff); never for staff uploads, client scans, HEIC, PDF or audio', async () => {
+    const door = waPhoto('scene=door');
+    await media().processDue({ budgetMs: 60_000 });
+    assert.equal(job('clean', door).state, 'skipped');
+    assert.ok(['no_paper', 'not_paper', 'uncertain'].includes(job('clean', door).error));
+    assert.equal(t.app.db.get('SELECT COUNT(*) AS n FROM document_files WHERE document_id = ?', door).n, 0);
+    assert.equal(t.app.documents.get(door).scan_state, null);
+    assert.equal(media().cleanable(t.app.documents.get(door)), true, '«نظّف المستند» stays available');
+
+    const admin = (await t.login('admin')).user;
+    const staffDoc = t.app.documents.save({ filename: 'سيارة.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1200, 1600, 'scene=paper')) }, {}, admin);
+    assert.equal(job('clean', staffDoc), undefined, 'evidence photos from staff are never auto-cleaned');
+    assert.ok(job('ocr', staffDoc), 'but their text is read');
+    const scanned = t.app.documents.save({ ...cleanJpeg(), scan: scanOf() }, {}, { kind: 'client' });
+    assert.equal(job('clean', scanned), undefined, 'client scan already clean');
+    const heic = t.app.documents.save({ filename: 'x.heic', mime: 'image/heic', data_base64: b64(fixture('sample.heic')) }, {}, { kind: 'client' });
+    assert.equal(job('clean', heic), undefined);
+    assert.equal(job('ocr', heic), undefined);
+    const pdf = t.app.documents.save({ filename: 'عقد.pdf', mime: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') }, {}, { kind: 'client' });
+    assert.equal(job('clean', pdf), undefined);
+    assert.ok(job('ocr', pdf));
+    assert.equal(t.app.db.get("SELECT COUNT(*) AS n FROM document_files WHERE source = 'server_auto' AND document_id = ?", staffDoc).n, 0);
+  });
+
+  test('memory guard (L12-66): under 300 MB headroom the unit is deferred 5 minutes without counting an attempt; after 6 deferrals → skipped low_memory', async () => {
+    const id = waPhoto();
+    media().setMemoryProbe(() => ({ limit: 512 * 1024 ** 2, headroom: 120 * 1024 ** 2, source: 'test' }));
+    try {
+      for (let i = 1; i <= 6; i++) {
+        await media().processDue({ budgetMs: 5000 });
+        const j = job('clean', id);
+        assert.equal(j.state, 'queued');
+        assert.equal(j.error, `low_memory:${i}`);
+        assert.equal(j.attempts, 0, 'a deferral is not an attempt');
+        assert.ok(Date.parse(j.next_at) - Date.now() > 4 * 60 * 1000, 'next_at +5 min');
+        t.app.db.run('UPDATE media_jobs SET next_at = ? WHERE id = ?', new Date(Date.now() - 1000).toISOString(), j.id);
+      }
+      await media().processDue({ budgetMs: 5000 });
+      assert.equal(job('clean', id).state, 'skipped');
+      assert.equal(job('clean', id).error, 'low_memory');
+      // تنبيه «صحة النظام» SYS-09 تحت 1 جيجابايت
+      const h = media().healthChecks().find((x) => x.key === 'media_memory');
+      assert.equal(h.title, 'ذاكرة الخادم أقل من 1 جيجابايت: تنظيف الصور وقراءتها أبطأ');
+    } finally {
+      media().setMemoryProbe(() => ({ limit: 4 * 1024 ** 3, headroom: 2 * 1024 ** 3, source: 'test' }));
+    }
+  });
+
+  test('a child that fails or times out is retried by the ladder; a stale gen result is never written', async () => {
+    const id = waPhoto();
+    media().setChildRunner(() => {
+      throw Object.assign(new Error('timed out'), { code: 'timeout' });
+    });
+    try {
+      await media().processDue({ budgetMs: 5000 });
+      const j = job('clean', id);
+      assert.equal(j.state, 'queued');
+      assert.equal(j.error, 'timeout');
+      assert.equal(j.attempts, 1);
+      // نتيجة جيل قديم: الفرع يعمل بينما أُعيدت جدولة المهمة
+      t.app.db.run('UPDATE media_jobs SET next_at = ? WHERE id = ?', new Date(Date.now() - 1000).toISOString(), j.id);
+      media().setChildRunner(async (type, input) => {
+        t.app.db.run('UPDATE media_jobs SET gen = gen + 1 WHERE id = ?', j.id);
+        fs.writeFileSync(input.out, tinyJpeg(900, 1300));
+        return { out: input.out, width: 900, height: 1300, bytes: 10, params: { quad: [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]], score: 0.9, area: 0.64, turns: 0 } };
+      });
+      await media().processDue({ budgetMs: 5000 });
+      assert.equal(t.app.db.get("SELECT COUNT(*) AS n FROM document_files WHERE document_id = ? AND role = 'clean'", id).n, 0, 'stale result discarded');
+    } finally {
+      media().setChildRunner(null);
+    }
+  });
+
+  test('MEDIA_TOOLS=off: uploads still succeed and the units end skipped: tool_missing', async () => {
+    media().tools.configure({ env: { MEDIA_TOOLS: 'off', IMAGEMAGICK_BIN: path.join(dir, 'convert') } });
+    try {
+      const id = waPhoto();
+      await media().processDue({ budgetMs: 5000 });
+      assert.equal(job('clean', id).state, 'skipped');
+      assert.equal(job('clean', id).error, 'tool_missing');
+      assert.equal(job('ocr', id).error, 'tool_missing');
+      assert.equal(t.app.documents.get(id).ocr_state, 'skipped');
+    } finally {
+      media().tools.configure({ env: { NODE_TEST_CONTEXT: '1', IMAGEMAGICK_BIN: fakeConvert(dir) } });
+    }
+  });
+
+  test('backups skip variants/auto (H-M10); a missing server copy falls back to the original and the clean backfill rebuilds it', async () => {
+    const id = waPhoto();
+    await media().processDue({ budgetMs: 60_000 });
+    const f = t.app.db.get("SELECT * FROM document_files WHERE document_id = ? AND role = 'clean'", id);
+    const ex = okBody(await staff.post('/api/admin/system/export', { include_key: false }));
+    const r = await staff.get(ex.url);
+    const entries = await readTarBuffer(zlib.gunzipSync(r.body));
+    assert.ok(!entries.some((e) => e.name.includes('/data/uploads/variants/auto/')), 'no variants/auto in the archive');
+    assert.ok(entries.some((e) => e.name.endsWith(t.app.documents.get(id).storage_key)), 'the original is in the archive');
+    // بعد الاستعادة: ملف النسخة الآلية غير موجود ← العرض يعود إلى الأصل، والاستكمال يعيدها
+    fs.unlinkSync(path.join(t.app.config.uploadsDir, f.storage_key));
+    const d = await staff.get(`/api/documents/${id}/download`);
+    assert.equal(d.status, 200);
+    assert.equal(sha(d.body), t.app.documents.get(id).sha256);
+    const b = okBody(await staff.post('/api/admin/media/backfill', { kind: 'clean', days: 1 }));
+    assert.ok(b.queued >= 1);
+    await media().processDue({ budgetMs: 60_000 });
+    const again = t.app.db.get("SELECT * FROM document_files WHERE document_id = ? AND role = 'clean'", id);
+    assert.ok(again && again.storage_key !== f.storage_key && fs.existsSync(path.join(t.app.config.uploadsDir, again.storage_key)), 'rebuilt');
+    assert.equal(t.app.db.get("SELECT severity FROM security_events WHERE type = 'media.backfill_queued' ORDER BY id DESC LIMIT 1").severity, 'warning');
+  });
+});
+
+// ───────────────────────── MD-10: قراءة النص والبحث ─────────────────────────
+describe('v12 media MD-10 — OCR: Tesseract per page, PDF text layer, page bombs, FTS search, staff-only text (L12-17, L12-37, L12-67)', () => {
+  let t;
+  let dir;
+  let admin;
+  const job = (id) => t.app.db.get("SELECT * FROM media_jobs WHERE kind = 'ocr' AND document_id = ?", id);
+  const MARK = 'علامةنصمقروء9931';
+  before(async () => {
+    t = await startTestApp({ seed: 'demo' });
+    admin = await t.login('admin');
+    dir = tmp('v12-md10-');
+    const log = path.join(dir, 'argv.log');
+    const logLine = `require('fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify([require('path').basename(process.argv[1]), ...process.argv.slice(2)]) + '\\n');`;
+    const env = {
+      NODE_TEST_CONTEXT: '1',
+      TESSERACT_BIN: fakeBin(dir, 'tesseract', `${logLine}
+const a = process.argv.slice(2);
+if (a[0] === '--version') { console.log('tesseract 5.3.0'); process.exit(0); }
+if (a[0] === '--list-langs') { console.log('List of available languages (3):'); console.log('ara'); console.log('eng'); console.log('osd'); process.exit(0); }
+process.stdout.write(a[0].endsWith('.png') ? 'صفحة ممسوحة من ملف PDF ${MARK}\\n' : 'شهادة وفاة صادرة من مكتب الصحة رقم القيد 4471 ${MARK}\\n\\f');`),
+      PDFINFO_BIN: fakeBin(dir, 'pdfinfo', `${logLine}
+const a = process.argv.slice(2);
+if (a[0] === '-v') { console.error('pdfinfo version 22.02.0'); process.exit(0); }
+console.log('Pages:          3\\nPage    1 size: 595 x 842 pts (A4)\\nPage    2 size: 5000 x 5000 pts\\nPage    3 size: 595 x 842 pts (A4)');`),
+      PDFTOTEXT_BIN: fakeBin(dir, 'pdftotext', `${logLine}
+const a = process.argv.slice(2);
+if (a[0] === '-v') { console.error('pdftotext version 22.02.0'); process.exit(0); }
+const page = a[a.indexOf('-f') + 1];
+process.stdout.write(page === '1' ? 'عقد إيجار أماكن سكنية بين المؤجر والمستأجر لمدة ثلاث سنوات\\f' : '\\f');`),
+      PDFTOPPM_BIN: fakeBin(dir, 'pdftoppm', `${logLine}
+const a = process.argv.slice(2);
+if (a[0] === '-v') { console.error('pdftoppm version 22.02.0'); process.exit(0); }
+require('fs').writeFileSync(a.at(-1) + (a.includes('-jpeg') ? '.jpg' : '.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));`),
+    };
+    t.app.media.tools.configure({ env });
+    t.app.media.setMemoryProbe(() => ({ limit: 4 * 1024 ** 3, headroom: 2 * 1024 ** 3, source: 'test' }));
+  });
+  after(async () => {
+    if (t) await t.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('an image is read by Tesseract (ara+eng, one page): document_text + FTS + ocr_state; the panel route is staff-only and audited', async () => {
+    const id = t.app.documents.save({ filename: 'شهادة.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1000, 1400)) }, { intake_id: 1 }, { kind: 'client' });
+    t.app.db.run("DELETE FROM media_jobs WHERE kind = 'clean' AND document_id = ?", id);
+    await t.app.media.processDue({ budgetMs: 10_000 });
+    assert.equal(job(id).state, 'done', JSON.stringify(job(id)));
+    const row = t.app.db.get('SELECT * FROM document_text WHERE document_id = ? AND page = 1', id);
+    assert.equal(row.provider, 'tesseract');
+    assert.match(row.text, /شهادة وفاة/);
+    assert.ok(!row.text.includes('\f'));
+    assert.equal(t.app.documents.get(id).ocr_state, 'done');
+    const argv = fs.readFileSync(path.join(dir, 'argv.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).filter((a) => a[0] === 'tesseract' && a[2] === 'stdout');
+    assert.deepEqual(argv.at(-1).slice(2), ['stdout', '-l', 'ara+eng', '--oem', '1', '--psm', '3']);
+    const text = okBody(await admin.get(`/api/admin/documents/${id}/text`));
+    assert.equal(text.label, 'نص مستخرج آليًا من المستند، راجعه قبل الاعتماد عليه.');
+    assert.equal(text.pages.length, 1);
+    assert.equal(t.app.db.get("SELECT severity FROM security_events WHERE type = 'document.text_viewed' ORDER BY id DESC LIMIT 1").severity, 'info');
+    const lawyer = await t.login('ahmed');
+    assert.equal((await lawyer.get(`/api/admin/documents/${id}/text`)).status, 403);
+    assert.equal((await lawyer.get(`/api/lawyer/documents/${id}/text`)).status, 404, 'no lawyer text endpoint in 12.0 (L12-17)');
+    assert.equal((await t.client().get(`/api/admin/documents/${id}/text`)).status, 401);
+  });
+
+  test('PDF: pdfinfo first; page 1 from the text layer, a 5000-pt page skipped, an empty page rasterised with -scale-to (never -r) and read; one page per unit', async () => {
+    const id = t.app.documents.save({ filename: 'عقد.pdf', mime: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF\n') }, { intake_id: 1 }, { kind: 'client' });
+    const r1 = await t.app.media.processDue({ budgetMs: 10_000 });
+    assert.ok(r1.ran >= 3, 'three units: one per page');
+    assert.equal(job(id).state, 'done', JSON.stringify(job(id)));
+    const rows = t.app.db.all('SELECT page, provider FROM document_text WHERE document_id = ? ORDER BY page', id);
+    assert.deepEqual(rows.map((r) => [r.page, r.provider]), [[1, 'pdftotext'], [3, 'tesseract']], 'page 2 (5000 × 5000 pt) skipped');
+    const lines = fs.readFileSync(path.join(dir, 'argv.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const ppm = lines.filter((a) => a[0] === 'pdftoppm' && a[1] !== '-v');
+    assert.equal(ppm.length, 1, 'only the empty normal page is rasterised');
+    assert.ok(ppm[0].includes('-scale-to') && ppm[0][ppm[0].indexOf('-scale-to') + 1] === '2000');
+    assert.ok(!ppm[0].includes('-r'));
+    assert.ok(lines.some((a) => a[0] === 'pdfinfo' && a.includes('-l')), 'pdfinfo before any rasterising');
+  });
+
+  test('staff search (H-M7, L12-37): «مستندات» from OCR text with a ≤ 120-character snippet; quotes and * do not throw; 2 or 101 characters → none; deleted documents never surface; LIKE fallback', async () => {
+    const r = okBody(await admin.get(`/api/admin/search?q=${encodeURIComponent('رقم القيد 4471')}`));
+    assert.ok(r.documents.length >= 1, JSON.stringify(r).slice(0, 200));
+    const d = r.documents[0];
+    assert.ok(d.snippet.replace(/…/g, '').length <= 120);
+    assert.match(d.snippet, /4471/);
+    assert.equal(d.href, '#/inbox/1');
+    for (const q of ['"رقم', 'قيد*', 'a" OR "b', 'NEAR(x y)']) assert.equal((await admin.get(`/api/admin/search?q=${encodeURIComponent(q)}`)).status, 200, q);
+    assert.deepEqual(okBody(await admin.get(`/api/admin/search?q=${encodeURIComponent('رق')}`)).documents ?? [], []);
+    assert.deepEqual(t.app.media.searchStaff('ق'.repeat(101)), []);
+    const lawyer = await t.login('ahmed');
+    const lr = okBody(await lawyer.get(`/api/lawyer/search?q=${encodeURIComponent('رقم القيد 4471')}`));
+    assert.ok(!('documents' in lr) && !JSON.stringify(lr).includes(MARK), 'no lawyer document search (L12-17)');
+    // مستند محذوف: لا يظهر حتى قبل media.gc
+    const gone = d.id;
+    t.app.db.run('DELETE FROM documents WHERE id = ?', gone);
+    assert.ok(!t.app.media.searchStaff('رقم القيد 4471').some((x) => x.id === gone));
+    // بلا FTS5: LIKE (نسخة جديدة من النص المقروء)
+    const keep = t.app.documents.save({ filename: 'b.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(800, 1000)) }, { intake_id: 1 }, { kind: 'client' });
+    t.app.db.run("DELETE FROM media_jobs WHERE kind = 'clean' AND document_id = ?", keep);
+    await t.app.media.processDue({ budgetMs: 10_000 });
+    t.app.db.raw.exec('DROP TABLE document_text_fts');
+    assert.ok(t.app.media.searchStaff('رقم القيد 4471').some((x) => x.id === keep), 'LIKE fallback');
+    assert.ok(t.app.media.searchStaff('50%_\\').length === 0);
+  });
+
+  test('correction (P1): PUT …/text/:page → corrected, audited, never overwritten by a re-read; POST …/ocr and …/rescan are staff-only, rate-limited and audited', async () => {
+    const id = t.app.db.get("SELECT document_id FROM document_text WHERE provider = 'tesseract' ORDER BY document_id DESC LIMIT 1").document_id;
+    okBody(await admin.put(`/api/admin/documents/${id}/text/1`, { text: 'نص صحّحه الفريق' }));
+    assert.equal(t.app.db.get('SELECT status FROM document_text WHERE document_id = ? AND page = 1', id).status, 'corrected');
+    assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'document.text_corrected'"));
+    assert.equal((await admin.put(`/api/admin/documents/${id}/text/9`, { text: 'x' })).status, 404);
+    const q = okBody(await admin.post(`/api/admin/documents/${id}/ocr`, {}));
+    assert.equal(q.queued, true);
+    assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'document.ocr_requested'"));
+    await t.app.media.processDue({ budgetMs: 10_000 });
+    assert.equal(t.app.db.get('SELECT text FROM document_text WHERE document_id = ? AND page = 1', id).text, 'نص صحّحه الفريق', 'a correction survives a re-read');
+    assert.equal((await admin.post(`/api/admin/documents/${id}/ocr`, { provider: 'claude' })).status, 409, 'Claude not allowed by default');
+    okBody(await admin.post(`/api/admin/documents/${id}/rescan`, {}));
+    assert.ok(t.app.db.get("SELECT 1 FROM security_events WHERE type = 'media.job_requested'"));
+    const lawyer = await t.login('ahmed');
+    for (const [m, u] of [['post', `/api/admin/documents/${id}/ocr`], ['post', `/api/admin/documents/${id}/rescan`], ['put', `/api/admin/documents/${id}/text/1`]]) assert.equal((await lawyer[m](u, {})).status, 403, u);
+  });
+
+  test('the OCR marker never reaches a lawyer, the portal, a company or WhatsApp (L12-17)', async () => {
+    const lawyer = await t.login('ahmed');
+    for (const url of ['/api/lawyer/today', '/api/lawyer/assignments', '/api/lawyer/matters']) {
+      const r = await lawyer.get(url);
+      assert.ok(!JSON.stringify(r.body || '').includes(MARK), url);
+    }
+    for (const a of okBody(await lawyer.get('/api/lawyer/assignments')).items || []) {
+      const r = await lawyer.get(`/api/lawyer/assignments/${a.id}`);
+      assert.ok(!JSON.stringify(r.body || '').includes(MARK), `assignment ${a.id}`);
+    }
+    assert.ok(!JSON.stringify(t.app.db.all('SELECT body FROM messages')).includes(MARK));
+    const co = t.client();
+    assert.equal((await co.post('/api/company/auth/login', { email: 'mariam@nilefoods.example', password: 'Company@2026' })).status, 200);
+    for (const url of ['/api/company/overview', '/api/company/requests', '/api/company/memory']) {
+      const r = await co.get(url);
+      assert.ok(!JSON.stringify(r.body || '').includes(MARK), url);
+    }
+    assert.equal((await co.get('/api/admin/documents/1/text')).status, 401, 'a company cookie is not a staff session');
+  });
+
+  test('H-M12 (L12-91): lawyer names in the OCR text of a company file are caught by the gate', () => {
+    const row = t.app.db.get('SELECT c.company_id AS cid, u.name FROM assignments a JOIN cases c ON c.id = a.case_id JOIN users u ON u.id = a.lawyer_id WHERE c.company_id IS NOT NULL LIMIT 1');
+    assert.ok(row, 'a company case with a lawyer in the demo');
+    const id = t.app.documents.save({ filename: 'محضر.pdf', mime: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') }, { company_id: row.cid }, (t.app.db.get("SELECT * FROM users WHERE username = 'admin'")));
+    t.app.db.insert('document_text', { document_id: id, page: 1, text: `حضر الاجتماع ${row.name} عن المكتب`, norm: 'x', source_file: 'main', provider: 'tesseract', chars: 10, status: 'machine', created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    const g = t.app.companyDocGate.companyFilesGate({ companyId: row.cid, documentIds: [id] });
+    assert.ok(g.file_authors.some((f) => f.document_id === id), JSON.stringify(g));
+  });
+});
+
+describe('v12 media MD-10 (P1) — Claude OCR: allowed switch, disclosure date, companies, budget share, image blocks only (L12-19)', () => {
+  test('page images to Claude only when allowed and after ocr_claude_since; feature document_ocr; never a PDF block; backfill and companies excluded; over budget → Tesseract', async () => {
+    const calls = [];
+    class Fake {
+      constructor() {
+        this.beta = { messages: { create: async (p) => { calls.push(p); return { model: p.model, stop_reason: 'end_turn', usage: { input_tokens: 3000, output_tokens: 800 }, content: [{ type: 'text', text: JSON.stringify({ pages: [{ page: 1, text: 'نص قرأه Claude من الصورة', legible: true }], language: 'ar' }) }] }; } } };
+      }
+    }
+    setSdkLoader(() => Fake);
+    const t = await startTestApp({ config: { ai: { provider: 'auto', anthropicApiKey: 'sk-ant-test-0000' } } });
+    const dir = tmp('v12-md10c-');
+    try {
+      const admin = await t.login('admin');
+      t.app.integrations.set('anthropic', { api_key: 'sk-ant-test-0000', provider: 'anthropic', monthly_budget_usd: '10' }, null);
+      t.app.media.setMemoryProbe(() => ({ limit: 4 * 1024 ** 3, headroom: 2 * 1024 ** 3, source: 'test' }));
+      t.app.media.tools.configure({ env: { NODE_TEST_CONTEXT: '1', TESSERACT_BIN: fakeBin(dir, 'tesseract', `const a = process.argv.slice(2);
+if (a[0] === '--version') { console.log('tesseract 5.3.0'); process.exit(0); }
+if (a[0] === '--list-langs') { console.log('List:'); console.log('ara'); process.exit(0); }
+process.stdout.write('نص Tesseract');`) } });
+      const old = t.app.documents.save({ filename: 'old.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1000, 1400)) }, {}, { kind: 'client' });
+      okBody(await admin.patch('/api/admin/settings', { ocr_claude_allowed: true, ocr_provider: 'claude' }));
+      const since = t.app.settings.get('ocr_claude_since');
+      assert.ok(since);
+      t.app.db.run('UPDATE documents SET created_at = ? WHERE id = ?', new Date(Date.parse(since) - 60_000).toISOString(), old);
+      const fresh = t.app.documents.save({ filename: 'new.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1000, 1400)) }, {}, { kind: 'client' });
+      t.app.db.run("DELETE FROM media_jobs WHERE kind = 'clean'");
+      t.app.db.run("UPDATE media_jobs SET next_at = ? WHERE kind = 'ocr'", new Date(Date.now() - 1000).toISOString());
+      await t.app.media.processDue({ budgetMs: 10_000 });
+      const prov = (id) => t.app.db.get('SELECT provider FROM document_text WHERE document_id = ?', id)?.provider;
+      assert.equal(prov(fresh), 'claude');
+      assert.equal(prov(old), 'tesseract', 'a document from before the disclosure never goes to Claude');
+      assert.ok(calls.length >= 1);
+      for (const c of calls) {
+        const blocks = c.messages[0].content;
+        assert.ok(blocks.some((b) => b.type === 'image'));
+        assert.ok(!blocks.some((b) => b.type === 'document'), 'never a PDF block');
+        assert.equal(c.output_config.effort, 'low');
+      }
+      assert.ok(t.app.db.get("SELECT 1 FROM ai_usage WHERE feature = 'document_ocr' AND provider = 'anthropic'"));
+      // شركة: مستبعدة ما لم يُسمح
+      const co = t.app.documents.save({ filename: 'co.jpg', mime: 'image/jpeg', data_base64: b64(tinyJpeg(1000, 1400)) }, { company_id: 1 }, { kind: 'client' });
+      assert.equal((await admin.post(`/api/admin/documents/${co}/ocr`, { provider: 'claude' })).status, 409);
+      // الاستكمال لا يستخدم Claude
+      const n = calls.length;
+      t.app.db.run('DELETE FROM document_text');
+      okBody(await admin.post('/api/admin/media/backfill', { kind: 'ocr', days: 1 }));
+      await t.app.media.processDue({ budgetMs: 10_000 });
+      assert.equal(calls.length, n, 'backfill never calls Claude');
+      // حصة الميزانية 0 % ← Tesseract
+      t.app.settings.set('ocr_claude_budget_pct', 0);
+      t.app.db.run('DELETE FROM document_text WHERE document_id = ?', fresh);
+      okBody(await admin.post(`/api/admin/documents/${fresh}/ocr`, { provider: 'claude' }));
+      await t.app.media.processDue({ budgetMs: 10_000 });
+      assert.equal(prov(fresh), 'tesseract', 'over the OCR share → Tesseract');
+    } finally {
+      setSdkLoader(null);
+      await t.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ───────────────────────── MD-11: الخصوصية، الإعدادات، الصحة ─────────────────────────
+describe('v12 media MD-11 — privacy and deletion texts, settings card, health, status and backfill (M §10, L12-62, H-M4, H-M10)', () => {
+  let t;
+  let admin;
+  before(async () => {
+    t = await startTestApp({ seed: 'demo' });
+    admin = await t.login('admin');
+  });
+  after(async () => t && t.close());
+
+  test('privacy (L12-62): off → documents paragraph only; third party names the vendor (escaped), «قد تُعالج خارج مصر», the lawyer sentence; charity side only when opted in; own server: no vendor, no «خارج مصر»; Claude sentence when allowed', async () => {
+    let p = t.app.media.privacyHtml('paid');
+    assert.ok(!p.includes('PV-01') && !p.includes('PV-02'));
+    assert.ok(p.includes('data-tag="PV-03"') && p.includes('وتتم هذه القراءة على خوادمنا.'));
+    const r = await admin.put('/api/admin/integrations/stt', { values: { provider: 'openai_compatible', base_url: 'https://api.example.com', api_key: 'sk-x', model: 'whisper-1', hosting: 'third_party', vendor_name: 'Acme Voice', no_training_attested: 'true' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    p = t.app.media.privacyHtml('paid');
+    assert.ok(p.includes('data-tag="PV-01"'));
+    assert.ok(p.includes('جهة تقنية خارجية (<bdi>Acme Voice</bdi>)، وقد تُعالج خارج مصر'));
+    assert.ok(p.includes('ولا يطّلع المحامي على هذا النص الآلي، ولا على تسجيلاتكم إلا إذا أتاحها له فريقنا لدراسة موضوعكم.'));
+    assert.ok(!/[—–!]/.test(p.replace(/<[^>]+>/g, '')), 'no em dash or «!» on the paid side');
+    assert.ok(!t.app.media.privacyHtml('charity').includes('PV-01'), 'charity audio is not sent to a third party by default');
+    t.app.settings.set('stt_charity_third_party', true);
+    const c = t.app.media.privacyHtml('charity');
+    assert.ok(c.includes('عندما ترسل لنا رسالة صوتية') && c.includes('ولا على تسجيلاتك إلا إذا أتاحها له فريقنا لدراسة موضوعك.'));
+    t.app.settings.set('stt_charity_third_party', false);
+    // اسم مزوّد بوسوم يُرفض عند الحفظ، والنص مهرّب على أي حال
+    assert.equal((await admin.put('/api/admin/integrations/stt', { values: { vendor_name: '<script>x</script>' } })).status, 400);
+    okBody(await admin.put('/api/admin/integrations/stt', { values: { provider: 'openai_compatible', base_url: 'https://stt.firm.example', api_key: 'k', hosting: 'own_server', vendor_name: '', no_training_attested: '' } }));
+    p = t.app.media.privacyHtml('paid');
+    assert.ok(p.includes('data-tag="PV-02"') && p.includes('على أجهزة يملكها المكتب'));
+    assert.ok(!p.includes('خارج مصر') && !p.includes('Acme'));
+    t.app.settings.set('ocr_claude_allowed', true);
+    p = t.app.media.privacyHtml('paid');
+    assert.ok(p.includes('data-tag="PV-04"') && p.includes('<bdi dir="ltr">Anthropic</bdi>') && !p.includes('وتتم هذه القراءة على خوادمنا.'));
+    t.app.settings.set('ocr_claude_allowed', false);
+    // الصفحتان كما تُعرضان
+    const page = await t.client().get('/privacy');
+    assert.ok(String(page.body).includes('data-tag="PV-03"'), 'rendered in /privacy');
+    const del = await t.client().get('/data-deletion');
+    assert.ok(String(del.body).includes('data-tag="DD-01"') && String(del.body).includes('ويشمل الحذف النسخ المحسّنة من صور مستندات'));
+    assert.equal(t.app.media.deletionHtml('charity'), '<p data-tag="DD-01">ويشمل الحذف النسخ المحسّنة من صور مستنداتك والنصوص المستخرجة منها ونصوص رسائلك الصوتية.</p>');
+  });
+
+  test('«المستندات والصوت» card (H-M4, §10.2): exact copy, confirm dialogs for the privacy switches, SET-20…SET-35; settings.js lazy-loads it for admins', () => {
+    const src = read('public/assets/js/app/components/media-settings.js');
+    for (const s of [
+      'الرسائل الصوتية من الموقع وصفحة المتابعة',
+      'رسائل واتساب الصوتية تصل دائمًا، والنص الآلي يعمل عليها.',
+      'تحويل الرسائل الصوتية إلى نص تلقائيًا',
+      'يعمل بعد ضبط الخدمة في «التكاملات». النص مسودة يراجعها الفريق.',
+      'تحسين صور المستندات على جهاز المرسل',
+      'تحسين الصور الواردة على الخادم',
+      'لصور واتساب والصور المرفوعة دون تحسين. يحتاج ImageMagick على الخادم.',
+      'قراءة نص المستندات',
+      'Tesseract على الخادم',
+      'السماح بإرسال صور المستندات إلى Claude لقراءتها',
+      'ستضيف سياسة الخصوصية أن صور المستندات قد تُرسل إلى Anthropic لقراءة النص فقط. هل تريدون المتابعة؟',
+      'نموذج القراءة',
+      'فارغ = نموذج تكامل الذكاء الاصطناعي.',
+      'أقصى عدد صفحات تُقرأ من المستند',
+      'تحويل صوت المستفيدات من «خيري» عند جهة خارجية',
+      'متوقف افتراضيًا. الخادم الخاص بالمكتب يعمل للجميع.',
+      'أقصى دقائق تحويل لكل شخص في اليوم',
+      'السماح بقراءة مستندات الشركات بـ Claude',
+      'ستُرسل صور مستندات الشركات أيضًا إلى Anthropic لقراءة النص.',
+      'نسبة ميزانية الذكاء الاصطناعي المتاحة لقراءة المستندات (%)',
+      'تحويل الصوت عند جهة خارجية معلن منذ',
+      'قراءة المستندات بـ Claude معلنة منذ',
+      "confirmLabel: 'تفعيل', cancelLabel: 'إلغاء'",
+    ]) assert.ok(src.includes(s), s);
+    assert.ok(src.includes('سيُرسل صوت المستفيدات من «خيري» إلى ${who} لتحويله إلى نص، وقد يُعالج خارج مصر. هل تريدون المتابعة؟'));
+    for (let n = 20; n <= 35; n++) assert.ok(src.includes(`'SET-${n}'`), `SET-${n}`);
+    const settings = read('public/assets/js/app/pages/admin/settings.js');
+    assert.match(settings, /me\.role === 'admin' \? \(\(\) => \{ const slot = h\('div', \{ id: 'media' \}\); import\('\.\.\/\.\.\/components\/media-settings\.js'\)/);
+  });
+
+  test('health (H-M10): the policy check; GET …/media/status (admin, audited, ?probe=1 re-probes); backfill: kind/days validated, 5 a day, warning audit; managers 403', async () => {
+    const dir = tmp('v12-md11-');
+    try {
+      const open = fakeBin(dir, 'convert', "const a = process.argv.slice(2); if (a[0] === '-version') console.log('Version: ImageMagick 6.9.12'); else console.log('Path: /etc/ImageMagick-6/policy.xml');");
+      t.app.media.tools.configure({ env: { NODE_TEST_CONTEXT: '1', IMAGEMAGICK_BIN: open } });
+      const st = okBody(await admin.get('/api/admin/media/status?probe=1'));
+      assert.equal(st.tools.imagemagick.ok, false);
+      assert.equal(st.tools.imagemagick.reason, 'policy');
+      assert.ok(st.memory && 'headroom_bytes' in st.memory);
+      assert.ok(t.app.media.healthChecks().some((c) => c.key === 'media_policy'));
+      const health = okBody(await admin.get('/api/admin/system/health'));
+      assert.ok(health.checks.some((c) => c.key === 'media_policy'), 'H-M10: in «صحة النظام»');
+      assert.equal(t.app.db.get("SELECT severity FROM security_events WHERE type = 'media.status_viewed' ORDER BY id DESC LIMIT 1").severity, 'info');
+      const manager = await t.login('manager');
+      assert.equal((await manager.get('/api/admin/media/status')).status, 403);
+      assert.equal((await manager.post('/api/admin/media/backfill', { kind: 'ocr' })).status, 403);
+      assert.equal((await admin.post('/api/admin/media/backfill', { kind: 'nope' })).status, 400);
+      assert.equal((await admin.post('/api/admin/media/backfill', { kind: 'ocr', days: 91 })).status, 400);
+      // تحويل الصوت مضبوط (خادم المكتب من الاختبار السابق): الاستكمال يقبل، ويقتصر على 30 يومًا افتراضيًا
+      assert.equal(okBody(await admin.post('/api/admin/media/backfill', { kind: 'stt' })).days, 30);
+      let last;
+      for (let i = 0; i < 6; i++) last = await admin.post('/api/admin/media/backfill', { kind: 'ocr', days: 1 });
+      assert.equal(last.status, 429, '5 a day');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('system page (static): «المستندات والصوت» card with SYS-01…SYS-08 and the SYS-09/SYS-10 check tags', () => {
+    const src = read('public/assets/js/app/pages/admin/system.js');
+    for (let n = 1; n <= 10; n++) assert.ok(src.includes(`'SYS-${String(n).padStart(2, '0')}'`), `SYS-${n}`);
+    for (const s of ['افحص الأدوات', 'شغّل الآن', 'حوّل الرسائل الصوتية المعلقة (آخر 30 يومًا)', 'نظّف واقرأ المستندات القديمة']) assert.ok(src.includes(s), s);
+  });
+
+  test('the text panel and search (static): DOC-12…DOC-14 and SRC-01/02/04 with the exact labels', () => {
+    const clean = read('public/assets/js/app/components/doc-clean.js');
+    assert.ok(clean.includes("export const OCR_LABEL = 'نص مستخرج آليًا من المستند، راجعه قبل الاعتماد عليه.'"));
+    for (const tag of ['DOC-12', 'DOC-13', 'DOC-14']) assert.ok(clean.includes(`'${tag}'`), tag);
+    const search = read('public/assets/js/app/components/search.js');
+    assert.ok(search.includes('البحث في النص المقروء آليًا وقد لا يجد كل الكلمات.'));
+    for (const tag of ['SRC-01', 'SRC-02', 'SRC-04']) assert.ok(search.includes(`'${tag}'`), tag);
+    assert.match(search, /!isLawyer && Array\.isArray\(data\.documents\)/);
+  });
+});
+
+// ───────────────────────── MD-12: بيانات العرض ─────────────────────────
+describe('v12 media MD-12 — demo seed (written directly, no jobs) and the Dockerfiles (L12-40, L12-68)', () => {
+  test('demo: a demo STT draft on a waiting WhatsApp voice note, a server clean pair on the seeded photo, OCR text on two documents; nothing queued', async () => {
+    const t = await startTestApp({ seed: 'demo' });
+    try {
+      const db = t.app.db;
+      assert.equal(Number(db.value('SELECT COUNT(*) FROM media_jobs')), 0, 'seeds never enqueue (L12-69)');
+      const draft = db.get("SELECT * FROM voice_auto_transcripts WHERE provider = 'demo'");
+      assert.ok(draft && draft.state === 'done' && draft.confidence === 0.82);
+      assert.equal(db.get('SELECT status FROM voice_transcripts WHERE document_id = ?', draft.document_id).status, 'pending', 'staff still confirm');
+      const f = db.get("SELECT * FROM document_files WHERE source = 'server_auto' AND role = 'clean'");
+      assert.ok(f && fs.existsSync(path.join(t.app.config.uploadsDir, f.storage_key)));
+      const d = t.app.documents.get(f.document_id);
+      assert.equal(d.scan_state, 'server');
+      assert.equal(d.display_file_id, f.id);
+      assert.equal(Number(db.value('SELECT COUNT(DISTINCT document_id) FROM document_text')), 2);
+      const admin = await t.login('admin');
+      const s = okBody(await admin.get(`/api/admin/search?q=${encodeURIComponent('الأحوال المدنية')}`));
+      assert.ok(s.documents.some((x) => x.id === d.id));
+    } finally {
+      await t.close();
+    }
+  });
+
+  test('both Dockerfiles: ARG MEDIA_TOOLS=1 with the tools (no ffmpeg), tini as PID 1, the vendored policy copied to /etc/ImageMagick-6', () => {
+    for (const df of [read('Dockerfile'), fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8')]) {
+      assert.match(df, /ARG MEDIA_TOOLS=1/);
+      assert.match(df, /apt-get install -y --no-install-recommends imagemagick tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng poppler-utils/);
+      assert.match(df, /install -y --no-install-recommends tini/);
+      assert.match(df, /ENTRYPOINT \["\/usr\/bin\/tini", "--"\]/);
+      assert.match(df, /COPY (legal-platform\/)?deploy\/imagemagick\/policy\.xml \/etc\/ImageMagick-6\/policy\.xml/);
+      assert.ok(!/ffmpeg/.test(df), 'no ffmpeg');
+      assert.match(df, /rm -rf \/var\/lib\/apt\/lists/);
+    }
+  });
+});
+
+// ═════════════════════════ مراجعة 12.0 (review): انحدارات لكل خلل وُجد ═════════════════════════
+describe('v12 media review — regressions for the review findings', () => {
+  test('R1 SSRF: IPv6 forms that carry an IPv4 address are classified by that address; multicast and broadcast are blocked', async () => {
+    // URL يكتب [::ffff:169.254.169.254] بالصيغة الست عشرية ::ffff:a9fe:a9fe، وكان يُصنَّف «عام»
+    assert.equal(new URL('http://[::ffff:169.254.169.254]/').hostname, '[::ffff:a9fe:a9fe]');
+    for (const [ip, kind] of [
+      ['::ffff:a9fe:a9fe', 'metadata'],
+      ['::ffff:169.254.169.254', 'metadata'],
+      ['::ffff:7f00:1', 'loopback'],
+      ['::ffff:a00:1', 'private'],
+      ['::a9fe:a9fe', 'metadata'],
+      ['64:ff9b::a9fe:a9fe', 'metadata'],
+      ['2002:a9fe:a9fe::1', 'metadata'],
+      ['0:0:0:0:0:0:0:1', 'loopback'],
+      ['ff02::1', 'metadata'],
+      ['224.0.0.1', 'metadata'],
+      ['255.255.255.255', 'metadata'],
+      ['192.0.0.192', 'metadata'],
+      ['fe80::1', 'private'],
+      ['::ffff:808:808', 'public'],
+      ['2001:4860:4860::8888', 'public'],
+      ['1::2::3', 'metadata'],
+    ]) assert.equal(classifyIp(ip), kind, ip);
+    setLookup(null);
+    await assert.rejects(assertHostAllowed('http://[::ffff:169.254.169.254]/', { hosting: 'own_server', env: { STT_ALLOW_LOCAL: '1' } }), /blocked address/);
+    await assert.rejects(assertHostAllowed('https://[::ffff:127.0.0.1]/', { hosting: 'own_server', env: {} }), /loopback/);
+    await assert.rejects(assertHostAllowed('https://[::ffff:10.0.0.1]/', { hosting: 'third_party', env: {} }), /private/);
+    await assert.rejects(assertHostAllowed('https://[64:ff9b::a9fe:a9fe]/', { hosting: 'third_party', env: {} }), /blocked address/);
+  });
+
+  test('R2 L12-73: a lawyer gets every JPEG without EXIF/XMP (a client photo that skipped the scanner is the original itself); staff and the stored file keep it', async () => {
+    const t = await startTestApp();
+    try {
+      const admin = await t.login('admin');
+      const lw = okBody(await admin.post('/api/admin/lawyers', { username: 'lw_rv_exif', password: 'Lawyer@2026', name: 'أ. محامي المراجعة', specialties: ['CIV'], agreement: { type: 'per_case', rate: 500 } }), 201);
+      const it = okBody(await admin.post('/api/admin/intakes', { channel: 'phone', phone: phone(), name: 'منى', text: 'نزاع على عقد بيع شقة ولم يتم التسجيل حتى الآن.' }), 201);
+      const kase = okBody(await admin.post(`/api/admin/intakes/${it.id}/convert`, { legal_area: 'CIV', title: 'عقد بيع', facts_shared: 'وقائع', issues: [{ title: 'المسألة' }], client: { name: 'منى' } }), 201).case;
+      // صورة عميل لم تمر بالماسح (واتساب أو رجوع الماسح إلى التصغير): فيها EXIF
+      const stored = fixture('orient-6.jpg');
+      const id = t.app.documents.save({ filename: 'صورة-واتساب.jpg', mime: 'image/jpeg', data_base64: b64(stored) }, { case_id: kase.id }, { kind: 'client' });
+      assert.equal(t.app.documents.get(id).scan_state, null);
+      const det = okBody(await admin.get(`/api/admin/cases/${kase.id}`));
+      okBody(await admin.post(`/api/admin/cases/${kase.id}/assignments`, { lawyer_id: lw.id, role: 'lead', brief: 'راجع الصورة', grants: { facts: true, issue_ids: det.issues.map((i) => i.id), document_ids: [id] } }), 201);
+      const lawyer = await t.login('lw_rv_exif');
+      const exif = Buffer.from('Exif\0\0', 'latin1');
+      assert.ok(stored.includes(exif), 'the fixture carries EXIF');
+      for (const q of ['', '?file=main', '?file=original', '?inline=1']) {
+        const r = await lawyer.get(`/api/documents/${id}/download${q}`);
+        assert.equal(r.status, 200, q);
+        assert.ok(!r.body.includes(exif), `lawyer copy has no EXIF (${q || 'default'})`);
+        assert.equal(r.headers.get('content-length'), String(r.body.length));
+        assert.deepEqual([...r.body.subarray(0, 2)], [0xff, 0xd8]);
+      }
+      const staffCopy = await admin.get(`/api/documents/${id}/download`);
+      assert.equal(sha(staffCopy.body), sha(stored), 'staff get the stored bytes');
+      assert.equal(sha(fs.readFileSync(path.join(t.app.config.uploadsDir, t.app.documents.get(id).storage_key))), sha(stored), 'stored bytes unchanged');
+    } finally {
+      await t.close();
+    }
+  });
+
+  test('R3–R6 scanner UI (static): pages added in a row are applied to the latest file in order, a page that fails becomes its own photo, focus returns to the thumbnail, the chosen mode carries to the next page', () => {
+    const up = read('public/assets/js/public/upload.js');
+    // photoPicker: الملف المستبدل ← الجديد، والتعديل يقرأ المستند الحالي عند دوره في الطابور
+    assert.match(up, /const replaced = new WeakMap\(\);/);
+    assert.match(up, /function change\(f0, fn, \{ fallback = null, refocus = false \} = \{\}\) \{\n\s+queue = queue\.then\(async \(\) => \{\n\s+const f = latest\(f0\);/);
+    assert.match(up, /replaced\.set\(f, out\);/);
+    assert.match(up, /scanAddPage\(cur, raw, \{ replace: tg\.mode === 'replace' \? tg\.idx : null, maxPages: MAX_PAGES \}\), \{ fallback: raw \}\)/);
+    assert.match(up, /if \(fallback\) add\(\[fallback\]\);/);
+    assert.match(up, /change\(f, \(cur\) => scanEditPage\(cur, \{ register, trigger \}\), \{ refocus: true \}\)/);
+    assert.match(up, /querySelector\('\.scn-thumb-open, \.bmf-thumb-x'\)\?\.focus\(\)/);
+    // fileInput (الفريق): سلسلة بالترتيب على آخر نسخة
+    assert.match(up, /const done = \(old, fn\) =>\n\s+\(chain = chain\.then\(async \(\) => \{\n\s+const f = cur\(old\);/);
+    // الوضع المختار (أبيض وأسود / رمادي) يُطبَّق على الصفحة التالية
+    assert.match(up, /const mode = ref && ref\.mode && ref\.mode !== 'auto' \? ref\.mode : 'auto';\n\s+const page = await scanner\.scanPage\(raw, \{ sourceMax: o\.sourceMax, maxSide: o\.maxSide, quality: o\.quality, mode \}\);/);
+    // بوابة الشركات: تعديلات المستند الواحد بالترتيب، وصورة لم تُجهز صفحةً تُرفع مرفقًا مستقلًا
+    const cf = read('public/assets/js/lib/company-forms.js');
+    assert.match(cf, /e\.chain = \(e\.chain \|\| Promise\.resolve\(\)\)\.then\(\(\) => rescanNow\(e, fn, raw\)\);/);
+    assert.match(cf, /if \(raw\) await takeFiles\(\{ files: \[raw\], set value\(v\) \{\} \}, true\);/);
+    assert.match(cf, /scanAddPage\(tg\.e\.file, raw, \{ replace: Number\.isInteger\(tg\.replace\) \? tg\.replace : null \}\), raw\);/);
+    // اسم مستند من عدة صفحات: «صورة مستند، 3 صفحات.pdf» لا «صورة مستند، صفحة 1.pdf»
+    assert.match(cf, /e\.baseName\.replace\(\/\\s\*\[،,—-\]\\s\*صفحة\\s\*\\d\+\$\/, ''\)\}\$\{sheetMod \? `، \$\{sheetMod\.pagesAr\(scanPages\(out\)\)\}` : ''\}\.pdf`/);
+    assert.match(cf, /title: asPdf \? pdfName\(\)\.replace\(\/\\\.pdf\$\/, ''\) : e\.title/);
+  });
+
+  test('R7 the system card names why a media job was not processed in Arabic (the technical code stays in the tooltip)', () => {
+    const sys = read('public/assets/js/app/pages/admin/system.js');
+    assert.match(sys, /no_paper: 'لا توجد ورقة في الصورة'/);
+    assert.match(sys, /MEDIA_WHY\[e\.error\] \? h\('span', \{ title: e\.error \}, MEDIA_WHY\[e\.error\]\)/);
+    for (const v of sys.match(/const MEDIA_WHY = \{[\s\S]*?\n\};/)[0].matchAll(/'([^']+)'/g)) assert.ok(!/—/.test(v[1]), 'no em dash');
   });
 });

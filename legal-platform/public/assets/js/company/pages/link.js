@@ -28,9 +28,9 @@ function failure(root, err, kind, onLogin) {
   mount(
     root,
     authLayout(
-      h('h1.co-auth-title', { tabindex: '-1' }, kind === 'invite' ? W.titles.invite : W.link.reset_title),
-      alertBox(text, 'warning'),
-      action ? button(action, { variant: 'primary', block: true, onClick: () => onLogin(null) }) : h('p.co-auth-links', h('a', { href: '#/login', onClick: (e) => { e.preventDefault(); onLogin(null); } }, W.login.back_to_login)),
+      h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-25' }, kind === 'invite' ? W.titles.invite : W.link.reset_title),
+      alertBox(text, 'warning', { tag: 'CS-26' }),
+      action ? button(action, { variant: 'primary', block: true, onClick: () => onLogin(null), tag: 'CS-27' }) : h('p.co-auth-links', h('a', { href: '#/login', onClick: (e) => { e.preventDefault(); onLogin(null); }, tag: 'CS-28' }, W.login.back_to_login)),
     ),
   );
   // C-09: التركيز على العنوان بعد فحص الرابط (قارئ الشاشة يعلن الحالة)
@@ -49,13 +49,13 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
     return failure(root, err, kind, onLogin);
   }
   const email = info.user?.email_masked || '';
-  const name = h('input.input', { type: 'text', dir: 'auto', autocomplete: 'name', required: true, maxlength: 120, value: info.user?.name || '' });
+  const name = h('input.input', { type: 'text', dir: 'auto', autocomplete: 'name', required: true, maxlength: 120, value: info.user?.name || '', tag: 'CS-29' });
   const pw = passwordInput({ autocomplete: 'new-password' });
   const pw2 = passwordInput({ autocomplete: 'new-password' });
-  const pwWrap = field(W.link.password, pw.el, { required: true, hint: W.link.password_hint });
-  const pw2Wrap = field(W.link.password_confirm, pw2.el, { required: true });
+  const pwWrap = field(W.link.password, pw.el, { required: true, hint: W.link.password_hint, tag: 'CS-30' });
+  const pw2Wrap = field(W.link.password_confirm, pw2.el, { required: true, tag: 'CS-31' });
   attachStrength({ control: () => ({ input: pw.input, wrap: pwWrap }) }, 'password', () => email.split('@')[0] || '');
-  const nameWrap = field(W.link.name, name, { required: true });
+  const nameWrap = field(W.link.name, name, { required: true, tag: 'CS-32' });
   const errEl = h('p.co-auth-error', { role: 'alert', hidden: true });
   const showError = (msg) => {
     errEl.replaceChildren(icon('alert', { size: 16 }), h('span', msg || ''));
@@ -66,18 +66,18 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
 
   if (kind === 'invite') {
     const termsUrl = info.terms_url || getMeta()?.terms_url || null;
-    const terms = h('input', { type: 'checkbox', id: uid('terms'), required: true });
+    const terms = h('input', { type: 'checkbox', id: uid('terms'), required: true, tag: 'CS-33' });
     const termsWrap = h(
       'div.field.co-terms',
       h('label.check.check-single', { htmlFor: terms.id }, terms, h('span', termsUrl ? W.link.terms : W.link.terms_plain)),
-      termsUrl ? h('a.co-terms-link', { href: termsUrl, target: '_blank', rel: 'noopener noreferrer' }, W.link.terms_read) : null,
+      termsUrl ? h('a.co-terms-link', { href: termsUrl, target: '_blank', rel: 'noopener noreferrer', tag: 'CS-34' }, W.link.terms_read) : null,
       h('p.field-error', { hidden: true }, icon('alert', { size: 14 }), h('span', W.link.terms_required)),
     );
     const termsErr = termsWrap.querySelector('.field-error');
     terms.addEventListener('change', () => terms.checked && (termsErr.hidden = true));
     const inviter = info.inviter?.kind === 'colleague' && info.inviter.name ? info.inviter.name : null;
-    const submit = button(W.link.activate, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
-    const form = h('form.co-auth-form', { novalidate: true }, h('p.co-auth-email', copy('link.email', { email })), nameWrap, pwWrap, pw2Wrap, termsWrap, submit, errEl, info.expires_at ? h('p.co-auth-sub', copy('link.valid_until', { when: whenLong(info.expires_at) })) : null);
+    const submit = button(W.link.activate, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-35' });
+    const form = h('form.co-auth-form', { novalidate: true, tag: 'CS-36' }, h('p.co-auth-email', copy('link.email', { email })), nameWrap, pwWrap, pw2Wrap, termsWrap, submit, errEl, info.expires_at ? h('p.co-auth-sub', copy('link.valid_until', { when: whenLong(info.expires_at) })) : null);
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       showError('');
@@ -114,7 +114,7 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
     mount(
       root,
       authLayout(
-        h('h1.co-auth-title', { tabindex: '-1' }, W.link.welcome),
+        h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-37' }, W.link.welcome),
         h('p.co-auth-sub', ...copyParts('link.invited', { inviter: inviter || W.link.inviter_team, company: info.company?.name || '', brand: brandEl() })),
         form,
       ),
@@ -124,8 +124,8 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
   }
 
   // تعيين كلمة مرور جديدة (لا دخول؛ L-17)
-  const submit = button(W.link.reset_submit, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
-  const form = h('form.co-auth-form', { novalidate: true }, h('p.co-auth-sub', copy('link.reset_text', { email })), pwWrap, pw2Wrap, submit, errEl);
+  const submit = button(W.link.reset_submit, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-38' });
+  const form = h('form.co-auth-form', { novalidate: true, tag: 'CS-39' }, h('p.co-auth-sub', copy('link.reset_text', { email })), pwWrap, pw2Wrap, submit, errEl);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError('');
@@ -148,6 +148,6 @@ export async function renderLink(root, { kind, token, onSignedIn, onLogin }) {
       setBusy(submit, false);
     }
   });
-  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.link.reset_title), form));
+  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-40' }, W.link.reset_title), form));
   pw.input.focus();
 }

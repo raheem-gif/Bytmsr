@@ -132,10 +132,10 @@ export default async function render(ctx) {
     const unread = items.filter(FLAGS.unread.test).length;
     mount(
       statsHost,
-      statCard({ label: 'ملفات مفتوحة', value: open.length, icon: 'briefcase', tone: 'primary', hint: 'كل ما لم تغلقه الإدارة بعد', onClick: () => setStatus('open') }),
-      statCard({ label: 'بحاجة إلى قرار الإدارة', value: action, icon: 'queue', tone: 'warning', hint: 'آراء أو طلبات بانتظار البت', onClick: () => setFlag('action') }),
-      statCard({ label: 'ملفات بها إسنادات متأخرة', value: overdue, icon: 'clock', tone: overdue ? 'danger' : 'muted', hint: 'تجاوز المحامي المدة المطلوبة', onClick: () => setFlag('overdue') }),
-      statCard({ label: 'رسائل جديدة من المستفيدين', value: unread, icon: 'message', tone: 'info', hint: 'لم تُقرأ بعد في المحادثة', onClick: () => setFlag('unread') }),
+      statCard({ label: 'ملفات مفتوحة', value: open.length, icon: 'briefcase', tone: 'primary', hint: 'كل ما لم تغلقه الإدارة بعد', onClick: () => setStatus('open'), tag: 'CSL-01' }),
+      statCard({ label: 'بحاجة إلى قرار الإدارة', value: action, icon: 'queue', tone: 'warning', hint: 'آراء أو طلبات بانتظار البت', onClick: () => setFlag('action'), tag: 'CSL-02' }),
+      statCard({ label: 'ملفات بها إسنادات متأخرة', value: overdue, icon: 'clock', tone: overdue ? 'danger' : 'muted', hint: 'تجاوز المحامي المدة المطلوبة', onClick: () => setFlag('overdue'), tag: 'CSL-03' }),
+      statCard({ label: 'رسائل جديدة من المستفيدين', value: unread, icon: 'message', tone: 'info', hint: 'لم تُقرأ بعد في المحادثة', onClick: () => setFlag('unread'), tag: 'CSL-04' }),
     );
   }
 
@@ -152,7 +152,7 @@ export default async function render(ctx) {
       segs.map(([key, text]) =>
         h(
           'button.seg',
-          { type: 'button', 'aria-pressed': String(state.status === key), onClick: () => setStatus(key) },
+          { type: 'button', 'aria-pressed': String(state.status === key), onClick: () => setStatus(key), tag: 'CSL-05' },
           text,
           h('span.tab-count', String(counts[key] || 0)),
         ),
@@ -183,7 +183,7 @@ export default async function render(ctx) {
       render: (r) =>
         h(
           'div.pb-case-cell',
-          h('a.pb-code-link', { href: `#/cases/${r.id}`, 'aria-label': `فتح الملف ${r.code}` }, codeTag(r.code)),
+          h('a.pb-code-link', { href: `#/cases/${r.id}`, 'aria-label': `فتح الملف ${r.code}`, tag: 'CSL-06' }, codeTag(r.code)),
           h('div.cell-title', r.title),
           r.manager_name && h('div.cell-sub', `مدير الحالة: ${r.manager_name}`),
         ),
@@ -254,10 +254,10 @@ export default async function render(ctx) {
     mount(
       resultHost,
       truncated &&
-        alertBox('يُعرض أحدث 500 ملف فقط. استخدم البحث أو الفلاتر لتضييق النتائج.', 'info'),
+        alertBox('يُعرض أحدث 500 ملف فقط. استخدم البحث أو الفلاتر لتضييق النتائج.', 'info', { tag: 'CSL-07' }),
       h(
         'section.card',
-        h(
+        { tag: 'CSL-08' }, h(
           'div.card-body.card-body-flush',
           table({
             columns,
@@ -267,6 +267,8 @@ export default async function render(ctx) {
             caption: 'جدول ملفات الاستشارات',
             onRowClick: (r) => ctx.navigate(`/cases/${r.id}`),
             rowClass: (r) => (r.status === 'closed' ? 'is-muted' : r.priority === 'urgent' ? 'is-highlight' : null),
+            rowTag: 'CSL-09',
+            tag: 'CSL-10',
           }),
         ),
       ),
@@ -295,27 +297,30 @@ export default async function render(ctx) {
     onClick: () => {
       ctx.navigate('/cases');
     },
+    tag: 'CSL-11',
   });
 
   const filters = filterBar([
-    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو العميل أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات' }),
-    selectInput({ options: areaOptions(), value: state.area, onChange: onFilter('area'), label: 'المجال القانوني', allLabel: 'كل المجالات' }),
-    selectInput({ options: options('priority'), value: state.priority, onChange: onFilter('priority'), label: 'الأولوية', allLabel: 'كل الأولويات' }),
+    searchInput({ placeholder: 'ابحث بكود الملف أو العنوان أو اسم المستفيد/ة أو العميل أو كوده…', value: state.q, onSearch: onFilter('q'), label: 'بحث في الملفات', tag: 'CSL-12' }),
+    selectInput({ options: areaOptions(), value: state.area, onChange: onFilter('area'), label: 'المجال القانوني', allLabel: 'كل المجالات', tag: 'CSL-13' }),
+    selectInput({ options: options('priority'), value: state.priority, onChange: onFilter('priority'), label: 'الأولوية', allLabel: 'كل الأولويات', tag: 'CSL-14' }),
     managerOptions.length > 0 &&
-      selectInput({ options: managerOptions, value: state.manager_id, onChange: onFilter('manager_id'), label: 'مدير الحالة', allLabel: 'كل مديري الحالات' }),
+      selectInput({ options: managerOptions, value: state.manager_id, onChange: onFilter('manager_id'), label: 'مدير الحالة', allLabel: 'كل مديري الحالات', tag: 'CSL-15' }),
     lawyerOptions.length > 0 &&
-      selectInput({ options: lawyerOptions, value: state.lawyer_id, onChange: onFilter('lawyer_id'), label: 'المحامي في الفريق', allLabel: 'كل المحامين' }),
+      selectInput({ options: lawyerOptions, value: state.lawyer_id, onChange: onFilter('lawyer_id'), label: 'المحامي في الفريق', allLabel: 'كل المحامين', tag: 'CSL-16' }),
     resetBtn,
   ]);
 
   const header = pageHeader({
     title: 'ملفات الاستشارات',
     subtitle: 'الرسالة لا تصبح ملفًا تلقائيًا: كل ملف هنا قررت الإدارة تحويله من صندوق الوارد بعد الفرز، وله كود ثابت وفريق وصلاحيات محددة.',
-    breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'ملفات الاستشارات' }],
+    breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'CSL-17' }, { label: 'ملفات الاستشارات' }],
     actions: [
-      button('بانتظار قرار الإدارة', { icon: 'queue', href: '#/queue' }),
-      button('صندوق الوارد', { icon: 'inbox', variant: 'primary', href: '#/inbox' }),
+      button('بانتظار قرار الإدارة', { icon: 'queue', href: '#/queue', tag: 'CSL-18' }),
+      button('صندوق الوارد', { icon: 'inbox', variant: 'primary', href: '#/inbox', tag: 'CSL-19' }),
     ],
+    titleTag: 'CSL-20',
+    tag: 'CSL-21',
   });
 
   // v11 segment-staff (ST-4): بدل قائمة v10 «الأفراد · الشركات»

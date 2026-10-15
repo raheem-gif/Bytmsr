@@ -4,7 +4,7 @@
   "note": "v12 tags-core (TG-0): reserved ranges of spec §5.9. The tags sweep and npm run tags never number inside a reserved range; next = first number the tool may hand out. Unused reserved numbers stay gaps.",
   "prefixes": {
     "L": {
-      "next": 12,
+      "next": 14,
       "reserved": [
         { "from": 1, "to": 11, "lane": "entry", "what": "entry and tree page chrome (L-07 = نتصل بكم)" }
       ],
@@ -18,7 +18,7 @@
       "retired": {}
     },
     "S": {
-      "next": 70,
+      "next": 83,
       "reserved": [
         { "from": 10, "to": 16, "lane": "entry", "what": "/services hero (S-12, S-13, S-14 the three lines)" },
         { "from": 20, "to": 23, "lane": "entry", "what": "how we work" },
@@ -32,14 +32,14 @@
       "retired": {}
     },
     "H": {
-      "next": 12,
+      "next": 13,
       "reserved": [
         { "from": 1, "to": 11, "lane": "entry", "what": "paid public header" }
       ],
       "retired": {}
     },
     "F": {
-      "next": 21,
+      "next": 38,
       "reserved": [
         { "from": 1, "to": 16, "lane": "entry", "what": "paid public footer (F-16 خيري, restored only)" },
         { "from": 20, "to": 20, "lane": "entry", "what": "© line" }
@@ -55,21 +55,33 @@
       "retired": {}
     },
     "PV": {
-      "next": 5,
+      "next": 60,
       "reserved": [
         { "from": 1, "to": 4, "lane": "media", "what": "privacy paragraphs (STT, scan, OCR)" }
       ],
       "retired": {}
     },
+    "TM": {
+      "next": 46,
+      "retired": {}
+    },
     "DD": {
-      "next": 2,
+      "next": 34,
       "reserved": [
         { "from": 1, "to": 1, "lane": "media", "what": "data-deletion paragraph" }
       ],
       "retired": {}
     },
+    "NF": {
+      "next": 10,
+      "retired": {}
+    },
+    "SU": {
+      "next": 45,
+      "retired": {}
+    },
     "I": {
-      "next": 150,
+      "next": 197,
       "reserved": [
         { "from": 1, "to": 4, "lane": "entry", "what": "intake chrome" },
         { "from": 11, "to": 25, "lane": "entry", "what": "questions (I-23 judgment.when, I-24 alimony.for, I-25 rent.side)" },
@@ -82,14 +94,14 @@
       "retired": {}
     },
     "IC": {
-      "next": 17,
+      "next": 26,
       "reserved": [
         { "from": 1, "to": 16, "lane": "entry", "what": "company lead (IC-16 رقم من خارج مصر؟)" }
       ],
       "retired": {}
     },
     "UP": {
-      "next": 11,
+      "next": 15,
       "reserved": [
         { "from": 1, "to": 10, "lane": "media", "what": "upload tool" }
       ],
@@ -103,84 +115,264 @@
       "retired": {}
     },
     "P": {
-      "next": 10,
+      "next": 124,
       "reserved": [
         { "from": 1, "to": 9, "lane": "media", "what": "/p/ follow-up page (scanner and voice archive)" }
       ],
       "retired": {}
     },
+    "PL": {
+      "next": 29,
+      "retired": {}
+    },
+    "CC": {
+      "next": 58,
+      "retired": {}
+    },
+    "CS": {
+      "next": 49,
+      "retired": {}
+    },
+    "CW": {
+      "next": 36,
+      "retired": {}
+    },
+    "CH": {
+      "next": 18,
+      "retired": {}
+    },
+    "CR": {
+      "next": 25,
+      "retired": {}
+    },
+    "CN": {
+      "next": 43,
+      "retired": {}
+    },
     "CK": {
-      "next": 6,
+      "next": 138,
       "reserved": [
         { "from": 1, "to": 5, "lane": "media", "what": "company forms (scanner)" }
       ],
       "retired": {}
     },
+    "CQ": {
+      "next": 61,
+      "retired": {}
+    },
+    "CU": {
+      "next": 54,
+      "retired": {}
+    },
+    "CM": {
+      "next": 26,
+      "retired": {}
+    },
+    "CD": {
+      "next": 9,
+      "retired": {}
+    },
+    "CG": {
+      "next": 15,
+      "retired": {}
+    },
+    "CX": {
+      "next": 5,
+      "retired": {}
+    },
+    "CI": {
+      "next": 10,
+      "retired": {}
+    },
+    "CE": {
+      "next": 4,
+      "retired": {}
+    },
+    "CT": {
+      "next": 35,
+      "retired": {}
+    },
+    "CP": {
+      "next": 17,
+      "retired": {}
+    },
+    "CF": {
+      "next": 14,
+      "retired": {}
+    },
+    "CA": {
+      "next": 29,
+      "retired": {}
+    },
+    "CB": {
+      "next": 4,
+      "retired": {}
+    },
+    "NAV": {
+      "next": 69,
+      "retired": {}
+    },
+    "LGN": {
+      "next": 54,
+      "retired": {}
+    },
     "KIT": {
-      "next": 6,
+      "next": 24,
       "reserved": [
         { "from": 1, "to": 5, "lane": "media", "what": "ui.js internals" }
       ],
       "retired": {}
     },
     "SRC": {
-      "next": 5,
+      "next": 10,
       "reserved": [
         { "from": 1, "to": 4, "lane": "media", "what": "global search (SRC-04 recall note)" }
       ],
       "retired": {}
     },
     "DSH": {
-      "next": 5,
+      "next": 63,
       "reserved": [
         { "from": 1, "to": 4, "lane": "staff-lines", "what": "dashboard" }
       ],
       "retired": {}
     },
     "INB": {
-      "next": 9,
+      "next": 55,
       "reserved": [
         { "from": 1, "to": 8, "lane": "staff-lines", "what": "inbox: INB-01…06 the كل الأنواع select, INB-07 returning-charity chip, INB-08 opted-out chip" }
       ],
       "retired": {}
     },
+    "RQT": {
+      "next": 144,
+      "retired": {}
+    },
     "PTH": {
-      "next": 16,
+      "next": 19,
       "reserved": [
         { "from": 1, "to": 15, "lane": "staff-lines", "what": "pathway UI: chip, path line, edit, PTH-04 docket path, PTH-05 suggestion, sheet fields and actions" }
       ],
       "retired": {}
     },
+    "STY": {
+      "next": 56,
+      "retired": {}
+    },
+    "CNT": {
+      "next": 13,
+      "retired": {}
+    },
+    "SPL": {
+      "next": 5,
+      "retired": {}
+    },
+    "SEG": {
+      "next": 29,
+      "retired": {}
+    },
+    "QUE": {
+      "next": 64,
+      "retired": {}
+    },
+    "CSL": {
+      "next": 22,
+      "retired": {}
+    },
+    "CSF": {
+      "next": 282,
+      "retired": {}
+    },
+    "PTY": {
+      "next": 16,
+      "retired": {}
+    },
+    "MTL": {
+      "next": 15,
+      "retired": {}
+    },
+    "MTF": {
+      "next": 159,
+      "retired": {}
+    },
+    "OUT": {
+      "next": 47,
+      "retired": {}
+    },
+    "CLI": {
+      "next": 26,
+      "retired": {}
+    },
+    "CLF": {
+      "next": 91,
+      "retired": {}
+    },
+    "LWL": {
+      "next": 67,
+      "retired": {}
+    },
+    "LWF": {
+      "next": 100,
+      "retired": {}
+    },
+    "ACC": {
+      "next": 92,
+      "retired": {}
+    },
+    "AUT": {
+      "next": 52,
+      "retired": {}
+    },
+    "QRP": {
+      "next": 112,
+      "retired": {}
+    },
+    "KNL": {
+      "next": 117,
+      "retired": {}
+    },
+    "KNF": {
+      "next": 60,
+      "retired": {}
+    },
+    "AIR": {
+      "next": 12,
+      "retired": {}
+    },
+    "DAI": {
+      "next": 16,
+      "retired": {}
+    },
     "DOC": {
-      "next": 18,
+      "next": 41,
       "reserved": [
         { "from": 1, "to": 17, "lane": "media", "what": "document viewer (DOC-16 clean-copy label, DOC-17 HEIC note)" }
       ],
       "retired": {}
     },
     "VTR": {
-      "next": 11,
+      "next": 19,
       "reserved": [
         { "from": 1, "to": 10, "lane": "media", "what": "voice box (VTR-09 listen first, VTR-10 no speech)" }
       ],
       "retired": {}
     },
     "ANL": {
-      "next": 7,
+      "next": 88,
       "reserved": [
         { "from": 1, "to": 6, "lane": "staff-lines", "what": "analytics" }
       ],
       "retired": {}
     },
     "SIM": {
-      "next": 5,
+      "next": 51,
       "reserved": [
         { "from": 1, "to": 4, "lane": "staff-lines", "what": "simulator" }
       ],
       "retired": {}
     },
     "SET": {
-      "next": 40,
+      "next": 345,
       "reserved": [
         { "from": 1, "to": 19, "lane": "staff-lines", "what": "settings: الصفحة الأولى card, lines menu, story settings" },
         { "from": 20, "to": 39, "lane": "media", "what": "settings: المستندات والصوت card" }
@@ -188,24 +380,120 @@
       "retired": {}
     },
     "INT": {
-      "next": 18,
+      "next": 94,
       "reserved": [
         { "from": 1, "to": 17, "lane": "media", "what": "integrations (INT-16 vendor name, INT-17 attestation)" }
       ],
       "retired": {}
     },
     "SYS": {
-      "next": 11,
+      "next": 86,
       "reserved": [
         { "from": 1, "to": 10, "lane": "media", "what": "system health (SYS-09 memory, SYS-10 disk)" }
       ],
       "retired": {}
     },
+    "AUD": {
+      "next": 33,
+      "retired": {}
+    },
+    "DAT": {
+      "next": 41,
+      "retired": {}
+    },
+    "CAL": {
+      "next": 49,
+      "retired": {}
+    },
+    "IMP": {
+      "next": 55,
+      "retired": {}
+    },
+    "CNF": {
+      "next": 30,
+      "retired": {}
+    },
+    "PRG": {
+      "next": 132,
+      "retired": {}
+    },
+    "CRL": {
+      "next": 34,
+      "retired": {}
+    },
+    "CRF": {
+      "next": 216,
+      "retired": {}
+    },
+    "COL": {
+      "next": 63,
+      "retired": {}
+    },
+    "COF": {
+      "next": 256,
+      "retired": {}
+    },
+    "NTF": {
+      "next": 13,
+      "retired": {}
+    },
+    "PRF": {
+      "next": 82,
+      "retired": {}
+    },
+    "TGS": {
+      "next": 17,
+      "retired": {}
+    },
+    "RSH": {
+      "next": 23,
+      "retired": {}
+    },
+    "DRF": {
+      "next": 4,
+      "retired": {}
+    },
+    "TDY": {
+      "next": 38,
+      "retired": {}
+    },
+    "ASL": {
+      "next": 12,
+      "retired": {}
+    },
+    "ASG": {
+      "next": 74,
+      "retired": {}
+    },
+    "WRT": {
+      "next": 45,
+      "retired": {}
+    },
+    "LMT": {
+      "next": 12,
+      "retired": {}
+    },
+    "LMF": {
+      "next": 51,
+      "retired": {}
+    },
+    "STM": {
+      "next": 19,
+      "retired": {}
+    },
     "W": {
-      "next": 7,
+      "next": 55,
       "reserved": [
         { "from": 1, "to": 6, "lane": "staff-lines", "what": "WhatsApp lines menu: W-01 buttons, W-02…W-04 lists, W-05 after row, W-06 counsel" }
       ],
+      "retired": {}
+    },
+    "E": {
+      "next": 16,
+      "retired": {}
+    },
+    "D": {
+      "next": 66,
       "retired": {}
     }
   }

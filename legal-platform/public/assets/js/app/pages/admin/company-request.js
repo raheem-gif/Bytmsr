@@ -101,7 +101,7 @@ function docItem(d, { analyze = true } = {}) {
   return h(
     'li.cr-doc',
     icon('paperclip', { size: 15 }),
-    h('a.cr-doc-name', { href: downloadUrl(d.id), dir: 'auto', onClick: (e) => (e.preventDefault(), openDocument(d)) }, d.title || d.filename),
+    h('a.cr-doc-name', { href: downloadUrl(d.id), dir: 'auto', onClick: (e) => (e.preventDefault(), openDocument(d)), tag: 'CRF-01' }, d.title || d.filename),
     h('span.cr-doc-meta', [d.size ? formatBytes(d.size) : null, d.uploaded_by_kind === 'client' ? 'من الشركة' : d.uploaded_by_kind === 'lawyer' ? 'من المحامي' : 'من الفريق'].filter(Boolean).join(' · ')),
     analyze ? docAiButton({ documentId: d.id, label: 'تحليل' }) : null,
   );
@@ -192,10 +192,11 @@ export default async function render(ctx) {
       submitLabel: 'حفظ الموعد',
       values: { delivery_due_at: d.sla.delivery_due_at },
       fields: [
-        { name: 'delivery_due_at', label: 'موعد التسليم الجديد', type: 'datetime', required: true },
-        { name: 'due_reason', label: 'السبب', type: 'textarea', required: true, maxLength: 300, rows: 2 },
+        { name: 'delivery_due_at', label: 'موعد التسليم الجديد', type: 'datetime', required: true, tag: 'CRF-02' },
+        { name: 'due_reason', label: 'السبب', type: 'textarea', required: true, maxLength: 300, rows: 2, tag: 'CRF-03' },
       ],
       onSubmit: (v) => api.patch(`/admin/company-requests/${d.request.id}`, { rev: d.rev, delivery_due_at: v.delivery_due_at, due_reason: v.due_reason }),
+      tag: 'CRF-04',
     });
     if (res) {
       toast('عُدِّل موعد التسليم وأُبلغت الشركة.', 'success');
@@ -215,12 +216,13 @@ export default async function render(ctx) {
           const k = DECLINE_KINDS.find((x) => x.value === v);
           const c = api2.control('reason_for_company');
           if (k && k.text && c) c.set(k.text);
-        } },
-        { name: 'reason_for_company', label: 'ما تراه الشركة', type: 'textarea', required: true, minLength: 5, maxLength: 1000, rows: 3, full: true },
-        { name: 'note', label: 'ملاحظة داخلية', type: 'textarea', maxLength: 2000, rows: 2, full: true, hint: 'لا تراها الشركة.' },
+        }, tag: 'CRF-05' },
+        { name: 'reason_for_company', label: 'ما تراه الشركة', type: 'textarea', required: true, minLength: 5, maxLength: 1000, rows: 3, full: true, tag: 'CRF-06' },
+        { name: 'note', label: 'ملاحظة داخلية', type: 'textarea', maxLength: 2000, rows: 2, full: true, hint: 'لا تراها الشركة.', tag: 'CRF-07' },
       ],
       setup: (x) => (f = x),
       onSubmit: (v) => api.post(`/admin/company-requests/${d.request.id}/decline`, { rev: d.rev, kind: v.kind, reason_for_company: v.reason_for_company, note: v.note || undefined }),
+      tag: 'CRF-08',
     });
     void f;
     if (res) {
@@ -235,10 +237,11 @@ export default async function render(ctx) {
       submitLabel: 'إغلاق الطلب',
       values: { outcome: d.request.status === 'delivered' ? 'delivered' : 'resolved' },
       fields: [
-        { name: 'outcome', label: 'النتيجة', type: 'select', required: true, placeholder: false, options: CLOSE_OUTCOMES },
-        { name: 'note_for_company', label: 'ملاحظة للشركة', type: 'textarea', maxLength: 1000, rows: 3, full: true, hint: 'اختيارية — تظهر للشركة في صفحة الطلب.' },
+        { name: 'outcome', label: 'النتيجة', type: 'select', required: true, placeholder: false, options: CLOSE_OUTCOMES, tag: 'CRF-09' },
+        { name: 'note_for_company', label: 'ملاحظة للشركة', type: 'textarea', maxLength: 1000, rows: 3, full: true, hint: 'اختيارية — تظهر للشركة في صفحة الطلب.', tag: 'CRF-10' },
       ],
       onSubmit: (v) => api.post(`/admin/company-requests/${d.request.id}/close`, { rev: d.rev, outcome: v.outcome, note_for_company: v.note_for_company || undefined }),
+      tag: 'CRF-11',
     });
     if (res) {
       toast('أُغلق الطلب.', 'success');
@@ -251,8 +254,9 @@ export default async function render(ctx) {
       title: 'إعادة فتح الطلب',
       intro: 'خلال 30 يومًا من الإغلاق. يعود الطلب «جارٍ العمل» بموعد تسليم جديد، وتُبلَّغ الشركة.',
       submitLabel: 'إعادة فتح الطلب',
-      fields: [{ name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 3, full: true }],
+      fields: [{ name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 3, full: true, tag: 'CRF-12' }],
       onSubmit: (v) => api.post(`/admin/company-requests/${d.request.id}/reopen`, { rev: d.rev, reason: v.reason }),
+      tag: 'CRF-13',
     });
     if (res) {
       toast('أُعيد فتح الطلب.', 'success');
@@ -264,8 +268,9 @@ export default async function render(ctx) {
     const res = await formDialog({
       title: 'تم الاطلاع على التصعيد',
       submitLabel: 'تم الاطلاع',
-      fields: [{ name: 'note', label: 'ملاحظة المتابعة', type: 'textarea', required: true, maxLength: 1000, rows: 3, full: true, hint: 'داخلية — تُحفظ في ملاحظات الطلب.' }],
+      fields: [{ name: 'note', label: 'ملاحظة المتابعة', type: 'textarea', required: true, maxLength: 1000, rows: 3, full: true, hint: 'داخلية — تُحفظ في ملاحظات الطلب.', tag: 'CRF-14' }],
       onSubmit: (v) => api.post(`/admin/company-requests/${d.request.id}/escalation/ack`, { note: v.note }),
+      tag: 'CRF-15',
     });
     if (res) {
       toast('سُجّل الاطلاع على التصعيد.', 'success');
@@ -278,8 +283,9 @@ export default async function render(ctx) {
       title: `سحب العرض ${q.number}`,
       intro: 'يُبلَّغ مديرو البوابة في الشركة بسحب العرض، ويعود الطلب إلى الفرز.',
       submitLabel: 'سحب العرض',
-      fields: [{ name: 'reason', label: 'السبب (داخلي)', type: 'textarea', maxLength: 500, rows: 2, full: true }],
+      fields: [{ name: 'reason', label: 'السبب (داخلي)', type: 'textarea', maxLength: 500, rows: 2, full: true, tag: 'CRF-16' }],
       onSubmit: (v) => api.post(`/admin/company-quotes/${q.id}/withdraw`, { reason: v.reason || undefined }),
+      tag: 'CRF-17',
     });
     if (res) {
       toast('سُحب العرض.', 'success');
@@ -292,8 +298,9 @@ export default async function render(ctx) {
       title: 'سحب التسليم',
       intro: 'ترى الشركة: «سحب فريقكم القانوني هذا التسليم: {السبب}».',
       submitLabel: 'سحب التسليم',
-      fields: [{ name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 2, full: true }],
+      fields: [{ name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 2, full: true, tag: 'CRF-18' }],
       onSubmit: (v) => api.post(`/admin/company-deliverables/${x.id}/withdraw`, { reason: v.reason }),
+      tag: 'CRF-19',
     });
     if (res) {
       toast('سُحب التسليم.', 'success');
@@ -330,27 +337,27 @@ export default async function render(ctx) {
     const r = d.request;
     const handlerSel = h(
       'select.input',
-      { 'aria-label': 'المسؤول عن الطلب', onChange: (e) => setHandler(e.target.value, e.target) },
+      { 'aria-label': 'المسؤول عن الطلب', onChange: (e) => setHandler(e.target.value, e.target), tag: 'CRF-20' },
       h('option', { value: '' }, '— بلا مسؤول —'),
       (Array.isArray(staff) ? staff : []).map((s) => h('option', { value: String(s.id), selected: r.handler_id === s.id }, `${s.name}${s.role === 'admin' ? ' (مدير النظام)' : ''}`)),
     );
     const accepted = !!d.case;
     const actions = [];
     if (accepted && OPEN.includes(r.status)) {
-      actions.push(button('سؤال للشركة', { variant: 'secondary', icon: 'message', onClick: () => openClarify() }));
-      actions.push(button('إعداد تسليم', { variant: 'primary', icon: 'send', onClick: () => openDeliverable() }));
-      actions.push(button('إغلاق الطلب', { variant: 'ghost', icon: 'check', onClick: closeRequest }));
-      if (r.status === 'in_progress') actions.push(button('اعتذار عن الطلب', { variant: 'ghost', icon: 'x', onClick: decline }));
+      actions.push(button('سؤال للشركة', { variant: 'secondary', icon: 'message', onClick: () => openClarify(), tag: 'CRF-21' }));
+      actions.push(button('إعداد تسليم', { variant: 'primary', icon: 'send', onClick: () => openDeliverable(), tag: 'CRF-22' }));
+      actions.push(button('إغلاق الطلب', { variant: 'ghost', icon: 'check', onClick: closeRequest, tag: 'CRF-23' }));
+      if (r.status === 'in_progress') actions.push(button('اعتذار عن الطلب', { variant: 'ghost', icon: 'x', onClick: decline, tag: 'CRF-24' }));
     } else if (r.status === 'closed' && accepted) {
-      actions.push(button('إعادة فتح الطلب', { variant: 'secondary', icon: 'refresh', onClick: reopen }));
+      actions.push(button('إعادة فتح الطلب', { variant: 'secondary', icon: 'refresh', onClick: reopen, tag: 'CRF-25' }));
     }
     return pageHeader({
       title: r.title,
-      breadcrumbs: [{ label: 'طلبات الشركات', href: '#/company-requests' }, { label: r.code }],
+      breadcrumbs: [{ label: 'طلبات الشركات', href: '#/company-requests', tag: 'CRF-26' }, { label: r.code }],
       meta: h(
         'div.cr-meta',
         codeTag(r.code),
-        h('a.cr-company-link', { href: `#/companies/${d.company.id}` }, icon('building', { size: 15 }), d.company.name),
+        h('a.cr-company-link', { href: `#/companies/${d.company.id}`, tag: 'CRF-27' }, icon('building', { size: 15 }), d.company.name),
         typeBadge(r.type, r.type_label),
         r.priority && badge(prioWord(r.priority), r.priority === 'urgent' ? 'danger' : r.priority === 'high' ? 'warning' : 'neutral', { icon: 'flag' }),
         stageBadgeStaff(r),
@@ -358,6 +365,8 @@ export default async function render(ctx) {
         d.company.read_only && badge('الشركة للاطلاع فقط', 'warning', { icon: 'lock' }),
       ),
       actions: [h('label.cr-handler', h('span', 'المسؤول عن الطلب'), h('div.select-wrap', handlerSel)), ...actions],
+      titleTag: 'CRF-28',
+      tag: 'CRF-29',
     });
   }
 
@@ -406,8 +415,10 @@ export default async function render(ctx) {
         'div.stack',
         rows.length ? kv(rows) : h('p.muted', 'لم تُحدَّد مواعيد بعد.'),
         sees && sees.text ? h('p.cr-sees', icon('eye', { size: 15 }), h('span', `ما تراه الشركة: «${sees.text}»`)) : null,
-        canEditDue ? button('تعديل موعد التسليم', { variant: 'secondary', size: 'sm', icon: 'edit', onClick: changeDue }) : null,
+        canEditDue ? button('تعديل موعد التسليم', { variant: 'secondary', size: 'sm', icon: 'edit', onClick: changeDue, tag: 'CRF-30' }) : null,
       ),
+      titleTag: 'CRF-31',
+      tag: 'CRF-32',
     });
   }
 
@@ -423,8 +434,8 @@ export default async function render(ctx) {
           'div.cr-banner.is-warning',
           icon('alert', { size: 18 }),
           h('div.cr-banner-text', notice.items.map((e) => h('p', `بدأ العمل، لكن تعذر إسناد ${e.lawyer_name || 'المحامي'}: ${e.error || e.code}.`))),
-          d.case ? button('إسناد من ملف العمل', { variant: 'primary', size: 'sm', href: `#/cases/${d.case.id}?tab=team` }) : null,
-          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: 'إخفاء التنبيه', onClick: () => (assignNotices.delete(r.id), draw()) }),
+          d.case ? button('إسناد من ملف العمل', { variant: 'primary', size: 'sm', href: `#/cases/${d.case.id}?tab=team`, tag: 'CRF-33' }) : null,
+          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: 'إخفاء التنبيه', onClick: () => (assignNotices.delete(r.id), draw()), tag: 'CRF-34' }),
         ),
       );
     }
@@ -435,7 +446,7 @@ export default async function render(ctx) {
           { id: 'cr-escalation' },
           icon('alert', { size: 18 }),
           h('div.cr-banner-text', h('strong', 'صعّدت الشركة الطلب: '), h('q', { dir: 'auto' }, r.escalation.reason || '—'), h('span.muted', ` — ${whenText(r.escalation.at)}`)),
-          button('تم الاطلاع', { variant: 'primary', size: 'sm', onClick: ackEscalation }),
+          button('تم الاطلاع', { variant: 'primary', size: 'sm', onClick: ackEscalation, tag: 'CRF-35' }),
         ),
       );
     }
@@ -450,7 +461,7 @@ export default async function render(ctx) {
             h('strong', f.has('plan_error') ? 'تعذّر بدء العمل تلقائيًا بعد موافقة الشركة على العرض.' : 'وافقت الشركة على العرض — ابدأ العمل.'),
             r.accept_plan_error ? h('p', { dir: 'auto' }, r.accept_plan_error) : null,
           ),
-          r.status === 'submitted' || r.status === 'awaiting_company' ? button('بدء العمل', { variant: 'primary', size: 'sm', icon: 'briefcase', onClick: () => openAccept(r.accept_plan || null) }) : null,
+          r.status === 'submitted' || r.status === 'awaiting_company' ? button('بدء العمل', { variant: 'primary', size: 'sm', icon: 'briefcase', onClick: () => openAccept(r.accept_plan || null), tag: 'CRF-36' }) : null,
         ),
       );
     }
@@ -461,7 +472,7 @@ export default async function render(ctx) {
           { id: 'cr-memory' },
           icon('bookOpen', { size: 18 }),
           h('div.cr-banner-text', h('strong', 'عقد جديد في الذاكرة القانونية بانتظار مراجعتك: '), h('span', { dir: 'auto' }, d.memory_item.title)),
-          button('مراجعة العقد في الذاكرة', { variant: 'primary', size: 'sm', onClick: reviewMemory }),
+          button('مراجعة العقد في الذاكرة', { variant: 'primary', size: 'sm', onClick: reviewMemory, tag: 'CRF-37' }),
         ),
       );
     }
@@ -477,12 +488,12 @@ export default async function render(ctx) {
           'div.cr-banner.is-info',
           icon('message', { size: 18 }),
           h('div.cr-banner-text', h('strong', 'ردّت الشركة على الاستيضاح.'), ' راجِع الرد في المحادثة.'),
-          button('عرض الرد', { variant: 'secondary', size: 'sm', onClick: () => document.getElementById('cr-thread')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
+          button('عرض الرد', { variant: 'secondary', size: 'sm', onClick: () => document.getElementById('cr-thread')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), tag: 'CRF-38' }),
         ),
       );
     }
     if (f.has('opinion_approved_not_delivered')) {
-      out.push(h('div.cr-banner.is-info', icon('fileText', { size: 18 }), h('div.cr-banner-text', h('strong', 'رأي معتمد في ملف العمل لم يُسلَّم للشركة بعد.')), button('إعداد التسليم', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openDeliverable() })));
+      out.push(h('div.cr-banner.is-info', icon('fileText', { size: 18 }), h('div.cr-banner-text', h('strong', 'رأي معتمد في ملف العمل لم يُسلَّم للشركة بعد.')), button('إعداد التسليم', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openDeliverable(), tag: 'CRF-39' })));
     }
     // U10-S18: بعد التسليم
     const finals = (d.deliverables || []).filter((x) => x.final && x.status === 'released');
@@ -499,7 +510,7 @@ export default async function render(ctx) {
             lastFinal.feedback ? h('p', { dir: 'auto' }, h('q', lastFinal.feedback)) : null,
             d.sla.delivery_due_at ? h('p', `التسليم المعدّل: ${whenText(d.sla.delivery_due_at)}`) : null,
           ),
-          d.case ? button('إعادة إشراك المحامي', { variant: 'secondary', size: 'sm', icon: 'refresh', href: `#/cases/${d.case.id}?focus=team` }) : null,
+          d.case ? button('إعادة إشراك المحامي', { variant: 'secondary', size: 'sm', icon: 'refresh', href: `#/cases/${d.case.id}?focus=team`, tag: 'CRF-40' }) : null,
         ),
       );
     }
@@ -534,9 +545,9 @@ export default async function render(ctx) {
       const it = memoryIndex && memoryIndex.get(Number(m[1]));
       const text = it ? `${it.kind_label} · ${it.title}` : `عنصر من الذاكرة (${ref.ref})`;
       // gate C-13: نوع العنصر «موقف معتمد من الإدارة» ظاهر في النص؛ الشارة لمن يراه في الشركة (مديرو البوابة فقط)
-      return h('li', h('a', { href: `#/companies/${d.company.id}?tab=memory&item=${m[1]}`, dir: 'auto' }, text), it && it.access === 'admins' ? badge(it.access_label || 'مديرو البوابة فقط', 'warning') : null, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
+      return h('li', h('a', { href: `#/companies/${d.company.id}?tab=memory&item=${m[1]}`, dir: 'auto', tag: 'CRF-41' }, text), it && it.access === 'admins' ? badge(it.access_label || 'مديرو البوابة فقط', 'warning') : null, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
     }
-    if (rq) return h('li', h('a', { href: `#/company-requests?q=${encodeURIComponent(rq[1])}&status=closed` }, `طلب سابق ${rq[1]}`), ref.why ? h('span.muted', ` — ${ref.why}`) : null);
+    if (rq) return h('li', h('a', { href: `#/company-requests?q=${encodeURIComponent(rq[1])}&status=closed`, tag: 'CRF-42' }, `طلب سابق ${rq[1]}`), ref.why ? h('span.muted', ` — ${ref.why}`) : null);
     return h('li', ref.ref, ref.why ? h('span.muted', ` — ${ref.why}`) : null);
   }
 
@@ -568,31 +579,31 @@ export default async function render(ctx) {
         parts.push(
           h(
             'div.cr-sub',
-            h('h3.cr-sub-title', 'المخاطر'),
+            h('h3.cr-sub-title', { tag: 'CRF-43' }, 'المخاطر'),
             h('ul.cr-risks', t.risk_flags.map((x) => h('li', badge(SEVERITY[x.severity]?.[0] || x.severity, SEVERITY[x.severity]?.[1] || 'neutral', { dot: true }), h('span', ` ${label('company_risk', x.code)}${x.note ? `: ${x.note}` : ''}`)))),
           ),
         );
       }
       const missing = t.missing_info || [];
       if (missing.length) {
-        const checks = missing.map((x) => ({ x, cb: h('input', { type: 'checkbox', checked: true }) }));
+        const checks = missing.map((x) => ({ x, cb: h('input', { type: 'checkbox', checked: true, tag: 'CRF-44' }) }));
         parts.push(
           h(
             'div.cr-sub',
-            h('h3.cr-sub-title', 'ينقصه'),
+            h('h3.cr-sub-title', { tag: 'CRF-45' }, 'ينقصه'),
             h('ul.cr-missing', checks.map(({ x, cb }) => h('li', h('label.check', cb, h('span', h('strong', x.kind === 'document' ? 'مستند: ' : 'معلومة: '), x.item, x.why ? h('span.muted', ` — ${x.why}`) : null))))),
-            OPEN.includes(r.status) ? button('اسأل الشركة عن المحدد', { variant: 'secondary', size: 'sm', icon: 'message', onClick: () => openClarify({ items: checks.filter((c) => c.cb.checked).map((c) => c.x.item) }) }) : null,
+            OPEN.includes(r.status) ? button('اسأل الشركة عن المحدد', { variant: 'secondary', size: 'sm', icon: 'message', onClick: () => openClarify({ items: checks.filter((c) => c.cb.checked).map((c) => c.x.item) }), tag: 'CRF-46' }) : null,
           ),
         );
       }
-      if ((t.memory_refs || []).length) parts.push(h('div.cr-sub', h('h3.cr-sub-title', 'من ذاكرة الشركة'), h('ul.cr-refs', t.memory_refs.map(memoryRefLine))));
+      if ((t.memory_refs || []).length) parts.push(h('div.cr-sub', h('h3.cr-sub-title', { tag: 'CRF-47' }, 'من ذاكرة الشركة'), h('ul.cr-refs', t.memory_refs.map(memoryRefLine))));
       if ((t.questions_for_company || []).length) {
         parts.push(
           h(
             'div.cr-sub',
-            h('h3.cr-sub-title', 'أسئلة مقترحة للشركة'),
+            h('h3.cr-sub-title', { tag: 'CRF-48' }, 'أسئلة مقترحة للشركة'),
             h('ol.cr-questions', t.questions_for_company.map((q) => h('li', { dir: 'auto' }, q))),
-            OPEN.includes(r.status) ? button('نقلها إلى سؤال للشركة', { variant: 'ghost', size: 'sm', icon: 'copy', onClick: () => openClarify({ items: t.questions_for_company }) }) : null,
+            OPEN.includes(r.status) ? button('نقلها إلى سؤال للشركة', { variant: 'ghost', size: 'sm', icon: 'copy', onClick: () => openClarify({ items: t.questions_for_company }), tag: 'CRF-49' }) : null,
           ),
         );
       }
@@ -607,7 +618,7 @@ export default async function render(ctx) {
         h(
           'div.cr-scope',
           { class: sc.in_plan ? 'is-ok' : 'is-out' },
-          h('h3.cr-sub-title', 'فحص الباقة'),
+          h('h3.cr-sub-title', { tag: 'CRF-50' }, 'فحص الباقة'),
           sc.in_plan
             ? h('p', icon('checkCircle', { size: 15 }), ` ضمن الباقة ✓ — ${typeByKey(r.type)?.label || r.type} ضمن نطاق ${d.company.plan?.name || 'الباقة'} · ${quotaText} · سياسة التجاوز: ${POLICY[q.policy] || '—'}`)
             : h('p', icon('alert', { size: 15 }), ` خارج الباقة: ${(sc.reason_labels || []).join('، ')}`),
@@ -620,31 +631,31 @@ export default async function render(ctx) {
           'div.cr-triage-foot',
           badge(providerLabel(d.triage.provider), d.triage.provider === 'heuristic' ? 'neutral' : 'info', { icon: 'sparkle' }),
           h('time.muted', { datetime: d.triage.created_at, title: dateTime(d.triage.created_at) }, relative(d.triage.created_at)),
-          !accepted ? asyncButton('إعادة التحليل', (e, b) => rerunTriage(b), { variant: 'ghost', size: 'sm', icon: 'refresh' }) : null,
+          !accepted ? asyncButton('إعادة التحليل', (e, b) => rerunTriage(b), { variant: 'ghost', size: 'sm', icon: 'refresh', tag: 'CRF-51' }) : null,
         )
       : !accepted
-        ? asyncButton('تحليل الآن', (e, b) => rerunTriage(b), { variant: 'secondary', size: 'sm', icon: 'sparkle' })
+        ? asyncButton('تحليل الآن', (e, b) => rerunTriage(b), { variant: 'secondary', size: 'sm', icon: 'sparkle', tag: 'CRF-52' })
         : null;
     const canStart = !accepted && r.status === 'submitted';
     const canQuote = isAdmin && ['submitted', 'awaiting_company'].includes(r.status) && !(d.quotes || []).some((q) => q.status === 'sent');
     const actions = !accepted && ['submitted', 'awaiting_company'].includes(r.status)
       ? h(
           'div.cr-actions',
-          canStart ? button('بدء العمل…', { variant: 'primary', icon: 'briefcase', onClick: () => openAccept() }) : null,
-          button('سؤال للشركة', { variant: 'secondary', icon: 'message', onClick: () => openClarify() }),
+          canStart ? button('بدء العمل…', { variant: 'primary', icon: 'briefcase', onClick: () => openAccept(), tag: 'CRF-53' }) : null,
+          button('سؤال للشركة', { variant: 'secondary', icon: 'message', onClick: () => openClarify(), tag: 'CRF-54' }),
           isAdmin
-            ? button('عرض سعر', { variant: 'secondary', icon: 'wallet', disabled: !canQuote, title: canQuote ? null : 'يوجد عرض مفتوح', onClick: () => openQuote() })
+            ? button('عرض سعر', { variant: 'secondary', icon: 'wallet', disabled: !canQuote, title: canQuote ? null : 'يوجد عرض مفتوح', onClick: () => openQuote(), tag: 'CRF-55' })
             : !sc || sc.in_plan
               ? null
               : h('span.cr-hint', icon('lock', { size: 14 }), 'يحتاج عرض سعر من مدير النظام'),
-          button('اعتذار عن الطلب', { variant: 'ghost', icon: 'x', onClick: decline }),
+          button('اعتذار عن الطلب', { variant: 'ghost', icon: 'x', onClick: decline, tag: 'CRF-56' }),
         )
       : null;
     const body = h('div.stack', parts, footer, actions);
     if (accepted) {
-      return h('details.card.cr-triage-done', h('summary.card-header', h('h2.card-title', 'الفرز وقت القبول')), h('div.card-body', body));
+      return h('details.card.cr-triage-done', { tag: 'CRF-57' }, h('summary.card-header', { tag: 'CRF-58' }, h('h2.card-title', { tag: 'CRF-59' }, 'الفرز وقت القبول')), h('div.card-body', body));
     }
-    return card({ title: 'الفرز المقترح', icon: 'sparkle', className: 'cr-triage', body });
+    return card({ title: 'الفرز المقترح', icon: 'sparkle', className: 'cr-triage', body, titleTag: 'CRF-60', tag: 'CRF-61' });
   }
 
   function asSubmitted() {
@@ -659,7 +670,7 @@ export default async function render(ctx) {
       body: h(
         'div.stack',
         fieldsHost,
-        h('div.cr-desc', h('h3.cr-sub-title', 'الوصف'), h('p', { dir: 'auto' }, r.description)),
+        h('div.cr-desc', h('h3.cr-sub-title', { tag: 'CRF-62' }, 'الوصف'), h('p', { dir: 'auto' }, r.description)),
         kv(
           [
             ['الكيان', r.entity?.name || null],
@@ -675,7 +686,7 @@ export default async function render(ctx) {
         sub
           ? h(
               'div.cr-submitter',
-              h('h3.cr-sub-title', 'مرسل الطلب'),
+              h('h3.cr-sub-title', { tag: 'CRF-63' }, 'مرسل الطلب'),
               kv([
                 ['الاسم', sub.name],
                 ['الوظيفة', sub.job_title],
@@ -686,8 +697,10 @@ export default async function render(ctx) {
               h('p.cr-private', icon('lock', { size: 14 }), 'للإدارة فقط — لا تُشارك بيانات موظفي الشركة مع المحامين.'),
             )
           : null,
-        h('div', h('h3.cr-sub-title', `المستندات (${(d.documents || []).length})`), (d.documents || []).length ? h('ul.cr-docs', d.documents.map((x) => docItem(x))) : h('p.muted', 'لا مستندات.')),
+        h('div', h('h3.cr-sub-title', { tag: 'CRF-64' }, `المستندات (${(d.documents || []).length})`), (d.documents || []).length ? h('ul.cr-docs', d.documents.map((x) => docItem(x))) : h('p.muted', 'لا مستندات.')),
       ),
+      titleTag: 'CRF-65',
+      tag: 'CRF-66',
     });
   }
 
@@ -734,12 +747,12 @@ export default async function render(ctx) {
     const r = d.request;
     const closed = ['declined', 'cancelled'].includes(r.status);
     const errHost = h('div.cr-composer-err', { 'aria-live': 'assertive' });
-    const ta = h('textarea.input', { rows: 4, maxlength: 5000, 'aria-label': 'نص الرسالة', placeholder: 'اكتب رسالتك…', dir: 'auto' });
+    const ta = h('textarea.input', { rows: 4, maxlength: 5000, 'aria-label': 'نص الرسالة', placeholder: 'اكتب رسالتك…', dir: 'auto', tag: 'CRF-67' });
     ta.value = composerState.text;
     ta.addEventListener('input', () => (composerState.text = ta.value));
-    const fi = fileInput({ maxFiles: 5, label: 'إرفاق ملفات للشركة', onChange: () => (composerState.files = fi.getFiles()) });
+    const fi = fileInput({ maxFiles: 5, label: 'إرفاق ملفات للشركة', onChange: () => (composerState.files = fi.getFiles()), tag: 'CRF-68' });
     if (composerState.files.length) fi.setFiles(composerState.files);
-    const reviewed = h('input', { type: 'checkbox', checked: composerState.docsReviewed, onChange: () => (composerState.docsReviewed = reviewed.checked) });
+    const reviewed = h('input', { type: 'checkbox', checked: composerState.docsReviewed, onChange: () => (composerState.docsReviewed = reviewed.checked), tag: 'CRF-69' });
     const reviewBox = h(
       'label.check.cr-docs-reviewed',
       { hidden: true },
@@ -748,7 +761,7 @@ export default async function render(ctx) {
     );
     const filesWrap = h('div.cr-composer-files', fi.el, reviewBox);
     const seg = h('div.segmented.cr-mode', { role: 'group', 'aria-label': 'نوع الرسالة' });
-    const sendBtn = button('إرسال للشركة', { variant: 'primary', icon: 'send' });
+    const sendBtn = button('إرسال للشركة', { variant: 'primary', icon: 'send', tag: 'CRF-70' });
     function drawSeg() {
       mount(
         seg,
@@ -765,6 +778,7 @@ export default async function render(ctx) {
                 composerState.mode = v;
                 drawSeg();
               },
+              tag: 'CRF-71',
             },
             icon(ic, { size: 15 }),
             t,
@@ -832,9 +846,9 @@ export default async function render(ctx) {
     const items = threadItems();
     return h(
       'section.card.cr-thread',
-      { id: 'cr-thread' },
-      h('div.card-header', h('div.card-heading', h('span.card-icon', icon('message', { size: 18 })), h('h2.card-title', 'المحادثة مع الشركة'))),
-      h('div.card-body', items.length ? h('ol.cr-msgs', items) : emptyState('لا رسائل بعد.', null, { compact: true, icon: 'message' }), composer()),
+      { id: 'cr-thread', tag: 'CRF-72' },
+      h('div.card-header', h('div.card-heading', h('span.card-icon', icon('message', { size: 18 })), h('h2.card-title', { tag: 'CRF-73' }, 'المحادثة مع الشركة'))),
+      h('div.card-body', items.length ? h('ol.cr-msgs', items) : emptyState('لا رسائل بعد.', null, { compact: true, icon: 'message', tag: 'CRF-74' }), composer()),
     );
   }
 
@@ -847,32 +861,37 @@ export default async function render(ctx) {
       icon: 'briefcase',
       body: h(
         'div.stack',
-        h('p.cr-case', 'ملف العمل الداخلي: ', codeTag(c.code), ' ', badge(c.status_label, 'neutral'), ' ', button('فتح', { variant: 'link', size: 'sm', href: `#/cases/${c.id}` })),
+        h('p.cr-case', 'ملف العمل الداخلي: ', codeTag(c.code), ' ', badge(c.status_label, 'neutral'), ' ', button('فتح', { variant: 'link', size: 'sm', href: `#/cases/${c.id}`, tag: 'CRF-75' })),
         table({
           caption: 'فريق العمل',
           rows,
           empty: 'لم يُسند محامٍ بعد.',
           columns: [
-            { key: 'role', label: 'الدور', render: (a) => a.role_label },
-            { key: 'lawyer', label: 'المحامي', render: (a) => a.lawyer_name },
-            { key: 'status', label: 'الحالة', render: (a) => a.status_label },
-            { key: 'due', label: 'الموعد', render: (a) => (a.due_at ? h('time', { datetime: a.due_at, title: dateTime(a.due_at) }, whenText(a.due_at)) : null) },
+            { key: 'role', label: 'الدور', render: (a) => a.role_label, tag: 'CRF-76' },
+            { key: 'lawyer', label: 'المحامي', render: (a) => a.lawyer_name, tag: 'CRF-77' },
+            { key: 'status', label: 'الحالة', render: (a) => a.status_label, tag: 'CRF-78' },
+            { key: 'due', label: 'الموعد', render: (a) => (a.due_at ? h('time', { datetime: a.due_at, title: dateTime(a.due_at) }, whenText(a.due_at)) : null), tag: 'CRF-79' },
             {
               key: 'grants',
               label: 'صلاحيات الذاكرة',
               render: (a) =>
                 a.status === 'withdrawn'
                   ? null
-                  : h('span.cr-grants', Array.isArray(grantsOf(a)) ? h('span.num', String(grantsOf(a).length)) : null, button('تعديل', { variant: 'link', size: 'sm', onClick: () => openGrants(a) })),
+                  : h('span.cr-grants', Array.isArray(grantsOf(a)) ? h('span.num', String(grantsOf(a).length)) : null, button('تعديل', { variant: 'link', size: 'sm', onClick: () => openGrants(a), tag: 'CRF-80' })),
+                  tag: 'CRF-81',
             },
           ],
+          rowTag: 'CRF-82',
+          tag: 'CRF-83',
         }),
         (c.opinions || []).length
-          ? h('div', h('h3.cr-sub-title', 'الآراء'), h('ul.cr-list', c.opinions.map((o) => h('li', `${label('assignment_role', o.role)} · ${o.lawyer_name} · الإصدار ${o.version} · `, badge(label('opinion_status', o.status), o.status === 'approved' ? 'success' : 'warning')))))
+          ? h('div', h('h3.cr-sub-title', { tag: 'CRF-84' }, 'الآراء'), h('ul.cr-list', c.opinions.map((o) => h('li', `${label('assignment_role', o.role)} · ${o.lawyer_name} · الإصدار ${o.version} · `, badge(label('opinion_status', o.status), o.status === 'approved' ? 'success' : 'warning')))))
           : null,
-        (c.work_files || []).length ? h('div', h('h3.cr-sub-title', 'ملفات عمل المحامين'), h('ul.cr-docs', c.work_files.map((x) => docItem(x, { analyze: false })))) : null,
-        (d.memory_refs || []).length ? h('div', h('h3.cr-sub-title', 'عناصر الذاكرة المرتبطة بالطلب'), h('ul.cr-list', d.memory_refs.map((m) => h('li', `${m.kind_label} · `, h('span', { dir: 'auto' }, m.title))))) : null,
+        (c.work_files || []).length ? h('div', h('h3.cr-sub-title', { tag: 'CRF-85' }, 'ملفات عمل المحامين'), h('ul.cr-docs', c.work_files.map((x) => docItem(x, { analyze: false })))) : null,
+        (d.memory_refs || []).length ? h('div', h('h3.cr-sub-title', { tag: 'CRF-86' }, 'عناصر الذاكرة المرتبطة بالطلب'), h('ul.cr-list', d.memory_refs.map((m) => h('li', `${m.kind_label} · `, h('span', { dir: 'auto' }, m.title))))) : null,
       ),
+      titleTag: 'CRF-87',
+      tag: 'CRF-88',
     });
   }
 
@@ -885,7 +904,7 @@ export default async function render(ctx) {
     return card({
       title: 'التسليمات',
       icon: 'send',
-      actions: accepted && OPEN.includes(d.request.status) ? button('إعداد تسليم', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => openDeliverable() }) : null,
+      actions: accepted && OPEN.includes(d.request.status) ? button('إعداد تسليم', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => openDeliverable(), tag: 'CRF-89' }) : null,
       body: list.length
         ? h(
             'ul.cr-rows',
@@ -896,14 +915,16 @@ export default async function render(ctx) {
                 h('div.cr-row-main', h('strong', { dir: 'auto' }, x.title), h('span.muted', `${x.kind_label} · ${x.final ? 'نهائي' : 'مرحلي'}${x.released_at ? ` · أُرسل ${relative(x.released_at)}` : ''}`), decision(x) ? h('span', decision(x)) : null),
                 badge(x.status_label || x.status, STATUS_TONE[x.status] || 'neutral', { dot: true }),
                 x.status === 'draft'
-                  ? button('متابعة', { variant: 'secondary', size: 'sm', onClick: () => openDeliverable(x) })
+                  ? button('متابعة', { variant: 'secondary', size: 'sm', onClick: () => openDeliverable(x), tag: 'CRF-90' })
                   : x.status === 'released' && isAdmin && x.decision !== 'accepted'
-                    ? button('سحب التسليم', { variant: 'ghost', size: 'sm', onClick: () => withdrawDeliverable(x) })
+                    ? button('سحب التسليم', { variant: 'ghost', size: 'sm', onClick: () => withdrawDeliverable(x), tag: 'CRF-91' })
                     : null,
               ),
             ),
           )
-        : emptyState('لا تسليمات بعد.', null, { compact: true, icon: 'send' }),
+        : emptyState('لا تسليمات بعد.', null, { compact: true, icon: 'send', tag: 'CRF-92' }),
+        titleTag: 'CRF-93',
+        tag: 'CRF-94',
     });
   }
 
@@ -929,7 +950,7 @@ export default async function render(ctx) {
                     h('span.muted', `أُرسل ${relative(q.sent_at)}${q.decided_at ? ` · القرار ${relative(q.decided_at)}` : ''}${q.status === 'sent' ? ` · صالح حتى ${isoToCairoDate(q.valid_until)}` : ''}`),
                   ),
                   badge(q.status_label, q.status === 'approved' ? 'success' : q.status === 'sent' ? 'warning' : 'muted', { dot: true }),
-                  q.status === 'sent' && isAdmin ? button('سحب العرض', { variant: 'ghost', size: 'sm', onClick: () => withdrawQuote(q) }) : null,
+                  q.status === 'sent' && isAdmin ? button('سحب العرض', { variant: 'ghost', size: 'sm', onClick: () => withdrawQuote(q), tag: 'CRF-95' }) : null,
                 ),
               ),
             )
@@ -937,17 +958,19 @@ export default async function render(ctx) {
         charges && charges.length
           ? h(
               'div',
-              h('h3.cr-sub-title', 'التكاليف على هذا الطلب'),
+              h('h3.cr-sub-title', { tag: 'CRF-96' }, 'التكاليف على هذا الطلب'),
               h('ul.cr-list', charges.map((ch) => h('li', `${ch.kind_label || ch.kind} · `, h('span.num', ch.amount_text || ''), ch.voided ? badge('ملغاة', 'muted') : null, h('span.muted', ` · ${relative(ch.created_at)}`)))),
             )
           : null,
       ),
+      titleTag: 'CRF-97',
+      tag: 'CRF-98',
     });
   }
 
   function activityCard() {
     const items = (d.activity || []).map((a) => ({ time: a.created_at, title: a.summary, actor: a.actor_name || null, tone: a.actor_kind === 'company' ? 'info' : 'neutral' }));
-    return h('details.card.cr-log', h('summary.card-header', h('h2.card-title', `السجل (${items.length})`)), h('div.card-body', timeline(items)));
+    return h('details.card.cr-log', { tag: 'CRF-99' }, h('summary.card-header', { tag: 'CRF-100' }, h('h2.card-title', { tag: 'CRF-101' }, `السجل (${items.length})`)), h('div.card-body', timeline(items)));
   }
 
   let focused = false;

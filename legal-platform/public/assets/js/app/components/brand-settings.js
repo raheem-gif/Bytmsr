@@ -166,7 +166,7 @@ export function brandSettingsCard({ user } = {}) {
     const copy = T[role];
     const hexId = `brp-${role}-hex`;
     const errId = `brp-${role}-err`;
-    const color = h('input.brp-color', { type: 'color', 'aria-label': copy.pick, value: state.values[role] });
+    const color = h('input.brp-color', { type: 'color', 'aria-label': copy.pick, value: state.values[role], tag: 'SET-61' });
     const hex = h('input.input.brp-hex', {
       id: hexId,
       type: 'text',
@@ -178,6 +178,7 @@ export function brandSettingsCard({ user } = {}) {
       'aria-label': copy.code,
       'aria-describedby': errId,
       value: state.values[role],
+      tag: 'SET-62',
     });
     const err = h('p.field-error.brp-err', { id: errId, hidden: true });
     const sugg = h('div.brp-sugg', { hidden: true });
@@ -238,10 +239,10 @@ export function brandSettingsCard({ user } = {}) {
   };
 
   // ── اقتراح من صورة الشعار ──
-  const fileInput = h('input.brp-file', { type: 'file', accept: 'image/*', hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
+  const fileInput = h('input.brp-file', { type: 'file', accept: 'image/*', hidden: true, tabindex: '-1', 'aria-hidden': 'true', tag: 'SET-63' });
   const emptyMsg = h('p.brp-empty', { role: 'status', hidden: true }, T.none);
   const helpLine = h('p.brp-help', T.help);
-  const imageBtn = button(T.image, { variant: 'secondary', icon: 'file', className: 'brp-image-btn', onClick: () => fileInput.click() });
+  const imageBtn = button(T.image, { variant: 'secondary', icon: 'file', className: 'brp-image-btn', onClick: () => fileInput.click(), tag: 'SET-64' });
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
     fileInput.value = '';
@@ -274,6 +275,7 @@ export function brandSettingsCard({ user } = {}) {
             style: { background: hex },
             dataset: { hex, role },
             onClick: () => fields[role].pick(hex),
+            tag: 'SET-65',
           }),
         ),
       );
@@ -295,7 +297,7 @@ export function brandSettingsCard({ user } = {}) {
     h('div.brp-side', h('span.brp-nav', h('span.brp-nav-label', T.inbox), h('span.brp-count', '3'))),
   );
   const adjBox = h('div.brp-adj', { role: 'status', hidden: true });
-  const preview = h('div.brp-preview', h('h3.brp-preview-title', T.preview), h('p.field-hint', T.previewCaption), previewFrame, adjBox);
+  const preview = h('div.brp-preview', h('h3.brp-preview-title', { tag: 'SET-66' }, T.preview), h('p.field-hint', T.previewCaption), previewFrame, adjBox);
 
   const renderAdjustments = (theme) => {
     const list = (theme && theme.adjustments) || [];
@@ -325,8 +327,8 @@ export function brandSettingsCard({ user } = {}) {
   const statusLine = h('p.brp-status');
   const dirtyBadge = badge(T.dirty, 'warning', { icon: 'edit' });
   dirtyBadge.hidden = true;
-  const saveBtn = button(T.save, { variant: 'primary', icon: 'check', className: 'brp-save', onClick: () => save() });
-  const resetBtn = button(T.reset, { variant: 'ghost', icon: 'refresh', className: 'brp-reset', onClick: () => reset() });
+  const saveBtn = button(T.save, { variant: 'primary', icon: 'check', className: 'brp-save', onClick: () => save(), tag: 'SET-67' });
+  const resetBtn = button(T.reset, { variant: 'ghost', icon: 'refresh', className: 'brp-reset', onClick: () => reset(), tag: 'SET-68' });
   resetBtn.hidden = true;
 
   const update = () => {
@@ -394,7 +396,7 @@ export function brandSettingsCard({ user } = {}) {
   }
 
   async function reset() {
-    const ok = await confirmDialog({ title: T.resetTitle, message: T.resetMessage, confirmLabel: T.reset });
+    const ok = await confirmDialog({ title: T.resetTitle, message: T.resetMessage, confirmLabel: T.reset, tag: 'SET-69' });
     if (!ok) return;
     setBusy(resetBtn, true);
     try {
@@ -423,7 +425,7 @@ export function brandSettingsCard({ user } = {}) {
     h('div.brp-grid', h('div.brp-fields', buildField('primary'), buildField('accent')), preview),
     h('div.brp-actions', saveBtn, resetBtn),
   );
-  const el = card({ title: T.title, subtitle: T.subtitle, icon: 'flag', body, className: 'brp-card' });
+  const el = card({ title: T.title, subtitle: T.subtitle, icon: 'flag', body, className: 'brp-card', titleTag: 'SET-70', tag: 'SET-71' });
   el.id = 'brand';
   update();
 

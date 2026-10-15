@@ -2,12 +2,15 @@
 // v12 tags-core (TG-2، T12-56…T12-60): أداة رموز العناصر — `npm run tags` (أو node scripts/tags.js).
 //
 //   (بلا أمر) | assign [--dry]   يرقّم كل X-00 بالرقم الحر التالي (خارج النطاقات المحجوزة)، يتحقق، يحدّث الدفتر، يكتب TAGS.md
-//   --check                      يتحقق ويقول هل TAGS.md والدفتر محدَّثان، دون كتابة (0 سليم · 1 أخطاء · 2 يحتاج npm run tags)
+//   --check                      يتحقق ويقول هل TAGS.md والدفتر محدَّثان، دون كتابة (0 سليم · 1 أخطاء · 2 يحتاج npm run tags)؛
+//                                منذ TG-7 يعد عنصرًا أساسيًا بلا رمز (خارج UNTAGGED_BY_DESIGN) خطأً
+
 //   find <رمز أو كلمات>          كل مواقع الرمز ونصه وشاشته (s14 · S 14 · S-١٤ كلها S-14)، أو بحث بالكلمات العربية
 //   next <PREFIX>                الرقم الحر التالي، مثل INB-09
 //   autotag <file…> [--dry] [--prefix X]   يضيف عناصر نائبة X-00 للعناصر الأساسية بلا رمز (لا يختار أرقامًا)
 //   freeze [--force]             يجمّد الدفتر (بوابة 12.0.0): بعده يفشل npm test على أي X-00
-//   coverage [--all]             تقرير العناصر الأساسية بلا رمز لكل ملف (للمسح، لا يفشل)
+//   coverage [--all]             تقرير العناصر الأساسية بلا رمز لكل ملف؛ يفشل (1) على ما ليس بلا رمز عن قصد (TG-7،
+//                                TAGS_ENFORCE=0 قبل التجميد يعيده تقريرًا فقط)
 //   md [--out FILE]              يطبع TAGS.md (أو يكتبه في FILE) دون لمس المصدر أو الدفتر
 //   خيارات عامة: --root DIR (نسخة أخرى من legal-platform، للاختبار)
 import fs from 'node:fs';
@@ -16,7 +19,7 @@ import { ROOT as DEFAULT_ROOT, scanSources, autotagSource, coverageReport } from
 import {
   PAGES, FILES, LEDGER_FILE, TAGS_MD, SHARED_TEXT, normalizeCode, validate, loadLedger, ledgerText, updateLedger, freezeLedger, planAssignments, applyPlan,
   nextFree, codeOf, reservationOf, prefixesOfFile, homePrefixOf, loadModuleData, buildRegistry, renderMarkdown, stripLines, lastTextFrom, readVersion, searchRegistry,
-  countAr, AR,
+  countAr, AR, enforceCoverage, coverageGaps, UNTAGGED_BY_DESIGN,
 } from '../src/tags/registry.js';
 
 const argv = process.argv.slice(2);
@@ -119,6 +122,8 @@ async function cmdCheck() {
   const ledger = loadLedger(root);
   const scan = scanSources({ root });
   const v = validate(scan, { ledger, root });
+  // TG-7 (T12-94): عنصر أساسي بلا رمز خارج UNTAGGED_BY_DESIGN خطأ ما دام الفرض قائمًا
+  if (enforceCoverage(ledger)) for (const g of coverageGaps(coverageReport({ root }))) v.errors.push(`${g.file}: ${countAr(g.untagged, AR.element)} بلا رمز (${g.sample.join(' ')}); npm run tags -- autotag ${g.file}`);
   printValidation(v);
   if (v.errors.length) {
     warn(`${errorsAr(v.errors.length)}.`);
@@ -138,7 +143,8 @@ async function cmdCheck() {
     say(`سليم، لكن: ${stale.join('؛ ')}. شغّلوا npm run tags.`);
     return 2;
   }
-  say(`سليم ومحدَّث (${codesAr(scan.defs.length)}).`);
+  // عدد الرموز لا عدد مواضع تعريفها (للرمز الواحد صيغ في أكثر من موضع)، كما في TAGS.md وصفحة الرموز (review)
+  say(`سليم ومحدَّث (${codesAr(new Set(scan.defs.map((d) => d.code)).size)}).`);
   return 0;
 }
 
@@ -262,9 +268,13 @@ async function cmdFreeze() {
 
 async function cmdCoverage() {
   const r = coverageReport({ root });
-  for (const row of all ? r.rows : r.rows.filter((x) => x.untagged).slice(0, 40)) say(`${String(row.untagged).padStart(4)} / ${String(row.keys).padEnd(4)} ${row.file}  ${row.sample.join(' ')}`);
-  say(`عناصر أساسية: ${r.total} · بلا رمز: ${r.untagged} · مرمَّزة: ${r.tagged} (تقرير فقط؛ يفرضه مسار tags في TG-7).`);
-  return 0;
+  const by = (f) => (UNTAGGED_BY_DESIGN[f] ? `  (عن قصد: ${UNTAGGED_BY_DESIGN[f].why})` : '');
+  for (const row of all ? r.rows : r.rows.filter((x) => x.untagged).slice(0, 40)) say(`${String(row.untagged).padStart(4)} / ${String(row.keys).padEnd(4)} ${row.file}  ${row.sample.join(' ')}${by(row.file)}`);
+  const gaps = coverageGaps(r);
+  const missing = gaps.reduce((n, g) => n + g.untagged - (Number.isFinite(g.allowed) ? g.allowed : 0), 0);
+  const enforced = enforceCoverage(loadLedger(root));
+  say(`عناصر أساسية: ${r.total} · بلا رمز: ${r.untagged} · مرمَّزة: ${r.tagged} · بلا رمز خارج المسموح: ${missing}${enforced ? '' : ' (تقرير فقط: TAGS_ENFORCE=0)'}.`);
+  return enforced && gaps.length ? 1 : 0;
 }
 
 async function cmdMd() {
@@ -279,7 +289,7 @@ async function cmdMd() {
 const COMMANDS = { assign: cmdAssign, check: cmdCheck, find: cmdFind, next: cmdNext, autotag: cmdAutotag, freeze: cmdFreeze, coverage: cmdCoverage, md: cmdMd };
 
 if (help || cmd === 'help' || !COMMANDS[cmd]) {
-  const text = fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).slice(1, 12).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
+  const text = fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').filter((l) => l.startsWith('//')).slice(1, 13).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
   say(text);
   process.exitCode = help || cmd === 'help' ? 0 : 1;
 } else {

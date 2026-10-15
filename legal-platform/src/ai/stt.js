@@ -120,20 +120,53 @@ const inV4 = (ip, cidr) => {
   const mask = bits === '0' ? 0 : (0xffffffff << (32 - Number(bits))) >>> 0;
   return ((v4num(ip) & mask) >>> 0) === ((v4num(base) & mask) >>> 0);
 };
-/** تصنيف عنوان IP: 'metadata' (ممنوع دائمًا) | 'loopback' | 'private' | 'public' */
+/** عنوان IPv6 ← 8 أعداد (16 بت)، ويقبل ذيل IPv4 (::ffff:1.2.3.4) واختصار «::»؛ غير صالح ← null */
+function v6words(a) {
+  let s = String(a || '').toLowerCase().split('%')[0];
+  const dotted = /(\d{1,3}(?:\.\d{1,3}){3})$/.exec(s);
+  if (dotted) {
+    if (!net.isIPv4(dotted[1])) return null;
+    const n = v4num(dotted[1]);
+    s = `${s.slice(0, -dotted[1].length)}${((n >>> 16) & 0xffff).toString(16)}:${(n & 0xffff).toString(16)}`;
+  }
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+  const part = (x) => (x ? x.split(':') : []);
+  const head = part(halves[0]);
+  const tail = halves.length === 2 ? part(halves[1]) : [];
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  if (fill < 0 || (halves.length === 1 && head.length !== 8)) return null;
+  const words = [...head, ...Array(fill).fill('0'), ...tail].map((w) => (/^[0-9a-f]{1,4}$/.test(w) ? parseInt(w, 16) : NaN));
+  return words.length === 8 && words.every((w) => Number.isInteger(w)) ? words : null;
+}
+const v4of = (hi, lo) => [hi >>> 8, hi & 0xff, lo >>> 8, lo & 0xff].join('.');
+/**
+ * تصنيف عنوان IP: 'metadata' (ممنوع دائمًا: بيانات السحابة، غير المحدد، البث والمتعدد) | 'loopback' | 'private' | 'public'.
+ * عناوين IPv6 التي تحمل IPv4 (‎::ffff:a9fe:a9fe‎، ‎::a.b.c.d‎، NAT64 ‎64:ff9b::/96‎، ‎6to4 2002::/16‎) تُصنَّف بعنوانها الداخلي،
+ * فلا يمر ‎[::ffff:169.254.169.254]‎ (يكتبه URL بالصيغة الست عشرية) على أنه «عام» (مراجعة 12.0).
+ */
 export function classifyIp(ip) {
-  let a = String(ip || '').toLowerCase();
-  if (a.startsWith('::ffff:') && net.isIPv4(a.slice(7))) a = a.slice(7);
+  const a = String(ip || '').toLowerCase().replace(/^\[|\]$/g, '');
   if (net.isIPv4(a)) {
-    if (inV4(a, '169.254.0.0/16') || inV4(a, '0.0.0.0/8') || a === '100.100.100.200') return 'metadata';
+    if (inV4(a, '169.254.0.0/16') || inV4(a, '0.0.0.0/8') || a === '100.100.100.200' || a === '192.0.0.192') return 'metadata';
+    if (inV4(a, '224.0.0.0/4') || inV4(a, '240.0.0.0/4')) return 'metadata'; // متعدد، محجوز، 255.255.255.255
     if (inV4(a, '127.0.0.0/8')) return 'loopback';
-    if (inV4(a, '10.0.0.0/8') || inV4(a, '172.16.0.0/12') || inV4(a, '192.168.0.0/16') || inV4(a, '100.64.0.0/10')) return 'private';
+    if (inV4(a, '10.0.0.0/8') || inV4(a, '172.16.0.0/12') || inV4(a, '192.168.0.0/16') || inV4(a, '100.64.0.0/10') || inV4(a, '198.18.0.0/15') || inV4(a, '192.0.0.0/24')) return 'private';
     return 'public';
   }
   if (net.isIPv6(a)) {
-    if (a === 'fd00:ec2::254' || a === '::') return 'metadata';
-    if (a === '::1') return 'loopback';
-    if (/^f[cd][0-9a-f]{2}:/.test(a) || /^fe[89ab][0-9a-f]:/.test(a)) return 'private';
+    const w = v6words(a);
+    if (!w) return 'metadata';
+    const zeros = (n) => w.slice(0, n).every((x) => x === 0);
+    if (zeros(8)) return 'metadata'; // ::
+    if (zeros(7) && w[7] === 1) return 'loopback'; // ::1
+    if (zeros(5) && w[5] === 0xffff) return classifyIp(v4of(w[6], w[7])); // ::ffff:a.b.c.d
+    if (zeros(6)) return classifyIp(v4of(w[6], w[7])); // ::a.b.c.d (متوافق قديم)
+    if (w[0] === 0x64 && w[1] === 0xff9b && (w[2] === 0 || w[2] === 1)) return classifyIp(v4of(w[6], w[7])); // NAT64
+    if (w[0] === 0x2002) return classifyIp(v4of(w[1], w[2])); // 6to4
+    if (w[0] === 0xfd00 && w[1] === 0x0ec2 && w.slice(2, 7).every((x) => x === 0) && w[7] === 0x254) return 'metadata'; // fd00:ec2::254
+    if ((w[0] & 0xff00) === 0xff00) return 'metadata'; // متعدد
+    if ((w[0] & 0xfe00) === 0xfc00 || (w[0] & 0xffc0) === 0xfe80 || (w[0] & 0xffc0) === 0xfec0) return 'private';
     return 'public';
   }
   return 'metadata';

@@ -3,19 +3,21 @@
 // وترويسة وتذييل يتكرران في كل صفحة مطبوعة (رقم المستند وتاريخه). البيانات من GET /api/print/:kind/:id
 // الذي يفرض نفس صلاحيات البيانات الأصلية. ?auto=1 يُظهر حوار الطباعة تلقائيًا بعد التحميل.
 
-import { h, mount } from '../../lib/h.js';
+import { h, mount, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { getMeta, money, num, percent, date, dateTime, count } from '../../lib/fmt.js';
 import { button, errorState, icon } from '../../lib/ui.js';
 import { printIcon } from '../components/print-button.js';
 
 // ───────────────────────── أدوات العرض ─────────────────────────
+// v12 tags (TG-4، T12-21): رموز D لكل كتلة في المستندات المطبوعة وشريط أدواتها (للمالك فقط؛ CSS الطباعة لا يُظهر الشارات).
 
 const code = (v) => (v == null || v === '' ? '—' : h('span.pr-code', { dir: 'ltr', translate: 'no' }, String(v)));
 const ltrText = (v) => h('span', { dir: 'ltr' }, String(v));
 const dash = (v) => (v == null || v === '' ? '—' : v);
 
 function section(title, ...children) {
+  // tags:skip كل كتلة تُرمَّز في موضع استدعائها (tagged('D-NN', section(…)))، وعنوانها جزء منها (T12-21)
   return h('section.pr-section', title && h('h2.pr-h2', title), children);
 }
 
@@ -81,6 +83,7 @@ function renderInvoice(doc) {
   return [
     h(
       'div.pr-parties',
+      { tag: 'D-17' },
       h('div.pr-party', h('div.pr-party-label', 'فاتورة إلى'), h('div.pr-party-name', doc.client?.name || 'المستفيد'), doc.client && h('div.pr-party-sub', 'كود المستفيد: ', code(doc.client.code))),
       h(
         'div.pr-party',
@@ -92,12 +95,12 @@ function renderInvoice(doc) {
         m && m.lawsuit_number && h('div.pr-party-sub', `الدعوى رقم ${m.lawsuit_number}${m.lawsuit_year ? ` لسنة ${m.lawsuit_year}` : ''}`),
       ),
     ),
-    kvGrid([
+    tagged('D-18', kvGrid([
       ['تاريخ الإصدار', date(inv.issued_at)],
       ['تاريخ الاستحقاق', date(inv.due_at)],
       ['حالة الفاتورة', inv.status_label],
-    ], { cols: 3 }),
-    prTable(
+    ], { cols: 3 })),
+    tagged('D-19', prTable(
       [
         { label: 'م', render: () => '1', width: '8%', align: 'center' },
         { label: 'البيان', render: () => h('span', { dir: 'auto' }, inv.description) },
@@ -111,10 +114,10 @@ function renderInvoice(doc) {
           h('tr.pr-total', h('th', { colspan: 2 }, 'المتبقي'), h('th.al-end', money(inv.balance))),
         ],
       },
-    ),
-    h('p.pr-words', h('strong', 'المبلغ بالحروف: '), inv.amount_words),
+    )),
+    h('p.pr-words', { tag: 'D-20' }, h('strong', 'المبلغ بالحروف: '), inv.amount_words),
     doc.payments.length > 0 &&
-      section(
+      tagged('D-21', section(
         'المدفوعات المسجلة على الفاتورة',
         prTable(
           [
@@ -126,10 +129,10 @@ function renderInvoice(doc) {
           ],
           doc.payments,
         ),
-      ),
-    doc.note && h('p.pr-note', icon('info', { size: 14 }), ' ', doc.note),
-    signatures([['المحاسب'], ['اعتماد الإدارة']]),
-    stamp(),
+      )),
+    doc.note && h('p.pr-note', { tag: 'D-22' }, icon('info', { size: 14 }), ' ', doc.note),
+    tagged('D-15', signatures([['المحاسب'], ['اعتماد الإدارة']])),
+    tagged('D-16', stamp()),
   ];
 }
 
@@ -139,6 +142,7 @@ function renderReceipt(doc) {
   return [
     h(
       'div.pr-receipt',
+      { tag: 'D-23' },
       h('div.pr-receipt-amount', h('span', 'المبلغ'), h('strong', money(r.amount))),
       h(
         'div.pr-receipt-lines',
@@ -149,14 +153,14 @@ function renderReceipt(doc) {
         h('p', 'تاريخ الدفع: ', h('strong', date(r.paid_at))),
       ),
     ),
-    sumBox([
+    tagged('D-24', sumBox([
       ['قيمة الفاتورة', money(inv.amount)],
       ['إجمالي المسدد حتى هذا الإيصال', money(inv.paid_to_date)],
       ['المتبقي بعد هذا الإيصال', money(inv.balance_after), inv.balance_after > 0 ? 'warning' : 'success'],
-    ]),
-    signatures([['المستلم', r.recorded_by], ['اعتماد الإدارة']]),
-    stamp(),
-    h('p.pr-note', 'هذا الإيصال لا يُعتد به إلا بعد ختمه بخاتم المؤسسة. يُرجى الاحتفاظ به.'),
+    ])),
+    tagged('D-61', signatures([['المستلم', r.recorded_by], ['اعتماد الإدارة']])),
+    tagged('D-62', stamp()),
+    h('p.pr-note', { tag: 'D-25' }, 'هذا الإيصال لا يُعتد به إلا بعد ختمه بخاتم المؤسسة. يُرجى الاحتفاظ به.'),
   ];
 }
 
@@ -177,19 +181,19 @@ export function answerSubject(title) {
 function renderAnswer(doc, data) {
   const lh = data.letterhead;
   return [
-    doc.is_draft && h('p.pr-draft-note', icon('alert', { size: 14 }), ' مسودة لم تُرسل للمستفيد بعد — غير معتمدة للتسليم.'),
-    kvGrid([
+    doc.is_draft && h('p.pr-draft-note', { tag: 'D-26' }, icon('alert', { size: 14 }), ' مسودة لم تُرسل للمستفيد بعد — غير معتمدة للتسليم.'),
+    tagged('D-27', kvGrid([
       ['رقم الملف', code(doc.case.code)],
       ['المجال', doc.case.legal_area_label],
-    ]),
-    h('div.pr-letter', h('p.pr-to', 'إلى: ', h('strong', doc.recipient?.name || 'صاحب الشأن')), doc.recipient && h('p.pr-to-sub', 'كود المستفيد: ', code(doc.recipient.code))),
-    h('p.pr-subject', h('strong', 'الموضوع: '), answerSubject(doc.case.title)),
+    ])),
+    h('div.pr-letter', { tag: 'D-28' }, h('p.pr-to', 'إلى: ', h('strong', doc.recipient?.name || 'صاحب الشأن')), doc.recipient && h('p.pr-to-sub', 'كود المستفيد: ', code(doc.recipient.code))),
+    h('p.pr-subject', { tag: 'D-29' }, h('strong', 'الموضوع: '), answerSubject(doc.case.title)),
     // نص الرد قد يتضمن تحيته وختامه (صيغ لإرساله عبر واتساب)؛ لا نكررهما في الخطاب
-    !hasGreeting(doc.body) && h('p.pr-greeting', 'تحية طيبة وبعد،'),
-    h('div.pr-letter-body', paragraphs(doc.body)),
-    !hasClosing(doc.body) && h('p.pr-closing', 'وتفضلوا بقبول فائق الاحترام والتقدير،'),
-    h('div.pr-org-sign', h('div.pr-org-sign-name', lh.org_legal_name), h('div', lh.program_name), stamp()),
-    doc.disclaimer && h('p.pr-note.pr-disclaimer', doc.disclaimer),
+    !hasGreeting(doc.body) && h('p.pr-greeting', { tag: 'D-30' }, 'تحية طيبة وبعد،'),
+    h('div.pr-letter-body', { tag: 'D-31' }, paragraphs(doc.body)),
+    !hasClosing(doc.body) && h('p.pr-closing', { tag: 'D-32' }, 'وتفضلوا بقبول فائق الاحترام والتقدير،'),
+    h('div.pr-org-sign', { tag: 'D-33' }, h('div.pr-org-sign-name', lh.org_legal_name), h('div', lh.program_name), stamp()),
+    doc.disclaimer && h('p.pr-note.pr-disclaimer', { tag: 'D-34' }, doc.disclaimer),
   ];
 }
 
@@ -197,22 +201,22 @@ function renderStatement(doc) {
   const t = doc.totals;
   const totalEntries = doc.entries.reduce((s, e) => s + Number(e.amount || 0), 0);
   return [
-    kvGrid([
+    tagged('D-35', kvGrid([
       ['المحامي', h('strong', doc.lawyer.name)],
       ['رقم القيد بالنقابة', doc.lawyer.bar_number ? ltrText(doc.lawyer.bar_number) : null],
       ['الفترة', doc.period_label],
       ['نوع الاتفاق', doc.agreement_type_label],
       ['الاتفاق', doc.agreement_text],
       doc.package_remaining != null && ['الرصيد المتبقي من الباقة', count(doc.package_remaining, 'consultation')],
-    ]),
-    sumBox([
+    ])),
+    tagged('D-36', sumBox([
       ['الرصيد الافتتاحي', money(t.opening)],
       ['المستحق خلال الفترة', money(t.accrued)],
       ['المصروف خلال الفترة', money(t.paid)],
       ['الرصيد الختامي المستحق', money(t.closing), t.closing > 0 ? 'warning' : 'success'],
-    ]),
-    t.closing_words && h('p.pr-words', h('strong', 'الرصيد الختامي بالحروف: '), t.closing_words),
-    section(
+    ])),
+    t.closing_words && h('p.pr-words', { tag: 'D-37' }, h('strong', 'الرصيد الختامي بالحروف: '), t.closing_words),
+    tagged('D-38', section(
       'قيود المستحقات خلال الفترة',
       prTable(
         [
@@ -226,8 +230,8 @@ function renderStatement(doc) {
         doc.entries,
         { empty: 'لا توجد قيود خلال هذه الفترة', foot: doc.entries.length ? h('tr.pr-total', h('th', { colspan: 5 }, 'إجمالي القيود'), h('th.al-end', money(totalEntries))) : null },
       ),
-    ),
-    section(
+    )),
+    tagged('D-39', section(
       'المبالغ المصروفة خلال الفترة',
       prTable(
         [
@@ -239,21 +243,21 @@ function renderStatement(doc) {
         doc.payouts,
         { empty: 'لم تُصرف مبالغ خلال هذه الفترة' },
       ),
-    ),
-    kvGrid([
+    )),
+    tagged('D-40', kvGrid([
       ['الاستشارات المعتمدة خلال الفترة', num(doc.approved_consultations)],
       ['المساهمات التطوعية', doc.contributions.count ? `${count(doc.contributions.count, 'consultation')} بقيمة تقديرية ${money(doc.contributions.value)}` : 'لا توجد'],
-    ]),
-    h('p.pr-note', 'الرصيد الختامي = الرصيد الافتتاحي + المستحق خلال الفترة − المصروف خلال الفترة. القيود الملغاة لا تظهر في الكشف.'),
-    signatures([['المحاسب'], ['توقيع المحامي بالاستلام']]),
+    ])),
+    h('p.pr-note', { tag: 'D-41' }, 'الرصيد الختامي = الرصيد الافتتاحي + المستحق خلال الفترة − المصروف خلال الفترة. القيود الملغاة لا تظهر في الكشف.'),
+    tagged('D-63', signatures([['المحاسب'], ['توقيع المحامي بالاستلام']])),
   ];
 }
 
 function renderCaseSummary(doc) {
   const c = doc.case;
   return [
-    h('p.pr-confidential', icon('lock', { size: 14 }), ' سري — للاستخدام الداخلي في ملفات المؤسسة فقط. لا يُسلَّم للمستفيد ولا للمحامين.'),
-    kvGrid([
+    h('p.pr-confidential', { tag: 'D-42' }, icon('lock', { size: 14 }), ' سري — للاستخدام الداخلي في ملفات المؤسسة فقط. لا يُسلَّم للمستفيد ولا للمحامين.'),
+    tagged('D-43', kvGrid([
       ['رقم الملف', code(c.code)],
       ['العنوان', c.title],
       ['المجال القانوني', c.legal_area_label],
@@ -270,16 +274,16 @@ function renderCaseSummary(doc) {
       ['قناة الوصول', c.channel_label],
       ['برنامج التمويل', doc.program ? h('span', code(doc.program.code), ' ', doc.program.name) : 'غير مرتبط ببرنامج'],
       ['الملف المستمر', doc.matter ? h('span', code(doc.matter.code), ` — ${doc.matter.status_label}`) : null],
-    ]),
-    section('ملخص الوقائع (المتاح للمحامين)', c.facts_shared ? h('div.pr-text', paragraphs(c.facts_shared)) : h('p.pr-muted', 'لم يُكتب ملخص.')),
-    c.facts_internal && section('ملاحظات داخلية', h('div.pr-text', paragraphs(c.facts_internal))),
-    section(
+    ])),
+    tagged('D-44', section('ملخص الوقائع (المتاح للمحامين)', c.facts_shared ? h('div.pr-text', paragraphs(c.facts_shared)) : h('p.pr-muted', 'لم يُكتب ملخص.'))),
+    c.facts_internal && tagged('D-45', section('ملاحظات داخلية', h('div.pr-text', paragraphs(c.facts_internal)))),
+    tagged('D-46', section(
       'المسائل القانونية',
       doc.issues.length
         ? h('ol.pr-issues', doc.issues.map((i) => h('li', h('strong', i.title), i.status !== 'active' ? ` (${i.status_label})` : '', i.legal_area_label ? ` — ${i.legal_area_label}` : '', i.details && h('div.pr-muted', { dir: 'auto' }, i.details))))
         : h('p.pr-muted', 'لا توجد مسائل مسجلة.'),
-    ),
-    section(
+    )),
+    tagged('D-47', section(
       'فريق العمل',
       prTable(
         [
@@ -294,9 +298,9 @@ function renderCaseSummary(doc) {
         doc.team,
         { empty: 'لم يُسند الملف لأي محامٍ' },
       ),
-    ),
+    )),
     doc.requests.length > 0 &&
-      section(
+      tagged('D-48', section(
         'طلبات المعلومات والمستندات',
         prTable(
           [
@@ -307,9 +311,9 @@ function renderCaseSummary(doc) {
           ],
           doc.requests,
         ),
-      ),
+      )),
     doc.answers.length > 0 &&
-      section(
+      tagged('D-49', section(
         'الردود على المستفيد',
         prTable(
           [
@@ -319,9 +323,9 @@ function renderCaseSummary(doc) {
           ],
           doc.answers,
         ),
-      ),
+      )),
     doc.documents.length > 0 &&
-      section(
+      tagged('D-50', section(
         `المستندات (${count(doc.documents.length, 'document')})`,
         prTable(
           [
@@ -331,9 +335,9 @@ function renderCaseSummary(doc) {
           ],
           doc.documents,
         ),
-      ),
+      )),
     doc.cost &&
-      section(
+      tagged('D-51', section(
         'تكلفة الملف',
         sumBox([
           ['مباشرة', money(doc.cost.direct)],
@@ -342,8 +346,8 @@ function renderCaseSummary(doc) {
           ['الإجمالي', money(doc.cost.total), 'warning'],
           doc.cost.pro_bono_value ? ['قيمة المساهمات التطوعية', money(doc.cost.pro_bono_value), 'success'] : null,
         ]),
-      ),
-    section(
+      )),
+    tagged('D-52', section(
       doc.timeline_total > doc.timeline.length ? `السجل الزمني (أحدث ${num(doc.timeline.length)} من ${count(doc.timeline_total, ['حدث', 'حدثين', 'أحداث', 'حدثًا'])})` : 'السجل الزمني',
       prTable(
         [
@@ -354,7 +358,7 @@ function renderCaseSummary(doc) {
         doc.timeline,
         { empty: 'لا توجد أحداث', className: 'pr-table-compact' },
       ),
-    ),
+    )),
   ];
 }
 
@@ -364,7 +368,7 @@ function renderProgramme(doc) {
   const im = doc.impact || {};
   const pct = s.utilization == null ? 0 : Math.min(100, s.utilization * 100);
   return [
-    kvGrid([
+    tagged('D-53', kvGrid([
       ['البرنامج', h('strong', p.name)],
       ['رقم البرنامج', code(p.code)],
       ['الجهة الممولة', p.funder_name],
@@ -375,9 +379,9 @@ function renderProgramme(doc) {
       ['التقرير حتى تاريخ', date(doc.date)],
       ['المجالات المشمولة', p.eligible_areas.length ? p.eligible_areas.join('، ') : 'كل المجالات'],
       ['النطاق الجغرافي', p.eligible_governorates.length ? p.eligible_governorates.join('، ') : 'على مستوى الجمهورية'],
-    ]),
-    p.description && h('div.pr-text', paragraphs(p.description)),
-    section(
+    ])),
+    p.description && h('div.pr-text', { tag: 'D-54' }, paragraphs(p.description)),
+    tagged('D-55', section(
       'الموقف المالي',
       sumBox([
         ['الميزانية', money(s.budget)],
@@ -399,9 +403,9 @@ function renderProgramme(doc) {
         { foot: h('tr.pr-total', h('th', 'الإجمالي'), h('th.al-end', money(s.spend)), h('th.al-end', s.spend > 0 ? percent(1) : '—')) },
       ),
       s.in_kind_count > 0 && h('p.pr-muted', `إضافة إلى ذلك قدّم محامون متطوعون وشركاء مسؤولية مجتمعية ${count(s.in_kind_count, 'consultation')} بقيمة تقديرية ${money(s.in_kind_value)} دون خصم من الميزانية.`),
-    ),
+    )),
     doc.monthly.length > 0 &&
-      section(
+      tagged('D-56', section(
         'الإنفاق الشهري',
         prTable(
           [
@@ -412,8 +416,8 @@ function renderProgramme(doc) {
           doc.monthly,
           { className: 'pr-table-compact' },
         ),
-      ),
-    section(
+      )),
+    tagged('D-57', section(
       'المستفيدون والنتائج',
       sumBox([
         ['الأسر المستفيدة', num(s.families)],
@@ -430,8 +434,8 @@ function renderProgramme(doc) {
         prTable([{ label: 'المحافظة', render: (o) => o.label }, { label: 'الأسر', render: (o) => num(o.families), align: 'end' }], im.by_governorate || [], { className: 'pr-table-compact' }),
       ),
       im.external && Array.isArray(im.external.items) && im.external.items.length > 0 && kvGrid(im.external.items.map((x) => [x.label, x.value == null ? '—' : String(x.value)])),
-    ),
-    section(
+    )),
+    tagged('D-58', section(
       'الملفات الممولة من البرنامج',
       prTable(
         [
@@ -445,10 +449,10 @@ function renderProgramme(doc) {
         doc.cases,
         { empty: 'لا توجد ملفات مرتبطة بالبرنامج', className: 'pr-table-compact' },
       ),
-    ),
-    p.restrictions && section('قيود الصرف وشروط الجهة الممولة', h('div.pr-text', paragraphs(p.restrictions))),
-    h('p.pr-note', 'أُعد هذا التقرير آليًا من منصة التشغيل القانوني. لا يتضمن أسماء المستفيدين أو بيانات التواصل معهم حفاظًا على خصوصيتهم؛ وتحتفظ المؤسسة بالمستندات المؤيدة للإنفاق لدى الإدارة المالية.'),
-    signatures([['مدير البرنامج'], ['المدير المالي'], ['اعتماد الإدارة التنفيذية']]),
+    )),
+    p.restrictions && tagged('D-59', section('قيود الصرف وشروط الجهة الممولة', h('div.pr-text', paragraphs(p.restrictions)))),
+    h('p.pr-note', { tag: 'D-60' }, 'أُعد هذا التقرير آليًا من منصة التشغيل القانوني. لا يتضمن أسماء المستفيدين أو بيانات التواصل معهم حفاظًا على خصوصيتهم؛ وتحتفظ المؤسسة بالمستندات المؤيدة للإنفاق لدى الإدارة المالية.'),
+    tagged('D-64', signatures([['مدير البرنامج'], ['المدير المالي'], ['اعتماد الإدارة التنفيذية']])),
   ];
 }
 
@@ -484,6 +488,7 @@ function letterheadEl(data) {
   const lh = letterheadOf(data);
   return h(
     'header.pr-letterhead',
+    { tag: 'D-01' },
     h(
       'div.pr-brand',
       h('span.pr-logo', { 'aria-hidden': 'true' }, icon('scale', { size: 30 })),
@@ -491,6 +496,7 @@ function letterheadEl(data) {
     ),
     h(
       'div.pr-docmeta',
+      { tag: 'D-02' },
       h('div.pr-doc-row', h('span', 'الرقم: '), code(data.number)),
       h('div.pr-doc-row', h('span', 'التاريخ: '), h('span', date(data.date))),
     ),
@@ -502,6 +508,7 @@ function footerEl(data, kind) {
   const contact = [lh.address, lh.phone && h('span', 'هاتف: ', ltrText(lh.phone)), lh.email && ltrText(lh.email), lh.facebook && ltrText(lh.facebook.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))].filter(Boolean);
   return h(
     'footer.pr-footer',
+    { tag: 'D-03' },
     h(
       'div.pr-footer-contact',
       contact.map((c, i) => [i > 0 && h('span.pr-sep', { 'aria-hidden': 'true' }, ' • '), c]),
@@ -520,8 +527,9 @@ function footerEl(data, kind) {
 
 function monthInput(value, labelText) {
   const id = `pr-${labelText === 'من' ? 'from' : 'to'}`;
+  // tags:skip الحقل داخل وحدته المرمَّزة D-14 (التسمية والحقل معًا، T12-09)
   const input = h('input.input.pr-month', { type: 'month', id, value: value || '', dir: 'ltr' });
-  return { input, el: h('label.pr-period-field', { htmlFor: id }, h('span', labelText), input) };
+  return { input, el: h('label.pr-period-field', { htmlFor: id, tag: 'D-14' }, h('span', labelText), input) };
 }
 
 function toolbar(ctx, { canPrint, kind, id, data }) {
@@ -540,6 +548,7 @@ function toolbar(ctx, { canPrint, kind, id, data }) {
       h(
         'form.pr-period',
         {
+          tag: 'D-12',
           onSubmit: (e) => {
             e.preventDefault();
             const q = new URLSearchParams(Object.entries({ from: from.input.value, to: to.input.value }).filter(([, v]) => v)).toString();
@@ -548,23 +557,24 @@ function toolbar(ctx, { canPrint, kind, id, data }) {
         },
         from.el,
         to.el,
-        button('تحديث الفترة', { type: 'submit', size: 'sm', icon: 'refresh' }),
+        button('تحديث الفترة', { type: 'submit', size: 'sm', icon: 'refresh', tag: 'D-13' }),
       ),
     );
   }
   return h(
     'div.print-toolbar.no-print',
+    { tag: 'D-08' },
     h(
       'div.print-toolbar-row',
       canPrint &&
         h(
           'button.btn.btn-primary',
-          { type: 'button', onClick: () => window.print() },
+          { type: 'button', onClick: () => window.print(), tag: 'D-09' },
           printIcon(18),
           h('span.btn-label', 'طباعة أو حفظ PDF'),
         ),
-      button('رجوع', { icon: 'arrowRight', variant: 'ghost', onClick: back }),
-      canPrint && h('span.print-toolbar-hint', 'لحفظ نسخة إلكترونية اختر «حفظ بتنسيق PDF» من نافذة الطباعة، واضبط الورق على A4.'),
+      button('رجوع', { icon: 'arrowRight', variant: 'ghost', onClick: back, tag: 'D-10' }),
+      canPrint && h('span.print-toolbar-hint', { tag: 'D-11' }, 'لحفظ نسخة إلكترونية اختر «حفظ بتنسيق PDF» من نافذة الطباعة، واضبط الورق على A4.'),
     ),
     extra,
   );
@@ -597,14 +607,14 @@ export default async function render(ctx) {
 
   const body = h(
     'div.pr-body',
-    paidStamp && h('div.pr-paid-stamp', { 'aria-hidden': 'true' }, 'مسددة'),
-    h('h1.pr-title', data.title),
+    paidStamp && h('div.pr-paid-stamp', { 'aria-hidden': 'true', tag: 'D-06' }, 'مسددة'),
+    h('h1.pr-title', { tag: 'D-04' }, data.title),
     RENDERERS[kind](doc, data),
   );
   const sheet = h(
     'article.print-sheet',
-    { class: [`pr-kind-${kind}`, watermark && 'has-watermark'], 'aria-label': `${data.kind_label} رقم ${data.number}` },
-    watermark && h('div.pr-watermark', { 'aria-hidden': 'true' }, watermark),
+    { class: [`pr-kind-${kind}`, watermark && 'has-watermark'], 'aria-label': `${data.kind_label} رقم ${data.number}`, tag: 'D-07' },
+    watermark && h('div.pr-watermark', { 'aria-hidden': 'true', tag: 'D-05' }, watermark),
     h(
       'table.print-frame',
       { role: 'presentation' },

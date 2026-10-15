@@ -250,7 +250,10 @@ export function createAi(app) {
 
   let cfg = readConfig();
   let anthropic = null;
+  // v12 media (MD-10): مزوّد لنموذج قراءة المستندات حين يختلف عن نموذج التكامل (ocr_model)
+  const ocrProviders = new Map();
   function build() {
+    ocrProviders.clear();
     anthropic =
       cfg.mode !== 'heuristic' && cfg.apiKey
         ? createAnthropicProvider({
@@ -909,6 +912,50 @@ export function createAi(app) {
 
     checkBudget,
 
+    /**
+     * v12 media (MD-10، L12-19): هل تسمح الميزانية بقراءة pages صفحة بـ Claude؟ التقدير قبل الاستدعاء = الصفحات × (3.5K رمز
+     * إدخال + 1.5K إخراج) بسعر النموذج، ويجب أن يتسع في المتبقي من السقف الشهري وفي حصة القراءة منه (ocr_claude_budget_pct).
+     * → { ok, reason?: 'ai_off' | 'budget' | 'budget_share', model, estimate_usd }
+     */
+    ocrAllowance({ pages = 1, model = null } = {}) {
+      const a = active();
+      const m = String(model || cfg.model);
+      if (!a.provider) return { ok: false, reason: a.budget ? 'budget' : 'ai_off', model: m };
+      const n = Math.max(1, Number(pages) || 1);
+      const est = estimateCostMicroUsd(m, { input_tokens: 3500 * n, output_tokens: 1500 * n });
+      if (cfg.budgetUsd) {
+        const limitM = Math.round(cfg.budgetUsd * 1e6);
+        const period = periodOf(nowIso());
+        if (spentMicro(period) + est > limitM) return { ok: false, reason: 'budget', model: m };
+        const raw = Number(app.settings.get('ocr_claude_budget_pct'));
+        const pct = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 20;
+        const ocrSpent = Number(db.value("SELECT COALESCE(SUM(cost_micro_usd), 0) FROM ai_usage WHERE period = ? AND feature = 'document_ocr' AND provider = 'anthropic'", period)) || 0;
+        if (ocrSpent + est > Math.floor((limitM * pct) / 100)) return { ok: false, reason: 'budget_share', model: m };
+      }
+      return { ok: true, model: m, estimate_usd: est / 1e6 };
+    },
+
+    /**
+     * v12 media (MD-10): نص صفحة واحدة بـ Claude من صورتها (لا PDF أبدًا). يُسجَّل في ai_usage بالوظيفة document_ocr.
+     * يرمي AiUnavailable (ai_off / budget / budget_share / unsupported / خطأ الخدمة) فيعود media.js إلى Tesseract.
+     */
+    async ocrPage({ buffer, mime, page = 1, model = null, documentId = null } = {}) {
+      const allow = svc.ocrAllowance({ pages: 1, model });
+      if (!allow.ok) throw new AiUnavailable(allow.reason, allow.reason);
+      const { block, reason } = documentBlockFor({ mime, buffer });
+      if (!block || block.type !== 'image') throw new AiUnavailable(reason || 'unsupported', 'unsupported');
+      let prov = anthropic;
+      if (allow.model !== cfg.model) {
+        prov = ocrProviders.get(allow.model);
+        if (!prov) {
+          prov = createAnthropicProvider({ apiKey: cfg.apiKey, model: allow.model, effort: 'low', log: app.log, orgName: () => app.brand.displayName(), onUsage: (rec) => recordUsage(rec) });
+          ocrProviders.set(allow.model, prov);
+        }
+      }
+      const out = await prov.ocrPage({ block, page }, { feature: 'document_ocr', entity_type: 'document', entity_id: documentId });
+      return { text: String(out.text || ''), legible: out.legible !== false, language: out.language || null, model: out._model || allow.model };
+    },
+
     /** لوحة الاستهلاك: تكلفة الشهر، الاستدعاءات حسب الوظيفة والنموذج، الأخطاء، والاتجاه الشهري */
     usage({ period } = {}) {
       const p = isValidPeriod(period) ? period : periodOf(nowIso());
@@ -939,7 +986,7 @@ export function createAi(app) {
       const totals = norm(db.get(`SELECT ${agg} FROM ai_usage WHERE period = ?`, p));
       const byFeature = db
         .all(`SELECT feature, ${agg} FROM ai_usage WHERE period = ? GROUP BY feature ORDER BY cost_micro DESC, calls DESC`, p)
-        .map((r) => ({ feature: r.feature, label: LABELS.ai_feature?.[r.feature] || r.feature, ...norm(r) }));
+        .map((r) => ({ feature: r.feature, label: LABELS.ai_feature?.[r.feature] || (r.feature === 'document_ocr' ? 'قراءة نص المستندات' : r.feature), ...norm(r) }));
       // v12 media (MD-6): سطر «تحويل الصوت» من media_usage (ميزانيته منفصلة في تكامل تحويل الصوت، فلا يدخل في المجموع)
       try {
         const st = db.get("SELECT COUNT(*) AS calls, SUM(ok = 0) AS errors, COALESCE(SUM(cost_micro_usd), 0) AS cost_micro, COALESCE(SUM(seconds), 0) AS seconds FROM media_usage WHERE period = ? AND kind = 'stt'", p);

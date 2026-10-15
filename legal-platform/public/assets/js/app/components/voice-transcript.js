@@ -62,6 +62,7 @@ export function speedControl(audio) {
         const a = get();
         if (a) a.playbackRate = Number(sel.value) || 1;
       },
+      tag: 'VTR-11',
     },
     SPEEDS.map((s) => h('option', { value: s.value }, s.label)),
   );
@@ -191,10 +192,10 @@ export function voiceTranscriptEditor(note, { audio = null, withPlayer = false, 
         err.hidden = true;
         await save({ text });
       },
-      { variant: 'primary', size: 'sm', icon: 'check', className: 'pa-vt-save' },
+      { variant: 'primary', size: 'sm', icon: 'check', className: 'pa-vt-save', tag: 'VTR-12' },
     );
     confirmBtn.dataset.tag = 'VTR-05';
-    const unclearBtn = asyncButton(VT_AUTO.unclear, () => save({ unclear: true }), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-vt-unclear' });
+    const unclearBtn = asyncButton(VT_AUTO.unclear, () => save({ unclear: true }), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-vt-unclear', tag: 'VTR-13' });
     unclearBtn.dataset.tag = 'VTR-06';
     const a = target();
     const refresh = () => {
@@ -234,6 +235,7 @@ export function voiceTranscriptEditor(note, { audio = null, withPlayer = false, 
       dir: 'auto',
       placeholder: 'اكتب ما قالته المستفيدة بكلامها',
       'aria-describedby': `${id}-hint`,
+      tag: 'VTR-14',
     });
     ta.value = t.status === 'confirmed' ? t.text || '' : '';
     ta.addEventListener('input', () => (dirty = ta.value.trim() !== '')); // v12 media: التحديث الدوري لا يمس نصًا يُكتب
@@ -251,9 +253,9 @@ export function voiceTranscriptEditor(note, { audio = null, withPlayer = false, 
         err.hidden = true;
         await save({ text });
       },
-      { variant: 'primary', size: 'sm', icon: 'check', className: 'pa-vt-save' },
+      { variant: 'primary', size: 'sm', icon: 'check', className: 'pa-vt-save', tag: 'VTR-15' },
     );
-    const unclearBtn = asyncButton('الرسالة مش مفهومة', () => save({ unclear: true }), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-vt-unclear' });
+    const unclearBtn = asyncButton('الرسالة مش مفهومة', () => save({ unclear: true }), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-vt-unclear', tag: 'VTR-16' });
     ta.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -279,6 +281,7 @@ export function voiceTranscriptEditor(note, { audio = null, withPlayer = false, 
               draw();
               root.querySelector('.pa-vt-edit-btn')?.focus();
             },
+            tag: 'VTR-17',
           }),
       ),
     );
@@ -299,6 +302,7 @@ export function voiceTranscriptEditor(note, { audio = null, withPlayer = false, 
             draw();
             root.querySelector('textarea')?.focus();
           },
+          tag: 'VTR-18',
         });
     if (t.status === 'unclear') {
       return h('div.pa-vt-done', h('p.pa-vt-meta', h('span', `غير مفهومة — ${by}`), edit));

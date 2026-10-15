@@ -53,15 +53,16 @@ function draftCard(ctx) {
     h('p', copy('newRequest.draft', { type: typeLabel(d.type), when: relative(d.saved_at ? new Date(d.saved_at).toISOString() : null) })),
     h(
       'div.co-draft-actions',
-      button(N.draft_continue, { variant: 'primary', onClick: () => ctx.navigate(`/requests/new/${d.type}${d.step === 2 ? '?step=2' : ''}`) }),
+      button(N.draft_continue, { variant: 'primary', onClick: () => ctx.navigate(`/requests/new/${d.type}${d.step === 2 ? '?step=2' : ''}`), tag: 'CN-01' }),
       button(N.draft_delete, {
         variant: 'ghost',
         onClick: async () => {
-          if (!(await confirmDialog({ title: N.draft_delete_confirm, message: N.draft_delete_text, confirmLabel: N.draft_delete, cancelLabel: N.cancel, danger: true }))) return;
+          if (!(await confirmDialog({ title: N.draft_delete_confirm, message: N.draft_delete_text, confirmLabel: N.draft_delete, cancelLabel: N.cancel, danger: true, tag: 'CN-02' }))) return;
           clearDraft();
           form = null;
           card.remove();
         },
+        tag: 'CN-03',
       }),
     ),
   );
@@ -86,7 +87,7 @@ async function tiles(ctx) {
       REQUEST_TYPES.map((t) =>
         h(
           'a.co-type-tile',
-          { href: `#/requests/new/${t.key}${q}` },
+          { href: `#/requests/new/${t.key}${q}`, tag: t.tag },
           typeIcon(t.key, { size: 28 }),
           h('span.co-type-tile-label', t.company_label),
           h('span.co-type-tile-sub', { lang: t.sub_lang || null, dir: t.sub_lang ? 'ltr' : null }, t.sub),
@@ -164,16 +165,16 @@ function buildUi(ctx, data) {
   const plan = data.plan;
   const ui = { errors: {} };
   // — الخطوة 1: التفاصيل —
-  const desc = h('textarea.input', { rows: 5, dir: 'auto', 'aria-required': 'true', maxlength: REQUEST_LIMITS.description_max, value: f.description });
-  const descWrap = field(t.description_label, desc, { required: true, hint: t.description_hint, full: true });
+  const desc = h('textarea.input', { rows: 5, dir: 'auto', 'aria-required': 'true', maxlength: REQUEST_LIMITS.description_max, value: f.description, tag: 'CN-04' });
+  const descWrap = field(t.description_label, desc, { required: true, hint: t.description_hint, full: true, tag: 'CN-05' });
   const left = Math.max(0, REQUEST_LIMITS.files_per_request);
   ui.uploader = coUploader({ max: REQUEST_LIMITS.files_per_call, perRequestLeft: left, initial: f.uploads, onChange: () => { ui.docWrap.setError(''); refreshSummary(); saveDraftSoon(); } });
   const docLabel = t.requires_document ? t.document_label : N.documents;
-  ui.docWrap = field(docLabel, ui.uploader.el, { required: t.requires_document, hint: !t.requires_document && t.document_label ? t.document_label : null, full: true, group: true });
+  ui.docWrap = field(docLabel, ui.uploader.el, { required: t.requires_document, hint: !t.requires_document && t.document_label ? t.document_label : null, full: true, group: true, tag: 'CN-06' });
   const expired = (f.uploads || []).filter((u) => u.expires_at && Date.parse(u.expires_at) <= Date.now());
   if (expired.length) ui.uploader.setError(copy('uploader.expired', { names: expired.map((u) => u.filename).join('، ') }));
-  const titleIn = h('input.input', { type: 'text', dir: 'auto', maxlength: REQUEST_LIMITS.title_max, value: f.title });
-  const titleWrap = field(N.title_field, titleIn);
+  const titleIn = h('input.input', { type: 'text', dir: 'auto', maxlength: REQUEST_LIMITS.title_max, value: f.title, tag: 'CN-07' });
+  const titleWrap = field(N.title_field, titleIn, { tag: 'CN-08' });
   const memoryTitles = Object.fromEntries((data.memory || []).map((m) => [m.id, m.title]));
   const syncTitle = () => {
     if (f.titleEdited) return;
@@ -210,7 +211,7 @@ function buildUi(ctx, data) {
   ui.step1Alert = h('p.co-send-error', { role: 'alert', hidden: true });
   ui.s1 = h(
     'section.co-nr-s1.co-section',
-    h('header.co-section-head', h('h2.co-section-title', N.step1), h('p.co-nr-step-count.num.co-phone-only', copy('newRequest.step', { i: 1 }))),
+    { tag: 'CN-09' }, h('header.co-section-head', { tag: 'CN-10' }, h('h2.co-section-title', { tag: 'CN-11' }, N.step1), h('p.co-nr-step-count.num.co-phone-only', copy('newRequest.step', { i: 1 }))),
     h('div.co-nr-form', ui.typeFields.el, t.requires_document ? null : ui.docWrap, titleWrap, ui.step1Alert),
   );
   ui.descWrap = descWrap;
@@ -233,9 +234,9 @@ function buildUi(ctx, data) {
     columns: 1,
     className: 'co-urgency',
     options: [
-      { value: 'normal', label: N.normal, hint: hintFor('normal') },
-      { value: 'high', label: N.high, hint: hintFor('high') },
-      { value: 'urgent', label: N.urgent, hint: [hintFor('urgent'), urgentLeft != null ? copy('newRequest.urgent_left', { n: urgentLeft, m: q.urgent_included }) : ''].filter(Boolean).join(' · ') },
+      { value: 'normal', label: N.normal, hint: hintFor('normal'), tag: 'CN-12' },
+      { value: 'high', label: N.high, hint: hintFor('high'), tag: 'CN-13' },
+      { value: 'urgent', label: N.urgent, hint: [hintFor('urgent'), urgentLeft != null ? copy('newRequest.urgent_left', { n: urgentLeft, m: q.urgent_included }) : ''].filter(Boolean).join(' · '), tag: 'CN-14' },
     ],
     onChange: (v) => {
       f.priority = v || 'normal';
@@ -245,20 +246,21 @@ function buildUi(ctx, data) {
       refreshSummary();
       saveDraftSoon();
     },
+    tag: 'CN-15',
   });
   const urgentNone = h('p.co-hint-warning', { hidden: !(f.priority === 'urgent' && urgentLeft === 0) }, icon('info', { size: 16 }), h('span', N.urgent_none));
-  const suggest = h('p.co-hint-warning', { hidden: true }, icon('alert', { size: 16 }), h('span', N.suggest_urgent), button(N.pick_urgent, { variant: 'link', size: 'sm', onClick: () => { ui.urgency.setValue('urgent'); f.priority = 'urgent'; reasonWrap.hidden = false; urgentNone.hidden = urgentLeft !== 0; refreshUrgency(); refreshSummary(); reason.focus(); } }));
-  const reason = h('input.input', { type: 'text', dir: 'auto', 'aria-required': 'true', maxlength: 300, value: f.urgent_reason });
-  const reasonWrap = field(N.urgent_reason, reason, { required: true });
+  const suggest = h('p.co-hint-warning', { hidden: true }, icon('alert', { size: 16 }), h('span', N.suggest_urgent), button(N.pick_urgent, { variant: 'link', size: 'sm', onClick: () => { ui.urgency.setValue('urgent'); f.priority = 'urgent'; reasonWrap.hidden = false; urgentNone.hidden = urgentLeft !== 0; refreshUrgency(); refreshSummary(); reason.focus(); }, tag: 'CN-16' }));
+  const reason = h('input.input', { type: 'text', dir: 'auto', 'aria-required': 'true', maxlength: 300, value: f.urgent_reason, tag: 'CN-17' });
+  const reasonWrap = field(N.urgent_reason, reason, { required: true, tag: 'CN-18' });
   reasonWrap.hidden = f.priority !== 'urgent';
   reason.addEventListener('input', () => {
     f.urgent_reason = reason.value;
     if (reason.value.trim()) reasonWrap.setError('');
     saveDraftSoon();
   });
-  const needed = h('input.input', { type: 'date', dir: 'ltr', min: cairoToday(), value: f.needed_by });
+  const needed = h('input.input', { type: 'date', dir: 'ltr', min: cairoToday(), value: f.needed_by, tag: 'CN-19' });
   const neededWarn = h('p.co-hint-warning', { hidden: true }, icon('alert', { size: 16 }), h('span', N.needed_by_warning));
-  const neededWrap = field(N.needed_by, h('div', needed, neededWarn), { hint: N.needed_by_hint });
+  const neededWrap = field(N.needed_by, h('div', needed, neededWarn), { hint: N.needed_by_hint, tag: 'CN-20' });
   needed.addEventListener('input', () => {
     f.needed_by = needed.value;
     neededWrap.setError(needed.value && needed.value < cairoToday() ? N.past_date : '');
@@ -268,21 +270,22 @@ function buildUi(ctx, data) {
   const ents = (data.entities || []).filter((e) => e.status !== 'inactive');
   let entityWrap = null;
   if (ents.length > 1) {
-    const sel = h('select.input', { 'aria-required': 'true', onChange: () => { f.entity_id = sel.value; entityWrap.setError(''); refreshSummary(); saveDraftSoon(); } }, h('option', { value: '' }, '— اختاروا —'), ents.map((e) => h('option', { value: String(e.id) }, e.name)));
+    const sel = h('select.input', { 'aria-required': 'true', onChange: () => { f.entity_id = sel.value; entityWrap.setError(''); refreshSummary(); saveDraftSoon(); }, tag: 'CN-21' }, h('option', { value: '' }, '— اختاروا —'), ents.map((e) => h('option', { value: String(e.id) }, e.name)));
     sel.value = String(f.entity_id || '');
-    entityWrap = field(N.entity, h('div.select-wrap', sel), { required: true });
+    entityWrap = field(N.entity, h('div.select-wrap', sel), { required: true, tag: 'CN-22' });
   } else f.entity_id = ents[0]?.id || '';
   const visHint = h('p.field-hint', t.default_visibility === 'private' ? `${N.visibility_hint} ${N.private_default}` : N.visibility_hint);
   const vis = choiceTiles({
     label: N.visibility,
     value: f.visibility,
     columns: 1,
-    options: VISIBILITIES.map((v) => ({ value: v.key, label: v.label })),
+    options: VISIBILITIES.map((v) => ({ value: v.key, label: v.label, tag: v.tag })),
     onChange: (v) => {
       f.visibility = v || 'company';
       privateNote.hidden = f.visibility !== 'private';
       saveDraftSoon();
     },
+    tag: 'CN-23',
   });
   const others = (data.colleagues || []).filter((c) => c.id !== S.user?.id);
   const privateNote = h('p.field-hint', { hidden: f.visibility !== 'private' }, N.watchers_private);
@@ -292,29 +295,30 @@ function buildUi(ctx, data) {
     const chips = others.map((c) =>
       h(
         'button.chip-toggle',
-        { type: 'button', 'aria-pressed': sel.has(c.id) ? 'true' : 'false', class: sel.has(c.id) && 'is-on', onClick: (e) => { if (sel.has(c.id)) sel.delete(c.id); else if (sel.size < REQUEST_LIMITS.watchers_max) sel.add(c.id); e.currentTarget.setAttribute('aria-pressed', sel.has(c.id) ? 'true' : 'false'); e.currentTarget.classList.toggle('is-on', sel.has(c.id)); f.watcher_ids = [...sel]; saveDraftSoon(); } },
+        { type: 'button', 'aria-pressed': sel.has(c.id) ? 'true' : 'false', class: sel.has(c.id) && 'is-on', onClick: (e) => { if (sel.has(c.id)) sel.delete(c.id); else if (sel.size < REQUEST_LIMITS.watchers_max) sel.add(c.id); e.currentTarget.setAttribute('aria-pressed', sel.has(c.id) ? 'true' : 'false'); e.currentTarget.classList.toggle('is-on', sel.has(c.id)); f.watcher_ids = [...sel]; saveDraftSoon(); }, tag: 'CN-24' },
         icon('check', { size: 14 }),
         h('span', c.name),
         h('span.co-watcher-role', `· ${c.role_label}`),
       ),
     );
-    watchersWrap = field(N.watchers, h('div.co-watchers', chips), { hint: N.watchers_hint, group: true, full: true });
+    watchersWrap = field(N.watchers, h('div.co-watchers', chips), { hint: N.watchers_hint, group: true, full: true, tag: 'CN-25' });
   }
   const langHint = h('p.field-hint', { hidden: true }, N.language_hint);
   const lang = choiceTiles({
     label: N.language,
     value: f.output_language,
     variant: 'chip',
-    options: OUTPUT_LANGUAGES.map((o) => ({ value: o.key, label: o.label })),
+    options: OUTPUT_LANGUAGES.map((o) => ({ value: o.key, label: o.label, tag: o.tag })),
     onChange: (v) => {
       f.output_language = v || 'ar';
       saveDraftSoon();
     },
+    tag: 'CN-26',
   });
   ui.step2Alert = h('p.co-send-error', { role: 'alert', hidden: true });
   ui.s2 = h(
     'section.co-nr-s2.co-section',
-    h('header.co-section-head', h('h2.co-section-title', N.step2), h('p.co-nr-step-count.num.co-phone-only', copy('newRequest.step', { i: 2 }))),
+    { tag: 'CN-27' }, h('header.co-section-head', { tag: 'CN-28' }, h('h2.co-section-title', { tag: 'CN-29' }, N.step2), h('p.co-nr-step-count.num.co-phone-only', copy('newRequest.step', { i: 2 }))),
     h('div.co-nr-form', ui.urgency, urgentNone, suggest, reasonWrap, neededWrap, entityWrap, h('div', vis, visHint, privateNote), watchersWrap, h('div', lang, langHint), ui.step2Alert),
   );
 
@@ -325,8 +329,8 @@ function buildUi(ctx, data) {
   const lineScope = h('p');
   const meterBox = h('div');
   ui.sendError = h('p.co-send-error', { role: 'alert', hidden: true });
-  ui.send = button(N.send, { variant: 'primary', block: true, size: 'lg', onClick: () => send(ctx) });
-  ui.summary = h('section.co-summary', { 'aria-live': 'polite' }, h('h2.co-summary-title', N.summary), lineType, linePromise, lineTypical, lineScope, meterBox);
+  ui.send = button(N.send, { variant: 'primary', block: true, size: 'lg', onClick: () => send(ctx), tag: 'CN-30' });
+  ui.summary = h('section.co-summary', { 'aria-live': 'polite', tag: 'CN-31' }, h('h2.co-summary-title', { tag: 'CN-32' }, N.summary), lineType, linePromise, lineTypical, lineScope, meterBox);
   ui.aside = h('aside.co-nr-aside', ui.summary, h('div.co-nr-bar.co-nr-send', ui.sendError, ui.send));
 
   function refreshUrgency() {
@@ -573,16 +577,16 @@ function confirmation(ctx, res) {
     'div.co-page.co-done-page',
     h(
       'section.co-done',
-      h('span.co-done-icon', { 'aria-hidden': 'true' }, icon('checkCircle', { size: 48 })),
-      h('h1.co-h1', { tabindex: '-1' }, N.done_title),
+      { tag: 'CN-33' }, h('span.co-done-icon', { 'aria-hidden': 'true' }, icon('checkCircle', { size: 48 })),
+      h('h1.co-h1', { tabindex: '-1', tag: 'CN-34' }, N.done_title),
       h('p.co-done-code', codeTag(r.code), h('span', { dir: 'auto' }, r.title)),
       p.first_response_by ? h('p', copy('promise.first_response', { when: whenLong(p.first_response_by) })) : null,
       p.delivery_estimate_text ? h('p', copy('promise.typical', { duration: p.delivery_estimate_text })) : null,
       !urgentClock && plan?.business_hours_text ? h('p.co-summary-muted', copy('newRequest.business_hours', { text: plan.business_hours_text })) : null,
-      res.notice_text ? alertBox(res.notice_text, 'warning') : null,
-      h('div.co-done-next', h('h2.co-section-title', N.next_title), h('p', N.next_1), h('p', copy('newRequest.next_2')), h('p', N.next_3), outScope ? h('p', N.next_4) : null),
-      h('div.co-done-actions', button(N.follow, { variant: 'primary', href: `#/requests/${encodeURIComponent(r.code)}` }), button(N.another, { variant: 'secondary', onClick: () => { form = null; ctx.navigate('/requests/new'); } })),
-      h('a.co-link', { href: '#/overview' }, N.to_overview),
+      res.notice_text ? alertBox(res.notice_text, 'warning', { tag: 'CN-35' }) : null,
+      h('div.co-done-next', h('h2.co-section-title', { tag: 'CN-36' }, N.next_title), h('p', N.next_1), h('p', copy('newRequest.next_2')), h('p', N.next_3), outScope ? h('p', N.next_4) : null),
+      h('div.co-done-actions', button(N.follow, { variant: 'primary', href: `#/requests/${encodeURIComponent(r.code)}`, tag: 'CN-37' }), button(N.another, { variant: 'secondary', onClick: () => { form = null; ctx.navigate('/requests/new'); }, tag: 'CN-38' })),
+      h('a.co-link', { href: '#/overview', tag: 'CN-39' }, N.to_overview),
     ),
   );
   requestAnimationFrame(() => {
@@ -662,6 +666,7 @@ export default async function newRequest(ctx) {
       saveDraftSoon();
       ctx.navigate(`/requests/new/${type}?step=2`);
     },
+    tag: 'CN-40',
   });
   const typeLine = h(
     'div.co-nr-typeline.co-desk-only',
@@ -671,10 +676,11 @@ export default async function newRequest(ctx) {
       size: 'sm',
       onClick: async () => {
         const n = f.ui.typeFields.changed();
-        if (n && !(await confirmDialog({ title: N.change_title, message: copy('newRequest.change_text', { label: t.company_label, n: countOf(n, 'field') }), confirmLabel: N.change_confirm, cancelLabel: N.cancel }))) return;
+        if (n && !(await confirmDialog({ title: N.change_title, message: copy('newRequest.change_text', { label: t.company_label, n: countOf(n, 'field') }), confirmLabel: N.change_confirm, cancelLabel: N.cancel, tag: 'CN-41' }))) return;
         f.fields = {};
         ctx.navigate('/requests/new');
       },
+      tag: 'CN-42',
     }),
   );
   ctx.setTitle(`${N.title} — ${t.company_label}`);

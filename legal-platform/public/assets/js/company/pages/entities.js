@@ -16,17 +16,18 @@ const labels = (g) => getMeta()?.constants?.LABELS?.[g] || {};
 function entitySheet(entity, all, ctx) {
   const editing = !!entity;
   const input = (v = '', opts = {}) => {
-    const el = h('input.input', { type: 'text', dir: 'auto', maxlength: opts.max || 200, autocomplete: 'off' });
+    const el = h('input.input', { type: 'text', dir: 'auto', maxlength: opts.max || 200, autocomplete: 'off', tag: 'CG-01' });
     el.value = v || '';
     return el;
   };
   const select = (opts, v, { none = false } = {}) => {
+    // tags:skip control inside a tagged field()
     const el = h('select.input', none ? h('option', { value: '' }, M.e_none) : null, opts.map(([k, l]) => h('option', { value: String(k) }, l)));
     el.value = v == null ? '' : String(v);
     return h('div.select-wrap', el);
   };
   const name = input(entity?.name);
-  const nameWrap = field(M.e_name, name, { required: true });
+  const nameWrap = field(M.e_name, name, { required: true, tag: 'CG-02' });
   name.setAttribute('aria-required', 'true');
   const form = select(Object.entries(labels('legal_form')), entity?.legal_form || 'llc');
   const relOpts = Object.entries(labels('company_entity_relation')).filter(([k]) => (entity?.relation === 'parent' ? k === 'parent' : k !== 'parent'));
@@ -43,7 +44,7 @@ function entitySheet(entity, all, ctx) {
   textSheet({
     title: editing ? M.entity_edit : M.entity_sheet,
     dirty: () => snapshot() !== initial,
-    body: h('div.co-sheet-body', nameWrap, field(M.e_form, form), field(M.e_relation, rel), entity?.relation === 'parent' ? null : field(M.e_parent, parentSel), field(M.e_cr, cr), field(M.e_tax, tax), field(M.e_jurisdiction, jur), err),
+    body: h('div.co-sheet-body', nameWrap, field(M.e_form, form, { tag: 'CG-03' }), field(M.e_relation, rel, { tag: 'CG-04' }), entity?.relation === 'parent' ? null : field(M.e_parent, parentSel, { tag: 'CG-05' }), field(M.e_cr, cr, { tag: 'CG-06' }), field(M.e_tax, tax, { tag: 'CG-07' }), field(M.e_jurisdiction, jur, { tag: 'CG-08' }), err),
     actions: [
       {
         label: M.save,
@@ -79,8 +80,10 @@ function entitySheet(entity, all, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CG-09',
       },
     ],
+    tag: 'CG-10',
   });
 }
 
@@ -98,7 +101,7 @@ export default async function entities(ctx) {
   const atMax = max != null && active >= max;
   const admin = isAdmin() && !readOnly();
   const counter = h('p.co-muted.num', copy('memory.entities_line', { n: active, max: max ?? '—' }));
-  const add = admin && !atMax ? button(M.add_entity, { variant: 'secondary', icon: 'plus', onClick: () => entitySheet(null, items, ctx) }) : null;
+  const add = admin && !atMax ? button(M.add_entity, { variant: 'secondary', icon: 'plus', onClick: () => entitySheet(null, items, ctx), tag: 'CG-11' }) : null;
   const rows = items.map((e) =>
     h(
       'li',
@@ -107,8 +110,9 @@ export default async function entities(ctx) {
         title: h('span', { dir: 'auto' }, e.name),
         sub: [e.legal_form_label || '', e.commercial_registry ? ` · ${copy('memory.e_cr_line', { cr: e.commercial_registry })}` : '', e.jurisdiction ? ` · ${e.jurisdiction}` : ''],
         badges: badge(e.relation_label || e.relation, 'primary', { className: 'co-badge' }),
-        trailing: admin ? button(M.edit, { variant: 'ghost', size: 'sm', onClick: () => entitySheet(e, items, ctx), ariaLabel: `${M.edit}: ${e.name}` }) : null,
+        trailing: admin ? button(M.edit, { variant: 'ghost', size: 'sm', onClick: () => entitySheet(e, items, ctx), ariaLabel: `${M.edit}: ${e.name}`, tag: 'CG-12' }) : null,
         className: 'co-row',
+        tag: 'CG-13',
       }),
     ),
   );
@@ -118,6 +122,6 @@ export default async function entities(ctx) {
     pageHead(W.nav.entities, M.entities_sub, { actions: add }),
     counter,
     admin && atMax ? h('p.co-card-note', h('span', mgr ? M.at_max : M.at_max_team)) : null,
-    sectionCard(null, items.length ? h('ul.k-list', rows) : emptyState(M.empty_list, null, { icon: 'building' })),
+    sectionCard(null, items.length ? h('ul.k-list', rows) : emptyState(M.empty_list, null, { icon: 'building', tag: 'CG-14' })),
   );
 }

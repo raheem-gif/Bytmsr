@@ -321,9 +321,10 @@ export const BUILDERS = {
   tabs: { kind: 'خيار', opts: 1 },
   choiceTiles: { kind: 'خيار', opts: 0 },
   table: { kind: 'جدول', opts: 0 },
+  form: { kind: 'نموذج', opts: 1 }, // v12 tags (TG-6): ui.js form(fields, { tag, submitTag, cancelTag }) and fields[].tag
 };
 const OTHER_KIND = { kv: 'قائمة', timeline: 'قائمة', chatThread: 'قائمة', chips: 'خيار', form: 'نموذج', progressBar: 'مؤشر تقدم', stepTracker: 'مؤشر تقدم', badge: 'شارة', statusBadge: 'شارة', confirmDiscard: 'نافذة', navItem: 'رابط' };
-export const MAP_KIND = { TEXT_TAGS: 'رسالة واتساب', EMAIL_TAGS: 'بريد', NOTIF_TAGS: 'إشعار', QUESTION_TAGS: 'سؤال', ANSWER_TAGS: 'خيار' };
+export const MAP_KIND = { TEXT_TAGS: 'رسالة واتساب', EMAIL_TAGS: 'بريد', NOTIF_TAGS: 'إشعار', ALERT_TAGS: 'رسالة واتساب للمحامي', QUESTION_TAGS: 'سؤال', ANSWER_TAGS: 'خيار' };
 /** عناصر h() الأساسية (T12-75/T12-78) */
 export const KEY_ELEMENTS = new Set(['h1', 'h2', 'h3', 'button', 'a', 'section', 'form', 'input', 'select', 'textarea', 'details', 'header', 'footer', 'nav', 'summary', 'dialog']);
 const VOID = new Set(['input', 'img', 'br', 'hr', 'meta', 'link', 'source', 'area', 'col', 'embed', 'wbr']);
@@ -387,6 +388,9 @@ function objectProps(src, toks, openIdx) {
     if ((tk.t === 'id' || tk.t === 'str') && toks[k + 1]?.t === 'p' && toks[k + 1].v === ':' && toks[k + 1].parent === openIdx) {
       const name = tk.t === 'id' ? tk.v : src.slice(tk.s + 1, tk.e - 1);
       if (!out.has(name)) out.set(name, k + 2);
+    } else if (tk.t === 'id' && (toks[k + 1]?.v === ',' || k + 1 === close) && (toks[k - 1]?.v === ',' || k - 1 === openIdx)) {
+      // v12 tags (TG-6): shorthand property ({ type, tag, onClick }) — the value is the variable of the same name
+      if (!out.has(tk.v)) out.set(tk.v, k);
     }
   }
   return out;
@@ -465,6 +469,43 @@ function propText(src, toks, props, keys = PROP_TEXT_KEYS) {
   return '';
 }
 
+// review (TAGS.md مقروء للمالك): نص يأتي من وحدة كلمات بدل نص حرفي — W.nav.logout في بوابة الشركات، COPY.done في نموذج
+// الطلب. يُسجَّل المرجع (ref) فيحلّه registry.js من الوحدة نفسها، بدل «(نص متغير)».
+const REF_ROOTS = new Map([
+  ['W', 'W'],
+  ['COPY', 'COPY'],
+]);
+let refRoots = REF_ROOTS;
+
+/** أسماء مختصرة في الملف نفسه: const A = W.account; ← A.name يعني W.account.name */
+export function refAliases(src) {
+  const out = new Map(REF_ROOTS);
+  for (const m of String(src).matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(W(?:\.[A-Za-z_$][\w$]*)+)\s*;/g)) if (!out.has(m[1])) out.set(m[1], m[2]);
+  return out;
+}
+
+/** أول سلسلة W.a.b / COPY.x (أو اسم مختصر لها) داخل مدى رموز [from, to) لا تُستدعى دالةً (W.addressForm(…) ليست نصًا) */
+export function firstRef(toks, from, to, roots = refRoots) {
+  for (let k = from; k < to; k++) {
+    const t = toks[k];
+    if (t.t !== 'id' || !roots.has(t.v)) continue;
+    const prev = toks[k - 1];
+    if (prev && prev.t === 'p' && prev.v === '.') continue;
+    const parts = [roots.get(t.v)];
+    let j = k + 1;
+    while (toks[j]?.t === 'p' && toks[j].v === '.' && toks[j + 1]?.t === 'id') {
+      parts.push(toks[j + 1].v);
+      j += 2;
+    }
+    if (parts.length < 2 || (toks[j]?.t === 'p' && toks[j].v === '(') || (toks[j]?.t === 'p' && toks[j].v === '=' && toks[j + 1]?.v !== '=')) continue;
+    return parts.join('.');
+  }
+  return '';
+}
+
+/** يضيف ref حين لا نص حرفي */
+const withRef = (res, toks, from, to) => (res.text ? res : { ...res, ref: firstRef(toks, from, to) || undefined });
+
 /** النوع والنص لتعريف في JS عند الرمز valIdx (قيمة tag: 'X' أو وسيط tagged('X') */
 function jsContext(src, toks, valIdx, key) {
   const objIdx = toks[valIdx].parent;
@@ -488,11 +529,11 @@ function jsContext(src, toks, valIdx, key) {
         } else kind = BUILDERS[nm]?.kind || OTHER_KIND[nm] || 'عنصر';
       }
     }
-    return { kind, text: firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) };
+    return withRef({ kind, text: firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) }, toks, objIdx + 1, obj.close ?? toks.length);
   }
   if (!obj || obj.t !== 'p' || obj.v !== '{') return { kind: 'عنصر', text: '' };
   const props = objectProps(src, toks, objIdx);
-  if (key === 'qtag') return { kind: 'سؤال', text: propText(src, toks, props, ['q', 'title', 'label']) || firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) };
+  if (key === 'qtag') return withRef({ kind: 'سؤال', text: propText(src, toks, props, ['q', 'title', 'label']) || firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) }, toks, objIdx + 1, obj.close ?? toks.length);
   const outer = obj.parent >= 0 ? toks[obj.parent] : null;
   if (outer && outer.v === '(') {
     const callee = calleeOf(toks, obj.parent);
@@ -501,23 +542,29 @@ function jsContext(src, toks, valIdx, key) {
       if (callee.name === 'h' || callee.name === 'svg') {
         const first = toks[obj.parent + 1];
         const el = first && first.t === 'str' ? (/^[a-z0-9]*/i.exec(strValue(src, first))[0] || 'div').toLowerCase() : 'div';
-        return { kind: ELEMENT_KIND[el] || 'عنصر', text: firstArabic(src, toks, ...span), el };
+        return withRef({ kind: ELEMENT_KIND[el] || 'عنصر', text: firstArabic(src, toks, ...span), el }, toks, ...span);
       }
       const kind = BUILDERS[callee.name]?.kind || OTHER_KIND[callee.name] || 'عنصر';
-      return { kind, text: propText(src, toks, props) || firstArabic(src, toks, ...span) };
+      const res = { kind, text: propText(src, toks, props) || firstArabic(src, toks, ...span) };
+      // review: navItem('/cases', 'briefcase', { tag }) في app/shell.js: الاسم عنوان المسار في routes.js (routeTitle)
+      const first = toks[span[0]];
+      if (!res.text && callee.name === 'navItem' && first?.t === 'str') return { ...res, kind: 'رابط', ref: `ROUTE:${strValue(src, first)}` };
+      return withRef(res, toks, ...span);
     }
   }
   // عنصر بيانات (عقدة شجرة، سؤال، رابط قائمة، حقل إعدادات…)
   const inList = outer && outer.v === '[';
-  return { kind: inList ? 'عنصر قائمة' : 'خيار', text: propText(src, toks, props) || firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) };
+  return withRef({ kind: inList ? 'عنصر قائمة' : 'خيار', text: propText(src, toks, props) || firstArabic(src, toks, objIdx + 1, obj.close ?? toks.length) }, toks, objIdx + 1, obj.close ?? toks.length);
 }
 
 // ───────────────────────── المسح ─────────────────────────
 
 const ATTR_RE = new RegExp(`data-tag\\s*=\\s*\\\\?(["'])(${CODE_ANY})\\\\?\\1`, 'g');
 const ATTR_EXPR_RE = /data-tag\s*=\s*\\?(["'])\$\{([^}]*)\}\\?\1/g;
-const PROP_RE = new RegExp(`(?<![\\w$.-])(['"]?)(tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)\\1\\s*:\\s*(['"\`])(${CODE_ANY})\\3`, 'g');
+// v12 tags (TG-6): a guarded literal counts too — tag: X && 'I-54' · tag: PC ? 'P-02' : null (the literal is the definition)
+const PROP_RE = new RegExp(`(?<![\\w$.-])(['"]?)(tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)\\1\\s*:\\s*(?:!?[\\w$.]+(?:\\([^()]*\\))?\\s*(?:&&|\\?)\\s*)?(['"\`])(${CODE_ANY})\\3`, 'g');
 const PROP_EXPR_RE = /(?<![\w$.-])(['"]?)(tag|qtag|data-tag|[a-z][A-Za-z0-9]*Tag)\1\s*:\s*(?!['"`\s])([\w$.?[\]()'"]+)/g;
+const DOM_TAG_RE = new RegExp(`\\.dataset\\.tag\\s*=\\s*(['"])(${CODE_ANY})\\1|setAttribute\\(\\s*(['"])data-tag\\3\\s*,\\s*['"](${CODE_ANY})['"]`, 'g');
 const TAGGED_RE = new RegExp(`\\btagged\\(\\s*(['"\`])(${CODE_ANY})\\1`, 'g');
 const MAP_RE = /\b([A-Z][A-Z0-9_]*_TAGS)\s*=\s*(?:[\w$.]+\(\s*)?\{/g;
 const MAP_ENTRY_RE = new RegExp(`(?:(['"])([^'"\\n]+)\\1|([A-Za-z_$][\\w$]*))\\s*:\\s*(['"])(${CODE_ANY})\\4`, 'g');
@@ -546,11 +593,13 @@ export function scanFile(rel, src) {
     const tk = tokenize(src);
     toks = tk.toks;
     blank = blankRanges(src, tk.comments);
+    refRoots = refAliases(blank);
   }
   const add = (code, offset, form, ctx, extra = {}) => {
     const { prefix, num } = codeParts(code);
     const line = lineOf(offset);
     const rec = { code, prefix, num, file: rel, line, form, kind: ctx?.kind || 'عنصر', text: ctx?.text || '', ...extra };
+    if (!rec.text && ctx?.ref) rec.ref = ctx.ref;
     if (variantLine(line)) rec.variant = true;
     if (num === PLACEHOLDER_NUM) rec.placeholder = true;
     defs.push(rec);
@@ -611,6 +660,15 @@ export function scanFile(rel, src) {
       if (k >= 0 && (toks[k].t === 'str' || toks[k].t === 'tpl' || toks[k].t === 'regex')) continue;
       if (/^(?:null|undefined|true|false|\d+)$/.test(m[3])) continue;
       uses.push({ file: rel, line: lineOf(m.index), expr: m[3] });
+    }
+    // v12 tags (TG-6): DOM code without h() (saved.js, landing.js): el.dataset.tag = 'I-00' · el.setAttribute('data-tag', 'I-00')
+    DOM_TAG_RE.lastIndex = 0;
+    while ((m = DOM_TAG_RE.exec(blank))) {
+      const code = m[2] || m[4];
+      const at = m.index + m[0].lastIndexOf(code);
+      const k = tokenAt(toks, at);
+      if (k < 0 || toks[k].t !== 'str') continue;
+      add(code, at, 'dom', { kind: 'عنصر', text: '' });
     }
     TAGGED_RE.lastIndex = 0;
     while ((m = TAGGED_RE.exec(blank))) {
@@ -727,6 +785,8 @@ export function builderCalls(src, tk = tokenize(src)) {
     let hasTag = wrapped;
     const optPos = isH ? 1 : BUILDERS[name].opts;
     if (!hasTag && optPos != null && args[optPos] && isObjectArg(toks, args[optPos])) hasTag = objectHasTag(src, toks, args[optPos][0]);
+    // v12 tags (TG-6): a local helper with an options-object signature (intake.js field({ …, tag })) carries its tag in arg 0
+    if (!hasTag && !isH && optPos !== 0 && args[0] && isObjectArg(toks, args[0])) hasTag = objectHasTag(src, toks, args[0][0]);
     out.push({ name, el, line, start, openIdx: k + 1, closeIdx: open.close, args, optPos, tagged: hasTag, wrapped, skip: skipNear(lines, line) });
   }
   return out;
@@ -803,7 +863,7 @@ export function coverageReport({ root = ROOT, files } = {}) {
  * أداة autotag (T12-90): تضيف عناصر نائبة X-00 لاستدعاءات المكوّنات وعناصر h() وقوالب HTML الأساسية التي بلا رمز.
  * لا تختار أرقامًا أبدًا. تعيد { out, inserted:[{line, what}], skipped:[{line, reason}] }.
  */
-export function autotagSource(rel, src, prefix) {
+export function autotagSource(rel, src, prefix, { titles = true, items = true, fields = true } = {}) {
   const ph = `${prefix}-00`;
   const edits = []; // [pos, text]
   const inserted = [];
@@ -832,8 +892,80 @@ export function autotagSource(rel, src, prefix) {
       if (src.slice(at, closeTok.s).includes('\n')) edits.push([at, last === ',' ? `\n${indentAt(at)}${text},` : `,\n${indentAt(at)}${text}`]);
       else edits.push([at, last === ',' ? ` ${text}` : `, ${text}`]);
     };
+    // v12 tags (TG-6، T12-90/T12-91): عنوان الصفحة والبطاقة (titleTag)، وعناصر القوائم الحرفية داخل الخيارات
+    // (actions/fields/columns/options/breadcrumbs/items) تأخذ رمزًا لكل عنصر؛ وrowTag لقالب صف الجدول.
+    const objOf = (c) => (c.optPos != null && c.args[c.optPos] && isObjectArg(toks, c.args[c.optPos]) ? c.args[c.optPos][0] : null);
+    // حقول نموذج رُمِّزت بعد البناء (tagged('X', f.control('name').wrap)) أو زر إرساله (f.el.querySelector('button[type="submit"]')):
+    // الرمز الملفوف هو المعتمد، فلا يُضاف رمز ثانٍ لنفس العنصر
+    const wrappedControls = new Set([...src.matchAll(/tagged\(\s*['"][A-Z]{1,3}-\d{2,3}['"]\s*,\s*[\w$.]+\.control\(\s*['"]([\w-]+)['"]\s*\)/g)].map((m) => m[1]));
+    const wrappedSubmit = /tagged\(\s*['"][A-Z]{1,3}-\d{2,3}['"]\s*,\s*[\w$.]+\.querySelector\(\s*['"]button\[type=\\?["']?submit\\?["']?\]['"]\s*\)/.test(src) || /tagged\(\s*['"][A-Z]{1,3}-\d{2,3}['"]\s*,\s*submit\b/.test(src);
+    const itemsIn = (arrOpen, need = null) => {
+      // عناصر مصفوفة حرفية: كائنات حرفية في المستوى الأول بلا tag
+      const out = [];
+      const close = toks[arrOpen].close;
+      for (let k = arrOpen + 1; k < close; k++) {
+        const t = toks[k];
+        if (t.parent !== arrOpen || t.t !== 'p' || t.v !== '{') continue;
+        const before = toks[k - 1];
+        if (before && before.t === 'p' && before.v === '...') continue;
+        const props = objectProps(src, toks, k);
+        if (props.has('tag') || props.has('data-tag')) continue;
+        if (!['label', 'title', 'text', 'name', 'key', 'value', 'heading'].some((p) => props.has(p))) continue;
+        const ty = props.get('type');
+        if (ty != null && toks[ty]?.t === 'str' && src.slice(toks[ty].s + 1, toks[ty].e - 1) === 'hidden') continue; // حقل مخفي بلا عنصر ظاهر
+        const nm = props.get('name');
+        if (nm != null && toks[nm]?.t === 'str' && wrappedControls.has(src.slice(toks[nm].s + 1, toks[nm].e - 1))) continue;
+        if (need && !props.has(need)) continue; // مسار التنقل: الرابط وحده يحمل الرمز (العنصر الأخير نص)
+        out.push(k);
+      }
+      return out;
+    };
+    const itemTagged = new Set();
+    const ITEM_KEYS = { modal: ['actions'], textSheet: ['actions'], formDialog: ['fields'], table: ['columns'], choiceTiles: ['options'], pageHeader: ['breadcrumbs'] };
+    const lineOfTok = lineIndex(src);
     for (const c of builderCalls(src, tk)) {
-      if (c.tagged || c.skip) continue;
+      if (c.skip) continue;
+      const o = items || titles ? objOf(c) : null;
+      if (o != null) {
+        const props = objectProps(src, toks, o);
+        if (titles && (c.name === 'pageHeader' || c.name === 'card') && props.has('title') && !props.has('titleTag')) {
+          insertBeforeClose(toks[o], toks[toks[o].close], `titleTag: '${ph}'`);
+          inserted.push({ line: c.line, what: `${c.name}() title` });
+        }
+        if (items && c.name === 'table' && !props.has('rowTag')) {
+          insertBeforeClose(toks[o], toks[toks[o].close], `rowTag: '${ph}'`);
+          inserted.push({ line: c.line, what: 'table() row' });
+        }
+        for (const key of (items && ITEM_KEYS[c.name]) || []) {
+          const v = props.get(key);
+          if (v == null || toks[v].t !== 'p' || toks[v].v !== '[') continue;
+          for (const k of itemsIn(v, key === 'breadcrumbs' ? 'href' : null)) {
+            itemTagged.add(k);
+            insertBeforeClose(toks[k], toks[toks[k].close], `tag: '${ph}'`);
+            inserted.push({ line: lineOfTok(toks[k].s), what: `${c.name}() ${key}[]` });
+          }
+        }
+      }
+      if (items && c.name === 'form' && o != null) {
+        const props = objectProps(src, toks, o);
+        if (props.has('onSubmit') && !props.has('submitTag') && !props.has('footer') && !wrappedSubmit) {
+          insertBeforeClose(toks[o], toks[toks[o].close], `submitTag: '${ph}'`);
+          inserted.push({ line: c.line, what: 'form() submit' });
+        }
+        if (props.has('cancel') && !props.has('cancelTag') && !props.has('footer')) {
+          insertBeforeClose(toks[o], toks[toks[o].close], `cancelTag: '${ph}'`);
+          inserted.push({ line: c.line, what: 'form() cancel' });
+        }
+      }
+      const listArg = c.name === 'tabs' || c.name === 'form' ? c.args[0] : c.name === 'menuButton' ? c.args[1] : null;
+      if (items && listArg && toks[listArg[0]].t === 'p' && toks[listArg[0]].v === '[' && toks[listArg[0]].close === listArg[1] - 1) {
+        for (const k of itemsIn(listArg[0])) {
+          itemTagged.add(k);
+          insertBeforeClose(toks[k], toks[toks[k].close], `tag: '${ph}'`);
+          inserted.push({ line: lineOfTok(toks[k].s), what: `${c.name}() items[]` });
+        }
+      }
+      if (c.tagged) continue;
       const what = c.el ? `h('${c.el}')` : `${c.name}()`;
       const closeTok = toks[c.closeIdx];
       if (!closeTok) {
@@ -869,6 +1001,39 @@ export function autotagSource(rel, src, prefix) {
         needsTagged = true;
       }
       inserted.push({ line: c.line, what });
+    }
+    // v12 tags (TG-6): مواصفات حقول النماذج المعرَّفة خارج استدعاء المكوّن ({ name: '…', label, type… } في قائمة حرفية:
+    // دوال تُرجع الحقول، أو نوافذ محلية مثل formModal) — كل حقل وحدة واحدة (التسمية والعنصر والتلميح، T12-09)
+    if (fields) {
+      const FIELDISH = ['type', 'required', 'maxLength', 'options', 'hint', 'placeholder', 'rows', 'min', 'max', 'ltr', 'full', 'text', 'autocomplete'];
+      const lines = src.split('\n');
+      for (let k = 0; k < toks.length; k++) {
+        const t = toks[k];
+        if (t.t !== 'p' || t.v !== '{' || itemTagged.has(k) || t.close == null) continue;
+        const par = toks[t.parent];
+        // في قائمة حرفية، أو كائن تُرجعه دالة سهمية مباشرة (=> ({ name… }))
+        const inArray = par && par.t === 'p' && par.v === '[';
+        const arrowObj = par && par.t === 'p' && par.v === '(' && toks[t.parent - 1]?.v === '>' && toks[t.parent - 2]?.v === '=' && par.close === t.close + 1;
+        if (!inArray && !arrowObj) continue;
+        const before = toks[k - 1];
+        if (before && before.t === 'p' && before.v === '...') continue;
+        const props = objectProps(src, toks, k);
+        if (props.has('tag') || props.has('data-tag')) continue;
+        const nm = props.get('name');
+        // زر إجراء في قائمة إجراءات معرَّفة خارج الاستدعاء (actions: sheetActions): { label, variant | onClick }
+        const actionSpec = inArray && nm == null && props.has('label') && (props.has('variant') || props.has('onClick')) && !props.has('key') && !props.has('value');
+        if (!actionSpec) {
+          if (nm == null || toks[nm]?.t !== 'str' || !(props.has('label') || props.has('text'))) continue;
+          if (!FIELDISH.some((q) => props.has(q))) continue;
+        }
+        const ty = props.get('type');
+        if (ty != null && toks[ty]?.t === 'str' && src.slice(toks[ty].s + 1, toks[ty].e - 1) === 'hidden') continue;
+        if (nm != null && toks[nm]?.t === 'str' && wrappedControls.has(src.slice(toks[nm].s + 1, toks[nm].e - 1))) continue;
+        const ln = lineOfTok(t.s);
+        if (/tags:skip/.test(lines[ln - 1] || '') || /tags:skip/.test(lines[ln - 2] || '')) continue;
+        insertBeforeClose(t, toks[t.close], `tag: '${ph}'`);
+        inserted.push({ line: ln, what: actionSpec ? 'action spec' : 'field spec' });
+      }
     }
     if (needsTagged && !/import\s*\{[^}]*\btagged\b[^}]*\}/.test(src)) {
       const imp = /import\s*\{([^}]*)\}\s*from\s*(['"])([^'"]*\/lib\/h\.js|\.\/h\.js)\2/.exec(src);

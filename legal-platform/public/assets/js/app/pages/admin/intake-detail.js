@@ -192,8 +192,8 @@ export default async function render(ctx) {
   function segHead() {
     const change =
       seg.can_change !== false
-        ? button('تغيير', { variant: 'ghost', size: 'sm', icon: 'swap', className: 'seg-change', ariaLabel: 'تغيير نوع الخدمة', onClick: changeSegment })
-        : h('span.seg-on-case', ON_CASE_HINT, d.case ? [' ', h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code))] : null);
+        ? button('تغيير', { variant: 'ghost', size: 'sm', icon: 'swap', className: 'seg-change', ariaLabel: 'تغيير نوع الخدمة', onClick: changeSegment, tag: 'RQT-01' })
+        : h('span.seg-on-case', ON_CASE_HINT, d.case ? [' ', h('a', { href: `#/cases/${d.case.id}`, tag: 'RQT-02' }, codeTag(d.case.code))] : null);
     return h(
       'div.seg-head',
       segmentChip(segValue, { source: seg.source, sourceLabel: seg.source_label, requesterKind: requester ? 'company' : null, size: 'label' }),
@@ -227,7 +227,9 @@ export default async function render(ctx) {
       subtitle: 'طلب عرض من شركة: تواصلوا معها تجاريًا، ثم أضيفوها كشركة عميلة. لا تحليل قانوني لهذا الطلب.',
       icon: 'building',
       className: 'seg-requester',
-      body: h('div.stack-sm', kv(rows), h('div.btn-group', button('إضافة كشركة عميلة', { variant: 'primary', icon: 'building', href: `#/companies?${q.toString()}` }))),
+      body: h('div.stack-sm', kv(rows), h('div.btn-group', button('إضافة كشركة عميلة', { variant: 'primary', icon: 'building', href: `#/companies?${q.toString()}`, tag: 'RQT-03' }))),
+      titleTag: 'RQT-04',
+      tag: 'RQT-05',
     });
   }
 
@@ -237,6 +239,7 @@ export default async function render(ctx) {
       title: 'تأكيد هوية المرسل',
       message: `أكّد فقط بعد التحقق من أن مقدم الطلب هو صاحب رقم الهاتف المسجل (مثلًا بمكالمة على الرقم أو برسالة منه عبر واتساب). بعد التأكيد يُعامل الطلب كطلب من ${N.def} نفسه.`,
       confirmLabel: 'تأكيد الهوية',
+      tag: 'RQT-06',
     });
     if (!ok) return;
     await api.post(`${base}/confirm-identity`);
@@ -249,6 +252,7 @@ export default async function render(ctx) {
       title: 'إلغاء روابط البوابة',
       message: `ستتوقف روابط البوابة الخاصة بهذا الطلب فورًا، ولن يستطيع من يملكها متابعة الطلب أو الاطلاع على رسائله. يمكن إنشاء رابط جديد لاحقًا من ملف ${N.def} بعد التحقق.`,
       confirmLabel: 'نعم، إلغاء الروابط',
+      tag: 'RQT-07',
     });
     if (!ok) return;
     const res = await api.post(`${base}/revoke-portal`);
@@ -267,12 +271,12 @@ export default async function render(ctx) {
             h('p.small', `لهذا الطلب ${count(portalLinks, ['رابط بوابة ساري', 'رابطا بوابة ساريان', 'روابط بوابة سارية', 'رابط بوابة ساريًا'])}؛ من يملكه يتابع الطلب ويرى رسائله.`),
           h(
             'div.btn-group',
-            asyncButton('تأكيد هوية المرسل', confirmIdentity, { size: 'sm', variant: 'primary', icon: 'shieldCheck' }),
-            portalLinks > 0 && asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x' }),
+            asyncButton('تأكيد هوية المرسل', confirmIdentity, { size: 'sm', variant: 'primary', icon: 'shieldCheck', tag: 'RQT-08' }),
+            portalLinks > 0 && asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x', tag: 'RQT-09' }),
           ),
         ),
         'warning',
-        { title: 'تنبيه: هوية المرسل غير مؤكدة', icon: 'shield' },
+        { title: 'تنبيه: هوية المرسل غير مؤكدة', icon: 'shield', tag: 'RQT-10' },
       );
     }
     if (identity.phone_unverified && !identity.confirmed_at) {
@@ -285,7 +289,7 @@ export default async function render(ctx) {
           ' ',
           'رقم الهاتف أُدخل من نموذج الموقع ولم يُثبت بعد أن مقدّم الطلب صاحبه؛ لذلك لا يظهر هذا الطلب في صفحة المتابعة التي يدخلها صاحب الرقم برمز واتساب أو برابط ترسله الإدارة. يتابعه مقدّمه بالرابط الذي وصله عند الإرسال.',
         ),
-        h('div.btn-group', asyncButton('تأكيد هوية المرسل', confirmIdentity, { size: 'sm', icon: 'shieldCheck' })),
+        h('div.btn-group', asyncButton('تأكيد هوية المرسل', confirmIdentity, { size: 'sm', icon: 'shieldCheck', tag: 'RQT-11' })),
       );
     }
     if (identity.confirmed_at) {
@@ -305,10 +309,10 @@ export default async function render(ctx) {
         h(
           'div.pa-alert-row',
           h('span', 'قررت الإدارة أن هذا الطلب يستحق ملفًا قانونيًا، وصدر له الكود ', d.case ? codeTag(d.case.code) : null, `. تستمر المحادثة مع ${N.def} داخل الملف.`),
-          d.case && button('فتح الملف', { variant: 'primary', size: 'sm', icon: 'briefcase', href: `#/cases/${d.case.id}` }),
+          d.case && button('فتح الملف', { variant: 'primary', size: 'sm', icon: 'briefcase', href: `#/cases/${d.case.id}`, tag: 'RQT-12' }),
         ),
         'success',
-        { title: 'تحوّل الطلب إلى ملف قانوني', icon: 'checkCircle' },
+        { title: 'تحوّل الطلب إلى ملف قانوني', icon: 'checkCircle', tag: 'RQT-13' },
       );
     }
     if (it.status === 'handled_internally' || it.status === 'archived') {
@@ -331,14 +335,14 @@ export default async function render(ctx) {
             kind && h('span.small', h('span.pa-alert-label', 'نوع الإغلاق: '), label('resolution_kind', kind)),
             kind === 'referral' && it.referral_to && h('span.small', h('span.pa-alert-label', 'الجهة: '), it.referral_to),
           ),
-          button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen }),
+          button('إعادة فتح الطلب', { size: 'sm', icon: 'refresh', onClick: reopen, tag: 'RQT-14' }),
         ),
         handled ? 'success' : 'info',
-        { title, icon: handled ? 'checkCircle' : 'info' },
+        { title, icon: handled ? 'checkCircle' : 'info', tag: 'RQT-15' },
       );
     }
     const opt = (cls, iconName, title, text, onClick) =>
-      h('button.pa-decide-opt', { type: 'button', class: cls, onClick }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
+      h('button.pa-decide-opt', { type: 'button', class: cls, onClick, tag: 'RQT-16' }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
     return card({
       title: 'ما القرار في هذا الطلب؟',
       subtitle: 'الرسالة لا تتحول تلقائيًا إلى ملف — تقرر الإدارة بعد قراءة الطلب وفرزه.',
@@ -350,6 +354,8 @@ export default async function render(ctx) {
         opt('', 'checkCircle', 'تعامل داخلي دون محامٍ', 'استفسار بسيط ترد عليه الإدارة مباشرة دون إسناده لمحامٍ.', openHandle),
         opt('is-muted', 'x', 'أرشفة', 'رسالة غير جدية أو مكررة أو خارج نطاق الخدمة. يمكن إعادة فتحها لاحقًا.', openArchive),
       ),
+      titleTag: 'RQT-17',
+      tag: 'RQT-18',
     });
   }
 
@@ -358,6 +364,7 @@ export default async function render(ctx) {
       title: 'إعادة فتح الطلب',
       message: 'سيعود الطلب إلى قائمة الفرز بحالة «قيد الفرز» لتتخذ الإدارة قرارًا جديدًا بشأنه.',
       confirmLabel: 'إعادة الفتح',
+      tag: 'RQT-19',
     });
     if (!ok) return;
     await run(async () => {
@@ -384,10 +391,11 @@ export default async function render(ctx) {
           maxLength: 3000,
           rows: 3,
           hint: 'مثال: أُجيب المستفيد/ة بخطوات استخراج إعلام الوراثة والمستندات المطلوبة. يُحفظ داخليًا فقط.',
+          tag: 'RQT-20',
         },
-        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), hint: 'يساعد في قياس دقة تصنيف الذكاء الاصطناعي وتحليل الطلبات' },
-        { name: 'channel', label: 'قناة الرد', type: 'select', placeholder: false, options: REPLY_CHANNELS },
-        { name: 'reply', label: `رد يُرسل ${N.li} (اختياري)`, type: 'textarea', maxLength: 4000, rows: 4, hint: 'اتركه فارغًا إذا كنت قد رددت عليه بالفعل في المحادثة أو هاتفيًا.' },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), hint: 'يساعد في قياس دقة تصنيف الذكاء الاصطناعي وتحليل الطلبات', tag: 'RQT-21' },
+        { name: 'channel', label: 'قناة الرد', type: 'select', placeholder: false, options: REPLY_CHANNELS, tag: 'RQT-22' },
+        { name: 'reply', label: `رد يُرسل ${N.li} (اختياري)`, type: 'textarea', maxLength: 4000, rows: 4, hint: 'اتركه فارغًا إذا كنت قد رددت عليه بالفعل في المحادثة أو هاتفيًا.', tag: 'RQT-23' },
       ],
       onSubmit: (v) =>
         api.post(`${base}/handle-internally`, {
@@ -396,6 +404,7 @@ export default async function render(ctx) {
           reply: v.reply || undefined,
           channel: v.channel || 'auto',
         }),
+        tag: 'RQT-24',
     });
     if (res) {
       toast('أُغلق الطلب كتعامل داخلي دون إسناده لمحامٍ', 'success');
@@ -408,8 +417,9 @@ export default async function render(ctx) {
       title: 'أرشفة الطلب',
       intro: `تُستخدم الأرشفة للرسائل غير الجدية أو المكررة أو الخارجة عن نطاق الخدمة. يبقى الطلب محفوظًا ويمكن إعادة فتحه إذا تواصل ${N.def} مجددًا.`,
       submitLabel: 'أرشفة الطلب',
-      fields: [{ name: 'reason', label: 'سبب الأرشفة', type: 'textarea', required: true, minLength: 3, maxLength: 500, rows: 3 }],
+      fields: [{ name: 'reason', label: 'سبب الأرشفة', type: 'textarea', required: true, minLength: 3, maxLength: 500, rows: 3, tag: 'RQT-25' }],
       onSubmit: (v) => api.post(`${base}/archive`, { reason: v.reason }),
+      tag: 'RQT-26',
     });
     if (res) {
       toast('تمت أرشفة الطلب', 'success');
@@ -506,13 +516,14 @@ export default async function render(ctx) {
 
   function manualDecision() {
     const opt = (cls, iconName, title, text, onClick) =>
-      h('button.pa-decide-opt', { type: 'button', class: cls, onClick }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
+      h('button.pa-decide-opt', { type: 'button', class: cls, onClick, tag: 'RQT-27' }, h('span.pa-decide-icon', icon(iconName, { size: 20 })), h('span.pa-decide-text', h('strong', title), h('span', text)));
     return h(
       'details.pa-details.pa-manual',
-      { id: 'pa-manual' },
-      h('summary', 'قرار يدوي'),
+      { id: 'pa-manual', tag: 'RQT-28' },
+      h('summary', { tag: 'RQT-29' }, 'قرار يدوي'),
       h(
         'div.pa-decide',
+        // tags:skip sheet() opens the story sheet (STY codes)
         opt('is-primary', 'briefcase', 'تحويل إلى ملف قانوني', 'يحتاج دراسة محامٍ: يصدر له كود ملف مستقل ويُسند إلى فريق.', () => sheet({ track: 'consultation' })),
         opt('', 'checkCircle', 'تعامل داخلي دون محامٍ', 'استفسار بسيط ترد عليه الإدارة مباشرة دون إسناده لمحامٍ.', openHandle),
         opt('is-muted', 'x', 'أرشفة', 'رسالة غير جدية أو مكررة أو خارج نطاق الخدمة. يمكن إعادة فتحها لاحقًا.', openArchive),
@@ -541,21 +552,21 @@ export default async function render(ctx) {
         h(
           'p.pa-callback-how',
           'اتصل على ',
-          herPhone ? h('a', { href: `tel:${herPhone}` }, ltr(localPhone(herPhone))) : 'رقمها', // [بوابة 9.2 K9]
+          herPhone ? h('a', { href: `tel:${herPhone}`, tag: 'RQT-30' }, ltr(localPhone(herPhone))) : 'رقمها', // [بوابة 9.2 K9]
           webForm && webForm.callback_label ? ` (${webForm.callback_label})` : '',
           ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.',
         ),
         warningsList((prop && prop.warnings ? prop.warnings : []).filter((w) => w.code !== 'callback_only' && w.code !== 'local')),
         h(
           'div.pa-prop-actions',
-          asyncButton('سجّل المكالمة', () => callHer(null), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }),
+          asyncButton('سجّل المكالمة', () => callHer(null), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary', tag: 'RQT-31' }),
           asyncButton(
             'لم ترد',
             async () => {
               const a = await openCallAttempt({ intakeId: it.id, code: it.code });
               if (a) await reloadAndFocus(ctx, '#pa-proposal');
             },
-            { icon: 'phone-off', className: 'pa-prop-noanswer' },
+            { icon: 'phone-off', className: 'pa-prop-noanswer', tag: 'RQT-32' },
           ),
           att.can_close_unreachable &&
             asyncButton(
@@ -564,7 +575,7 @@ export default async function render(ctx) {
                 const r = await closeUnreachable({ intakeId: it.id, attempts: att });
                 if (r) await reloadAndFocus(ctx, '#pa-decision');
               },
-              { variant: 'danger', icon: 'x' },
+              { variant: 'danger', icon: 'x', tag: 'RQT-33' },
             ),
         ),
         att.count > 0 && h('p.small.pa-attempts-count', attemptsCountText(att.count)),
@@ -572,6 +583,8 @@ export default async function render(ctx) {
         !att.can_close_unreachable && h('p.field-hint', 'يُغلق الطلب بعد 3 محاولات في يومين مختلفين على الأقل.'),
         manualDecision(),
       ),
+      titleTag: 'RQT-34',
+      tag: 'RQT-35',
     });
   }
 
@@ -590,12 +603,14 @@ export default async function render(ctx) {
     if (view === 'awaiting') {
       // سُئلت بالفعل: لا «اعمله طلب» بنفس المسار؛ يُعاد التلخيص تلقائيًا عندما ترد، ويبقى اختيار مسار آخر متاحًا
     } else if (view === 'blocked' && voiceMissing > 0) {
-      actions.push(button('اسمع الرسالة الصوتية', { variant: 'primary', icon: 'mic', className: 'pa-prop-primary', onClick: goToVoice }));
-      if (callFirst) actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { icon: 'phone' }));
+      actions.push(button('اسمع الرسالة الصوتية', { variant: 'primary', icon: 'mic', className: 'pa-prop-primary', onClick: goToVoice, tag: 'RQT-36' }));
+      if (callFirst) actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { icon: 'phone', tag: 'RQT-37' }));
     } else if (callFirst) {
-      actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary' }));
-      if (unconf) actions.push(asyncButton(male ? 'إرسال لصفحته فقط' : 'إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe' }));
-      else if (rec) actions.push(asyncButton(label('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send' }));
+      actions.push(asyncButton(CALL_LABEL, () => callHer(prop.actions.call_script), { variant: 'primary', icon: 'phone', className: 'pa-prop-primary', tag: 'RQT-38' }));
+      // tags:skip sheet() opens the story sheet (STY codes)
+      if (unconf) actions.push(asyncButton(male ? 'إرسال لصفحته فقط' : 'إرسال لصفحتها فقط', () => sheet({ track: rec || undefined, channel: 'website' }), { icon: 'globe', tag: 'RQT-39' }));
+      // tags:skip sheet() opens the story sheet (STY codes)
+      else if (rec) actions.push(asyncButton(label('story_track_action', rec), () => sheet({ track: rec }), { icon: 'send', tag: 'RQT-40' }));
     } else if (!prop.analyzed_at) {
       actions.push(
         asyncButton(
@@ -605,14 +620,16 @@ export default async function render(ctx) {
             toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
             await reloadAndFocus(ctx, '#pa-proposal');
           },
-          { variant: 'primary', icon: 'sparkle', className: 'pa-prop-primary' },
+          { variant: 'primary', icon: 'sparkle', className: 'pa-prop-primary', tag: 'RQT-41' },
         ),
       );
     } else {
-      actions.push(asyncButton(rec ? `اعمله طلب: ${label('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary' }));
+      // tags:skip sheet() opens the story sheet (STY codes)
+      actions.push(asyncButton(rec ? `اعمله طلب: ${label('story_track', rec)}` : 'اعمله طلب', () => sheet({ track: rec || undefined }), { variant: 'primary', icon: 'check', className: 'pa-prop-primary', tag: 'RQT-42' }));
     }
-    actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: view === 'awaiting' ? 'secondary' : 'ghost', icon: 'list' }));
-    if (view === 'stale' || view === 'collecting') actions.push(asyncButton('حدّث الملخص الآن', summarizeNow, { variant: 'ghost', icon: 'refresh' }));
+    // tags:skip sheet() opens the story sheet (STY codes)
+    actions.push(asyncButton('اختيار مسار آخر', () => sheet({ focusTracks: true }), { variant: view === 'awaiting' ? 'secondary' : 'ghost', icon: 'list', tag: 'RQT-43' }));
+    if (view === 'stale' || view === 'collecting') actions.push(asyncButton('حدّث الملخص الآن', summarizeNow, { variant: 'ghost', icon: 'refresh', tag: 'RQT-44' }));
 
     const trackBlock = rec
       ? h(
@@ -647,6 +664,8 @@ export default async function render(ctx) {
         att.count > 0 && h('div.pa-prop-attempts', h('p.small', attemptsCountText(att.count)), attemptsList(att.items || [])),
         manualDecision(),
       ),
+      titleTag: 'RQT-45',
+      tag: 'RQT-46',
     });
   }
 
@@ -666,6 +685,8 @@ export default async function render(ctx) {
         aboutBits.length ? h('p.small.muted', `أضافت بعد الإرسال: ${aboutBits.join('، ')}`) : null,
         h('p.field-hint', 'ضغطات على صور وقد تكون غير دقيقة؛ كلامها في المحادثة هو المعتمد.'),
       ),
+      titleTag: 'RQT-47',
+      tag: 'RQT-48',
     });
   }
 
@@ -691,6 +712,7 @@ export default async function render(ctx) {
                 toast(errorMessage(err), 'danger');
               }
             },
+            tag: 'RQT-49',
           }),
         ),
         'success',
@@ -715,15 +737,16 @@ export default async function render(ctx) {
 
     const main = form(
       [
-        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يحدد بادئة كود الملف (مثل INH للمواريث)' },
-        { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200 },
-        { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority') },
-        { name: 'due_at', label: `الموعد المستهدف للرد على ${N.def}`, type: 'date', endOfDay: true, min: cairoToday() },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يحدد بادئة كود الملف (مثل INH للمواريث)', tag: 'RQT-121' },
+        { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200, tag: 'RQT-122' },
+        { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority'), tag: 'RQT-123' },
+        { name: 'due_at', label: `الموعد المستهدف للرد على ${N.def}`, type: 'date', endOfDay: true, min: cairoToday(), tag: 'RQT-124' },
         {
           name: 'case_manager_id',
           label: 'مدير الحالة',
           type: 'select',
           options: (d.staff || []).map((s) => ({ value: s.id, label: `${s.name} — ${label('user_role', s.role)}` })),
+          tag: 'RQT-125',
         },
         {
           name: 'facts_shared',
@@ -732,8 +755,9 @@ export default async function render(ctx) {
           rows: 6,
           maxLength: 20000,
           hint: `هذا ما يمكن إتاحته للمحامين لاحقًا — لا تكتب هنا رقم الهاتف أو بيانات التواصل أو مصدر ${N.def}.`,
+          tag: 'RQT-126',
         },
-        { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000 },
+        { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000, tag: 'RQT-127' },
       ],
       {
         footer: false,
@@ -745,16 +769,17 @@ export default async function render(ctx) {
           facts_shared: factsShared,
           facts_internal: it.internal_notes || '',
         },
+        tag: 'RQT-128',
       },
     );
 
     const clientForm = form(
       [
-        { name: 'name', label: `اسم ${N.def}`, maxLength: 150 },
-        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري' },
-        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
+        { name: 'name', label: `اسم ${N.def}`, maxLength: 150, tag: 'RQT-129' },
+        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري', tag: 'RQT-130' },
+        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), tag: 'RQT-131' },
       ],
-      { footer: false, columns: 2, values: { name: (cl && cl.name) || it.contact_name || '', national_id: (cl && cl.national_id) || '', governorate: (cl && cl.governorate) || it.governorate || null } },
+      { footer: false, columns: 2, values: { name: (cl && cl.name) || it.contact_name || '', national_id: (cl && cl.national_id) || '', governorate: (cl && cl.governorate) || it.governorate || null }, tag: 'RQT-132' },
     );
 
     // المسائل: المقترحة من الذكاء الاصطناعي (محددة مسبقًا) + ما يضيفه الموظف
@@ -766,10 +791,10 @@ export default async function render(ctx) {
       checked: true,
     }));
     const issuesList = h('ol.pa-issues-list');
-    const issueInput = h('input.input', { type: 'text', maxlength: 300, placeholder: 'اكتب مسألة قانونية أخرى…', 'aria-label': 'مسألة جديدة' });
+    const issueInput = h('input.input', { type: 'text', maxlength: 300, placeholder: 'اكتب مسألة قانونية أخرى…', 'aria-label': 'مسألة جديدة', tag: 'RQT-50' });
     const issueArea = h(
       'select.input',
-      { 'aria-label': 'مجال المسألة الجديدة' },
+      { 'aria-label': 'مجال المسألة الجديدة', tag: 'RQT-51' },
       h('option', { value: '' }, 'نفس مجال الملف'),
       areaOptions().map((o) => h('option', { value: o.value }, o.label)),
     );
@@ -791,6 +816,7 @@ export default async function render(ctx) {
               onChange: () => {
                 x.checked = cb.checked;
               },
+              tag: 'RQT-52',
             });
             return h(
               'li.pa-issue',
@@ -815,6 +841,7 @@ export default async function render(ctx) {
                   drawIssues();
                   issueInput.focus();
                 },
+                tag: 'RQT-53',
               }),
             ),
           );
@@ -884,7 +911,7 @@ export default async function render(ctx) {
           h('legend', 'المسائل القانونية محل الدراسة'),
           h('p.field-hint', 'المسائل المقترحة محددة مسبقًا؛ ألغِ ما لا يلزم أو أضف غيرها. يمكن لاحقًا إتاحة كل مسألة لمحامٍ متخصص بعينه.'),
           issuesList,
-          h('div.pa-issue-add', issueInput, h('div.select-wrap', issueArea), button('إضافة مسألة', { icon: 'plus', onClick: addIssue })),
+          h('div.pa-issue-add', issueInput, h('div.select-wrap', issueArea), button('إضافة مسألة', { icon: 'plus', onClick: addIssue, tag: 'RQT-54' })),
           issueNote,
         ),
         h(
@@ -897,7 +924,7 @@ export default async function render(ctx) {
         programSet,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'RQT-55' },
         {
           label: 'تحويل وإصدار كود الملف',
           variant: 'primary',
@@ -944,6 +971,7 @@ export default async function render(ctx) {
             }
             return undefined;
           },
+          tag: 'RQT-56',
         },
       ],
       onClose: () => {
@@ -952,6 +980,7 @@ export default async function render(ctx) {
           ctx.navigate(`/cases/${created.id}`);
         }
       },
+      tag: 'RQT-57',
     });
   }
 
@@ -993,7 +1022,7 @@ export default async function render(ctx) {
                 toast('أُعيدت محاولة الإرسال', 'success');
                 await reloadAndFocus(ctx, '#pa-conversation');
               },
-              { variant: 'link', size: 'sm', icon: 'refresh' },
+              { variant: 'link', size: 'sm', icon: 'refresh', tag: 'RQT-58' },
             ),
           ),
         );
@@ -1048,12 +1077,12 @@ export default async function render(ctx) {
           ),
           h(
             'span.row',
-            ic.intake_id && button('فتح الطلب المذكور', { size: 'sm', icon: 'externalLink', href: `#/inbox/${ic.intake_id}` }),
-            cl && ic.client_code && button('دمج بعد التحقق', { size: 'sm', icon: 'link', onClick: () => mergeFlow(ic.client_code) }),
+            ic.intake_id && button('فتح الطلب المذكور', { size: 'sm', icon: 'externalLink', href: `#/inbox/${ic.intake_id}`, tag: 'RQT-59' }),
+            cl && ic.client_code && button('دمج بعد التحقق', { size: 'sm', icon: 'link', onClick: () => mergeFlow(ic.client_code), tag: 'RQT-60' }),
           ),
         ),
         'warning',
-        { title: `يذكر رقم طلب ل${N.bare} آخر` },
+        { title: `يذكر رقم طلب ل${N.bare} آخر`, tag: 'RQT-61' },
       );
     });
 
@@ -1065,6 +1094,8 @@ export default async function render(ctx) {
       icon: 'message',
       actions: channelIcons(chans, { withLabels: true }),
       body: frag(banners.length ? h('div.stack-sm.mb-3', banners) : null, scroller, composer()),
+      titleTag: 'RQT-62',
+      tag: 'RQT-63',
     });
   }
 
@@ -1078,9 +1109,10 @@ export default async function render(ctx) {
     const res = await formDialog({
       title: 'تسمية المستند',
       intro: 'اكتب اسم الورقة كما هي (مثل: شهادة الوفاة، قسيمة الزواج). الاسم يظهر للمحامي إن أُتيح له المستند.',
-      fields: [{ name: 'title', label: 'اسم المستند', type: 'text', required: true, maxLength: 200 }],
+      fields: [{ name: 'title', label: 'اسم المستند', type: 'text', required: true, maxLength: 200, tag: 'RQT-64' }],
       values: { title: GENERIC_DOC_NAME.test(doc.title || '') ? '' : doc.title || '' },
       onSubmit: (v) => api.patch(`/admin/documents/${doc.id}`, { title: v.title }),
+      tag: 'RQT-65',
     });
     if (res) {
       toast('تم تحديث اسم المستند', 'success');
@@ -1125,14 +1157,16 @@ export default async function render(ctx) {
             ),
             h(
               'div.pc-doc-actions',
-              button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(doc.id), target: '_blank', ariaLabel: `تنزيل ${name}` }),
-              !String(doc.mime || '').startsWith('audio/') && button('تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => renameDoc(doc), ariaLabel: `تسمية ${name}` }),
+              button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(doc.id), target: '_blank', ariaLabel: `تنزيل ${name}`, tag: 'RQT-66' }),
+              !String(doc.mime || '').startsWith('audio/') && button('تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => renameDoc(doc), ariaLabel: `تسمية ${name}`, tag: 'RQT-67' }),
               docAiAction(analyses, doc),
             ),
           );
         }),
         ),
       ),
+      titleTag: 'RQT-68',
+      tag: 'RQT-69',
     });
     return el;
   }
@@ -1142,13 +1176,13 @@ export default async function render(ctx) {
       return h(
         'p.pa-note.mt-3',
         icon('info', { size: 15 }),
-        h('span', `تستمر المراسلات مع ${N.def} داخل الملف القانوني `, d.case ? h('a', { href: `#/cases/${d.case.id}` }, codeTag(d.case.code)) : null, '.'),
+        h('span', `تستمر المراسلات مع ${N.def} داخل الملف القانوني `, d.case ? h('a', { href: `#/cases/${d.case.id}`, tag: 'RQT-70' }, codeTag(d.case.code)) : null, '.'),
       );
     }
-    const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: `اكتب ردك على ${N.def}…` });
+    const ta = h('textarea.input', { rows: 3, maxlength: 4000, placeholder: `اكتب ردك على ${N.def}…`, tag: 'RQT-71' });
     // v9.1 b-site (B91-01): أين يصل الرد؟ «واتساب + صفحة المتابعة» أو «صفحة المتابعة فقط — الرقم غير مؤكد»
     const replyChannel = it.identity && it.identity.reply_channel ? `يصل الرد: ${it.identity.reply_channel.text}. ` : '';
-    const wrap = field(`الرد على ${N.def}`, ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.` });
+    const wrap = field(`الرد على ${N.def}`, ta, { hint: `${replyChannel}يُرسل من قناة المؤسسة الرسمية ويُسجل في المحادثة. Ctrl + Enter للإرسال.`, tag: 'RQT-72' });
     // (v9) ردود جاهزة واقتراح رد. الهوية غير المؤكدة: الاسم كما كتبه المرسل فقط، دون ربط بملف العميل المسجل
     const tools = composerTools(ta, {
       context: {
@@ -1161,8 +1195,8 @@ export default async function render(ctx) {
     });
     // v11 segment-staff (r2 S8): وصلت على رقم غير مضبوط ← لا واتساب من هنا، صفحة المتابعة فقط
     const channels = unknownLine ? REPLY_CHANNELS.filter((o) => o.value === 'website') : REPLY_CHANNELS;
-    const chan = h('select.input', { 'aria-label': 'قناة الإرسال' }, channels.map((o) => h('option', { value: o.value }, o.label)));
-    const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status) });
+    const chan = h('select.input', { 'aria-label': 'قناة الإرسال', tag: 'RQT-73' }, channels.map((o) => h('option', { value: o.value }, o.label)));
+    const awaitCb = h('input', { type: 'checkbox', disabled: !['new', 'in_review'].includes(it.status), tag: 'RQT-74' });
     const sendBtn = asyncButton(
       'إرسال الرد',
       async () => {
@@ -1183,7 +1217,7 @@ export default async function render(ctx) {
         );
         await reloadAndFocus(ctx, '.pa-composer textarea');
       },
-      { variant: 'primary', icon: 'send' },
+      { variant: 'primary', icon: 'send', tag: 'RQT-75' },
     );
     ta.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -1238,20 +1272,22 @@ export default async function render(ctx) {
           ],
           { columns: 1 },
         ),
+        titleTag: 'RQT-76',
+        tag: 'RQT-77',
       });
     }
     const staffOpts = (d.staff || []).map((s) => ({ value: s.id, label: s.name }));
     const f = form(
       [
-        { name: 'title', label: 'موضوع الطلب', maxLength: 200, full: true },
-        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions() },
-        { name: 'kind', label: 'نوع الطلب', type: 'select', options: options('intake_kind') },
-        { name: 'priority', label: 'الأولوية', type: 'select', required: true, placeholder: false, options: options('priority') },
-        { name: 'assigned_staff_id', label: 'المسؤول عن الفرز', type: 'select', options: staffOpts },
-        { name: 'source', label: `مصدر ${N.def}`, type: 'select', required: true, placeholder: false, options: options('source') },
-        { name: 'campaign', label: 'الحملة / جهة الإحالة', maxLength: 150 },
-        { name: 'summary', label: 'ملخص الطلب', type: 'textarea', rows: 3, maxLength: 5000 },
-        { name: 'internal_notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 10000, hint: `لا تظهر ${N.li} ولا للمحامين` },
+        { name: 'title', label: 'موضوع الطلب', maxLength: 200, full: true, tag: 'RQT-133' },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', options: areaOptions(), tag: 'RQT-134' },
+        { name: 'kind', label: 'نوع الطلب', type: 'select', options: options('intake_kind'), tag: 'RQT-135' },
+        { name: 'priority', label: 'الأولوية', type: 'select', required: true, placeholder: false, options: options('priority'), tag: 'RQT-136' },
+        { name: 'assigned_staff_id', label: 'المسؤول عن الفرز', type: 'select', options: staffOpts, tag: 'RQT-137' },
+        { name: 'source', label: `مصدر ${N.def}`, type: 'select', required: true, placeholder: false, options: options('source'), tag: 'RQT-138' },
+        { name: 'campaign', label: 'الحملة / جهة الإحالة', maxLength: 150, tag: 'RQT-139' },
+        { name: 'summary', label: 'ملخص الطلب', type: 'textarea', rows: 3, maxLength: 5000, tag: 'RQT-140' },
+        { name: 'internal_notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 10000, hint: `لا تظهر ${N.li} ولا للمحامين`, tag: 'RQT-141' },
       ],
       {
         values: {
@@ -1283,6 +1319,8 @@ export default async function render(ctx) {
           toast('تم حفظ بيانات الفرز', 'success');
           await reloadAndFocus(ctx, '#pa-triage');
         },
+        submitTag: 'RQT-142',
+        tag: 'RQT-143',
       },
     );
 
@@ -1310,6 +1348,7 @@ export default async function render(ctx) {
               const el = c.focusEl && c.focusEl();
               if (el) el.focus();
             },
+            tag: 'RQT-78',
           }),
         ),
       );
@@ -1333,6 +1372,7 @@ export default async function render(ctx) {
               toast('مُلئت الحقول الفارغة من اقتراح الذكاء الاصطناعي — راجعها ثم احفظ', 'success');
             }
           },
+          tag: 'RQT-79',
         })
       : null;
 
@@ -1342,6 +1382,8 @@ export default async function render(ctx) {
       icon: 'filter',
       actions: fillAll,
       body: f.el,
+      titleTag: 'RQT-80',
+      tag: 'RQT-81',
     });
   }
 
@@ -1370,14 +1412,14 @@ export default async function render(ctx) {
       sync();
       toast('سُجّل تقييمك — يُستخدم لقياس دقة الذكاء الاصطناعي وتحسينه', 'success', 2500);
     };
-    okBtn = asyncButton('صحيح', send('accepted'), { variant: 'ghost', size: 'sm', icon: 'check', className: 'pa-fb-btn is-ok' });
-    badBtn = asyncButton('غير دقيق', send('rejected'), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-fb-btn is-bad' });
+    okBtn = asyncButton('صحيح', send('accepted'), { variant: 'ghost', size: 'sm', icon: 'check', className: 'pa-fb-btn is-ok', tag: 'RQT-82' });
+    badBtn = asyncButton('غير دقيق', send('rejected'), { variant: 'ghost', size: 'sm', icon: 'x', className: 'pa-fb-btn is-bad', tag: 'RQT-83' });
     sync();
     return h('div.pa-fb', { role: 'group', 'aria-label': `تقييم: ${label('ai_field', fieldName)}` }, okBtn, badBtn, status);
   }
 
   function aiBlock(title, content, fb) {
-    return h('section.pa-ai-block', h('div.pa-ai-block-head', h('h3.pa-ai-h', title), fb), content);
+    return h('section.pa-ai-block', { tag: 'RQT-84' }, h('div.pa-ai-block-head', h('h3.pa-ai-h', { tag: 'RQT-85' }, title), fb), content);
   }
 
   function aiCard() {
@@ -1388,6 +1430,8 @@ export default async function render(ctx) {
         icon: 'sparkle',
         className: 'pa-ai-card',
         body: h('p.small.muted', 'طلب عرض تجاري من شركة — لا يُعرض له تحليل قانوني. بيانات الشركة واحتياجاتها في بطاقة «طلب عرض — تواصل تجاري».'),
+        titleTag: 'RQT-86',
+        tag: 'RQT-87',
       });
     }
     const reanalyze = asyncButton(
@@ -1397,14 +1441,16 @@ export default async function render(ctx) {
         toast('اكتمل تحليل الذكاء الاصطناعي', 'success');
         await reloadAndFocus(ctx, '#pa-ai');
       },
-      { size: 'sm', icon: ai ? 'refresh' : 'sparkle' },
+      { size: 'sm', icon: ai ? 'refresh' : 'sparkle', tag: 'RQT-88' },
     );
     if (!ai) {
       return card({
         title: 'تحليل الذكاء الاصطناعي',
         icon: 'sparkle',
         className: 'pa-ai-card',
-        body: emptyState('لم يُحلَّل هذا الطلب بعد. يقترح التحليل عنوانًا وتصنيفًا وملخصًا والمعلومات الناقصة والحالات المشابهة.', reanalyze, { compact: true, icon: 'sparkle' }),
+        body: emptyState('لم يُحلَّل هذا الطلب بعد. يقترح التحليل عنوانًا وتصنيفًا وملخصًا والمعلومات الناقصة والحالات المشابهة.', reanalyze, { compact: true, icon: 'sparkle', tag: 'RQT-89' }),
+        titleTag: 'RQT-90',
+        tag: 'RQT-91',
       });
     }
     const provider = ai.provider === 'anthropic' ? 'Claude' : 'المحلل المحلي';
@@ -1421,7 +1467,7 @@ export default async function render(ctx) {
         h('span.spacer'),
         reanalyze,
       ),
-      out._fallback_reason && alertBox(`تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: ${out._fallback_reason}`, 'warning'),
+      out._fallback_reason && alertBox(`تعذر الوصول إلى النموذج اللغوي فاستُخدم المحلل المحلي: ${out._fallback_reason}`, 'warning', { tag: 'RQT-92' }),
       out.title && aiBlock('العنوان المقترح', h('p.pa-ai-text.is-strong', out.title), feedbackControl('title', out.title)),
       out.legal_area &&
         aiBlock(
@@ -1480,7 +1526,7 @@ export default async function render(ctx) {
                   'li',
                   h(
                     'a.pa-similar-link',
-                    { href: s.type === 'case' || !s.type ? `#/cases/${s.id}` : `#/knowledge/${s.id}` },
+                    { href: s.type === 'case' || !s.type ? `#/cases/${s.id}` : `#/knowledge/${s.id}`, tag: 'RQT-93' },
                     h('span.pa-similar-head', s.code ? codeTag(s.code) : null, badge(`تشابه ${percent(s.score)}`, 'neutral')),
                     h('span.pa-similar-title', s.title),
                     h('span.pa-similar-foot', s.status ? statusBadge('case_status', s.status) : null, s.outcome ? h('span.small.muted', label('case_outcome', s.outcome)) : null),
@@ -1496,7 +1542,7 @@ export default async function render(ctx) {
     const history = fbAll.length
       ? h(
           'details.pa-details',
-          h('summary', `سجل تقييمات الإدارة لهذا التحليل (${fbAll.length})`),
+          { tag: 'RQT-94' }, h('summary', { tag: 'RQT-95' }, `سجل تقييمات الإدارة لهذا التحليل (${fbAll.length})`),
           h(
             'ul.pa-fb-history',
             fbAll
@@ -1515,6 +1561,8 @@ export default async function render(ctx) {
       icon: 'sparkle',
       className: 'pa-ai-card',
       body: h('div.pa-ai', blocks, history),
+      titleTag: 'RQT-96',
+      tag: 'RQT-97',
     });
   }
 
@@ -1542,6 +1590,7 @@ export default async function render(ctx) {
         '. لا يمكن التراجع عن الدمج.',
       ],
       confirmLabel: 'نعم، ادمج الملفين',
+      tag: 'RQT-98',
     });
     if (!ok) return;
     await run(async () => {
@@ -1553,7 +1602,7 @@ export default async function render(ctx) {
 
   function clientCard() {
     if (!cl) {
-      return card({ title: N.def, icon: 'user', body: emptyState(`لا يوجد ${N.bare} مرتبط بهذا الطلب`, null, { compact: true, icon: 'user' }) });
+      return card({ title: N.def, icon: 'user', body: emptyState(`لا يوجد ${N.bare} مرتبط بهذا الطلب`, null, { compact: true, icon: 'user', tag: 'RQT-99' }), titleTag: 'RQT-100', tag: 'RQT-101' });
     }
     const idents = cl.identities || [];
     const allChannels = [...new Set([...idents.flatMap((x) => x.channels || []), ...(it.channels || [])])];
@@ -1562,13 +1611,13 @@ export default async function render(ctx) {
     return card({
       title: N.def,
       icon: 'user',
-      actions: button(`ملف ${N.def}`, { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/clients/${cl.id}` }),
+      actions: button(`ملف ${N.def}`, { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/clients/${cl.id}`, tag: 'RQT-102' }),
       body: h(
         'div.stack',
         kv([
-          [`كود ${N.def}`, h('a.pa-plain-link', { href: `#/clients/${cl.id}` }, codeTag(cl.code))],
+          [`كود ${N.def}`, h('a.pa-plain-link', { href: `#/clients/${cl.id}`, tag: 'RQT-103' }, codeTag(cl.code))],
           ['الاسم', cl.name || it.contact_name],
-          ['الهاتف', cl.phone ? h('span.row', ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null],
+          ['الهاتف', cl.phone ? h('span.row', ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '', { tag: 'RQT-104' })) : null],
           cl.email && ['البريد', ltr(cl.email)],
           ['المحافظة', cl.governorate || it.governorate],
         ]),
@@ -1595,7 +1644,7 @@ export default async function render(ctx) {
         idents.length
           ? h(
               'div',
-              h('h3.pa-mini-h', 'وسائل التواصل المرتبطة'),
+              h('h3.pa-mini-h', { tag: 'RQT-105' }, 'وسائل التواصل المرتبطة'),
               h(
                 'ul.pa-ident',
                 idents.map((x) =>
@@ -1611,25 +1660,27 @@ export default async function render(ctx) {
           : null,
         h(
           'div',
-          h('h3.pa-mini-h', `تاريخ ${N.def} مع المؤسسة`),
+          h('h3.pa-mini-h', { tag: 'RQT-106' }, `تاريخ ${N.def} مع المؤسسة`),
           others.length || cases.length
             ? h(
                 'ul.pa-hist',
                 cases.map((c) =>
-                  h('li', h('a.pa-hist-link', { href: `#/cases/${c.id}` }, icon('briefcase', { size: 14 }), codeTag(c.code), h('span.pa-hist-title', c.title)), statusBadge('case_status', c.status)),
+                  h('li', h('a.pa-hist-link', { href: `#/cases/${c.id}`, tag: 'RQT-107' }, icon('briefcase', { size: 14 }), codeTag(c.code), h('span.pa-hist-title', c.title)), statusBadge('case_status', c.status)),
                 ),
                 others.map((o) =>
                   h(
                     'li',
-                    h('a.pa-hist-link', { href: `#/inbox/${o.id}` }, icon('inbox', { size: 14 }), codeTag(o.code), h('span.pa-hist-title', o.title || date(o.created_at))),
+                    h('a.pa-hist-link', { href: `#/inbox/${o.id}`, tag: 'RQT-108' }, icon('inbox', { size: 14 }), codeTag(o.code), h('span.pa-hist-title', o.title || date(o.created_at))),
                     statusBadge('intake_status', o.status),
                   ),
                 ),
               )
             : h('p.small.muted', `هذا أول تواصل لهذا ${N.def} مع المؤسسة.`),
         ),
-        N.bare === 'مستفيد/ة' ? button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: () => mergeFlow() }) : button(mergeLabel(N.bare), { size: 'sm', icon: 'users', onClick: () => mergeFlow() }),
+        N.bare === 'مستفيد/ة' ? button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: () => mergeFlow(), tag: 'RQT-109' }) : button(mergeLabel(N.bare), { size: 'sm', icon: 'users', onClick: () => mergeFlow(), tag: 'RQT-110' }),
       ),
+      titleTag: 'RQT-111',
+      tag: 'RQT-112',
     });
   }
 
@@ -1657,6 +1708,8 @@ export default async function render(ctx) {
           ...detailRows,
         ]),
       ),
+      titleTag: 'RQT-113',
+      tag: 'RQT-114',
     });
   }
 
@@ -1672,7 +1725,7 @@ export default async function render(ctx) {
         tone: ACTOR_TONES[a.actor_kind] || 'neutral',
         icon: activityIcon(a.type),
       }));
-    return card({ title: 'سجل النشاط', icon: 'clock', body: timeline(items) });
+    return card({ title: 'سجل النشاط', icon: 'clock', body: timeline(items), titleTag: 'RQT-115', tag: 'RQT-116' });
   }
 
   // ───────────── الترويسة والتخطيط ─────────────
@@ -1729,7 +1782,7 @@ export default async function render(ctx) {
   const header = pageHeader({
     title: `الطلب ${it.code}`,
     breadcrumbs: [
-      { label: 'صندوق الوارد', href: '#/inbox' },
+      { label: 'صندوق الوارد', href: '#/inbox', tag: 'RQT-117' },
       { label: it.code },
     ],
     subtitle: it.title
@@ -1753,7 +1806,9 @@ export default async function render(ctx) {
       h('span.small.muted', { title: dateTime(it.created_at) }, `وصل ${relative(it.created_at)}`),
     ],
     // (V6) لا صف «رجوع» مستقل: مسار التنقل أعلى الصفحة يعود إلى صندوق الوارد
-    actions: it.status === 'converted' && d.case ? [button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}` })] : null,
+    actions: it.status === 'converted' && d.case ? [button(`فتح الملف ${d.case.code}`, { variant: 'primary', icon: 'briefcase', href: `#/cases/${d.case.id}`, tag: 'RQT-118' })] : null,
+    titleTag: 'RQT-119',
+    tag: 'RQT-120',
   });
 
   // v12 staff-lines (SL-2): سطر المسار تحت العنوان (بين السطر الفرعي وصف البيانات)

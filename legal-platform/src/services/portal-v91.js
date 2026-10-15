@@ -23,6 +23,7 @@
 
 import * as U from '../util.js';
 import { LABELS, GOVERNORATES } from '../constants.js';
+import { WA_BUTTON_TEXTS } from '../constants.js'; // v12 tags (TG-4): أزرار الرد على تذكير الجلسة (W-47)
 // v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
 import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 import { isPortalUnverifiedIntake } from '../channels/engine.js';
@@ -1088,7 +1089,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
           vars: { ...vars, matter_code: e.matter_code, time: spokenTime(e.starts_at) },
           reminder: 'day_before',
           event_id: e.id,
-          wa: { type: 'buttons', text: body, buttons: tone !== 'charity' ? [{ id: `evt:${e.id}:yes`, title: 'سأحضر' }, { id: `evt:${e.id}:no`, title: 'لن أتمكن' }] : [{ id: `evt:${e.id}:yes`, title: 'هحضر' }, { id: `evt:${e.id}:no`, title: 'مش هقدر' }] },
+          wa: { type: 'buttons', text: body, buttons: tone !== 'charity' ? [{ id: `evt:${e.id}:yes`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.yes_paid }, { id: `evt:${e.id}:no`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.no_paid }] : [{ id: `evt:${e.id}:yes`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.yes }, { id: `evt:${e.id}:no`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.no }] },
         },
       });
       // رقم غير مؤكد (B91-01): لا يصل الرقم شيء، والتخطي يُسجَّل مرة واحدة

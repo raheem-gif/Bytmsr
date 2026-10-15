@@ -49,6 +49,7 @@ export function openSplitDialog({ messages = [], preselectId = null, onDone, spl
         note.hidden = true;
         sync();
       },
+      tag: 'SPL-01',
     });
     const docs = (m.documents || []).map((d) => (isAudioDoc(d) ? 'رسالة صوتية' : d.filename || 'مرفق'));
     return h(
@@ -88,7 +89,7 @@ export function openSplitDialog({ messages = [], preselectId = null, onDone, spl
         note,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'SPL-02' },
         {
           label: 'اعمل طلب جديد',
           variant: 'primary',
@@ -104,6 +105,7 @@ export function openSplitDialog({ messages = [], preselectId = null, onDone, spl
             result = res;
             return undefined;
           },
+          tag: 'SPL-03',
         },
       ],
       onClose: () => {
@@ -113,6 +115,7 @@ export function openSplitDialog({ messages = [], preselectId = null, onDone, spl
         if (onDone) onDone(result);
         else window.location.hash = `#/inbox/${result.intake.id}`;
       },
+      tag: 'SPL-04',
     });
   });
 }

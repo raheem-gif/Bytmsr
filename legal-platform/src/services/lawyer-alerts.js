@@ -48,6 +48,16 @@ export const ALERT_TEXT = {
   admin_reply: ({ code }) => `وصلك رد من الإدارة في ${code}.`,
   digest: ({ n }) => `اليوم مطلوب منك ${arabicCount(n, THINGS)}.`,
 };
+// v12 tags (TG-4، T12-20): رموز رسائل واتساب للمحامين (تُقرأ في /app#/tags؛ لا يظهر الرمز داخل أي رسالة، L12-88)
+export const ALERT_TAGS = Object.freeze({
+  'assignment.new': 'W-48',
+  'opinion.returned': 'W-49',
+  'assignment.due_soon': 'W-50',
+  'assignment.overdue': 'W-51',
+  'hearing.outcome_missing': 'W-52',
+  admin_reply: 'W-53',
+  digest: 'W-54',
+});
 
 /** أنواع إشعارات «رد من الإدارة»: إتاحة المعلومة، الإجابة عن سؤال، والبت في طلب المهلة (مسار l-work) */
 // (info_request.rejected: لم توافق الإدارة على الطلب — ومنه رفض طلب المهلة، وهو «بتّ في المهلة» كما في المواصفة)

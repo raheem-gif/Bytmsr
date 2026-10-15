@@ -49,7 +49,7 @@ async function download(path, fallbackName) {
   const m = /filename\*=UTF-8''([^;]+)/.exec(cd);
   const name = m ? decodeURIComponent(m[1]) : fallbackName;
   const blob = await res.blob();
-  const a = h('a', { href: URL.createObjectURL(blob), download: name });
+  const a = h('a', { href: URL.createObjectURL(blob), download: name, tag: 'DAT-01' });
   document.body.append(a);
   a.click();
   setTimeout(() => {
@@ -75,7 +75,7 @@ export default async function render(ctx) {
   function exportPanel() {
     return h(
       'div.stack',
-      alertBox('ملفات التصدير تحتوي بيانات شخصية للمستفيدين والمحامين. يُسجل كل تصدير في سجل الأمان. احفظ الملفات في مكان آمن واحذفها بعد الاستخدام، ولا ترسلها عبر وسائل غير مؤمنة.', 'warning', { title: 'تنبيه خصوصية', icon: 'lock' }),
+      alertBox('ملفات التصدير تحتوي بيانات شخصية للمستفيدين والمحامين. يُسجل كل تصدير في سجل الأمان. احفظ الملفات في مكان آمن واحذفها بعد الاستخدام، ولا ترسلها عبر وسائل غير مؤمنة.', 'warning', { title: 'تنبيه خصوصية', icon: 'lock', tag: 'DAT-02' }),
       h(
         'div.v9p-export-grid',
         summary.entities.map((key) => {
@@ -83,14 +83,14 @@ export default async function render(ctx) {
           const n = summary.counts[key] ?? 0;
           return h(
             'section.v9p-export-item',
-            h('div.v9p-export-head', h('span.card-icon', icon(info.icon, { size: 18 })), h('h3', label('data_entity', key)), info.sensitive && badge('بيانات حساسة', 'warning')),
+            { tag: 'DAT-03' }, h('div.v9p-export-head', h('span.card-icon', icon(info.icon, { size: 18 })), h('h3', { tag: 'DAT-04' }, label('data_entity', key)), info.sensitive && badge('بيانات حساسة', 'warning')),
             h('p.small.muted', info.text),
             h('div.row-between', h('span.small', count(n, ['صف واحد', 'صفان', 'صفوف', 'صفًا'])), asyncButton('تنزيل CSV', async () => {
               // ملف ببيانات شخصية: رابط تنزيل لمرة واحدة يصدره الخادم بطلب POST (لا يُفتح بطلب GET من موقع آخر)
               await downloadFile(`/admin/data/export/${key}`, {}, { fallbackName: `${key}.csv` });
               toast(`نُزّل ملف «${label('data_entity', key)}»`, 'success');
               loadHistory();
-            }, { size: 'sm', icon: 'download', variant: n ? 'primary' : 'secondary', disabled: !n })),
+            }, { size: 'sm', icon: 'download', variant: n ? 'primary' : 'secondary', disabled: !n, tag: 'DAT-05' })),
           );
         }),
       ),
@@ -106,9 +106,9 @@ export default async function render(ctx) {
     const guide = h('div');
     const result = h('div.v9p-import-result', { 'aria-live': 'polite' });
     const fileId = uid('csv');
-    const fileInput = h('input.file-native', { id: fileId, type: 'file', accept: '.csv,text/csv' });
+    const fileInput = h('input.file-native', { id: fileId, type: 'file', accept: '.csv,text/csv', tag: 'DAT-06' });
     const fileLabel = h('span.v9p-file-name.muted', 'لم يُختر ملف');
-    const previewBtn = asyncButton('معاينة والتحقق', () => runPreview(), { variant: 'primary', icon: 'search', disabled: true });
+    const previewBtn = asyncButton('معاينة والتحقق', () => runPreview(), { variant: 'primary', icon: 'search', disabled: true, tag: 'DAT-07' });
 
     function renderGuide() {
       mount(
@@ -116,7 +116,7 @@ export default async function render(ctx) {
         h(
           'div.stack-sm',
           h('ul.v9p-how', (IMPORT_GUIDE[entity] || []).map((t) => h('li', t))),
-          h('div.row', asyncButton('تنزيل القالب', async () => download(`/admin/data/template/${entity}`, `template-${entity}.csv`), { size: 'sm', icon: 'download' })),
+          h('div.row', asyncButton('تنزيل القالب', async () => download(`/admin/data/template/${entity}`, `template-${entity}.csv`), { size: 'sm', icon: 'download', tag: 'DAT-08' })),
         ),
       );
     }
@@ -167,15 +167,15 @@ export default async function render(ctx) {
             h('div.is-ok', h('span.small.muted', 'سليمة'), h('strong', num(p.valid))),
             h('div.is-bad', h('span.small.muted', 'بها أخطاء'), h('strong', num(p.invalid))),
           ),
-          p.unknown_headers.length ? alertBox(`أعمدة غير معروفة ستُتجاهل: ${p.unknown_headers.join('، ')}`, 'info') : null,
+          p.unknown_headers.length ? alertBox(`أعمدة غير معروفة ستُتجاهل: ${p.unknown_headers.join('، ')}`, 'info', { tag: 'DAT-09' }) : null,
           kv([['الأعمدة', h('div.chips', p.columns.map((c) => h('span.chip', { class: c.found ? 'chip-success' : c.required ? 'chip-danger' : null }, c.label)))]]),
           table({
             caption: 'نتيجة التحقق من كل صف',
             className: 'v9p-import-table',
             rowClass: (r) => (r.ok ? null : 'v9p-row-bad'),
             columns: [
-              { key: 'line', label: 'السطر', render: (r) => h('span.ltr', String(r.line)) },
-              { key: 'ok', label: 'الحالة', render: (r) => (r.ok ? badge('سليم', 'success', { icon: 'check' }) : badge('به أخطاء', 'danger', { icon: 'alert' })) },
+              { key: 'line', label: 'السطر', render: (r) => h('span.ltr', String(r.line)), tag: 'DAT-10' },
+              { key: 'ok', label: 'الحالة', render: (r) => (r.ok ? badge('سليم', 'success', { icon: 'check' }) : badge('به أخطاء', 'danger', { icon: 'alert' })), tag: 'DAT-11' },
               ...previewCols.map((k) => ({ key: k, label: colLabels[k] || k, render: (r) => (r.preview?.[k] == null || r.preview[k] === '' ? null : String(r.preview[k])) })),
               {
                 key: 'errors',
@@ -184,17 +184,20 @@ export default async function render(ctx) {
                   r.errors.length || r.warnings.length
                     ? h('ul.v9p-row-msgs', r.errors.map((e) => h('li.is-error', e)), r.warnings.map((w) => h('li.is-warning', w)))
                     : null,
+                    tag: 'DAT-12',
               },
             ],
             rows: p.rows,
+            rowTag: 'DAT-13',
+            tag: 'DAT-14',
           }),
           p.valid
             ? h(
                 'div.row',
-                asyncButton(`استيراد ${count(p.valid, ['صف سليم واحد', 'صفين سليمين', 'صفوف سليمة', 'صفًا سليمًا'])}`, () => commit(), { variant: 'primary', icon: 'upload' }),
+                asyncButton(`استيراد ${count(p.valid, ['صف سليم واحد', 'صفين سليمين', 'صفوف سليمة', 'صفًا سليمًا'])}`, () => commit(), { variant: 'primary', icon: 'upload', tag: 'DAT-15' }),
                 p.invalid ? h('span.small.muted', `لن تُستورد الصفوف التي بها أخطاء (${num(p.invalid)}) — صححها في الملف وأعد رفعه لاحقًا.`) : null,
               )
-            : alertBox('لا توجد صفوف سليمة للاستيراد. صحح الأخطاء الموضحة ثم أعد رفع الملف.', 'danger'),
+            : alertBox('لا توجد صفوف سليمة للاستيراد. صحح الأخطاء الموضحة ثم أعد رفع الملف.', 'danger', { tag: 'DAT-16' }),
         ),
       );
     }
@@ -204,6 +207,7 @@ export default async function render(ctx) {
         title: 'تأكيد الاستيراد',
         message: `ستُضاف الصفوف السليمة (${num(preview.valid)}) من الملف «${fileName}» إلى «${label('data_entity', entity)}» دفعة واحدة. لا يمكن التراجع تلقائيًا. هل تريد المتابعة؟`,
         confirmLabel: 'استيراد',
+        tag: 'DAT-17',
       });
       if (!ok) return;
       const r = await api.post(`/admin/data/import/${entity}/commit`, { csv: csvText, expected_valid: preview.valid });
@@ -218,10 +222,10 @@ export default async function render(ctx) {
         result,
         h(
           'div.stack',
-          alertBox(`تم الاستيراد: أُضيف ${count(r.created, ['صف واحد', 'صفان', 'صفوف', 'صفًا'])}${r.skipped ? `، وتُركت الصفوف التي بها أخطاء (${num(r.skipped)})` : ''}.`, 'success', { title: 'اكتمل الاستيراد', icon: 'checkCircle' }),
+          alertBox(`تم الاستيراد: أُضيف ${count(r.created, ['صف واحد', 'صفان', 'صفوف', 'صفًا'])}${r.skipped ? `، وتُركت الصفوف التي بها أخطاء (${num(r.skipped)})` : ''}.`, 'success', { title: 'اكتمل الاستيراد', icon: 'checkCircle', tag: 'DAT-18' }),
           h(
             'ul.v9p-created',
-            r.items.slice(0, 50).map((x) => h('li', h('a', { href: entity === 'lawyers' ? `#/lawyers/${x.id}` : `#/clients/${x.id}` }, x.label))),
+            r.items.slice(0, 50).map((x) => h('li', h('a', { href: entity === 'lawyers' ? `#/lawyers/${x.id}` : `#/clients/${x.id}`, tag: 'DAT-19' }, x.label))),
           ),
         ),
       );
@@ -239,15 +243,16 @@ export default async function render(ctx) {
         mount(result);
         renderGuide();
       },
+      tag: 'DAT-20',
     });
     renderGuide();
     return h(
       'div.stack',
       h(
         'ol.v9p-import-steps',
-        h('li', h('h3', 'اختر نوع البيانات وراجع الأعمدة'), h('div.v9p-import-sel', entitySel), guide),
-        h('li', h('h3', 'ارفع ملف CSV'), h('div.v9p-file-pick', fileInput, h('label.btn.btn-secondary', { htmlFor: fileId }, icon('upload', { size: 18 }), h('span', 'اختيار ملف CSV')), fileLabel), h('p.small.muted', 'احفظ الملف من Excel بصيغة «CSV UTF-8». تُقبل الفاصلة أو الفاصلة المنقوطة، وحتى 2000 صف.')),
-        h('li', h('h3', 'عاين النتيجة ثم استورد الصفوف السليمة'), previewBtn),
+        h('li', h('h3', { tag: 'DAT-21' }, 'اختر نوع البيانات وراجع الأعمدة'), h('div.v9p-import-sel', entitySel), guide),
+        h('li', h('h3', { tag: 'DAT-22' }, 'ارفع ملف CSV'), h('div.v9p-file-pick', fileInput, h('label.btn.btn-secondary', { htmlFor: fileId }, icon('upload', { size: 18 }), h('span', 'اختيار ملف CSV')), fileLabel), h('p.small.muted', 'احفظ الملف من Excel بصيغة «CSV UTF-8». تُقبل الفاصلة أو الفاصلة المنقوطة، وحتى 2000 صف.')),
+        h('li', h('h3', { tag: 'DAT-23' }, 'عاين النتيجة ثم استورد الصفوف السليمة'), previewBtn),
       ),
       result,
     );
@@ -260,7 +265,7 @@ export default async function render(ctx) {
       const s = await api.get('/admin/data/summary');
       Object.assign(summary.counts, s.counts);
       if (!s.history.length) {
-        mount(historyBody, emptyState('لم يُصدَّر أو يُستورد أي ملف بعد.', null, { compact: true, icon: 'clock' }));
+        mount(historyBody, emptyState('لم يُصدَّر أو يُستورد أي ملف بعد.', null, { compact: true, icon: 'clock', tag: 'DAT-24' }));
         return;
       }
       mount(
@@ -268,12 +273,14 @@ export default async function render(ctx) {
         table({
           caption: 'آخر عمليات التصدير والاستيراد',
           columns: [
-            { key: 'created_at', label: 'الوقت', render: (r) => h('time', { datetime: r.created_at, title: dateTime(r.created_at) }, relative(r.created_at)) },
-            { key: 'type', label: 'العملية', render: (r) => (r.type === 'data.imported' ? badge('استيراد', 'info', { icon: 'upload' }) : badge('تصدير', 'warning', { icon: 'download' })) },
-            { key: 'summary', label: 'التفاصيل' },
-            { key: 'actor', label: 'بواسطة' },
+            { key: 'created_at', label: 'الوقت', render: (r) => h('time', { datetime: r.created_at, title: dateTime(r.created_at) }, relative(r.created_at)), tag: 'DAT-25' },
+            { key: 'type', label: 'العملية', render: (r) => (r.type === 'data.imported' ? badge('استيراد', 'info', { icon: 'upload' }) : badge('تصدير', 'warning', { icon: 'download' })), tag: 'DAT-26' },
+            { key: 'summary', label: 'التفاصيل', tag: 'DAT-27' },
+            { key: 'actor', label: 'بواسطة', tag: 'DAT-28' },
           ],
           rows: s.history,
+          rowTag: 'DAT-29',
+          tag: 'DAT-30',
         }),
       );
     } catch (err) {
@@ -288,14 +295,16 @@ export default async function render(ctx) {
     pageHeader({
       title: 'استيراد وتصدير البيانات',
       subtitle: 'ملفات CSV متوافقة مع Excel بالعربية — لنقل بيانات المؤسسة من الجداول القديمة ولإعداد التقارير.',
+      titleTag: 'DAT-31',
+      tag: 'DAT-32',
     }),
     tabs(
       [
-        { key: 'export', label: 'تصدير', icon: 'download', render: () => card({ body: exportPanel() }) },
-        { key: 'import', label: 'استيراد', icon: 'upload', render: () => card({ body: importPanel() }) },
-        { key: 'history', label: 'السجل', icon: 'clock', render: () => card({ title: 'آخر العمليات', subtitle: 'من سجل الأمان', body: historyBody }) },
+        { key: 'export', label: 'تصدير', icon: 'download', render: () => card({ body: exportPanel(), tag: 'DAT-33' }), tag: 'DAT-34' },
+        { key: 'import', label: 'استيراد', icon: 'upload', render: () => card({ body: importPanel(), tag: 'DAT-35' }), tag: 'DAT-36' },
+        { key: 'history', label: 'السجل', icon: 'clock', render: () => card({ title: 'آخر العمليات', subtitle: 'من سجل الأمان', body: historyBody, titleTag: 'DAT-37', tag: 'DAT-38' }), tag: 'DAT-39' },
       ],
-      { active: initial, className: 'v9p-data-tabs' },
+      { active: initial, className: 'v9p-data-tabs', tag: 'DAT-40' },
     ),
   );
 }

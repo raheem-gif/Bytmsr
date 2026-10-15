@@ -2156,6 +2156,8 @@ body.pub .bmf-listen {
     --bmf-drop: 0 0 #0000;
     --bmf-teal-soft: var(--paper-2);
     --bmf-gold-soft: var(--paper-2);
+    --bmf-gold: var(--act); /* review (K12-P4): no gold fills, rings or text on the paid side */
+    --bmf-gold-ink: var(--ink);
     --bmf-green-soft: var(--paper-2);
     --bmf-amber-soft: var(--paper-2);
     --bmf-red-soft: var(--paper-2);

@@ -125,25 +125,25 @@ export function termsEditor(terms = {}, { money: showMoney = true } = {}) {
 
   const basics = form(
     [
-      { name: 'tier', label: 'الفئة', type: 'select', required: true, placeholder: false, options: opts('company_plan_tier', TIERS) },
-      { name: 'billing_period', label: 'فترة الاشتراك', type: 'select', required: true, placeholder: false, options: opts('company_plan_period', PERIODS) },
-      showMoney && { name: 'price', label: 'السعر لكل فترة', type: 'money', min: 0 },
-      { name: 'included_requests', label: 'الطلبات المشمولة في الدورة', type: 'number', integer: true, min: 0, max: 10000, hint: 'فارغ = غير محدودة. الدورة شهر يبدأ من يوم بداية الاشتراك.' },
-      { name: 'urgent_per_month', label: 'الطلبات العاجلة في الدورة', type: 'number', integer: true, min: 0, max: 1000, hint: 'فارغ = غير محدودة. ما يزيد يُسجَّل بأولوية «مرتفع».' },
-      { name: 'max_entities', label: 'الكيانات', type: 'number', integer: true, min: 1, max: 500, required: true },
-      { name: 'max_users', label: 'المستخدمون', type: 'number', integer: true, min: 1, max: 5000, hint: 'فارغ = بلا حد.' },
-      { name: 'overage_policy', label: 'عند تجاوز الطلبات المشمولة', type: 'select', required: true, placeholder: false, options: OVERAGE_POLICIES },
-      showMoney && { name: 'overage_price', label: 'سعر الطلب الإضافي', type: 'money', min: 0, hint: 'مطلوب عند «تُضاف تكلفة إضافية تلقائيًا».' },
-      { name: 'contract_value_cap', label: 'حد قيمة العقد', type: 'money', min: 0, hint: 'العقود الأعلى قيمة خارج الباقة. فارغ = بلا حد.' },
-      { name: 'senior_review', label: 'المراجعة الثانية المستقلة', type: 'select', required: true, placeholder: false, options: opts('company_senior_review', SENIOR) },
-      { name: 'revision_rounds', label: 'جولات التعديل', type: 'number', integer: true, min: 0, max: 10, required: true },
-      { name: 'size_S', label: 'معامل الحجم S', type: 'number', min: 0.25, max: 5, required: true },
-      { name: 'size_M', label: 'معامل الحجم M', type: 'number', min: 0.25, max: 5, required: true },
-      { name: 'size_L', label: 'معامل الحجم L', type: 'number', min: 0.25, max: 5, required: true },
-      { name: 'scope_types', label: 'الأنواع المشمولة', type: 'checkboxes', required: true, options: REQUEST_TYPES.map((x) => ({ value: x.key, label: x.label })) },
-      { name: 'excluded_work', label: 'الأعمال المستبعدة', type: 'checkboxes', options: EXCLUDED_WORK.filter((x) => x.key !== 'other_excluded').map((x) => ({ value: x.key, label: x.label })) },
+      { name: 'tier', label: 'الفئة', type: 'select', required: true, placeholder: false, options: opts('company_plan_tier', TIERS), tag: 'SET-276' },
+      { name: 'billing_period', label: 'فترة الاشتراك', type: 'select', required: true, placeholder: false, options: opts('company_plan_period', PERIODS), tag: 'SET-277' },
+      showMoney && { name: 'price', label: 'السعر لكل فترة', type: 'money', min: 0, tag: 'SET-278' },
+      { name: 'included_requests', label: 'الطلبات المشمولة في الدورة', type: 'number', integer: true, min: 0, max: 10000, hint: 'فارغ = غير محدودة. الدورة شهر يبدأ من يوم بداية الاشتراك.', tag: 'SET-279' },
+      { name: 'urgent_per_month', label: 'الطلبات العاجلة في الدورة', type: 'number', integer: true, min: 0, max: 1000, hint: 'فارغ = غير محدودة. ما يزيد يُسجَّل بأولوية «مرتفع».', tag: 'SET-280' },
+      { name: 'max_entities', label: 'الكيانات', type: 'number', integer: true, min: 1, max: 500, required: true, tag: 'SET-281' },
+      { name: 'max_users', label: 'المستخدمون', type: 'number', integer: true, min: 1, max: 5000, hint: 'فارغ = بلا حد.', tag: 'SET-282' },
+      { name: 'overage_policy', label: 'عند تجاوز الطلبات المشمولة', type: 'select', required: true, placeholder: false, options: OVERAGE_POLICIES, tag: 'SET-283' },
+      showMoney && { name: 'overage_price', label: 'سعر الطلب الإضافي', type: 'money', min: 0, hint: 'مطلوب عند «تُضاف تكلفة إضافية تلقائيًا».', tag: 'SET-284' },
+      { name: 'contract_value_cap', label: 'حد قيمة العقد', type: 'money', min: 0, hint: 'العقود الأعلى قيمة خارج الباقة. فارغ = بلا حد.', tag: 'SET-285' },
+      { name: 'senior_review', label: 'المراجعة الثانية المستقلة', type: 'select', required: true, placeholder: false, options: opts('company_senior_review', SENIOR), tag: 'SET-286' },
+      { name: 'revision_rounds', label: 'جولات التعديل', type: 'number', integer: true, min: 0, max: 10, required: true, tag: 'SET-287' },
+      { name: 'size_S', label: 'معامل الحجم S', type: 'number', min: 0.25, max: 5, required: true, tag: 'SET-288' },
+      { name: 'size_M', label: 'معامل الحجم M', type: 'number', min: 0.25, max: 5, required: true, tag: 'SET-289' },
+      { name: 'size_L', label: 'معامل الحجم L', type: 'number', min: 0.25, max: 5, required: true, tag: 'SET-290' },
+      { name: 'scope_types', label: 'الأنواع المشمولة', type: 'checkboxes', required: true, options: REQUEST_TYPES.map((x) => ({ value: x.key, label: x.label })), tag: 'SET-291' },
+      { name: 'excluded_work', label: 'الأعمال المستبعدة', type: 'checkboxes', options: EXCLUDED_WORK.filter((x) => x.key !== 'other_excluded').map((x) => ({ value: x.key, label: x.label })), tag: 'SET-292' },
     ],
-    { values: values(t0), footer: false, className: 'cs-terms-form' },
+    { values: values(t0), footer: false, className: 'cs-terms-form', tag: 'SET-293' },
   );
 
   // «مواعيد الخدمة»: عاجل/مرتفع/عادي/منخفض × الرد الأول · التسليم · الساعة
@@ -151,9 +151,9 @@ export function termsEditor(terms = {}, { money: showMoney = true } = {}) {
   const slaErr = {};
   const slaRows = SLA_ROWS.map((r) => {
     const s = t0.sla[r.key] || {};
-    const fr = h('input.input.num', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(s.first_response_hours ?? ''), 'aria-label': `${r.label}: الرد الأول بالساعات` });
-    const dl = h('input.input.num', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(s.delivery_hours ?? ''), 'aria-label': `${r.label}: التسليم بالساعات` });
-    const ck = h('select.input', { 'aria-label': `${r.label}: الساعة` }, CLOCKS.map((c) => h('option', { value: c.value, selected: c.value === (s.clock || 'business') }, c.label)));
+    const fr = h('input.input.num', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(s.first_response_hours ?? ''), 'aria-label': `${r.label}: الرد الأول بالساعات`, tag: 'SET-130' });
+    const dl = h('input.input.num', { type: 'text', inputmode: 'numeric', dir: 'ltr', value: String(s.delivery_hours ?? ''), 'aria-label': `${r.label}: التسليم بالساعات`, tag: 'SET-131' });
+    const ck = h('select.input', { 'aria-label': `${r.label}: الساعة`, tag: 'SET-132' }, CLOCKS.map((c) => h('option', { value: c.value, selected: c.value === (s.clock || 'business') }, c.label)));
     const err = h('p.field-error', { hidden: true });
     slaInputs[r.key] = { fr, dl, ck };
     slaErr[r.key] = err;

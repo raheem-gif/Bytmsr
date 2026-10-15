@@ -540,6 +540,7 @@ export function createStories(app) {
         sections: [
           {
             title: g(T('story_welcome_section')).slice(0, 24),
+            // @tag-src W-23 صفوف القائمة: wa_title وwa_desc في public/assets/js/public/topics.js وPAID_TOPICS (v12 tags، T12-52)
             rows: TOPICS.map((t) =>
               paid && PAID_TOPICS[t.key]
                 ? { id: `topic:${t.key}`, title: String(PAID_TOPICS[t.key].wa_title).slice(0, 24), description: String(PAID_TOPICS[t.key].wa_desc).slice(0, 72) }

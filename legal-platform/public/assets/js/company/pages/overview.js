@@ -1,7 +1,7 @@
 // الإصدار 10 — «المتابعة» (U10-21…U10-25 مع §8.3 وL-63): الشريط التنبيهي ← التحية ← «يحتاج انتباهكم» ← «طلبات مفتوحة»
 // ← «{الشهر} في باقتكم» ← «مواعيد قادمة» ← مدير العلاقة. صفوف الانتباه بأيقونة تنبيه أو ساعة (لا نقاط)، والزر الذهبي
 // الوحيد في الشاشة هو «طلب جديد» في الإطار. البحث الواحد أعلى الصفحة على الهاتف (CO-6). جمل البريد حسب email_enabled.
-import { h } from '../../lib/h.js';
+import { h, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { getMeta, money, relative, monthLabel, cairoToday } from '../../lib/fmt.js';
 import { icon, button, alertBox, kRow, emptyState } from '../../lib/ui.js';
@@ -85,13 +85,14 @@ function attentionRow(a) {
       return null;
   }
   // v11 fixer-public (K6/R-10): كلمة الإجراء وبعدها سهم الصف (النموذج company-overview)
-  const btn = button(action, { variant: 'secondary', size: 'sm', href, iconEnd: 'chevronLeft' });
+  const btn = tagged('CH-01', button(action, { variant: 'secondary', size: 'sm', href, iconEnd: 'chevronLeft' }));
   const row = kRow({
     icon: h('span.co-attn-icon', icon(ic, { size: 20 })),
     title,
     sub,
     trailing: btn,
     className: 'co-attn-row',
+    tag: 'CH-02',
   });
   // C-10: «عرض»/«الرد» تُقرأ مع عنوان الصف وسطره («عرض — عرض سعر بانتظار موافقتكم، NFD-0005 · …»)
   const id = `co-attn-${(attentionRow.seq = (attentionRow.seq || 0) + 1)}`;
@@ -109,10 +110,10 @@ function banners(home) {
   const out = [];
   if (c.status === 'trial' && c.trial_ends_at) {
     const days = Math.max(0, Math.round((Date.parse(c.trial_ends_at) - Date.now()) / 86400000));
-    out.push(alertBox(copy(mgr ? 'home.trial' : 'home.trial_team', { date: whenLong(c.trial_ends_at, { time: false }), days: afterDays(days) || 'اليوم' }), 'info'));
+    out.push(alertBox(copy(mgr ? 'home.trial' : 'home.trial_team', { date: whenLong(c.trial_ends_at, { time: false }), days: afterDays(days) || 'اليوم' }), 'info', { tag: 'CH-03' }));
   }
-  if (c.status === 'past_due' && seesMoney()) out.push(alertBox(W.home.past_due, 'warning'));
-  if (c.read_only) out.push(alertBox(mgr ? W.home.read_only : W.home.read_only_team, 'warning'));
+  if (c.status === 'past_due' && seesMoney()) out.push(alertBox(W.home.past_due, 'warning', { tag: 'CH-04' }));
+  if (c.read_only) out.push(alertBox(mgr ? W.home.read_only : W.home.read_only_team, 'warning', { tag: 'CH-05' }));
   return out;
 }
 
@@ -134,8 +135,8 @@ function introCard(home) {
     if (done === items.length) return null;
     const card = sectionCard(
       copy('home.setup_title', { done }),
-      h('ul.k-list', items.filter((x) => !x[1]).map(([label, , href]) => h('li', kRow({ icon: icon('clock', { size: 20 }), title: label, href })))),
-      { actions: button(W.home.hide, { variant: 'link', size: 'sm', onClick: () => { setItem('localStorage', key, '1'); card.remove(); } }), className: 'co-setup' },
+      h('ul.k-list', items.filter((x) => !x[1]).map(([label, , href]) => h('li', kRow({ icon: icon('clock', { size: 20 }), title: label, href, tag: 'CH-06' })))),
+      { actions: button(W.home.hide, { variant: 'link', size: 'sm', onClick: () => { setItem('localStorage', key, '1'); card.remove(); }, tag: 'CH-07' }), className: 'co-setup' },
     );
     return card;
   }
@@ -143,7 +144,7 @@ function introCard(home) {
   const key = `ek.co.intro:${uid}`;
   if (getItem('localStorage', key)) return null;
   const lines = isViewer() ? [W.home.intro_viewer] : [W.home.intro_1, W.home.intro_2, W.home.intro_3];
-  const card = sectionCard(W.home.intro_title, h('div.co-intro', lines.map((t) => h('p', t)), button(W.state.understood, { variant: 'secondary', size: 'sm', onClick: () => { setItem('localStorage', key, '1'); card.remove(); } })), { className: 'co-intro-card' });
+  const card = sectionCard(W.home.intro_title, h('div.co-intro', lines.map((t) => h('p', t)), button(W.state.understood, { variant: 'secondary', size: 'sm', onClick: () => { setItem('localStorage', key, '1'); card.remove(); }, tag: 'CH-08' })), { className: 'co-intro-card' });
   return card;
 }
 
@@ -153,7 +154,7 @@ function planCard(home) {
   const month = monthLabel(cairoToday().slice(0, 7)).split(' ')[0];
   const extra = h('div.co-meter-extra');
   const meter = h('div', coUsageMeter(home.usage, { showPrices: false, hasManager: !!home.account_manager }));
-  const card = sectionCard(copy('home.in_plan', { month }), h('div', meter, extra), { actions: h('a.co-link', { href: '#/plan' }, W.home.plan_link, ' ‹') });
+  const card = sectionCard(copy('home.in_plan', { month }), h('div', meter, extra), { actions: h('a.co-link', { href: '#/plan', tag: 'CH-09' }, W.home.plan_link, ' ‹') });
   const atLimit = !home.usage.unlimited && home.usage.used >= home.usage.included;
   const later = () => {
     api
@@ -184,9 +185,9 @@ function upcomingCard(home) {
     W.home.upcoming,
     h(
       'ul.k-list.co-dates',
-      items.map((u) => h('li', kRow({ icon: h('span.co-date-chip.num', dayText(u.date)), title: h('span', { dir: 'auto' }, u.title), sub: u.kind_label, href: `#/memory/item/${encodeURIComponent(u.memory_id)}` }))),
+      items.map((u) => h('li', kRow({ icon: h('span.co-date-chip.num', dayText(u.date)), title: h('span', { dir: 'auto' }, u.title), sub: u.kind_label, href: `#/memory/item/${encodeURIComponent(u.memory_id)}`, tag: 'CH-10' }))),
     ),
-    { actions: h('a.co-link', { href: '#/memory/calendar' }, W.home.calendar_link, ' ‹') },
+    { actions: h('a.co-link', { href: '#/memory/calendar', tag: 'CH-11' }, W.home.calendar_link, ' ‹') },
   );
 }
 
@@ -195,8 +196,8 @@ function quickCard() {
   const tiles = QUICK.map((k) => REQUEST_TYPES.find((t) => t.key === k)).filter(Boolean);
   return sectionCard(
     W.home.quick,
-    h('div.co-quick', tiles.map((t) => h('a.co-quick-tile', { href: `#/requests/new/${t.key}` }, typeIcon(t.key, { size: 22 }), h('span', t.company_label)))),
-    { actions: h('a.co-link', { href: '#/requests/new' }, W.home.all_types, ' ‹'), className: 'co-quick-card' },
+    h('div.co-quick', tiles.map((t) => h('a.co-quick-tile', { href: `#/requests/new/${t.key}`, tag: 'CH-12' }, typeIcon(t.key, { size: 22 }), h('span', t.company_label)))),
+    { actions: h('a.co-link', { href: '#/requests/new', tag: 'CH-13' }, W.home.all_types, ' ‹'), className: 'co-quick-card' },
   );
 }
 
@@ -218,7 +219,7 @@ export default async function overview(ctx) {
   const att = [...(home.attention || [])].sort((a, b) => (ORDER[a.kind] ?? 9) - (ORDER[b.kind] ?? 9) || (a.kind === 'renewal' ? a.days_left - b.days_left : 0));
   const rows = att.map(attentionRow).filter(Boolean);
   const list = h('ul.k-list.co-attn-list', rows.slice(0, MAX_ROWS));
-  const more = rows.length > MAX_ROWS ? button(copy('home.attention_more', { n: countOf(rows.length - MAX_ROWS, 'attn_more') }), { variant: 'link', onClick: (e) => { list.append(...rows.slice(MAX_ROWS)); e.currentTarget.remove(); } }) : null;
+  const more = rows.length > MAX_ROWS ? button(copy('home.attention_more', { n: countOf(rows.length - MAX_ROWS, 'attn_more') }), { variant: 'link', onClick: (e) => { list.append(...rows.slice(MAX_ROWS)); e.currentTarget.remove(); }, tag: 'CH-14' }) : null;
   const attention = sectionCard(
     // v11 fixer-public (K6/R-10): العدد رقمًا هادئًا بلا أقواس (count-quiet)
     rows.length ? [W.home.attention, ' ', h('span.co-count.count-quiet.num', String(rows.length))] : W.home.attention,
@@ -231,8 +232,8 @@ export default async function overview(ctx) {
     home.counts?.open ? [W.home.open_requests, ' ', h('span.co-count.count-quiet.num', String(home.counts.open))] : W.home.open_requests,
     open.length
       ? h('ul.k-list', open.map((r) => h('li', coRequestRow(r))))
-      : emptyState(W.requests.empty_text, isViewer() || readOnly() ? null : button(W.nav.new_request, { variant: 'secondary', icon: 'plus', href: '#/requests/new' }), { title: W.requests.empty_title, compact: true, icon: 'inbox' }),
-    { actions: open.length ? h('a.co-link', { href: '#/requests' }, W.home.all_requests, ' ‹') : null },
+      : emptyState(W.requests.empty_text, isViewer() || readOnly() ? null : button(W.nav.new_request, { variant: 'secondary', icon: 'plus', href: '#/requests/new', tag: 'CH-15' }), { title: W.requests.empty_title, compact: true, icon: 'inbox', tag: 'CH-16' }),
+    { actions: open.length ? h('a.co-link', { href: '#/requests', tag: 'CH-17' }, W.home.all_requests, ' ‹') : null },
   );
 
   const plan = home.company?.plan?.name || S.company?.plan_label;

@@ -45,6 +45,7 @@ export const routes = [
   { path: '/system', load: () => import('./pages/admin/system.js'), roles: ADMIN, title: 'صحة النظام والنسخ الاحتياطي' },
   { path: '/audit', load: () => import('./pages/admin/audit.js'), roles: ADMIN, title: 'سجل الأمان' },
   { path: '/data', load: () => import('./pages/admin/data.js'), roles: ADMIN, title: 'استيراد وتصدير البيانات' },
+  { path: '/tags', load: () => import('./pages/admin/tags.js'), roles: STAFF, title: 'رموز العناصر' }, // v12 tags (H-T، T12-63)
   // ── v10 b2b-staff (STF-0): خدمة الشركات ──
   { path: '/company-requests', load: () => import('./pages/admin/company-requests.js'), roles: STAFF, title: 'طلبات الشركات' },
   { path: '/company-requests/:id', load: () => import('./pages/admin/company-request.js'), roles: STAFF, title: 'طلب شركة' },

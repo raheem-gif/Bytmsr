@@ -73,8 +73,9 @@ import { createPathways } from './services/pathways.js'; // v12 entry: H-E1 (§5
 import { createStt } from './ai/stt.js';
 import { createMedia } from './services/media.js';
 import { registerMediaRoutes } from './routes/media.js';
+import { registerTagsRoutes } from './routes/tags.js'; // v12 tags (H-T، TG-5): سجل رموز العناصر GET /api/admin/tags
 
-const PKG = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const PKG =JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const DEFAULT_LIMIT = 1024 * 1024; // 1MB لطلبات JSON العادية
 
@@ -179,6 +180,7 @@ export function createApp(config, { logger = console } = {}) {
   registerBrandRoutes(router, app); // v9.2
   registerCompanyRoutes(router, app); // v10 b2b-server: /api/company/* وصفحة /company
   registerAdminCompanyRoutes(router, app); // v10 b2b-server: مسارات فريق المكتب لخدمة الشركات
+  registerTagsRoutes(router, app); // v12 tags (H-T، TG-5)
   registerSite(app);
   app.router = router;
 

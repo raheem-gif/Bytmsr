@@ -27,6 +27,7 @@ import {
 } from '../../lib/ui.js';
 import { attachStrength, passwordProblem, PASSWORD_HINT } from '../components/password.js';
 import { twoFactorWizard, recoveryCodesPanel } from '../components/two-factor.js';
+import { tagsToggle } from '../../lib/tags-boot.js'; // v12 tags (H-T، T12-27)
 
 // تُستخدم بعد حرف الجر («سُجّل الخروج من جلستين»)
 const SESSION_FORMS = ['جلسة واحدة', 'جلستين', 'جلسات', 'جلسة'];
@@ -47,9 +48,9 @@ export default async function render(ctx) {
     const u = data.user;
     const f = form(
       [
-        { name: 'name', label: 'الاسم', required: true, minLength: 3, maxLength: 120, readonly: !data.editable.name, hint: data.editable.name ? null : 'يُعدَّل اسم المحامي من الإدارة لارتباطه ببيانات القيد والاتفاق' },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل مع الإدارة وتنبيهات واتساب فقط' : null },
+        { name: 'name', label: 'الاسم', required: true, minLength: 3, maxLength: 120, readonly: !data.editable.name, hint: data.editable.name ? null : 'يُعدَّل اسم المحامي من الإدارة لارتباطه ببيانات القيد والاتفاق', tag: 'PRF-62' },
+        { name: 'email', label: 'البريد الإلكتروني', type: 'email', tag: 'PRF-63' },
+        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: u.role === 'lawyer' ? 'للتواصل مع الإدارة وتنبيهات واتساب فقط' : null, tag: 'PRF-64' },
       ],
       {
         values: { name: u.name, email: u.email, phone: u.phone },
@@ -72,6 +73,8 @@ export default async function render(ctx) {
           toast('حُفظت بياناتك', 'success');
           if (ctx.refreshShell) ctx.refreshShell();
         },
+        submitTag: 'PRF-65',
+        tag: 'PRF-66',
       },
     );
     return card({
@@ -91,6 +94,8 @@ export default async function render(ctx) {
         ),
         f.el,
       ),
+      titleTag: 'PRF-04',
+      tag: 'PRF-05',
     });
   }
 
@@ -99,9 +104,9 @@ export default async function render(ctx) {
     const u = data.user;
     const f = form(
       [
-        { name: 'current_password', label: 'كلمة المرور الحالية', type: 'password', required: true, autocomplete: 'current-password' },
-        { name: 'new_password', label: 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT },
-        { name: 'new_password_confirm', label: 'تأكيد كلمة المرور الجديدة', type: 'password', required: true, autocomplete: 'new-password' },
+        { name: 'current_password', label: 'كلمة المرور الحالية', type: 'password', required: true, autocomplete: 'current-password', tag: 'PRF-67' },
+        { name: 'new_password', label: 'كلمة المرور الجديدة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: PASSWORD_HINT, tag: 'PRF-68' },
+        { name: 'new_password_confirm', label: 'تأكيد كلمة المرور الجديدة', type: 'password', required: true, autocomplete: 'new-password', tag: 'PRF-69' },
       ],
       {
         columns: 1,
@@ -116,6 +121,8 @@ export default async function render(ctx) {
           toast(r.other_sessions_revoked ? `غُيّرت كلمة المرور وسُجّل خروجك من ${count(r.other_sessions_revoked, SESSION_FORMS)} على أجهزة أخرى` : 'غُيّرت كلمة المرور بنجاح', 'success', 5000);
           await refresh();
         },
+        submitTag: 'PRF-70',
+        tag: 'PRF-71',
       },
     );
     attachStrength(f, 'new_password', () => u.username);
@@ -124,6 +131,8 @@ export default async function render(ctx) {
       icon: 'lock',
       subtitle: u.password_changed_at ? `آخر تغيير: ${dateTime(u.password_changed_at)}` : 'لم تُغيَّر كلمة المرور من هذه الصفحة بعد',
       body: h('div.stack', h('p.small.muted', 'عند تغيير كلمة المرور يُسجَّل خروجك تلقائيًا من كل الأجهزة الأخرى.'), f.el),
+      titleTag: 'PRF-06',
+      tag: 'PRF-07',
     });
   }
 
@@ -137,12 +146,12 @@ export default async function render(ctx) {
         mount(
           host,
           h('p.acc-lead', 'التحقق بخطوتين يحمي حسابك حتى لو عرف أحد كلمة مرورك: عند كل دخول يُطلب رمز مؤقت من تطبيق مصادقة على هاتفك.'),
-          data.user.role === 'admin' ? alertBox('حسابك بدور «إدارة النظام» ويطّلع على بيانات المستفيدين وهواتفهم؛ تفعيل التحقق بخطوتين ضروري لحمايتها.', 'warning') : null,
+          data.user.role === 'admin' ? alertBox('حسابك بدور «إدارة النظام» ويطّلع على بيانات المستفيدين وهواتفهم؛ تفعيل التحقق بخطوتين ضروري لحمايتها.', 'warning', { tag: 'PRF-08' }) : null,
           // v9.1 l-home (L-17)
           data.user.role === 'lawyer' && data.remember && data.remember.available
             ? h('p.lh-remember-note', `فعّل التحقق بخطوتين ليبقى دخولك ${count(data.remember.days_with_2fa || 30, ['يومًا واحدًا', 'يومين', 'أيام', 'يومًا'])} على هذا الجهاز.`)
             : null,
-          h('div.acc-actions-row', button('تفعيل التحقق بخطوتين', { variant: 'primary', icon: 'shieldCheck', onClick: startWizard })),
+          h('div.acc-actions-row', button('تفعيل التحقق بخطوتين', { variant: 'primary', icon: 'shieldCheck', onClick: startWizard, tag: 'PRF-09' })),
         );
         return;
       }
@@ -154,11 +163,11 @@ export default async function render(ctx) {
           ['تطبيق المصادقة', 'رمز من ستة أرقام يتغير كل 30 ثانية'],
           ['رموز الاسترداد المتبقية', h('span', { class: low ? 'acc-text-warning' : null }, `${num(tf.recovery_remaining)} من ${num(tf.recovery_total)}`)],
         ]),
-        low && alertBox('اقتربت رموز الاسترداد من النفاد. أصدر رموزًا جديدة واحفظها في مكان آمن.', 'warning'),
+        low && alertBox('اقتربت رموز الاسترداد من النفاد. أصدر رموزًا جديدة واحفظها في مكان آمن.', 'warning', { tag: 'PRF-10' }),
         h(
           'div.acc-actions-row',
-          button('إصدار رموز استرداد جديدة', { variant: 'secondary', size: 'sm', icon: 'refresh', onClick: regenerate }),
-          button('إلغاء التحقق بخطوتين', { variant: 'ghost', size: 'sm', icon: 'x', disabled: policyLocked, onClick: disable }),
+          button('إصدار رموز استرداد جديدة', { variant: 'secondary', size: 'sm', icon: 'refresh', onClick: regenerate, tag: 'PRF-11' }),
+          button('إلغاء التحقق بخطوتين', { variant: 'ghost', size: 'sm', icon: 'x', disabled: policyLocked, onClick: disable, tag: 'PRF-12' }),
         ),
         policyLocked && h('p.small.muted', 'سياسة المؤسسة تلزم حسابات «إدارة النظام» بالتحقق بخطوتين، لذا لا يمكن إلغاؤه.'),
       );
@@ -179,8 +188,8 @@ export default async function render(ctx) {
     }
     function confirmFields() {
       return [
-        { name: 'password', label: 'كلمة المرور الحالية', type: 'password', required: true, autocomplete: 'current-password' },
-        { name: 'code', label: 'رمز التحقق من التطبيق أو رمز استرداد', required: true, ltr: true, autocomplete: 'one-time-code', maxLength: 20 },
+        { name: 'password', label: 'كلمة المرور الحالية', type: 'password', required: true, autocomplete: 'current-password', tag: 'PRF-80' },
+        { name: 'code', label: 'رمز التحقق من التطبيق أو رمز استرداد', required: true, ltr: true, autocomplete: 'one-time-code', maxLength: 20, tag: 'PRF-81' },
       ];
     }
     function regenerate() {
@@ -190,6 +199,7 @@ export default async function render(ctx) {
         submitLabel: 'إصدار الرموز',
         fields: confirmFields(),
         onSubmit: (v) => api.post('/account/2fa/recovery-codes', v),
+        tag: 'PRF-13',
       }).then((res) => {
         if (!res) return;
         const m = modal({
@@ -198,6 +208,7 @@ export default async function render(ctx) {
           dismissible: false,
           body: recoveryCodesPanel(res.recovery_codes, { username: data.user.username, onDone: () => m.close('done') }),
           onClose: () => refresh(),
+          tag: 'PRF-14',
         });
       });
     }
@@ -208,6 +219,7 @@ export default async function render(ctx) {
         submitLabel: 'إلغاء التحقق بخطوتين',
         fields: confirmFields(),
         onSubmit: (v) => api.post('/account/2fa/disable', v),
+        tag: 'PRF-15',
       }).then(async (res) => {
         if (!res) return;
         toast('أُلغي التحقق بخطوتين لحسابك', 'warning');
@@ -215,7 +227,7 @@ export default async function render(ctx) {
       });
     }
     drawStatus();
-    return card({ title: 'التحقق بخطوتين', icon: 'shieldCheck', body: host, className: 'acc-2fa-card' });
+    return card({ title: 'التحقق بخطوتين', icon: 'shieldCheck', body: host, className: 'acc-2fa-card', titleTag: 'PRF-16', tag: 'PRF-17' });
   }
 
   // ───────────── الجلسات ─────────────
@@ -254,16 +266,16 @@ export default async function render(ctx) {
                     ),
                     !s.current &&
                       asyncButton('إنهاء', async () => {
-                        const ok = await confirmDanger({ title: 'إنهاء الجلسة', message: `سيُسجَّل الخروج من «${s.device}» فورًا.`, confirmLabel: 'إنهاء الجلسة' });
+                        const ok = await confirmDanger({ title: 'إنهاء الجلسة', message: `سيُسجَّل الخروج من «${s.device}» فورًا.`, confirmLabel: 'إنهاء الجلسة', tag: 'PRF-18' });
                         if (!ok) return;
                         await api.del(`/account/sessions/${encodeURIComponent(s.id)}`);
                         toast('أُنهيت الجلسة', 'success');
                         await load();
-                      }, { variant: 'ghost', size: 'sm', icon: 'logout', ariaLabel: `إنهاء الجلسة على ${s.device}` }),
+                      }, { variant: 'ghost', size: 'sm', icon: 'logout', ariaLabel: `إنهاء الجلسة على ${s.device}`, tag: 'PRF-19' }),
                   ),
                 ),
               )
-            : emptyState('لا توجد جلسات نشطة', null, { compact: true }),
+            : emptyState('لا توجد جلسات نشطة', null, { compact: true, tag: 'PRF-20' }),
         );
       } catch (err) {
         mount(host, errorState(err, load));
@@ -274,15 +286,16 @@ export default async function render(ctx) {
         title: 'تسجيل الخروج من الأجهزة الأخرى',
         message: 'ستبقى مسجّلًا على هذا الجهاز فقط، ويُطلب الدخول من جديد على أي جهاز آخر. ويتوقف أيضًا رابط اشتراك التقويم إن كنت أصدرته، ويمكنك إصدار رابط جديد من صفحة التقويم.',
         confirmLabel: 'تسجيل الخروج منها',
+        tag: 'PRF-21',
       });
       if (!ok) return;
       const r = await api.post('/account/sessions/revoke-others');
       toast(`${r.revoked ? `سُجّل الخروج من ${count(r.revoked, SESSION_FORMS)}` : 'لا توجد جلسات أخرى'}${r.calendar_feed_revoked ? '، وأُلغي رابط التقويم' : ''}`, 'success');
       await load();
-    }, { variant: 'secondary', size: 'sm', icon: 'logout' });
+    }, { variant: 'secondary', size: 'sm', icon: 'logout', tag: 'PRF-22' });
     revokeOthers.hidden = true;
     load();
-    return card({ title: 'الأجهزة والجلسات النشطة', icon: 'globe', actions: revokeOthers, body: host });
+    return card({ title: 'الأجهزة والجلسات النشطة', icon: 'globe', actions: revokeOthers, body: host, titleTag: 'PRF-23', tag: 'PRF-24' });
   }
 
   // ───────────── النشاط الأخير ─────────────
@@ -308,14 +321,14 @@ export default async function render(ctx) {
         mount(host, errorState(err));
       }
     })();
-    return card({ title: 'آخر أحداث الأمان على حسابك', subtitle: 'إن لاحظت دخولًا لا تعرفه فغيّر كلمة المرور فورًا وأبلغ الإدارة', icon: 'clock', body: host });
+    return card({ title: 'آخر أحداث الأمان على حسابك', subtitle: 'إن لاحظت دخولًا لا تعرفه فغيّر كلمة المرور فورًا وأبلغ الإدارة', icon: 'clock', body: host, titleTag: 'PRF-25', tag: 'PRF-26' });
   }
 
   // ───────────── v9.1 l-home (L-06): تنبيهات واتساب للمحامي ─────────────
   function alertsCard() {
     const available = !!data.alerts_available;
-    const sw = h('input.lh-switch#lh-alert-switch', { type: 'checkbox', role: 'switch', checked: !!data.alert_whatsapp, disabled: !available, 'aria-describedby': 'lh-alert-desc' });
-    const phoneInput = h('input.input#lh-alert-phone', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', placeholder: '01xxxxxxxxx', value: data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : '' });
+    const sw = h('input.lh-switch#lh-alert-switch', { type: 'checkbox', role: 'switch', checked: !!data.alert_whatsapp, disabled: !available, 'aria-describedby': 'lh-alert-desc', tag: 'PRF-27' });
+    const phoneInput = h('input.input#lh-alert-phone', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', placeholder: '01xxxxxxxxx', value: data.user.phone ? normalizeEgPhone(data.user.phone) || data.user.phone : '', tag: 'PRF-28' });
     const err = h('p.field-error', { role: 'alert', hidden: true });
     const testBtn = asyncButton(
       'جرّب التنبيه',
@@ -323,7 +336,7 @@ export default async function render(ctx) {
         const r = await api.post('/account/alerts/test');
         toast(r && r.simulated ? 'سُجّل تنبيه تجريبي (وضع المحاكاة — لا يُرسل فعليًا)' : 'أُرسل تنبيه تجريبي إلى واتساب', 'success');
       },
-      { variant: 'secondary', icon: 'whatsapp' },
+      { variant: 'secondary', icon: 'whatsapp', tag: 'PRF-29' },
     );
     testBtn.hidden = !data.alert_whatsapp;
     sw.addEventListener('change', async () => {
@@ -399,6 +412,8 @@ export default async function render(ctx) {
             )
           : h('p.lh-fine#lh-alert-desc', 'تنبيهات واتساب غير متاحة حاليًا. ستجد كل التنبيهات داخل المنصة.'),
       ),
+      titleTag: 'PRF-30',
+      tag: 'PRF-31',
     });
   }
 
@@ -417,7 +432,7 @@ export default async function render(ctx) {
         return;
       }
       const sub = await pwa.currentPushSubscription();
-      const sw = h('input.lh-switch#lh-push-switch', { type: 'checkbox', role: 'switch', checked: !!sub });
+      const sw = h('input.lh-switch#lh-push-switch', { type: 'checkbox', role: 'switch', checked: !!sub, tag: 'PRF-32' });
       const note = h('p.lh-fine', 'تظهر على الشاشة إشارة عامة «لديك تحديث في منصة الدعم القانوني» بلا أكواد ولا تفاصيل، وتفتح المنصة عند لمسها.');
       sw.addEventListener('change', async () => {
         sw.disabled = true;
@@ -441,7 +456,44 @@ export default async function render(ctx) {
       });
       mount(host, h('label.lh-switch-row', { for: 'lh-push-switch' }, h('span', 'فعّل'), sw), note);
     })();
-    return card({ title: 'تنبيهات على هذا الجهاز', icon: 'phone', className: 'lh-alerts-card', body: host });
+    return card({ title: 'تنبيهات على هذا الجهاز', icon: 'phone', className: 'lh-alerts-card', body: host, titleTag: 'PRF-33', tag: 'PRF-34' });
+  }
+
+  // ───────────── v12 tags (H-T، T12-27): مفتاح «رموز العناصر» للإدارة ومدير الحالة ─────────────
+  // يحفظ التفضيل على هذا الجهاز (localStorage، L12-43) ويشغّل الطبقة أو يطفئها فورًا
+  function tagsCard() {
+    if (data.user.role !== 'admin' && data.user.role !== 'case_manager') return null;
+    const stored = () => {
+      try {
+        return localStorage.getItem('bm_tags') === '1';
+      } catch {
+        return false;
+      }
+    };
+    const sw = h('input.lh-switch#acc-tags-switch', { type: 'checkbox', role: 'switch', checked: stored(), 'aria-describedby': 'acc-tags-desc', tag: 'PRF-35' });
+    sw.addEventListener('change', () => tagsToggle(sw.checked, true));
+    // يتبع الطبقة في هذا التبويب (bm:tags) وفي تبويب آخر على الجهاز نفسه (storage، review)
+    const sync = (e) => {
+      if (!sw.isConnected) {
+        removeEventListener('bm:tags', sync);
+        removeEventListener('storage', sync);
+      } else if (!e || e.type !== 'storage' || e.key === 'bm_tags' || e.key === null) sw.checked = stored();
+    };
+    addEventListener('bm:tags', sync);
+    addEventListener('storage', sync);
+    return card({
+      title: 'رموز العناصر',
+      icon: 'grid',
+      className: 'lh-alerts-card',
+      tag: 'PRF-01',
+      body: h(
+        'div.stack',
+        h('label.lh-switch-row', { for: 'acc-tags-switch', tag: 'PRF-02' }, h('span', 'إظهار رموز العناصر على هذا الجهاز'), sw),
+        h('p.lh-fine#acc-tags-desc', 'يظهر بجانب كل عنصر مهم رمز قصير مثل S-14. انسخه واذكره حين تطلب تعديل هذا العنصر. يبقى الاختيار على هذا الجهاز وحده، ويمكنك أيضًا الضغط على Alt+Shift+T.'),
+        button('قائمة كل الرموز', { href: '#/tags', variant: 'secondary', icon: 'list', tag: 'PRF-03' }),
+      ),
+      titleTag: 'PRF-36',
+    });
   }
 
   async function refresh() {
@@ -455,10 +507,10 @@ export default async function render(ctx) {
     if (data.user.role === 'lawyer') {
       mount(
         page,
-        h('h1.lh-h1.lh-page-h1', 'حسابي'),
-        tf.enabled && tf.recovery_remaining === 0 ? alertBox('نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا تفقد الوصول إلى حسابك إذا فقدت هاتفك.', 'danger') : null,
+        h('h1.lh-h1.lh-page-h1', { tag: 'PRF-37' }, 'حسابي'),
+        tf.enabled && tf.recovery_remaining === 0 ? alertBox('نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا تفقد الوصول إلى حسابك إذا فقدت هاتفك.', 'danger', { tag: 'PRF-38' }) : null,
         h('div.acc-grid', h('div.acc-col', alertsCard(), pushCard(), profileCard(), passwordCard()), h('div.acc-col', twoFactorCard(), sessionsCard(), activityCard())),
-        h('div.lh-account-logout', button('تسجيل الخروج', { variant: 'secondary', icon: 'logout', onClick: () => window.dispatchEvent(new CustomEvent('bm:logout-request')) })),
+        h('div.lh-account-logout', button('تسجيل الخروج', { variant: 'secondary', icon: 'logout', onClick: () => window.dispatchEvent(new CustomEvent('bm:logout-request')), tag: 'PRF-39' })),
       );
       if (ctx.query.focus === 'alerts') requestAnimationFrame(() => page.querySelector('#alerts')?.closest('.card')?.scrollIntoView({ block: 'start' }));
       return;
@@ -473,9 +525,11 @@ export default async function render(ctx) {
           tf.enabled ? badge('التحقق بخطوتين مفعّل', 'success', { icon: 'shieldCheck' }) : badge('التحقق بخطوتين غير مفعّل', data.user.role === 'admin' ? 'warning' : 'muted', { icon: 'shield' }),
           badge(`الجلسات النشطة: ${num(data.sessions_count)}`, 'neutral', { icon: 'globe' }),
         ],
+        titleTag: 'PRF-40',
+        tag: 'PRF-41',
       }),
-      tf.enabled && tf.recovery_remaining === 0 ? alertBox('نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا تفقد الوصول إلى حسابك إذا فقدت هاتفك.', 'danger') : null,
-      h('div.acc-grid', h('div.acc-col', profileCard(), passwordCard()), h('div.acc-col', twoFactorCard(), sessionsCard(), activityCard())),
+      tf.enabled && tf.recovery_remaining === 0 ? alertBox('نفدت رموز الاسترداد. أصدر رموزًا جديدة من بطاقة التحقق بخطوتين حتى لا تفقد الوصول إلى حسابك إذا فقدت هاتفك.', 'danger', { tag: 'PRF-42' }) : null,
+      h('div.acc-grid', h('div.acc-col', profileCard(), passwordCard(), tagsCard()), h('div.acc-col', twoFactorCard(), sessionsCard(), activityCard())),
     );
   }
   draw();

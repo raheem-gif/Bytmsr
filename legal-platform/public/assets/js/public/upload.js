@@ -127,17 +127,23 @@ export async function scanKeepPage(file, idx = scanProblem(file)) {
   pages[idx] = p.state === 'partial' ? { ...p, state: 'kept' } : { ...p, clean: null, bits: null, state: 'asis' };
   return buildScanned({ ...s.doc, pages });
 }
-/** صورة جديدة صفحةً إضافية (replace = رقم صفحة يُستبدل: «إعادة التصوير») ← ملف جديد، أو null */
+/**
+ * صورة جديدة صفحةً إضافية (replace = رقم صفحة يُستبدل: «إعادة التصوير») ← ملف جديد، أو null.
+ * الوضع الذي اختاره الشخص للصفحة السابقة (أبيض وأسود أو رمادي) يُطبَّق على الصفحة الجديدة (مراجعة 12.0).
+ */
 export async function scanAddPage(file, raw, { replace = null, maxPages = DEFAULT_PAGES } = {}) {
   const s = SCANS.get(file);
   if (!s || !SCANNABLE.has(typeOf(raw))) return null;
+  const isReplace = Number.isInteger(replace) && replace >= 0 && replace < s.doc.pages.length;
+  if (!isReplace && s.doc.pages.length >= maxPages) return null;
   const { scanner } = await loadScanner();
   const o = s.doc.opts || {};
-  const page = await scanner.scanPage(raw, { sourceMax: o.sourceMax, maxSide: o.maxSide, quality: o.quality });
+  const ref = s.doc.pages[isReplace ? replace : s.doc.pages.length - 1];
+  const mode = ref && ref.mode && ref.mode !== 'auto' ? ref.mode : 'auto';
+  const page = await scanner.scanPage(raw, { sourceMax: o.sourceMax, maxSide: o.maxSide, quality: o.quality, mode });
   const pages = s.doc.pages.slice();
-  if (Number.isInteger(replace) && replace >= 0 && replace < pages.length) pages[replace] = page;
-  else if (pages.length < maxPages) pages.push(page);
-  else return null;
+  if (isReplace) pages[replace] = page;
+  else pages.push(page);
   return buildScanned({ ...s.doc, pages });
 }
 /** عدد صفحات المستند الممسوح (0 لملف عادي) */
@@ -166,15 +172,36 @@ export function fileInputScan(ctl) {
     out.bmScan = await scanBlock(out);
     ctl.set(i, out);
   };
-  const done = (old, p) => p.then((out) => swap(old, out), () => {});
+  // تعديل بعد تعديل على المستند نفسه (صفحة ثم صفحة) بالترتيب، وكل تعديل يبدأ من آخر نسخة (لا تضيع صفحة، مراجعة 12.0)
+  const latest = new WeakMap();
+  const cur = (f) => {
+    let x = f;
+    while (latest.has(x)) x = latest.get(x);
+    return x;
+  };
+  let chain = Promise.resolve();
+  const done = (old, fn) =>
+    (chain = chain.then(async () => {
+      const f = cur(old);
+      if (!ctl.files().includes(f)) return;
+      let out = null;
+      try {
+        out = await fn(f);
+      } catch {
+        out = null;
+      }
+      if (!out) return;
+      latest.set(f, out);
+      await swap(f, out);
+    }));
   return {
-    scan: (f) => done(f, scanImage(f, { name: f.name, register: 'staff', sourceMax: 3200, maxSide: 2339 })),
+    scan: (f) => done(f, (x) => scanImage(x, { name: x.name, register: 'staff', sourceMax: 3200, maxSide: 2339 })),
     reset: () => (pick = null),
     take(list) {
       const tg = pick;
       pick = null;
-      if (!tg || !list.length || !ctl.files().includes(tg.f)) return false;
-      done(tg.f, scanAddPage(tg.f, list[0], { maxPages: 20, replace: tg.replace }));
+      if (!tg || !list.length || !ctl.files().includes(cur(tg.f))) return false;
+      done(tg.f, (x) => scanAddPage(x, list[0], { maxPages: 20, replace: tg.replace }));
       return true;
     },
     row(file) {
@@ -189,9 +216,9 @@ export function fileInputScan(ctl) {
       return h(
         'div.file-scan',
         doc.pages.length > 1 ? sheet.pagesBadge(doc.pages.length) : null,
-        h('button.scn-btn.scn-btn--text.scn-btn--sm', { type: 'button', onClick: (e) => done(file, scanEditPage(file, { register: 'staff', trigger: e.currentTarget })), tag: 'UP-10' }, 'تعديل'),
+        h('button.scn-btn.scn-btn--text.scn-btn--sm', { type: 'button', onClick: (e) => done(file, (x) => scanEditPage(x, { register: 'staff', trigger: e.currentTarget })), tag: 'UP-10' }, 'تعديل'),
         ctl.pages && doc.pages.length < 20 ? sheet.addPageButton({ register: 'staff', onClick: () => choose(null) }) : null,
-        w >= 0 ? sheet.scanNote(doc.pages[w], { register: 'staff', onRetake: () => choose(w), onKeep: () => done(file, scanKeepPage(file, w)) }) : null,
+        w >= 0 ? sheet.scanNote(doc.pages[w], { register: 'staff', onRetake: () => choose(w), onKeep: () => done(file, (x) => scanKeepPage(x, w)) }) : null,
       );
     },
   };
@@ -522,7 +549,7 @@ export function uploadProgress({ text, onCancel, address = 'f' } = {}) {
     pct,
     bar,
     h('p.bmf-progress-hint', t.dontClose),
-    onCancel && h('button.bmf-btn.bmf-btn-outline.bmf-progress-stop', { type: 'button', onClick: () => onCancel() }, t.stop),
+    onCancel && h('button.bmf-btn.bmf-btn-outline.bmf-progress-stop', { type: 'button', onClick: () => onCancel(), tag: 'UP-11' }, t.stop),
   );
   let last = -1;
   el.set = (fraction) => {
@@ -580,8 +607,8 @@ export function photoPicker({
   // الصورة التالية من الكاميرا: صفحة جديدة لمستند، أو بديل صفحة («إعادة التصوير»)
   let target = null;
 
-  const camInput = h('input.bmf-file', { type: 'file', accept: 'image/*', capture: 'environment', tabindex: '-1', 'aria-hidden': 'true' });
-  const galInput = h('input.bmf-file', { type: 'file', accept: 'image/*,application/pdf', multiple: multiple && limit > 1, tabindex: '-1', 'aria-hidden': 'true' });
+  const camInput = h('input.bmf-file', { type: 'file', accept: 'image/*', capture: 'environment', tabindex: '-1', 'aria-hidden': 'true', tag: 'UP-12' });
+  const galInput = h('input.bmf-file', { type: 'file', accept: 'image/*,application/pdf', multiple: multiple && limit > 1, tabindex: '-1', 'aria-hidden': 'true', tag: 'UP-13' });
   const camLabel = label || t.camera;
   const galLabel = galleryLabel || (variant === 'big' ? t.gallery : t.galleryShort);
   const iconOnly = (v) => variant === 'compact' || (variant === 'row' && v === 'gallery');
@@ -640,6 +667,7 @@ export function photoPicker({
               }
               tipEl.remove();
             },
+            tag: 'UP-14',
           },
           t.tipOk,
         ),
@@ -822,30 +850,54 @@ export function photoPicker({
     });
   }
 
-  /** تعديل مستند ممسوح (ورقة التعديل، صفحة جديدة، بديل صفحة) ← ملف جديد مكانه */
-  function change(f, fn) {
+  // ملف استُبدل (تعديل، صفحة جديدة) ← ملفه الجديد: «صفحة أخرى» مرتين قبل انتهاء الأولى تُضاف للمستند نفسه ولا تضيع (مراجعة 12.0)
+  const replaced = new WeakMap();
+  const latest = (f) => {
+    let x = f;
+    while (replaced.has(x)) x = replaced.get(x);
+    return x;
+  };
+  /**
+   * تعديل مستند ممسوح (ورقة التعديل، صفحة جديدة، بديل صفحة) ← ملف جديد مكانه. fn(ملف المستند الحالي) بالترتيب في الطابور.
+   * fallback: صورة لم تُجهز صفحةً (فشل الماسح أو الحد الأقصى للصفحات) تُضاف صورةً مستقلة بدل أن تضيع.
+   * refocus: التركيز يعود إلى الصورة المصغّرة الجديدة بعد إغلاق ورقة التعديل (العنصر القديم أعيد رسمه).
+   */
+  function change(f0, fn, { fallback = null, refocus = false } = {}) {
     queue = queue.then(async () => {
-      if (!SCANS.get(f) || !files.includes(f)) return;
+      const f = latest(f0);
+      if (!SCANS.get(f) || !files.includes(f)) {
+        if (fallback) add([fallback]);
+        return;
+      }
       el.classList.add('is-busy');
+      let at = files.indexOf(f);
       try {
-        const out = await fn();
-        if (!out) return;
+        const out = await fn(f);
+        if (!out) {
+          if (fallback) add([fallback]);
+          return;
+        }
         if (out.size > maxBytes) return showError(messages.bad || t.bad);
-        const i = files.indexOf(f);
-        if (i >= 0) files[i] = out;
+        at = files.indexOf(f);
+        if (at >= 0) {
+          files[at] = out;
+          replaced.set(f, out);
+        }
       } catch {
-        /* الصفحة الجديدة لم تُجهز: يبقى المستند كما كان */
+        // الصفحة الجديدة لم تُجهز: يبقى المستند كما كان، والصورة نفسها تُضاف وحدها (التصغير العادي)
+        if (fallback) add([fallback]);
       } finally {
         status.textContent = '';
         el.classList.remove('is-busy');
         paint();
         emit();
+        if (refocus && at >= 0) grid.querySelectorAll('.bmf-thumb')[at]?.querySelector('.scn-thumb-open, .bmf-thumb-x')?.focus();
       }
     });
     return queue;
   }
-  const edit = (f, trigger) => !disabled && change(f, () => scanEditPage(f, { register, trigger }));
-  const keep = (f, idx) => change(f, () => scanKeepPage(f, idx));
+  const edit = (f, trigger) => !disabled && change(f, (cur) => scanEditPage(cur, { register, trigger }), { refocus: true });
+  const keep = (f, idx) => change(f, (cur) => scanKeepPage(cur, idx));
   function retake(f, idx) {
     target = { mode: 'replace', f, idx };
     camInput.click();
@@ -853,9 +905,9 @@ export function photoPicker({
   function takePage(raw) {
     const tg = target;
     target = null;
-    if (!tg || !files.includes(tg.f) || !SCANNABLE.has(typeOf(raw))) return add([raw]);
+    if (!tg || !files.includes(latest(tg.f)) || !SCANNABLE.has(typeOf(raw))) return add([raw]);
     status.textContent = scanMods ? scanMods.sheet.prepText(register) : t.preparing;
-    return change(tg.f, () => scanAddPage(tg.f, raw, { replace: tg.mode === 'replace' ? tg.idx : null, maxPages: MAX_PAGES }));
+    return change(tg.f, (cur) => scanAddPage(cur, raw, { replace: tg.mode === 'replace' ? tg.idx : null, maxPages: MAX_PAGES }), { fallback: raw });
   }
 
   camInput.addEventListener('change', () => {

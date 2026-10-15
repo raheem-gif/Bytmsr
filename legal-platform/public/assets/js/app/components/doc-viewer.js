@@ -170,7 +170,7 @@ export function docMenu(d, { claude = false, onAnalyze, urlFor = defaultUrlFor, 
   const item = (label, hint, iconName, fn) =>
     h(
       'button.lw-menu-item',
-      { type: 'button', onClick: () => { m.close('action'); fn(); } },
+      { type: 'button', onClick: () => { m.close('action'); fn(); }, tag: 'DOC-18' },
       h('span.lw-menu-icon', lwIcon(iconName, { size: 20 })),
       h('span.lw-menu-text', h('strong', label), hint && h('span.lw-menu-hint', hint)),
     );
@@ -183,8 +183,12 @@ export function docMenu(d, { claude = false, onAnalyze, urlFor = defaultUrlFor, 
       item('تنزيل على الهاتف', 'يبقى الملف في التنزيلات؛ احذفه بعد الانتهاء.', 'download', () => downloadDocument(d, { urlFor })),
       // v12 media (MD-5): صور الصفحات الأصلية لمستند PDF مصوّر يُفتح افتراضيًا بنسخته المحسّنة
       v && v.pdf && v.initial === 'clean' ? item('الصور الأصلية', `كما صوّرها المرسل (${v.pages === 1 ? 'صفحة واحدة' : v.pages === 2 ? 'صفحتان' : `${v.pages} صفحات`})`, 'image', () => openImageViewer(d, { claude, onAnalyze, urlFor, onChange, view: 'original' })) : null,
+      // v12 media (MD-10): النص المقروء آليًا للفريق فقط (لا نص للمحامي في 12.0، L12-17)
+      // tags:variant (DOC-12 «النص» نفسه في أدوات العارض)
+      role === 'staff' && docKind(d) !== 'doc' ? h('div', { tag: 'DOC-12' }, item('النص المقروء آليًا', 'مسودة للمراجعة، للفريق فقط.', 'fileText', () => import('./doc-clean.js').then((x) => x.openTextPanel(d)))) : null,
       claude && onAnalyze ? item('تحليل المستند', null, 'sparkle', () => onAnalyze(d)) : null,
     ),
+    tag: 'DOC-19',
   });
   return m;
 }
@@ -206,7 +210,7 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
     img.classList.add('is-loaded');
   });
   img.addEventListener('error', () => {
-    mount(status, 'تعذر فتح الصورة. ', button('تنزيل', { variant: 'link', size: 'sm', onClick: () => downloadDocument(d, { urlFor }) }));
+    mount(status, 'تعذر فتح الصورة. ', button('تنزيل', { variant: 'link', size: 'sm', onClick: () => downloadDocument(d, { urlFor }), tag: 'DOC-20' }));
   });
 
   // v12 media: الحالة — أي نسخة تُعرض الآن، وأي صفحة من الأصل
@@ -274,9 +278,9 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
         ? h(
             'span.doc-variant__pager',
             { tag: 'DOC-03' },
-            h('button.doc-variant__pg', { type: 'button', disabled: st.page <= 1, onClick: () => ((st.page -= 1), drawBar(), show()) }, 'السابقة'),
+            h('button.doc-variant__pg', { type: 'button', disabled: st.page <= 1, onClick: () => ((st.page -= 1), drawBar(), show()), tag: 'DOC-21' }, 'السابقة'),
             h('span.doc-variant__pn', { 'aria-live': 'polite' }, `صفحة ${st.page} من ${pages}`),
-            h('button.doc-variant__pg', { type: 'button', disabled: st.page >= pages, onClick: () => ((st.page += 1), drawBar(), show()) }, 'التالية'),
+            h('button.doc-variant__pg', { type: 'button', disabled: st.page >= pages, onClick: () => ((st.page += 1), drawBar(), show()), tag: 'DOC-22' }, 'التالية'),
           )
         : null;
     // tags:variant (DOC-16 نفسه في القائمة وفي العارض)
@@ -339,11 +343,12 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
       }
       requestAnimationFrame(() => window.scrollTo(0, scrollY));
     },
+    tag: 'DOC-23',
   });
   // «رجوع» في بداية الشريط، و⋯ في نهايته (بدل زر الإغلاق الافتراضي)
   const header = handle.el.querySelector('.modal-header');
-  const back = h('button.lw-viewer-back', { type: 'button', onClick: () => handle.close('back-button') }, icon('arrowRight', { size: 20 }), h('span', 'رجوع'));
-  const more = h('button.lw-viewer-more', { type: 'button', 'aria-label': 'خيارات المستند', onClick: () => docMenu(d, { claude, onAnalyze, urlFor, onChange }) }, icon('more', { size: 22 }));
+  const back = h('button.lw-viewer-back', { type: 'button', onClick: () => handle.close('back-button'), tag: 'DOC-24' }, icon('arrowRight', { size: 20 }), h('span', 'رجوع'));
+  const more = h('button.lw-viewer-more', { type: 'button', 'aria-label': 'خيارات المستند', onClick: () => docMenu(d, { claude, onAnalyze, urlFor, onChange }), tag: 'DOC-25' }, icon('more', { size: 22 }));
   if (header) {
     header.prepend(back);
     header.append(more);
@@ -366,7 +371,7 @@ export function openImageViewer(d, { claude = false, onAnalyze, urlFor = default
 export function docViewButton(d, { onChange } = {}) {
   const k = docKind(d);
   if (k === 'doc') return null;
-  return button('عرض', { size: 'sm', variant: 'ghost', icon: 'eye', ariaLabel: `عرض ${docName(d)}`, dataset: { tag: 'DOC-15' }, onClick: () => openDocument(d, { onChange }) });
+  return button('عرض', { size: 'sm', variant: 'ghost', icon: 'eye', ariaLabel: `عرض ${docName(d)}`, dataset: { tag: 'DOC-15' }, onClick: () => openDocument(d, { onChange }), tag: 'DOC-26' });
 }
 
 /**
@@ -385,6 +390,7 @@ export function docRow(d, { claude = false, onAnalyze, source = true, urlFor = d
       type: 'button',
       'aria-label': k === 'doc' ? `تنزيل ${name}` : `عرض ${name}`,
       onClick: () => openDocument(d, { claude, onAnalyze, urlFor }),
+      tag: 'DOC-27',
     },
     h('span.lw-doc-icon', { 'aria-hidden': 'true' }, iconNode),
     h(
@@ -396,7 +402,7 @@ export function docRow(d, { claude = false, onAnalyze, source = true, urlFor = d
   );
   const more = h(
     'button.lw-doc-more',
-    { type: 'button', 'aria-label': `خيارات ${name}`, onClick: () => docMenu(d, { claude, onAnalyze, urlFor }) },
+    { type: 'button', 'aria-label': `خيارات ${name}`, onClick: () => docMenu(d, { claude, onAnalyze, urlFor }), tag: 'DOC-28' },
     icon('more', { size: 22 }),
   );
   return h('li.lw-doc', { dataset: { docId: d.id, kind: k } }, open, more);

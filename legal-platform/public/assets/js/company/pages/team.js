@@ -2,7 +2,7 @@
 // الصف: الاسم والوظيفة والبريد، الدور (محدد)، الحالة (ممتلئة)، «التكاليف الإضافية»، التحقق بخطوتين، آخر دخول، وقائمة إجراءات
 // (منبثقة على الحاسوب، ورقة على الهاتف). «دعوة زميل»: الرابط يُعرض مرة واحدة للداعي فقط حين لا يُرسل بالبريد؛ ورابط كلمة مرور
 // الزميل بالبريد فقط (لا رابط أبدًا؛ ask_team)؛ ودعوة بريد لدى شركة أخرى «للمراجعة» بنفس الشكل.
-import { h, mount } from '../../lib/h.js';
+import { h, mount, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { relative } from '../../lib/fmt.js';
 import { icon, button, badge, avatar, table, kRow, field, choiceTiles, toast, errorMessage, confirmDanger, modal } from '../../lib/ui.js';
@@ -26,12 +26,12 @@ const desktop = () => {
 };
 
 function roleTiles(value, onChange) {
-  return choiceTiles({ label: T.role, value, columns: 1, options: ROLES.map((r) => ({ value: r, label: roleLabel(r), hint: T[`role_${r}`] })), onChange });
+  return choiceTiles({ label: T.role, value, columns: 1, options: ROLES.map((r) => ({ value: r, label: roleLabel(r), hint: T[`role_${r}`] })), onChange, tag: 'CT-01' });
 }
 
 /** الرابط للنسخ مرة واحدة (الدعوة حين لا تُرسل بالبريد) */
 function copyOnce(invite, name) {
-  const link = h('input.input.co-copy-link', { type: 'text', readonly: true, dir: 'ltr', value: invite.url, 'aria-label': T.copy_link });
+  const link = h('input.input.co-copy-link', { type: 'text', readonly: true, dir: 'ltr', value: invite.url, 'aria-label': T.copy_link, tag: 'CT-02' });
   return h(
     'div.co-copy-once',
     { role: 'status' },
@@ -50,6 +50,7 @@ function copyOnce(invite, name) {
             link.select();
           }
         },
+        tag: 'CT-03',
       }),
     ),
     invite.expires_at ? h('p.co-muted', copy('team.valid_until', { when: whenLong(invite.expires_at) })) : null,
@@ -57,20 +58,20 @@ function copyOnce(invite, name) {
 }
 
 function inviteSheet(ctx, team) {
-  const name = h('input.input', { type: 'text', dir: 'auto', maxlength: 120, autocomplete: 'off', 'aria-required': 'true' });
-  const email = h('input.input', { type: 'email', dir: 'ltr', maxlength: 200, autocomplete: 'off', 'aria-required': 'true', placeholder: 'name@company.com' });
-  const job = h('input.input', { type: 'text', dir: 'auto', maxlength: 120, autocomplete: 'off' });
+  const name = h('input.input', { type: 'text', dir: 'auto', maxlength: 120, autocomplete: 'off', 'aria-required': 'true', tag: 'CT-04' });
+  const email = h('input.input', { type: 'email', dir: 'ltr', maxlength: 200, autocomplete: 'off', 'aria-required': 'true', placeholder: 'name@company.com', tag: 'CT-05' });
+  const job = h('input.input', { type: 'text', dir: 'auto', maxlength: 120, autocomplete: 'off', tag: 'CT-06' });
   let role = 'member';
-  const billing = h('input', { type: 'checkbox', id: 'co-inv-billing' });
-  const nameWrap = field(T.name, name, { required: true });
-  const emailWrap = field(T.email, email, { required: true });
+  const billing = h('input', { type: 'checkbox', id: 'co-inv-billing', tag: 'CT-07' });
+  const nameWrap = field(T.name, name, { required: true, tag: 'CT-08' });
+  const emailWrap = field(T.email, email, { required: true, tag: 'CT-09' });
   const err = sheetError();
   const result = h('div.co-invite-result');
   const form = h(
     'div.co-sheet-body',
     nameWrap,
     emailWrap,
-    field(T.job, job),
+    field(T.job, job, { tag: 'CT-10' }),
     roleTiles(role, (v) => (role = v || 'member')),
     h('label.check.check-single', { htmlFor: billing.id }, billing, h('span', T.billing)),
     err,
@@ -126,16 +127,18 @@ function inviteSheet(ctx, team) {
           mount(result, copyOnce(inv, name.value.trim()));
           sh.buttons?.forEach((b) => (b.hidden = true));
           // «إغلاق» بدل تذييل فارغ
-          sh.buttons?.[0]?.parentElement?.append(button(T.close, { variant: 'secondary', onClick: () => sh.requestDismiss('button') }));
+          sh.buttons?.[0]?.parentElement?.append(button(T.close, { variant: 'secondary', onClick: () => sh.requestDismiss('button'), tag: 'CT-11' }));
           return false;
         },
+        tag: 'CT-12',
       },
     ],
+    tag: 'CT-13',
   });
 }
 
 function showLinkSheet(inv, user, ctx) {
-  modal({ title: T.resend, sheet: true, body: copyOnce(inv, user.name), actions: [{ label: T.close, variant: 'secondary' }], onClose: () => ctx.reload() });
+  modal({ title: T.resend, sheet: true, body: copyOnce(inv, user.name), actions: [{ label: T.close, variant: 'secondary', tag: 'CT-14' }], onClose: () => ctx.reload(), tag: 'CT-15' });
 }
 
 /** تعديل زميل → true عند النجاح؛ عند الفشل false مع الخطأ في الورقة (errEl) أو في تنبيه */
@@ -170,8 +173,10 @@ function roleSheet(u, ctx) {
           // J-20/K11: فشل الحفظ يبقي الورقة مفتوحة والخطأ فيها
           return patchUser(u, { role }, ctx, T.saved, { errEl: err });
         },
+        tag: 'CT-16',
       },
     ],
+    tag: 'CT-17',
   });
 }
 
@@ -232,7 +237,7 @@ function actionsOf(u, ctx) {
       icon: 'x',
       danger: true,
       onClick: async () => {
-        const ok = await confirmDanger({ title: copy('team.deactivate_title', { name: u.name }), message: T.deactivate_text, confirmLabel: T.deactivate, cancelLabel: W.state.cancel });
+        const ok = await confirmDanger({ title: copy('team.deactivate_title', { name: u.name }), message: T.deactivate_text, confirmLabel: T.deactivate, cancelLabel: W.state.cancel, tag: 'CT-18' });
         if (ok) patchUser(u, { active: false }, ctx, T.deactivated);
       },
     });
@@ -243,8 +248,8 @@ function actionsOf(u, ctx) {
 /** قائمة الإجراءات: منبثقة على الحاسوب، وورقة على الهاتف */
 function rowMenu(u, ctx) {
   const items = actionsOf(u, ctx);
-  if (!items.length) return u.me ? h('a.co-link', { href: '#/account' }, T.my_account) : null;
-  if (desktop()) return menuButton(copy('team.actions', { name: u.name }), items);
+  if (!items.length) return u.me ? h('a.co-link', { href: '#/account', tag: 'CT-19' }, T.my_account) : null;
+  if (desktop()) return tagged('CT-20', menuButton(copy('team.actions', { name: u.name }), items, { tag: 'CT-34' }));
   return h(
     'button.icon-btn.co-more-btn',
     {
@@ -256,10 +261,12 @@ function rowMenu(u, ctx) {
           sheet: true,
           body: h(
             'ul.k-list.co-sheet-menu',
-            items.map((it) => h('li', kRow({ icon: it.icon, title: it.label, className: it.danger ? 'is-danger' : '', chevron: false, onClick: () => { sheet.close('action'); it.onClick(); } }))),
+            items.map((it) => h('li', kRow({ icon: it.icon, title: it.label, className: it.danger ? 'is-danger' : '', chevron: false, onClick: () => { sheet.close('action'); it.onClick(); }, tag: 'CT-21' }))),
           ),
+          tag: 'CT-22',
         });
       },
+      tag: 'CT-23',
     },
     icon('moreHorizontal', { size: 22 }),
   );
@@ -273,7 +280,7 @@ const lastLogin = (u) => (u.last_login_at ? relative(u.last_login_at) : T.never)
 function twoFactorCard(profile, items, ctx) {
   if (!profile || readOnly()) return null;
   const pending = items.filter((u) => u.active && u.state !== 'invite_pending' && !u.two_factor && !u.me).length;
-  const sw = h('input', { type: 'checkbox', role: 'switch', id: 'co-req-2fa', checked: !!profile.require_2fa });
+  const sw = h('input', { type: 'checkbox', role: 'switch', id: 'co-req-2fa', checked: !!profile.require_2fa, tag: 'CT-24' });
   sw.addEventListener('change', async () => {
     sw.disabled = true;
     try {
@@ -309,7 +316,7 @@ export default async function team(ctx) {
   const items = res.items || [];
   const activeCount = items.filter((u) => u.active).length;
   const counter = h('p.co-muted.num', copy('team.counter', { n: activeCount, max: res.max_users != null ? countOf(res.max_users, 'user') : '—' }));
-  const invite = !readOnly() ? button(T.invite, { variant: 'secondary', icon: 'userPlus', onClick: () => inviteSheet(ctx, res) }) : null;
+  const invite = !readOnly() ? button(T.invite, { variant: 'secondary', icon: 'userPlus', onClick: () => inviteSheet(ctx, res), tag: 'CT-25' }) : null;
   const nameCell = (u) =>
     h(
       'span.co-member',
@@ -328,13 +335,15 @@ export default async function team(ctx) {
       caption: W.nav.team,
       rows: items,
       columns: [
-        { key: 'name', label: T.col_name, render: nameCell },
-        { key: 'role', label: T.col_role, render: roleBadge },
-        { key: 'state', label: T.col_state, render: stateBadge },
-        { key: 'tfa', label: T.col_2fa, render: (u) => (u.two_factor ? T.tfa_on : T.tfa_off) },
-        { key: 'login', label: T.col_login, render: (u) => h('span.num', lastLogin(u)) },
-        { key: 'menu', label: '', render: (u) => rowMenu(u, ctx) },
+        { key: 'name', label: T.col_name, render: nameCell, tag: 'CT-26' },
+        { key: 'role', label: T.col_role, render: roleBadge, tag: 'CT-27' },
+        { key: 'state', label: T.col_state, render: stateBadge, tag: 'CT-28' },
+        { key: 'tfa', label: T.col_2fa, render: (u) => (u.two_factor ? T.tfa_on : T.tfa_off), tag: 'CT-29' },
+        { key: 'login', label: T.col_login, render: (u) => h('span.num', lastLogin(u)), tag: 'CT-30' },
+        { key: 'menu', label: '', render: (u) => rowMenu(u, ctx), tag: 'CT-31' },
       ],
+      rowTag: 'CT-32',
+      tag: 'CT-33',
     });
   } else {
     list = h(

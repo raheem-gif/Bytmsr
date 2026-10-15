@@ -162,8 +162,8 @@ function staticPage(title, text, iconName) {
   const home = config ? config.defaultPath() : '/';
   return h(
     'div.page',
-    pageHeader({ title }),
-    h('div.card', emptyState(text, button('العودة إلى الصفحة الرئيسية', { variant: 'primary', icon: 'home', href: `#${home}` }), { icon: iconName })),
+    pageHeader({ title, tag: 'NAV-64', titleTag: 'NAV-68' }),
+    h('div.card', emptyState(text, button('العودة إلى الصفحة الرئيسية', { variant: 'primary', icon: 'home', href: `#${home}`, tag: 'NAV-65' }), { icon: iconName, tag: 'NAV-66' })),
   );
 }
 

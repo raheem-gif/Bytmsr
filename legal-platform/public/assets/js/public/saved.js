@@ -97,6 +97,13 @@ export function savedCard({ onForget, headingLevel = 2, t } = {}) {
     card.remove();
     if (typeof onForget === 'function') onForget();
   });
+  // v12 tags (TG-6): رموز البطاقة على صفحات الأفراد والشركات وحدها (t = نصوصهم)؛ بطاقة «خيري» بلا رموز (§5.9)
+  if (t) {
+    card.dataset.tag = 'I-192';
+    title.dataset.tag = 'I-193';
+    open.dataset.tag = 'I-194';
+    forget.dataset.tag = 'I-195';
+  }
   card.append(title, open, forget);
   return card;
 }

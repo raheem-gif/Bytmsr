@@ -7,7 +7,7 @@
 //   docAiPanel(analysis)  // عرض نتيجة تحليل محفوظة (من GET /api/admin/ai/documents/:id أو قائمة ?case_id=)
 //
 // إن وُجد تحليل سابق يُعرض أولًا مع زر «إعادة التحليل»؛ وإلا يُحلَّل المستند فورًا.
-import { h, mount } from '../../lib/h.js';
+import { h, mount, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { label, percent, dateTime, relative } from '../../lib/fmt.js';
 import { button, modal, badge, loading, errorState, alertBox, icon, chips, toast, setBusy, errorMessage } from '../../lib/ui.js';
@@ -15,7 +15,7 @@ import { button, modal, badge, loading, errorState, alertBox, icon, chips, toast
 const FLAG_ICON = { expired: 'clock', illegible: 'eyeOff', missing_pages: 'fileText', inconsistent: 'alert', unverified: 'shield', other: 'info' };
 
 function section(title, iconName, body) {
-  return h('section.doc-ai-section', h('h3.doc-ai-title', icon(iconName, { size: 16 }), title), body);
+  return h('section.doc-ai-section', { tag: 'DAI-01' }, h('h3.doc-ai-title', { tag: 'DAI-02' }, icon(iconName, { size: 16 }), title), body);
 }
 
 /**
@@ -41,33 +41,33 @@ export function docAiPanel(analysis, { compact = false, onRequestDoc = null } = 
       r.confidence != null && ai ? h('span.cell-sub', 'درجة الثقة: ', h('bdi', percent(r.confidence))) : null,
       analysis.created_at ? h('time.cell-sub', { datetime: analysis.created_at, title: dateTime(analysis.created_at) }, relative(analysis.created_at)) : null,
     ),
-    analysis.stale ? alertBox('استُبدل ملف المستند بعد هذا التحليل؛ أعد التحليل للحصول على نتيجة محدثة.', 'warning') : null,
-    !ai && r.note ? alertBox(String(r.note).replace(/^تحليل مبدئي دون ذكاء اصطناعي:\s*/, ''), 'info', { title: 'تحليل مبدئي دون ذكاء اصطناعي' }) : null,
+    analysis.stale ? alertBox('استُبدل ملف المستند بعد هذا التحليل؛ أعد التحليل للحصول على نتيجة محدثة.', 'warning', { tag: 'DAI-03' }) : null,
+    !ai && r.note ? alertBox(String(r.note).replace(/^تحليل مبدئي دون ذكاء اصطناعي:\s*/, ''), 'info', { title: 'تحليل مبدئي دون ذكاء اصطناعي', tag: 'DAI-04' }) : null,
     r.fallback_reason ? h('p.cell-sub.doc-ai-fallback', icon('alert', { size: 14 }), ` سبب عدم استخدام Claude: ${r.fallback_reason}`) : null,
     r.summary ? h('p.doc-ai-summary', r.summary) : null,
     facts.length
-      ? section(
+      ? tagged('DAI-05', section(
           'الوقائع الرئيسية في المستند',
           'search',
           h(
             'dl.doc-ai-facts',
             facts.map((f) => h('div.doc-ai-fact', h('dt', f.label || label('ai_fact_kind', f.kind)), h('dd', h('bdi', f.value)))),
           ),
-        )
+        ))
       : null,
-    proves.length ? section('ما يثبته المستند للملف', 'checkCircle', h('ul.doc-ai-list.is-proves', proves.map((p) => h('li', p)))) : null,
+    proves.length ? tagged('DAI-06', section('ما يثبته المستند للملف', 'checkCircle', h('ul.doc-ai-list.is-proves', proves.map((p) => h('li', p))))) : null,
     flags.length
-      ? section(
+      ? tagged('DAI-07', section(
           'ملاحظات تحتاج إلى انتباه',
           'alert',
           h(
             'ul.doc-ai-list.is-flags',
             flags.map((f) => h('li', h('span.doc-ai-flag-kind', icon(FLAG_ICON[f.kind] || 'info', { size: 14 }), label('ai_red_flag', f.kind)), h('span', f.text))),
           ),
-        )
+        ))
       : null,
     missing.length
-      ? section(
+      ? tagged('DAI-08', section(
           'مستندات مرتبطة يُستحسن طلبها',
           'paperclip',
           // v9.1 l-work (L-23): مع Claude ولدى المحامي، كل شريحة تفتح «اطلب» بنص «صورة {المستند}»
@@ -75,11 +75,11 @@ export function docAiPanel(analysis, { compact = false, onRequestDoc = null } = 
             ? h(
                 'div.doc-ai-request-chips',
                 missing.map((m) =>
-                  h('button.lw-chip.doc-ai-request-chip', { type: 'button', onClick: () => onRequestDoc(`صورة ${String(m).replace(/\s*\([^)]*\)\s*/g, ' ').trim()}`) }, icon('plus', { size: 14 }), h('span', m)),
+                  h('button.lw-chip.doc-ai-request-chip', { type: 'button', onClick: () => onRequestDoc(`صورة ${String(m).replace(/\s*\([^)]*\)\s*/g, ' ').trim()}`), tag: 'DAI-09' }, icon('plus', { size: 14 }), h('span', m)),
                 ),
               )
             : chips(missing.map((m) => ({ label: m, tone: 'neutral' }))),
-        )
+        ))
       : null,
     ai ? h('p.cell-sub.doc-ai-disclaimer', 'نتيجة آلية للمساعدة؛ يُرجع دائمًا إلى أصل المستند قبل الاعتماد عليها.') : null,
   );
@@ -97,6 +97,7 @@ export function docAiButton({ documentId, onDone, scope = 'admin', label: text =
     className: 'doc-ai-btn',
     title: 'تحليل نوع المستند ووقائعه وما يثبته والملاحظات عليه',
     onClick: () => openDocAi({ documentId, onDone, scope, onView, onRequestDoc }),
+    tag: 'DAI-10',
   });
   if (!documentId) btn.disabled = true;
   return btn;
@@ -134,7 +135,7 @@ export function openDocAi({ documentId, onDone, scope = 'admin', onView = null, 
     }
 
     function show(a) {
-      const again = button('إعادة التحليل', { variant: 'secondary', size: 'sm', icon: 'refresh', onClick: (e) => analyze(e.currentTarget) });
+      const again = button('إعادة التحليل', { variant: 'secondary', size: 'sm', icon: 'refresh', onClick: (e) => analyze(e.currentTarget), tag: 'DAI-11' });
       const request = onRequestDoc
         ? (text) => {
             if (m) m.close('action');
@@ -145,14 +146,14 @@ export function openDocAi({ documentId, onDone, scope = 'admin', onView = null, 
     }
 
     // v9.1 l-work (L-05): «عرض المستند» أعلى النافذة
-    const viewTop = onView ? h('div.doc-ai-view-top', button('عرض المستند', { variant: 'secondary', size: 'sm', icon: 'eye', onClick: () => onView() })) : null;
-    m = modal({ title: 'تحليل المستند', size: 'lg', className: 'doc-ai-modal', body: viewTop ? h('div', viewTop, body) : body, actions: [{ label: 'إغلاق', variant: 'ghost' }] });
+    const viewTop = onView ? h('div.doc-ai-view-top', button('عرض المستند', { variant: 'secondary', size: 'sm', icon: 'eye', onClick: () => onView(), tag: 'DAI-12' })) : null;
+    m = modal({ title: 'تحليل المستند', size: 'lg', className: 'doc-ai-modal', body: viewTop ? h('div', viewTop, body) : body, actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'DAI-13' }], tag: 'DAI-14' });
     api
       .get(`${base}/${documentId}`)
       .then((res) => (res && res.analysis ? show(res.analysis) : analyze()))
       .catch((err) => {
         if (err && err.status === 404) mount(body, errorState(err));
-        else mount(body, alertBox(errorMessage(err), 'danger'));
+        else mount(body, alertBox(errorMessage(err), 'danger', { tag: 'DAI-15' }));
       });
   }
   return m;

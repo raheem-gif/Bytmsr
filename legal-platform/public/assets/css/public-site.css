@@ -3043,8 +3043,8 @@ html:has(#bm-theme) .pub-header {
 
 /* «.lh» قبل الرابط: قاعدة الروابط العامة body.pub a أولويتها (0,1,2) */
 .lh .lh__links a {
-  display: inline-flex;
-  align-items: center;
+  display: inline-grid;
+  place-items: center;
   min-width: 44px;
   min-height: 44px;
   color: var(--ink-2);
@@ -4051,7 +4051,8 @@ body.pub[data-side="paid"] :focus-visible {
 }
 
 /* ── أزرار الصفحات العامة (K12-20): ممتلئ واحد، خطّي، نص؛ زوايا 2px ── */
-body.pub[data-side="paid"] .pub-btn {
+/* review: زر الرأس (K12-21: صغير 38px، خطّي في /services) يبقى كما رسمته الكتلة الحرجة؛ :where لا يرفع الأولوية */
+body.pub[data-side="paid"] .pub-btn:where(:not(.pub-nav-cta)) {
   min-height: 48px;
   padding: 0 26px;
   border: 1px solid transparent;

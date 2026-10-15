@@ -37,6 +37,7 @@ export function storySettingsCard(settings = {}) {
         min: 2,
         max: 120,
         hint: 'بعد هذه المدة بلا رسائل جديدة منها، أو عندما تكتب «خلاص»، تُعد القصة مكتملة ويلخّصها الذكاء الاصطناعي.',
+        tag: 'SET-252',
       },
       {
         name: 'story_welcome_enabled',
@@ -44,6 +45,7 @@ export function storySettingsCard(settings = {}) {
         full: true,
         text: 'إرسال ترحيب بقائمة المواضيع لأول رسالة على واتساب',
         hint: 'رسالة آلية ثابتة (ليست من الذكاء الاصطناعي) فيها 8 مواضيع، ويمكنها تجاهلها والكتابة مباشرة.',
+        tag: 'SET-253',
       },
       // v12 staff-lines (SL-7، E12-86)
       { name: 'wa_lines_menu_enabled', type: 'checkbox', full: true, text: LINES_MENU_TOGGLE_TEXT, hint: LINES_MENU_HINT },
@@ -53,6 +55,7 @@ export function storySettingsCard(settings = {}) {
         full: true,
         text: 'إرسال «وصلتنا حكايتك» ورقم الطلب عندما تكتمل القصة',
         hint: 'قبل التفعيل: عدّلوا جملة "كل رد يصلك يراجعه شخص مختص" في سياسة الخصوصية لتستثني الرسائل الآلية الثابتة (قرار مفتوح 11).',
+        tag: 'SET-255',
       },
       {
         name: 'callback_from_number',
@@ -61,8 +64,9 @@ export function storySettingsCard(settings = {}) {
         maxLength: 30,
         placeholder: '01211114662',
         hint: 'يظهر لها بعد طلب المكالمة حتى ترد عليه. اتركه فارغًا لاستخدام رقم المؤسسة.',
+        tag: 'SET-256',
       },
-      { name: 'callback_eta_days', label: 'نتصل خلال (أيام عمل)', type: 'number', integer: true, required: true, min: 1, max: 5 },
+      { name: 'callback_eta_days', label: 'نتصل خلال (أيام عمل)', type: 'number', integer: true, required: true, min: 1, max: 5, tag: 'SET-257' },
       // v11 segment-staff (ST-6، P1): تُفعَّل الأزرار فقط حين يكون الرقم الأساسي «الخدمتين معًا» (يُقرأ من التكاملات أدناه)
       {
         name: 'wa_segment_choice_enabled',
@@ -71,8 +75,9 @@ export function storySettingsCard(settings = {}) {
         text: CHOICE_TOGGLE_TEXT,
         disabled: true,
         hint: 'أول رسالة من رقم جديد بلا جملة حجز تصله برسالة فيها زرّان: «خيري — مجاني» و«أفراد وشركات». قبل التفعيل راجعوا جملة «كل رد يصلك يراجعه شخص مختص» في سياسة الخصوصية؛ الأزرار رسالة آلية ثابتة.',
+        tag: 'SET-258',
       },
-      { name: 'segment_returning_days', label: RETURNING_DAYS_LABEL, type: 'number', integer: true, required: true, min: 0, max: 3650, hint: 'من راسلنا خلال هذه المدة يبقى على نفس نوع الخدمة على الرقم المشترك.' },
+      { name: 'segment_returning_days', label: RETURNING_DAYS_LABEL, type: 'number', integer: true, required: true, min: 0, max: 3650, hint: 'من راسلنا خلال هذه المدة يبقى على نفس نوع الخدمة على الرقم المشترك.', tag: 'SET-259' },
     ],
     {
       values: {
@@ -108,6 +113,8 @@ export function storySettingsCard(settings = {}) {
         }
         toast('تم الحفظ', 'success');
       },
+      submitTag: 'SET-260',
+      tag: 'SET-261',
     },
   );
   f.el.classList.add('pa-stset-form');
@@ -135,6 +142,8 @@ export function storySettingsCard(settings = {}) {
     icon: 'whatsapp',
     className: 'pa-stset',
     body: h('div', h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'الرسائل الآلية هنا نصوص ثابتة لا يكتبها الذكاء الاصطناعي، ولا تصل إلا لمن بدأت المحادثة على واتساب.')), f.el),
+    titleTag: 'SET-59',
+    tag: 'SET-60',
   });
   el.id = 'stories';
 

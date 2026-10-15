@@ -208,6 +208,7 @@ export function segmentSwitch({ value = '', counts = null, onChange, withUnset =
               draw();
               if (onChange) onChange(cur);
             },
+            tag: 'SEG-01',
           },
           compact !== true && o.icon ? glyph(o.icon, 16) : null,
           text,
@@ -273,6 +274,7 @@ export function caseSegmentSwitch({ value = '', onChange, label: aria = SEGMENT_
               draw();
               if (onChange) onChange(cur);
             },
+            tag: 'SEG-02',
           },
           f.icon ? glyph(f.icon, 16) : null,
           h('span.seg-l', f.label),
@@ -316,7 +318,7 @@ export function segmentChoice({ value = null, required = false, hint = null, cur
   const name = uid('seg-choice');
   const note = h('p.seg-choice-note', { hidden: true }, icon('info', { size: 14 }), h('span', 'سيُسجَّل تغيير نوع الخدمة.'));
   const radios = SEGMENT_VALUES.map((v) => {
-    const r = h('input', { type: 'radio', name, value: v, checked: cur === v, required });
+    const r = h('input', { type: 'radio', name, value: v, checked: cur === v, required, tag: 'SEG-03' });
     r.addEventListener('change', () => {
       if (!r.checked) return;
       cur = v;
@@ -326,7 +328,7 @@ export function segmentChoice({ value = null, required = false, hint = null, cur
     return h('label.seg-choice-opt', { class: `is-${v}` }, r, glyph(v === 'charity' ? 'heart' : 'briefcase', 18), h('span', segLabel('segment_long', v)));
   });
   const group = h('div.seg-choice-opts', { role: 'radiogroup' }, radios);
-  const wrap = field(SEGMENT_TITLE, group, { group: true, required, hint: required ? 'اختاروا النوع قبل الإرسال — لا يوجد اختيار افتراضي.' : null, className: 'seg-choice' });
+  const wrap = field(SEGMENT_TITLE, group, { group: true, required, hint: required ? 'اختاروا النوع قبل الإرسال — لا يوجد اختيار افتراضي.' : null, className: 'seg-choice', tag: 'SEG-04' });
   const hintEl = hint && parseSeg(hint.segment) ? h('div.seg-choice-hint', hintChip(hint)) : null;
   function sync() {
     const cp = parseSeg(current);
@@ -356,7 +358,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
   const reasonNeeded = () => Boolean(cur);
   const name = uid('seg-ov');
   const radios = SEGMENT_VALUES.map((v) => {
-    const r = h('input', { type: 'radio', name, value: v, checked: cur === v });
+    const r = h('input', { type: 'radio', name, value: v, checked: cur === v, tag: 'SEG-05' });
     r.addEventListener('change', () => {
       if (!r.checked) return;
       target = v;
@@ -366,7 +368,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
     });
     return h('label.seg-choice-opt', { class: `is-${v}` }, r, glyph(v === 'charity' ? 'heart' : 'briefcase', 18), h('span', segLabel('segment_long', v)));
   });
-  const choiceWrap = field(SEGMENT_TITLE, h('div.seg-choice-opts', { role: 'radiogroup' }, radios), { group: true, required: true });
+  const choiceWrap = field(SEGMENT_TITLE, h('div.seg-choice-opts', { role: 'radiogroup' }, radios), { group: true, required: true, tag: 'SEG-06' });
   // v11 gate fix J-22: ملاحظة «لن يُطلب أي مبلغ…» تخص التحويل إلى «أفراد وشركات» وحده — تختفي حين الهدف «خيري»
   const amountNote = h('p.seg-note', icon('info', { size: 14 }), h('span', NO_AMOUNT_NOTE));
   function syncNote() {
@@ -374,7 +376,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
   }
   syncNote();
 
-  const reason = h('textarea.input', { rows: 2, maxlength: 300, dir: 'auto', required: reasonNeeded() });
+  const reason = h('textarea.input', { rows: 2, maxlength: 300, dir: 'auto', required: reasonNeeded(), tag: 'SEG-07' });
   const markChip = () => reasonChips && reasonChips.querySelectorAll('.seg-reason-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.code === reasonCode)));
   reason.addEventListener('input', () => {
     dirty = true;
@@ -399,16 +401,17 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
             reasonWrap.setError('');
             markChip();
           },
+          tag: 'SEG-08',
         },
         segLabel('segment_reason_codes', c),
       ),
     ),
   );
-  const reasonWrap = field('السبب', reason, { required: reasonNeeded(), hint: reasonNeeded() ? 'من 3 إلى 300 حرف — يُحفظ في السجل.' : 'اختياري عند التحديد لأول مرة.' });
+  const reasonWrap = field('السبب', reason, { required: reasonNeeded(), hint: reasonNeeded() ? 'من 3 إلى 300 حرف — يُحفظ في السجل.' : 'اختياري عند التحديد لأول مرة.', tag: 'SEG-09' });
 
   // رسالة العميل (اختيارية، غير محددة افتراضيًا): النص المقترح حسب الاتجاه من الخادم (change_message[to])
-  const sendCb = h('input', { type: 'checkbox' });
-  const msg = h('textarea.input.seg-msg', { rows: 5, maxlength: 4000, dir: 'auto', disabled: true });
+  const sendCb = h('input', { type: 'checkbox', tag: 'SEG-10' });
+  const msg = h('textarea.input.seg-msg', { rows: 5, maxlength: 4000, dir: 'auto', disabled: true, tag: 'SEG-11' });
   let msgEdited = false;
   msg.addEventListener('input', () => {
     msgEdited = true;
@@ -419,7 +422,7 @@ export function segmentSheetBody({ kind = 'intake', current = null, changeMessag
     dirty = true;
     msgWrap.classList.toggle('is-off', !sendCb.checked);
   });
-  const msgWrap = field('نص الرسالة', msg, { full: true, className: 'is-off' });
+  const msgWrap = field('نص الرسالة', msg, { full: true, className: 'is-off', tag: 'SEG-12' });
   function syncMessage() {
     if (msgEdited) return;
     const t = target && target !== cur && changeMessage ? changeMessage[target] : null;
@@ -509,7 +512,7 @@ export function openSegmentSheet({ kind = 'intake', id, current = null, hint = n
     body: frag(hint && parseSeg(hint.segment) && hint.segment !== parseSeg(current) ? h('div.seg-sheet-hint', hintChip(hint)) : null, body.el),
     beforeClose: discardGuard(() => body.isDirty(), { singular: true }),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'SEG-13' },
       {
         label: 'حفظ',
         variant: 'primary',
@@ -525,6 +528,7 @@ export function openSegmentSheet({ kind = 'intake', id, current = null, hint = n
           }
           return undefined;
         },
+        tag: 'SEG-14',
       },
     ],
     onClose: () => {
@@ -533,6 +537,7 @@ export function openSegmentSheet({ kind = 'intake', id, current = null, hint = n
       for (const n of afterChangeNotes(saved)) toast(n, 'info', 9000);
       if (onSaved) onSaved(saved);
     },
+    tag: 'SEG-15',
   });
   return handle;
 }
@@ -566,7 +571,7 @@ export function undeterminedCard(intake, onPick) {
   const big = (v) => {
     const b = h(
       'button.seg-card-btn',
-      { type: 'button', class: `is-${v}`, dataset: { seg: v }, onClick: () => pick(v, b) },
+      { type: 'button', class: `is-${v}`, dataset: { seg: v }, onClick: () => pick(v, b), tag: 'SEG-16' },
       h('span.seg-card-ico', glyph(v === 'charity' ? 'heart' : 'briefcase', 22)),
       h('span.seg-card-label', segLabel('segment_long', v)),
     );
@@ -575,7 +580,7 @@ export function undeterminedCard(intake, onPick) {
   };
   const useHint = hint
     ? (() => {
-        const b = button('استخدم الاقتراح', { variant: 'secondary', size: 'sm', icon: 'sparkle', className: 'seg-card-use', onClick: () => pick(hint.segment, b) });
+        const b = button('استخدم الاقتراح', { variant: 'secondary', size: 'sm', icon: 'sparkle', className: 'seg-card-use', onClick: () => pick(hint.segment, b), tag: 'SEG-17' });
         btns.push(b);
         return b;
       })()
@@ -583,8 +588,8 @@ export function undeterminedCard(intake, onPick) {
   const reasons = hint && Array.isArray(hint.reasons) ? hint.reasons.filter(Boolean) : [];
   return h(
     'section.seg-card',
-    { 'aria-labelledby': 'seg-card-title' },
-    h('h2.seg-card-title#seg-card-title', glyph('helpCircle', 20), h('span', 'نوع الخدمة غير محدد')),
+    { 'aria-labelledby': 'seg-card-title', tag: 'SEG-18' },
+    h('h2.seg-card-title#seg-card-title', { tag: 'SEG-19' }, glyph('helpCircle', 20), h('span', 'نوع الخدمة غير محدد')),
     h('div.seg-card-btns', big('charity'), big('paid')),
     hint && h('div.seg-card-hint', h('span', `المقترح: ${segLabel('segment', hint.segment)}${reasons.length ? ` — ${reasons.join('، ')}` : ''}`), useHint),
     h('p.seg-card-note', ANALYSIS_SAME_NOTE),
@@ -596,12 +601,12 @@ export function undeterminedCard(intake, onPick) {
 
 /** ورقة «إضافة أتعاب لهذا الملف»: المبلغ · الوصف · تاريخ الاستحقاق → POST /api/admin/cases/:id/invoices */
 export function feeSheetBody() {
-  const amount = h('input.input', { type: 'text', inputmode: 'decimal', dir: 'ltr', autocomplete: 'off' });
-  const desc = h('input.input', { type: 'text', maxlength: 300, dir: 'auto', placeholder: 'أتعاب استشارة قانونية' });
-  const due = h('input.input', { type: 'date', min: cairoToday() });
-  const fa = field('المبلغ', h('div.input-group', amount, h('span.input-addon', 'ج.م')), { required: true });
-  const fd = field('الوصف', desc, { hint: 'يظهر على صفحة الطلب.' });
-  const fdue = field('تاريخ الاستحقاق', due, { required: true });
+  const amount = h('input.input', { type: 'text', inputmode: 'decimal', dir: 'ltr', autocomplete: 'off', tag: 'SEG-20' });
+  const desc = h('input.input', { type: 'text', maxlength: 300, dir: 'auto', placeholder: 'أتعاب استشارة قانونية', tag: 'SEG-21' });
+  const due = h('input.input', { type: 'date', min: cairoToday(), tag: 'SEG-22' });
+  const fa = field('المبلغ', h('div.input-group', amount, h('span.input-addon', 'ج.م')), { required: true, tag: 'SEG-23' });
+  const fd = field('الوصف', desc, { hint: 'يظهر على صفحة الطلب.', tag: 'SEG-24' });
+  const fdue = field('تاريخ الاستحقاق', due, { required: true, tag: 'SEG-25' });
   let dirty = false;
   for (const x of [amount, desc, due]) x.addEventListener('input', () => (dirty = true));
   amount.addEventListener('input', () => fa.setError(''));
@@ -649,7 +654,7 @@ export function openFeeSheet({ caseId, onSaved } = {}) {
     body: body.el,
     beforeClose: discardGuard(() => body.isDirty(), { singular: true }),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'SEG-26' },
       {
         label: 'إرسال للعميل للموافقة',
         variant: 'primary',
@@ -666,6 +671,7 @@ export function openFeeSheet({ caseId, onSaved } = {}) {
           }
           return undefined;
         },
+        tag: 'SEG-27',
       },
     ],
     onClose: () => {
@@ -673,6 +679,7 @@ export function openFeeSheet({ caseId, onSaved } = {}) {
       toast('أُرسلت الأتعاب إلى صفحة الطلب للموافقة', 'success');
       if (onSaved) onSaved(saved);
     },
+    tag: 'SEG-28',
   });
 }
 

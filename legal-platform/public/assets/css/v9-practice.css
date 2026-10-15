@@ -129,8 +129,8 @@
 .v9p-type-toggle:not(.is-on) { opacity: 0.62; }
 .v9p-type-toggle:not(.is-on) .v9p-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--v9p-c); }
 .v9p-cal-summary { margin: 0; }
-.v9p-overdue { background: var(--danger-100); border-radius: var(--radius); padding: 8px 12px; }
-.v9p-overdue summary { cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--danger-700); font-weight: 600; }
+.v9p-overdue { background: var(--paper-2); border-inline-start: 2px solid var(--bad); padding: 8px 12px; }
+.v9p-overdue summary { cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--bad); font-weight: 600; }
 .v9p-overdue .v9p-cal-list { margin-top: 10px; }
 
 .v9p-month-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -201,7 +201,7 @@
   .v9p-presets { max-width: none; }
 }
 .v9p-report { display: flex; flex-direction: column; gap: 18px; }
-.v9p-report-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--primary-50), var(--accent-50)); }
+.v9p-report-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--paper-2); }
 .v9p-report-org, .v9p-report-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .v9p-report-org strong { font-size: 1.05rem; color: var(--primary-800); }
 .v9p-report-meta { text-align: end; }
@@ -231,7 +231,7 @@
 .v9p-value-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px; }
 .v9p-value-totals > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); min-width: 0; }
 .v9p-value-totals strong { font-size: 1.12rem; overflow-wrap: anywhere; }
-.v9p-value-totals .is-main { background: var(--success-100); border-color: #b8dfc5; }
+.v9p-value-totals .is-main { background: var(--paper-2); border-color: var(--rule-2); }
 .v9p-sla-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .v9p-sla-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
 .v9p-notes .v9p-how { font-size: 0.85rem; }

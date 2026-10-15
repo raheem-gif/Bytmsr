@@ -41,7 +41,7 @@ export const MODE_CONFIRM_TITLE = 'تغيير وضع رقم واتساب الأ�
  * حفظ تكامل مع تأكيد تغيير الوضع (r2 S3): 409 mode_change_confirm ← نافذة تأكيد بنص الخادم ← إعادة الإرسال بـ confirm:true.
  * الإلغاء يُبقي نافذة التعديل مفتوحة برسالة واضحة. ask قابل للاستبدال في الاختبارات.
  */
-export async function saveIntegrationValues(name, patch, { ask = (message) => confirmDialog({ title: MODE_CONFIRM_TITLE, message, confirmLabel: 'تأكيد التغيير' }) } = {}) {
+export async function saveIntegrationValues(name, patch, { ask = (message) => confirmDialog({ title: MODE_CONFIRM_TITLE, message, confirmLabel: 'تأكيد التغيير', tag: 'INT-18' }) } = {}) {
   try {
     return await api.put(`/admin/integrations/${name}`, { values: patch });
   } catch (err) {
@@ -124,7 +124,7 @@ function testResultBox(t) {
   return alertBox(
     h('span', t.message || (t.ok ? 'نجح الاتصال' : 'فشل الاتصال'), when ? h('span.pf-muted', ` (${when}${took})`) : null),
     t.ok ? 'success' : 'danger',
-    { title: t.ok ? 'آخر اختبار: ناجح' : 'آخر اختبار: فاشل' },
+    { title: t.ok ? 'آخر اختبار: ناجح' : 'آخر اختبار: فاشل', tag: 'INT-19' },
   );
 }
 
@@ -133,7 +133,7 @@ function keyAlert(data) {
     return alertBox(
       'لا يوجد مفتاح تشفير دائم: أي أسرار تحفظها من هذه الصفحة ستضيع عند إعادة تشغيل الخادم. اضبط متغير البيئة APP_SECRET (32 حرفًا عشوائيًا على الأقل) ثم أعد التشغيل وأدخل الأسرار من جديد.',
       'danger',
-      { title: 'مفتاح التشفير مؤقت', icon: 'alert' },
+      { title: 'مفتاح التشفير مؤقت', icon: 'alert', tag: 'INT-20' },
     );
   }
   if (data.key_source === 'file') {
@@ -145,13 +145,50 @@ function keyAlert(data) {
         '. احفظ هذا الملف مع كل نسخة احتياطية لقاعدة البيانات؛ فبدونه لا يمكن فك تشفير الأسرار بعد نقل المنصة أو استعادتها. البديل الأفضل: ضبط APP_SECRET في متغيرات البيئة.',
       ),
       'warning',
-      { title: 'انسخ مفتاح التشفير احتياطيًا', icon: 'lock' },
+      { title: 'انسخ مفتاح التشفير احتياطيًا', icon: 'lock', tag: 'INT-21' },
     );
   }
-  return alertBox('الأسرار مشفرة (AES-256-GCM) بمفتاح من متغير البيئة APP_SECRET خارج قاعدة البيانات.', 'success', { title: 'مفتاح التشفير', icon: 'shieldCheck' });
+  return alertBox('الأسرار مشفرة (AES-256-GCM) بمفتاح من متغير البيئة APP_SECRET خارج قاعدة البيانات.', 'success', { title: 'مفتاح التشفير', icon: 'shieldCheck', tag: 'INT-22' });
 }
 
 // ───────── نافذة التعديل ─────────
+
+// v12 tags (TG-6): رمز كل حقل في نافذة التعديل العامة (أوصاف الحقول من الخادم؛ المفتاح نفسه قد يتكرر بين تكاملين)
+const EDIT_TAGS = {
+  whatsapp: {
+    token: { tag: 'INT-68' },
+    phone_number_id: { tag: 'INT-69' },
+    waba_id: { tag: 'INT-70' },
+    app_secret: { tag: 'INT-71' },
+    verify_token: { tag: 'INT-72' },
+    number: { tag: 'INT-73' },
+    api_version: { tag: 'INT-74' },
+    segment: { tag: 'INT-75' },
+    paid_phone_number_id: { tag: 'INT-76' },
+    paid_number: { tag: 'INT-77' },
+    __clear: { tag: 'INT-78' },
+  },
+  anthropic: {
+    api_key: { tag: 'INT-79' },
+    model: { tag: 'INT-80' },
+    effort: { tag: 'INT-81' },
+    provider: { tag: 'INT-82' },
+    monthly_budget_usd: { tag: 'INT-83' },
+    __clear: { tag: 'INT-84' },
+  },
+  email: {
+    provider: { tag: 'INT-85' },
+    smtp_host: { tag: 'INT-86' },
+    smtp_port: { tag: 'INT-87' },
+    smtp_security: { tag: 'INT-88' },
+    smtp_user: { tag: 'INT-89' },
+    smtp_password: { tag: 'INT-90' },
+    from_address: { tag: 'INT-91' },
+    from_name: { tag: 'INT-92' },
+    __clear: { tag: 'INT-93' },
+  },
+};
+const editTag = (item, key) => EDIT_TAGS[item.name]?.[key]?.tag;
 
 async function editIntegration(item, onSaved) {
   const initial = {};
@@ -164,6 +201,7 @@ async function editIntegration(item, onSaved) {
         type: 'static',
         value: f.secret ? f.hint || 'مضبوط' : f.value,
         render: (x) => h('span', ltr(x), h('span.pf-muted', ` — من متغير البيئة ${f.env}؛ عدّله على الخادم ثم أعد التشغيل`)),
+        tag: editTag(item, f.key),
       });
       continue;
     }
@@ -175,6 +213,7 @@ async function editIntegration(item, onSaved) {
         autocomplete: 'new-password',
         placeholder: f.set ? `محفوظ (${f.hint || '••••'}) — اتركه فارغًا للإبقاء عليه` : 'غير مضبوط',
         full: true,
+        tag: editTag(item, f.key),
       });
       initial[f.key] = '';
     } else if (Array.isArray(f.options) && f.options.length) {
@@ -187,11 +226,12 @@ async function editIntegration(item, onSaved) {
         type: 'select',
         placeholder: false,
         options: [{ value: '', label: def ? `الافتراضي: ${def.label}` : 'الافتراضي' }, ...f.options.map((o) => ({ value: o.value, label: o.label }))],
+        tag: editTag(item, f.key),
       });
       initial[f.key] = current;
     } else {
       const current = f.source === 'db' ? f.value || '' : '';
-      fields.push({ name: f.key, label: f.label, type: 'text', ltr: true, autocomplete: 'off', placeholder: f.source === 'default' ? `الافتراضي: ${f.value}` : '' });
+      fields.push({ name: f.key, label: f.label, type: 'text', ltr: true, autocomplete: 'off', placeholder: f.source === 'default' ? `الافتراضي: ${f.value}` : '', tag: editTag(item, f.key) });
       initial[f.key] = current;
     }
   }
@@ -203,6 +243,7 @@ async function editIntegration(item, onSaved) {
       type: 'checkboxes',
       options: clearable.map((f) => ({ value: f.key, label: f.label })),
       hint: 'تُحذف القيمة المحفوظة في لوحة الإدارة (وتعود القيمة الافتراضية إن وجدت).',
+      tag: editTag(item, '__clear'),
     });
   }
   const values = { ...initial, __clear: [] };
@@ -228,6 +269,7 @@ async function editIntegration(item, onSaved) {
               c.input.type = 'text';
               toast('تم توليد رمز تحقق؛ انسخه الآن لتضعه في إعدادات Webhook على ميتا قبل الحفظ.', 'info', 6000);
             },
+            tag: 'INT-23',
           }),
         ),
       );
@@ -245,6 +287,7 @@ async function editIntegration(item, onSaved) {
       if (!Object.keys(patch).length) throw new Error('لم تغيّر أي قيمة.');
       return saveIntegrationValues(item.name, patch); // v11 segment-staff: تأكيد تغيير وضع الرقم (409 mode_change_confirm)
     },
+    tag: 'INT-24',
   });
   if (!res) return;
   toast('تم حفظ الإعدادات بأمان', 'success');
@@ -263,10 +306,10 @@ export function paidLineSection(item, settings = {}) {
   const hasPaid = Boolean(pid && pid.set && pid.value);
   const state = hasPaid
     ? item.paid_verified_at
-      ? h('div.pf-paid-state', { dataset: { verified: 'true' } }, alertBox(PAID_VERIFIED_TEXT, 'success', { icon: 'checkCircle' }))
-      : h('div.pf-paid-state', { dataset: { verified: 'false' } }, alertBox(PAID_UNVERIFIED_TEXT, 'warning', { icon: 'alert' }))
+      ? h('div.pf-paid-state', { dataset: { verified: 'true' } }, alertBox(PAID_VERIFIED_TEXT, 'success', { icon: 'checkCircle', tag: 'INT-25' }))
+      : h('div.pf-paid-state', { dataset: { verified: 'false' } }, alertBox(PAID_UNVERIFIED_TEXT, 'warning', { icon: 'alert', tag: 'INT-26' }))
     : null;
-  const cb = h('input', { type: 'checkbox', checked: settings.wa_paid_on_main !== false });
+  const cb = h('input', { type: 'checkbox', checked: settings.wa_paid_on_main !== false, tag: 'INT-27' });
   cb.addEventListener('change', async () => {
     const want = cb.checked;
     cb.disabled = true;
@@ -282,8 +325,8 @@ export function paidLineSection(item, settings = {}) {
   });
   return h(
     'section.pf-paid-line',
-    { 'aria-label': 'رقم الأفراد والشركات' },
-    h('h3.pf-subtitle', 'رقم الأفراد والشركات'),
+    { 'aria-label': 'رقم الأفراد والشركات', tag: 'INT-28' },
+    h('h3.pf-subtitle', { tag: 'INT-29' }, 'رقم الأفراد والشركات'),
     state,
     h('label.check.check-single.pf-paid-on-main', cb, h('span', PAID_ON_MAIN_TEXT)),
     h('p.pf-muted', icon('info', { size: 14 }), ' ', PAID_GUIDE_TEXT),
@@ -301,15 +344,15 @@ function integrationCard(item, data, reload, settings = {}) {
         toast(r.message || (r.ok ? 'نجح الاتصال' : 'فشل الاتصال'), r.ok ? 'success' : 'danger');
       } catch (err) {
         if (err.status === 501) {
-          mount(resultSlot, alertBox(errorMessage(err), 'info', { title: 'اختبار الاتصال غير متاح' }));
+          mount(resultSlot, alertBox(errorMessage(err), 'info', { title: 'اختبار الاتصال غير متاح', tag: 'INT-30' }));
           return;
         }
         throw err;
       }
     },
-    { variant: 'secondary', icon: 'zap', size: 'sm' },
+    { variant: 'secondary', icon: 'zap', size: 'sm', tag: 'INT-31' },
   );
-  const edit = button('تعديل', { variant: 'primary', icon: 'edit', size: 'sm', onClick: () => editIntegration(item, reload) });
+  const edit = button('تعديل', { variant: 'primary', icon: 'edit', size: 'sm', onClick: () => editIntegration(item, reload), tag: 'INT-32' });
 
   const statusBadges = h(
     'div.pf-badges',
@@ -320,17 +363,17 @@ function integrationCard(item, data, reload, settings = {}) {
 
   const extras = [];
   if (item.undecryptable) {
-    extras.push(alertBox('تغيّر مفتاح التشفير بعد حفظ هذه الأسرار فلم يعد ممكنًا فك تشفيرها. أعد إدخال القيم السرية.', 'danger', { title: 'تعذر فك تشفير القيم المحفوظة' }));
+    extras.push(alertBox('تغيّر مفتاح التشفير بعد حفظ هذه الأسرار فلم يعد ممكنًا فك تشفيرها. أعد إدخال القيم السرية.', 'danger', { title: 'تعذر فك تشفير القيم المحفوظة', tag: 'INT-33' }));
   }
   if (item.name === 'whatsapp') {
     if (item.configured && !item.app_secret_set) {
-      extras.push(alertBox('بدون «سر التطبيق» يرفض النظام كل رسائل Webhook الواردة من ميتا حمايةً من الرسائل المزورة.', 'danger', { title: 'سر التطبيق غير مضبوط' }));
+      extras.push(alertBox('بدون «سر التطبيق» يرفض النظام كل رسائل Webhook الواردة من ميتا حمايةً من الرسائل المزورة.', 'danger', { title: 'سر التطبيق غير مضبوط', tag: 'INT-34' }));
     }
     extras.push(
       h(
         'div.pf-webhook',
         h('strong', 'رابط Webhook (Callback URL)'),
-        h('div.pf-webhook-row', h('code.pf-code', { dir: 'ltr' }, data.webhook_url), copyButton(data.webhook_url, 'نسخ')),
+        h('div.pf-webhook-row', h('code.pf-code', { dir: 'ltr' }, data.webhook_url), copyButton(data.webhook_url, 'نسخ', { tag: 'INT-35' })),
         !data.public_base_url
           ? h('p.pf-muted', icon('info', { size: 14 }), ' الرابط مبني من عنوان المتصفح الحالي. اضبط PUBLIC_BASE_URL على الخادم ليكون ثابتًا (ويجب أن يبدأ بـ https لتقبله ميتا).')
           : null,
@@ -351,7 +394,9 @@ function integrationCard(item, data, reload, settings = {}) {
     icon: ICONS[item.name] || 'link',
     className: 'pf-integration',
     actions: h('div.pf-card-actions', test, edit),
-    body: h('div.stack', statusBadges, extras, fieldList(item), h('div', h('h3.pf-subtitle', 'نتيجة اختبار الاتصال'), resultSlot)),
+    body: h('div.stack', statusBadges, extras, fieldList(item), h('div', h('h3.pf-subtitle', { tag: 'INT-36' }, 'نتيجة اختبار الاتصال'), resultSlot)),
+    titleTag: 'INT-37',
+    tag: 'INT-38',
   });
 }
 
@@ -393,7 +438,7 @@ function sttResultBox(r) {
   if (!r) return h('p.pf-muted', icon('info', { size: 16 }), ' لم يُختبر الاتصال بعد.');
   if (r.message) return testResultBox(r);
   const text = r.ok ? `نجح الاتصال (${r.latency_ms} مللي ثانية)` : `فشل الاتصال: ${STT_TEST_TEXT[r.code] || 'تعذر الاختبار'}${r.status && !r.ok ? ` (${r.status})` : ''}`;
-  return alertBox(text, r.ok ? 'success' : 'danger', { title: r.ok ? 'آخر اختبار: ناجح' : 'آخر اختبار: فاشل' });
+  return alertBox(text, r.ok ? 'success' : 'danger', { title: r.ok ? 'آخر اختبار: ناجح' : 'آخر اختبار: فاشل', tag: 'INT-39' });
 }
 
 async function editStt(item, onSaved) {
@@ -418,19 +463,19 @@ async function editStt(item, onSaved) {
   const opt = (k) => (v[k]?.options || []).map((o) => ({ value: o.value, label: o.label }));
   const def = (k) => (v[k] && v[k].source === 'default' ? `الافتراضي: ${v[k].value}` : '');
   const fields = [
-    { name: 'preset', label: 'نوع الخدمة', type: 'select', placeholder: false, options: [{ value: '', label: 'بلا قالب (يدوي)' }, ...STT_PRESETS.map((p) => ({ value: p.id, label: p.label }))], hint: 'يملأ الحقول بقيم الخدمة المختارة، وتبقى قابلة للتعديل.', full: true },
-    { name: 'provider', label: 'مزوّد التحويل', type: 'select', placeholder: false, options: opt('provider') },
-    { name: 'hosting', label: 'مكان التشغيل', type: 'select', placeholder: false, options: opt('hosting') },
-    { name: 'base_url', label: 'عنوان الخدمة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('base_url'), hint: STT_KEY_NOTE, full: true },
-    { name: 'api_key', label: 'المفتاح', type: 'password', autocomplete: 'new-password', placeholder: v.api_key?.set ? `محفوظ (${v.api_key.hint || '••••'}) — اتركه فارغًا للإبقاء عليه` : 'غير مضبوط', full: true },
-    { name: 'vendor_name', label: 'اسم المزوّد', type: 'text', maxLength: 60, autocomplete: 'off', hint: 'مطلوب للجهة الخارجية، ويظهر في سياسة الخصوصية.' },
-    { name: 'model', label: 'النموذج', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('model') },
-    { name: 'language', label: 'اللغة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('language') },
-    { name: 'no_training_attested', label: 'شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا تزيد على 30 يومًا', type: 'checkbox', full: true },
-    { name: 'prompt', label: 'توجيه النموذج', type: 'textarea', rows: 3, maxLength: 1000, placeholder: def('prompt') },
-    { name: 'price_per_minute_usd', label: 'السعر لكل دقيقة (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('price_per_minute_usd') },
-    { name: 'monthly_budget_usd', label: 'حد الإنفاق الشهري (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('monthly_budget_usd') },
-    { name: 'max_seconds', label: 'أقصى مدة للرسالة (ثانية)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('max_seconds') },
+    { name: 'preset', label: 'نوع الخدمة', type: 'select', placeholder: false, options: [{ value: '', label: 'بلا قالب (يدوي)' }, ...STT_PRESETS.map((p) => ({ value: p.id, label: p.label }))], hint: 'يملأ الحقول بقيم الخدمة المختارة، وتبقى قابلة للتعديل.', full: true, tag: 'INT-55' },
+    { name: 'provider', label: 'مزوّد التحويل', type: 'select', placeholder: false, options: opt('provider'), tag: 'INT-56' },
+    { name: 'hosting', label: 'مكان التشغيل', type: 'select', placeholder: false, options: opt('hosting'), tag: 'INT-57' },
+    { name: 'base_url', label: 'عنوان الخدمة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('base_url'), hint: STT_KEY_NOTE, full: true, tag: 'INT-58' },
+    { name: 'api_key', label: 'المفتاح', type: 'password', autocomplete: 'new-password', placeholder: v.api_key?.set ? `محفوظ (${v.api_key.hint || '••••'}) — اتركه فارغًا للإبقاء عليه` : 'غير مضبوط', full: true, tag: 'INT-59' },
+    { name: 'vendor_name', label: 'اسم المزوّد', type: 'text', maxLength: 60, autocomplete: 'off', hint: 'مطلوب للجهة الخارجية، ويظهر في سياسة الخصوصية.', tag: 'INT-60' },
+    { name: 'model', label: 'النموذج', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('model'), tag: 'INT-61' },
+    { name: 'language', label: 'اللغة', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('language'), tag: 'INT-62' },
+    { name: 'no_training_attested', label: 'شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا تزيد على 30 يومًا', type: 'checkbox', full: true, tag: 'INT-63' },
+    { name: 'prompt', label: 'توجيه النموذج', type: 'textarea', rows: 3, maxLength: 1000, placeholder: def('prompt'), tag: 'INT-64' },
+    { name: 'price_per_minute_usd', label: 'السعر لكل دقيقة (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('price_per_minute_usd'), tag: 'INT-65' },
+    { name: 'monthly_budget_usd', label: 'حد الإنفاق الشهري (دولار)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('monthly_budget_usd'), tag: 'INT-66' },
+    { name: 'max_seconds', label: 'أقصى مدة للرسالة (ثانية)', type: 'text', ltr: true, autocomplete: 'off', placeholder: def('max_seconds'), tag: 'INT-67' },
   ];
   const TAGS = { preset: 'INT-06', provider: 'INT-07', base_url: 'INT-08', api_key: 'INT-09', model: 'INT-10', language: 'INT-11', prompt: 'INT-12', hosting: 'INT-13', price_per_minute_usd: 'INT-14', monthly_budget_usd: 'INT-15', vendor_name: 'INT-16', no_training_attested: 'INT-17' };
   const res = await formDialog({
@@ -469,6 +514,7 @@ async function editStt(item, onSaved) {
       if (!Object.keys(patch).length) throw new Error('لم تغيّر أي قيمة.');
       return api.put('/admin/integrations/stt', { values: patch });
     },
+    tag: 'INT-40',
   });
   if (!res) return;
   toast('تم حفظ إعدادات تحويل الصوت', 'success');
@@ -506,8 +552,8 @@ function sttCard(item, reload, settings = {}) {
     ),
   );
   const extras = [];
-  if (item.undecryptable) extras.push(alertBox('تغيّر مفتاح التشفير بعد حفظ هذه الأسرار فلم يعد ممكنًا فك تشفيرها. أعد إدخال المفتاح.', 'danger', { title: 'تعذر فك تشفير القيم المحفوظة' }));
-  if (third && (v.provider?.value || 'off') !== 'off' && (!v.vendor_name?.value || v.no_training_attested?.value !== 'yes')) extras.push(alertBox(STT_VENDOR_REQUIRED, 'warning'));
+  if (item.undecryptable) extras.push(alertBox('تغيّر مفتاح التشفير بعد حفظ هذه الأسرار فلم يعد ممكنًا فك تشفيرها. أعد إدخال المفتاح.', 'danger', { title: 'تعذر فك تشفير القيم المحفوظة', tag: 'INT-41' }));
+  if (third && (v.provider?.value || 'off') !== 'off' && (!v.vendor_name?.value || v.no_training_attested?.value !== 'yes')) extras.push(alertBox(STT_VENDOR_REQUIRED, 'warning', { tag: 'INT-42' }));
   extras.push(h('p.pf-muted', icon('info', { size: 14 }), ' النص الآلي مسودة للفريق وحده، لا يراه المحامي ولا صاحب الرسالة. طلبات «خيري» لا تُرسل إلى جهة خارجية إلا بإذن من «الإعدادات ← المستندات والصوت».'));
   return tagged(
     'INT-01',
@@ -523,8 +569,9 @@ function sttCard(item, reload, settings = {}) {
         extras,
         fieldList({ ...item, fields: (item.fields || []).filter((f) => f.key !== 'prompt') }),
         h('p.pf-muted', `توجيه النموذج: ${v.prompt && v.prompt.source === 'db' ? 'مخصص' : 'الافتراضي'}`),
-        h('div', h('h3.pf-subtitle', 'نتيجة اختبار الاتصال'), resultSlot),
+        h('div', h('h3.pf-subtitle', { tag: 'INT-43' }, 'نتيجة اختبار الاتصال'), resultSlot),
       ),
+      titleTag: 'INT-44',
     }),
   );
 }
@@ -532,7 +579,7 @@ function sttCard(item, reload, settings = {}) {
 // ───────── الأدلة المختصرة ─────────
 
 function guide(title, steps, open = false) {
-  return h('details.pf-guide', { open }, h('summary', icon('book', { size: 18 }), h('span', bidiTitle(title))), h('ol.pf-guide-steps', steps.map((s) => h('li', s))));
+  return h('details.pf-guide', { open, tag: 'INT-45' }, h('summary', { tag: 'INT-46' }, icon('book', { size: 18 }), h('span', bidiTitle(title))), h('ol.pf-guide-steps', steps.map((s) => h('li', s))));
 }
 
 function guides(data) {
@@ -572,6 +619,8 @@ function guides(data) {
         'إذا تسرب المفتاح: احذفه فورًا من console.anthropic.com وأنشئ مفتاحًا جديدًا وأدخله هنا.',
       ]),
     ),
+    titleTag: 'INT-47',
+    tag: 'INT-48',
   });
 }
 
@@ -590,7 +639,7 @@ export default async function render() {
         api.get('/admin/settings', null, { background: true }).then((d) => (d && d.settings) || {}).catch(() => ({})),
       ]);
     } catch (err) {
-      mount(host, pageHeader({ title: 'التكاملات' }), errorState(err, load));
+      mount(host, pageHeader({ title: 'التكاملات', titleTag: 'INT-49', tag: 'INT-50' }), errorState(err, load));
       return;
     }
     mount(
@@ -598,7 +647,9 @@ export default async function render() {
       pageHeader({
         title: 'التكاملات',
         subtitle: 'ربط واتساب للأعمال والذكاء الاصطناعي (Claude) وتحويل الرسائل الصوتية إلى نص. تُحفظ الأسرار مشفرة ولا تُعرض بعد حفظها، وقيم متغيرات البيئة تتقدم على ما يُحفظ هنا.',
-        actions: button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load }),
+        actions: button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load, tag: 'INT-51' }),
+        titleTag: 'INT-52',
+        tag: 'INT-53',
       }),
       h(
         'div.stack',
@@ -609,7 +660,7 @@ export default async function render() {
           'p.pf-muted',
           icon('info', { size: 14 }),
           ' كل حفظ أو اختبار يُسجَّل في ',
-          h('a', { href: '#/audit' }, 'سجل الأمان'),
+          h('a', { href: '#/audit', tag: 'INT-54' }, 'سجل الأمان'),
           '. آخر تحديث للصفحة: ',
           dateTime(new Date().toISOString()),
         ),

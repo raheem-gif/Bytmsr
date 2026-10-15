@@ -278,7 +278,8 @@ describe('v9 frontend fixes — layout', () => {
 
   test('minor polish: avatar outside <h1>, one CTA on an empty beneficiary card, wrapping chip, no retry on 403/404', () => {
     assert.match(read('public/assets/js/app/pages/admin/lawyer-detail.js'), /titleMedia: avatar\(l\.display_name/);
-    assert.match(read('public/assets/js/lib/ui.js'), /titleMedia \? h\('div\.page-title-row', titleMedia, h\('h1\.page-title', title\)\)/);
+    // v12 tags: intended (TG-3، T12-16) — <h1> يأخذ titleTag، والصورة تبقى خارجه
+    assert.match(read('public/assets/js/lib/ui.js'), /titleMedia \? h\('div\.page-title-row', titleMedia, h\('h1\.page-title', \{ tag: titleTag \}, title\)\)/);
     const ben = read('public/assets/js/app/components/beneficiary.js');
     assert.match(ben, /editable && p && button\('تعديل'/);
     assert.match(ben, /className: 'badge-wrap'/);

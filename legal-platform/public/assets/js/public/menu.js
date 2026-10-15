@@ -1,5 +1,5 @@
-// قائمة الرأس على الهاتف ومعاملات الحملة (الإصدار 9.1 — B91-20): وحدة صغيرة بلا أي import،
-// تكفي الصفحة الرئيسية والسياسات فلا تُحمّل مكتبة المكونات (ui.js) ولا مكتبة المنصة.
+// قائمة الرأس على الهاتف ومعاملات الحملة (B91-20)، بلا مكتبة المكونات (ui.js) ولا مكتبة المنصة.
+import { tagsBoot } from '../lib/tags-boot.js'; // v12 tags (TG-1، T12-30)
 
 const KEY = 'bm_attribution';
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
@@ -78,6 +78,7 @@ export function initMenu() {
 
 /** سلوك الرأس والتذييل المشترك: القائمة، وروابط البدء تحتفظ بمعاملات الحملة حتى صفحة الطلب. */
 export function initSiteChrome() {
+  tagsBoot(); // v12 tags (T12-30)
   initMenu();
   // v10 (X10-P3): iOS Safari لا يطبّق :active (ضغط المربعات والأزرار) إلا بمستمع touchstart في الصفحة
   document.addEventListener('touchstart', () => {}, { passive: true });

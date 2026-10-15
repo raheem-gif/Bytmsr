@@ -921,6 +921,9 @@ const mainOf = (h) => (/<main class="lh">[\s\S]*<\/main>/.exec(h) || [''])[0];
 const bodyOf = (h) => String(h).slice(String(h).indexOf('<body')).replace(/<script[\s\S]*?<\/script>/g, '');
 const optsOf = (h) => [...mainOf(h).matchAll(/<a class="opt" href="([^"]*)" data-tag="([^"]+)"><span class="opt__main"><span class="opt__t">([^<]*)<\/span>(?:<span class="opt__s">([^<]*)<\/span>)?/g)].map((m) => ({ href: m[1].replace(/&amp;/g, '&'), tag: m[2], label: m[3], hint: m[4] || null }));
 /** §5.9: نطاقات entry المحجوزة لصفحاتها */
+// v12 tags: intended (TG-6, T12-92): the sweep numbers past each reservation (S-70…, F-21…, L-12…, H-12…, I-150…, IC-17…, KH-100…), never inside it
+const SWEPT_FROM = { L: 12, H: 12, F: 21, S: 70, KH: 100, I: 150, IC: 17 };
+const inRangeOrSwept = (pre, n) => Boolean(IN_RANGE[pre]?.(n)) || (SWEPT_FROM[pre] != null && n >= SWEPT_FROM[pre]);
 const IN_RANGE = {
   T: (n) => n >= 1 && n <= 83,
   L: (n) => n >= 1 && n <= 11,
@@ -1060,16 +1063,16 @@ describe('v12 entry EN-1…EN-4: the tree pages, redirects, charity archive, /se
       for (const c of tags) {
         const [pre, n] = c.split('-');
         if (pre === 'T') assert.ok(known.has(c), `${u} ${c}`);
-        assert.ok(IN_RANGE[pre]?.(Number(n)), `${u} ${c} in range`);
+        assert.ok(inRangeOrSwept(pre, Number(n)), `${u} ${c} in range`); // v12 tags: intended (TG-6)
       }
     }
     for (const u of ['/services', '/privacy', '/portal', '/nope-404', '/khayri']) {
       const tags = tagsIn((await get(u)).body);
-      const dupes = tags.filter((x, i) => tags.indexOf(x) !== i && !/^F-(08|10|11|12|16)$/.test(x)); // روابط «روابط مهمة» على الهاتف صيغ بديلة (tags:variant)
+      const dupes = tags.filter((x, i) => tags.indexOf(x) !== i && !/^F-(08|10|11|12|16|31)$/.test(x)); // روابط «روابط مهمة» على الهاتف صيغ بديلة (tags:variant) — v12 tags: intended (TG-6): + F-31 دخول فريق العمل
       assert.deepEqual(dupes, [], `${u}: unique codes`);
       for (const c of tags) {
         const [pre, n] = c.split('-');
-        if (IN_RANGE[pre]) assert.ok(IN_RANGE[pre](Number(n)), `${u} ${c} in range`);
+        if (IN_RANGE[pre]) assert.ok(inRangeOrSwept(pre, Number(n)), `${u} ${c} in range`); // v12 tags: intended (TG-6)
       }
     }
   });
@@ -1355,8 +1358,8 @@ describe('v12 entry EN-1…EN-4: the tree pages, redirects, charity archive, /se
       assert.ok(!/pub-seg-pill|تغيير نوع الخدمة|اختيار نوع الخدمة|href="\/khayri/.test(bodyOf(r.body)), u);
     }
     const nf = (await get('/nothing-here')).body;
-    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/" data-cta="intake">طلب جديد<\/a>/);
-    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/">الصفحة الأولى<\/a>/);
+    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/" data-cta="intake"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>طلب جديد<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    assert.match(nf, /<a class="pub-btn pub-btn-outline" href="\/"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الصفحة الأولى<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
     assert.equal(titleOf(nf), 'الصفحة غير موجودة | Emam Legal and Consultancy');
     const side = await get('/privacy?side=charity');
     assert.match(side.body, /data-side="charity"/);
@@ -1370,7 +1373,9 @@ describe('v12 entry EN-1…EN-4: the tree pages, redirects, charity archive, /se
     assert.ok(!/href="\/khayri|href="\/about"|href="\/intake|href="\/services"|احكيلنا مشكلتك|اختيار نوع الخدمة|\/\?gate/.test(chrome), 'no link that bounces');
     for (const p of ['/privacy?side=charity', '/terms?side=charity', '/data-deletion?side=charity']) assert.ok(chrome.includes(`href="${p}"`), p);
     assert.match(chrome, /href="\/portal"/);
-    assert.match(chrome, /<span class="pub-brand" data-tag="H-01">/, 'brand without a link');
+    // v12 entry review (R2, §5.9 / T12-22): the charity header carries no H- codes (paid chrome only)
+    assert.match(chrome, /<span class="pub-brand">/, 'brand without a link');
+    assert.ok(!/data-tag="H-\d+"/.test(chrome), 'charity chrome untagged');
     const paid = await post('paid', '01055560001', 'wv12entrypaidp000001');
     const ph = (await get(new URL(paid.body.portal_url, t.base).pathname, { cookie: 'bm_seg=charity' })).body;
     assert.match(ph, /data-side="paid"/);
@@ -1562,10 +1567,12 @@ describe('v12 entry EN-5…EN-9: the minimal paid intake, POST with a pathway, l
     assert.match(src, /pages: !!P,/, 'multi-page documents on the paid intake (L12-38)');
     assert.match(src, /namePrefix: P\?\.name_prefix \|\| COPY\.docName,/);
     // رموز الطلب في نطاقات entry
-    for (const c of new Set([...src.matchAll(/'(I|IC)-(\d+)'/g)].map((m) => `${m[1]}-${m[2]}`))) assert.ok(c.startsWith('I-') ? IN_RANGE_I(codeNum(c)) : false, c);
+    for (const c of new Set([...src.matchAll(/'(I|IC)-(\d+)'/g)].map((m) => `${m[1]}-${m[2]}`))) assert.ok(c.startsWith('I-') ? IN_RANGE_I(codeNum(c)) || codeNum(c) >= SWEPT_FROM.I : false, c); // v12 tags: intended (TG-6)
     const co = readSrc('public/assets/js/public/intake-company.js');
     const ic = [...co.matchAll(/'IC-(\d+)'/g)].map((m) => Number(m[1]));
-    assert.deepEqual([...new Set(ic)].sort((a, b) => a - b), Array.from({ length: 16 }, (_, i) => i + 1), 'IC-01…IC-16');
+    // v12 tags: intended (TG-6): IC-01…IC-16 all present; the sweep's codes come after the reservation (IC-17…)
+    assert.deepEqual([...new Set(ic)].filter((n) => n <= 16).sort((a, b) => a - b), Array.from({ length: 16 }, (_, i) => i + 1), 'IC-01…IC-16');
+    assert.ok(ic.every((n) => n <= 16 || n >= SWEPT_FROM.IC), 'sweep codes after IC-16');
   });
 
   test('E12-T51 (L12-22): web voice archived by default — no recording words in the paid bm-copy, bm-public.voice false, recorder.js outside the static closure; on → the v11 voice words return', async () => {
@@ -1777,5 +1784,94 @@ describe('v12 entry EN-9: demo data (E12-59, L12-41)', () => {
     } finally {
       await t.close();
     }
+  });
+});
+
+describe('v12 entry review: regressions (R1…R5)', () => {
+  let t;
+  before(async () => {
+    t = await startTestApp();
+  });
+  after(async () => {
+    await t.close();
+  });
+  const get = async (u, headers = {}) => {
+    const r = await fetch(t.base + u, { redirect: 'manual', headers });
+    return { status: r.status, body: await r.text(), loc: r.headers.get('location') };
+  };
+
+  test('R1 (E12-06): legacy topic names (topics.js ALIASES) and a lower-case ?area= map into the tree like the 11.0 keys', async () => {
+    assert.ok(Object.keys(ALIASES).length >= 4);
+    for (const [alias, key] of Object.entries(ALIASES)) {
+      const want = resolvePath(TOPIC_TO_PATH[key]);
+      const canon = want.leaf ? `/intake?path=${want.path}` : `/start/${want.path}`;
+      for (const u of [`/?topic=${alias}`, `/intake?topic=${alias}`, `/intake?seg=paid&topic=${alias}&utm_source=fb`]) {
+        const r = await get(u);
+        assert.equal(r.status, 302, u);
+        assert.equal(r.loc, u.includes('utm_source') ? `${canon}${canon.includes('?') ? '&' : '?'}utm_source=fb` : canon, u);
+      }
+    }
+    assert.equal((await get('/intake?area=inh')).loc, '/intake?path=consultation/family/inheritance');
+    assert.equal((await get('/intake?area=Crm')).loc, '/start/litigation');
+    // unknown or prototype keys never resolve
+    for (const u of ['/?topic=__proto__', '/?topic=constructor', '/intake?topic=toString', '/intake?area=__proto__']) {
+      const r = await get(u);
+      assert.ok(r.status === 200 || r.loc === '/', `${u} ${r.status} ${r.loc}`);
+    }
+  });
+
+  test('R2 (§5.9, T12-22): H- codes on the paid header only; the charity header (KH notice, charity /p/, restored «خيري») carries none', async () => {
+    const paid = (await get('/services')).body;
+    for (const c of ['H-01', 'H-06', 'H-07', 'H-09', 'H-10', 'H-11']) assert.ok(paid.includes(`data-tag="${c}"`), c);
+    const kh = (await get('/khayri')).body;
+    assert.ok(!/data-tag="H-\d+"/.test(kh), 'KH notice header untagged');
+    for (const c of ['KH-01', 'KH-03', 'KH-04']) assert.ok(kh.includes(`data-tag="${c}"`), c);
+    t.app.settings.set('charity_public', true);
+    try {
+      for (const u of ['/khayri', '/about', '/intake?seg=charity']) assert.ok(!/data-tag="H-\d+"/.test((await get(u)).body), u);
+      assert.ok((await get('/services')).body.includes('data-tag="H-01"'), 'paid pages keep their codes while restored');
+    } finally {
+      t.app.settings.set('charity_public', false);
+    }
+    // the literal codes stay in site.js for the tags registry
+    const src = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '../src/site.js'), 'utf8');
+    for (const c of ['H-01', 'H-06', 'H-07', 'H-08', 'H-09', 'H-10', 'H-11']) assert.ok(src.includes(`data-tag="${c}"`), `${c} literal in site.js`);
+  });
+
+  test('R3 (E12-25): level-3 pages prefetch the paid intake closure without the charity pictures (pictos.js); the restored charity home still preloads them', async () => {
+    const l3 = (await get('/start/litigation/defend')).body;
+    const pre = /data-prefetch="([^"]*)"/.exec(l3)[1];
+    assert.match(pre, /\/assets\/js\/public\/intake\.js\?v=/);
+    assert.ok(!pre.includes('pictos.js'), pre);
+    assert.equal(/data-prefetch="([^"]*)"/.exec((await get('/start/litigation')).body)[1], '', 'no prefetch on level 2');
+    t.app.settings.set('charity_public', true);
+    try {
+      assert.match((await get('/khayri')).body, /pictos\.js/);
+    } finally {
+      t.app.settings.set('charity_public', false);
+    }
+  });
+
+  test('R4: the legal pages\' first breadcrumb follows the side like the 404 — paid «الصفحة الأولى» → «/», charity «الرئيسية» → /khayri (never the paid page)', async () => {
+    const crumb = (h) => (/<ol class="pub-crumbs">\s*<li><a href="([^"]*)"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>([^<]*)<\/a><\/li>/.exec(h) || []).slice(1); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    for (const u of ['/privacy', '/terms', '/data-deletion']) {
+      assert.deepEqual(crumb((await get(u)).body), ['/', 'الصفحة الأولى'], u);
+      assert.deepEqual(crumb((await get(`${u}?side=charity`)).body), ['/khayri', 'الرئيسية'], `${u}?side=charity`);
+    }
+    t.app.settings.set('charity_public', true);
+    try {
+      assert.deepEqual(crumb((await get('/about')).body), ['/khayri', 'الرئيسية'], '/about');
+    } finally {
+      t.app.settings.set('charity_public', false);
+    }
+  });
+
+  test('R5 (§5.11): the company lead (intake-company.js) shows no «—»/«–» to a paid visitor; the employee ranges read «من 1 إلى 10»', () => {
+    const src = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '../public/assets/js/public/intake-company.js'), 'utf8');
+    const strings = [...src.replace(/^\s*\/\/.*$/gm, '').matchAll(/'([^'\n]*)'/g)].map((m) => m[1]);
+    assert.ok(strings.length > 30);
+    for (const s of strings) assert.ok(!DASH.test(s), s);
+    for (const r of ['من 1 إلى 10', 'من 11 إلى 50', 'من 51 إلى 200', 'أكثر من 200']) assert.ok(strings.includes(r), r);
+    for (const v of ['1-10', '11-50', '51-200', '200+']) assert.ok(strings.includes(v), `value ${v} unchanged`);
   });
 });

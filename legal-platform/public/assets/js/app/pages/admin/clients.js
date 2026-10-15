@@ -45,7 +45,7 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
         if (my !== seq) return;
         const list = (res.items || []).filter((c) => c.id !== excludeId);
         if (!list.length) {
-          mount(results, emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون آخرون', null, { compact: true, icon: 'users' }));
+          mount(results, emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون آخرون', null, { compact: true, icon: 'users', tag: 'CLI-01' }));
           return;
         }
         const buttons = [];
@@ -59,6 +59,7 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
                 chosen = c;
                 buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
               },
+              tag: 'CLI-02',
             },
             h('span.pa-pick-check', { 'aria-hidden': 'true' }, icon('check', { size: 14 })),
             h(
@@ -92,11 +93,12 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
             label: 'بحث عن مستفيد/ة',
             value: initialQuery,
             onSearch: (q) => search(q),
+            tag: 'CLI-03',
           }),
           results,
         ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'CLI-04' },
         {
           label: confirmLabel,
           variant: 'primary',
@@ -108,9 +110,11 @@ export function pickClient({ title, intro, excludeId, initialQuery = '', confirm
             confirmed = true;
             return undefined;
           },
+          tag: 'CLI-05',
         },
       ],
       onClose: () => resolve(confirmed ? chosen : null),
+      tag: 'CLI-06',
     });
     search(initialQuery);
   });
@@ -157,9 +161,11 @@ export default async function render(ctx) {
       mount(
         host,
         card({
-          body: emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون مسجلون بعد', q ? button('مسح البحث', { icon: 'x', onClick: () => ctx.navigate('/clients') }) : null, {
+          body: emptyState(q ? 'لا يوجد مستفيد/ة مطابق لهذا البحث' : 'لا يوجد مستفيدون مسجلون بعد', q ? button('مسح البحث', { icon: 'x', onClick: () => ctx.navigate('/clients'), tag: 'CLI-07' }) : null, {
             icon: 'users',
+            tag: 'CLI-08',
           }),
+          tag: 'CLI-09',
         }),
       );
       mount(moreHost);
@@ -173,27 +179,31 @@ export default async function render(ctx) {
         className: 'pa-clients-table',
         onRowClick: (row) => ctx.navigate(`/clients/${row.id}`),
         columns: [
-          { key: 'code', label: 'كود المستفيد/ة', render: (r) => h('a.pa-plain-link', { href: `#/clients/${r.id}` }, codeTag(r.code)) },
+          { key: 'code', label: 'كود المستفيد/ة', render: (r) => h('a.pa-plain-link', { href: `#/clients/${r.id}`, tag: 'CLI-10' }, codeTag(r.code)), tag: 'CLI-11' },
           {
             key: 'name',
             label: 'الاسم',
             className: 'col-wide',
             render: (r) =>
               h('div', h('div.cell-title', r.name || h('span.muted', 'بدون اسم')), r.governorate && h('div.cell-sub', r.governorate)),
+              tag: 'CLI-12',
           },
-          { key: 'phone', label: 'الهاتف', render: (r) => (r.phone ? ltr(r.phone) : null) },
-          { key: 'intakes_count', label: 'الطلبات', align: 'center', render: (r) => countCell(r.intakes_count, 'neutral') },
-          { key: 'cases_count', label: 'ملفات الاستشارة', align: 'center', render: (r) => countCell(r.cases_count, 'neutral') },
-          { key: 'open_cases_count', label: 'ملفات مفتوحة', align: 'center', render: (r) => countCell(r.open_cases_count, 'info') },
-          { key: 'matters_count', label: 'ملفات مستمرة', align: 'center', render: (r) => countCell(r.matters_count, 'accent') },
+          { key: 'phone', label: 'الهاتف', render: (r) => (r.phone ? ltr(r.phone) : null), tag: 'CLI-13' },
+          { key: 'intakes_count', label: 'الطلبات', align: 'center', render: (r) => countCell(r.intakes_count, 'neutral'), tag: 'CLI-14' },
+          { key: 'cases_count', label: 'ملفات الاستشارة', align: 'center', render: (r) => countCell(r.cases_count, 'neutral'), tag: 'CLI-15' },
+          { key: 'open_cases_count', label: 'ملفات مفتوحة', align: 'center', render: (r) => countCell(r.open_cases_count, 'info'), tag: 'CLI-16' },
+          { key: 'matters_count', label: 'ملفات مستمرة', align: 'center', render: (r) => countCell(r.matters_count, 'accent'), tag: 'CLI-17' },
           {
             key: 'last_contact_at',
             label: 'آخر تواصل',
             render: (r) =>
               r.last_contact_at ? h('time', { datetime: r.last_contact_at, title: dateTime(r.last_contact_at) }, relative(r.last_contact_at)) : null,
+              tag: 'CLI-18',
           },
         ],
         rows: items,
+        rowTag: 'CLI-19',
+        tag: 'CLI-20',
       }),
     );
     mount(
@@ -205,6 +215,7 @@ export default async function render(ctx) {
             e.currentTarget.disabled = true;
             load({ append: true });
           },
+          tag: 'CLI-21',
         }),
     );
   }
@@ -216,12 +227,14 @@ export default async function render(ctx) {
     pageHeader({
       title: 'المستفيدون',
       subtitle: 'كل مستفيد/ة له رقم مستقل، ويمكن أن تكون له عدة طلبات وملفات عبر الزمن',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'المستفيدون' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'CLI-22' }, { label: 'المستفيدون' }],
       meta: h(
         'p.pa-principle',
         icon('link', { size: 15 }),
         h('span', 'يتعرّف النظام على المستفيد/ة من رقم هاتفه أو بريده، فيربط تلقائيًا ما يصل منه عبر واتساب أو الموقع أو غيرهما بنفس الملف.'),
       ),
+      titleTag: 'CLI-23',
+      tag: 'CLI-24',
     }),
     filterBar([
       searchInput({
@@ -232,6 +245,7 @@ export default async function render(ctx) {
           q = v;
           load();
         },
+        tag: 'CLI-25',
       }),
     ]),
     info,

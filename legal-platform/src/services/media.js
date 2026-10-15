@@ -11,9 +11,14 @@
 //
 // MD-0: العقد والهيكل. المعالِجات (stt / clean / ocr) تُسجَّل في MD-6 / MD-9 / MD-10؛ قبلها تبقى المهام في الانتظار.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { badRequest, notFound, nowIso, v, ApiError } from '../util.js';
-import { createMediaTools, toolsMode } from '../media-tools.js';
+import { fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { badRequest, notFound, nowIso, v, ApiError, randomToken, normalizeArabic } from '../util.js';
+import { createMediaTools, toolsMode, deprioritize, POLICY_DIR, IM_LIMITS, CODER_FOR_MIME } from '../media-tools.js';
+import { headerDims, scanConfident } from './documents.js';
+import { SERVER_CLEAN_MAX_PIXELS } from '../media-child.js';
 
 export const JOB_KINDS = ['stt', 'clean', 'ocr'];
 const KIND_ORDER = "CASE kind WHEN 'stt' THEN 0 WHEN 'clean' THEN 1 ELSE 2 END";
@@ -24,6 +29,77 @@ export const MAX_ATTEMPTS = 4;
 export const STALE_MINUTES = 15;
 /** أقل مساحة حرة على قرص البيانات قبل رفض الرفع (H-M13) */
 export const DISK_LOW_BYTES = 500 * 1024 * 1024;
+
+// ───────── التنظيف على الخادم (MD-9، L12-66) ─────────
+/** العملية الفرعية التي تشغّل scan-core (عملية الويب لا تشغّله أبدًا) */
+export const CHILD_PATH = fileURLToPath(new URL('../media-child.js', import.meta.url));
+/** أقل ذاكرة متاحة قبل وحدة تنظيف أو قراءة؛ أقل منها تؤجَّل 5 دقائق، وبعد 6 تأجيلات «لم يُعالَج» (low_memory) */
+export const MEMORY_HEADROOM_MIN = 300 * 1024 * 1024;
+export const MEMORY_DEFER_MINUTES = 5;
+export const MEMORY_DEFER_MAX = 6;
+/** ذاكرة الخادم الأقل من هذا تظهر تنبيهًا في «صحة النظام» (SYS-09) */
+export const MEMORY_SLOW_BELOW = 1024 * 1024 * 1024;
+/** أقصى مدة لوحدة تنظيف كاملة في العملية الفرعية (ثلاثة فكوك وترميز، كل منها ≤ 60 ثانية) */
+export const CHILD_TIMEOUT_MS = 200_000;
+/** الصور التي ينظفها الخادم وحده: صور العملاء بلا ماسح (واتساب، وما فشل فيه ماسح الهاتف، ورفع الشركات بلا scan) */
+const AUTO_CLEAN_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+/** المستندات التي يُقرأ نصها (MD-10) */
+export const OCR_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+/** أسماء الاستكمال في سجل الأمان */
+const BACKFILL_LABELS = { stt: 'تحويل الرسائل الصوتية', clean: 'تحسين الصور', ocr: 'قراءة نص المستندات' };
+/** وسم لوحة «النص» (L12-35) */
+export const OCR_LABEL = 'نص مستخرج آليًا من المستند، راجعه قبل الاعتماد عليه.';
+/** ملاحظة مجموعة «مستندات» في البحث (L12-37) */
+export const SEARCH_NOTE = 'البحث في النص المقروء آليًا وقد لا يجد كل الكلمات.';
+export const OCR_SOURCE_LABELS = { tesseract: 'Tesseract على الخادم', pdftotext: 'طبقة النص في ملف PDF', claude: 'Claude', staff: 'الفريق' };
+/** لماذا لا تُقرأ الوثيقة بـ Claude (رسائل للفريق) */
+export const CLAUDE_BLOCK_TEXT = {
+  not_allowed: 'إرسال صور المستندات إلى Claude غير مسموح. فعّله من «الإعدادات ← المستندات والصوت».',
+  company: 'قراءة مستندات الشركات بـ Claude غير مسموحة.',
+  before_disclosure: 'وصل هذا المستند قبل إعلان القراءة بـ Claude في سياسة الخصوصية.',
+  backfill: 'الاستكمال لا يستخدم Claude.',
+  budget: 'ميزانية الذكاء الاصطناعي لهذا الشهر لا تتسع.',
+  budget_share: 'حصة قراءة المستندات من ميزانية الذكاء الاصطناعي لا تتسع.',
+  ai_off: 'Claude غير مضبوط في «التكاملات».',
+};
+
+/**
+ * الذاكرة المتاحة الآن: حد cgroup v2 (memory.max − memory.current) أو v1، وإلا os.freemem()؛ الأقل منهما.
+ * → { limit, headroom, source }
+ */
+export function readMemory() {
+  const free = os.freemem();
+  const num = (f) => {
+    try {
+      return Number(fs.readFileSync(f, 'utf8').trim());
+    } catch {
+      return NaN;
+    }
+  };
+  let limit = null;
+  let used = null;
+  let source = 'os';
+  const max2 = num('/sys/fs/cgroup/memory.max');
+  const cur2 = num('/sys/fs/cgroup/memory.current');
+  if (Number.isFinite(max2) && Number.isFinite(cur2)) {
+    limit = max2;
+    used = cur2;
+    source = 'cgroup2';
+  } else {
+    const max1 = num('/sys/fs/cgroup/memory/memory.limit_in_bytes');
+    const cur1 = num('/sys/fs/cgroup/memory/memory.usage_in_bytes');
+    if (Number.isFinite(max1) && max1 < 2 ** 60 && Number.isFinite(cur1)) {
+      limit = max1;
+      used = cur1;
+      source = 'cgroup1';
+    }
+  }
+  const headroom = limit !== null ? Math.min(limit - used, free) : free;
+  return { limit: limit ?? os.totalmem(), headroom, source };
+}
+
+const codeErr = (code, message = code, extra = {}) => Object.assign(new Error(message), { code, ...extra });
+const escHtml = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 /** حدود الماسح لكل سطح (L12-58): الصفحات، الأصول لكل صفحة، وحجم الأصول المفكوكة في الطلب الواحد */
 export const SCAN_CAPS = {
@@ -175,8 +251,175 @@ export function createMedia(app) {
   let snapshot = null; // قيم الإعدادات قبل PATCH (validateSettings ← afterSettings)
   let diskProbe = null;
   let diskCache = { at: 0, free: null };
+  let memProbe = null;
+  let diskEstimate = null; // تقدير حجم المرفقات لتنبيه القرص (كل 10 دقائق)
+  let childRunner = null; // للاختبارات: بديل العملية الفرعية (type, input) → result
+  const childProcs = new Set();
 
   const testContext = () => !!process.env.NODE_TEST_CONTEXT;
+  // البذور تعمل قبل أن يستمع الخادم: لا تضيف مهام أبدًا (L12-69)؛ بعد الاستماع كل حفظ يضيف مهامه
+  const live = () => !!app.server?.listening;
+
+  // ───────── العملية الفرعية (L12-66) ─────────
+  function killChild(child) {
+    try {
+      process.kill(-child.pid, 'SIGKILL'); // المجموعة كلها: العملية الفرعية وأي ImageMagick شغّلته
+    } catch {
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // انتهت بالفعل
+      }
+    }
+  }
+
+  /** وحدة واحدة في عملية فرعية جديدة ثم تُقتل: --max-old-space-size=128، بيئة دنيا، أولوية 19، oom_score_adj 1000 */
+  function runChild(type, input, { timeoutMs = CHILD_TIMEOUT_MS } = {}) {
+    if (childRunner) return Promise.resolve().then(() => childRunner(type, input));
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let stderr = '';
+      let child;
+      try {
+        child = fork(CHILD_PATH, [], {
+          execArgv: ['--max-old-space-size=128'],
+          env: { ...tools.spawnEnv(), BM_MEDIA_CHILD: '1' },
+          cwd: tmpDir,
+          stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+          detached: true,
+          serialization: 'json',
+        });
+      } catch (e) {
+        reject(codeErr('fork_failed', e.message));
+        return;
+      }
+      childProcs.add(child);
+      deprioritize(child.pid);
+      let timer = null;
+      const end = (fn, val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        killChild(child);
+        childProcs.delete(child);
+        fn(val);
+      };
+      timer = setTimeout(() => end(reject, codeErr('timeout', 'media child timed out', { retryable: true })), timeoutMs);
+      child.stderr?.on('data', (b) => {
+        stderr = (stderr + b).slice(-2000);
+      });
+      child.on('message', (m) => {
+        if (m && m.type === 'ready') {
+          child.send({ id: 1, type, input });
+          return;
+        }
+        if (!m || m.id !== 1) return;
+        if (m.ok) end(resolve, m.result);
+        else end(reject, codeErr(m.code || 'failed', m.message || 'media child failed'));
+      });
+      child.on('error', (e) => end(reject, codeErr('child_error', e.message)));
+      child.on('exit', (code, signal) => end(reject, codeErr(signal ? 'child_killed' : 'child_exit', `media child exited (${code ?? signal}) ${stderr.slice(-300)}`)));
+    });
+  }
+
+  /** حارس الذاكرة قبل وحدة تنظيف أو قراءة (L12-66) → null (تابع) أو نتيجة تأجيل/ترك */
+  function memoryGate(job) {
+    const m = memProbe ? memProbe() : readMemory();
+    if (!(Number(m?.headroom) < MEMORY_HEADROOM_MIN)) return null;
+    const prev = /^low_memory:(\d+)$/.exec(String(job.error || ''));
+    const n = (prev ? Number(prev[1]) : 0) + 1;
+    if (n > MEMORY_DEFER_MAX) return { state: 'skipped', error: 'low_memory' };
+    return { state: 'defer', seconds: MEMORY_DEFER_MINUTES * 60, error: `low_memory:${n}` };
+  }
+
+  function rmQuiet(f) {
+    try {
+      fs.unlinkSync(f);
+    } catch {
+      // غير موجود
+    }
+  }
+
+  /** لماذا لا ينظف الخادم هذا المستند؟ (L12-21) → null أو السبب */
+  function autoCleanBlock(doc) {
+    if (!doc) return 'gone';
+    if (doc.uploaded_by_kind !== 'client') return 'not_client'; // رفع الفريق والمحامين: «نظّف المستند» فقط (سلامة الدليل)
+    if (!AUTO_CLEAN_MIMES.has(doc.mime)) return 'not_image';
+    if (doc.scan_state === 'skipped') return doc.mime === 'image/heic' ? 'heic' : 'too_large';
+    if (doc.scan_state) return 'already_clean';
+    if (db.get("SELECT 1 FROM document_files WHERE document_id = ? AND role = 'clean'", doc.id)) return 'already_clean';
+    if (!(Number(doc.width) > 0 && Number(doc.height) > 0)) return 'unknown_size';
+    if (Number(doc.width) * Number(doc.height) > SERVER_CLEAN_MAX_PIXELS) return 'too_large';
+    return null;
+  }
+
+  /** وحدة «تنظيف على الخادم» (MD-9): صورة عميل بلا ماسح ← نسخة محسّنة server_auto تحت variants/auto/ */
+  async function cleanUnit(job) {
+    const doc = app.documents.get(job.document_id);
+    const block = autoCleanBlock(doc);
+    if (block) return { state: block === 'gone' ? 'cancelled' : 'skipped', error: block };
+    if (app.settings.get('scan_server_auto') === false) return { state: 'skipped', error: 'off' };
+    await tools.probe();
+    if (!tools.has('imagemagick')) return { state: 'skipped', error: 'tool_missing' };
+    const mem = memoryGate(job);
+    if (mem) return mem;
+    const abs = path.resolve(uploadsDir, doc.storage_key);
+    if (!abs.startsWith(path.resolve(uploadsDir) + path.sep)) return { state: 'failed', error: 'bad_path' };
+    let head;
+    try {
+      head = headerDims(doc.mime, fs.readFileSync(abs));
+    } catch {
+      return { state: 'failed', error: 'file_missing' };
+    }
+    if (!head) return { state: 'skipped', error: 'unknown_size' };
+    const out = path.join(tmpDir, `clean-${job.id}-${randomToken(8)}.jpg`);
+    const started = Date.now();
+    try {
+      let r;
+      try {
+        r = await runChild('clean', { file: abs, mime: doc.mime, width: head.width, height: head.height, orientation: head.orientation, bin: tools.bin('imagemagick'), tmpDir, policyDir: POLICY_DIR, out });
+      } catch (e) {
+        if (stopping) throw e;
+        app.log(`media clean #${job.id}: ${e.code || 'error'}`);
+        return { state: 'retry', error: e.code || 'child_failed' };
+      }
+      if (!r || r.skipped) return { state: 'skipped', error: r?.skipped || 'no_result' };
+      let buf;
+      try {
+        buf = fs.readFileSync(out);
+      } catch {
+        return { state: 'failed', error: 'no_output' };
+      }
+      const f = app.documents.inspect({ filename: 'clean.jpg', mime: 'image/jpeg', buffer: buf }, { fetched: true });
+      if (f.realMime !== 'image/jpeg' || !f.dims || f.dims.width !== r.width || f.dims.height !== r.height) return { state: 'failed', error: 'bad_output' };
+      const params = normalizeParams({ algo: 'scan-core@1', mode: 'auto', turns: r.params?.turns ?? 0, pages: 1, quad: r.params?.quad, score: r.params?.score }, 1);
+      const confident = scanConfident(params);
+      let saved = false;
+      db.tx(() => {
+        // نتيجة لجيل أقدم من المهمة (أُعيدت جدولتها) أو مستند نظّفه الفريق في هذه الأثناء ← لا تُكتب
+        if (Number(db.value('SELECT gen FROM media_jobs WHERE id = ?', job.id)) !== Number(job.gen)) return;
+        const cur = app.documents.get(doc.id);
+        if (!cur || autoCleanBlock(cur)) return;
+        const fid = app.documents.saveVariant(
+          cur,
+          { buf, realMime: 'image/jpeg', dims: f.dims },
+          { role: 'clean', page: 1, source: 'server_auto', params: { ...params, area: r.params?.area ?? null, chroma: r.params?.chroma ?? null, ink: r.params?.ink ?? null }, createdByKind: 'system', createdBy: null, sub: path.join('variants', 'auto') },
+        );
+        // L12-59: النسخة المحسّنة تُعرض أولًا فقط حين تكون واثقة (الورقة ≥ 60 % من الصورة)، وإلا يبقى الأصل
+        db.run("UPDATE documents SET scan_state = 'server', display_file_id = ? WHERE id = ?", confident ? fid : (cur.display_file_id ?? null), cur.id);
+        saved = true;
+      });
+      try {
+        const t = nowIso();
+        db.insert('media_usage', { kind: 'clean_server', provider: 'imagemagick', model: null, document_id: doc.id, seconds: (Date.now() - started) / 1000, pages: 1, cost_micro_usd: 0, ok: saved ? 1 : 0, error: saved ? null : 'superseded', period: t.slice(0, 7), created_at: t });
+      } catch (e) {
+        app.log('media usage (clean) failed', e);
+      }
+      return saved ? { state: 'done' } : { state: 'cancelled', error: 'superseded' };
+    } finally {
+      rmQuiet(out);
+    }
+  }
 
   function registeredKinds() {
     return JOB_KINDS.filter((k) => handlers.has(k));
@@ -210,18 +453,29 @@ export function createMedia(app) {
     const state = res?.state || 'failed';
     const error = res?.error ? String(res.error).slice(0, 200) : null;
     if (state === 'next') {
-      return db.run("UPDATE media_jobs SET state = 'queued', locked_at = NULL, next_page = ?, next_at = ?, provider = COALESCE(?, provider), updated_at = ? WHERE id = ? AND gen = ?", res.next_page ?? null, t, res.provider ?? null, t, job.id, job.gen).changes;
+      // الصفحة التالية وحدة جديدة: محاولاتها من الصفر
+      return db.run("UPDATE media_jobs SET state = 'queued', attempts = 0, locked_at = NULL, error = NULL, next_page = ?, next_at = ?, provider = COALESCE(?, provider), updated_at = ? WHERE id = ? AND gen = ?", res.next_page ?? null, t, res.provider ?? null, t, job.id, job.gen).changes;
+    }
+    if (state === 'defer') {
+      // تأجيل لا يُحتسب محاولة (ذاكرة غير كافية، أو قراءة تنتظر تنظيف المستند نفسه)
+      const at = new Date(Date.parse(t) + (Number(res.seconds) || MEMORY_DEFER_MINUTES * 60) * 1000).toISOString();
+      return db.run("UPDATE media_jobs SET state = 'queued', attempts = MAX(0, attempts - 1), locked_at = NULL, error = ?, next_at = ?, updated_at = ? WHERE id = ? AND gen = ?", error, at, t, job.id, job.gen).changes;
     }
     if (state === 'retry') {
       if (job.attempts >= MAX_ATTEMPTS) {
-        return db.run("UPDATE media_jobs SET state = 'failed', locked_at = NULL, error = ?, updated_at = ? WHERE id = ? AND gen = ?", error, t, job.id, job.gen).changes;
+        const n = db.run("UPDATE media_jobs SET state = 'failed', locked_at = NULL, error = ?, updated_at = ? WHERE id = ? AND gen = ?", error, t, job.id, job.gen).changes;
+        if (n && job.kind === 'ocr') ocrFinal(job.document_id, 'failed');
+        return n;
       }
       const wait = RETRY_MINUTES[Math.min(RETRY_MINUTES.length - 1, Math.max(0, job.attempts - 1))];
       const at = new Date(Date.parse(t) + wait * 60000).toISOString();
       return db.run("UPDATE media_jobs SET state = 'queued', locked_at = NULL, error = ?, next_at = ?, updated_at = ? WHERE id = ? AND gen = ?", error, at, t, job.id, job.gen).changes;
     }
     const final = ['done', 'skipped', 'failed', 'cancelled'].includes(state) ? state : 'failed';
-    return db.run('UPDATE media_jobs SET state = ?, locked_at = NULL, error = ?, provider = COALESCE(?, provider), updated_at = ? WHERE id = ? AND gen = ?', final, error, res?.provider ?? null, t, job.id, job.gen).changes;
+    const n = db.run('UPDATE media_jobs SET state = ?, locked_at = NULL, error = ?, provider = COALESCE(?, provider), updated_at = ? WHERE id = ? AND gen = ?', final, error, res?.provider ?? null, t, job.id, job.gen).changes;
+    // قراءة النص: حالة المستند تتبع النهاية (النص المقروء سابقًا يبقى «تم»)
+    if (n && job.kind === 'ocr' && (final === 'failed' || final === 'skipped')) ocrFinal(job.document_id, final);
+    return n;
   }
 
   async function runUnit(job) {
@@ -255,6 +509,253 @@ export function createMedia(app) {
     followUp.unref?.();
   }
 
+  // ───────── قراءة النص (MD-10، M12-28…31، L12-17، L12-19، L12-37، L12-67) ─────────
+  /** حدود القراءة: الصفحة التي فيها أقل من 20 حرفًا في طبقة نص PDF تُقرأ من صورتها */
+  const OCR_LETTERS_MIN = 20;
+  /** صفحة PDF ضلعها أكبر من 4,000 نقطة (نحو 55 بوصة، أكبر من A0) لا تُحوَّل إلى صورة ولا تُقرأ (قنبلة صفحة، L12-67) */
+  const PDF_PAGE_MAX_PT = 4000;
+  const OCR_TEXT_MAX = 50_000;
+  const letters = (t) => (String(t || '').match(/\p{L}/gu) || []).length;
+
+  /** تشغيل أداة مع تسجيل الوقت؛ الخطأ يحمل code (timeout أو غيره) */
+  async function runTool(tool, argv, opts = {}) {
+    const bin = tools.bin(tool);
+    if (!bin) throw codeErr('tool_missing');
+    return tools.run(bin, argv, { timeoutMs: 60_000, maxBuffer: 16 * 1024 * 1024, ...opts });
+  }
+
+  /** pdfinfo للصفحات الأولى: العدد الكلي ومقاس كل صفحة بالنقاط (قبل أي تحويل إلى صورة، L12-67) */
+  async function pdfPages(abs, max) {
+    const r = await runTool('pdfinfo', ['-f', '1', '-l', String(max), abs], { timeoutMs: 30_000, maxBuffer: 1024 * 1024 });
+    const out = String(r.stdout || '');
+    const total = Number(/^Pages:\s+(\d+)/m.exec(out)?.[1]) || 0;
+    const sizes = new Map();
+    for (const m of out.matchAll(/^Page\s+(\d+)\s+size:\s+([\d.]+)\s+x\s+([\d.]+)/gm)) sizes.set(Number(m[1]), [Number(m[2]), Number(m[3])]);
+    return { total, sizes };
+  }
+
+  /** صفحة PDF إلى صورة بمقاس أقصى ثابت (-scale-to، لا -r أبدًا، L12-67) → مسار الصورة المؤقتة */
+  async function rasterPdfPage(abs, page, scaleTo, fmt = 'png') {
+    const prefix = path.join(tmpDir, `ocr-${randomToken(8)}`);
+    await runTool('pdftoppm', [fmt === 'jpeg' ? '-jpeg' : '-png', '-scale-to', String(scaleTo), '-f', String(page), '-l', String(page), '-singlefile', abs, prefix]);
+    return `${prefix}.${fmt === 'jpeg' ? 'jpg' : 'png'}`;
+  }
+
+  /** صورة جاهزة للقراءة بضلع أقصى max (ImageMagick إن وُجد: اتجاه EXIF ثم تصغير بلا «!») → { file, temp } أو null */
+  async function imageForOcr(abs, mime, dims, max, fmt = 'png') {
+    if (tools.has('imagemagick') && CODER_FOR_MIME[mime]) {
+      const out = path.join(tmpDir, `ocr-${randomToken(8)}.${fmt === 'jpeg' ? 'jpg' : 'png'}`);
+      const outArg = fmt === 'jpeg' ? ['-quality', '85', `jpeg:${out}`] : [`png:${out}`];
+      await runTool('imagemagick', [...IM_LIMITS, `${CODER_FOR_MIME[mime]}:${abs}`, '-auto-orient', '-resize', `${max}x${max}>`, '-strip', ...outArg]);
+      return { file: out, temp: true };
+    }
+    if (dims && Math.max(dims.width, dims.height) <= max) return { file: abs, temp: false };
+    return null;
+  }
+
+  /** Tesseract على صورة صفحة: ara+eng (أو ara وحدها)، OMP_THREAD_LIMIT=1 من بيئة الأدوات، 60 ثانية */
+  async function tesseract(file) {
+    const langs = tools.status()?.tesseract?.langs || [];
+    const lang = langs.includes('eng') ? 'ara+eng' : 'ara';
+    const r = await runTool('tesseract', [file, 'stdout', '-l', lang, '--oem', '1', '--psm', '3'], { maxBuffer: 4 * 1024 * 1024 });
+    return String(r.stdout || '').replace(/\f/g, '').trim();
+  }
+
+  /** لماذا لا تُقرأ هذه الوثيقة بـ Claude؟ (L12-19) → null أو السبب */
+  function claudeBlock(doc, job) {
+    if (Number(job?.priority) < 0) return 'backfill'; // الاستكمال لا يستخدم Claude أبدًا
+    if (app.settings.get('ocr_claude_allowed') !== true) return 'not_allowed';
+    if (doc.company_id && app.settings.get('ocr_claude_companies') !== true) return 'company';
+    const since = String(app.settings.get('ocr_claude_since') || '');
+    if (!since || String(doc.created_at || '') < since) return 'before_disclosure';
+    return null;
+  }
+
+  /** كتابة نص صفحة (حذف ثم إدراج في معاملة واحدة، مع صف البحث). لا يكتب فوق صفحة صحّحها الفريق ولا لجيل قديم. */
+  function writePage(job, docId, page, text, { provider, model = null, confidence = null, sourceFile = 'main' }) {
+    const body = String(text || '').slice(0, OCR_TEXT_MAX);
+    const norm = normalizeArabic(body);
+    const t = nowIso();
+    let wrote = false;
+    db.tx(() => {
+      if (job && Number(db.value('SELECT gen FROM media_jobs WHERE id = ?', job.id)) !== Number(job.gen)) return;
+      const cur = db.get('SELECT status FROM document_text WHERE document_id = ? AND page = ?', docId, page);
+      if (cur?.status === 'corrected') return;
+      db.run('DELETE FROM document_text WHERE document_id = ? AND page = ?', docId, page);
+      db.insert('document_text', { document_id: docId, page, text: body, norm, source_file: sourceFile, provider, model, confidence, chars: body.length, status: 'machine', corrected_by: null, created_at: t, updated_at: t });
+      ftsWrite(docId, page, norm);
+      wrote = true;
+    });
+    return wrote;
+  }
+  function ftsWrite(docId, page, norm) {
+    if (!ftsOk) return;
+    try {
+      db.run('DELETE FROM document_text_fts WHERE document_id = ? AND page = ?', docId, page);
+      db.run('INSERT INTO document_text_fts (norm, document_id, page) VALUES (?, ?, ?)', norm, docId, page);
+    } catch (e) {
+      app.log('media: fts write failed', e);
+    }
+  }
+  function ocrUsage(docId, provider, started, ok, error = null) {
+    try {
+      const t = nowIso();
+      db.insert('media_usage', { kind: 'ocr_local', provider, model: null, document_id: docId, seconds: (Date.now() - started) / 1000, pages: 1, cost_micro_usd: 0, ok: ok ? 1 : 0, error, period: t.slice(0, 7), created_at: t });
+    } catch (e) {
+      app.log('media usage (ocr) failed', e);
+    }
+  }
+  /** حالة القراءة في صف المستند بعد آخر صفحة */
+  function ocrFinal(docId, state) {
+    if (state === 'done' || state === 'empty') db.run('UPDATE documents SET ocr_state = ? WHERE id = ?', state, docId);
+    else db.run("UPDATE documents SET ocr_state = ? WHERE id = ? AND (ocr_state IS NULL OR ocr_state NOT IN ('done', 'empty'))", state, docId);
+  }
+
+  /** الملف الذي يُقرأ: النسخة المحسّنة إن وُجدت (أوضح للقراءة)، وإلا الرئيسي */
+  function ocrSource(doc) {
+    const clean = db.get("SELECT * FROM document_files WHERE document_id = ? AND role = 'clean' AND page = 1 AND replaced_at IS NULL ORDER BY id DESC LIMIT 1", doc.id);
+    if (clean && doc.mime !== 'application/pdf') {
+      const abs = path.resolve(uploadsDir, clean.storage_key);
+      if (fs.existsSync(abs)) return { abs, mime: clean.mime, dims: clean.width ? { width: clean.width, height: clean.height } : null, sourceFile: 'clean' };
+    }
+    return { abs: path.resolve(uploadsDir, doc.storage_key), mime: doc.mime, dims: doc.width ? { width: doc.width, height: doc.height } : null, sourceFile: 'main' };
+  }
+
+  /**
+   * وحدة «قراءة صفحة» (MD-10): صفحة واحدة لكل وحدة (next_page). PDF: pdfinfo أولًا (مقاس الصفحة)، ثم طبقة النص
+   * (pdftotext)، والصفحة الخالية تُحوَّل صورة (pdftoppm -scale-to 2000) وتُقرأ. Claude (P1) بصورة الصفحة فقط، بشروطه.
+   */
+  async function ocrUnit(job) {
+    const doc = app.documents.get(job.document_id);
+    if (!doc) return { state: 'cancelled', error: 'gone' };
+    if (!OCR_MIMES.has(doc.mime) || doc.scan_state === 'skipped') return { state: 'skipped', error: 'unsupported' };
+    const setting = svc.ocrProvider();
+    if (setting === 'off') return { state: 'skipped', error: 'off' };
+    // القراءة تنتظر تنظيف المستند نفسه (النسخة المحسّنة أوضح)
+    if (db.get("SELECT 1 FROM media_jobs WHERE document_id = ? AND kind = 'clean' AND state IN ('queued', 'running')", doc.id)) return { state: 'defer', seconds: 30, error: 'waiting_clean' };
+    await tools.probe();
+    const maxPages = Math.min(30, Math.max(1, Number(app.settings.get('ocr_max_pages')) || 10));
+    const page = Math.max(1, Number(job.next_page) || 1);
+    const src = ocrSource(doc);
+    const isPdf = doc.mime === 'application/pdf';
+    // Claude: بطلب صريح من الفريق، أو إعداد «Claude»، بشروطه (السماح، الشركات، تاريخ الإعلان، الميزانية)؛ وإلا Tesseract
+    let useClaude = false;
+    let claudeWhy = null;
+    if (job.provider === 'claude' || (setting === 'claude' && job.provider !== 'tesseract')) {
+      claudeWhy = claudeBlock(doc, job);
+      if (!claudeWhy) {
+        const model = String(app.settings.get('ocr_model') || '') || null;
+        const allow = app.ai?.ocrAllowance ? app.ai.ocrAllowance({ pages: Math.max(1, (isPdf ? maxPages : 1) - page + 1), model }) : { ok: false, reason: 'ai_off' };
+        if (allow.ok) useClaude = true;
+        else claudeWhy = allow.reason;
+      }
+    }
+    const canRaster = useClaude || tools.has('tesseract');
+    if (!isPdf && !canRaster) return { state: 'skipped', error: claudeWhy && job.provider === 'claude' ? `claude_${claudeWhy}` : 'tool_missing' };
+    if (isPdf && !tools.has('pdfinfo')) return { state: 'skipped', error: 'tool_missing' };
+    if (!src.abs.startsWith(path.resolve(uploadsDir) + path.sep) || !fs.existsSync(src.abs)) return { state: 'failed', error: 'file_missing' };
+    const mem = memoryGate(job);
+    if (mem) return mem;
+
+    const started = Date.now();
+    const temps = [];
+    let total = 1;
+    try {
+      let text = null;
+      let provider = null;
+      let model = null;
+      let rasterFile = null;
+      let rasterMime = 'image/png';
+      if (isPdf) {
+        const info = await pdfPages(src.abs, maxPages);
+        total = Math.min(maxPages, info.total || 1);
+        if (page > total) return { state: 'done' };
+        const size = info.sizes.get(page);
+        if (size && (size[0] > PDF_PAGE_MAX_PT || size[1] > PDF_PAGE_MAX_PT)) {
+          // صفحة عملاقة: لا تُقرأ ولا تُحوَّل (تبقى بلا نص)
+          provider = null;
+        } else {
+          if (tools.has('pdftotext')) {
+            const r = await runTool('pdftotext', ['-layout', '-enc', 'UTF-8', '-f', String(page), '-l', String(page), src.abs, '-'], { maxBuffer: 8 * 1024 * 1024 });
+            const t = String(r.stdout || '').replace(/\f/g, '').trim();
+            if (letters(t) >= OCR_LETTERS_MIN) {
+              text = t;
+              provider = 'pdftotext';
+            }
+          }
+          if (text === null && canRaster && tools.has('pdftoppm')) {
+            rasterFile = await rasterPdfPage(src.abs, page, useClaude ? 1568 : 2000, useClaude ? 'jpeg' : 'png');
+            rasterMime = useClaude ? 'image/jpeg' : 'image/png';
+            temps.push(rasterFile);
+          }
+        }
+      } else {
+        const img = await imageForOcr(src.abs, src.mime, src.dims, useClaude ? 1568 : 2000, useClaude ? 'jpeg' : 'png');
+        if (!img) return { state: 'skipped', error: 'needs_imagemagick' };
+        if (img.temp) temps.push(img.file);
+        rasterFile = img.file;
+        rasterMime = img.temp ? (useClaude ? 'image/jpeg' : 'image/png') : src.mime;
+      }
+      if (text === null && rasterFile) {
+        if (useClaude) {
+          try {
+            const r = await app.ai.ocrPage({ buffer: fs.readFileSync(rasterFile), mime: rasterMime, page, model: String(app.settings.get('ocr_model') || '') || null, documentId: doc.id });
+            text = r.text;
+            provider = 'claude';
+            model = r.model;
+          } catch (e) {
+            claudeWhy = e?.code || 'error';
+            useClaude = false;
+          }
+        }
+        if (text === null && tools.has('tesseract')) {
+          text = await tesseract(rasterFile);
+          provider = 'tesseract';
+        }
+      }
+      if (provider && text !== null) {
+        writePage(job, doc.id, page, text, { provider, model, sourceFile: src.sourceFile });
+        if (provider !== 'claude') ocrUsage(doc.id, provider, started, true);
+      } else if (page === 1 && !isPdf) {
+        return { state: 'skipped', error: claudeWhy ? `claude_${claudeWhy}` : 'tool_missing' };
+      }
+      // الصفحة التالية بالمزوّد نفسه؛ وإن تعذّر Claude هنا تُكمل الصفحات الباقية بـ Tesseract (لا محاولات متكررة)
+      const nextProvider = provider === 'claude' ? 'claude' : claudeWhy && (job.provider === 'claude' || setting === 'claude') ? 'tesseract' : job.provider ?? null;
+      if (isPdf && page < total) return { state: 'next', next_page: page + 1, provider: nextProvider };
+      const sum = Number(db.value('SELECT COALESCE(SUM(chars), 0) FROM document_text WHERE document_id = ?', doc.id)) || 0;
+      const rows = Number(db.value('SELECT COUNT(*) FROM document_text WHERE document_id = ?', doc.id)) || 0;
+      if (!rows) return { state: 'skipped', error: claudeWhy ? `claude_${claudeWhy}` : 'no_text' };
+      ocrFinal(doc.id, sum > 0 ? 'done' : 'empty');
+      return { state: 'done', provider: provider || null };
+    } catch (e) {
+      if (stopping) throw e;
+      ocrUsage(doc.id, 'tesseract', started, false, e?.code || 'error');
+      app.log(`media ocr #${job.id} page ${page}: ${e?.code || e?.message || 'error'}`);
+      return { state: e?.code === 'tool_missing' ? 'skipped' : 'retry', error: e?.code || 'ocr_failed' };
+    } finally {
+      for (const f of temps) rmQuiet(f);
+    }
+  }
+
+  /** نص مقتطف حول أول تطابق (≤ 120 حرفًا)، بمطابقة على النص الموحَّد ثم القص من الأصل */
+  function snippetOf(text, nq) {
+    const src = String(text || '');
+    let norm = '';
+    const map = [];
+    for (let i = 0; i < src.length; i++) {
+      const n = normalizeArabic(src[i]);
+      for (const ch of n) {
+        norm += ch;
+        map.push(i);
+      }
+    }
+    const at = norm.indexOf(nq);
+    const pos = at >= 0 ? map[at] : 0;
+    const start = Math.max(0, pos - 40);
+    const clip = src.slice(start, start + 120).replace(/\s+/g, ' ').trim();
+    return (start > 0 ? '…' : '') + clip + (start + 120 < src.length ? '…' : '');
+  }
+
   // ───────── الخدمة ─────────
   const svc = {
     tools,
@@ -264,6 +765,35 @@ export function createMedia(app) {
     /** حالة FTS (للاختبارات والصحة) */
     ftsAvailable() {
       return ftsOk;
+    },
+
+    /** الذاكرة المتاحة (cgroup أو النظام) */
+    memory() {
+      return memProbe ? memProbe() : readMemory();
+    },
+    /** للاختبارات: قياس بديل للذاكرة (null = القياس الحقيقي) */
+    setMemoryProbe(fn) {
+      memProbe = typeof fn === 'function' ? fn : null;
+    },
+    /** للاختبارات: بديل العملية الفرعية (type, input) → result (null = fork الحقيقي) */
+    setChildRunner(fn) {
+      childRunner = typeof fn === 'function' ? fn : null;
+    },
+    /** سبب عدم التنظيف على الخادم (null = مؤهل) */
+    autoCleanBlock,
+
+    /**
+     * documents.save (داخل معاملة الحفظ): مهام المستند الجديد. لا شيء قبل استماع الخادم (البذور، L12-69).
+     * صورة عميل بلا ماسح ← تنظيف على الخادم (L12-21)؛ صورة أو PDF ← قراءة النص (MD-10).
+     */
+    onSaved(docId, { mime, scanned = false, tooLarge = false, uploaderKind = null } = {}) {
+      if (!live()) return;
+      try {
+        if (uploaderKind === 'client' && !scanned && !tooLarge && AUTO_CLEAN_MIMES.has(mime) && app.settings.get('scan_server_auto') !== false) svc.enqueue('clean', docId);
+        if (OCR_MIMES.has(mime) && !tooLarge && svc.ocrProvider?.() !== 'off') svc.enqueue('ocr', docId);
+      } catch (e) {
+        app.log('media: enqueue on save failed', e);
+      }
     },
 
     /** تسجيل معالج نوع من الوحدات (MD-6 stt، MD-9 clean، MD-10 ocr) */
@@ -466,19 +996,53 @@ export function createMedia(app) {
       }
     },
 
-    /** فقرات الخصوصية (§10، L12-62) لصفحة /privacy — MD-11؛ نص ثابت تختاره الإعدادات، بلا مدخلات مستخدم */
-    privacyHtml(_side = 'paid') {
-      return '';
+    /**
+     * فقرات الخصوصية (M §10، L12-62، MD-11) في §7 من /privacy: نص ثابت تختاره الإعدادات (لا مدخلات مستخدم إلا اسم
+     * المزوّد مهرّبًا). الأفراد والشركات بصيغة الجمع، و«خيري» بالمخاطَب المفرد كبقية الصفحة.
+     *  • تحويل الصوت: جهة خارجية (باسمها، «وقد تُعالج خارج مصر») أو خادم المكتب؛ لا فقرة والتحويل متوقف، ولا فقرة جهة خارجية
+     *    في صفحة «خيري» ما لم يُفعَّل تحويل صوت المستفيدات عندها (stt_charity_third_party).
+     *  • المستندات: دائمًا، وجملة Claude حين يُسمح بإرسال صور المستندات إليه (ocr_claude_allowed).
+     */
+    privacyHtml(side = 'paid') {
+      const paid = side === 'paid';
+      const out = [];
+      const st = app.stt?.settings?.() || {};
+      const provider = String(st.provider || 'off');
+      if (provider !== 'off' && app.stt?.configured?.()) {
+        const third = app.stt.isThirdParty();
+        const lawyer = paid
+          ? 'ولا يطّلع المحامي على هذا النص الآلي، ولا على تسجيلاتكم إلا إذا أتاحها له فريقنا لدراسة موضوعكم.'
+          : 'ولا يطّلع المحامي على هذا النص الآلي، ولا على تسجيلاتك إلا إذا أتاحها له فريقنا لدراسة موضوعك.';
+        if (third && (paid || app.settings.get('stt_charity_third_party') === true)) {
+          const vendor = escHtml(String(st.vendorName || '').trim().slice(0, 60));
+          const who = vendor ? `جهة تقنية خارجية (<bdi>${vendor}</bdi>)` : 'جهة تقنية خارجية';
+          out.push(
+            `<p data-tag="PV-01"><strong>تحويل الرسائل الصوتية إلى نص.</strong> ${paid ? 'عندما ترسلون لنا رسالة صوتية' : 'عندما ترسل لنا رسالة صوتية'}، قد نستعين بخدمة تحويل الكلام إلى نص تقدّمها ${who}، وقد تُعالج خارج مصر، ${paid ? 'لنكتب ما قلتموه بسرعة' : 'لنكتب ما قلته بسرعة'}. يُرسل التسجيل إليها لهذا الغرض وحده، ولا يُستخدم في تدريب نماذجها، ويراجع فريقنا النص قبل الاعتماد عليه. ${lawyer}</p>`,
+          );
+        } else if (!third) {
+          out.push(
+            `<p data-tag="PV-02"><strong>تحويل الرسائل الصوتية إلى نص.</strong> ${paid ? 'عندما ترسلون لنا رسالة صوتية' : 'عندما ترسل لنا رسالة صوتية'}، نحوّل الرسالة الصوتية إلى نص على أجهزة يملكها المكتب، دون إرسالها إلى أي جهة خارجية، ويراجع فريقنا النص قبل الاعتماد عليه. ${lawyer}</p>`,
+          );
+        }
+      }
+      const read = app.settings.get('ocr_claude_allowed') === true
+        ? '<span data-tag="PV-04">وقد نستعين في قراءة النص بأداة الذكاء الاصطناعي <bdi dir="ltr">Claude</bdi> من شركة <bdi dir="ltr">Anthropic</bdi>، فتُرسل صورة المستند إليها لهذا الغرض وحده ولا تُستخدم في تدريب نماذجها.</span>'
+        : 'وتتم هذه القراءة على خوادمنا.';
+      out.push(
+        `<p data-tag="PV-03"><strong>تحسين صور المستندات وقراءتها.</strong> ${paid ? 'عندما ترسلون صورة مستند' : 'عندما ترسل صورة مستند'}، نقصّ حوافها ونعدّل إضاءتها لتصبح واضحة، ونحتفظ بالصورة الأصلية ${paid ? 'كما أرسلتموها' : 'كما أرسلتها'}. وقد نستخرج النص المكتوب في المستند آليًا ليسهل علينا البحث فيه، ${read}</p>`,
+      );
+      return out.join('\n');
     },
-    /** سطر حذف البيانات لصفحة /data-deletion — MD-11 */
-    deletionHtml(_side = 'paid') {
-      return '';
+    /** سطر حذف البيانات (M §10) لصفحة /data-deletion */
+    deletionHtml(side = 'paid') {
+      const your = side === 'paid' ? 'كم' : 'ك';
+      return `<p data-tag="DD-01">ويشمل الحذف النسخ المحسّنة من صور مستندات${your} والنصوص المستخرجة منها ونصوص رسائل${your} الصوتية.</p>`;
     },
 
     /**
      * H-M2 (MD-4، L12-61، L12-73): تنزيل نسخة من مستند لمن يملك الوصول إليه (canAccess عند المستدعي).
      * file ∈ display (الافتراضي: ما يعرضه display_file_id) | main | clean | original، page ≥ 1. لا يُحل إلا
-     * WHERE document_id = doc.id، وغير الموجود 404. أصل JPEG للمحامي بلا EXIF/XMP، والملف المخزّن كما هو.
+     * WHERE document_id = doc.id، وغير الموجود 404. كل JPEG للمحامي بلا EXIF/XMP، والملف المخزّن كما هو.
      */
     downloadVariant(doc, user, { file = null, page = null, inline = false, res } = {}) {
       const nf = () => new ApiError(404, 'المستند غير موجود', 'not_found');
@@ -493,6 +1057,8 @@ export function createMedia(app) {
       if (f === 'display') {
         if (doc.display_file_id) variant = row('id = ?', doc.display_file_id);
         if (doc.display_file_id && !variant) throw nf();
+        // نسخة الخادم الآلية لا تدخل النسخ الاحتياطية (H-M10): بعد استعادة نسخة يُعرض الأصل حتى يعيدها الاستكمال
+        if (variant && variant.source === 'server_auto' && !fs.existsSync(path.resolve(uploadsDir, variant.storage_key))) variant = null;
         if (p !== 1 && !variant) throw nf();
       } else if (f === 'main') {
         if (p !== 1) throw nf();
@@ -504,7 +1070,9 @@ export function createMedia(app) {
         variant = row("role = 'original' AND page = ? ORDER BY id LIMIT 1", p);
         if (!variant) throw nf();
       } else if (p !== 1) throw nf();
-      app.documents.send(res, doc, { inline, variant, strip: strip && (f === 'original' || variant?.role === 'original') });
+      // L12-73 (مراجعة 12.0): كل JPEG يصل لمحامٍ بلا EXIF/GPS، لا الأصل المطلوب بـ ?file=original وحده: صورة عميل لم تمر
+      // بالماسح هي نفسها «الأصل» وتُنزَّل افتراضيًا. النسخ المحسّنة بلا بيانات وصفية أصلًا، والملف المخزّن وبصمته كما هما.
+      app.documents.send(res, doc, { inline, variant, strip });
       return true;
     },
 
@@ -635,14 +1203,262 @@ export function createMedia(app) {
       };
     },
 
-    /** بحث الفريق في النص المقروء آليًا (H-M7) — MD-10 */
-    searchStaff(_q) {
-      return [];
+    /** طريقة القراءة المضبوطة: auto | tesseract | claude | off */
+    ocrProvider() {
+      const p = String(app.settings.get('ocr_provider') || 'auto');
+      return OCR_PROVIDERS.includes(p) ? p : 'auto';
     },
 
-    /** تنبيهات «صحة النظام» (H-M10): ذاكرة < 1 جيجابايت، النسخ الاحتياطية والقرص، سياسة ImageMagick — MD-11 */
+    /**
+     * GET /api/admin/documents/:id/text (للفريق فقط، L12-17): النص المقروء آليًا صفحةً صفحة + ما يمكن طلبه.
+     * سجل الأمان document.text_viewed (info).
+     */
+    textOf(docId, user, ctx = null) {
+      const doc = app.documents.get(docId);
+      if (!doc) throw notFound('المستند غير موجود');
+      const pages = db
+        .all('SELECT page, text, provider, model, confidence, chars, status, corrected_by, updated_at FROM document_text WHERE document_id = ? ORDER BY page', doc.id)
+        .map((r) => ({ page: r.page, text: r.text, provider: r.provider, provider_label: OCR_SOURCE_LABELS[r.provider] || r.provider, model: r.model, confidence: r.confidence, chars: r.chars, status: r.status, updated_at: r.updated_at }));
+      const job = db.get("SELECT state, error, provider, next_page, updated_at FROM media_jobs WHERE kind = 'ocr' AND document_id = ?", doc.id) || null;
+      app.audit.log({ actor: user, ctx, type: 'document.text_viewed', severity: 'info', summary: `عرض النص المستخرج من المستند «${doc.title || doc.filename}»`, data: { document_id: doc.id, pages: pages.length } });
+      const readable = OCR_MIMES.has(doc.mime) && doc.scan_state !== 'skipped';
+      return {
+        document_id: doc.id,
+        state: doc.ocr_state || null,
+        job: job ? { state: job.state, error: job.error, provider: job.provider, page: job.next_page ?? null } : null,
+        pages,
+        can_read: readable && svc.ocrProvider() !== 'off',
+        can_claude: readable && !claudeBlock(doc, { priority: 0 }),
+        claude_reason: readable ? claudeBlock(doc, { priority: 0 }) : 'unsupported',
+        label: OCR_LABEL,
+      };
+    },
+
+    /** PUT /api/admin/documents/:id/text/:page (P1): تصحيح الفريق ← status = 'corrected'، يُسجَّل document.text_corrected */
+    correctText(docId, pageRaw, body, user, ctx = null) {
+      const doc = app.documents.get(docId);
+      if (!doc) throw notFound('المستند غير موجود');
+      const page = Number(pageRaw);
+      if (!Number.isInteger(page) || page < 1 || page > 100) throw notFound('الصفحة غير موجودة');
+      const row = db.get('SELECT * FROM document_text WHERE document_id = ? AND page = ?', doc.id, page);
+      if (!row) throw notFound('لا يوجد نص مقروء لهذه الصفحة');
+      const text = typeof body?.text === 'string' ? body.text.replace(/\r\n/g, '\n') : null;
+      if (text === null) throw badRequest('النص مطلوب', { fields: { text: 'مطلوب' } });
+      if (text.length > OCR_TEXT_MAX) throw badRequest('النص أطول من المسموح (50,000 حرف)', { fields: { text: 'طويل' } });
+      const norm = normalizeArabic(text);
+      const t = nowIso();
+      db.tx(() => {
+        db.run("UPDATE document_text SET text = ?, norm = ?, chars = ?, status = 'corrected', corrected_by = ?, updated_at = ? WHERE document_id = ? AND page = ?", text, norm, text.length, user?.id ?? null, t, doc.id, page);
+        ftsWrite(doc.id, page, norm);
+        if (text.trim()) db.run("UPDATE documents SET ocr_state = 'done' WHERE id = ?", doc.id);
+      });
+      app.audit.log({ actor: user, ctx, type: 'document.text_corrected', summary: `تصحيح النص المستخرج من الصفحة ${page} في المستند «${doc.title || doc.filename}»`, data: { document_id: doc.id, page, chars: text.length } });
+      return { page, status: 'corrected', chars: text.length, updated_at: t };
+    },
+
+    /**
+     * POST /api/admin/documents/:id/ocr { provider?: 'tesseract' | 'claude' } (30 في الساعة): قراءة الآن بأولوية الفريق.
+     * Claude فقط حين يسمح الإعداد وشروطه (L12-19). سجل الأمان document.ocr_requested.
+     */
+    requestOcr(docId, body, user, ctx = null) {
+      const doc = app.documents.get(docId);
+      if (!doc) throw notFound('المستند غير موجود');
+      if (!OCR_MIMES.has(doc.mime) || doc.scan_state === 'skipped') throw badRequest('قراءة النص للصور وملفات PDF فقط');
+      const provider = body?.provider === undefined || body?.provider === null || body?.provider === '' ? null : String(body.provider);
+      if (provider !== null && provider !== 'tesseract' && provider !== 'claude') throw badRequest('طريقة القراءة غير معروفة', { fields: { provider: 'tesseract | claude' } });
+      if (svc.ocrProvider() === 'off' && provider !== 'claude') throw new ApiError(409, 'قراءة نص المستندات متوقفة من «الإعدادات».', 'ocr_off');
+      if (provider === 'claude') {
+        const why = claudeBlock(doc, { priority: 10 });
+        if (why) throw new ApiError(409, CLAUDE_BLOCK_TEXT[why] || 'القراءة بـ Claude غير متاحة لهذا المستند.', `claude_${why}`);
+      }
+      const jobId = svc.enqueue('ocr', doc.id, { priority: 10, requestedBy: user?.id ?? null, provider });
+      app.audit.log({ actor: user, ctx, type: 'document.ocr_requested', summary: `طلب قراءة نص المستند «${doc.title || doc.filename}»${provider === 'claude' ? ' بـ Claude' : ''}`, data: { document_id: doc.id, provider, job_id: jobId } });
+      return { queued: jobId !== null, running: jobId === null, job_id: jobId };
+    },
+
+    /** POST /api/admin/documents/:id/rescan: إعادة التنظيف الآلي (لصور العملاء المؤهلة) والقراءة. media.job_requested */
+    rescan(docId, user, ctx = null) {
+      const doc = app.documents.get(docId);
+      if (!doc) throw notFound('المستند غير موجود');
+      const kinds = [];
+      if (!autoCleanBlock(doc) && app.settings.get('scan_server_auto') !== false) {
+        svc.enqueue('clean', doc.id, { priority: 10, requestedBy: user?.id ?? null });
+        kinds.push('clean');
+      }
+      if (OCR_MIMES.has(doc.mime) && doc.scan_state !== 'skipped' && svc.ocrProvider() !== 'off') {
+        svc.enqueue('ocr', doc.id, { priority: 10, requestedBy: user?.id ?? null });
+        kinds.push('ocr');
+      }
+      if (!kinds.length) throw new ApiError(409, 'لا توجد معالجة متاحة لهذا المستند الآن.', 'nothing_to_do');
+      app.audit.log({ actor: user, ctx, type: 'media.job_requested', summary: `طلب إعادة معالجة المستند «${doc.title || doc.filename}»`, data: { document_id: doc.id, kinds } });
+      return { queued: kinds };
+    },
+
+    /**
+     * بحث الفريق في النص المقروء آليًا (H-M7، L12-37): q من 3 إلى 100 حرف، عبارة مقتبسة في FTS5 (trigram) وإلا LIKE
+     * بـ ESCAPE؛ 10 نتائج على الأكثر، مستندات موجودة فقط، ومقتطف ≤ 120 حرفًا. للفريق فقط (لا بحث للمحامي، L12-17).
+     */
+    searchStaff(qRaw) {
+      const q = String(qRaw ?? '').trim();
+      if (q.length < 3 || q.length > 100) return [];
+      const nq = normalizeArabic(q).replace(/\s+/g, ' ').trim();
+      if (nq.replace(/\s/g, '').length < 3) return [];
+      const cols = 't.document_id, t.page, t.text, d.title, d.filename, d.intake_id, d.case_id, d.matter_id, d.company_request_id';
+      let rows = null;
+      if (ftsOk) {
+        try {
+          rows = db.all(
+            `SELECT ${cols} FROM document_text_fts f JOIN document_text t ON t.document_id = f.document_id AND t.page = f.page
+             JOIN documents d ON d.id = f.document_id WHERE document_text_fts MATCH ? ORDER BY d.id DESC, t.page LIMIT 10`,
+            '"' + nq.replace(/"/g, '""') + '"',
+          );
+        } catch {
+          rows = null;
+        }
+      }
+      if (rows === null) {
+        const like = '%' + nq.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
+        rows = db.all(`SELECT ${cols} FROM document_text t JOIN documents d ON d.id = t.document_id WHERE t.norm LIKE ? ESCAPE '\\' ORDER BY d.id DESC, t.page LIMIT 10`, like);
+      }
+      return rows.map((r) => ({
+        id: r.document_id,
+        title: r.title || r.filename,
+        page: r.page,
+        snippet: snippetOf(r.text, nq),
+        href: r.intake_id ? `#/inbox/${r.intake_id}` : r.case_id ? `#/cases/${r.case_id}` : r.matter_id ? `#/matters/${r.matter_id}` : r.company_request_id ? `#/company-requests/${r.company_request_id}` : null,
+      }));
+    },
+
+    /**
+     * تنبيهات «صحة النظام» (H-M10، MD-11): ذاكرة الخادم < 1 جيجابايت (SYS-09)، المرفقات × (عدد النسخ الاحتياطية + 1) > 70 %
+     * من القرص (SYS-10)، وImageMagick مثبت بلا السياسة المرفقة. → [{ key, level, title, detail, href }]
+     */
     healthChecks() {
-      return [];
+      const out = [];
+      try {
+        const m = svc.memory();
+        if (Number(m.limit) > 0 && Number(m.limit) < MEMORY_SLOW_BELOW) {
+          out.push({ key: 'media_memory', level: 'warning', title: 'ذاكرة الخادم أقل من 1 جيجابايت: تنظيف الصور وقراءتها أبطأ', detail: 'تعمل المعالجة صورةً صورة ولا تبدأ إلا مع 300 ميجابايت متاحة على الأقل، فتتأخر عند الضغط. خادم بذاكرة 1 جيجابايت أو أكثر يكفي.', href: null });
+        }
+      } catch (e) {
+        app.log('media health: memory', e);
+      }
+      try {
+        const now = Date.now();
+        if (!diskEstimate || now - diskEstimate.at > 10 * 60 * 1000) {
+          let bytes = 0;
+          const stack = [uploadsDir];
+          while (stack.length) {
+            const dir = stack.pop();
+            let ents = [];
+            try {
+              ents = fs.readdirSync(dir, { withFileTypes: true });
+            } catch {
+              continue;
+            }
+            for (const e of ents) {
+              const abs = path.join(dir, e.name);
+              if (e.isDirectory()) {
+                if (path.relative(uploadsDir, abs) !== path.join('variants', 'auto')) stack.push(abs); // نسخ الخادم الآلية لا تُنسخ احتياطيًا
+              } else if (e.isFile()) {
+                try {
+                  bytes += fs.statSync(abs).size;
+                } catch {
+                  // حُذف للتو
+                }
+              }
+            }
+          }
+          let total = null;
+          try {
+            const st = fs.statfsSync(config.dataDir || path.dirname(config.dbPath));
+            total = Number(st.blocks) * Number(st.bsize);
+          } catch {
+            total = null;
+          }
+          diskEstimate = { at: now, bytes, total };
+        }
+        const retention = Number(app.settings.get('backup_retention')) || 14;
+        if (diskEstimate.total && diskEstimate.bytes * (retention + 1) > 0.7 * diskEstimate.total) {
+          out.push({ key: 'media_disk', level: 'warning', title: 'النسخ الاحتياطية قد تملأ القرص: انقل إلى قرص 10 جيجابايت أو قلّل مدة الاحتفاظ إلى 7 أيام.', detail: 'المرفقات مضروبة في عدد النسخ الاحتياطية المحفوظة تتجاوز 70 % من مساحة القرص.', href: '#/system' });
+        }
+      } catch (e) {
+        app.log('media health: disk', e);
+      }
+      const im = tools.status()?.imagemagick;
+      if (im && im.bin && !im.ok && im.reason === 'policy') {
+        out.push({ key: 'media_policy', level: 'warning', title: 'ImageMagick مثبت لكن سياسة الأمان المرفقة غير مفعّلة', detail: 'لا تُنظَّف صور واتساب على الخادم حتى تُنسخ deploy/imagemagick/policy.xml إلى /etc/ImageMagick-6/policy.xml (صورة Docker تفعل ذلك). «نظّف المستند» في المتصفح يعمل.', href: null });
+      }
+      return out;
+    },
+
+    /**
+     * GET /api/admin/media/status (مدير النظام، P1): يفحص الأدوات (مرة لكل عملية، أو من جديد مع probe) ثم الحالة.
+     * سجل الأمان media.status_viewed (info).
+     */
+    async statusFor(user, ctx = null, { probe = false } = {}) {
+      await tools.probe({ force: !!probe });
+      const st = svc.status();
+      const m = svc.memory();
+      app.audit.log({ actor: user, ctx, type: 'media.status_viewed', severity: 'info', summary: probe ? 'فحص أدوات المستندات والصوت على الخادم' : 'عرض حالة معالجة المستندات والصوت', data: { probe: !!probe } });
+      return { ...st, memory: { limit_bytes: m.limit, headroom_bytes: m.headroom, source: m.source }, ocr_provider: svc.ocrProvider(), scan_server_auto: app.settings.get('scan_server_auto') !== false };
+    },
+
+    /**
+     * POST /api/admin/media/backfill { kind: 'stt' | 'clean' | 'ocr', days ≤ 90 } (مدير النظام، P1، 5 في اليوم):
+     * الأحدث أولًا بأولوية −5. تحويل الصوت: رسائل العملاء من آخر days يومًا، وعند جهة خارجية من تاريخ الإعلان فقط
+     * (L12-62). التنظيف: صور العملاء المؤهلة (ومنها نسخ الخادم التي لم تعد على القرص بعد استعادة نسخة احتياطية). القراءة:
+     * الصور وملفات PDF بلا نص. الاستكمال لا يستخدم Claude أبدًا. سجل الأمان media.backfill_queued (warning).
+     */
+    backfill(body, user, ctx = null) {
+      const kind = String(body?.kind || '');
+      if (!JOB_KINDS.includes(kind)) throw badRequest('اختر نوع الاستكمال', { fields: { kind: 'stt | clean | ocr' } });
+      const days = body?.days === undefined ? (kind === 'stt' ? 30 : 90) : Number(body.days);
+      if (!Number.isInteger(days) || days < 1 || days > 90) throw badRequest('عدد الأيام من 1 إلى 90', { fields: { days: '1–90' } });
+      let since = new Date(Date.parse(nowIso()) - days * 86400000).toISOString();
+      let rows = [];
+      if (kind === 'stt') {
+        if (!app.stt?.configured?.()) throw new ApiError(409, 'تحويل الرسائل الصوتية إلى نص غير مضبوط. اضبطه من «التكاملات».', 'stt_off');
+        const disclosed = String(app.settings.get('stt_third_party_since') || '');
+        if (app.stt.isThirdParty() && disclosed && disclosed > since) since = disclosed;
+        rows = db.all(
+          `SELECT d.id FROM documents d WHERE d.uploaded_by_kind = 'client' AND d.mime LIKE 'audio/%' AND d.created_at >= ?
+             AND NOT EXISTS (SELECT 1 FROM voice_auto_transcripts a WHERE a.document_id = d.id AND a.state = 'done')
+             AND NOT EXISTS (SELECT 1 FROM media_jobs j WHERE j.document_id = d.id AND j.kind = 'stt' AND j.state IN ('queued', 'running'))
+           ORDER BY d.id DESC LIMIT 500`,
+          since,
+        );
+        rows = rows.filter((r) => {
+          const pol = app.stt.policy?.(app.documents.get(r.id)) || {};
+          return !['charity', 'before_disclosure', 'mime', 'too_big', 'too_long'].includes(pol.reason);
+        });
+      } else if (kind === 'clean') {
+        if (app.settings.get('scan_server_auto') === false) throw new ApiError(409, 'تحسين الصور على الخادم متوقف من «الإعدادات».', 'clean_off');
+        // نسخ الخادم الآلية التي لم تعد على القرص (لا تدخل النسخ الاحتياطية، H-M10): تُحذف صفوفها ثم يعاد التنظيف
+        for (const f of db.all("SELECT f.id, f.document_id, f.storage_key FROM document_files f JOIN documents d ON d.id = f.document_id WHERE f.source = 'server_auto' AND d.created_at >= ?", since)) {
+          if (fs.existsSync(path.resolve(uploadsDir, f.storage_key))) continue;
+          db.tx(() => {
+            db.run('UPDATE documents SET display_file_id = NULL WHERE id = ? AND display_file_id = ?', f.document_id, f.id);
+            db.run('DELETE FROM document_files WHERE id = ?', f.id);
+            if (!db.get("SELECT 1 FROM document_files WHERE document_id = ? AND role = 'clean'", f.document_id)) db.run("UPDATE documents SET scan_state = NULL WHERE id = ? AND scan_state = 'server'", f.document_id);
+          });
+        }
+        rows = db
+          .all("SELECT * FROM documents WHERE uploaded_by_kind = 'client' AND mime IN ('image/jpeg', 'image/png', 'image/webp') AND scan_state IS NULL AND created_at >= ? ORDER BY id DESC LIMIT 500", since)
+          .filter((d) => !autoCleanBlock(d));
+      } else {
+        if (svc.ocrProvider() === 'off') throw new ApiError(409, 'قراءة نص المستندات متوقفة من «الإعدادات».', 'ocr_off');
+        rows = db.all(
+          `SELECT d.id FROM documents d WHERE d.mime IN ('image/jpeg', 'image/png', 'image/webp', 'application/pdf') AND COALESCE(d.scan_state, '') != 'skipped'
+             AND d.created_at >= ? AND NOT EXISTS (SELECT 1 FROM document_text t WHERE t.document_id = d.id)
+           ORDER BY d.id DESC LIMIT 500`,
+          since,
+        );
+      }
+      let queued = 0;
+      for (const r of rows) if (svc.enqueue(kind, r.id, { priority: -5, requestedBy: user?.id ?? null, provider: kind === 'ocr' ? 'tesseract' : null }) !== null) queued += 1;
+      app.audit.log({ actor: user, ctx, type: 'media.backfill_queued', severity: 'warning', summary: `استكمال ${BACKFILL_LABELS[kind]} لآخر ${days} يومًا: ${queued} مستند`, data: { kind, days, since, queued } });
+      return { kind, days, since, queued };
     },
 
     /**
@@ -712,6 +1528,8 @@ export function createMedia(app) {
       if (followUp) clearTimeout(followUp);
       followUp = null;
       tools.killAll();
+      for (const c of childProcs) killChild(c);
+      childProcs.clear();
       if (loop) {
         try {
           await loop;
@@ -724,6 +1542,10 @@ export function createMedia(app) {
 
   // MD-6: تحويل الرسائل الصوتية إلى نص (وحدة = رسالة واحدة؛ السياسة والمحاولات في src/ai/stt.js)
   if (app.stt?.runJob) svc.registerHandler('stt', (job) => app.stt.runJob(job));
+  // MD-9: تنظيف صور العملاء التي لم تمر بماسح الهاتف (وحدة = صورة واحدة في عملية فرعية)
+  svc.registerHandler('clean', (job) => cleanUnit(job));
+  // MD-10: قراءة النص (وحدة = صفحة واحدة)
+  svc.registerHandler('ocr', (job) => ocrUnit(job));
 
   // المجدول يوقظ الحلقة فقط (لا ينتظرها): قفل runDue لا يُمسك أثناء التحويل أو التنظيف (L12-69)
   app.jobs.register('media.process', {

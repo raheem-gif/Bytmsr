@@ -25,11 +25,11 @@ export default async function render(ctx) {
       ctx.refreshShell();
       toast('تم تحديد كل الإشعارات كمقروءة', 'success');
     },
-    { icon: 'check', variant: 'secondary' },
+    { icon: 'check', variant: 'secondary', tag: 'NTF-01' },
   );
 
-  const segAll = h('button.seg', { type: 'button', onClick: () => setFilter('all') });
-  const segUnread = h('button.seg', { type: 'button', onClick: () => setFilter('unread') });
+  const segAll = h('button.seg', { type: 'button', onClick: () => setFilter('all'), tag: 'NTF-02' });
+  const segUnread = h('button.seg', { type: 'button', onClick: () => setFilter('unread'), tag: 'NTF-03' });
   const segmented = h('div.segmented', { role: 'group', 'aria-label': 'تصفية الإشعارات' }, segAll, segUnread);
 
   function setFilter(f) {
@@ -58,7 +58,7 @@ export default async function render(ctx) {
       { class: unread && 'is-unread' },
       h(
         'button.notif-item',
-        { type: 'button', class: unread && 'is-unread', onClick: () => open(n) },
+        { type: 'button', class: unread && 'is-unread', onClick: () => open(n), tag: 'NTF-04' },
         h('span.notif-icon', { class: notifTone(n.type) }, icon(notifIcon(n.type), { size: 18 })),
         h(
           'span.notif-text',
@@ -71,7 +71,7 @@ export default async function render(ctx) {
       unread &&
         h(
           'div.notif-row-actions',
-          asyncButton('', () => markOne(n), { variant: 'ghost', size: 'sm', icon: 'check', title: 'تحديد كمقروء' }),
+          asyncButton('', () => markOne(n), { variant: 'ghost', size: 'sm', icon: 'check', title: 'تحديد كمقروء', tag: 'NTF-05' }),
         ),
     );
   }
@@ -89,7 +89,7 @@ export default async function render(ctx) {
     if (!shown.length) {
       mount(
         listHost,
-        emptyState(filter === 'unread' ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات حتى الآن', null, { icon: 'bell' }),
+        emptyState(filter === 'unread' ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات حتى الآن', null, { icon: 'bell', tag: 'NTF-06' }),
       );
       return;
     }
@@ -104,7 +104,7 @@ export default async function render(ctx) {
       ].filter(([, list]) => list.length);
       mount(
         listHost,
-        groups.map(([title, list]) => h('section.lh-notif-group', h('h2.lh-notif-day', title), h('ul.notif-list.lh-notif-clamp', list.map(row)))),
+        groups.map(([title, list]) => h('section.lh-notif-group', { tag: 'NTF-07' }, h('h2.lh-notif-day', { tag: 'NTF-08' }, title), h('ul.notif-list.lh-notif-clamp', list.map(row)))),
       );
       return;
     }
@@ -112,9 +112,9 @@ export default async function render(ctx) {
   }
 
   draw();
-  const header = pageHeader({ title: 'الإشعارات', actions: markAllBtn });
+  const header = pageHeader({ title: 'الإشعارات', actions: markAllBtn, titleTag: 'NTF-09', tag: 'NTF-10' });
   header.querySelector('.page-header-text').append(subtitle);
   // v9.1 l-home: غلاف للمحامي (أهداف لمس 44px على الهاتف في v91-l-home.css) — صفحة الإدارة كما هي
-  if (ctx.user && ctx.user.role === 'lawyer') return h('div.lh-notif-page', header, segmented, card({ body: listHost, flush: true }));
-  return frag(header, segmented, card({ body: listHost, flush: true }));
+  if (ctx.user && ctx.user.role === 'lawyer') return h('div.lh-notif-page', header, segmented, card({ body: listHost, flush: true, tag: 'NTF-11' }));
+  return frag(header, segmented, card({ body: listHost, flush: true, tag: 'NTF-12' }));
 }

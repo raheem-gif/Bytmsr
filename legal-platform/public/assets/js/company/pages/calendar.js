@@ -49,7 +49,7 @@ export default async function calendar(ctx) {
     }
   }
   function render(items) {
-    if (!items.length) return mount(listEl, emptyState(M.cal_empty, null, { icon: 'calendar' }));
+    if (!items.length) return mount(listEl, emptyState(M.cal_empty, null, { icon: 'calendar', tag: 'CD-01' }));
     const groups = new Map();
     for (const d of items) {
       const k = d.date.slice(0, 7);
@@ -61,7 +61,7 @@ export default async function calendar(ctx) {
       [...groups].map(([ym, list]) =>
         h(
           'section.co-section.co-agenda',
-          h('header.co-section-head', h('h2.co-section-title', monthLabel(ym))),
+          { tag: 'CD-02' }, h('header.co-section-head', { tag: 'CD-03' }, h('h2.co-section-title', { tag: 'CD-04' }, monthLabel(ym))),
           h(
             'ul.co-agenda-list',
             list.map((d) =>
@@ -69,7 +69,7 @@ export default async function calendar(ctx) {
                 'li',
                 h(
                   'a.co-agenda-row',
-                  { href: `#/memory/item/${encodeURIComponent(d.memory_id)}` },
+                  { href: `#/memory/item/${encodeURIComponent(d.memory_id)}`, tag: 'CD-05' },
                   h('span.co-agenda-day', h('span.co-agenda-num.num', String(Number(d.date.slice(8, 10)))), h('span.co-agenda-wd', weekday(`${d.date}T10:00:00Z`))),
                   h('span.co-agenda-icon', { 'aria-hidden': 'true' }, kindIcon(d.kind, 20)),
                   h('span.co-agenda-text', h('span.co-agenda-title', { dir: 'auto' }, d.title), h('span.co-muted', `${d.kind_label} · ${d.date_kind_label}`)),
@@ -84,17 +84,17 @@ export default async function calendar(ctx) {
   const rangeSeg = h(
     'div.co-seg',
     { role: 'group', 'aria-label': M.range_label },
-    RANGES.map(([k, label]) => h('button.co-seg-btn', { type: 'button', 'aria-pressed': st.range === k ? 'true' : 'false', onClick: (e) => { st.range = k; rangeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); syncHash(); load(); } }, label)),
+    RANGES.map(([k, label]) => h('button.co-seg-btn', { type: 'button', 'aria-pressed': st.range === k ? 'true' : 'false', onClick: (e) => { st.range = k; rangeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); syncHash(); load(); }, tag: 'CD-06' }, label)),
   );
   const kindSel = h(
     'select.input',
-    { 'aria-label': M.kind_label, onChange: () => { st.kind = kindSel.value; syncHash(); load(); } },
+    { 'aria-label': M.kind_label, onChange: () => { st.kind = kindSel.value; syncHash(); load(); }, tag: 'CD-07' },
     h('option', { value: '' }, M.kind_all),
     MEMORY_KINDS.filter((k) => isAdmin() || !ADMIN_KINDS.has(k.key)).map((k) => h('option', { value: k.key }, k.list_label)),
   );
   kindSel.value = st.kind;
   await load();
-  const add = canAdd(kinds, 'key_date') ? button(M.add_date, { variant: 'secondary', icon: 'plus', href: '#/memory/new/key-dates' }) : null;
+  const add = canAdd(kinds, 'key_date') ? button(M.add_date, { variant: 'secondary', icon: 'plus', href: '#/memory/new/key-dates', tag: 'CD-08' }) : null;
   return h(
     'div.co-page.co-calendar',
     pageHead(W.nav.calendar, M.cal_sub, { actions: add }),

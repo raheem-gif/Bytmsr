@@ -114,9 +114,10 @@ export default async function render(ctx) {
         card({
           body: emptyState(
             'أضيفوا أول شركة لتبدأ طلباتها في الوصول إلى «طلبات الشركات».',
-            isAdmin ? button('إضافة شركة', { variant: 'primary', icon: 'plus', onClick: () => openCreateCompany(ctx, { onCreated: load }) }) : null,
-            { icon: 'building', title: 'لا توجد شركات بعد' },
+            isAdmin ? button('إضافة شركة', { variant: 'primary', icon: 'plus', onClick: () => openCreateCompany(ctx, { onCreated: load }), tag: 'COL-01' }) : null,
+            { icon: 'building', title: 'لا توجد شركات بعد', tag: 'COL-02' },
           ),
+          tag: 'COL-03',
         }),
       );
       return;
@@ -133,7 +134,7 @@ export default async function render(ctx) {
           onRowClick: (c) => ctx.navigate(`/companies/${c.id}`),
           rowClass: (c) => (c.late ? 'is-late' : c.at_risk ? 'is-at-risk' : null),
           columns: [
-            { key: 'name', label: 'الشركة', render: (c) => h('div.cq-cell-req.cq-cell-co', h('a', { href: `#/companies/${c.id}` }, c.name), codeTag(c.prefix)) },
+            { key: 'name', label: 'الشركة', render: (c) => h('div.cq-cell-req.cq-cell-co', h('a', { href: `#/companies/${c.id}`, tag: 'COL-04' }, c.name), codeTag(c.prefix)), tag: 'COL-05' },
             // review: نهاية الفترة التجريبية تحت الحالة (عمود أقل؛ كان الجدول يتجاوز عرض 1366 ويُخفي آخر عمود)
             {
               key: 'status',
@@ -144,15 +145,19 @@ export default async function render(ctx) {
                   statusBadgeOf(c),
                   c.trial_ends_at ? h('time.muted.cq-trial', { datetime: c.trial_ends_at, title: dateTime(c.trial_ends_at) }, `${new Date(c.trial_ends_at) < new Date() ? 'انتهت التجربة' : 'تنتهي التجربة'} ${relative(c.trial_ends_at)}`) : null,
                 ),
+                tag: 'COL-06',
             },
-            { key: 'plan', label: 'الباقة', render: (c) => c.plan_name || '—' },
-            { key: 'am', label: 'مدير العلاقة', render: (c) => c.account_manager?.name || '—' },
-            { key: 'users', label: 'المستخدمون', render: (c) => h('span.num', String(c.users ?? 0)) },
-            { key: 'open', label: 'الطلبات المفتوحة', render: (c) => h('span.num', String(c.open_requests ?? 0)) },
-            { key: 'health', label: 'صحة الخدمة', render: healthChips },
-            { key: 'renewals', label: 'تجديدات خلال 30 يومًا', className: 'cq-col-num', render: (c) => h('span.num', String(c.renewals_30d ?? 0)) },
+            { key: 'plan', label: 'الباقة', render: (c) => c.plan_name || '—', tag: 'COL-07' },
+            { key: 'am', label: 'مدير العلاقة', render: (c) => c.account_manager?.name || '—', tag: 'COL-08' },
+            { key: 'users', label: 'المستخدمون', render: (c) => h('span.num', String(c.users ?? 0)), tag: 'COL-09' },
+            { key: 'open', label: 'الطلبات المفتوحة', render: (c) => h('span.num', String(c.open_requests ?? 0)), tag: 'COL-10' },
+            { key: 'health', label: 'صحة الخدمة', render: healthChips, tag: 'COL-11' },
+            { key: 'renewals', label: 'تجديدات خلال 30 يومًا', className: 'cq-col-num', render: (c) => h('span.num', String(c.renewals_30d ?? 0)), tag: 'COL-12' },
           ],
+          rowTag: 'COL-13',
+          tag: 'COL-14',
         }),
+        tag: 'COL-15',
       }),
     );
   }
@@ -176,12 +181,14 @@ export default async function render(ctx) {
     pageHeader({
       title: 'الشركات العميلة',
       subtitle: 'الشركات التي نعمل إدارةً قانونية خارجية لها، مرتبة بالأحوج للانتباه أولًا.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الشركات العميلة' }],
-      actions: isAdmin ? button('إضافة شركة', { variant: 'primary', icon: 'plus', onClick: () => openCreateCompany(ctx, { onCreated: load }) }) : null,
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'COL-16' }, { label: 'الشركات العميلة' }],
+      actions: isAdmin ? button('إضافة شركة', { variant: 'primary', icon: 'plus', onClick: () => openCreateCompany(ctx, { onCreated: load }), tag: 'COL-17' }) : null,
+      titleTag: 'COL-18',
+      tag: 'COL-19',
     }),
     filterBar([
-      searchInput({ placeholder: 'اسم الشركة أو البادئة', label: 'بحث في الشركات', value: state.q, onSearch: (v) => ((state.q = v), load()) }),
-      selectInput({ label: 'الحالة', allLabel: 'كل الحالات', options: STATUS, value: state.status, onChange: (v) => ((state.status = v), load()) }),
+      searchInput({ placeholder: 'اسم الشركة أو البادئة', label: 'بحث في الشركات', value: state.q, onSearch: (v) => ((state.q = v), load()), tag: 'COL-20' }),
+      selectInput({ label: 'الحالة', allLabel: 'كل الحالات', options: STATUS, value: state.status, onChange: (v) => ((state.status = v), load()), tag: 'COL-21' }),
     ]),
     host,
   );
@@ -278,15 +285,15 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
   let created = null;
 
   const alertHost = h('div.cs-alert', { 'aria-live': 'assertive' });
-  const sec = (title, ...children) => h('section.cs-section', h('h3.cs-section-title', title), ...children);
+  const sec = (title, ...children) => h('section.cs-section', { tag: 'COL-22' }, h('h3.cs-section-title', { tag: 'COL-23' }, title), ...children);
 
   // «الشركة»
   const fCompany = form(
     [
-      { name: 'name', label: 'الاسم المعروض', required: true, maxLength: 150, dir: 'auto', hint: 'يظهر لفريقنا وفي بوابة الشركة.' },
-      { name: 'prefix', label: 'البادئة', required: true, ltr: true, placeholder: 'NFD', hint: 'حروف لاتينية كبيرة من 2 إلى 5، تظهر في أكواد الطلبات مثل NFD-0001' },
+      { name: 'name', label: 'الاسم المعروض', required: true, maxLength: 150, dir: 'auto', hint: 'يظهر لفريقنا وفي بوابة الشركة.', tag: 'COL-36' },
+      { name: 'prefix', label: 'البادئة', required: true, ltr: true, placeholder: 'NFD', hint: 'حروف لاتينية كبيرة من 2 إلى 5، تظهر في أكواد الطلبات مثل NFD-0001', tag: 'COL-37' },
     ],
-    { values: { name: prefill?.name || '' }, footer: false },
+    { values: { name: prefill?.name || '' }, footer: false, tag: 'COL-38' },
   );
   const prefix = prefixChecker();
   prefix.attach(fCompany.control('prefix').input);
@@ -295,14 +302,14 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
   // «البيانات القانونية»
   const fLegal = form(
     [
-      { name: 'legal_name', label: 'الاسم القانوني', maxLength: 200, dir: 'auto' },
-      { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true },
-      { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true },
-      { name: 'industry', label: 'النشاط', maxLength: 120 },
-      { name: 'size_band', label: 'الحجم', type: 'select', options: SIZE_BANDS },
-      { name: 'address', label: 'العنوان', maxLength: 300, full: true },
+      { name: 'legal_name', label: 'الاسم القانوني', maxLength: 200, dir: 'auto', tag: 'COL-39' },
+      { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true, tag: 'COL-40' },
+      { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true, tag: 'COL-41' },
+      { name: 'industry', label: 'النشاط', maxLength: 120, tag: 'COL-42' },
+      { name: 'size_band', label: 'الحجم', type: 'select', options: SIZE_BANDS, tag: 'COL-43' },
+      { name: 'address', label: 'العنوان', maxLength: 300, full: true, tag: 'COL-44' },
     ],
-    { footer: false },
+    { footer: false, tag: 'COL-45' },
   );
 
   // «الاشتراك»
@@ -320,10 +327,11 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
           { value: 'active', label: 'نشطة' },
         ],
         onChange: () => syncTrial(),
+        tag: 'COL-46',
       },
-      { name: 'trial_days', label: 'مدة التجربة (يومًا)', type: 'number', integer: true, min: 1, max: 120 },
-      { name: 'plan', label: 'الباقة', type: 'select', required: true, placeholder: false, options: planOptions, onChange: (v) => ((planChoice = v || CUSTOM), drawPlan()) },
-      { name: 'starts_on', label: 'تاريخ البدء', type: 'date', required: true },
+      { name: 'trial_days', label: 'مدة التجربة (يومًا)', type: 'number', integer: true, min: 1, max: 120, tag: 'COL-47' },
+      { name: 'plan', label: 'الباقة', type: 'select', required: true, placeholder: false, options: planOptions, onChange: (v) => ((planChoice = v || CUSTOM), drawPlan()), tag: 'COL-48' },
+      { name: 'starts_on', label: 'تاريخ البدء', type: 'date', required: true, tag: 'COL-49' },
       {
         name: 'renews',
         label: 'التجديد',
@@ -334,9 +342,10 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
           { value: 'auto', label: 'تلقائي' },
           { value: 'manual', label: 'يدوي' },
         ],
+        tag: 'COL-50',
       },
     ],
-    { values: { status: 'trial', trial_days: trialDays, plan: planChoice, starts_on: cairoToday(), renews: 'auto' }, footer: false },
+    { values: { status: 'trial', trial_days: trialDays, plan: planChoice, starts_on: cairoToday(), renews: 'auto' }, footer: false, tag: 'COL-51' },
   );
   function syncTrial() {
     const trial = fSub.control('status').get() === 'trial';
@@ -358,10 +367,10 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
   // «الكيان الرئيسي»
   const fEntity = form(
     [
-      { name: 'entity_name', label: 'الاسم القانوني للكيان', maxLength: 200, dir: 'auto', hint: 'فارغ = الاسم القانوني للشركة.' },
-      { name: 'legal_form', label: 'الشكل القانوني', type: 'select', options: LEGAL_FORMS.map((k) => ({ value: k, label: label('legal_form', k) })) },
+      { name: 'entity_name', label: 'الاسم القانوني للكيان', maxLength: 200, dir: 'auto', hint: 'فارغ = الاسم القانوني للشركة.', tag: 'COL-52' },
+      { name: 'legal_form', label: 'الشكل القانوني', type: 'select', options: LEGAL_FORMS.map((k) => ({ value: k, label: label('legal_form', k) })), tag: 'COL-53' },
     ],
-    { footer: false },
+    { footer: false, tag: 'COL-54' },
   );
 
   // «مدير العلاقة (من فريقنا)»
@@ -374,21 +383,22 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
         required: true,
         options: staff.map((s) => ({ value: s.id, label: `${s.name} — ${label('user_role', s.role)}` })),
         hint: 'يراه مديرو البوابة باسمه: «مدير علاقتكم لدينا».',
+        tag: 'COL-55',
       },
     ],
-    { values: { account_manager_id: staff.some((s) => s.id === me.id) ? me.id : staff[0]?.id }, footer: false, columns: 1 },
+    { values: { account_manager_id: staff.some((s) => s.id === me.id) ? me.id : staff[0]?.id }, footer: false, columns: 1, tag: 'COL-56' },
   );
 
   // «أول مستخدم — مدير بوابة الشركة»
   const fAdmin = form(
     [
-      { name: 'fa_name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto' },
-      { name: 'fa_email', label: 'البريد الإلكتروني', type: 'email', required: true },
-      { name: 'fa_job_title', label: 'الوظيفة', maxLength: 120 },
-      { name: 'fa_phone', label: 'الهاتف', type: 'phone' },
-      { name: 'fa_billing', type: 'checkbox', text: 'يتلقى إشعارات التكاليف الإضافية (جهة الفواتير)' },
+      { name: 'fa_name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto', tag: 'COL-57' },
+      { name: 'fa_email', label: 'البريد الإلكتروني', type: 'email', required: true, tag: 'COL-58' },
+      { name: 'fa_job_title', label: 'الوظيفة', maxLength: 120, tag: 'COL-59' },
+      { name: 'fa_phone', label: 'الهاتف', type: 'phone', tag: 'COL-60' },
+      { name: 'fa_billing', type: 'checkbox', text: 'يتلقى إشعارات التكاليف الإضافية (جهة الفواتير)', tag: 'COL-61' },
     ],
-    { values: { fa_billing: true, fa_phone: prefill?.phone || '' }, footer: false },
+    { values: { fa_billing: true, fa_phone: prefill?.phone || '' }, footer: false, tag: 'COL-62' },
   );
 
   const forms = [fCompany, fLegal, fSub, fEntity, fManager, fAdmin];
@@ -415,7 +425,7 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
   };
 
   function showServerError(err) {
-    mount(alertHost, alertBox(errorMessage(err), 'danger'));
+    mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'COL-24' }));
     const fields = err?.details?.fields || {};
     let any = false;
     for (const [k, msg] of Object.entries(fields)) {
@@ -502,14 +512,15 @@ export async function openCreateCompany(ctx, { onCreated, prefill = null } = {})
       sec('أول مستخدم — مدير بوابة الشركة', h('p.cs-note', icon('info', { size: 16 }), 'يصله رابط دعوة ليختار كلمة مروره ويقبل شروط الخدمة، ثم يدعو زملاءه.'), fAdmin.el),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: 'إنشاء الشركة وإرسال الدعوة', variant: 'primary', icon: 'check', onClick: async () => ((await submit()) ? undefined : false) },
+      { label: 'إلغاء', variant: 'ghost', tag: 'COL-25' },
+      { label: 'إنشاء الشركة وإرسال الدعوة', variant: 'primary', icon: 'check', onClick: async () => ((await submit()) ? undefined : false), tag: 'COL-26' },
     ],
     onClose: () => {
       if (!created) return;
       if (onCreated) onCreated(created);
       showCreated(ctx, created);
     },
+    tag: 'COL-27',
   });
   syncTrial();
   drawPlan();
@@ -532,12 +543,12 @@ export function showCreated(ctx, res) {
     .filter(Boolean)
     .join('، ');
   const inviteBlock = inv.emailed
-    ? alertBox(email ? ['أرسلنا الدعوة إلى ', h('bdi', { dir: 'ltr' }, email), '.'] : 'أرسلنا الدعوة إلى البريد المسجل.', 'success', { icon: 'mail' })
+    ? alertBox(email ? ['أرسلنا الدعوة إلى ', h('bdi', { dir: 'ltr' }, email), '.'] : 'أرسلنا الدعوة إلى البريد المسجل.', 'success', { icon: 'mail', tag: 'COL-28' })
     : inv.url
       ? h(
           'div.cs-invite',
-          alertBox('البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning'),
-          h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: inv.url, 'aria-label': 'رابط الدعوة', onFocus: (e) => e.target.select() }), copyButton(inv.url, 'نسخ', { variant: 'secondary', size: 'md' })),
+          alertBox('البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning', { tag: 'COL-29' }),
+          h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: inv.url, 'aria-label': 'رابط الدعوة', onFocus: (e) => e.target.select(), tag: 'COL-30' }), copyButton(inv.url, 'نسخ', { variant: 'secondary', size: 'md', tag: 'COL-31' })),
         )
       : null;
   return modal({
@@ -547,12 +558,13 @@ export function showCreated(ctx, res) {
     body: h(
       'div.cs-body',
       h('p.cs-created-line', codeTag(co.prefix), ' ', co.status_label || '', ' · ', `مدير العلاقة: ${co.account_manager?.name || '—'}`),
-      conflicts.length ? alertBox(`تشابه أسماء محتمل: ${matchText || conflicts.length} — راجعها قبل بدء العمل.`, 'warning', { icon: 'alert' }) : null,
+      conflicts.length ? alertBox(`تشابه أسماء محتمل: ${matchText || conflicts.length} — راجعها قبل بدء العمل.`, 'warning', { icon: 'alert', tag: 'COL-32' }) : null,
       inviteBlock,
     ),
     actions: [
-      { label: 'إغلاق', variant: 'ghost' },
-      { label: 'فتح صفحة الشركة', variant: 'primary', onClick: () => ctx.navigate(`/companies/${co.id}`) },
+      { label: 'إغلاق', variant: 'ghost', tag: 'COL-33' },
+      { label: 'فتح صفحة الشركة', variant: 'primary', onClick: () => ctx.navigate(`/companies/${co.id}`), tag: 'COL-34' },
     ],
+    tag: 'COL-35',
   });
 }

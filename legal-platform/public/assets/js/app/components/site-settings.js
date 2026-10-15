@@ -58,24 +58,26 @@ export function siteSettingsCard(settings = {}) {
         ltr: true,
         placeholder: 'Emam Legal and Consultancy',
         hint: 'يظهر في رأس الموقع وعناوين الصفحات وتوقيع الرسائل وبوابة الشركات. الاسم القانوني للجهة في «ملف المؤسسة».',
+        tag: 'SET-230',
       },
-      { name: 'brand_short_name', label: 'الاسم المختصر', required: true, maxLength: 24, ltr: true, placeholder: 'Emam Legal', hint: 'للمساحات الضيقة: أيقونة الهاتف وعنوان التبويب.' },
+      { name: 'brand_short_name', label: 'الاسم المختصر', required: true, maxLength: 24, ltr: true, placeholder: 'Emam Legal', hint: 'للمساحات الضيقة: أيقونة الهاتف وعنوان التبويب.', tag: 'SET-231' },
       {
         name: 'brand_in_staff_app',
         type: 'checkbox',
         label: 'إظهار اسم المكتب في منصة فريق العمل والمحامين',
         full: true,
         hint: 'عند إيقافه تبقى صفحة الدخول والقائمة الجانبية باسم المؤسسة كما كانت.',
+        tag: 'SET-232',
       },
-      { name: 'site_program_name', label: 'اسم البرنامج على الموقع', required: true, maxLength: 60, hint: 'يظهر في رأس الموقع وعناوين الصفحات، مثل «الدعم القانوني»' },
-      { name: 'org_legal_name', label: 'الاسم الرسمي الكامل للمؤسسة', required: true, maxLength: 200 },
-      { name: 'org_registration', label: 'بيانات الإشهار', maxLength: 200, full: true, hint: 'مثل: مشهرة برقم 11108 لسنة 2020 — وزارة التضامن الاجتماعي' },
-      { name: 'org_address', label: 'عنوان المقر', type: 'textarea', rows: 2, maxLength: 300, hint: 'يُستخدم أيضًا لرابط الخريطة في الموقع' },
-      { name: 'office_hours', label: 'مواعيد العمل', maxLength: 200, hint: 'مثل: من السبت إلى الخميس، من العاشرة صباحًا حتى الرابعة عصرًا' },
-      { name: 'org_phone', label: 'هاتف المؤسسة', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'الحقول الاختيارية التي تُترك فارغة لا تظهر في الموقع' },
-      { name: 'org_email', label: 'البريد الإلكتروني', type: 'email', maxLength: 120, hint: 'اختياري — يظهر في صفحات التواصل والخصوصية وحذف البيانات' },
-      { name: 'org_facebook_url', label: 'صفحة فيسبوك', ltr: true, maxLength: 300, placeholder: 'https://www.facebook.com/…', hint: 'اختياري' },
-      { name: 'org_instagram_url', label: 'حساب إنستجرام', ltr: true, maxLength: 300, placeholder: 'https://www.instagram.com/…', hint: 'اختياري' },
+      { name: 'site_program_name', label: 'اسم البرنامج على الموقع', required: true, maxLength: 60, hint: 'يظهر في رأس الموقع وعناوين الصفحات، مثل «الدعم القانوني»', tag: 'SET-233' },
+      { name: 'org_legal_name', label: 'الاسم الرسمي الكامل للمؤسسة', required: true, maxLength: 200, tag: 'SET-234' },
+      { name: 'org_registration', label: 'بيانات الإشهار', maxLength: 200, full: true, hint: 'مثل: مشهرة برقم 11108 لسنة 2020 — وزارة التضامن الاجتماعي', tag: 'SET-235' },
+      { name: 'org_address', label: 'عنوان المقر', type: 'textarea', rows: 2, maxLength: 300, hint: 'يُستخدم أيضًا لرابط الخريطة في الموقع', tag: 'SET-236' },
+      { name: 'office_hours', label: 'مواعيد العمل', maxLength: 200, hint: 'مثل: من السبت إلى الخميس، من العاشرة صباحًا حتى الرابعة عصرًا', tag: 'SET-237' },
+      { name: 'org_phone', label: 'هاتف المؤسسة', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'الحقول الاختيارية التي تُترك فارغة لا تظهر في الموقع', tag: 'SET-238' },
+      { name: 'org_email', label: 'البريد الإلكتروني', type: 'email', maxLength: 120, hint: 'اختياري — يظهر في صفحات التواصل والخصوصية وحذف البيانات', tag: 'SET-239' },
+      { name: 'org_facebook_url', label: 'صفحة فيسبوك', ltr: true, maxLength: 300, placeholder: 'https://www.facebook.com/…', hint: 'اختياري', tag: 'SET-240' },
+      { name: 'org_instagram_url', label: 'حساب إنستجرام', ltr: true, maxLength: 300, placeholder: 'https://www.instagram.com/…', hint: 'اختياري', tag: 'SET-241' },
     ],
     {
       values: { ...settings, brand_in_staff_app: settings.brand_in_staff_app !== false },
@@ -98,14 +100,18 @@ export function siteSettingsCard(settings = {}) {
         if (saved) api2.setValues(saved);
         toast('تم حفظ بيانات الموقع العام — تظهر للزوار فورًا', 'success', 4000);
       },
+      submitTag: 'SET-242',
+      tag: 'SET-243',
     },
   );
   return card({
     title: 'الموقع العام وبيانات التواصل',
     subtitle: 'تظهر في صفحات الموقع وسياسة الخصوصية وحذف البيانات وبيانات محركات البحث والمشاركة',
     icon: 'globe',
-    actions: button('عرض الموقع', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: '/', target: '_blank' }),
+    actions: button('عرض الموقع', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: '/', target: '_blank', tag: 'SET-49' }),
     body: h('div', f.el),
+    titleTag: 'SET-50',
+    tag: 'SET-51',
   });
 }
 
@@ -156,8 +162,8 @@ export function cleanPartners(rows = []) {
 export function partnersEditor(initial = []) {
   let rows = cleanPartners(initial).slice(0, PARTNERS_MAX);
   const list = h('div.stack.pa-partners', { role: 'list', 'aria-label': 'الشركاء' });
-  const addBtn = button('إضافة شريك', { variant: 'ghost', size: 'sm', icon: 'plus' });
-  tagged('SET-14', addBtn);
+  // review-2 (T12-78): الرموز ملفوفة في موضع إنشاء الزر نفسه (tagged('SET-NN', button(…)))، فيراها فحص التغطية
+  const addBtn = tagged('SET-14', button('إضافة شريك', { variant: 'ghost', size: 'sm', icon: 'plus' }));
   const count = h('p.field-hint', { 'aria-live': 'polite' });
   const focusRow = (i, sel = 'input') => list.children[i]?.querySelector(sel)?.focus();
   const render = () => {
@@ -165,8 +171,8 @@ export function partnersEditor(initial = []) {
       list,
       ...rows.map((p, i) => {
         const n = i + 1;
-        const name = h('input.input', { type: 'text', value: p.name, maxlength: 60, 'aria-label': `اسم الشريك ${n}`, autocomplete: 'off' });
-        const title = h('input.input', { type: 'text', value: p.title, maxlength: 60, placeholder: `مثال: ${PARTNER_TITLE_EXAMPLE}`, 'aria-label': `صفة الشريك ${n}`, autocomplete: 'off' });
+        const name = h('input.input', { type: 'text', value: p.name, maxlength: 60, 'aria-label': `اسم الشريك ${n}`, autocomplete: 'off', tag: 'SET-52' });
+        const title = h('input.input', { type: 'text', value: p.title, maxlength: 60, placeholder: `مثال: ${PARTNER_TITLE_EXAMPLE}`, 'aria-label': `صفة الشريك ${n}`, autocomplete: 'off', tag: 'SET-53' });
         name.addEventListener('input', () => (rows[i].name = name.value));
         title.addEventListener('input', () => (rows[i].title = title.value));
         const move = (d) => {
@@ -176,9 +182,9 @@ export function partnersEditor(initial = []) {
           render();
           focusRow(j, d < 0 ? '.pa-partner-up' : '.pa-partner-down');
         };
-        const up = button('أعلى', { variant: 'ghost', size: 'sm', icon: 'chevronUp', disabled: i === 0, className: 'pa-partner-up', ariaLabel: `نقل الشريك ${n} لأعلى` });
-        const down = button('أسفل', { variant: 'ghost', size: 'sm', icon: 'chevronDown', disabled: i === rows.length - 1, className: 'pa-partner-down', ariaLabel: `نقل الشريك ${n} لأسفل` });
-        const del = button('حذف', { variant: 'ghost', size: 'sm', icon: 'trash', ariaLabel: `حذف الشريك ${n}` });
+        const up = tagged('SET-17', button('أعلى', { variant: 'ghost', size: 'sm', icon: 'chevronUp', disabled: i === 0, className: 'pa-partner-up', ariaLabel: `نقل الشريك ${n} لأعلى` }));
+        const down = tagged('SET-18', button('أسفل', { variant: 'ghost', size: 'sm', icon: 'chevronDown', disabled: i === rows.length - 1, className: 'pa-partner-down', ariaLabel: `نقل الشريك ${n} لأسفل` }));
+        const del = tagged('SET-19', button('حذف', { variant: 'ghost', size: 'sm', icon: 'trash', ariaLabel: `حذف الشريك ${n}` }));
         up.addEventListener('click', () => move(-1));
         down.addEventListener('click', () => move(1));
         del.addEventListener('click', () => {
@@ -191,8 +197,8 @@ export function partnersEditor(initial = []) {
           'div.stack-sm.pa-partner',
           { role: 'listitem' },
           h('p.small.muted', `الشريك ${n}`),
-          h('div.form-grid', field('الاسم', name), field('الصفة', title)),
-          h('div.row', tagged('SET-17', up), tagged('SET-18', down), tagged('SET-19', del)),
+          h('div.form-grid', field('الاسم', name, { tag: 'SET-54' }), field('الصفة', title, { tag: 'SET-55' })),
+          h('div.row', up, down, del),
         );
       }),
     );
@@ -226,11 +232,13 @@ export function firstPageSettingsCard(settings = {}) {
   const state = { on: settings.charity_public === true, landing: settings.charity_archived_landing === 'redirect' ? 'redirect' : 'notice' };
 
   // ── «خيري» على الموقع: مفتاح يُحفظ فور التأكيد ──
+  // tags:skip المربع داخل سطره المرمَّز SET-02 (العنصر نفسه، لا رمز ثانٍ)
   const toggle = h('input', { type: 'checkbox', checked: state.on });
   const toggleLabel = h('label.check.check-single', { tag: 'SET-02' }, toggle, h('span', CHARITY_TOGGLE_TEXT));
   const help = h('p.field-hint', { tag: 'SET-03', 'aria-live': 'polite' });
   const legendId = `fp-landing-${Math.random().toString(36).slice(2, 8)}`;
   const radios = LANDING_OPTIONS.map((o) => {
+    // tags:skip الزر داخل سطره المرمَّز SET-05 / SET-06 (من LANDING_OPTIONS)
     const input = h('input', { type: 'radio', name: legendId, value: o.value, checked: state.landing === o.value });
     return { o, input, el: h('label.check.check-single', { tag: o.tag }, input, h('span', o.label)) }; // صف كامل ≥ 44 px على الهاتف
   });
@@ -250,7 +258,7 @@ export function firstPageSettingsCard(settings = {}) {
     const next = toggle.checked;
     toggle.checked = state.on; // لا يتغير شيء قبل التأكيد
     // review (F5): «/khayri» داخل <bdi> في نافذة التأكيد أيضًا (كان يظهر «khayri/»)
-    const ok = await confirmDialog({ title: CHARITY_CONFIRM.title, message: withBdi(charityHelp(next, state.landing)), confirmLabel: CHARITY_CONFIRM.confirm, cancelLabel: CHARITY_CONFIRM.cancel });
+    const ok = await confirmDialog({ title: CHARITY_CONFIRM.title, message: withBdi(charityHelp(next, state.landing)), confirmLabel: CHARITY_CONFIRM.confirm, cancelLabel: CHARITY_CONFIRM.cancel, tag: 'SET-56' });
     if (!ok) return;
     toggle.disabled = true;
     try {
@@ -296,10 +304,11 @@ export function firstPageSettingsCard(settings = {}) {
         hint: 'يظهر في سطر الحقوق أسفل صفحات الموقع وفي أول رسالة على واتساب. فارغ = اسم المكتب كما يراه العملاء.',
       },
       { name: 'org_phone_paid', label: 'هاتف خدمات الأفراد والشركات (اختياري)', ltr: true, maxLength: 30, placeholder: '01211114662', hint: 'فارغ = نفس هاتف المؤسسة' },
+      // tags:skip العنوان داخل غلافه المرمَّز SET-10 (العنوان وتلميحه معًا)
       { name: 'about_heading', type: 'static', full: true, render: () => h('div', h('h3.pa-mini-h', ABOUT_TITLE), h('p.field-hint', PARTNERS_HINT)) },
       { name: 'firm_city', label: 'المدينة', maxLength: 40, placeholder: 'مثال: القاهرة', hint: 'اختياري. تظهر أسفل صفحات الموقع وفي سطر سنة التأسيس.' },
       { name: 'firm_founded', label: 'سنة التأسيس', ltr: true, maxLength: 4, hint: 'اختياري. أربعة أرقام، مثل 2008.' },
-      { name: 'partners_box', type: 'static', full: true, render: () => h('div.stack-sm', h('span.field-label', 'الشركاء'), partners.el) },
+      { name: 'partners_box', type: 'static', full: true, render: () => h('div.stack-sm', h('span.field-label', 'الشركاء'), partners.el), tag: 'SET-249' },
     ],
     {
       values: { firm_legal_name: settings.firm_legal_name || '', org_phone_paid: settings.org_phone_paid || '', firm_city: settings.firm_city || '', firm_founded: settings.firm_founded || '' },
@@ -331,6 +340,7 @@ export function firstPageSettingsCard(settings = {}) {
         }
         toast('تم حفظ بيانات الصفحة الأولى و«عن المكتب». تظهر للزوار فورًا.', 'success', 5000);
       },
+      tag: 'SET-251',
     },
   );
   tagged('SET-07', f.control('firm_legal_name').wrap);
@@ -340,8 +350,7 @@ export function firstPageSettingsCard(settings = {}) {
   tagged('SET-12', f.control('firm_founded').wrap);
   tagged('SET-15', f.el.querySelector('button[type="submit"]'));
 
-  const preview = button('معاينة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: '/', target: '_blank' });
-  tagged('SET-09', preview);
+  const preview = tagged('SET-09', button('معاينة', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: '/', target: '_blank' }));
   const el = card({
     title: FIRST_PAGE_TITLE,
     subtitle: 'أول ما يراه الزائر: ثلاثة اختيارات (استشارة، رفع دعوى قضائية، تأسيس شركات). وهنا يظهر «خيري» أو يتوقف.',
@@ -349,6 +358,8 @@ export function firstPageSettingsCard(settings = {}) {
     className: 'pa-firstpage',
     actions: preview,
     body: h('div.stack', h('div.stack-sm', toggleLabel, help, landingBox), f.el),
+    titleTag: 'SET-57',
+    tag: 'SET-58',
   });
   el.id = 'first-page';
   tagged('SET-01', el);

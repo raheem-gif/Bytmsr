@@ -24,6 +24,9 @@
   /* K12-33 (LK-3): the company search is a 1-px hairline field on white, like the staff search trigger */
   .co-search-input:not(:focus) { border-color: var(--rule-2); background: var(--paper); }
 
+  /* review (A19/A20, K12-37): no initials-in-pastel avatars (the name is always beside them) and no AI sparkles */
+  .avatar, .icon-sparkle { display: none; }
+
   /* K12-28: a state is a coloured dot and a word, never a pill */
   .state { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font: var(--t-small); white-space: nowrap; }
   .state::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }

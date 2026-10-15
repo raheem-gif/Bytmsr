@@ -161,7 +161,8 @@ function openEvent(e) {
         ...dataRows(e.data, e.type || ''),
       ]),
     ),
-    actions: [{ label: 'إغلاق', variant: 'ghost' }],
+    actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'AUD-01' }],
+    tag: 'AUD-02',
   });
 }
 
@@ -198,12 +199,12 @@ export default async function render(ctx) {
   // ───────────── الإحصاءات ─────────────
   const stats = h(
     'div.stats-grid.acc-stats',
-    statCard({ label: 'دخول ناجح (24 ساعة)', value: num(summary.logins_24h), icon: 'user', tone: 'primary' }),
-    statCard({ label: 'محاولات فاشلة (24 ساعة)', value: num(summary.failed_logins_24h), icon: 'alert', tone: summary.failed_logins_24h >= 10 ? 'danger' : 'warning', onClick: () => applyQuick({ type: 'auth.login_failed', severity: '' }) }),
-    statCard({ label: 'إيقاف مؤقت (7 أيام)', value: num(summary.lockouts_7d), icon: 'lock', tone: summary.lockouts_7d ? 'danger' : 'success', hint: summary.locked_accounts ? `موقوف الآن: ${count(summary.locked_accounts, ['حساب واحد', 'حسابان', 'حسابات', 'حسابًا'])}` : null, onClick: () => applyQuick({ type: 'auth.lockout', severity: '' }) }),
-    statCard({ label: 'أحداث حرجة (7 أيام)', value: num(summary.critical_7d), icon: 'shield', tone: summary.critical_7d ? 'danger' : 'success', onClick: () => applyQuick({ type: '', severity: 'critical' }) }),
-    statCard({ label: 'جلسات نشطة الآن', value: num(summary.active_sessions), icon: 'globe', tone: 'info' }),
-    statCard({ label: 'مديرو نظام بدون تحقق بخطوتين', value: num(summary.admins_without_2fa), icon: 'shieldCheck', tone: summary.admins_without_2fa ? 'warning' : 'success', href: '#/settings' }),
+    statCard({ label: 'دخول ناجح (24 ساعة)', value: num(summary.logins_24h), icon: 'user', tone: 'primary', tag: 'AUD-03' }),
+    statCard({ label: 'محاولات فاشلة (24 ساعة)', value: num(summary.failed_logins_24h), icon: 'alert', tone: summary.failed_logins_24h >= 10 ? 'danger' : 'warning', onClick: () => applyQuick({ type: 'auth.login_failed', severity: '' }), tag: 'AUD-04' }),
+    statCard({ label: 'إيقاف مؤقت (7 أيام)', value: num(summary.lockouts_7d), icon: 'lock', tone: summary.lockouts_7d ? 'danger' : 'success', hint: summary.locked_accounts ? `موقوف الآن: ${count(summary.locked_accounts, ['حساب واحد', 'حسابان', 'حسابات', 'حسابًا'])}` : null, onClick: () => applyQuick({ type: 'auth.lockout', severity: '' }), tag: 'AUD-05' }),
+    statCard({ label: 'أحداث حرجة (7 أيام)', value: num(summary.critical_7d), icon: 'shield', tone: summary.critical_7d ? 'danger' : 'success', onClick: () => applyQuick({ type: '', severity: 'critical' }), tag: 'AUD-06' }),
+    statCard({ label: 'جلسات نشطة الآن', value: num(summary.active_sessions), icon: 'globe', tone: 'info', tag: 'AUD-07' }),
+    statCard({ label: 'مديرو نظام بدون تحقق بخطوتين', value: num(summary.admins_without_2fa), icon: 'shieldCheck', tone: summary.admins_without_2fa ? 'warning' : 'success', href: '#/settings', tag: 'AUD-08' }),
   );
 
   // ───────────── الفلاتر ─────────────
@@ -211,15 +212,15 @@ export default async function render(ctx) {
     ...facets.groups.filter((g) => GROUP_LABELS[g]).map((g) => ({ value: g, label: `كل أحداث: ${GROUP_LABELS[g]}` })),
     ...facets.types.map((t) => ({ value: t.value, label: t.count ? `${t.label} (${num(t.count)})` : t.label })),
   ];
-  const search = searchInput({ placeholder: 'بحث في الوصف أو اسم المستخدم أو عنوان IP…', value: state.q, label: 'بحث في سجل الأمان', onSearch: (q) => { state.q = q; state.page = 1; load(); } });
-  const typeSel = selectInput({ options: typeOptions, value: state.type, label: 'نوع الحدث', allLabel: 'كل الأنواع', onChange: (x) => { state.type = x; state.page = 1; load(); } });
-  const sevSel = selectInput({ options: ['info', 'warning', 'critical'].map((s) => ({ value: s, label: label('security_severity', s) })), value: state.severity, label: 'درجة الخطورة', allLabel: 'كل الدرجات', onChange: (x) => { state.severity = x; state.page = 1; load(); } });
-  const userSel = selectInput({ options: facets.users.map((u) => ({ value: String(u.id), label: `${u.name} — ${label('user_role', u.role)}` })), value: state.user_id, label: 'المستخدم', allLabel: 'كل المستخدمين', onChange: (x) => { state.user_id = x; state.page = 1; load(); } });
+  const search = searchInput({ placeholder: 'بحث في الوصف أو اسم المستخدم أو عنوان IP…', value: state.q, label: 'بحث في سجل الأمان', onSearch: (q) => { state.q = q; state.page = 1; load(); }, tag: 'AUD-09' });
+  const typeSel = selectInput({ options: typeOptions, value: state.type, label: 'نوع الحدث', allLabel: 'كل الأنواع', onChange: (x) => { state.type = x; state.page = 1; load(); }, tag: 'AUD-10' });
+  const sevSel = selectInput({ options: ['info', 'warning', 'critical'].map((s) => ({ value: s, label: label('security_severity', s) })), value: state.severity, label: 'درجة الخطورة', allLabel: 'كل الدرجات', onChange: (x) => { state.severity = x; state.page = 1; load(); }, tag: 'AUD-11' });
+  const userSel = selectInput({ options: facets.users.map((u) => ({ value: String(u.id), label: `${u.name} — ${label('user_role', u.role)}` })), value: state.user_id, label: 'المستخدم', allLabel: 'كل المستخدمين', onChange: (x) => { state.user_id = x; state.page = 1; load(); }, tag: 'AUD-12' });
   const dateInput = (key, aria) =>
-    h('input.input.acc-date', { type: 'date', dir: 'ltr', value: state[key], 'aria-label': aria, title: aria, onChange: (e) => { state[key] = e.target.value; state.page = 1; load(); } });
+    h('input.input.acc-date', { type: 'date', dir: 'ltr', value: state[key], 'aria-label': aria, title: aria, onChange: (e) => { state[key] = e.target.value; state.page = 1; load(); }, tag: 'AUD-13' });
   const fromInput = dateInput('from', 'من تاريخ');
   const toInput = dateInput('to', 'إلى تاريخ');
-  const clearBtn = button('مسح الفلاتر', { variant: 'ghost', size: 'sm', icon: 'x', onClick: clearAll });
+  const clearBtn = button('مسح الفلاتر', { variant: 'ghost', size: 'sm', icon: 'x', onClick: clearAll, tag: 'AUD-14' });
   // سجل الأمان ببيانات المستخدمين وعناوين IP: رابط تنزيل لمرة واحدة بطلب POST بالفلاتر الحالية
   const exportBtn = asyncButton(
     'تصدير CSV',
@@ -227,7 +228,7 @@ export default async function render(ctx) {
       await downloadFile('/admin/audit/export.csv', filters(), { fallbackName: 'security-audit.csv' });
       toast('نُزّل ملف سجل الأمان (CSV)', 'success');
     },
-    { variant: 'secondary', icon: 'download' },
+    { variant: 'secondary', icon: 'download', tag: 'AUD-15' },
   );
 
   function applyQuick(patch) {
@@ -262,7 +263,7 @@ export default async function render(ctx) {
       state.page = res.page;
       totalEl.textContent = res.total ? `${count(res.total, ['حدث واحد', 'حدثان', 'أحداث', 'حدثًا'])}` : '';
       if (!res.items.length) {
-        mount(results, emptyState(FILTER_KEYS.some((k) => state[k]) ? 'لا توجد أحداث تطابق الفلاتر المحددة' : 'لم تُسجل أحداث أمان بعد', FILTER_KEYS.some((k) => state[k]) ? button('مسح الفلاتر', { variant: 'secondary', onClick: clearAll }) : null, { icon: 'shield' }));
+        mount(results, emptyState(FILTER_KEYS.some((k) => state[k]) ? 'لا توجد أحداث تطابق الفلاتر المحددة' : 'لم تُسجل أحداث أمان بعد', FILTER_KEYS.some((k) => state[k]) ? button('مسح الفلاتر', { variant: 'secondary', onClick: clearAll, tag: 'AUD-16' }) : null, { icon: 'shield', tag: 'AUD-17' }));
         return;
       }
       mount(
@@ -274,21 +275,23 @@ export default async function render(ctx) {
           rowClass: (e) => `sev-${e.severity}`,
           onRowClick: (e) => openEvent(e),
           columns: [
-            { key: 'time', label: 'الوقت', render: (e) => h('time.nowrap', { datetime: e.created_at, title: relative(e.created_at) }, dateTime(e.created_at)) },
-            { key: 'severity', label: 'الخطورة', render: (e) => severityBadge(e.severity) },
-            { key: 'type', label: 'الحدث', render: (e) => h('span.cell-title', e.type_label) },
-            { key: 'actor', label: 'المستخدم', render: (e) => (e.actor_name ? h('div', h('span', e.actor_name), e.actor_role ? h('div.cell-sub', label('user_role', e.actor_role)) : null) : h('span.muted', 'زائر')) },
-            { key: 'summary', label: 'الوصف', className: 'acc-col-summary', render: (e) => e.summary },
-            { key: 'ip', label: 'العنوان والجهاز', render: (e) => (e.ip || e.device ? h('div', e.ip ? ltr(e.ip) : null, e.device ? h('div.cell-sub', e.device) : null) : null) },
+            { key: 'time', label: 'الوقت', render: (e) => h('time.nowrap', { datetime: e.created_at, title: relative(e.created_at) }, dateTime(e.created_at)), tag: 'AUD-18' },
+            { key: 'severity', label: 'الخطورة', render: (e) => severityBadge(e.severity), tag: 'AUD-19' },
+            { key: 'type', label: 'الحدث', render: (e) => h('span.cell-title', e.type_label), tag: 'AUD-20' },
+            { key: 'actor', label: 'المستخدم', render: (e) => (e.actor_name ? h('div', h('span', e.actor_name), e.actor_role ? h('div.cell-sub', label('user_role', e.actor_role)) : null) : h('span.muted', 'زائر')), tag: 'AUD-21' },
+            { key: 'summary', label: 'الوصف', className: 'acc-col-summary', render: (e) => e.summary, tag: 'AUD-22' },
+            { key: 'ip', label: 'العنوان والجهاز', render: (e) => (e.ip || e.device ? h('div', e.ip ? ltr(e.ip) : null, e.device ? h('div.cell-sub', e.device) : null) : null), tag: 'AUD-23' },
           ],
+          rowTag: 'AUD-24',
+          tag: 'AUD-25',
         }),
         res.pages > 1
           ? h(
               'nav.acc-pager',
-              { 'aria-label': 'صفحات النتائج' },
-              button('السابق', { variant: 'secondary', size: 'sm', icon: 'chevronRight', disabled: res.page <= 1, onClick: () => { state.page = res.page - 1; load(); } }),
+              { 'aria-label': 'صفحات النتائج', tag: 'AUD-26' },
+              button('السابق', { variant: 'secondary', size: 'sm', icon: 'chevronRight', disabled: res.page <= 1, onClick: () => { state.page = res.page - 1; load(); }, tag: 'AUD-27' }),
               h('span.acc-pager-text', `صفحة ${num(res.page)} من ${num(res.pages)}`),
-              button('التالي', { variant: 'secondary', size: 'sm', iconEnd: 'chevronLeft', disabled: res.page >= res.pages, onClick: () => { state.page = res.page + 1; load(); } }),
+              button('التالي', { variant: 'secondary', size: 'sm', iconEnd: 'chevronLeft', disabled: res.page >= res.pages, onClick: () => { state.page = res.page + 1; load(); }, tag: 'AUD-28' }),
             )
           : null,
       );
@@ -303,8 +306,10 @@ export default async function render(ctx) {
     pageHeader({
       title: 'سجل الأمان',
       subtitle: 'من فعل ماذا ومتى ومن أين: الدخول، الحسابات والصلاحيات، الإعدادات، وروابط صفحة المتابعة. لا يُعدَّل السجل ولا يُحذف من الواجهة.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'سجل الأمان' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'AUD-29' }, { label: 'سجل الأمان' }],
       actions: exportBtn,
+      titleTag: 'AUD-30',
+      tag: 'AUD-31',
     }),
     stats,
     card({
@@ -314,6 +319,7 @@ export default async function render(ctx) {
         h('div.acc-results-head', totalEl, h('span.small.muted', 'اضغط على أي حدث لعرض تفاصيله')),
         results,
       ),
+      tag: 'AUD-32',
     }),
   );
 }

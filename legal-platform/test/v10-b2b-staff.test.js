@@ -461,7 +461,7 @@ describe('v10 b2b-staff — companies, company page, settings and e-mail (STF-7 
     assert.ok(email.includes("'إرسال رسالة تجربة إلى بريدي'"));
     assert.match(email, /api\.post\('\/admin\/integrations\/email\/test', \{\}\)/);
     assert.match(read(`${APP}pages/admin/integrations.js`), /item\.name === 'email' \? emailSettingsCard\(item, data, \{ reload: load, companies \}\)/);
-    assert.match(read(`${APP}pages/admin/automations.js`), /isAdmin \? \{ key: 'email', label: 'صادر البريد', icon: 'mail', render: \(\) => emailOutboxPanel\(\) \} : null/);
+    assert.match(read(`${APP}pages/admin/automations.js`), /isAdmin \? \{ key: 'email', label: 'صادر البريد', icon: 'mail', render: \(\) => emailOutboxPanel\(\)(?:, tag: '[A-Z]{1,3}-\d{2,3}')? \} : null/); // v12 tags: intended (TG-6، T12-90: each tab takes its code)
   });
 
   test('every new staff sheet with text fields asks before a gesture closes it (L-64; §9.3-10)', () => {

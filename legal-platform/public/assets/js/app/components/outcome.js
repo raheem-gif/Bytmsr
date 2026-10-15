@@ -20,10 +20,11 @@ export function outcomeFields({ required = false, paid = false } = {}) {
       options: options('outcome_kind'),
       placeholder: '— لم يُحدَّد بعد —',
       hint: paid ? PAID_OUTCOME_NOTE : 'يُستخدم في تقرير الأثر للمجلس والجهات المانحة ووزارة التضامن.',
+      tag: 'OUT-34',
     },
-    { name: 'recovered_one_time', label: 'حقوق مستردة دفعة واحدة', type: 'money', min: 0, hint: 'مثل نصيب ميراث أو متجمد نفقة أو تعويض.' },
-    { name: 'recovered_monthly', label: 'حقوق شهرية مستردة', type: 'money', min: 0, hint: 'مثل نفقة شهرية أو معاش أو تكافل وكرامة.' },
-    { name: 'outcome_notes', label: 'ملاحظات الأثر', type: 'textarea', rows: 2, maxLength: 2000 },
+    { name: 'recovered_one_time', label: 'حقوق مستردة دفعة واحدة', type: 'money', min: 0, hint: 'مثل نصيب ميراث أو متجمد نفقة أو تعويض.', tag: 'OUT-35' },
+    { name: 'recovered_monthly', label: 'حقوق شهرية مستردة', type: 'money', min: 0, hint: 'مثل نفقة شهرية أو معاش أو تكافل وكرامة.', tag: 'OUT-36' },
+    { name: 'outcome_notes', label: 'ملاحظات الأثر', type: 'textarea', rows: 2, maxLength: 2000, tag: 'OUT-37' },
   ];
 }
 
@@ -47,8 +48,8 @@ export function outcomeCard({ kind, id, title, paid = false }) {
   const base = kind === 'matter' ? `/admin/matters/${id}/outcome-value` : `/admin/cases/${id}/outcome-value`;
   const heading = title || (paid ? PAID_OUTCOME_TITLE : 'الأثر المتحقق للمستفيد');
   const body = h('div.v9p-outcome', loading());
-  const editBtn = button('تسجيل الأثر', { size: 'sm', icon: 'edit', onClick: () => edit() });
-  const el = card({ title: heading, subtitle: paid ? PAID_OUTCOME_NOTE : 'الحقوق التي استردها المستفيد بفضل الخدمة', icon: 'star', actions: editBtn, body, className: 'v9p-outcome-card' });
+  const editBtn = button('تسجيل الأثر', { size: 'sm', icon: 'edit', onClick: () => edit(), tag: 'OUT-29' });
+  const el = card({ title: heading, subtitle: paid ? PAID_OUTCOME_NOTE : 'الحقوق التي استردها المستفيد بفضل الخدمة', icon: 'star', actions: editBtn, body, className: 'v9p-outcome-card', titleTag: 'OUT-30', tag: 'OUT-31' });
   let current = null;
 
   async function load() {
@@ -70,7 +71,7 @@ export function outcomeCard({ kind, id, title, paid = false }) {
         emptyState(
           o.closed && !paid ? 'لم يُسجَّل الأثر المتحقق لهذا الملف بعد. سجّله ليُحتسب في تقرير الأثر.' : 'يُسجَّل الأثر عادةً عند إغلاق الملف، ويمكن تسجيله أو تعديله في أي وقت.',
           null,
-          { compact: true, icon: 'star' },
+          { compact: true, icon: 'star', tag: 'OUT-32' },
         ),
       );
       return;
@@ -105,6 +106,7 @@ export function outcomeCard({ kind, id, title, paid = false }) {
           recovered_monthly: v.recovered_monthly ?? null,
           notes: v.outcome_notes || null,
         }),
+        tag: 'OUT-33',
     });
     if (res) {
       current = res;

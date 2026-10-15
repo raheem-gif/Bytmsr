@@ -310,7 +310,7 @@ describe('v9.1 fixes — message bubbles: no portal links, isolated codes and fi
     const i = portal.indexOf('function papersView()');
     const body = portal.slice(i, portal.indexOf('\n}\n', i));
     assert.ok(!body.includes("notFoundView('لسه مفيش ورق.')"));
-    assert.match(body, /backBar\('الورق'\),\s*h\('section\.bp-card', h\('p\.bp-empty', 'لسه مفيش ورق\.'\)/);
+    assert.match(body, /backBar\('الورق'\),\s*h\('section\.bp-card', (?:\{ tag: 'P-\d+' \}, )?h\('p\.bp-empty', 'لسه مفيش ورق\.'\)/); // v12 tags: intended (TG-6, T12-15)
   });
 });
 

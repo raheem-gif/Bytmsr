@@ -398,7 +398,7 @@ describe('v11 gate (staff) — J-20 ?new=1&name=&phone= opens a prefilled «إض
     assert.match(src, /const prefill = companyPrefill\(ctx\.query\);/);
     assert.match(src, /if \(isAdmin\) openCreateCompany\(ctx, \{ onCreated: load, prefill \}\);/);
     assert.match(src, /#\/companies`\);/);
-    assert.match(src, /\{ values: \{ name: prefill\?\.name \|\| '' \}, footer: false \}/);
+    assert.match(src, /\{ values: \{ name: prefill\?\.name \|\| '' \}, footer: false(?:, tag: '[A-Z]{1,3}-\d{2,3}')? \}/); // v12 tags: intended (TG-6، T12-90: the form takes its code)
     assert.match(src, /fa_phone: prefill\?\.phone \|\| ''/);
     // the request page link carries exactly these keys
     assert.match(read(`${APP}pages/admin/intake-detail.js`), /new URLSearchParams\(\{ new: '1', name: requester\.company_name \|\| '', phone:/);
@@ -540,7 +540,7 @@ describe('v11 gate (staff) — J-12/V6 inbox and request header', () => {
     assert.doesNotMatch(hdr, /codeTag\(it\.code\)/);
     assert.doesNotMatch(hdr, /label\('intake_kind', it\.kind\)|areaLabel\(it\.legal_area\)/);
     assert.doesNotMatch(hdr, /button\('رجوع'/);
-    assert.match(hdr, /\{ label: 'صندوق الوارد', href: '#\/inbox' \}/);
+    assert.match(hdr, /\{ label: 'صندوق الوارد', href: '#\/inbox'(?:, tag: 'RQT-\d+')? \}/); // v12 tags: intended (TG-6, T12-17: breadcrumbs[].tag)
   });
 
   test('a nav group that shows a count is never auto-collapsed (sidebar «طلبات الشركات 2»)', () => {

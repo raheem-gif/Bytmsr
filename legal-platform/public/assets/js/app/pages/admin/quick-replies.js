@@ -94,15 +94,16 @@ export default async function render(ctx) {
       if (!state.items.length) {
         mount(
           listHost,
-          emptyState('أضف أول رد جاهز: قائمة المستندات المطلوبة، أو العنوان، أو شرح البوابة… ثم أدرجه في أي محادثة بضغطة.', button('رد جاهز جديد', { variant: 'primary', icon: 'plus', onClick: () => openEditor() }), {
+          emptyState('أضف أول رد جاهز: قائمة المستندات المطلوبة، أو العنوان، أو شرح البوابة… ثم أدرجه في أي محادثة بضغطة.', button('رد جاهز جديد', { variant: 'primary', icon: 'plus', onClick: () => openEditor(), tag: 'QRP-01' }), {
             icon: 'zap',
             title: 'لا توجد ردود جاهزة بعد',
+            tag: 'QRP-02',
           }),
         );
         return;
       }
       if (!items.length) {
-        mount(listHost, emptyState('لا توجد ردود مطابقة للبحث أو التصنيف المختار', null, { icon: 'search', compact: true }));
+        mount(listHost, emptyState('لا توجد ردود مطابقة للبحث أو التصنيف المختار', null, { icon: 'search', compact: true, tag: 'QRP-03' }));
         return;
       }
       mount(listHost, items.map(replyCard));
@@ -113,7 +114,7 @@ export default async function render(ctx) {
         'article.qr-card',
         h(
           'header.qr-card-head',
-          h('h3.qr-card-title', r.title),
+          { tag: 'QRP-04' }, h('h3.qr-card-title', { tag: 'QRP-05' }, r.title),
           h(
             'div.qr-card-tags',
             r.shortcut ? h('code.qr-shortcut', { dir: 'auto', title: 'اكتب الاختصار في محرر الرسالة ثم مسافة لإدراج الرد' }, r.shortcut) : null,
@@ -123,7 +124,7 @@ export default async function render(ctx) {
         h('p.qr-card-body', { dir: 'auto' }, templateNodes(r.body)),
         h(
           'footer.qr-card-foot',
-          h(
+          { tag: 'QRP-06' }, h(
             'span.small.muted.qr-usage',
             icon('zap', { size: 14 }),
             r.usage_count ? `استُخدم ${count(r.usage_count, USES)}` : 'لم يُستخدم بعد',
@@ -131,15 +132,15 @@ export default async function render(ctx) {
           ),
           h(
             'div.qr-card-actions',
-            copyButton(r.body, 'نسخ'),
-            button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditor(r), ariaLabel: `تعديل الرد «${r.title}»` }),
+            copyButton(r.body, 'نسخ', { tag: 'QRP-07' }),
+            button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openEditor(r), ariaLabel: `تعديل الرد «${r.title}»`, tag: 'QRP-08' }),
             button('حذف', {
               size: 'sm',
               variant: 'ghost',
               icon: 'trash',
               ariaLabel: `حذف الرد «${r.title}»`,
               onClick: async () => {
-                const yes = await confirmDialog({ title: 'حذف الرد الجاهز', message: `سيُحذف الرد «${r.title}» نهائيًا ولن يظهر في المحادثات. هل تريد المتابعة؟`, confirmLabel: 'حذف الرد', danger: true });
+                const yes = await confirmDialog({ title: 'حذف الرد الجاهز', message: `سيُحذف الرد «${r.title}» نهائيًا ولن يظهر في المحادثات. هل تريد المتابعة؟`, confirmLabel: 'حذف الرد', danger: true, tag: 'QRP-09' });
                 if (!yes) return;
                 try {
                   await api.del(`/admin/quick-replies/${encodeURIComponent(r.id)}`);
@@ -149,6 +150,7 @@ export default async function render(ctx) {
                   toast(errorMessage(err), 'danger');
                 }
               },
+              tag: 'QRP-10',
             }),
           ),
         ),
@@ -158,12 +160,12 @@ export default async function render(ctx) {
     function openEditor(r = null) {
       const f = form(
         [
-          { name: 'title', label: 'عنوان الرد', required: true, maxLength: 120, placeholder: 'مثال: المستندات المطلوبة لإعلام الوراثة' },
-          { name: 'shortcut', label: 'الاختصار (اختياري)', maxLength: 31, placeholder: '/وثائق', hint: 'يبدأ بـ «/» دون مسافات؛ يكتبه الموظف في المحادثة ثم مسافة ليُدرج الرد.' },
-          { name: 'category', label: 'التصنيف', type: 'select', required: true, placeholder: false, options: options('quick_reply_category') },
-          { name: 'body', label: 'نص الرد', type: 'textarea', rows: 7, required: true, maxLength: 4000, full: true },
+          { name: 'title', label: 'عنوان الرد', required: true, maxLength: 120, placeholder: 'مثال: المستندات المطلوبة لإعلام الوراثة', tag: 'QRP-107' },
+          { name: 'shortcut', label: 'الاختصار (اختياري)', maxLength: 31, placeholder: '/وثائق', hint: 'يبدأ بـ «/» دون مسافات؛ يكتبه الموظف في المحادثة ثم مسافة ليُدرج الرد.', tag: 'QRP-108' },
+          { name: 'category', label: 'التصنيف', type: 'select', required: true, placeholder: false, options: options('quick_reply_category'), tag: 'QRP-109' },
+          { name: 'body', label: 'نص الرد', type: 'textarea', rows: 7, required: true, maxLength: 4000, full: true, tag: 'QRP-110' },
         ],
-        { footer: false, values: r ? { title: r.title, shortcut: r.shortcut || '', category: r.category, body: r.body } : { category: 'general' } },
+        { footer: false, values: r ? { title: r.title, shortcut: r.shortcut || '', category: r.category, body: r.body } : { category: 'general' }, tag: 'QRP-111' },
       );
       const ta = f.control('body').input;
       ta.setAttribute('dir', 'auto');
@@ -191,6 +193,7 @@ export default async function render(ctx) {
                   ta.setSelectionRange(s + token.length, s + token.length);
                   ta.dispatchEvent(new Event('input', { bubbles: true }));
                 },
+                tag: 'QRP-11',
               },
               h('code', { dir: 'ltr' }, `{${k}}`),
               h('span', desc),
@@ -203,7 +206,7 @@ export default async function render(ctx) {
         size: 'lg',
         body: frag(f.el, legend, h('div.qr-preview', h('div.qr-preview-label', icon('eye', { size: 14 }), 'معاينة بمثال واقعي'), preview)),
         actions: [
-          { label: 'إلغاء', variant: 'ghost' },
+          { label: 'إلغاء', variant: 'ghost', tag: 'QRP-12' },
           {
             label: r ? 'حفظ التعديلات' : 'إضافة الرد',
             variant: 'primary',
@@ -228,8 +231,10 @@ export default async function render(ctx) {
               await load();
               return undefined;
             },
+            tag: 'QRP-13',
           },
         ],
+        tag: 'QRP-14',
       });
     }
 
@@ -244,6 +249,7 @@ export default async function render(ctx) {
           syncUrl();
           draw();
         },
+        tag: 'QRP-15',
       }),
       selectInput({
         label: 'التصنيف',
@@ -255,9 +261,10 @@ export default async function render(ctx) {
           syncUrl();
           draw();
         },
+        tag: 'QRP-16',
       }),
       h('div.qr-filter-spacer'),
-      button('رد جاهز جديد', { variant: 'primary', icon: 'plus', onClick: () => openEditor() }),
+      button('رد جاهز جديد', { variant: 'primary', icon: 'plus', onClick: () => openEditor(), tag: 'QRP-17' }),
     ]);
     filters.querySelector('select').value = state.category;
     await load();
@@ -286,19 +293,20 @@ export default async function render(ctx) {
         return alertBox(
           `الإرسال الحقيقي عبر WhatsApp Cloud API مفعّل. خارج نافذة الـ 24 ساعة تُرسل المنصة القالب المربوط بكل غرض أدناه بمتغيراته بالترتيب. ${last}`,
           'success',
-          { title: 'واتساب متصل', icon: 'whatsapp' },
+          { title: 'واتساب متصل', icon: 'whatsapp', tag: 'QRP-18' },
         );
       }
       if (data.configured) {
         return alertBox(`الإرسال مفعّل، لكن معرّف حساب واتساب للأعمال (WABA ID) غير مضبوط، فلا يمكن مزامنة القوالب. اضبطه من صفحة التكاملات. ${last}`, 'warning', {
           title: 'تنقص بيانات المزامنة',
           icon: 'whatsapp',
+          tag: 'QRP-19',
         });
       }
       return alertBox(
         `المنصة في وضع المحاكاة: تُسجَّل الرسائل دون إرسال فعلي. القوالب والربط المحفوظ هنا يُستخدمان تلقائيًا فور ضبط بيانات واتساب الحقيقية من صفحة التكاملات. ${last}`,
         'info',
-        { title: 'واتساب في وضع المحاكاة', icon: 'whatsapp' },
+        { title: 'واتساب في وضع المحاكاة', icon: 'whatsapp', tag: 'QRP-20' },
       );
     }
 
@@ -341,14 +349,14 @@ export default async function render(ctx) {
         isAdmin
           ? h(
               'div.qr-map-actions',
-              button(m.mapping ? 'تعديل الربط' : 'ربط قالب', { size: 'sm', variant: m.mapping ? 'ghost' : 'secondary', icon: 'link', onClick: () => openMapping(m) }),
+              button(m.mapping ? 'تعديل الربط' : 'ربط قالب', { size: 'sm', variant: m.mapping ? 'ghost' : 'secondary', icon: 'link', onClick: () => openMapping(m), tag: 'QRP-21' }),
               m.mapping
                 ? button('إلغاء الربط', {
                     size: 'sm',
                     variant: 'ghost',
                     icon: 'x',
                     onClick: async () => {
-                      const yes = await confirmDialog({ title: 'إلغاء ربط القالب', message: `لن يُستخدم القالب «${m.mapping.template_name}» لغرض «${m.label}». هل تريد المتابعة؟`, confirmLabel: 'إلغاء الربط', danger: true });
+                      const yes = await confirmDialog({ title: 'إلغاء ربط القالب', message: `لن يُستخدم القالب «${m.mapping.template_name}» لغرض «${m.label}». هل تريد المتابعة؟`, confirmLabel: 'إلغاء الربط', danger: true, tag: 'QRP-22' });
                       if (!yes) return;
                       try {
                         await api.del(`/admin/whatsapp/template-mappings/${encodeURIComponent(m.purpose)}`);
@@ -358,6 +366,7 @@ export default async function render(ctx) {
                         toast(errorMessage(err), 'danger');
                       }
                     },
+                    tag: 'QRP-23',
                   })
                 : null,
             )
@@ -375,7 +384,7 @@ export default async function render(ctx) {
       const current = m.mapping ? `${m.mapping.template_name}|${m.mapping.language}` : keyOf(usable[0]);
       const sel = h(
         'select.input',
-        { id: 'qr-map-template', 'aria-label': 'القالب' },
+        { id: 'qr-map-template', 'aria-label': 'القالب', tag: 'QRP-24' },
         usable.map((t) => h('option', { value: keyOf(t), selected: keyOf(t) === current }, `${t.name} (${t.language}) — ${t.category_label}`)),
       );
       const paramsHost = h('div.qr-map-params');
@@ -387,7 +396,7 @@ export default async function render(ctx) {
         selects = Array.from({ length: t.param_count }, (_, i) => {
           const s = h(
             'select.input',
-            { 'aria-label': `قيمة المتغير {{${i + 1}}}` },
+            { 'aria-label': `قيمة المتغير {{${i + 1}}}`, tag: 'QRP-25' },
             m.variables.map((k) => h('option', { value: k }, label('wa_template_variable', k))),
           );
           s.value = prev[i] && m.variables.includes(prev[i]) ? prev[i] : m.purpose === 'otp' ? 'code' : i === t.param_count - 1 && m.variables.includes('body') ? 'body' : m.variables[Math.min(i, m.variables.length - 1)];
@@ -421,7 +430,7 @@ export default async function render(ctx) {
           h('div.qr-preview', h('div.qr-preview-label', icon('eye', { size: 14 }), 'نص القالب كما سيصل'), preview),
         ),
         actions: [
-          { label: 'إلغاء', variant: 'ghost' },
+          { label: 'إلغاء', variant: 'ghost', tag: 'QRP-26' },
           {
             label: 'حفظ الربط',
             variant: 'primary',
@@ -432,8 +441,10 @@ export default async function render(ctx) {
               toast('تم حفظ ربط القالب', 'success');
               await refresh();
             },
+            tag: 'QRP-27',
           },
         ],
+        tag: 'QRP-28',
       });
     }
 
@@ -447,14 +458,16 @@ export default async function render(ctx) {
             key: 'name',
             label: 'القالب',
             render: (t) => h('div.stack-sm.qr-cell', codeTag(t.name), h('span.cell-sub', `اللغة: ${t.language}`), t.removed ? badge('حُذف من حساب واتساب', 'muted') : null),
+            tag: 'QRP-29',
           },
-          { key: 'category', label: 'الفئة', render: (t) => badge(t.category_label || '—', t.category === 'AUTHENTICATION' ? 'accent' : t.category === 'MARKETING' ? 'warning' : 'info') },
+          { key: 'category', label: 'الفئة', render: (t) => badge(t.category_label || '—', t.category === 'AUTHENTICATION' ? 'accent' : t.category === 'MARKETING' ? 'warning' : 'info'), tag: 'QRP-30' },
           {
             key: 'status',
             label: 'الحالة',
             render: (t) => h('div.stack-sm.qr-cell', badge(t.status_label, TEMPLATE_STATUS_TONE[t.status] || 'neutral', { dot: true }), t.rejected_reason ? h('span.cell-sub', `السبب: ${t.rejected_reason}`) : null),
+            tag: 'QRP-31',
           },
-          { key: 'param_count', label: 'المتغيرات', align: 'center', render: (t) => num(t.param_count) },
+          { key: 'param_count', label: 'المتغيرات', align: 'center', render: (t) => num(t.param_count), tag: 'QRP-32' },
           {
             key: 'body_text',
             label: 'النص',
@@ -468,10 +481,13 @@ export default async function render(ctx) {
                 t.footer_text ? h('span.qr-tpl-footer', t.footer_text) : null,
                 t.buttons?.length ? h('span.qr-tpl-buttons', t.buttons.map((b) => h('span.chip', b.text || b.type))) : null,
               ),
+              tag: 'QRP-33',
           },
         ],
         rows: data.templates,
         empty: data.configured ? 'لا توجد قوالب بعد. اضغط «مزامنة القوالب» لجلبها من حساب واتساب للأعمال.' : 'لا توجد قوالب متزامنة بعد.',
+        rowTag: 'QRP-34',
+        tag: 'QRP-35',
       });
     }
 
@@ -504,7 +520,7 @@ export default async function render(ctx) {
       }
       const sw = h(
         'button.pd-switch',
-        { type: 'button', role: 'switch', 'aria-checked': String(!!st.enabled), 'aria-label': 'تفعيل الدخول إلى صفحة المتابعة برمز واتساب' },
+        { type: 'button', role: 'switch', 'aria-checked': String(!!st.enabled), 'aria-label': 'تفعيل الدخول إلى صفحة المتابعة برمز واتساب', tag: 'QRP-36' },
         h('span.pd-switch-track', { 'aria-hidden': 'true' }, h('span.pd-switch-thumb')),
         h('span.pd-switch-text', st.enabled ? 'مفعّل' : 'موقوف'),
       );
@@ -517,6 +533,7 @@ export default async function render(ctx) {
             message: 'لن يتمكن المستفيدون من الدخول إلى صفحاتهم من «متابعة طلبك» برمز واتساب حتى تعيد التفعيل، وتبقى الروابط المرسلة لهم صالحة. هل تريد المتابعة؟',
             confirmLabel: 'إيقاف',
             danger: true,
+            tag: 'QRP-37',
           });
           if (!yes) return;
         }
@@ -535,7 +552,9 @@ export default async function render(ctx) {
         subtitle: 'صفحة /portal: يكتب المستفيد/ة رقمه المسجل فيصله رمز من 6 أرقام',
         icon: 'lock',
         actions: sw,
-        body: alertBox(note, tone === 'muted' ? 'info' : tone),
+        body: alertBox(note, tone === 'muted' ? 'info' : tone, { tag: 'QRP-38' }),
+        titleTag: 'QRP-39',
+        tag: 'QRP-40',
       });
     }
 
@@ -557,7 +576,7 @@ export default async function render(ctx) {
                   'success',
                 );
               },
-              { variant: 'primary', icon: 'refresh', disabled: !data.configured || !data.waba_set, title: !data.configured ? 'يتطلب ضبط بيانات واتساب الحقيقية' : null },
+              { variant: 'primary', icon: 'refresh', disabled: !data.configured || !data.waba_set, title: !data.configured ? 'يتطلب ضبط بيانات واتساب الحقيقية' : null, tag: 'QRP-41' },
             ),
             asyncButton(
               'اختبار الاتصال',
@@ -566,9 +585,9 @@ export default async function render(ctx) {
                 if (r.ok) toast(r.message || 'تم الاتصال بنجاح', 'success', 6000);
                 else toast(r.error || 'فشل الاتصال', 'danger');
               },
-              { variant: 'secondary', icon: 'whatsapp' },
+              { variant: 'secondary', icon: 'whatsapp', tag: 'QRP-42' },
             ),
-            button('إعدادات التكاملات', { variant: 'ghost', icon: 'settings', href: '#/integrations' }),
+            button('إعدادات التكاملات', { variant: 'ghost', icon: 'settings', href: '#/integrations', tag: 'QRP-43' }),
           )
         : null;
       mount(
@@ -581,6 +600,8 @@ export default async function render(ctx) {
           subtitle: 'ماذا ترسل المنصة خارج نافذة الـ 24 ساعة لكل نوع من الرسائل',
           icon: 'link',
           body: h('ul.qr-maps', data.mappings.map(mappingRow)),
+          titleTag: 'QRP-44',
+          tag: 'QRP-45',
         }),
         card({
           title: 'القوالب المتزامنة',
@@ -588,6 +609,8 @@ export default async function render(ctx) {
           icon: 'whatsapp',
           flush: true,
           body: templatesTable(),
+          titleTag: 'QRP-46',
+          tag: 'QRP-47',
         }),
       );
     }
@@ -600,7 +623,7 @@ export default async function render(ctx) {
   function thresholdCard(current) {
     const sel = h(
       'select.input',
-      { id: 'qr-threshold' },
+      { id: 'qr-threshold', tag: 'QRP-48' },
       [1, 2, 3, 4].map((n) =>
         h(
           'option',
@@ -615,7 +638,7 @@ export default async function render(ctx) {
         await api.patch('/admin/settings', { survey_low_rating_threshold: Number(sel.value) });
         toast('حُفظ حد التقييم المنخفض، ويسري على التقييمات الجديدة والإحصاءات', 'success');
       },
-      { variant: 'secondary', icon: 'check' },
+      { variant: 'secondary', icon: 'check', tag: 'QRP-49' },
     );
     return card({
       title: 'إعدادات الاستبيان',
@@ -626,11 +649,14 @@ export default async function render(ctx) {
           'div.qr-threshold',
           field('التقييم المنخفض الذي يُنبَّه عنده مدير الحالة فورًا', h('div.select-wrap', sel), {
             hint: 'عند تقييم منخفض يُطلب من المستفيد/ة أيضًا توضيح ما لم يعجبه، ويظهر تعليقه في الملف.',
+            tag: 'QRP-50',
           }),
           save,
         ),
-        h('p.small.muted', 'موعد إرسال الاستبيان ونصه ومدة قبول التقييم تُضبط من ', h('a', { href: '#/automations' }, 'صفحة الأتمتة'), '.'),
+        h('p.small.muted', 'موعد إرسال الاستبيان ونصه ومدة قبول التقييم تُضبط من ', h('a', { href: '#/automations', tag: 'QRP-51' }, 'صفحة الأتمتة'), '.'),
       ),
+      titleTag: 'QRP-52',
+      tag: 'QRP-53',
     });
   }
 
@@ -639,17 +665,18 @@ export default async function render(ctx) {
     const t = s.totals || {};
     const stats = h(
       'div.stats-grid',
-      statCard({ label: 'متوسط رضا المستفيدين', value: ratingText(t.avg_rating), hint: t.responses ? `من ${count(t.responses, RATINGS_UNIT)}` : 'لا تقييمات بعد', icon: 'star', tone: 'accent' }),
-      statCard({ label: 'نسبة الاستجابة', value: t.response_rate == null ? '—' : percent(t.response_rate), hint: `${t.surveys_sent ? `أُرسل ${count(t.surveys_sent, ['استبيان واحد', 'استبيانان', 'استبيانات', 'استبيانًا'])}` : 'لم يُرسل أي استبيان'}${t.undelivered ? ` — وتعذر إرسال ${count(t.undelivered, ['استبيان واحد', 'استبيانين', 'استبيانات', 'استبيانًا'])}` : ''}`, icon: 'message', tone: 'info' }),
-      statCard({ label: 'تقييمات منخفضة', value: num(t.low_ratings || 0), hint: `${num(s.threshold)} من 5 فأقل — يُنبَّه مدير الحالة فورًا`, icon: 'alert', tone: t.low_ratings ? 'danger' : 'success' }),
-      statCard({ label: 'بانتظار التقييم', value: num(t.awaiting || 0), hint: 'استبيانات سارية لم يرد عليها المستفيد/ة', icon: 'clock', tone: 'neutral' }),
+      statCard({ label: 'متوسط رضا المستفيدين', value: ratingText(t.avg_rating), hint: t.responses ? `من ${count(t.responses, RATINGS_UNIT)}` : 'لا تقييمات بعد', icon: 'star', tone: 'accent', tag: 'QRP-54' }),
+      statCard({ label: 'نسبة الاستجابة', value: t.response_rate == null ? '—' : percent(t.response_rate), hint: `${t.surveys_sent ? `أُرسل ${count(t.surveys_sent, ['استبيان واحد', 'استبيانان', 'استبيانات', 'استبيانًا'])}` : 'لم يُرسل أي استبيان'}${t.undelivered ? ` — وتعذر إرسال ${count(t.undelivered, ['استبيان واحد', 'استبيانين', 'استبيانات', 'استبيانًا'])}` : ''}`, icon: 'message', tone: 'info', tag: 'QRP-55' }),
+      statCard({ label: 'تقييمات منخفضة', value: num(t.low_ratings || 0), hint: `${num(s.threshold)} من 5 فأقل — يُنبَّه مدير الحالة فورًا`, icon: 'alert', tone: t.low_ratings ? 'danger' : 'success', tag: 'QRP-56' }),
+      statCard({ label: 'بانتظار التقييم', value: num(t.awaiting || 0), hint: 'استبيانات سارية لم يرد عليها المستفيد/ة', icon: 'clock', tone: 'neutral', tag: 'QRP-57' }),
     );
     if (!t.surveys_sent && !t.responses && !t.undelivered) {
       return h(
         'div.stack',
         stats,
         card({
-          body: emptyState('يُرسل استبيان الرضا تلقائيًا بعد إرسال الرد النهائي للمستفيد/ة بيوم (قابل للتعديل من صفحة الأتمتة)، وتظهر النتائج هنا.', button('إعدادات الاستبيان في الأتمتة', { href: '#/automations', icon: 'zap' }), { icon: 'star', title: 'لم تُرسل استبيانات بعد' }),
+          body: emptyState('يُرسل استبيان الرضا تلقائيًا بعد إرسال الرد النهائي للمستفيد/ة بيوم (قابل للتعديل من صفحة الأتمتة)، وتظهر النتائج هنا.', button('إعدادات الاستبيان في الأتمتة', { href: '#/automations', icon: 'zap', tag: 'QRP-58' }), { icon: 'star', title: 'لم تُرسل استبيانات بعد', tag: 'QRP-59' }),
+          tag: 'QRP-60',
         }),
         isAdmin ? thresholdCard(s.threshold) : null,
       );
@@ -670,6 +697,8 @@ export default async function render(ctx) {
           ),
         ),
       ),
+      titleTag: 'QRP-61',
+      tag: 'QRP-62',
     });
     const avgCell = (r) => h('span.nowrap', ratingStars(Math.round(r.avg_rating || 0)), ' ', h('span.small', ratingText(r.avg_rating)));
     const monthCard = card({
@@ -680,13 +709,17 @@ export default async function render(ctx) {
         caption: 'رضا المستفيدين بالشهر',
         className: 'qr-mtable',
         columns: [
-          { key: 'label', label: 'الشهر' },
-          { key: 'sent', label: 'أُرسل', align: 'center', render: (r) => num(r.sent) },
-          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses) },
-          { key: 'avg', label: 'المتوسط', render: (r) => (r.responses ? avgCell(r) : h('span.muted', '—')) },
+          { key: 'label', label: 'الشهر', tag: 'QRP-63' },
+          { key: 'sent', label: 'أُرسل', align: 'center', render: (r) => num(r.sent), tag: 'QRP-64' },
+          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses), tag: 'QRP-65' },
+          { key: 'avg', label: 'المتوسط', render: (r) => (r.responses ? avgCell(r) : h('span.muted', '—')), tag: 'QRP-66' },
         ],
         rows: [...(s.by_month || [])].reverse(),
+        rowTag: 'QRP-67',
+        tag: 'QRP-68',
       }),
+      titleTag: 'QRP-69',
+      tag: 'QRP-70',
     });
     const areaCard = card({
       title: 'بالمجال القانوني',
@@ -696,13 +729,17 @@ export default async function render(ctx) {
         caption: 'رضا المستفيدين بالمجال القانوني',
         className: 'qr-mtable',
         columns: [
-          { key: 'label', label: 'المجال', render: (r) => r.label || areaLabel(r.area) },
-          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses) },
-          { key: 'avg', label: 'المتوسط', render: avgCell },
-          { key: 'low', label: 'منخفض', align: 'center', render: (r) => (r.low ? badge(num(r.low), 'danger') : h('span.muted', '0')) },
+          { key: 'label', label: 'المجال', render: (r) => r.label || areaLabel(r.area), tag: 'QRP-71' },
+          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses), tag: 'QRP-72' },
+          { key: 'avg', label: 'المتوسط', render: avgCell, tag: 'QRP-73' },
+          { key: 'low', label: 'منخفض', align: 'center', render: (r) => (r.low ? badge(num(r.low), 'danger') : h('span.muted', '0')), tag: 'QRP-74' },
         ],
         rows: s.by_area || [],
+        rowTag: 'QRP-75',
+        tag: 'QRP-76',
       }),
+      titleTag: 'QRP-77',
+      tag: 'QRP-78',
     });
     const lawyerCard = card({
       title: 'بالمحامي الأساسي',
@@ -712,14 +749,18 @@ export default async function render(ctx) {
         caption: 'رضا المستفيدين بالمحامي الأساسي',
         className: 'qr-mtable',
         columns: [
-          { key: 'name', label: 'المحامي', render: (r) => h('a', { href: `#/lawyers/${r.lawyer_id}` }, r.name) },
-          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses) },
-          { key: 'avg', label: 'المتوسط', render: avgCell },
-          { key: 'low', label: 'منخفض', align: 'center', render: (r) => (r.low ? badge(num(r.low), 'danger') : h('span.muted', '0')) },
+          { key: 'name', label: 'المحامي', render: (r) => h('a', { href: `#/lawyers/${r.lawyer_id}`, tag: 'QRP-79' }, r.name), tag: 'QRP-80' },
+          { key: 'responses', label: 'التقييمات', align: 'center', render: (r) => num(r.responses), tag: 'QRP-81' },
+          { key: 'avg', label: 'المتوسط', render: avgCell, tag: 'QRP-82' },
+          { key: 'low', label: 'منخفض', align: 'center', render: (r) => (r.low ? badge(num(r.low), 'danger') : h('span.muted', '0')), tag: 'QRP-83' },
         ],
         rows: s.by_lawyer || [],
         empty: 'لا توجد تقييمات لملفات لها محامٍ أساسي معتمد بعد',
+        rowTag: 'QRP-84',
+        tag: 'QRP-85',
       }),
+      titleTag: 'QRP-86',
+      tag: 'QRP-87',
     });
     const recent = card({
       title: 'آخر التقييمات والتعليقات',
@@ -735,7 +776,7 @@ export default async function render(ctx) {
                   'div.qr-fb-head',
                   ratingStars(r.rating),
                   h('strong', r.rating_label),
-                  h('a.qr-fb-case', { href: `#/cases/${r.case_id}`, 'aria-label': `فتح الملف ${r.case_code}` }, codeTag(r.case_code)),
+                  h('a.qr-fb-case', { href: `#/cases/${r.case_id}`, 'aria-label': `فتح الملف ${r.case_code}`, tag: 'QRP-88' }, codeTag(r.case_code)),
                   r.low ? badge('تقييم منخفض', 'danger', { icon: 'alert' }) : null,
                   h('span.small.muted', label('channel', r.channel)),
                   h('time.small.muted', { datetime: r.created_at, title: dateTime(r.created_at) }, relative(r.created_at)),
@@ -745,11 +786,13 @@ export default async function render(ctx) {
               ),
             ),
           )
-        : emptyState('لا توجد تقييمات بعد', null, { compact: true, icon: 'star' }),
+        : emptyState('لا توجد تقييمات بعد', null, { compact: true, icon: 'star', tag: 'QRP-89' }),
+        titleTag: 'QRP-90',
+        tag: 'QRP-91',
     });
     return h(
       'div.stack',
-      h('p.qr-intro', 'يُرسل استبيان الرضا للمستفيد/ة تلقائيًا بعد إرسال الرد النهائي (أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، أو رد برقم من 1 إلى 5)، ويُنبَّه مدير الحالة فور أي تقييم منخفض. ', h('a', { href: '#/automations' }, 'إعدادات توقيت الاستبيان ونصه')),
+      h('p.qr-intro', 'يُرسل استبيان الرضا للمستفيد/ة تلقائيًا بعد إرسال الرد النهائي (أزرار «ممتاز / جيد / غير راضٍ» داخل نافذة واتساب، أو رد برقم من 1 إلى 5)، ويُنبَّه مدير الحالة فور أي تقييم منخفض. ', h('a', { href: '#/automations', tag: 'QRP-92' }, 'إعدادات توقيت الاستبيان ونصه')),
       stats,
       h('div.grid-2.qr-survey-grid', distCard, recent),
       h('div.grid-2.qr-survey-grid', areaCard, lawyerCard),
@@ -760,9 +803,9 @@ export default async function render(ctx) {
 
   const tabsEl = tabs(
     [
-      { key: 'replies', label: 'الردود الجاهزة', icon: 'zap', render: renderReplies },
-      { key: 'templates', label: 'قوالب واتساب', icon: 'whatsapp', render: renderTemplates },
-      { key: 'survey', label: 'رضا المستفيدين', icon: 'star', render: renderSurvey },
+      { key: 'replies', label: 'الردود الجاهزة', icon: 'zap', render: renderReplies, tag: 'QRP-93' },
+      { key: 'templates', label: 'قوالب واتساب', icon: 'whatsapp', render: renderTemplates, tag: 'QRP-94' },
+      { key: 'survey', label: 'رضا المستفيدين', icon: 'star', render: renderSurvey, tag: 'QRP-95' },
     ],
     {
       active,
@@ -770,6 +813,7 @@ export default async function render(ctx) {
         active = key;
         replaceQuery('/quick-replies', { tab: key === 'replies' ? '' : key });
       },
+      tag: 'QRP-96',
     },
   );
 
@@ -777,6 +821,8 @@ export default async function render(ctx) {
     pageHeader({
       title: 'الردود الجاهزة وقوالب واتساب',
       subtitle: 'نصوص جاهزة لرسائل المستفيدين، وقوالب واتساب المعتمدة للإرسال خارج نافذة الـ 24 ساعة، ونتائج استبيان رضا المستفيدين.',
+      titleTag: 'QRP-97',
+      tag: 'QRP-98',
     }),
     tabsEl,
   );

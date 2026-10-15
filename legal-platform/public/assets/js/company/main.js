@@ -14,7 +14,10 @@ import { mountShell } from './shell.js';
 import { W, ERROR_COPY } from './words.js';
 import { S, setSession, clearSession, storageHygiene, rememberReturn, takeReturn, readDraft, readOnly, isViewer, getItem, setItem, removeItem, typingInProgress } from './state.js';
 import { notFoundView } from './common.js';
+import { tagsBoot } from '../lib/tags-boot.js';
 
+// v12 tags (TG-1، T12-30): رموز العناصر للمالك (لا شيء يُحمَّل بلا ?tags=1 أو تفضيل محفوظ أو Alt+Shift+T)
+tagsBoot({ app: 1 });
 const root = document.getElementById('company-app');
 // X10-P3: iOS Safari لا يطبّق :active (الضغط الفوري على الأزرار والصفوف والمربعات) إلا بمستمع touchstart في الصفحة
 document.addEventListener('touchstart', () => {}, { passive: true });
@@ -63,7 +66,7 @@ async function renderAuth() {
     if (path === '/forgot') mod.renderForgot(root, { email: authEmail, onBack: () => showLogin(null) });
     else mod.renderLogin(root, { notice: authNotice, email: authEmail, onSignedIn });
   } catch (err) {
-    bare(h('p', { role: 'alert' }, W.state.network), button(W.state.retry, { variant: 'primary', onClick: renderAuth }));
+    bare(h('p', { role: 'alert' }, W.state.network), button(W.state.retry, { variant: 'primary', onClick: renderAuth, tag: 'CC-33' }));
   }
   setTitle(title);
 }
@@ -180,7 +183,7 @@ function stopPolling() {
 // ───────────────────────── الخروج وانتهاء الجلسة ─────────────────────────
 async function logout() {
   if (readDraft()) {
-    const ok = await confirmDialog({ title: W.nav.logout, message: W.nav.logout_draft, confirmLabel: W.nav.logout_confirm, cancelLabel: W.state.cancel, danger: true });
+    const ok = await confirmDialog({ title: W.nav.logout, message: W.nav.logout_draft, confirmLabel: W.nav.logout_confirm, cancelLabel: W.state.cancel, danger: true, tag: 'CC-34' });
     if (!ok) return;
   }
   try {
@@ -246,7 +249,7 @@ async function boot() {
   try {
     [meta, session] = await Promise.all([api.get('/company/meta'), api.get('/company/auth/session').catch(() => ({ user: null }))]);
   } catch {
-    bare(h('p', { role: 'alert' }, W.state.network), button(W.state.retry, { variant: 'primary', onClick: boot }));
+    bare(h('p', { role: 'alert' }, W.state.network), button(W.state.retry, { variant: 'primary', onClick: boot, tag: 'CC-35' }));
     return;
   }
   setMeta(meta);

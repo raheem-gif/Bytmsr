@@ -55,3 +55,13 @@ addEventListener('pageshow', () => {
   going.o.removeAttribute('aria-busy');
   going = null;
 });
+// v12 tags (TG-1، T12-30، انحراف موثَّق: «/» وصفحات الأسئلة لا تحمّل menu.js): رموز العناصر للمالك فقط. tags-boot.js يُحمَّل
+// بمسار غير حرفي مع ?tags= أو ?tag= أو تفضيل محفوظ أو أول Alt+Shift+T، ولا شيء غير ذلك للزائر.
+let tb = 0;
+const tags = (t) => tb++ || import('/assets/js/lib/' + 'tags-boot.js').then((m) => (m.tagsBoot(), t && m.tagsToggle()), () => {});
+try {
+  if (/[?&]tags?=/.test(location.search + location.hash) || sessionStorage.bm_tags || localStorage.bm_tags) tags();
+} catch {
+  /* التخزين غير متاح */
+}
+addEventListener('keydown', (e) => !tb && e.altKey && e.shiftKey && e.code === 'KeyT' && tags(1));

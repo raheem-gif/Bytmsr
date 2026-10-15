@@ -262,9 +262,11 @@ describe('v11 gate-public — header and footer per side (GP-2)', () => {
   test('21. (restored) charity header: the green mark image → /khayri, no pill and no «تغيير نوع الخدمة» (E12-71 #6), CTA /intake?seg=charity; bare fragments on the home, /khayri#… elsewhere', async () => {
     await restored(async () => {
       const hd = headerOf((await get('/khayri')).body);
-      assert.match(hd, /<a class="pub-brand" href="\/khayri" aria-label="Emam Legal and Consultancy — الصفحة الرئيسية" data-tag="H-01">\s*<img class="pub-mark" src="\/assets\/img\/emam-mark-green\.svg\?v=[^"]+" width="99" height="19" alt="" decoding="async" \/>\s*<bdi class="pub-wordmark"/);
+      // v12 entry review: intended (R2, §5.9 / T12-22): charity chrome carries no H- codes
+      assert.match(hd, /<a class="pub-brand" href="\/khayri" aria-label="Emam Legal and Consultancy — الصفحة الرئيسية">\s*<img class="pub-mark" src="\/assets\/img\/emam-mark-green\.svg\?v=[^"]+" width="99" height="19" alt="" decoding="async" \/>\s*<bdi class="pub-wordmark"/);
       assert.ok(!/pub-seg-pill|pub-nav-gate|تغيير نوع الخدمة/.test(hd));
-      assert.match(hd, /<a class="pub-btn pub-btn-gold pub-nav-cta" href="\/intake\?seg=charity" data-cta="intake" data-tag="H-07">[\s\S]*?<span>احكيلنا مشكلتك<\/span><\/a>/);
+      assert.match(hd, /<a class="pub-btn pub-btn-gold pub-nav-cta" href="\/intake\?seg=charity" data-cta="intake">[\s\S]*?<span>احكيلنا مشكلتك<\/span><\/a>/);
+      assert.ok(!/data-tag="H-\d+"/.test(hd), 'no H- codes on the charity header');
       assert.match(hd, /<a class="pub-nav-link" href="#faq">أسئلة<\/a>/, 'bare fragments on the side home');
       assert.match(headerOf((await get('/privacy')).body), /<a class="pub-nav-link" href="\/khayri#faq">أسئلة<\/a>/, 'elsewhere /khayri#…');
     });
@@ -788,14 +790,14 @@ describe('v11 gate-public — follow-up page, sign-in and legal pages (GP-6/GP-7
     for (const cookie of ['', 'bm_seg=charity']) {
       const p = (await get('/portal', cookie ? { cookie } : {})).body;
       assert.equal(titleOf(p), `متابعة طلبكم | ${BRAND}`, cookie);
-      assert.match(p, /<h1 id="page-title" class="bp-login-title">متابعة طلبكم<\/h1>/);
+      assert.match(p, /<h1 id="page-title" class="bp-login-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>متابعة طلبكم<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.deepEqual(bmCopyOf(p).data, PORTAL_LOGIN_PAID);
     }
     for (const [k, v] of Object.entries({ h1: 'متابعة طلبكم', sub: 'اكتبوا رقم الموبايل الذي أرسلتم منه الطلب، وسيصلكم كود على واتساب.', send: 'إرسال الكود', code: 'الكود', confirm: 'تأكيد' })) assert.equal(PORTAL_LOGIN_PAID[k], v, k);
     for (const v of Object.values(PORTAL_LOGIN_PAID)) assert.ok(!BANNED.test(v) && !FEM_ALL.test(v), v);
     await restored(async () => {
       const c = (await get('/portal')).body;
-      assert.match(c, /<h1 id="page-title" class="bp-login-title">تابعي طلبك<\/h1>/);
+      assert.match(c, /<h1 id="page-title" class="bp-login-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>تابعي طلبك<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.equal(bmCopyOf(c), null);
       assert.equal(titleOf(c), `متابعة طلبك — ${BRAND}`);
       assert.equal(titleOf((await get('/portal', { cookie: 'bm_seg=paid' })).body), `متابعة طلبكم | ${BRAND}`);
@@ -820,7 +822,7 @@ describe('v11 gate-public — follow-up page, sign-in and legal pages (GP-6/GP-7
     const khayriBullet = 'المساعدة القانونية المجانية («خيري») مخصصة للأرامل والأيتام وأسرهم. قد نتحقق من الاستحقاق، وإن كان الطلب خارج البرنامج المجاني أبلغناكم وعرضنا تقديمه بأتعاب، ولا نبدأ إلا بموافقتكم.';
     assert.ok(!tm.includes(khayriBullet), 'v12 entry: intended (E12-69) — archived');
     assert.ok((await restored(() => get('/terms'))).body.includes(khayriBullet), 'restored');
-    assert.match(tm, /<li><a href="#paid">الخدمات بأتعاب للأفراد والشركات<\/a><\/li>/);
+    assert.match(tm, /<li><a href="#paid"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الخدمات بأتعاب للأفراد والشركات<\/a><\/li>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
   });
 
   test('54. (G11-51/52, P1) /data-deletion and 404: archived → paid prefill and paid links («طلب جديد» and «الصفحة الأولى» → «/», E12-71 #14); restored without a cookie → the charity text unchanged', async () => {
@@ -828,15 +830,15 @@ describe('v11 gate-public — follow-up page, sign-in and legal pages (GP-6/GP-7
     assert.ok(d.includes(`https://wa.me/201000000001?text=${encodeURIComponent('مرحبًا، أرغب في حذف بياناتي لديكم. الاسم: ')}`));
     const n = await get('/no-such-page-v11', { cookie: 'bm_seg=charity' });
     assert.equal(n.status, 404);
-    assert.match(n.body, /<h1 id="page-title">الصفحة غير موجودة<\/h1>/);
-    assert.ok(n.body.includes('href="/" data-cta="intake">طلب جديد</a>'));
-    assert.ok(n.body.includes('href="/portal">متابعة طلب</a>'));
+    assert.match(n.body, /<h1 id="page-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الصفحة غير موجودة<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    assert.match(n.body, /href="\/" data-cta="intake"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>طلب جديد<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+    assert.match(n.body, /href="\/portal"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>متابعة طلب<\/a>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
     assert.ok(!FEMININE.test(visible(n.body.replace(/<footer[\s\S]*?<\/footer>/, ''))));
     await restored(async () => {
       const dc = (await get('/data-deletion')).body;
       assert.ok(dc.includes(encodeURIComponent('السلام عليكم، ده «طلب حذف بياناتي» من عندكم. اسمي: ')));
       const nc = await get('/no-such-page-v11');
-      assert.match(nc.body, /<h1 id="page-title">الصفحة دي مش موجودة<\/h1>/);
+      assert.match(nc.body, /<h1 id="page-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>الصفحة دي مش موجودة<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.ok(nc.body.includes('href="/intake?seg=charity" data-cta="intake">احكيلنا مشكلتك</a>'), 'v12 entry: intended — bare /intake redirects to «/»');
     });
   });

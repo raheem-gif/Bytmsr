@@ -427,3 +427,104 @@ describe('v12 look — contrast contract A1–A11 for the default and 8 hostile 
     for (const [k, v] of [['--paper-2', NEU.paper2], ['--paper-3', NEU.paper3], ['--ink-2', NEU.ink2], ['--ink-3', NEU.ink3], ['--field', NEU.field]]) assert.match(app, new RegExp(`${k}: ${v};`, 'i'), k);
   });
 });
+
+// ───────────────────────── مراجعة المسار (review): انحدارات وجدها المراجع على الشاشات العميقة ─────────────────────────
+describe('v12 look — review regressions (A02/A04/A06/A17/A19/A20/A21, K12-21/29/P4/P8)', () => {
+  const R = (file) => cssRules(css(file));
+  const one = (file, sel) => {
+    const r = R(file).filter((x) => x.sel === sel);
+    assert.ok(r.length, `${file}: ${sel}`);
+    return r.map((x) => x.body).join(';');
+  };
+
+  test('R1 K12-21: the paid .pub-btn reset never reaches the header CTA (38 px; line button on /services)', () => {
+    const pub = R('public-site.css');
+    assert.ok(pub.some((r) => r.sel === 'body.pub[data-side="paid"] .pub-btn:where(:not(.pub-nav-cta))' && /min-height: 48px/.test(r.body)));
+    assert.ok(!pub.some((r) => r.sel === 'body.pub[data-side="paid"] .pub-btn'), 'an unscoped paid .pub-btn reset (same specificity as the CTA) overrides the critical header button');
+    assert.match(critical(''), /body\.pub-landing\[data-side="paid"\] \.pub-nav-cta\{[^}]*box-shadow:inset 0 0 0 1px var\(--ink\)/);
+    assert.match(critical(''), /body\.pub\[data-side="paid"\] \.pub-nav-cta\{[^}]*min-height:38px/);
+  });
+
+  test('R2 P8: the staff chat thread has no WhatsApp dot wash, no bubble shadow and 2-px corners', () => {
+    const chat = one('app.css', '.chat');
+    assert.doesNotMatch(chat, /gradient\(|#efeae2/);
+    const bubble = one('app.css', '.msg-bubble');
+    assert.doesNotMatch(bubble, /box-shadow/);
+    assert.match(bubble, /border-radius: var\(--r-1\)/);
+    assert.doesNotMatch(one('app.css', '.chat-day span'), /box-shadow|background/);
+    assert.doesNotMatch(one('app.css', '.msg-auto .msg-bubble'), /accent|box-shadow/);
+  });
+
+  test('R3 A19/A20: no initials-in-pastel avatars and no AI sparkles on screen (/app and /company)', () => {
+    const r = cssRules(css('v12-look.css')).find((x) => x.sel === '.avatar, .icon-sparkle');
+    assert.ok(r && /display: none/.test(r.body) && r.at.includes('@media screen'));
+  });
+
+  test('R4 A04/K12-37: no tinted icon tiles in front of rows (dashboard, request, knowledge, queue, account, notifications, simulator)', () => {
+    for (const [f, s] of [['pages-a.css', '.pa-missing-icon'], ['pages-a.css', '.pa-dlist-icon'], ['pages-a.css', '.pa-qempty-icon'], ['pages-a.css', '.pa-preset-icon'], ['pages-d.css', '.pd-step-icon'], ['v9-accounts.css', '.acc-session-icon'], ['app.css', '.notif-icon'], ['app.css', '.tl-dot > svg']]) {
+      assert.match(one(f, s), /display: none/, `${f} ${s}`);
+    }
+    assert.doesNotMatch(one('app.css', '.tl-dot'), /--tone-bg|box-shadow/);
+  });
+
+  test('R5 A06/A21/A05: counts, channels and step numbers are words or figures, never tinted pills or circles', () => {
+    for (const [f, s] of [['pages-a.css', '.pa-dlist-n'], ['pages-a.css', '.pa-dlist-row.is-pending .pa-dlist-n'], ['v10-desk.css', '.cq-group-count'], ['pages-b.css', '.pb-issue-num'], ['pages-d.css', '.pd-step-num'], ['app.css', '.chan-tag'], ['app.css', '.auto-tag'], ['pages-a.css', '.pa-chan'], ['v91-lawyer-work.css', '.lw-savechip'], ['app.css', '.seg[aria-pressed="true"] .tab-count']]) {
+      const b = one(f, s);
+      assert.doesNotMatch(b, /background|border-radius: (50%|999px)/, `${f} ${s}`);
+    }
+    for (const s of ['.chan-whatsapp', '.chan-website, .chan-portal']) assert.ok(!R('app.css').some((r) => r.sel === s), `${s} tinted chip rule is gone`);
+    assert.match(one('pages-a.css', '.pa-qnav-item'), /border-radius: var\(--r-1\)/);
+    assert.doesNotMatch(R('pages-a.css').filter((r) => r.sel === '.pa-qnav-item.is-pending').map((r) => r.body).join(''), /warning-100/);
+  });
+
+  test('R6 K12-04: fields with an action or an addon keep the 2-px corner (password fields on both sign-in pages)', () => {
+    for (const s of ['.input-group-action .input', 'html[dir="rtl"] .input-group-action .input[dir="ltr"]', 'html[dir="rtl"] .input-group .input[dir="ltr"]', '.input-addon']) {
+      assert.doesNotMatch(one('app.css', s), /9px/, s);
+    }
+  });
+
+  test('R7 K12-P4: gold is never text in the staff layer or the paid intake (demo panel, accent badges, date columns, scan tip)', () => {
+    for (const s of ['.demo-panel h2', '.demo-panel > p', '.badge-accent', '.tone-accent', '.event-date']) assert.doesNotMatch(one('app.css', s), /accent-[5-9]00|gold-ink/, s);
+    assert.doesNotMatch(one('pages-a.css', '.pa-event-date'), /accent/);
+    for (const s of ['.lc-ev.is-pending .event-date', '.lc-ev.is-past .event-date']) assert.doesNotMatch(one('v91-l-court.css', s), /background/);
+    const paid = cssRules(css('v91-b-forms.css')).find((r) => r.sel === 'body[data-side="paid"]' && /--bmf-gold-soft/.test(r.body));
+    assert.match(paid.body, /--bmf-gold: var\(--act\)/);
+    assert.match(paid.body, /--bmf-gold-ink: var\(--ink\)/);
+  });
+
+  test('R8 K12-29: notices are ivory with a 2-px start rule (request notes, overdue sessions, required attendance); danger buttons are outlines', () => {
+    for (const [f, s] of [['pages-a.css', '.pa-note.is-info, .pa-note.is-warning'], ['v9-practice.css', '.v9p-overdue'], ['app.css', '.event-item.is-required']]) {
+      const b = one(f, s);
+      assert.match(b, /border-inline-start: 2px solid/, s);
+      assert.match(b, /var\(--paper-2\)/, s);
+      assert.doesNotMatch(b, /(info|warning|danger|accent)-(50|100)/, s);
+    }
+    assert.match(one('v11-ui.css', '.btn-danger'), /background: none; color: var\(--bad\); border-color: var\(--bad\)/);
+  });
+
+  test('R9 P8/A17: no gradient panels (company sign-in, impact report, brand preview); dashboard figures, alerts and events are ruled rows', () => {
+    assert.doesNotMatch(one('v10-company-pages.css', '.co-auth-panel'), /gradient\(/);
+    assert.doesNotMatch(one('v9-practice.css', '.v9p-report-head'), /gradient\(/);
+    assert.doesNotMatch(one('v9-practice.css', '.v9p-value-totals .is-main'), /success-100/);
+    assert.doesNotMatch(one('pages-d.css', '.brp-side'), /gradient\(/);
+    for (const s of ['.pa-mini-stats > div', '.pa-month > div', '.pa-alert-link', '.pa-event']) {
+      const b = one('pages-a.css', s);
+      assert.match(b, /border-top: 1px solid var\(--rule\)/, s);
+      assert.doesNotMatch(b, /background|border-radius/, s);
+    }
+  });
+
+  test('R10 P8: the lawyer writing toolbar has no elevation shadow; its tools and team rows keep 2-px corners', () => {
+    assert.doesNotMatch(stripComments(css('v91-lawyer-work.css')), /\.lw-write \.lw-write-toolbar \{\s*box-shadow/);
+    for (const s of ['.lw-tool', '.lw-ref-tab', '.lw-team-item, .lw-version, .lw-versions']) assert.match(one('v91-lawyer-work.css', s), /border-radius: var\(--r-1\)/, s);
+  });
+
+  test('R2 contrast: the outgoing bubble time (gray-600) on primary-50 ≥ 4.5:1 for the default and 8 hostile brand pairs', () => {
+    const gray600 = (/--gray-600:\s*(#[0-9a-f]{6})/i.exec(css('app.css')) || [])[1];
+    assert.ok(gray600);
+    for (const [p, a] of [['#0b3d29', '#cca454'], ['#0b5a3c', '#c9a14a'], ['#f2e600', '#00e5ff'], ['#d0021b', '#1f4fff'], ['#000000', '#ffffff'], ['#ffffff', '#000000'], ['#6a1b9a', '#d4af37'], ['#00897b', '#ff7043'], ['#ff4fa3', '#b6ff00']]) {
+      const v = contrast(gray600, buildTheme(p, a).primary[50]);
+      assert.ok(v >= 4.5, `${p}/${a}: ${v.toFixed(2)}`);
+    }
+  });
+});

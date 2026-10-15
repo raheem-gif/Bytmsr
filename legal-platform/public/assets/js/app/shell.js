@@ -17,14 +17,14 @@ const navItem = (href, iconName, extra = {}) => ({ href, label: routeTitle(href)
 
 /** عناصر القائمة حسب الدور. */
 export function navGroups(user, meta) {
-  const notifications = navItem('/notifications', 'bell', { notif: true });
-  const account = navItem('/account', 'shield');
+  const notifications = navItem('/notifications', 'bell', { notif: true, tag: 'NAV-01' });
+  const account = navItem('/account', 'shield', { tag: 'NAV-02' });
   if (user.role === 'lawyer') {
     // v9.1 l-home (L-08): أسماء المحامي من words.js («اليوم»، «إسناداتي»، «مستحقاتي»، «حسابي»…)
     const L = lawyerNavItems();
     return [
-      { title: 'بوابة المحامي', items: L.work },
-      { title: 'عام', items: L.general },
+      { title: 'بوابة المحامي', items: L.work, tag: 'NAV-03' },
+      { title: 'عام', items: L.general, tag: 'NAV-04' },
     ];
   }
   const isAdmin = user.role === 'admin';
@@ -32,41 +32,45 @@ export function navGroups(user, meta) {
     // v12 look (LK-2، K12-33/K12-57): المجموعات «اليوم · الشركات · المكتب»، ثم «النظام» للإدارة والحساب
     {
       title: 'اليوم',
+      tag: 'NAV-05',
       items: [
-        navItem('/dashboard', 'home'),
-        navItem('/inbox', 'inbox'),
-        navItem('/queue', 'queue'),
-        navItem('/cases', 'briefcase'),
-        navItem('/matters', 'gavel'),
-        navItem('/clients', 'users'),
-        navItem('/calendar', 'calendar'),
+        navItem('/dashboard', 'home', { tag: 'NAV-06' }),
+        navItem('/inbox', 'inbox', { tag: 'NAV-07' }),
+        navItem('/queue', 'queue', { tag: 'NAV-08' }),
+        navItem('/cases', 'briefcase', { tag: 'NAV-09' }),
+        navItem('/matters', 'gavel', { tag: 'NAV-10' }),
+        navItem('/clients', 'users', { tag: 'NAV-11' }),
+        navItem('/calendar', 'calendar', { tag: 'NAV-12' }),
       ],
     },
     // v10 b2b-staff (H-S2): خدمة الشركات — العدد على «طلبات الشركات» من /admin/b2b/overview مع دورة الإشعارات
-    { title: 'الشركات', items: [navItem('/company-requests', 'inboxStack', { coBadge: true }), navItem('/companies', 'building')] },
+    { title: 'الشركات', tag: 'NAV-13', items: [navItem('/company-requests', 'inboxStack', { coBadge: true, tag: 'NAV-14' }), navItem('/companies', 'building', { tag: 'NAV-15' })] },
     {
       title: 'المكتب',
+      tag: 'NAV-16',
       items: [
-        navItem('/lawyers', 'scale'),
-        isAdmin && navItem('/accounting', 'wallet'),
-        navItem('/programs', 'book'),
-        navItem('/conflicts', 'shieldCheck'),
-        navItem('/impact', 'star'),
-        navItem('/automations', 'zap'),
-        navItem('/quick-replies', 'message'),
-        navItem('/knowledge', 'sparkle'),
-        navItem('/analytics', 'chart'),
+        navItem('/lawyers', 'scale', { tag: 'NAV-17' }),
+        isAdmin && navItem('/accounting', 'wallet', { tag: 'NAV-18' }),
+        navItem('/programs', 'book', { tag: 'NAV-19' }),
+        navItem('/conflicts', 'shieldCheck', { tag: 'NAV-20' }),
+        navItem('/impact', 'star', { tag: 'NAV-21' }),
+        navItem('/automations', 'zap', { tag: 'NAV-22' }),
+        navItem('/quick-replies', 'message', { tag: 'NAV-23' }),
+        navItem('/knowledge', 'sparkle', { tag: 'NAV-24' }),
+        navItem('/analytics', 'chart', { tag: 'NAV-25' }),
       ],
     },
     {
       title: 'النظام',
+      tag: 'NAV-26',
       items: [
-        meta && meta.demo && navItem('/simulator', 'whatsapp'),
-        isAdmin && navItem('/settings', 'settings'),
-        isAdmin && navItem('/integrations', 'link'),
-        isAdmin && navItem('/system', 'refresh'),
-        isAdmin && navItem('/audit', 'lock'),
-        isAdmin && navItem('/data', 'download'),
+        meta && meta.demo && navItem('/simulator', 'whatsapp', { tag: 'NAV-27' }),
+        isAdmin && navItem('/settings', 'settings', { tag: 'NAV-28' }),
+        isAdmin && navItem('/integrations', 'link', { tag: 'NAV-29' }),
+        isAdmin && navItem('/system', 'refresh', { tag: 'NAV-30' }),
+        isAdmin && navItem('/audit', 'lock', { tag: 'NAV-31' }),
+        isAdmin && navItem('/data', 'download', { tag: 'NAV-32' }),
+        isAdmin && navItem('/tags', 'grid', { tag: 'NAV-33' }), // v12 tags (H-T، T12-63): لمدير الحالة رابط من «حسابي»
         account,
         notifications,
       ],
@@ -119,7 +123,7 @@ export function createShell({ user, meta, onLogout }) {
   const groupCtl = []; // { title, el, links, set(open), userSet }
   const nav = h(
     'nav.nav',
-    { 'aria-label': 'القائمة الرئيسية' },
+    { 'aria-label': 'القائمة الرئيسية', tag: 'NAV-34' },
     groups.map((g) => {
       const uidPart = Math.random().toString(36).slice(2, 8);
       const titleId = `nav-g-${uidPart}`;
@@ -128,7 +132,7 @@ export function createShell({ user, meta, onLogout }) {
       // عنوان المجموعة زر طي/فتح (يُعلن حالته لقارئات الشاشة)
       const toggle = h(
         'button.nav-group-title.nav-group-toggle',
-        { type: 'button', id: titleId, 'aria-expanded': 'true', 'aria-controls': listId },
+        { type: 'button', id: titleId, 'aria-expanded': 'true', 'aria-controls': listId, tag: g.tag },
         h('span', g.title),
         icon('chevronDown', { size: 14, className: 'nav-group-chev' }),
       );
@@ -157,7 +161,7 @@ export function createShell({ user, meta, onLogout }) {
             if (countEl && item.coBadge) coBadgeEl = countEl; // v10 b2b-staff (H-S2)
             const a = h(
               'a.nav-link',
-              { href: `#${item.href}`, dataset: { path: item.href } },
+              { href: `#${item.href}`, dataset: { path: item.href }, tag: item.tag },
               icon(item.icon, { size: 19 }),
               h('span.nav-label', item.label),
               countEl,
@@ -231,7 +235,7 @@ export function createShell({ user, meta, onLogout }) {
     { 'aria-label': 'التنقل' },
     h(
       'a.brand',
-      { href: '#/' },
+      { href: '#/', tag: 'NAV-35' },
       brandMark({ size: 24 }),
       // v9.1 l-home (L-08): اسم واحد للمنصة في كل مكان؛ v10: الشعار النصي للمكتب على سطرين
       chrome.on
@@ -252,28 +256,28 @@ export function createShell({ user, meta, onLogout }) {
   // v12 look (K12-21/K12-33، L12-83): على الهاتف كلمة «القائمة» بدل أيقونة الأسطر الثلاثة، وبجانبها العلامة (صنف topbar-mark)
   const menuBtn = h(
     'button.icon-btn.topbar-menu.topbar-menu--word',
-    { type: 'button', 'aria-label': 'فتح القائمة', 'aria-controls': 'app-sidebar', 'aria-expanded': 'false' },
+    { type: 'button', 'aria-label': 'فتح القائمة', 'aria-controls': 'app-sidebar', 'aria-expanded': 'false', tag: 'NAV-36' },
     h('span.topbar-menu-word', 'القائمة'),
   );
-  const topMark = h('a.topbar-mark', { href: '#/', 'aria-label': 'لوحة المتابعة' }, brandMark({ size: 18 }));
+  const topMark = h('a.topbar-mark', { href: '#/', 'aria-label': 'لوحة المتابعة', tag: 'NAV-37' }, brandMark({ size: 18 }));
   const titleEl = h('div.topbar-title');
   const bellCount = h('span.bell-count', { hidden: true, 'aria-hidden': 'true' });
   const bellBtn = h(
     'button.icon-btn',
-    { type: 'button', 'aria-label': 'الإشعارات', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'notif-dropdown' },
+    { type: 'button', 'aria-label': 'الإشعارات', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'notif-dropdown', tag: 'NAV-38' },
     icon('bell', { size: 21 }),
     bellCount,
   );
   const ddBody = h('div.dropdown-body');
-  const markAllBtn = button('تحديد الكل كمقروء', { variant: 'link', size: 'sm', onClick: markAll });
+  const markAllBtn = button('تحديد الكل كمقروء', { variant: 'link', size: 'sm', onClick: markAll, tag: 'NAV-39' });
   const dropdown = h(
     'section.dropdown#notif-dropdown',
-    { hidden: true, 'aria-label': 'أحدث الإشعارات' },
-    h('div.dropdown-head', h('h2.dropdown-title', 'الإشعارات'), markAllBtn),
+    { hidden: true, 'aria-label': 'أحدث الإشعارات', tag: 'NAV-40' },
+    h('div.dropdown-head', h('h2.dropdown-title', { tag: 'NAV-41' }, 'الإشعارات'), markAllBtn),
     ddBody,
     h(
       'div.dropdown-foot',
-      button('عرض الكل', { variant: 'ghost', size: 'sm', href: '#/notifications', block: true, onClick: () => closeDropdown(false) }),
+      button('عرض الكل', { variant: 'ghost', size: 'sm', href: '#/notifications', block: true, onClick: () => closeDropdown(false), tag: 'NAV-42' }),
     ),
   );
   const bellWrap = h('div.dropdown-anchor', bellBtn, dropdown);
@@ -286,6 +290,7 @@ export function createShell({ user, meta, onLogout }) {
       title: 'تسجيل الخروج',
       // v9.1 l-home (L-08): المحامي يؤكد الخروج أولًا (لمسة خاطئة تكلفه دخولًا جديدًا على شبكة بطيئة)
       onClick: () => (lawyerUi ? lawyerUi.confirmLogout() : onLogout && onLogout()),
+      tag: 'NAV-43',
     },
     icon('logout', { size: 20 }),
   );
@@ -294,7 +299,7 @@ export function createShell({ user, meta, onLogout }) {
   const globalSearch = createSearch({ user });
   const topbar = h(
     'header.topbar',
-    menuBtn,
+    { tag: 'NAV-44' }, menuBtn,
     topMark,
     titleEl,
     h(
@@ -313,7 +318,7 @@ export function createShell({ user, meta, onLogout }) {
   const outlet = h('div.page');
   const main = h('main.content#main', { tabindex: '-1' }, outlet);
   const mainCol = h('div.main-col', topbar, main);
-  const skip = h('button.skip-link', { type: 'button', onClick: () => main.focus() }, 'تخطَّ إلى المحتوى');
+  const skip = h('button.skip-link', { type: 'button', onClick: () => main.focus(), tag: 'NAV-45' }, 'تخطَّ إلى المحتوى');
   const el = h('div.app-shell', skip, sidebar, backdrop, mainCol);
 
   // ── درج الجوال ──
@@ -362,7 +367,7 @@ export function createShell({ user, meta, onLogout }) {
 
   function renderDropdown() {
     if (!latest.length) {
-      mount(ddBody, emptyState('لا توجد إشعارات حتى الآن', null, { compact: true, icon: 'bell' }));
+      mount(ddBody, emptyState('لا توجد إشعارات حتى الآن', null, { compact: true, icon: 'bell', tag: 'NAV-46' }));
       return;
     }
     mount(
@@ -374,7 +379,7 @@ export function createShell({ user, meta, onLogout }) {
             'li',
             h(
               'button.notif-item',
-              { type: 'button', class: !n.read_at && 'is-unread', onClick: () => openItem(n) },
+              { type: 'button', class: !n.read_at && 'is-unread', onClick: () => openItem(n), tag: 'NAV-47' },
               h('span.notif-icon', { class: notifTone(n.type) }, icon(notifIcon(n.type), { size: 18 })),
               h(
                 'span.notif-text',

@@ -13,7 +13,7 @@ import {
 /** أعمدة أفقية لسلسلة واحدة مع قيم مباشرة وتلميح عند المرور وجدول بديل */
 function hbars({ caption, items, format = num, empty = 'لا توجد بيانات' }) {
   const rows = items.filter((x) => Number(x.value) > 0);
-  if (!rows.length) return emptyState(empty, null, { compact: true, icon: 'chart' });
+  if (!rows.length) return emptyState(empty, null, { compact: true, icon: 'chart', tag: 'IMP-01' });
   const max = Math.max(...rows.map((x) => Number(x.value)));
   const summary = `${caption}: ${rows.map((x) => `${x.label} ${format(x.value)}`).join('، ')}`;
   return h(
@@ -36,14 +36,14 @@ function hbars({ caption, items, format = num, empty = 'لا توجد بيانا
         );
       }),
     ),
-    h('details.v9p-table-view', h('summary', 'عرض البيانات كجدول'), h('div.table-wrap', h('table.table', h('caption.sr-only', caption), h('tbody', rows.map((x) => h('tr', h('th', { scope: 'row' }, x.label), h('td.align-end', format(x.value)))))))),
+    h('details.v9p-table-view', { tag: 'IMP-02' }, h('summary', { tag: 'IMP-03' }, 'عرض البيانات كجدول'), h('div.table-wrap', h('table.table', h('caption.sr-only', caption), h('tbody', rows.map((x) => h('tr', h('th', { scope: 'row' }, x.label), h('td.align-end', format(x.value)))))))),
   );
 }
 
 /** أعمدة رأسية شهرية (الأقدم يمينًا كما في القراءة العربية) */
 function monthBars({ caption, months, key, format = num }) {
   const vals = months.map((m) => Number(m[key]) || 0);
-  if (!vals.some((x) => x > 0)) return emptyState('لا توجد بيانات في هذه الفترة', null, { compact: true, icon: 'chart' });
+  if (!vals.some((x) => x > 0)) return emptyState('لا توجد بيانات في هذه الفترة', null, { compact: true, icon: 'chart', tag: 'IMP-04' });
   const max = Math.max(...vals);
   const n = months.length;
   const slot = 44;
@@ -81,7 +81,7 @@ function monthBars({ caption, months, key, format = num }) {
     ), { startAtEnd: true }),
     h(
       'details.v9p-table-view',
-      h('summary', 'عرض البيانات كجدول'),
+      { tag: 'IMP-05' }, h('summary', { tag: 'IMP-06' }, 'عرض البيانات كجدول'),
       h('div.table-wrap', h('table.table', h('caption.sr-only', caption), h('tbody', months.map((m) => h('tr', h('th', { scope: 'row' }, m.label), h('td.align-end', format(m[key]))))))),
     ),
   );
@@ -186,11 +186,12 @@ export default async function render(ctx) {
       title: 'مستوى الخدمة: مهلة أول رد',
       intro: 'المدة القصوى بين وصول طلب عبر واتساب أو الموقع وأول رد من الإدارة. عند تجاوزها يُنبَّه فريق الإدارة مرة واحدة لكل طلب.',
       fields: [
-        { name: 'sla_first_response_hours', label: 'مهلة أول رد', type: 'number', required: true, min: 1, max: 168, integer: true, suffix: 'ساعة' },
-        { name: 'sla_alerts_enabled', type: 'checkbox', text: 'تنبيه الإدارة عند تجاوز المهلة', full: true },
+        { name: 'sla_first_response_hours', label: 'مهلة أول رد', type: 'number', required: true, min: 1, max: 168, integer: true, suffix: 'ساعة', tag: 'IMP-07' },
+        { name: 'sla_alerts_enabled', type: 'checkbox', text: 'تنبيه الإدارة عند تجاوز المهلة', full: true, tag: 'IMP-08' },
       ],
       values: { sla_first_response_hours: sla.sla_hours, sla_alerts_enabled: sla.alerts_enabled !== false },
       onSubmit: (v) => api.patch('/admin/settings', { sla_first_response_hours: v.sla_first_response_hours, sla_alerts_enabled: !!v.sla_alerts_enabled }),
+      tag: 'IMP-09',
     });
     if (res) {
       toast('حُفظ مستوى الخدمة', 'success');
@@ -207,7 +208,7 @@ export default async function render(ctx) {
 
     const printHead = h(
       'header.v9p-report-head',
-      h('div.v9p-report-org', h('strong', r.org.legal_name), r.org.registration && h('span', r.org.registration), r.org.address && h('span.small', r.org.address)),
+      { tag: 'IMP-10' }, h('div.v9p-report-org', h('strong', r.org.legal_name), r.org.registration && h('span', r.org.registration), r.org.address && h('span.small', r.org.address)),
       h(
         'div.v9p-report-meta',
         h('strong', 'تقرير الأثر — برنامج الدعم القانوني'),
@@ -219,15 +220,15 @@ export default async function render(ctx) {
 
     const kpis = h(
       'div.stats-grid.v9p-kpis',
-      statCard({ label: 'الأسر المخدومة', value: num(t.families_served), hint: `طلبات واردة: ${num(t.intakes)}`, icon: 'home', tone: 'primary' }),
-      statCard({ label: 'أرامل', value: num(b.widows), hint: `أوصياء أو كفلاء أيتام: ${num(b.orphan_guardians)}`, icon: 'users', tone: 'accent' }),
-      statCard({ label: 'أبناء في الأسر المخدومة', value: num(b.children), hint: b.minors ? `دون 18 سنة: ${num(b.minors)}` : 'من بطاقات المستفيدين', icon: 'user', tone: 'info' }),
-      statCard({ label: 'ملفات استشارة أُغلقت', value: num(t.cases_closed), hint: `فُتح في الفترة: ${num(t.cases_opened)}`, icon: 'briefcase', tone: 'success' }),
-      statCard({ label: 'القيمة السنوية للحقوق المستردة', value: money(val.annualized), hint: `دفعة واحدة ${money(val.one_time)} + شهريًا ${money(val.monthly)}`, icon: 'star', tone: 'success' }),
-      statCard({ label: 'قيمة العمل التطوعي', value: money(r.volunteer.notional_value), hint: `${count(r.volunteer.consultations, 'consultation')} · ${hours(r.volunteer.hours)}`, icon: 'scale', tone: 'accent' }),
-      statCard({ label: 'متوسط زمن أول رد', value: resp.first_response_avg_minutes != null ? statDuration(resp.first_response_avg_minutes * 60000) : '—', hint: resp.within_sla_rate != null ? `ضمن المهلة (${count(resp.sla_hours, 'hour')}): ${percent(resp.within_sla_rate)} — للفترة المختارة` : 'لا توجد ردود في الفترة', icon: 'clock', tone: 'info' }),
+      statCard({ label: 'الأسر المخدومة', value: num(t.families_served), hint: `طلبات واردة: ${num(t.intakes)}`, icon: 'home', tone: 'primary', tag: 'IMP-11' }),
+      statCard({ label: 'أرامل', value: num(b.widows), hint: `أوصياء أو كفلاء أيتام: ${num(b.orphan_guardians)}`, icon: 'users', tone: 'accent', tag: 'IMP-12' }),
+      statCard({ label: 'أبناء في الأسر المخدومة', value: num(b.children), hint: b.minors ? `دون 18 سنة: ${num(b.minors)}` : 'من بطاقات المستفيدين', icon: 'user', tone: 'info', tag: 'IMP-13' }),
+      statCard({ label: 'ملفات استشارة أُغلقت', value: num(t.cases_closed), hint: `فُتح في الفترة: ${num(t.cases_opened)}`, icon: 'briefcase', tone: 'success', tag: 'IMP-14' }),
+      statCard({ label: 'القيمة السنوية للحقوق المستردة', value: money(val.annualized), hint: `دفعة واحدة ${money(val.one_time)} + شهريًا ${money(val.monthly)}`, icon: 'star', tone: 'success', tag: 'IMP-15' }),
+      statCard({ label: 'قيمة العمل التطوعي', value: money(r.volunteer.notional_value), hint: `${count(r.volunteer.consultations, 'consultation')} · ${hours(r.volunteer.hours)}`, icon: 'scale', tone: 'accent', tag: 'IMP-16' }),
+      statCard({ label: 'متوسط زمن أول رد', value: resp.first_response_avg_minutes != null ? statDuration(resp.first_response_avg_minutes * 60000) : '—', hint: resp.within_sla_rate != null ? `ضمن المهلة (${count(resp.sla_hours, 'hour')}): ${percent(resp.within_sla_rate)} — للفترة المختارة` : 'لا توجد ردود في الفترة', icon: 'clock', tone: 'info', tag: 'IMP-17' }),
       r.satisfaction && r.satisfaction.count
-        ? statCard({ label: 'رضا المستفيدين', value: rating(r.satisfaction.average, r.satisfaction.scale), hint: `من ${count(r.satisfaction.count, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])}`, icon: 'checkCircle', tone: 'success' })
+        ? statCard({ label: 'رضا المستفيدين', value: rating(r.satisfaction.average, r.satisfaction.scale), hint: `من ${count(r.satisfaction.count, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])}`, icon: 'checkCircle', tone: 'success', tag: 'IMP-18' })
         : null,
     );
 
@@ -246,13 +247,17 @@ export default async function render(ctx) {
             ),
             hbars({ caption: 'القيمة السنوية حسب نوع الأثر', items: val.by_kind.map((k) => ({ label: `${k.label} (${num(k.count)})`, value: k.annualized })), format: money }),
           )
-        : emptyState('لم يُسجَّل أثر مالي للملفات المغلقة في هذه الفترة. سجّله من بطاقة «الأثر المتحقق» في صفحة الملف.', null, { compact: true, icon: 'star' }),
+        : emptyState('لم يُسجَّل أثر مالي للملفات المغلقة في هذه الفترة. سجّله من بطاقة «الأثر المتحقق» في صفحة الملف.', null, { compact: true, icon: 'star', tag: 'IMP-19' }),
+        titleTag: 'IMP-20',
+        tag: 'IMP-21',
     });
 
     const outcomesCard = card({
       title: 'الملفات المغلقة حسب النتيجة',
       icon: 'briefcase',
       body: hbars({ caption: 'الملفات المغلقة حسب النتيجة', items: r.outcomes.map((o) => ({ label: o.label, value: o.count })), empty: 'لم تُغلق ملفات في هذه الفترة' }),
+      titleTag: 'IMP-22',
+      tag: 'IMP-23',
     });
 
     const benCard = card({
@@ -264,17 +269,23 @@ export default async function render(ctx) {
         hbars({ caption: 'الأسر حسب صفة المستفيد', items: b.relation.map((x) => ({ label: x.label, value: x.count })), empty: 'لا توجد بطاقات مستفيدين للأسر المخدومة في هذه الفترة' }),
         b.foundation_beneficiaries ? h('p.small', `أسر مستفيدة من برامج المؤسسة الأخرى: ${num(b.foundation_beneficiaries)}`) : null,
       ),
+      titleTag: 'IMP-24',
+      tag: 'IMP-25',
     });
 
     const areaCard = card({
       title: 'حسب المجال القانوني',
       icon: 'scale',
       body: hbars({ caption: 'الأسر المخدومة حسب المجال القانوني', items: r.by_area.map((x) => ({ label: x.label, value: x.families })) }),
+      titleTag: 'IMP-26',
+      tag: 'IMP-27',
     });
     const govCard = card({
       title: 'حسب المحافظة',
       icon: 'mapPin',
       body: hbars({ caption: 'الأسر المخدومة حسب المحافظة', items: r.by_governorate.map((x) => ({ label: x.label, value: x.families })) }),
+      titleTag: 'IMP-28',
+      tag: 'IMP-29',
     });
     const monthCard = card({
       title: 'الاتجاه الشهري',
@@ -283,9 +294,11 @@ export default async function render(ctx) {
       body: h(
         'div.stack',
         monthBars({ caption: 'الأسر المخدومة شهريًا', months: r.by_month, key: 'families' }),
-        r.by_month.some((m) => m.annualized) && h('h3.v9p-subhead', 'القيمة السنوية للحقوق المستردة شهريًا'),
+        r.by_month.some((m) => m.annualized) && h('h3.v9p-subhead', { tag: 'IMP-30' }, 'القيمة السنوية للحقوق المستردة شهريًا'),
         r.by_month.some((m) => m.annualized) && monthBars({ caption: 'القيمة السنوية للحقوق المستردة حسب شهر الإغلاق', months: r.by_month, key: 'annualized', format: (x) => num(Math.round(x)) }),
       ),
+      titleTag: 'IMP-31',
+      tag: 'IMP-32',
     });
 
     const volCard = card({
@@ -298,12 +311,14 @@ export default async function render(ctx) {
         h('div', h('span.small.muted', 'ساعات عمل'), h('strong', num(r.volunteer.hours))),
         h('div.is-main', h('span.small.muted', 'القيمة التقديرية'), h('strong', money(r.volunteer.notional_value))),
       ),
+      titleTag: 'IMP-33',
+      tag: 'IMP-34',
     });
 
     const respCard = card({
       title: 'زمن الاستجابة ومستوى الخدمة',
       icon: 'clock',
-      actions: isAdmin ? button('ضبط المهلة', { size: 'sm', icon: 'settings', onClick: () => editSla(resp) }) : null,
+      actions: isAdmin ? button('ضبط المهلة', { size: 'sm', icon: 'settings', onClick: () => editSla(resp), tag: 'IMP-35' }) : null,
       body: h(
         'div.stack',
         h(
@@ -314,6 +329,8 @@ export default async function render(ctx) {
         ),
         slaNow,
       ),
+      titleTag: 'IMP-36',
+      tag: 'IMP-37',
     });
 
     const notes = card({
@@ -328,6 +345,8 @@ export default async function render(ctx) {
         h('li', 'قيمة العمل التطوعي: القيمة التقديرية المتفق عليها لكل استشارة اعتُمدت من محامٍ متطوع أو ضمن برنامج مسؤولية مجتمعية.'),
         h('li', 'لا يتضمن التقرير أي بيانات شخصية للمستفيدين؛ الأرقام مجمعة فقط.'),
       ),
+      titleTag: 'IMP-38',
+      tag: 'IMP-39',
     });
 
     return h(
@@ -349,17 +368,17 @@ export default async function render(ctx) {
     try {
       const s = await api.get('/admin/sla');
       if (!s.overdue_now) {
-        mount(slaNow, alertBox(`لا توجد الآن طلبات تجاوزت مهلة أول رد (${count(s.hours, 'hour')}).`, 'success', { icon: 'checkCircle' }));
+        mount(slaNow, alertBox(`لا توجد الآن طلبات تجاوزت مهلة أول رد (${count(s.hours, 'hour')}).`, 'success', { icon: 'checkCircle', tag: 'IMP-40' }));
         return;
       }
       mount(
         slaNow,
         h(
           'div.stack-sm',
-          alertBox(`الآن: ${count(s.overdue_now, 'request')} بلا رد من الإدارة بعد تجاوز مهلة ${count(s.hours, 'hour')}.`, 'warning', { title: 'متأخرة عن مستوى الخدمة', icon: 'alert' }),
+          alertBox(`الآن: ${count(s.overdue_now, 'request')} بلا رد من الإدارة بعد تجاوز مهلة ${count(s.hours, 'hour')}.`, 'warning', { title: 'متأخرة عن مستوى الخدمة', icon: 'alert', tag: 'IMP-41' }),
           h(
             'ul.v9p-sla-list',
-            s.overdue.slice(0, 8).map((i) => h('li', h('a', { href: `#/inbox/${i.id}` }, codeTag(i.code)), h('span', i.title || i.contact_name || 'طلب بدون عنوان'), badge(`وصل ${relative(i.created_at)}`, 'warning', { icon: 'clock' }))),
+            s.overdue.slice(0, 8).map((i) => h('li', h('a', { href: `#/inbox/${i.id}`, tag: 'IMP-42' }, codeTag(i.code)), h('span', i.title || i.contact_name || 'طلب بدون عنوان'), badge(`وصل ${relative(i.created_at)}`, 'warning', { icon: 'clock' }))),
           ),
         ),
       );
@@ -371,10 +390,10 @@ export default async function render(ctx) {
   // ── شريط الفلاتر ──
   const filters = form(
     [
-      { name: 'from', label: 'من تاريخ', type: 'date', required: true },
-      { name: 'to', label: 'إلى تاريخ', type: 'date', required: true, endOfDay: true },
-      { name: 'area', label: 'المجال القانوني', type: 'select', options: areaOptions(), placeholder: 'كل المجالات' },
-      { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), placeholder: 'كل المحافظات' },
+      { name: 'from', label: 'من تاريخ', type: 'date', required: true, tag: 'IMP-49' },
+      { name: 'to', label: 'إلى تاريخ', type: 'date', required: true, endOfDay: true, tag: 'IMP-50' },
+      { name: 'area', label: 'المجال القانوني', type: 'select', options: areaOptions(), placeholder: 'كل المجالات', tag: 'IMP-51' },
+      { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), placeholder: 'كل المحافظات', tag: 'IMP-52' },
     ],
     {
       values: { from: state.from, to: state.to, area: state.area, governorate: state.governorate },
@@ -388,6 +407,8 @@ export default async function render(ctx) {
         Object.assign(state, { from, to, area: v.area || '', governorate: v.governorate || '' });
         await load();
       },
+      submitTag: 'IMP-53',
+      tag: 'IMP-54',
     },
   );
   const presets = selectInput({
@@ -407,18 +428,21 @@ export default async function render(ctx) {
       Object.assign(state, r);
       load();
     },
+    tag: 'IMP-43',
   });
 
-  const exportBtn = button('تصدير CSV', { icon: 'download', onClick: (e) => exportCsv(e.currentTarget) });
+  const exportBtn = button('تصدير CSV', { icon: 'download', onClick: (e) => exportCsv(e.currentTarget), tag: 'IMP-44' });
   const header = pageHeader({
     title: 'تقرير الأثر',
     subtitle: 'للمجلس والجهات المانحة ووزارة التضامن الاجتماعي: من خدمنا وما الحقوق التي استُردت.',
     // v11 segment-staff (ST-5، S11-38): الأرقام كما كانت (الخيري وحده)؛ سطر للفريق على الشاشة، والمطبوع لا يتغير (INV-22)
     meta: h('p.v9p-scope-line.no-print', { dataset: { scope: 'charity' } }, 'تقرير الأثر يخص الخدمة الخيرية فقط.'),
-    actions: [exportBtn, button('طباعة التقرير', { variant: 'primary', icon: 'fileText', onClick: () => window.print() })],
+    actions: [exportBtn, button('طباعة التقرير', { variant: 'primary', icon: 'fileText', onClick: () => window.print(), tag: 'IMP-45' })],
+    titleTag: 'IMP-46',
+    tag: 'IMP-47',
   });
 
   load();
   loadSla();
-  return h('div.v9p-page.v9p-impact', header, card({ className: 'v9p-filter-card no-print', body: h('div.stack-sm', h('div.v9p-presets', presets), filters.el) }), out);
+  return h('div.v9p-page.v9p-impact', header, card({ className: 'v9p-filter-card no-print', body: h('div.stack-sm', h('div.v9p-presets', presets), filters.el), tag: 'IMP-48' }), out);
 }

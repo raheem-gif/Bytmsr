@@ -5,6 +5,7 @@ import { spokenTime } from '../util.js'; // v9.1 b-site (B91-10)
 import { withClientNote } from './portal-v91.js'; // v9.1 fixes: «هاتي معاكي» المعتمدة في نص التذكير
 import { LABELS, DEFAULT_AUTOMATION_RULES, LEGACY_AUTOMATION_TEMPLATES } from '../constants.js';
 import { STORY_AUTO_RULES } from '../constants.js'; // v9.2 بوابة K7
+import { messageTag, ruleTag } from '../tags/messages.js'; // v12 tags (TG-4، T12-19): رموز العرض W للقواعد والصادر
 
 function fill(template, values) {
   return String(template).replace(/\{(\w+)\}/g, (m, k) => (values[k] !== undefined && values[k] !== null ? String(values[k]) : m));
@@ -393,7 +394,7 @@ export function createAutomations(app) {
         const r = rule(key);
         const runs = db.all('SELECT * FROM automation_runs WHERE rule_key = ? ORDER BY created_at DESC LIMIT 10', key).map(describeRun);
         const count = Number(db.value('SELECT COUNT(*) FROM automation_runs WHERE rule_key = ?', key));
-        return { ...r, label: LABELS.automation_rule[key], total_runs: count, recent_runs: runs };
+        return { ...r, label: LABELS.automation_rule[key], total_runs: count, recent_runs: runs, tag: ruleTag(key) };
       });
     },
 
@@ -502,7 +503,10 @@ export function createAutomations(app) {
           ...params,
           Math.min(Number(limit) || 200, 1000),
         )
-        .map((m) => ({ ...m, meta: parseJson(m.meta, {}), automated: !!m.automated }));
+        .map((m) => {
+          const meta = parseJson(m.meta, {});
+          return { ...m, meta, automated: !!m.automated, tag: messageTag(m.automation_rule, { body: m.body, wa: meta.wa, meta }) };
+        });
     },
 
     validateTemplate(key, template) {

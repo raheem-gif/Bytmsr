@@ -44,7 +44,7 @@ function assignmentCard(a, { history = false } = {}) {
   const f = flags(a, { history });
   return h(
     'a.pc-item-card',
-    { href: `#/my/assignments/${encodeURIComponent(a.id)}`, class: a.overdue && 'is-overdue' },
+    { href: `#/my/assignments/${encodeURIComponent(a.id)}`, class: a.overdue && 'is-overdue', tag: 'ASL-01' },
     h('div.pc-item-head', codeTag(a.case_code), companyChip(a), statusWord(a)),
     h('div.pc-item-title', reviewTitle(a)),
     h('div.pc-item-meta', h('span', icon('book', { size: 14 }), a.legal_area_label || areaLabel(a.legal_area)), h('span', icon('user', { size: 14 }), bidiText(a.role_label || label('assignment_role', a.role)))),
@@ -56,7 +56,7 @@ function list(rows, ctx, { history = false } = {}) {
   if (!rows.length) {
     return h(
       'div.card-body',
-      emptyState(history ? 'لا توجد إسنادات سابقة بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أو أغلقت ملفاتها.' : 'لا توجد إسنادات حالية.', null, { icon: history ? 'clock' : 'briefcase', compact: history }),
+      emptyState(history ? 'لا توجد إسنادات سابقة بعد. تظهر هنا الإسنادات التي اعتمدتها الإدارة أو أغلقت ملفاتها.' : 'لا توجد إسنادات حالية.', null, { icon: history ? 'clock' : 'briefcase', compact: history, tag: 'ASL-02' }),
     );
   }
   const columns = [
@@ -69,7 +69,7 @@ function list(rows, ctx, { history = false } = {}) {
     { key: 'flags', label: 'تنبيهات', render: (a) => { const f = flags(a, { history }); return f.length ? h('div.pc-flags', f) : h('span.muted', '—'); } },
   ];
   return frag(
-    h('div.pc-only-desktop', table({ columns, rows, onRowClick: (a) => ctx.navigate(`/my/assignments/${a.id}`), rowClass: (a) => (a.overdue ? 'pc-row-overdue' : null), caption: history ? 'الإسنادات السابقة' : 'الإسنادات الحالية' })),
+    h('div.pc-only-desktop', table({ columns, rows, onRowClick: (a) => ctx.navigate(`/my/assignments/${a.id}`), rowClass: (a) => (a.overdue ? 'pc-row-overdue' : null), caption: history ? 'الإسنادات السابقة' : 'الإسنادات الحالية', rowTag: 'ASL-03', tag: 'ASL-04' })),
     h('ul.pc-card-list.pc-only-mobile', rows.map((a) => h('li', assignmentCard(a, { history })))),
   );
 }
@@ -79,7 +79,7 @@ export default async function render(ctx) {
   try {
     active = await api.get('/lawyer/assignments', { scope: 'active' });
   } catch (err) {
-    return h('div.page', card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.page', card({ body: errorState(err, () => ctx.reload()), tag: 'ASL-05' }));
   }
   const rows = Array.isArray(active) ? active : [];
   // v10 b2b-staff (U10-L02، P1): فلتر «طلبات الشركات» يظهر فقط حين توجد إسنادات شركات
@@ -90,13 +90,13 @@ export default async function render(ctx) {
   const chip = hasCompany
     ? h(
         'div.lh-filter-chips',
-        h('button.chip-toggle', { type: 'button', 'aria-pressed': String(onlyCompany), class: onlyCompany && 'is-on', onClick: (e) => { onlyCompany = !onlyCompany; e.currentTarget.setAttribute('aria-pressed', String(onlyCompany)); e.currentTarget.classList.toggle('is-on', onlyCompany); drawActive(); } }, icon('building', { size: 14 }), h('span', 'طلبات الشركات')),
+        h('button.chip-toggle', { type: 'button', 'aria-pressed': String(onlyCompany), class: onlyCompany && 'is-on', onClick: (e) => { onlyCompany = !onlyCompany; e.currentTarget.setAttribute('aria-pressed', String(onlyCompany)); e.currentTarget.classList.toggle('is-on', onlyCompany); drawActive(); }, tag: 'ASL-06' }, icon('building', { size: 14 }), h('span', 'طلبات الشركات')),
       )
     : null;
   drawActive();
   const t = tabs(
     [
-      { key: 'active', label: 'الحالية', icon: 'briefcase', count: rows.length, render: () => frag(chip, activeHost) },
+      { key: 'active', label: 'الحالية', icon: 'briefcase', count: rows.length, render: () => frag(chip, activeHost), tag: 'ASL-07' },
       {
         key: 'history',
         label: 'السابقة',
@@ -107,11 +107,12 @@ export default async function render(ctx) {
           t.setCount('history', items.length);
           return list(items, ctx, { history: true });
         },
+        tag: 'ASL-08',
       },
     ],
-    { className: 'pc-list-tabs', active: ctx.query.tab === 'history' ? 'history' : 'active' },
+    { className: 'pc-list-tabs', active: ctx.query.tab === 'history' ? 'history' : 'active', tag: 'ASL-09' },
   );
   const page = h('div.page.lh-assignments');
-  mount(page, h('h1.lh-h1.lh-page-h1', 'إسناداتي'), card({ flush: true, body: t }));
+  mount(page, h('h1.lh-h1.lh-page-h1', { tag: 'ASL-10' }, 'إسناداتي'), card({ flush: true, body: t, tag: 'ASL-11' }));
   return page;
 }

@@ -10,23 +10,23 @@ import { S } from '../state.js';
 import { authLayout, passwordInput } from './login.js';
 
 export function renderGate(root, { onDone, onLogout }) {
-  const logout = h('p.co-auth-links', button(W.nav.logout, { variant: 'link', onClick: () => onLogout?.() }));
+  const logout = h('p.co-auth-links', button(W.nav.logout, { variant: 'link', onClick: () => onLogout?.(), tag: 'CS-41' }));
   if (S.user?.restricted === 'two_factor_enrollment') {
     const wizard = twoFactorWizard({ username: S.user.email, askPassword: false, base: '/company/me', copy: W.twoFactor, onEnabled: () => onDone?.() });
-    mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.gate.tfa_title), h('p.co-auth-sub', W.gate.tfa_text), h('div.co-gate-wizard', wizard), logout));
+    mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-42' }, W.gate.tfa_title), h('p.co-auth-sub', W.gate.tfa_text), h('div.co-gate-wizard', wizard), logout));
     root.querySelector('h1')?.focus();
     return;
   }
   const cur = passwordInput({ autocomplete: 'current-password' });
   const next = passwordInput({ autocomplete: 'new-password' });
   const conf = passwordInput({ autocomplete: 'new-password' });
-  const curWrap = field(W.gate.current, cur.el, { required: true });
-  const nextWrap = field(W.gate.new, next.el, { required: true, hint: W.link.password_hint });
-  const confWrap = field(W.gate.confirm, conf.el, { required: true });
+  const curWrap = field(W.gate.current, cur.el, { required: true, tag: 'CS-43' });
+  const nextWrap = field(W.gate.new, next.el, { required: true, hint: W.link.password_hint, tag: 'CS-44' });
+  const confWrap = field(W.gate.confirm, conf.el, { required: true, tag: 'CS-45' });
   attachStrength({ control: () => ({ input: next.input, wrap: nextWrap }) }, 'password', () => String(S.user?.email || '').split('@')[0]);
   const errEl = h('p.co-auth-error', { role: 'alert', hidden: true });
-  const submit = button(W.gate.save, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
-  const form = h('form.co-auth-form', { novalidate: true }, curWrap, nextWrap, confWrap, submit, errEl);
+  const submit = button(W.gate.save, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-46' });
+  const form = h('form.co-auth-form', { novalidate: true, tag: 'CS-47' }, curWrap, nextWrap, confWrap, submit, errEl);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errEl.hidden = true;
@@ -53,6 +53,6 @@ export function renderGate(root, { onDone, onLogout }) {
       setBusy(submit, false);
     }
   });
-  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.gate.password_title), form, logout));
+  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-48' }, W.gate.password_title), form, logout));
   cur.input.focus();
 }

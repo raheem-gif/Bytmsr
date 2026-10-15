@@ -173,7 +173,9 @@ describe('v12 tags-core — ledger reservations of spec §5.9', () => {
     SRC: [[1, 4, 'media']], KIT: [[1, 5, 'media']], PV: [[1, 4, 'media']], DD: [[1, 1, 'media']],
   };
 
-  test('ledger.json holds exactly the reservations, next = end + 1, unfrozen; the tool never hands out a reserved number', () => {
+  // v12 tags: intended (TG-6, T12-92): after the sweep's `npm run tags` the ledger keeps the same reservations, and `next`
+  // is the high-water mark + 1 (≥ end + 1 for a reserved prefix, ≥ 1 for the others) instead of exactly end + 1.
+  test('ledger.json holds exactly the reservations, next ≥ end + 1, unfrozen; the tool never hands out a reserved number', () => {
     const ledger = loadLedger(ROOT);
     assert.equal(ledger.version, 1);
     const got = Object.fromEntries(Object.entries(ledger.prefixes).filter(([, e]) => e.reserved?.length).map(([p, e]) => [p, e.reserved.map((r) => [r.from, r.to, r.lane])]));
@@ -181,15 +183,21 @@ describe('v12 tags-core — ledger reservations of spec §5.9', () => {
     const empty = { root: ROOT, defs: [], placeholders: [] };
     for (const [p, ranges] of Object.entries(EXPECTED)) {
       assert.ok(APPT.PAGES[p], `${p} is a known prefix`);
-      assert.equal(ledger.prefixes[p].next, Math.max(...ranges.map((r) => r[1])) + 1, `${p}.next`);
+      assert.ok(ledger.prefixes[p].next >= Math.max(...ranges.map((r) => r[1])) + 1, `${p}.next`); // v12 tags: intended (TG-6)
       const n = nextFree(p, empty, ledger);
       assert.equal(reservationOf(ledger, p, n), null, `${p}-${n} is outside every reservation`);
       for (const [, , lane] of ranges) assert.ok(lane === '12.1' || LANE_FILES[lane], `${p}: lane ${lane}`);
     }
-    // S-01…S-09 are not reserved, but the tool still numbers after the hero block (next = 70)
-    assert.equal(nextFree('S', empty, ledger), 70);
-    assert.equal(nextFree('INB', empty, ledger), 9);
-    assert.equal(nextFree('CSF', empty, ledger), 1, 'unreserved prefix starts at 01');
+    // S-01…S-09 are not reserved, but the tool still numbers after the hero block (next ≥ 70)
+    // v12 tags: intended (TG-6): the sweep numbered S, INB and CSF, so the next free number is past their high-water mark
+    assert.ok(nextFree('S', empty, ledger) >= 70);
+    assert.ok(nextFree('INB', empty, ledger) >= 9);
+    assert.ok(nextFree('CSF', empty, ledger) >= 1, 'unreserved prefix starts at 01');
+    // a ledger with the reservations alone still hands out end + 1 (S-70, INB-09) and 01 for an unreserved prefix
+    const bare = { ...ledger, prefixes: Object.fromEntries(Object.entries(ledger.prefixes).filter(([, e]) => e.reserved?.length).map(([p, e]) => [p, { ...e, next: Math.max(...e.reserved.map((r) => r.to)) + 1 }])) };
+    assert.equal(nextFree('S', empty, bare), 70);
+    assert.equal(nextFree('INB', empty, bare), 9);
+    assert.equal(nextFree('CSF', empty, bare), 1, 'unreserved prefix starts at 01');
     if (!ledger.frozen) assert.equal(ledger.frozen, false);
   });
 
@@ -351,7 +359,10 @@ describe('v12 tags-core — registry, TAGS.md and numbering (TG-2, T12-56…T12-
         fs.writeFileSync(path.join(tmp, rel), text);
       };
       put('package.json', JSON.stringify({ name: 'x', version: '12.0.0', type: 'module' }));
-      put('src/tags/ledger.json', read('src/tags/ledger.json'));
+      // v12 tags: intended (TG-6): the copy starts from the reservations alone (the live ledger carries the sweep's high-water marks)
+      const live = JSON.parse(read('src/tags/ledger.json'));
+      live.prefixes = Object.fromEntries(Object.entries(live.prefixes).filter(([, e]) => e.reserved?.length).map(([p, e]) => [p, { ...e, next: Math.max(...e.reserved.map((r) => r.to)) + 1, retired: {} }]));
+      put('src/tags/ledger.json', `${JSON.stringify(live, null, 2)}\n`);
       put('src/constants.js', 'export const TEXT_TAGS = {};\n');
       put('public/assets/js/public/entry-tree.js', read('public/assets/js/public/entry-tree.js'));
       put('public/assets/js/public/topics.js', read('public/assets/js/public/topics.js'));

@@ -220,13 +220,11 @@
 }
 
 .lc-ev.is-pending .event-date {
-  background: var(--warning-100);
-  color: var(--warning-700);
+  color: var(--warn);
 }
 
 .lc-ev.is-past .event-date {
-  background: var(--gray-100);
-  color: var(--gray-600);
+  color: var(--ink-3);
 }
 
 .lc-ev-main {

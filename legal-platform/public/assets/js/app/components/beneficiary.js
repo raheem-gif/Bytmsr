@@ -32,10 +32,10 @@ function childrenEditor(initial = []) {
     const n = rows.length + 1;
     const yId = uid('kid-y');
     const gId = uid('kid-g');
-    const yearIn = h('input.input', { id: yId, type: 'text', inputmode: 'numeric', dir: 'ltr', maxlength: 4, placeholder: String(year - 5), value: k.birth_year ? String(k.birth_year) : '' });
+    const yearIn = h('input.input', { id: yId, type: 'text', inputmode: 'numeric', dir: 'ltr', maxlength: 4, placeholder: String(year - 5), value: k.birth_year ? String(k.birth_year) : '', tag: 'CLF-62' });
     const genderSel = h(
       'select.input',
-      { id: gId },
+      { id: gId, tag: 'CLF-63' },
       h('option', { value: '' }, '— النوع —'),
       h('option', { value: 'm' }, 'ذكر'),
       h('option', { value: 'f' }, 'أنثى'),
@@ -52,6 +52,7 @@ function childrenEditor(initial = []) {
         row.el.remove();
         renumber();
       },
+      tag: 'CLF-64',
     });
     row.labels = [h('label.sr-only', { htmlFor: yId }), h('label.sr-only', { htmlFor: gId })];
     row.el = h('li.v9p-kid-row', row.labels[0], yearIn, row.labels[1], h('div.select-wrap', genderSel), removeBtn);
@@ -67,7 +68,7 @@ function childrenEditor(initial = []) {
     });
   }
   (initial || []).forEach((k) => addRow(k));
-  const addBtn = button('إضافة ابن أو ابنة', { size: 'sm', icon: 'plus', onClick: () => addRow().yearIn.focus() });
+  const addBtn = button('إضافة ابن أو ابنة', { size: 'sm', icon: 'plus', onClick: () => addRow().yearIn.focus(), tag: 'CLF-65' });
   const errEl = h('p.field-error', { hidden: true, role: 'alert' });
   const el = h(
     'div.field.field-full.v9p-kids-field',
@@ -103,27 +104,29 @@ function editDialog(view, onSaved) {
   const p = view.profile || {};
   const f = form(
     [
-      { name: 'relation', label: 'صفة المستفيد', type: 'select', options: options('beneficiary_relation') },
-      { name: 'children_count', label: 'عدد الأبناء', type: 'number', integer: true, min: 0, max: 30 },
-      { name: 'monthly_income_band', label: 'الدخل الشهري للأسرة', type: 'select', options: options('income_band') },
-      { name: 'housing', label: 'السكن', type: 'select', options: options('housing') },
-      { name: 'employment', label: 'العمل', type: 'select', options: options('employment') },
-      { name: 'foundation_file_number', label: 'رقم الملف لدى المؤسسة', ltr: true, maxLength: 40, hint: 'إن كانت الأسرة مسجلة في أحد برامج المؤسسة (نجاح، المائدة، سلامة …)' },
-      { name: 'is_foundation_beneficiary', type: 'checkbox', text: 'الأسرة مستفيدة من برامج المؤسسة الأخرى', full: true },
-      { name: 'has_disability', type: 'checkbox', text: 'في الأسرة إعاقة أو مرض مزمن', full: true },
-      { name: 'notes', label: 'ملاحظات البحث الاجتماعي', type: 'textarea', rows: 3, maxLength: 3000, hint: 'للإدارة فقط — لا تظهر للمحامين ولا للمستفيد' },
+      { name: 'relation', label: 'صفة المستفيد', type: 'select', options: options('beneficiary_relation'), tag: 'CLF-80' },
+      { name: 'children_count', label: 'عدد الأبناء', type: 'number', integer: true, min: 0, max: 30, tag: 'CLF-81' },
+      { name: 'monthly_income_band', label: 'الدخل الشهري للأسرة', type: 'select', options: options('income_band'), tag: 'CLF-82' },
+      { name: 'housing', label: 'السكن', type: 'select', options: options('housing'), tag: 'CLF-83' },
+      { name: 'employment', label: 'العمل', type: 'select', options: options('employment'), tag: 'CLF-84' },
+      { name: 'foundation_file_number', label: 'رقم الملف لدى المؤسسة', ltr: true, maxLength: 40, hint: 'إن كانت الأسرة مسجلة في أحد برامج المؤسسة (نجاح، المائدة، سلامة …)', tag: 'CLF-85' },
+      { name: 'is_foundation_beneficiary', type: 'checkbox', text: 'الأسرة مستفيدة من برامج المؤسسة الأخرى', full: true, tag: 'CLF-86' },
+      { name: 'has_disability', type: 'checkbox', text: 'في الأسرة إعاقة أو مرض مزمن', full: true, tag: 'CLF-87' },
+      { name: 'notes', label: 'ملاحظات البحث الاجتماعي', type: 'textarea', rows: 3, maxLength: 3000, hint: 'للإدارة فقط — لا تظهر للمحامين ولا للمستفيد', tag: 'CLF-88' },
       {
         name: 'verify',
         type: 'checkbox',
         text: 'تم التحقق من هذه البيانات (زيارة أو مستندات أو بحث اجتماعي)',
         full: true,
         hint: p.verified ? 'حفظ التعديل يُسقط التحقق السابق ما لم تؤكده من جديد هنا.' : null,
+        tag: 'CLF-89',
       },
     ],
     {
       // التأكيد قرار واعٍ في كل حفظ: لا يُحدَّد مسبقًا حتى لا يُعاد توثيق بيانات عُدّلت دون مراجعة
       values: { ...p, verify: false },
       footer: false,
+      tag: 'CLF-90',
     },
   );
   const kids = childrenEditor(p.children || []);
@@ -133,7 +136,7 @@ function editDialog(view, onSaved) {
     size: 'lg',
     body: h('div.stack', h('p.modal-intro', 'بيانات البحث الاجتماعي تساعد في ترتيب الأولويات وفي تقرير الأثر، ولا يطّلع عليها المحامون.'), f.el),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CLF-66' },
       {
         label: 'حفظ البطاقة',
         variant: 'primary',
@@ -173,8 +176,10 @@ function editDialog(view, onSaved) {
             return false;
           }
         },
+        tag: 'CLF-67',
       },
     ],
+    tag: 'CLF-68',
   });
 }
 
@@ -191,7 +196,7 @@ function scoreBlock(score) {
     ),
     progressBar(score.score, 100, tone, { label: 'درجة الاحتياج', visibleLabel: false }),
     score.reasons.length
-      ? h('details.v9p-reasons', h('summary', 'كيف حُسبت الدرجة؟'), h('ul', score.reasons.map((r) => h('li', h('span.v9p-pts', `+${r.points}`), h('span', r.text)))))
+      ? h('details.v9p-reasons', { tag: 'CLF-69' }, h('summary', { tag: 'CLF-70' }, 'كيف حُسبت الدرجة؟'), h('ul', score.reasons.map((r) => h('li', h('span.v9p-pts', `+${r.points}`), h('span', r.text)))))
       : h('p.small.muted', 'لا توجد بيانات كافية لحساب الدرجة بعد.'),
     score.completeness < 1 && h('p.small.muted', `اكتمال البيانات: ${percent(score.completeness)} — أكمل البطاقة لتكون الدرجة أدق.`),
   );
@@ -212,6 +217,8 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
     actions,
     body,
     className: 'v9p-beneficiary-card',
+    titleTag: 'CLF-71',
+    tag: 'CLF-72',
   });
   el.setAttribute('aria-live', 'polite');
   let view = null;
@@ -252,7 +259,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
                 toast('اعتُمدت البيانات في البطاقة — تحقق منها قبل تأكيدها', 'success');
                 saved(res);
               },
-              { size: 'sm', icon: 'check', title: 'تُملأ الحقول الفارغة فقط ولا يُستبدل ما سجلته الإدارة' },
+              { size: 'sm', icon: 'check', title: 'تُملأ الحقول الفارغة فقط ولا يُستبدل ما سجلته الإدارة', tag: 'CLF-73' },
             ),
     );
   }
@@ -262,7 +269,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
     mount(
       actions,
       // قبل وجود بطاقة: زر «إضافة البيانات» واحد فقط داخل الحالة الفارغة (لا زر مكرر في رأس البطاقة)
-      editable && p && button('تعديل', { size: 'sm', icon: 'edit', onClick: () => editDialog(view, saved) }),
+      editable && p && button('تعديل', { size: 'sm', icon: 'edit', onClick: () => editDialog(view, saved), tag: 'CLF-74' }),
       editable &&
         p &&
         !p.verified &&
@@ -273,7 +280,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
             toast('أُكّد التحقق من بيانات البحث الاجتماعي', 'success');
             saved(res);
           },
-          { size: 'sm', variant: 'ghost', icon: 'shieldCheck' },
+          { size: 'sm', variant: 'ghost', icon: 'shieldCheck', tag: 'CLF-75' },
         ),
     );
     const parts = [];
@@ -282,7 +289,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
       parts.push(
         h(
           'div.v9p-suggest',
-          alertBox(`درجة الاحتياج تقترح رفع أولوية الطلب من «${label('priority', sug.from)}» إلى «${label('priority', sug.to)}».`, 'warning', { title: 'اقتراح أولوية', icon: 'flag' }),
+          alertBox(`درجة الاحتياج تقترح رفع أولوية الطلب من «${label('priority', sug.from)}» إلى «${label('priority', sug.to)}».`, 'warning', { title: 'اقتراح أولوية', icon: 'flag', tag: 'CLF-76' }),
           asyncButton(
             'تطبيق الأولوية المقترحة',
             async () => {
@@ -291,7 +298,7 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
               if (onChange) onChange();
               else load();
             },
-            { size: 'sm', variant: 'primary', icon: 'flag' },
+            { size: 'sm', variant: 'primary', icon: 'flag', tag: 'CLF-77' },
           ),
         ),
       );
@@ -305,8 +312,8 @@ export function beneficiaryCard({ clientId, editable = true, intakeId = null, on
       parts.unshift(
         emptyState(
           'لم تُسجَّل بيانات البحث الاجتماعي لهذه الأسرة بعد. تساعد البطاقة في ترتيب الأولويات وفي تقرير الأثر.',
-          editable ? button('إضافة البيانات', { size: 'sm', variant: 'primary', icon: 'plus', onClick: () => editDialog(view, saved) }) : null,
-          { compact: true, icon: 'users' },
+          editable ? button('إضافة البيانات', { size: 'sm', variant: 'primary', icon: 'plus', onClick: () => editDialog(view, saved), tag: 'CLF-78' }) : null,
+          { compact: true, icon: 'users', tag: 'CLF-79' },
         ),
       );
       mount(body, parts);

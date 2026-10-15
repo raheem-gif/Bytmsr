@@ -7,6 +7,9 @@ import { setMeta, getMeta, staffChrome } from '../lib/fmt.js';
 import { errorState, toast, closeAllModals, alertBox } from '../lib/ui.js';
 import { startRouter, stopRouter, parseHash, matchRoute } from './router.js';
 import { defaultPath, roleCss, todaySkeleton } from './routes.js';
+import { tagsBoot } from '../lib/tags-boot.js';
+// v12 tags (TG-1، T12-30): رموز العناصر قبل أن يقرأ الموجّه العنوان (يُزال ?tags=1 من #/inbox?tags=1)؛ جدول بادئات المنصة
+tagsBoot({ app: 1 });
 // v9.1 l-home (L-07): هيكل التطبيق (shell.js وما يستورده) يُحمَّل بعد التحقق من الجلسة لا قبل عرض شاشة الدخول
 const loadShell = () => import('./shell.js');
 
@@ -433,7 +436,7 @@ async function showLogin({ expired = false, message = null, username = null } = 
     });
     mount(root, el);
     const formEl = el.querySelector('.login-card form');
-    if (message && formEl) formEl.before(h('div.mb-3', alertBox(message, 'warning')));
+    if (message && formEl) formEl.before(h('div.mb-3', alertBox(message, 'warning', { tag: 'LGN-33' })));
     if (username) {
       const u = el.querySelector('input[name=username]');
       const p = el.querySelector('input[name=password]');
@@ -603,6 +606,7 @@ async function confirmOutboxLogout() {
       confirmLabel: 'خروج على أي حال',
       cancelLabel: 'البقاء',
       danger: true,
+      tag: 'NAV-67',
     });
     // لا يُمسح الصندوق هنا: قد يتراجع المستخدم في تأكيد المسودات التالي فيبقى داخلًا — يُمسح في logout() بعد كل التأكيدات
     return ok;

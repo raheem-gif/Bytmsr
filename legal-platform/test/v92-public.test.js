@@ -87,7 +87,7 @@ describe('v9.2 public — the tile-first home page', () => {
     for (const label of ['إحنا نكلمك', 'واتساب', 'طلبك فين؟']) assert.ok(ways[2].includes(`<b>${label}</b>`), label);
     assert.match(ways[2], /pub-pick-way--wa" href="[^"]+" target="_blank" rel="noopener noreferrer"[\s\S]*?<span class="pub-sr"> \(يفتح في نافذة جديدة\)<\/span>/);
     // زر الرأس: واتساب
-    assert.match(html, /<a class="pub-head-contact pub-head-contact--wa" href="https:\/\/wa\.me\/201000000001\?text=[^"]+" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب \(يفتح في نافذة جديدة\)" data-tag="H-08">/); // v12 entry: intended (§5.9 H-08)
+    assert.match(html, /<a class="pub-head-contact pub-head-contact--wa" href="https:\/\/wa\.me\/201000000001\?text=[^"]+" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب \(يفتح في نافذة جديدة\)">/); // v12 entry review: intended (R2, §5.9/T12-22): the charity header carries no H- codes
 
     const noWa = await startTestApp({ seed: 'none', config: NO_WA });
     noWa.app.settings.set('charity_public', true); // v12 entry: intended
@@ -96,7 +96,7 @@ describe('v9.2 public — the tile-first home page', () => {
       const w2 = /<ul class="pub-pick-ways" data-n="(\d)">([\s\S]*?)<\/ul>/.exec(h2);
       assert.equal(w2[1], '2');
       assert.ok(!w2[2].includes('wa.me'));
-      assert.match(h2, /<a class="pub-head-contact" href="tel:\+201211114662" aria-label="اتصال بالتليفون" data-tag="H-08">/); // v12 entry: intended (§5.9 H-08)
+      assert.match(h2, /<a class="pub-head-contact" href="tel:\+201211114662" aria-label="اتصال بالتليفون">/); // v12 entry review: intended (R2, §5.9/T12-22): the charity header carries no H- codes
       noWa.app.settings.set('org_phone', '');
       const h3 = await get('/khayri', noWa);
       assert.ok(!h3.includes('pub-head-contact"') && !/class="pub-head-contact[ "]/.test(h3), 'no header contact without WhatsApp or phone');

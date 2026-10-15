@@ -451,12 +451,14 @@ const topicWa = () => waLink(prefill(state.topic));
 /** «تحبي تحكيلنا على واتساب؟ افتحي واتساب» (بنص جاهز للموضوع)، وإلا رقم التليفون */
 function contactLine(wa = greetingWa()) {
   if (wa) {
+    // tags:skip inline link inside a <p> (T12-09)
     return h('p.bmf-contact', COPY.waAsk, h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, COPY.openWa));
   }
   if (!org.phone) return null;
   return h(
     'p.bmf-contact',
     COPY.callUs,
+    // tags:skip inline link inside a <p> (T12-09)
     h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone),
     org.office_hours ? ` — ${org.office_hours}` : '',
   );
@@ -488,6 +490,7 @@ let sending = false;
 let failedOffline = false;
 let banner = null;
 
+// tags:skip honeypot field, hidden from people (aria-hidden)
 const honeypotInput = h('input', { type: 'text', id: 'hp-website', name: 'website', tabindex: '-1', autocomplete: 'off' });
 const honeypot = h('div.bmf-honeypot', { 'aria-hidden': 'true' }, h('label', { htmlFor: 'hp-website' }, COPY.hp), honeypotInput);
 
@@ -630,7 +633,7 @@ function speakScreen(view) {
 
 /** زر «اسمعي» في رأس كل شاشة: مخفي حتى يتأكد وجود صوت عربي */
 function listenButton() {
-  const btn = h('button.bmf-listen', { type: 'button', hidden: true, 'aria-pressed': 'false' }, ic('speaker', 20), h('span'));
+  const btn = h('button.bmf-listen', { type: 'button', hidden: true, 'aria-pressed': 'false', tag: X && 'I-150' }, ic('speaker', 20), h('span'));
   btn.addEventListener('click', () => {
     if (!L) return;
     if (speakingNow) {
@@ -730,7 +733,7 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null, 
     trust && trustLine(),
     h(
       'div.bmf-qbar',
-      h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', COPY.back)),
+      h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack(), tag: X && 'I-151' }, ic('arrowRight', 20), h('span', COPY.back)),
       t && state.screen !== 'topic' && h('span.bmf-topic-chip', { role: 'img', 'aria-label': `${COPY.topicAria}${t.label}` }, pic(t.picto, 'pub-pic bmf-chip-pic'), h('span', { 'aria-hidden': 'true' }, t.label)),
       // v11 fixer-public (K5/J-10): شرائط التقدم (النموذج intake-question)، و«2 من 4» نصًا لقارئ الشاشة
       total ? h('span.bmf-stepno', h('span.bmf-sr', `${idx} ${COPY.of} ${total}`), h('ol.bmf-steps', { 'aria-hidden': 'true' }, Array.from({ length: total }, (_, i) => h('li', { class: i < idx ? 'is-on' : null })))) : null,
@@ -829,6 +832,7 @@ document.querySelector('.trail__back')?.addEventListener('click', (e) => {
 
 function topicTile(t0, onPick) {
   const t = topicOf(t0);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   return h(
     'button.bmf-topic',
     { type: 'button', 'aria-pressed': String(state.topic === t.key), onClick: (e) => onPick(t, e.currentTarget) },
@@ -853,6 +857,7 @@ function topicScreen() {
       });
     }),
   );
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', h('div.bmf-topics', tiles), h('div.bmf-actions', contactLine())));
   const say = () => [{ text: COPY.topicH1, el: heading }, ...tiles.map((b, i) => ({ text: topicOf(TOPICS[i]).say, el: b }))];
   return { el, heading, listen, say };
@@ -887,6 +892,7 @@ function questionScreen(qid) {
     );
   const tiles = q.answers.map((a, i) => tile({ ...a, text: qt.a(i, a) }, ''));
   const dontKnow = tile({ ...UNKNOWN, text: unknownLabel() }, '.bmf-dontknow');
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const el = h(
     'section.bmf-step',
     { 'aria-labelledby': heading.id },
@@ -935,7 +941,7 @@ function pathQuestion(q) {
       h('span.opt__main', h('span.opt__t', label)),
     ),
   );
-  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.opts', { role: 'group', 'aria-labelledby': heading.id }, rows)), heading };
+  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id, tag: 'I-152' }, head, h('div.opts', { role: 'group', 'aria-labelledby': heading.id }, rows)), heading };
 }
 
 // ═════ v12 entry: «هل لديكم مستندات؟» (E12-35، §5.8) ═════
@@ -962,7 +968,7 @@ function docsScreen() {
   if (U) put();
   else loadUpload().then(() => state.screen === 'docs' && put(), () => {});
   paint();
-  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', box, count, h('div.bmf-actions', next, skip))), heading };
+  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id, tag: 'I-153' }, head, h('div.bmf-body', box, count, h('div.bmf-actions', next, skip))), heading };
 }
 
 // ═════ «احكيلنا» ═════
@@ -1072,7 +1078,7 @@ function storyScreen() {
         'p.bmf-note',
         COPY.heldV,
         ' ',
-        h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => ((held = []), heldBox.remove(), changed({ now: true }), paint()) }, COPY.heldX),
+        h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => ((held = []), heldBox.remove(), changed({ now: true }), paint()), tag: X && 'I-154' }, COPY.heldX),
       )
     : null;
   clearProblemError = () => {
@@ -1088,6 +1094,7 @@ function storyScreen() {
         paint();
         ta.focus();
       },
+      tag: X && 'I-155',
     },
     ic('pencil', 20),
     h('span', COPY.writeInstead),
@@ -1121,6 +1128,7 @@ function storyScreen() {
         paint();
         el.querySelector('.bmf-rec-start')?.click();
       },
+      tag: X && 'I-156',
     },
     COPY.moreVoice,
   );
@@ -1142,6 +1150,7 @@ function storyScreen() {
         mount(photoBox, ensurePicker());
         paint();
       },
+      tag: X && 'I-157',
     },
     ic('camera', 20),
     photoLabel,
@@ -1172,7 +1181,7 @@ function storyScreen() {
   const inAppBox = inApp
     ? h(
         'div.bmf-inapp',
-        h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: waStory, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', COPY.inAppWa)),
+        h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: waStory, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-158' }, ic('whatsapp', 22), h('span', COPY.inAppWa)),
         h('p.bmf-or', COPY.inAppOr),
       )
     : null;
@@ -1232,7 +1241,7 @@ function storyScreen() {
 
   const el = h(
     'section.bmf-step',
-    { 'aria-labelledby': heading.id },
+    { 'aria-labelledby': heading.id, tag: X && 'I-159' },
     head,
     h('div.bmf-body', inAppBox, voicesBox, heldBox, write, taWrap, voiceBtn, h('div.bmf-actions', err, next, moreVoice, photoBtn, photoHint, photoBox, cbBtn, waLine)),
   );
@@ -1291,7 +1300,7 @@ function phoneScreen() {
         h('strong', COPY.sumLabel),
         h('span', problemSummary()),
         ' — ',
-        h('button.bmf-btn.bmf-btn-text.bmf-edit', { type: 'button', onClick: () => go('story'), 'aria-label': COPY.editAria }, COPY.edit),
+        h('button.bmf-btn.bmf-btn-text.bmf-edit', { type: 'button', onClick: () => go('story'), 'aria-label': COPY.editAria, tag: X && 'I-160' }, COPY.edit),
       );
   const { el: head, heading, listen, subEl } = chrome({ title, sub, idx: total, total, trust: true, before: summary, tag: 'I-50' });
   const err = errorLine();
@@ -1311,6 +1320,7 @@ function phoneScreen() {
   });
   // v12 entry (L12-84، I-58): رقم من خارج مصر؟ ← واتساب الأفراد والشركات بجملة الورقة (أو الجملة العامة)
   const abroad = X && greetingWa();
+  // tags:skip inline link inside a <p> (T12-09)
   const phoneField = field({ id: 'bmf-phone', input: phoneInput, hint: abroad && [COPY.abroad, h('a', { href: abroad, target: '_blank', rel: 'noopener noreferrer' }, COPY.abroadGo)], tag: 'I-58' });
   const okLine = h('p.bmf-phone-ok', { hidden: true }, ic('check', 18), h('span', COPY.phoneOk));
   const hear = h(
@@ -1322,6 +1332,7 @@ function phoneScreen() {
         const d = normalizeEgPhone(phoneInput.value);
         if (L && d) speakItems([{ text: L.spellPhone(d), el: phoneInput }]);
       },
+      tag: X && 'I-161',
     },
     ic('speaker', 18),
     h('span', COPY.phoneHear),
@@ -1362,7 +1373,7 @@ function phoneScreen() {
       'div.bmf-forgot-panel',
       { hidden: true },
       h('p.bmf-card-text', COPY.forgotText),
-      h('a.bmf-btn.bmf-btn-wa.bmf-btn-block', { href: waNum, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 20), h('span', COPY.openWa)),
+      h('a.bmf-btn.bmf-btn-wa.bmf-btn-block', { href: waNum, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-162' }, ic('whatsapp', 20), h('span', COPY.openWa)),
     );
     const btn = h(
       'button.bmf-btn.bmf-btn-text.bmf-forgot',
@@ -1373,6 +1384,7 @@ function phoneScreen() {
           panel.hidden = !panel.hidden;
           btn.setAttribute('aria-expanded', String(!panel.hidden));
         },
+        tag: X && 'I-163',
       },
       COPY.forgot,
     );
@@ -1395,6 +1407,7 @@ function phoneScreen() {
             chips.forEach((c, i) => c.setAttribute('aria-pressed', String(Object.keys(CALLBACK_WHEN)[i] === k)));
             changed();
           },
+          tag: X && 'I-164',
         },
         !X && pic(WHEN_PICTO[k]),
         h('span', whenLabel(k)),
@@ -1426,6 +1439,7 @@ function phoneScreen() {
             chips.forEach((c, i) => c.setAttribute('aria-pressed', String(state[k] === list[i][0])));
             changed();
           },
+          tag: X && 'I-165',
         },
         picto && pic(picto),
         h('span', label),
@@ -1438,7 +1452,7 @@ function phoneScreen() {
   let coField = null;
   if (P?.company_name) {
     const coInput = h('input.bmf-input', { type: 'text', autocomplete: 'organization', maxlength: 120, value: state.company, tag: 'I-53' });
-    coField = field({ id: 'bmf-company', label: COPY.company, input: coInput });
+    coField = field({ id: 'bmf-company', label: COPY.company, input: coInput, tag: X && 'I-166' });
     coInput.addEventListener('input', () => {
       state.company = coInput.value;
       changed();
@@ -1446,7 +1460,7 @@ function phoneScreen() {
   }
 
   const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', enterkeyhint: 'done', maxlength: 120, value: state.name, placeholder: COPY.namePh, tag: X && 'I-52' });
-  const nameField = field({ id: 'bmf-name', label: COPY.nameLabel, input: nameInput });
+  const nameField = field({ id: 'bmf-name', label: COPY.nameLabel, input: nameInput, tag: X && 'I-167' });
   nameInput.addEventListener('input', () => {
     state.name = nameInput.value;
     nameField.setError('');
@@ -1455,6 +1469,7 @@ function phoneScreen() {
 
   // [R2-B6] الموافقة بالفعل: سطر فوق زر الإرسال (يُقرأ بصوت)، بلا مربع
   const consentText = cb ? COPY.consentCb : COPY.consent;
+  // tags:skip inline link inside a <p> (T12-09)
   const consentLine = h('p.bmf-consent-line', { tag: X && 'I-54' }, h('span', consentText), ' ', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, COPY.more));
   const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button', tag: X && 'I-55' }, h('span', cb ? COPY.sendCb : COPY.send), ic('send', 20, 'bmf-flip'));
 
@@ -1464,6 +1479,7 @@ function phoneScreen() {
   if (cb && tel) {
     under = h(
       'div.bmf-under-send',
+      // tags:skip inline link inside a <p> (T12-09)
       h('p', COPY.cbCallUs, h('a', { href: `tel:${page.orgPhoneHref || org.phone_e164 || tel}`, dir: 'ltr', class: 'bmf-ltr' }, tel)),
       page.closed && h('p.bmf-closed', COPY.closed),
     );
@@ -1592,11 +1608,11 @@ function phoneScreen() {
           'div.bmf-alert',
           { class: network ? '' : 'is-error', role: 'alert' },
           h('p', msg),
-          network && h('button.bmf-btn.bmf-btn-outline', { type: 'button', onClick: send }, ic('refresh', 18), h('span', COPY.retry)),
+          network && h('button.bmf-btn.bmf-btn-outline', { type: 'button', onClick: send, tag: X && 'I-168' }, ic('refresh', 18), h('span', COPY.retry)),
         ),
       );
       if (e && e.details && e.details.fields && e.details.fields.description) {
-        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => go('story') }, COPY.backStory));
+        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => go('story'), tag: X && 'I-169' }, COPY.backStory));
       }
       if (e && e.details && e.details.fields && e.details.fields.name) nameField.setError(MSG.name);
       return;
@@ -1618,7 +1634,7 @@ function phoneScreen() {
 
   const el = h(
     'section.bmf-step',
-    { 'aria-labelledby': heading.id },
+    { 'aria-labelledby': heading.id, tag: X && 'I-170' },
     head,
     h(
       'div.bmf-body',
@@ -1659,7 +1675,7 @@ window.addEventListener('online', () => {
     'div.bmf-toast',
     { role: 'status' },
     h('p', COPY.online),
-    h('button.bmf-btn.bmf-btn-gold', { type: 'button', onClick: () => retrySend() }, COPY.onlineGo),
+    h('button.bmf-btn.bmf-btn-gold', { type: 'button', onClick: () => retrySend(), tag: X && 'I-171' }, COPY.onlineGo),
   );
   document.body.append(toastEl);
 });
@@ -1681,7 +1697,7 @@ function etaWords(n) {
 function shareLink(portal, cls, ...kids) {
   const shareText = fill(brandName() ? COPY.shareB : COPY.share, { b: brandName(), u: portal });
   const shareHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-  const a = h('a', { class: cls, href: shareHref, target: '_blank', rel: 'noopener noreferrer' }, kids);
+  const a = h('a', { class: cls, href: shareHref, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-172' }, kids);
   a.addEventListener('click', async (e) => {
     if (typeof navigator.share !== 'function') return;
     e.preventDefault();
@@ -1725,15 +1741,16 @@ function paidDone(res, { ref, num, portal, confirmUrl, callback }) {
     root,
     h(
       'section.bmf-success',
-      { 'aria-labelledby': 'success-title' },
+      { 'aria-labelledby': 'success-title', tag: 'I-173' },
       heading,
       h('p.bmf-ref', { tag: 'I-61' }, COPY.refNo, h('bdi', ref)),
       line,
       res.urgent && call && h('a.btn.btn--line', { href: `tel:${call.replace(/[^\d+]/g, '')}`, tag: 'I-68' }, COPY.callNow, h('bdi', call)),
       callback && num && h('p.bmf-note', fill(COPY.cbSay, { n: num })),
       portal && h('div.bmf-actions', h('a.btn.btn--primary', { href: portal, tag: 'I-63' }, COPY.bOpen), shareLink(portal, 'btn btn--text', COPY.bShare)),
-      confirmUrl && h('div.bmf-card', { tag: 'I-64' }, h('h2', COPY.waT), h('p.bmf-card-text', COPY.waX), h('a.bmf-btn.bmf-btn-wa', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer' }, COPY.aBtn)),
+      confirmUrl && h('div.bmf-card', { tag: 'I-64' }, h('h2', { tag: 'I-174' }, COPY.waT), h('p.bmf-card-text', COPY.waX), h('a.bmf-btn.bmf-btn-wa', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', tag: 'I-175' }, COPY.aBtn)),
       h('p.bmf-fine', { tag: 'I-65' }, COPY.noFee),
+      // tags:skip inline link inside a <p> (T12-09)
       h('p.lh__links', { tag: 'I-66' }, h('a', { href: '/services' }, COPY.aboutUs), h('a', { href: '/' }, COPY.home1)),
     ),
   );
@@ -1771,8 +1788,8 @@ function showSuccess(res, name, sent = {}) {
   const ref = res.reference;
   if (!ref) {
     // حقل الفخ أو رد بلا رقم: شكر بسيط
-    const heading = h('h1', { tabindex: '-1' }, COPY.gotMsg);
-    mount(root, h('section.bmf-success', heading, h('a.bmf-btn.bmf-btn-outline.bmf-btn-lg', { href: HOME }, ic('home', 20), h('span', COPY.home))));
+    const heading = h('h1', { tabindex: '-1', tag: X && 'I-176' }, COPY.gotMsg);
+    mount(root, h('section.bmf-success', { tag: X && 'I-177' }, heading, h('a.bmf-btn.bmf-btn-outline.bmf-btn-lg', { href: HOME, tag: X && 'I-178' }, ic('home', 20), h('span', COPY.home))));
     heading.focus();
     return;
   }
@@ -1790,6 +1807,7 @@ function showSuccess(res, name, sent = {}) {
   const savedHere = portal ? rememberPortal({ url: portal, ref }, { force: true }) : false;
   if (X) return paidDone(res, { ref, num, portal, confirmUrl, callback });
 
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const heading = h('h1#success-title', { tabindex: '-1' }, COPY.done);
 
   // (إصلاح 9.1، B91-01) الخطوة 3 لا تعد بواتساب إلا لو بعتت رقم الطلب فعلًا
@@ -1815,6 +1833,7 @@ function showSuccess(res, name, sent = {}) {
     cbSay = () => `${lead}${from ? `${COPY.cbFrom} ${L ? L.spellPhone(from) : from}` : ''}. ${rest}`;
     const numEl = from ? h('span.bmf-cb-num', { dir: 'ltr' }, from) : null;
     const hearNum = from
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       ? h(
           'button.bmf-btn.bmf-btn-text.bmf-hear',
           { type: 'button', hidden: !L, onClick: () => L && speakItems([{ text: L.spellPhone(from), el: numEl }]) },
@@ -1822,6 +1841,7 @@ function showSuccess(res, name, sent = {}) {
           h('span', g(COPY.hearNum)),
         )
       : null;
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cbCard = h(
       'section.bmf-card.bmf-cb-card',
       { 'aria-label': COPY.cbAria },
@@ -1855,11 +1875,13 @@ function showSuccess(res, name, sent = {}) {
         sent
           ? [
               h('p.bmf-sent', ic('check', 22), h('span', g(COPY.aSent))),
+              // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
               h('a.bmf-btn.bmf-btn-text', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) }, g(COPY.aAgain)),
             ]
           : [
               h('p.bmf-kicker', callback ? cardAText : COPY.aKicker),
               !callback && h('p.bmf-card-text', g(COPY.aText)),
+              // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
               h(
                 'a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block.bmf-confirm',
                 { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) },
@@ -1878,6 +1900,7 @@ function showSuccess(res, name, sent = {}) {
         reveal(); // رجعت من واتساب: وقت «كمان سؤالين»
       }
     });
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cardA = h('section.bmf-card', { class: callback ? 'is-outline' : 'is-gold', 'aria-label': COPY.aAria }, body);
   }
 
@@ -1885,6 +1908,7 @@ function showSuccess(res, name, sent = {}) {
   let cardB = null;
   if (portal) {
     const live = h('span.bmf-sr', { 'aria-live': 'polite' });
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     const copyBtn = h('button.bmf-btn.bmf-btn-text', { type: 'button' }, ic('copy', 18), h('span', COPY.bCopy));
     copyBtn.addEventListener('click', async () => {
       let ok = false;
@@ -1893,6 +1917,7 @@ function showSuccess(res, name, sent = {}) {
         ok = true;
       } catch {
         try {
+          // tags:skip off-screen helper for copying the link, not shown
           const tmp = h('textarea', { style: 'position:fixed;opacity:0;inset-block-start:0', readonly: true }, portal);
           document.body.append(tmp);
           tmp.select();
@@ -1908,6 +1933,7 @@ function showSuccess(res, name, sent = {}) {
     });
     const shareBtn = shareLink(portal, 'bmf-btn bmf-btn-outline bmf-btn-block', ic('share', 20), h('span', g(COPY.bShare)));
     const savedLine = h('p.bmf-note', { hidden: !savedHere }, COPY.bSaved);
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     const forget = h(
       'button.bmf-btn.bmf-btn-text.bmf-small-link',
       {
@@ -1929,14 +1955,19 @@ function showSuccess(res, name, sent = {}) {
       },
       g(COPY.bForget),
     );
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cardB = h(
       'details.bmf-details',
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       h('summary', COPY.bSum),
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       h(
         'section.bmf-card',
         { 'aria-labelledby': 'bmf-save-title' },
+        // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
         h('h2', { id: 'bmf-save-title' }, g(COPY.bH2)),
         h('p.bmf-card-text', g(COPY.bText)),
+        // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
         h(
           'a.bmf-btn.bmf-btn-block.bmf-open-portal',
           { href: portal, class: confirmUrl ? 'bmf-btn-outline' : 'bmf-btn-primary bmf-btn-lg' },
@@ -1954,9 +1985,11 @@ function showSuccess(res, name, sent = {}) {
   }
 
   const days = Math.max(1, Number(res.eta_review_days) || 2);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const next = h(
     'section.bmf-next',
     { 'aria-labelledby': 'bmf-next-title' },
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h('h2', { id: 'bmf-next-title' }, COPY.nextH2),
     h(
       'ol',
@@ -1971,6 +2004,7 @@ function showSuccess(res, name, sent = {}) {
     'div.bmf-fine',
     h('p', COPY.refLabel, h('span.bmf-ref.bmf-ltr', ref), num ? '' : g(COPY.refSay)),
     num && h('p', g(fill(COPY.refNum, { n: num }))),
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     org.phone && h('p', g(COPY.fraud), h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone)),
   );
 
@@ -1996,6 +2030,7 @@ function showSuccess(res, name, sent = {}) {
   const listen = listenButton();
   mount(
     root,
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h(
       'section.bmf-success',
       { 'aria-labelledby': 'success-title' },
@@ -2042,7 +2077,9 @@ function aboutCard(res, portal, form, answers) {
   const body = h('div.bmf-about-body');
   // العنوان على عدد الأسئلة فعلًا (سؤال واحد لما الصفة معروفة أو الكلام لراجل) وبنوع الخطاب
   const title = steps.length > 1 ? COPY.ab2 : g(COPY.ab1);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const titleEl = h('h2', { id: 'bmf-about-title' }, title);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const card = h('section.bmf-card.bmf-about-card', { hidden: true, 'aria-labelledby': 'bmf-about-title' }, titleEl, body);
   // «اسمعي»: العنوان، والسؤال الحالي، وكل اختيار، و«تخطي» (أو «شكرًا، كده تمام.») — لمن لا تقرأ
   card.sayItems = () => {
@@ -2091,6 +2128,7 @@ function aboutCard(res, portal, form, answers) {
     }, PRESS_MS);
   };
   const skip = () =>
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h(
       'button.bmf-btn.bmf-btn-text.bmf-skip',
       {
@@ -2107,6 +2145,7 @@ function aboutCard(res, portal, form, answers) {
     locked = false;
     const step = steps[i];
     if (step === 'gov') {
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const select = h(
         'select.bmf-select',
         { 'aria-label': g(COPY.abPick), hidden: true },
@@ -2114,7 +2153,9 @@ function aboutCard(res, portal, form, answers) {
         (org.governorates || []).map((x) => h('option', { value: x }, x)),
       );
       select.addEventListener('change', () => select.value && choose(select, { governorate: select.value }));
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const tiles = quick.map((x) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { governorate: x }) }, x));
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const other = h(
         'button.bmf-about-tile',
         {
@@ -2134,6 +2175,7 @@ function aboutCard(res, portal, form, answers) {
         h('p.bmf-about-q', { tabindex: '-1' }, COPY.abRel),
         h(
           'div.bmf-about-tiles',
+          // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
           RELATIONS.map((r, i) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { relation: r }) }, COPY.rel[i])),
         ),
         skip(),
@@ -2163,11 +2205,11 @@ function preparingView() {
     root,
     h(
       'section.bmf-card',
-      { role: 'status' },
-      h('h1', COPY.prepH1),
+      { role: 'status', tag: X && 'I-179' },
+      h('h1', { tag: X && 'I-180' }, COPY.prepH1),
       h('p.bmf-card-text', COPY.prep1, h('bdi', /[\u0600-\u06FF]/.test(brandName()) ? { dir: 'rtl', lang: 'ar' } : { dir: 'ltr', lang: 'en' }, brandName()), COPY.prep2),
-      wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', COPY.prepWa)),
-      phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}` }, ic('phone', 20), h('span', COPY.prepCall), h('span.bmf-ltr', phone)),
+      wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-181' }, ic('whatsapp', 22), h('span', COPY.prepWa)),
+      phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}`, tag: X && 'I-182' }, ic('phone', 20), h('span', COPY.prepCall), h('span.bmf-ltr', phone)),
     ),
   );
 }
@@ -2177,10 +2219,10 @@ function errorView(retry) {
     root,
     h(
       'section.bmf-card',
-      { role: 'alert' },
-      h('h1', COPY.errH1),
+      { role: 'alert', tag: X && 'I-183' },
+      h('h1', { tag: X && 'I-184' }, COPY.errH1),
       h('p.bmf-card-text', COPY.errText),
-      h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button', onClick: retry }, ic('refresh', 20), h('span', COPY.errBtn)),
+      h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button', onClick: retry, tag: X && 'I-185' }, ic('refresh', 20), h('span', COPY.errBtn)),
     ),
   );
 }
@@ -2252,12 +2294,12 @@ async function restoreDraft() {
   // [R2-B19] بلا اسم الموضوع (ابنها ممكن يكون ماسك الموبايل)
   banner = h(
     'section.bmf-banner',
-    { role: 'status' },
+    { role: 'status', tag: X && 'I-186' },
     h('p', COPY.draft),
     d._blobsLost && h('p.bmf-banner-note', COPY.draftLost),
     h(
       'div.bmf-banner-actions',
-      h('button.bmf-btn.bmf-btn-primary', { type: 'button', onClick: () => dismissBanner() }, COPY.draftGo),
+      h('button.bmf-btn.bmf-btn-primary', { type: 'button', onClick: () => dismissBanner(), tag: X && 'I-187' }, COPY.draftGo),
       h(
         'button.bmf-btn.bmf-btn-outline',
         {
@@ -2273,6 +2315,7 @@ async function restoreDraft() {
             banner = null;
             show(entryScreen(), { push: false });
           },
+          tag: X && 'I-188',
         },
         COPY.draftNew,
       ),

@@ -11,6 +11,7 @@ import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 import { latinDigits } from '../util.js';
 import { topicByKey } from '../../public/assets/js/public/topics.js';
 import { LINES as TREE_LINES } from '../../public/assets/js/public/entry-tree.js'; // v12 staff-lines (SL-9)
+import { messageTag } from '../tags/messages.js'; // v12 tags (TG-4، T12-19): رمز W لردود المحاكي (للعرض فقط)
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
 
@@ -254,7 +255,10 @@ export function registerAdminRoutes(router, app) {
     const replies = row?.intake_id
       ? app.db
           .all("SELECT id, body, automation_rule, status, meta FROM messages WHERE intake_id = ? AND direction = 'out' AND id > ? ORDER BY id", row.intake_id, row.id)
-          .map((m) => ({ id: m.id, body: m.body, rule: m.automation_rule, status: m.status, wa: JSON.parse(m.meta || '{}').wa || null }))
+          .map((m) => {
+            const meta = JSON.parse(m.meta || '{}');
+            return { id: m.id, body: m.body, rule: m.automation_rule, status: m.status, wa: meta.wa || null, tag: messageTag(m.automation_rule, { body: m.body, wa: meta.wa, meta }) };
+          })
       : [];
     const story = row?.intake_id ? app.stories.storyOf(row.intake_id) : null;
     return {

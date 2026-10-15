@@ -529,7 +529,15 @@ explanation. Lawyers get concise professional Arabic.
 - **Budgets (measured)**: `/app` sheets 57,321 B br (≤ 60,000), `/company` 28,729 B br with the page sheet (≤ 30,000),
   `v12-look.css` 1,141 B br (≤ 6,144); cold 390 px Fast 3G: `/` 117.3 KB (≤ 120 KB), `/services` 166.6 KB (≤ 200 KB);
   CLS `/` 0.0007, `/services` 0.0052, `/p/` 0, `/company` 0.0003, `/app#/inbox` 0.001; 0 px overflow at 320 and at 180
-  CSS px (200 % zoom). Tests: `test/v12-look.test.js` (30).
+  CSS px (200 % zoom). Tests: `test/v12-look.test.js` (41).
+- **Review pass (deeper screens)**: a whole-page scanner (`scratchpad/v12-pw-look/review/tells2.mjs`) found v11 tells
+  below the first viewport; fixed in place in the owning sheets, no new rules stacked: initials avatars and AI sparkles
+  hidden (`v12-look.css`), icon tiles in front of rows hidden (dashboard, request page, knowledge, queue, account,
+  notifications), counts/channels/step numbers as plain figures and words (no pills or circles), the chat thread without
+  the WhatsApp dot wash or bubble shadows, notices as ivory + 2-px start rule (`.pa-note`, `.v9p-overdue`), dashboard
+  figures/alerts/events as ruled rows, no gradient panels (company sign-in, impact report head), no gold text (demo panel,
+  accent badges, date columns, the paid intake scan tip), 2-px corners on password/addon fields, and the `/services`
+  header button kept as the 38-px line button (the paid `.pub-btn` reset is now `:where(:not(.pub-nav-cta))`).
 <!-- /v12:look -->
 
 <!-- v12:staff-lines -->
@@ -571,9 +579,118 @@ explanation. Lawyers get concise professional Arabic.
 <!-- /v12:staff-lines -->
 
 <!-- v12:media -->
+### Voice notes to text, the document scanner, server clean copies, document text (media)
+
+- **Schema 88** (`src/schema.d/88-v12-media.*`, additive): `document_files` (original / clean / page rows with sha256,
+  width, height, `source` = `client_scan` · `staff_scan` · `server_auto`, `params`), `documents.display_file_id`,
+  `scan_state`, `ocr_state`, `voice_auto_transcripts` (state, text, provider, confidence, `played_ratio`, outcome),
+  `media_jobs` (kind, state, attempts, `gen`, `crashes`, `next_page`, `next_at`), `document_text` + FTS5 trigram
+  `document_text_fts` (LIKE fallback with ESCAPE where FTS5 is missing), `media_usage`, `media_orphans` filled by the
+  trigger `trg_document_files_orphan` (cascade-safe, daily `media.gc` unlinks). Re-running on an 11.0 DB changes no row.
+- **Web voice archived** (`web_voice_enabled`, default off): no mic UI and `Permissions-Policy: microphone=()` on the
+  site and `/p/`; WhatsApp voice notes still arrive and staff voice notes still play; an old draft with a recording
+  is sent or deleted. Turning it on restores the 11.0 recorder and the privacy disclosure.
+- **STT** (`INTEGRATION_SPEC.stt`, off by default): `openai_compatible` (presets OpenAI, Groq, the firm's own Whisper
+  server with `hosting = own_server`) or `google`. Every client voice note gets a staff-only «نص آلي للمراجعة» draft
+  (job `stt`, one note per unit); «تأكيد النص» is enabled only after 80 % was played or the text was edited, a low
+  confidence draft carries «النص الآلي غير مؤكد…», and the 11.0 manual transcript is still the only text anything
+  client- or lawyer-facing uses. A third party is used only for paid requests (charity audio only with the confirmed
+  `stt_charity_third_party`), only after `vendor_name` + `no_training_attested`, and only for audio received after
+  `stt_third_party_since` (set by the server when a third-party provider is saved, the moment the privacy text starts
+  naming it; never writable from PATCH). Limits: `stt_minutes_per_client_day`
+  (20; staff «حوّل الآن» bypasses it and is audited), `max_seconds`, `monthly_budget_usd` with alerts at 80 % / 100 %,
+  and an «تحويل الصوت» line in AI usage. Hosts resolving to metadata, loopback (unless `STT_ALLOW_LOCAL=1`) or a private
+  network for a third party are refused, including IPv6 forms that carry an IPv4 address (`[::ffff:169.254.169.254]`,
+  NAT64, 6to4), multicast and broadcast.
+- **Scanner on the sender's phone** (`scan_client_enabled`, default on): `scan-core.js` (pure, shared with the server),
+  `scanner.js` + `scan-worker.js` + `scan-sheet.js`; every photo picked on the intake, `/p/`, the company portal and
+  staff upload is cropped, flattened and lit before upload, with a corner sheet and «استخدام الصورة كما هي»; a
+  multi-page paper is one PDF (`pages: true`). The original travels with it and is kept byte-for-byte (sha256).
+- **Server clean** (`scan_server_auto`, default on, needs ImageMagick with the vendored policy): client photos that
+  arrived without a scan (WhatsApp, failed phones, company uploads without the scanner) get a `server_auto` clean copy
+  under `uploads/variants/auto/` from `src/media-child.js`, a forked child with `--max-old-space-size=128`, a minimal
+  env, nice 19 / `oom_score_adj` 1000, one image at a time, killed as a process group on timeout. The gate (score ≥ 0.60,
+  not partial, median chroma ≤ 55, ink 1–35 %, ≤ 24 MP) skips anything that is not paper; nothing is written then.
+  A memory guard defers the job 5 minutes while less than 300 MB is available (after 6 defers: `low_memory`). Staff and
+  lawyer photos are never cleaned automatically (possible evidence); staff have «نظّف المستند» in the viewer.
+- **Display rule** (L12-59, `scanConfident`): the clean copy is shown first only when the scan is confident (not
+  black-and-white, not partial, corners adjusted by hand or score ≥ 0.6 with every page ≥ 60 % of the photo); otherwise the original is first and the clean copy is one tap away. Every clean view
+  carries «نسخة محسّنة آليًا · الأصل محفوظ» (DOC-16) and «الأصل»; every JPEG a lawyer downloads (the original, or a client
+  photo that skipped the scanner) has EXIF/GPS stripped on the fly, staff get the stored bytes. HEIC stays accepted, is never given to ImageMagick, and reads «صيغة HEIC لا تُعرض
+  هنا. اطلب صورة JPG.» for staff.
+- **Document text (OCR)** (`ocr_provider` = auto · tesseract · claude · off, default auto): one page per job unit up to
+  `ocr_max_pages` (10); PDFs try `pdftotext -layout` first, then `pdftoppm -scale-to 2000` + `tesseract ara+eng`.
+  Claude (P1) is used only with `ocr_claude_allowed` (privacy text names Anthropic, and only documents received after
+  `ocr_claude_since`), company documents only with `ocr_claude_companies`, page images only, within
+  `ocr_claude_budget_pct` of the monthly AI budget. The text is staff-only: «النص» in the viewer (DOC-12…14: copy,
+  correct a page, «اقرأ النص مرة أخرى»), and a «مستندات» group in global search (SRC-01/02/04). Lawyers, clients and
+  companies never get OCR text from any API (route scans in `test/v12-media.test.js`).
+- **Endpoints** (staff, server-side permission checks, all audited with Arabic labels in `media_security_event`; the
+  `/audit` group names for the `media`/`voice` prefixes belong in the audit page's `GROUP_LABELS`):
+  `POST /api/admin/documents/:id/clean`, `PUT …/display`, `GET …/files`, `POST …/rescan` (60/h), `GET …/text`,
+  `PUT …/text/:page`, `POST …/ocr` (30/h), `POST /api/admin/voice-notes/:documentId/auto`,
+  `GET /api/admin/media/status` (`?probe=1` re-probes the tools), `POST /api/admin/media/backfill` (5/day; voice from the
+  last 30 days, or clean + read older documents), `POST /api/admin/integrations/stt/test`.
+- **Jobs**: `media.process` every minute only calls `kick()`; the runner works outside the scheduler lock, one unit at a
+  time with `processDue({budgetMs})`, generation-checked writes, and states queued / running / done / failed / skipped
+  / cancelled. Seeds never enqueue. Daily `media.gc` cleans orphans, temp files and FTS rows of deleted documents.
+- **Privacy and deletion**: `/privacy` gains PV-01…04 (voice to text with the vendor and «قد تُعالج خارج مصر» for a
+  third party, image cleaning and text reading on the firm's server, Claude when allowed); data deletion gains DD-01
+  (clean copies, extracted text and voice-note text).
+- **Settings and health**: settings card «المستندات والصوت» (SET-20…35, admin only, confirm dialogs for the charity
+  third-party and Claude switches, «منذ …» lines); system card SYS-01…10 (tool versions, queue, «شغّل الآن», the two
+  backfills, warnings for < 1 GB RAM, uploads × backup retention > 70 % of the disk, and an ImageMagick without the
+  vendored policy).
+- **Demo seed** (`src/seed-v12-media.js`): a machine draft on a pending WhatsApp voice note, a server clean copy of the
+  seeded WhatsApp death-certificate photo, OCR text on two documents (search «الأحوال المدنية»); no queued jobs.
 <!-- /v12:media -->
 
 <!-- v12:tags -->
+### Element tags «رموز العناصر» (tags-core + tags)
+
+- **Codes**: `PAGE-NN` matching `^[A-Z]{1,3}-(0[1-9]|[1-9]\d|[1-9]\d\d)$`, one call site = one code, `data-tag` is the
+  last attribute. 5,320 codes (5,334 definition sites) after the sweep (site 389 · request and follow-up 352 · company portal 624 · staff
+  app 3,821 · messages and print 134 in the registry). Prefix metadata: public prefixes in `lib/tags-pages.js` (no
+  file paths), staff/company prefixes in `lib/tags-pages-app.js`; file lists only in server-side `src/tags/registry.js`.
+  `h()` takes `{ tag }`, `tagged(code, node)` tags a built node, and every `ui.js` / company-ui / page-kit / portal-ui
+  component takes `tag` (plus `titleTag`, `rowTag` as a string or a function of the row, `submitTag`/`cancelTag`, and
+  `tag` on items/columns/options/actions/fields/breadcrumbs). Data lists carry `tag` (tree nodes, intake questions and
+  answers, paid nav/how/trust/FAQ, company catalog types and fields, nav groups and items).
+- **Messages**: `TEXT_TAGS` (W-01…W-47, interactive labels moved byte-identical into `WA_BUTTON_TEXTS`), lawyer alerts
+  `ALERT_TAGS` (W-48…W-54), `EMAIL_TAGS` (E-01…E-15), print blocks D-01…D-65. Codes reach staff only (registry,
+  automations list, outbox and e-mail outbox rows, simulator replies via `src/tags/messages.js`); L12-88 is tested on a
+  seeded run plus the lines menu, an STT draft confirmed by staff, a WhatsApp photo queued for clean + OCR, a website
+  intake and the company e-mails: no `\b[A-Z]{1,3}-\d{2,3}\b` in any body, interactive part, template vars or e-mail.
+- **Overlay** (`lib/tags.js`, 7,964 B br, loaded only on opt-in, never preloaded or precached): badges in one fixed
+  layer, panel search (`s14`, `S 14`, `S-١٤`, Arabic words folded by `foldAr`: «تاسيس» finds «تأسيس»), `?tag=S-14` jump +
+  flash (after the smooth scroll stops, `whenStill`), «غير المرمَّز» outlines, copy on tap. Review fixes: the panel list
+  is rebuilt only when its rows change (`panelRows` key; focus and long presses survive the 1-s refresh), new badges are
+  measured in one read per frame (full pass ≤ 7.7 ms on `/services` at 1366, was 20–41 ms), badges keep clear of the
+  «الرموز» tab.
+  `lib/tags-boot.js` (446 B br, no imports, overlay URL built by concatenation) is called by `menu.js`, `app/main.js`
+  and `company/main.js`; `entry.js` (`/`, `/start/*`) and `portal-ui.js` (`/p/`, `/portal`) import it lazily only on
+  `?tags=`/`?tag=`, a stored preference or the first Alt+Shift+T (L12-43, T12-84). `replaceState` strips `tags`/`tag`
+  from search and hash; `?tags=1` is remembered in `sessionStorage`, `localStorage['bm_tags']` only by the staff switch
+  (حسابي card PRF-01…03, also on the tags page). Ctrl/⌘+K command SRC-05 (staff), Alt+Shift+T outside text fields.
+- **Registry**: `GET /api/admin/tags?q=&surface=&prefix=` (admin + case manager; lawyer 403; anonymous or a company
+  cookie alone 401 like every staff route; audited `tags.registry_viewed`; `file`/`line` for admin only). Page
+  `/app#/tags` (TGS-01…12, read-only; the same folded word search). `TAGS.md` is generated (texts that come from word
+  modules are resolved: company `W.…` and its aliases, intake `COPY.…`, sidebar route titles; «(نص متغير)» rows 1,198 → 756): `npm run tags` (number `X-00` placeholders outside the
+  §5.9 reserved ranges, update `src/tags/ledger.json`, write `TAGS.md`), `-- --check`, `-- find`, `-- next`,
+  `-- autotag <files> [--dry]`, `-- coverage`, `-- md`, `-- freeze` (gate).
+- **Enforcement (TG-7)**: `TAGS_ENFORCE = '1'` in `src/tags/registry.js` (`TAGS_ENFORCE=0` in the environment reports
+  only, and only before the freeze). `test/v12-tags.test.js` enforces T12-73 (ledger), T12-74 (`TAGS.md` and the ledger
+  equal what `npm run tags` writes, line numbers aside), T12-75 (every section/header/footer/nav/h1–h3/button/details/
+  form/field and every link outside a `<p>` on the rendered public pages, archived and restored, a real `/p/`, intake
+  shells, legal pages, 404; only `data-notag="reason"` exempts), T12-76, T12-77 (data lists) and T12-78 (every key
+  builder call in the SPA and public modules). `UNTAGGED_BY_DESIGN` lists the only gaps: the charity pages
+  (`about.html`, `index.html`, the `intake.html` charity fallbacks, the paused-notice title; KH-05… are 12.1) and the
+  archived recorder (RV). `npm run tags -- --check` fails on any other untagged key element.
+- **Budgets (T12-84, measured)**: `tags-boot.js` 446 B br (≤ 450); `tags.js` 7,964 B br (≤ 9,216); `/services` grows by
+  275 B br for 92 codes (≤ 1,228); `/p/` closure back to h.js + portal-ui.js + portal.js + words.js = 30,606 B gzip
+  (≤ 30,720). Open: the company entry closure is 62,852 B br against the 60 KB (61,440 B) budget of
+  `test/v10-b2b-portal.test.js` (1,412 B over); in it the tag literals weigh ≈ 453 B br and `tags-boot.js` 446 B br, so even
+  without any tag it would stay over; reported to the lead for a budget decision rather than dropping tags.
 <!-- /v12:tags -->
 
 <!-- v12:gate -->

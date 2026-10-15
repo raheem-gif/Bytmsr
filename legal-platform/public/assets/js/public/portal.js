@@ -210,7 +210,7 @@ function contact() {
 }
 const callBtn = (kind = 'secondary', extra = {}) => {
   const c = contact();
-  return c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind, icon: 'phone', href: c.tel, ...extra }) : null;
+  return c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind, icon: 'phone', href: c.tel, ...extra, tag: 'P-11' }) : null;
 };
 function waLink(text) {
   return waUrl(contact().wa, text);
@@ -249,8 +249,8 @@ window.addEventListener('hashchange', () => {
 function backBar(title) {
   return h(
     'div.bp-viewhead',
-    h('button.bp-back', { type: 'button', onClick: back }, ic('back', 22), h('span', 'رجوع')),
-    title ? h('h1.bp-viewtitle', { tabindex: '-1' }, title) : null,
+    h('button.bp-back', { type: 'button', onClick: back, tag: 'P-12' }, ic('back', 22), h('span', 'رجوع')),
+    title ? h('h1.bp-viewtitle', { tabindex: '-1', tag: 'P-13' }, title) : null,
   );
 }
 
@@ -300,56 +300,56 @@ function nowCard(item) {
     const gal = isDoc ? hiddenPicker(r, 'gallery') : null;
     return h(
       'section.bp-now',
-      { 'aria-labelledby': `now-${r.id}` },
+      { 'aria-labelledby': `now-${r.id}`, tag: 'P-14' },
       h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('needYou', 'مطلوب منك')),
-      h('h2.bp-now-title', { id: `now-${r.id}` }, names.length ? P('needList', 'محتاجين منك:') : isDoc ? P('needDoc', 'محتاجين منك ورقة') : P('needReply', 'محتاجين ردّك')),
+      h('h2.bp-now-title', { id: `now-${r.id}`, tag: 'P-15' }, names.length ? P('needList', 'محتاجين منك:') : isDoc ? P('needDoc', 'محتاجين منك ورقة') : P('needReply', 'محتاجين ردّك')),
       names.length
         ? h('ol.bp-now-list', names.map((n) => h('li', n)))
         : h('p.bp-now-text.bp-clamp', rich(r.message || '')),
       isDoc
         ? [
-            btn(g(P('photoBtn', 'صوّر{ي} الورقة')), { kind: 'primary', icon: 'camera', block: true, onClick: () => cam.open() }),
-            h('p.bp-now-alt', h('button.bp-linkbtn', { type: 'button', onClick: () => gal.open() }, g(P('galBtn', 'أو اختار{ي} صورة من الموبايل')))),
+            btn(g(P('photoBtn', 'صوّر{ي} الورقة')), { kind: 'primary', icon: 'camera', block: true, onClick: () => cam.open(), tag: 'P-16' }),
+            h('p.bp-now-alt', h('button.bp-linkbtn', { type: 'button', onClick: () => gal.open(), tag: 'P-17' }, g(P('galBtn', 'أو اختار{ي} صورة من الموبايل')))),
             cam.input,
             gal.input,
           ]
-        : btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => go(`#request/${r.id}`) }),
+        : btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => go(`#request/${r.id}`), tag: 'P-18' }),
     );
   }
   if (item.kind === 'hearing') {
     const e = item.e;
     return h(
       'section.bp-now',
-      { 'aria-labelledby': `now-e${e.id}` },
+      { 'aria-labelledby': `now-e${e.id}`, tag: 'P-19' },
       h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g(P('attend', 'لازم تحضر{ي} بنفسك'))),
-      h('h2.bp-now-title', { id: `now-e${e.id}` }, hearingTitle(e)),
+      h('h2.bp-now-title', { id: `now-e${e.id}`, tag: 'P-20' }, hearingTitle(e)),
       e.location ? h('p.bp-now-text', e.location) : null,
-      btn(P('attendBtn', 'إيه المطلوب مني؟'), { kind: 'primary', block: true, onClick: () => go(`#event/${e.id}`) }),
+      btn(P('attendBtn', 'إيه المطلوب مني؟'), { kind: 'primary', block: true, onClick: () => go(`#event/${e.id}`), tag: 'P-21' }),
     );
   }
   if (item.kind === 'reply') {
     return h(
       'section.bp-now',
-      { 'aria-labelledby': 'now-reply' },
+      { 'aria-labelledby': 'now-reply', tag: 'P-22' },
       h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('needYou', 'مطلوب منك')),
-      h('h2.bp-now-title', { id: 'now-reply' }, P('needReply', 'محتاجين ردّك')),
+      h('h2.bp-now-title', { id: 'now-reply', tag: 'P-23' }, P('needReply', 'محتاجين ردّك')),
       item.text ? h('p.bp-now-text.bp-clamp', rich(item.text)) : null,
-      btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => openComposer({}) }),
+      btn(g(P('replyBtn', 'ردّ{ي} علينا')), { kind: 'primary', icon: 'message', block: true, onClick: () => openComposer({}), tag: 'P-24' }),
     );
   }
   if (item.kind === 'answer') {
     return h(
       'section.bp-now',
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('gotAnswer', 'وصلك ردّنا')),
-      h('h2.bp-now-title', P('answerReady', 'ردّنا على مشكلتك جاهز')),
-      btn(P('readAnswer', `${s('اقري')} الرد`), { kind: 'primary', icon: 'file', block: true, onClick: () => go('#answer') }),
+      { tag: 'P-25' }, h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), P('gotAnswer', 'وصلك ردّنا')),
+      h('h2.bp-now-title', { tag: 'P-26' }, P('answerReady', 'ردّنا على مشكلتك جاهز')),
+      btn(P('readAnswer', `${s('اقري')} الرد`), { kind: 'primary', icon: 'file', block: true, onClick: () => go('#answer'), tag: 'P-27' }),
     );
   }
   return h(
     'section.bp-now',
-    h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'رسالة جديدة'),
-    h('h2.bp-now-title.bp-clamp', item.text || P('gotMsg', 'وصلتك رسالة مننا')),
-    btn(P('readMsg', `${s('اقري')} الرسالة`), { kind: 'primary', icon: 'message', block: true, onClick: () => go('#messages') }),
+    { tag: 'P-28' }, h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), 'رسالة جديدة'),
+    h('h2.bp-now-title.bp-clamp', { tag: 'P-29' }, item.text || P('gotMsg', 'وصلتك رسالة مننا')),
+    btn(P('readMsg', `${s('اقري')} الرسالة`), { kind: 'primary', icon: 'message', block: true, onClick: () => go('#messages'), tag: 'P-30' }),
   );
 }
 
@@ -366,6 +366,7 @@ function hiddenPicker(r, mode) {
     multiple: mode !== 'camera',
     tabindex: '-1',
     'aria-hidden': 'true',
+    tag: 'P-31',
   });
   input.addEventListener('change', () => {
     const files = [...(input.files || [])];
@@ -384,7 +385,7 @@ function greeting() {
   const name = home.name || addressName(state.data.client?.name);
   return h(
     'header.bp-greet',
-    h('h1', name ? fillP('hi', 'أهلًا يا {name}', { name }) : g(P('hi0', 'أهلًا بيك{ي}'))),
+    { tag: 'P-32' }, h('h1', { tag: 'P-33' }, name ? fillP('hi', 'أهلًا يا {name}', { name }) : g(P('hi0', 'أهلًا بيك{ي}'))),
     h('p.bp-sub', P('mine', 'دي صفحتك. محدش غيرك يقدر يشوفها.')),
     h('div.bp-greet-contact', contactButtons()),
   );
@@ -395,10 +396,10 @@ function contactButtons() {
   const ref = state.data?.home?.ref;
   const wa = waLink(`السلام عليكم، بتابع طلبي${ref ? ` رقم ${ref}` : ''}`);
   return [
-    c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind: 'secondary', icon: 'phone', href: c.tel, className: 'bp-bar-call' }) : null,
+    c.tel ? btn(P('call', `${s('اتصلي')} بينا`), { kind: 'secondary', icon: 'phone', href: c.tel, className: 'bp-bar-call', tag: 'P-34' }) : null,
     wa
-      ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', href: wa, className: 'bp-bar-wa' })
-      : btn(g(P('write', 'اكتب{ي}لنا')), { kind: 'whatsapp', icon: 'message', className: 'bp-bar-wa', onClick: () => openComposer({}) }),
+      ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', href: wa, className: 'bp-bar-wa', tag: 'P-35' })
+      : btn(g(P('write', 'اكتب{ي}لنا')), { kind: 'whatsapp', icon: 'message', className: 'bp-bar-wa', onClick: () => openComposer({}), tag: 'P-36' }),
   ];
 }
 
@@ -413,8 +414,8 @@ function stories() {
   if (list.length < 2) return null;
   return h(
     'section.bp-card.bp-stories',
-    { 'aria-label': 'طلباتك' },
-    h('h2.bp-card-title', `عندك ${countWord(list.length, ['طلب واحد', 'طلبين', 'طلبات', 'طلب'])}`),
+    { 'aria-label': 'طلباتك', tag: 'P-37' },
+    h('h2.bp-card-title', { tag: 'P-38' }, `عندك ${countWord(list.length, ['طلب واحد', 'طلبين', 'طلبات', 'طلب'])}`),
     h(
       'ul.bp-rows',
       list.map((st, i) =>
@@ -422,7 +423,7 @@ function stories() {
           'li',
           h(
             'button.bp-row',
-            { type: 'button', 'aria-pressed': String(i === state.story), class: i === state.story ? 'is-on' : null, onClick: () => ((state.story = i), render()) },
+            { type: 'button', 'aria-pressed': String(i === state.story), class: i === state.story ? 'is-on' : null, onClick: () => ((state.story = i), render()), tag: 'P-39' },
             h('span.bp-row-main', h('span.bp-row-title', /^REQ-/.test(st.ref) ? ['طلب ', h('bdi', { dir: 'ltr' }, st.ref)] : 'طلبك'), h('span.bp-row-sub', st.stage.title)),
             i === state.story ? ic('check', 20) : ic('chevron', 20),
           ),
@@ -437,8 +438,8 @@ function tracker() {
   if (!st) return null;
   return h(
     'section.bp-card.bp-track',
-    { 'aria-labelledby': 'bp-track-title' },
-    h('h2.bp-card-title#bp-track-title', P('track', 'طلبك وصل لفين؟')),
+    { 'aria-labelledby': 'bp-track-title', tag: 'P-40' },
+    h('h2.bp-card-title#bp-track-title', { tag: 'P-41' }, P('track', 'طلبك وصل لفين؟')),
     h(
       'ol.bp-steps',
       st.stage.steps.map((x) =>
@@ -469,11 +470,11 @@ function sectionList() {
   if (papers().length) rows.push(['#papers', 'file', 'الورق', pill(String(papers().length))]);
   return h(
     'nav.bp-card.bp-list',
-    { 'aria-label': 'أقسام صفحتك' },
+    { 'aria-label': 'أقسام صفحتك', tag: 'P-42' },
     h(
       'ul.bp-rows',
       rows.map(([href, icon, label, p]) =>
-        h('li', h('a.bp-row', { href, onClick: (e) => (e.preventDefault(), go(href)) }, ic(icon, 22), h('span.bp-row-main', h('span.bp-row-title', label)), p, ic('chevron', 20))),
+        h('li', h('a.bp-row', { href, onClick: (e) => (e.preventDefault(), go(href)), tag: 'P-43' }, ic(icon, 22), h('span.bp-row-main', h('span.bp-row-title', label)), p, ic('chevron', 20))),
       ),
     ),
   );
@@ -500,12 +501,12 @@ function homeView() {
   if (first) {
     now = nowCard(first);
     // «وكمان {2} حاجات تانية» تحت الزر داخل نفس البطاقة (#todo فيها كل المطلوب)
-    if (rest > 0) now.append(h('p.bp-more', h('a', { href: '#todo', onClick: (e) => (e.preventDefault(), go('#todo')) }, `وكمان ${countWord(rest, ['حاجة تانية', 'حاجتين تانيين', 'حاجات تانية', 'حاجة تانية'])}`)));
+    if (rest > 0) now.append(h('p.bp-more', h('a', { href: '#todo', onClick: (e) => (e.preventDefault(), go('#todo')), tag: 'P-44' }, `وكمان ${countWord(rest, ['حاجة تانية', 'حاجتين تانيين', 'حاجات تانية', 'حاجة تانية'])}`)));
   } else {
     now = h(
       'section.bp-now.is-calm',
-      h('span.bp-calm-ic', ic('checkCircle', 28)),
-      h('div', h('h2.bp-now-title', P('calm', 'مفيش حاجة مطلوبة منك دلوقتي.')), h('p.bp-now-text', state.data.home.whatsapp_confirmed ? P('calmWa', 'هنبعتلك على واتساب أول ما يجدّ جديد.') : g(P('calmVisit', 'ادخل{ي} على الصفحة دي كل كام يوم عشان تشوف{ي} الجديد.')))),
+      { tag: 'P-45' }, h('span.bp-calm-ic', ic('checkCircle', 28)),
+      h('div', h('h2.bp-now-title', { tag: 'P-46' }, P('calm', 'مفيش حاجة مطلوبة منك دلوقتي.')), h('p.bp-now-text', state.data.home.whatsapp_confirmed ? P('calmWa', 'هنبعتلك على واتساب أول ما يجدّ جديد.') : g(P('calmVisit', 'ادخل{ي} على الصفحة دي كل كام يوم عشان تشوف{ي} الجديد.')))),
     );
   }
   return [
@@ -515,7 +516,7 @@ function homeView() {
     stories(),
     tracker(),
     sectionList(),
-    h('div.bp-callback', btn(P('callback', `${s('اطلبي')} مكالمة`), { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback })),
+    h('div.bp-callback', btn(P('callback', `${s('اطلبي')} مكالمة`), { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback, tag: 'P-47' })),
     refLine(),
   ];
 }
@@ -534,10 +535,10 @@ function waConfirmCard() {
   if (!url) return null;
   return h(
     'section.bp-card.bp-waconfirm',
-    { 'aria-labelledby': 'bp-wa-title' },
-    h('h2.bp-card-title#bp-wa-title', g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))),
+    { 'aria-labelledby': 'bp-wa-title', tag: 'P-48' },
+    h('h2.bp-card-title#bp-wa-title', { tag: 'P-49' }, g(P('waTitle', 'عايز{ة} يوصلك الجديد على واتساب؟'))),
     h('p.bp-hint', g(P('waText', 'ابعت{ي}لنا رقم طلبك برسالة واحدة على واتساب، وبعدها هنبعتلك كل جديد هناك.'))),
-    btn(g(P('waBtn', 'ابعت{ي} رقم طلبك')), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true }),
+    btn(g(P('waBtn', 'ابعت{ي} رقم طلبك')), { kind: 'whatsapp', icon: 'whatsapp', href: url, block: true, tag: 'P-50' }),
   );
 }
 
@@ -552,6 +553,7 @@ function forgetLine() {
           await forgetThisPhone();
           toast(g('مسحنا الصفحة من الموبايل ده. الرابط نفسه لسه شغال لو احتجتيه.'), 'info');
         },
+        tag: 'P-51',
       },
       g('مش موبايلك؟ امسح{ي} الصفحة من الموبايل ده'),
     ),
@@ -574,7 +576,7 @@ function keptVoiceLine(onDrop) {
 function waVoiceLine() {
   const href = waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي');
   if (!href) return null;
-  return h('p.bp-small.bp-wa-voice', { tag: PC ? 'P-01' : null }, h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, PC ? 'أو أرسلوا رسالة صوتية على واتساب' : g('أو ابعت{ي} رسالة صوتية على واتساب')));
+  return h('p.bp-small.bp-wa-voice', { tag: PC ? 'P-01' : null }, h('a', { href, target: '_blank', rel: 'noopener noreferrer', tag: 'P-52' }, PC ? 'أو أرسلوا رسالة صوتية على واتساب' : g('أو ابعت{ي} رسالة صوتية على واتساب')));
 }
 
 // ───────────── الورق المطلوب (#request/<id>) ─────────────
@@ -630,12 +632,12 @@ function requestView(id) {
     const files = it.files.length
       ? h(
           'ul.bp-sent-files',
-          it.files.map((f, i) => h('li', h('a', { href: docHref(f.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(f.mime || '') ? 'image' : 'file', 18), `صورة ${i + 1} · ${shortDate(f.at)}`))),
+          it.files.map((f, i) => h('li', h('a', { href: docHref(f.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-53' }, ic(/^image\//.test(f.mime || '') ? 'image' : 'file', 18), `صورة ${i + 1} · ${shortDate(f.at)}`))),
         )
       : null;
     const missingBtn =
       r.items.length && it.status === 'needed' && r.can_reply
-        ? h('button.bp-linkbtn.bp-missing', { type: 'button', onClick: () => markMissing(r, idx, label) }, `مش ${state.form === 'm' ? 'لاقي' : 'لاقية'} الورقة دي`)
+        ? h('button.bp-linkbtn.bp-missing', { type: 'button', onClick: () => markMissing(r, idx, label), tag: 'P-54' }, `مش ${state.form === 'm' ? 'لاقي' : 'لاقية'} الورقة دي`)
         : null;
     return h('li.bp-item', { class: `is-${it.status}` }, h('div.bp-item-head', h('span.bp-item-name', label), statusPill), picker, picker && !tipShown++ ? photoTip() : null, files, missingBtn);
   });
@@ -651,6 +653,7 @@ function requestView(id) {
       saveDraft();
       syncSend();
     },
+    tag: 'P-55',
   });
   // v12 media (MD-7): المسجّل فقط حين يُفعَّل الصوت من الموقع؛ وإلا سطر واتساب للرسالة الصوتية (إن وُجد واتساب)
   const rec = VOICE_ON
@@ -669,7 +672,7 @@ function requestView(id) {
   const voiceHost = h('div.bp-voice-kept'); // مسودة قديمة فيها تسجيل
   const waVoice = !VOICE_ON && waLink('السلام عليكم، هبعتلكم رسالة صوتية على طلبي') ? waVoiceLine() : null;
   const noteBlock = isDoc
-    ? h('details.bp-note', h('summary', g('عايز{ة} تقول{ي} حاجة؟')), h('label.bp-sr', { htmlFor: ta.id }, 'ملاحظة'), ta, rec, voiceHost, waVoice)
+    ? h('details.bp-note', { tag: 'P-56' }, h('summary', { tag: 'P-57' }, g('عايز{ة} تقول{ي} حاجة؟')), h('label.bp-sr', { htmlFor: ta.id }, 'ملاحظة'), ta, rec, voiceHost, waVoice)
     : h('div.bp-note.is-open', h('label.bp-label', { htmlFor: ta.id }, VOICE_ON ? g('اكتب{ي} ردّك أو سجّل{ي} رسالة صوتية') : PC ? 'اكتبوا ردّكم' : g('اكتب{ي} ردّك')), rec, voiceHost, ta, waVoice);
 
   // صور لطلب «معلومة» (اختيارية)
@@ -679,7 +682,7 @@ function requestView(id) {
     pickers.set(-1, infoPicker);
   }
 
-  const sendBtn = btn(isDoc ? g('ابعت{ي} الورق') : g('ابعت{ي} ردّك'), { kind: 'primary', icon: 'send', block: true, onClick: () => submit() });
+  const sendBtn = btn(isDoc ? g('ابعت{ي} الورق') : g('ابعت{ي} ردّك'), { kind: 'primary', icon: 'send', block: true, onClick: () => submit(), tag: 'P-58' });
   const hint = h('p.bp-send-hint', { role: 'status', 'aria-live': 'polite' });
   function hasContent() {
     for (const p of pickers.values()) if (p.getFiles().length) return true;
@@ -781,7 +784,7 @@ function requestView(id) {
           h('p', dr._blobsLost ? 'الصور والتسجيل محتاجين يتعملوا تاني.' : g('صورك اللي ما اتبعتتش لسه موجودة.')),
           h(
             'div.bp-actions',
-            btn(g('ابعت{ي}ها'), { kind: 'primary', onClick: () => (mount(restoreHost), submit()) }),
+            btn(g('ابعت{ي}ها'), { kind: 'primary', onClick: () => (mount(restoreHost), submit()), tag: 'P-59' }),
             btn(g('امسح{ي}ها'), {
               kind: 'secondary',
               onClick: async () => {
@@ -795,6 +798,7 @@ function requestView(id) {
                 mount(restoreHost);
                 syncSend();
               },
+              tag: 'P-60',
             }),
           ),
         ),
@@ -804,13 +808,13 @@ function requestView(id) {
 
   const allDone = r.items.length && r.all_done;
   const intro = r.message ? h('p.bp-msg.bp-clamp3', rich(r.message)) : null;
-  const more = r.message && r.message.length > 140 ? h('button.bp-linkbtn', { type: 'button', onClick: (e) => (intro.classList.remove('bp-clamp3'), e.currentTarget.remove()) }, `${s('اقري')} أكتر`) : null;
+  const more = r.message && r.message.length > 140 ? h('button.bp-linkbtn', { type: 'button', onClick: (e) => (intro.classList.remove('bp-clamp3'), e.currentTarget.remove()), tag: 'P-61' }, `${s('اقري')} أكتر`) : null;
   syncSend();
   return [
     backBar(isDoc ? 'محتاجين منك' : 'محتاجين ردّك'),
-    h('section.bp-card.bp-request', intro, more, restoreHost, h('ul.bp-items', rows)),
+    h('section.bp-card.bp-request', { tag: 'P-62' }, intro, more, restoreHost, h('ul.bp-items', rows)),
     allDone ? h('p.bp-done', ic('checkCircle', 22), g('بعت{ي}لنا كل الورق المطلوب. شكرًا!')) : null,
-    r.can_reply ? h('section.bp-card', infoPicker, noteBlock, errBox, progressHost, hint, sendBtn) : !allDone ? h('p.bp-done', ic('checkCircle', 22), 'وصلنا ردّك، وفريقنا بيراجعه.') : null,
+    r.can_reply ? h('section.bp-card', { tag: 'P-63' }, infoPicker, noteBlock, errBox, progressHost, hint, sendBtn) : !allDone ? h('p.bp-done', ic('checkCircle', 22), 'وصلنا ردّك، وفريقنا بيراجعه.') : null,
   ];
 }
 
@@ -820,7 +824,7 @@ function photoTip() {
   const tip = h(
     'div.bp-tip',
     h('p', g('حط{ي} الورقة على ترابيزة في مكان منوّر، وخل{ي} الأربع أركان باينين.')),
-    h('button.bp-linkbtn', { type: 'button', onClick: () => (storage.set('bm_photo_tip_off', '1'), tip.remove()) }, 'تمام'),
+    h('button.bp-linkbtn', { type: 'button', onClick: () => (storage.set('bm_photo_tip_off', '1'), tip.remove()), tag: 'P-64' }, 'تمام'),
   );
   return tip;
 }
@@ -863,7 +867,7 @@ async function runSend(url, body, { host, lock, errBox, onDone, retry }) {
     state.busy = false;
     const net = err && (err.code === 'network_error' || err.status === 0);
     const msg = err?.code === 'aborted' ? friendlyError(err, state.form) : net ? g('ما اتبعتش. النت ضعيف؟ جرب{ي} تاني.') : friendlyError(err, state.form);
-    mount(errBox, h('p', msg), btn(g('حاول{ي} تاني'), { kind: 'secondary', onClick: () => retry(body) }));
+    mount(errBox, h('p', msg), btn(g('حاول{ي} تاني'), { kind: 'secondary', onClick: () => retry(body), tag: 'P-65' }));
     errBox.hidden = false;
     if (net) state.retry = { run: () => retry(body) };
   }
@@ -877,7 +881,7 @@ window.addEventListener('online', () => {
   if (state.retry) {
     const t = toast(g('النت رجع. تحب{ي} تبعت{ي} دلوقتي؟'), 'info', 10000);
     const run = state.retry.run;
-    t.append(h('button.bp-toast-btn', { type: 'button', onClick: () => (t.remove(), run()) }, g('ابعت{ي}')));
+    t.append(h('button.bp-toast-btn', { type: 'button', onClick: () => (t.remove(), run()), tag: 'P-66' }, g('ابعت{ي}')));
   }
 });
 
@@ -894,7 +898,7 @@ function arabicVoice() {
 
 function listenButton(a) {
   if (!a.summary || !('speechSynthesis' in window) || !arabicVoice()) return null;
-  const b = btn(g('اسمع{ي} الرد'), { kind: 'secondary', icon: 'speaker' });
+  const b = btn(g('اسمع{ي} الرد'), { kind: 'secondary', icon: 'speaker', tag: 'P-67' });
   b.addEventListener('click', () => {
     const synth = window.speechSynthesis;
     if (speaking === a.id) {
@@ -937,7 +941,7 @@ function stepsList(a) {
   const done = new Set(storage.json(key, []));
   return h(
     'section.bp-steps-todo',
-    h('h3', g(P('whatNow', 'تعمل{ي} إيه دلوقتي؟'))),
+    { tag: 'P-68' }, h('h3', { tag: 'P-69' }, g(P('whatNow', 'تعمل{ي} إيه دلوقتي؟'))),
     h(
       'ol',
       a.steps.map((st, i) => {
@@ -952,6 +956,7 @@ function stepsList(a) {
             storage.set(key, JSON.stringify([...done]));
             li.classList.toggle('is-done', cb.checked);
           },
+          tag: 'P-70',
         });
         const li = h('li.bp-todo', { class: done.has(i) ? 'is-done' : null }, h('span.bp-todo-n', String(i + 1)), h('span.bp-todo-text', st), h('label.bp-todo-check', { htmlFor: id }, cb, h('span', 'خلّصتها')));
         return li;
@@ -972,9 +977,9 @@ function answerView() {
         h('p.bp-meta', `اتبعت ${shortDate(a.sent_at)}`),
         a.voice ? h('div.bp-voice', h('p', P('voiceFrom', 'رسالة صوتية من المؤسسة')), h('audio', { controls: true, preload: 'none', src: docHref(a.voice.id) })) : null,
         listenButton(a),
-        a.summary ? h('section.bp-summary', h('h3', 'الخلاصة'), h('p', a.summary)) : null,
+        a.summary ? h('section.bp-summary', { tag: 'P-71' }, h('h3', { tag: 'P-72' }, 'الخلاصة'), h('p', a.summary)) : null,
         stepsList(a),
-        a.summary ? h('details.bp-full', h('summary', `${s('اقري')} الرد كامل`), h('div.bp-fulltext', fullText(a.body))) : h('div.bp-fulltext.is-open', fullText(a.body)),
+        a.summary ? h('details.bp-full', { tag: 'P-73' }, h('summary', { tag: 'P-74' }, `${s('اقري')} الرد كامل`), h('div.bp-fulltext', fullText(a.body))) : h('div.bp-fulltext.is-open', fullText(a.body)),
         h(
           'div.bp-actions',
           btn(state.form === 'm' ? 'مش فاهم حاجة؟ اسألنا' : 'مش فاهمة حاجة؟ اسألينا', {
@@ -982,6 +987,7 @@ function answerView() {
             icon: 'message',
             block: true,
             onClick: () => openComposer({ text: 'عندي سؤال على الرد: ', answerId: a.id }),
+            tag: 'P-75',
           }),
           callBtn('ghost', { block: true }),
         ),
@@ -1004,7 +1010,7 @@ function eventsView() {
           'li',
           h(
             'a.bp-card.bp-event-link',
-            { href: `#event/${e.id}`, onClick: (x) => (x.preventDefault(), go(`#event/${e.id}`)) },
+            { href: `#event/${e.id}`, onClick: (x) => (x.preventDefault(), go(`#event/${e.id}`)), tag: 'P-76' },
             h('span.bp-event-date', h('span', spokenDate(e.starts_at)), h('span.bp-meta', `الساعة ${spokenTime(e.starts_at)} (${e.spoken?.day || dayWord(e.starts_at)})`)),
             h('span.bp-event-what', e.kind_label, e.client_attendance_required ? h('span.bp-pill.is-amber', g('لازم تحضر{ي}')) : null),
             e.location ? h('span.bp-meta', e.location) : null,
@@ -1058,14 +1064,14 @@ function eventView(id) {
     if (!editing && e.client_response) {
       return mount(
         host,
-        h('p.bp-response', ic('checkCircle', 22), h('span', `ردّك: ${responseText(e.client_response)}`), h('button.bp-linkbtn', { type: 'button', onClick: () => ((editing = true), paint()) }, g('غيّر{ي} الرد'))),
+        h('p.bp-response', ic('checkCircle', 22), h('span', `ردّك: ${responseText(e.client_response)}`), h('button.bp-linkbtn', { type: 'button', onClick: () => ((editing = true), paint()), tag: 'P-77' }, g('غيّر{ي} الرد'))),
       );
     }
     return mount(
       host,
-      btn('هحضر إن شاء الله', { kind: 'primary', block: true, onClick: () => respond('yes') }),
-      btn('مش هقدر أحضر', { kind: 'secondary', block: true, onClick: () => respond('no') }),
-      btn('عندي سؤال', { kind: 'text', block: true, onClick: () => respond('question') }),
+      btn('هحضر إن شاء الله', { kind: 'primary', block: true, onClick: () => respond('yes'), tag: 'P-78' }),
+      btn('مش هقدر أحضر', { kind: 'secondary', block: true, onClick: () => respond('no'), tag: 'P-79' }),
+      btn('عندي سؤال', { kind: 'text', block: true, onClick: () => respond('question'), tag: 'P-80' }),
     );
   }
   paint();
@@ -1073,13 +1079,13 @@ function eventView(id) {
     backBar(`${e.kind_label} يوم ${spokenDate(e.starts_at)}`),
     h(
       'section.bp-card.bp-event',
-      h('p.bp-line', ic('clock', 22), h('span', `الساعة ${spokenTime(e.starts_at)} (${e.spoken?.day || dayWord(e.starts_at)})`)),
+      { tag: 'P-81' }, h('p.bp-line', ic('clock', 22), h('span', `الساعة ${spokenTime(e.starts_at)} (${e.spoken?.day || dayWord(e.starts_at)})`)),
       e.location ? h('p.bp-line', ic('pin', 22), h('span', `المكان: ${e.location}`)) : null,
-      e.map_url ? btn(g('افتح{ي} الخريطة'), { kind: 'ghost', icon: 'map', href: e.map_url }) : null,
-      bring.length ? h('div.bp-bring', h('h3', g('هات{ي} معاك{ي}')), h('ul', bring.map((x) => h('li', x)))) : null,
-      e.meet_note ? h('div.bp-meet', h('h3', 'المحامي هيقابلك فين؟'), h('p', e.meet_note.replace(/^المحامي\s+\S+\s+/, '').trim() || e.meet_note)) : null,
+      e.map_url ? btn(g('افتح{ي} الخريطة'), { kind: 'ghost', icon: 'map', href: e.map_url, tag: 'P-82' }) : null,
+      bring.length ? h('div.bp-bring', h('h3', { tag: 'P-83' }, g('هات{ي} معاك{ي}')), h('ul', bring.map((x) => h('li', x)))) : null,
+      e.meet_note ? h('div.bp-meet', h('h3', { tag: 'P-84' }, 'المحامي هيقابلك فين؟'), h('p', e.meet_note.replace(/^المحامي\s+\S+\s+/, '').trim() || e.meet_note)) : null,
       host,
-      h('p.bp-cal', h('a', { href: calendarUrl(e), target: '_blank', rel: 'noopener noreferrer' }, ic('calendar', 18), g('ضيف{ي}ها لتقويم الموبايل'))),
+      h('p.bp-cal', h('a', { href: calendarUrl(e), target: '_blank', rel: 'noopener noreferrer', tag: 'P-85' }, ic('calendar', 18), g('ضيف{ي}ها لتقويم الموبايل'))),
     ),
   ];
 }
@@ -1093,21 +1099,21 @@ function moneyView() {
   const agreeCard = (i) =>
     h(
       'section.bp-card.bp-consent',
-      h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g(P('aw', 'محتاجين موافقتك'))),
+      { tag: 'P-86' }, h('p.bp-kicker', h('span.bp-dot', { 'aria-hidden': 'true' }), g(P('aw', 'محتاجين موافقتك'))),
       // v11 fixer-public (J-05): عنوان المبلغ وأزراره بفصحى الجمع في صفحة الأفراد والشركات، وبلا «مش قادر أدفع» على أتعابهم
-      h('h2.bp-now-title', fillP('ft', 'مصاريف للقضية: {a} ({d})', { a: money(i.amount), d: i.description })),
+      h('h2.bp-now-title', { tag: 'P-87' }, fillP('ft', 'مصاريف للقضية: {a} ({d})', { a: money(i.amount), d: i.description })),
       h('p', P('agreeNote', 'الاستشارة نفسها مجانية. المبلغ ده مصاريف المحكمة.')),
-      btn('موافقة', { kind: 'primary', block: true, onClick: () => invoiceAnswer(i, 'agree') }),
-      btn(P('ask', 'عندي سؤال'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(i.amount)}: `, invoiceNumber: i.number }) }),
-      i.segment === 'paid' ? null : btn(state.form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع', { kind: 'text', block: true, onClick: () => invoiceAnswer(i, 'cannot_pay') }),
+      btn('موافقة', { kind: 'primary', block: true, onClick: () => invoiceAnswer(i, 'agree'), tag: 'P-88' }),
+      btn(P('ask', 'عندي سؤال'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(i.amount)}: `, invoiceNumber: i.number }), tag: 'P-89' }),
+      i.segment === 'paid' ? null : btn(state.form === 'm' ? 'مش قادر أدفع' : 'مش قادرة أدفع', { kind: 'text', block: true, onClick: () => invoiceAnswer(i, 'cannot_pay'), tag: 'P-90' }),
     );
   const card = (i) => {
     const remaining = Math.max(0, Number(i.amount) - Number(i.paid_amount || 0));
     const pill =
       i.status === 'paid'
-        ? h('span.bp-pill.is-ok', 'اتدفعت ✓')
+        ? h('span.bp-pill.is-ok', PC ? 'مسددة' : 'اتدفعت ✓')
         : i.status === 'partially_paid'
-          ? h('span.bp-pill.is-amber', `اتدفع ${money(i.paid_amount)} من ${money(i.amount)}`)
+          ? h('span.bp-pill.is-amber', `${PC ? 'سُدّد' : 'اتدفع'} ${money(i.paid_amount)} من ${money(i.amount)}`)
           : h('span.bp-pill.is-amber', P('up', 'لسه ما اتدفعتش'));
     return h(
       'article.bp-card.bp-invoice',
@@ -1116,13 +1122,19 @@ function moneyView() {
       pill,
       i.status !== 'paid' && i.due_at
         ? i.days_overdue > 0
-          ? h('p.bp-inv-due.is-past', g('الميعاد عدّى — كلمينا لو محتاج{ة} وقت').replace('كلمينا', s('كلمينا')))
+          ? h(
+              'p.bp-inv-due.is-past',
+              PC
+                ? 'انتهى موعد السداد. تواصلوا معنا إن احتجتم وقتًا.'
+                : g('الميعاد عدّى — كلمينا لو محتاج{ة} وقت').replace('كلمينا', s('كلمينا')),
+            )
           : h('p.bp-inv-due', `آخر ميعاد: ${shortDate(i.due_at)}`)
         : null,
-      i.client_agreed_at ? h('p.bp-meta', `${state.form === 'm' ? 'وافقت' : 'وافقتي'} يوم ${shortDate(i.client_agreed_at)}`) : null,
+      // v12 media (MD-7): صيغة الجمع في صفحة الأفراد والشركات
+      i.client_agreed_at ? h('p.bp-meta', `${PC ? 'وافقتم' : state.form === 'm' ? 'وافقت' : 'وافقتي'} يوم ${shortDate(i.client_agreed_at)}`) : null,
       i.client_response === 'cannot_pay' ? h('p.bp-meta', g('وصلنا إنك مش قادر{ة} تدفع{ي}. هنكلمك ونشوف إزاي نساعدك.')) : null,
       i.status !== 'paid'
-        ? btn(P('ask', 'عندي سؤال على المبلغ'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(remaining || i.amount)}`, invoiceNumber: i.number }) })
+        ? btn(P('ask', 'عندي سؤال على المبلغ'), { kind: 'secondary', block: true, onClick: () => openComposer({ text: `عندي سؤال على مبلغ ${money(remaining || i.amount)}`, invoiceNumber: i.number }), tag: 'P-91' })
         : null,
       h('p.bp-small', 'رقم الفاتورة: ', h('bdi', { dir: 'ltr' }, i.number), PC ? '' : ' (لو احتجتيه)'.replace('احتجتيه', state.form === 'm' ? 'احتجته' : 'احتجتيه')),
     );
@@ -1131,13 +1143,13 @@ function moneyView() {
     backBar(P('moneyTitle', 'مصاريف قضيتك')),
     h(
       'section.bp-info',
-      h('p', P('moneyInfo', 'الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة.')),
+      { tag: 'P-92' }, h('p', P('moneyInfo', 'الاستشارة نفسها مجانية. المبالغ دي مصاريف خاصة بالقضية في المحكمة.')),
       h('p', g(P('cantPay', `لو مش قادر{ة} تدفع{ي} أو عندك سؤال، ${s('كلمينا')} قبل ما تدفع{ي} أي حاجة.`))),
       h('p', g(P('payUs', 'ادفع{ي} للمؤسسة بس، وخد{ي} إيصال دايمًا.'))),
     ),
     ...inv.filter((i) => i.needs_agreement).map(agreeCard),
     ...inv.map(card),
-    m.payment_instructions ? h('details.bp-card.bp-howpay', h('summary', P('howPay', 'إزاي أدفع؟')), h('p', m.payment_instructions)) : null,
+    m.payment_instructions ? h('details.bp-card.bp-howpay', { tag: 'P-93' }, h('summary', { tag: 'P-94' }, P('howPay', 'إزاي أدفع؟')), h('p', m.payment_instructions)) : null,
   ];
 }
 
@@ -1173,7 +1185,7 @@ function bubble(m) {
       /^audio\//.test(d.mime || '')
         ? h('audio', { controls: true, preload: 'metadata', src: docHref(d.id), 'aria-label': 'رسالة صوتية' })
         : // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr>: كان يظهر «jpg.1-ورقة»
-          h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), h('bdi.bp-fname', { dir: 'ltr' }, d.filename)),
+          h('a.bp-doc', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-95' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 18), h('bdi.bp-fname', { dir: 'ltr' }, d.filename)),
     ),
     h('p.bp-bubble-time', whenSent(m.created_at)),
   );
@@ -1185,7 +1197,7 @@ function messagesView() {
   const thread = msgs.length
     ? h('ol.bp-thread', msgs.map(bubble))
     : h('p.bp-empty', VOICE_ON ? g('لسه مفيش رسايل. اكتب{ي}لنا أو سجّل{ي} رسالة صوتية، وهنرد عليك{ي}.') : PC ? 'لا توجد رسائل بعد. اكتبوا لنا وسنرد عليكم.' : g('لسه مفيش رسايل. اكتب{ي}لنا، وهنرد عليك{ي}.'));
-  return [backBar('الرسائل'), h('section.bp-card.bp-chat', thread), composer(), h('div.bp-callback', btn(`${s('اطلبي')} مكالمة`, { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback }))];
+  return [backBar('الرسائل'), h('section.bp-card.bp-chat', { tag: 'P-96' }, thread), composer(), h('div.bp-callback', btn(`${s('اطلبي')} مكالمة`, { kind: 'secondary', icon: 'phone', block: true, onClick: openCallback, tag: 'P-97' }))];
 }
 
 function composer() {
@@ -1203,6 +1215,7 @@ function composer() {
       grow();
       draft.saveSoon({ text: ta.value });
     },
+    tag: 'P-98',
   });
   const grow = () => {
     ta.style.height = 'auto';
@@ -1224,12 +1237,12 @@ function composer() {
   camHost.append(picker);
   const ctxChip = () =>
     c.answerId || c.invoiceNumber
-      ? h('p.bp-compose-ctx', ic('info', 18), h('span', c.answerId ? 'سؤال على الرد' : 'سؤال على المبلغ'), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إلغاء', onClick: () => ((c.answerId = null), (c.invoiceNumber = null), ctxHost.replaceChildren()) }, ic('x', 18)))
+      ? h('p.bp-compose-ctx', ic('info', 18), h('span', c.answerId ? 'سؤال على الرد' : 'سؤال على المبلغ'), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إلغاء', onClick: () => ((c.answerId = null), (c.invoiceNumber = null), ctxHost.replaceChildren()), tag: 'P-99' }, ic('x', 18)))
       : null;
   const ctxHost = h('div', ctxChip());
   const errBox = h('div.bp-send-error', { hidden: true, role: 'alert' });
   const progressHost = h('div');
-  const sendBtn = btn('إرسال', { kind: 'primary', icon: 'send', className: 'bp-compose-send' });
+  const sendBtn = btn('إرسال', { kind: 'primary', icon: 'send', className: 'bp-compose-send', tag: 'P-100' });
   const lock = (on) => {
     ta.disabled = on;
     sendBtn.disabled = on;
@@ -1271,7 +1284,7 @@ function composer() {
   const tool = (icon, label, host) => h('button.bp-icon-btn.bp-tool', { type: 'button', 'aria-label': label, title: label, 'aria-expanded': 'false', onClick: (e) => {
     host.hidden = !host.hidden;
     e.currentTarget.setAttribute('aria-expanded', String(!host.hidden));
-  } }, ic(icon, 24));
+  }, tag: 'P-101' }, ic(icon, 24));
   if (!c.text) draft.load().then((d) => d?.text && !ta.value && ((ta.value = d.text), (c.text = d.text), grow()));
   if (c.focus) {
     c.focus = false;
@@ -1283,7 +1296,7 @@ function composer() {
   }
   return h(
     'section.bp-composer',
-    { 'aria-label': 'رسالة جديدة' },
+    { 'aria-label': 'رسالة جديدة', tag: 'P-102' },
     ctxHost,
     h('label.bp-sr', { htmlFor: 'bp-compose' }, 'رسالتك'),
     ta,
@@ -1323,17 +1336,17 @@ function papersView() {
   if (!list.length) {
     return [
       backBar('الورق'),
-      h('section.bp-card', h('p.bp-empty', 'لسه مفيش ورق.'), btn(g('صوّر{ي} ورقة وابعت{ي}ها'), { kind: 'secondary', icon: 'camera', block: true, onClick: () => go('#messages') })),
+      h('section.bp-card', { tag: 'P-103' }, h('p.bp-empty', 'لسه مفيش ورق.'), btn(g('صوّر{ي} ورقة وابعت{ي}ها'), { kind: 'secondary', icon: 'camera', block: true, onClick: () => go('#messages'), tag: 'P-104' })),
     ];
   }
   // اسم الملف («ورقة-1.jpg») في <bdi dir=ltr> حتى لا يظهر «jpg.1-ورقة»
-  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', h('bdi.bp-fname', { dir: 'ltr' }, d.filename)), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
+  const row = (d) => h('li', h('a.bp-row', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', tag: 'P-105' }, ic(/^image\//.test(d.mime || '') ? 'image' : 'file', 22), h('span.bp-row-main', h('span.bp-row-title', h('bdi.bp-fname', { dir: 'ltr' }, d.filename)), h('span.bp-row-sub', shortDate(d.at))), ic('chevron', 20)));
   const mine = list.filter((d) => d.mine);
   const ours = list.filter((d) => !d.mine);
   return [
     backBar('الورق'),
-    ours.length ? h('section.bp-card', h('h2.bp-card-title', g('ورق بعتناهولك')), h('ul.bp-rows', ours.map(row))) : null,
-    mine.length ? h('section.bp-card', h('h2.bp-card-title', g('ورق بعت{ي}هولنا')), h('ul.bp-rows', mine.map(row))) : null,
+    ours.length ? h('section.bp-card', { tag: 'P-106' }, h('h2.bp-card-title', { tag: 'P-107' }, g('ورق بعتناهولك')), h('ul.bp-rows', ours.map(row))) : null,
+    mine.length ? h('section.bp-card', { tag: 'P-108' }, h('h2.bp-card-title', { tag: 'P-109' }, g('ورق بعت{ي}هولنا')), h('ul.bp-rows', mine.map(row))) : null,
   ];
 }
 
@@ -1364,12 +1377,12 @@ function openCallback() {
       h('button.bp-choice', { type: 'button', role: 'radio', 'aria-checked': String(v === when), onClick: (e) => {
         when = v;
         group.querySelectorAll('.bp-choice').forEach((b) => b.setAttribute('aria-checked', String(b === e.currentTarget)));
-      } }, label),
+      }, tag: 'P-110' }, label),
     ),
   );
   const status = h('p.bp-send-hint', { role: 'status', 'aria-live': 'polite' });
-  const go2 = btn(`${s('اطلبي')} المكالمة`, { kind: 'primary', block: true });
-  const sh = sheet({ title: 'إمتى يناسبك نكلمك؟', body: [group, status, go2] });
+  const go2 = btn(`${s('اطلبي')} المكالمة`, { kind: 'primary', block: true, tag: 'P-111' });
+  const sh = sheet({ title: 'إمتى يناسبك نكلمك؟', body: [group, status, go2], tag: 'P-112' });
   go2.addEventListener('click', async () => {
     if (go2.disabled) return;
     go2.disabled = true;
@@ -1416,7 +1429,7 @@ function render({ from } = {}) {
       () => state.view === view && render({ from }),
       () => {
         if (state.view !== view) return;
-        mount(root, h('div.bp-page', backBar(''), h('p.bp-empty', { role: 'alert' }, g(P('loadFail', 'الصفحة دي ما فتحتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.'))), btn(g(P('retry', 'جرب{ي} تاني')), { kind: 'secondary', block: true, onClick: () => render({ from }) })));
+        mount(root, h('div.bp-page', backBar(''), h('p.bp-empty', { role: 'alert' }, g(P('loadFail', 'الصفحة دي ما فتحتش. اتأكد{ي} إن النت شغال وجرب{ي} تاني.'))), btn(g(P('retry', 'جرب{ي} تاني')), { kind: 'secondary', block: true, onClick: () => render({ from }), tag: 'P-113' })));
       },
     );
     return;
@@ -1455,7 +1468,11 @@ function render({ from } = {}) {
   // بلا تمرير ناعم (public-site.css يجعله ناعمًا للروابط الداخلية): الانتقال بين الصفحات فوري
   const jump = (top) => window.scrollTo({ top, left: 0, behavior: 'instant' });
   if (state.view === 'home') {
-    document.title = `${P('title', 'صفحتك')} — ${brandName() || contact().org}`;
+    // v12 media (MD-7، L12-34): عنوان صفحة الأفراد والشركات بلا «—» (نفس فاصل pv_title في site.js)
+    const sep = PC
+      ? ' | '
+      : ' — ';
+    document.title = `${P('title', 'صفحتك')}${sep}${brandName() || contact().org}`;
     if (from && from !== 'home') requestAnimationFrame(() => jump(state.homeScroll || 0));
   } else if (from !== undefined || state.view === 'messages') {
     requestAnimationFrame(() => jump(state.view === 'messages' ? document.documentElement.scrollHeight : 0));
@@ -1483,7 +1500,7 @@ function skeleton() {
 function stateCard({ icon, title, text, actions }) {
   if (bar) bar.remove();
   bar = null;
-  mount(root, h('div.bp-page', h('section.bp-card.bp-state', h('span.bp-state-ic', ic(icon, 30)), h('h1', title), text ? h('p', text) : null, h('div.bp-actions', actions))));
+  mount(root, h('div.bp-page', h('section.bp-card.bp-state', { tag: 'P-114' }, h('span.bp-state-ic', ic(icon, 30)), h('h1', { tag: 'P-115' }, title), text ? h('p', text) : null, h('div.bp-actions', actions))));
 }
 
 function offlineState() {
@@ -1491,7 +1508,7 @@ function offlineState() {
     icon: 'wifiOff',
     title: P('offT', 'مفيش إنترنت دلوقتي'),
     text: P('offX', 'أول ما يرجع هنفتح الصفحة لوحدنا.'),
-    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
+    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load(), tag: 'P-116' }), callBtn('secondary', { block: true })],
   });
 }
 
@@ -1500,7 +1517,7 @@ function serverErrorState() {
     icon: 'info',
     title: P('errT', 'حصلت مشكلة عندنا، مش منك'),
     text: P('errX', 'جربي كمان شوية.'),
-    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load() }), callBtn('secondary', { block: true })],
+    actions: [btn(P('retry', 'حاولي تاني'), { kind: 'primary', block: true, onClick: () => load(), tag: 'P-117' }), callBtn('secondary', { block: true })],
   });
 }
 
@@ -1514,11 +1531,11 @@ function invalidState() {
     title: 'الرابط ده مش شغال',
     text: 'ممكن يكون ناقص أو قديم. كلمينا وهنبعتلك رابط جديد.',
     actions: [
-      other ? btn('افتحي آخر صفحة محفوظة', { kind: 'primary', block: true, href: other.url }) : null,
+      other ? btn('افتحي آخر صفحة محفوظة', { kind: 'primary', block: true, href: other.url, tag: 'P-118' }) : null,
       callBtn(other ? 'secondary' : 'primary', { block: true }),
-      wa ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', block: true, href: wa }) : null,
+      wa ? btn('واتساب', { kind: 'whatsapp', icon: 'whatsapp', block: true, href: wa, tag: 'P-119' }) : null,
       // v12 entry (H-E2، L12-08): الأفراد والشركات ← «/» (bm-copy)؛ صفحة «خيري» ← نموذج «خيري» (via=p ما دام «خيري» متوقفًا على الموقع)
-      h('p.bp-new', h('a', { href: P('newHref', /"charity"\s*:\s*true/.test(document.getElementById('bm-public')?.textContent || '') ? '/intake?seg=charity' : '/intake?seg=charity&via=p') }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
+      h('p.bp-new', h('a', { href: P('newHref', /"charity"\s*:\s*true/.test(document.getElementById('bm-public')?.textContent || '') ? '/intake?seg=charity' : '/intake?seg=charity&via=p'), tag: 'P-120' }, P('newReq', 'عندك مشكلة جديدة؟ احكيلنا من هنا'))),
     ],
   });
 }

@@ -27,7 +27,7 @@ async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    const ta = h('textarea', { style: { position: 'fixed', top: '-1000px', opacity: '0' }, readonly: true, value: text });
+    const ta = h('textarea', { style: { position: 'fixed', top: '-1000px', opacity: '0' }, readonly: true, value: text, tag: 'AIR-01' });
     document.body.append(ta);
     ta.select();
     let done = false;
@@ -69,6 +69,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
           intentButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.intent === current)));
           load();
         },
+        tag: 'AIR-02',
       },
       icon(it.icon, { size: 16 }),
       h('span', label('ai_reply_intent', it.key)),
@@ -98,6 +99,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
       rows: Math.min(10, Math.max(3, String(s.text).split('\n').length + 1, Math.ceil(String(s.text).length / 48) + 1)),
       maxlength: 4000,
       'aria-label': `نص الرد المقترح رقم ${i + 1} (${label('ai_reply_tone', s.tone)}) — يمكنك تعديله قبل الاستخدام`,
+      tag: 'AIR-03',
     });
     ta.value = s.text;
     const updateCount = () => (counter.textContent = count(ta.value.trim().length, CHARS));
@@ -134,6 +136,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
           toast(ok ? 'نُسخ الرد إلى الحافظة' : 'تعذر النسخ، انسخ النص يدويًا', ok ? 'success' : 'warning');
         }
       },
+      tag: 'AIR-04',
     });
     const reject = button('غير مناسب', {
       variant: 'ghost',
@@ -146,6 +149,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
         reject.disabled = true;
         toast('شكرًا، سُجل التقييم', 'info', 2000);
       },
+      tag: 'AIR-05',
     });
     mount(
       li,
@@ -159,7 +163,7 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
   function draw(r) {
     const list = Array.isArray(r?.suggestions) ? r.suggestions : [];
     if (!list.length) {
-      mount(results, emptyState('لم نتمكن من اقتراح رد مناسب لهذا الغرض. يمكنك كتابة الرد يدويًا.', null, { compact: true, icon: 'message' }));
+      mount(results, emptyState('لم نتمكن من اقتراح رد مناسب لهذا الغرض. يمكنك كتابة الرد يدويًا.', null, { compact: true, icon: 'message', tag: 'AIR-06' }));
       return;
     }
     mount(
@@ -169,9 +173,9 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
         r.provider === 'anthropic' ? badge('اقتراح Claude', 'info', { icon: 'sparkle' }) : badge('قوالب المحلل المحلي', 'neutral', { icon: 'fileText' }),
         Array.isArray(r.grounded_on) && r.grounded_on.length ? h('span.cell-sub', `مبني على: ${r.grounded_on.join('، ')}`) : null,
       ),
-      r.fallback_reason ? alertBox(`استُخدمت القوالب المحلية بدل Claude: ${r.fallback_reason}`, 'warning') : null,
+      r.fallback_reason ? alertBox(`استُخدمت القوالب المحلية بدل Claude: ${r.fallback_reason}`, 'warning', { tag: 'AIR-07' }) : null,
       h('ol.ai-reply-list', list.map((s, i) => item(r, s, i))),
-      h('div.ai-reply-foot', button('اقتراحات أخرى', { variant: 'ghost', size: 'sm', icon: 'refresh', onClick: load })),
+      h('div.ai-reply-foot', button('اقتراحات أخرى', { variant: 'ghost', size: 'sm', icon: 'refresh', onClick: load, tag: 'AIR-08' })),
     );
   }
 
@@ -185,7 +189,8 @@ export function openReplyDialog({ target, onText, intent = 'answer', sendInfo = 
       h('div.ai-intents', { role: 'group', 'aria-label': 'الغرض من الرد' }, intentButtons),
       results,
     ),
-    actions: [{ label: 'إغلاق', variant: 'ghost' }],
+    actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'AIR-09' }],
+    tag: 'AIR-10',
   });
   load();
   return dialog;
@@ -211,6 +216,7 @@ export function aiReplyButton({ intakeId, caseId, matterId, onText, label: text 
         toast(errorMessage(err), 'danger');
       }
     },
+    tag: 'AIR-11',
   });
   if (!target) btn.disabled = true;
   return btn;

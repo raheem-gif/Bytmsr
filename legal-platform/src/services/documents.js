@@ -257,6 +257,7 @@ export function createDocuments(app) {
       if (scan) scanState = surface === 'staff' ? 'staff' : 'client';
       else if (realMime === 'image/heic' || main.tooLarge) scanState = 'skipped';
       const createdByKind = uploader?.kind === 'client' ? (links.company_id ? 'company' : 'client') : uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system';
+      const uploadedByKind = uploader?.kind || (uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system');
 
       const written = [];
       try {
@@ -284,7 +285,7 @@ export function createDocuments(app) {
             size: buf.length,
             sha256: sha(buf),
             storage_key: rel,
-            uploaded_by_kind: uploader?.kind || (uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system'),
+            uploaded_by_kind: uploadedByKind,
             uploaded_by_user_id: uploader?.id ?? null,
             // v10 b2b-server (L-19، §4.4): ربط ملفات الشركات — رفع الشركة بلا معرّف مستخدم من users أبدًا
             company_id: links.company_id ?? undefined,
@@ -336,6 +337,8 @@ export function createDocuments(app) {
               seconds: Number.isFinite(secs) ? Math.min(600, Math.max(0, secs)) : null,
             });
           }
+          // v12 media (MD-9، MD-10): مهام المستند الجديد — تنظيف صورة العميل على الخادم (بلا ماسح فقط) وقراءة النص
+          app.media?.onSaved?.(id, { mime: realMime, scanned: !!scan, tooLarge: !!main.tooLarge || realMime === 'image/heic', uploaderKind: uploadedByKind });
           return id;
         });
       } catch (e) {

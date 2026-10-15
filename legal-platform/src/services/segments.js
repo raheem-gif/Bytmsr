@@ -9,6 +9,7 @@ import { parseSegment, segmentFromCookie, paidWaPrefill, paidPrefillOf, COMPANY_
 import { PAID_GENERIC } from '../../public/assets/js/public/segment.js';
 import { pathFromPrefill, leafOf, resolvePath, pageOf, lineFromText, rowFromText, LINES } from '../../public/assets/js/public/entry-tree.js';
 import { LINES_MENU_TEXTS, OPT_OUT_WORDS, AREA_CODES } from '../constants.js';
+import { WA_BUTTON_TEXTS } from '../constants.js'; // v12 tags (TG-4): أزرار سؤال نوع الخدمة (W-45)
 import { topicFromWaPrefill, waPrefill, topicByKey } from '../../public/assets/js/public/topics.js';
 import { segmentHint } from '../ai/heuristic.js';
 import fs from 'node:fs';
@@ -975,8 +976,8 @@ export function createSegments(app) {
             text: body,
             footer: SEGMENT_CHOICE_TEXTS.segment_choice_footer,
             buttons: [
-              { id: CHOICE_IDS.charity, title: 'خيري — مجاني' },
-              { id: CHOICE_IDS.paid, title: 'أفراد وشركات' },
+              { id: CHOICE_IDS.charity, title: WA_BUTTON_TEXTS.segment_choice_buttons.charity },
+              { id: CHOICE_IDS.paid, title: WA_BUTTON_TEXTS.segment_choice_buttons.paid },
             ],
           },
         },

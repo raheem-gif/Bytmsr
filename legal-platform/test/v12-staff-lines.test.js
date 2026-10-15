@@ -88,8 +88,10 @@ describe('v12 staff-lines SL-0: contract (constants, schema 89, texts, tags)', (
     );
     assert.equal(LINES_MENU_TEXTS.lines_list_litigation, 'ما وضع القضية؟', 'W-03 body (L12-54)');
     for (const n of TREE.children) assert.equal(LINES_MENU_TEXTS[`lines_list_${n.id}`], n.q, `list body = tree question (${n.id})`);
-    assert.deepEqual({ ...TEXT_TAGS }, { lines_menu: 'W-01', lines_list_consultation: 'W-02', lines_list_litigation: 'W-03', lines_list_company: 'W-04', lines_next: 'W-05', lines_counsel: 'W-06' });
-    for (const k of Object.keys(TEXT_TAGS)) assert.ok(k in LINES_MENU_TEXTS, k);
+    // v12 tags: intended (TG-4، T12-20): TEXT_TAGS أُكمل لكل رسائل واتساب؛ رموز قائمة الخدمات W-01…W-06 كما هي ومفاتيحها في LINES_MENU_TEXTS
+    const LINES_TAGS = { lines_menu: 'W-01', lines_list_consultation: 'W-02', lines_list_litigation: 'W-03', lines_list_company: 'W-04', lines_next: 'W-05', lines_counsel: 'W-06' };
+    for (const [k, c] of Object.entries(LINES_TAGS)) assert.equal(TEXT_TAGS[k], c, k);
+    for (const [k, c] of Object.entries(TEXT_TAGS)) if (/^W-0[1-6]$/.test(c)) assert.ok(k in LINES_MENU_TEXTS, k);
     for (const [k, s] of Object.entries(LINES_MENU_TEXTS)) {
       assert.ok(!DASH.test(s), `dash in ${k}`);
       assert.ok(!/!/.test(s), `«!» in ${k}`);
@@ -1160,6 +1162,43 @@ describe('v12 staff-lines: staff copy, markup contract and tags', () => {
     assert.ok(!/style\s*:/.test(fp.slice(fp.indexOf('v12 staff-lines (SL-7'))), 'no inline style in the «الصفحة الأولى» card');
     assert.ok(!/--seg-|charity-hue|paid-hue|gold/.test(pu), 'line chips are neutral (never the segment hues)');
     for (const f of ['public/assets/js/app/components/pathway-ui.js', 'src/seed-v12-lines.js']) assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(read(f)), `${f}: no emoji`);
+  });
+
+  test('review-2 (T12-55/T12-78): every staff-lines code is defined in source with its words; the lane\'s sheet, strip and card call sites carry their code statically', async () => {
+    const { scanSources, builderCalls } = await import('../src/tags/scan.js');
+    const P = await import('../public/assets/js/app/components/pathway-ui.js');
+    const files = [
+      'public/assets/js/app/components/pathway-ui.js',
+      'public/assets/js/app/pages/admin/inbox.js',
+      'public/assets/js/app/pages/admin/intake-detail.js',
+      'public/assets/js/app/pages/admin/dashboard.js',
+      'public/assets/js/app/pages/admin/analytics.js',
+      'public/assets/js/app/pages/admin/simulator.js',
+      'public/assets/js/app/components/site-settings.js',
+      'public/assets/js/app/components/story-settings.js',
+    ];
+    const scan = scanSources({ root: ROOT, files });
+    const defs = new Map(scan.defs.filter((d) => !d.variant).map((d) => [d.code, d]));
+    const range = (p, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${p}-${String(from + i).padStart(2, '0')}`);
+    const expected = [...range('PTH', 1, 15), ...range('INB', 1, 8), ...range('DSH', 1, 3), ...range('ANL', 1, 6), ...range('SIM', 1, 4), ...range('SET', 1, 19)];
+    // كان PTH-08/09/10 (قوائم ورقة المسار) وSIM-02 (صفوف القائمة في المحاكي) «غير معرَّفة في المصدر» لأن الرمز مرّ وسيطًا أو تعبيرًا شرطيًا
+    assert.deepEqual(expected.filter((c) => !defs.has(c)), [], 'every reserved staff-lines code in use is visible to npm run tags');
+    // كانت خيارات «كل الأنواع» خريطة { all: 'INB-02', … } فظهرت في TAGS.md بكلمات «all» و«consultation»
+    const words = [P.LINE_FILTER_ALL, ...P.LINE_FILTER_OPTIONS.map((o) => o.label)];
+    assert.deepEqual(range('INB', 2, 6).map((c) => defs.get(c).text), words, 'INB-02…06 carry the option words');
+    for (const c of ['PTH-08', 'PTH-09', 'PTH-10']) assert.equal(defs.get(c).file, 'public/assets/js/app/components/pathway-ui.js', c);
+    // لا رمز ثانٍ يُضاف لعنصر مرمَّز: كل استدعاء أساسي في ورقة المسار مرمَّز أو مستثنى بسبب (tags:skip)
+    const untagged = (rel, from = 0, to = Infinity) => builderCalls(read(rel)).filter((c) => !c.skip && !c.tagged && c.line >= from && c.line <= to).map((c) => `${rel.split('/').pop()}:${c.name}:${c.line}`);
+    assert.deepEqual(untagged('public/assets/js/app/components/pathway-ui.js'), []);
+    const dash = read('public/assets/js/app/pages/admin/dashboard.js');
+    const strip = [dash.slice(0, dash.indexOf('export function lineStrip')).split('\n').length, dash.slice(0, dash.indexOf('export default async function render')).split('\n').length];
+    assert.deepEqual(untagged('public/assets/js/app/pages/admin/dashboard.js', ...strip), [], '«حسب نوع الطلب» strip');
+    const an = read('public/assets/js/app/pages/admin/analytics.js');
+    const sec = [an.slice(0, an.indexOf('export function entryTreeSection')).split('\n').length, an.slice(0, an.indexOf('// v11 segment-staff (ST-5، r2 S10')).split('\n').length];
+    assert.deepEqual(untagged('public/assets/js/app/pages/admin/analytics.js', ...sec), [], 'entry-tree section card');
+    // أزرار المحرر والمعاينة مرمَّزة في موضع إنشائها (لا tagged لاحقًا على متغير)
+    const fp = read('public/assets/js/app/components/site-settings.js');
+    for (const c of ['SET-09', 'SET-14', 'SET-17', 'SET-18', 'SET-19']) assert.match(fp, new RegExp(`tagged\\('${c}', button\\(`), c);
   });
 
   test('E12-86 readiness wa_lines_privacy follows the privacy sentence (L12-77); never while the menu is off', async () => {

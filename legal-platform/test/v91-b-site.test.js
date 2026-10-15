@@ -467,12 +467,12 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
   test('«بالمختصر» on privacy, terms and about: right under the H1, ≤ 60 words; the table of contents starts closed', async () => {
     for (const [p, must] of [['/privacy', 'المحامي مش بيشوف رقمك'], ['/terms', 'والحكم في الآخر للمحكمة'], ['/about', 'بيساعد الأرامل وأسر الأيتام']]) {
       const html = await get(p);
-      const m = /<h1 id="page-title">[\s\S]*?<\/h1>\s*<div class="pub-summary" id="summary">([\s\S]*?)<\/div>/.exec(html);
+      const m = /<h1 id="page-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>[\s\S]*?<\/h1>\s*<div class="pub-summary" id="summary">([\s\S]*?)<\/div>/.exec(html); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.ok(m, `${p} summary right under the H1`);
       assert.ok(m[1].includes(must), p);
       const text = m[1].replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, ' ');
       assert.ok(wordsIn(text) <= 60, `${p}: ${wordsIn(text)} words`);
-      assert.match(html, /<details class="pub-toc">\s*<summary>/);
+      assert.match(html, /<details class="pub-toc"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>\s*<summary(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.ok(!/<details class="pub-toc" open/.test(html));
     }
   });
@@ -539,7 +539,8 @@ describe('v9.1 b-site — landing, legal pages and the slow-3G budget', () => {
     const common = fs.readFileSync(path.join(PUB, 'assets/js/public/common.js'), 'utf8');
     assert.ok(!/^import[^\n]*lib\/ui\.js/m.test(common));
     const menu = fs.readFileSync(path.join(PUB, 'assets/js/public/menu.js'), 'utf8');
-    assert.ok(!/^import /m.test(menu), 'menu.js has no imports');
+    // v12 tags: intended (T12-30): the one import allowed is the ≤ 450 B br tags loader (initSiteChrome calls tagsBoot())
+    assert.deepEqual(menu.match(/^import [^\n]*/gm), ["import { tagsBoot } from '../lib/tags-boot.js'; // v12 tags (TG-1، T12-30)"], 'menu.js imports only the tags loader');
     assert.ok(Buffer.byteLength(menu) < 4096);
     const words = fs.readFileSync(path.join(PUB, 'assets/js/public/words.js'), 'utf8');
     assert.ok(!/^import /m.test(words), 'words.js has no imports');

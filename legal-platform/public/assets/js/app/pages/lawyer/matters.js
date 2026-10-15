@@ -47,7 +47,7 @@ export function matterCard(m, { compact = false } = {}) {
   const pendingN = Number(m.pending_outcomes) || 0;
   return h(
     'a.pc-item-card.lc-matter-card',
-    { href: `#/my/matters/${encodeURIComponent(m.id)}`, 'aria-label': `فتح الملف المستمر ${m.code}: ${m.title}` },
+    { href: `#/my/matters/${encodeURIComponent(m.id)}`, 'aria-label': `فتح الملف المستمر ${m.code}: ${m.title}`, tag: 'LMT-01' },
     h('div.pc-item-head', codeTag(m.code), m.status !== 'open' && badge(matterStatus(m.status), m.status === 'closed' ? 'neutral' : 'warning')),
     h('div.pc-item-title', m.title),
     h(
@@ -71,7 +71,7 @@ export default async function render(ctx) {
   try {
     rows = await api.get('/lawyer/matters');
   } catch (err) {
-    return h('div.lc-page', h('h1.page-title', 'الملفات المستمرة'), card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.lc-page', h('h1.page-title', { tag: 'LMT-02' }, 'الملفات المستمرة'), card({ body: errorState(err, () => ctx.reload()), tag: 'LMT-03' }));
   }
   rows = Array.isArray(rows) ? rows : [];
   const open = rows.filter((m) => m.status !== 'closed');
@@ -79,14 +79,15 @@ export default async function render(ctx) {
   // ما يحتاج تسجيل نتيجة أولًا، ثم الأقرب جلسةً
   open.sort((a, b) => (Number(b.pending_outcomes) > 0) - (Number(a.pending_outcomes) > 0) || String(a.next_event_at || '9').localeCompare(String(b.next_event_at || '9')));
 
-  const header = h('header.lc-head', h('h1.page-title.lc-title', 'الملفات المستمرة'));
+  const header = h('header.lc-head', { tag: 'LMT-04' }, h('h1.page-title.lc-title', { tag: 'LMT-05' }, 'الملفات المستمرة'));
 
   if (!rows.length) {
     return h(
       'div.lc-page',
       header,
       card({
-        body: emptyState('عندما تسند إليك الإدارة تمثيلًا أمام القضاء أو عملًا قانونيًا مستمرًا يظهر الملف هنا.', null, { icon: 'gavel', title: 'لا توجد ملفات مستمرة مسندة إليك' }),
+        body: emptyState('عندما تسند إليك الإدارة تمثيلًا أمام القضاء أو عملًا قانونيًا مستمرًا يظهر الملف هنا.', null, { icon: 'gavel', title: 'لا توجد ملفات مستمرة مسندة إليك', tag: 'LMT-06' }),
+        tag: 'LMT-07',
       }),
     );
   }
@@ -95,9 +96,9 @@ export default async function render(ctx) {
   return h(
     'div.lc-page.lc-matters',
     header,
-    open.length ? list(open) : card({ body: emptyState('لا توجد ملفات جارية حاليًا.', null, { compact: true, icon: 'gavel' }) }),
+    open.length ? list(open) : card({ body: emptyState('لا توجد ملفات جارية حاليًا.', null, { compact: true, icon: 'gavel', tag: 'LMT-08' }), tag: 'LMT-09' }),
     closed.length
-      ? h('details.lc-details.lc-closed', h('summary', h('span', `ملفات منتهية (${num(closed.length)})`), icon('chevronDown', { size: 18, className: 'lc-chev' })), h('div.lc-details-body', list(closed)))
+      ? h('details.lc-details.lc-closed', { tag: 'LMT-10' }, h('summary', { tag: 'LMT-11' }, h('span', `ملفات منتهية (${num(closed.length)})`), icon('chevronDown', { size: 18, className: 'lc-chev' })), h('div.lc-details-body', list(closed)))
       : null,
   );
 }

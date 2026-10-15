@@ -14,7 +14,7 @@
 //   POST /api/admin/integrations/stt/test          A  اختبار اتصال تحويل الصوت → { ok, status, code, latency_ms }    MD-6
 //      (يُسجَّل قبل مسارات system.js فيسبق المسار العام /api/admin/integrations/:name/test لهذا التكامل وحده)
 //
-// MD-0: كل مسار يتحقق من الدور ثم يرد 501 { error: 'غير متاح بعد', code: 'not_implemented' } حتى تُبنى مهمته.
+// كل مسار يتحقق من الدور أولًا ثم يكتب سجل الأمان (المسارات كلها مبنية منذ MD-11).
 import { requireStaff, requireAdmin, RateLimiter } from '../auth.js';
 import { ApiError, nowIso } from '../util.js';
 import { sttReason } from '../ai/stt.js';
@@ -24,10 +24,6 @@ export const STT_TEST_CODES = { ok: 'نجح', off: 'التحويل متوقف', 
 
 /** حد جسم «نظّف المستند»: ملف ≤ 20 ميجابايت بعد فك base64 + المعاملات */
 export const CLEAN_BODY_LIMIT = 28 * 1024 * 1024;
-
-const notYet = () => {
-  throw new ApiError(501, 'غير متاح بعد', 'not_implemented');
-};
 
 export function registerMediaRoutes(router, app) {
   const S = (fn) => (ctx) => fn(ctx, requireStaff(ctx));
@@ -56,10 +52,25 @@ export function registerMediaRoutes(router, app) {
   );
   router.put('/api/admin/documents/:id/display', S((ctx, u) => app.media.setDisplay(docId(ctx), ctx.body?.show, u, ctx)));
   router.get('/api/admin/documents/:id/files', S((ctx, u) => app.media.fileInfo(docId(ctx), u, ctx)));
-  router.post('/api/admin/documents/:id/rescan', S(() => notYet()));
-  router.get('/api/admin/documents/:id/text', S(() => notYet()));
-  router.put('/api/admin/documents/:id/text/:page', S(() => notYet()));
-  router.post('/api/admin/documents/:id/ocr', S(() => notYet()));
+  // MD-9/MD-10: إعادة المعالجة (60 في الساعة)، النص المقروء (للفريق فقط، L12-17)، تصحيحه (P1)، والقراءة الآن (30 في الساعة)
+  const rescanLimit = new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
+  const ocrLimit = new RateLimiter({ windowMs: 60 * 60 * 1000, max: 30 });
+  router.post(
+    '/api/admin/documents/:id/rescan',
+    S((ctx, u) => {
+      rescanLimit.hit(`rescan:${u.id}`);
+      return app.media.rescan(docId(ctx), u, ctx);
+    }),
+  );
+  router.get('/api/admin/documents/:id/text', S((ctx, u) => app.media.textOf(docId(ctx), u, ctx)));
+  router.put('/api/admin/documents/:id/text/:page', S((ctx, u) => app.media.correctText(docId(ctx), ctx.params.page, ctx.body, u, ctx)));
+  router.post(
+    '/api/admin/documents/:id/ocr',
+    S((ctx, u) => {
+      ocrLimit.hit(`ocr:${u.id}`);
+      return app.media.requestOcr(docId(ctx), ctx.body, u, ctx);
+    }),
+  );
   // «حوّل الآن» (MD-6/MD-8): مهمة بأولوية الفريق (تتجاوز حد الشخص اليومي، وتلتزم بقيد «خيري» وتاريخ الإعلان)
   const autoLimit = new RateLimiter({ windowMs: 60 * 60 * 1000, max: 60 });
   router.post(
@@ -80,8 +91,16 @@ export function registerMediaRoutes(router, app) {
       return { queued: jobId !== null, running: jobId === null, job_id: jobId };
     }),
   );
-  router.get('/api/admin/media/status', A(() => notYet()));
-  router.post('/api/admin/media/backfill', A(() => notYet()));
+  // MD-11 (P1): حالة الأدوات والطابور (?probe=1 يعيد فحص الأدوات)، والاستكمال (5 في اليوم لكل مدير)
+  router.get('/api/admin/media/status', A((ctx, u) => app.media.statusFor(u, ctx, { probe: ctx.query?.probe === '1' })));
+  const backfillLimit = new RateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 5 });
+  router.post(
+    '/api/admin/media/backfill',
+    A((ctx, u) => {
+      backfillLimit.hit(`backfill:${u.id}`);
+      return app.media.backfill(ctx.body, u, ctx);
+    }),
+  );
   // اختبار الاتصال (MD-6، L12-71): مقطع صامت مرفق ← { ok, status, code, latency_ms } فقط، يُحفظ كآخر اختبار ويُسجَّل
   let sttTesting = false;
   router.post(

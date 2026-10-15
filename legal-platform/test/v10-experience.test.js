@@ -806,7 +806,8 @@ describe('v10 experience — kit components and L-64 close semantics (EXP-2, EXP
     assert.equal(s.el.querySelector('.modal-grip').getAttribute('aria-hidden'), 'true');
     assert.ok(s.el.querySelector('.modal-close'));
     s.close();
-    assert.equal(String(ui.modal).split(')')[0].replace(/\s+/g, ' '), 'function modal({ title, body, actions = [], size = \'md\', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose } = {}', 'signature unchanged');
+    // v12 tags: intended (TG-3، T12-16) — modal() يأخذ tag (رمز النافذة ← data-tag) ولا شيء غيره
+    assert.equal(String(ui.modal).split(')')[0].replace(/\s+/g, ' '), 'function modal({ title, body, actions = [], size = \'md\', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose, tag } = {}', 'signature unchanged');
   });
 
   test('confirmDiscard: «تجاهل ما كتبتموه؟» [«تجاهل»] [«متابعة الكتابة»] → true/false; singular copy; discardGuard closes clean sheets directly', async () => {
@@ -1152,13 +1153,13 @@ describe('v10 experience — motion, press, materials, haptics and images (EXP-7
       const home = (await t.client().get('/')).body;
       assert.match(home, /<a href="\/company" data-tag="L-11">دخول الشركات<\/a>/);
       const svc = (await t.client().get('/services')).body;
-      assert.match(svc, /<a href="\/company" class="pub-staff-link">دخول الشركات<\/a>/);
+      assert.match(svc, /<a href="\/company" class="pub-staff-link"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>دخول الشركات<\/a>/); // v12 tags: intended (TG-6، T12-90: the paid footer link takes its F code)
       assert.match(svc, /<li><a href="\/company" data-tag="F-08">دخول الشركات<\/a><\/li>/);
       t.app.settings.set('b2b_enabled', false);
       assert.doesNotMatch((await t.client().get('/')).body, /href="\/company"/, 'company service off: no link on the tree');
       const off = (await t.client().get('/services')).body;
       assert.doesNotMatch(off, /href="\/company"/, 'company service off: no link');
-      assert.match(off, /<a href="\/app" class="pub-staff-link">دخول فريق العمل والمحامين<\/a>/);
+      assert.match(off, /<a href="\/app" class="pub-staff-link"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>دخول فريق العمل والمحامين<\/a>/); // v12 tags: intended (TG-6، T12-90)
     } finally {
       await t.close();
       await real.close();

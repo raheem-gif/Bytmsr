@@ -827,7 +827,7 @@ describe('v11 visual — review fixes (one regression test per bug)', () => {
     const ds = stripComments(css('v10-desk.css'));
     for (const tone of ['danger', 'warning', 'info', 'success']) assert.match(ds, new RegExp(`\\.cr-banner\\.is-${tone} \\{ box-shadow: none; background:`));
     const pr = stripComments(css('v9-practice.css'));
-    assert.match(pr, /\.v9p-overdue \{ background: var\(--danger-100\);/);
+    assert.match(pr, /\.v9p-overdue \{ background: var\(--paper-2\); border-inline-start: 2px solid var\(--bad\);/); // v12 look: intended (review, K12-29 notice: ivory + 2-px start rule, no red wash)
     assert.match(pr, /\.v9p-export-item \{ border-radius: var\(--r-14\);[^}]*background: var\(--surface-tint\)/);
     // cards: soft elevation without a border
     assert.match(rule('v9-messaging.css', '.qr-card')[0].body, /box-shadow: var\(--e-1\)/);

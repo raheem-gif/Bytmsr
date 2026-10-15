@@ -125,19 +125,18 @@ export async function openPathwaySheet(intake, { onSaved } = {}) {
     const p = pageOf(path);
     return p ? p.options.filter((o) => o.kind !== 'exit') : [];
   };
-  const mkSelect = (tag, items, value, blank) =>
-    h(
-      'select.input',
-      { tag, value },
-      h('option', { value: '' }, blank),
-      items.map((o) => h('option', { value: o.value }, o.label)),
-    );
+  // review-2 (T12-78): كل قائمة باستدعاء h() واحد ورمزها حرفي في موضعه (PTH-08/09/10)، فيعرفها سجل الرموز وTAGS.md
+  // (كان الرمز يمر وسيطًا إلى دالة مساعدة، فبقيت الثلاثة «غير معرَّفة في المصدر» عند npm run tags)
+  const optionNodes = (items, blank) => [h('option', { value: '' }, blank), items.map((o) => h('option', { value: o.value }, o.label))];
+  const pageItems = (path) => optionsOf(path).map((o) => ({ value: o.path, label: o.label }));
 
-  const lineSel = mkSelect(
-    'PTH-08',
-    Object.entries(LINES).map(([k, l]) => ({ value: k, label: l.staff })),
-    segs[0] || '',
-    NO_PATHWAY_LABEL,
+  const lineSel = h(
+    'select.input',
+    { tag: 'PTH-08', value: segs[0] || '' },
+    optionNodes(
+      Object.entries(LINES).map(([k, l]) => ({ value: k, label: l.staff })),
+      NO_PATHWAY_LABEL,
+    ),
   );
   const areaHost = h('div');
   const topicHost = h('div');
@@ -151,9 +150,10 @@ export async function openPathwaySheet(intake, { onSaved } = {}) {
     topicHost.replaceChildren();
     const a = areaSel && areaSel.value;
     if (!a) return;
-    const opts = optionsOf(a);
-    if (!opts.length) return;
-    topicSel = mkSelect('PTH-10', opts.map((o) => ({ value: o.path, label: o.label })), preset, '—');
+    const items = pageItems(a);
+    if (!items.length) return;
+    topicSel = h('select.input', { tag: 'PTH-10', value: preset }, optionNodes(items, '—'));
+    // tags:skip غلاف الحقل؛ القائمة داخله تحمل رمزها PTH-10
     topicHost.append(field('الموضوع', h('div.select-wrap', topicSel)));
   }
   function drawArea(preset = '', presetTopic = '') {
@@ -162,9 +162,9 @@ export async function openPathwaySheet(intake, { onSaved } = {}) {
     topicHost.replaceChildren();
     const line = lineSel.value;
     if (!line) return;
-    const opts = optionsOf(line);
-    areaSel = mkSelect('PTH-09', opts.map((o) => ({ value: o.path, label: o.label })), preset, '—');
+    areaSel = h('select.input', { tag: 'PTH-09', value: preset }, optionNodes(pageItems(line), '—'));
     areaSel.addEventListener('change', () => drawTopic());
+    // tags:skip غلاف الحقل؛ القائمة داخله تحمل رمزها PTH-09
     areaHost.append(field('المجال أو الوضع', h('div.select-wrap', areaSel)));
     drawTopic(presetTopic);
   }
@@ -173,13 +173,25 @@ export async function openPathwaySheet(intake, { onSaved } = {}) {
 
   const chosen = () => (topicSel && topicSel.value) || (areaSel && areaSel.value) || lineSel.value || null;
   let saved = null;
+  // v12 tags (TG-6): الورقة PTH-00، جسمها PTH-07 وزراها PTH-12/PTH-13
   const m = modal({
     title: SHEET_TITLE,
     sheet: true,
     className: 'pth-sheet',
-    body: h('div.stack', { tag: 'PTH-07' }, field('نوع الطلب', h('div.select-wrap', lineSel)), areaHost, topicHost, field('السبب (اختياري)', reason), err),
+    tag: 'PTH-18',
+    body: h(
+      'div.stack',
+      { tag: 'PTH-07' },
+      // tags:skip غلاف الحقل؛ القائمة داخله تحمل رمزها PTH-08
+      field('نوع الطلب', h('div.select-wrap', lineSel)),
+      areaHost,
+      topicHost,
+      // tags:skip غلاف حقل السبب؛ المربع داخله PTH-11
+      field('السبب (اختياري)', reason),
+      err,
+    ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'PTH-16' },
       {
         label: 'حفظ',
         variant: 'primary',
@@ -199,6 +211,7 @@ export async function openPathwaySheet(intake, { onSaved } = {}) {
           if (onSaved) await onSaved(saved);
           return undefined;
         },
+        tag: 'PTH-17',
       },
     ],
   });

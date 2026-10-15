@@ -72,18 +72,17 @@
   flex-shrink: 0;
 }
 
-.pa-note.is-info {
+/* v12 look (review, K12-29): a notice is ivory with a 2-px start rule (act; warn for warnings), ink text */
+.pa-note.is-info,
+.pa-note.is-warning {
   padding: 8px 12px;
-  border-radius: var(--radius);
-  background: var(--info-100);
-  color: var(--info-700);
+  border-inline-start: 2px solid var(--act);
+  background: var(--paper-2);
+  color: var(--ink);
 }
 
 .pa-note.is-warning {
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  background: var(--warning-100);
-  color: var(--warning-700);
+  border-inline-start-color: var(--warn);
 }
 
 .pa-mini-h {
@@ -191,9 +190,7 @@
   min-width: 24px;
   height: 24px;
   padding: 0 4px;
-  border-radius: 7px;
-  background: var(--gray-100);
-  color: var(--gray-700);
+  color: var(--ink-3); /* v12 look (review, A06/K12-34): the channel is a glyph and a word, not a tinted chip */
 }
 
 .pa-chans-labeled .pa-chan {
@@ -202,20 +199,6 @@
   font-weight: 600;
 }
 
-.pa-chan-whatsapp {
-  background: #d7f0e3;
-  color: var(--success-700);
-}
-
-.pa-chan-website {
-  background: var(--info-100);
-  color: var(--info-700);
-}
-
-.pa-chan-email {
-  background: var(--accent-100);
-  color: var(--accent-700);
-}
 
 /* ───────────── صندوق الوارد ───────────── */
 
@@ -954,20 +937,9 @@
   gap: 8px;
 }
 
+/* v12 look (review, K12-37/A04): no tinted icon squares in front of rows */
 .pa-missing-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--info-100);
-  color: var(--info-700);
-}
-
-.pa-missing-icon.is-doc {
-  background: var(--accent-100);
-  color: var(--accent-700);
+  display: none;
 }
 
 .pa-similar {
@@ -1239,10 +1211,10 @@
   gap: 8px;
   min-height: 44px;
   padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--gray-700);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-1);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
@@ -1258,15 +1230,8 @@
   box-shadow: var(--focus-ring);
 }
 
-.pa-qnav-item.is-pending {
-  border-color: var(--warning-100);
-  background: var(--warning-100);
-  color: var(--warning-700);
-}
-
 .pa-qnav-item.is-pending .tab-count {
-  background: var(--warning-700);
-  color: #fff;
+  color: var(--act);
 }
 
 .pa-qnav-item.is-zero {
@@ -1300,14 +1265,7 @@
 }
 
 .pa-qempty-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--gray-50);
-  color: var(--gray-500);
+  display: none;
 }
 
 .pa-qempty-text {
@@ -1515,19 +1473,7 @@ html[dir="rtl"] .pa-quote {
 }
 
 .pa-dlist-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--gray-100);
-  color: var(--gray-600);
-}
-
-.pa-dlist-row.is-pending .pa-dlist-icon {
-  background: var(--warning-100);
-  color: var(--warning-700);
+  display: none;
 }
 
 .pa-dlist-label {
@@ -1536,13 +1482,11 @@ html[dir="rtl"] .pa-quote {
   font-size: 14px;
 }
 
+/* v12 look (review, A21): plain counts, act for what waits on a decision */
 .pa-dlist-n {
   min-width: 28px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-600);
-  font-weight: 700;
+  color: var(--ink-3);
+  font-weight: 600;
   font-size: 13px;
   line-height: 24px;
   text-align: center;
@@ -1550,8 +1494,7 @@ html[dir="rtl"] .pa-quote {
 }
 
 .pa-dlist-row.is-pending .pa-dlist-n {
-  background: var(--warning-700);
-  color: #fff;
+  color: var(--act);
 }
 
 .pa-dlist-row.is-zero .pa-dlist-label {
@@ -1625,14 +1568,13 @@ html[dir="rtl"] .pa-quote {
   gap: 8px;
 }
 
+/* v12 look (review, A17/K12-35): ruled figures, not stat tiles */
 .pa-mini-stats > div {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  border: 1px solid var(--gray-100);
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
   min-width: 0;
 }
 
@@ -1728,16 +1670,14 @@ html[dir="rtl"] .pa-quote {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
   color: inherit;
   text-decoration: none;
 }
 
 .pa-event:hover {
-  border-color: var(--primary-200);
-  background: var(--primary-50);
+  background: var(--paper-2);
   color: inherit;
 }
 
@@ -1748,10 +1688,8 @@ html[dir="rtl"] .pa-quote {
   flex-direction: column;
   align-items: center;
   padding: 4px 0;
-  border-radius: 9px;
-  background: var(--accent-50);
-  border: 1px solid var(--accent-100);
-  color: var(--accent-800);
+  border-inline-start: 1px solid var(--rule);
+  color: var(--ink);
   line-height: 1.2;
 }
 
@@ -1789,15 +1727,14 @@ html[dir="rtl"] .pa-quote {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
   color: inherit;
   text-decoration: none;
 }
 
 .pa-alert-link:hover {
-  background: var(--primary-50);
+  background: var(--paper-2);
   color: inherit;
 }
 
@@ -1817,10 +1754,8 @@ html[dir="rtl"] .pa-quote {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px;
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  border: 1px solid var(--gray-100);
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
   min-width: 0;
 }
 
@@ -2010,14 +1945,7 @@ button.pa-preset-btn:focus-visible {
 }
 
 .pa-preset-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: #d7f0e3;
-  color: var(--success-700);
+  display: none;
 }
 
 .pa-preset-text {

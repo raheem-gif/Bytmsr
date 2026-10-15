@@ -51,9 +51,9 @@ export function emailSettingsCard(item, data = {}, { reload, companies = 0 } = {
   const isOutbox = provider !== 'smtp';
   const result = h('div.pf-test-result', item.last_test ? lastTest(item.last_test) : h('p.pf-muted', icon('info', { size: 16 }), ' لم تُرسل رسالة تجربة بعد.'));
   const notes = [];
-  if (companies > 0 && isOutbox) notes.push(alertBox(OUTBOX_RED_NOTE, 'danger', { title: 'البريد غير مُعدّ للشركات', icon: 'mailWarning' }));
-  if (!data.public_base_url) notes.push(alertBox('PUBLIC_BASE_URL غير مضبوط على الخادم: لا تُرسل روابط الدعوات وتعيين كلمة المرور بالبريد حتى يُضبط.', companies > 0 ? 'danger' : 'warning', { icon: 'alert' }));
-  if (item.undecryptable) notes.push(alertBox('تغيّر مفتاح التشفير بعد حفظ كلمة مرور SMTP فلم يعد ممكنًا فك تشفيرها. أعد إدخالها.', 'danger'));
+  if (companies > 0 && isOutbox) notes.push(alertBox(OUTBOX_RED_NOTE, 'danger', { title: 'البريد غير مُعدّ للشركات', icon: 'mailWarning', tag: 'SET-72' }));
+  if (!data.public_base_url) notes.push(alertBox('PUBLIC_BASE_URL غير مضبوط على الخادم: لا تُرسل روابط الدعوات وتعيين كلمة المرور بالبريد حتى يُضبط.', companies > 0 ? 'danger' : 'warning', { icon: 'alert', tag: 'SET-73' }));
+  if (item.undecryptable) notes.push(alertBox('تغيّر مفتاح التشفير بعد حفظ كلمة مرور SMTP فلم يعد ممكنًا فك تشفيرها. أعد إدخالها.', 'danger', { tag: 'SET-74' }));
   const rows = ['provider', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_user', 'smtp_password', 'from_address', 'from_name']
     .map((k) => fieldOf(item, k))
     .filter((f) => f.key && (f.key === 'provider' || !isOutbox || f.key.startsWith('from')));
@@ -65,17 +65,17 @@ export function emailSettingsCard(item, data = {}, { reload, companies = 0 } = {
         mount(result, lastTest({ ...r, tested_at: new Date().toISOString() }));
         toast(r.message || (r.ok ? 'أُرسلت رسالة التجربة.' : 'تعذّر الإرسال.'), r.ok ? 'success' : 'danger', 6000);
       } catch (err) {
-        mount(result, alertBox(errorMessage(err), 'danger'));
+        mount(result, alertBox(errorMessage(err), 'danger', { tag: 'SET-75' }));
       }
     },
-    { variant: 'secondary', size: 'sm', icon: 'send' },
+    { variant: 'secondary', size: 'sm', icon: 'send', tag: 'SET-76' },
   );
   return card({
     title: 'البريد الإلكتروني',
     subtitle: 'رسائل بوابة الشركات: الدعوات وروابط كلمة المرور وأسئلة الفريق وعروض الأسعار والتسليمات. لا تحمل الرسائل محتوى قانونيًا.',
     icon: 'mail',
     className: 'pf-integration es-card',
-    actions: h('div.pf-card-actions', test, button('تعديل', { variant: 'primary', size: 'sm', icon: 'edit', onClick: () => editEmail(item, reload) })),
+    actions: h('div.pf-card-actions', test, button('تعديل', { variant: 'primary', size: 'sm', icon: 'edit', onClick: () => editEmail(item, reload), tag: 'SET-77' })),
     body: h(
       'div.stack',
       h(
@@ -89,15 +89,17 @@ export function emailSettingsCard(item, data = {}, { reload, companies = 0 } = {
         'ul.pf-fields',
         rows.map((f) => h('li.pf-field', h('div.pf-field-label', f.label), h('div.pf-field-value', shown(f)), h('div.pf-field-meta', f.source ? badge(SOURCE_LABEL[f.source] || f.source, f.source === 'env' ? 'info' : f.source === 'db' ? 'success' : 'neutral') : null, f.env ? codeTag(f.env, { className: 'pf-env' }) : null))),
       ),
-      h('div', h('h3.pf-subtitle', 'رسالة التجربة'), result),
+      h('div', h('h3.pf-subtitle', { tag: 'SET-78' }, 'رسالة التجربة'), result),
       h('p.pf-muted', icon('info', { size: 14 }), ' للتسليم الموثوق اضبط سجلات SPF وDKIM وDMARC لنطاق عنوان المرسل.'),
     ),
+    titleTag: 'SET-79',
+    tag: 'SET-80',
   });
 }
 
 function lastTest(t) {
   const when = t.tested_at ? ` (${relative(t.tested_at)}${t.tested_by_name ? ` — ${t.tested_by_name}` : ''})` : '';
-  return alertBox(h('span', t.message || (t.ok ? 'أُرسلت رسالة التجربة.' : 'تعذّر الإرسال.'), h('span.pf-muted', when)), t.ok ? 'success' : 'danger', { title: t.ok ? 'آخر تجربة: ناجحة' : 'آخر تجربة: فاشلة' });
+  return alertBox(h('span', t.message || (t.ok ? 'أُرسلت رسالة التجربة.' : 'تعذّر الإرسال.'), h('span.pf-muted', when)), t.ok ? 'success' : 'danger', { title: t.ok ? 'آخر تجربة: ناجحة' : 'آخر تجربة: فاشلة', tag: 'SET-81' });
 }
 
 /** نافذة ضبط البريد: الحقول حسب طريقة الإرسال؛ ما يأتي من متغيرات البيئة للقراءة فقط */
@@ -112,7 +114,7 @@ export function editEmail(item, onSaved) {
     PROVIDERS.map((p) =>
       h(
         'label.check.cs-radio',
-        h('input', { type: 'radio', name: 'es-provider', value: p.value, checked: p.value === provider, disabled: locked('provider'), onChange: () => ((provider = p.value), sync()) }),
+        h('input', { type: 'radio', name: 'es-provider', value: p.value, checked: p.value === provider, disabled: locked('provider'), onChange: () => ((provider = p.value), sync()), tag: 'SET-82' }),
         h('span', p.label),
       ),
     ),
@@ -120,10 +122,10 @@ export function editEmail(item, onSaved) {
   const pw = fv('smtp_password');
   const f = form(
     [
-      { name: 'smtp_host', label: 'خادم SMTP', ltr: true, maxLength: 200, readonly: locked('smtp_host'), placeholder: 'smtp.example.com' },
-      { name: 'smtp_port', label: 'المنفذ', type: 'select', placeholder: false, disabled: locked('smtp_port'), options: SMTP_PORTS.map((p) => ({ value: p, label: p })) },
-      { name: 'smtp_security', label: 'التشفير', type: 'select', placeholder: false, disabled: locked('smtp_security'), options: SECURITY, hint: 'STARTTLS على 587 عادةً، وTLS على 465. لا إرسال دون تشفير.' },
-      { name: 'smtp_user', label: 'اسم المستخدم', ltr: true, maxLength: 200, readonly: locked('smtp_user'), autocomplete: 'off' },
+      { name: 'smtp_host', label: 'خادم SMTP', ltr: true, maxLength: 200, readonly: locked('smtp_host'), placeholder: 'smtp.example.com', tag: 'SET-262' },
+      { name: 'smtp_port', label: 'المنفذ', type: 'select', placeholder: false, disabled: locked('smtp_port'), options: SMTP_PORTS.map((p) => ({ value: p, label: p })), tag: 'SET-263' },
+      { name: 'smtp_security', label: 'التشفير', type: 'select', placeholder: false, disabled: locked('smtp_security'), options: SECURITY, hint: 'STARTTLS على 587 عادةً، وTLS على 465. لا إرسال دون تشفير.', tag: 'SET-264' },
+      { name: 'smtp_user', label: 'اسم المستخدم', ltr: true, maxLength: 200, readonly: locked('smtp_user'), autocomplete: 'off', tag: 'SET-265' },
       {
         name: 'smtp_password',
         label: 'كلمة المرور',
@@ -131,9 +133,10 @@ export function editEmail(item, onSaved) {
         autocomplete: 'new-password',
         readonly: locked('smtp_password'),
         placeholder: pw.set ? `محفوظة (${pw.hint || '••••'}) — اتركها فارغة للإبقاء عليها` : 'غير مضبوطة',
+        tag: 'SET-266',
       },
-      { name: 'from_address', label: 'عنوان المرسل', type: 'email', readonly: locked('from_address'), placeholder: 'legal@example.com', hint: 'عنوان فقط، مثل legal@example.com' },
-      { name: 'from_name', label: 'اسم المرسل', maxLength: 120, readonly: locked('from_name'), hint: 'اتركه فارغًا لاسم المكتب.' },
+      { name: 'from_address', label: 'عنوان المرسل', type: 'email', readonly: locked('from_address'), placeholder: 'legal@example.com', hint: 'عنوان فقط، مثل legal@example.com', tag: 'SET-267' },
+      { name: 'from_name', label: 'اسم المرسل', maxLength: 120, readonly: locked('from_name'), hint: 'اتركه فارغًا لاسم المكتب.', tag: 'SET-268' },
     ],
     {
       values: {
@@ -146,6 +149,7 @@ export function editEmail(item, onSaved) {
         from_name: cur('from_name'),
       },
       footer: false,
+      tag: 'SET-269',
     },
   );
   const smtpOnly = ['smtp_host', 'smtp_port', 'smtp_security', 'smtp_user', 'smtp_password'];
@@ -165,7 +169,7 @@ export function editEmail(item, onSaved) {
       f.el,
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'SET-83' },
       {
         label: 'حفظ الإعدادات',
         variant: 'primary',
@@ -188,7 +192,7 @@ export function editEmail(item, onSaved) {
             return false;
           }
           if (!Object.keys(patch).length) {
-            mount(alertHost, alertBox('لم تغيّر أي قيمة.', 'info'));
+            mount(alertHost, alertBox('لم تغيّر أي قيمة.', 'info', { tag: 'SET-84' }));
             return false;
           }
           try {
@@ -196,10 +200,11 @@ export function editEmail(item, onSaved) {
             return undefined;
           } catch (err) {
             f.showError(err);
-            mount(alertHost, alertBox(errorMessage(err), 'danger'));
+            mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'SET-85' }));
             return false;
           }
         },
+        tag: 'SET-86',
       },
     ],
     onClose: () => {
@@ -208,6 +213,7 @@ export function editEmail(item, onSaved) {
       for (const w of saved.warnings || []) toast(w, 'warning', 8000);
       if (onSaved) onSaved();
     },
+    tag: 'SET-87',
   });
   sync();
   return handle;
@@ -228,7 +234,7 @@ export function emailOutboxPanel({ status: initial = '' } = {}) {
         host,
         h(
           'div.stack',
-          res.provider === 'outbox' ? alertBox('الإرسال الآن «صندوق صادر فقط»: تُسجَّل الرسائل هنا ولا تصل إلى أحد. اضبط SMTP من صفحة «التكاملات».', 'warning', { icon: 'mailWarning' }) : null,
+          res.provider === 'outbox' ? alertBox('الإرسال الآن «صندوق صادر فقط»: تُسجَّل الرسائل هنا ولا تصل إلى أحد. اضبط SMTP من صفحة «التكاملات».', 'warning', { icon: 'mailWarning', tag: 'SET-88' }) : null,
           h(
             'div.pf-badges',
             Object.entries(counts).map(([k, n]) => badge(`${OUTBOX_STATUS[k]?.label || k}: ${n}`, OUTBOX_STATUS[k]?.tone || 'neutral')),
@@ -238,15 +244,17 @@ export function emailOutboxPanel({ status: initial = '' } = {}) {
                 caption: 'صادر البريد',
                 stack: true,
                 rows: res.items,
+                rowTag: (m) => m.tag, // v12 tags (TG-4، T12-19): رمز E لقالب الرسالة
                 columns: [
-                  { key: 'time', label: 'الوقت', render: (m) => h('time', { datetime: m.created_at, title: dateTime(m.created_at) }, relative(m.created_at)) },
-                  { key: 'to', label: 'إلى', render: (m) => h('bdi', { dir: 'ltr' }, m.to_address) },
-                  { key: 'purpose', label: 'الغرض', render: (m) => m.purpose_label || m.purpose },
-                  { key: 'status', label: 'الحالة', render: (m) => badge(OUTBOX_STATUS[m.status]?.label || m.status_label || m.status, OUTBOX_STATUS[m.status]?.tone || 'neutral') },
-                  { key: 'error', label: 'السبب', render: (m) => (m.error ? h('span', { dir: 'auto' }, m.error) : m.attempts ? h('span.muted', `${count(m.attempts, ['محاولة واحدة', 'محاولتين', 'محاولات', 'محاولة'])}`) : '—') },
+                  { key: 'time', label: 'الوقت', render: (m) => h('time', { datetime: m.created_at, title: dateTime(m.created_at) }, relative(m.created_at)), tag: 'SET-89' },
+                  { key: 'to', label: 'إلى', render: (m) => h('bdi', { dir: 'ltr' }, m.to_address), tag: 'SET-90' },
+                  { key: 'purpose', label: 'الغرض', render: (m) => m.purpose_label || m.purpose, tag: 'SET-91' },
+                  { key: 'status', label: 'الحالة', render: (m) => badge(OUTBOX_STATUS[m.status]?.label || m.status_label || m.status, OUTBOX_STATUS[m.status]?.tone || 'neutral'), tag: 'SET-92' },
+                  { key: 'error', label: 'السبب', render: (m) => (m.error ? h('span', { dir: 'auto' }, m.error) : m.attempts ? h('span.muted', `${count(m.attempts, ['محاولة واحدة', 'محاولتين', 'محاولات', 'محاولة'])}`) : '—'), tag: 'SET-93' },
                 ],
+                tag: 'SET-94',
               })
-            : emptyState('لا رسائل بريد بهذا الاختيار.', null, { compact: true, icon: 'mail' }),
+            : emptyState('لا رسائل بريد بهذا الاختيار.', null, { compact: true, icon: 'mail', tag: 'SET-95' }),
         ),
       );
     } catch (err) {
@@ -264,8 +272,9 @@ export function emailOutboxPanel({ status: initial = '' } = {}) {
         options: Object.entries(OUTBOX_STATUS).map(([value, x]) => ({ value, label: x.label })),
         value: status,
         onChange: (v) => ((status = v), load()),
+        tag: 'SET-96',
       }),
-      button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load }),
+      button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load, tag: 'SET-97' }),
     ]),
     host,
   );

@@ -19,7 +19,7 @@ import { setPublicRoot, preloadClosure } from './site-assets.js';
 import { isPlainName, collapseSpaces, PLAIN_NAME_ERROR, wordmarkParts } from './brand.js';
 import { DEFAULT_PRIMARY } from '../public/assets/js/lib/brand-color.js';
 // v9.2 public: مصدر واحد للمواضيع (الشاشة الأولى، «بنساعد في إيه؟»، النموذج، الإدارة) وصورها
-import { TOPICS } from '../public/assets/js/public/topics.js';
+import { TOPICS, topicByKey } from '../public/assets/js/public/topics.js';
 import { PICTOS } from '../public/assets/js/public/pictos.js';
 // v11 gate-public: مفردات نوع الخدمة (charity | paid) وكعكة bm_seg ومواضيع الأفراد والشركات — نفس الوحدة في الخادم والمتصفح
 import { parseSegment, segmentFromCookie, SEG_COOKIE, SEG_COOKIE_MAX_AGE, COMPANY_PREFILL, PAID_GENERIC } from '../public/assets/js/public/segment.js';
@@ -791,8 +791,11 @@ export function registerSite(app) {
     return ['ولو عايزين إحنا نكلمكم ببلاش، اضغطوا "إحنا نكلمك".', wa ? 'أو ابعتولنا على واتساب.' : '', 'أو اعرفوا طلبكم وصل لفين.'].filter(Boolean).join(' ');
   }
 
-  /** روابط ملفات نموذج الطلب (نفس أرقام الإصدار في صفحة /intake) لتحميلها مسبقًا وهي تختار */
-  function prefetchUrls() {
+  /**
+   * روابط ملفات نموذج الطلب (نفس أرقام الإصدار في صفحة /intake) لتحميلها مسبقًا وهي تختار.
+   * v12 entry review (R3): charity=false لصفحات الشجرة — نموذج الأفراد والشركات بلا صور، فلا تُنزَّل pictos.js مسبقًا
+   */
+  function prefetchUrls({ charity = true } = {}) {
     const urls = [];
     const add = (rel) => {
       const v = assetVersion(path.join(pub, rel));
@@ -805,8 +808,8 @@ export function registerSite(app) {
       /* بلا تحميل مسبق */
     }
     add('/assets/css/v91-b-forms.css');
-    // v12 entry: صور نموذج «خيري» تُحمَّل بعد فتحه (import())، فتُحمَّل مسبقًا هنا كما كانت
-    add('/assets/js/public/pictos.js');
+    // v12 entry: صور نموذج «خيري» تُحمَّل بعد فتحه (import())، فتُحمَّل مسبقًا هنا كما كانت (صفحة «خيري» وحدها)
+    if (charity) add('/assets/js/public/pictos.js');
     return urls.join(' ');
   }
 
@@ -847,8 +850,8 @@ export function registerSite(app) {
       <a class="pub-nav-link pub-nav-portal" href="/portal"${current === '/portal' ? ' aria-current="page"' : ''} data-tag="H-06">${paid ? '' : iconSvg('search', 18)}<span>${followLabel}</span></a>${ctaHtml}
     </nav>`
       : '';
-    return `<a class="skip-link" href="#main" data-tag="H-10">انتقال إلى المحتوى</a>
-    <header class="pub-header" data-pub-header>
+    const out = `<a class="skip-link" href="#main" data-tag="H-10">انتقال إلى المحتوى</a>
+    <header class="pub-header" data-pub-header data-tag="H-12">
   <div class="pub-container pub-header-inner">
     <${brandTag} class="pub-brand"${brandAttrs} data-tag="H-01">
       <img class="pub-mark" src="${imgUrl('/assets/img/emam-mark-green.svg')}" width="99" height="19" alt="" decoding="async" />
@@ -857,6 +860,9 @@ export function registerSite(app) {
     ${menu}
   </div>
 </header>`;
+    // v12 entry review (R2, §5.9، T12-22): رموز H- للرأس في صفحات الأفراد والشركات وحدها؛ رأس «خيري» (صفحاته حين يُعاد، صفحات
+    // متابعة الطلبات الخيرية، وصفحة «خيري» المتوقفة) بلا رموز. الرموز تبقى مكتوبة حرفيًا أعلاه حتى يجدها سجل الرموز.
+    return paid ? out : out.replace(/ data-tag="H-\d{2}"/g, '');
   }
 
   /** زرا الاتصال في البطل والتواصل: [واتساب] (إن وُجد رقم) و[اتصال]؛ بلا واتساب يأخذ «اتصال» العرض كله */
@@ -901,13 +907,14 @@ export function registerSite(app) {
     return `<ul class="pub-contact-list">${items.join('')}</ul>`;
   }
 
-  function socialHtml(ps) {
+  // v12 tags (TG-6): fbTag/igTag لتذييل الأفراد والشركات وحده (تذييل «خيري» بلا رموز، T12-22)
+  function socialHtml(ps, { fbTag = '', igTag = '' } = {}) {
     const out = [];
     if (ps.org_facebook_url) {
-      out.push(`<a class="pub-social" href="${esc(ps.org_facebook_url)}" target="_blank" rel="noopener noreferrer">${iconSvg('facebook', 18)}<span>فيسبوك</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
+      out.push(`<a class="pub-social" href="${esc(ps.org_facebook_url)}" target="_blank" rel="noopener noreferrer"${fbTag ? ` data-tag="${esc(fbTag)}"` : ''}>${iconSvg('facebook', 18)}<span>فيسبوك</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
     }
     if (ps.org_instagram_url) {
-      out.push(`<a class="pub-social" href="${esc(ps.org_instagram_url)}" target="_blank" rel="noopener noreferrer">${iconSvg('instagram', 18)}<span>إنستجرام</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
+      out.push(`<a class="pub-social" href="${esc(ps.org_instagram_url)}" target="_blank" rel="noopener noreferrer"${igTag ? ` data-tag="${esc(igTag)}"` : ''}>${iconSvg('instagram', 18)}<span>إنستجرام</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
     }
     return out.length ? `<div class="pub-socials">${out.join('')}</div>` : '';
   }
@@ -1009,7 +1016,7 @@ export function registerSite(app) {
     const company = companyPortalOpen();
     const b2b = app.settings.get('b2b_enabled') !== false;
     const tel = ps.org_phone_e164 || ps.org_phone;
-    return `<footer class="pub-footer">
+    return `<footer class="pub-footer" data-tag="F-21">
   <div class="pub-container pub-footer-grid">
     <div class="pub-footer-about">
       <a class="pub-brand pub-brand-light" href="/" data-tag="F-01">
@@ -1017,9 +1024,9 @@ export function registerSite(app) {
         <span class="pub-brand-lockup">${wordmarkHtml(ps.brand_name, ps.brand_short)}</span>
       </a>
       <p class="pub-footer-desktop" data-tag="F-02">محاماة واستشارات قانونية للأفراد والشركات${ps.firm_city ? ` في ${esc(ps.firm_city)}` : ''}.</p>
-      ${socialHtml(ps)}
+      ${socialHtml(ps, { fbTag: 'F-22', igTag: 'F-23' })}
     </div>
-    <nav class="pub-footer-col pub-footer-desktop" aria-label="روابط الموقع">
+    <nav class="pub-footer-col pub-footer-desktop" aria-label="روابط الموقع" data-tag="F-24">
       <h2 data-tag="F-03">روابط</h2>
       <ul>
         <li><a href="/" data-tag="F-04">الصفحة الأولى</a></li>
@@ -1030,7 +1037,7 @@ export function registerSite(app) {
         ${charityPublic() ? '<li><a href="/khayri" data-tag="F-16">خيري</a></li>' : ''}
       </ul>
     </nav>
-    <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات">
+    <nav class="pub-footer-col pub-footer-desktop" aria-label="السياسات" data-tag="F-25">
       <h2 data-tag="F-09">السياسات</h2>
       <ul>
         <li><a href="/privacy" data-tag="F-10">سياسة الخصوصية</a></li>
@@ -1040,44 +1047,46 @@ export function registerSite(app) {
     </nav>
     <div class="pub-footer-col pub-footer-contact pub-footer-desktop">
       <h2 data-tag="F-13">تواصلوا معنا</h2>
-      ${paidContactListHtml(ps, wa, { tag: 'F-14' })}
+      ${paidContactListHtml(ps, wa, { tag: 'F-14', mapTag: 'F-26', telTag: 'F-27', waTag: 'F-28', mailTag: 'F-29' })}
     </div>
   </div>
-  <details class="pub-footer-more">
-    <summary data-tag="F-15"><span>روابط مهمة</span>${iconSvg('chevronDown', 20, 'pub-faq-chevron')}</summary>
+  <details class="pub-footer-more" data-tag="F-15">
+    <summary><span>روابط مهمة</span>${iconSvg('chevronDown', 20, 'pub-faq-chevron')}</summary>
     <ul>
       <li><a href="/privacy" data-tag="F-10">الخصوصية</a></li><!-- tags:variant -->
       <li><a href="/terms" data-tag="F-11">الشروط</a></li><!-- tags:variant -->
       <li><a href="/data-deletion" data-tag="F-12">حذف البيانات</a></li><!-- tags:variant -->
       ${charityPublic() ? '<li><a href="/khayri" data-tag="F-16">خيري</a></li>' : ''}<!-- tags:variant -->
       ${company ? '<li><a href="/company" data-tag="F-08">دخول الشركات</a></li>' : ''}<!-- tags:variant -->
-      <li><a href="/app">دخول فريق العمل والمحامين</a></li>
+      <li><a href="/app" data-tag="F-31">دخول فريق العمل والمحامين</a></li><!-- tags:variant -->
     </ul>
   </details>
-  ${ps.org_phone ? `<p class="pub-footer-call">للتواصل: <a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></p>` : ''}
+  ${ps.org_phone ? `<p class="pub-footer-call" data-tag="F-30">للتواصل: <a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></p>` : ''}
   <div class="pub-footer-bottom">
     <div class="pub-container pub-footer-bottom-inner">
       <p class="pub-legal" data-tag="F-20">© ${year} <bdi>${esc(ps.firm_name)}</bdi>. جميع الحقوق محفوظة.</p>
-      <span class="pub-footer-logins"><a href="/app" class="pub-staff-link">دخول فريق العمل والمحامين</a>${company ? '<a href="/company" class="pub-staff-link">دخول الشركات</a>' : ''}</span>
+      <span class="pub-footer-logins"><a href="/app" class="pub-staff-link" data-tag="F-31">دخول فريق العمل والمحامين</a>${company ? '<a href="/company" class="pub-staff-link" data-tag="F-32">دخول الشركات</a>' : ''}</span>
     </div>
   </div>
 </footer>`;
   }
 
   /** v11 (G11-32): «تواصلوا معنا» للأفراد والشركات — نفس عناصر «كلمينا» بالجمع المهذب، وهاتف/واتساب هذا الجانب؛ tag = رمز القائمة في موضعها */
-  function paidContactListHtml(ps, wa, { tag = '' } = {}) {
+  // v12 tags (TG-6): mapTag/telTag/waTag/mailTag = رمز كل رابط في موضع القائمة (التذييل، «تواصلوا معنا»، الصفحات القانونية)
+  function paidContactListHtml(ps, wa, { tag = '', mapTag = '', telTag = '', waTag = '', mailTag = '' } = {}) {
     const items = [];
     const tel = ps.org_phone_e164 || ps.org_phone;
+    const dt = (code) => (code ? ` data-tag="${esc(code)}"` : '');
     if (ps.org_address) {
       items.push(
         `<li>${iconSvg('mapPin', 20)}<span><span class="pub-contact-label">العنوان</span>${esc(ps.org_address)}` +
-          (ps.map_url ? ` <a href="${esc(ps.map_url)}" target="_blank" rel="noopener noreferrer">افتحوا الخريطة<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>` : '') +
+          (ps.map_url ? ` <a href="${esc(ps.map_url)}" target="_blank" rel="noopener noreferrer"${dt(mapTag)}>افتحوا الخريطة<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>` : '') +
           '</span></li>',
       );
     }
-    if (ps.org_phone) items.push(`<li>${iconSvg('phone', 20)}<span><span class="pub-contact-label">الهاتف</span><a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a></span></li>`);
-    if (wa) items.push(`<li>${iconSvg('whatsapp', 20)}<span><span class="pub-contact-label">واتساب</span><a href="${esc(wa)}" target="_blank" rel="noopener noreferrer">راسلونا على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></span></li>`);
-    if (ps.org_email) items.push(`<li>${iconSvg('mail', 20)}<span><span class="pub-contact-label">البريد الإلكتروني</span><a href="mailto:${esc(ps.org_email)}" dir="ltr" class="pub-ltr">${esc(ps.org_email)}</a></span></li>`);
+    if (ps.org_phone) items.push(`<li>${iconSvg('phone', 20)}<span><span class="pub-contact-label">الهاتف</span><a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr"${dt(telTag)}>${esc(ps.org_phone)}</a></span></li>`);
+    if (wa) items.push(`<li>${iconSvg('whatsapp', 20)}<span><span class="pub-contact-label">واتساب</span><a href="${esc(wa)}" target="_blank" rel="noopener noreferrer"${dt(waTag)}>راسلونا على واتساب<span class="pub-sr"> (يفتح في نافذة جديدة)</span></a></span></li>`);
+    if (ps.org_email) items.push(`<li>${iconSvg('mail', 20)}<span><span class="pub-contact-label">البريد الإلكتروني</span><a href="mailto:${esc(ps.org_email)}" dir="ltr" class="pub-ltr"${dt(mailTag)}>${esc(ps.org_email)}</a></span></li>`);
     if (ps.office_hours) items.push(`<li>${iconSvg('clock', 20)}<span><span class="pub-contact-label">مواعيد العمل</span>${esc(ps.office_hours)}</span></li>`);
     return `<ul class="pub-contact-list"${tag ? ` data-tag="${esc(tag)}"` : ''}>${items.join('')}</ul>`;
   }
@@ -1226,7 +1235,7 @@ export function registerSite(app) {
       : ps.org_phone
         ? `أو اتصلوا بنا: <a href="tel:${esc(tel)}" dir="ltr" class="pub-ltr">${esc(ps.org_phone)}</a>`
         : '';
-    return `<section id="companies" class="pub-section band pub-band-wrap" aria-labelledby="companies-title">
+    return `<section id="companies" class="pub-section band pub-band-wrap" aria-labelledby="companies-title" data-tag="S-75">
         <div class="pub-container">
           <span class="sec-label" aria-hidden="true">للشركات</span>
           <div class="pub-band">
@@ -1263,7 +1272,7 @@ export function registerSite(app) {
           .join('')}</ul>`
       : '';
     const since = ps.firm_founded ? `<p class="partners__since" data-tag="S-47">تأسس المكتب عام ${esc(ps.firm_founded)}${ps.firm_city ? ` في ${esc(ps.firm_city)}` : ''}.</p>` : '';
-    return `<section class="pub-section partners" id="partners" aria-labelledby="partners-title">
+    return `<section class="pub-section partners" id="partners" aria-labelledby="partners-title" data-tag="S-76">
         <div class="pub-container">
           <span class="sec-label" aria-hidden="true">المكتب</span>
           <h2 id="partners-title" data-tag="S-45">الشركاء</h2>
@@ -1275,8 +1284,8 @@ export function registerSite(app) {
   /** زرا التواصل في «تواصلوا معنا» (S-62): واتساب (بأرقام هذا الجانب) واتصال */
   function paidContactButtonsHtml(ps, wa) {
     const out = [];
-    if (wa) out.push(`<a class="pub-btn pub-btn-whatsapp" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp">${iconSvg('whatsapp', 20)}<span>واتساب</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
-    if (ps.org_phone) out.push(`<a class="pub-btn pub-btn-call" href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}">${iconSvg('phone', 20)}<span>اتصال</span></a>`);
+    if (wa) out.push(`<a class="pub-btn pub-btn-whatsapp" href="${esc(wa)}" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" data-tag="S-77">${iconSvg('whatsapp', 20)}<span>واتساب</span><span class="pub-sr"> (يفتح في نافذة جديدة)</span></a>`);
+    if (ps.org_phone) out.push(`<a class="pub-btn pub-btn-call" href="tel:${esc(ps.org_phone_e164 || ps.org_phone)}" data-tag="S-78">${iconSvg('phone', 20)}<span>اتصال</span></a>`);
     return out.length ? `<div class="pub-contact-buttons${out.length === 1 ? ' is-single' : ''}" data-tag="S-62">${out.join('')}</div>` : '';
   }
 
@@ -1596,7 +1605,7 @@ export function registerSite(app) {
       paid_trust: paidTrustHtml(),
       paid_partners: partnersHtml(ps),
       paid_faq: paidFaqHtml(ps),
-      paid_contact_list: paidContactListHtml(ps, wa, { tag: 'S-61' }),
+      paid_contact_list: paidContactListHtml(ps, wa, { tag: 'S-61', mapTag: 'S-79', telTag: 'S-80', waTag: 'S-81', mailTag: 'S-82' }),
       paid_contact_buttons: paidContactButtonsHtml(ps, wa),
     };
   }
@@ -1633,7 +1642,7 @@ export function registerSite(app) {
       header: headerHtml(ps, pagePath),
       footer: footerHtml(ps, wa),
       // v11 gate-public: قائمة التواصل بكلام الجانب (نماذج /intake الاحتياطية والصفحات القانونية)
-      contact_list: side === 'paid' ? paidContactListHtml(ps, wa) : contactListHtml(ps, wa),
+      contact_list: side === 'paid' ? paidContactListHtml(ps, wa, { tag: 'F-33', mapTag: 'F-34', telTag: 'F-35', waTag: 'F-36', mailTag: 'F-37' }) : contactListHtml(ps, wa),
       socials: socialHtml(ps),
       services: servicesHtml(),
       faq: faqHtml(ps),
@@ -1654,6 +1663,10 @@ export function registerSite(app) {
       side_charity: side === 'paid' ? '' : '1',
       // v12 entry (E12-13): فاصل العنوان « | » على صفحات الأفراد والشركات بدل «—» (صفحات «خيري» تبقى كما هي)
       title_sep: side === 'paid' ? '|' : '—',
+      // v12 entry review (R4): أول «مسار التصفح» في الصفحات القانونية مثل 404 — الأفراد والشركات «الصفحة الأولى» ← «/»؛ «خيري» «الرئيسية»
+      // ← /khayri (صفحة «خيري» أو صفحتها المتوقفة، لا صفحة الأتعاب)
+      crumb_home_href: side === 'paid' ? '/' : '/khayri',
+      crumb_home: side === 'paid' ? 'الصفحة الأولى' : 'الرئيسية',
       // v12 entry (E12-69): «خيري» معروض أم متوقف (بند bm_seg في الخصوصية وبند «خيري» في الشروط)
       charity_on: charityPublic() ? '1' : '',
       charity_off: charityPublic() ? '' : '1',
@@ -1764,7 +1777,7 @@ export function registerSite(app) {
     const img = big
       ? `<img src="${imgUrl(LOGO_DEEP)}" width="260" height="109" alt="${esc(ps.brand_name)}" fetchpriority="high" decoding="async" />`
       : `<img src="${imgUrl(MARK_GREEN)}" width="104" height="20" alt="${esc(ps.brand_name)}" decoding="async" />`;
-    return `<header class="lh__head${big ? '' : ' lh__head--small'}"><a class="${big ? 'lh__logo' : 'lh__mark'}" href="${esc(href)}" aria-label="${esc(ps.brand_name)}: ${big ? 'عن المكتب' : 'الصفحة الأولى'}" data-tag="${tag}">${img}</a></header>`;
+    return `<header class="lh__head${big ? '' : ' lh__head--small'}" data-tag="L-12"><a class="${big ? 'lh__logo' : 'lh__mark'}" href="${esc(href)}" aria-label="${esc(ps.brand_name)}: ${big ? 'عن المكتب' : 'الصفحة الأولى'}" data-tag="${tag}">${img}</a></header>`;
   }
 
   /** «رجوع» (L-02) إلى الصفحة الأب (لا history.back، فيصح للرابط المشارَك) والمسار (L-03) بكلمات الاختيارات « · »؛ بلا نقاط (L12-03) */
@@ -1772,7 +1785,7 @@ export function registerSite(app) {
     const up = page.back === '/' ? 0 : page.back.split('/').length - 2;
     const to = up ? ` إلى «${esc(page.trail[up - 1].label)}»` : ' إلى الصفحة الأولى';
     return (
-      `<nav class="trail" aria-label="المسار"><a class="trail__back" href="${esc(withQuery(page.back, q))}" data-tag="L-02">رجوع<span class="pub-sr">${to}</span></a>` +
+      `<nav class="trail" aria-label="المسار" data-tag="L-13"><a class="trail__back" href="${esc(withQuery(page.back, q))}" data-tag="L-02">رجوع<span class="pub-sr">${to}</span></a>` +
       `<span class="trail__sep" aria-hidden="true"></span><span class="trail__path" data-tag="L-03"><span class="pub-sr">اخترتم: </span>${page.trail.map((t) => esc(t.label)).join(' · ')}</span></nav>`
     );
   }
@@ -1832,7 +1845,7 @@ export function registerSite(app) {
         tree_description: TITLES.homeDesc,
         tree_depth: String(page.depth),
         // E12-25: المستوى الثالث يحمّل ملفات نموذج الطلب مسبقًا (entry.js بعد التحميل)
-        tree_prefetch: page.depth === 3 ? prefetchUrls() : '',
+        tree_prefetch: page.depth === 3 ? prefetchUrls({ charity: false }) : '',
         // E12-24: الشعار الكبير يُحمَّل مبكرًا في «/» وحدها
         tree_preload: treePath ? '' : `<link rel="preload" as="image" href="${imgUrl(LOGO_DEEP)}" fetchpriority="high" />`,
         tree_main: treeMainHtml(page, ps, q),
@@ -1850,14 +1863,23 @@ export function registerSite(app) {
    * شرطة أخيرة ← 301 بدونها؛ ورقة ← 302 /intake?path=…؛ مخرج ← 302 /company؛ معرّف متقاعد ← 301 إلى بديله؛ غير ذلك ← 302
    * إلى أعمق صفحة صالحة قبله (أو «/»). سياق الشجرة: خدمة الشركات متوقفة تخفي «مستشار قانوني للشركة»، والبوابة المغلقة تتخطى سؤالها.
    */
+  /**
+   * مسار الشجرة لمفتاح موضوع قديم (E12-06): المفاتيح وأسماؤها القديمة في 9.1 (inheritance، pensions، housing، documents)
+   * تمر أولًا على topicByKey كما في 11.0 — v12 entry review (R1): كانت الأسماء القديمة تسقط إلى «/».
+   */
+  function topicPathOf(raw) {
+    const t = raw ? topicByKey(String(raw)) : null;
+    return t && Object.hasOwn(TOPIC_TO_PATH, t.key) ? TOPIC_TO_PATH[t.key] : null;
+  }
+
   function serveTree(req, res, url) {
     const ctx = app.pathways?.treeCtx?.() ?? { b2b: true, portal: true };
     const p = url.pathname;
     if (p === '/') {
       const sp = url.searchParams;
       if (sp.get('gate') === '1') return redirectTo(res, url, '/', 301);
-      const topic = sp.get('topic');
-      if (topic && Object.hasOwn(TOPIC_TO_PATH, topic)) return redirectTo(res, url, app.pathways.classify(TOPIC_TO_PATH[topic], ctx).canonical, 302);
+      const topicPath = topicPathOf(sp.get('topic'));
+      if (topicPath) return redirectTo(res, url, app.pathways.classify(topicPath, ctx).canonical, 302);
       return renderTree(req, res, url, '', ctx);
     }
     const slash = p.length > 7 && p.endsWith('/');
@@ -1981,7 +2003,7 @@ export function registerSite(app) {
       footer: '',
       lh_head: treeLogoHtml(ps, 2, q, 'I-04'),
       lh_trail:
-        `<nav class="trail" aria-label="المسار"><a class="trail__back" href="${esc(withQuery(back, q))}" data-tag="I-03">رجوع<span class="pub-sr">${to}</span></a>` +
+        `<nav class="trail" aria-label="المسار" data-tag="I-196"><a class="trail__back" href="${esc(withQuery(back, q))}" data-tag="I-03">رجوع<span class="pub-sr">${to}</span></a>` +
         `<span class="trail__sep" aria-hidden="true"></span><span class="trail__path" data-tag="I-01"><span class="pub-sr">اخترتم: </span>${words.map(esc).join(' · ')}</span></nav>`,
       lh_foot: treeFootHtml(ps, q),
     };
@@ -2012,9 +2034,10 @@ export function registerSite(app) {
     const mode = sp.get('mode');
     if (mode === 'company') return redirectTo(res, url, withEntry(url, '/intake?path=company/counsel/proposal'), 302);
     if (mode === 'callback') return renderIntake(req, res, { side: 'paid', ctx, url });
-    const topic = sp.get('topic');
-    if (topic && Object.hasOwn(TOPIC_TO_PATH, topic)) return redirectTo(res, url, app.pathways.classify(TOPIC_TO_PATH[topic], ctx).canonical, 302);
-    const area = sp.get('area');
+    const topicPath = topicPathOf(sp.get('topic'));
+    if (topicPath) return redirectTo(res, url, app.pathways.classify(topicPath, ctx).canonical, 302);
+    // ?area= كما قبلها 11.0 (intake.js كان يقبلها بأي حالة أحرف: inh = INH)
+    const area = String(sp.get('area') || '').toUpperCase();
     if (area && Object.hasOwn(AREA_TO_PATH, area)) return redirectTo(res, url, app.pathways.classify(AREA_TO_PATH[area], ctx).canonical, 302);
     return redirectTo(res, url, '/', 302);
   }
@@ -2137,6 +2160,7 @@ export function registerSite(app) {
   // v11 gate-public (L11-58، دفاعي): قصاصات الشعار النقطية لا تُخزَّن في هواتف الفريق أبدًا
   const PRECACHE_SKIP = [/^\/assets\/js\/public\//, /^\/assets\/css\/public-(?:site|ui)\.css$/, /^\/assets\/img\/og-image\.png$/, /^\/assets\/fonts\/[^/]+\.txt$/, /^\/assets\/img\/emam-(?:full|mark)-.*\.(?:png|webp)$/];
   PRECACHE_SKIP.push(/^\/assets\/js\/lib\/scan(?:-core|-worker|-sheet|ner)\.js$/); // v12 media (H-M11، L12-89): الماسح يُنزَّل عند أول صورة فقط
+  PRECACHE_SKIP.push(/^\/assets\/js\/lib\/tags(?:-pages(?:-app)?)?\.js$/); // v12 tags (H-T، T12-32): طبقة الرموز وجدولاها عند الطلب فقط (tags-boot.js يبقى: في إقلاع /app)
 
   function listAssets() {
     const root = path.join(pub, 'assets');

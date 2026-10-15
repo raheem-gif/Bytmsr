@@ -39,7 +39,7 @@ function when(iso, prefix = '') {
 function caseLink(r, tab) {
   return h(
     'a.pa-case-link',
-    { href: `#/cases/${r.case_id}${tab ? `?tab=${tab}` : ''}` },
+    { href: `#/cases/${r.case_id}${tab ? `?tab=${tab}` : ''}`, tag: 'QUE-01' },
     codeTag(r.case_code),
     h('span.pa-case-link-title', r.case_title || ''),
   );
@@ -49,7 +49,7 @@ function caseLink(r, tab) {
 export function companyChip(r) {
   const cr = r && r.company_request;
   if (!cr) return null;
-  return h('a.pa-co-chip', { href: `#/company-requests/${cr.id}` }, badge([cr.company_name, cr.code].filter(Boolean).join(' · '), 'info', { icon: 'building' }));
+  return h('a.pa-co-chip', { href: `#/company-requests/${cr.id}`, tag: 'QUE-02' }, badge([cr.company_name, cr.code].filter(Boolean).join(' · '), 'info', { icon: 'building' }));
 }
 /** gate J-13: الطرف الآخر في طلبات المعلومات — الشركة أو المستفيد/ة */
 export const whoOf = (r) => (r && r.company_request ? 'الشركة' : 'المستفيد/ة');
@@ -78,10 +78,11 @@ export default async function render(ctx) {
         submitLabel: 'إرسال للشركة',
         values: { client_message: r.question },
         fields: [
-          { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'}) — ${r.company_request.code}`, value: r.question, full: true },
-          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+          { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'}) — ${r.company_request.code}`, value: r.question, full: true, tag: 'QUE-03' },
+          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5, tag: 'QUE-04' },
         ],
         onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message }),
+        tag: 'QUE-05',
       });
       if (co) {
         toast('أُرسل الطلب للشركة عبر بوابتها', 'success');
@@ -96,11 +97,12 @@ export default async function render(ctx) {
       submitLabel: 'إرسال للمستفيد/ة',
       values: { client_message: r.question, channel: 'auto' },
       fields: [
-        { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true },
-        { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: SEND_CHANNELS },
+        { type: 'static', label: `سؤال المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true, tag: 'QUE-06' },
+        { name: 'client_message', label: 'نص الرسالة للمستفيد/ة', type: 'textarea', required: true, maxLength: 3000, rows: 5, tag: 'QUE-07' },
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: SEND_CHANNELS, tag: 'QUE-08' },
       ],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/approve`, { client_message: v.client_message, channel: v.channel }),
+      tag: 'QUE-09',
     });
     if (res) {
       toast(`أُرسل الطلب للمستفيد/ة${res.sent_channel ? ` عبر ${label('channel', res.sent_channel)}` : ''}`, 'success');
@@ -119,11 +121,12 @@ export default async function render(ctx) {
       submitLabel: 'أرسل الرد للمحامي',
       values: { response_text: '', approve_extension: false },
       fields: [
-        { type: 'static', label: `طلب المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true },
-        ext && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
-        { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 4 },
+        { type: 'static', label: `طلب المحامي (${r.requested_by_name || 'محامٍ'})`, value: r.question, full: true, tag: 'QUE-10' },
+        ext && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true, tag: 'QUE-11' },
+        { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 4, tag: 'QUE-12' },
       ],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, approve_extension: !!v.approve_extension }),
+      tag: 'QUE-13',
     });
     if (res) {
       toast('وصل الرد للمحامي', 'success');
@@ -136,8 +139,9 @@ export default async function render(ctx) {
       title: 'رفض طلب المعلومات',
       intro: 'لن يُرسل شيء للمستفيد/ة، وسيصل سبب الرفض للمحامي.',
       submitLabel: 'رفض الطلب',
-      fields: [{ name: 'note', label: 'سبب الرفض (يراه المحامي)', type: 'textarea', required: true, maxLength: 2000, rows: 3, hint: 'مثال: المعلومة متاحة بالفعل في ملخص الوقائع.' }],
+      fields: [{ name: 'note', label: 'سبب الرفض (يراه المحامي)', type: 'textarea', required: true, maxLength: 2000, rows: 3, hint: 'مثال: المعلومة متاحة بالفعل في ملخص الوقائع.', tag: 'QUE-14' }],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/reject`, { note: v.note }),
+      tag: 'QUE-15',
     });
     if (res) {
       toast('رُفض الطلب وأُبلغ المحامي بالسبب', 'success');
@@ -162,14 +166,15 @@ export default async function render(ctx) {
         document_ids: Array.isArray(r.document_ids) ? r.document_ids : docs.map((d) => d.id),
       },
       fields: [
-        { type: 'static', label: `المطلوب من ${whoOf(r)}`, value: r.client_message || r.question, full: true },
-        { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 6 },
+        { type: 'static', label: `المطلوب من ${whoOf(r)}`, value: r.client_message || r.question, full: true, tag: 'QUE-16' },
+        { name: 'response_text', label: 'الرد الذي سيراه المحامي', type: 'textarea', required: true, maxLength: 10000, rows: 6, tag: 'QUE-17' },
         docs.length > 0 && {
           name: 'document_ids',
           label: `مرفقات ${whoOf(r)} التي تُتاح مع الرد`,
           type: 'checkboxes',
           options: docs.map((d) => ({ value: d.id, label: d.title || d.filename || `مستند #${d.id}` })),
           hint: 'ألغِ اختيار أي مرفق لا يحتاجه المحامي. لإتاحة مستندات أخرى أو إتاحة الرد لأعضاء آخرين في الفريق افتح الملف.',
+          tag: 'QUE-18',
         },
       ],
       onSubmit: (v) => {
@@ -178,6 +183,7 @@ export default async function render(ctx) {
         // v10 b2b-staff (review): على ملف شركة لا طلب متابعة آلي (لا يصل بوابتها)؛ الباقي يُطلب بـ«سؤال للشركة»
         return api.post(`/admin/info-requests/${r.id}/share`, { response_text: v.response_text, document_ids: ids, ...(r.company_request ? { request_rest: false } : {}) });
       },
+      tag: 'QUE-19',
     });
     if (res) {
       toast(sharedDocs ? 'أُتيح الرد ومرفقاته للمحامي' : 'أصبح الرد متاحًا للمحامي', 'success');
@@ -189,8 +195,9 @@ export default async function render(ctx) {
     const res = await formDialog({
       title: 'رفض طلب المساعدة',
       submitLabel: 'رفض الطلب',
-      fields: [{ name: 'note', label: 'سبب الرفض (يراه المحامي)', type: 'textarea', required: true, maxLength: 2000, rows: 3 }],
+      fields: [{ name: 'note', label: 'سبب الرفض (يراه المحامي)', type: 'textarea', required: true, maxLength: 2000, rows: 3, tag: 'QUE-20' }],
       onSubmit: (v) => api.post(`/admin/counsel-requests/${r.id}/reject`, { note: v.note }),
+      tag: 'QUE-21',
     });
     if (res) {
       toast('رُفض طلب المساعدة وأُبلغ المحامي', 'success');
@@ -227,9 +234,9 @@ export default async function render(ctx) {
             actions: [
               // v9.1 l-work: لا «إرسال للمستفيد/ة» للمهلة والسؤال للإدارة والطلب المكرر
               adminOnly(r)
-                ? button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => answerLawyer(r) })
-                : button('موافقة وإرسال', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => approveInfo(r) }),
-              button('رفض', { variant: 'ghost', size: 'sm', icon: 'x', onClick: () => rejectInfo(r) }),
+                ? button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => answerLawyer(r), tag: 'QUE-22' })
+                : button('موافقة وإرسال', { variant: 'primary', size: 'sm', icon: 'send', onClick: () => approveInfo(r), tag: 'QUE-23' }),
+              button('رفض', { variant: 'ghost', size: 'sm', icon: 'x', onClick: () => rejectInfo(r), tag: 'QUE-24' }),
             ],
           }),
         ),
@@ -254,7 +261,7 @@ export default async function render(ctx) {
                     r.documents.map((d) =>
                       h(
                         'a.doc-chip',
-                        { href: downloadUrl(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename || ''}` },
+                        { href: downloadUrl(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename || ''}`, tag: 'QUE-25' },
                         icon('paperclip', { size: 14 }),
                         h('span', { dir: 'auto' }, d.title || d.filename || `مستند #${d.id}`),
                       ),
@@ -272,12 +279,12 @@ export default async function render(ctx) {
             ],
             actions: r.assignment_id
               ? [
-                  button('إتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'eye', onClick: () => shareReply(r) }),
-                  button('فتح الملف لإرفاق المستندات', { variant: 'ghost', size: 'sm', icon: 'paperclip', href: `#/cases/${r.case_id}?tab=requests` }),
+                  button('إتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'eye', onClick: () => shareReply(r), tag: 'QUE-26' }),
+                  button('فتح الملف لإرفاق المستندات', { variant: 'ghost', size: 'sm', icon: 'paperclip', href: `#/cases/${r.case_id}?tab=requests`, tag: 'QUE-27' }),
                 ]
               : [
                   // طلب أنشأته الإدارة: لا يوجد محامٍ طالب، فيُختار أعضاء الفريق والمستندات من الملف
-                  button('مراجعة وإتاحة من الملف', { variant: 'primary', size: 'sm', icon: 'shieldCheck', href: `#/cases/${r.case_id}?tab=requests` }),
+                  button('مراجعة وإتاحة من الملف', { variant: 'primary', size: 'sm', icon: 'shieldCheck', href: `#/cases/${r.case_id}?tab=requests`, tag: 'QUE-28' }),
                 ],
           }),
         ),
@@ -309,8 +316,8 @@ export default async function render(ctx) {
             ),
             foot: [h('span', icon('user', { size: 14 }), `طلبه: ${r.requester_name || 'محامٍ'}`), when(r.created_at)],
             actions: [
-              button('اختيار المحامي وتحديد الصلاحيات', { variant: 'primary', size: 'sm', icon: 'userPlus', href: `#/cases/${r.case_id}?tab=requests` }),
-              button('رفض', { variant: 'ghost', size: 'sm', icon: 'x', onClick: () => rejectCounsel(r) }),
+              button('اختيار المحامي وتحديد الصلاحيات', { variant: 'primary', size: 'sm', icon: 'userPlus', href: `#/cases/${r.case_id}?tab=requests`, tag: 'QUE-29' }),
+              button('رفض', { variant: 'ghost', size: 'sm', icon: 'x', onClick: () => rejectCounsel(r), tag: 'QUE-30' }),
             ],
           }),
         ),
@@ -326,14 +333,16 @@ export default async function render(ctx) {
         table({
           caption: 'آراء بانتظار المراجعة',
           columns: [
-            { key: 'case', label: 'الملف', className: 'col-wide', render: (r) => caseLink(r, 'opinions') },
-            { key: 'lawyer_name', label: 'المحامي' },
-            { key: 'role', label: 'الدور في الفريق', render: (r) => statusBadge('assignment_role', r.role, { dot: false }) },
-            { key: 'version', label: 'النسخة', align: 'center', render: (r) => (r.version != null ? String(r.version) : '—') },
-            { key: 'submitted_at', label: 'قُدِّم', render: (r) => when(r.submitted_at) },
-            { key: 'go', label: '', render: (r) => button('مراجعة الرأي', { size: 'sm', icon: 'eye', href: `#/cases/${r.case_id}?tab=opinions` }) },
+            { key: 'case', label: 'الملف', className: 'col-wide', render: (r) => caseLink(r, 'opinions'), tag: 'QUE-31' },
+            { key: 'lawyer_name', label: 'المحامي', tag: 'QUE-32' },
+            { key: 'role', label: 'الدور في الفريق', render: (r) => statusBadge('assignment_role', r.role, { dot: false }), tag: 'QUE-33' },
+            { key: 'version', label: 'النسخة', align: 'center', render: (r) => (r.version != null ? String(r.version) : '—'), tag: 'QUE-34' },
+            { key: 'submitted_at', label: 'قُدِّم', render: (r) => when(r.submitted_at), tag: 'QUE-35' },
+            { key: 'go', label: '', render: (r) => button('مراجعة الرأي', { size: 'sm', icon: 'eye', href: `#/cases/${r.case_id}?tab=opinions`, tag: 'QUE-36' }), tag: 'QUE-37' },
           ],
           rows,
+          rowTag: 'QUE-38',
+          tag: 'QUE-39',
         }),
     },
     {
@@ -352,7 +361,7 @@ export default async function render(ctx) {
               asyncButton(
                 'اعتماد',
                 () => act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'active' }), 'اعتُمدت المسألة وأُتيحت للمحامي', 'proposed_issues'),
-                { variant: 'primary', size: 'sm', icon: 'check' },
+                { variant: 'primary', size: 'sm', icon: 'check', tag: 'QUE-40' },
               ),
               asyncButton(
                 'استبعاد',
@@ -362,10 +371,11 @@ export default async function render(ctx) {
                     message: `ستُستبعد المسألة «${r.title}» من الملف ${r.case_code} ولن تظهر لأي محامٍ.`,
                     confirmLabel: 'استبعاد',
                     danger: true,
+                    tag: 'QUE-41',
                   });
                   if (ok) await act(() => api.patch(`/admin/cases/${r.case_id}/issues/${r.id}`, { status: 'dropped' }), 'استُبعدت المسألة', 'proposed_issues');
                 },
-                { variant: 'ghost', size: 'sm', icon: 'x' },
+                { variant: 'ghost', size: 'sm', icon: 'x', tag: 'QUE-42' },
               ),
             ],
           }),
@@ -382,7 +392,7 @@ export default async function render(ctx) {
           item({
             head: [caseLink(r, 'opinions'), statusBadge('case_status', 'approved')],
             foot: [when(r.updated_at, 'آخر تحديث ')],
-            actions: [button('إعداد الرد للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'edit', href: `#/cases/${r.case_id}?tab=opinions` })],
+            actions: [button('إعداد الرد للمستفيد/ة', { variant: 'primary', size: 'sm', icon: 'edit', href: `#/cases/${r.case_id}?tab=opinions`, tag: 'QUE-43' })],
           }),
         ),
     },
@@ -398,13 +408,15 @@ export default async function render(ctx) {
           caption: 'إسنادات متأخرة',
           rowClass: () => 'is-highlight',
           columns: [
-            { key: 'case', label: 'الملف', className: 'col-wide', render: (r) => caseLink(r) },
-            { key: 'lawyer_name', label: 'المحامي' },
-            { key: 'role', label: 'الدور', render: (r) => statusBadge('assignment_role', r.role, { dot: false }) },
-            { key: 'status', label: 'الحالة', render: (r) => statusBadge('assignment_status', r.status) },
-            { key: 'due_at', label: 'الموعد', render: (r) => dueBadge(r.due_at) },
+            { key: 'case', label: 'الملف', className: 'col-wide', render: (r) => caseLink(r), tag: 'QUE-44' },
+            { key: 'lawyer_name', label: 'المحامي', tag: 'QUE-45' },
+            { key: 'role', label: 'الدور', render: (r) => statusBadge('assignment_role', r.role, { dot: false }), tag: 'QUE-46' },
+            { key: 'status', label: 'الحالة', render: (r) => statusBadge('assignment_status', r.status), tag: 'QUE-47' },
+            { key: 'due_at', label: 'الموعد', render: (r) => dueBadge(r.due_at), tag: 'QUE-48' },
           ],
           rows,
+          rowTag: 'QUE-49',
+          tag: 'QUE-50',
         }),
     },
     {
@@ -420,7 +432,7 @@ export default async function render(ctx) {
             head: [h('span.pa-qitem-label', icon('alert', { size: 15 }), 'يذكر الطلب'), codeTag(r.referenced_code)],
             body: quote(r.body),
             foot: [when(r.created_at)],
-            actions: [button('التحقق من الهوية', { variant: 'primary', size: 'sm', icon: 'shieldCheck', href: `#/inbox/${r.intake_id}` })],
+            actions: [button('التحقق من الهوية', { variant: 'primary', size: 'sm', icon: 'shieldCheck', href: `#/inbox/${r.intake_id}`, tag: 'QUE-51' })],
           }),
         ),
     },
@@ -453,10 +465,10 @@ export default async function render(ctx) {
     const el = !rows.length
       ? h(
           'section.card.pa-qcard.is-empty',
-          h(
+          { tag: 'QUE-52' }, h(
             'div.pa-qempty',
             h('span.pa-qempty-icon', icon(s.icon, { size: 16 })),
-            h('div.pa-qempty-text', h('h2.pa-qempty-title', s.title), h('p', s.empty)),
+            h('div.pa-qempty-text', h('h2.pa-qempty-title', { tag: 'QUE-53' }, s.title), h('p', s.empty)),
             h('span.pa-qempty-ok', icon('checkCircle', { size: 16 }), h('span.sr-only', 'لا يوجد')),
           ),
         )
@@ -467,7 +479,9 @@ export default async function render(ctx) {
       className: ['pa-qcard', !rows.length && 'is-empty'],
       flush: Boolean(rows.length && s.flush),
       actions: badge(String(rows.length), rows.length ? (s.readonly ? 'neutral' : 'warning') : 'muted', { title: `العدد: ${rows.length}` }),
-      body: rows.length ? s.render(rows) : emptyState(s.empty, null, { compact: true, icon: 'checkCircle' }),
+      body: rows.length ? s.render(rows) : emptyState(s.empty, null, { compact: true, icon: 'checkCircle', tag: 'QUE-54' }),
+      titleTag: 'QUE-55',
+      tag: 'QUE-56',
     });
     el.id = `pa-q-${s.key}`;
     el.tabIndex = -1;
@@ -485,12 +499,12 @@ export default async function render(ctx) {
 
   const nav = h(
     'nav.pa-qnav',
-    { 'aria-label': 'أقسام قائمة القرارات' },
+    { 'aria-label': 'أقسام قائمة القرارات', tag: 'QUE-57' },
     SECTIONS.map((s) => {
       const n = (q[s.key] || []).length;
       return h(
         'button.pa-qnav-item',
-        { type: 'button', class: n ? (s.readonly ? 'is-info' : 'is-pending') : 'is-zero', onClick: () => jump(s.key) },
+        { type: 'button', class: n ? (s.readonly ? 'is-info' : 'is-pending') : 'is-zero', onClick: () => jump(s.key), tag: 'QUE-58' },
         h('span', s.title),
         h('span.tab-count', String(n)),
       );
@@ -506,11 +520,13 @@ export default async function render(ctx) {
     pageHeader({
       title: 'بانتظار قرار الإدارة',
       subtitle: 'كل ما يحتاج قرارًا من الإدارة قبل أن يصل إلى المستفيد/ة أو المحامي',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'بانتظار قرار الإدارة' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'QUE-59' }, { label: 'بانتظار قرار الإدارة' }],
       meta: [badge(total ? `بانتظار قرارك: ${total}` : 'لا توجد قرارات معلقة', total ? 'warning' : 'success', { icon: total ? 'clock' : 'checkCircle' })],
-      actions: button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => ctx.reload() }),
+      actions: button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => ctx.reload(), tag: 'QUE-60' }),
+      titleTag: 'QUE-61',
+      tag: 'QUE-62',
     }),
-    total === 0 && alertBox('لا يوجد ما ينتظر قرارك الآن. ستظهر هنا طلبات المحامين وردود المستفيدين والآراء المقدمة فور وصولها.', 'success', { title: 'كل شيء محدَّث' }),
+    total === 0 && alertBox('لا يوجد ما ينتظر قرارك الآن. ستظهر هنا طلبات المحامين وردود المستفيدين والآراء المقدمة فور وصولها.', 'success', { title: 'كل شيء محدَّث', tag: 'QUE-63' }),
     nav,
     h('div.pa-qgrid', cards),
   );

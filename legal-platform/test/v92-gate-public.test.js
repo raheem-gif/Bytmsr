@@ -292,12 +292,13 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
       for (const p of ['/intake?seg=charity', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345', '/khayri']) {
         const r = await t.client().get(p);
         assert.equal(r.status, 200, p);
-        assert.match(r.body, /<a class="skip-link" href="#main" data-tag="H-10">انتقال إلى المحتوى<\/a>/, p);
+        // v12 entry review: intended (R2, §5.9/T12-22): H-10 only on paid pages; these restored charity pages carry no H- code
+        assert.match(r.body, /<a class="skip-link" href="#main">انتقال إلى المحتوى<\/a>/, p);
         assert.ok(!r.body.includes('تخطَّ'), p);
       }
       const home = (await t.client().get('/khayri')).body;
       const header = /<header class="pub-header"[\s\S]*?<\/header>/.exec(home)[0];
-      assert.match(header, /<a class="pub-nav-link pub-nav-portal" href="\/portal" data-tag="H-06"><svg[\s\S]*?<\/svg><span>طلبك فين؟<\/span><\/a>/);
+      assert.match(header, /<a class="pub-nav-link pub-nav-portal" href="\/portal"><svg[\s\S]*?<\/svg><span>طلبك فين؟<\/span><\/a>/); // v12 entry review: intended (R2)
       assert.ok(!header.includes('تابعي'), 'no feminine verb in the home header');
       const privacy = (await t.client().get('/privacy?side=charity')).body;
       assert.match(/<header class="pub-header"[\s\S]*?<\/header>/.exec(privacy)[0], /<span>تابعي طلبك<\/span>/);

@@ -63,3 +63,13 @@ html.scn-open{overflow:hidden}
 .doc-pdf{display:block;line-height:2}
 .doc-info{flex-basis:100%;margin:0;color:#dbe6ea;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
 .doc-info code{font-size:12px;unicode-bidi:isolate}
+/* v12 media (MD-10): لوحة النص المقروء آليًا (للفريق فقط) */
+.ocr-panel{display:grid;gap:12px}
+.ocr-panel__label{margin:0;padding:8px 10px;border-inline-start:3px solid var(--warn,#b45309);background:var(--surface-2,#f6f6f4);font-size:14px;line-height:1.7}
+.ocr-panel__state,.ocr-panel__meta,.ocr-panel__tools{margin:0;font-size:13px;color:var(--ink-2,#4b5563)}
+.ocr-panel__page{display:grid;gap:6px;padding-top:10px;border-top:1px solid var(--rule,#e5e7eb)}
+.ocr-panel__text{margin:0;max-height:45vh;overflow:auto;padding:10px;border:1px solid var(--rule,#e5e7eb);background:var(--surface,#fff);font:inherit;font-size:15px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere}
+.ocr-panel__edit{width:100%;min-height:12em;font-size:15px;line-height:1.9}
+.ocr-panel__actions{display:flex;flex-wrap:wrap;gap:8px}
+.ocr-panel .btn-link{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+.ocr-panel__actions .btn{min-height:44px}

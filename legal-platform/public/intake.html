@@ -25,8 +25,8 @@
           <div class="bmf-loading" role="status"><span class="bmf-spinner" aria-hidden="true"></span><span>لحظة…</span></div>
           <div class="bmf-card bmf-slow" data-slow>
             <p class="bmf-card-text">{{intake_slow}}</p>
-            <!--#if whatsapp_url--><a class="bmf-btn bmf-btn-wa bmf-btn-lg bmf-btn-block" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer">{{{icon_whatsapp}}}<span>واتساب</span></a><!--/if whatsapp_url-->
-            <!--#if org_phone--><a class="bmf-btn bmf-btn-outline bmf-btn-lg bmf-btn-block" href="tel:{{org_phone_href}}">{{{icon_phone}}}<span>{{intake_call}}</span><span class="bmf-ltr" dir="ltr">{{org_phone}}</span></a><!--/if org_phone-->
+            <!--#if whatsapp_url--><a class="bmf-btn bmf-btn-wa bmf-btn-lg bmf-btn-block" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer" data-tag="I-189">{{{icon_whatsapp}}}<span>واتساب</span></a><!--/if whatsapp_url-->
+            <!--#if org_phone--><a class="bmf-btn bmf-btn-outline bmf-btn-lg bmf-btn-block" href="tel:{{org_phone_href}}" data-tag="I-190">{{{icon_phone}}}<span>{{intake_call}}</span><span class="bmf-ltr" dir="ltr">{{org_phone}}</span></a><!--/if org_phone-->
             {{{contact_list}}}
           </div>
           <div class="bmf-card" data-fallback hidden>
@@ -35,7 +35,7 @@
           </div>
           <noscript>
             <div class="bmf-card">
-              <h1>{{intake_nojs_h1}}</h1>
+              <h1 data-tag="I-191">{{intake_nojs_h1}}</h1>
               <p>{{intake_nojs}}</p>
               {{{contact_list}}}
             </div>

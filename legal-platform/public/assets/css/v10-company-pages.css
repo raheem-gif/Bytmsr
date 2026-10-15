@@ -173,7 +173,7 @@
     align-items: center;
     justify-content: center;
     padding: 48px;
-    background: linear-gradient(160deg, var(--primary-800), var(--primary-900));
+    background: var(--primary-900);
     color: var(--surface);
   }
 

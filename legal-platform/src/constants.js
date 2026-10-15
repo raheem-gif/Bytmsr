@@ -1149,10 +1149,17 @@ export const LABELS = {
     'document.ocr_requested': 'طلب قراءة نص مستند',
     'voice.auto_requested': 'طلب تحويل رسالة صوتية إلى نص الآن',
     'voice.transcribed': 'مراجعة النص الآلي لرسالة صوتية',
+    'media.job_requested': 'طلب إعادة معالجة مستند',
+    'media.backfill_queued': 'استكمال معالجة المستندات والصوت',
+    'media.status_viewed': 'عرض حالة معالجة المستندات والصوت',
     'settings.web_voice_changed': 'تغيير الرسائل الصوتية من الموقع',
     'settings.stt_charity_changed': 'تغيير تحويل صوت «خيري» عند جهة خارجية',
     'settings.ocr_claude_changed': 'تغيير إرسال صور المستندات إلى Claude',
     'settings.ocr_claude_companies_changed': 'تغيير قراءة مستندات الشركات بـ Claude',
+  },
+  // v12 tags (TG-5، T12-62، §2.1): قراءة سجل «رموز العناصر» تُسجَّل (تُدمج في security_event أدناه)
+  tags_security_event: {
+    'tags.registry_viewed': 'عرض سجل رموز العناصر',
   },
 };
 
@@ -1368,6 +1375,58 @@ export const TEXT_TAGS = Object.freeze({
   lines_list_company: 'W-04',
   lines_next: 'W-05',
   lines_counsel: 'W-06',
+  // v12 tags (TG-4، T12-20، T12-79): بقية رسائل واتساب. المفتاح نفسه بنبرة «خيري» وبنبرة الأفراد والشركات = رمز واحد.
+  otp: 'W-07',
+  portal_update: 'W-08',
+  confirm_reply: 'W-09',
+  info_suffix_document: 'W-10',
+  info_suffix_information: 'W-11',
+  document_fallback: 'W-12',
+  document_sent: 'W-13',
+  survey_question: 'W-14',
+  survey_footer: 'W-15',
+  survey_thanks: 'W-16',
+  survey_ask_comment: 'W-17',
+  survey_comment_thanks: 'W-18',
+  portal_link_message: 'W-19',
+  story_welcome: 'W-20',
+  story_welcome_header: 'W-21',
+  story_welcome_button: 'W-22',
+  story_welcome_section: 'W-23',
+  story_welcome_footer: 'W-24',
+  story_topic_nudge: 'W-25',
+  story_ack: 'W-26',
+  story_ack_closed: 'W-27',
+  story_accepted: 'W-28',
+  story_accepted_matter: 'W-29',
+  story_questions: 'W-30',
+  story_refer_generic: 'W-31',
+  fee_line: 'W-32',
+  story_ack_neutral: 'W-33',
+  segment_choice: 'W-34',
+  segment_choice_footer: 'W-35',
+  segment_chosen_paid: 'W-36',
+  segment_chosen_charity: 'W-37',
+  to_paid: 'W-38',
+  to_charity: 'W-39',
+  'rule:hearing_reminder': 'W-40',
+  'rule:invoice_reminder': 'W-41',
+  'rule:document_reminder': 'W-42',
+  'rule:satisfaction_survey': 'W-43',
+  lines_list_button: 'W-44',
+  segment_choice_buttons: 'W-45',
+  survey_buttons: 'W-46',
+  hearing_reply_buttons: 'W-47',
+  // سطران من رسالتي W-01 وW-06 (الصيغة نفسها برمزها؛ آخر الخريطة لأن «tags:variant» يشمل السطر التالي أيضًا)
+  lines_menu_footer: 'W-01', // tags:variant: سطر أسفل رسالة W-01
+  lines_counsel_account: 'W-06', // tags:variant: سطر يُضاف إلى W-06 حين تكون بوابة الشركات مفتوحة
+});
+// v12 tags (TG-4، T12-20): عناوين أزرار واتساب التفاعلية التي كانت مكتوبة داخل الكود، منقولة إلى هنا بنصها حرفيًا
+// (segments.js سؤال نوع الخدمة، messaging.js أزرار الاستبيان، portal-v91.js أزرار تذكير الجلسة). لكل مجموعة رمز في TEXT_TAGS.
+export const WA_BUTTON_TEXTS = Object.freeze({
+  segment_choice_buttons: Object.freeze({ charity: 'خيري — مجاني', paid: 'أفراد وشركات' }),
+  survey_buttons: Object.freeze({ excellent: 'ممتاز', good: 'جيد', unhappy: 'غير راضٍ', unhappy_charity_m: 'مش راضي', unhappy_charity_f: 'مش راضية' }),
+  hearing_reply_buttons: Object.freeze({ yes: 'هحضر', no: 'مش هقدر', yes_paid: 'سأحضر', no_paid: 'لن أتمكن' }),
 });
 
 // v9.2 — مسارات الطلب التي يقترحها الذكاء الاصطناعي وتعتمدها الإدارة، وقواعد الرسائل الآلية للقصص

@@ -15,6 +15,7 @@
     "admin": "node --disable-warning=ExperimentalWarning scripts/admin.js",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "restore": "node --disable-warning=ExperimentalWarning scripts/restore.js",
+    "tags": "node --disable-warning=ExperimentalWarning scripts/tags.js",
     "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "license": "UNLICENSED",

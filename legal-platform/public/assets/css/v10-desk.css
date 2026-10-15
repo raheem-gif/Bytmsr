@@ -10,19 +10,12 @@
 .cq-list { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .cq-group { display: flex; flex-direction: column; gap: 10px; }
 .cq-group-title { display: flex; align-items: center; gap: 8px; margin: 0; font: var(--t-headline); }
-.cq-group-count {
-  min-width: 26px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-700);
-  font: var(--t-footnote);
-  text-align: center;
-}
+/* v12 look (review, A21): plain counts */
+.cq-group-count { color: var(--ink-3); font: var(--t-footnote); font-variant-numeric: tabular-nums; }
 .cq-group-escalated .cq-group-count,
 .cq-group-late .cq-group-count,
-.cq-group-plan_error .cq-group-count { background: var(--danger-100); color: var(--danger-700); }
-.cq-group-at_risk .cq-group-count { background: var(--warning-100); color: var(--warning-700); }
+.cq-group-plan_error .cq-group-count { color: var(--bad); }
+.cq-group-at_risk .cq-group-count { color: var(--warn); }
 .cq-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
 .cq-card {
   display: flex;

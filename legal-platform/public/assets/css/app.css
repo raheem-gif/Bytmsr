@@ -820,40 +820,17 @@ html[dir="rtl"] .icon-dir {
   background: var(--gray-50);
 }
 
+/* v12 look (review, K12-37/A04): words, no icon tile; unread = ivory row */
 .notif-item.is-unread {
-  background: var(--primary-50);
+  background: var(--paper-2);
 }
 
 .notif-item.is-unread:hover {
-  background: var(--primary-100);
+  background: var(--paper-3);
 }
 
 .notif-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: var(--gray-100);
-  color: var(--gray-700);
-  flex-shrink: 0;
-}
-
-.notif-item.is-unread .notif-icon {
-  background: var(--primary-100);
-  color: var(--primary-700);
-}
-
-.notif-icon.is-danger,
-.notif-item.is-unread .notif-icon.is-danger {
-  background: var(--danger-100);
-  color: var(--danger-700);
-}
-
-.notif-icon.is-warning,
-.notif-item.is-unread .notif-icon.is-warning {
-  background: var(--warning-100);
-  color: var(--warning-700);
+  display: none;
 }
 
 .notif-text {
@@ -1225,7 +1202,7 @@ html[dir="rtl"] .icon-dir {
 .badge-success { --tone-bg: var(--success-100); --tone-fg: var(--success-700); }
 .badge-warning { --tone-bg: var(--warning-100); --tone-fg: var(--warning-700); }
 .badge-danger { --tone-bg: var(--danger-100); --tone-fg: var(--danger-700); }
-.badge-accent { --tone-bg: var(--accent-100); --tone-fg: var(--accent-700); }
+.badge-accent { --tone-bg: var(--paper-2); --tone-fg: var(--warn); } /* v12 look (review, K12-P4): gold is never text */
 
 .badge-primary { --tone-bg: var(--surface); --tone-fg: var(--primary-700); box-shadow: inset 0 0 0 1px var(--primary-300); }
 
@@ -1479,7 +1456,7 @@ button.stat-card:hover {
 }
 
 .tone-primary { --tone-bg: var(--primary-50); --tone-fg: var(--primary-700); }
-.tone-accent { --tone-bg: var(--accent-100); --tone-fg: var(--accent-700); }
+.tone-accent { --tone-bg: var(--paper-2); --tone-fg: var(--warn); }
 .tone-success { --tone-bg: var(--success-100); --tone-fg: var(--success-700); }
 .tone-warning { --tone-bg: var(--warning-100); --tone-fg: var(--warning-700); }
 .tone-danger { --tone-bg: var(--danger-100); --tone-fg: var(--danger-700); }
@@ -1871,8 +1848,8 @@ input[type="datetime-local"].input {
   padding-inline: 12px;
   border: 1px solid var(--border-strong);
   border-inline-start: 0;
-  border-start-end-radius: 9px;
-  border-end-end-radius: 9px;
+  border-start-end-radius: var(--r-1);
+  border-end-end-radius: var(--r-1);
   background: var(--gray-50);
   color: var(--text-muted);
   font-size: 13.5px;
@@ -1880,7 +1857,7 @@ input[type="datetime-local"].input {
 }
 
 html[dir="rtl"] .input-group .input[dir="ltr"] {
-  border-radius: 0 9px 9px 0;
+  border-radius: 0 var(--r-1) var(--r-1) 0;
 }
 
 .input-group-action {
@@ -1888,12 +1865,12 @@ html[dir="rtl"] .input-group .input[dir="ltr"] {
 }
 
 .input-group-action .input {
-  border-radius: 9px;
+  border-radius: var(--r-1);
   padding-inline-end: 44px;
 }
 
 html[dir="rtl"] .input-group-action .input[dir="ltr"] {
-  border-radius: 9px;
+  border-radius: var(--r-1);
   padding-right: 12px;
   padding-left: 44px;
 }
@@ -2752,8 +2729,7 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .seg[aria-pressed="true"] .tab-count {
-  background: var(--primary-100);
-  color: var(--primary-800);
+  color: var(--ink); /* v12 look (review, A06/K12-34): a count is a figure, not a tinted chip */
 }
 
 .seg:focus-visible {
@@ -2801,12 +2777,16 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: var(--tone-bg, var(--gray-100));
+  background: var(--paper);
   color: var(--tone-fg, var(--gray-700));
-  box-shadow: 0 0 0 4px var(--surface);
 }
 
-.tl-dot:empty::after {
+/* v12 look (review, K12-28/37): a 7-px dot in the tone colour, no icon in a tinted circle */
+.tl-dot > svg {
+  display: none;
+}
+
+.tl-dot::after {
   content: "";
   width: 8px;
   height: 8px;
@@ -2855,10 +2835,8 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   flex-direction: column;
   gap: 6px;
   padding: 16px;
-  background: #efeae2;
-  background-image: radial-gradient(rgb(var(--primary-700-rgb) / 0.05) 1px, transparent 1px);
-  background-size: 18px 18px;
-  border-radius: var(--radius-lg);
+  background: var(--paper-2); /* v12 look (review): ivory, no WhatsApp dot wash (P8) */
+  border-radius: var(--r-1);
   min-width: 0;
 }
 
@@ -2874,13 +2852,9 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 
 .chat-day span {
   display: inline-block;
-  padding: 3px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--gray-600);
+  color: var(--ink-3);
   font-size: 12.5px;
   font-weight: 500;
-  box-shadow: var(--shadow-sm);
 }
 
 .msg {
@@ -2900,20 +2874,15 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 .msg-bubble {
   position: relative;
   padding: 8px 12px 6px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 1px rgba(16, 32, 42, 0.12);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-1);
+  background: var(--paper);
   min-width: 120px;
   max-width: 100%;
 }
 
-.msg-start .msg-bubble {
-  border-start-start-radius: 3px;
-}
-
 .msg-end .msg-bubble {
-  background: #d9f2e4;
-  border-start-end-radius: 3px;
+  background: var(--primary-50);
 }
 
 /* v11 gate fix V15: وقت الفقاعة الصادرة 5.32:1 على #d9f2e4 (كان gray-500 = 4.17:1) */
@@ -2922,8 +2891,8 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
 }
 
 .msg-auto .msg-bubble {
-  background: var(--accent-50);
-  box-shadow: 0 1px 1px rgba(16, 32, 42, 0.1), inset 0 0 0 1px var(--accent-100);
+  border-style: dashed;
+  background: var(--paper);
 }
 
 .msg-meta {
@@ -2940,41 +2909,25 @@ html[dir="rtl"] .input-group-action .input[dir="ltr"] {
   color: var(--primary-700);
 }
 
+/* v12 look (review, A06/K12-34): the channel is a word, not a pill */
 .chan-tag {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 0 6px;
-  border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 18px;
-  background: var(--gray-100);
-  color: var(--gray-700);
-}
-
-.chan-whatsapp {
-  background: #d7f0e3;
-  color: var(--success-700);
-}
-
-.chan-website,
-.chan-portal {
-  background: var(--info-100);
-  color: var(--info-700);
+  color: var(--ink-3);
 }
 
 .auto-tag {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 0 6px;
-  border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 18px;
-  background: var(--accent-100);
-  color: var(--accent-700);
+  color: var(--ink-3);
 }
 
 .msg-body {
@@ -3351,12 +3304,12 @@ a.doc-chip:hover {
   align-items: center;
   gap: 8px;
   font-size: 15px;
-  color: var(--accent-800);
+  color: var(--ink); /* v12 look (review, K12-P4): gold is never text */
 }
 
 .demo-panel > p {
   font-size: 13px;
-  color: var(--accent-700);
+  color: var(--ink-2);
   margin-block: 4px 12px;
 }
 
@@ -3614,17 +3567,17 @@ a.doc-chip:hover {
 }
 
 .event-item.is-required {
-  border-color: var(--accent-300);
-  background: var(--accent-50);
+  border-inline-start: 2px solid var(--warn);
+  background: var(--paper-2);
 }
 
+/* v12 look (review, K12-35): a date column, not a tinted chip */
 .event-date {
   width: 64px;
   flex-shrink: 0;
   text-align: center;
-  border-radius: 12px;
-  background: var(--primary-50);
-  color: var(--primary-800);
+  border-inline-end: 1px solid var(--rule);
+  color: var(--ink);
   padding: 6px 4px;
   line-height: 1.3;
 }

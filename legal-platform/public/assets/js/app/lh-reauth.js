@@ -26,7 +26,7 @@ export async function withPasswordConfirm(run) {
 function askAndRetry(run, message) {
   return new Promise((resolve, reject) => {
     let done = false;
-    const input = h('input.input#lh-reauth-pw', { type: 'password', autocomplete: 'current-password', dir: 'ltr', required: true });
+    const input = h('input.input#lh-reauth-pw', { type: 'password', autocomplete: 'current-password', dir: 'ltr', required: true, tag: 'LGN-29' });
     const err = h('p.field-error', { role: 'alert', hidden: true });
     const showError = (text) => {
       err.textContent = text;
@@ -43,7 +43,7 @@ function askAndRetry(run, message) {
         h('div.field', h('label.field-label', { for: 'lh-reauth-pw' }, 'كلمة المرور الحالية'), input, err),
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'LGN-30' },
         {
           label: 'تأكيد',
           variant: 'primary',
@@ -68,6 +68,7 @@ function askAndRetry(run, message) {
               return true;
             }
           },
+          tag: 'LGN-31',
         },
       ],
       onClose: () => {
@@ -76,6 +77,7 @@ function askAndRetry(run, message) {
           reject(Object.assign(new Error('لم يُغيَّر رقم الموبايل.'), { code: REAUTH_CANCELLED }));
         }
       },
+      tag: 'LGN-32',
     });
     requestAnimationFrame(() => input.focus());
     input.addEventListener('keydown', (e) => {

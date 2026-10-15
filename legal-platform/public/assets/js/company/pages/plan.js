@@ -57,7 +57,7 @@ function includesCard(plan) {
     h(
       'div',
       h('ul.co-checks', rows.map((t) => h('li', icon('check', { size: 16 }), h('span', t)))),
-      h('details.co-details.co-plan-types', h('summary', P.types), h('ul.co-checks', types.map((t) => h('li', icon('check', { size: 16 }), h('span', t.company_label))))),
+      h('details.co-details.co-plan-types', { tag: 'CP-01' }, h('summary', { tag: 'CP-02' }, P.types), h('ul.co-checks', types.map((t) => h('li', icon('check', { size: 16 }), h('span', t.company_label))))),
     ),
   );
 }
@@ -88,10 +88,12 @@ function slaCard(plan) {
         stack: true,
         rows,
         columns: [
-          { key: 'priority', label: P.col_priority, render: (r) => PRIORITY[r.priority] || r.priority },
-          { key: 'first', label: P.col_first, render: (r) => h('span.num', fmt(r.first_response_hours, r.clock)) },
-          { key: 'delivery', label: P.col_delivery, render: (r) => h('span.num', fmt(Math.round(Number(r.delivery_hours) * m * 10) / 10, r.clock)) },
+          { key: 'priority', label: P.col_priority, render: (r) => PRIORITY[r.priority] || r.priority, tag: 'CP-03' },
+          { key: 'first', label: P.col_first, render: (r) => h('span.num', fmt(r.first_response_hours, r.clock)), tag: 'CP-04' },
+          { key: 'delivery', label: P.col_delivery, render: (r) => h('span.num', fmt(Math.round(Number(r.delivery_hours) * m * 10) / 10, r.clock)), tag: 'CP-05' },
         ],
+        rowTag: 'CP-06',
+        tag: 'CP-07',
       }),
       h('p.co-muted.co-plan-foot', copy('plan.footnote', { hours: plan.business_hours_text || '' })),
     ),
@@ -148,6 +150,7 @@ function usageCard(usage, plan) {
             body.removeAttribute('aria-busy');
           }
         },
+        tag: 'CP-08',
       },
       // C-15: نهاية الدورة = اليوم السابق لبداية الدورة التالية («5 أكتوبر – 4 نوفمبر 2026»)
       cycles.map((c) => h('option', { value: c.start }, copy('plan.cycle_label', { from: dayText(c.start), to: dayText(dayBefore(c.end), { year: true }) }))),
@@ -172,13 +175,15 @@ function chargesCard(ch) {
             rows: items,
             rowClass: (c) => (c.voided ? 'is-voided' : ''),
             columns: [
-              { key: 'description', label: P.col_desc, render: (c) => h('span', { dir: 'auto' }, c.description || c.kind_label || '') },
-              { key: 'request', label: P.col_req, render: (c) => (c.request_code ? h('a', { href: `#/requests/${encodeURIComponent(c.request_code)}` }, h('bdi', { dir: 'ltr' }, c.request_code)) : '—') },
-              { key: 'cycle', label: P.col_period, render: (c) => (c.cycle ? dayText(c.cycle, { year: true }) : '—') },
-              { key: 'amount', label: P.col_amount, render: (c) => h('span.num', c.amount_text || money(c.amount), c.voided ? h('span.co-muted', ` (${P.voided})`) : null) },
+              { key: 'description', label: P.col_desc, render: (c) => h('span', { dir: 'auto' }, c.description || c.kind_label || ''), tag: 'CP-09' },
+              { key: 'request', label: P.col_req, render: (c) => (c.request_code ? h('a', { href: `#/requests/${encodeURIComponent(c.request_code)}`, tag: 'CP-10' }, h('bdi', { dir: 'ltr' }, c.request_code)) : '—'), tag: 'CP-11' },
+              { key: 'cycle', label: P.col_period, render: (c) => (c.cycle ? dayText(c.cycle, { year: true }) : '—'), tag: 'CP-12' },
+              { key: 'amount', label: P.col_amount, render: (c) => h('span.num', c.amount_text || money(c.amount), c.voided ? h('span.co-muted', ` (${P.voided})`) : null), tag: 'CP-13' },
             ],
+            rowTag: 'CP-14',
+            tag: 'CP-15',
           })
-        : emptyState(P.charges_empty, null, { icon: 'wallet', compact: true }),
+        : emptyState(P.charges_empty, null, { icon: 'wallet', compact: true, tag: 'CP-16' }),
       items.length ? h('p.co-muted', copy('plan.total', { amount: money(ch.total_unvoided) })) : null,
       h('p.co-muted.co-plan-foot', P.charges_foot),
     ),

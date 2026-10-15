@@ -29,17 +29,17 @@ const RESULTS = [
   { value: 'not_held', label: 'لم تُنظر' },
 ];
 const ADJOURN_REASONS = [
-  { value: 'review', label: 'للاطلاع' },
-  { value: 'documents', label: 'لتقديم مستندات' },
-  { value: 'notice', label: 'للإعلان' },
-  { value: 'pleading', label: 'للمرافعة' },
-  { value: 'expert', label: 'للخبير' },
-  { value: 'administrative', label: 'إداريًا' },
+  { value: 'review', label: 'للاطلاع', tag: 'OUT-38' },
+  { value: 'documents', label: 'لتقديم مستندات', tag: 'OUT-39' },
+  { value: 'notice', label: 'للإعلان', tag: 'OUT-40' },
+  { value: 'pleading', label: 'للمرافعة', tag: 'OUT-41' },
+  { value: 'expert', label: 'للخبير', tag: 'OUT-42' },
+  { value: 'administrative', label: 'إداريًا', tag: 'OUT-43' },
 ];
 const NOT_HELD_REASONS = [
-  { value: 'struck', label: 'شُطبت' },
-  { value: 'no_session', label: 'لم تنعقد' },
-  { value: 'other', label: 'سبب آخر' },
+  { value: 'struck', label: 'شُطبت', tag: 'OUT-44' },
+  { value: 'no_session', label: 'لم تنعقد', tag: 'OUT-45' },
+  { value: 'other', label: 'سبب آخر', tag: 'OUT-46' },
 ];
 
 // ───────────── أدوات التاريخ (تاريخ فقط بتوقيت القاهرة) ─────────────
@@ -118,13 +118,13 @@ function fieldBox(labelText, control, { hint, required = false, id, aside = null
 
 /** مفتاح تبديل (role=switch) بارتفاع ≥ 44px */
 function switchRow(text, checked, onChange) {
-  const input = h('input.lc-switch-input', { type: 'checkbox', role: 'switch', checked, onChange: (e) => onChange(e.target.checked) });
+  const input = h('input.lc-switch-input', { type: 'checkbox', role: 'switch', checked, onChange: (e) => onChange(e.target.checked), tag: 'OUT-01' });
   return h('label.lc-switch', input, h('span.lc-switch-track', { 'aria-hidden': 'true' }), h('span.lc-switch-text', text));
 }
 
 /** رابط يكشف حقلًا اختياريًا («+ أضف ملاحظة») */
 function revealLink(text, onReveal) {
-  const b = h('button.lc-reveal', { type: 'button' }, text);
+  const b = h('button.lc-reveal', { type: 'button', tag: 'OUT-02' }, text);
   b.addEventListener('click', () => {
     b.hidden = true;
     onReveal();
@@ -170,7 +170,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
 
     const dyn = h('div.lc-sheet-dyn');
     const status = h('div.lc-sheet-status', { role: 'status', 'aria-live': 'polite', hidden: true });
-    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true }, h('span.btn-label', 'حفظ النتيجة'));
+    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true, tag: 'OUT-03' }, h('span.btn-label', 'حفظ النتيجة'));
     const footer = h('div.lc-sheet-footer', saveBtn);
     const fields = {};
 
@@ -186,6 +186,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
         renderDyn();
         validate();
       },
+      tag: 'OUT-04',
     });
     tiles.classList.add('lc-result-tiles');
 
@@ -211,6 +212,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
           renderNextExtras();
           validate();
         },
+        tag: 'OUT-05',
       });
       const syncEcho = () => {
         echo.textContent = validKey(s.next_date) ? longDay(s.next_date) : '';
@@ -221,10 +223,10 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
       const timeHint = () => {
         if (s.timeOpen) {
           const tid = uid('lct');
-          const t = h('input.input.lc-time-input', { id: tid, type: 'time', value: s.next_time, step: 300, onInput: (e) => { s.next_time = e.target.value || s.next_time; validate(); }, onChange: (e) => { s.next_time = e.target.value || s.next_time; validate(); } });
+          const t = h('input.input.lc-time-input', { id: tid, type: 'time', value: s.next_time, step: 300, onInput: (e) => { s.next_time = e.target.value || s.next_time; validate(); }, onChange: (e) => { s.next_time = e.target.value || s.next_time; validate(); }, tag: 'OUT-06' });
           return h('div.lc-time-row', h('label.field-label', { htmlFor: tid }, 'الساعة'), t);
         }
-        const link = h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { s.timeOpen = true; mount(timeHost, timeHint()); timeHost.querySelector('input')?.focus(); } }, 'تغيير الساعة');
+        const link = h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { s.timeOpen = true; mount(timeHost, timeHint()); timeHost.querySelector('input')?.focus(); }, tag: 'OUT-07' }, 'تغيير الساعة');
         return h('p.lc-time-hint', s.next_time === baseTime ? `الساعة ${hmLabel(s.next_time)} مثل هذه الجلسة · ` : `الساعة ${hmLabel(s.next_time)} · `, link);
       };
       mount(timeHost, timeHint());
@@ -254,7 +256,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
       const host = h('div.lc-note-host');
       const show = (focus) => {
         const id = uid('lcn');
-        const ta = h('textarea.textarea.lc-note', { id, rows: 2, maxLength: 3000, value: s.note, onInput: (e) => { s.note = e.target.value; } });
+        const ta = h('textarea.textarea.lc-note', { id, rows: 2, maxLength: 3000, value: s.note, onInput: (e) => { s.note = e.target.value; }, tag: 'OUT-08' });
         mount(host, fieldBox('ملاحظة', ta, { id }));
         if (focus) ta.focus();
       };
@@ -273,7 +275,7 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
 
     function reasonBlock(list, labelText, note) {
       const lid = uid('lcr');
-      const chips = choiceTiles({ options: list, value: s.reason, variant: 'chip', allowDeselect: true, onChange: (v) => { s.reason = v; } });
+      const chips = choiceTiles({ options: list, value: s.reason, variant: 'chip', allowDeselect: true, onChange: (v) => { s.reason = v; }, tag: 'OUT-09' });
       chips.setAttribute('aria-labelledby', lid);
       chips.classList.add('lc-reason');
       return h('div.lc-reason-block', h('div.lc-label-row', h('span.field-label', { id: lid }, labelText), note ? note.link : null), chips);
@@ -295,12 +297,12 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
         }
         case 'judgment': {
           const id = uid('lcj');
-          const ta = h('textarea.textarea', { id, rows: 3, maxLength: 5000, required: true, placeholder: 'مثال: حكمت المحكمة بالبراءة.', value: s.decision, onInput: (e) => { s.decision = e.target.value; fields.decision?.setError(null); validate(); } });
+          const ta = h('textarea.textarea', { id, rows: 3, maxLength: 5000, required: true, placeholder: 'مثال: حكمت المحكمة بالبراءة.', value: s.decision, onInput: (e) => { s.decision = e.target.value; fields.decision?.setError(null); validate(); }, tag: 'OUT-10' });
           fields.decision = fieldBox('منطوق الحكم أو القرار', ta, { required: true, id });
           const appealHost = h('div.lc-appeal-host');
           const showAppeal = () => {
             const aid = uid('lca');
-            const ai = h('input.input', { id: aid, type: 'date', min: eventDay, max: maxNext, value: s.appeal_date, onInput: (e) => { s.appeal_date = e.target.value; fields.appeal_due_date?.setError(null); validate(); }, onChange: (e) => { s.appeal_date = e.target.value; validate(); } });
+            const ai = h('input.input', { id: aid, type: 'date', min: eventDay, max: maxNext, value: s.appeal_date, onInput: (e) => { s.appeal_date = e.target.value; fields.appeal_due_date?.setError(null); validate(); }, onChange: (e) => { s.appeal_date = e.target.value; validate(); }, tag: 'OUT-11' });
             fields.appeal_due_date = fieldBox('ميعاد الطعن', ai, { id: aid, hint: h('p.field-hint', 'تُضاف مهمة إجرائية «ميعاد الطعن على الحكم» بهذا التاريخ. أدخل التاريخ بنفسك.') });
             mount(appealHost, fields.appeal_due_date);
           };
@@ -430,9 +432,10 @@ export function openOutcomeSheet({ event, user = null, onSaved, onQueued } = {})
       body: h('div.lc-sheet-body', tiles, dyn, status),
       beforeClose: async () => {
         if (!dirty()) return true;
-        return confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُحفظ النتيجة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true });
+        return confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُحفظ النتيجة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true, tag: 'OUT-12' });
       },
       onClose: () => resolve(outcome),
+      tag: 'OUT-13',
     });
     m.el.appendChild(footer);
   });
@@ -459,6 +462,7 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
       max: addDaysKey(today, 730),
       onInput: (e) => onDate(e.target.value),
       onChange: (e) => onDate(e.target.value),
+      tag: 'OUT-14',
     });
     function onDate(v) {
       s.date = v;
@@ -470,13 +474,13 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
     }
     const dateField = fieldBox('التاريخ', dateInput, { required: true, id: did, hint: h('div', dateEcho, pastHint) });
     const tid = uid('lct');
-    const timeInput = h('input.input', { id: tid, type: 'time', value: s.time, step: 300, onInput: (e) => { s.time = e.target.value; validate(); }, onChange: (e) => { s.time = e.target.value; validate(); } });
+    const timeInput = h('input.input', { id: tid, type: 'time', value: s.time, step: 300, onInput: (e) => { s.time = e.target.value; validate(); }, onChange: (e) => { s.time = e.target.value; validate(); }, tag: 'OUT-15' });
     const timeField = fieldBox('الساعة', timeInput, { id: tid });
 
     const placeHost = h('div.lc-place');
     const showPlace = () => {
       const lid = uid('lcl');
-      const li = h('input.input', { id: lid, type: 'text', maxLength: 200, value: s.location, placeholder: courtText || 'مثال: محكمة الأسرة ببنها', onInput: (e) => { s.location = e.target.value; } });
+      const li = h('input.input', { id: lid, type: 'text', maxLength: 200, value: s.location, placeholder: courtText || 'مثال: محكمة الأسرة ببنها', onInput: (e) => { s.location = e.target.value; }, tag: 'OUT-16' });
       mount(placeHost, fieldBox('المكان', li, { id: lid }));
       li.focus();
     };
@@ -486,7 +490,7 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
         'p.lc-place-line',
         icon('mapPin', { size: 16 }),
         h('span', courtText ? `المكان: ${courtText}` : 'المكان: المحكمة المسجلة في الملف'),
-        h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { s.locationOpen = true; showPlace(); } }, 'تغيير'),
+        h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { s.locationOpen = true; showPlace(); }, tag: 'OUT-17' }, 'تغيير'),
       ),
     );
 
@@ -496,7 +500,7 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
       revealLink('+ ملاحظة', () => {
         s.noteOpen = true;
         const nid = uid('lcn');
-        const ta = h('textarea.textarea', { id: nid, rows: 2, maxLength: 3000, onInput: (e) => { s.note = e.target.value; } });
+        const ta = h('textarea.textarea', { id: nid, rows: 2, maxLength: 3000, onInput: (e) => { s.note = e.target.value; }, tag: 'OUT-18' });
         mount(noteHost, fieldBox('ملاحظة', ta, { id: nid }));
         ta.focus();
       }),
@@ -510,7 +514,7 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
         const kid = uid('lck');
         const sel = h(
           'select.select',
-          { id: kid, onChange: (e) => { s.kind = e.target.value; } },
+          { id: kid, onChange: (e) => { s.kind = e.target.value; }, tag: 'OUT-19' },
           options('event_kind').map((o) => h('option', { value: o.value, selected: o.value === s.kind }, o.label)),
         );
         mount(kindHost, fieldBox('نوع الموعد', sel, { id: kid }));
@@ -518,7 +522,7 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
     );
 
     const status = h('div.lc-sheet-status', { role: 'status', 'aria-live': 'polite', hidden: true });
-    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true }, h('span.btn-label', 'إضافة الجلسة'));
+    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true, tag: 'OUT-20' }, h('span.btn-label', 'إضافة الجلسة'));
 
     function validate() {
       const ok = validKey(s.date) && /^\d{2}:\d{2}$/.test(s.time || '');
@@ -567,9 +571,10 @@ export function openAddHearingSheet({ matter, onSaved } = {}) {
       ),
       beforeClose: async () => {
         if (JSON.stringify(s) === initial) return true;
-        return confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُضف الجلسة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true });
+        return confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُضف الجلسة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true, tag: 'OUT-21' });
       },
       onClose: () => resolve(created),
+      tag: 'OUT-22',
     });
     m.el.appendChild(h('div.lc-sheet-footer', saveBtn));
   });
@@ -585,18 +590,18 @@ export function openEditEventSheet({ event, matter = null, onSaved } = {}) {
     const initial = JSON.stringify(s);
     const did = uid('lcd');
     const echo = h('p.lc-date-echo', { 'aria-live': 'polite' }, longDay(s.date));
-    const dateInput = h('input.input', { id: did, type: 'date', required: true, value: s.date, onInput: (e) => onDate(e.target.value), onChange: (e) => onDate(e.target.value) });
+    const dateInput = h('input.input', { id: did, type: 'date', required: true, value: s.date, onInput: (e) => onDate(e.target.value), onChange: (e) => onDate(e.target.value), tag: 'OUT-23' });
     function onDate(v) {
       s.date = v;
       echo.textContent = validKey(v) ? longDay(v) : '';
       validate();
     }
     const tid = uid('lct');
-    const timeInput = h('input.input', { id: tid, type: 'time', value: s.time, step: 300, onInput: (e) => { s.time = e.target.value; validate(); } });
+    const timeInput = h('input.input', { id: tid, type: 'time', value: s.time, step: 300, onInput: (e) => { s.time = e.target.value; validate(); }, tag: 'OUT-24' });
     const lid = uid('lcl');
-    const locInput = h('input.input', { id: lid, type: 'text', maxLength: 200, value: s.location, placeholder: matter?.court || '', onInput: (e) => { s.location = e.target.value; } });
+    const locInput = h('input.input', { id: lid, type: 'text', maxLength: 200, value: s.location, placeholder: matter?.court || '', onInput: (e) => { s.location = e.target.value; }, tag: 'OUT-25' });
     const status = h('div.lc-sheet-status', { role: 'status', hidden: true });
-    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button' }, h('span.btn-label', 'حفظ الموعد'));
+    const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', tag: 'OUT-26' }, h('span.btn-label', 'حفظ الموعد'));
     function validate() {
       const ok = validKey(s.date) && /^\d{2}:\d{2}$/.test(s.time || '');
       saveBtn.disabled = !ok;
@@ -628,8 +633,9 @@ export function openEditEventSheet({ event, matter = null, onSaved } = {}) {
       sheet: true,
       className: 'lc-edit-sheet',
       body: h('div.lc-sheet-body', h('div.lc-two', fieldBox('التاريخ', dateInput, { required: true, id: did, hint: echo }), fieldBox('الساعة', timeInput, { id: tid })), fieldBox('المكان', locInput, { id: lid }), status),
-      beforeClose: async () => (JSON.stringify(s) === initial ? true : confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم يُحفظ التعديل بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true })),
+      beforeClose: async () => (JSON.stringify(s) === initial ? true : confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم يُحفظ التعديل بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true, tag: 'OUT-27' })),
       onClose: () => resolve(saved),
+      tag: 'OUT-28',
     });
     m.el.appendChild(h('div.lc-sheet-footer', saveBtn));
     validate();
