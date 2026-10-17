@@ -8,11 +8,13 @@
 import { api } from '../../lib/api.js';
 import { button, formDialog, toast } from '../../lib/ui.js';
 // v11 segment-staff (ST-3، r2 P13): نوع الخدمة والنبرة و«سيُرسل من» أعلى نافذة الإرسال
-import { sendHeader } from './segment-ui.js';
+import { sendHeader, clientNoun } from './segment-ui.js';
 
-const CHANNELS = [
+// v12 gate (JR-06): الطرف الآخر بنوع الملف — «المستفيد/ة» للخيري، «صاحب الطلب» للأفراد والشركات (كان «المستفيد/ة» دائمًا)
+const nounOf = (sendInfo) => clientNoun(sendInfo && sendInfo.segment, { company: Boolean(sendInfo && sendInfo.company) });
+const channelsFor = (N) => [
   { value: 'auto', label: 'تلقائي: واتساب إن أمكن، وإلا صفحة المتابعة' },
-  { value: 'whatsapp', label: 'واتساب (خلال 24 ساعة من آخر رسالة للمستفيد/ة فقط)' },
+  { value: 'whatsapp', label: `واتساب (خلال 24 ساعة من آخر رسالة ${N.li} فقط)` },
   { value: 'website', label: 'صفحة المتابعة فقط' },
 ];
 
@@ -23,9 +25,11 @@ const CHANNELS = [
  */
 export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
   const name = doc.title || doc.filename || 'المستند';
+  const N = nounOf(sendInfo);
+  const CHANNELS = channelsFor(N);
   const result = await formDialog({
-    title: 'إرسال مستند للمستفيد/ة',
-    intro: `سيصل المستند «${name}» إلى المستفيد/ة ويظهر مرفقًا في المحادثة وفي صفحة المتابعة الخاصة به. لا يُرسل للمحامين شيء.`,
+    title: `إرسال مستند ${N.li}`,
+    intro: `سيصل المستند «${name}» إلى ${N.def} ويظهر مرفقًا في المحادثة وفي صفحة المتابعة الخاصة به. لا يُرسل للمحامين شيء.`,
     submitLabel: 'إرسال المستند',
     fields: [
       {
@@ -35,7 +39,8 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
         required: true,
         placeholder: false,
         options: CHANNELS,
-        hint: 'لا يسمح واتساب بإرسال المستندات خارج نافذة الـ 24 ساعة من آخر رسالة أرسلها المستفيد/ة؛ في الوضع التلقائي يُتاح المستند في البوابة عندئذٍ.',
+        hint: `لا يسمح واتساب بإرسال المستندات خارج نافذة الـ 24 ساعة من آخر رسالة أرسلها ${N.def}؛ في الوضع التلقائي يُتاح المستند في البوابة عندئذٍ.`,
+        tag: 'DOC-29',
       },
       {
         name: 'caption',
@@ -44,6 +49,7 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
         rows: 3,
         maxLength: 1000,
         placeholder: 'مثال: مرفق لكم نموذج صحيفة الدعوى، نرجو مراجعته والتوقيع عليه.',
+        tag: 'DOC-30',
       },
     ],
     values: { channel: 'auto' },
@@ -51,6 +57,7 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
       if (sendInfo) f.el.prepend(sendHeader(sendInfo));
     },
     onSubmit: (v) => api.post(`/admin/documents/${encodeURIComponent(doc.id)}/send-to-client`, { channel: v.channel || 'auto', caption: v.caption || null }),
+    tag: 'DOC-31',
   });
   if (!result) return null;
   const via = result.channel === 'whatsapp' ? 'عبر واتساب' : 'في صفحة المتابعة';
@@ -64,16 +71,18 @@ export async function openSendDocumentDialog(doc, { sendInfo = null } = {}) {
  * @param {{id:number, title?:string, filename?:string}} doc
  * @param {{onSent?:(result:object)=>void, label?:string, size?:string, variant?:string, sendInfo?:object}} [opts]
  */
-export function sendDocumentButton(doc, { onSent, label = 'إرسال للمستفيد/ة', size = 'sm', variant = 'ghost', sendInfo = null } = {}) {
-  const btn = button(label, {
+export function sendDocumentButton(doc, { onSent, label = null, size = 'sm', variant = 'ghost', sendInfo = null } = {}) {
+  const N = nounOf(sendInfo);
+  const btn = button(label || `إرسال ${N.li}`, {
     size,
     variant,
     icon: 'send',
-    title: `إرسال «${doc.title || doc.filename || 'المستند'}» للمستفيد/ة`,
+    title: `إرسال «${doc.title || doc.filename || 'المستند'}» ${N.li}`,
     onClick: async () => {
       const r = await openSendDocumentDialog(doc, { sendInfo });
       if (r && onSent) onSent(r);
     },
+    tag: 'DOC-32',
   });
   btn.setAttribute('aria-haspopup', 'dialog');
   return btn;

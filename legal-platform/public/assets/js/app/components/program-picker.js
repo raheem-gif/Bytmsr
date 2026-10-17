@@ -56,11 +56,12 @@ export function eligibilityHints(p, { area, governorate } = {}) {
 export function programSelect({ value = null, area = null, governorate = null, label = 'برنامج التمويل (اختياري)' } = {}) {
   let ctx = { area, governorate };
   let programs = [];
-  const sel = h('select.input', { disabled: true }, h('option', { value: '' }, 'جارٍ تحميل البرامج…'));
+  const sel = h('select.input', { disabled: true, tag: 'PRG-106' }, h('option', { value: '' }, 'جارٍ تحميل البرامج…'));
   const note = h('div.pg-pick-note', { 'aria-live': 'polite' });
   const wrap = field(label, h('div.select-wrap', sel), {
     hint: 'يُحتسب ما يُصرف على الملف وملفه المستمر ضمن ميزانية البرنامج المختار. يمكن تغييره لاحقًا من صفحة الملف.',
     full: true,
+    tag: 'PRG-107',
   });
   wrap.append(note);
 
@@ -124,6 +125,7 @@ export async function linkWithConfirm(send) {
         title: 'الملف خارج نطاق أهلية البرنامج',
         message: h('div', h('p', 'لاحظ النظام ما يلي:'), h('ul.pg-reasons', (d.reasons || []).map((r) => h('li', r))), h('p', 'هل تريد ربط الملف بالبرنامج رغم ذلك؟ يُسجَّل القرار في سجل الملف.')),
         confirmLabel: 'نعم، اربط الملف',
+        tag: 'PRG-108',
       });
       if (!ok) return null;
       return send({ confirm_ineligible: true });
@@ -134,6 +136,7 @@ export async function linkWithConfirm(send) {
         title: 'الملف مرتبط ببرنامج آخر',
         message: `الملف مرتبط حاليًا ببرنامج ${cur.code || ''} «${cur.name || ''}». الملف ينتمي لبرنامج واحد فقط؛ هل تريد نقله إلى هذا البرنامج؟`,
         confirmLabel: 'نعم، انقل الملف',
+        tag: 'PRG-109',
       });
       if (!ok) return null;
       try {
@@ -163,13 +166,13 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
     const programClosed = p && p.status === 'closed';
     const changeBtn = programClosed
       ? null
-      : button(p ? 'تغيير' : 'ربط ببرنامج', { size: 'sm', variant: 'ghost', icon: p ? 'edit' : 'link', onClick: openDialog, className: 'no-print', title: closed ? 'الملف مغلق؛ يمكن نسبته لبرنامج لأغراض التقارير' : null });
+      : button(p ? 'تغيير' : 'ربط ببرنامج', { size: 'sm', variant: 'ghost', icon: p ? 'edit' : 'link', onClick: openDialog, className: 'no-print', title: closed ? 'الملف مغلق؛ يمكن نسبته لبرنامج لأغراض التقارير' : null, tag: 'PRG-110' });
     mount(
       host,
       p
         ? h(
             'div.pg-case-program-row',
-            h('a.pg-case-program-link', { href: `#/programs/${p.id}` }, codeTag(p.code), h('span', p.name)),
+            h('a.pg-case-program-link', { href: `#/programs/${p.id}`, tag: 'PRG-111' }, codeTag(p.code), h('span', p.name)),
             h('span.pg-inline', funderBadge(p), p.status !== 'active' && programStatusBadge(p)),
             hints.length > 0 && h('span.small.pg-text-warning', icon('alert', { size: 13 }), ` ${hints.join(' — ')}`),
             programClosed && h('span.small.muted', 'البرنامج مغلق؛ لا يتغير ربط ملفاته إلا بعد إعادة فتحه'),
@@ -199,7 +202,7 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
     const cur = current && current.program;
     const sel = h(
       'select.input',
-      h('option', { value: '' }, 'دون برنامج (إلغاء الربط)'),
+      { tag: 'PRG-112' }, h('option', { value: '' }, 'دون برنامج (إلغاء الربط)'),
       programs.map((p) => h('option', { value: String(p.id) }, optionLabel(p))),
     );
     if (cur) sel.value = String(cur.id);
@@ -207,7 +210,7 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
     const drawInfo = () => {
       const p = programs.find((x) => String(x.id) === sel.value);
       if (!p) {
-        mount(info, cur ? alertBox('سيُلغى ربط الملف بالبرنامج، ولن يُحتسب إنفاقه ضمن أي برنامج.', 'warning') : null);
+        mount(info, cur ? alertBox('سيُلغى ربط الملف بالبرنامج، ولن يُحتسب إنفاقه ضمن أي برنامج.', 'warning', { tag: 'PRG-113' }) : null);
         return;
       }
       mount(
@@ -220,7 +223,7 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
           p.eligible_areas.length > 0 && h('div.kv-row', h('dt', 'المجالات المشمولة'), h('dd', p.eligible_areas.map(areaLabel).join('، '))),
           p.eligible_governorates.length > 0 && h('div.kv-row', h('dt', 'المحافظات المشمولة'), h('dd', p.eligible_governorates.join('، '))),
         ),
-        (p.warnings || []).length ? alertBox(p.warnings.join(' — '), 'warning') : null,
+        (p.warnings || []).length ? alertBox(p.warnings.join(' — '), 'warning', { tag: 'PRG-114' }) : null,
       );
     };
     sel.addEventListener('change', drawInfo);
@@ -231,11 +234,11 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
       body: h(
         'div.stack',
         h('p.modal-intro', 'يُحتسب ما يُصرف على هذا الملف (أتعاب المحامين ومصروفات المؤسسة، وملفه المستمر إن وُجد) ضمن ميزانية البرنامج المختار وتقاريره للجهة الممولة. هذه بيانات داخلية للإدارة ولا تظهر للمحامين.'),
-        field('البرنامج', h('div.select-wrap', sel), { full: true }),
+        field('البرنامج', h('div.select-wrap', sel), { full: true, tag: 'PRG-115' }),
         info,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'PRG-116' },
         {
           label: 'حفظ',
           variant: 'primary',
@@ -250,8 +253,10 @@ export function caseProgramField({ caseId, closed = false, onChange } = {}) {
             if (onChange) onChange(res);
             return undefined;
           },
+          tag: 'PRG-117',
         },
       ],
+      tag: 'PRG-118',
     });
   }
 

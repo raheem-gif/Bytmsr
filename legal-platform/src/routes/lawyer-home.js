@@ -95,8 +95,8 @@ export function registerLawyerHomeRoutes(router, app) {
     db.run("UPDATE account_tokens SET expires_at = ? WHERE id = (SELECT MAX(id) FROM account_tokens WHERE user_id = ? AND kind = 'reset')", expires, u.id);
     const token = String(payload.url).split('#/reset/')[1] || '';
     const url = `${base}/app#/reset/${token}`;
-    const text = `رابط تعيين كلمة مرور جديدة لحسابك على منصة الدعم القانوني، صالح 30 دقيقة: ${url} — إن لم تطلبه فتجاهل هذه الرسالة.`;
-    const stored = 'رابط تعيين كلمة مرور جديدة لحسابك على منصة الدعم القانوني، صالح 30 دقيقة. (الرابط لا يُحفظ في صندوق الصادر)';
+    const text = `رابط تعيين كلمة مرور جديدة لحسابك على منصة المكتب، صالح 30 دقيقة: ${url} — إن لم تطلبه فتجاهل هذه الرسالة.`;
+    const stored = 'رابط تعيين كلمة مرور جديدة لحسابك على منصة المكتب، صالح 30 دقيقة. (الرابط لا يُحفظ في صندوق الصادر)';
     app.engine.record({
       client_id: null,
       channel: 'whatsapp',

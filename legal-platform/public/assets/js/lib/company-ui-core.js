@@ -91,11 +91,12 @@ export function stageBadge(stage, { late = false, short = false } = {}) {
   const withIcon = tone === 'warning' || tone === 'success';
   return h(
     'span.co-stage',
+    { tag: 'CU-31' }, // v12 tags (TG-3): مكوّنات البوابة المشتركة تحمل رموز CU ثابتة؛ الصفحة تغيّرها بـ tagged() إن احتاجت
     badge(stageLabel(stage, { short }), tone, { icon: withIcon ? s.icon : null, className: 'co-badge' }),
     late ? lateBadge() : null,
   );
 }
-const lateBadge = () => badge(W.stage.late, 'danger', { icon: 'clock', className: 'co-badge' });
+const lateBadge = () => badge(W.stage.late, 'danger', { icon: 'clock', className: 'co-badge', tag: 'CU-32' });
 
 // ───────────────────────── الوعد (U10-44 + §8.3) ─────────────────────────
 const FINAL = ['closed', 'declined', 'cancelled'];
@@ -140,7 +141,7 @@ export function coPromise(p, { stage, remainingHours = null, action = null, typi
   if (!t.text) return h('div.co-promise', { hidden: true });
   return h(
     'div.co-promise',
-    { class: `tone-${t.tone}` },
+    { class: `tone-${t.tone}`, tag: 'CU-33' },
     h('span.co-promise-icon', { 'aria-hidden': 'true' }, icon(t.icon || 'clock', { size: 18 })),
     h(
       'div.co-promise-text',
@@ -167,6 +168,7 @@ export function coRequestRow(item, { href } = {}) {
     badges,
     href: href || `#/requests/${encodeURIComponent(item.code)}`,
     className: 'co-row',
+    tag: 'CU-34',
   });
 }
 
@@ -178,7 +180,7 @@ export function coUsageMeter(quota, { showPrices = false, policy, price, hasMana
   const priceText = pr != null && pr !== '' ? money(pr) : '';
   const used = Number(quota.used) || 0;
   if (quota.unlimited || quota.included == null) {
-    return h('div.co-meter', h('p.co-meter-line', copy('usage.unlimited', { n: countOf(used, 'request') })));
+    return h('div.co-meter', { tag: 'CU-35' }, h('p.co-meter-line', copy('usage.unlimited', { n: countOf(used, 'request') }))); // tags:variant (بلا حد)
   }
   const included = Number(quota.included) || 0;
   const pct = included > 0 ? Math.min(1, used / included) : 1;
@@ -195,6 +197,7 @@ export function coUsageMeter(quota, { showPrices = false, policy, price, hasMana
   const pending = newRequest && !atLimit && used + (Number(quota.pending) || 0) + 1 > included;
   return h(
     'div.co-meter',
+    { tag: 'CU-35' },
     // v11 visual (V11-44): النص نفسه، والعدد المستخدم كبير (b.co-meter-big)
     h('p.co-meter-line.num', copyParts('usage.used', { used: h('b.co-meter-big', String(used)), included, date: dayText(quota.cycle_end) })),
     h(
@@ -237,11 +240,11 @@ export function coStepper(stage, timeline = []) {
 export function riskBadge(level) {
   const r = RISK_LEVELS.find((x) => x.key === level);
   if (!r) return null;
-  return h('span.co-risk', h('span.co-risk-label', W.risk.label), badge(r.label, r.tone, { icon: r.key === 'low' ? 'checkCircle' : 'alert', className: 'co-badge' }));
+  return h('span.co-risk', { tag: 'CU-36' }, h('span.co-risk-label', W.risk.label), badge(r.label, r.tone, { icon: r.key === 'low' ? 'checkCircle' : 'alert', className: 'co-badge' }));
 }
 
 /** «فريقكم القانوني» بعلامة المكتب — صوت واحد لكل ما يكتبه الفريق (L-22) */
 export function teamAuthor() {
   const brand = getMeta()?.brand?.name || 'Emam Legal and Consultancy';
-  return h('span.co-team', h('span.co-team-mark', { 'aria-hidden': 'true' }, icon('scale', { size: 16 })), h('span', W.brand.team), h('span.sr-only', ' في ', h('bdi', { lang: 'en', dir: 'ltr' }, brand)));
+  return h('span.co-team', { tag: 'CU-37' }, h('span.co-team-mark', { 'aria-hidden': 'true' }, icon('scale', { size: 16 })), h('span', W.brand.team), h('span.sr-only', ' في ', h('bdi', { lang: 'en', dir: 'ltr' }, brand)));
 }

@@ -42,15 +42,15 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
   const alertHost = h('div.cs-alert', { 'aria-live': 'assertive' });
   const f = form(
     [
-      { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: KINDS, onChange: () => drawPreview() },
-      { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 1, onChange: () => drawPreview() },
-      { name: 'scope_of_work', label: 'نطاق العمل', type: 'textarea', required: true, minLength: 10, maxLength: 3000, rows: 4, full: true, dir: 'auto' },
-      { name: 'assumptions', label: 'الافتراضات', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto' },
-      { name: 'excluded', label: 'غير مشمول', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto' },
-      { name: 'valid_days', label: 'صالح لمدة (يومًا)', type: 'number', integer: true, min: 1, max: 90, required: true },
-      { name: 'message', label: 'رسالة مع العرض', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto' },
+      { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: KINDS, onChange: () => drawPreview(), tag: 'CRF-199' },
+      { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 1, onChange: () => drawPreview(), tag: 'CRF-200' },
+      { name: 'scope_of_work', label: 'نطاق العمل', type: 'textarea', required: true, minLength: 10, maxLength: 3000, rows: 4, full: true, dir: 'auto', tag: 'CRF-201' },
+      { name: 'assumptions', label: 'الافتراضات', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto', tag: 'CRF-202' },
+      { name: 'excluded', label: 'غير مشمول', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto', tag: 'CRF-203' },
+      { name: 'valid_days', label: 'صالح لمدة (يومًا)', type: 'number', integer: true, min: 1, max: 90, required: true, tag: 'CRF-204' },
+      { name: 'message', label: 'رسالة مع العرض', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto', tag: 'CRF-205' },
     ],
-    { values: v0, footer: false },
+    { values: v0, footer: false, tag: 'CRF-206' },
   );
   f.el.addEventListener('input', () => drawPreview());
 
@@ -70,6 +70,7 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
               drawSeg();
               drawPreview();
             },
+            tag: 'CRF-146',
           },
           b.label,
         ),
@@ -92,6 +93,7 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
           auto = val;
           drawPlan();
         },
+        tag: 'CRF-147',
       }),
       h('span', text),
     );
@@ -103,7 +105,7 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
         ? h(
             'div.cs-plan-box',
             acceptPlan ? h('p', icon('check', { size: 14 }), ` ${summary || 'خطة البدء جاهزة'}`) : h('p.muted', 'لم تُعدّ خطة البدء بعد.'),
-            button(acceptPlan ? 'تعديل خطة البدء' : 'إعداد خطة البدء', { variant: 'secondary', size: 'sm', icon: 'briefcase', onClick: setupPlan }),
+            button(acceptPlan ? 'تعديل خطة البدء' : 'إعداد خطة البدء', { variant: 'secondary', size: 'sm', icon: 'briefcase', onClick: setupPlan, tag: 'CRF-148' }),
           )
         : null,
       radio(false, 'يعود الطلب إليّ لأبدأ العمل'),
@@ -159,7 +161,7 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
     mount(alertHost);
     if (!f.validate()) return false;
     if (auto && !acceptPlan) {
-      mount(alertHost, alertBox('أعدّ خطة البدء، أو اختر «يعود الطلب إليّ لأبدأ العمل».', 'danger'));
+      mount(alertHost, alertBox('أعدّ خطة البدء، أو اختر «يعود الطلب إليّ لأبدأ العمل».', 'danger', { tag: 'CRF-149' }));
       return false;
     }
     const v = f.getValues();
@@ -181,7 +183,7 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
       return true;
     } catch (err) {
       f.showError(err);
-      mount(alertHost, alertBox(errorMessage(err), 'danger'));
+      mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-150' }));
       return false;
     }
   }
@@ -205,17 +207,18 @@ export async function openQuoteSheet({ detail, user = {}, kind, amount = null, p
         f.el,
         h('div.field', h('span.field-label', 'عند موافقة الشركة'), planHost),
       ),
-      h('div.cs-col', h('h3.cs-section-title', 'كما ستراه الشركة'), previewHost),
+      h('div.cs-col', h('h3.cs-section-title', { tag: 'CRF-151' }, 'كما ستراه الشركة'), previewHost),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: 'إرسال العرض للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await submit()) ? undefined : false) },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CRF-152' },
+      { label: 'إرسال العرض للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await submit()) ? undefined : false), tag: 'CRF-153' },
     ],
     onClose: () => {
       if (!result) return;
       toast(`أُرسل عرض السعر إلى ${d.company.name}.`, 'success');
       if (onDone) onDone(result);
     },
+    tag: 'CRF-154',
   });
   drawSeg();
   drawPlan();

@@ -47,9 +47,9 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 10px 14px;
-  border-radius: var(--r-14);
-  background: var(--warn-weak);
-  color: var(--warn);
+  background: var(--paper-2);
+  box-shadow: inset -2px 0 0 var(--warn);
+  color: var(--ink);
   font-size: 15px;
   font-weight: 500;
 }
@@ -204,6 +204,33 @@
   white-space: pre;
 }
 
+/* v12 gate (V-26): السطر الملتف — كل جزء يبدأ بفاصله، والسطر مزاح بعرض فاصل (مقصوص) فلا «·» في أول السطر ولا في آخره */
+.lh-row-sub.is-wrap {
+  display: block;
+  white-space: normal;
+}
+
+.lh-sub-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  margin-inline-start: -1.1em;
+}
+
+.lh-sub-part {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.lh-sub-part > .lh-sep {
+  width: 1.1em;
+  text-align: center;
+}
+
 .lh-code {
   flex: none;
   white-space: nowrap;
@@ -355,7 +382,7 @@
 }
 
 .lh-pay > .icon {
-  color: var(--accent-700);
+  display: none;
 }
 
 .lh-empty,
@@ -628,13 +655,13 @@
   height: 18px;
   padding-inline: 5px;
   border-radius: 999px;
-  background: var(--danger-700);
-  color: #fff;
+  background: var(--act);
+  color: var(--on-act);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 18px;
   text-align: center;
-  box-shadow: 0 0 0 2px #fff;
+  box-shadow: 0 0 0 2px var(--paper);
   font-variant-numeric: tabular-nums;
 }
 
@@ -707,8 +734,8 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     height: calc(54px + env(safe-area-inset-bottom, 0px));
     padding-block-end: env(safe-area-inset-bottom, 0px);
-    background: rgba(255, 255, 255, 0.97);
-    border-block-start: 1px solid var(--separator);
+    background: var(--paper);
+    border-block-start: 1px solid var(--rule-2);
   }
 
   .is-lawyer .lh-tab {
@@ -729,10 +756,10 @@
     cursor: pointer;
   }
 
-  /* v11 visual (V11-16): أيقونات 25 بخط 1.75، والمختار بلون الفعل وحده (بلا شريط تحته) */
+  /* v12 look (K12-36): أيقونات 22، والمختار بلون الفعل وحده (بلا شريط تحته) */
   .is-lawyer .lh-tab .icon {
-    width: 25px;
-    height: 25px;
+    width: 22px;
+    height: 22px;
   }
 
   .is-lawyer .lh-tab-icon {

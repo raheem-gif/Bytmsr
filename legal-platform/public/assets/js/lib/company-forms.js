@@ -26,7 +26,7 @@ import {
   MEMORY_COMMON_FIELDS,
   CURRENCIES,
 } from './company-catalog-fields.js';
-import { compressToBlob, fileToUpload, sendWithProgress } from '../public/upload.js';
+import { compressToBlob, fileToUpload, sendWithProgress, scanImage, scanProblem, scanEditPage, scanKeepPage, scanAddPage, scanPages, scanDoc, loadScanner } from '../public/upload.js';
 import { W } from '../company/words-flows.js';
 import { copy } from './company-ui.js';
 
@@ -73,12 +73,17 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
     .map((x) => ({ key: uid('f'), name: x.filename || x.name || '', size: x.size || 0, mime: x.mime || '', status: 'done', pct: 1, upload_id: x.upload_id, expires_at: x.expires_at || null }));
   let photoN = 0;
   let running = false;
+  // v12 media (MD-3، L12-38): «تصوير صفحة أخرى» تضيف صفحة لآخر مستند ممسوح (PDF واحد)؛ «إعادة التصوير» تستبدل صفحة
+  let camTarget = null;
+  let sheetMod = null;
   const errEl = h('p.co-up-error', { role: 'alert', hidden: true });
   const live = h('p.co-up-progress', { 'aria-live': 'polite' });
   const listEl = h('ul.co-up-list', { 'aria-label': W.uploader.list_label });
   const another = h('div.co-up-another', { hidden: true });
+  // tags:skip native file input inside the uploader (its visible button carries the code)
   const fileInput = h('input.file-native', { type: 'file', id: `${id}-file`, multiple: true, accept: ACCEPT, onChange: () => takeFiles(fileInput) });
-  const camInput = h('input.file-native', { type: 'file', id: `${id}-cam`, accept: 'image/*', capture: 'environment', onChange: () => takeFiles(camInput, true) });
+  // tags:skip native camera input inside the uploader
+  const camInput = h('input.file-native', { type: 'file', id: `${id}-cam`, accept: 'image/*', capture: 'environment', onChange: () => (camTarget ? takePage(camInput) : takeFiles(camInput, true)) });
   const setError = (msg) => {
     errEl.textContent = msg || '';
     errEl.hidden = !msg;
@@ -99,21 +104,90 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           e.status === 'done'
             ? h('span.co-up-state.is-done', icon('check', { size: 14 }), formatBytes(e.size))
             : e.status === 'failed'
-              ? h('span.co-up-state.is-failed', icon('alert', { size: 14 }), h('span', e.error || copy('uploader.failed', { name: e.name })), ' ', button(W.uploader.retry, { variant: 'link', size: 'sm', onClick: () => retry(e) }))
+              ? h('span.co-up-state.is-failed', icon('alert', { size: 14 }), h('span', e.error || copy('uploader.failed', { name: e.name })), ' ', button(W.uploader.retry, { variant: 'link', size: 'sm', onClick: () => retry(e), tag: 'CK-125' }))
               : h('span.co-up-state', copy('uploader.uploading', { pct: pctText(e.pct) }));
         return h(
           'li.co-up-item',
           { class: `is-${e.status}` },
           h('span.co-up-icon', { 'aria-hidden': 'true' }, icon(/^image\//.test(e.mime) ? 'paperclip' : 'fileText', { size: 18 })),
-          h('span.co-up-main', h('span.co-up-name', { dir: 'auto' }, e.name), status, e.status === 'uploading' ? h('span.co-up-bar', { 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.round(e.pct * 100)}%` } })) : null),
-          h('button.co-up-remove', { type: 'button', 'aria-label': copy('uploader.remove_name', { name: e.name }), onClick: () => remove(e) }, icon('x', { size: 16 })),
+          h(
+            'span.co-up-main',
+            h('span.co-up-name', { dir: 'auto' }, e.name),
+            status,
+            e.status === 'uploading' ? h('span.co-up-bar', { 'aria-hidden': 'true' }, h('span', { style: { width: `${Math.round(e.pct * 100)}%` } })) : null,
+            scanExtras(e),
+          ),
+          h('button.co-up-remove', { type: 'button', 'aria-label': copy('uploader.remove_name', { name: e.name }), onClick: () => remove(e), tag: 'CK-126' }, icon('x', { size: 16 })),
         );
       }),
     );
     listEl.hidden = !entries.length;
     const done = entries.filter((e) => e.status === 'done').length;
     live.textContent = entries.length ? copy('uploader.progress', { k: done, n: entries.length }) : '';
-    another.hidden = !(photoN > 0 && entries.length < limit);
+    const lastScan = [...entries].reverse().find((x) => x.file && scanPages(x.file));
+    another.hidden = !(photoN > 0 && (entries.length < limit || (lastScan && scanPages(lastScan.file) < 12)));
+  }
+  /** مستند ممسوح: عدد صفحاته، و«تعديل المستند»، وملاحظة الحدود (مقصوصة أو غير مكتشفة) بزريها */
+  function scanExtras(e) {
+    if (!e.file || !sheetMod || !scanPages(e.file)) return null;
+    const n = scanPages(e.file);
+    const w = scanProblem(e.file);
+    const busy = e.status === 'uploading';
+    return h(
+      'span.co-up-scan',
+      n > 1 ? sheetMod.pagesBadge(n) : null,
+      h('button.scn-btn.scn-btn--text.scn-btn--sm', { type: 'button', disabled: busy, onClick: (ev) => rescan(e, () => scanEditPage(e.file, { register: 'company', trigger: ev.currentTarget })), tag: 'CK-01' }, 'تعديل المستند'),
+      w >= 0
+        ? sheetMod.scanNote(scanDoc(e.file).pages[w], {
+            register: 'company',
+            onRetake: busy ? null : () => {
+              camTarget = { e, replace: w };
+              camInput.click();
+            },
+            onKeep: busy ? null : () => rescan(e, () => scanKeepPage(e.file, w)),
+          })
+        : null,
+    );
+  }
+  /**
+   * المستند تغيّر (صفحة، أركان، «كما هي») ← يُرفع من جديد؛ المرفق المرحلي القديم ينتهي وحده بعد 24 ساعة.
+   * التعديلات على المستند نفسه بالترتيب (fn يقرأ e.file عند دوره): «تصوير صفحة أخرى» مرتين متتاليتين لا تُسقط صفحة.
+   * raw: صورة صفحة لم تُجهز (فشل الماسح أو 12 صفحة) تُرفع مرفقًا مستقلًا بدل أن تضيع (مراجعة 12.0).
+   */
+  function rescan(e, fn, raw = null) {
+    e.chain = (e.chain || Promise.resolve()).then(() => rescanNow(e, fn, raw));
+    return e.chain;
+  }
+  async function rescanNow(e, fn, raw) {
+    if (e.removed) return;
+    let out = null;
+    try {
+      out = await fn();
+    } catch {
+      out = null;
+    }
+    if (e.removed) return;
+    if (!out) {
+      if (raw) await takeFiles({ files: [raw], set value(v) {} }, true);
+      return;
+    }
+    if (out.size > maxMb * 1024 * 1024) return setError(copy('uploader.size', { max: maxMb }));
+    // مستند من عدة صفحات: «صورة مستند، 3 صفحات.pdf» لا «صورة مستند، صفحة 1.pdf» (مراجعة 12.0)
+    const pdfName = () => `${e.baseName.replace(/\s*[،,—-]\s*صفحة\s*\d+$/, '')}${sheetMod ? `، ${sheetMod.pagesAr(scanPages(out))}` : ''}.pdf`;
+    const asPdf = !!e.baseName && out.type === 'application/pdf';
+    Object.assign(e, { file: out, size: out.size, mime: mimeOf(out), name: e.baseName ? (asPdf ? pdfName() : e.baseName) : e.name, title: asPdf ? pdfName().replace(/\.pdf$/, '') : e.title, status: 'queued', pct: 0, upload_id: null, error: null });
+    render();
+    emit();
+    pump();
+  }
+  function takePage(input) {
+    const raw = (input.files || [])[0];
+    input.value = '';
+    const tg = camTarget;
+    camTarget = null;
+    if (!raw || !tg || !tg.e.file || tg.e.removed) return takeFiles({ files: raw ? [raw] : [], set value(v) {} }, true);
+    live.textContent = sheetMod ? sheetMod.prepText('company') : '';
+    return rescan(tg.e, () => scanAddPage(tg.e.file, raw, { replace: Number.isInteger(tg.replace) ? tg.replace : null }), raw);
   }
   let raf = 0;
   const schedule = () => {
@@ -151,10 +225,19 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           photoN += 1;
           name = `${titlePrefix}${copy('uploader.photo_title', { i: photoN })}`;
         }
-        try {
-          file = await compressToBlob(f, { maxSide: 2000, quality: 0.8, name });
-        } catch {
-          file = f;
+        // v12 media (MD-3): صورة المستند تمر بالماسح (نظيفة + الأصل، §5.8)، وأي فشل ← التصغير العادي كما في 10.0
+        live.textContent = '';
+        // v12 gate (K-P2): الإعداد scan_client_enabled يصل في meta.scan (لا كتلة bm-public في /company)
+        const scanned = meta.scan === false ? null : await scanImage(f, { name, register: 'company', onStatus: (txt) => (live.textContent = txt) });
+        if (scanned) {
+          file = scanned;
+          sheetMod = (await loadScanner()).sheet;
+        } else {
+          try {
+            file = await compressToBlob(f, { maxSide: 2000, quality: 0.8, name });
+          } catch {
+            file = f;
+          }
         }
         if (fromCamera) name = file.name || name;
       }
@@ -162,7 +245,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
         setError(copy('uploader.size', { max: maxMb }));
         continue;
       }
-      entries.push({ key: uid('f'), name, size: file.size, mime: mimeOf(file) || mime, status: 'queued', pct: 0, file, title: fromCamera ? name : `${titlePrefix}${name}` });
+      entries.push({ key: uid('f'), name, baseName: scanPages(file) ? name.replace(/\.[A-Za-z0-9]{1,5}$/, '') : null, size: file.size, mime: mimeOf(file) || mime, status: 'queued', pct: 0, file, title: fromCamera ? name : `${titlePrefix}${name}` });
     }
     render();
     emit();
@@ -190,7 +273,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
     let payload;
     try {
       const up = await fileToUpload(e.file);
-      payload = { file: { name: e.name, mime: e.mime, data_base64: up.data_base64 }, title: (e.title || e.name).slice(0, 200) };
+      payload = { file: { name: e.name, mime: e.mime, data_base64: up.data_base64, ...(up.scan ? { scan: up.scan } : {}) }, title: (e.title || e.name).slice(0, 200) };
     } catch {
       e.status = 'failed';
       e.error = copy('uploader.failed', { name: e.name });
@@ -205,7 +288,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
           },
         });
         if (e.removed) return;
-        Object.assign(e, { status: 'done', pct: 1, upload_id: res.upload_id, size: res.size || e.size, expires_at: res.expires_at || null, file: null });
+        Object.assign(e, { status: 'done', pct: 1, upload_id: res.upload_id, size: res.size || e.size, expires_at: res.expires_at || null, file: scanPages(e.file) ? e.file : null });
         return;
       } catch (err) {
         if (err.status === 401) window.dispatchEvent(new CustomEvent('auth:expired'));
@@ -234,7 +317,23 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
 
   const camBtn = capture && isCoarse() ? h('label.btn.btn-secondary.co-up-btn', { htmlFor: camInput.id }, icon('upload', { size: 18 }), h('span', W.uploader.camera)) : null;
   const pickBtn = h('label.btn.btn-secondary.co-up-btn', { htmlFor: fileInput.id }, icon('paperclip', { size: 18 }), h('span', isCoarse() ? W.uploader.choose : W.uploader.choose_many));
-  mount(another, h('label.btn.btn-ghost.btn-sm', { htmlFor: camInput.id }, icon('plus', { size: 16 }), h('span', W.uploader.another_page)));
+  mount(
+    another,
+    h(
+      'label.btn.btn-ghost.btn-sm',
+      {
+        htmlFor: camInput.id,
+        // v12 media (L12-38): الصفحة التالية تُضاف لآخر مستند ممسوح ← PDF واحد
+        onClick: () => {
+          const last = [...entries].reverse().find((x) => x.file && scanPages(x.file));
+          camTarget = last && scanPages(last.file) < 12 ? { e: last } : null;
+        },
+        tag: 'CK-02',
+      },
+      icon('plus', { size: 16 }),
+      h('span', W.uploader.another_page),
+    ),
+  );
   // لوحة المفاتيح: الحقل الأصلي مخفي، فحلقة التركيز تظهر على زره الظاهر (WCAG 2.4.7)؛ وبلا زر تصوير (الحاسوب) لا يُوقف
   // Tab على حقل كاميرا غير مرئي
   if (!camBtn) camInput.tabIndex = -1;
@@ -281,7 +380,7 @@ export function coUploader({ max = 5, perRequestLeft = 30, capture = true, title
 }
 
 // ───────────────────────── عارض الحقول المشترك ─────────────────────────
-const PLACEHOLDER = '— اختاروا —';
+const PLACEHOLDER = 'اختاروا'; // v12 gate (V-23، §5.11): بلا «—» في نص بوابة الشركات
 function optionLabel(spec, v) {
   if (Array.isArray(v)) return v.map((x) => optionLabel(spec, x)).join('، ');
   return spec.options?.find((o) => String(o.key) === String(v))?.label ?? v;
@@ -301,6 +400,7 @@ function control(spec, value, ctx) {
   };
   switch (spec.kind) {
     case 'textarea':
+      // tags:skip control inside the field() that carries the field's CK code (catalog data)
       input = h('textarea.input', { id: idf, rows: 4, dir: 'auto', maxlength: spec.max || null, placeholder: spec.placeholder || null });
       get = () => input.value.trim();
       set = (v) => (input.value = v == null ? '' : String(v));
@@ -311,6 +411,7 @@ function control(spec, value, ctx) {
         // نموذج من نوع «اتفاقية سرية» فقط (J-05: لا «شروط الاستخدام» ولا أي نموذج آخر بديلًا)
         const isNda = (m) => m.kind === 'template' && (m.template_kind ? m.template_kind === 'nda' : /سري|NDA/i.test(m.title || ''));
         const t = (ctx.memoryItems || []).find(isNda) || null;
+        // tags:skip control inside the field() that carries the field's CK code
         input = h('input', { id: idf, type: 'checkbox' });
         el = h('label.check.check-single', { htmlFor: idf }, input, h('span', t ? `${spec.label}: ${t.title}` : spec.label));
         get = () => (t && input.checked ? t.id : '');
@@ -322,6 +423,7 @@ function control(spec, value, ctx) {
     case 'select':
     case 'entity': {
       const opts = spec.kind === 'entity' ? (ctx.entities || []).map((e) => ({ key: e.id, label: e.name })) : spec.kind === 'memory_ref' ? (ctx.memoryItems || []).filter((m) => !spec.memory_kinds || spec.memory_kinds.includes(m.kind)).map((m) => ({ key: m.id, label: m.title })) : spec.options || [];
+      // tags:skip control inside the field() that carries the field's CK code
       input = h('select.input', { id: idf }, h('option', { value: '' }, spec.kind === 'memory_ref' && spec.key === 'memory_id' ? 'غير موجود في الذاكرة' : PLACEHOLDER), opts.map((o) => h('option', { value: String(o.key) }, o.label)));
       el = h('div.select-wrap', input);
       get = () => {
@@ -337,7 +439,7 @@ function control(spec, value, ctx) {
     case 'multi_int': {
       let sel = new Set();
       const btns = (spec.options || []).map((o) =>
-        h('button.chip-toggle', { type: 'button', 'aria-pressed': 'false', dataset: { v: String(o.key) }, onClick: (e) => { const k = o.key; if (sel.has(k)) sel.delete(k); else sel.add(k); sync(); e.currentTarget.dispatchEvent(new Event('input', { bubbles: true })); } }, icon('check', { size: 14 }), h('span', o.label)),
+        h('button.chip-toggle', { type: 'button', 'aria-pressed': 'false', dataset: { v: String(o.key) }, onClick: (e) => { const k = o.key; if (sel.has(k)) sel.delete(k); else sel.add(k); sync(); e.currentTarget.dispatchEvent(new Event('input', { bubbles: true })); }, tag: 'CK-127' }, icon('check', { size: 14 }), h('span', o.label)),
       );
       const sync = () => btns.forEach((b, i) => { const on = sel.has(spec.options[i].key); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.classList.toggle('is-on', on); });
       el = h('div.chip-select', { id: idf, role: 'group' }, btns);
@@ -351,12 +453,14 @@ function control(spec, value, ctx) {
       break;
     }
     case 'date':
+      // tags:skip control inside the field() that carries the field's CK code
       input = h('input.input', { id: idf, type: 'date', dir: 'ltr', min: spec.future ? cairoToday() : null });
       get = () => input.value;
       set = (v) => (input.value = v ? String(v).slice(0, 10) : '');
       break;
     case 'money':
     case 'int':
+      // tags:skip control inside the field() that carries the field's CK code
       input = h('input.input', { id: idf, type: 'text', inputmode: spec.kind === 'money' ? 'decimal' : 'numeric', dir: 'ltr', autocomplete: 'off' });
       get = () => input.value.trim();
       set = (v) => (input.value = v == null ? '' : String(v));
@@ -368,6 +472,7 @@ function control(spec, value, ctx) {
       }
       break;
     case 'bool': {
+      // tags:skip control inside the field() that carries the field's CK code
       input = h('input', { id: idf, type: 'checkbox' });
       el = h('label.check.check-single', { htmlFor: idf }, input, h('span', spec.label));
       get = () => input.checked;
@@ -375,6 +480,7 @@ function control(spec, value, ctx) {
       break;
     }
     default: {
+      // tags:skip control inside the field() that carries the field's CK code
       input = h('input.input', { id: idf, type: 'text', dir: 'auto', maxlength: spec.max || null, placeholder: spec.placeholder || null, autocomplete: 'off' });
       if (spec.counterparty && ctx.counterparties?.length) {
         const dl = h('datalist', { id: `${idf}-dl` }, ctx.counterparties.map((c) => h('option', { value: c.name })));
@@ -386,7 +492,7 @@ function control(spec, value, ctx) {
     }
   }
   const boxed = spec.kind === 'bool' || spec.key === 'template_memory_id';
-  const wrap = field(boxed ? null : spec.label, el || input, { hint: spec.hint, required: !!spec.required, group: spec.kind === 'multi' || spec.kind === 'multi_int', full: ['textarea', 'multi', 'multi_int'].includes(spec.kind) });
+  const wrap = field(boxed ? null : spec.label, el || input, { hint: spec.hint, required: !!spec.required, group: spec.kind === 'multi' || spec.kind === 'multi_int', full: ['textarea', 'multi', 'multi_int'].includes(spec.kind), tag: spec.tag });
   // الإلزام لقارئات الشاشة (النجمة بصرية فقط)
   const ctl = input || el?.querySelector?.('input:not([type=hidden]), select, textarea');
   if (spec.required && ctl && !['checkbox', 'radio'].includes(ctl.type)) ctl.setAttribute('aria-required', 'true');
@@ -444,7 +550,7 @@ export function coTypeFields(typeKey, values = {}, { entities = [], counterparti
     'div.co-type-fields',
     main.map((c) => c.wrap),
     between,
-    more.length ? h('details.co-more', { open: moreOpen || null }, h('summary', W.newRequest.more), h('div.co-more-body', more.map((c) => c.wrap))) : null,
+    more.length ? h('details.co-more', { open: moreOpen || null, tag: 'CK-128' }, h('summary', { tag: 'CK-129' }, W.newRequest.more), h('div.co-more-body', more.map((c) => c.wrap))) : null,
   );
   el.addEventListener('input', () => {
     syncUnless();
@@ -490,7 +596,7 @@ export function coRequestFields(typeKey, fields = {}) {
       if (s.kind === 'date') shown = fmtDate(`${String(v).slice(0, 10)}T10:00:00Z`);
       else if (s.kind === 'money') shown = h('span.num', src.currency && src.currency !== 'EGP' ? `${Number(v).toLocaleString('en-US')} ${CURRENCIES.find((c) => c.key === src.currency)?.label || src.currency}` : money(v));
       else if (s.kind === 'bool') shown = v ? 'نعم' : 'لا';
-      else if (s.kind === 'memory_ref') shown = h('a', { href: `#/memory/item/${encodeURIComponent(v)}` }, 'عنصر في الذاكرة القانونية');
+      else if (s.kind === 'memory_ref') shown = h('a', { href: `#/memory/item/${encodeURIComponent(v)}`, tag: 'CK-130' }, 'عنصر في الذاكرة القانونية');
       else shown = h('span', { dir: 'auto' }, String(optionLabel(s, v)));
       return [s.label, shown];
     });
@@ -526,8 +632,8 @@ export function coMemoryForm(kind, values = {}, { staff = false, admin = false, 
   };
   const check = () => validateMemory(kind, vals()).errors;
   bindValidation(ctrls, check);
-  const submit = button(submitLabel || (kind === 'contract' ? 'حفظ العقد' : 'حفظ'), { variant: 'primary', type: 'submit' });
-  const el = h('form.co-memory-form', { novalidate: true }, alert, ctrls.map((c) => c.wrap), kind === 'contract' ? notice : null, onSubmit ? h('div.form-actions', submit) : null);
+  const submit = button(submitLabel || (kind === 'contract' ? 'حفظ العقد' : 'حفظ'), { variant: 'primary', type: 'submit', tag: 'CK-131' });
+  const el = h('form.co-memory-form', { novalidate: true, tag: 'CK-132' }, alert, ctrls.map((c) => c.wrap), kind === 'contract' ? notice : null, onSubmit ? h('div.form-actions', submit) : null);
   el.addEventListener('input', syncShow);
   el.addEventListener('change', syncShow);
   syncShow();

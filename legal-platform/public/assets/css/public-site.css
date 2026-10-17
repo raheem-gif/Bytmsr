@@ -7,7 +7,9 @@
 
 /* @critical-start — من هنا حتى @critical-end يُضمَّن في <head> صفحات الموقع (B91-11) فتظهر الشاشة الأولى دون انتظار هذا الملف.
    v11 visual (V-2، L11-30): الكتلة العامة ≤ 8,500 بايت بعد الضغط — تحل محل قواعد 9.2/10.0 ولا تُضاف إليها. ما بعد الشاشة
-   الأولى (الروابط، التركيز، القائمة المفتوحة، الضغط، الأزرار العامة) في الجزء غير الحرج بعد @critical-end */
+   الأولى (الروابط، التركيز، القائمة المفتوحة، الضغط، الأزرار العامة) في الجزء غير الحرج بعد @critical-end.
+   v12 look (LK-0): الكتلة العامة تنتهي عند علامة general، والشاشة الأولى لصفحة «خيري» (المربعات والصور) كتلة مسماة charity
+   بعدها مباشرة تطلبها صفحة «خيري» وحدها؛ CRITICAL_RE في site.js هو المصدر الواحد للكتل */
 
 /* خط IBM Plex Sans Arabic مستضاف محليًا (رخصة SIL OFL — /assets/fonts/OFL.txt): العربية فقط، وزنان */
 @font-face {
@@ -24,6 +26,40 @@
   font-display: swap;
   src: url("/assets/fonts/plex-arabic-700.woff2") format("woff2");
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FEFC;
+}
+
+/* v12 look (K12-10…12): Plex 600 للصفوف والأزرار في صفحات الأفراد والشركات (700 يبقى لـ«خيري»)، ووجه العناوين «Emam Display»:
+   Amiri (عربي) وCormorant (لاتيني وأرقام) بـ optional فلا إزاحة عند وصوله. المدى = نقاط الملف بالضبط (fonts/README.txt) */
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/fonts/plex-arabic-600.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FEFC;
+}
+
+@font-face {
+  font-family: "Emam Display";
+  font-display: optional;
+  src: url("/assets/fonts/amiri-arabic-400-sub.woff2") format("woff2");
+  unicode-range: U+0020, U+00A0, U+060C, U+061B, U+061F, U+0621-063A, U+0640-0655, U+0660-066D, U+0670, U+067E, U+0686, U+06A4, U+06AF, U+06CC, U+200C-200E;
+}
+
+@font-face {
+  font-family: "Emam Display";
+  font-display: optional;
+  src: url("/assets/fonts/cormorant-latin-500-sub.woff2") format("woff2");
+  unicode-range: U+0021-007E, U+00A9, U+00AB, U+00B7, U+00BB, U+2013-2014, U+2018-2019, U+201C-201D, U+2026;
+}
+
+/* v12 gate (V-16، K12-13): الأرقام والحروف اللاتينية بخط Plex (وزن 400 وحده، كما في الميزانية) في صفحات الأفراد والشركات —
+   «REQ-2026-00058»، الهواتف، المواعيد، «1 من 5»، «© 2026». المدى أرقام وحروف و© فقط (لا علامات الترقيم التي تكتب بها
+   الجمل العربية، فلا يُطلب الملف في «/» ولا الشجرة)؛ optional فلا إزاحة عند وصوله؛ «خيري» على مكدّسه كما هو */
+@font-face {
+  font-family: "Emam Latin";
+  font-display: optional;
+  src: url("/assets/fonts/plex-latin-400.woff2") format("woff2");
+  unicode-range: U+0030-0039, U+0041-005A, U+0061-007A, U+00A9;
 }
 
 :root {
@@ -110,6 +146,68 @@
   --pub-header-h: 64px;
   /* v10 (X10-P1): الضغط يبدأ مع لمس الإصبع ويظهر في الإطار الأول */
   --press-scale: 0.97;
+  /* v12 look (K12-02…04): أدوار «ورق المكتب». القيم الثابتة هنا، وأسماء v11 تتبعها في الصفحات غير «خيري» (القاعدة التالية) */
+  --paper: #fff;
+  --paper-2: #f8f6f1;
+  --paper-3: #f1eee6;
+  --ink: #13201a;
+  --ink-2: #4a524d;
+  --ink-3: #686f6b;
+  --rule: #e4e0d6;
+  --rule-2: #cfc9bb;
+  --field: #8a8f8a;
+  --act: var(--primary-700);
+  --act-hover: var(--primary-800);
+  --on-act: #fff;
+  --gold: var(--accent-500);
+  --f-ui: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-display: "Emam Display", "IBM Plex Sans Arabic", "Times New Roman", serif;
+  --d1: 400 clamp(34px, 1.6vw + 26px, 50px)/1.42 var(--f-display);
+  --d2: 400 clamp(28px, .9vw + 22px, 38px)/1.45 var(--f-display);
+  --d3: 400 clamp(24px, .4vw + 20px, 28px)/1.5 var(--f-display);
+  --d4: 400 22px/1.5 var(--f-display);
+  --t-lead: 400 clamp(17px, .3vw + 16px, 19px)/1.8 var(--f-ui);
+  --t-ui: 400 15px/1.6 var(--f-ui);
+  --t-ui-strong: 600 15px/1.6 var(--f-ui);
+  --t-head: 600 17px/1.55 var(--f-ui);
+  --t-small: 400 14px/1.6 var(--f-ui);
+  --t-label: 600 13px/1.5 var(--f-ui);
+  --t-num: 400 13px/1.4 var(--f-ui);
+  --gutter: 20px;
+  --col: 600px;
+  --page: 1160px;
+  --r-1: 2px;
+  --target: 48px;
+}
+
+/* v12 look (K12-02، L12-33): إعادة توجيه أسماء v11 إلى أدوار v12 على الجذر نفسه (فتتبعها كل الأسماء المشتقة على :root)
+   في كل صفحة ليست «خيري»؛ صفحات «خيري» (data-side=charity أو .pub-charity) تبقى بشكل 9.2/v11 (K12-15). بلا :has() يبقى شكل v11 */
+:root:has(> body:not([data-side="charity"], .pub-charity)) {
+  --canvas: var(--paper);
+  --canvas-grouped: var(--paper);
+  --surface: var(--paper);
+  --surface-tint: var(--paper-2);
+  --label: var(--ink);
+  --label-2: var(--ink-2);
+  --label-3: var(--ink-3);
+  --separator: var(--rule);
+  --fill-1: var(--paper-2);
+  --fill-2: var(--paper-3);
+  --tint-weak: transparent;
+  --tint-weak-2: var(--paper-2);
+  --gold-wash: transparent;
+  --ok: #1d6b3a;
+  --bad: #a8261b;
+  --e-1: 0 0 #0000;
+  --e-2: 0 0 #0000;
+  --r-6: 2px;
+  --r-10: 2px;
+  --r-14: 2px;
+  --r-20: 2px;
+  --r-28: 14px;
+  --pub-radius: 2px;
+  --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--act);
+  --field-line: var(--field);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -200,40 +298,9 @@ button {
   margin-inline-end: auto;
 }
 
-.pub-brand:has(+ .pub-seg-pill) {
-  margin-inline-end: 0;
-}
-
 .pub-mark {
   width: auto;
   height: 22px;
-}
-
-/* «خيري» (ذهبي) / «أفراد وشركات» (أخضر): تبدأ بعد مساحة الشعار الخالية (V11-04 القاعدة 4) */
-body.pub .pub-seg-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 32px;
-  margin-inline: 12px auto;
-  padding: 0 11px;
-  border-radius: 99px;
-  background: var(--gold-wash);
-  color: var(--gold-ink);
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-body.pub .pub-seg-pill--paid {
-  background: var(--tint-weak);
-  color: var(--tint);
-}
-
-.pub-seg-pill svg {
-  width: 16px;
-  height: 16px;
 }
 
 .pub-nav {
@@ -271,18 +338,11 @@ body.pub-landing .pub-nav-cta {
   color: var(--tint);
 }
 
-.pub-seg-pill-change,
-.pub-nav-gate,
 .pub-head-contact,
 .pub-menu-close,
-.pub-menu-toggle {
+.pub-menu-toggle,
+.pub-nav-wa {
   display: none;
-}
-
-@media (min-width: 1024px) {
-  .pub-seg-pill-change {
-    display: inline;
-  }
 }
 
 @media (max-width: 1080px) {
@@ -301,6 +361,103 @@ body.pub-landing .pub-nav-cta {
     color: var(--label);
   }
 }
+
+/* الهاتف: رأس 52px، زر التواصل دائرة ملوّنة خفيفة (واتساب، وإلا الاتصال) */
+@media (max-width: 600px) {
+  :root {
+    --pub-gutter: 16px;
+    --pub-header-h: 52px;
+  }
+
+  .pub-mark {
+    height: 19px;
+  }
+
+  body.pub .pub-head-contact {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 99px;
+    background: var(--tint-weak);
+    color: var(--tint);
+  }
+}
+
+/* v12 look (K12-04): هوامش الصفحة 20 / 40 / 64 */
+@media (min-width: 700px) {
+  :root {
+    --gutter: 40px;
+  }
+}
+
+@media (min-width: 1100px) {
+  :root {
+    --gutter: 64px;
+  }
+}
+
+/* v12 look (K12-21، L12-11): رأس صفحات الأفراد والشركات ورقة بيضاء بخط سفلي رفيع، روابط نصية بلون الحبر الثاني، زر واحد
+   صغير (خطّي في /services، ممتلئ في غيرها)، و«القائمة» كلمة على الهاتف. «خيري» (data-side=charity) يبقى بشكل v11 */
+body.pub[data-side="paid"] {
+  --pub-header-h: 68px;
+  --pub-gutter: var(--gutter);
+}
+
+body.pub[data-side="paid"] .pub-header {
+  background: var(--paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub[data-side="paid"] .pub-nav-link {
+  padding: 0 10px;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+/* v12 gate (V-07، K12-21): زر الرأس خطّي (حد 1px بلون الحبر) في كل صفحات الأفراد والشركات، فزر الصفحة هو الممتلئ الوحيد */
+body.pub[data-side="paid"] .pub-nav-cta {
+  min-height: 38px;
+  margin-inline-start: 14px;
+  padding: 0 18px;
+  border-radius: 2px;
+  background: none;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  font: 600 14px/1.2 var(--f-ui);
+}
+
+body.pub .pub-menu-toggle--word {
+  width: auto;
+  padding: 0 4px;
+  color: var(--ink);
+  font: 600 15px/1 var(--f-ui);
+}
+
+@media (max-width: 600px) {
+  body.pub[data-side="paid"] {
+    --pub-header-h: 60px;
+  }
+}
+
+:root:has(> body[data-side="paid"]) {
+  --pub-font: "IBM Plex Sans Arabic", "Emam Latin", "Noto Sans Arabic", Tahoma, sans-serif;
+  --f-ui: "IBM Plex Sans Arabic", "Emam Latin", "Segoe UI", Tahoma, sans-serif;
+}
+
+/* v12 look (K12-03، PW-L7): لا وزن 700 في صفحات الأفراد والشركات؛ ما يُرسم منه عند التحميل (رابط التخطي، الاسم اللاتيني، روابط التذييل)
+   يأخذ 600 فلا يُطلب ملف 700 أصلًا. «خيري» يبقى على 400/700. (روابط «بالمختصر»: في كتلة :legal، V-17) */
+:root:has(> body:not([data-side="charity"], .pub-charity)) :is(b, strong, summary, .skip-link, .pub-ltr, .pub-social, .pub-contact-label, .pub-footer a, .pub-contact-list a, .bp-step-dot, .bp-label) {
+  font-weight: 600;
+}
+
+/* @critical-end:general */
+
+/* @critical-start:charity — الشاشة الأولى لصفحة «خيري» (/khayri حين يُعاد «خيري»): تُضاف للكتلة العامة في هذه الصفحة وحدها
+   (<!--site:critical-css:charity-->)؛ نص قواعدها كما في v11 بلا تغيير (L12-33) */
 
 /* ───────────── الشاشة الأولى (V11-40): «مشكلتك في إيه؟» + 8 مربعات بصورة وكلمة + طرق تانية، على الأبيض ───────────── */
 /* محسوبة لمساحة 360×512: الرأس 52 + 10 + العنوان 64 + 4 صفوف مربعات + 3×8 + 6 + الطرق التانية 56 = 212 + 4 صفوف،
@@ -561,28 +718,8 @@ body.pub .pub-pick-way--wa {
   font-size: 15px;
 }
 
-/* الهاتف: رأس 52px، زر التواصل دائرة ملوّنة خفيفة (واتساب، وإلا الاتصال) */
+/* الهاتف: طرق التواصل الثلاثة */
 @media (max-width: 600px) {
-  :root {
-    --pub-gutter: 16px;
-    --pub-header-h: 52px;
-  }
-
-  .pub-mark {
-    height: 19px;
-  }
-
-  body.pub .pub-head-contact {
-    display: inline-grid;
-    flex: none;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 99px;
-    background: var(--tint-weak);
-    color: var(--tint);
-  }
-
   body.pub .pub-pick-way {
     min-height: 56px;
     padding-top: 2px;
@@ -850,6 +987,11 @@ body.pub .pub-seg-pill:hover {
   body.pub .pub-nav-gate {
     display: flex;
     color: var(--label-2);
+  }
+
+  /* v12 gate (V-18، K12-21): واتساب كلمة داخل القائمة المفتوحة للأفراد والشركات (بدل دائرة الأيقونة بجانب «القائمة») */
+  body.pub .pub-nav-wa {
+    display: inline-flex;
   }
 }
 
@@ -1802,6 +1944,10 @@ body.pub .pub-staff-link {
 
 body.pub .pub-crumbs a {
   color: var(--label-2);
+  /* v12 gate (K-P5): هدف لمس 44px على الأقل دون أن يتغير مكان السطر (الحشو يقابله هامش سالب) */
+  display: inline-block;
+  padding-block: 14px;
+  margin-block: -14px;
 }
 
 body.pub .pub-page-hero h1 {
@@ -1877,6 +2023,11 @@ body.pub .pub-summary a {
   font-weight: 700;
 }
 
+/* v12 gate (V-17): روابط «بالمختصر» (DD-11 في حذف البيانات) 600 لا 700 في صفحات الأفراد والشركات (لا يُطلب ملف Plex 700) */
+body.pub[data-side="paid"] .pub-summary a {
+  font-weight: 600;
+}
+
 /* روابط التليفون وواتساب داخل الجمل («بالمختصر»، طرق طلب الحذف، صفحة 404): هدف لمس 48px دون تغيير السطر */
 body.pub.v91 .pub-summary a,
 body.pub.v91 .pub-doc p > a[href^="tel:"],
@@ -1913,6 +2064,68 @@ body.pub:has(.pub-doc .pub-btn-primary) .pub-nav-cta {
   background: var(--tint-weak);
   color: var(--tint);
 }
+
+/* v12 look (K12-55): الصفحات القانونية و404 للأفراد والشركات — العنوان بوجه العناوين، المقدمة بعرض القراءة، «بالمختصر»
+   قائمة بخطوط بلا سطح ولا أيقونات؛ زر الرأس خطّي حين للصفحة زرها الممتلئ. «خيري» يبقى كما هو */
+body.pub[data-side="paid"] .pub-page-hero {
+  padding-block: clamp(28px, 5vw, 56px) 8px;
+}
+
+body.pub[data-side="paid"] .pub-page-hero h1 {
+  color: var(--ink);
+  font: var(--d2);
+}
+
+body.pub[data-side="paid"] .pub-page-hero p {
+  max-width: 36em;
+  color: var(--ink-2);
+  font: var(--t-lead);
+}
+
+body.pub[data-side="paid"] .pub-crumbs {
+  color: var(--ink-3);
+  font: var(--t-small);
+}
+
+body.pub[data-side="paid"] .pub-updated {
+  color: var(--ink-3) !important;
+}
+
+body.pub[data-side="paid"] .pub-summary {
+  max-width: 40em;
+  margin-block-start: 24px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border-block-start: 1px solid var(--ink);
+  font: var(--t-ui);
+}
+
+body.pub[data-side="paid"] .pub-summary h2 {
+  margin: 0;
+  padding-block: 12px 4px;
+  color: var(--ink-2);
+  font: var(--t-label);
+}
+
+body.pub[data-side="paid"] .pub-summary ul {
+  gap: 0;
+}
+
+body.pub[data-side="paid"] .pub-summary li {
+  padding-block: 10px;
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub[data-side="paid"] .pub-summary :is(p, li) {
+  color: var(--ink);
+  font: 400 17px/1.6 var(--f-ui);
+}
+
+body.pub[data-side="paid"] .pub-summary .pub-icon {
+  display: none;
+}
+
 /* @critical-end */
 
 .pub-doc-layout {
@@ -2773,273 +2986,547 @@ html:has(#bm-theme) .pub-header {
    كتلتان مسماتان تُضمَّنان في <head> مع الكتلة العامة: «gate» في حالة الشاشة على «/» (≤ 3,300 بايت) و«paid» في /services
    (≤ 3,500 بايت)، وما بعدهما يصل مع الملف. */
 
-/* @critical-start:gate — طبقة بيضاء معتمة: الشعار، «بالصوت»، بطاقتان متساويتان، ثلاثة روابط (G11-10/11، r2 P8–P11/S19) */
-body.has-gate {
-  overflow: hidden;
-}
 
-/* بلا inert في متصفح قديم: الصفحة تحت الشاشة لا تُرى ولا تُركَّز (تُزال مع has-gate) */
-body.has-gate > #site {
-  visibility: hidden;
-}
+/* ===== v12 look (owner: look): الصفحة الأولى وصفحات الشجرة وإطار الطلب (§5.6). كتلة «gate» حُذفت في LK-1 بعد أن أزال
+   مسار entry شاشة الاختيار من «/» (EN-3). ===== */
 
-.gate {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background:
-    radial-gradient(110% 46% at 50% -6%, rgb(var(--accent-500-rgb) / 0.13), transparent 72%),
-    radial-gradient(90% 34% at 50% 108%, rgb(var(--primary-700-rgb) / 0.06), transparent 70%),
-    var(--canvas);
-}
-
-.gate-inner {
+/* @critical-start:entry — «/» وصفحات /start/… (K12-22/23، L12-03/04/13): ورقة بيضاء، سؤال واحد، صفوف بخطوط رفيعة، زر واحد */
+.lh {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-height: 100%;
-  padding: max(20px, env(safe-area-inset-top)) var(--pub-gutter) 8px;
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
 }
 
-body.pub .gate-logo {
-  margin: auto 0 0;
-  line-height: 0;
+.lh__head {
+  display: flex;
+  justify-content: center;
+  padding: clamp(28px, 6vh, 64px) var(--gutter) 0;
 }
 
-/* صندوق الشعار محجوز من width/height (لا إزاحة)؛ 200px أدنى عرض للشعار الكامل (V11-04) */
-.gate-logo img {
+.lh__head--small {
+  padding-top: 10px;
+}
+
+.lh__logo img {
   display: block;
-  width: min(70vw, 300px);
-  max-width: 100%;
+  width: min(64vw, 260px);
   height: auto;
 }
 
-.gate-choices {
-  display: grid;
-  grid-auto-rows: 1fr;
-  gap: 12px;
-  width: 100%;
-  max-width: 440px;
-  margin: clamp(18px, 5svh, 44px) 0 0;
-  padding: 0;
-  list-style: none;
+.lh__mark img {
+  display: block;
+  width: auto;
+  height: 20px;
 }
 
-body.pub .gate-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  height: 100%;
-  min-height: 112px;
-  padding: 14px 14px 14px 12px;
-  border-radius: 24px;
-  background: var(--surface);
-  box-shadow: 0 0 0 1px rgb(var(--primary-700-rgb) / 0.08), var(--e-2);
-  color: var(--label);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.gate-card:active {
-  transform: scale(var(--press-scale));
-}
-
-.gate-pic {
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: var(--tint-weak);
-}
-
-.gate-card--charity .gate-pic {
-  background: var(--gold-wash);
-}
-
-.gate-pic svg {
-  width: 56px;
-  height: 56px;
-}
-
-.gate-text {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-}
-
-.gate-title {
-  font-size: clamp(20px, 5.6vw, 23px);
-  line-height: 1.3;
-}
-
-.gate-kicker {
+.lh__mark {
   display: inline-flex;
   align-items: center;
-  height: 30px;
-  margin-inline-start: 4px;
-  padding-inline: 12px;
-  border-radius: 99px;
-  background: var(--gold-wash);
-  color: var(--gold-ink);
-  box-shadow: inset 0 0 0 1px rgb(var(--accent-500-rgb) / 0.45);
-  font-size: 17px;
-  font-weight: 700;
-  vertical-align: 2px;
+  min-height: 44px;
 }
 
-.gate-line {
-  color: var(--label-2);
-  font-size: 16px;
-  line-height: 1.5;
+.lh__body,
+.lh__foot {
+  width: 100%;
+  max-width: calc(var(--col) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
-.gate-chev {
-  width: 20px;
-  height: 20px;
-  color: var(--label-3);
+.lh__body {
+  flex: 1;
+  padding-block: clamp(28px, 6vh, 64px) 48px;
 }
 
-.gate-foot {
-  margin-top: auto;
-  padding-top: 16px;
+.lh__head--small + .lh__body {
+  padding-top: clamp(20px, 4vh, 44px);
 }
 
-.gate-links {
+.lh__foot {
+  padding-block: 24px 32px;
+  color: var(--ink-3);
+  font: var(--t-small);
+}
+
+.lh__links {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  column-gap: 20px;
+  gap: 0 22px;
 }
 
-body.pub .gate-links a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* «.lh» قبل الرابط: قاعدة الروابط العامة body.pub a أولويتها (0,1,2) */
+.lh .lh__links a {
+  display: inline-grid;
+  place-items: center;
   min-width: 44px;
   min-height: 44px;
-  color: var(--label-2);
-  font-size: 15px;
+  color: var(--ink-2);
   text-decoration: none;
 }
 
-@media (max-width: 400px) {
-  .gate-pic {
-    width: 72px;
-    height: 72px;
+.lh__links--small {
+  font: var(--t-num);
+}
+
+.trail {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  margin-bottom: 24px;
+  color: var(--ink-3);
+  font: var(--t-small);
+}
+
+.lh .trail__back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* سهم الرجوع (→ في الواجهة العربية) مرسوم بقناع، فالرابط نص فقط في HTML */
+.trail__back::before {
+  content: "";
+  width: 18px;
+  height: 10px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M0 5h17M13 1l4 4-4 4' fill='none' stroke='red' stroke-width='1.3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.trail__sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--rule-2);
+}
+
+.q__title {
+  color: var(--ink);
+  font: var(--d2);
+}
+
+.opts {
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-2);
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.opts--compact .opt {
+  min-height: 64px;
+}
+
+.opt__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.opt__t {
+  display: block;
+  color: var(--ink);
+  font: 400 20px/1.5 var(--f-ui);
+}
+
+.opt__s {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+.opt .arrow {
+  flex: none;
+  width: 22px;
+  height: 12px;
+  color: var(--ink-3);
+}
+
+.pub .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: var(--target);
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  background: none;
+  font: 600 16px/1.2 var(--f-ui);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pub .btn--primary {
+  background: var(--act);
+  color: var(--on-act);
+}
+
+.pub .btn--line {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.pub .btn--text {
+  padding-inline: 4px;
+  color: var(--act);
+}
+
+.pub .btn--sm {
+  position: relative;
+  min-height: 38px;
+  padding: 0 18px;
+  font: 600 14px/1.2 var(--f-ui);
+}
+
+.pub .btn--sm::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* شاشة قصيرة (360×640): الشعار والصفوف الثلاثة والتذييل كلها دون تمرير */
+@media (max-height: 700px) {
+  .lh__head {
+    padding-top: 20px;
   }
 
-  .gate-pic svg {
-    width: 48px;
-    height: 48px;
+  .lh__logo img {
+    width: min(52vw, 200px);
+  }
+
+  .lh__body {
+    padding-block: 20px 16px;
+  }
+
+  .opts {
+    margin-top: 20px;
+  }
+
+  .opt {
+    min-height: 64px;
+    padding-block: 10px;
+  }
+
+  .lh__foot {
+    padding-block: 8px 12px;
   }
 }
 
-/* شاشة قصيرة (360×512، 320×480): الشعار 200px فتظهر البطاقتان كاملتين */
-@media (max-height: 560px) {
-  .gate-logo img {
-    width: 200px;
-  }
-
-  .gate-choices {
-    margin-top: 16px;
-  }
-}
-
-/* سطح المكتب: بطاقتان 280px جنبًا إلى جنب (الأولى على اليمين)، الصورة فوق */
-@media (min-width: 700px) {
-  .gate-logo img {
-    width: 340px;
-  }
-
-  .gate-choices {
-    grid-template-columns: repeat(2, 280px);
-    gap: 24px;
-    width: auto;
-    max-width: none;
-  }
-
-  body.pub .gate-card {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    padding: 28px 20px 24px;
-    text-align: center;
-  }
-
-  .gate-text {
-    justify-items: center;
-  }
-
-  .gate-chev {
-    display: none;
-  }
-}
-
-/* (r2 S26) ارتفاع محجوز يسع سطور الخط الاحتياطي: لا تتغير مستطيلات البطاقتين حين يصل الخط العربي (إزاحة 0) */
-@media (min-width: 341px) and (max-width: 429px) {
-  body.pub .gate-card {
-    min-height: 160px;
-  }
-}
-
-/* ≤ 340px (320×480): قرص أصغر وبلا سهم فتتسع الكلمات وتبقى البطاقتان في الشاشة */
 @media (max-width: 340px) {
-  body.pub .gate-card {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 10px;
-    min-height: 152px;
-    padding: 12px;
+  .pub .btn {
+    padding-inline: 16px;
+    white-space: normal;
   }
 
-  .gate-pic {
-    width: 56px;
-    height: 56px;
+  .q__title {
+    overflow-wrap: anywhere;
   }
+}
+/* @critical-end:entry */
 
-  .gate-pic svg {
-    width: 40px;
-    height: 40px;
-  }
+/* v12 look (K12-24، L12-04): شاشة السؤال في الطلب — صفوف أزرار بحلقة، وخط الخطوة؛ صفحة الطلب تحمّل الملف كله في <head> */
+.opt--choice {
+  width: 100%;
+  border-width: 0 0 1px;
+  border-style: solid;
+  border-color: var(--rule);
+  background: none;
+  font: inherit;
+  text-align: start;
+}
 
-  .gate-chev {
-    display: none;
+.opt__ring {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--field);
+  border-radius: 50%;
+}
+
+.opt[aria-current="true"] {
+  background: var(--paper-2);
+}
+
+.opt[aria-current="true"] .opt__ring {
+  border: 7px solid var(--act);
+}
+
+.opt--unknown .opt__t {
+  color: var(--ink-2);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  color: var(--ink-3);
+  font: var(--t-num);
+}
+
+.step__bar {
+  position: relative;
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.step__bar i {
+  position: absolute;
+  inset-block-start: -1px;
+  inset-inline-start: 0;
+  width: calc(var(--p, 0) * 100%);
+  height: 3px;
+  background: var(--act);
+}
+
+/* v12 gate (R-01، CLS ≤ 0.01): بطاقة «الصفحة بطيئة» في إطار الطلب لا تأخذ مكانًا قبل ثوانيها الثماني (كانت مخفية بطولها 650px
+   فيبدأ التذييل تحت الشاشة ثم يقفز إليها حين يزيلها intake.js). وطلب عرض الشركات (حقول طويلة) يحجز طول الشاشة من أول رسم،
+   فيبقى التذييل تحتها قبل رسم الحقول وبعده؛ وكذلك شاشة رقم «نتصل بكم» (?mode=callback). */
+.lh .bmf-slow-box {
+  max-height: 0;
+  overflow: hidden;
+  animation: bmf-slow-box 0s 8s forwards;
+}
+
+@keyframes bmf-slow-box {
+  to {
+    max-height: 4000px;
   }
 }
 
-/* تكبير 200 % (≈ 180px): البطاقة عمود واحد، بلا تمرير أفقي */
-@media (max-width: 300px) {
-  body.pub .gate-card {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
+.lh #intake-root.lh-long {
+  min-height: 100svh;
+}
+
+/* v12 gate (V-21، A11): الأفعال النصية («ليس الآن»، «حفظ رابط صفحة طلبكم») على البداية كباقي الصفحة، لا في وسط سطر كامل */
+.lh .bmf-actions > .btn--text {
+  justify-self: start;
+}
+
+/* v12 look: ما بعد الرسم الأول لصفحات الشجرة والطلب (التمرير، التركيز، الضغط، الحركة) */
+.opt {
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+
+.opt .arrow {
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+/* v12 gate (JR-07): المرور بالمؤشر فقط؛ على اللمس يبقى «المرور» عالقًا على الصف الذي وقع تحت الإصبع في الشاشة التالية فيبدو
+   كإجابة مختارة (مثل K-P5 لروابط .lh__links) */
+@media (hover: hover) {
+  .opt:hover {
+    background: var(--paper-2);
   }
 
-  .gate-text {
-    justify-items: center;
+  .opt:hover .arrow {
+    color: var(--act);
+    transform: translateX(-4px);
   }
 }
-/* @critical-end:gate */
 
-/* @critical-start:paid — /services (L11-55، r2 P2/P14/P15): العنوان، طريق «خيري»، «للشركات»، المواضيع قائمة مجمّعة */
+.opt:active,
+.opt--going {
+  background: var(--paper-3);
+}
+
+/* «خيري» حين يُعاد (T-81): رابط هادئ بهدف لمس 44px؛ لا يظهر إلا في الحالة المعادة فقاعدته غير حرجة */
+.lh__alt {
+  margin-top: 24px;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+.lh__alt a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--ink-2);
+}
+
+/* v12 gate (K-P5): الخط تحت الرابط عند المرور بالمؤشر فقط؛ على اللمس يبقى «المرور» عالقًا بعد الضغط فيظهر خط تحت رابط واحد
+   من رابطي «وصلنا طلبكم» (I-66) لأنه وقع مكان زر «إرسال الطلب» */
+@media (hover: hover) {
+  .lh .lh__links a:hover,
+  .lh__alt a:hover,
+  .lh .trail__back:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 0.32em;
+    text-decoration-thickness: 1px;
+  }
+}
+
+.lh :focus-visible,
+.pub .btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* الصفوف: حلقة داخلية (بعد القاعدة العامة أعلاه) */
+.opt:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--act);
+}
+
+.pub .btn--primary:hover {
+  background: var(--act-hover);
+}
+
+.pub .btn--line:hover {
+  background: var(--paper-2);
+}
+
+.pub .btn--text:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.32em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opt,
+  .opt .arrow {
+    transition: none;
+  }
+
+  .opt:hover .arrow {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .opt,
+  .pub .btn {
+    border: 1px solid CanvasText;
+  }
+
+  .opt[aria-current="true"] .opt__ring,
+  .step__bar i {
+    forced-color-adjust: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* @critical-start:paid — /services (K12-53، L12-10، E12-62): «كيف نساعدكم؟» بوجه العناوين، سطر الأتعاب، ثلاثة صفوف خدمات
+   بخطوط رفيعة بلا أيقونات (مثل صفوف الشجرة)، ثم طرق التواصل والمواعيد سطرين هادئين. ≥ 1024: العنوان يمينًا والصفوف بجانبه */
 .pub-start--paid {
-  padding-block: 12px 22px;
+  padding-block: clamp(28px, 6vw, 72px) clamp(40px, 6vw, 72px);
 }
 
 .pub-paid-head h1 {
-  font-size: 30px;
-  line-height: 1.25;
+  color: var(--ink);
+  font: var(--d1);
 }
 
 .pub-paid-sub {
-  margin-top: 6px;
-  color: var(--label-2);
-  font-size: 17px;
-  line-height: 1.5;
+  max-width: 36em;
+  margin-top: 12px;
+  color: var(--ink-2);
+  font: var(--t-lead);
 }
 
+.svc-list {
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-2);
+}
+
+.pub .svc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  min-height: 88px;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.svc__t {
+  color: var(--ink);
+  font: 600 19px/1.45 var(--f-ui);
+}
+
+.svc__d {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+.svc .arrow {
+  grid-area: 1 / 2 / span 2;
+  width: 22px;
+  height: 12px;
+  color: var(--ink-3);
+}
+
+.pub-paid-ways {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  margin-top: 20px;
+  color: var(--ink-3);
+  font: var(--t-ui);
+}
+
+.pub .pub-paid-ways a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--act);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+.pub-start--paid .pub-start-hours {
+  color: var(--ink-3);
+  font: var(--t-small);
+}
+
+@media (min-width: 1024px) {
+  .pub-paid-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+    gap: 64px;
+    align-items: start;
+  }
+
+  .pub-paid-body .svc-list {
+    margin-top: 10px;
+  }
+}
+/* @critical-end:paid */
+
+/* ───────────── v11 /services (أُزيلت مع ترميز 12.0: «خيري» والشركات والمواضيع الثمانية، EN-4): قواعد غير حرجة باقية لاختبارات 11.0
+   حتى 12.1؛ لا يطابقها شيء في صفحات 12.0 ───────────── */
 /* طريق العودة لـ«خيري» (الاستثناء الوحيد لكلمة «مجاني» في صفحات الأفراد): صف 44px بعد السطر الفرعي مباشرة */
 body.pub .pub-cross {
   display: flex;
@@ -3212,13 +3699,6 @@ body.pub-paid .pub-pick-way--callback .pb {
   text-wrap: pretty;
 }
 
-/* (r2 S26) ارتفاعات محجوزة تسع سطور الخط الاحتياطي: لا يتحرك شيء حين يصل الخط العربي */
-@media (max-width: 699px) {
-  .pub-paid-sub {
-    min-height: 51px;
-  }
-}
-
 @media (max-width: 429px) {
   body.pub .pub-co-row {
     min-height: 70px;
@@ -3232,10 +3712,6 @@ body.pub-paid .pub-pick-way--callback .pb {
 }
 
 @media (min-width: 700px) {
-  .pub-paid-head h1 {
-    font-size: 34px;
-  }
-
   .pub-topic-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3246,20 +3722,6 @@ body.pub-paid .pub-pick-way--callback .pb {
   }
 }
 
-/* ≥ 1024: العنوان و«خيري» و«للشركات» في عمود البطل، والمواضيع والطرق بجانبه */
-@media (min-width: 1024px) {
-  .pub-paid-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
-    gap: 40px;
-    align-items: start;
-  }
-
-  .pub-paid-body .pub-topic-list {
-    margin-top: 0;
-  }
-}
-/* @critical-end:paid */
 
 /* ───────────── v11 gate-public: ما بعد الشاشة الأولى (غير حرج) ───────────── */
 
@@ -3550,4 +4012,820 @@ body.pub .pub-band-more a {
 /* GP-5 (L11-37): «أو سجّلوا رسالة صوتية» تحت خانة الكتابة في شاشة الموضوع (الكتابة أولًا) */
 .bmf-or-voice {
   margin-top: 8px;
+}
+
+/* ===== v12 look (LK-1, owner: look): صفحات الأفراد والشركات بعد الشاشة الأولى — «ورق المكتب» (K12-20/21/25/26/27/29/31،
+   K12-53…55، L12-10/L12-57). كل قاعدة هنا محصورة في body.pub-paid (/services) أو [data-side="paid"]، فصفحات «خيري»
+   (data-side=charity) تبقى بشكل 9.2/v11 (L12-33). بلا تدرّج ولا ظل؛ الذهبي للشعار وحده ===== */
+
+/* 404 (الجانبان): كان style="" في القالب، صار صنفًا (CSP) */
+.pub-nf-call {
+  margin-block-start: 16px;
+}
+
+/* v12 gate (V-19): 404 للأفراد والشركات — «متابعة طلب» الزر الوحيد، و«طلب جديد» و«الصفحة الأولى» رابطان نصيان بهدف 44px */
+body.pub[data-side="paid"] .pub-nf-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 4px;
+  color: var(--act);
+  font: 600 16px/1.2 var(--f-ui);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+body.pub[data-side="paid"] .pub-nf-link:hover {
+  color: var(--act-hover);
+}
+
+body.pub[data-side="paid"] .pub-cta-row:has(.pub-nf-link) {
+  align-items: center;
+  gap: 8px 20px;
+}
+
+/* ── الرأس: ما بعد الرسم الأول (التمرير، التركيز، القائمة المفتوحة على الهاتف) ── */
+body.pub[data-side="paid"] .pub-nav-cta {
+  position: relative;
+}
+
+body.pub[data-side="paid"] .pub-nav-cta::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+
+body.pub[data-side="paid"] .pub-nav-link:hover,
+body.pub[data-side="paid"] .pub-nav-link[aria-current="page"] {
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.45em;
+}
+
+body.pub[data-side="paid"] .pub-nav-portal {
+  color: var(--ink-2);
+}
+
+body.pub[data-side="paid"] .pub-nav-cta:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+body.pub[data-side="paid"] .pub-menu-toggle:hover {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 0.4em;
+}
+
+body.pub[data-side="paid"] :focus-visible {
+  outline: none;
+  border-radius: 0;
+  box-shadow: var(--focus);
+}
+
+@media (max-width: 1080px) {
+  body.pub[data-side="paid"] .pub-nav.is-open {
+    gap: 0;
+    padding: 4px var(--pub-gutter) 24px;
+    background: var(--paper);
+    border-block-end: 1px solid var(--rule-2);
+    box-shadow: none;
+  }
+
+  body.pub[data-side="paid"] .pub-nav-link {
+    min-height: 56px;
+    padding-inline: 0;
+    border-radius: 0;
+    border-block-end: 1px solid var(--rule);
+    color: var(--ink);
+    font: 400 17px/1.4 var(--f-ui);
+  }
+
+  body.pub[data-side="paid"] .pub-nav-cta,
+  body.pub-landing[data-side="paid"] .pub-nav-cta {
+    min-height: 50px;
+    margin: 20px 0 0;
+    background: var(--act);
+    color: var(--on-act);
+    box-shadow: none;
+    font-size: 16px;
+  }
+
+  body.pub[data-side="paid"] .pub-nav-cta:hover {
+    background: var(--act-hover);
+    color: var(--on-act);
+  }
+}
+
+/* ── أزرار الصفحات العامة (K12-20): ممتلئ واحد، خطّي، نص؛ زوايا 2px ── */
+/* review: زر الرأس (K12-21: صغير 38px، خطّي في /services) يبقى كما رسمته الكتلة الحرجة؛ :where لا يرفع الأولوية */
+body.pub[data-side="paid"] .pub-btn:where(:not(.pub-nav-cta)) {
+  min-height: 48px;
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  box-shadow: none;
+  font: 600 16px/1.2 var(--f-ui);
+}
+
+body.pub[data-side="paid"] .pub-btn .pub-icon {
+  display: none;
+}
+
+body.pub[data-side="paid"] :is(.pub-btn-teal, .pub-btn-primary) {
+  background: var(--act);
+  color: var(--on-act);
+}
+
+body.pub[data-side="paid"] :is(.pub-btn-teal, .pub-btn-primary):hover {
+  background: var(--act-hover);
+  color: var(--on-act);
+}
+
+body.pub[data-side="paid"] :is(.pub-btn-outline, .pub-btn-band-gold, .pub-btn-call),
+body.pub-paid #contact .pub-btn-call {
+  background: none;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+body.pub[data-side="paid"] :is(.pub-btn-outline, .pub-btn-band-gold, .pub-btn-call):hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+/* واتساب نص لا زر أخضر ممتلئ (A15) */
+body.pub[data-side="paid"] .pub-btn-whatsapp,
+body.pub-paid #contact .pub-btn-whatsapp,
+body.pub[data-side="paid"] .pub-btn-on-dark {
+  min-height: 44px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--act);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+body.pub[data-side="paid"] .pub-btn-whatsapp:hover,
+body.pub-paid #contact .pub-btn-whatsapp:hover,
+body.pub[data-side="paid"] .pub-btn-on-dark:hover {
+  background: none;
+  color: var(--act-hover);
+}
+
+/* v12 gate (V-02، WCAG 2.4.7): إعادة ضبط الأزرار أعلاه (box-shadow: none) بنفس أولوية قاعدة :focus-visible العامة وبعدها،
+   فكانت تمسح حلقة التركيز عن «اطلبوا عرضًا» و«دخول بوابة الشركات» و«واتساب» وأزرار 404 وبطاقة الطلب المحفوظ */
+body.pub[data-side="paid"] .pub-btn:focus-visible,
+body.pub-paid #contact .pub-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+@media (min-width: 601px) {
+  body.pub[data-side="paid"] .pub-btn-primary {
+    width: auto;
+  }
+}
+
+/* ── /services: الأقسام بخطوط وفراغ لا بطاقات (K12-26، L12-10) ── */
+body.pub-paid .svc:hover {
+  background: var(--paper-2);
+}
+
+body.pub-paid .svc .arrow {
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+body.pub-paid .svc:hover .arrow {
+  color: var(--act);
+  transform: translateX(-4px);
+}
+
+body.pub-paid .svc:active {
+  background: var(--paper-3);
+}
+
+body.pub-paid .svc:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--act);
+}
+
+body.pub-paid .pub-section {
+  padding-block: clamp(44px, 6vw, 80px);
+  background: var(--paper);
+}
+
+body.pub-paid .pub-section-head {
+  max-width: 22em;
+  margin-block-end: 24px;
+}
+
+body.pub-paid .pub-section h2,
+body.pub-paid .pub-band-title {
+  margin: 0;
+  color: var(--ink);
+  font: var(--d2);
+}
+
+/* العنوان المعلّق: في عمود الهامش من 900px فأكثر وحده؛ تحته لا يُرسم (L12-57: لا سطر فوق العنوان على الهاتف) */
+.sec-label {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  body.pub-paid .pub-section > .pub-container {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    column-gap: 48px;
+  }
+
+  body.pub-paid .pub-section > .pub-container > :not(.sec-label) {
+    grid-column: 2;
+  }
+
+  body.pub-paid .sec-label {
+    display: block;
+    grid-area: 1 / 1;
+    padding-block-start: 14px;
+    color: var(--ink-2);
+    font: var(--t-label);
+  }
+
+  body.pub-paid .sec-label::before {
+    content: "";
+    display: block;
+    width: 28px;
+    height: 1px;
+    margin-block-end: 12px;
+    background: var(--ink);
+  }
+}
+
+/* «كيف نعمل؟»: قائمة مرقّمة بخطوط، أرقام عادية بلا دوائر */
+body.pub-paid .steps {
+  display: block;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+body.pub-paid .steps li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 0 8px;
+  padding-block: 20px;
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub-paid .pub-how-num {
+  width: auto;
+  height: auto;
+  display: block;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-3);
+  font: 400 17px/1.55 var(--f-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+body.pub-paid .steps strong {
+  display: block;
+  color: var(--ink);
+  font: var(--t-head);
+}
+
+body.pub-paid .steps span:not(.pub-how-num) {
+  display: block;
+  margin-top: 4px;
+  max-width: 36em;
+  color: var(--ink-2);
+  font: 400 17px/1.75 var(--f-ui);
+}
+
+@media (min-width: 900px) {
+  body.pub-paid .steps li > div {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 32px;
+  }
+
+  body.pub-paid .steps span:not(.pub-how-num) {
+    margin-top: 0;
+  }
+}
+
+/* الشركات: شريط عاجي واحد في الصفحة (بدل الأخضر الغامق)، قائمة بخطوط، زر خطّي ورابطان */
+body.pub-paid .band {
+  background: var(--paper-2);
+}
+
+body.pub-paid .pub-band {
+  overflow: visible;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+}
+
+body.pub-paid .pub-band::after {
+  content: none;
+}
+
+body.pub-paid .pub-band-text,
+body.pub-paid .pub-band-plans {
+  max-width: 36em;
+  margin-top: 12px;
+  opacity: 1;
+  color: var(--ink-2);
+  font: var(--t-lead);
+}
+
+body.pub-paid .pub-band-plans {
+  font: var(--t-ui);
+}
+
+body.pub-paid .pub-band-list {
+  gap: 0;
+  margin-top: 24px;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+body.pub-paid .pub-band-list li {
+  padding-block: 12px;
+  border-block-end: 1px solid var(--rule);
+  color: var(--ink);
+  font: var(--t-ui-strong);
+}
+
+body.pub-paid .pub-band-list .pub-icon {
+  display: none;
+}
+
+body.pub-paid .pub-band-actions {
+  align-items: center;
+  gap: 8px 24px;
+  margin-top: 28px;
+}
+
+body.pub-paid .pub-band-actions .pub-btn {
+  flex: 0 0 auto;
+}
+
+body.pub-paid :is(.pub-band-new, .pub-band-more) {
+  margin-top: 8px;
+}
+
+body.pub-paid :is(.pub-band-new, .pub-band-more) a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+  color: var(--act);
+  font: var(--t-ui);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+@media (min-width: 900px) {
+  body.pub-paid .pub-band {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: 48px;
+    padding: 0;
+  }
+
+  body.pub-paid .pub-band-list {
+    align-self: start;
+    margin-top: 8px;
+  }
+}
+
+/* «التزامنا معكم»: شريط شروط بخطوط، عمودان من 900px */
+body.pub-paid .terms {
+  border-radius: 0;
+  background: none;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+body.pub-paid .pub-trust-row {
+  display: block;
+  padding: 18px 0;
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub-paid .pub-trust-row::before {
+  content: none;
+}
+
+body.pub-paid .terms .g-title {
+  color: var(--ink);
+  font: var(--t-ui-strong);
+}
+
+body.pub-paid .terms .g-sub {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+@media (min-width: 900px) {
+  body.pub-paid .terms {
+    column-gap: 48px;
+  }
+}
+
+/* v12 gate (V-18، L12-10): «التزامنا معكم» شريط من 4 أعمدة على الشاشة الكبيرة (كان 2×2)، كل عمود بخط رفيع فوقه */
+@media (min-width: 1100px) {
+  body.pub-paid .pub-trust-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+
+  body.pub-paid .pub-trust-row {
+    padding: 18px 0 0;
+    border-block-end: 0;
+    border-block-start: 1px solid var(--rule-2);
+  }
+}
+
+/* «الشركاء» (L12-56): أسماء بخطوط، وسطر التأسيس */
+body.pub-paid .partners h2 {
+  margin-block-end: 24px;
+}
+
+.partners__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+.partners__list li {
+  padding-block: 14px;
+  border-block-end: 1px solid var(--rule);
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+.partners__name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.partners__since {
+  margin-top: 16px;
+  color: var(--ink-3);
+  font: var(--t-small);
+}
+
+/* الأسئلة: <details> صفوف بخطوط (بلا سطح ولا زوايا) */
+body.pub-paid .pub-faq {
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+body.pub-paid .pub-faq-item,
+body.pub-paid .pub-faq-item[open] {
+  background: none;
+}
+
+body.pub-paid .pub-faq-item {
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub-paid .pub-faq-item + .pub-faq-item {
+  border-block-start: 0;
+}
+
+body.pub-paid .pub-faq-item summary {
+  min-height: 64px;
+  padding: 14px 0;
+  color: var(--ink);
+  font: var(--t-head);
+}
+
+body.pub-paid .pub-faq-item summary:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.4em;
+}
+
+body.pub-paid .pub-faq-item summary:focus-visible {
+  border-radius: 0;
+}
+
+body.pub-paid .pub-faq-chevron {
+  color: var(--ink-3);
+}
+
+body.pub-paid .pub-faq-body {
+  max-width: 36em;
+  padding: 0 0 20px;
+  color: var(--ink-2);
+  font: 400 17px/1.75 var(--f-ui);
+}
+
+body.pub-paid .pub-faq-body a {
+  min-height: 44px;
+  color: var(--act);
+  font-weight: 600;
+}
+
+/* التواصل: قائمة كلمات بلا أيقونات، ثم الختام بخط حبر فوقه */
+body.pub-paid .pub-contact {
+  gap: 0 48px;
+}
+
+body.pub-paid .pub-panel {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+
+body.pub-paid .pub-panel h2 {
+  margin-block-end: 24px;
+}
+
+body.pub-paid .pub-panel .pub-contact-list {
+  gap: 0;
+  border-block-start: 1px solid var(--rule-2);
+}
+
+body.pub-paid .pub-panel .pub-contact-list li {
+  padding-block: 14px;
+  border-block-end: 1px solid var(--rule);
+  color: var(--ink);
+  font: var(--t-ui);
+}
+
+body.pub-paid .pub-panel .pub-contact-list .pub-icon {
+  display: none;
+}
+
+body.pub-paid .pub-panel .pub-contact-label {
+  display: block;
+  margin-block-end: 2px;
+  color: var(--ink-2);
+  font: var(--t-label);
+}
+
+body.pub-paid .pub-panel .pub-contact-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -10px;
+  color: var(--act);
+  font-weight: 400;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.32em;
+}
+
+body.pub-paid .pub-contact-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 16px;
+}
+
+body.pub-paid .pub-contact-buttons .pub-btn {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+body.pub-paid .closing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 56px;
+  padding: 32px 0 0;
+  border-radius: 0;
+  background: none;
+  border-block-start: 1px solid var(--ink);
+  text-align: start;
+}
+
+body.pub-paid .closing h2,
+body.pub-paid .closing p {
+  flex: 1 0 100%;
+}
+
+body.pub-paid .closing h2 {
+  font: var(--d3);
+}
+
+body.pub-paid .closing p {
+  max-width: 36em;
+  margin: 0 0 8px;
+  color: var(--ink-2);
+  font: var(--t-lead);
+}
+
+body.pub-paid .closing .pub-btn {
+  margin: 0;
+}
+
+body.pub-paid .pub-returning {
+  flex: 1 0 100%;
+  justify-content: flex-start;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-2);
+  font: var(--t-ui);
+}
+
+body.pub-paid .pub-returning strong {
+  color: var(--act);
+  font-weight: 600;
+}
+
+body.pub-paid .pub-returning .pub-icon {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  body.pub-paid .closing .pub-btn {
+    flex: 1 0 100%;
+  }
+}
+
+/* ── التذييل (K12-31): أرضية الشعار، الشعار الذهبي 190px، عناوين صغيرة، كلمات بلا أيقونات ولا فقاعات ── */
+body.pub[data-side="paid"] .pub-footer {
+  font: var(--t-small);
+}
+
+body.pub[data-side="paid"] .pub-footer-grid {
+  padding-block: 64px 32px;
+}
+
+body.pub[data-side="paid"] .pub-footer-logo {
+  width: 190px;
+}
+
+body.pub[data-side="paid"] .pub-footer h2 {
+  color: var(--on-act);
+  font: var(--t-label);
+}
+
+body.pub[data-side="paid"] .pub-footer .pub-contact-list .pub-icon,
+body.pub[data-side="paid"] .pub-footer .pub-social .pub-icon {
+  display: none;
+}
+
+body.pub[data-side="paid"] .pub-footer .pub-contact-label {
+  color: color-mix(in srgb, var(--on-act) 78%, transparent);
+  font: var(--t-label);
+}
+
+body.pub[data-side="paid"] .pub-footer .pub-social {
+  min-height: 44px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+}
+
+body.pub[data-side="paid"] .pub-footer-bottom {
+  border-color: color-mix(in srgb, var(--on-act) 12%, transparent);
+  color: color-mix(in srgb, var(--on-act) 78%, transparent);
+  font: var(--t-num);
+}
+
+/* v12 gate (V-18، A23): على الهاتف أعمدة التذييل نفسها قوائم بخطوط رفيعة (لا «روابط مهمة» مطوية)، وسطر المكتب ظاهر،
+   و«دخول فريق العمل» في السطر الأخير */
+@media (max-width: 720px) {
+  body.pub[data-side="paid"] .pub-footer-grid {
+    padding-block: 40px 16px;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-about {
+    padding-block-end: 20px;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-col {
+    padding-block: 20px 12px;
+    border-block-start: 1px solid color-mix(in srgb, var(--on-act) 14%, transparent);
+  }
+
+  body.pub[data-side="paid"] .pub-footer-col ul {
+    gap: 0;
+  }
+
+  body.pub[data-side="paid"] .pub-footer-bottom .pub-staff-link {
+    display: inline-flex;
+  }
+}
+
+/* ── الصفحات القانونية و404 بعد الرسم الأول (K12-55): المحتوى بعرض القراءة، الفهرس والملاحظات بخطوط ── */
+body.pub[data-side="paid"] .pub-doc-layout {
+  gap: 64px;
+}
+
+body.pub[data-side="paid"] .pub-toc {
+  padding: 4px 0;
+  border-radius: 0;
+  background: none;
+  border-block: 1px solid var(--rule-2);
+  font: var(--t-ui);
+}
+
+body.pub[data-side="paid"] .pub-toc a {
+  color: var(--ink-2);
+}
+
+body.pub[data-side="paid"] .pub-doc {
+  max-width: 40em;
+  font: 400 17px/1.75 var(--f-ui);
+}
+
+body.pub[data-side="paid"] .pub-doc h2 {
+  color: var(--ink);
+  font: 600 20px/1.45 var(--f-ui);
+}
+
+body.pub[data-side="paid"] .pub-doc h3 {
+  color: var(--ink);
+  font: var(--t-head);
+}
+
+body.pub[data-side="paid"] .pub-doc li::marker {
+  color: var(--ink-3);
+}
+
+body.pub[data-side="paid"] .pub-callout {
+  padding: 16px 20px;
+  border-radius: 0;
+  background: var(--paper-2);
+  border-inline-start: 2px solid var(--act);
+}
+
+body.pub[data-side="paid"] .pub-callout .pub-icon,
+body.pub[data-side="paid"] .pub-ways .pub-tile {
+  display: none;
+}
+
+body.pub[data-side="paid"] :is(.pub-ways, .pub-values) li {
+  padding: 16px 0;
+  border-radius: 0;
+  background: none;
+  border-block-end: 1px solid var(--rule);
+}
+
+body.pub[data-side="paid"] .pub-timeline li::before {
+  background: none;
+  color: var(--ink-3);
+  font: 400 15px/36px var(--f-ui);
+}
+
+body.pub[data-side="paid"] .pub-timeline li:not(:last-child)::after {
+  width: 1px;
+  background: var(--rule);
+}
+
+body.pub[data-side="paid"] .pub-cta-row {
+  gap: 12px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.pub-paid .svc .arrow {
+    transition: none;
+  }
+
+  body.pub-paid .svc:hover .arrow {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  body.pub[data-side="paid"] :is(.pub-btn, .svc, .pub-faq-item, .pub-callout) {
+    border: 1px solid CanvasText;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+  }
+}
+
+/* «خيري» لا يستقبل طلبات جديدة (L12-49): صفحة الإشعار بأصناف «خيري» القائمة + قاعدة مسافات واحدة.
+   v12 gate (V-20): بين كتل الصفحة داخل .pub-container (كانت على أبناء main، وابنه الوحيد الحاوية، فتلاصقت الكتل 5–7px) */
+.kh-paused main .pub-container > * + * {
+  margin-block-start: 20px;
+}
+
+/* v12 gate (K-P5): رابطا الخصوصية والشروط (KH-04) سطر روابط مستقل، فهدف لمسهما 44px (الحشو يقابله هامش سالب فلا يتحرك السطر) */
+.kh-paused .pub-legal-links a {
+  display: inline-block;
+  padding-block: 13px;
+  margin-block: -13px;
 }

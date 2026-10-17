@@ -1,6 +1,7 @@
 // صحة النظام والنسخ الاحتياطي — (الإصدار 9 — وحدة platform)
 // جاهزية الإطلاق، الخادم وقاعدة البيانات والمرفقات والقرص، المهام الدورية، صندوق الصادر، التكاملات،
 // النسخ الاحتياطي اليومي (VACUUM INTO) مع التنزيل، والتصدير الكامل .tar.gz لنقل المنصة إلى خادم جديد.
+// v12 media (MD-11): بطاقة «المستندات والصوت» (SYS-01…SYS-08): الأدوات وإصداراتها، الطابور، «شغّل الآن»، والاستكمال.
 
 import { h, frag, mount } from '../../../lib/h.js';
 import { api, downloadFile } from '../../../lib/api.js';
@@ -81,6 +82,7 @@ const SKIP_SHORT = {
   setup: 'وضع الإعداد',
 };
 const ENV_TONE = { demo: 'warning', production: 'success', development: 'info' };
+const STATE_OF = { ok: 'ok', info: 'info', warning: 'warn', danger: 'bad' };
 const CHECK_STYLE = {
   ok: { tone: 'success', icon: 'checkCircle', text: 'جاهز' },
   info: { tone: 'info', icon: 'info', text: 'معلومة' },
@@ -121,18 +123,22 @@ function readiness(checks) {
         const st = CHECK_STYLE[c.level] || CHECK_STYLE.info;
         return h(
           'li.pf-check',
-          { class: `is-${c.level}` },
-          h('span.pf-check-icon', { class: `tone-${st.tone}` }, icon(st.icon, { size: 18, label: st.text })),
+          // v12 media (H-M10): رمزا تنبيهي الذاكرة والقرص (SYS-09، SYS-10)
+          { class: `is-${c.level}`, tag: c.key === 'media_memory' ? 'SYS-09' : c.key === 'media_disk' ? 'SYS-10' : undefined },
+          // v12 gate (V-25، K12-28): حالة البند نقطة ملونة وكلمة، لا أيقونة في دائرة ملونة
+          h('span.state.pf-check-state', { class: `state--${STATE_OF[c.level] || 'info'}` }, st.text),
           h(
             'div.pf-check-body',
             h('div.pf-check-title', c.title),
             // اتجاه الفقرة عربي دائمًا (dir=auto كان يقلب الفقرة كلها إذا بدأت بمتغير بيئة إنجليزي)
             c.detail ? h('div.pf-check-detail', c.detail) : null,
           ),
-          c.href ? button('فتح', { size: 'sm', variant: 'ghost', iconEnd: 'chevronLeft', href: c.href }) : null,
+          c.href ? button('فتح', { size: 'sm', variant: 'ghost', iconEnd: 'chevronLeft', href: c.href, tag: 'SYS-11' }) : null,
         );
       }),
     ),
+    titleTag: 'SYS-12',
+    tag: 'SYS-13',
   });
 }
 
@@ -140,16 +146,17 @@ function stats(d) {
   const last = d.backups.last;
   return h(
     'div.stats-grid',
-    statCard({ label: 'الإصدار', value: ltr(d.version), hint: ENV_LABEL[d.environment] ? `بيئة ${ENV_LABEL[d.environment]}` : d.environment, icon: 'shield', tone: 'primary' }),
-    statCard({ label: 'مدة التشغيل', value: uptime(d.uptime_seconds), hint: `منذ ${dateTime(d.started_at)}`, icon: 'clock', tone: 'info' }),
-    statCard({ label: 'قاعدة البيانات', value: bytes(d.db.size_bytes + d.db.wal_bytes), hint: d.db.wal_bytes ? `منها سجل WAL ${bytes(d.db.wal_bytes)}` : 'SQLite', icon: 'book', tone: 'primary' }),
-    statCard({ label: 'المرفقات', value: bytes(d.uploads.bytes), hint: count(d.uploads.files, 'file'), icon: 'paperclip', tone: 'accent' }),
+    statCard({ label: 'الإصدار', value: ltr(d.version), hint: ENV_LABEL[d.environment] ? `بيئة ${ENV_LABEL[d.environment]}` : d.environment, icon: 'shield', tone: 'primary', tag: 'SYS-14' }),
+    statCard({ label: 'مدة التشغيل', value: uptime(d.uptime_seconds), hint: `منذ ${dateTime(d.started_at)}`, icon: 'clock', tone: 'info', tag: 'SYS-15' }),
+    statCard({ label: 'قاعدة البيانات', value: bytes(d.db.size_bytes + d.db.wal_bytes), hint: d.db.wal_bytes ? `منها سجل WAL ${bytes(d.db.wal_bytes)}` : 'SQLite', icon: 'book', tone: 'primary', tag: 'SYS-16' }),
+    statCard({ label: 'المرفقات', value: bytes(d.uploads.bytes), hint: count(d.uploads.files, 'file'), icon: 'paperclip', tone: 'accent', tag: 'SYS-17' }),
     statCard({
       label: 'المساحة الحرة على القرص',
       value: d.disk ? bytes(d.disk.free_bytes) : '—',
       hint: d.disk ? `من ${bytes(d.disk.total_bytes)}` : 'غير متاحة على هذا النظام',
       icon: 'download',
       tone: d.disk && d.disk.free_bytes < 1024 ** 3 ? 'danger' : 'success',
+      tag: 'SYS-18',
     }),
     statCard({
       label: 'آخر نسخة احتياطية',
@@ -158,6 +165,7 @@ function stats(d) {
       icon: 'refresh',
       tone: d.backups.stale ? 'warning' : 'success',
       href: '#/system?focus=backups',
+      tag: 'SYS-19',
     }),
     statCard({
       label: 'رسائل صادرة فاشلة',
@@ -166,6 +174,7 @@ function stats(d) {
       icon: 'message',
       tone: d.outbox.failed ? 'danger' : 'success',
       href: '#/automations?tab=outbox&status=failed',
+      tag: 'SYS-20',
     }),
   );
 }
@@ -185,6 +194,8 @@ function serverCard(d) {
       ['المجدول', d.scheduler.enabled ? `كل ${count(d.scheduler.interval_seconds, 'second')}` : badge('متوقف', 'danger')],
       ['الإعداد الأول', d.setup?.completed_at ? `${dateTime(d.setup.completed_at)}${d.setup.method ? ` (${{ wizard: 'معالج الإعداد', env: 'متغيرات البيئة', cli: 'سطر الأوامر', demo: 'بيانات تجريبية' }[d.setup.method] || d.setup.method})` : ''}` : null],
     ]),
+    titleTag: 'SYS-21',
+    tag: 'SYS-22',
   });
 }
 
@@ -204,12 +215,16 @@ function dbCard(d) {
       table({
         caption: 'عدد السجلات في الجداول الرئيسية',
         columns: [
-          { key: 'label', label: 'الجدول' },
-          { key: 'count', label: 'عدد السجلات', align: 'end', render: (r) => h('span.nowrap', num(r.count)) },
+          { key: 'label', label: 'الجدول', tag: 'SYS-23' },
+          { key: 'count', label: 'عدد السجلات', align: 'end', render: (r) => h('span.nowrap', num(r.count)), tag: 'SYS-24' },
         ],
         rows: d.counts,
+        rowTag: 'SYS-25',
+        tag: 'SYS-26',
       }),
     ),
+    titleTag: 'SYS-27',
+    tag: 'SYS-28',
   });
 }
 
@@ -224,15 +239,16 @@ function jobsCard(d, reload) {
       className: 'pf-stack-table',
       empty: 'لا توجد مهام دورية مسجلة',
       columns: [
-        { key: 'label', label: 'المهمة', render: (j) => h('div', h('div', j.label), codeTag(j.name, { className: 'pf-job-name' })) },
-        { key: 'every', label: 'التكرار', render: (j) => every(j.every_minutes) },
-        { key: 'last', label: 'آخر تشغيل', render: (j) => timeCell(j.last_started_at) },
+        { key: 'label', label: 'المهمة', render: (j) => h('div', h('div', j.label), codeTag(j.name, { className: 'pf-job-name' })), tag: 'SYS-29' },
+        { key: 'every', label: 'التكرار', render: (j) => every(j.every_minutes), tag: 'SYS-30' },
+        { key: 'last', label: 'آخر تشغيل', render: (j) => timeCell(j.last_started_at), tag: 'SYS-31' },
         {
           key: 'status',
           label: 'الحالة',
           render: (j) => h('div.stack-sm', jobStatus(j), j.last_error ? h('span.pf-error-text', { dir: 'auto' }, j.last_error) : null),
+          tag: 'SYS-32',
         },
-        { key: 'runs', label: 'مرات التشغيل', align: 'end', render: (j) => num(j.runs || 0) },
+        { key: 'runs', label: 'مرات التشغيل', align: 'end', render: (j) => num(j.runs || 0), tag: 'SYS-33' },
         {
           key: 'run',
           label: 'إجراء',
@@ -246,13 +262,133 @@ function jobsCard(d, reload) {
                 else toast(r.ok ? `تم تشغيل «${j.label}» بنجاح` : `فشل تشغيل «${j.label}»: ${r.error || ''}`, r.ok ? 'success' : 'danger');
                 reload();
               },
-              { size: 'sm', icon: 'refresh' },
+              { size: 'sm', icon: 'refresh', tag: 'SYS-34' },
             ),
+            tag: 'SYS-35',
         },
       ],
       rows: d.jobs,
+      rowTag: 'SYS-36',
+      tag: 'SYS-37',
     }),
+    titleTag: 'SYS-38',
+    tag: 'SYS-39',
   });
+}
+
+// ───────── v12 media (MD-11، M12-36، P1): أدوات المستندات والصوت، الطابور، «شغّل الآن»، الاستكمال ─────────
+const MEDIA_TOOL_NAMES = { imagemagick: 'ImageMagick (تحسين الصور)', tesseract: 'Tesseract (قراءة النص)', pdftotext: 'pdftotext (نص ملفات PDF)', pdftoppm: 'pdftoppm (صفحات PDF)', pdfinfo: 'pdfinfo (مقاس صفحات PDF)' };
+const MEDIA_TOOL_WHY = { disabled: 'متوقفة (MEDIA_TOOLS)', missing: 'غير مثبتة', policy: 'مثبتة بلا سياسة الأمان المرفقة', no_ara: 'مثبتة بلا اللغة العربية', bin_missing: 'المسار المحدد غير موجود', bin_not_absolute: 'المسار المحدد ليس مسارًا كاملًا', no_version: 'لا تعمل', probe_failed: 'تعذر فحصها' };
+const MEDIA_KIND = { stt: 'تحويل الصوت', clean: 'تحسين الصور', ocr: 'قراءة النص' };
+// مراجعة 12.0: أسباب «آخر ما لم يُعالَج» بالعربية (الرمز التقني يبقى في التلميح)
+const MEDIA_WHY = {
+  no_paper: 'لا توجد ورقة في الصورة',
+  not_paper: 'الصورة ليست ورقة',
+  uncertain: 'حدود الورقة غير مؤكدة',
+  partial: 'الورقة مقصوصة في الصورة',
+  too_large: 'الصورة أكبر من المسموح',
+  tool_error: 'لم تستطع الأداة فتح الملف',
+  unknown_size: 'مقاس الصورة غير معروف',
+  heic: 'صيغة HEIC',
+  tool_missing: 'الأداة غير مثبتة على الخادم',
+  needs_imagemagick: 'تحتاج ImageMagick على الخادم',
+  low_memory: 'ذاكرة الخادم لم تكفِ',
+  off: 'متوقف من الإعدادات',
+  unsupported: 'نوع الملف غير مدعوم',
+  no_text: 'لا يوجد نص مقروء',
+  timeout: 'انتهت المهلة',
+  crashed: 'توقف أثناء التشغيل',
+  file_missing: 'الملف غير موجود',
+  charity: 'طلب «خيري»',
+  before_disclosure: 'وصل قبل إعلان الخصوصية',
+  too_long: 'الرسالة أطول من المسموح',
+  client_cap: 'بلغ حد الدقائق اليومي',
+  budget: 'بلغ حد الإنفاق الشهري',
+  auth: 'المفتاح مرفوض',
+};
+
+function mediaCard(reload) {
+  const body = h('div.stack-md', h('p.pf-muted', 'جارٍ التحميل…'));
+  const el = card({ title: 'المستندات والصوت', icon: 'fileText', subtitle: 'أدوات الخادم الاختيارية وطابور تحويل الصوت وتحسين الصور وقراءة النص.', body, titleTag: 'SYS-40', tag: 'SYS-41' });
+  el.id = 'media-tools';
+  async function draw(probe = false) {
+    let st;
+    try {
+      st = await api.get('/admin/media/status', probe ? { probe: '1' } : null);
+    } catch (err) {
+      mount(body, alertBox(err.message || 'تعذر تحميل حالة المعالجة', 'danger', { tag: 'SYS-42' }));
+      return;
+    }
+    const tools = st.tools || {};
+    const toolRows = Object.keys(MEDIA_TOOL_NAMES).map((k) => {
+      const t = tools[k] || {};
+      return { k, name: MEDIA_TOOL_NAMES[k], ok: !!t.ok, state: t.ok ? (t.version || 'تعمل') : MEDIA_TOOL_WHY[t.reason] || 'غير مثبتة' };
+    });
+    const queue = (st.queue || []).filter((q) => q.state === 'queued' || q.state === 'running' || q.state === 'failed');
+    const errs = st.last_errors || [];
+    const mb = (n) => (Number.isFinite(Number(n)) ? `${Math.round(Number(n) / (1024 * 1024))} ميجابايت` : '');
+    const backfill = (label, kinds, tag) =>
+      h(
+        'span',
+        { tag },
+        asyncButton(
+          label,
+          async () => {
+            let n = 0;
+            for (const kind of kinds) {
+              const r = await api.post('/admin/media/backfill', { kind });
+              n += Number(r.queued) || 0;
+            }
+            toast(n ? `أُضيف ${count(n, ['مستند واحد', 'مستندان', 'مستندات', 'مستندًا'])} إلى الطابور` : 'لا يوجد ما يُستكمل', 'success');
+            draw();
+          },
+          { size: 'sm', variant: 'ghost', icon: 'refresh', tag: 'SYS-43' },
+        ),
+      );
+    mount(
+      body,
+      h(
+        'ul.pf-checks',
+        { tag: 'SYS-01' },
+        toolRows.map((r) => h('li.pf-check', { class: r.ok ? 'is-ok' : 'is-info' }, h('div.pf-check-body', h('div.pf-check-title', r.name), h('div.pf-check-detail', { dir: 'auto' }, r.state)))),
+      ),
+      h('p.pf-muted', { tag: 'SYS-08' }, `الذاكرة المتاحة الآن: ${mb(st.memory?.headroom_bytes)} من ${mb(st.memory?.limit_bytes)}. البحث في النص: ${st.fts ? 'FTS5' : 'بحث نصي بسيط'}.`),
+      h(
+        'div',
+        { tag: 'SYS-03' },
+        queue.length
+          ? h('ul.list-plain', queue.map((q) => h('li', `${MEDIA_KIND[q.kind] || q.kind}: ${label('media_state', q.state)} ${num(q.n)}`)))
+          : h('p.pf-muted', 'لا شيء في الطابور الآن.'),
+      ),
+      errs.length ? h('ul.list-plain.small', { tag: 'SYS-04' }, errs.slice(0, 5).map((e) => h('li', `${MEDIA_KIND[e.kind] || e.kind} · مستند ${e.document_id}: `, MEDIA_WHY[e.error] ? h('span', { title: e.error }, MEDIA_WHY[e.error]) : h('code', { dir: 'ltr' }, e.error)))) : null,
+      h(
+        'div.row.wrap',
+        h(
+          'span',
+          { tag: 'SYS-02' },
+          asyncButton('افحص الأدوات', () => draw(true), { size: 'sm', variant: 'ghost', icon: 'search', tag: 'SYS-44' }),
+        ),
+        h(
+          'span',
+          { tag: 'SYS-05' },
+          asyncButton(
+            'شغّل الآن',
+            async () => {
+              await api.post('/admin/system/jobs/media.process/run');
+              toast('بدأت المعالجة', 'success');
+              setTimeout(() => draw(), 1500);
+            },
+            { size: 'sm', icon: 'zap', tag: 'SYS-45' },
+          ),
+        ),
+        backfill('حوّل الرسائل الصوتية المعلقة (آخر 30 يومًا)', ['stt'], 'SYS-06'),
+        backfill('نظّف واقرأ المستندات القديمة', ['clean', 'ocr'], 'SYS-07'),
+      ),
+    );
+  }
+  draw();
+  void reload;
+  return el;
 }
 
 function outboxAndIntegrations(d) {
@@ -269,8 +405,10 @@ function outboxAndIntegrations(d) {
           ['رسائل فاشلة', d.outbox.failed ? badge(count(d.outbox.failed, 'message'), 'danger') : badge('لا توجد', 'success')],
           ['في الانتظار', d.outbox.queued ? badge(count(d.outbox.queued, 'message'), 'warning') : badge('لا توجد', 'success')],
         ]),
-        button('فتح صندوق الصادر', { icon: 'arrowLeft', variant: 'secondary', size: 'sm', href: '#/automations?tab=outbox&status=failed' }),
+        button('فتح صندوق الصادر', { icon: 'arrowLeft', variant: 'secondary', size: 'sm', href: '#/automations?tab=outbox&status=failed', tag: 'SYS-46' }),
       ),
+      titleTag: 'SYS-47',
+      tag: 'SYS-48',
     }),
     card({
       title: 'التكاملات',
@@ -291,8 +429,10 @@ function outboxAndIntegrations(d) {
           ],
           ['رابط Webhook', h('code.pf-code', { dir: 'ltr' }, d.webhook_url)],
         ]),
-        button('إدارة التكاملات', { icon: 'arrowLeft', variant: 'secondary', size: 'sm', href: '#/integrations' }),
+        button('إدارة التكاملات', { icon: 'arrowLeft', variant: 'secondary', size: 'sm', href: '#/integrations', tag: 'SYS-49' }),
       ),
+      titleTag: 'SYS-50',
+      tag: 'SYS-51',
     }),
   );
 }
@@ -302,11 +442,12 @@ async function editBackupSettings(b, reload) {
     title: 'إعدادات النسخ الاحتياطي',
     intro: 'تُنشأ نسخة تلقائية مرة كل يوم في مجلد النسخ على الخادم، ويُحذف الأقدم تلقائيًا بعد بلوغ العدد المحدد (يشمل ذلك النسخ اليدوية).',
     fields: [
-      { name: 'enabled', type: 'checkbox', label: 'النسخ الاحتياطي اليومي التلقائي', text: 'تفعيل النسخ الاحتياطي اليومي التلقائي' },
-      { name: 'retention', type: 'number', label: 'عدد النسخ المحتفظ بها', required: true, integer: true, min: 1, max: 365, suffix: 'نسخة', hint: 'من 1 إلى 365. الافتراضي 14 (أسبوعان).' },
+      { name: 'enabled', type: 'checkbox', label: 'النسخ الاحتياطي اليومي التلقائي', text: 'تفعيل النسخ الاحتياطي اليومي التلقائي', tag: 'SYS-52' },
+      { name: 'retention', type: 'number', label: 'عدد النسخ المحتفظ بها', required: true, integer: true, min: 1, max: 365, suffix: 'نسخة', hint: 'من 1 إلى 365. الافتراضي 14 (أسبوعان).', tag: 'SYS-53' },
     ],
     values: { enabled: b.enabled, retention: b.retention },
     onSubmit: (vals) => api.put('/admin/system/backup-settings', vals),
+    tag: 'SYS-54',
   });
   if (!res) return;
   toast('تم حفظ إعدادات النسخ الاحتياطي', 'success');
@@ -322,7 +463,7 @@ function backupsCard(b, reload) {
         await downloadFile(`/admin/system/backups/${encodeURIComponent(file)}/download`, {}, { mode: 'navigate', fallbackName: file });
         toast('بدأ التنزيل. احفظ الملف في مكان آمن ومشفر؛ فهو يحتوي على بيانات المستفيدين.', 'info', 5000);
       },
-      { size: 'sm', variant: 'ghost', icon: 'download', ariaLabel: `تنزيل ${file}` },
+      { size: 'sm', variant: 'ghost', icon: 'download', ariaLabel: `تنزيل ${file}`, tag: 'SYS-55' },
     );
   const del = (file) =>
     button('', {
@@ -331,7 +472,7 @@ function backupsCard(b, reload) {
       icon: 'trash',
       title: `حذف ${file}`,
       onClick: async () => {
-        const ok = await confirmDanger({ title: 'حذف نسخة احتياطية', message: `سيُحذف الملف ${file} نهائيًا من الخادم. هل تريد المتابعة؟`, confirmLabel: 'حذف النسخة' });
+        const ok = await confirmDanger({ title: 'حذف نسخة احتياطية', message: `سيُحذف الملف ${file} نهائيًا من الخادم. هل تريد المتابعة؟`, confirmLabel: 'حذف النسخة', tag: 'SYS-56' });
         if (!ok) return;
         try {
           await api.del(`/admin/system/backups/${encodeURIComponent(file)}`);
@@ -341,12 +482,13 @@ function backupsCard(b, reload) {
           toast(err.message, 'danger');
         }
       },
+      tag: 'SYS-57',
     });
   const lastNote = b.last
     ? b.stale
-      ? alertBox(`آخر نسخة احتياطية أُنشئت ${relative(b.last.created_at)} (أكثر من ${count(b.stale_after_hours, 'hour')}). تأكد من عمل المجدول أو أنشئ نسخة الآن.`, 'warning', { title: 'النسخ الاحتياطي متأخر' })
+      ? alertBox(`آخر نسخة احتياطية أُنشئت ${relative(b.last.created_at)} (أكثر من ${count(b.stale_after_hours, 'hour')}). تأكد من عمل المجدول أو أنشئ نسخة الآن.`, 'warning', { title: 'النسخ الاحتياطي متأخر', tag: 'SYS-58' })
       : null
-    : alertBox('لا توجد أي نسخة احتياطية بعد. أنشئ نسخة الآن ثم نزّلها واحفظها خارج الخادم.', 'warning', { title: 'لا توجد نسخ احتياطية' });
+    : alertBox('لا توجد أي نسخة احتياطية بعد. أنشئ نسخة الآن ثم نزّلها واحفظها خارج الخادم.', 'warning', { title: 'لا توجد نسخ احتياطية', tag: 'SYS-59' });
   return card({
     title: 'النسخ الاحتياطي',
     icon: 'refresh',
@@ -357,7 +499,7 @@ function backupsCard(b, reload) {
     ),
     actions: h(
       'div.pf-card-actions',
-      button('الإعدادات', { size: 'sm', variant: 'ghost', icon: 'settings', onClick: () => editBackupSettings(b, reload) }),
+      button('الإعدادات', { size: 'sm', variant: 'ghost', icon: 'settings', onClick: () => editBackupSettings(b, reload), tag: 'SYS-60' }),
       b.available
         ? asyncButton(
             'نسخ احتياطي الآن',
@@ -366,33 +508,37 @@ function backupsCard(b, reload) {
               toast(`تم إنشاء النسخة ${r.file} (${bytes(r.size_bytes)})`, 'success');
               reload();
             },
-            { size: 'sm', variant: 'primary', icon: 'download' },
+            { size: 'sm', variant: 'primary', icon: 'download', tag: 'SYS-61' },
           )
         : null,
     ),
     body: h(
       'div.stack',
       { id: 'backups' },
-      !b.available ? alertBox('قاعدة البيانات تعمل في الذاكرة؛ النسخ الاحتياطي غير متاح.', 'info') : null,
-      !b.enabled ? alertBox('النسخ الاحتياطي اليومي التلقائي متوقف. فعّله من «الإعدادات».', 'warning') : null,
+      !b.available ? alertBox('قاعدة البيانات تعمل في الذاكرة؛ النسخ الاحتياطي غير متاح.', 'info', { tag: 'SYS-62' }) : null,
+      !b.enabled ? alertBox('النسخ الاحتياطي اليومي التلقائي متوقف. فعّله من «الإعدادات».', 'warning', { tag: 'SYS-63' }) : null,
       lastNote,
       b.items.length
         ? table({
             caption: 'النسخ الاحتياطية المتاحة على الخادم',
             className: 'pf-stack-table',
             columns: [
-              { key: 'file', label: 'الملف', render: (r) => codeTag(r.file) },
-              { key: 'created_at', label: 'التاريخ', render: (r) => h('div', h('div.nowrap', dateTime(r.created_at)), h('span.pf-muted', relative(r.created_at))) },
-              { key: 'kind', label: 'النوع', render: (r) => (r.kind ? badge(label('backup_kind', r.kind), r.kind === 'manual' ? 'info' : r.kind === 'auto' ? 'neutral' : 'warning') : badge('غير مسجلة', 'muted')) },
-              { key: 'size_bytes', label: 'الحجم', align: 'end', render: (r) => h('span.nowrap', bytes(r.size_bytes)) },
-              { key: 'integrity', label: 'فحص السلامة', render: (r) => (r.integrity === 'ok' ? badge('سليمة', 'success', { icon: 'check' }) : r.integrity ? badge('بها خلل', 'danger', { title: r.integrity }) : badge('—', 'muted')) },
-              { key: 'actions', label: 'إجراءات', render: (r) => h('div.pf-row-actions', download(r.file), del(r.file)) },
+              { key: 'file', label: 'الملف', render: (r) => codeTag(r.file), tag: 'SYS-64' },
+              { key: 'created_at', label: 'التاريخ', render: (r) => h('div', h('div.nowrap', dateTime(r.created_at)), h('span.pf-muted', relative(r.created_at))), tag: 'SYS-65' },
+              { key: 'kind', label: 'النوع', render: (r) => (r.kind ? badge(label('backup_kind', r.kind), r.kind === 'manual' ? 'info' : r.kind === 'auto' ? 'neutral' : 'warning') : badge('غير مسجلة', 'muted')), tag: 'SYS-66' },
+              { key: 'size_bytes', label: 'الحجم', align: 'end', render: (r) => h('span.nowrap', bytes(r.size_bytes)), tag: 'SYS-67' },
+              { key: 'integrity', label: 'فحص السلامة', render: (r) => (r.integrity === 'ok' ? badge('سليمة', 'success', { icon: 'check' }) : r.integrity ? badge('بها خلل', 'danger', { title: r.integrity }) : badge('—', 'muted')), tag: 'SYS-68' },
+              { key: 'actions', label: 'إجراءات', render: (r) => h('div.pf-row-actions', download(r.file), del(r.file)), tag: 'SYS-69' },
             ],
             rows: b.items,
+            rowTag: 'SYS-70',
+            tag: 'SYS-71',
           })
-        : emptyState('لا توجد نسخ احتياطية محفوظة على الخادم بعد.', null, { compact: true, icon: 'refresh' }),
+        : emptyState('لا توجد نسخ احتياطية محفوظة على الخادم بعد.', null, { compact: true, icon: 'refresh', tag: 'SYS-72' }),
       b.items.length ? h('p.pf-muted', `الإجمالي: ${count(b.items.length, ['نسخة واحدة', 'نسختين', 'نسخ', 'نسخة'])} بحجم ${bytes(b.total_bytes)}.`) : null,
     ),
+    titleTag: 'SYS-73',
+    tag: 'SYS-74',
   });
 }
 
@@ -402,7 +548,7 @@ function exportCard(keySource, keyFile) {
     keySource === 'file'
       ? h(
           'label.check.check-single',
-          h('input', { type: 'checkbox', onChange: (e) => (includeKey = e.target.checked) }),
+          h('input', { type: 'checkbox', onChange: (e) => (includeKey = e.target.checked), tag: 'SYS-75' }),
           h(
             'span',
             'تضمين مفتاح التشفير ',
@@ -416,6 +562,7 @@ function exportCard(keySource, keyFile) {
       title: 'تصدير كامل للمنصة',
       message: `سيُنزَّل أرشيف يضم قاعدة البيانات كاملة وكل المستندات المرفوعة${includeKey ? ' ومفتاح التشفير' : ''}، أي كل بيانات المستفيدين. احفظه في مكان مشفر واحذفه بعد إتمام النقل. يُسجَّل التصدير في سجل الأمان.`,
       confirmLabel: 'بدء التنزيل',
+      tag: 'SYS-76',
     });
     if (!ok) return;
     try {
@@ -441,11 +588,13 @@ function exportCard(keySource, keyFile) {
         ' (راجع DEPLOY.md).',
       ),
       keySource === 'env'
-        ? alertBox('مفتاح التشفير مضبوط من APP_SECRET: اضبط نفس القيمة على الخادم الجديد حتى تبقى أسرار التكاملات صالحة.', 'info')
+        ? alertBox('مفتاح التشفير مضبوط من APP_SECRET: اضبط نفس القيمة على الخادم الجديد حتى تبقى أسرار التكاملات صالحة.', 'info', { tag: 'SYS-77' })
         : null,
       keyToggle,
-      h('div', button('تنزيل التصدير الكامل', { variant: 'primary', icon: 'download', onClick: start })),
+      h('div', button('تنزيل التصدير الكامل', { variant: 'primary', icon: 'download', onClick: start, tag: 'SYS-78' })),
     ),
+    titleTag: 'SYS-79',
+    tag: 'SYS-80',
   });
 }
 
@@ -459,7 +608,7 @@ export default async function render(ctx) {
     try {
       [d, b] = await Promise.all([api.get('/admin/system/health'), api.get('/admin/system/backups')]);
     } catch (err) {
-      mount(host, pageHeader({ title: 'صحة النظام والنسخ الاحتياطي' }), errorState(err, load));
+      mount(host, pageHeader({ title: 'صحة النظام والنسخ الاحتياطي', titleTag: 'SYS-81', tag: 'SYS-82' }), errorState(err, load));
       return;
     }
     mount(
@@ -468,7 +617,9 @@ export default async function render(ctx) {
         title: 'صحة النظام والنسخ الاحتياطي',
         subtitle: 'حالة الخادم وقاعدة البيانات والمهام الدورية والتكاملات، والنسخ الاحتياطي والتصدير الكامل.',
         meta: h('div.pf-badges', badge(`الإصدار ${d.version}`, 'primary'), badge(`بيئة ${ENV_LABEL[d.environment] || d.environment}`, ENV_TONE[d.environment] || 'neutral'), h('span.pf-muted', `حُدّثت ${dateTime(new Date().toISOString())}`)),
-        actions: button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load }),
+        actions: button('تحديث', { icon: 'refresh', variant: 'ghost', onClick: load, tag: 'SYS-83' }),
+        titleTag: 'SYS-84',
+        tag: 'SYS-85',
       }),
       h(
         'div.stack-lg',
@@ -477,6 +628,7 @@ export default async function render(ctx) {
         backupsCard(b, load),
         h('div.grid-2.pf-grid', serverCard(d), dbCard(d)),
         jobsCard(d, load),
+        mediaCard(load), // v12 media (MD-11، P1)
         outboxAndIntegrations(d),
         exportCard(d.integrations.key_source, d.integrations.key_file),
       ),

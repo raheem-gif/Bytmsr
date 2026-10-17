@@ -12,7 +12,7 @@ import {
   usageCycle,
   cycleBounds,
   nextPeriodStart,
-  businessHoursText,
+  businessHoursPlain,
   urgentHoursText,
   businessMinutesBetween,
   cairoDayKey,
@@ -368,7 +368,7 @@ export function createCompanyBilling(app) {
       const base = {
         server_now: nowI,
         calendar: calendarJson(c),
-        business_hours_text: businessHoursText(c.business),
+        business_hours_text: businessHoursPlain(c.business), // v12 gate (V-23): بلا «–» في نص البوابة
         urgent_hours_text: urgentHoursText(c.urgent),
         contracting_entity: app.companies.contractingEntity(),
       };

@@ -3,29 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>شروط الاستخدام — {{site_name}}</title>
+    <title>شروط الاستخدام {{title_sep}} {{site_name}}</title>
     <!-- v11 fixer-public (V1/F-F): الوصف و«بالمختصر» حسب جانب الزائر؛ نص «خيري» كما في 10.0 حرفيًا -->
+    <!-- v12 gate (K-P3): متن الصفحة أيضًا حسب الجانب: «خيري» كما كان حرفيًا (side_charity)، والأفراد والشركات بصوت المكتب وصيغة الجمع
+         وباسمه (firm_name) بلا «المؤسسة» ولا «البرنامج» (side_paid). نسختا رابطي PV-42/PV-49 للأفراد والشركات معلّمتان tags:variant -->
     <meta name="description" content="<!--#if side_charity-->شروط استخدام خدمة {{program_name}} المجانية في {{org_legal_name}}: طبيعة الخدمة والاستحقاق، وحدود العلاقة مع المحامي، والتزامات المستفيد، وعدم ضمان النتائج.<!--/if side_charity--><!--#if side_paid-->شروط استخدام خدمات {{brand_name}} للأفراد والشركات: طبيعة الخدمة والأتعاب، وحدود العلاقة مع المحامي، والتزاماتكم، وعدم ضمان النتائج.<!--/if side_paid-->" />
     <!--site:head-->
     <!--site:critical-css:legal-->
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
   <body class="site pub v91" data-side="{{side}}">
-    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
-      <section class="pub-page-hero" aria-labelledby="page-title">
+      <section class="pub-page-hero" aria-labelledby="page-title" data-tag="TM-01">
         <div class="pub-container">
-          <nav aria-label="مسار التصفح">
+          <nav aria-label="مسار التصفح" data-tag="TM-02">
             <ol class="pub-crumbs">
-              <li><a href="/">الرئيسية</a></li>
+              <li><a href="{{crumb_home_href}}" data-tag="TM-03">{{crumb_home}}</a></li>
               <li aria-current="page">شروط الاستخدام</li>
             </ol>
           </nav>
-          <h1 id="page-title">شروط استخدام الخدمة</h1>
+          <h1 id="page-title" data-tag="TM-04">شروط استخدام الخدمة</h1>
           <div class="pub-summary" id="summary">
-            <h2>بالمختصر</h2>
+            <h2 data-tag="TM-05">بالمختصر</h2>
             <!--#if side_charity--><ul>
               <li>{{{icon_check}}}<span>الخدمة مجانية، ومحدش يطلب منك فلوس.</span></li>
               <li>{{{icon_check}}}<span>إحنا بننصحك، والحكم في الآخر للمحكمة.</span></li>
@@ -38,45 +39,48 @@
               <li>{{{icon_check}}}<span>يُرجى ذكر الحقائق كاملة في طلبكم لنتمكن من مساعدتكم.</span></li>
             </ul><!--/if side_paid-->
           </div>
-          <p>تنظّم هذه الشروط استخدامك لخدمة {{program_name}} التي تقدّمها {{org_legal_name}} عبر الموقع وواتساب وغيرهما من قنوات المؤسسة.</p>
-          <p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p>
+          <!--#if side_charity--><p>تنظّم هذه الشروط استخدامك لخدمة {{program_name}} التي تقدّمها {{org_legal_name}} عبر الموقع وواتساب وغيرهما من قنوات المؤسسة.</p><!--/if side_charity--><!--#if side_paid--><p>تنظّم هذه الشروط استخدامكم لخدمات <bdi>{{firm_name}}</bdi> للأفراد والشركات عبر الموقع وواتساب وصفحة طلبكم وبوابة الشركات.</p><!--/if side_paid-->
+          <!--#if side_charity--><p class="pub-updated">آخر تحديث: 6 أكتوبر 2026</p><!--/if side_charity--><!--#if side_paid--><p class="pub-updated">آخر تحديث: 15 أكتوبر 2026</p><!--/if side_paid-->
         </div>
       </section>
 
       <!-- B91-11: العنوان و«بالمختصر» مرسومان من الأنماط المضمّنة؛ الملف الكامل هنا فلا يؤخر أول رسم -->
       <link rel="stylesheet" href="/assets/css/public-site.css" />
       <div class="pub-container pub-doc-layout">
-        <details class="pub-toc">
+        <details class="pub-toc" data-tag="TM-06">
           <summary><span>محتويات الصفحة</span><svg class="pub-icon pub-faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
           <ol>
-            <li><a href="#accept">القبول بالشروط</a></li>
-            <li><a href="#service">طبيعة الخدمة</a></li>
-            <li><a href="#eligibility">الاستحقاق وقبول الطلبات</a></li>
-            <li><a href="#fees">الرسوم والمقابل</a></li>
-            <li><a href="#results">لا ضمان للنتائج</a></li>
-            <li><a href="#lawyer">العلاقة مع المحامي</a></li>
-            <li><a href="#obligations">التزاماتك</a></li>
-            <li><a href="#urgent">المواعيد والحالات العاجلة</a></li>
-            <li><a href="#content">محتوى الموقع</a></li>
-            <li><a href="#suspend">إيقاف الخدمة</a></li>
-            <li><a href="#law">القانون الواجب التطبيق</a></li>
-            <li><a href="#paid">الخدمات بأتعاب للأفراد والشركات</a></li>
-            <li><a href="#changes">تعديل الشروط والتواصل</a></li>
+            <li><a href="#accept" data-tag="TM-07">القبول بالشروط</a></li>
+            <li><a href="#service" data-tag="TM-08">طبيعة الخدمة</a></li>
+            <li><a href="#eligibility" data-tag="TM-09"><!--#if side_charity-->الاستحقاق وقبول الطلبات<!--/if side_charity--><!--#if side_paid-->قبول الطلبات<!--/if side_paid--></a></li>
+            <li><a href="#fees" data-tag="TM-10"><!--#if side_charity-->الرسوم والمقابل<!--/if side_charity--><!--#if side_paid-->الأتعاب والرسوم<!--/if side_paid--></a></li>
+            <li><a href="#results" data-tag="TM-11">لا ضمان للنتائج</a></li>
+            <li><a href="#lawyer" data-tag="TM-12">العلاقة مع المحامي</a></li>
+            <li><a href="#obligations" data-tag="TM-13"><!--#if side_charity-->التزاماتك<!--/if side_charity--><!--#if side_paid-->التزاماتكم<!--/if side_paid--></a></li>
+            <li><a href="#urgent" data-tag="TM-14">المواعيد والحالات العاجلة</a></li>
+            <li><a href="#content" data-tag="TM-15">محتوى الموقع</a></li>
+            <li><a href="#suspend" data-tag="TM-16">إيقاف الخدمة</a></li>
+            <li><a href="#law" data-tag="TM-17">القانون الواجب التطبيق</a></li>
+            <li><a href="#paid" data-tag="TM-18">الخدمات بأتعاب للأفراد والشركات</a></li>
+            <li><a href="#changes" data-tag="TM-19">تعديل الشروط والتواصل</a></li>
           </ol>
         </details>
 
         <article class="pub-doc">
-          <section id="accept" aria-labelledby="accept-title">
-            <h2 id="accept-title">1. القبول بالشروط</h2>
-            <p>
+          <section id="accept" aria-labelledby="accept-title" data-tag="TM-20">
+            <h2 id="accept-title" data-tag="TM-21">1. القبول بالشروط</h2>
+            <!--#if side_charity--><p>
               بتقديمك طلبًا عبر الموقع أو مراسلتك البرنامج عبر واتساب أو أي قناة أخرى، فإنك توافق على هذه الشروط وعلى
               <a href="/privacy">سياسة الخصوصية</a>. وإذا كنت تتقدم بالطلب نيابةً عن غيرك، فإنك تقر بحصولك على موافقته على ذلك.
-            </p>
+            </p><!--/if side_charity--><!--#if side_paid--><p>
+              بتقديمكم طلبًا عبر الموقع أو مراسلتكم لنا عبر واتساب أو أي قناة أخرى، فإنكم توافقون على هذه الشروط وعلى
+              <a href="/privacy">سياسة الخصوصية</a>. وإذا كنتم تتقدمون بالطلب نيابةً عن غيركم أو عن شركة، فإنكم تقرون بأن لديكم الصفة والموافقة اللازمتين لذلك.
+            </p><!--/if side_paid-->
           </section>
 
-          <section id="service" aria-labelledby="service-title">
-            <h2 id="service-title">2. طبيعة الخدمة</h2>
-            <ul>
+          <section id="service" aria-labelledby="service-title" data-tag="TM-22">
+            <h2 id="service-title" data-tag="TM-23">2. طبيعة الخدمة</h2>
+            <!--#if side_charity--><ul>
               <li>برنامج {{program_name}} خدمة اجتماعية تقدّمها المؤسسة للأرامل والأيتام وأسرهم والأسر الأولى بالرعاية.</li>
               <li>تشمل الخدمة دراسة الطلب، وتقديم رأي قانوني يعده محامٍ مختص وتعتمده المؤسسة، والإرشاد إلى الإجراءات والمستندات اللازمة.</li>
               <li>
@@ -84,22 +88,31 @@
                 يحدد نطاق المتابعة، وقد يتطلب توكيلًا رسميًا منك.
               </li>
               <li>يقوم الرأي القانوني على المعلومات والمستندات التي تقدمها، ويتغير بتغيرها.</li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>يقدّم <bdi>{{firm_name}}</bdi> للأفراد والشركات الاستشارات القانونية، ورفع الدعاوى ومتابعتها، وتأسيس الشركات، والمستشار القانوني الدائم للشركات.</li>
+              <li>تشمل الخدمة دراسة الطلب، وتقديم رأي قانوني يعده محامٍ مختص ويراجعه المكتب، والإرشاد إلى الإجراءات والمستندات اللازمة.</li>
+              <li>يتحدد نطاق كل خدمة في العرض المكتوب الذي توافقون عليه، وتتطلب متابعة الإجراءات أمام المحاكم أو الجهات الحكومية توكيلًا رسميًا منكم.</li>
+              <li>يقوم الرأي القانوني على المعلومات والمستندات التي تقدمونها، ويتغير بتغيرها.</li>
+            </ul><!--/if side_paid-->
           </section>
 
-          <section id="eligibility" aria-labelledby="eligibility-title">
-            <h2 id="eligibility-title">3. الاستحقاق وقبول الطلبات</h2>
-            <ul>
+          <section id="eligibility" aria-labelledby="eligibility-title" data-tag="TM-24">
+            <h2 id="eligibility-title" data-tag="TM-25">3. <!--#if side_charity-->الاستحقاق وقبول الطلبات<!--/if side_charity--><!--#if side_paid-->قبول الطلبات<!--/if side_paid--></h2>
+            <!--#if side_charity--><ul>
               <li>تراجع المؤسسة كل طلب على حدة، ويتحدد الاستحقاق النهائي بعد المراجعة.</li>
               <li>الأولوية لمستفيدي المؤسسة من الأرامل والأيتام، وللحالات الأشد احتياجًا أو المرتبطة بمواعيد قانونية قريبة.</li>
               <li>للمؤسسة أن تعتذر عن قبول طلب لا يدخل في نطاق البرنامج أو يتجاوز إمكاناتها، وتبلغك بذلك بوضوح وترشدك إلى جهة أخرى قدر الإمكان.</li>
               <li>استلام الطلب وحصولك على رقم له لا يعني قبوله؛ وإنما يبدأ تقديم الخدمة بعد المراجعة.</li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>نراجع كل طلب على حدة قبل قبوله.</li>
+              <li>للمكتب أن يعتذر عن قبول طلب لا يدخل في نطاق خدماته أو يتعارض مع مصلحة طرف آخر نتولى شؤونه، ونبلغكم بذلك بوضوح.</li>
+              <li>استلام الطلب وحصولكم على رقم له لا يعني قبوله؛ وإنما يبدأ العمل بعد موافقتكم على العرض المكتوب.</li>
+            </ul><!--/if side_paid-->
           </section>
 
-          <section id="fees" aria-labelledby="fees-title">
-            <h2 id="fees-title">4. الرسوم والمقابل</h2>
-            <ul>
+          <section id="fees" aria-labelledby="fees-title" data-tag="TM-26">
+            <h2 id="fees-title" data-tag="TM-27">4. <!--#if side_charity-->الرسوم والمقابل<!--/if side_charity--><!--#if side_paid-->الأتعاب والرسوم<!--/if side_paid--></h2>
+            <!--#if side_charity--><ul>
               <li>تُقدَّم خدمات البرنامج دون مقابل للمستحقين.</li>
               <li>
                 لا يحق لأي محامٍ أو عضو في فريق العمل أن يطلب منك أتعابًا أو هدايا أو مبالغ مقابل خدمات البرنامج. وإن حدث ذلك فأبلغ المؤسسة فورًا عبر
@@ -109,20 +122,33 @@
                 الرسوم الحكومية أو القضائية التي قد تلزم لبعض الإجراءات، كاستخراج الشهادات أو قيد الدعاوى، توضّحها لك المؤسسة مسبقًا قبل أي خطوة، ولا
                 يُتخذ إجراء يترتب عليه التزام مالي عليك إلا بعد موافقتك.
               </li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>تُتفق الأتعاب معكم كتابةً قبل بدء أي عمل، كما في البند 12.</li>
+              <li>
+                الرسوم الحكومية أو القضائية التي قد تلزم لبعض الإجراءات، كاستخراج الشهادات أو قيد الدعاوى، نوضّحها لكم مسبقًا قبل أي خطوة، ولا يُتخذ إجراء
+                يترتب عليه التزام مالي عليكم إلا بعد موافقتكم.
+              </li>
+              <li>
+                لا يحق لأي محامٍ أو عضو في فريق العمل أن يطلب منكم مبالغ غير ما تظهره صفحة طلبكم أو الاتفاق المكتوب. وإن حدث ذلك فأبلغونا فورًا عبر وسائل
+                التواصل الرسمية.
+              </li>
+            </ul><!--/if side_paid-->
           </section>
 
-          <section id="results" aria-labelledby="results-title">
-            <h2 id="results-title">5. لا ضمان للنتائج</h2>
-            <p>
+          <section id="results" aria-labelledby="results-title" data-tag="TM-28">
+            <h2 id="results-title" data-tag="TM-29">5. لا ضمان للنتائج</h2>
+            <!--#if side_charity--><p>
               نبذل أقصى ما نستطيع لدراسة حالتك بعناية، لكننا لا نضمن نتيجة بعينها في أي نزاع أو إجراء؛ فالفصل فيه للمحكمة أو الجهة المختصة وحدها،
               ويتأثر بعوامل لا نملكها، كالأدلة المتاحة وموقف الأطراف الأخرى والمواعيد القانونية.
-            </p>
+            </p><!--/if side_charity--><!--#if side_paid--><p>
+              نبذل أقصى ما نستطيع لدراسة موضوعكم بعناية، لكننا لا نضمن نتيجة بعينها في أي نزاع أو إجراء؛ فالفصل فيه للمحكمة أو الجهة المختصة وحدها،
+              ويتأثر بعوامل لا نملكها، كالأدلة المتاحة وموقف الأطراف الأخرى والمواعيد القانونية.
+            </p><!--/if side_paid-->
           </section>
 
-          <section id="lawyer" aria-labelledby="lawyer-title">
-            <h2 id="lawyer-title">6. حدود العلاقة مع المحامي</h2>
-            <ul>
+          <section id="lawyer" aria-labelledby="lawyer-title" data-tag="TM-30">
+            <h2 id="lawyer-title" data-tag="TM-31">6. حدود العلاقة مع المحامي</h2>
+            <!--#if side_charity--><ul>
               <li>يعمل المحامي في البرنامج ضمن ترتيب مع المؤسسة وتحت إشرافها، ويقتصر عمله على ما تسنده إليه المؤسسة في ملفك.</li>
               <li>يمر التواصل بينك وبين المحامي عبر المؤسسة، ولا يتواصل معك مباشرة إلا بترتيب منها، ولا يطّلع على رقم هاتفك أو محادثاتك مع المؤسسة.</li>
               <li>
@@ -130,71 +156,97 @@
                 نطاق الوكالة فيه.
               </li>
               <li>إذا اخترت الاستعانة بمحامٍ خاص خارج البرنامج، فإن تلك العلاقة تخصك وحدك ولا تتحمل المؤسسة أي التزام بشأنها.</li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>يعمل المحامي المختص ضمن فريق المكتب وتحت إشرافه، ويقتصر عمله على ما يسنده إليه المكتب في ملفكم.</li>
+              <li>يمر التواصل بينكم وبين المحامي عبر المكتب، ولا يطّلع المحامي على أرقام هواتفكم أو محادثاتكم مع المكتب.</li>
+              <li>لا تنشأ علاقة وكالة بالخصومة إلا بتوكيل رسمي تحررونه لهذا الغرض، ويتحدد نطاق الوكالة فيه.</li>
+              <li>إذا اخترتم الاستعانة بمحامٍ آخر خارج المكتب، فإن تلك العلاقة تخصكم وحدكم ولا يتحمل المكتب أي التزام بشأنها.</li>
+            </ul><!--/if side_paid-->
           </section>
 
-          <section id="obligations" aria-labelledby="obligations-title">
-            <h2 id="obligations-title">7. التزاماتك</h2>
-            <ul>
+          <section id="obligations" aria-labelledby="obligations-title" data-tag="TM-32">
+            <h2 id="obligations-title" data-tag="TM-33">7. <!--#if side_charity-->التزاماتك<!--/if side_charity--><!--#if side_paid-->التزاماتكم<!--/if side_paid--></h2>
+            <!--#if side_charity--><ul>
               <li>تقديم معلومات صحيحة وكاملة بحسب علمك، ومستندات سليمة غير مزورة، وإبلاغنا بأي تغيير في ظروف ملفك.</li>
               <li>الحفاظ على سرية رقم طلبك ورابط المتابعة الخاص بك، وعدم مشاركته مع غيرك.</li>
               <li>الرد على طلبات المعلومات والمستندات في وقت مناسب، فالتأخير قد يؤخر دراسة ملفك.</li>
               <li>التعامل باحترام مع فريق المؤسسة والمحامين، وعدم استخدام قنوات التواصل في غير الغرض المخصص لها.</li>
               <li>عدم استخدام الخدمة للإضرار بالغير أو لأغراض غير مشروعة.</li>
-            </ul>
+            </ul><!--/if side_charity--><!--#if side_paid--><ul>
+              <li>تقديم معلومات صحيحة وكاملة بحسب علمكم، ومستندات سليمة غير مزورة، وإبلاغنا بأي تغيير في ظروف ملفكم.</li>
+              <li>الحفاظ على سرية رقم طلبكم ورابط المتابعة الخاص بكم، وعدم مشاركته مع غيركم.</li>
+              <li>الرد على طلبات المعلومات والمستندات في وقت مناسب، فالتأخير قد يؤخر دراسة ملفكم.</li>
+              <li>سداد الأتعاب والرسوم المتفق عليها في مواعيدها.</li>
+              <li>التعامل باحترام مع فريق المكتب والمحامين، وعدم استخدام قنوات التواصل في غير الغرض المخصص لها.</li>
+              <li>عدم استخدام الخدمة للإضرار بالغير أو لأغراض غير مشروعة.</li>
+            </ul><!--/if side_paid-->
           </section>
 
-          <section id="urgent" aria-labelledby="urgent-title">
-            <h2 id="urgent-title">8. المواعيد القانونية والحالات العاجلة</h2>
-            <p>
+          <section id="urgent" aria-labelledby="urgent-title" data-tag="TM-34">
+            <h2 id="urgent-title" data-tag="TM-35">8. المواعيد القانونية والحالات العاجلة</h2>
+            <!--#if side_charity--><p>
               إذا كانت مسألتك مرتبطة بموعد قريب، كجلسة أو ميعاد طعن أو إنذار بالإخلاء، فاذكر ذلك صراحة في طلبك، وسنعطيه الأولوية الممكنة. ولا نتحمل
               فوات المواعيد التي لم نُبلَّغ بها في وقت كافٍ.
-            </p>
+            </p><!--/if side_charity--><!--#if side_paid--><p>
+              إذا كان موضوعكم مرتبطًا بموعد قريب، كجلسة أو ميعاد طعن أو إنذار بالإخلاء، فاذكروا ذلك صراحة في طلبكم، وسنعطيه الأولوية الممكنة. ولا نتحمل
+              فوات المواعيد التي لم نُبلَّغ بها في وقت كافٍ.
+            </p><!--/if side_paid-->
             <div class="pub-callout pub-callout-gold">
               <svg class="pub-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-              <p>
+              <!--#if side_charity--><p>
                 البرنامج ليس خدمة طوارئ. في حالات الخطر أو العنف اتصل فورًا بشرطة النجدة على الرقم <span class="pub-ltr" dir="ltr">122</span>، ولحماية
                 الأطفال بخط نجدة الطفل <span class="pub-ltr" dir="ltr">16000</span>، وللإبلاغ عن العنف ضد المرأة بمكتب شكاوى المرأة بالمجلس القومي للمرأة
                 <span class="pub-ltr" dir="ltr">15115</span>.
-              </p>
+              </p><!--/if side_charity--><!--#if side_paid--><p>
+                خدماتنا ليست خدمة طوارئ. في حالات الخطر أو العنف اتصلوا فورًا بشرطة النجدة على الرقم <span class="pub-ltr" dir="ltr">122</span>، ولحماية
+                الأطفال بخط نجدة الطفل <span class="pub-ltr" dir="ltr">16000</span>، وللإبلاغ عن العنف ضد المرأة بمكتب شكاوى المرأة بالمجلس القومي للمرأة
+                <span class="pub-ltr" dir="ltr">15115</span>.
+              </p><!--/if side_paid-->
             </div>
           </section>
 
-          <section id="content" aria-labelledby="content-title">
-            <h2 id="content-title">9. محتوى الموقع</h2>
-            <p>
+          <section id="content" aria-labelledby="content-title" data-tag="TM-36">
+            <h2 id="content-title" data-tag="TM-37">9. محتوى الموقع</h2>
+            <!--#if side_charity--><p>
               المعلومات المنشورة على هذا الموقع معلومات عامة للتعريف بالبرنامج وخدماته، ولا تُعد رأيًا قانونيًا في حالة بعينها. وتبقى علامات المؤسسة
               ومحتواها ملكًا لها، ويجوز نقل المحتوى لأغراض التوعية غير التجارية مع ذكر المصدر.
-            </p>
+            </p><!--/if side_charity--><!--#if side_paid--><p>
+              المعلومات المنشورة على هذا الموقع معلومات عامة للتعريف بالمكتب وخدماته، ولا تُعد رأيًا قانونيًا في حالة بعينها. وتبقى علامات المكتب
+              ومحتواه ملكًا له، ويجوز نقل المحتوى لأغراض التوعية غير التجارية مع ذكر المصدر.
+            </p><!--/if side_paid-->
           </section>
 
-          <section id="suspend" aria-labelledby="suspend-title">
-            <h2 id="suspend-title">10. إيقاف الخدمة</h2>
-            <p>
+          <section id="suspend" aria-labelledby="suspend-title" data-tag="TM-38">
+            <h2 id="suspend-title" data-tag="TM-39">10. إيقاف الخدمة</h2>
+            <!--#if side_charity--><p>
               للمؤسسة أن توقف تقديم الخدمة في ملف بعينه إذا ثبت تقديم معلومات أو مستندات غير صحيحة عمدًا، أو أسيء استخدام قنوات التواصل، أو تعذر التواصل
               معك مدة طويلة، أو انتهت المسألة. ولك أن تطلب إيقاف ملفك في أي وقت.
-            </p>
+            </p><!--/if side_charity--><!--#if side_paid--><p>
+              للمكتب أن يوقف تقديم الخدمة في ملف بعينه إذا ثبت تقديم معلومات أو مستندات غير صحيحة عمدًا، أو أسيء استخدام قنوات التواصل، أو تعذر التواصل
+              معكم مدة طويلة، أو لم تُسدَّد الأتعاب المتفق عليها، أو انتهت المسألة. ولكم أن تطلبوا إيقاف ملفكم في أي وقت، وتُسوّى الأتعاب وفق الاتفاق المكتوب.
+            </p><!--/if side_paid-->
           </section>
 
-          <section id="law" aria-labelledby="law-title">
-            <h2 id="law-title">11. القانون الواجب التطبيق</h2>
+          <section id="law" aria-labelledby="law-title" data-tag="TM-40">
+            <h2 id="law-title" data-tag="TM-41">11. القانون الواجب التطبيق</h2>
             <p>تخضع هذه الشروط لأحكام القانون المصري.</p>
           </section>
 
           <!-- v11 gate-public (G11-50، O-28): يحتاج مراجعة محامي المؤسسة قبل الإطلاق -->
-          <section id="paid" aria-labelledby="paid-title">
-            <h2 id="paid-title">12. الخدمات بأتعاب للأفراد والشركات</h2>
+          <section id="paid" aria-labelledby="paid-title" data-tag="TM-42">
+            <h2 id="paid-title" data-tag="TM-43">12. الخدمات بأتعاب للأفراد والشركات</h2>
             <ol>
               <li>تُقدَّم خدمات الأفراد والشركات بأتعاب تُتفق عليها كتابةً قبل بدء أي عمل، وتظهر على صفحة الطلب للموافقة عليها.</li>
               <li>لا يُطلب أي مبلغ إلا من خلال صفحة الطلب أو باتفاق مكتوب، ولا يبدأ العمل قبل موافقتكم.</li>
               <li>خدمات الشركات بالاشتراك الشهري تحكمها شروط الباقة والعرض المكتوب المتفق عليه.</li>
-              <li>المساعدة القانونية المجانية («خيري») مخصصة للأرامل والأيتام وأسرهم. قد نتحقق من الاستحقاق، وإن كان الطلب خارج البرنامج المجاني أبلغناكم وعرضنا تقديمه بأتعاب، ولا نبدأ إلا بموافقتكم.</li>
+              <!-- v12 entry (E12-69): بند «خيري» حين يُعاد فقط -->
+              <!--#if charity_on--><li>المساعدة القانونية المجانية («خيري») مخصصة للأرامل والأيتام وأسرهم. قد نتحقق من الاستحقاق، وإن كان الطلب خارج البرنامج المجاني أبلغناكم وعرضنا تقديمه بأتعاب، ولا نبدأ إلا بموافقتكم.</li><!--/if charity_on-->
             </ol>
           </section>
 
-          <section id="changes" aria-labelledby="changes-title">
-            <h2 id="changes-title">13. تعديل الشروط والتواصل</h2>
-            <p>قد نحدّث هذه الشروط من وقت لآخر، وننشر النسخة المحدثة في هذه الصفحة مع تاريخ آخر تحديث. ولأي استفسار تواصل معنا:</p>
+          <section id="changes" aria-labelledby="changes-title" data-tag="TM-44">
+            <h2 id="changes-title" data-tag="TM-45">13. تعديل الشروط والتواصل</h2>
+            <!--#if side_charity--><p>قد نحدّث هذه الشروط من وقت لآخر، وننشر النسخة المحدثة في هذه الصفحة مع تاريخ آخر تحديث. ولأي استفسار تواصل معنا:</p><!--/if side_charity--><!--#if side_paid--><p>قد نحدّث هذه الشروط من وقت لآخر، وننشر النسخة المحدثة في هذه الصفحة مع تاريخ آخر تحديث. ولأي استفسار تواصلوا معنا:</p><!--/if side_paid-->
             {{{contact_list}}}
           </section>
         </article>

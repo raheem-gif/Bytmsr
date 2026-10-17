@@ -94,6 +94,7 @@ export default async function render(ctx) {
         title: `إصدار المبالغ الشهرية — ${pl}`,
         message: `سيُسجَّل المبلغ الشهري الثابت كمستحق لكل محامٍ باتفاق شهري لم يُصدر له مبلغ ${pl} بعد. العملية آمنة ولا تُكرر أي قيد صدر من قبل.`,
         confirmLabel: 'إصدار المبالغ',
+        tag: 'ACC-01',
       });
       if (!ok) return;
       const res = await api.post('/admin/accounting/close-month', { period });
@@ -108,18 +109,21 @@ export default async function render(ctx) {
                 caption: 'المبالغ الشهرية التي صدرت',
                 rows: created,
                 columns: [
-                  { key: 'name', label: 'المحامي', render: (r) => h('span.cell-title', r.name) },
-                  { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => moneyCell(r.amount, { strong: true }) },
+                  { key: 'name', label: 'المحامي', render: (r) => h('span.cell-title', r.name), tag: 'ACC-02' },
+                  { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => moneyCell(r.amount, { strong: true }), tag: 'ACC-03' },
                 ],
+                rowTag: 'ACC-04',
+                tag: 'ACC-05',
               }),
               h('p.pd-footnote.mt-2', `الإجمالي: ${money(created.reduce((s, r) => s + (Number(r.amount) || 0), 0))}`),
             )
           : h('p.confirm-message', `كل المبالغ الشهرية عن ${pl} صادرة بالفعل، أو لا يوجد محامون باتفاق شهري في هذه الفترة.`),
-        actions: [{ label: 'تم', variant: 'primary' }],
+        actions: [{ label: 'تم', variant: 'primary', tag: 'ACC-06' }],
         onClose: () => ctx.reload(),
+        tag: 'ACC-07',
       });
     },
-    { variant: 'primary', icon: 'calendar' },
+    { variant: 'primary', icon: 'calendar', tag: 'ACC-08' },
   );
 
   const needsClosing = lawyers.filter((l) => l.needs_month_closing);
@@ -169,7 +173,7 @@ export default async function render(ctx) {
   }
 
   function summaryPanel() {
-    if (!lawyers.length) return emptyState('لا يوجد محامون في الشبكة بعد', button('شبكة المحامين', { href: '#/lawyers', icon: 'scale' }), { icon: 'wallet' });
+    if (!lawyers.length) return emptyState('لا يوجد محامون في الشبكة بعد', button('شبكة المحامين', { href: '#/lawyers', icon: 'scale', tag: 'ACC-09' }), { icon: 'wallet', tag: 'ACC-10' });
     return h(
       'div.stack',
       needsClosing.length
@@ -179,7 +183,7 @@ export default async function render(ctx) {
               `لم يُصدر المبلغ الشهري عن ${pl} لكل من: ${needsClosing.map((l) => l.name).join('، ')}. استخدم زر «إصدار المبالغ الشهرية لهذا الشهر» أعلى الصفحة.`,
             ),
             'warning',
-            { title: 'مبالغ شهرية لم تُصدر بعد' },
+            { title: 'مبالغ شهرية لم تُصدر بعد', tag: 'ACC-11' },
           )
         : null,
       table({
@@ -195,7 +199,7 @@ export default async function render(ctx) {
             render: (l) =>
               h(
                 'div.pd-cell-stack',
-                h('a.cell-title', { href: `#/lawyers/${l.lawyer_id}` }, l.name),
+                h('a.cell-title', { href: `#/lawyers/${l.lawyer_id}`, tag: 'ACC-12' }, l.name),
                 h('span.cell-sub', l.agreement_text),
                 h(
                   'div.pd-badges',
@@ -203,9 +207,10 @@ export default async function render(ctx) {
                   l.needs_month_closing && badge('يحتاج إصدار المبلغ الشهري', 'warning', { icon: 'alert' }),
                 ),
               ),
+              tag: 'ACC-13',
           },
-          { key: 'events', label: `وقائع ${pl}`, render: treatmentCell },
-          { key: 'usage', label: 'الاستهلاك', render: usageCell, className: 'pd-col-usage' },
+          { key: 'events', label: `وقائع ${pl}`, render: treatmentCell, tag: 'ACC-14' },
+          { key: 'usage', label: 'الاستهلاك', render: usageCell, className: 'pd-col-usage', tag: 'ACC-15' },
           {
             key: 'period_amount',
             label: 'مستحقات الفترة',
@@ -214,14 +219,16 @@ export default async function render(ctx) {
               const share = paidShareText(l.paid_individuals);
               return share ? h('div.pd-cell-stack.pd-align-end', moneyCell(l.period_amount, { strong: true }), h('span.cell-sub.pd-paid-share', share)) : moneyCell(l.period_amount, { strong: true });
             },
+            tag: 'ACC-16',
           },
           {
             key: 'unpaid',
             label: 'رصيد غير مصروف',
             align: 'end',
             render: (l) => (Number(l.unpaid_balance) ? h('span.pd-text-warning', moneyCell(l.unpaid_balance)) : moneyCell(0)),
+            tag: 'ACC-17',
           },
-          { key: 'contribution', label: 'قيمة المساهمة', align: 'end', render: (l) => (Number(l.contribution_value) ? moneyCell(l.contribution_value) : h('span.muted', '—')) },
+          { key: 'contribution', label: 'قيمة المساهمة', align: 'end', render: (l) => (Number(l.contribution_value) ? moneyCell(l.contribution_value) : h('span.muted', '—')), tag: 'ACC-18' },
           {
             key: 'actions',
             label: '',
@@ -234,11 +241,15 @@ export default async function render(ctx) {
                   icon: 'fileText',
                   title: `عرض قيود ${l.name} في دفتر المستحقات`,
                   onClick: () => openLedgerFor(l.lawyer_id),
+                  tag: 'ACC-19',
                 }),
                 printButton({ kind: 'statement', id: l.lawyer_id, label: 'كشف', variant: 'ghost', query: { from: summary.period || period, to: summary.period || period }, title: `طباعة كشف حساب ${l.name} عن ${pl}` }),
               ),
+              tag: 'ACC-20',
           },
         ],
+        rowTag: 'ACC-21',
+        tag: 'ACC-22',
       }),
       h(
         'p.pd-footnote',
@@ -296,6 +307,7 @@ export default async function render(ctx) {
       disabled: !single || !selCount,
       title: !single ? 'اختر محاميًا أولًا' : !selCount ? 'حدد القيود المستحقة المراد صرفها' : null,
       onClick: openPayout,
+      tag: 'ACC-23',
     });
 
     let headCheck = null;
@@ -309,6 +321,7 @@ export default async function render(ctx) {
           else ledger.selected.clear();
           drawLedger();
         },
+        tag: 'ACC-24',
       });
       headCheck.indeterminate = selCount > 0 && selCount < accrued.length;
     }
@@ -329,6 +342,7 @@ export default async function render(ctx) {
                   else ledger.selected.delete(r.id);
                   drawLedger();
                 },
+                tag: 'ACC-25',
               })
             : h('span.pd-check-placeholder', { 'aria-hidden': 'true' }),
       },
@@ -337,7 +351,7 @@ export default async function render(ctx) {
         label: 'التاريخ والفترة',
         render: (r) => h('div.pd-cell-stack', timeCell(r.created_at), h('span.cell-sub.nowrap', `فترة ${periodLabel(r.period)}`)),
       },
-      !single && { key: 'lawyer', label: 'المحامي', render: (r) => h('a', { href: `#/lawyers/${r.lawyer_id}` }, lawyerName(r.lawyer_id) !== '—' ? lawyerName(r.lawyer_id) : r.lawyer_name) },
+      !single && { key: 'lawyer', label: 'المحامي', render: (r) => h('a', { href: `#/lawyers/${r.lawyer_id}`, tag: 'ACC-26' }, lawyerName(r.lawyer_id) !== '—' ? lawyerName(r.lawyer_id) : r.lawyer_name) },
       { key: 'kind', label: 'النوع', render: (r) => badge(label('ledger_kind', r.kind), r.kind === 'adjustment' ? 'accent' : 'neutral') },
       { key: 'description', label: 'البيان', className: 'col-wide', render: (r) => h('span', richText(r.description)) },
       {
@@ -347,8 +361,8 @@ export default async function render(ctx) {
           r.case_code || r.matter_code
             ? h(
                 'div.pd-cell-stack',
-                r.case_code && h('a', { href: `#/cases/${r.case_id}` }, codeTag(r.case_code)),
-                r.matter_code && h('a', { href: `#/matters/${r.matter_id}` }, codeTag(r.matter_code)),
+                r.case_code && h('a', { href: `#/cases/${r.case_id}`, tag: 'ACC-27' }, codeTag(r.case_code)),
+                r.matter_code && h('a', { href: `#/matters/${r.matter_id}`, tag: 'ACC-28' }, codeTag(r.matter_code)),
               )
             : null,
       },
@@ -360,7 +374,7 @@ export default async function render(ctx) {
           h(
             'div.pd-cell-stack',
             statusBadge('ledger_status', r.status),
-            r.status === 'accrued' ? button('إلغاء القيد', { size: 'sm', variant: 'link', className: 'pd-link-danger', onClick: () => openVoid(r) }) : null,
+            r.status === 'accrued' ? button('إلغاء القيد', { size: 'sm', variant: 'link', className: 'pd-link-danger', onClick: () => openVoid(r), tag: 'ACC-29' }) : null,
           ),
       },
     ].filter(Boolean);
@@ -378,11 +392,11 @@ export default async function render(ctx) {
             ? h('span', 'دفتر ', h('strong', lawyerName(ledger.lawyer_id)), ` — ${count(ledgerRows.length, ['قيد واحد', 'قيدان', 'قيود', 'قيدًا'])}، المستحق غير المصروف ${money(totalAccrued)}`)
             : h('span', `${count(ledgerRows.length, ['قيد واحد معروض', 'قيدان معروضان', 'قيود معروضة', 'قيدًا معروضًا'])} — إجمالي غير الملغى ${money(totalShown)}`),
         ),
-        h('div.pd-toolbar-actions', button('قيد يدوي / تسوية', { icon: 'plus', onClick: openAdjustment }), payBtn),
+        h('div.pd-toolbar-actions', button('قيد يدوي / تسوية', { icon: 'plus', onClick: openAdjustment, tag: 'ACC-30' }), payBtn),
       ),
-      !single && alertBox('لصرف مستحقات، اختر محاميًا من القائمة أولًا ثم حدد القيود المستحقة؛ تُصرف قيود محامٍ واحد في كل عملية صرف.', 'info'),
+      !single && alertBox('لصرف مستحقات، اختر محاميًا من القائمة أولًا ثم حدد القيود المستحقة؛ تُصرف قيود محامٍ واحد في كل عملية صرف.', 'info', { tag: 'ACC-31' }),
       !single && !ledger.period && ledgerRows.length >= 500
-        ? alertBox('تُعرض أحدث 500 قيد فقط، فالإجمالي أعلاه جزئي. اختر محاميًا أو فترة لعرض كل القيود.', 'warning')
+        ? alertBox('تُعرض أحدث 500 قيد فقط، فالإجمالي أعلاه جزئي. اختر محاميًا أو فترة لعرض كل القيود.', 'warning', { tag: 'ACC-32' })
         : null,
       single && selCount
         ? h(
@@ -397,6 +411,7 @@ export default async function render(ctx) {
                 ledger.selected.clear();
                 drawLedger();
               },
+              tag: 'ACC-33',
             }),
           )
         : null,
@@ -407,6 +422,8 @@ export default async function render(ctx) {
         empty: 'لا توجد قيود مطابقة للتصفية الحالية',
         rowClass: (r) => (r.status === 'void' ? 'is-muted' : ledger.selected.has(r.id) ? 'is-highlight' : null),
         columns,
+        rowTag: 'ACC-34',
+        tag: 'ACC-35',
       }),
     );
   }
@@ -425,10 +442,10 @@ export default async function render(ctx) {
       intro: `سيتم صرف ${num(rows.length)} من القيود بإجمالي ${money(total)} للمحامي ${lawyerName(ledger.lawyer_id)}، وتتحول حالتها إلى «تم الصرف» ويصله إشعار بذلك.`,
       submitLabel: `تأكيد صرف ${money(total)}`,
       fields: [
-        { name: 'method', label: 'طريقة الصرف', type: 'select', required: true, options: PAY_METHODS.map((m) => ({ value: m, label: m })) },
-        { name: 'reference', label: 'رقم المرجع / الإيصال', ltr: true, maxLength: 120, hint: 'رقم التحويل أو الإيصال للمراجعة لاحقًا' },
-        { name: 'paid_at', label: 'تاريخ الصرف', type: 'date', required: true, max: today },
-        { name: 'note', label: 'ملاحظة', type: 'textarea', rows: 2, maxLength: 500 },
+        { name: 'method', label: 'طريقة الصرف', type: 'select', required: true, options: PAY_METHODS.map((m) => ({ value: m, label: m })), tag: 'ACC-36' },
+        { name: 'reference', label: 'رقم المرجع / الإيصال', ltr: true, maxLength: 120, hint: 'رقم التحويل أو الإيصال للمراجعة لاحقًا', tag: 'ACC-37' },
+        { name: 'paid_at', label: 'تاريخ الصرف', type: 'date', required: true, max: today, tag: 'ACC-38' },
+        { name: 'note', label: 'ملاحظة', type: 'textarea', rows: 2, maxLength: 500, tag: 'ACC-39' },
       ],
       values: { paid_at: today },
       onSubmit: (v) =>
@@ -440,6 +457,7 @@ export default async function render(ctx) {
           paid_at: v.paid_at,
           note: v.note || null,
         }),
+        tag: 'ACC-40',
     }).then((res) => {
       if (!res) return;
       toast(`تم صرف ${money(res.amount ?? total)} للمحامي ${lawyerName(ledger.lawyer_id)}`, 'success');
@@ -453,8 +471,9 @@ export default async function render(ctx) {
       title: 'إلغاء قيد مستحق',
       intro: `سيُلغى القيد «${r.description}» بمبلغ ${money(r.amount)} ولن يُحتسب ضمن المستحقات. لا يمكن التراجع عن الإلغاء؛ لتصحيح المبلغ أضف قيد تسوية بدلًا منه.`,
       submitLabel: 'إلغاء القيد نهائيًا',
-      fields: [{ name: 'note', label: 'سبب الإلغاء', type: 'textarea', rows: 3, required: true, maxLength: 300 }],
+      fields: [{ name: 'note', label: 'سبب الإلغاء', type: 'textarea', rows: 3, required: true, maxLength: 300, tag: 'ACC-41' }],
       onSubmit: (v) => api.post(`/admin/accounting/entries/${encodeURIComponent(r.id)}/void`, { note: v.note }),
+      tag: 'ACC-42',
     }).then((res) => {
       if (!res) return;
       toast('تم إلغاء القيد', 'success');
@@ -475,12 +494,13 @@ export default async function render(ctx) {
           required: true,
           options: lawyers.map((l) => ({ value: String(l.lawyer_id), label: l.name })),
           onChange: (v) => loadCases(v),
+          tag: 'ACC-87',
         },
-        { name: 'amount', label: 'المبلغ', type: 'money', required: true, hint: 'مبلغ موجب يُضاف لمستحقات المحامي، أو سالب (مثل -200) للخصم' },
-        { name: 'description', label: 'البيان', required: true, maxLength: 300, full: true, placeholder: 'مثال: مقابل حضور جلسة إضافية في ملف…' },
-        { name: 'case_id', label: 'الملف المرتبط (اختياري)', type: 'select', placeholder: '— بدون ملف —', options: [], full: true, hint: 'تظهر ملفات المحامي المختار فقط' },
+        { name: 'amount', label: 'المبلغ', type: 'money', required: true, hint: 'مبلغ موجب يُضاف لمستحقات المحامي، أو سالب (مثل -200) للخصم', tag: 'ACC-88' },
+        { name: 'description', label: 'البيان', required: true, maxLength: 300, full: true, placeholder: 'مثال: مقابل حضور جلسة إضافية في ملف…', tag: 'ACC-89' },
+        { name: 'case_id', label: 'الملف المرتبط (اختياري)', type: 'select', placeholder: '— بدون ملف —', options: [], full: true, hint: 'تظهر ملفات المحامي المختار فقط', tag: 'ACC-90' },
       ],
-      { footer: false, values: { lawyer_id: ledger.lawyer_id || null } },
+      { footer: false, values: { lawyer_id: ledger.lawyer_id || null }, tag: 'ACC-91' },
     );
     const caseSelect = f.control('case_id').input;
 
@@ -511,7 +531,7 @@ export default async function render(ctx) {
       size: 'md',
       body: frag(h('p.modal-intro', 'يُسجَّل القيد في دفتر المستحقات بحالة «مستحق — لم يُصرف» عن الشهر الحالي، ويظهر في كشف حساب المحامي.'), f.el),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'ACC-43' },
         {
           label: 'تسجيل القيد',
           variant: 'primary',
@@ -538,8 +558,10 @@ export default async function render(ctx) {
             if (ledger.rendered) loadLedger();
             return undefined;
           },
+          tag: 'ACC-44',
         },
       ],
+      tag: 'ACC-45',
     });
     return m;
   }
@@ -557,6 +579,7 @@ export default async function render(ctx) {
         syncUrl();
         loadLedger();
       },
+      tag: 'ACC-46',
     });
     const statusSel = selectInput({
       label: 'حالة القيد',
@@ -568,6 +591,7 @@ export default async function render(ctx) {
         syncUrl();
         loadLedger();
       },
+      tag: 'ACC-47',
     });
     const periodSel = selectInput({
       label: 'فترة القيد',
@@ -579,6 +603,7 @@ export default async function render(ctx) {
         syncUrl();
         loadLedger();
       },
+      tag: 'ACC-48',
     });
     loadLedger();
     return h('div.stack', filterBar([lawyerSel, statusSel, periodSel]), ledgerHost);
@@ -601,8 +626,9 @@ export default async function render(ctx) {
           button(`عرض ${periodLabel(shiftPeriod(period, -1))}`, {
             icon: 'arrowRight',
             href: `#/accounting?period=${shiftPeriod(period, -1)}&tab=costs`,
+            tag: 'ACC-49',
           }),
-          { icon: 'briefcase' },
+          { icon: 'briefcase', tag: 'ACC-50' },
         ),
       );
     }
@@ -630,15 +656,15 @@ export default async function render(ctx) {
       ),
       h(
         'section.section',
-        h('h2.section-title', 'حسب المجال القانوني'),
+        { tag: 'ACC-51' }, h('h2.section-title', { tag: 'ACC-52' }, 'حسب المجال القانوني'),
         table({
           className: 'pd-table-tight',
           caption: 'تكلفة الملفات المغلقة حسب المجال',
           rows: byArea,
           columns: [
-            { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', areaLabel(a.legal_area)) },
-            { key: 'cases', label: 'الملفات', align: 'center', render: (a) => num(a.cases) },
-            { key: 'total', label: 'إجمالي التكلفة', align: 'end', render: (a) => moneyCell(a.total) },
+            { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', areaLabel(a.legal_area)), tag: 'ACC-53' },
+            { key: 'cases', label: 'الملفات', align: 'center', render: (a) => num(a.cases), tag: 'ACC-54' },
+            { key: 'total', label: 'إجمالي التكلفة', align: 'end', render: (a) => moneyCell(a.total), tag: 'ACC-55' },
             {
               key: 'average',
               label: 'متوسط تكلفة الملف',
@@ -649,6 +675,7 @@ export default async function render(ctx) {
                   h('div.pd-hbar-track', h('div.pd-hbar-fill', { style: { width: `${Math.max(2, ((Number(a.average) || 0) / maxAvg) * 100)}%` } })),
                   h('span.pd-hbar-val', money(a.average)),
                 ),
+                tag: 'ACC-56',
             },
             {
               key: 'multi',
@@ -659,13 +686,16 @@ export default async function render(ctx) {
                   h('span.nowrap', `${num(a.multi_specialty)} من ${num(a.cases)}`, ' ', h('bdi.muted', { dir: 'ltr' }, `(${percent(a.cases ? a.multi_specialty / a.cases : 0)})`)),
                   a.multi_specialty ? badge('متعدد التخصصات', 'accent') : null,
                 ),
+                tag: 'ACC-57',
             },
           ],
+          rowTag: 'ACC-58',
+          tag: 'ACC-59',
         }),
       ),
       h(
         'section.section',
-        h('h2.section-title', `الملفات المغلقة خلال ${pl}`),
+        { tag: 'ACC-60' }, h('h2.section-title', { tag: 'ACC-61' }, `الملفات المغلقة خلال ${pl}`),
         table({
           className: 'pd-table-tight',
           caption: 'تكلفة كل ملف مغلق',
@@ -676,20 +706,24 @@ export default async function render(ctx) {
               key: 'code',
               label: 'الملف',
               className: 'col-wide',
-              render: (c) => h('div', h('a', { href: `#/cases/${c.id}` }, codeTag(c.code)), h('div.cell-sub', c.title)),
+              render: (c) => h('div', h('a', { href: `#/cases/${c.id}`, tag: 'ACC-62' }, codeTag(c.code)), h('div.cell-sub', c.title)),
+              tag: 'ACC-63',
             },
-            { key: 'area', label: 'المجال', render: (c) => h('span.nowrap', areaLabel(c.legal_area)) },
-            { key: 'direct', label: 'أتعاب مباشرة', align: 'end', render: (c) => moneyCell(c.direct) },
-            { key: 'expenses', label: 'مصروفات', align: 'end', render: (c) => moneyCell(c.expenses) },
-            { key: 'allocated', label: 'محمّل تقديريًا', align: 'end', render: (c) => moneyCell(c.allocated) },
-            { key: 'total', label: 'الإجمالي', align: 'end', render: (c) => moneyCell(c.total, { strong: true, zeroMuted: false }) },
-            { key: 'pb', label: 'قيمة تطوعية', align: 'end', render: (c) => (Number(c.pro_bono_value) ? moneyCell(c.pro_bono_value) : h('span.muted', '—')) },
+            { key: 'area', label: 'المجال', render: (c) => h('span.nowrap', areaLabel(c.legal_area)), tag: 'ACC-64' },
+            { key: 'direct', label: 'أتعاب مباشرة', align: 'end', render: (c) => moneyCell(c.direct), tag: 'ACC-65' },
+            { key: 'expenses', label: 'مصروفات', align: 'end', render: (c) => moneyCell(c.expenses), tag: 'ACC-66' },
+            { key: 'allocated', label: 'محمّل تقديريًا', align: 'end', render: (c) => moneyCell(c.allocated), tag: 'ACC-67' },
+            { key: 'total', label: 'الإجمالي', align: 'end', render: (c) => moneyCell(c.total, { strong: true, zeroMuted: false }), tag: 'ACC-68' },
+            { key: 'pb', label: 'قيمة تطوعية', align: 'end', render: (c) => (Number(c.pro_bono_value) ? moneyCell(c.pro_bono_value) : h('span.muted', '—')), tag: 'ACC-69' },
             {
               key: 'team',
               label: 'الفريق',
               render: (c) => h('div.pd-cell-stack', h('span.nowrap', count(c.team_size, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])), c.team_size > 1 ? badge('متعدد التخصصات', 'accent') : null),
+              tag: 'ACC-70',
             },
           ],
+          rowTag: 'ACC-71',
+          tag: 'ACC-72',
         }),
       ),
     );
@@ -697,9 +731,9 @@ export default async function render(ctx) {
 
   const tabsEl = tabs(
     [
-      { key: 'summary', label: 'المحامون والاتفاقات', icon: 'users', count: lawyers.length, render: summaryPanel },
-      { key: 'ledger', label: 'دفتر المستحقات', icon: 'fileText', render: ledgerPanel },
-      { key: 'costs', label: 'تكلفة الملفات', icon: 'chart', count: (summary.closed_cases || []).length, render: costsPanel },
+      { key: 'summary', label: 'المحامون والاتفاقات', icon: 'users', count: lawyers.length, render: summaryPanel, tag: 'ACC-73' },
+      { key: 'ledger', label: 'دفتر المستحقات', icon: 'fileText', render: ledgerPanel, tag: 'ACC-74' },
+      { key: 'costs', label: 'تكلفة الملفات', icon: 'chart', count: (summary.closed_cases || []).length, render: costsPanel, tag: 'ACC-75' },
     ],
     {
       active: activeTab,
@@ -707,11 +741,13 @@ export default async function render(ctx) {
         activeTab = key;
         syncUrl();
       },
+      tag: 'ACC-76',
     },
   );
 
   const periodSel = periodSelect({
     label: 'الفترة المحاسبية',
+    tag: 'ACC-92', // v12 gate (TA-05): رمز «المحاسبة» لا LWL-01 من صفحة المحامين
     value: period,
     onChange: (v) => {
       replaceQuery('/accounting', { period: v === currentPeriod() ? '' : v, tab: activeTab === 'summary' ? '' : activeTab });
@@ -723,8 +759,10 @@ export default async function render(ctx) {
     pageHeader({
       title: 'المحاسبة',
       subtitle: 'تعمل المحاسبة داخل نفس المنظومة: اتفاق كل محامٍ يحدد ما يحدث ماليًا عند تحقق واقعة الاستحقاق — دون إدخال يدوي للأتعاب.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'المحاسبة' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'ACC-77' }, { label: 'المحاسبة' }],
       actions: [h('div.pd-period-pick', h('span.pd-period-label', icon('calendar', { size: 16 }), 'الفترة'), periodSel), closeMonthBtn],
+      titleTag: 'ACC-78',
+      tag: 'ACC-79',
     }),
     h(
       'div.stats-grid.pd-stats-3',
@@ -734,6 +772,7 @@ export default async function render(ctx) {
         hint: paidShareText(t.paid_individuals) ? `قيود الفترة غير الملغاة · ${paidShareText(t.paid_individuals)}` : 'قيود الفترة غير الملغاة',
         icon: 'wallet',
         tone: 'primary',
+        tag: 'ACC-80',
       }),
       statCard({
         label: 'رصيد غير مصروف',
@@ -752,13 +791,14 @@ export default async function render(ctx) {
           syncUrl();
           tabsEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
         },
+        tag: 'ACC-81',
       }),
-      statCard({ label: 'المصروف خلال الفترة', value: moneyValue(t.paid_in_period), hint: `عمليات الصرف في ${pl}`, icon: 'checkCircle', tone: 'success' }),
-      statCard({ label: 'وقائع الاستحقاق', value: num(t.events), hint: 'استشارات معتمدة خلال الفترة', icon: 'zap', tone: 'info' }),
-      statCard({ label: 'وقائع تطوعية ومسؤولية مجتمعية', value: num(t.pro_bono_events), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
-      statCard({ label: 'قيمة المساهمات', value: moneyValue(t.contribution_value), hint: 'القيمة التقديرية للعمل التطوعي', icon: 'star', tone: 'success' }),
+      statCard({ label: 'المصروف خلال الفترة', value: moneyValue(t.paid_in_period), hint: `عمليات الصرف في ${pl}`, icon: 'checkCircle', tone: 'success', tag: 'ACC-82' }),
+      statCard({ label: 'وقائع الاستحقاق', value: num(t.events), hint: 'استشارات معتمدة خلال الفترة', icon: 'zap', tone: 'info', tag: 'ACC-83' }),
+      statCard({ label: 'وقائع تطوعية ومسؤولية مجتمعية', value: num(t.pro_bono_events), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent', tag: 'ACC-84' }),
+      statCard({ label: 'قيمة المساهمات', value: moneyValue(t.contribution_value), hint: 'القيمة التقديرية للعمل التطوعي', icon: 'star', tone: 'success', tag: 'ACC-85' }),
     ),
-    card({ body: tabsEl }),
+    card({ body: tabsEl, tag: 'ACC-86' }),
   );
 }
 

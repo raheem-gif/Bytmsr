@@ -95,6 +95,7 @@ export function quickReplyPicker({ context = {}, onPick, label: btnLabel = 'رد
     icon: 'zap',
     title: 'إدراج رد جاهز في الرسالة',
     onClick: () => openPicker({ context, onPick }),
+    tag: 'QRP-99',
   });
   btn.setAttribute('aria-haspopup', 'dialog');
   return btn;
@@ -110,6 +111,7 @@ export function openPicker({ context = {}, onPick } = {}) {
     'aria-label': 'بحث في الردود الجاهزة',
     'aria-controls': listId,
     autocomplete: 'off',
+    tag: 'QRP-100',
   });
   const cats = h('div.qr-cats', { role: 'group', 'aria-label': 'تصنيف الرد' });
   const listHost = h('div.qr-pick-list', { id: listId, role: 'listbox', 'aria-label': 'الردود الجاهزة' });
@@ -140,15 +142,16 @@ export function openPicker({ context = {}, onPick } = {}) {
     if (!state.items.length) {
       mount(
         listHost,
-        emptyState('لا توجد ردود جاهزة بعد', button('إضافة ردود من صفحة الردود الجاهزة', { variant: 'link', href: '#/quick-replies', onClick: () => m && m.close('navigation') }), {
+        emptyState('لا توجد ردود جاهزة بعد', button('إضافة ردود من صفحة الردود الجاهزة', { variant: 'link', href: '#/quick-replies', onClick: () => m && m.close('navigation'), tag: 'QRP-101' }), {
           icon: 'zap',
           compact: true,
+          tag: 'QRP-102',
         }),
       );
       return;
     }
     if (!items.length) {
-      mount(listHost, emptyState('لا توجد ردود مطابقة للبحث', null, { icon: 'search', compact: true }));
+      mount(listHost, emptyState('لا توجد ردود مطابقة للبحث', null, { icon: 'search', compact: true, tag: 'QRP-103' }));
       return;
     }
     mount(
@@ -170,6 +173,7 @@ export function openPicker({ context = {}, onPick } = {}) {
                 el.setAttribute('aria-selected', k === i ? 'true' : 'false');
               });
             },
+            tag: 'QRP-104',
           },
           h(
             'span.qr-pick-head',
@@ -202,6 +206,7 @@ export function openPicker({ context = {}, onPick } = {}) {
               drawCats();
               draw();
             },
+            tag: 'QRP-105',
           },
           h('span', o.label),
         ),
@@ -237,6 +242,7 @@ export function openPicker({ context = {}, onPick } = {}) {
     size: 'lg',
     className: 'qr-pick-modal',
     body: h('div.qr-pick', h('div.search-input', icon('search', { size: 18 }), search), cats, hint, listHost),
+    tag: 'QRP-106',
   });
   drawCats();
   mount(listHost, loading('جارٍ تحميل الردود الجاهزة…'));

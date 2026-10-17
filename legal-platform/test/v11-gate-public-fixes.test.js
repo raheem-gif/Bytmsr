@@ -40,6 +40,15 @@ const summaryOf = (html) => /<div class="pub-summary" id="summary">([\s\S]*?)<\/
 
 let t;
 const get = (p, headers = {}) => t.client().get(p, headers);
+/** v12 entry: intended (E12 §12.2، L12-46): صفحات «خيري» تُختبر وهو معاد على الموقع (charity_public = true) */
+const restored = async (fn) => {
+  t.app.settings.set('charity_public', true);
+  try {
+    return await fn();
+  } finally {
+    t.app.settings.set('charity_public', false);
+  }
+};
 before(async () => {
   t = await startTestApp({ seed: 'none' });
   setPublicRoot(PUB);
@@ -49,17 +58,11 @@ after(async () => t && t.close());
 // ───────────────────────── CSS: الأزرار والصفوف (J-06/K12/R-13، J-19/K4، V7، V8/J-16، V11، J-17) ─────────────────────────
 
 describe('v11 gate fixer-public — CSS of the public pages', () => {
-  test('J-19/K4/R-14: the gate footer links are ≥ 44 px wide in the inline gate block (min-width + centred text)', async () => {
-    const r = await get('/');
-    const rule = /\.gate-links a\{([^}]*)\}/.exec(r.body)?.[1] || '';
-    assert.match(rule, /min-width:44px/);
-    assert.match(rule, /min-height:44px/);
-    assert.match(rule, /justify-content:center/);
-  });
+  // v12 entry: intended — J-19/K4/R-14 (روابط ذيل شاشة الاختيار) حُذف مع الشاشة (E12-71 #1)؛ روابط الشجرة ≥ 44 px في كتلة «entry» (look).
 
   test('J-06/K12/R-13: one filled button per viewport — header CTA tinted on both homes ≥ 1081 px, paid callback tinted, paid contact WhatsApp tinted, the final CTA filled again', async () => {
     for (const [p, cookie] of [['/khayri', 'bm_seg=charity'], ['/services', 'bm_seg=paid']]) {
-      const r = await get(p, { cookie });
+      const r = p === '/khayri' ? await restored(() => get(p, { cookie })) : await get(p, { cookie });
       assert.match(r.body, /<body class="[^"]*\bpub-landing\b/, `${p} is a landing page`);
       assert.match(r.body, /<style>[\s\S]*body\.pub-landing \.pub-nav-cta\{background:var\(--tint-weak\);color:var\(--tint\)\}[\s\S]*<\/style>/, `${p} header CTA tinted in the inline block`);
     }
@@ -92,7 +95,7 @@ describe('v11 gate fixer-public — CSS of the public pages', () => {
   });
 
   test('V7: the ≥ 700 px ways rule (220 px, start) comes after the base ways rules in the served cascade', async () => {
-    const r = await get('/khayri', { cookie: 'bm_seg=charity' });
+    const r = await restored(() => get('/khayri', { cookie: 'bm_seg=charity' }));
     const base = r.body.lastIndexOf('.pub-pick-ways[data-n="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}');
     const wide = r.body.indexOf('.pub-pick-ways,.pub-pick-ways[data-n="2"]{grid-template-columns:repeat(3,minmax(0,220px));justify-content:start}');
     assert.ok(base > 0 && wide > 0, 'both rules inlined');
@@ -147,12 +150,14 @@ describe('v11 gate fixer-public — office hours on the paid side (V2)', () => {
     assert.equal(bmPublicOf(po.body)?.office_hours, PAID_HOURS_DEFAULT, '/portal paid bm-public');
     const dd = await get('/data-deletion', { cookie: 'bm_seg=paid' });
     assert.ok(!/الصبح|العصر/.test(visible(dd.body)), '/data-deletion paid');
-    // «خيري» كما هي
-    const k = await get('/khayri', { cookie: 'bm_seg=charity' });
-    assert.ok(visible(k.body).includes(DEFAULT_SETTINGS.office_hours), 'charity keeps the setting');
-    const nfc = await get('/no-such-page', { cookie: 'bm_seg=charity' });
-    if (t.app.settings.get('org_phone')) assert.ok(visible(nfc.body).includes(`بنرد ${DEFAULT_SETTINGS.office_hours}`), 'charity 404 line unchanged');
-    assert.equal(bmPublicOf((await get('/portal', { cookie: 'bm_seg=charity' })).body)?.office_hours, DEFAULT_SETTINGS.office_hours);
+    // «خيري» كما هي (v12 entry: intended — حين يُعاد «خيري»؛ وهو متوقف كل الصفحات العامة للأفراد والشركات)
+    await restored(async () => {
+      const k = await get('/khayri', { cookie: 'bm_seg=charity' });
+      assert.ok(visible(k.body).includes(DEFAULT_SETTINGS.office_hours), 'charity keeps the setting');
+      const nfc = await get('/no-such-page', { cookie: 'bm_seg=charity' });
+      if (t.app.settings.get('org_phone')) assert.ok(visible(nfc.body).includes(`بنرد ${DEFAULT_SETTINGS.office_hours}`), 'charity 404 line unchanged');
+      assert.equal(bmPublicOf((await get('/portal', { cookie: 'bm_seg=charity' })).body)?.office_hours, DEFAULT_SETTINGS.office_hours);
+    });
   });
 });
 
@@ -173,8 +178,13 @@ describe('v11 gate fixer-public — legal pages by side (V1/F-F, K11 /data-delet
       assert.ok(!BANNED.test(sum) && !FEMININE.test(sum), `${p} paid summary`);
       const d = metaDesc(r.body);
       assert.ok(d && !BANNED.test(d) && d.includes(BRAND) && !d.includes('<!--'), `${p} paid meta: ${d}`);
+      // v12 entry: intended (E12-71 #13): «خيري» متوقف ← الصفحات القانونية للأفراد والشركات إلا مع ?side=charity صريح (L12-74)
+      const archived = await get(p, { cookie: 'bm_seg=charity' });
+      for (const s of paid) assert.ok(visible(summaryOf(archived.body)).includes(s), `${p} archived: ${s}`);
+      const side = await get(`${p}?side=charity`);
+      for (const s of charity) assert.ok(visible(summaryOf(side.body)).includes(s), `${p}?side=charity: ${s}`);
       for (const cookie of ['', 'bm_seg=charity']) {
-        const c = await get(p, cookie ? { cookie } : {});
+        const c = await restored(() => get(p, cookie ? { cookie } : {}));
         const cs = visible(summaryOf(c.body));
         for (const s of charity) assert.ok(cs.includes(s), `${p} ${cookie || 'no cookie'}: ${s}`);
         for (const s of paid) assert.ok(!c.body.includes(s), `${p} charity has no paid line: ${s}`);
@@ -182,7 +192,7 @@ describe('v11 gate fixer-public — legal pages by side (V1/F-F, K11 /data-delet
       }
     }
     // وصف «خيري» كما في 10.0 حرفيًا
-    const ct = await get('/terms', { cookie: 'bm_seg=charity' });
+    const ct = await restored(() => get('/terms', { cookie: 'bm_seg=charity' }));
     assert.match(metaDesc(ct.body), /^شروط استخدام خدمة .+ المجانية في .+: طبيعة الخدمة والاستحقاق، وحدود العلاقة مع المحامي، والتزامات المستفيد، وعدم ضمان النتائج\.$/);
   });
 
@@ -195,7 +205,7 @@ describe('v11 gate fixer-public — legal pages by side (V1/F-F, K11 /data-delet
     assert.ok(!BANNED.test(v));
     if (/wa\.me/.test(r.body)) assert.ok(v.includes('أرسلوا الطلب على واتساب'));
     assert.ok(!metaDesc(r.body).includes('<!--') && metaDesc(r.body).includes('تطلبون'));
-    const c = await get('/data-deletion', { cookie: 'bm_seg=charity' });
+    const c = await restored(() => get('/data-deletion', { cookie: 'bm_seg=charity' }));
     const cv = visible(c.body);
     assert.ok(cv.includes('تقدري تطلبي نمسح بياناتك في أي وقت.'));
     assert.ok(!cv.includes('يمكنكم طلب حذف بياناتكم'));
@@ -371,30 +381,13 @@ describe('v11 gate fixer-public — intake and sign-in markup', () => {
 
   test('J-14: the company-lead page keeps the server title (G11-05) — intake-company.js never rewrites document.title', async () => {
     assert.ok(!/document\.title\s*=/.test(read('public/assets/js/public/intake-company.js')));
-    const r = await get('/intake?seg=paid&mode=company');
-    assert.match(r.body, new RegExp(`<title>طلب عرض لخدمات الشركات — ${BRAND}</title>`));
+    const r = await get('/intake?path=company/counsel/proposal'); // v12 entry: intended (E12-10)
+    assert.match(r.body, new RegExp(`<title>طلب عرض لخدمات الشركات \\| ${BRAND}</title>`));
   });
 
-  test('J-18: a draft moved by the way-back row («خيري») is tagged crossed and restored silently (no «كمّلي / ابدئي من الأول» banner)', () => {
-    const js = read('public/assets/js/public/intake.js');
-    assert.match(js, /crossed: crossing,/);
-    const fn = js.slice(js.indexOf('async function restoreDraft()'));
-    const silent = fn.indexOf('if (d.crossed) return screen;');
-    const banner = fn.indexOf("banner = h(\n    'section.bmf-banner'");
-    assert.ok(silent > 0 && banner > 0 && silent < banner, 'silent return before the banner');
-    // العلامة تُكتب فقط أثناء الانتقال (crossing = true قبل حفظ مسودة «خيري»)
-    const cross = js.slice(js.indexOf('function crossRow()'), js.indexOf('function crossRow()') + 1600);
-    assert.ok(cross.indexOf('crossing = true;') < cross.indexOf("draftStore(keyOf('charity')).save({ ...draftObject(), seg: 'charity' })"));
-  });
-
-  test('V12: on the paid phone step the way-back row comes after the submit/actions block (the topic step keeps it under the H1)', () => {
-    const js = read('public/assets/js/public/intake.js');
-    const phone = js.slice(js.indexOf('function phoneScreen()'));
-    const body = phone.slice(phone.indexOf("'section.bmf-step'"), phone.indexOf('const say = () =>'));
-    assert.ok(body.indexOf("h('div.bmf-actions'") < body.indexOf('crossRow()'), 'after the actions');
-    assert.ok(body.indexOf('crossRow()') > body.indexOf('phoneField'), 'not between the heading and the phone field');
-    assert.match(read('public/assets/css/public-site.css'), /\.bmf-actions \+ \.pub-cross \{\s*margin-top: 16px;/);
-  });
+  // v12 entry: intended (E12-71 #9, L12-90) — J-18 (a draft moved by the way-back row restored silently) and V12 (the way-back row
+  // after the submit block) are deleted with crossRow(): the paid form has no way to «خيري». intake.js still restores an 11.0
+  // «crossed» draft silently; covered by test/v12-entry.test.js «E12-T22: intake.js … no way back to «خيري»».
 
   test('V16: the /portal demo disclosure has a visible chevron and plural MSA copy on the paid side', () => {
     assert.equal(PORTAL_LOGIN_PAID.demo, 'في الوضع التجريبي لا تُرسل رسائل واتساب فعلية: يظهر الكود في «صندوق الصادر» بصفحة الأتمتة والرسائل في منصة الإدارة. جرّبوا الرقم 01012345678.');
@@ -450,9 +443,9 @@ describe('v11 gate fixer-public — company overview (R-10/K6) and budgets (R-17
   });
 
   test('R-17 (recorded, needs a lead decision): paid /intake bm-copy stays ≤ 12,288 B raw (spec 6,144) and is absent on the charity side', async () => {
-    const paid = bmCopyOf((await get('/intake?seg=paid')).body);
+    const paid = bmCopyOf((await get('/intake?path=consultation/family/divorce')).body); // v12 entry: intended (E12-10)
     assert.ok(paid);
     assert.ok(Buffer.byteLength(paid.raw) <= 12288, `${Buffer.byteLength(paid.raw)}`);
-    assert.equal(bmCopyOf((await get('/intake?seg=charity')).body), null);
+    assert.equal(bmCopyOf((await get('/intake?seg=charity&via=p')).body), null);
   });
 });

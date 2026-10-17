@@ -43,7 +43,7 @@ export default async function render(ctx) {
   try {
     s = await api.get('/lawyer/statement');
   } catch (err) {
-    return h('div.lc-page', h('h1.page-title', 'مستحقاتي'), card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.lc-page', h('h1.page-title', { tag: 'STM-01' }, 'مستحقاتي'), card({ body: errorState(err, () => ctx.reload()), tag: 'STM-02' }));
   }
   const ag = s.agreement || {};
   const tm = s.this_month || { period: null, lines: [], expected_total: 0 };
@@ -59,8 +59,8 @@ export default async function render(ctx) {
     const v = tm.volunteer || { count: 0, notional: 0 };
     hero = h(
       'section.lc-hero.is-volunteer',
-      { 'aria-labelledby': 'lc-hero-title' },
-      h('h2#lc-hero-title.lc-hero-period', monthLabel(tm.period)),
+      { 'aria-labelledby': 'lc-hero-title', tag: 'STM-03' },
+      h('h2#lc-hero-title.lc-hero-period', { tag: 'STM-04' }, monthLabel(tm.period)),
       h('p.lc-hero-label', 'مساهماتك التطوعية هذا الشهر'),
       h('p.lc-hero-figure', num(v.count || 0)),
       h('p.lc-hero-sub', Number(v.notional) > 0 ? `قيمتها التقديرية ${money(v.notional)} — لقياس الأثر فقط.` : 'تُسجَّل قيمتها التقديرية لقياس الأثر فقط ولا تُصرف.'),
@@ -77,8 +77,8 @@ export default async function render(ctx) {
     });
     hero = h(
       'section.lc-hero',
-      { 'aria-labelledby': 'lc-hero-title' },
-      h('h2#lc-hero-title.lc-hero-period', monthLabel(tm.period)),
+      { 'aria-labelledby': 'lc-hero-title', tag: 'STM-05' },
+      h('h2#lc-hero-title.lc-hero-period', { tag: 'STM-06' }, monthLabel(tm.period)),
       h('p.lc-hero-figure', money(tm.expected_total)),
       h('p.lc-hero-label', 'المتوقع لك هذا الشهر'),
       lines.length ? h('ul.lc-lines', lines) : null,
@@ -93,8 +93,8 @@ export default async function render(ctx) {
   const unpaidCard = showUnpaid
     ? h(
         'section.lc-money-card',
-        { 'aria-labelledby': 'lc-unpaid-title' },
-        h('h2#lc-unpaid-title.lc-card-title', 'لم يُصرف بعد'),
+        { 'aria-labelledby': 'lc-unpaid-title', tag: 'STM-07' },
+        h('h2#lc-unpaid-title.lc-card-title', { tag: 'STM-08' }, 'لم يُصرف بعد'),
         h('p.lc-money-figure', money(unpaid.total)),
         unpaid.periods && unpaid.periods.length ? h('p.lc-money-for', `عن: ${unpaid.periods.map(monthLabel).join('، ')}`) : h('p.lc-money-for', 'لا مبالغ بانتظار الصرف.'),
         h(
@@ -109,7 +109,7 @@ export default async function render(ctx) {
   const monthsBlock = pastMonths.length
     ? h(
         'section.lc-months',
-        h('h2.lc-card-title', 'الأشهر السابقة'),
+        { tag: 'STM-09' }, h('h2.lc-card-title', { tag: 'STM-10' }, 'الأشهر السابقة'),
         h(
           'ul.lc-month-list',
           pastMonths.map((m) =>
@@ -117,9 +117,9 @@ export default async function render(ctx) {
               'li',
               h(
                 'details.lc-month',
-                h(
+                { tag: 'STM-11' }, h(
                   'summary',
-                  h('span.lc-month-name', monthLabel(m.period)),
+                  { tag: 'STM-12' }, h('span.lc-month-name', monthLabel(m.period)),
                   h('span.lc-month-total', money(m.total)),
                   h('span.lc-month-status', { class: STATUS_TONE[m.status] }, STATUS_WORD[m.status] || ''),
                   icon('chevronDown', { size: 18, className: 'lc-chev' }),
@@ -138,7 +138,7 @@ export default async function render(ctx) {
   // ── 4) اتفاقك ──
   const agreementBlock = h(
     'details.lc-details.lc-agreement',
-    h('summary', h('span.lc-agree-title', 'اتفاقك'), h('span.lc-agree-text', bidiText(s.agreement_text || label('agreement_type', ag.type))), h('span.lc-agree-more', 'التفاصيل'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
+    { tag: 'STM-13' }, h('summary', { tag: 'STM-14' }, h('span.lc-agree-title', 'اتفاقك'), h('span.lc-agree-text', bidiText(s.agreement_text || label('agreement_type', ag.type))), h('span.lc-agree-more', 'التفاصيل'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
     h(
       'div.lc-details-body',
       h(
@@ -164,7 +164,7 @@ export default async function render(ctx) {
   const perfBlock = p
     ? h(
         'details.lc-details.lc-perf',
-        h('summary', h('span', 'أدائي'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
+        { tag: 'STM-15' }, h('summary', { tag: 'STM-16' }, h('span', 'أدائي'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
         h(
           'div.lc-details-body',
           h(
@@ -182,7 +182,7 @@ export default async function render(ctx) {
 
   return h(
     'div.lc-page.lc-statement',
-    h('header.lc-head', h('h1.page-title.lc-title', 'مستحقاتي')),
+    h('header.lc-head', { tag: 'STM-17' }, h('h1.page-title.lc-title', { tag: 'STM-18' }, 'مستحقاتي')),
     h('div.lc-statement-grid', hero, unpaidCard),
     monthsBlock,
     agreementBlock,

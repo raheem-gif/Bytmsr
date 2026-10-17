@@ -54,6 +54,7 @@ export function printButton({ kind, id, label = 'طباعة', query, size = 'sm'
       rel: 'noopener',
       title: hint,
       'aria-label': hint,
+      tag: 'D-65',
     },
     printIcon(size === 'sm' ? 16 : size === 'lg' ? 20 : 18),
     hasLabel && h('span.btn-label', label),

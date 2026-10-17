@@ -287,6 +287,26 @@ const STALE_SENDING_MS = 10 * 60 * 1000;
 const LINK_EXPIRED = 'انتهت صلاحية الرابط قبل الإرسال؛ اطلب رابطًا جديدًا';
 const DAYS_FORMS = ['يوم', 'يومين', 'أيام', 'يومًا'];
 
+// v12 tags (TG-4، T12-20): رمز لكل قالب في render() (= غرض الرسالة purpose في صندوق الصادر)، ورمزا سطرَي التحية والتذييل
+// المشتركين بين القوالب. تُقرأ النصوص في /app#/tags وTAGS.md؛ لا يظهر الرمز داخل أي بريد مرسل (L12-88).
+export const EMAIL_TAGS = Object.freeze({
+  invite: 'E-01',
+  reset: 'E-02',
+  security: 'E-03',
+  security_old_email: 'E-04',
+  request_update: 'E-05',
+  clarification: 'E-06',
+  quote: 'E-07',
+  deliverable: 'E-08',
+  renewal: 'E-09',
+  charge_added: 'E-10',
+  trial: 'E-11',
+  staff_alert: 'E-12',
+  test: 'E-13',
+  hello: 'E-14',
+  footer: 'E-15',
+});
+
 export function createEmail(app) {
   const { db, config } = app;
   /** id → الرابط السري (لا يُحفظ أبدًا خارج العرض التجريبي) */
@@ -677,6 +697,7 @@ export function createEmail(app) {
           to_address: r.to_address,
           purpose: r.purpose,
           purpose_label: LABELS.email_purpose?.[r.purpose] || r.purpose,
+          tag: EMAIL_TAGS[r.purpose] || null, // v12 tags (TG-4، T12-19): رمز القالب للعرض فقط
           status: r.status,
           status_label: LABELS.email_status?.[r.status] || r.status,
           error: r.error || null,
@@ -708,9 +729,10 @@ export function createEmail(app) {
         items.push(o.error ? { key: 'email', level: 'danger', title: 'إعدادات SMTP ناقصة', detail: o.error, href: '#/integrations' } : { key: 'email', level: 'ok', title: 'البريد الإلكتروني للشركات عبر SMTP', detail: `${o.host}:${o.port}`, href: '#/integrations' });
       }
       if (!config.publicBaseUrl && !config.demo) items.push({ key: 'b2b_base_url', level: 'danger', title: 'PUBLIC_BASE_URL غير مضبوط وتوجد شركات', detail: 'بدونه لا تُرسل رسائل الشركات (لا روابط للبوابة ولا للدعوات).', href: null });
-      const legal = String(app.settings.get('org_legal_name') || '');
-      if (!legal || legal === DEFAULT_SETTINGS.org_legal_name) {
-        items.push({ key: 'contracting_entity', level: 'danger', title: 'بيانات الجهة المتعاقدة ما زالت الافتراضية', detail: 'تظهر للشركات في «الباقة والاستخدام» و«بيانات الشركة». اضبط الاسم القانوني والسجل التجاري من «ملف المؤسسة».', href: '#/settings?section=org' });
+      // v12 gate fixer-server (V-01): الجهة المتعاقدة = اسم المكتب القانوني وقيده (لا اسم المؤسسة الخيرية)
+      const legal = String(app.settings.get('firm_legal_name') || '').trim();
+      if (!legal) {
+        items.push({ key: 'contracting_entity', level: 'danger', title: 'اسم المكتب القانوني لم يُضبط بعد', detail: 'تظهر الجهة المتعاقدة للشركات في «الباقة والاستخدام» و«بيانات الشركة» باسم المكتب كما يراه العملاء. اكتبوا الاسم القانوني وقيد المكتب من «الإعدادات › الصفحة الأولى».', href: '#/settings?section=first-page' });
       }
       return items;
     },

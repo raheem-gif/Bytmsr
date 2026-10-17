@@ -787,24 +787,24 @@ describe('v11 segment-staff — ST-6 settings, integrations, audit', () => {
   before(() => withWindow('#/settings'));
   after(() => dropWindow());
 
-  test('kill switch card «شاشة الاختيار» (L11-27): exact toggle text, org_phone_paid «فارغ = نفس هاتف المؤسسة», saves both through PATCH /api/admin/settings', async () => {
+  // v12 staff-lines: intended (SL-7, L12-09): «شاشة الاختيار» is replaced by «الصفحة الأولى» (site_gate_enabled retired and hidden
+  // from every UI); the v11 part is kept: org_phone_paid «فارغ = نفس هاتف المؤسسة» saves through PATCH /api/admin/settings.
+  // The new card itself is covered by test/v12-staff-lines.test.js (SL-7 card, SL-T13).
+  test('«الصفحة الأولى» card (was «شاشة الاختيار», L11-27): no site_gate_enabled toggle; org_phone_paid «فارغ = نفس هاتف المؤسسة» saves through PATCH /api/admin/settings', async () => {
     const calls = stubFetch((c) => ({ body: c.method === 'PATCH' ? { ...c.body } : {} }));
-    const { gateSettingsCard, GATE_TOGGLE_TEXT } = await import('../public/assets/js/app/components/site-settings.js');
-    assert.equal(GATE_TOGGLE_TEXT, 'إظهار شاشة الاختيار (خيري / خدمات الأفراد والشركات) لأول زيارة');
-    const card = gateSettingsCard({ site_gate_enabled: true, org_phone_paid: '' });
-    assert.equal(card.id, 'gate');
-    const cb = card.querySelector('input[type="checkbox"]');
-    assert.equal(cb.checked, true);
-    assert.ok(text(card).includes(GATE_TOGGLE_TEXT));
+    const { firstPageSettingsCard } = await import('../public/assets/js/app/components/site-settings.js');
+    const card = firstPageSettingsCard({ charity_public: false, org_phone_paid: '' });
+    assert.equal(card.id, 'first-page');
+    assert.ok(!text(card).includes('شاشة الاختيار'));
     assert.ok(text(card).includes('هاتف خدمات الأفراد والشركات (اختياري)'));
-    assert.ok(text(card).includes('فارغ = نفس هاتف المؤسسة'));
-    cb.click();
+    assert.ok(text(card).includes('فارغ = نفس الهاتف الأساسي')); // v12 gate (V-08, intended): بلا «المؤسسة»
     card.querySelector('form').dispatch('submit');
     await settle();
     const patch = calls.find((c) => c.method === 'PATCH');
     assert.equal(patch.url, '/api/admin/settings');
-    assert.deepEqual(patch.body, { site_gate_enabled: false, org_phone_paid: '' });
-    assert.match(read(`${APP}pages/admin/settings.js`), /gateSettingsCard\(settings\), \/\/ v11 segment-staff/);
+    assert.equal(patch.body.org_phone_paid, '');
+    assert.ok(!('site_gate_enabled' in patch.body));
+    assert.match(read(`${APP}pages/admin/settings.js`), /firstPageSettingsCard\(settings\), \/\/ v12 staff-lines/);
   });
 
   test('WhatsApp mode change (r2 S3): 409 mode_change_confirm → a confirm dialog with the server text → resend with confirm:true; cancelling sends nothing more', async () => {
@@ -1027,18 +1027,21 @@ describe('v11 segment-staff — dashboard, settings, integrations and simulator 
     for (const l of acc.lawyers) assert.ok(l.paid_individuals, l.name);
   });
 
+  // v12 staff-lines: intended (L12-09, E12-71 #1, SL-T13): site_gate_enabled is retired in 12.0 — `/` is the tree, never the
+  // gate, and toggling the key changes nothing; org_phone_paid validation and «admin only» are kept as they were
   test('kill switch round-trip (PW-S5 in HTTP): site_gate_enabled false → `/` without a cookie has no #gate; true → the gate; org_phone_paid saves and is validated', async () => {
     const anon = t.client();
-    assert.match((await anon.get('/')).body, /id="gate"/);
+    assert.doesNotMatch((await anon.get('/')).body, /id="gate"/);
     const off = await admin.patch('/api/admin/settings', { site_gate_enabled: false });
     assert.equal(off.status, 200, JSON.stringify(off.body));
-    assert.equal(off.body.site_gate_enabled, false);
+    assert.equal(t.app.settings.get('site_gate_enabled'), false, 'stored, never read'); // v12 staff-lines: intended (L12-09)
+    assert.ok(!('site_gate_enabled' in off.body), 'hidden from the settings payload (SL-T13)'); // v12 staff-lines: intended (L12-09)
     assert.doesNotMatch((await anon.get('/')).body, /id="gate"/);
     assert.doesNotMatch((await anon.get('/', { cookie: 'bm_seg=paid' })).body, /id="gate"/);
     const on = await admin.patch('/api/admin/settings', { site_gate_enabled: true, org_phone_paid: '01211114663' });
     assert.equal(on.status, 200);
     assert.equal(on.body.org_phone_paid, '01211114663');
-    assert.match((await anon.get('/')).body, /id="gate"/);
+    assert.doesNotMatch((await anon.get('/')).body, /id="gate"/, 'v12: retired, ignored');
     const bad = await admin.patch('/api/admin/settings', { org_phone_paid: 'اتصل بنا' });
     assert.equal(bad.status, 400);
     assert.equal((await manager.patch('/api/admin/settings', { site_gate_enabled: false })).status, 403, 'admin only');
@@ -1063,7 +1066,10 @@ describe('v11 segment-staff — dashboard, settings, integrations and simulator 
     assert.equal(back.status, 200);
   });
 
-  test('simulator (PW-S6 in HTTP): shared line → «غير محدد» + the two choice buttons; «أفراد وشركات» → paid (wa_choice); paid line → paid; unknown line → stored, no automated reply', async () => {
+  test('simulator (PW-S6 in HTTP): shared line → «غير محدد» + the two choice buttons; «أفراد وشركات» → paid (wa_choice); paid line → paid; unknown line → stored, no automated reply', async (tc) => {
+    // v12 staff-lines: intended (E12-71 #16): the v11 choice buttons are sent only while «خيري» is public — restore it for this check
+    t.app.settings.set('charity_public', true);
+    tc.after(() => t.app.settings.set('charity_public', false));
     const from = '01093333001';
     const s1 = await manager.post('/api/admin/simulate/whatsapp', { from, text: 'السلام عليكم عندي مشكلة في شقة الإيجار', line: 'shared' });
     assert.equal(s1.status, 200, JSON.stringify(s1.body));

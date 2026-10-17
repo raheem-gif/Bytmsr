@@ -15,7 +15,7 @@
 //   copy(key, vars) → string · copyParts(key, vars) → [string|Node]  نصوص company/words.js (تحذف جمل البريد حين لا بريد)
 //   whenLong(iso) · whenShort(iso) · dayText('YYYY-MM-DD')          مواعيد بتوقيت القاهرة (U10-06)
 import { h } from './h.js';
-import { icon, badge, button, uid, toast, errorMessage, setBusy } from './ui.js';
+import { icon, badge, button, uid, toast, errorMessage, setBusy, fileName } from './ui.js';
 import { api } from './api.js';
 import { isoToCairoDate, monthLabel } from './fmt.js';
 import { W } from '../company/words-flows.js';
@@ -33,15 +33,15 @@ export function coClarificationCard(msg, opts = {}) {
   const items = Array.isArray(msg?.items) ? msg.items : [];
   const interactive = !!(canAnswer && typeof onReply === 'function' && !msg.answered_at);
   const state = items.map(() => ({ missing: false, up: null }));
-  const ta = interactive ? h('textarea.input', { rows: 3, dir: 'auto', maxlength: 5000, id: uid('co-clar') }) : null;
+  const ta = interactive ? h('textarea.input', { rows: 3, dir: 'auto', maxlength: 5000, id: uid('co-clar'), tag: 'CU-09' }) : null;
   const ask = h('div.co-ask', { role: 'alert', hidden: true });
-  const sendBtn = interactive ? button(W.clarification.send, { variant: 'primary', onClick: () => send() }) : null;
+  const sendBtn = interactive ? button(W.clarification.send, { variant: 'primary', onClick: () => send(), tag: 'CU-03' }) : null;
   const rows = items.map((it, i) => {
     const s = state[i];
     const slot = h('div.co-clar-slot');
-    const marked = h('p.co-clar-marked', { hidden: true }, icon('info', { size: 16 }), h('span', W.clarification.marked), ' ', button(W.clarification.undo, { variant: 'link', size: 'sm', onClick: () => setMissing(false) }));
-    const attachBtn = interactive && uploader ? button(W.clarification.attach, { variant: 'secondary', size: 'sm', icon: 'paperclip', onClick: () => openUploader() }) : null;
-    const missBtn = interactive ? button(W.clarification.unavailable, { variant: 'ghost', size: 'sm', onClick: () => setMissing(true) }) : null;
+    const marked = h('p.co-clar-marked', { hidden: true }, icon('info', { size: 16 }), h('span', W.clarification.marked), ' ', button(W.clarification.undo, { variant: 'link', size: 'sm', onClick: () => setMissing(false), tag: 'CU-04' }));
+    const attachBtn = interactive && uploader ? button(W.clarification.attach, { variant: 'secondary', size: 'sm', icon: 'paperclip', onClick: () => openUploader(), tag: 'CU-05' }) : null;
+    const missBtn = interactive ? button(W.clarification.unavailable, { variant: 'ghost', size: 'sm', onClick: () => setMissing(true), tag: 'CU-06' }) : null;
     const actions = interactive ? h('div.co-clar-actions', attachBtn, missBtn) : null;
     function openUploader() {
       if (!uploader || s.up) return;
@@ -58,7 +58,7 @@ export function coClarificationCard(msg, opts = {}) {
     }
     s.open = openUploader;
     s.setMissing = setMissing;
-    return h('li.co-clar-item', h('span.co-clar-label', { dir: 'auto' }, it.label), actions, slot, marked);
+    return h('li.co-clar-item', { tag: 'CU-10' }, h('span.co-clar-label', { dir: 'auto' }, it.label), actions, slot, marked);
   });
   function payload() {
     const ids = state.flatMap((s) => (s.up ? s.up.uploadIds() : []));
@@ -78,7 +78,7 @@ export function coClarificationCard(msg, opts = {}) {
       ask.hidden = false;
       ask.replaceChildren(
         h('p', copy('clarification.ask_missing', { n: open + 1 })),
-        h('div.co-clar-actions', button(W.clarification.yes_missing, { variant: 'secondary', size: 'sm', onClick: () => { ask.hidden = true; state[open].setMissing(true); send(); } }), button(W.clarification.will_attach, { variant: 'ghost', size: 'sm', onClick: () => { ask.hidden = true; state[open].open(); } })),
+        h('div.co-clar-actions', button(W.clarification.yes_missing, { variant: 'secondary', size: 'sm', onClick: () => { ask.hidden = true; state[open].setMissing(true); send(); }, tag: 'CU-07' }), button(W.clarification.will_attach, { variant: 'ghost', size: 'sm', onClick: () => { ask.hidden = true; state[open].open(); }, tag: 'CU-08' })),
       );
       return;
     }
@@ -94,9 +94,9 @@ export function coClarificationCard(msg, opts = {}) {
   sync();
   return h(
     'section.co-card.co-card-attention',
-    { 'aria-label': W.clarification.title },
+    { 'aria-label': W.clarification.title, tag: 'CU-01' }, // v12 tags (TG-3): بطاقات البوابة المشتركة CU (الصفحة تغيّر الرمز بـ tagged())
     // العنوان نفسه يقول «فريقكم القانوني» (صوت واحد، L-22)؛ العلامة بجانبه بلا تكرار الاسم
-    h('header.co-card-head', h('h2.co-card-title.co-card-title-team', h('span.co-team-mark', { 'aria-hidden': 'true' }, icon('scale', { size: 16 })), h('span', W.clarification.title))),
+    h('header.co-card-head', { tag: 'CU-29' }, h('h2.co-card-title.co-card-title-team', { tag: 'CU-02' }, h('span.co-team-mark', { 'aria-hidden': 'true' }, icon('scale', { size: 16 })), h('span', W.clarification.title))),
     msg?.body ? h('p.co-quote-text', { dir: 'auto' }, `«${msg.body}»`) : null,
     items.length ? [h('p.co-card-label', W.clarification.needed), h('ol.co-clar-items', rows)] : null,
     interactive ? [h('label.field-label', { htmlFor: ta.id }, W.clarification.reply), ta, ask, h('div.co-card-actions', sendBtn)] : null,
@@ -120,31 +120,32 @@ export function coQuoteCard(q, { canApprove = false, approverNames = [], onAppro
           : q.status === 'rejected'
             ? copy('quote.rejected', { date: whenLong(q.decided_at, { time: false }), name: q.decided_by?.name || '' })
             : W.quote.withdrawn;
-    return h('section.co-card.co-card-quiet', head, amount ? h('p.co-quote-amount.num', amount, capped ? ` · ${W.quote.capped}` : '') : null, h('p', text));
+    // tags:variant: عرض السعر نفسه (CU-11) بعد انتهائه أو حسمه
+    return h('section.co-card.co-card-quiet', { tag: 'CU-11' }, head, amount ? h('p.co-quote-amount.num', amount, capped ? ` · ${W.quote.capped}` : '') : null, h('p', text));
   }
   const preview = !onApprove && !onReject && !onDiscuss;
   const extra = [q.assumptions, q.excluded].filter(Boolean);
   const actions = canApprove || preview
     ? h(
         'div.co-card-actions',
-        button(W.quote.approve, { variant: 'primary', disabled: preview, onClick: onApprove ? () => onApprove(q) : null }),
-        button(W.quote.reject, { variant: 'secondary', disabled: preview, onClick: onReject ? () => onReject(q) : null }),
-        button(W.quote.discuss, { variant: 'link', disabled: preview, onClick: onDiscuss ? () => onDiscuss(q) : null }),
+        button(W.quote.approve, { variant: 'primary', disabled: preview, onClick: onApprove ? () => onApprove(q) : null, tag: 'CU-13' }),
+        button(W.quote.reject, { variant: 'secondary', disabled: preview, onClick: onReject ? () => onReject(q) : null, tag: 'CU-14' }),
+        button(W.quote.discuss, { variant: 'link', disabled: preview, onClick: onDiscuss ? () => onDiscuss(q) : null, tag: 'CU-15' }),
       )
     : h(
         'div.co-card-actions',
         h('p.co-card-note', icon('info', { size: 16 }), h('span', approverNames.length ? copy(approverNames.length === 1 ? 'quote.approvers_one' : 'quote.approvers', { names: approverNames.join('، ') }) : W.quote.approvers_plain)),
-        onDiscuss ? button(W.quote.discuss, { variant: 'link', onClick: () => onDiscuss(q) }) : null,
+        onDiscuss ? button(W.quote.discuss, { variant: 'link', onClick: () => onDiscuss(q), tag: 'CU-15' }) : null, // tags:variant (لمن لا يعتمد)
       );
   return h(
     'section.co-card.co-card-attention',
-    { 'aria-label': W.quote.title },
-    h('header.co-card-head', h('h2.co-card-title', W.quote.title)),
+    { 'aria-label': W.quote.title, tag: 'CU-11' },
+    h('header.co-card-head', { tag: 'CU-30' }, h('h2.co-card-title', { tag: 'CU-12' }, W.quote.title)),
     head,
     h('p.co-quote-amount.num', amount, ' · ', capped ? W.quote.capped : W.quote.fixed),
     capped ? h('p.co-card-sub', copy('quote.capped_note', { cap: amount })) : null,
     q.scope_of_work ? [h('p.co-card-label', W.quote.scope), h('p.co-pre', { dir: 'auto' }, q.scope_of_work)] : null,
-    extra.length ? h('details.co-details', h('summary', W.quote.assumptions), extra.map((x) => h('p.co-pre', { dir: 'auto' }, x))) : null,
+    extra.length ? h('details.co-details', { tag: 'CU-16' }, h('summary', { tag: 'CU-47' }, W.quote.assumptions), extra.map((x) => h('p.co-pre', { dir: 'auto' }, x))) : null,
     h('p.co-card-sub', copy('quote.valid_until', { date: whenLong(q.valid_until, { time: false }) })),
     actions,
     h('p.co-card-foot', W.quote.footnote),
@@ -162,12 +163,13 @@ export function coFileRow(doc, { docUrl = defaultDocUrl } = {}) {
   const ext = (String(doc.filename || '').split('.').pop() || '').toUpperCase().slice(0, 4);
   return h(
     'li.co-file',
+    { tag: 'CU-17' },
     h('bdi.co-file-type', { dir: 'ltr' }, ext || 'FILE'),
-    h('span.co-file-name', { dir: 'auto' }, name),
+    h('span.co-file-name', fileName(name)), // gate V-10
     h(
       'span.co-file-actions',
-      viewable(doc) ? h('a.btn.btn-ghost.btn-sm', { href: docUrl(doc, { inline: true }), target: '_blank', rel: 'noopener noreferrer', 'aria-label': copy('deliverable.view_name', { name }) }, W.deliverable.view) : null,
-      h('a.btn.btn-secondary.btn-sm', { href: docUrl(doc), download: '', 'aria-label': copy('deliverable.download_name', { name }) }, icon('download', { size: 16 }), h('span', W.deliverable.download)),
+      viewable(doc) ? h('a.btn.btn-ghost.btn-sm', { href: docUrl(doc, { inline: true }), target: '_blank', rel: 'noopener noreferrer', 'aria-label': copy('deliverable.view_name', { name }), tag: 'CU-18' }, W.deliverable.view) : null,
+      h('a.btn.btn-secondary.btn-sm', { href: docUrl(doc), download: '', 'aria-label': copy('deliverable.download_name', { name }), tag: 'CU-19' }, icon('download', { size: 16 }), h('span', W.deliverable.download)),
     ),
   );
 }
@@ -182,22 +184,22 @@ export function coDeliverableCard(d, { canDecide = false, onAccept, onRequestCha
   else if (d.decision === 'changes_requested') foot = h('p.co-card-foot', icon('edit', { size: 16 }), h('span', copy('deliverable.changes_requested', { date: whenLong(d.decided_at, { time: false }) })));
   return h(
     'article.co-card.co-deliverable',
-    { class: decide && 'co-card-attention', dataset: { deliverableId: d.id } },
-    h('header.co-card-head', h('h2.co-card-title', copy('deliverable.head', { version: d.version })), d.released_at ? h('span.co-card-time', copy('deliverable.released', { when: whenShort(d.released_at) })) : null),
+    { class: decide && 'co-card-attention', dataset: { deliverableId: d.id }, tag: 'CU-20' },
+    h('header.co-card-head', { tag: 'CU-48' }, h('h2.co-card-title', { tag: 'CU-21' }, copy('deliverable.head', { version: d.version })), d.released_at ? h('span.co-card-time', copy('deliverable.released', { when: whenShort(d.released_at) })) : null),
     h('div.co-badges', d.kind_label ? badge(d.kind_label, 'primary', { className: 'co-badge' }) : null, d.final ? null : badge(W.deliverable.interim, 'info', { className: 'co-badge' })),
-    h('h3.co-deliverable-title', { dir: 'auto' }, d.title || ''),
+    h('h3.co-deliverable-title', { dir: 'auto', tag: 'CU-22' }, d.title || ''),
     riskBadge(d.risk_level),
     d.final ? null : h('p.co-card-sub', W.deliverable.interim_note),
     d.summary ? [h('p.co-card-label', W.deliverable.summary), h('p.co-pre', { dir: 'auto' }, d.summary)] : null,
     recs.length ? [h('p.co-card-label', W.deliverable.recommendations), h('ol.co-recs', recs.map((r) => h('li', { dir: 'auto' }, typeof r === 'string' ? r : r.text || '')))] : null,
-    d.body ? h('details.co-details', h('summary', W.deliverable.body), h('div.co-pre', { dir: 'auto' }, d.body)) : null,
+    d.body ? h('details.co-details', { tag: 'CU-23' }, h('summary', { tag: 'CU-49' }, W.deliverable.body), h('div.co-pre', { dir: 'auto' }, d.body)) : null,
     d.documents?.length ? [h('p.co-card-label', W.deliverable.files), h('ul.co-files', d.documents.map((x) => coFileRow(x, { docUrl })))] : null,
     decide
       ? h(
           'div.co-card-actions',
-          button(W.deliverable.accept, { variant: 'primary', icon: 'check', disabled: preview, onClick: onAccept ? () => onAccept(d) : null }),
+          button(W.deliverable.accept, { variant: 'primary', icon: 'check', disabled: preview, onClick: onAccept ? () => onAccept(d) : null, tag: 'CU-24' }),
           // جولات التعديل المشمولة استُخدمت: نص بدل الزر (U10-50)
-          changesNote ? h('p.co-card-note', icon('info', { size: 16 }), h('span', changesNote)) : button(W.deliverable.changes, { variant: 'secondary', disabled: preview, onClick: onRequestChanges ? () => onRequestChanges(d) : null }),
+          changesNote ? h('p.co-card-note', icon('info', { size: 16 }), h('span', changesNote)) : button(W.deliverable.changes, { variant: 'secondary', disabled: preview, onClick: onRequestChanges ? () => onRequestChanges(d) : null, tag: 'CU-25' }),
         )
       : null,
     decide && autoCloseAt ? h('p.co-card-sub', copy('deliverable.auto_close', { date: whenLong(autoCloseAt, { time: false }) })) : null,
@@ -227,6 +229,7 @@ export function coSearchBox({ onPick = defaultPick, compact = false } = {}) {
     'aria-expanded': 'false',
     'aria-controls': `${id}-list`,
     'aria-autocomplete': 'list',
+    tag: 'CU-27',
   });
   let timer = 0;
   let seq = 0;
@@ -258,7 +261,7 @@ export function coSearchBox({ onPick = defaultPick, compact = false } = {}) {
   const option = (item, kind, title, sub, ic) => {
     const el = h(
       'div.co-search-opt',
-      { id: uid(`${id}-o`), role: 'option', 'aria-selected': 'false', onMousedown: (e) => e.preventDefault(), onClick: () => pick(opts.findIndex((o) => o.el === el)) },
+      { id: uid(`${id}-o`), role: 'option', 'aria-selected': 'false', onMousedown: (e) => e.preventDefault(), onClick: () => pick(opts.findIndex((o) => o.el === el)), tag: 'CU-28' },
       h('span.co-search-ic', { 'aria-hidden': 'true' }, ic),
       h('span.co-search-txt', h('span.co-search-title', { dir: 'auto' }, title), sub ? h('span.co-search-sub', sub) : null),
     );
@@ -317,5 +320,5 @@ export function coSearchBox({ onPick = defaultPick, compact = false } = {}) {
   });
   input.addEventListener('focus', () => opts.length && input.value.trim().length >= 2 && open(true));
   input.addEventListener('blur', () => setTimeout(() => open(false), 120));
-  return h('div.co-search', { class: compact && 'is-compact', role: 'search' }, h('span.co-search-glass', { 'aria-hidden': 'true' }, icon('search', { size: 18 })), input, list, status);
+  return h('div.co-search', { class: compact && 'is-compact', role: 'search', tag: 'CU-26' }, h('span.co-search-glass', { 'aria-hidden': 'true' }, icon('search', { size: 18 })), input, list, status);
 }

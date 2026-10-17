@@ -274,6 +274,8 @@ describe('v11 gate fixer-server — readiness for choice buttons on a shared num
   test('shared + buttons off → wa_shared_choice is a warning; buttons on while privacy promises human review → wa_choice_privacy', async () => {
     const t = await startTestApp({ seed: 'none', config: LIVE });
     try {
+      // v12 staff-lines: intended (E12-71 #16, SL-T07): the choice readiness exists only while «خيري» is public
+      t.app.settings.set('charity_public', true);
       t.app.integrations.set('whatsapp', { segment: 'shared' }, admin0(t), null, { confirm: true });
       t.app.settings.set('wa_segment_choice_enabled', false);
       let items = t.app.segments.readiness();
@@ -281,12 +283,11 @@ describe('v11 gate fixer-server — readiness for choice buttons on a shared num
       assert.ok(!items.some((x) => x.key === 'wa_choice_privacy'));
       t.app.settings.set('wa_segment_choice_enabled', true);
       items = t.app.segments.readiness();
-      assert.ok(/يراجعه شخص مختص/.test(fs.readFileSync(path.join(ROOT, 'public/privacy.html'), 'utf8')), 'privacy text still promises human review');
-      const it = items.find((x) => x.key === 'wa_choice_privacy');
-      assert.ok(it, JSON.stringify(items.map((x) => x.key)));
-      assert.equal(it.level, 'warning');
-      assert.equal(it.href, '#/settings?section=stories');
-      assert.match(it.detail, /«كل رد يصلك يراجعه شخص مختص»/);
+      // v12 entry: intended (L12-77, EN-7) — privacy.html now discloses the automated fixed messages («الرسائل الثابتة مثل الترحيب
+      // وقائمة الخدمات تُرسل آليًا…»), so the buttons no longer contradict it and wa_choice_privacy stays quiet; the warning text
+      // (still shown for an edited policy that only promises human review) is asserted in the source below
+      assert.ok(/الرسائل الثابتة مثل الترحيب وقائمة الخدمات تُرسل آليًا/.test(fs.readFileSync(path.join(ROOT, 'public/privacy.html'), 'utf8')), 'L12-77 sentence');
+      assert.ok(!items.some((x) => x.key === 'wa_choice_privacy'), JSON.stringify(items.map((x) => x.key)));
       // الرقم الأساسي «الخيري» (لا أزرار تُرسل أصلًا) ← لا تحذير
       t.app.integrations.set('whatsapp', { segment: 'charity' }, admin0(t), null, { confirm: true });
       assert.ok(!t.app.segments.readiness().some((x) => x.key === 'wa_choice_privacy'));

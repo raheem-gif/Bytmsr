@@ -92,10 +92,10 @@ export default async function render(ctx) {
     const unpaid = items.reduce((s, m) => s + (m.unpaid_invoices || 0), 0);
     mount(
       statsHost,
-      statCard({ label: 'ملفات مستمرة نشطة', value: open.length, icon: 'gavel', tone: 'primary', hint: 'مفتوحة أو معلّقة' }),
-      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'info' : 'muted', hint: 'جلسات واجتماعات مجدولة' }), // v11 gate fix (K1)
-      statCard({ label: 'مهام متأخرة', value: overdueTasks, icon: 'clock', tone: overdueTasks ? 'danger' : 'muted', hint: 'تجاوزت موعدها ولم تُنجز' }),
-      statCard({ label: 'فواتير غير مسددة', value: unpaid, icon: 'wallet', tone: unpaid ? 'warning' : 'muted', hint: 'غير مسددة أو مسددة جزئيًا' }),
+      statCard({ label: 'ملفات مستمرة نشطة', value: open.length, icon: 'gavel', tone: 'primary', hint: 'مفتوحة أو معلّقة', tag: 'MTL-01' }),
+      statCard({ label: 'مواعيد خلال 7 أيام', value: soon, icon: 'calendar', tone: soon ? 'info' : 'muted', hint: 'جلسات واجتماعات مجدولة', tag: 'MTL-02' }), // v11 gate fix (K1)
+      statCard({ label: 'مهام متأخرة', value: overdueTasks, icon: 'clock', tone: overdueTasks ? 'danger' : 'muted', hint: 'تجاوزت موعدها ولم تُنجز', tag: 'MTL-03' }),
+      statCard({ label: 'فواتير غير مسددة', value: unpaid, icon: 'wallet', tone: unpaid ? 'warning' : 'muted', hint: 'غير مسددة أو مسددة جزئيًا', tag: 'MTL-04' }),
     );
   }
 
@@ -106,7 +106,7 @@ export default async function render(ctx) {
     mount(
       segHost,
       segs.map(([key, text]) =>
-        h('button.seg', { type: 'button', 'aria-pressed': String(state.status === key), onClick: () => setStatus(key) }, text, h('span.tab-count', String(counts[key] || 0))),
+        h('button.seg', { type: 'button', 'aria-pressed': String(state.status === key), onClick: () => setStatus(key), tag: 'MTL-05' }, text, h('span.tab-count', String(counts[key] || 0))),
       ),
     );
   }
@@ -122,7 +122,7 @@ export default async function render(ctx) {
           'div.pb-case-cell',
           h(
             'div.fx-code-row',
-            h('a.pb-code-link', { href: `#/matters/${m.id}`, 'aria-label': `فتح الملف ${m.code}` }, codeTag(m.code)),
+            h('a.pb-code-link', { href: `#/matters/${m.id}`, 'aria-label': `فتح الملف ${m.code}`, tag: 'MTL-06' }, codeTag(m.code)),
             statusBadge('matter_status', m.status),
           ),
           h('div.cell-title', m.title),
@@ -190,7 +190,7 @@ export default async function render(ctx) {
       resultHost,
       h(
         'section.card',
-        h(
+        { tag: 'MTL-07' }, h(
           'div.card-body.card-body-flush',
           table({
             columns,
@@ -200,6 +200,8 @@ export default async function render(ctx) {
             empty: state.q ? 'لا توجد ملفات مستمرة مطابقة للبحث' : 'لا توجد ملفات مستمرة في هذه الحالة. تُنشأ من داخل ملف الاستشارة عبر «تحويل إلى ملف مستمر».',
             onRowClick: (m) => ctx.navigate(`/matters/${m.id}`),
             rowClass: (m) => (m.status === 'closed' ? 'is-muted' : m.overdue_tasks > 0 ? 'is-highlight' : null),
+            rowTag: 'MTL-08',
+            tag: 'MTL-09',
           }),
         ),
       ),
@@ -215,8 +217,10 @@ export default async function render(ctx) {
   const header = pageHeader({
     title: 'الملفات المستمرة',
     subtitle: 'تمثيل أمام القضاء أو عمل قانوني مستمر نشأ من تحويل استشارة، مع الاحتفاظ بكل ما تم فيها: جلسات ومهام إجرائية وفواتير وتذكيرات آلية للمستفيد/ة.',
-    breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الملفات المستمرة' }],
-    actions: button('ملفات الاستشارات', { icon: 'briefcase', href: '#/cases' }),
+    breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'MTL-10' }, { label: 'الملفات المستمرة' }],
+    actions: button('ملفات الاستشارات', { icon: 'briefcase', href: '#/cases', tag: 'MTL-11' }),
+    titleTag: 'MTL-12',
+    tag: 'MTL-13',
   });
 
   const filters = filterBar([
@@ -229,6 +233,7 @@ export default async function render(ctx) {
         syncUrl();
         load();
       },
+      tag: 'MTL-14',
     }),
   ]);
 

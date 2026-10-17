@@ -31,7 +31,8 @@ describe('v9.2 gate (K1) — a no-name website request on someone else\'s number
   });
   after(async () => t && t.close());
 
-  const submit = (body) => t.client().post('/api/public/intake', { consent: true, phone, ...body });
+  // v12 staff-lines: intended (L12-09): a «خيري» website request as in 11.0 (its default); archived, a POST without segment is paid
+  const submit = (body) => t.client().post('/api/public/intake', { consent: true, phone, segment: 'charity', ...body });
   const intakeOf = (ref) => t.app.db.get('SELECT * FROM intakes WHERE code = ?', ref);
 
   test('no name: the intake keeps no name, /api/portal and /p/<token> greet neutrally, and the owner\'s name or gender appears nowhere', async () => {
@@ -279,24 +280,32 @@ describe('v9.2 gate — copy, listening and the «مش عارفة» picture (N1,
     for (const m of svg.matchAll(/class="([^"]*)"/g)) assert.ok(['pa', 'pb'].includes(m[1]), m[1]);
   });
 
-  test('N4 + N5b: neutral skip link on /intake, /portal, /p; the home nav says «طلبك فين؟» like its tile, other pages keep «تابعي طلبك»', async () => {
+  test('N4 + N5b: neutral skip link on /intake, /portal, /p; the charity home nav says «طلبك فين؟» like its tile, other pages keep «تابعي طلبك»', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
-      for (const p of ['/intake', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345', '/']) {
+      // v12 entry: intended (E12 §12.2, E12-61, H-10): the charity side is archived by default, so the charity home and form are
+      // checked in the restored state; «/» is the entry tree (no site header, so no skip link); the skip link carries H-10;
+      // no side pill anywhere (design-entry §9 row 6: charity pages keep their header minus the pill)
+      t.app.settings.set('charity_public', true);
+      // v12 entry: intended (E12-31) — the paid /intake?path= page has the tree chrome (mark, «رجوع», trail), no site header and
+      // so no skip link, like «/»; its <main id="main"> is the first focusable region after the mark
+      for (const p of ['/intake?seg=charity', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345', '/khayri']) {
         const r = await t.client().get(p);
         assert.equal(r.status, 200, p);
+        // v12 entry review: intended (R2, §5.9/T12-22): H-10 only on paid pages; these restored charity pages carry no H- code
         assert.match(r.body, /<a class="skip-link" href="#main">انتقال إلى المحتوى<\/a>/, p);
         assert.ok(!r.body.includes('تخطَّ'), p);
       }
-      const home = (await t.client().get('/')).body;
+      const home = (await t.client().get('/khayri')).body;
       const header = /<header class="pub-header"[\s\S]*?<\/header>/.exec(home)[0];
-      assert.match(header, /<a class="pub-nav-link pub-nav-portal" href="\/portal"><svg[\s\S]*?<\/svg><span>طلبك فين؟<\/span><\/a>/);
+      assert.match(header, /<a class="pub-nav-link pub-nav-portal" href="\/portal"><svg[\s\S]*?<\/svg><span>طلبك فين؟<\/span><\/a>/); // v12 entry review: intended (R2)
       assert.ok(!header.includes('تابعي'), 'no feminine verb in the home header');
-      const privacy = (await t.client().get('/privacy')).body;
+      const privacy = (await t.client().get('/privacy?side=charity')).body;
       assert.match(/<header class="pub-header"[\s\S]*?<\/header>/.exec(privacy)[0], /<span>تابعي طلبك<\/span>/);
-      // v11 gate-public (intended, L11-14): the side pill is on the homes and legal pages, never on the task pages
-      assert.ok(header.includes('class="pub-seg-pill pub-seg-pill--charity"'), 'pill on the home');
-      for (const p of ['/intake', '/intake?seg=paid', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345']) assert.ok(!(await t.client().get(p)).body.includes('pub-seg-pill'), `no pill on ${p}`);
+      for (const p of ['/khayri', '/privacy?side=charity', '/intake?seg=charity', '/intake?path=consultation/family/inheritance', '/portal', '/p/abcdefghijklmnopqrstuvwxyz012345']) {
+        const body = String((await t.client().get(p)).body).replace(/<style[\s\S]*?<\/style>/g, '');
+        assert.ok(!body.includes('class="pub-seg-pill'), `no pill on ${p}`);
+      }
     } finally {
       await t.close();
     }

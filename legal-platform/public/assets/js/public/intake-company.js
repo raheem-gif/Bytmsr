@@ -2,6 +2,8 @@
 // تُحمّل عند الحاجة فقط (import() من intake.js)، فليست في حزمة الصفحة. نصوصها هنا (لا تظهر إلا للشركات)، وأدوات
 // الصفحة (الأيقونات، تحقق الرقم، معرّف الإرسال، حقل الفخ، مصدر الزيارة) تأتي من intake.js بلا تكرار.
 // الإرسال: نفس POST /api/public/intake بـ segment:'paid' وrequester (G11-44)؛ بلا بطاقة واتساب (الشركات بالبوابة والبريد).
+// v12 entry (E12-43): من الشجرة («تأسيس شركات › مستشار قانوني للشركة › لا، نريد عرضًا») — المسار فوق العنوان من الخادم (فلا
+// «رجوع» هنا)، و pathway وentry 'tree' في الطلب، وسطر «رقم من خارج مصر؟» تحت الرقم (IC-16). الرموز IC-01…IC-16 (§5.9).
 import { h, mount } from '../lib/h.js';
 
 const T = {
@@ -29,12 +31,15 @@ const T = {
   portalQ: 'لديكم حساب في بوابة الشركات؟ ',
   portalGo: 'الدخول',
   page: 'صفحة الطلب',
+  abroad: 'رقم من خارج مصر؟ ',
+  abroadGo: 'راسلونا على واتساب',
 };
 // نفس قيم REQUESTER_EMPLOYEES وREQUESTER_NEEDS (segment.js) بكلمات G11-45
+// v12 entry review (R5، §5.11): بلا «–» في نص الأفراد والشركات الظاهر: «من 1 إلى 10» (القيم نفسها لا تتغير)
 const SIZES = [
-  ['1-10', '1–10'],
-  ['11-50', '11–50'],
-  ['51-200', '51–200'],
+  ['1-10', 'من 1 إلى 10'],
+  ['11-50', 'من 11 إلى 50'],
+  ['51-200', 'من 51 إلى 200'],
   ['200+', 'أكثر من 200'],
 ];
 const NEEDS = [
@@ -47,12 +52,12 @@ const NEEDS = [
 const EMAIL_RE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']{2,}$/;
 
 /** حقل بعنوانه وسطر خطئه (role=alert) */
-function row(id, label, input, required = false) {
+function row(id, label, input, required = false, tag = null, hint = null) {
   const err = h('p.bmf-error', { id: `${id}-err`, role: 'alert', hidden: true });
   input.id = id;
   input.setAttribute('aria-describedby', `${id}-err`);
   if (required) input.setAttribute('aria-required', 'true');
-  const el = h('div.lead-row', h('label.lead-label', { htmlFor: id }, label), input, err);
+  const el = h('div.lead-row', { tag }, h('label.lead-label', { htmlFor: id }, label), input, hint, err);
   el.input = input;
   el.set = (msg) => {
     err.textContent = msg || '';
@@ -64,7 +69,7 @@ function row(id, label, input, required = false) {
 }
 
 /** شرائح اختيار (واحد أو أكثر) */
-function chips(items, multi) {
+function chips(items, multi, tag) {
   const picked = new Set();
   const btns = items.map(([v, label]) =>
     h(
@@ -72,8 +77,6 @@ function chips(items, multi) {
       {
         type: 'button',
         'aria-pressed': 'false',
-        // «1–10» تُقرأ من اليسار (بدونها تنعكس الأرقام في سطر عربي: «10–1»)
-        dir: /^[\d–+]+$/.test(label) ? 'ltr' : null,
         onClick: (e) => {
           const on = !picked.has(v);
           if (!multi) picked.clear();
@@ -82,6 +85,7 @@ function chips(items, multi) {
           btns.forEach((b, i) => b.setAttribute('aria-pressed', String(picked.has(items[i][0]))));
           e.currentTarget.focus();
         },
+        tag,
       },
       label,
     ),
@@ -93,7 +97,7 @@ function chips(items, multi) {
 
 /**
  * يرسم الشاشة في root. ctx من intake.js: { root, org, X, ic, normalizeEgPhone, newSubmissionId, honeypot, honeypotInput,
- * loadExtras, attribution, brandName }.
+ * loadExtras, attribution, brandName, path (مسار الشجرة أو undefined)، wa (رابط واتساب الأفراد والشركات بجملة الورقة أو null) }.
  */
 export function companyLead(ctx) {
   const { root, X, ic, normalizeEgPhone } = ctx;
@@ -102,19 +106,23 @@ export function companyLead(ctx) {
   }
   // v11 fixer-public (J-14): عنوان التبويب يبقى عنوان الخادم G11-05 «طلب عرض لخدمات الشركات — …» (لا يُستبدل بعنوان الشاشة)
   const sid = ctx.newSubmissionId();
-  const input = (attrs) => h('input.bmf-input', { type: 'text', ...attrs });
-  const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }), true);
-  const contact = row('lead-contact', T.contact, input({ autocomplete: 'name', maxlength: 120 }), true);
-  const job = row('lead-job', T.job, input({ autocomplete: 'organization-title', maxlength: 80 }));
-  const phone = row('lead-phone', T.phone, input({ type: 'tel', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: 20, placeholder: '01xxxxxxxxx' }), true);
-  const email = row('lead-email', T.email, input({ type: 'email', autocomplete: 'email', dir: 'ltr', maxlength: 120 }));
-  const size = chips(SIZES, false);
-  const needs = chips(NEEDS, true);
-  const details = h('textarea.bmf-textarea', { id: 'lead-more', rows: 4, maxlength: 4000, placeholder: T.morePh });
+  // v12 gate (JR-14): رمز لكل حقل (كانت الخمسة IC-18) فيسمّي المالك الحقل الذي يريده
+  const input = (attrs, tag) => h('input.bmf-input', { type: 'text', ...attrs, tag });
+  const company = row('lead-company', T.company, input({ autocomplete: 'organization', maxlength: 120 }, 'IC-18'), true, 'IC-03');
+  const contact = row('lead-contact', T.contact, input({ autocomplete: 'name', maxlength: 120 }, 'IC-26'), true, 'IC-04');
+  const job = row('lead-job', T.job, input({ autocomplete: 'organization-title', maxlength: 80 }, 'IC-27'), false, 'IC-05');
+  // v12 entry (L12-84، IC-16): رقم من خارج مصر؟ ← واتساب (فقط مع رقم واتساب للأفراد والشركات)
+  const abroad = ctx.wa ? h('p.bmf-hint', { tag: 'IC-16' }, T.abroad, h('a', { href: ctx.wa, target: '_blank', rel: 'noopener noreferrer', tag: 'IC-19' }, T.abroadGo)) : null;
+  const phone = row('lead-phone', T.phone, input({ type: 'tel', inputmode: 'numeric', autocomplete: 'tel-national', dir: 'ltr', maxlength: 20, placeholder: '01xxxxxxxxx' }, 'IC-28'), true, 'IC-06', abroad);
+  const email = row('lead-email', T.email, input({ type: 'email', autocomplete: 'email', dir: 'ltr', maxlength: 120 }, 'IC-29'), false, 'IC-07');
+  // v12 gate (JR-14): شرائح عدد الموظفين IC-17 وشرائح «ما الذي يهمكم؟» IC-30 (كانت كلها IC-17)
+  const size = chips(SIZES, false, 'IC-17');
+  const needs = chips(NEEDS, true, 'IC-30');
+  const details = h('textarea.bmf-textarea', { id: 'lead-more', rows: 4, maxlength: 4000, placeholder: T.morePh, tag: 'IC-20' });
   const status = h('div.lead-status', { role: 'status' });
-  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.lead-submit', { type: 'button' }, h('span', T.send));
-  const heading = h('h1.bmf-title', { tabindex: '-1', id: 'lead-title' }, T.h1);
-  const group = (label, el) => h('fieldset.lead-set', h('legend.lead-label', label), el);
+  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.lead-submit', { type: 'button', tag: 'IC-12' }, h('span', T.send));
+  const heading = h('h1.bmf-title', { tabindex: '-1', id: 'lead-title', class: ctx.path && 'q__title', tag: 'IC-01' }, T.h1);
+  const group = (label, el, tag) => h('fieldset.lead-set', { tag }, h('legend.lead-label', label), el);
 
   function check() {
     const bad = [];
@@ -149,7 +157,7 @@ export function companyLead(ctx) {
     if (em) requester.email = em;
     if (size.values()[0]) requester.employees = size.values()[0];
     if (chosen.length) requester.needs = chosen;
-    const entry = new URLSearchParams(window.location.search).get('entry') === 'company_band' ? 'company_band' : 'direct';
+    const entry = new URLSearchParams(window.location.search).get('entry') === 'company_band' ? 'company_band' : ctx.path ? 'tree' : 'direct';
     let res;
     let data = null;
     try {
@@ -170,6 +178,7 @@ export function companyLead(ctx) {
           consent: true,
           consent_v: 1,
           segment: 'paid',
+          pathway: ctx.path,
           requester,
           website: ctx.honeypotInput.value,
           submission_id: sid,
@@ -195,7 +204,8 @@ export function companyLead(ctx) {
   submit.addEventListener('click', send);
 
   function done(r) {
-    const title = h('h1#lead-done', { tabindex: '-1' }, T.done);
+    document.querySelector('.trail')?.remove();
+    const title = h('h1#lead-done', { tabindex: '-1', class: ctx.path && 'q__title', tag: 'IC-13' }, T.done);
     let portal = null;
     try {
       const u = new URL(r.portal_url, window.location.origin);
@@ -207,13 +217,13 @@ export function companyLead(ctx) {
       root,
       h(
         'section.bmf-success.lead-done',
-        { 'aria-labelledby': 'lead-done' },
+        { 'aria-labelledby': 'lead-done', tag: 'IC-21' },
         h('span.bmf-done-icon', ic('check', 36)),
         title,
-        h('p.bmf-thanks', T.doneText),
+        h('p.bmf-thanks', { tag: 'IC-14' }, T.doneText),
         r.reference && h('p.lead-ref', T.ref, h('span.bmf-ref.bmf-ltr', r.reference)),
-        X.company?.portal && h('p.lead-portal', T.portalQ, h('a', { href: '/company' }, T.portalGo)),
-        portal && h('a.lead-page', { href: portal }, T.page),
+        X.company?.portal && h('p.lead-portal', { tag: 'IC-15' }, T.portalQ, h('a', { href: '/company', tag: 'IC-22' }, T.portalGo)),
+        portal && h('a.lead-page', { href: portal, tag: 'IC-23' }, T.page),
       ),
     );
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -224,16 +234,21 @@ export function companyLead(ctx) {
     root,
     h(
       'section.bmf-step.lead',
-      { 'aria-labelledby': 'lead-title' },
-      h('div.bmf-head', h('div.bmf-qbar', h('a.bmf-btn.bmf-btn-text.bmf-back', { href: '/services#companies' }, ic('arrowRight', 20), h('span', T.back))), heading, h('p.bmf-sub', T.sub)),
+      { 'aria-labelledby': 'lead-title', tag: 'IC-24' },
+      h(
+        'div.bmf-head',
+        !ctx.path && h('div.bmf-qbar', h('a.bmf-btn.bmf-btn-text.bmf-back', { href: '/services#companies', tag: 'IC-25' }, ic('arrowRight', 20), h('span', T.back))),
+        heading,
+        h('p.bmf-sub', { tag: 'IC-02' }, T.sub),
+      ),
       h(
         'div.bmf-body',
         h('div.lead-group', company, contact, job),
         h('div.lead-group', phone, email),
-        group(T.size, size),
-        group(T.needs, needs),
-        h('div.lead-row', h('label.lead-label', { htmlFor: 'lead-more' }, T.more), details),
-        h('div.bmf-actions', h('p.bmf-consent-line', T.consent), submit, status),
+        group(T.size, size, 'IC-08'),
+        group(T.needs, needs, 'IC-09'),
+        h('div.lead-row', { tag: 'IC-10' }, h('label.lead-label', { htmlFor: 'lead-more' }, T.more), details),
+        h('div.bmf-actions', h('p.bmf-consent-line', { tag: 'IC-11' }, T.consent), submit, status),
       ),
     ),
     ctx.honeypot,

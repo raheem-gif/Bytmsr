@@ -59,16 +59,16 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
   const aiNote = h('p.cs-ai-note', { hidden: true }, icon('sparkle', { size: 14 }), 'مسودة مقترحة — راجِعها قبل الإرسال');
   const f = form(
     [
-      { name: 'kind', label: 'نوع التسليم', type: 'select', required: true, placeholder: false, options: DELIVERABLE_KINDS.map((k) => ({ value: k.key, label: k.label })) },
-      { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: ['low', 'medium', 'high'].map((k) => ({ value: k, label: label('company_risk_level', k) })) },
-      { name: 'title', label: 'العنوان', type: 'text', required: true, maxLength: 200, full: true },
-      { name: 'summary', label: 'الخلاصة التنفيذية', type: 'textarea', required: true, minLength: 10, maxLength: 600, rows: 4, full: true, dir: 'auto' },
-      { name: 'recommendations', label: 'التوصيات', type: 'textarea', rows: 4, full: true, dir: 'auto', hint: 'توصية في كل سطر (حتى 8).' },
-      { name: 'body', label: 'النص الكامل', type: 'textarea', maxLength: 30000, rows: 8, full: true, dir: 'auto' },
-      { name: 'final', type: 'checkbox', label: 'تسليم نهائي', full: true, onChange: () => drawFinalHint() },
-      { name: 'message', label: 'رسالة مع التسليم (اختياري)', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto' },
+      { name: 'kind', label: 'نوع التسليم', type: 'select', required: true, placeholder: false, options: DELIVERABLE_KINDS.map((k) => ({ value: k.key, label: k.label })), tag: 'CRF-207' },
+      { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: ['low', 'medium', 'high'].map((k) => ({ value: k, label: label('company_risk_level', k) })), tag: 'CRF-208' },
+      { name: 'title', label: 'العنوان', type: 'text', required: true, maxLength: 200, full: true, tag: 'CRF-209' },
+      { name: 'summary', label: 'الخلاصة التنفيذية', type: 'textarea', required: true, minLength: 10, maxLength: 600, rows: 4, full: true, dir: 'auto', tag: 'CRF-210' },
+      { name: 'recommendations', label: 'التوصيات', type: 'textarea', rows: 4, full: true, dir: 'auto', hint: 'توصية في كل سطر (حتى 8).', tag: 'CRF-211' },
+      { name: 'body', label: 'النص الكامل', type: 'textarea', maxLength: 30000, rows: 8, full: true, dir: 'auto', tag: 'CRF-212' },
+      { name: 'final', type: 'checkbox', label: 'تسليم نهائي', full: true, onChange: () => drawFinalHint(), tag: 'CRF-213' },
+      { name: 'message', label: 'رسالة مع التسليم (اختياري)', type: 'textarea', maxLength: 2000, rows: 2, full: true, dir: 'auto', tag: 'CRF-214' },
     ],
-    { values: v0, footer: false },
+    { values: v0, footer: false, tag: 'CRF-215' },
   );
   const finalHint = h('p.cs-note');
   function drawFinalHint() {
@@ -82,7 +82,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
         'div.select-wrap',
         h(
           'select.input',
-          { 'aria-label': 'الرأي المعتمد', onChange: (e) => (opinionId = Number(e.target.value)) },
+          { 'aria-label': 'الرأي المعتمد', onChange: (e) => (opinionId = Number(e.target.value)), tag: 'CRF-155' },
           approvedOpinions.map((o) => h('option', { value: String(o.id), selected: o.id === opinionId }, `${label('assignment_role', o.role)} — الإصدار ${o.version}`)),
         ),
       )
@@ -137,16 +137,16 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
     ? h(
         'div.cs-fill',
         opinionSel,
-        button('تعبئة من الرأي المعتمد', { variant: 'primary', size: 'sm', icon: 'fileText', className: 'cs-prefill', onClick: (e) => prefill(e.currentTarget) }),
-        button('اقتراح من الرأي المعتمد', { variant: 'secondary', size: 'sm', icon: 'sparkle', onClick: (e) => aiSuggest(e.currentTarget) }),
-        button('إدراج نص الرأي المعتمد', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: (e) => insertOpinion(e.currentTarget) }),
+        button('تعبئة من الرأي المعتمد', { variant: 'primary', size: 'sm', icon: 'fileText', className: 'cs-prefill', onClick: (e) => prefill(e.currentTarget), tag: 'CRF-156' }),
+        button('اقتراح من الرأي المعتمد', { variant: 'secondary', size: 'sm', icon: 'sparkle', onClick: (e) => aiSuggest(e.currentTarget), tag: 'CRF-157' }),
+        button('إدراج نص الرأي المعتمد', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: (e) => insertOpinion(e.currentTarget), tag: 'CRF-158' }),
       )
     : h('p.cs-note', icon('info', { size: 14 }), 'لا يوجد رأي معتمد في ملف العمل بعد؛ اعتمد رأي المحامي من ملف العمل ليُعبأ التسليم منه.');
 
   // ── الملفات ──
   const docs = (d.documents || []).filter((x) => x.mime === undefined || !/^audio\//.test(x.mime || ''));
   const filesHost = h('div.cs-files');
-  const upload = fileInput({ maxFiles: 10, label: 'رفع ملف جديد', onChange: () => changed() });
+  const upload = fileInput({ maxFiles: 10, label: 'رفع ملف جديد', onChange: () => changed(), tag: 'CRF-159' });
   function drawFiles() {
     const lawyerFiles = docs.filter((x) => x.uploaded_by_kind === 'lawyer');
     const others = docs.filter((x) => x.uploaded_by_kind !== 'lawyer');
@@ -161,6 +161,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
             else selected.delete(x.id);
             changed();
           },
+          tag: 'CRF-160',
         }),
         h('span', { dir: 'auto' }, x.title || x.filename, x.title && x.filename && x.title !== x.filename ? h('span.muted', ` (${x.filename})`) : null),
       );
@@ -225,17 +226,18 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
       docsReviewed = reviewCb.checked;
       changed({ immediate: true });
     },
+    tag: 'CRF-161',
   });
-  const overrideCb = h('input', { type: 'checkbox', onChange: () => ((override.on = overrideCb.checked), drawChecks()) });
-  const namesCb = h('input', { type: 'checkbox', onChange: () => ((override.names = namesCb.checked), drawChecks()) });
-  const overrideReason = h('textarea.input', { rows: 2, maxlength: 500, 'aria-label': 'سبب الإرسال رغم ذلك', onInput: () => ((override.reason = overrideReason.value), syncSend()) });
+  const overrideCb = h('input', { type: 'checkbox', onChange: () => ((override.on = overrideCb.checked), drawChecks()), tag: 'CRF-162' });
+  const namesCb = h('input', { type: 'checkbox', onChange: () => ((override.names = namesCb.checked), drawChecks()), tag: 'CRF-163' });
+  const overrideReason = h('textarea.input', { rows: 2, maxlength: 500, 'aria-label': 'سبب الإرسال رغم ذلك', onInput: () => ((override.reason = overrideReason.value), syncSend()), tag: 'CRF-164' });
   function drawChecks() {
     const rows = gateRows();
     const needsOverride = pc && (!pc.approved_opinion || pc.senior_review === 'missing' || pc.lawyer_names.length > 0);
     reviewCb.checked = docsReviewed;
     mount(
       checkHost,
-      h('h3.cs-section-title', 'جاهزية الإرسال'),
+      h('h3.cs-section-title', { tag: 'CRF-165' }, 'جاهزية الإرسال'),
       h(
         'ul.cs-gates',
         rows.map((x) => h('li', { class: x.ok === true ? 'is-ok' : x.ok === false ? 'is-bad' : 'is-wait' }, icon(x.ok === true ? 'checkCircle' : x.ok === false ? 'alert' : 'clock', { size: 16 }), h('span', x.text))),
@@ -324,7 +326,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
       return true;
     } catch (err) {
       dirtySinceSave = true;
-      mount(alertHost, alertBox(errorMessage(err), 'danger'));
+      mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-166' }));
       if (err && err.details && err.details.fields) f.showError(err);
       return false;
     }
@@ -365,7 +367,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
     }
     drawChecks();
     if (!gatesPass()) {
-      mount(alertHost, alertBox('لا يُرسل التسليم قبل أن تمر كل ضوابط «جاهزية الإرسال».', 'danger'));
+      mount(alertHost, alertBox('لا يُرسل التسليم قبل أن تمر كل ضوابط «جاهزية الإرسال».', 'danger', { tag: 'CRF-167' }));
       return false;
     }
     const body = { docs_reviewed: docsReviewed, message: f.getValues().message || undefined };
@@ -381,7 +383,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
         pc = err.details;
         drawChecks();
       }
-      mount(alertHost, alertBox(errorMessage(err), 'danger'));
+      mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-168' }));
       return false;
     }
   }
@@ -412,13 +414,13 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
     body: h(
       'div.cs-body.cs-two',
       h('div.cs-col', alertHost, fillBar, aiNote, f.el, h('div.field', h('span.field-label', 'الملفات'), filesHost)),
-      h('aside.cs-col.cs-aside', checkHost, h('h3.cs-section-title', 'كما ستراه الشركة'), previewHost),
+      h('aside.cs-col.cs-aside', checkHost, h('h3.cs-section-title', { tag: 'CRF-169' }, 'كما ستراه الشركة'), previewHost),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: 'معاينة كما ستراه الشركة', variant: 'ghost', icon: 'eye', onClick: () => (showPreview(), false) },
-      { label: 'حفظ مسودة', variant: 'secondary', icon: 'check', onClick: saveDraftNow },
-      { label: 'إرسال للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await release()) ? undefined : false) },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CRF-170' },
+      { label: 'معاينة كما ستراه الشركة', variant: 'ghost', icon: 'eye', onClick: () => (showPreview(), false), tag: 'CRF-171' },
+      { label: 'حفظ مسودة', variant: 'secondary', icon: 'check', onClick: saveDraftNow, tag: 'CRF-172' },
+      { label: 'إرسال للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await release()) ? undefined : false), tag: 'CRF-173' },
     ],
     onClose: () => {
       clearTimeout(timer);
@@ -427,6 +429,7 @@ export async function openDeliverableSheet({ detail, user = {}, deliverable = nu
         if (onDone) onDone(released);
       } else if (draft && onDone) onDone(null);
     },
+    tag: 'CRF-174',
   });
   const sendBtn = handle.buttons[3];
   sendBtn.classList.add('cs-send');

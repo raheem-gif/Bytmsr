@@ -65,13 +65,15 @@ export function recentPeriods(n = 18, include) {
 }
 
 /** قائمة اختيار الشهر. */
-export function periodSelect({ value, onChange, label: aria = 'الشهر', allLabel = null, months = 18 } = {}) {
+// v12 gate (TA-05): رمز الصفحة التي تعرض القائمة (LWL-01 هنا، وACC في «المحاسبة»، وصفحة المحامي برمزها)
+export function periodSelect({ value, onChange, label: aria = 'الشهر', allLabel = null, months = 18, tag } = {}) {
   return selectInput({
     label: aria,
     value: value || '',
     allLabel,
     options: recentPeriods(months, value).map((p) => ({ value: p, label: periodLabel(p) })),
     onChange,
+    tag,
   });
 }
 
@@ -147,8 +149,8 @@ export function describeAgreement(a, { withTrigger = false } = {}) {
 }
 
 function agreementFields(type) {
-  const moneyF = (name, lbl, { required = true, hint } = {}) => ({ name, label: lbl, type: 'money', required, min: 0, hint });
-  const intF = (name, lbl, { required = true, min = 1, hint, suffix } = {}) => ({ name, label: lbl, type: 'number', integer: true, required, min, max: 100000, hint, suffix });
+  const moneyF = (name, lbl, { required = true, hint, tag } = {}) => ({ name, label: lbl, type: 'money', required, min: 0, hint, tag });
+  const intF = (name, lbl, { required = true, min = 1, hint, suffix, tag } = {}) => ({ name, label: lbl, type: 'number', integer: true, required, min, max: 100000, hint, suffix, tag });
   const trigger = {
     name: 'billable_event',
     label: 'متى تُستحق الأتعاب؟',
@@ -157,31 +159,32 @@ function agreementFields(type) {
     placeholder: false,
     options: options('billable_trigger'),
     hint: 'واقعة الاستحقاق التي يُسجَّل عندها الأثر المالي تلقائيًا',
+    tag: 'LWL-55',
   };
   switch (type) {
     case 'per_case':
-      return [moneyF('rate', 'أجر الاستشارة المعتمدة', { hint: 'يُستحق مرة واحدة لكل استشارة تعتمدها الإدارة' }), trigger];
+      return [moneyF('rate', 'أجر الاستشارة المعتمدة', { hint: 'يُستحق مرة واحدة لكل استشارة تعتمدها الإدارة', tag: 'LWL-56' }), trigger];
     case 'monthly':
-      return [moneyF('monthly_fee', 'المبلغ الشهري الثابت', { hint: 'يُصدر شهريًا من صفحة المحاسبة' }), trigger];
+      return [moneyF('monthly_fee', 'المبلغ الشهري الثابت', { hint: 'يُصدر شهريًا من صفحة المحاسبة', tag: 'LWL-57' }), trigger];
     case 'monthly_quota':
       return [
-        moneyF('monthly_fee', 'المبلغ الشهري'),
-        intF('quota', 'عدد الاستشارات المشمولة شهريًا', { suffix: 'استشارة' }),
-        moneyF('overage_rate', 'سعر الاستشارة الزائدة على الحصة'),
+        moneyF('monthly_fee', 'المبلغ الشهري', { tag: 'LWL-58' }),
+        intF('quota', 'عدد الاستشارات المشمولة شهريًا', { suffix: 'استشارة', tag: 'LWL-59' }),
+        moneyF('overage_rate', 'سعر الاستشارة الزائدة على الحصة', { tag: 'LWL-60' }),
         trigger,
       ];
     case 'package':
       return [
-        intF('package_size', 'عدد استشارات الباقة', { suffix: 'استشارة' }),
-        moneyF('package_price', 'قيمة الباقة'),
-        moneyF('overage_rate', 'سعر الاستشارة بعد نفاد الباقة', { required: false, hint: 'اتركه فارغًا إن لم يُتفق على سعر بعد نفاد الباقة' }),
+        intF('package_size', 'عدد استشارات الباقة', { suffix: 'استشارة', tag: 'LWL-61' }),
+        moneyF('package_price', 'قيمة الباقة', { tag: 'LWL-62' }),
+        moneyF('overage_rate', 'سعر الاستشارة بعد نفاد الباقة', { required: false, hint: 'اتركه فارغًا إن لم يُتفق على سعر بعد نفاد الباقة', tag: 'LWL-63' }),
         trigger,
       ];
     case 'pro_bono':
-      return [moneyF('notional_value', 'القيمة التقديرية للاستشارة', { required: false, hint: 'لقياس قيمة المساهمة التطوعية فقط؛ لا تُصرف أي مبالغ' })];
+      return [moneyF('notional_value', 'القيمة التقديرية للاستشارة', { required: false, hint: 'لقياس قيمة المساهمة التطوعية فقط؛ لا تُصرف أي مبالغ', tag: 'LWL-64' })];
     case 'csr':
       return [
-        { name: 'csr_firm', label: 'اسم مكتب المحاماة', type: 'text', required: true, maxLength: 150 },
+        { name: 'csr_firm', label: 'اسم مكتب المحاماة', type: 'text', required: true, maxLength: 150, tag: 'LWL-52' },
         {
           name: 'csr_period',
           label: 'فترة الالتزام',
@@ -192,10 +195,11 @@ function agreementFields(type) {
             { value: 'year', label: 'سنويًا' },
             { value: 'month', label: 'شهريًا' },
           ],
+          tag: 'LWL-53',
         },
-        intF('csr_cases_commitment', 'عدد الاستشارات الملتزم بها', { required: false, min: 0, suffix: 'استشارة' }),
-        { name: 'csr_hours_commitment', label: 'عدد الساعات الملتزم بها', type: 'number', min: 0, max: 100000, suffix: 'ساعة' },
-        moneyF('notional_value', 'القيمة التقديرية للاستشارة', { required: false, hint: 'لقياس قيمة مساهمة المكتب فقط' }),
+        intF('csr_cases_commitment', 'عدد الاستشارات الملتزم بها', { required: false, min: 0, suffix: 'استشارة', tag: 'LWL-65' }),
+        { name: 'csr_hours_commitment', label: 'عدد الساعات الملتزم بها', type: 'number', min: 0, max: 100000, suffix: 'ساعة', tag: 'LWL-54' },
+        moneyF('notional_value', 'القيمة التقديرية للاستشارة', { required: false, hint: 'لقياس قيمة مساهمة المكتب فقط', tag: 'LWL-66' }),
       ];
     default:
       return [];
@@ -231,9 +235,10 @@ export function agreementEditor(initial = {}, { originalType = null, packageRema
           type = v || 'per_case';
           buildSub();
         },
+        tag: 'LWL-35',
       },
     ],
-    { footer: false, columns: 1, values: { type } },
+    { footer: false, columns: 1, values: { type }, tag: 'LWL-36' },
   );
 
   function capture() {
@@ -244,7 +249,7 @@ export function agreementEditor(initial = {}, { originalType = null, packageRema
 
   function buildSub() {
     const fields = agreementFields(type);
-    sub = form(fields, { footer: false, values: Object.fromEntries(fields.map((f) => [f.name, values[f.name] ?? null])) });
+    sub = form(fields, { footer: false, values: Object.fromEntries(fields.map((f) => [f.name, values[f.name] ?? null])), tag: 'LWL-37' });
     mount(subHost, fields.length ? sub.el : null);
     updatePreview();
   }
@@ -274,7 +279,7 @@ export function agreementEditor(initial = {}, { originalType = null, packageRema
       msg = 'لا تُسجَّل مستحقات مالية لهذا الاتفاق؛ تُحتسب كل استشارة معتمدة مساهمةً تطوعية وتظهر قيمتها في تقارير المحاسبة.';
       tone = 'success';
     }
-    mount(notice, msg ? alertBox(msg, tone) : null);
+    mount(notice, msg ? alertBox(msg, tone, { tag: 'LWL-02' }) : null);
   }
 
   const el = h(
@@ -325,8 +330,8 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
 
   const profile = form(
     [
-      { name: 'name', label: 'اسم المحامي', required: true, maxLength: 120, placeholder: 'الاسم كما يظهر في كارنيه النقابة' },
-      { name: 'title', label: 'اللقب', type: 'select', required: true, placeholder: false, options: titles },
+      { name: 'name', label: 'اسم المحامي', required: true, maxLength: 120, placeholder: 'الاسم كما يظهر في كارنيه النقابة', tag: 'LWL-38' },
+      { name: 'title', label: 'اللقب', type: 'select', required: true, placeholder: false, options: titles, tag: 'LWL-39' },
       isNew && {
         name: 'username',
         label: 'اسم المستخدم للدخول',
@@ -336,6 +341,7 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
         maxLength: 40,
         autocomplete: 'off',
         hint: 'حروف لاتينية وأرقام فقط، مثل: m.salem',
+        tag: 'LWL-40',
       },
       // وحدة الحسابات: الدعوة برابط للاستخدام مرة واحدة هي الافتراض؛ أو كلمة مرور مؤقتة يلزم تغييرها عند أول دخول
       isNew && {
@@ -353,13 +359,14 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
           const c = f.control('password');
           if (c && c.wrap) c.wrap.hidden = val !== 'password';
         },
+        tag: 'LWL-41',
       },
-      isNew && { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام، ويُطلب من المحامي تغييرها عند أول دخول' },
-      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للمستفيدين' },
-      { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-      { name: 'bar_number', label: 'رقم القيد بالنقابة', ltr: true, maxLength: 40 },
-      { name: 'bar_level', label: 'درجة القيد', type: 'select', placeholder: '— غير محدد —', options: levels.map((x) => ({ value: x, label: x })) },
-      { name: 'firm', label: 'مكتب المحاماة (إن وُجد)', maxLength: 150 },
+      isNew && { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام، ويُطلب من المحامي تغييرها عند أول دخول', tag: 'LWL-42' },
+      { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'للتواصل الداخلي فقط — لا يظهر للمستفيدين', tag: 'LWL-43' },
+      { name: 'email', label: 'البريد الإلكتروني', type: 'email', tag: 'LWL-44' },
+      { name: 'bar_number', label: 'رقم القيد بالنقابة', ltr: true, maxLength: 40, tag: 'LWL-45' },
+      { name: 'bar_level', label: 'درجة القيد', type: 'select', placeholder: '— غير محدد —', options: levels.map((x) => ({ value: x, label: x })), tag: 'LWL-46' },
+      { name: 'firm', label: 'مكتب المحاماة (إن وُجد)', maxLength: 150, tag: 'LWL-47' },
       {
         name: 'capacity',
         label: 'الطاقة الاستيعابية',
@@ -370,9 +377,10 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
         max: 1000,
         suffix: 'إسناد',
         hint: 'أقصى عدد من الإسنادات المفتوحة في الوقت نفسه',
+        tag: 'LWL-48',
       },
-      { name: 'specialties', label: 'التخصصات', type: 'checkboxes', required: true, options: areaOptions() },
-      { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 3000 },
+      { name: 'specialties', label: 'التخصصات', type: 'checkboxes', required: true, options: areaOptions(), tag: 'LWL-49' },
+      { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 3000, tag: 'LWL-50' },
     ],
     {
       footer: false,
@@ -390,6 +398,7 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
             notes: lawyer.notes,
           }
         : { title: 'أ.', capacity: 10, activation: 'invite' },
+        tag: 'LWL-51',
     },
   );
   if (isNew) {
@@ -405,9 +414,9 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
 
   const body = frag(
     h('p.modal-intro', isNew ? 'أنشئ حسابًا للمحامي في الشبكة وحدد تخصصاته وطاقته واتفاق المحاسبة الخاص به.' : 'عدّل بيانات المحامي وتخصصاته واتفاق المحاسبة. تسري التعديلات على الوقائع الجديدة فقط.'),
-    h('h3.pd-dialog-heading', icon('user', { size: 18 }), 'البيانات الأساسية'),
+    h('h3.pd-dialog-heading', { tag: 'LWL-03' }, icon('user', { size: 18 }), 'البيانات الأساسية'),
     profile.el,
-    h('h3.pd-dialog-heading', icon('wallet', { size: 18 }), 'اتفاق المحاسبة'),
+    h('h3.pd-dialog-heading', { tag: 'LWL-04' }, icon('wallet', { size: 18 }), 'اتفاق المحاسبة'),
     h('p.pd-dialog-note', 'يحدد الاتفاق ما يحدث ماليًا تلقائيًا عند تحقق واقعة الاستحقاق، وتلتزم به المحاسبة دون إدخال يدوي.'),
     editor.el,
   );
@@ -417,7 +426,7 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
     size: 'lg',
     body,
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'LWL-05' },
       {
         label: isNew ? 'إضافة المحامي' : 'حفظ التعديلات',
         variant: 'primary',
@@ -464,8 +473,10 @@ export function openLawyerDialog({ lawyer = null, onSaved } = {}) {
             return false;
           }
         },
+        tag: 'LWL-06',
       },
     ],
+    tag: 'LWL-07',
   });
 }
 
@@ -502,7 +513,7 @@ function nameCell(l) {
     avatar(l.display_name, { size: 'sm' }),
     h(
       'div.pd-person-text',
-      h('a.cell-title', { href: `#/lawyers/${l.id}` }, l.display_name),
+      h('a.cell-title', { href: `#/lawyers/${l.id}`, tag: 'LWL-08' }, l.display_name),
       h('div.cell-sub', l.firm || (l.bar_level ? `قيد ${l.bar_level}` : 'محامٍ مستقل')),
       chips(l.specialties_labels || l.specialties.map(areaLabel), { className: 'pd-spec-chips' }),
       h('div.pd-person-badges', activeBadge(l.active), l.invite_pending ? badge('بانتظار قبول الدعوة', 'info', { dot: true }) : null),
@@ -524,7 +535,7 @@ function lawyerCard(l) {
   const metric = (k, v) => h('div.pd-mini', h('span.pd-mini-k', k), h('span.pd-mini-v', v));
   return h(
     'a.pd-lcard',
-    { href: `#/lawyers/${l.id}`, class: !l.active && 'is-inactive', 'aria-label': `ملف ${l.display_name}` },
+    { href: `#/lawyers/${l.id}`, class: !l.active && 'is-inactive', 'aria-label': `ملف ${l.display_name}`, tag: 'LWL-09' },
     h('div.pd-lcard-head', avatar(l.display_name), h('div.pd-person-text', h('div.cell-title', l.display_name), h('div.cell-sub', l.firm || (l.bar_level ? `قيد ${l.bar_level}` : 'محامٍ مستقل'))), activeBadge(l.active)),
     chips(l.specialties_labels || l.specialties.map(areaLabel)),
     h('div.pd-lcard-agreement', icon('wallet', { size: 15 }), h('span', l.agreement_text)),
@@ -583,13 +594,14 @@ export default async function render(ctx) {
     const loadRatio = t.capacity ? t.open_assignments / t.capacity : 0;
     mount(
       statsHost,
-      statCard({ label: 'المحامون النشطون', value: num(t.active), hint: `من إجمالي ${num(t.lawyers)} في الشبكة`, icon: 'users', tone: 'primary' }),
+      statCard({ label: 'المحامون النشطون', value: num(t.active), hint: `من إجمالي ${num(t.lawyers)} في الشبكة`, icon: 'users', tone: 'primary', tag: 'LWL-10' }),
       statCard({
         label: 'الإسنادات المفتوحة مقابل الطاقة',
         value: h('span.nowrap', `${num(t.open_assignments)} من ${num(t.capacity)}`),
         hint: progressBar(t.open_assignments, t.capacity || 1, loadRatio > 0.85 ? 'warning' : 'primary', { label: 'نسبة استخدام الطاقة الإجمالية', visibleLabel: false }),
         icon: 'briefcase',
         tone: 'info',
+        tag: 'LWL-11',
       }),
       statCard({
         label: 'إسنادات متأخرة',
@@ -597,9 +609,10 @@ export default async function render(ctx) {
         hint: t.overdue ? 'تجاوزت الموعد المطلوب للرد' : 'لا توجد إسنادات متأخرة',
         icon: 'clock',
         tone: t.overdue ? 'danger' : 'success',
+        tag: 'LWL-12',
       }),
-      statCard({ label: 'إسنادات مُنجزة ومعتمدة', value: num(t.completed_in_period), hint: `خلال ${pl}`, icon: 'checkCircle', tone: 'success' }),
-      statCard({ label: 'استشارات تطوعية', value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent' }),
+      statCard({ label: 'إسنادات مُنجزة ومعتمدة', value: num(t.completed_in_period), hint: `خلال ${pl}`, icon: 'checkCircle', tone: 'success', tag: 'LWL-13' }),
+      statCard({ label: 'استشارات تطوعية', value: num(t.pro_bono_in_period), hint: `خلال ${pl}`, icon: 'star', tone: 'accent', tag: 'LWL-14' }),
     );
   }
 
@@ -623,10 +636,11 @@ export default async function render(ctx) {
           body: emptyState(
             hasFilter ? 'لا يوجد محامون مطابقون للتصفية الحالية' : 'لم يُضف أي محامٍ إلى الشبكة بعد',
             hasFilter
-              ? button('مسح التصفية', { icon: 'x', onClick: clearFilters })
-              : isAdmin && button('إضافة محامٍ', { variant: 'primary', icon: 'userPlus', onClick: openAdd }),
-            { icon: 'scale' },
+              ? button('مسح التصفية', { icon: 'x', onClick: clearFilters, tag: 'LWL-15' })
+              : isAdmin && button('إضافة محامٍ', { variant: 'primary', icon: 'userPlus', onClick: openAdd, tag: 'LWL-16' }),
+            { icon: 'scale', tag: 'LWL-17' },
           ),
+          tag: 'LWL-18',
         }),
       );
       return;
@@ -639,9 +653,9 @@ export default async function render(ctx) {
       rowClass: (l) => !l.active && 'is-muted',
       onRowClick: (l) => ctx.navigate(`/lawyers/${l.id}`),
       columns: [
-        { key: 'name', label: 'المحامي والتخصصات', render: nameCell, className: 'pd-col-name' },
-        { key: 'agreement', label: 'الاتفاق', render: agreementCell, className: 'pd-col-agreement' },
-        { key: 'load', label: 'الحمل الحالي', render: (l) => loadMeter(l.metrics.open_assignments, l.capacity, l.display_name), className: 'pd-col-load' },
+        { key: 'name', label: 'المحامي والتخصصات', render: nameCell, className: 'pd-col-name', tag: 'LWL-19' },
+        { key: 'agreement', label: 'الاتفاق', render: agreementCell, className: 'pd-col-agreement', tag: 'LWL-20' },
+        { key: 'load', label: 'الحمل الحالي', render: (l) => loadMeter(l.metrics.open_assignments, l.capacity, l.display_name), className: 'pd-col-load', tag: 'LWL-21' },
         {
           key: 'speed',
           label: 'السرعة والتأخير',
@@ -651,6 +665,7 @@ export default async function render(ctx) {
               h('span.nowrap', { title: 'متوسط الزمن من الإسناد حتى أول تقديم' }, hoursText(l.metrics.avg_response_hours)),
               l.metrics.overdue ? overdueCell(l.metrics.overdue) : h('span.cell-sub', 'لا تأخير'),
             ),
+            tag: 'LWL-22',
         },
         {
           key: 'done',
@@ -661,6 +676,7 @@ export default async function render(ctx) {
               h('span.nowrap', `${num(l.metrics.completed_in_period)} معتمدة`),
               h('span.cell-sub.nowrap', `${num(l.metrics.pro_bono_in_period)} تطوعية`),
             ),
+            tag: 'LWL-23',
         },
         {
           key: 'quality',
@@ -673,12 +689,15 @@ export default async function render(ctx) {
                 ? null
                 : h('span.cell-sub.nowrap', { class: l.metrics.returned_rate >= 0.3 ? 'pd-text-warning' : null }, 'الإعادة للتعديل ', h('bdi.ltr', { dir: 'ltr' }, percent(l.metrics.returned_rate))),
             ),
+            tag: 'LWL-24',
         },
       ],
+      rowTag: 'LWL-25',
+      tag: 'LWL-26',
     });
     mount(
       resultsHost,
-      h('div.pd-only-desktop', card({ body: tbl, flush: true })),
+      h('div.pd-only-desktop', card({ body: tbl, flush: true, tag: 'LWL-27' })),
       h('div.pd-only-mobile.pd-lcards', items.map(lawyerCard)),
       h('p.pd-footnote', `عدد المحامين المعروضين: ${num(items.length)} — المؤشرات الشهرية عن ${pl}. الجودة متوسط تقييم الإدارة للآراء المعتمدة، ونسبة الإعادة نسبة الآراء التي أُعيدت للتعديل.`),
     );
@@ -698,9 +717,11 @@ export default async function render(ctx) {
       state.area = v;
       refetch();
     },
+    tag: 'LWL-28',
   });
   const periodSel = periodSelect({
     label: 'شهر المؤشرات',
+    tag: 'LWL-01',
     value: state.period,
     onChange: (v) => {
       state.period = v;
@@ -720,6 +741,7 @@ export default async function render(ctx) {
       syncUrl();
       drawResults();
     },
+    tag: 'LWL-29',
   });
   const search = searchInput({
     placeholder: 'ابحث بالاسم أو اسم المستخدم أو المكتب…',
@@ -728,6 +750,7 @@ export default async function render(ctx) {
       state.q = q;
       drawResults();
     },
+    tag: 'LWL-30',
   });
 
   function clearFilters() {
@@ -757,8 +780,10 @@ export default async function render(ctx) {
     pageHeader({
       title: 'شبكة المحامين',
       subtitle: 'كل محامٍ وحدة خبرة يمكن إدارتها: نعرف تخصصه وتكلفته وطاقته وجودة عمله وسرعته.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'شبكة المحامين' }],
-      actions: isAdmin ? button('إضافة محامٍ', { variant: 'primary', icon: 'userPlus', onClick: openAdd }) : null,
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'LWL-31' }, { label: 'شبكة المحامين' }],
+      actions: isAdmin ? button('إضافة محامٍ', { variant: 'primary', icon: 'userPlus', onClick: openAdd, tag: 'LWL-32' }) : null,
+      titleTag: 'LWL-33',
+      tag: 'LWL-34',
     }),
     statsHost,
     filterBar([search, areaSel, statusSel, periodSel]),

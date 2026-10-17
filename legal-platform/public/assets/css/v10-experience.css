@@ -1,14 +1,5 @@
-/* ==========================================================================
-   v10 experience — نظام التصميم المشترك بأسلوب أبل لـ /app (فريق العمل والمحامون) وبوابة الشركات /company
-   يُحمَّل بعد app.css (آخر ورقة في app.html، وفي company.html بعد app.css). بلا ألوان ثابتة في القواعد: الألوان
-   رموز فقط (القيم الحرفية مسموحة داخل تعريف خاصية مخصصة في :root وحده). لا انتقال على «كل الخصائص»، ولا تباعد حروف على العربية.
-   المحتوى: رموز الضغط والحركة والمواد والخط (X10-P1/L1/T1) · ضغط فوري عند لمس الأزرار والصفوف (X10-P2) · مادة الشريط
-   العلوي والسفلي (X10-L2) وحافته عند التمرير (X10-L3) · مكونات البوابة .k-chrome .k-tabbar .k-row .step-tracker
-   .wordmark (X10-K) · الحركة المخفّضة والشفافية المخفّضة والتباين العالي والألوان القسرية (X10-A) · .k-solid-chrome.
-   ========================================================================== */
-
+/* Shared press, motion, material and type tokens for /app and /company (v10). Comments removed in v12 (look, LK-0) for the /app and /company budgets; the commented source is v10-experience.css in git (11.0). */
 :root {
-  /* الضغط: تصغير + تعتيم يعمل على أي خلفية (الحركة المخفّضة تُبقي التعتيم وحده) */
   --press-scale: 0.97;
   --press-scale-icon: 0.94;
   --press-dim: rgb(0 0 0 / 0.06);
@@ -17,12 +8,10 @@
   --dur-press: 80ms;
   --dur-release: 200ms;
   --dur-fade: 150ms;
-  /* المواد: «كروم» شفاف يمر المحتوى تحته (الشريط العلوي والسفلي فقط)؛ الأوراق والنوافذ صلبة دائمًا */
   --mat-chrome: rgb(255 255 255 / 0.85);
   --mat-chrome-solid: rgb(255 255 255 / 0.97);
   --mat-blur: saturate(180%) blur(20px);
-  --chrome-edge: 0 1px 0 rgb(16 32 42 / 0.04), 0 8px 24px -16px rgb(var(--primary-900-rgb) / 0.22);
-  /* الخط (X10-T1؛ v11 visual V11-07 34/28/22/20/17/15/13 هنا لا في ملف لاحق، r2 S1): العربية بلا تباعد حروف أبدًا */
+  --chrome-edge: 0 0 #0000;
   --t-display: 700 clamp(26px, 6.4vw, 34px) / 1.3 var(--font);
   --t-large: 700 34px / 1.25 var(--font);
   --t-title1: 700 28px / 1.3 var(--font);
@@ -61,12 +50,9 @@
 .t-footnote { font: var(--t-footnote); }
 .t-caption { font: var(--t-caption); }
 
-/* أرقام بعرض ثابت (مبالغ، عدادات، مواعيد في الجداول، رموز) */
 .num {
   font-variant-numeric: tabular-nums;
 }
-
-/* ───────────── الضغط (X10-P1/P2): يبدأ عند لمس الإصبع، يظهر في الإطار الأول، ويُلغيه التمرير ───────────── */
 
 .btn,
 .icon-btn,
@@ -106,7 +92,6 @@
   transition-duration: var(--dur-press);
 }
 
-/* الصفوف بعرض الشاشة: تعتيم فقط (صفوف iOS تُضاء ولا تنكمش) */
 .k-row:is(a, button),
 .lh-row-main,
 .table tr.is-clickable > td {
@@ -123,8 +108,6 @@
 .k-row.k-row-scale:active {
   transform: scale(var(--press-scale));
 }
-
-/* ───────────── المواد (X10-L2): الشريط العلوي والسفلي «كروم» يمر المحتوى تحته ───────────── */
 
 .topbar,
 .is-lawyer .lh-bottom-nav,
@@ -144,7 +127,6 @@
   }
 }
 
-/* حافة الشريط تظهر بعد التمرير فقط (X10-L3)؛ بلا دعم يبقى الخط الثابت كما في 9.2 */
 @supports (animation-timeline: scroll()) {
   .topbar,
   .k-chrome {
@@ -162,9 +144,6 @@
   }
 }
 
-/* الحل الصلب الجاهز (CO-23): يُفعَّل بإضافة .k-solid-chrome إلى <html> إن ثقل التمويه على هاتف ضعيف.
-   وصلب دائمًا مع ألوان مؤسسة مخصصة (كتلة #bm-theme): المولّد يضمن الدرجة 700 على الأبيض (4.5:1) لا على «كروم» شفاف
-   فوق محتوى غامق (ألوان معادية تنزل إلى 3.9:1) — الأخضر الملكي الافتراضي يبقى شفافًا (5.97:1 في أسوأ حالة) */
 .k-solid-chrome .topbar,
 .k-solid-chrome .is-lawyer .lh-bottom-nav,
 .k-solid-chrome .k-chrome,
@@ -178,8 +157,6 @@ html:has(#bm-theme) .k-tabbar {
   backdrop-filter: none;
 }
 
-/* ───────────── النوافذ (L-64): العقدة المغادرة لا تلتقط لمسًا ───────────── */
-
 .modal-backdrop.is-leaving {
   pointer-events: none;
 }
@@ -187,8 +164,6 @@ html:has(#bm-theme) .k-tabbar {
 .modal-discard .modal-body:empty {
   display: none;
 }
-
-/* ───────────── اسم المكتب (X10-B2): خط النظام للاتينية، عزل الاتجاه، سطران دائمًا ───────────── */
 
 .wordmark {
   font-family: var(--wordmark-font);
@@ -242,8 +217,6 @@ html:has(#bm-theme) .k-tabbar {
   color: var(--accent-300);
 }
 
-/* الذهبي 300 نصًّا على خلفية غامقة: 4.6:1 على الدرجة 700 (لوحة الدخول) بالألوان الافتراضية، وليس ضمن عقد التباين لألوان
-   مخصصة (حتى 3.3:1 على 700) — معها يصير السطر الثاني والوصف أبيضين على أي خلفية غامقة (الأبيض مضمون على 700/800/900) */
 html:has(#bm-theme) .wordmark-dark span,
 html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
   color: var(--surface);
@@ -267,8 +240,6 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
 .wordmark-dark + .wordmark-desc {
   color: var(--accent-300);
 }
-
-/* ───────────── بوابة الشركات: الشريط العلوي (.k-chrome) ───────────── */
 
 .k-chrome {
   position: sticky;
@@ -304,8 +275,6 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
   }
 }
 
-/* ───────────── بوابة الشركات: شريط التبويب السفلي على الهاتف (.k-tabbar) ───────────── */
-
 .k-tabbar {
   position: fixed;
   inset-inline: 0;
@@ -338,8 +307,8 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
 }
 
 .k-tab .icon {
-  width: 25px;
-  height: 25px;
+  width: 22px;
+  height: 22px;
 }
 
 .k-tab-label {
@@ -368,7 +337,7 @@ html:has(#bm-theme) .wordmark-dark + .wordmark-desc {
   height: 18px;
   padding-inline: 5px;
   border-radius: 999px;
-  background: var(--danger-700);
+  background: var(--act);
   color: var(--surface);
   font: 700 11px / 18px var(--font);
   text-align: center;
@@ -385,8 +354,6 @@ body.k-keyboard .k-tabbar {
     display: none;
   }
 }
-
-/* ───────────── صف القائمة (.k-row) وقائمته (.k-list) ───────────── */
 
 .k-list {
   margin: 0;
@@ -476,8 +443,6 @@ body.k-keyboard .k-tabbar {
   color: var(--label-3);
 }
 
-/* ───────────── «أين وصل الطلب؟» (.step-tracker) ───────────── */
-
 .step-tracker {
   list-style: none;
   margin: 0;
@@ -499,45 +464,51 @@ body.k-keyboard .k-tabbar {
 .step-tracker-step:not(:last-child)::before {
   content: "";
   position: absolute;
-  inset-inline-start: 13px;
-  inset-block: 30px 2px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--gray-200);
+  inset-inline-start: 7.5px;
+  inset-block: 22px 0;
+  width: 1px;
+  background: var(--rule);
 }
 
 .step-tracker-step.is-done:not(:last-child)::before {
-  background: var(--success-600);
+  background: var(--rule-2);
 }
 
 .step-tracker-dot {
   display: grid;
   place-items: center;
-  flex: 0 0 28px;
-  height: 28px;
-  border-radius: 50%;
-  font: 700 13px / 1 var(--font);
-  color: var(--gray-600);
-  background: var(--gray-100);
-  box-shadow: inset 0 0 0 1px var(--gray-300);
+  flex: 0 0 16px;
+  height: 22px;
+  font-size: 0;
+}
+
+.step-tracker-dot > * {
+  display: none;
+}
+
+.step-tracker-dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
 }
 
 .step-tracker-step.is-done .step-tracker-dot {
-  color: var(--surface);
-  background: var(--success-600);
-  box-shadow: none;
+  --dia: var(--ink-2);
 }
 
 .step-tracker-step.is-current .step-tracker-dot {
-  color: var(--surface);
-  background: var(--primary-700);
-  box-shadow: 0 0 0 4px rgb(var(--primary-500-rgb) / 0.18);
+  --dia: var(--act);
 }
 
 .step-tracker-step.is-waiting .step-tracker-dot {
-  color: var(--gray-900);
-  background: var(--warning-500);
-  box-shadow: 0 0 0 4px var(--warning-100);
+  --dia: var(--warn);
+}
+
+.step-tracker-step:is(.is-done, .is-current) > .step-tracker-dot::before {
+  background: var(--dia);
+  box-shadow: none;
 }
 
 .step-tracker-text {
@@ -545,7 +516,6 @@ body.k-keyboard .k-tabbar {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding-block-start: 3px;
 }
 
 .step-tracker-title {
@@ -558,8 +528,8 @@ body.k-keyboard .k-tabbar {
 }
 
 .step-tracker-step.is-current .step-tracker-title {
-  font-weight: 700;
-  color: var(--gray-900);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .step-tracker-at,
@@ -578,8 +548,6 @@ body.k-keyboard .k-tabbar {
   line-height: 1.55;
   color: var(--warning-700);
 }
-
-/* ───────────── تفضيلات الإتاحة (X10-A) ───────────── */
 
 @media (prefers-reduced-motion: reduce) {
   :root {

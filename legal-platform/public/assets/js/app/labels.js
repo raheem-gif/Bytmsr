@@ -5,14 +5,14 @@
 
 export const QUEUE_LABELS = {
   info_requests: 'طلبات معلومات من المحامين',
-  client_replies: 'ردود المستفيدين والشركات بانتظار المراجعة', // gate J-13
+  client_replies: 'ردود أصحاب الطلبات والشركات بانتظار المراجعة', // gate J-13؛ v12 gate (V-08): بلا «المستفيدين» (أغلب الطلبات بأتعاب)
   counsel_requests: 'طلبات مساعدة محامٍ',
   opinions: 'آراء بانتظار المراجعة',
   proposed_issues: 'مسائل اقترحها المحامون',
-  approved_unanswered: 'ملفات معتمدة لم يُرسل ردها للمستفيد/ة',
+  approved_unanswered: 'ملفات معتمدة لم يُرسل ردها لأصحابها',
   overdue_assignments: 'إسنادات متأخرة',
   identity_conflicts: 'رسائل تحتاج تحققًا من الهوية',
-  awaiting_client: 'بانتظار رد المستفيد/ة',
+  awaiting_client: 'بانتظار رد صاحب الطلب',
 };
 
 /** دمج ملفين لشخص واحد (صفحة المستفيد/ة وصفحة الطلب الوارد) */

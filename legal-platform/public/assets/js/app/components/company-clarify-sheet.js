@@ -27,7 +27,7 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
   let result = null;
 
   const alertHost = h('div.cs-alert', { 'aria-live': 'assertive' });
-  const ta = h('textarea.input#cs-clar-body', { rows: 4, maxlength: 3000, dir: 'auto', required: true });
+  const ta = h('textarea.input#cs-clar-body', { rows: 4, maxlength: 3000, dir: 'auto', required: true, tag: 'CRF-136' });
   ta.value = DEFAULT_TEXT;
   const itemsHost = h('ol.cs-items');
   const previewHost = h('div.cs-preview-card');
@@ -49,14 +49,15 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
               rows[i] = e.target.value;
               drawPreview();
             },
+            tag: 'CRF-137',
           }),
-          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: `حذف البند ${i + 1}`, onClick: () => (rows.splice(i, 1), drawItems(), drawPreview()) }),
+          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: `حذف البند ${i + 1}`, onClick: () => (rows.splice(i, 1), drawItems(), drawPreview()), tag: 'CRF-138' }),
         ),
       ),
     );
     addBtn.disabled = rows.length >= MAX_ITEMS;
   }
-  const addBtn = button('إضافة بند', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: () => (rows.push(''), drawItems(), itemsHost.querySelector('li:last-child input')?.focus()) });
+  const addBtn = button('إضافة بند', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: () => (rows.push(''), drawItems(), itemsHost.querySelector('li:last-child input')?.focus()), tag: 'CRF-139' });
 
   function cleanItems() {
     return rows.map((x) => String(x || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -75,7 +76,7 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
     mount(alertHost);
     const body = ta.value.trim();
     if (body.length < 5) {
-      mount(alertHost, alertBox('اكتب نص الرسالة.', 'danger'));
+      mount(alertHost, alertBox('اكتب نص الرسالة.', 'danger', { tag: 'CRF-140' }));
       ta.focus();
       return false;
     }
@@ -89,7 +90,7 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
         : err && err.code === 'request_changed'
           ? 'تغيّر الطلب بعد فتح هذه النافذة (ردّت الشركة أو أُضيف مستند). أغلق النافذة لمراجعة التغييرات؛ يبقى ما كتبته هنا حتى تغلقها.'
           : errorMessage(err);
-      mount(alertHost, alertBox(msg, 'danger'));
+      mount(alertHost, alertBox(msg, 'danger', { tag: 'CRF-141' }));
       return false;
     }
   }
@@ -112,17 +113,18 @@ export async function openClarifySheet({ detail, items = [], onDone } = {}) {
         h('div.field', h('span.field-label', `المطلوب (حتى ${MAX_ITEMS})`), itemsHost, addBtn),
         h('p.cs-sla', icon('clock', { size: 15 }), h('span', slaText)),
       ),
-      h('div.cs-col', h('h3.cs-section-title', 'كما ستراها الشركة'), previewHost),
+      h('div.cs-col', h('h3.cs-section-title', { tag: 'CRF-142' }, 'كما ستراها الشركة'), previewHost),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: 'إرسال للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await submit()) ? undefined : false) },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CRF-143' },
+      { label: 'إرسال للشركة', variant: 'primary', icon: 'send', onClick: async () => ((await submit()) ? undefined : false), tag: 'CRF-144' },
     ],
     onClose: () => {
       if (!result) return;
       toast(`أُرسل السؤال إلى ${d.company.name}.`, 'success');
       if (onDone) onDone(result);
     },
+    tag: 'CRF-145',
   });
   drawItems();
   drawPreview();

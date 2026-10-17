@@ -18,12 +18,12 @@ export const kindIcon = (key, size = 22) => icon(KIND_ICON[key] || 'bookOpen', {
 
 /** صف عنصر ذاكرة مختصر (نتائج البحث، المواعيد) */
 export function memoryRow(m, { sub } = {}) {
-  return kRow({ icon: kindIcon(m.kind), title: h('span', { dir: 'auto' }, m.title), sub: sub ?? [m.kind_label, m.next_date ? ` · ${dayText(m.next_date, { year: true })}` : ''], href: `#/memory/item/${encodeURIComponent(m.id)}` });
+  return kRow({ icon: kindIcon(m.kind), title: h('span', { dir: 'auto' }, m.title), sub: sub ?? [m.kind_label, m.next_date ? ` · ${dayText(m.next_date, { year: true })}` : ''], href: `#/memory/item/${encodeURIComponent(m.id)}`, tag: 'CM-01' });
 }
 
 /** صف موعد: شريحة اليوم + العنوان + «النوع · نوع الموعد» */
 export function dateRow(d) {
-  return kRow({ icon: h('span.co-date-chip.num', dayText(d.date)), title: h('span', { dir: 'auto' }, d.title), sub: `${d.kind_label} · ${d.date_kind_label}`, href: `#/memory/item/${encodeURIComponent(d.memory_id)}` });
+  return kRow({ icon: h('span.co-date-chip.num', dayText(d.date)), title: h('span', { dir: 'auto' }, d.title), sub: `${d.kind_label} · ${d.date_kind_label}`, href: `#/memory/item/${encodeURIComponent(d.memory_id)}`, tag: 'CM-02' });
 }
 
 export function canAdd(kinds, key) {
@@ -55,6 +55,7 @@ export default async function memoryHub(ctx) {
       clearTimeout(timer);
       timer = setTimeout(run, 300);
     },
+    tag: 'CM-03',
   });
   async function run() {
     const q = input.value.trim();
@@ -83,10 +84,24 @@ export default async function memoryHub(ctx) {
   const strip = sectionCard(
     W.memory.dates,
     dates.items?.length ? h('ul.k-list.co-dates', dates.items.slice(0, 5).map((d) => h('li', dateRow(d)))) : h('p.co-muted', W.memory.no_dates),
-    { actions: h('a.co-link', { href: '#/memory/calendar' }, W.memory.calendar_link, ' ‹') },
+    { actions: h('a.co-link', { href: '#/memory/calendar', tag: 'CM-04' }, W.memory.calendar_link, ' ‹') },
   );
 
   const visibleKinds = MEMORY_KINDS.filter((k) => isAdmin() || !ADMIN_KINDS.has(k.key));
+  // v12 gate (TA-05): رمز لكل بلاطة (كانت الإحدى عشرة CM-05)
+  const MEMORY_TILE_TAGS = {
+    contract: 'CM-05',
+    template: 'CM-26',
+    licence: 'CM-27',
+    resolution: 'CM-28',
+    position: 'CM-29',
+    person: 'CM-30',
+    policy: 'CM-31',
+    dispute: 'CM-32',
+    key_date: 'CM-33',
+    entities: 'CM-34',
+    counterparties: 'CM-35',
+  };
   const tiles = [
     ...visibleKinds.map((k) => {
       const c = counts[k.key] || { total: 0, soon: 0 };
@@ -103,7 +118,7 @@ export default async function memoryHub(ctx) {
         'li',
         h(
           'a.co-mem-kind',
-          { href: t.href, dataset: { kind: t.key } },
+          { href: t.href, dataset: { kind: t.key }, tag: MEMORY_TILE_TAGS[t.key] },
           h('span.co-mem-kind-icon', { 'aria-hidden': 'true' }, t.icon ? icon(t.icon, { size: 22 }) : kindIcon(t.key)),
           h('span.co-mem-kind-text', h('span.co-mem-kind-title', t.title), h('span.co-mem-kind-line', { class: t.warn && 'is-warn' }, t.warn ? icon('clock', { size: 14 }) : null, t.line)),
           h('span.co-mem-kind-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 })),
@@ -118,14 +133,14 @@ export default async function memoryHub(ctx) {
           canAdd(kinds, 'contract') || canAdd(kinds, 'licence')
             ? h(
                 'div.co-row-actions',
-                canAdd(kinds, 'contract') ? button(W.memory.add_contract, { variant: 'secondary', icon: 'plus', href: '#/memory/new/contracts' }) : null,
-                canAdd(kinds, 'licence') ? button(W.memory.add_licence, { variant: 'secondary', icon: 'plus', href: '#/memory/new/licences' }) : null,
+                canAdd(kinds, 'contract') ? button(W.memory.add_contract, { variant: 'secondary', icon: 'plus', href: '#/memory/new/contracts', tag: 'CM-06' }) : null,
+                canAdd(kinds, 'licence') ? button(W.memory.add_licence, { variant: 'secondary', icon: 'plus', href: '#/memory/new/licences', tag: 'CM-07' }) : null,
               )
             : null,
-          { title: W.memory.empty_title, icon: 'bookOpen' },
+          { title: W.memory.empty_title, icon: 'bookOpen', tag: 'CM-08' },
         )
       : null;
-  const body = h('div.co-mem-body', empty ? h('section.co-section', empty) : null, strip, h('section.co-section', h('header.co-section-head', h('h2.co-section-title', W.memory.kinds)), grid));
+  const body = h('div.co-mem-body', empty ? h('section.co-section', { tag: 'CM-09' }, empty) : null, strip, h('section.co-section', { tag: 'CM-10' }, h('header.co-section-head', { tag: 'CM-11' }, h('h2.co-section-title', { tag: 'CM-12' }, W.memory.kinds)), grid));
   return h(
     'div.co-page.co-memory',
     pageHead(W.nav.memory, W.memory.sub),

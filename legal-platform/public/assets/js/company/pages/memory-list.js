@@ -103,8 +103,8 @@ export default async function memoryList(ctx) {
       mount(
         listEl,
         filtered()
-          ? emptyState(M.empty_filtered, button(M.clear_filters, { variant: 'secondary', onClick: () => { Object.assign(st, { chip: 'all', entity_id: '', counterparty_id: '', renewal_type: '', q: '' }); search.value = ''; syncHash(); ctx.reload(); } }), { icon: 'search' })
-          : emptyState(M.empty_list, canAdd(kinds, kind.key) ? button(copy('memory.add', { label: kind.label }), { variant: 'secondary', icon: 'plus', href: `#/memory/new/${kind.slug}` }) : null, { icon: 'bookOpen' }),
+          ? emptyState(M.empty_filtered, button(M.clear_filters, { variant: 'secondary', onClick: () => { Object.assign(st, { chip: 'all', entity_id: '', counterparty_id: '', renewal_type: '', q: '' }); search.value = ''; syncHash(); ctx.reload(); }, tag: 'CM-13' }), { icon: 'search', tag: 'CM-14' })
+          : emptyState(M.empty_list, canAdd(kinds, kind.key) ? button(copy('memory.add', { label: kind.label }), { variant: 'secondary', icon: 'plus', href: `#/memory/new/${kind.slug}`, tag: 'CM-15' }) : null, { icon: 'bookOpen', tag: 'CM-16' }),
       );
       return;
     }
@@ -112,7 +112,7 @@ export default async function memoryList(ctx) {
     if (desktop()) {
       const cols = isContract
         ? [
-            { key: 'title', label: M.col_contract, render: (m) => h('a.co-cell-req', { href: href(m) }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, kindIcon(m.kind, 20)), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, m.title), m.counterparty ? h('span.co-muted', { dir: 'auto' }, m.counterparty.name) : null)) },
+            { key: 'title', label: M.col_contract, render: (m) => h('a.co-cell-req', { href: href(m), tag: 'CM-17' }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, kindIcon(m.kind, 20)), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, m.title), m.counterparty ? h('span.co-muted', { dir: 'auto' }, m.counterparty.name) : null)) },
             { key: 'entity', label: M.col_entity, render: (m) => h('span', { dir: 'auto' }, m.entity?.name || '—') },
             { key: 'our_role', label: M.col_role, render: (m) => roles[m.our_role] || '—' },
             { key: 'value', label: M.col_value, render: (m) => h('span.num', m.value != null ? (m.currency && m.currency !== 'EGP' ? `${Number(m.value).toLocaleString('en-US')} ${m.currency}` : money(m.value)) : '—') },
@@ -121,12 +121,12 @@ export default async function memoryList(ctx) {
             { key: 'status', label: M.col_status, render: (m) => statusBadge(m) },
           ]
         : [
-            { key: 'title', label: M.col_title, render: (m) => h('a.co-cell-req', { href: href(m) }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, kindIcon(m.kind, 20)), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, m.title), m.counterparty ? h('span.co-muted', { dir: 'auto' }, m.counterparty.name) : null)) },
+            { key: 'title', label: M.col_title, render: (m) => h('a.co-cell-req', { href: href(m), tag: 'CM-18' }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, kindIcon(m.kind, 20)), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, m.title), m.counterparty ? h('span.co-muted', { dir: 'auto' }, m.counterparty.name) : null)) },
             { key: 'entity', label: M.col_entity, render: (m) => h('span', { dir: 'auto' }, m.entity?.name || '—') },
             { key: 'next', label: M.col_next, render: (m) => h('span.num', m.next_date ? dayText(m.next_date, { year: true }) : '—') },
             { key: 'status', label: M.col_status, render: (m) => statusBadge(m) },
           ];
-      mount(listEl, table({ caption: kind.list_label, rows: items, columns: cols, onRowClick: (m) => ctx.navigate(`/memory/item/${m.id}`) }));
+      mount(listEl, table({ caption: kind.list_label, rows: items, columns: cols, onRowClick: (m) => ctx.navigate(`/memory/item/${m.id}`), rowTag: 'CM-19', tag: 'CM-20' }));
     } else {
       mount(
         listEl,
@@ -136,7 +136,7 @@ export default async function memoryList(ctx) {
             const sub = isContract
               ? [m.counterparty ? h('span', { dir: 'auto' }, m.counterparty.name) : null, m.end_date ? `${m.counterparty ? ' · ' : ''}${copy('memory.ends_on', { date: dayText(m.end_date, { year: true }) })}` : '']
               : [m.status_label, m.next_date ? ` · ${dayText(m.next_date, { year: true })}` : ''];
-            return h('li', kRow({ icon: kindIcon(m.kind), title: h('span', { dir: 'auto' }, m.title), sub, badges: isContract ? contractBadge(m) : null, href: href(m), className: 'co-row' }));
+            return h('li', kRow({ icon: kindIcon(m.kind), title: h('span', { dir: 'auto' }, m.title), sub, badges: isContract ? contractBadge(m) : null, href: href(m), className: 'co-row', tag: 'CM-21' }));
           }),
         ),
       );
@@ -151,19 +151,20 @@ export default async function memoryList(ctx) {
     'div.co-seg.co-mem-chips',
     { role: 'group', 'aria-label': M.filter_label },
     chipDefs.map(([k, label]) =>
-      h('button.co-seg-btn', { type: 'button', 'aria-pressed': st.chip === k ? 'true' : 'false', onClick: (e) => { st.chip = k; chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); syncHash(); load(); } }, label),
+      h('button.co-seg-btn', { type: 'button', 'aria-pressed': st.chip === k ? 'true' : 'false', onClick: (e) => { st.chip = k; chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b === e.currentTarget ? 'true' : 'false')); syncHash(); load(); }, tag: 'CM-22' }, label),
     ),
   );
-  const select = (label, value, options, onChange) => {
-    const sel = h('select.input', { 'aria-label': label, onChange: () => onChange(sel.value) }, h('option', { value: '' }, `${label}: ${M.any}`), options.map(([v, l]) => h('option', { value: String(v) }, l)));
+  // v12 gate (TA-05): رمز لكل قائمة تصفية (الكيان CM-23، الطرف الآخر، التجديد) — كانت الثلاث CM-23
+  const select = (label, value, options, onChange, tag) => {
+    const sel = h('select.input', { 'aria-label': label, onChange: () => onChange(sel.value), tag }, h('option', { value: '' }, `${label}: ${M.any}`), options.map(([v, l]) => h('option', { value: String(v) }, l)));
     sel.value = String(value || '');
     return h('div.select-wrap.co-mem-select', sel);
   };
   const selects = [];
-  if (ents.length > 1) selects.push(select(M.entity, st.entity_id, ents.map((e) => [e.id, e.name]), (v) => { st.entity_id = v; syncHash(); load(); }));
-  if (isContract && cps.length) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }));
-  else if (st.counterparty_id) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }));
-  if (isContract) selects.push(select(M.renewal, st.renewal_type, [['auto', M.renewal_auto], ['manual', M.renewal_manual], ['none', M.renewal_none]], (v) => { st.renewal_type = v; syncHash(); load(); }));
+  const SELECT_TAGS = { entity: 'CM-23', counterparty: 'CM-36', renewal: 'CM-37' };
+  if (ents.length > 1) selects.push(select(M.entity, st.entity_id, ents.map((e) => [e.id, e.name]), (v) => { st.entity_id = v; syncHash(); load(); }, SELECT_TAGS.entity));
+  if ((isContract && cps.length) || st.counterparty_id) selects.push(select(M.counterparty, st.counterparty_id, cps.map((c) => [c.id, c.name]), (v) => { st.counterparty_id = v; syncHash(); load(); }, SELECT_TAGS.counterparty));
+  if (isContract) selects.push(select(M.renewal, st.renewal_type, [['auto', M.renewal_auto], ['manual', M.renewal_manual], ['none', M.renewal_none]], (v) => { st.renewal_type = v; syncHash(); load(); }, SELECT_TAGS.renewal));
   let timer = 0;
   const search = h('input.input', {
     type: 'search',
@@ -178,6 +179,7 @@ export default async function memoryList(ctx) {
         load();
       }, 300);
     },
+    tag: 'CM-24',
   });
   render();
   // عبور حد 1024px: صفوف ↔ جدول
@@ -190,7 +192,7 @@ export default async function memoryList(ctx) {
     }
   };
   window.addEventListener('resize', onResize);
-  const add = canAdd(kinds, kind.key) ? button(copy('memory.add', { label: kind.label }), { variant: 'secondary', icon: 'plus', href: `#/memory/new/${kind.slug}` }) : null;
+  const add = canAdd(kinds, kind.key) ? button(copy('memory.add', { label: kind.label }), { variant: 'secondary', icon: 'plus', href: `#/memory/new/${kind.slug}`, tag: 'CM-25' }) : null;
   return h(
     'div.co-page.co-mem-page',
     pageHead(kind.list_label, null, { actions: add }),

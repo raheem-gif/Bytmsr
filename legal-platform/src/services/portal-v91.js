@@ -23,12 +23,22 @@
 
 import * as U from '../util.js';
 import { LABELS, GOVERNORATES } from '../constants.js';
+import { WA_BUTTON_TEXTS } from '../constants.js'; // v12 tags (TG-4): أزرار الرد على تذكير الجلسة (W-47)
 // v9.2 public: كلمات وقت المكالمة من مصدر واحد مع نموذج الموقع
 import { CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
 import { isPortalUnverifiedIntake } from '../channels/engine.js';
 import { paidHours } from '../site-copy-paid.js'; // v11 fixer-public (V2): المواعيد بالفصحى في صفحة الأفراد والشركات
 
 const { nowIso, addDays, parseJson, cairoParts, badRequest, notFound, conflict, v, truncate, fromMinor, arabicCount, ApiError } = U;
+
+/** v12 gate (V-22): نص حتى n حرفًا مقصوصًا عند آخر مسافة (إن لم تكن مبكرة جدًا) بلا علامة ترقيم معلّقة، ثم «…» */
+export function wordClip(text, n) {
+  const s = String(text || '');
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const at = cut.lastIndexOf(' ');
+  return `${(at >= n * 0.6 ? cut.slice(0, at) : cut).replace(/[\s،,.؛:!?؟-]+$/u, '')}…`;
+}
 
 // ───────────── أدوات النص (تُستخدم أدوات util.js إن وُجدت — وحدة b-site — وإلا البديل المحلي بنفس القواعد) ─────────────
 
@@ -696,7 +706,8 @@ export function createPortalV91(app, { scopeOf, inList }) {
     for (const r of (view.requests || []).filter((x) => x.can_reply)) next.push({ kind: 'request', id: r.id, story_ref: r.story_ref, at: r.created_at });
     // آخر رسالة كتبها فريقنا بنفسه (لا التذكيرات الآلية، ولا رسالة الرد أو طلب الورق: لهما بطاقتهما)
     const lastOut = [...(view.messages || [])].reverse().find((m) => m.direction === 'out' && !m.kind);
-    const excerpt = (m) => truncate(String(m.body || '').replace(/\s+/g, ' '), 80);
+    // v12 gate (V-22): المقتطف يُقص عند حد كلمة («…وفق ما ا...» كان يقطع الكلمة)
+    const excerpt = (m) => wordClip(String(m.body || '').replace(/\s+/g, ' ').trim(), 80);
     // طلب مستنيين ردها عليه من غير طلب ورق/معلومة منظم (الإدارة سألتها في رسالة): «محتاجين ردّك» يفضل ظاهرًا
     // لحد ما ترد (أول رسالة منها ترجع الطلب للمراجعة)، فلا يقول الشريط «مستنيين ردّك» والبطاقة «مفيش حاجة مطلوبة»
     let replyMsgId = null;
@@ -774,6 +785,11 @@ export function createPortalV91(app, { scopeOf, inList }) {
     if (docs.length - audio > max) throw badRequest(`تقدري تبعتي لحد ${max} صور في المرة الواحدة`);
     if (audio > 3) throw badRequest('تقدري تبعتي لحد 3 رسايل صوتية');
     for (const d of docs) if (!d || typeof d.data_base64 !== 'string' || !d.data_base64) throw badRequest('الملف فاضي. اختاري الصورة تاني');
+    // v12 media (MD-4، H-M13، L12-70): كل صورة وكل أصل من الماسح يُفحص كاملًا قبل أي كتابة؛ القرص الممتلئ ← 503
+    if (docs.length && app.media) {
+      if (app.media.diskLow()) throw app.media.diskLowError();
+      app.media.checkAttachments(docs, { surface: 'portal' });
+    }
     return docs;
   };
 
@@ -1083,7 +1099,7 @@ export function createPortalV91(app, { scopeOf, inList }) {
           vars: { ...vars, matter_code: e.matter_code, time: spokenTime(e.starts_at) },
           reminder: 'day_before',
           event_id: e.id,
-          wa: { type: 'buttons', text: body, buttons: tone !== 'charity' ? [{ id: `evt:${e.id}:yes`, title: 'سأحضر' }, { id: `evt:${e.id}:no`, title: 'لن أتمكن' }] : [{ id: `evt:${e.id}:yes`, title: 'هحضر' }, { id: `evt:${e.id}:no`, title: 'مش هقدر' }] },
+          wa: { type: 'buttons', text: body, buttons: tone !== 'charity' ? [{ id: `evt:${e.id}:yes`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.yes_paid }, { id: `evt:${e.id}:no`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.no_paid }] : [{ id: `evt:${e.id}:yes`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.yes }, { id: `evt:${e.id}:no`, title: WA_BUTTON_TEXTS.hearing_reply_buttons.no }] },
         },
       });
       // رقم غير مؤكد (B91-01): لا يصل الرقم شيء، والتخطي يُسجَّل مرة واحدة

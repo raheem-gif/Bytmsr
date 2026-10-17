@@ -398,7 +398,7 @@ describe('v11 gate (staff) — J-20 ?new=1&name=&phone= opens a prefilled «إض
     assert.match(src, /const prefill = companyPrefill\(ctx\.query\);/);
     assert.match(src, /if \(isAdmin\) openCreateCompany\(ctx, \{ onCreated: load, prefill \}\);/);
     assert.match(src, /#\/companies`\);/);
-    assert.match(src, /\{ values: \{ name: prefill\?\.name \|\| '' \}, footer: false \}/);
+    assert.match(src, /\{ values: \{ name: prefill\?\.name \|\| '' \}, footer: false(?:, tag: '[A-Z]{1,3}-\d{2,3}')? \}/); // v12 tags: intended (TG-6، T12-90: the form takes its code)
     assert.match(src, /fa_phone: prefill\?\.phone \|\| ''/);
     // the request page link carries exactly these keys
     assert.match(read(`${APP}pages/admin/intake-detail.js`), /new URLSearchParams\(\{ new: '1', name: requester\.company_name \|\| '', phone:/);
@@ -422,7 +422,8 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('clientNoun / pronounOf', () => {
     assert.deepEqual(SEG.clientNoun('charity'), { def: 'المستفيد/ة', li: 'للمستفيد/ة', bi: 'بالمستفيد/ة', bare: 'مستفيد/ة', acc: 'مستفيدًا' });
     assert.equal(SEG.clientNoun(null).def, 'المستفيد/ة', '«غير محدد» keeps the pre-11 wording');
-    assert.deepEqual(SEG.clientNoun('paid'), { def: 'العميل/ة', li: 'للعميل/ة', bi: 'بالعميل/ة', bare: 'عميل/ة', acc: 'عميلًا' });
+    // v12 gate (V-08/JR-06, intended): «صاحب الطلب» بلا «/ة» للأفراد والشركات (كان «العميل/ة»)
+    assert.deepEqual(SEG.clientNoun('paid'), { def: 'صاحب الطلب', li: 'لصاحب الطلب', bi: 'بصاحب الطلب', bare: 'صاحب طلب', acc: 'صاحبَ طلب' });
     assert.equal(SEG.clientNoun('paid', { company: true }).def, 'الشركة');
     assert.equal(SEG.pronounOf('f'), 'ها');
     assert.equal(SEG.pronounOf('m'), 'ه');
@@ -460,9 +461,10 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('the case composer label and auto channel follow the noun', async () => {
     const CD = await import('../public/assets/js/app/pages/admin/case-detail.js');
     const paid = CD.messageComposer({ onSend() {}, noun: SEG.clientNoun('paid') });
-    assert.match(text(paid), /رسالة جديدة للعميل\/ة/);
-    assert.equal(paid.querySelector('textarea').attrs.placeholder ?? paid.querySelector('textarea').placeholder, 'اكتب رسالة للعميل/ة…');
-    assert.ok(paid.querySelectorAll('option').map(text).includes('تلقائي — آخر قناة تواصل منها العميل/ة'));
+    // v12 gate (V-08/JR-06, intended): «صاحب الطلب» بدل «العميل/ة»
+    assert.match(text(paid), /رسالة جديدة لصاحب الطلب/);
+    assert.equal(paid.querySelector('textarea').attrs.placeholder ?? paid.querySelector('textarea').placeholder, 'اكتب رسالة لصاحب الطلب…');
+    assert.ok(paid.querySelectorAll('option').map(text).includes('تلقائي — آخر قناة تواصل منها صاحب الطلب'));
     const charity = CD.messageComposer({ onSend() {} });
     assert.match(text(charity), /رسالة جديدة للمستفيد\/ة/);
   });
@@ -470,7 +472,7 @@ describe('v11 gate (staff) — J-13/V13 the client noun follows the segment (sta
   test('a paid case’s outcome card and close dialog say «العميل/ة» and that the impact report is charity-only', async () => {
     const O = await import('../public/assets/js/app/components/outcome.js');
     const [paidKind] = O.outcomeFields({ paid: true });
-    assert.equal(paidKind.label, 'الأثر المتحقق للعميل/ة');
+    assert.equal(paidKind.label, 'الأثر المتحقق لصاحب الطلب'); // v12 gate (JR-06, intended)
     assert.equal(paidKind.hint, 'لا يدخل تقرير الأثر ما دام الملف بأتعاب — التقرير يخص الخدمة الخيرية فقط.');
     const [charityKind] = O.outcomeFields();
     assert.equal(charityKind.label, 'الأثر المتحقق للمستفيد');
@@ -540,7 +542,7 @@ describe('v11 gate (staff) — J-12/V6 inbox and request header', () => {
     assert.doesNotMatch(hdr, /codeTag\(it\.code\)/);
     assert.doesNotMatch(hdr, /label\('intake_kind', it\.kind\)|areaLabel\(it\.legal_area\)/);
     assert.doesNotMatch(hdr, /button\('رجوع'/);
-    assert.match(hdr, /\{ label: 'صندوق الوارد', href: '#\/inbox' \}/);
+    assert.match(hdr, /\{ label: 'صندوق الوارد', href: '#\/inbox'(?:, tag: 'RQT-\d+')? \}/); // v12 tags: intended (TG-6, T12-17: breadcrumbs[].tag)
   });
 
   test('a nav group that shows a count is never auto-collapsed (sidebar «طلبات الشركات 2»)', () => {

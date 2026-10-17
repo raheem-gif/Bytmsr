@@ -128,6 +128,16 @@ function forHer(s, orgPhone) {
     });
   return tidy(t);
 }
+/** v12 gate fixer-server (JR-02): طلب من الشجرة أجاب بما يدل على موعد قريب (form_answers.inferred.urgent_hint، public.js) */
+function treeUrgent(intake) {
+  try {
+    const f = JSON.parse(intake?.form_answers || 'null');
+    return !!(f && (f.entry === 'tree' || f.pathway?.path) && f.inferred?.urgent_hint === true);
+  } catch {
+    return false;
+  }
+}
+
 const clipOrNull = (x, n) => (x === null || x === undefined || String(x).trim() === '' ? null : clip(x, n));
 
 /**
@@ -250,7 +260,10 @@ export function createAi(app) {
 
   let cfg = readConfig();
   let anthropic = null;
+  // v12 media (MD-10): مزوّد لنموذج قراءة المستندات حين يختلف عن نموذج التكامل (ocr_model)
+  const ocrProviders = new Map();
   function build() {
+    ocrProviders.clear();
     anthropic =
       cfg.mode !== 'heuristic' && cfg.apiKey
         ? createAnthropicProvider({
@@ -685,11 +698,13 @@ export function createAi(app) {
   }
 
   // ───────────── تحليل المستندات ─────────────
+  // v12 media (L12-61): يُقرأ الملف المعروض (النسخة المحسّنة أو الأصل حسب display_file_id) ونوعه؛ PDF متعدد الصفحات كاملًا
   function readDocument(doc) {
+    const f = app.documents.displayFile ? app.documents.displayFile(doc) : { storage_key: doc.storage_key, mime: doc.mime };
     const root = path.resolve(config.uploadsDir);
-    const abs = path.resolve(root, doc.storage_key);
+    const abs = path.resolve(root, f.storage_key);
     if (!abs.startsWith(root + path.sep)) return null;
-    return fs.readFileSync(abs);
+    return { buffer: fs.readFileSync(abs), mime: f.mime };
   }
 
   function normalizeDocResult(o) {
@@ -812,6 +827,8 @@ export function createAi(app) {
     const o = output;
     const d = o.request_draft && typeof o.request_draft === 'object' ? { ...o.request_draft } : null;
     if (!d) return o;
+    // v12 gate fixer-server (JR-05): سؤال المحامي لطلب أفراد وشركات (أو غير محدد) بلا «المستفيدة» — «صاحب الطلب»
+    if (typeof d.brief_for_lawyer === 'string') d.brief_for_lawyer = d.brief_for_lawyer.replace(/(?:لل|ال)مستفيد(?:ة|ه)?(?:\/ة)?/gu, (m) => (m.startsWith('لل') ? 'لصاحب الطلب' : 'صاحب الطلب'));
     const forPaid = (r) => Array.isArray(r?.segments) && r.segments.includes('paid');
     const charityNames = (Array.isArray(ctxReferrals) ? ctxReferrals : []).filter((r) => !forPaid(r)).map((r) => String(r?.label || '').trim()).filter((x) => x.length >= 3);
     const charityWords = (t) => !!t && (PAID_BANNED_RE.test(String(t)) || charityNames.some((nm) => String(t).includes(nm)));
@@ -907,6 +924,50 @@ export function createAi(app) {
 
     checkBudget,
 
+    /**
+     * v12 media (MD-10، L12-19): هل تسمح الميزانية بقراءة pages صفحة بـ Claude؟ التقدير قبل الاستدعاء = الصفحات × (3.5K رمز
+     * إدخال + 1.5K إخراج) بسعر النموذج، ويجب أن يتسع في المتبقي من السقف الشهري وفي حصة القراءة منه (ocr_claude_budget_pct).
+     * → { ok, reason?: 'ai_off' | 'budget' | 'budget_share', model, estimate_usd }
+     */
+    ocrAllowance({ pages = 1, model = null } = {}) {
+      const a = active();
+      const m = String(model || cfg.model);
+      if (!a.provider) return { ok: false, reason: a.budget ? 'budget' : 'ai_off', model: m };
+      const n = Math.max(1, Number(pages) || 1);
+      const est = estimateCostMicroUsd(m, { input_tokens: 3500 * n, output_tokens: 1500 * n });
+      if (cfg.budgetUsd) {
+        const limitM = Math.round(cfg.budgetUsd * 1e6);
+        const period = periodOf(nowIso());
+        if (spentMicro(period) + est > limitM) return { ok: false, reason: 'budget', model: m };
+        const raw = Number(app.settings.get('ocr_claude_budget_pct'));
+        const pct = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 20;
+        const ocrSpent = Number(db.value("SELECT COALESCE(SUM(cost_micro_usd), 0) FROM ai_usage WHERE period = ? AND feature = 'document_ocr' AND provider = 'anthropic'", period)) || 0;
+        if (ocrSpent + est > Math.floor((limitM * pct) / 100)) return { ok: false, reason: 'budget_share', model: m };
+      }
+      return { ok: true, model: m, estimate_usd: est / 1e6 };
+    },
+
+    /**
+     * v12 media (MD-10): نص صفحة واحدة بـ Claude من صورتها (لا PDF أبدًا). يُسجَّل في ai_usage بالوظيفة document_ocr.
+     * يرمي AiUnavailable (ai_off / budget / budget_share / unsupported / خطأ الخدمة) فيعود media.js إلى Tesseract.
+     */
+    async ocrPage({ buffer, mime, page = 1, model = null, documentId = null } = {}) {
+      const allow = svc.ocrAllowance({ pages: 1, model });
+      if (!allow.ok) throw new AiUnavailable(allow.reason, allow.reason);
+      const { block, reason } = documentBlockFor({ mime, buffer });
+      if (!block || block.type !== 'image') throw new AiUnavailable(reason || 'unsupported', 'unsupported');
+      let prov = anthropic;
+      if (allow.model !== cfg.model) {
+        prov = ocrProviders.get(allow.model);
+        if (!prov) {
+          prov = createAnthropicProvider({ apiKey: cfg.apiKey, model: allow.model, effort: 'low', log: app.log, orgName: () => app.brand.displayName(), onUsage: (rec) => recordUsage(rec) });
+          ocrProviders.set(allow.model, prov);
+        }
+      }
+      const out = await prov.ocrPage({ block, page }, { feature: 'document_ocr', entity_type: 'document', entity_id: documentId });
+      return { text: String(out.text || ''), legible: out.legible !== false, language: out.language || null, model: out._model || allow.model };
+    },
+
     /** لوحة الاستهلاك: تكلفة الشهر، الاستدعاءات حسب الوظيفة والنموذج، الأخطاء، والاتجاه الشهري */
     usage({ period } = {}) {
       const p = isValidPeriod(period) ? period : periodOf(nowIso());
@@ -937,7 +998,16 @@ export function createAi(app) {
       const totals = norm(db.get(`SELECT ${agg} FROM ai_usage WHERE period = ?`, p));
       const byFeature = db
         .all(`SELECT feature, ${agg} FROM ai_usage WHERE period = ? GROUP BY feature ORDER BY cost_micro DESC, calls DESC`, p)
-        .map((r) => ({ feature: r.feature, label: LABELS.ai_feature?.[r.feature] || r.feature, ...norm(r) }));
+        .map((r) => ({ feature: r.feature, label: LABELS.ai_feature?.[r.feature] || (r.feature === 'document_ocr' ? 'قراءة نص المستندات' : r.feature), ...norm(r) }));
+      // v12 media (MD-6): سطر «تحويل الصوت» من media_usage (ميزانيته منفصلة في تكامل تحويل الصوت، فلا يدخل في المجموع)
+      try {
+        const st = db.get("SELECT COUNT(*) AS calls, SUM(ok = 0) AS errors, COALESCE(SUM(cost_micro_usd), 0) AS cost_micro, COALESCE(SUM(seconds), 0) AS seconds FROM media_usage WHERE period = ? AND kind = 'stt'", p);
+        if (Number(st?.calls) > 0) {
+          byFeature.push({ ...norm({ calls: st.calls, errors: st.errors, cost_micro: st.cost_micro }), feature: 'stt', label: 'تحويل الصوت', separate_budget: true, seconds: Number(st.seconds) || 0 });
+        }
+      } catch (e) {
+        app.log('stt usage line failed', e);
+      }
       const byModel = db
         .all(`SELECT model, ${agg} FROM ai_usage WHERE period = ? AND provider = 'anthropic' GROUP BY model ORDER BY cost_micro DESC`, p)
         .map((r) => ({ model: r.model, ...norm(r) }));
@@ -1208,6 +1278,8 @@ export function createAi(app) {
       const aiHint = result.provider === 'anthropic' ? result.output?.segment_hint : null;
       if (result.output) delete result.output.segment_hint;
       result.output = forAudience(norm(result.output), audience, ctx.referrals);
+      // v12 gate fixer-server (JR-02): علامة الاستعجال من أسئلة الشجرة تبقى «عالية» على الأقل (المحلل لا يخفضها)
+      if (treeUrgent(intake) && !['high', 'urgent'].includes(result.output.urgency)) result.output.urgency = 'high';
       result.output.similar = svc.similar(st.clientText, { scope: 'staff', limit: 10, area: result.output.legal_area });
       // v11 segment-server (S11-30، r2 S14): الاقتراح يُحفظ في segment_hint فقط ولا يلمس segment أبدًا
       const segHint = refreshHint(intakeId, audience, aiHint, st.clientText);
@@ -1230,7 +1302,7 @@ export function createAi(app) {
             intake_id: intakeId,
             actor: { kind: 'ai' },
             type: 'ai.similar_alert',
-            summary: `هذا الطلب يشبه ${arabicCount(similarCount, AR_UNITS.similar)} تعاملت معها المؤسسة من قبل`,
+            summary: `هذا الطلب يشبه ${arabicCount(similarCount, AR_UNITS.similar)} تعاملنا معها من قبل`, // v12 gate (JR-06): بلا «المؤسسة»
             data: { count: similarCount },
           });
           app.notifications.notifyStaff({
@@ -1487,12 +1559,15 @@ export function createAi(app) {
       if (a.provider) {
         // لا يُقرأ الملف ولا يُرسل إلا عند تفعيل Claude فعليًا
         let buffer = null;
+        let mime = doc.mime;
         try {
-          buffer = readDocument(doc);
+          const f = readDocument(doc);
+          buffer = f ? f.buffer : null;
+          if (f) mime = f.mime;
         } catch {
           buffer = null;
         }
-        ({ block, reason: blockReason = null } = documentBlockFor({ mime: doc.mime, buffer }));
+        ({ block, reason: blockReason = null } = documentBlockFor({ mime, buffer }));
       }
       if (a.provider && !block) {
         recordUsage({ ...meta, provider: 'heuristic', model: HEURISTIC_MODEL, ok: true, fallback: true, fallback_reason: blockReason });

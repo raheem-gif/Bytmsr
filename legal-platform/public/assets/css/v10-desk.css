@@ -10,19 +10,12 @@
 .cq-list { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .cq-group { display: flex; flex-direction: column; gap: 10px; }
 .cq-group-title { display: flex; align-items: center; gap: 8px; margin: 0; font: var(--t-headline); }
-.cq-group-count {
-  min-width: 26px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-700);
-  font: var(--t-footnote);
-  text-align: center;
-}
+/* v12 look (review, A21): plain counts */
+.cq-group-count { color: var(--ink-3); font: var(--t-footnote); font-variant-numeric: tabular-nums; }
 .cq-group-escalated .cq-group-count,
 .cq-group-late .cq-group-count,
-.cq-group-plan_error .cq-group-count { background: var(--danger-100); color: var(--danger-700); }
-.cq-group-at_risk .cq-group-count { background: var(--warning-100); color: var(--warning-700); }
+.cq-group-plan_error .cq-group-count { color: var(--bad); }
+.cq-group-at_risk .cq-group-count { color: var(--warn); }
 .cq-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; }
 .cq-card {
   display: flex;
@@ -131,6 +124,8 @@
 .cr-doc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 36px; }
 .cr-doc-name { font-weight: 600; overflow-wrap: anywhere; }
 .cr-doc-meta { color: var(--text-muted); font: var(--t-caption); }
+/* gate JR-04: name + meta, and the DOC-16 line under them; «عرض» and «تحليل» follow */
+.cr-doc-text { flex: 1 1 12rem; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
 .cr-msgs { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .cr-msg { max-width: min(680px, 92%); padding: 10px 14px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); }
 .cr-msg p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -467,4 +462,143 @@ tr.is-voided > td { color: var(--text-muted); }
   .cr-banner { flex-wrap: wrap; }
   .cs-time { flex-wrap: wrap; max-width: 100%; }
   .cs-time .input { width: 100%; }
+}
+
+/* ───────────── v12 look (LK-2، K12-33/57/32): غلاف /app — القائمة الجانبية والشريط العلوي والعناوين والأقسام ─────────────
+   نُقلت من v11-ui.css (الورقة التي تحمّلها /company أيضًا) لأن /app وحده يستعملها؛ بعدها لا يأتي ما يخالفها
+   (v11-ui.css وv11-segment.css وv12-look.css لا تعرّف هذه الأصناف). رموز فقط. */
+@media screen {
+  .page-title { font: var(--d2); color: var(--ink); }
+  /* عنوان سجلّ (طلب، عميل، ملف) أو تحية فيها اسم: خط الواجهة لا وجه العناوين (L12-13 ب).
+     v12 gate (V-11): قائمة سماح صريحة (pageHeader({ record: true }) ← .is-record) بدل «للصفحة مسار تنقل»، فكل عنوان ثابت
+     (الملفات، الإعدادات، التحليلات…) بوجه العناوين في /app كما في /company */
+  .page-header.is-record .page-title,
+  .lc-head.is-record .page-title,
+  .pa-page-dashboard .page-title { font: 600 26px/1.4 var(--f-ui); }
+  .app-shell .card { background: none; border-block-start: 1px solid var(--rule-2); }
+  .app-shell .card:has(> .card-header) { border-block-start: 0; }
+  .app-shell .card-header { padding: 0 0 10px; border-block-end: 1px solid var(--ink); }
+  .app-shell .card-body { padding: 16px 0 4px; }
+  .app-shell .card-footer { padding-inline: 0; }
+  .app-shell .card-icon { display: none; }
+  .app-shell .empty-state { align-items: flex-start; padding-block: 32px; border-block: 1px solid var(--rule); text-align: start; }
+  /* V11-45 */
+  /* K12-33: قائمة نصية على العاجي بخط نهاية رفيع؛ العلامة واسم المنصة؛ صفوف 40px بلا أيقونات؛ الصفحة الحالية صف أبيض بخط
+     بداية 2px (في v12-look.css)؛ الأعداد أرقام هادئة، وعدد «طلبات الشركات» بلون الفعل */
+  .sidebar { background: var(--paper-2); color: var(--ink); border-inline-end: 1px solid var(--rule); }
+  .brand { flex-direction: column; align-items: flex-start; gap: 8px; padding: 22px 20px 14px; border-block-end: 0; }
+  .brand-name { color: var(--ink); }
+  .brand-sub { color: var(--ink-2); font: var(--t-label); }
+  .nav { scrollbar-color: var(--rule-2) transparent; }
+  .nav-group-title { min-height: 36px; color: var(--ink-3); font: var(--t-label); padding-inline: 10px; }
+  .nav-link { min-height: 40px; padding: 4px 10px; border-radius: 0; color: var(--ink-2); font: var(--t-ui); }
+  .nav-link .icon { display: none; }
+  .nav-link:hover { background: var(--paper-3); color: var(--ink); }
+  .nav-link.is-active::before { content: none; }
+  .nav-link:focus-visible { outline-color: var(--act); }
+  .nav-count { min-width: 0; padding: 0; background: none; color: var(--ink-3); font: var(--t-num); font-variant-numeric: tabular-nums; }
+  .nav-link[data-path="/company-requests"] .nav-count { color: var(--act); font-weight: 600; }
+  .sidebar-footer { border-block-start-color: var(--rule); color: var(--ink-2); font: var(--t-num); }
+  .topbar { gap: 10px; background: var(--paper); -webkit-backdrop-filter: none; backdrop-filter: none; border-block-end-color: var(--rule); }
+  .topbar-title { font: var(--t-headline); }
+  .user-chip .avatar { display: none; }
+  .user-meta { flex-direction: row; align-items: baseline; gap: 6px; }
+  .user-role::before { content: "· "; }
+  @media (min-width: 1025px) { .icon-btn.v9p-search-trigger { background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule-2); } }
+  .icon-btn.v9p-search-trigger { background: none; }
+  @supports (animation-timeline: scroll()) {
+    .app-shell:not(.is-lawyer):has(.page-header) .topbar-title { opacity: 0; animation: v11-bar-title linear both; animation-timeline: scroll(root); animation-range: 40px 88px; }
+  }
+  @keyframes v11-bar-title { from { opacity: 0; } to { opacity: 1; } }
+  .user-name { font-size: 15px; }
+  .user-role { font-size: 14px; color: var(--ink-2); }
+  .page-header { gap: 4px; margin-block-end: 6px; }
+  .page-header-row { align-items: flex-end; }
+  .breadcrumbs [aria-current="page"] { color: var(--label-2); }
+}
+
+/* v12 look (LK-2): الهاتف (L12-83) — «القائمة» كلمة والعلامة بجانبها، والبحث والجرس؛ الأيقونات للتنقل وحده (K12-37)؛
+   الأرقام جدول بخطوط (K12-35)؛ صفحات النماذج (الإعدادات وأمثالها) أقسام بعنوان معلّق من 900px (K12-26)؛ الملاحظة (K12-29) */
+@media screen {
+  .topbar-mark { display: none; }
+  .app-shell .btn:has(> .btn-label) > .icon:not(.icon-dir),
+  .app-shell :is(.pa-ai-inline, .pa-ai-mark, .cs-ai-note) .icon-sparkle { display: none; }
+  .app-shell .stat-card { padding: 14px 0; background: none; border: 0; border-block-start: 1px solid var(--rule-2); border-radius: 0; box-shadow: none; }
+  .app-shell .stat-icon { display: none; }
+  .app-shell .stat-label { color: var(--ink-2); font: var(--t-small); }
+  .app-shell .stat-value { color: var(--ink); font: 600 28px/1.25 var(--f-ui); font-variant-numeric: tabular-nums; }
+  .app-shell :is(a, button).stat-card:hover { background: var(--paper-2); border-color: var(--rule-2); box-shadow: none; transform: none; }
+  .app-shell .alert { border: 0; border-inline-start: 2px solid currentColor; border-radius: 0; background: var(--paper-2); }
+  @media (max-width: 1024px) {
+    .topbar-mark { display: inline-flex; flex: none; align-items: center; min-height: 44px; }
+    .topbar-mark .brand-logo { height: 18px; }
+    .topbar .topbar-menu--word:not(.lh-back) { width: auto; padding-inline: 6px; color: var(--ink); font: 600 15px/1 var(--f-ui); }
+    .is-lawyer .topbar-mark { display: none; }
+  }
+  @media (min-width: 900px) {
+    .app-shell .page > .card:has(> .card-body > .form) { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 48px; padding-block-start: 20px; border-block-start: 1px solid var(--rule-2); }
+    .app-shell .page > .card:has(> .card-body > .form) > .card-header { display: block; padding: 0; border: 0; }
+    .app-shell .page > .card:has(> .card-body > .form) > :not(.card-header) { grid-column: 2; }
+    .app-shell .page > .card:has(> .card-body > .form) > .card-body { padding: 0; }
+  }
+}
+
+/* v12 gate (staff r2): staff-only rules moved here from v12-look.css so /company does not load them (its 30,000 B br
+   budget); /app links this sheet, /company does not. Checked by computed-style diff at 390/1366. */
+@media screen {
+  /* gate K-S5: «نوع الطلب: …؟» + «تأكيد النوع» — gaps wider than the link's 12/6 px hit area, so a tap on the words never
+     confirms the type when the two wrap onto two lines */
+  .line-suggest { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 12px; }
+
+  /* gate K-S4: the inbox filter row (search + five selects) stays one row from 1200 px like the approved prototype;
+     selects take their words' width instead of a fixed 170 px, the search takes the rest */
+  @media (min-width: 1200px) {
+    .pa-filters-desk .filter-bar { flex-wrap: nowrap; }
+    .pa-filters-desk .filter-bar .search-input { flex: 1 1 220px; min-width: 200px; }
+    .pa-filters-desk .filter-bar .select-wrap { flex: 0 1 136px; min-width: 118px; }
+  }
+
+  /* gate K-S1 (L12-59): DOC-16 «نسخة محسّنة آليًا · الأصل محفوظ» under a document name in staff lists */
+  .doc-variant-slot { display: block; margin-top: 2px; color: var(--ink-3); font: var(--t-small); }
+  .doc-variant-slot[hidden] { display: none; }
+  .cr-doc-text .doc-variant-slot { flex-basis: 100%; }
+
+  /* gate V-12/JR-13: below 600 px the staff bar keeps «القائمة», the mark, search and the bell; the title squeezed to «الـ…»
+     (31 px) is dropped there because every staff page shows the same words in its own h1 */
+  @media (max-width: 599px) {
+    .app-shell:not(.is-lawyer) .topbar-title { display: none; }
+    .app-shell:not(.is-lawyer) .topbar-actions { margin-inline-start: auto; }
+  }
+
+  /* gate V-25 (K12-28/37): staff tools without icon circles or rounded cards — system checks are ruled rows with a state
+     dot and word, the simulator steps a plain numbered list, document rows a plain file glyph (no tinted square) */
+  .pf-checks { gap: 0; }
+  .pf-check, .pf-check.is-danger, .pf-check.is-warning { padding: 10px 0; border-radius: 0; background: none; border-block-end: 1px solid var(--rule); }
+  .pf-check-state { flex: none; min-width: 64px; padding-block-start: 2px; }
+  .pa-step-n { width: auto; height: auto; min-width: 1.6em; border-radius: 0; background: none; color: var(--ink-3); font: var(--t-num); place-items: start; }
+  .pc-doc-icon { width: auto; height: auto; border-radius: 0; background: none; color: var(--ink-3); }
+
+  /* gate V-27: integrations key/value rows — the label keeps a 160-px column (was ~60 px beside a wide env-name chip), the
+     source and env-name go under the value, and long values (model ids, URLs) wrap inside their chip instead of clipping */
+  @media (min-width: 641px) {
+    .pf-field { grid-template-columns: minmax(160px, 40%) minmax(0, 1fr); }
+    .pf-field-meta { grid-column: 2; justify-content: flex-start; }
+  }
+  .pf-page .pf-field-value .code-tag, .pf-page .pf-field-value .code-tag.pf-nowrap, .pf-page .pf-field-meta .code-tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+
+  /* gate V-24: the sidebar version line at full opacity in ink-2 and 13 px (was 11 px at 0.75 = 4.0:1 on ivory) */
+  .sidebar-version { opacity: 1; color: var(--ink-2); font-size: 13px; }
+
+  /* gate V-15 (K12-34): phone inbox rows — one bordered action, the rest action words; «فتح الطلب» hidden beside another
+     action (the name opens the request); the name link and the filter chips keep a 44-px hit area; the two scrollers keep
+     28 px of end padding so the last chip scrolls clear of the edge (no gradient fade: K12 d); the AI «اقتراح» mark is a word, not a grey pill */
+  /* (the «اقتراح» word rule stays in v12-look.css: it must follow v11-segment.css's pill rule of equal specificity) */
+  @media (max-width: 599px) {
+    .pa-story-actions .btn.is-phone-dup { display: none; }
+    .pa-story-actions .btn:not(.btn--line) { padding-inline: 2px; border-color: transparent; }
+    .pa-story-name { min-height: 44px; }
+    .pa-story-filters { padding-block: 4px; }
+    /* the 5+ tab row scrolls (v11-ui .segmented:has(> .seg:nth-child(5)) sets padding: 0, 0-3-0), hence the same :has() here */
+    .pa-story-filters, .scope-tabs, .segmented.pa-tabs:has(> .seg:nth-child(5)) { padding-inline-end: 28px; }
+  }
 }

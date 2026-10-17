@@ -70,11 +70,12 @@ describe('v10 b2b-staff — routes, navigation and notification icons (STF-0)', 
   });
 
   test('«خدمة الشركات» sits right after «التشغيل اليومي» for staff, never for lawyers', () => {
+    // v12 look: intended (LK-2, K12-33/K12-57): the groups are renamed «اليوم · الشركات · المكتب» (+ «النظام»); same order
     for (const role of ['admin', 'case_manager']) {
       const groups = navGroups({ role }, { demo: true });
-      const i = groups.findIndex((g) => g.title === 'خدمة الشركات');
+      const i = groups.findIndex((g) => g.title === 'الشركات');
       assert.equal(i, 1, `${role}: group position`);
-      assert.equal(groups[0].title, 'التشغيل اليومي');
+      assert.equal(groups[0].title, 'اليوم');
       assert.deepEqual(groups[i].items.map((x) => [x.href, x.icon, x.label]), [
         ['/company-requests', 'inboxStack', 'طلبات الشركات'],
         ['/companies', 'building', 'الشركات العميلة'],
@@ -82,7 +83,7 @@ describe('v10 b2b-staff — routes, navigation and notification icons (STF-0)', 
       assert.equal(groups[i].items[0].coBadge, true, 'badge on «طلبات الشركات»');
     }
     const lawyer = navGroups({ role: 'lawyer' }, {});
-    assert.ok(!lawyer.some((g) => g.title === 'خدمة الشركات'));
+    assert.ok(!lawyer.some((g) => g.title === 'الشركات')); // v12 look: intended (LK-2): renamed group
     assert.ok(!lawyer.flatMap((g) => g.items).some((x) => /company|companies/.test(x.href)));
   });
 
@@ -460,7 +461,7 @@ describe('v10 b2b-staff — companies, company page, settings and e-mail (STF-7 
     assert.ok(email.includes("'إرسال رسالة تجربة إلى بريدي'"));
     assert.match(email, /api\.post\('\/admin\/integrations\/email\/test', \{\}\)/);
     assert.match(read(`${APP}pages/admin/integrations.js`), /item\.name === 'email' \? emailSettingsCard\(item, data, \{ reload: load, companies \}\)/);
-    assert.match(read(`${APP}pages/admin/automations.js`), /isAdmin \? \{ key: 'email', label: 'صادر البريد', icon: 'mail', render: \(\) => emailOutboxPanel\(\) \} : null/);
+    assert.match(read(`${APP}pages/admin/automations.js`), /isAdmin \? \{ key: 'email', label: 'صادر البريد', icon: 'mail', render: \(\) => emailOutboxPanel\(\)(?:, tag: '[A-Z]{1,3}-\d{2,3}')? \} : null/); // v12 tags: intended (TG-6، T12-90: each tab takes its code)
   });
 
   test('every new staff sheet with text fields asks before a gesture closes it (L-64; §9.3-10)', () => {
@@ -537,7 +538,8 @@ describe('v10 b2b-staff — lawyers and company work (STF-11)', () => {
     assert.ok(!b2c.sub.some((x) => x && x.chip));
     assert.deepEqual(companyParts({ company: false }), []);
     const home = read(`${LAWYER}home.js`);
-    assert.match(home, /p\.chip\) out\.push\(h\('span\.lh-co-chip', p\.chip\)\)/);
+    // v12 gate (V-26, intended): the parts render through subPart() (shared by the wrapping and the one-line sub line)
+    assert.match(home, /p\.chip\) return h\('span\.lh-co-chip', p\.chip\)/);
     const list = read(`${LAWYER}assignments.js`);
     assert.ok(list.includes("'طلبات الشركات'"));
     assert.ok(list.includes("h('span.lh-co-chip', 'شركة')"));

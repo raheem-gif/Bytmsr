@@ -26,44 +26,44 @@ export const TERMS_URL_HINT = 'يظهر في صفحة قبول الدعوة. ا�
 const INHERIT = 'نفس مواعيد العمل العامة';
 const OVERRIDE = 'مواعيد مختلفة للشركات';
 const NUMBER_FIELDS = [
-  ['b2b_auto_close_days', 'إغلاق تلقائي بعد التسليم (أيام)', 1, 60],
-  ['b2b_revision_window_days', 'مهلة طلب التعديلات (أيام)', 1, 365],
-  ['b2b_reminder_after_hours', 'تذكير الشركة بعد (ساعات عمل)', 1, 240],
-  ['b2b_max_reminders', 'عدد التذكيرات', 0, 10],
-  ['b2b_quote_valid_days', 'صلاحية عرض السعر (أيام)', 1, 90],
-  ['b2b_trial_days', 'الفترة التجريبية (أيام)', 1, 120],
-  ['b2b_ended_readonly_days', 'الاطلاع بعد انتهاء الاشتراك (أيام)', 0, 365],
+  ['b2b_auto_close_days', 'إغلاق تلقائي بعد التسليم (أيام)', 1, 60, { tag: 'SET-319' }],
+  ['b2b_revision_window_days', 'مهلة طلب التعديلات (أيام)', 1, 365, { tag: 'SET-320' }],
+  ['b2b_reminder_after_hours', 'تذكير الشركة بعد (ساعات عمل)', 1, 240, { tag: 'SET-321' }],
+  ['b2b_max_reminders', 'عدد التذكيرات', 0, 10, { tag: 'SET-322' }],
+  ['b2b_quote_valid_days', 'صلاحية عرض السعر (أيام)', 1, 90, { tag: 'SET-323' }],
+  ['b2b_trial_days', 'الفترة التجريبية (أيام)', 1, 120, { tag: 'SET-324' }],
+  ['b2b_ended_readonly_days', 'الاطلاع بعد انتهاء الاشتراك (أيام)', 0, 365, { tag: 'SET-325' }],
 ];
 const LIMIT_FIELDS = [
-  ['b2b_storage_mb', 'المساحة المتاحة لكل شركة (ميجابايت)', 50, 102400],
-  ['b2b_files_per_day', 'الملفات في اليوم لكل شركة', 10, 10000],
-  ['company_session_idle_hours', 'الخروج بعد خمول (ساعات)', 1, 72],
-  ['company_session_max_hours', 'أقصى مدة للجلسة (ساعات)', 1, 720],
-  ['company_invite_valid_hours', 'صلاحية رابط الدعوة (ساعات)', 1, 336],
-  ['company_reset_valid_minutes', 'صلاحية رابط تعيين كلمة المرور (دقائق)', 10, 1440],
-  ['company_email_max_per_hour', 'رسائل البريد في الساعة لكل مستخدم', 1, 200],
-  ['b2b_outbox_retention_days', 'الاحتفاظ بصادر البريد (أيام)', 7, 3650],
-  ['b2b_notifications_retention_days', 'الاحتفاظ بالإشعارات المقروءة (أيام)', 30, 3650],
+  ['b2b_storage_mb', 'المساحة المتاحة لكل شركة (ميجابايت)', 50, 102400, { tag: 'SET-326' }],
+  ['b2b_files_per_day', 'الملفات في اليوم لكل شركة', 10, 10000, { tag: 'SET-327' }],
+  ['company_session_idle_hours', 'الخروج بعد خمول (ساعات)', 1, 72, { tag: 'SET-328' }],
+  ['company_session_max_hours', 'أقصى مدة للجلسة (ساعات)', 1, 720, { tag: 'SET-329' }],
+  ['company_invite_valid_hours', 'صلاحية رابط الدعوة (ساعات)', 1, 336, { tag: 'SET-330' }],
+  ['company_reset_valid_minutes', 'صلاحية رابط تعيين كلمة المرور (دقائق)', 10, 1440, { tag: 'SET-331' }],
+  ['company_email_max_per_hour', 'رسائل البريد في الساعة لكل مستخدم', 1, 200, { tag: 'SET-332' }],
+  ['b2b_outbox_retention_days', 'الاحتفاظ بصادر البريد (أيام)', 7, 3650, { tag: 'SET-333' }],
+  ['b2b_notifications_retention_days', 'الاحتفاظ بالإشعارات المقروءة (أيام)', 30, 3650, { tag: 'SET-334' }],
 ];
 const REMIND_KINDS = [
-  ['contract', 'العقود'],
-  ['licence', 'التراخيص'],
-  ['key_date', 'المواعيد المهمة'],
-  ['dispute', 'النزاعات'],
-  ['person', 'المفوَّضون'],
-  ['other', 'غيرها'],
+  ['contract', 'العقود', { tag: 'SET-335' }],
+  ['licence', 'التراخيص', { tag: 'SET-336' }],
+  ['key_date', 'المواعيد المهمة', { tag: 'SET-337' }],
+  ['dispute', 'النزاعات', { tag: 'SET-338' }],
+  ['person', 'المفوَّضون', { tag: 'SET-339' }],
+  ['other', 'غيرها', { tag: 'SET-340' }],
 ];
 
 /** محرر أيام وساعات: { el, get() → {days, from, to}, set(v), check() } */
 function hoursEditor(value, { allDayOption = false, label: aria = 'المواعيد' } = {}) {
   const v = value || { days: [6, 0, 1, 2, 3, 4], from: '10:00', to: '16:00' };
   const boxes = WEEK.map((w) => {
-    const cb = h('input', { type: 'checkbox', value: String(w.d), checked: v.days.includes(w.d) });
+    const cb = h('input', { type: 'checkbox', value: String(w.d), checked: v.days.includes(w.d), tag: 'SET-98' });
     return { w, cb, el: h('label.check.cs-day', cb, h('span', w.label)) };
   });
-  const allDay = allDayOption ? h('input', { type: 'checkbox', checked: v.from === '00:00' && v.to === '24:00' }) : null;
-  const from = h('input.input', { type: 'time', value: v.from === '24:00' ? '23:59' : v.from, 'aria-label': `${aria}: من`, dir: 'ltr' });
-  const to = h('input.input', { type: 'time', value: v.to === '24:00' ? '23:59' : v.to, 'aria-label': `${aria}: إلى`, dir: 'ltr' });
+  const allDay = allDayOption ? h('input', { type: 'checkbox', checked: v.from === '00:00' && v.to === '24:00', tag: 'SET-99' }) : null;
+  const from = h('input.input', { type: 'time', value: v.from === '24:00' ? '23:59' : v.from, 'aria-label': `${aria}: من`, dir: 'ltr', tag: 'SET-100' });
+  const to = h('input.input', { type: 'time', value: v.to === '24:00' ? '23:59' : v.to, 'aria-label': `${aria}: إلى`, dir: 'ltr', tag: 'SET-101' });
   const err = h('p.field-error', { hidden: true });
   const times = h('div.cs-times', h('label.cs-time', h('span', 'من'), from), h('label.cs-time', h('span', 'إلى'), to));
   const syncAll = () => {
@@ -103,6 +103,8 @@ export function b2bSettingsCard() {
     subtitle: 'مواعيد مستوى الخدمة وساعات الطلبات العاجلة وحدود الملفات وشروط الخدمة لبوابة الشركات. لا تراها الشركات إلا كنتائجها (المواعيد والوعود).',
     icon: 'building',
     body: host,
+    titleTag: 'SET-102',
+    tag: 'SET-103',
   });
   el.id = 'b2b';
   async function load() {
@@ -125,14 +127,14 @@ export function b2bSettingsCard() {
     } catch {
       officeText = '';
     }
-    const enabled = h('input', { type: 'checkbox', checked: val.b2b_enabled !== false });
-    const terms = form([{ name: 'b2b_terms_url', label: 'رابط شروط الخدمة للشركات', type: 'text', ltr: true, maxLength: 500, placeholder: 'https://', hint: TERMS_URL_HINT }], { values: val, footer: false, columns: 1 });
+    const enabled = h('input', { type: 'checkbox', checked: val.b2b_enabled !== false, tag: 'SET-104' });
+    const terms = form([{ name: 'b2b_terms_url', label: 'رابط شروط الخدمة للشركات', type: 'text', ltr: true, maxLength: 500, placeholder: 'https://', hint: TERMS_URL_HINT, tag: 'SET-270' }], { values: val, footer: false, columns: 1, tag: 'SET-271' });
     // مواعيد العمل لمستوى الخدمة (CO-11)
     let mode = val.b2b_business_hours ? 'override' : 'inherit';
     const bh = hoursEditor(val.b2b_business_hours || office, { label: 'مواعيد العمل للشركات' });
     const bhBox = h('div.cs-hours-box', bh.el);
     const modeRadio = (m, text, sub) =>
-      h('label.check.cs-radio', h('input', { type: 'radio', name: 'b2b-hours-mode', value: m, checked: mode === m, onChange: () => ((mode = m), (bhBox.hidden = mode !== 'override')) }), h('span', text, sub ? h('span.muted', ` — ${sub}`) : null));
+      h('label.check.cs-radio', h('input', { type: 'radio', name: 'b2b-hours-mode', value: m, checked: mode === m, onChange: () => ((mode = m), (bhBox.hidden = mode !== 'override')), tag: 'SET-105' }), h('span', text, sub ? h('span.muted', ` — ${sub}`) : null));
     bhBox.hidden = mode !== 'override';
     // ساعات الطلبات العاجلة (L-53)
     const uh = hoursEditor(val.b2b_urgent_hours, { allDayOption: true, label: 'ساعات الطلبات العاجلة' });
@@ -145,14 +147,14 @@ export function b2bSettingsCard() {
     // العطلات الرسمية (≤ 60)
     let holidays = [...(val.b2b_holidays || [])];
     const holHost = h('div');
-    const holInput = h('input.input', { type: 'date', dir: 'ltr', 'aria-label': 'تاريخ عطلة' });
+    const holInput = h('input.input', { type: 'date', dir: 'ltr', 'aria-label': 'تاريخ عطلة', tag: 'SET-106' });
     const drawHol = () =>
       mount(
         holHost,
         holidays.length
           ? h(
               'ul.cs-holidays',
-              holidays.map((d, i) => h('li.chip', h('bdi.num', { dir: 'ltr' }, d), h('button.chip-remove', { type: 'button', 'aria-label': `حذف ${d}`, onClick: () => ((holidays = holidays.filter((_, j) => j !== i)), drawHol()) }, icon('x', { size: 14 })))),
+              holidays.map((d, i) => h('li.chip', h('bdi.num', { dir: 'ltr' }, d), h('button.chip-remove', { type: 'button', 'aria-label': `حذف ${d}`, onClick: () => ((holidays = holidays.filter((_, j) => j !== i)), drawHol()), tag: 'SET-107' }, icon('x', { size: 14 })))),
             )
           : h('p.muted', 'لا عطلات مسجلة.'),
       );
@@ -169,19 +171,20 @@ export function b2bSettingsCard() {
         holInput.value = '';
         drawHol();
       },
+      tag: 'SET-108',
     });
     const follow = form(
-      NUMBER_FIELDS.map(([name, lbl, min, max]) => ({ name, label: lbl, type: 'number', integer: true, required: true, min, max })),
-      { values: val, footer: false },
+      NUMBER_FIELDS.map(([name, lbl, min, max, t]) => ({ name, label: lbl, type: 'number', integer: true, required: true, min, max, tag: t.tag })),
+      { values: val, footer: false, tag: 'SET-272' },
     );
     const limits = form(
-      LIMIT_FIELDS.map(([name, lbl, min, max]) => ({ name, label: lbl, type: 'number', integer: true, required: true, min, max })),
-      { values: val, footer: false },
+      LIMIT_FIELDS.map(([name, lbl, min, max, t]) => ({ name, label: lbl, type: 'number', integer: true, required: true, min, max, tag: t.tag })),
+      { values: val, footer: false, tag: 'SET-273' },
     );
     const remind = val.b2b_memory_remind_days || {};
     const remindForm = form(
-      REMIND_KINDS.map(([k, lbl]) => ({ name: `remind_${k}`, label: `تذكير ${lbl} قبل (أيام)`, ltr: true, maxLength: 40, placeholder: '60، 30، 7' })),
-      { values: Object.fromEntries(REMIND_KINDS.map(([k]) => [`remind_${k}`, (remind[k] || []).join('، ')])), footer: false },
+      REMIND_KINDS.map(([k, lbl, t]) => ({ name: `remind_${k}`, label: `تذكير ${lbl} قبل (أيام)`, ltr: true, maxLength: 40, placeholder: '60، 30، 7', tag: t.tag })),
+      { values: Object.fromEntries(REMIND_KINDS.map(([k]) => [`remind_${k}`, (remind[k] || []).join('، ')])), footer: false, tag: 'SET-274' },
     );
     const alertHost = h('div.cs-alert');
     const parseList = (s) =>
@@ -235,7 +238,7 @@ export function b2bSettingsCard() {
           toast('حُفظت إعدادات خدمة الشركات.', 'success');
           draw(res);
         } catch (err) {
-          mount(alertHost, alertBox(errorMessage(err), 'danger'));
+          mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'SET-109' }));
           const f = err?.details?.fields || {};
           terms.setErrors(f);
           follow.setErrors(f);
@@ -246,8 +249,9 @@ export function b2bSettingsCard() {
           save.disabled = false;
         }
       },
+      tag: 'SET-110',
     });
-    const sec = (title, ...kids) => h('section.cs-section', h('h3.cs-section-title', title), ...kids);
+    const sec = (title, ...kids) => h('section.cs-section', { tag: 'SET-111' }, h('h3.cs-section-title', { tag: 'SET-112' }, title), ...kids);
     mount(
       host,
       h(
@@ -286,8 +290,10 @@ export function companyPlansCard() {
     title: 'باقات الشركات',
     subtitle: 'شروط كل باقة تُنسخ إلى اشتراك الشركة عند الاشتراك؛ تعديل الباقة لا يغيّر اشتراكات قائمة.',
     icon: 'fileText',
-    actions: button('باقة جديدة', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => editPlan(null) }),
+    actions: button('باقة جديدة', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => editPlan(null), tag: 'SET-113' }),
     body: host,
+    titleTag: 'SET-114',
+    tag: 'SET-115',
   });
   el.id = 'plans';
   async function load() {
@@ -303,14 +309,16 @@ export function companyPlansCard() {
               stack: true,
               rows: items,
               columns: [
-                { key: 'name', label: 'الباقة', render: (p) => h('div.cq-cell-req', h('strong', p.name), h('bdi.muted', { dir: 'ltr' }, p.key)) },
-                { key: 'terms', label: 'الشروط', render: (p) => h('span', termsSummary(p.terms || {}, { money: true })) },
-                { key: 'companies', label: 'الشركات', render: (p) => h('span.num', String(p.companies ?? 0)) },
-                { key: 'active', label: 'الحالة', render: (p) => badge(p.active ? 'متاحة' : 'موقوفة', p.active ? 'success' : 'neutral', { dot: true }) },
-                { key: 'a', label: 'إجراءات', render: (p) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editPlan(p) }) },
+                { key: 'name', label: 'الباقة', render: (p) => h('div.cq-cell-req', h('strong', p.name), h('bdi.muted', { dir: 'ltr' }, p.key)), tag: 'SET-116' },
+                { key: 'terms', label: 'الشروط', render: (p) => h('span', termsSummary(p.terms || {}, { money: true })), tag: 'SET-117' },
+                { key: 'companies', label: 'الشركات', render: (p) => h('span.num', String(p.companies ?? 0)), tag: 'SET-118' },
+                { key: 'active', label: 'الحالة', render: (p) => badge(p.active ? 'متاحة' : 'موقوفة', p.active ? 'success' : 'neutral', { dot: true }), tag: 'SET-119' },
+                { key: 'a', label: 'إجراءات', render: (p) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editPlan(p), tag: 'SET-120' }), tag: 'SET-121' },
               ],
+              rowTag: 'SET-122',
+              tag: 'SET-123',
             })
-          : emptyState('لا باقات بعد. أنشئوا باقة قبل إضافة أول شركة، أو استخدموا شروطًا مخصصة عند الإضافة.', null, { compact: true, icon: 'fileText' }),
+          : emptyState('لا باقات بعد. أنشئوا باقة قبل إضافة أول شركة، أو استخدموا شروطًا مخصصة عند الإضافة.', null, { compact: true, icon: 'fileText', tag: 'SET-124' }),
       );
     } catch (err) {
       mount(host, errorState(err, load));
@@ -322,12 +330,12 @@ export function companyPlansCard() {
     const editor = termsEditor(p?.terms || {}, { money: true });
     const f = form(
       [
-        { name: 'name', label: 'اسم الباقة', required: true, maxLength: 80 },
-        isNew ? { name: 'key', label: 'المفتاح', required: true, ltr: true, maxLength: 40, placeholder: 'growth', hint: 'حروف لاتينية صغيرة وأرقام فقط؛ لا يتغير بعد الإنشاء.' } : null,
-        { name: 'description', label: 'الوصف', type: 'textarea', maxLength: 1000, rows: 2 },
-        { name: 'active', type: 'checkbox', text: 'متاحة للاشتراكات الجديدة' },
+        { name: 'name', label: 'اسم الباقة', required: true, maxLength: 80, tag: 'SET-341' },
+        isNew ? { name: 'key', label: 'المفتاح', required: true, ltr: true, maxLength: 40, placeholder: 'growth', hint: 'حروف لاتينية صغيرة وأرقام فقط؛ لا يتغير بعد الإنشاء.', tag: 'SET-342' } : null,
+        { name: 'description', label: 'الوصف', type: 'textarea', maxLength: 1000, rows: 2, tag: 'SET-343' },
+        { name: 'active', type: 'checkbox', text: 'متاحة للاشتراكات الجديدة', tag: 'SET-344' },
       ].filter(Boolean),
-      { values: { name: p?.name || '', key: '', description: p?.description || '', active: p ? p.active : true }, footer: false },
+      { values: { name: p?.name || '', key: '', description: p?.description || '', active: p ? p.active : true }, footer: false, tag: 'SET-275' },
     );
     const alertHost = h('div.cs-alert');
     let done = false;
@@ -338,9 +346,9 @@ export function companyPlansCard() {
       title: isNew ? 'باقة جديدة' : `تعديل ${p.name}`,
       subtitle: isNew ? null : `${count(p.companies || 0, ['شركة واحدة', 'شركتين', 'شركات', 'شركة'])} على هذه الباقة — تحتفظ اشتراكاتها بشروطها الحالية.`,
       beforeClose: discardGuard(() => editor.isDirty() || JSON.stringify(f.getValues()) !== snapshot, { singular: true }),
-      body: h('div.cs-body', alertHost, f.el, h('h3.cs-section-title', 'الشروط'), editor.el),
+      body: h('div.cs-body', alertHost, f.el, h('h3.cs-section-title', { tag: 'SET-125' }, 'الشروط'), editor.el),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'SET-126' },
         {
           label: isNew ? 'إنشاء الباقة' : 'حفظ الباقة',
           variant: 'primary',
@@ -358,10 +366,11 @@ export function companyPlansCard() {
             } catch (err) {
               editor.showError(err);
               f.showError(err);
-              mount(alertHost, alertBox(errorMessage(err), 'danger'));
+              mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'SET-127' }));
               return false;
             }
           },
+          tag: 'SET-128',
         },
       ],
       onClose: () => {
@@ -369,6 +378,7 @@ export function companyPlansCard() {
         toast(isNew ? 'أُنشئت الباقة.' : 'حُفظت الباقة.', 'success');
         load();
       },
+      tag: 'SET-129',
     });
   }
 

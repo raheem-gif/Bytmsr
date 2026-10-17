@@ -84,7 +84,7 @@ export function correctionItem(c, { showCase = true } = {}) {
       'div.pd-corr-head',
       badge(c.field_label || label('ai_field', c.field), 'neutral'),
       statusBadge('ai_verdict', c.verdict),
-      showCase && c.case_code ? h('a', { href: `#/cases/${c.case_id}` }, codeTag(c.case_code)) : null,
+      showCase && c.case_code ? h('a', { href: `#/cases/${c.case_id}`, tag: 'KNL-01' }, codeTag(c.case_code)) : null,
       actor && h('span.cell-sub', `بواسطة ${actor}`),
       c.created_at && h('time.cell-sub', { datetime: c.created_at, title: dateTime(c.created_at) }, relative(c.created_at)),
     ),
@@ -112,6 +112,7 @@ export function correctionsList(items, { limit = 6, showCase = true } = {}) {
       list.append(...items.slice(limit).map((c) => correctionItem(c, { showCase })));
       more.remove();
     },
+    tag: 'KNL-02',
   });
   return h('div.stack', list, more);
 }
@@ -126,7 +127,7 @@ function pipeline() {
     'ol.pd-pipeline',
     { 'aria-label': 'مراحل بناء المعرفة المؤسسية' },
     steps.map((s, i) =>
-      h('li.pd-step', h('span.pd-step-icon', icon(s.icon, { size: 20 })), h('div.pd-step-text', h('h3', h('span.pd-step-num', `${i + 1}`), s.title), h('p', s.text))),
+      h('li.pd-step', h('span.pd-step-icon', icon(s.icon, { size: 20 })), h('div.pd-step-text', h('h3', { tag: 'KNL-03' }, h('span.pd-step-num', `${i + 1}`), s.title), h('p', s.text))),
     ),
   );
 }
@@ -134,7 +135,7 @@ function pipeline() {
 function downloadJson(obj, filename) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = h('a', { href: url, download: filename, hidden: true });
+  const a = h('a', { href: url, download: filename, hidden: true, tag: 'KNL-04' });
   document.body.append(a);
   a.click();
   setTimeout(() => {
@@ -196,7 +197,7 @@ export default async function render(ctx) {
       statsHost,
       h(
         'div.stats-grid.pd-stats-5',
-        statCard({ label: 'إجمالي السجلات', value: num(s.total), hint: 'من الملفات المغلقة', icon: 'book', tone: 'primary', onClick: () => setStatus('') }),
+        statCard({ label: 'إجمالي السجلات', value: num(s.total), hint: 'من الملفات المغلقة', icon: 'book', tone: 'primary', onClick: () => setStatus(''), tag: 'KNL-05' }),
         statCard({
           label: 'بانتظار المراجعة',
           value: num(s.pending_review),
@@ -204,10 +205,11 @@ export default async function render(ctx) {
           icon: 'clock',
           tone: s.pending_review ? 'warning' : 'neutral',
           onClick: () => setStatus('pending_review'),
+          tag: 'KNL-06',
         }),
-        statCard({ label: 'معتمدة', value: num(s.approved), hint: 'متاحة كحالات مشابهة مجهّلة', icon: 'checkCircle', tone: 'success', onClick: () => setStatus('approved') }),
-        statCard({ label: 'معتمدة للتدريب', value: num(s.training), hint: 'تدخل في التصدير وقياس الأداء', icon: 'sparkle', tone: 'accent' }),
-        statCard({ label: 'مستبعدة', value: num(s.excluded), hint: 'لا تُستخدم إطلاقًا', icon: 'eyeOff', tone: 'muted', onClick: () => setStatus('excluded') }),
+        statCard({ label: 'معتمدة', value: num(s.approved), hint: 'متاحة كحالات مشابهة مجهّلة', icon: 'checkCircle', tone: 'success', onClick: () => setStatus('approved'), tag: 'KNL-07' }),
+        statCard({ label: 'معتمدة للتدريب', value: num(s.training), hint: 'تدخل في التصدير وقياس الأداء', icon: 'sparkle', tone: 'accent', tag: 'KNL-08' }),
+        statCard({ label: 'مستبعدة', value: num(s.excluded), hint: 'لا تُستخدم إطلاقًا', icon: 'eyeOff', tone: 'muted', onClick: () => setStatus('excluded'), tag: 'KNL-09' }),
       ),
       byArea.length
         ? h(
@@ -227,8 +229,8 @@ export default async function render(ctx) {
         listHost,
         emptyState(
           filtered ? 'لا توجد سجلات مطابقة للتصفية الحالية' : 'لا توجد سجلات معرفية بعد؛ تُنشأ تلقائيًا عند إغلاق ملفات الاستشارات',
-          filtered ? button('مسح التصفية', { icon: 'x', onClick: clearFilters }) : null,
-          { icon: 'book' },
+          filtered ? button('مسح التصفية', { icon: 'x', onClick: clearFilters, tag: 'KNL-10' }) : null,
+          { icon: 'book', tag: 'KNL-11' },
         ),
       );
       return;
@@ -246,13 +248,15 @@ export default async function render(ctx) {
             key: 'title',
             label: 'العنوان',
             className: 'col-wide',
-            render: (r) => h('div.pd-cell-stack', h('a.cell-title', { href: `#/knowledge/${r.id}` }, richText(r.title)), h('span.cell-sub', r.legal_area_label || areaLabel(r.legal_area))),
+            render: (r) => h('div.pd-cell-stack', h('a.cell-title', { href: `#/knowledge/${r.id}`, tag: 'KNL-12' }, richText(r.title)), h('span.cell-sub', r.legal_area_label || areaLabel(r.legal_area))),
+            tag: 'KNL-13',
           },
-          { key: 'case', label: 'الملف', render: (r) => (r.case_code ? codeTag(r.case_code) : null) },
+          { key: 'case', label: 'الملف', render: (r) => (r.case_code ? codeTag(r.case_code) : null), tag: 'KNL-14' },
           {
             key: 'status',
             label: 'الحالة والاستخدام',
             render: (r) => h('div.pd-cell-stack', statusBadge('knowledge_status', r.status), r.status === 'approved' ? statusBadge('knowledge_usage', r.usage, { dot: false }) : null),
+            tag: 'KNL-15',
           },
           {
             key: 'counts',
@@ -263,10 +267,13 @@ export default async function render(ctx) {
                 h('span.nowrap', icon('users', { size: 14 }), ` ${r.specialists_count ? count(r.specialists_count, ['طلب مساعدة واحد', 'طلبا مساعدة', 'طلبات مساعدة', 'طلب مساعدة']) : 'لا طلبات مساعدة'}`),
                 h('span.nowrap', icon('sparkle', { size: 14 }), ` ${r.corrections_count ? count(r.corrections_count, ['تصحيح واحد', 'تصحيحان', 'تصحيحات', 'تصحيحًا']) : 'لا تصحيحات'} للذكاء الاصطناعي`),
               ),
+              tag: 'KNL-16',
           },
-          { key: 'outcome', label: 'النتيجة', render: (r) => (r.outcome ? h('span', label('case_outcome', r.outcome)) : null) },
-          { key: 'updated', label: 'آخر تحديث', render: (r) => h('time.nowrap', { datetime: r.updated_at, title: dateTime(r.updated_at) }, relative(r.updated_at)) },
+          { key: 'outcome', label: 'النتيجة', render: (r) => (r.outcome ? h('span', label('case_outcome', r.outcome)) : null), tag: 'KNL-17' },
+          { key: 'updated', label: 'آخر تحديث', render: (r) => h('time.nowrap', { datetime: r.updated_at, title: dateTime(r.updated_at) }, relative(r.updated_at)), tag: 'KNL-18' },
         ],
+        rowTag: 'KNL-19',
+        tag: 'KNL-20',
       }),
     );
   }
@@ -290,6 +297,7 @@ export default async function render(ctx) {
     placeholder: 'صف المشكلة بكلمات المستفيد/ة، مثل: أخي يرفض تقسيم شقة والدنا المتوفى…',
     'aria-label': 'نص البحث بالمعنى في الحالات المعتمدة',
     maxlength: 2000,
+    tag: 'KNL-21',
   });
   async function runSemantic() {
     const q = semInput.value.trim();
@@ -303,7 +311,7 @@ export default async function render(ctx) {
       const res = await api.get('/admin/knowledge/search', { q });
       const items = Array.isArray(res?.items) ? res.items : [];
       if (!items.length) {
-        mount(searchResults, emptyState('لم نجد حالات معتمدة مشابهة بما يكفي. جرّب صياغة أخرى أو كلمات أكثر تحديدًا.', null, { compact: true, icon: 'search' }));
+        mount(searchResults, emptyState('لم نجد حالات معتمدة مشابهة بما يكفي. جرّب صياغة أخرى أو كلمات أكثر تحديدًا.', null, { compact: true, icon: 'search', tag: 'KNL-22' }));
         return;
       }
       mount(
@@ -317,7 +325,7 @@ export default async function render(ctx) {
               h(
                 'div.pd-sem-head',
                 h('span.pd-score', { title: 'درجة التشابه مع نص البحث' }, h('bdi', { dir: 'ltr' }, percent(it.score)), ' تشابه'),
-                h('a.cell-title', { href: `#/knowledge/${it.id}` }, richText(it.title)),
+                h('a.cell-title', { href: `#/knowledge/${it.id}`, tag: 'KNL-23' }, richText(it.title)),
                 h('span.cell-sub', areaLabel(it.legal_area)),
               ),
               it.issues && it.issues.length ? chips(it.issues.slice(0, 4), { className: 'pd-spec-chips' }) : null,
@@ -347,6 +355,7 @@ export default async function render(ctx) {
           state.q = q;
           refetch();
         },
+        tag: 'KNL-24',
       }),
       status: selectInput({
         label: 'حالة المراجعة',
@@ -357,6 +366,7 @@ export default async function render(ctx) {
           state.status = v;
           refetch();
         },
+        tag: 'KNL-25',
       }),
       area: selectInput({
         label: 'المجال',
@@ -367,6 +377,7 @@ export default async function render(ctx) {
           state.area = v;
           refetch();
         },
+        tag: 'KNL-26',
       }),
       usage: selectInput({
         label: 'نطاق الاستخدام',
@@ -377,6 +388,7 @@ export default async function render(ctx) {
           state.usage = v;
           refetch();
         },
+        tag: 'KNL-27',
       }),
     };
     drawStats();
@@ -386,16 +398,16 @@ export default async function render(ctx) {
       statsHost,
       h(
         'section.pd-sem',
-        h('h2.section-title', icon('search', { size: 18 }), 'البحث بالمعنى في المعرفة المعتمدة'),
+        { tag: 'KNL-28' }, h('h2.section-title', { tag: 'KNL-29' }, icon('search', { size: 18 }), 'البحث بالمعنى في المعرفة المعتمدة'),
         h('p.pd-section-hint', 'يبحث في الحالات المعتمدة فقط — وهي نفسها التي تظهر للمحامين كحالات مشابهة مجهّلة الهوية.'),
-        h('div.pd-sem-bar', semInput, button('ابحث', { variant: 'primary', icon: 'search', onClick: runSemantic })),
+        h('div.pd-sem-bar', semInput, button('ابحث', { variant: 'primary', icon: 'search', onClick: runSemantic, tag: 'KNL-30' })),
         searchResults,
       ),
       h(
         'section.section',
-        h('h2.section-title', 'سجلات المعرفة'),
+        { tag: 'KNL-31' }, h('h2.section-title', { tag: 'KNL-32' }, 'سجلات المعرفة'),
         filterBar([selects.q, selects.status, selects.area, selects.usage]),
-        card({ body: listHost, flush: true }),
+        card({ body: listHost, flush: true, tag: 'KNL-33' }),
       ),
     );
   }
@@ -406,7 +418,7 @@ export default async function render(ctx) {
     const summary = VERDICT_ORDER.map((k) => `${label('ai_verdict', k)}: ${f[k] || 0}`).join('، ');
     return h(
       'article.pd-field',
-      h('div.pd-field-head', h('h3', f.label || label('ai_field', f.field)), h('span.cell-sub', count(f.total, ['مراجعة واحدة', 'مراجعتان', 'مراجعات', 'مراجعة']))),
+      h('div.pd-field-head', h('h3', { tag: 'KNL-34' }, f.label || label('ai_field', f.field)), h('span.cell-sub', count(f.total, ['مراجعة واحدة', 'مراجعتان', 'مراجعات', 'مراجعة']))),
       h(
         'div.pd-field-acc',
         h('span.pd-field-pct', { dir: 'ltr' }, f.accuracy == null ? '—' : percent(f.accuracy)),
@@ -451,26 +463,26 @@ export default async function render(ctx) {
           h('p', h('strong', 'كل تصحيح من المحامي أو الإدارة تغذية راجعة جديدة: '), 'يُسجَّل القبول والتصحيح والرفض وما فات الذكاء الاصطناعي، ومنه تُقاس الدقة هنا وتُحسَّن مع الوقت.'),
         ),
         'info',
-        { title: 'كيف نقيس أداء الذكاء الاصطناعي؟', icon: 'sparkle' },
+        { title: 'كيف نقيس أداء الذكاء الاصطناعي؟', icon: 'sparkle', tag: 'KNL-35' },
       ),
       aiStatusCard(usage && !usage.__error ? usage.status : st, { isAdmin }),
       aiUsageSection(usage, { isAdmin }),
       h(
         'section.section',
-        h('h2.section-title', 'الدقة حسب نوع الاقتراح'),
-        fields.length ? h('div.pd-fields', fields.map(fieldCard)) : emptyState('لا توجد مراجعات مسجلة بعد لقياس الدقة', null, { icon: 'sparkle', compact: true }),
+        { tag: 'KNL-36' }, h('h2.section-title', { tag: 'KNL-37' }, 'الدقة حسب نوع الاقتراح'),
+        fields.length ? h('div.pd-fields', fields.map(fieldCard)) : emptyState('لا توجد مراجعات مسجلة بعد لقياس الدقة', null, { icon: 'sparkle', compact: true, tag: 'KNL-38' }),
       ),
       months.length
         ? h(
             'section.section',
-            h('h2.section-title', 'تطور الدقة شهريًا'),
+            { tag: 'KNL-39' }, h('h2.section-title', { tag: 'KNL-40' }, 'تطور الدقة شهريًا'),
             h('p.pd-section-hint', 'نسبة الاقتراحات المقبولة كما هي من إجمالي ما رُوجع في كل شهر.'),
             table({
               className: 'pd-table-tight',
               caption: 'الدقة الشهرية حسب نوع الاقتراح',
               rows: months,
               columns: [
-                { key: 'month', label: 'الشهر', render: (mo) => h('span.cell-title.nowrap', monthLabel(mo)) },
+                { key: 'month', label: 'الشهر', render: (mo) => h('span.cell-title.nowrap', monthLabel(mo)), tag: 'KNL-41' },
                 ...pivotFields.map((fk) => ({
                   key: fk,
                   label: label('ai_field', fk),
@@ -487,6 +499,8 @@ export default async function render(ctx) {
                   },
                 })),
               ],
+              rowTag: 'KNL-42',
+              tag: 'KNL-43',
             }),
           )
         : null,
@@ -494,36 +508,40 @@ export default async function render(ctx) {
         'div.pd-two-col',
         h(
           'section.section',
-          h('h2.section-title', 'الاستخدام حسب المزود'),
+          { tag: 'KNL-44' }, h('h2.section-title', { tag: 'KNL-45' }, 'الاستخدام حسب المزود'),
           table({
             caption: 'عدد الاقتراحات حسب المزود والنوع',
             rows: providers,
             empty: 'لم تُستخدم أي اقتراحات بعد',
             columns: [
-              { key: 'provider', label: 'المزود', render: (p) => PROVIDER_LABELS[p.provider] || p.provider },
-              { key: 'kind', label: 'نوع الاقتراح', render: (p) => KIND_LABELS[p.kind] || p.kind },
-              { key: 'n', label: 'العدد', align: 'end', render: (p) => h('strong', num(p.n)) },
+              { key: 'provider', label: 'المزود', render: (p) => PROVIDER_LABELS[p.provider] || p.provider, tag: 'KNL-46' },
+              { key: 'kind', label: 'نوع الاقتراح', render: (p) => KIND_LABELS[p.kind] || p.kind, tag: 'KNL-47' },
+              { key: 'n', label: 'العدد', align: 'end', render: (p) => h('strong', num(p.n)), tag: 'KNL-48' },
             ],
+            rowTag: 'KNL-49',
+            tag: 'KNL-50',
           }),
         ),
         h(
           'section.section',
-          h('h2.section-title', 'ملخص المراجعات'),
+          { tag: 'KNL-51' }, h('h2.section-title', { tag: 'KNL-52' }, 'ملخص المراجعات'),
           table({
             caption: 'ملخص قرارات المراجعة',
             rows: VERDICT_ORDER.map((k) => ({ k, n: fields.reduce((s, f) => s + (f[k] || 0), 0) })),
             columns: [
-              { key: 'k', label: 'القرار', render: (r) => statusBadge('ai_verdict', r.k) },
-              { key: 'n', label: 'العدد', align: 'end', render: (r) => h('strong', num(r.n)) },
+              { key: 'k', label: 'القرار', render: (r) => statusBadge('ai_verdict', r.k), tag: 'KNL-53' },
+              { key: 'n', label: 'العدد', align: 'end', render: (r) => h('strong', num(r.n)), tag: 'KNL-54' },
             ],
+            rowTag: 'KNL-55',
+            tag: 'KNL-56',
           }),
         ),
       ),
       h(
         'section.section',
-        h('h2.section-title', 'أحدث التصحيحات'),
+        { tag: 'KNL-57' }, h('h2.section-title', { tag: 'KNL-58' }, 'أحدث التصحيحات'),
         h('p.pd-section-hint', 'كل تصحيح من المحامي أو الإدارة تغذية راجعة جديدة تدخل في قياس الأداء — وعند اعتماد الحالة تصبح جزءًا من بيانات التدريب المجهّلة.'),
-        recent.length ? correctionsList(recent) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true }),
+        recent.length ? correctionsList(recent) : emptyState('لا توجد تصحيحات بعد', null, { icon: 'sparkle', compact: true, tag: 'KNL-59' }),
       ),
       docAnalyses ? recentDocAnalyses(docAnalyses) : null,
     );
@@ -531,8 +549,8 @@ export default async function render(ctx) {
 
   const tabsEl = tabs(
     [
-      { key: 'kb', label: 'قاعدة المعرفة', icon: 'book', count: data.stats?.pending_review || null, render: kbPanel },
-      { key: 'ai', label: 'أداء الذكاء الاصطناعي', icon: 'sparkle', render: aiPanel },
+      { key: 'kb', label: 'قاعدة المعرفة', icon: 'book', count: data.stats?.pending_review || null, render: kbPanel, tag: 'KNL-60' },
+      { key: 'ai', label: 'أداء الذكاء الاصطناعي', icon: 'sparkle', render: aiPanel, tag: 'KNL-61' },
     ],
     {
       active: activeTab,
@@ -540,6 +558,7 @@ export default async function render(ctx) {
         activeTab = key;
         syncUrl();
       },
+      tag: 'KNL-62',
     },
   );
 
@@ -552,7 +571,7 @@ export default async function render(ctx) {
           downloadJson(res, `knowledge-training-${cairoToday()}.json`);
           toast(n ? `تم تصدير ${count(n, ['حالة معتمدة واحدة', 'حالتين معتمدتين', 'حالات معتمدة', 'حالة معتمدة'])} للتدريب (مجهّلة)` : 'لا توجد حالات معتمدة للتدريب بعد؛ صُدّر ملف فارغ', n ? 'success' : 'warning');
         },
-        { icon: 'download', title: 'يصدّر الحالات المعتمدة للتدريب فقط، بعد إخفاء البيانات الشخصية' },
+        { icon: 'download', title: 'يصدّر الحالات المعتمدة للتدريب فقط، بعد إخفاء البيانات الشخصية', tag: 'KNL-63' },
       )
     : null;
 
@@ -560,11 +579,13 @@ export default async function render(ctx) {
     pageHeader({
       title: 'المعرفة المؤسسية والذكاء الاصطناعي',
       subtitle: 'لا نحفظ الإجابة النهائية فقط، بل رحلة الحالة كاملة — ولا تُستخدم أي حالة إلا بعد إخفاء بياناتها الشخصية واعتمادها.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'المعرفة المؤسسية' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'KNL-64' }, { label: 'المعرفة المؤسسية' }],
       actions: exportBtn,
+      titleTag: 'KNL-65',
+      tag: 'KNL-66',
     }),
     pipeline(),
-    card({ body: tabsEl }),
+    card({ body: tabsEl, tag: 'KNL-67' }),
   );
 }
 

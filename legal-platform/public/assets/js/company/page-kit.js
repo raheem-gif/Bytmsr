@@ -14,8 +14,9 @@ import { W } from './words-pages.js';
 
 // ───────────────────────── الأوراق ─────────────────────────
 /** ورقة بحقل كتابة: dirty() → هل كُتب شيء؟ (يسأل «تجاهل ما كتبتموه؟» قبل الإغلاق) */
-export function textSheet({ title, body, actions = [], dirty = () => false, className, onClose, subtitle } = {}) {
-  return modal({ title, subtitle, body, actions, className, onClose, sheet: true, beforeClose: discardGuard(dirty, W.discard) });
+// v12 tags (TG-3، T12-16): tag ← جذر الورقة، وactions[].tag لأزرارها
+export function textSheet({ title, body, actions = [], dirty = () => false, className, onClose, subtitle, tag } = {}) {
+  return modal({ title, subtitle, body, actions, className, onClose, sheet: true, beforeClose: discardGuard(dirty, W.discard), tag });
 }
 
 // ───────────────────────── قائمة «⋯» ─────────────────────────
@@ -23,11 +24,12 @@ export function textSheet({ title, body, actions = [], dirty = () => false, clas
  * items: [{ label, icon, onClick, danger, disabled, hint }] — العنصر المعطّل يظهر بنصه (مثل «متاح بعد …»).
  * → زر يفتح قائمة منبثقة؛ Esc والنقر خارجها يغلقانها ويعود التركيز إلى الزر.
  */
-export function menuButton(label, items = []) {
+// v12 tags (TG-3): opts.tag ← زر «⋯»، وitems[].tag لكل عنصر في القائمة
+export function menuButton(label, items = [], { tag } = {}) {
   const list = items.filter(Boolean);
   if (!list.length) return null;
   const id = uid('co-menu');
-  const btn = h('button.icon-btn.co-more-btn', { type: 'button', 'aria-label': label, 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': id }, icon('moreHorizontal', { size: 22 }));
+  const btn = h('button.icon-btn.co-more-btn', { type: 'button', 'aria-label': label, 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': id, tag }, icon('moreHorizontal', { size: 22 }));
   const pop = h('div.co-pop.co-pop-menu', { id, hidden: true, role: 'menu', 'aria-label': label });
   const close = (focus = true) => {
     if (pop.hidden) return;
@@ -83,6 +85,7 @@ export function menuButton(label, items = []) {
               role: 'menuitem',
               disabled: it.disabled || null,
               class: it.danger && 'is-danger',
+              tag: it.tag,
               onClick: () => {
                 close(false);
                 it.onClick?.();
@@ -129,19 +132,20 @@ export function docItems(docs = [], { origin = null, empty = null } = {}) {
   if (!docs.length) return empty ? h('p.co-muted', empty) : null;
   return h(
     'ul.co-docs',
+    { tag: 'CU-38' }, // v12 tags (TG-3): قائمة المستندات وصفها وزرّاها مكوّنات مشتركة (CU)
     docs.map((d) => {
       const name = d.title || d.filename || '';
       const ext = (String(d.filename || '').split('.').pop() || '').toUpperCase().slice(0, 4);
       const meta = [origin ? origin(d) : null, d.created_at ? whenShort(d.created_at) : null, d.size ? formatBytes(d.size) : null].filter(Boolean).join(' · ');
       return h(
         'li.co-doc',
-        { dataset: { docId: d.id } },
+        { dataset: { docId: d.id }, tag: 'CU-39' },
         h('bdi.co-file-type', { dir: 'ltr' }, ext || 'FILE'),
         h('span.co-doc-main', h('span.co-doc-name', { dir: 'auto' }, name), meta ? h('span.co-doc-meta', meta) : null),
         h(
           'span.co-file-actions',
-          viewable(d) ? button(W.docs.view, { variant: 'ghost', size: 'sm', onClick: () => viewDoc(d), ariaLabel: copy('docs.view_name', { name }) }) : null,
-          h('a.btn.btn-secondary.btn-sm', { href: companyUrlFor(d), download: '', 'aria-label': copy('docs.download_name', { name }) }, icon('download', { size: 16 }), h('span', W.docs.download)),
+          viewable(d) ? button(W.docs.view, { variant: 'ghost', size: 'sm', onClick: () => viewDoc(d), ariaLabel: copy('docs.view_name', { name }), tag: 'CU-40' }) : null,
+          h('a.btn.btn-secondary.btn-sm', { href: companyUrlFor(d), download: '', 'aria-label': copy('docs.download_name', { name }), tag: 'CU-41' }, icon('download', { size: 16 }), h('span', W.docs.download)),
         ),
       );
     }),
@@ -156,12 +160,12 @@ export function starsInput({ label, value = 0, onChange } = {}) {
   const stars = W.stars.map((name, i) =>
     h(
       'button.co-star',
-      { type: 'button', role: 'radio', 'aria-label': `${i + 1} — ${name}`, 'aria-checked': 'false', tabindex: '-1', onClick: () => set(i + 1, true) },
+      { type: 'button', role: 'radio', 'aria-label': `${i + 1} — ${name}`, 'aria-checked': 'false', tabindex: '-1', onClick: () => set(i + 1, true), tag: 'CU-43' },
       icon('star', { size: 26 }),
     ),
   );
   const caption = h('span.co-stars-caption', { 'aria-hidden': 'true' });
-  const group = h('div.co-stars', { role: 'radiogroup', id, 'aria-label': label || null }, stars, caption);
+  const group = h('div.co-stars', { role: 'radiogroup', id, 'aria-label': label || null, tag: 'CU-42' }, stars, caption);
   function set(n, focus = false) {
     v = Math.max(1, Math.min(5, n));
     stars.forEach((s, i) => {
@@ -190,11 +194,13 @@ export function starsInput({ label, value = 0, onChange } = {}) {
 export function chipFill(texts = [], input) {
   return h(
     'div.co-chip-row',
+    { tag: 'CU-44' },
     texts.map((t) =>
       h(
         'button.chip-toggle',
         {
           type: 'button',
+          tag: 'CU-45',
           onClick: () => {
             input.value = t;
             input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -208,15 +214,15 @@ export function chipFill(texts = [], input) {
 }
 
 /** حقل نص متعدد الأسطر داخل ورقة (dir=auto) */
-export function textareaField(label, { required = false, max = 3000, rows = 4, hint, value = '' } = {}) {
-  const input = h('textarea.input', { rows, dir: 'auto', maxlength: max, 'aria-required': required ? 'true' : null });
+export function textareaField(label, { required = false, max = 3000, rows = 4, hint, value = '', tag } = {}) {
+  const input = h('textarea.input', { rows, dir: 'auto', maxlength: max, 'aria-required': required ? 'true' : null, tag: 'CU-52' });
   input.value = value;
-  const wrap = field(label, input, { required, hint, full: true });
+  const wrap = field(label, input, { required, hint, full: true, tag });
   return { input, wrap, value: () => input.value.trim() };
 }
 
 /** شريط إجراء بسيط داخل الورقة (زر رئيسي + خطأ) */
-export const sheetError = () => h('p.co-send-error', { role: 'alert', hidden: true });
+export const sheetError = () => h('p.co-send-error', { role: 'alert', hidden: true, tag: 'CU-46' });
 export function showError(el, msg) {
   el.textContent = msg || '';
   el.hidden = !msg;

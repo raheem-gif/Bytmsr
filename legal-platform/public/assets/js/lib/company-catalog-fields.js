@@ -12,7 +12,7 @@ export * from './company-catalog.js';
 
 const f = (spec) => Object.freeze({ visible: 'main', dir: 'auto', ...spec, ...(spec.options ? { options: Object.freeze(spec.options.map((o) => Object.freeze(o))) } : {}) });
 const CURRENCY_OPTIONS = base.CURRENCIES.map((c) => ({ key: c.key, label: c.label }));
-const currency = () => f({ key: 'currency', kind: 'select', label: 'العملة', options: CURRENCY_OPTIONS, visible: 'more', default: 'EGP' });
+const currency = () => f({ key: 'currency', kind: 'select', label: 'العملة', options: CURRENCY_OPTIONS, visible: 'more', default: 'EGP', tag: 'CK-18' });
 
 const CONTRACT_KINDS = [
   { key: 'supply', label: 'توريد' },
@@ -37,7 +37,7 @@ const OUR_ROLES = [
   { key: 'tenant', label: 'مستأجر' },
   { key: 'other', label: 'أخرى' },
 ];
-const counterparty = (extra = {}) => f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', placeholder: 'الاسم كما في العقد', required: true, max: 200, counterparty: true, ...extra });
+const counterparty = (extra = {}) => f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', placeholder: 'الاسم كما في العقد', required: true, max: 200, counterparty: true, ...extra, tag: 'CK-19' });
 
 /** ملاحظة نطاق تظهر تحت حقل قيمة العقد حين تتجاوز الحد المشمول في الباقة (U10-31) */
 export const CAP_NOTE = 'قيمة العقد أعلى من الحد المشمول في باقتكم؛ سنرسل لكم عرض سعر قبل بدء العمل.';
@@ -47,19 +47,19 @@ const COURT_NOTE = 'التمثيل أمام المحاكم والتحكيم خا
 export const TYPE_FIELDS = Object.freeze({
   contract_review: Object.freeze([
     counterparty(),
-    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', required: true, options: CONTRACT_KINDS }),
-    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم في العقد', required: true, options: OUR_ROLES }),
-    f({ key: 'contract_value', kind: 'money', label: 'قيمة العقد (تقريبًا)', visible: 'more', cap_check: true }),
+    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', required: true, options: CONTRACT_KINDS, tag: 'CK-20' }),
+    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم في العقد', required: true, options: OUR_ROLES, tag: 'CK-21' }),
+    f({ key: 'contract_value', kind: 'money', label: 'قيمة العقد (تقريبًا)', visible: 'more', cap_check: true, tag: 'CK-22' }),
     currency(),
-    f({ key: 'signing_deadline', kind: 'date', label: 'موعد التوقيع', visible: 'more', future: true, urgency: true }),
-    f({ key: 'governing_law', kind: 'text', label: 'القانون الحاكم (إن وُجد)', hint: 'مثل: القانون المصري، قانون إنجلترا', max: 200, visible: 'more' }),
+    f({ key: 'signing_deadline', kind: 'date', label: 'موعد التوقيع', visible: 'more', future: true, urgency: true, tag: 'CK-23' }),
+    f({ key: 'governing_law', kind: 'text', label: 'القانون الحاكم (إن وُجد)', hint: 'مثل: القانون المصري، قانون إنجلترا', max: 200, visible: 'more', tag: 'CK-24' }),
   ]),
   contract_drafting: Object.freeze([
     counterparty(),
-    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', required: true, options: CONTRACT_KINDS }),
-    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم في العقد', required: true, options: OUR_ROLES }),
-    f({ key: 'key_terms', kind: 'textarea', label: 'الشروط المتفق عليها', required: true, max: 4000 }),
-    f({ key: 'contract_value', kind: 'money', label: 'قيمة العقد', visible: 'more', cap_check: true }),
+    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', required: true, options: CONTRACT_KINDS, tag: 'CK-25' }),
+    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم في العقد', required: true, options: OUR_ROLES, tag: 'CK-26' }),
+    f({ key: 'key_terms', kind: 'textarea', label: 'الشروط المتفق عليها', required: true, max: 4000, tag: 'CK-27' }),
+    f({ key: 'contract_value', kind: 'money', label: 'قيمة العقد', visible: 'more', cap_check: true, tag: 'CK-28' }),
     currency(),
   ]),
   nda: Object.freeze([
@@ -74,13 +74,14 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'we_disclose', label: 'نحن نُفصح للطرف الآخر' },
         { key: 'we_receive', label: 'الطرف الآخر يُفصح لنا' },
       ],
+      tag: 'CK-29',
     }),
-    f({ key: 'purpose', kind: 'text', label: 'الغرض من تبادل المعلومات', required: true, max: 500 }),
-    f({ key: 'template_memory_id', kind: 'memory_ref', label: 'استخدام نموذج السرية المعتمد لديكم', memory_kinds: ['template'] }),
-    f({ key: 'duration_months', kind: 'int', label: 'مدة الالتزام بالسرية (بالأشهر)', min: 1, max: 120, default: 24, visible: 'more' }),
+    f({ key: 'purpose', kind: 'text', label: 'الغرض من تبادل المعلومات', required: true, max: 500, tag: 'CK-30' }),
+    f({ key: 'template_memory_id', kind: 'memory_ref', label: 'استخدام نموذج السرية المعتمد لديكم', memory_kinds: ['template'], tag: 'CK-31' }),
+    f({ key: 'duration_months', kind: 'int', label: 'مدة الالتزام بالسرية (بالأشهر)', min: 1, max: 120, default: 24, visible: 'more', tag: 'CK-32' }),
   ]),
   employment: Object.freeze([
-    f({ key: 'employee_role', kind: 'text', label: 'وظيفة الموظف', hint: 'الوظيفة فقط بلا اسم — نطلب ما يلزم لاحقًا', required: true, max: 120 }),
+    f({ key: 'employee_role', kind: 'text', label: 'وظيفة الموظف', hint: 'الوظيفة فقط بلا اسم — نطلب ما يلزم لاحقًا', required: true, max: 120, tag: 'CK-33' }),
     f({
       key: 'issue_kind',
       kind: 'select',
@@ -95,8 +96,9 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'injury', label: 'إصابة عمل' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-34',
     }),
-    f({ key: 'employment_start', kind: 'date', label: 'تاريخ بدء عمله', visible: 'more' }),
+    f({ key: 'employment_start', kind: 'date', label: 'تاريخ بدء عمله', visible: 'more', tag: 'CK-35' }),
     f({
       key: 'written_contract',
       kind: 'select',
@@ -107,10 +109,11 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'no', label: 'لا' },
         { key: 'unknown', label: 'غير متأكدين' },
       ],
+      tag: 'CK-36',
     }),
   ]),
   marketing_review: Object.freeze([
-    f({ key: 'campaign_name', kind: 'text', label: 'اسم الحملة', required: true, max: 200 }),
+    f({ key: 'campaign_name', kind: 'text', label: 'اسم الحملة', required: true, max: 200, tag: 'CK-37' }),
     f({
       key: 'channels',
       kind: 'multi',
@@ -125,8 +128,9 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'influencers', label: 'مؤثرون' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-38',
     }),
-    f({ key: 'launch_date', kind: 'date', label: 'موعد الإطلاق', required: true, future: true, urgency: true }),
+    f({ key: 'launch_date', kind: 'date', label: 'موعد الإطلاق', required: true, future: true, urgency: true, tag: 'CK-39' }),
     f({
       key: 'contains',
       kind: 'multi',
@@ -140,10 +144,11 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'personal_data', label: 'جمع بيانات شخصية' },
         { key: 'children', label: 'موجهة للأطفال' },
       ],
+      tag: 'CK-40',
     }),
   ]),
   legal_notice: Object.freeze([
-    f({ key: 'sender_name', kind: 'text', label: 'الجهة المرسِلة', required: true, max: 200, counterparty: true }),
+    f({ key: 'sender_name', kind: 'text', label: 'الجهة المرسِلة', required: true, max: 200, counterparty: true, tag: 'CK-41' }),
     f({
       key: 'notice_kind',
       kind: 'select',
@@ -156,10 +161,11 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'demand_letter', label: 'مطالبة مالية' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-42',
     }),
-    f({ key: 'received_at', kind: 'date', label: 'تاريخ الاستلام', required: true }),
-    f({ key: 'response_deadline', kind: 'date', label: 'آخر موعد للرد (إن ذُكر)', visible: 'more', future: true, urgency: true }),
-    f({ key: 'amount_claimed', kind: 'money', label: 'المبلغ المطالب به', visible: 'more' }),
+    f({ key: 'received_at', kind: 'date', label: 'تاريخ الاستلام', required: true, tag: 'CK-43' }),
+    f({ key: 'response_deadline', kind: 'date', label: 'آخر موعد للرد (إن ذُكر)', visible: 'more', future: true, urgency: true, tag: 'CK-44' }),
+    f({ key: 'amount_claimed', kind: 'money', label: 'المبلغ المطالب به', visible: 'more', tag: 'CK-45' }),
     currency(),
   ]),
   board_resolution: Object.freeze([
@@ -173,6 +179,7 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'general_assembly', label: 'الجمعية العامة' },
         { key: 'partners', label: 'الشركاء' },
       ],
+      tag: 'CK-46',
     }),
     f({
       key: 'subject',
@@ -188,11 +195,12 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'poa', label: 'إصدار توكيل' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-47',
     }),
-    f({ key: 'meeting_date', kind: 'date', label: 'موعد الاجتماع (إن تحدد)', visible: 'more' }),
+    f({ key: 'meeting_date', kind: 'date', label: 'موعد الاجتماع (إن تحدد)', visible: 'more', tag: 'CK-48' }),
   ]),
   supplier_issue: Object.freeze([
-    f({ key: 'supplier_name', kind: 'text', label: 'اسم المورد', required: true, max: 200, counterparty: true }),
+    f({ key: 'supplier_name', kind: 'text', label: 'اسم المورد', required: true, max: 200, counterparty: true, tag: 'CK-49' }),
     f({
       key: 'issue_kind',
       kind: 'select',
@@ -206,10 +214,11 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'price_change', label: 'تغيير الأسعار' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-50',
     }),
-    f({ key: 'amount', kind: 'money', label: 'المبلغ محل الخلاف', visible: 'more' }),
+    f({ key: 'amount', kind: 'money', label: 'المبلغ محل الخلاف', visible: 'more', tag: 'CK-51' }),
     currency(),
-    f({ key: 'contract_memory_id', kind: 'memory_ref', label: 'العقد مع المورد (من ذاكرتكم)', memory_kinds: ['contract'], visible: 'more' }),
+    f({ key: 'contract_memory_id', kind: 'memory_ref', label: 'العقد مع المورد (من ذاكرتكم)', memory_kinds: ['contract'], visible: 'more', tag: 'CK-52' }),
   ]),
   compliance_question: Object.freeze([
     f({
@@ -228,12 +237,13 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'health_safety', label: 'سلامة وصحة مهنية' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-53',
     }),
   ]),
   renewal_followup: Object.freeze([
-    f({ key: 'memory_id', kind: 'memory_ref', label: 'العقد أو الترخيص', memory_kinds: ['contract', 'licence'] }),
-    f({ key: 'item_name', kind: 'text', label: 'اسم العقد أو الترخيص', max: 200, required_unless: 'memory_id' }),
-    f({ key: 'expiry_date', kind: 'date', label: 'تاريخ الانتهاء', required_unless: 'memory_id', urgency: true }),
+    f({ key: 'memory_id', kind: 'memory_ref', label: 'العقد أو الترخيص', memory_kinds: ['contract', 'licence'], tag: 'CK-54' }),
+    f({ key: 'item_name', kind: 'text', label: 'اسم العقد أو الترخيص', max: 200, required_unless: 'memory_id', tag: 'CK-55' }),
+    f({ key: 'expiry_date', kind: 'date', label: 'تاريخ الانتهاء', required_unless: 'memory_id', urgency: true, tag: 'CK-56' }),
     f({
       key: 'action',
       kind: 'select',
@@ -245,6 +255,7 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'renegotiate', label: 'إعادة تفاوض' },
         { key: 'unsure', label: 'لم نقرر بعد' },
       ],
+      tag: 'CK-57',
     }),
   ]),
   dispute: Object.freeze([
@@ -262,6 +273,7 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'employment', label: 'نزاع عمالي' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-58',
     }),
     f({
       key: 'stage',
@@ -274,9 +286,10 @@ export const TYPE_FIELDS = Object.freeze({
         { key: 'lawsuit_filed', label: 'رُفعت دعوى', note: COURT_NOTE, excluded_work: 'litigation' },
         { key: 'arbitration', label: 'تحكيم', note: COURT_NOTE, excluded_work: 'arbitration' },
       ],
+      tag: 'CK-59',
     }),
-    f({ key: 'desired_outcome', kind: 'text', label: 'النتيجة التي تريدونها', required: true, max: 500 }),
-    f({ key: 'amount', kind: 'money', label: 'المبلغ', visible: 'more' }),
+    f({ key: 'desired_outcome', kind: 'text', label: 'النتيجة التي تريدونها', required: true, max: 500, tag: 'CK-60' }),
+    f({ key: 'amount', kind: 'money', label: 'المبلغ', visible: 'more', tag: 'CK-61' }),
     currency(),
   ]),
   other: Object.freeze([]),
@@ -376,10 +389,11 @@ export const COMMON_FIELDS = Object.freeze([
     options: base.PRIORITIES.filter((p) => p.company).map((p) => ({ key: p.key, label: p.label })),
     default: 'normal',
     stored: 'request',
+    tag: 'CK-62',
   }),
-  f({ key: 'urgent_reason', kind: 'text', label: 'لماذا هو عاجل؟', max: 300, required_if: { priority: 'urgent' }, required_message: 'اكتبوا سبب الاستعجال.', stored: 'request' }),
-  f({ key: 'needed_by', kind: 'date', label: 'تحتاجونه قبل (اختياري)', hint: 'إن كان هناك موعد نهائي: توقيع، رد على إنذار، إطلاق حملة.', future: true, urgency: true, stored: 'request' }),
-  f({ key: 'entity_id', kind: 'entity', label: 'الكيان المعني', stored: 'request' }),
+  f({ key: 'urgent_reason', kind: 'text', label: 'لماذا هو عاجل؟', max: 300, required_if: { priority: 'urgent' }, required_message: 'اكتبوا سبب الاستعجال.', stored: 'request', tag: 'CK-63' }),
+  f({ key: 'needed_by', kind: 'date', label: 'تحتاجونه قبل (اختياري)', hint: 'إن كان هناك موعد نهائي: توقيع، رد على إنذار، إطلاق حملة.', future: true, urgency: true, stored: 'request', tag: 'CK-64' }),
+  f({ key: 'entity_id', kind: 'entity', label: 'الكيان المعني', stored: 'request', tag: 'CK-65' }),
   f({
     key: 'visibility',
     kind: 'select',
@@ -387,9 +401,10 @@ export const COMMON_FIELDS = Object.freeze([
     hint: 'فريقكم القانوني يرى الطلب في الحالتين.',
     options: base.VISIBILITIES.map((x) => ({ key: x.key, label: x.label })),
     stored: 'request',
+    tag: 'CK-66',
   }),
-  f({ key: 'watcher_ids', kind: 'watchers', label: 'إشراك زملاء في المتابعة (اختياري)', hint: 'يصلهم كل جديد. ويستطيع الأعضاء ومديرو البوابة منهم الرد واعتماد التسليم.', max: 10, stored: 'request' }),
-  f({ key: 'output_language', kind: 'select', label: 'لغة التسليم', options: base.OUTPUT_LANGUAGES.map((x) => ({ key: x.key, label: x.label })), default: 'ar', stored: 'fields' }),
+  f({ key: 'watcher_ids', kind: 'watchers', label: 'إشراك زملاء في المتابعة (اختياري)', hint: 'يصلهم كل جديد. ويستطيع الأعضاء ومديرو البوابة منهم الرد واعتماد التسليم.', max: 10, stored: 'request', tag: 'CK-67' }),
+  f({ key: 'output_language', kind: 'select', label: 'لغة التسليم', options: base.OUTPUT_LANGUAGES.map((x) => ({ key: x.key, label: x.label })), default: 'ar', stored: 'fields', tag: 'CK-68' }),
 ]);
 
 /** حدود العنوان والوصف (B10-21) */
@@ -410,19 +425,19 @@ export const FIELD_ERRORS = Object.freeze({
 });
 
 // ───────────────────────── الذاكرة القانونية (U10-63) ─────────────────────────
-const TITLE = (label) => f({ key: 'title', kind: 'text', label, required: true, max: 200, column: 'title' });
-const SUMMARY = f({ key: 'summary', kind: 'textarea', label: 'الملخص', max: 2000, column: 'summary', visible: 'more' });
+const TITLE = (label) => f({ key: 'title', kind: 'text', label, required: true, max: 200, column: 'title', tag: 'CK-69' });
+const SUMMARY = f({ key: 'summary', kind: 'textarea', label: 'الملخص', max: 2000, column: 'summary', visible: 'more', tag: 'CK-70' });
 
 /** حقول كل نوع من عناصر الذاكرة. column = عمود في جدول company_memory، وغيره داخل data */
 export const MEMORY_FIELDS = Object.freeze({
   contract: Object.freeze([
     TITLE('عنوان العقد'),
-    f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', required: true, max: 200, column: 'counterparty', counterparty: true }),
-    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id' }),
-    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', options: CONTRACT_KINDS }),
-    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم', options: OUR_ROLES }),
-    f({ key: 'start_date', kind: 'date', label: 'تاريخ البدء', column: 'start_date' }),
-    f({ key: 'end_date', kind: 'date', label: 'تاريخ الانتهاء', column: 'end_date', after: 'start_date' }),
+    f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', required: true, max: 200, column: 'counterparty', counterparty: true, tag: 'CK-71' }),
+    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id', tag: 'CK-72' }),
+    f({ key: 'contract_kind', kind: 'select', label: 'نوع العقد', options: CONTRACT_KINDS, tag: 'CK-73' }),
+    f({ key: 'our_role', kind: 'select', label: 'صفة شركتكم', options: OUR_ROLES, tag: 'CK-74' }),
+    f({ key: 'start_date', kind: 'date', label: 'تاريخ البدء', column: 'start_date', tag: 'CK-75' }),
+    f({ key: 'end_date', kind: 'date', label: 'تاريخ الانتهاء', column: 'end_date', after: 'start_date', tag: 'CK-76' }),
     f({
       key: 'renewal_type',
       kind: 'select',
@@ -432,15 +447,16 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'manual', label: 'يدوي' },
         { key: 'none', label: 'لا يتجدد' },
       ],
+      tag: 'CK-77',
     }),
-    f({ key: 'term_months', kind: 'int', label: 'مدة التجديد (بالأشهر)', min: 1, max: 120, show_if: { renewal_type: 'auto' } }),
-    f({ key: 'notice_days', kind: 'int', label: 'مهلة الإخطار بعدم التجديد (بالأيام)', min: 0, max: 365, show_if: { renewal_type: 'auto' } }),
-    f({ key: 'value', kind: 'money', label: 'القيمة', column: 'value_minor' }),
-    f({ key: 'currency', kind: 'select', label: 'العملة', options: CURRENCY_OPTIONS, column: 'currency', default: 'EGP' }),
-    f({ key: 'governing_law', kind: 'text', label: 'القانون الحاكم', max: 200 }),
-    f({ key: 'signed', kind: 'bool', label: 'موقَّع؟' }),
-    f({ key: 'signed_at', kind: 'date', label: 'تاريخ التوقيع', show_if: { signed: true } }),
-    f({ key: 'key_terms', kind: 'textarea', label: 'أهم الشروط', max: 2000 }),
+    f({ key: 'term_months', kind: 'int', label: 'مدة التجديد (بالأشهر)', min: 1, max: 120, show_if: { renewal_type: 'auto' }, tag: 'CK-78' }),
+    f({ key: 'notice_days', kind: 'int', label: 'مهلة الإخطار بعدم التجديد (بالأيام)', min: 0, max: 365, show_if: { renewal_type: 'auto' }, tag: 'CK-79' }),
+    f({ key: 'value', kind: 'money', label: 'القيمة', column: 'value_minor', tag: 'CK-80' }),
+    f({ key: 'currency', kind: 'select', label: 'العملة', options: CURRENCY_OPTIONS, column: 'currency', default: 'EGP', tag: 'CK-81' }),
+    f({ key: 'governing_law', kind: 'text', label: 'القانون الحاكم', max: 200, tag: 'CK-82' }),
+    f({ key: 'signed', kind: 'bool', label: 'موقَّع؟', tag: 'CK-83' }),
+    f({ key: 'signed_at', kind: 'date', label: 'تاريخ التوقيع', show_if: { signed: true }, tag: 'CK-84' }),
+    f({ key: 'key_terms', kind: 'textarea', label: 'أهم الشروط', max: 2000, tag: 'CK-85' }),
     SUMMARY,
   ]),
   template: Object.freeze([
@@ -457,19 +473,20 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'policy', label: 'سياسة' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-86',
     }),
-    f({ key: 'version', kind: 'text', label: 'الإصدار', max: 40 }),
-    f({ key: 'approved_at', kind: 'date', label: 'تاريخ الاعتماد' }),
-    f({ key: 'approved_by_text', kind: 'text', label: 'اعتمده', max: 120 }),
+    f({ key: 'version', kind: 'text', label: 'الإصدار', max: 40, tag: 'CK-87' }),
+    f({ key: 'approved_at', kind: 'date', label: 'تاريخ الاعتماد', tag: 'CK-88' }),
+    f({ key: 'approved_by_text', kind: 'text', label: 'اعتمده', max: 120, tag: 'CK-89' }),
     SUMMARY,
   ]),
   licence: Object.freeze([
     TITLE('اسم الترخيص'),
-    f({ key: 'issuer', kind: 'text', label: 'الجهة المصدرة', required: true, max: 200 }),
-    f({ key: 'licence_number', kind: 'text', label: 'رقم الترخيص', max: 80 }),
-    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id' }),
-    f({ key: 'end_date', kind: 'date', label: 'تاريخ الانتهاء', column: 'end_date' }),
-    f({ key: 'renewal_lead_days', kind: 'int', label: 'ابدؤوا التجديد قبل (يومًا)', min: 0, max: 365 }),
+    f({ key: 'issuer', kind: 'text', label: 'الجهة المصدرة', required: true, max: 200, tag: 'CK-90' }),
+    f({ key: 'licence_number', kind: 'text', label: 'رقم الترخيص', max: 80, tag: 'CK-91' }),
+    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id', tag: 'CK-92' }),
+    f({ key: 'end_date', kind: 'date', label: 'تاريخ الانتهاء', column: 'end_date', tag: 'CK-93' }),
+    f({ key: 'renewal_lead_days', kind: 'int', label: 'ابدؤوا التجديد قبل (يومًا)', min: 0, max: 365, tag: 'CK-94' }),
     SUMMARY,
   ]),
   resolution: Object.freeze([
@@ -483,22 +500,23 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'general_assembly', label: 'الجمعية العامة' },
         { key: 'partners', label: 'الشركاء' },
       ],
+      tag: 'CK-95',
     }),
-    f({ key: 'meeting_date', kind: 'date', label: 'تاريخ الاجتماع' }),
-    f({ key: 'subject', kind: 'text', label: 'الموضوع', max: 300 }),
-    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id' }),
+    f({ key: 'meeting_date', kind: 'date', label: 'تاريخ الاجتماع', tag: 'CK-96' }),
+    f({ key: 'subject', kind: 'text', label: 'الموضوع', max: 300, tag: 'CK-97' }),
+    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id', tag: 'CK-98' }),
     SUMMARY,
   ]),
   position: Object.freeze([
-    f({ key: 'topic', kind: 'text', label: 'الموضوع', required: true, max: 200 }),
-    f({ key: 'decision', kind: 'textarea', label: 'القرار', required: true, max: 2000 }),
-    f({ key: 'decided_by_text', kind: 'text', label: 'صادر عن', max: 120 }),
-    f({ key: 'decided_at', kind: 'date', label: 'التاريخ' }),
-    f({ key: 'applies_to', kind: 'multi', label: 'ينطبق على', options: base.REQUEST_TYPES.map((t) => ({ key: t.key, label: t.company_label })) }),
+    f({ key: 'topic', kind: 'text', label: 'الموضوع', required: true, max: 200, tag: 'CK-99' }),
+    f({ key: 'decision', kind: 'textarea', label: 'القرار', required: true, max: 2000, tag: 'CK-100' }),
+    f({ key: 'decided_by_text', kind: 'text', label: 'صادر عن', max: 120, tag: 'CK-101' }),
+    f({ key: 'decided_at', kind: 'date', label: 'التاريخ', tag: 'CK-102' }),
+    f({ key: 'applies_to', kind: 'multi', label: 'ينطبق على', options: base.REQUEST_TYPES.map((t) => ({ key: t.key, label: t.company_label })), tag: 'CK-103' }),
   ]),
   person: Object.freeze([
-    f({ key: 'person_name', kind: 'text', label: 'الاسم', required: true, max: 120 }),
-    f({ key: 'person_title', kind: 'text', label: 'الصفة', max: 120 }),
+    f({ key: 'person_name', kind: 'text', label: 'الاسم', required: true, max: 120, tag: 'CK-104' }),
+    f({ key: 'person_title', kind: 'text', label: 'الصفة', max: 120, tag: 'CK-105' }),
     f({
       key: 'authority',
       kind: 'select',
@@ -511,11 +529,12 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'poa_holder', label: 'وكيل بتوكيل' },
         { key: 'manager', label: 'مدير' },
       ],
+      tag: 'CK-106',
     }),
-    f({ key: 'limit', kind: 'money', label: 'حد التفويض' }),
-    f({ key: 'poa_ref', kind: 'text', label: 'مرجع التوكيل', max: 120 }),
-    f({ key: 'end_date', kind: 'date', label: 'صالح حتى', column: 'end_date' }),
-    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id' }),
+    f({ key: 'limit', kind: 'money', label: 'حد التفويض', tag: 'CK-107' }),
+    f({ key: 'poa_ref', kind: 'text', label: 'مرجع التوكيل', max: 120, tag: 'CK-108' }),
+    f({ key: 'end_date', kind: 'date', label: 'صالح حتى', column: 'end_date', tag: 'CK-109' }),
+    f({ key: 'entity_id', kind: 'entity', label: 'الكيان', column: 'entity_id', tag: 'CK-110' }),
   ]),
   policy: Object.freeze([
     TITLE('الاسم'),
@@ -530,14 +549,15 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'procurement', label: 'مشتريات' },
         { key: 'other', label: 'أخرى' },
       ],
+      tag: 'CK-111',
     }),
-    f({ key: 'version', kind: 'text', label: 'الإصدار', max: 40 }),
-    f({ key: 'approved_at', kind: 'date', label: 'تاريخ الاعتماد' }),
+    f({ key: 'version', kind: 'text', label: 'الإصدار', max: 40, tag: 'CK-112' }),
+    f({ key: 'approved_at', kind: 'date', label: 'تاريخ الاعتماد', tag: 'CK-113' }),
     SUMMARY,
   ]),
   dispute: Object.freeze([
     TITLE('العنوان'),
-    f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', max: 200, column: 'counterparty', counterparty: true }),
+    f({ key: 'counterparty_name', kind: 'text', label: 'الطرف الآخر', max: 200, column: 'counterparty', counterparty: true, tag: 'CK-114' }),
     f({
       key: 'forum',
       kind: 'select',
@@ -549,6 +569,7 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'regulator', label: 'جهة رقابية' },
         { key: 'negotiation', label: 'تفاوض' },
       ],
+      tag: 'CK-115',
     }),
     f({
       key: 'our_role',
@@ -558,15 +579,16 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'claimant', label: 'مدعٍ' },
         { key: 'respondent', label: 'مدعى عليه' },
       ],
+      tag: 'CK-116',
     }),
-    f({ key: 'stage', kind: 'text', label: 'المرحلة', max: 200 }),
-    f({ key: 'next_event_date', kind: 'date', label: 'الموعد القادم' }),
-    f({ key: 'outcome', kind: 'text', label: 'النتيجة', max: 300 }),
+    f({ key: 'stage', kind: 'text', label: 'المرحلة', max: 200, tag: 'CK-117' }),
+    f({ key: 'next_event_date', kind: 'date', label: 'الموعد القادم', tag: 'CK-118' }),
+    f({ key: 'outcome', kind: 'text', label: 'النتيجة', max: 300, tag: 'CK-119' }),
     SUMMARY,
   ]),
   key_date: Object.freeze([
     TITLE('العنوان'),
-    f({ key: 'date', kind: 'date', label: 'التاريخ', required: true, column: 'start_date' }),
+    f({ key: 'date', kind: 'date', label: 'التاريخ', required: true, column: 'start_date', tag: 'CK-120' }),
     f({
       key: 'recurrence',
       kind: 'select',
@@ -577,8 +599,9 @@ export const MEMORY_FIELDS = Object.freeze({
         { key: 'monthly', label: 'شهريًا' },
       ],
       default: 'none',
+      tag: 'CK-121',
     }),
-    f({ key: 'note', kind: 'textarea', label: 'ملاحظة', max: 1000 }),
+    f({ key: 'note', kind: 'textarea', label: 'ملاحظة', max: 1000, tag: 'CK-122' }),
   ]),
 });
 
@@ -593,8 +616,9 @@ export const MEMORY_COMMON_FIELDS = Object.freeze([
       { key: 'admins', label: 'مديرو البوابة فقط' },
     ],
     admins_only: true,
+    tag: 'CK-123',
   }),
-  f({ key: 'remind_days', kind: 'multi_int', label: 'التذكير قبل', options: base.REMIND_DAY_CHOICES.map((d) => ({ key: d, label: String(d) })) }),
+  f({ key: 'remind_days', kind: 'multi_int', label: 'التذكير قبل', options: base.REMIND_DAY_CHOICES.map((d) => ({ key: d, label: String(d) })), tag: 'CK-124' }),
 ]);
 
 // ───────────────────────── أنواع كاملة (البيانات + الحقول) ─────────────────────────

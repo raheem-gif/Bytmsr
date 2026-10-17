@@ -5,14 +5,14 @@ import { api } from '../../../lib/api.js';
 import { getMeta, toLatinDigits } from '../../../lib/fmt.js';
 import { pageHeader, card, form, kv, badge, button, toast } from '../../../lib/ui.js';
 import { usersAdminSection } from '../../components/account-admin.js';
-import { siteSettingsCard, gateSettingsCard } from '../../components/site-settings.js'; // v11 segment-staff (ST-6): + شاشة الاختيار
+import { siteSettingsCard, firstPageSettingsCard } from '../../components/site-settings.js'; // v12 staff-lines (SL-7): بطاقة «الصفحة الأولى» (L12-09)
 import { brandSettingsCard } from '../../components/brand-settings.js'; // v9.2 ألوان المؤسسة
 import { storySettingsCard } from '../../components/story-settings.js'; // v9.2 القصص الواردة على واتساب (admin-ai)
 import { b2bSettingsCard, companyPlansCard } from '../../components/company-b2b-settings.js'; // v10 b2b-staff (STF-9، U10-S22/S23)
 
 /**
  * v9.2: ‎#/settings?section=<id>‎ يمرّر الصفحة إلى البطاقة التي تحمل هذا المعرّف ويضع التركيز على عنوانها
- * (‎section=brand‎ لألوان المؤسسة، ‎section=stories‎ لإعدادات القصص، وأي بطاقة أخرى بمعرّف).
+ * (‎section=brand‎ لألوان المؤسسة، ‎section=stories‎ لإعدادات القصص، ‎section=first-page‎ للصفحة الأولى، وأي بطاقة أخرى بمعرّف).
  */
 function focusSection(section) {
   if (typeof section !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(section)) return;
@@ -89,8 +89,8 @@ export default async function render(ctx) {
   // ───────────── إعدادات المؤسسة ─────────────
   const orgForm = form(
     [
-      { name: 'org_name', label: 'اسم المؤسسة', required: true, maxLength: 100 },
-      { name: 'org_tagline', label: 'الشعار التعريفي', maxLength: 200 },
+      { name: 'org_name', label: 'اسم المؤسسة', required: true, maxLength: 100, tag: 'SET-218' },
+      { name: 'org_tagline', label: 'الشعار التعريفي', maxLength: 200, tag: 'SET-219' },
       {
         name: 'privacy_notice',
         label: 'نص الخصوصية الظاهر للمستفيدين',
@@ -100,6 +100,7 @@ export default async function render(ctx) {
         maxLength: 2000,
         counter: true,
         hint: 'يظهر في نموذج الطلب على الموقع وفي صفحة المتابعة',
+        tag: 'SET-220',
       },
       {
         name: 'whatsapp_display_number',
@@ -112,6 +113,7 @@ export default async function render(ctx) {
           waUnsetBadge,
           'بصيغة دولية مثل 2012xxxxxxxx. يُستخدم في أزرار وروابط واتساب على الموقع وصفحة متابعة المستفيد/ة، والأولوية لرقم صفحة «التكاملات» إن ضُبط. اتركه فارغًا إن لم يكن للمؤسسة رقم واتساب بعد، فيظهر الهاتف بديلًا.',
         ],
+        tag: 'SET-221',
       },
       {
         name: 'whatsapp_template_name',
@@ -120,11 +122,12 @@ export default async function render(ctx) {
         maxLength: 100,
         hint: [
           'يُستخدم فقط لرسائل المتابعة خارج نافذة الـ 24 ساعة إن لم يُربط لها قالب. يُفضَّل ربط القوالب لكل غرض من ',
-          h('a', { href: '#/quick-replies?tab=templates' }, 'صفحة قوالب واتساب'),
+          h('a', { href: '#/quick-replies?tab=templates', tag: 'SET-40' }, 'صفحة قوالب واتساب'),
           '.',
         ],
+        tag: 'SET-222',
       },
-      { name: 'whatsapp_template_language', label: 'لغة القالب الاحتياطي', ltr: true, maxLength: 10, hint: 'كود اللغة كما في Meta، مثل ar أو en_US' },
+      { name: 'whatsapp_template_language', label: 'لغة القالب الاحتياطي', ltr: true, maxLength: 10, hint: 'كود اللغة كما في Meta، مثل ar أو en_US', tag: 'SET-223' },
       {
         name: 'default_assignment_days',
         label: 'المدة الافتراضية لرد المحامي',
@@ -135,6 +138,7 @@ export default async function render(ctx) {
         max: 60,
         suffix: 'يوم',
         hint: 'تُقترح تلقائيًا كموعد مطلوب عند إسناد الملفات',
+        tag: 'SET-224',
       },
       // v9.1 l-court: يظهر للمحامين في «مستحقاتي» بعد «موعد الصرف المعتاد:»
       {
@@ -143,6 +147,7 @@ export default async function render(ctx) {
         maxLength: 200,
         placeholder: 'مثال: من 5 إلى 10 من الشهر التالي، بتحويل بنكي',
         hint: 'يظهر للمحامين في صفحة «مستحقاتي». اتركه فارغًا لإخفائه، فيظهر لهم «تحدد الإدارة موعد الصرف».',
+        tag: 'SET-225',
       },
       // v9.1 b-portal (B91-09): «إزاي أدفع؟» في «مصاريف قضيتك» بصفحة متابعة المستفيد/ة
       {
@@ -154,6 +159,7 @@ export default async function render(ctx) {
         counter: true,
         placeholder: 'مثال: الدفع في مقر المؤسسة من السبت للخميس، وخدي إيصال مختوم دايمًا.',
         hint: 'تظهر تحت «إزاي أدفع؟» في صفحة المتابعة. بكلام بسيط، ومن غير أرقام حسابات شخصية. اتركه فارغًا لإخفائه.',
+        tag: 'SET-226',
       },
       {
         name: 'similarity_threshold',
@@ -163,6 +169,7 @@ export default async function render(ctx) {
         min: 0.05,
         max: 0.9,
         hint: 'بين 0.05 و0.9 — كلما قلّ ظهرت حالات أكثر وأقل دقة. الافتراضي 0.15',
+        tag: 'SET-227',
       },
     ],
     {
@@ -196,6 +203,8 @@ export default async function render(ctx) {
         }
         toast('تم حفظ إعدادات المؤسسة — يظهر اسم المؤسسة الجديد في القائمة بعد إعادة تحميل الصفحة', 'success', 5000);
       },
+      submitTag: 'SET-228',
+      tag: 'SET-229',
     },
   );
 
@@ -206,8 +215,10 @@ export default async function render(ctx) {
     title: 'حالة التكاملات',
     subtitle: 'ملخص سريع؛ تُضبط بيانات واتساب والذكاء الاصطناعي وتُختبر من صفحة «التكاملات»، وتُطبَّق فور الحفظ.',
     icon: 'link',
-    actions: button('إدارة التكاملات', { variant: 'primary', size: 'sm', icon: 'settings', href: '#/integrations' }),
+    actions: button('إدارة التكاملات', { variant: 'primary', size: 'sm', icon: 'settings', href: '#/integrations', tag: 'SET-41' }),
     body: integrationSummary(integ),
+    titleTag: 'SET-42',
+    tag: 'SET-43',
   });
 
   // ───────────── المستخدمون (وحدة accounts: الحسابات، الدعوات المعلقة، سياسة الأمان) ─────────────
@@ -219,13 +230,16 @@ export default async function render(ctx) {
     pageHeader({
       title: 'الإعدادات والمستخدمون',
       subtitle: 'إعدادات المؤسسة العامة، وحالة ربط واتساب والذكاء الاصطناعي، وحسابات فريق الإدارة.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'الإعدادات والمستخدمون' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'SET-44' }, { label: 'الإعدادات والمستخدمون' }],
+      titleTag: 'SET-45',
+      tag: 'SET-46',
     }),
-    card({ title: 'إعدادات المؤسسة', subtitle: 'تظهر للمستفيدين في الموقع وصفحة المتابعة ورسائل واتساب', icon: 'settings', body: orgForm.el }),
+    card({ title: 'إعدادات المؤسسة', subtitle: 'تظهر للمستفيدين في الموقع وصفحة المتابعة ورسائل واتساب', icon: 'settings', body: orgForm.el, titleTag: 'SET-47', tag: 'SET-48' }),
     me.role === 'admin' ? brandSettingsCard({ user: me }) : null, // v9.2: بعد «إعدادات المؤسسة»، لمدير النظام وحده
-    gateSettingsCard(settings), // v11 segment-staff (ST-6، L11-27): مفتاح شاشة الاختيار (section=gate)
+    firstPageSettingsCard(settings), // v12 staff-lines (SL-7، E12-70): «خيري» على الموقع، الاسم القانوني، «عن المكتب» (section=first-page)
     siteSettingsCard(settings),
     storySettingsCard(settings),
+    me.role === 'admin' ? (() => { const slot = h('div', { id: 'media' }); import('../../components/media-settings.js').then((m) => slot.replaceWith(m.mediaSettingsCard(settings))).catch(() => {}); return slot; })() : null, // v12 media (H-M4): «المستندات والصوت» (section=media)
     me.role === 'admin' ? b2bSettingsCard() : null, // v10 b2b-staff: «خدمة الشركات» (section=b2b)
     me.role === 'admin' ? companyPlansCard() : null, // v10 b2b-staff: «باقات الشركات» (section=plans)
     integrationsCard,

@@ -10,7 +10,8 @@ const DESC = 'زوجي توفي من ستة أشهر ولم أستطع صرف ا
 
 async function publicIntake(t, body) {
   const c = t.client();
-  return c.post('/api/public/intake', { consent: true, name: 'وفاء عبد الستار', phone: uniquePhone(), description: DESC, ...body });
+  // v12 staff-lines: intended (L12-09): the «خيري» form with its family section (archived, a POST without segment is paid)
+  return c.post('/api/public/intake', { consent: true, name: 'وفاء عبد الستار', phone: uniquePhone(), description: DESC, segment: 'charity', ...body });
 }
 
 /** مسار مع معاملات استعلام (Client.get يأخذ الترويسات وسيطًا ثانيًا لا الاستعلام) */

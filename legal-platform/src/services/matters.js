@@ -46,6 +46,17 @@ export function createMatters(app) {
     return u;
   }
 
+  /** v12 gate fixer-server (JR-03): هل أُتيح المستند لهذا المحامي في إسناد غير مسحوب؟ (قاعدة documents.canAccess) */
+  function lawyerGranted(docId, lawyerId) {
+    if (!lawyerId) return false;
+    return !!db.get(
+      `SELECT 1 FROM assignment_grants g JOIN assignments a ON a.id = g.assignment_id
+       WHERE g.resource = 'document' AND g.resource_id = ? AND a.lawyer_id = ? AND a.status != 'withdrawn'`,
+      docId,
+      lawyerId,
+    );
+  }
+
   function invoiceView(i) {
     const paid = Number(db.value('SELECT COALESCE(SUM(amount_minor), 0) FROM payments WHERE invoice_id = ?', i.id));
     return { ...i, amount: fromMinor(i.amount_minor), paid_amount: fromMinor(paid), balance: fromMinor(i.amount_minor - paid) };
@@ -216,6 +227,13 @@ export function createMatters(app) {
         expenses: db.all('SELECT x.*, u.name AS lawyer_name FROM expenses x LEFT JOIN users u ON u.id = x.lawyer_id WHERE x.matter_id = ? ORDER BY x.id', m.id).map((x) => ({ ...x, amount: fromMinor(x.amount_minor) })),
         lawyer_fees: app.accounting.ledger({ matter_id: m.id }),
         documents: db.all('SELECT * FROM documents WHERE matter_id = ? ORDER BY id', m.id).map((d) => app.documents.publicView(d)),
+        // v12 gate fixer-server (JR-03): مستندات الطلب والاستشارة المرتبطة (ما أرسله صاحب الطلب ونُظّف عند الوصول) تظهر
+        // في الملف المستمر للفريق؛ لا يراها المحامي المسؤول إلا بعد «إتاحة» (matter_id) أو منحة إسناد — بلا الرسائل الصوتية
+        case_documents: m.case_id
+          ? db
+              .all("SELECT * FROM documents WHERE case_id = ? AND (matter_id IS NULL OR matter_id != ?) AND mime NOT LIKE 'audio/%' ORDER BY id", m.case_id, m.id)
+              .map((d) => ({ ...app.documents.publicView(d), shared_with_matter: false, lawyer_granted: lawyerGranted(d.id, m.responsible_lawyer_id) }))
+          : [],
         messages: (() => {
           const rows = db.all(
             `SELECT * FROM (SELECT m.*, u.name AS author_name FROM messages m LEFT JOIN users u ON u.id = m.author_user_id
@@ -264,7 +282,19 @@ export function createMatters(app) {
         // v9.1 l-court: حقول النتيجة المنظمة وneeds_outcome وnext_event_id (court.lawyerEventView)
         events: db.all('SELECT * FROM matter_events WHERE matter_id = ? ORDER BY starts_at', m.id).map((e) => svc.lawyerEventView(e)),
         tasks: db.all('SELECT id, title, details, due_at, procedural, status, done_at, assignee_user_id, source_event_id FROM matter_tasks WHERE matter_id = ? ORDER BY status, due_at', m.id),
-        documents: db.all('SELECT * FROM documents WHERE matter_id = ? ORDER BY id', m.id).map((d) => app.documents.publicView(d)),
+        // v12 gate fixer-server (JR-03): + مستندات الاستشارة المرتبطة التي أُتيحت له في إسناد غير مسحوب (نفس قاعدة
+        // documents.canAccess)، فيجدها في صفحة الملف — لا مستند لم يُتح له، ولا رسالة صوتية
+        documents: db
+          .all(
+            `SELECT * FROM documents d WHERE d.matter_id = ?
+               OR (d.case_id = ? AND d.mime NOT LIKE 'audio/%' AND EXISTS (SELECT 1 FROM assignment_grants g JOIN assignments a ON a.id = g.assignment_id
+                     WHERE g.resource = 'document' AND g.resource_id = d.id AND a.lawyer_id = ? AND a.status != 'withdrawn'))
+             ORDER BY d.id`,
+            m.id,
+            m.case_id ?? -1,
+            lawyer.id,
+          )
+          .map((d) => app.documents.publicView(d)),
       };
     },
 

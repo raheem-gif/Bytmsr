@@ -53,9 +53,9 @@ export function callIntroText(code) {
 export function openCallNote({ intake, script = null } = {}) {
   const clientRef = newClientRef();
   const taId = uid('call-text');
-  const ta = h('textarea.input.pa-call-input', { id: taId, rows: 6, maxlength: 5000, dir: 'auto', required: true });
-  const wrap = field('ما قالته المستفيدة في المكالمة', ta, { required: true, hint: 'اكتب كلامها كما قالته قدر الإمكان، بلا تحليل. لا تكتب أرقامًا لا تحتاجها.' });
-  const confirmCb = intake.unconfirmed ? h('input', { type: 'checkbox' }) : null;
+  const ta = h('textarea.input.pa-call-input', { id: taId, rows: 6, maxlength: 5000, dir: 'auto', required: true, tag: 'CNT-01' });
+  const wrap = field('ما قالته المستفيدة في المكالمة', ta, { required: true, hint: 'اكتب كلامها كما قالته قدر الإمكان، بلا تحليل. لا تكتب أرقامًا لا تحتاجها.', tag: 'CNT-02' });
+  const confirmCb = intake.unconfirmed ? h('input', { type: 'checkbox', tag: 'CNT-03' }) : null;
   let result = null;
   return new Promise((resolve) => {
     modal({
@@ -67,6 +67,7 @@ export function openCallNote({ intake, script = null } = {}) {
         h('div.pa-call-script', icon('phone', { size: 18 }), h('p', intake.callIntro || callIntroText(intake.code))),
         script && !isSkeletonReply(script) && h('div.pa-call-say', h('strong', 'قل لها:'), h('p.pa-call-say-text', { dir: 'auto' }, script)),
         // [بوابة 9.2 K9] الرقم بالصيغة المحلية (يُقرأ ويُطلب من أي تليفون)، والرابط بالصيغة الدولية
+        // tags:skip inline link inside a <p> (T12-09)
         intake.phone && h('p.pa-call-phone', h('span', intake.form === 'm' ? 'رقمه: ' : 'رقمها: '), h('a', { href: `tel:${intake.phone}` }, ltr(localPhone(intake.phone)))),
         wrap,
         confirmCb &&
@@ -83,10 +84,11 @@ export function openCallNote({ intake, script = null } = {}) {
           message: 'لم تُحفظ المكالمة بعد. إغلاق النافذة يمسح ما كتبته.',
           confirmLabel: 'تجاهل وإغلاق',
           cancelLabel: 'رجوع للكتابة',
+          tag: 'CNT-04',
         });
       },
       actions: [
-        { label: 'إلغاء', variant: 'ghost', onClick: () => (result = null) },
+        { label: 'إلغاء', variant: 'ghost', onClick: () => (result = null), tag: 'CNT-05' },
         {
           label: 'حفظ وتلخيص',
           variant: 'primary',
@@ -107,9 +109,11 @@ export function openCallNote({ intake, script = null } = {}) {
             toast('حُفظت المكالمة — جارٍ تلخيص الطلب', 'success');
             return undefined;
           },
+          tag: 'CNT-06',
         },
       ],
       onClose: () => resolve(result),
+      tag: 'CNT-07',
     });
     requestAnimationFrame(() => ta.focus({ preventScroll: true }));
   });
@@ -149,6 +153,7 @@ export function openCallAttempt({ intakeId, code } = {}) {
             e.currentTarget.classList.remove('is-loading');
           }
         },
+        tag: 'CNT-08',
       }),
     );
     handle = modal({
@@ -158,6 +163,7 @@ export function openCallAttempt({ intakeId, code } = {}) {
       subtitle: code || '',
       body: frag(h('p.modal-intro', 'اختر نتيجة الاتصال. تُسجَّل المحاولة فقط، ولا يصلها شيء.'), h('div.pa-call-outcomes', btns)),
       onClose: () => resolve(attempts),
+      tag: 'CNT-09',
     });
   });
 }
@@ -191,6 +197,7 @@ export async function closeUnreachable({ intakeId, attempts }) {
     title: 'إغلاق: تعذّر الوصول إليها',
     message: `حاولتم الاتصال بها ${count(n, ['مرة واحدة', 'مرتين', 'مرات', 'مرة'])} دون رد. يُغلق الطلب ولا يُؤرشف: رابط متابعتها يبقى، ولو كتبت لنا بعد ذلك يُفتح طلبها من جديد.`,
     confirmLabel: 'إغلاق الطلب',
+    tag: 'CNT-10',
   });
   if (!ok) return null;
   const res = await api.post(`/admin/intakes/${encodeURIComponent(intakeId)}/close-unreachable`, {});
@@ -201,8 +208,8 @@ export async function closeUnreachable({ intakeId, attempts }) {
 /** بطاقة «طلبت مكالمة» داخل الطلب (أو جزء منها): التعليمات + الأزرار + المحاولات */
 export function callbackAlert({ phone, when }) {
   return alertBox(
-    h('span', 'اتصل على ', phone ? h('a', { href: `tel:${phone}` }, ltr(localPhone(phone))) : 'رقمها', when ? ` (${when})` : '', ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.'),
+    h('span', 'اتصل على ', phone ? h('a', { href: `tel:${phone}`, tag: 'CNT-11' }, ltr(localPhone(phone))) : 'رقمها', when ? ` (${when})` : '', ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.'),
     'info',
-    { icon: 'phone' },
+    { icon: 'phone', tag: 'CNT-12' },
   );
 }

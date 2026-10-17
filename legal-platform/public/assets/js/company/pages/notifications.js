@@ -41,6 +41,7 @@ export default async function notificationsPage(ctx) {
           onClick: () => {
             if (!n.read_at) api.post(`/company/notifications/${encodeURIComponent(n.id)}/read`, {}).then(() => window.dispatchEvent(new CustomEvent('co:notifications'))).catch(() => {});
           },
+          tag: 'CB-01',
         },
         h('span.co-notif-ic', { 'aria-hidden': 'true' }, icon(iconOf(n.type), { size: 20 })),
         h(
@@ -57,7 +58,7 @@ export default async function notificationsPage(ctx) {
     [N.earlier, items.filter((n) => dayKey(n.created_at) !== today)],
   ].filter(([, list]) => list.length);
   const listEl = h('div');
-  mount(listEl, groups.length ? groups.map(([title, list]) => sectionCard(title, h('ul.co-notif-list.co-notif-page', list.map(row)))) : sectionCard(null, emptyState(W.nav.no_notifications, null, { icon: 'bell' })));
+  mount(listEl, groups.length ? groups.map(([title, list]) => sectionCard(title, h('ul.co-notif-list.co-notif-page', list.map(row)))) : sectionCard(null, emptyState(W.nav.no_notifications, null, { icon: 'bell', tag: 'CB-02' })));
   const markAll = res.unread
     ? button(W.nav.mark_all_read, {
         variant: 'secondary',
@@ -71,6 +72,7 @@ export default async function notificationsPage(ctx) {
           window.dispatchEvent(new CustomEvent('co:notifications'));
           ctx.reload();
         },
+        tag: 'CB-03',
       })
     : null;
   return h('div.co-page.co-notifications', pageHead(W.nav.notifications, N.sub, { actions: markAll }), listEl);

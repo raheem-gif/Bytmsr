@@ -7,11 +7,12 @@ import { copy } from '../lib/company-ui-core.js';
 import { S } from './state.js';
 
 /** رأس الصفحة: H1 يأخذ التركيز عند الوصول (U10-09/U10-94) وسطر يقول ما هنا */
-export function pageHead(title, sub = null, { actions = null, className = '' } = {}) {
+export function pageHead(title, sub = null, { actions = null, className = '', record = false } = {}) {
+  // v12 gate (V-11): record = عنوان فيه بيانات مستخدم (تحية، عنوان عنصر) ← خط الواجهة؛ غيره عنوان ثابت ← .page-title
   return h(
     'header.co-head',
-    { class: className },
-    h('div.co-head-text', h('h1.co-h1', { tabindex: '-1' }, title), sub ? h('p.co-sub', sub) : null),
+    { class: className, tag: 'CC-36' },
+    h('div.co-head-text', h('h1.co-h1', { class: !record && 'page-title', tabindex: '-1', tag: 'CC-37' }, title), sub ? h('p.co-sub', sub) : null),
     actions ? h('div.co-head-actions', actions) : null,
   );
 }
@@ -36,7 +37,7 @@ export const pageSkeleton = (n, rows) => () => {
 export function slowNotice(el, retry) {
   const t = setTimeout(() => {
     if (!el.isConnected) return;
-    el.append(h('p.co-slow', { role: 'status' }, W.state.slow, ' ', retry ? button(W.state.retry, { variant: 'link', size: 'sm', onClick: retry }) : null));
+    el.append(h('p.co-slow', { role: 'status' }, W.state.slow, ' ', retry ? button(W.state.retry, { variant: 'link', size: 'sm', onClick: retry, tag: 'CC-38' }) : null));
   }, 10000);
   return () => clearTimeout(t);
 }
@@ -45,10 +46,10 @@ export function slowNotice(el, retry) {
 export function notFoundView(parent = { label: W.nav.overview, href: '#/overview' }, { title = W.state.not_found, text = W.state.not_found_text } = {}) {
   return h(
     'section.co-state',
-    h('span.co-state-icon', { 'aria-hidden': 'true' }, icon('lock', { size: 28 })),
-    h('h1.co-h1', { tabindex: '-1' }, title),
+    { tag: 'CC-39' }, h('span.co-state-icon', { 'aria-hidden': 'true' }, icon('lock', { size: 28 })),
+    h('h1.co-h1', { tabindex: '-1', tag: 'CC-40' }, title),
     h('p', text),
-    button(copy('state.back_to', { parent: parent.label }), { variant: 'secondary', href: parent.href }),
+    button(copy('state.back_to', { parent: parent.label }), { variant: 'secondary', href: parent.href, tag: 'CC-41' }),
   );
 }
 
@@ -57,11 +58,11 @@ export function errorView(title, err, retry, parent) {
   if (err && (err.status === 404 || err.status === 403)) return notFoundView(parent);
   return h(
     'section.co-state',
-    { role: 'alert' },
+    { role: 'alert', tag: 'CC-42' },
     h('span.co-state-icon.is-danger', { 'aria-hidden': 'true' }, icon('alert', { size: 28 })),
-    h('h1.co-h1', { tabindex: '-1' }, copy('state.load_error', { title })),
+    h('h1.co-h1', { tabindex: '-1', tag: 'CC-43' }, copy('state.load_error', { title })),
     h('p', errorMessage(err)),
-    retry ? button(W.state.retry, { variant: 'primary', icon: 'refresh', onClick: retry }) : null,
+    retry ? button(W.state.retry, { variant: 'primary', icon: 'refresh', onClick: retry, tag: 'CC-44' }) : null,
   );
 }
 
@@ -72,7 +73,8 @@ export function readOnlySheet() {
     title: W.state.read_only_title,
     sheet: true,
     body: h('p', name ? copy('state.read_only_text', { name }) : W.state.read_only_text_team),
-    actions: [{ label: W.state.understood, variant: 'primary' }],
+    actions: [{ label: W.state.understood, variant: 'primary', tag: 'CC-45' }],
+    tag: 'CC-46',
   });
 }
 
@@ -85,14 +87,14 @@ export function greeting(name) {
 
 /** حقل في نموذج بسيط داخل ورقة (للصفحات التي لا تحتاج ui.form) */
 export const sectionCard = (title, body, { actions = null, className = '', id = null, label = null } = {}) =>
-  h('section.co-section', { class: className, id, 'aria-label': label }, title ? h('header.co-section-head', h('h2.co-section-title', title), actions) : null, body);
+  h('section.co-section', { class: className, id, 'aria-label': label, tag: 'CC-47' }, title ? h('header.co-section-head', { tag: 'CC-48' }, h('h2.co-section-title', { tag: 'CC-49' }, title), actions) : null, body);
 
 /**
  * البحث الواحد (L-55) بعد أول رسم: حقل بنفس الشكل فورًا، ثم يحل محله coSearchBox من lib/company-ui.js (يُحمَّل عند
  * الحاجة فلا يدخل حزمة «المتابعة»؛ §8.4). ما كُتب قبل التحميل والتركيز ينتقلان إليه.
  */
 export function searchSlot({ compact = false } = {}) {
-  const input = h('input.input.co-search-input', { type: 'search', placeholder: W.search.placeholder, 'aria-label': W.search.label, autocomplete: 'off' });
+  const input = h('input.input.co-search-input', { type: 'search', placeholder: W.search.placeholder, 'aria-label': W.search.label, autocomplete: 'off', tag: 'CC-50' });
   const ph = h('div.co-search', { class: compact && 'is-compact', role: 'search' }, h('span.co-search-glass', { 'aria-hidden': 'true' }, icon('search', { size: 18 })), input);
   const load = () =>
     import('../lib/company-ui.js')

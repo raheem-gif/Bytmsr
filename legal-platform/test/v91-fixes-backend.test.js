@@ -129,7 +129,8 @@ describe('B91-01 confirmation code cannot hand a website link holder the phone o
       try {
         const sent = stubWhatsApp(t.app);
         const phone = uniquePhone();
-        const r = ok(await t.client().post('/api/public/intake', { name: 'أم محمد عبد الله', phone, consent: true, description: desc }), 201);
+        // v12 staff-lines: intended (L12-09): a «خيري» request as in 11.0 (archived, a POST without segment is paid)
+        const r = ok(await t.client().post('/api/public/intake', { name: 'أم محمد عبد الله', phone, consent: true, description: desc, segment: 'charity' }), 201);
         t.app.engine.handleWhatsAppWebhook(waPayload({ from: waFrom(phone), text: confirmText(r.confirm_url) }));
         await tick();
         const text = sent.find((x) => x.type === 'text' && x.body.includes('رقم طلبك'));

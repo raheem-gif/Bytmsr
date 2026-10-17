@@ -75,13 +75,13 @@ function journeyItem(j) {
 function textBlock(title, body, { empty = 'لا يوجد', collapsible = false } = {}) {
   const content = body ? h('div.pd-kn-text.pre', richText(body)) : h('p.muted', empty);
   if (collapsible && body) {
-    return h('details.pd-kn-block.pd-details', h('summary', h('h3', title), h('span.cell-sub', 'عرض')), content);
+    return h('details.pd-kn-block.pd-details', { tag: 'KNF-01' }, h('summary', { tag: 'KNF-02' }, h('h3', { tag: 'KNF-03' }, title), h('span.cell-sub', 'عرض')), content);
   }
-  return h('section.pd-kn-block', h('h3', title), content);
+  return h('section.pd-kn-block', { tag: 'KNF-04' }, h('h3', { tag: 'KNF-05' }, title), content);
 }
 
 function listBlock(title, items, empty) {
-  return h('section.pd-kn-block', h('h3', title), items && items.length ? h('ol.pd-kn-list', items.map((x) => h('li', richText(x)))) : h('p.muted', empty));
+  return h('section.pd-kn-block', { tag: 'KNF-06' }, h('h3', { tag: 'KNF-07' }, title), items && items.length ? h('ol.pd-kn-list', items.map((x) => h('li', richText(x)))) : h('p.muted', empty));
 }
 
 export default async function render(ctx) {
@@ -106,6 +106,7 @@ export default async function render(ctx) {
           options: options('knowledge_usage').filter((o) => o.value !== 'none'),
           hint: 'التدريب يعني دخول الحالة في ملف التصدير وقياس أداء الذكاء الاصطناعي، إضافة إلى ظهورها كحالة مشابهة.',
           full: true,
+          tag: 'KNF-48',
         },
         {
           name: 'confirm',
@@ -113,10 +114,11 @@ export default async function render(ctx) {
           required: true,
           text: 'راجعتُ إخفاء البيانات الشخصية، وأؤكد أن النص لا يكشف هوية المستفيد/ة أو أطراف الملف',
           full: true,
+          tag: 'KNF-49',
         },
-        { name: 'note', label: 'ملاحظة المراجعة (اختياري)', type: 'textarea', rows: 3, maxLength: 2000 },
+        { name: 'note', label: 'ملاحظة المراجعة (اختياري)', type: 'textarea', rows: 3, maxLength: 2000, tag: 'KNF-50' },
       ],
-      { footer: false, values: { usage: rec.usage && rec.usage !== 'none' ? rec.usage : 'knowledge' } },
+      { footer: false, values: { usage: rec.usage && rec.usage !== 'none' ? rec.usage : 'knowledge' }, tag: 'KNF-51' },
     );
     modal({
       title: isApproved ? 'تعديل نطاق استخدام الحالة' : 'اعتماد الحالة في المعرفة المؤسسية',
@@ -126,12 +128,13 @@ export default async function render(ctx) {
         pii.length
           ? alertBox(`عُثر في النص على ${num(pii.length)} من البيانات التي قد تكشف الهوية ولم تُخفَ بعد (${[...new Set(pii.map((p) => p.kind))].join('، ')}). يُفضّل تعديل النص قبل الاعتماد.`, 'warning', {
               title: 'تحقق قبل الاعتماد',
+              tag: 'KNF-08',
             })
           : null,
         f.el,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'KNF-09' },
         {
           label: isApproved ? 'حفظ نطاق الاستخدام' : 'اعتماد الحالة',
           variant: 'primary',
@@ -149,8 +152,10 @@ export default async function render(ctx) {
             ctx.reload();
             return undefined;
           },
+          tag: 'KNF-10',
         },
       ],
+      tag: 'KNF-11',
     });
   }
 
@@ -159,8 +164,9 @@ export default async function render(ctx) {
       title: 'استبعاد الحالة من المعرفة المؤسسية',
       intro: 'لن تظهر الحالة كحالة مشابهة ولن تدخل في التدريب. يمكن إعادتها للمراجعة لاحقًا بإعادة بنائها من الملف.',
       submitLabel: 'استبعاد الحالة',
-      fields: [{ name: 'note', label: 'سبب الاستبعاد', type: 'textarea', rows: 3, required: true, maxLength: 2000, placeholder: 'مثال: الوقائع غير مكتملة أو يصعب إخفاء هوية الأطراف' }],
+      fields: [{ name: 'note', label: 'سبب الاستبعاد', type: 'textarea', rows: 3, required: true, maxLength: 2000, placeholder: 'مثال: الوقائع غير مكتملة أو يصعب إخفاء هوية الأطراف', tag: 'KNF-12' }],
       onSubmit: (v) => api.post(`/admin/knowledge/${encodeURIComponent(rec.id)}/exclude`, { note: v.note }),
+      tag: 'KNF-13',
     });
     if (res) {
       toast('استُبعدت الحالة من المعرفة المؤسسية', 'success');
@@ -169,9 +175,9 @@ export default async function render(ctx) {
   }
 
   const actions = [];
-  if (rec.status !== 'approved') actions.push(button('اعتماد', { variant: 'primary', icon: 'shieldCheck', onClick: openApprove }));
-  else actions.push(button('تعديل نطاق الاستخدام', { icon: 'shieldCheck', onClick: openApprove }));
-  if (rec.status !== 'excluded') actions.push(button('استبعاد', { variant: 'ghost', icon: 'eyeOff', onClick: openExclude }));
+  if (rec.status !== 'approved') actions.push(button('اعتماد', { variant: 'primary', icon: 'shieldCheck', onClick: openApprove, tag: 'KNF-14' }));
+  else actions.push(button('تعديل نطاق الاستخدام', { icon: 'shieldCheck', onClick: openApprove, tag: 'KNF-15' }));
+  if (rec.status !== 'excluded') actions.push(button('استبعاد', { variant: 'ghost', icon: 'eyeOff', onClick: openExclude, tag: 'KNF-16' }));
   if (rec.status !== 'approved' && rec.case_id) {
     actions.push(
       asyncButton(
@@ -182,13 +188,14 @@ export default async function render(ctx) {
             message: 'سيُعاد بناء السجل من بيانات الملف الحالية ويُطبَّق الإخفاء الآلي من جديد، وستُفقد أي تعديلات يدوية على المحتوى. يعود السجل إلى «بانتظار المراجعة».',
             confirmLabel: 'إعادة البناء',
             danger: true,
+            tag: 'KNF-17',
           });
           if (!ok) return;
           await api.post(`/admin/knowledge/${encodeURIComponent(rec.id)}/rebuild`);
           toast('أُعيد بناء السجل من الملف', 'success');
           ctx.reload();
         },
-        { variant: 'ghost', icon: 'refresh' },
+        { variant: 'ghost', icon: 'refresh', tag: 'KNF-18' },
       ),
     );
   }
@@ -212,7 +219,7 @@ export default async function render(ctx) {
       ),
       h('p.cell-sub', countEntries.length ? 'أعداد ما استُبدل آليًا بعلامات مثل [اسم] و[رقم هاتف] قبل حفظ السجل.' : 'لم يعثر الإخفاء الآلي على بيانات شخصية في النص.'),
       !rr.reviewed || rec.status === 'pending_review'
-        ? alertBox('راجع النص للتأكد من إخفاء كل البيانات الشخصية قبل الاعتماد؛ الإخفاء الآلي أولي وقد يفوته اسم أو عنوان مكتوب بصيغة غير معتادة.', 'warning', { icon: 'eye' })
+        ? alertBox('راجع النص للتأكد من إخفاء كل البيانات الشخصية قبل الاعتماد؛ الإخفاء الآلي أولي وقد يفوته اسم أو عنوان مكتوب بصيغة غير معتادة.', 'warning', { icon: 'eye', tag: 'KNF-19' })
         : null,
       pii.length
         ? alertBox(
@@ -222,10 +229,12 @@ export default async function render(ctx) {
               h('div.pd-badges', pii.slice(0, 12).map((p) => badge(`${p.kind}: ${p.value}`, 'danger'))),
             ),
             'danger',
-            { title: 'بيانات محتملة غير مخفية' },
+            { title: 'بيانات محتملة غير مخفية', tag: 'KNF-20' },
           )
         : null,
     ),
+    titleTag: 'KNF-21',
+    tag: 'KNF-22',
   });
 
   // ───────────── المحتوى (عرض/تحرير) ─────────────
@@ -239,7 +248,7 @@ export default async function render(ctx) {
       listBlock('المسائل القانونية', rec.issues, 'لم تُسجل مسائل'),
       textBlock('الإجابة المعتمدة (رأي المحامين بعد مراجعة الإدارة)', rec.final_answer, { empty: 'لا توجد إجابة معتمدة' }),
       textBlock('نسخة الرد التي أُرسلت للمستفيد/ة', rec.client_answer, { empty: 'لم يُرسل رد للمستفيد/ة', collapsible: true }),
-      h('section.pd-kn-block', h('h3', 'الوسوم'), rec.tags && rec.tags.length ? chips(rec.tags) : h('p.muted', 'لا توجد وسوم')),
+      h('section.pd-kn-block', { tag: 'KNF-23' }, h('h3', { tag: 'KNF-24' }, 'الوسوم'), rec.tags && rec.tags.length ? chips(rec.tags) : h('p.muted', 'لا توجد وسوم')),
     );
   }
 
@@ -255,15 +264,15 @@ export default async function render(ctx) {
     };
     const f = form(
       [
-        { name: 'title', label: 'العنوان', required: true, maxLength: 300, full: true },
-        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, placeholder: false, options: areaOptions() },
-        { name: 'tags', label: 'الوسوم', maxLength: 600, hint: 'افصل بين الوسوم بفاصلة، مثل: قسمة رضائية، إعلام وراثة' },
-        { name: 'facts', label: 'الوقائع (مجهّلة)', type: 'textarea', rows: 6, required: true, minLength: 20, maxLength: 20000 },
-        { name: 'issues', label: 'المسائل القانونية', type: 'textarea', rows: 4, hint: 'اكتب كل مسألة في سطر مستقل' },
-        { name: 'final_answer', label: 'الإجابة المعتمدة', type: 'textarea', rows: 10, maxLength: 60000 },
-        { name: 'client_answer', label: 'نسخة الرد للمستفيد/ة', type: 'textarea', rows: 6, maxLength: 10000 },
+        { name: 'title', label: 'العنوان', required: true, maxLength: 300, full: true, tag: 'KNF-52' },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, placeholder: false, options: areaOptions(), tag: 'KNF-53' },
+        { name: 'tags', label: 'الوسوم', maxLength: 600, hint: 'افصل بين الوسوم بفاصلة، مثل: قسمة رضائية، إعلام وراثة', tag: 'KNF-54' },
+        { name: 'facts', label: 'الوقائع (مجهّلة)', type: 'textarea', rows: 6, required: true, minLength: 20, maxLength: 20000, tag: 'KNF-55' },
+        { name: 'issues', label: 'المسائل القانونية', type: 'textarea', rows: 4, hint: 'اكتب كل مسألة في سطر مستقل', tag: 'KNF-56' },
+        { name: 'final_answer', label: 'الإجابة المعتمدة', type: 'textarea', rows: 10, maxLength: 60000, tag: 'KNF-57' },
+        { name: 'client_answer', label: 'نسخة الرد للمستفيد/ة', type: 'textarea', rows: 6, maxLength: 10000, tag: 'KNF-58' },
       ],
-      { footer: false, values: original },
+      { footer: false, values: original, tag: 'KNF-59' },
     );
     const save = asyncButton(
       'حفظ التعديلات',
@@ -304,6 +313,7 @@ export default async function render(ctx) {
             title: 'تعديل سجل معتمد',
             message: 'تعديل محتوى سجل معتمد يعيده إلى «بانتظار المراجعة» ويوقف استخدامه حتى يُعتمد من جديد. هل تريد المتابعة؟',
             confirmLabel: 'حفظ وإعادة للمراجعة',
+            tag: 'KNF-25',
           });
           if (!ok) return;
         }
@@ -316,17 +326,17 @@ export default async function render(ctx) {
         toast(isApproved && contentChanged ? 'حُفظت التعديلات وعاد السجل إلى المراجعة' : 'حُفظت التعديلات', 'success');
         ctx.reload();
       },
-      { variant: 'primary', icon: 'check' },
+      { variant: 'primary', icon: 'check', tag: 'KNF-26' },
     );
     return h(
       'div.stack',
-      isApproved ? alertBox('هذا السجل معتمد: تعديل العنوان أو الوقائع أو المسائل أو الإجابات يعيده إلى المراجعة ويوقف استخدامه حتى يُعتمد من جديد.', 'warning') : null,
+      isApproved ? alertBox('هذا السجل معتمد: تعديل العنوان أو الوقائع أو المسائل أو الإجابات يعيده إلى المراجعة ويوقف استخدامه حتى يُعتمد من جديد.', 'warning', { tag: 'KNF-27' }) : null,
       f.el,
-      h('div.form-actions', save, button('إلغاء', { variant: 'ghost', onClick: () => setEditing(false) })),
+      h('div.form-actions', save, button('إلغاء', { variant: 'ghost', onClick: () => setEditing(false), tag: 'KNF-28' })),
     );
   }
 
-  const editBtn = button('تعديل المحتوى', { size: 'sm', icon: 'edit', onClick: () => setEditing(!editing) });
+  const editBtn = button('تعديل المحتوى', { size: 'sm', icon: 'edit', onClick: () => setEditing(!editing), tag: 'KNF-29' });
   function setEditing(on) {
     editing = on;
     editBtn.querySelector('.btn-label').textContent = on ? 'إلغاء التعديل' : 'تعديل المحتوى';
@@ -351,6 +361,8 @@ export default async function render(ctx) {
       ['أُنشئ', rec.created_at ? relative(rec.created_at) : null],
       ['آخر تحديث', rec.updated_at ? relative(rec.updated_at) : null],
     ]),
+    titleTag: 'KNF-30',
+    tag: 'KNF-31',
   });
 
   const requestsCard = card({
@@ -361,6 +373,8 @@ export default async function render(ctx) {
       listBlock('معلومات طُلبت', rec.info_requested, 'لم تُطلب معلومات إضافية'),
       listBlock('مستندات طُلبت', rec.documents_requested, 'لم تُطلب مستندات'),
     ),
+    titleTag: 'KNF-32',
+    tag: 'KNF-33',
   });
 
   const specialists = Array.isArray(rec.specialists) ? rec.specialists : [];
@@ -379,6 +393,8 @@ export default async function render(ctx) {
           ),
         )
       : h('p.muted', 'لم تحتج الحالة إلى متخصص إضافي'),
+      titleTag: 'KNF-34',
+      tag: 'KNF-35',
   });
 
   const corrections = Array.isArray(rec.ai_corrections) ? rec.ai_corrections : [];
@@ -386,37 +402,44 @@ export default async function render(ctx) {
 
   return frag(
     pageHeader({
+      record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
       title: h('span', richText(rec.title)),
       subtitle: `${rec.legal_area_label || areaLabel(rec.legal_area)}${rec.outcome ? ` — ${label('case_outcome', rec.outcome)}` : ''}`,
       breadcrumbs: [
-        { label: 'لوحة المتابعة', href: '#/dashboard' },
-        { label: 'المعرفة المؤسسية', href: '#/knowledge' },
+        { label: 'لوحة المتابعة', href: '#/dashboard', tag: 'KNF-36' },
+        { label: 'المعرفة المؤسسية', href: '#/knowledge', tag: 'KNF-37' },
         { label: rec.case_code ? `سجل الملف ${rec.case_code}` : `سجل رقم ${rec.id}` },
       ],
       meta: [
         statusBadge('knowledge_status', rec.status),
         rec.status === 'approved' ? statusBadge('knowledge_usage', rec.usage, { dot: false }) : null,
-        rec.case_id ? h('a.pd-meta-link', { href: `#/cases/${rec.case_id}`, title: 'فتح ملف الاستشارة الأصلي (للإدارة فقط)' }, icon('briefcase', { size: 14 }), codeTag(rec.case_code)) : null,
+        rec.case_id ? h('a.pd-meta-link', { href: `#/cases/${rec.case_id}`, title: 'فتح ملف الاستشارة الأصلي (للإدارة فقط)', tag: 'KNF-38' }, icon('briefcase', { size: 14 }), codeTag(rec.case_code)) : null,
       ],
       actions,
+      titleTag: 'KNF-39',
+      tag: 'KNF-40',
     }),
     redactionCard,
     h(
       'div.detail-layout',
       h(
         'div.detail-main',
-        card({ title: 'المحتوى المجهّل', subtitle: 'هذا ما يُستخدم في المعرفة والتدريب بعد الاعتماد', icon: 'fileText', actions: editBtn, body: contentHost }),
+        card({ title: 'المحتوى المجهّل', subtitle: 'هذا ما يُستخدم في المعرفة والتدريب بعد الاعتماد', icon: 'fileText', actions: editBtn, body: contentHost, titleTag: 'KNF-41', tag: 'KNF-42' }),
         card({
           title: 'تصحيحات الذكاء الاصطناعي في هذه الحالة',
           subtitle: 'ما اقترحه الذكاء الاصطناعي وما قررته الإدارة أو المحامي',
           icon: 'sparkle',
-          body: corrections.length ? correctionsList(corrections, { limit: 4, showCase: false }) : emptyState('قبلت الإدارة والمحامون اقتراحات الذكاء الاصطناعي كما هي في هذه الحالة', null, { compact: true, icon: 'checkCircle' }),
+          body: corrections.length ? correctionsList(corrections, { limit: 4, showCase: false }) : emptyState('قبلت الإدارة والمحامون اقتراحات الذكاء الاصطناعي كما هي في هذه الحالة', null, { compact: true, icon: 'checkCircle', tag: 'KNF-43' }),
+          titleTag: 'KNF-44',
+          tag: 'KNF-45',
         }),
         card({
           title: 'رحلة الحالة: من الرسالة الأولى حتى الإجابة المعتمدة',
           subtitle: 'كما سُجلت في الملف بعد إخفاء البيانات الشخصية',
           icon: 'clock',
           body: timeline(journey.map(journeyItem), { empty: 'لا توجد أحداث مسجلة لهذه الحالة' }),
+          titleTag: 'KNF-46',
+          tag: 'KNF-47',
         }),
       ),
       h('div.detail-side', reviewCard, specialistsCard, requestsCard),

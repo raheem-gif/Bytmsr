@@ -394,7 +394,10 @@ describe('v9.1 b-portal — website request links and «تابعي طلبك»', 
     try {
       const r = await t.client().get('/portal');
       assert.equal(r.status, 200);
-      assert.match(r.body, /<h1 id="page-title" class="bp-login-title">تابعي طلبك<\/h1>/);
+      // v12 entry: intended (E12 §12.2): archived, /portal is on the paid side; the charity heading comes back when «خيري» is restored
+      assert.match(r.body, /<h1 id="page-title" class="bp-login-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>متابعة طلبكم<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
+      t.app.settings.set('charity_public', true);
+      assert.match((await t.client().get('/portal')).body, /<h1 id="page-title" class="bp-login-title"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>تابعي طلبك<\/h1>/); // v12 tags: intended (TG-6, T12-14: data-tag is the last attribute)
       assert.match(r.body, /noindex/);
       const p = await t.client().get('/p/short');
       assert.match(p.body, /id="portal-root"/);

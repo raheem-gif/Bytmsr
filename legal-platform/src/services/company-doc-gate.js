@@ -466,12 +466,21 @@ export function createCompanyDocGate(app) {
    */
   function scanNames(doc, lawyers) {
     const kind = scanKind(doc);
-    if (!kind || !lawyers.length) return [];
+    if (!lawyers.length) return [];
+    // v12 media (H-M12، L12-91): النص المقروء آليًا من صور المستند (OCR) يُفحص أيضًا، ولملفات PDF المصوّرة
+    let ocr = [];
+    try {
+      const t = db.all('SELECT text FROM document_text WHERE document_id = ?', doc.id).map((r) => r.text).join('\n');
+      if (t) ocr = findLawyerHits(t, lawyers).map((h) => h.matched);
+    } catch {
+      ocr = [];
+    }
+    if (!kind) return [...new Set(ocr)];
     const buf = readDocBuffer(doc);
-    if (!buf) return [];
+    if (!buf) return [...new Set(ocr)];
     const text = kind === 'text' ? buf.subarray(0, 1024 * 1024).toString('utf8') : textRuns(buf);
     const shortUser = new Set(lawyers.map((l) => String(l.username || '').toLowerCase()).filter((u) => u && u.length < 5));
-    return [...new Set(findLawyerHits(text, lawyers).filter((h) => kind === 'text' || !shortUser.has(String(h.matched).toLowerCase())).map((h) => h.matched))];
+    return [...new Set([...findLawyerHits(text, lawyers).filter((h) => kind === 'text' || !shortUser.has(String(h.matched).toLowerCase())).map((h) => h.matched), ...ocr])];
   }
 
   /** محامو كل ملفات الشركة (لملفات الذاكرة التي لا ترتبط بملف بعينه) */
@@ -496,7 +505,7 @@ export function createCompanyDocGate(app) {
       if (!d) continue;
       for (const x of findLawyerHits(`${d.title || ''}\n${d.filename || ''}`, lawyers)) out.lawyer_names.push({ field: `document:${d.id}`, name: x.name, matched: x.matched });
       const meta = documentAuthors(d);
-      const hit = meta ? meta.names.filter((n) => authorMatches(n, lawyers)) : scanNames(d, lawyers);
+      const hit = meta ? [...meta.names.filter((n) => authorMatches(n, lawyers)), ...scanNames(d, lawyers)] : scanNames(d, lawyers); // v12 media (H-M12): + نص OCR
       if (hit.length) out.file_authors.push({ document_id: d.id, filename: d.filename, names: hit, source: meta ? (meta.kind === 'office_legacy' ? 'doc' : meta.kind) : scanKind(d) });
     }
     return out;
@@ -551,7 +560,7 @@ export function createCompanyDocGate(app) {
         continue;
       }
       out.office_docs.push({ id: d.id, filename: d.filename, has_author_meta: !!meta.hasMeta });
-      const hit = meta.names.filter((n) => authorMatches(n, lawyers));
+      const hit = [...meta.names.filter((n) => authorMatches(n, lawyers)), ...scanNames(d, lawyers)]; // v12 media (H-M12): + نص OCR لملف PDF مصوّر
       if (hit.length) out.file_authors.push({ document_id: d.id, filename: d.filename, names: hit, source: meta.kind === 'office_legacy' ? 'doc' : meta.kind });
     }
     return out;

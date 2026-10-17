@@ -1235,7 +1235,7 @@ export function createPractice(app) {
           })),
         });
       }
-      return { q, groups, total: groups.reduce((s, g) => s + g.items.length, 0) };
+      return { q, groups, total: groups.reduce((s, g) => s + g.items.length, 0), documents: app.media?.searchStaff?.(q) ?? [] }; // v12 media (H-M7): «مستندات» من النص المقروء آليًا
     },
 
     /** بحث المحامي: إسناداته وملفاته المستمرة فقط — بلا أسماء عملاء أو هواتف */

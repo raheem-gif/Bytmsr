@@ -282,14 +282,15 @@ export async function confirmLogoutWithDrafts(user, { navigate } = {}) {
       sheet: true, className: 'lw-sheet lw-logout-guard',
       body: h('p.confirm-message', w.text),
       actions: [
-        { label: 'ارجع واحفظ', variant: 'primary', onClick: () => { chosen = true; result = false; } },
-        { label: 'سجّل الخروج', variant: 'danger', onClick: () => { chosen = true; result = true; } },
+        { label: 'ارجع واحفظ', variant: 'primary', onClick: () => { chosen = true; result = false; }, tag: 'DRF-01' },
+        { label: 'سجّل الخروج', variant: 'danger', onClick: () => { chosen = true; result = true; }, tag: 'DRF-02' },
       ],
       onClose: () => {
         if (result) clearUserDrafts(user.id);
         else if (chosen && navigate && w.drafts[0]) navigate(`/my/assignments/${w.drafts[0].assignmentId}/write`);
         resolve(result);
       },
+      tag: 'DRF-03',
     });
   });
 }

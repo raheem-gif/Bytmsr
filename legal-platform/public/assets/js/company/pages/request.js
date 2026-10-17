@@ -4,10 +4,10 @@
 // ← من الذاكرة القانونية ← المتابعون. على الحاسوب عمودان 8/4، وعلى الهاتف عمود واحد بالترتيب أعلاه (CSS order).
 // كل ورقة فيها كتابة تسأل «تجاهل ما كتبتموه؟» قبل الإغلاق. الموافقة على عرض السعر بورقة تأكيد + haptic('commit')،
 // واعتماد التسليم + haptic('success'). لا شيء عن الفريق الداخلي: «فريقكم القانوني» صوت واحد (L-22).
-import { h } from '../../lib/h.js';
+import { h, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { time as fmtTime } from '../../lib/fmt.js';
-import { icon, button, badge, codeTag, kv, stepTracker, toast, errorMessage, setBusy, confirmDanger, alertBox, field } from '../../lib/ui.js';
+import { icon, button, badge, codeTag, kv, stepTracker, toast, errorMessage, setBusy, confirmDanger, alertBox, field, fileName } from '../../lib/ui.js';
 import { haptic } from '../../lib/haptics.js';
 import {
   coPromise,
@@ -41,7 +41,7 @@ const mgrName = () => S.home?.account_manager?.name || null;
 const at = (iso) => (iso ? whenLong(iso) : '—');
 
 function section(key, title, body, { actions = null, className = '' } = {}) {
-  return h('section.co-section.co-req-block', { class: [`co-req-${key}`, className], id: `co-req-${key}`, 'aria-label': typeof title === 'string' ? title : null, tabindex: '-1' }, title ? h('header.co-section-head', h('h2.co-section-title', title), actions) : null, body);
+  return h('section.co-section.co-req-block', { class: [`co-req-${key}`, className], id: `co-req-${key}`, 'aria-label': typeof title === 'string' ? title : null, tabindex: '-1', tag: 'CQ-01' }, title ? h('header.co-section-head', { tag: 'CQ-02' }, h('h2.co-section-title', { tag: 'CQ-03' }, title), actions) : null, body);
 }
 
 // ───────────────────────── المحادثة (U10-51) ─────────────────────────
@@ -54,7 +54,7 @@ function msgDocs(m) {
   if (!m.documents?.length) return null;
   return h(
     'div.co-msg-docs',
-    m.documents.map((d) => h('a.doc-chip', { href: companyUrlFor(d), download: '', title: d.filename }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.title || d.filename))),
+    m.documents.map((d) => h('a.doc-chip', { href: companyUrlFor(d), download: '', title: d.filename, tag: 'CQ-04' }, icon('paperclip', { size: 14 }), fileName(d.title || d.filename))),
   );
 }
 function dayKey(iso) {
@@ -79,7 +79,7 @@ function bubble(m, { pending = null, onRetry = null } = {}) {
   let status = null;
   if (pending === 'sending') status = h('span.co-msg-state', { role: 'status' }, W.thread.sending);
   else if (pending === 'sent') status = h('span.co-msg-state', { role: 'status' }, icon('check', { size: 13 }), W.thread.sent);
-  else if (pending === 'failed') status = h('span.co-msg-state.is-failed', { role: 'alert' }, icon('alert', { size: 13 }), W.thread.failed, ' · ', button(W.thread.retry, { variant: 'link', size: 'sm', onClick: onRetry }));
+  else if (pending === 'failed') status = h('span.co-msg-state.is-failed', { role: 'alert' }, icon('alert', { size: 13 }), W.thread.failed, ' · ', button(W.thread.retry, { variant: 'link', size: 'sm', onClick: onRetry, tag: 'CQ-05' }));
   const body = m.body && m.body !== W.thread.files_only ? h('div.co-msg-body', { dir: 'auto' }, m.body) : null;
   return h(
     'div.co-msg',
@@ -126,6 +126,7 @@ function thread(messages) {
         first?.focus({ preventScroll: true });
         (older[0] || first)?.scrollIntoView({ block: 'start' });
       },
+      tag: 'CQ-06',
     });
     list.append(h('div.co-thread-more-wrap', more), ...threadNodes(messages.slice(hidden)));
   } else list.append(...threadNodes(messages));
@@ -148,7 +149,7 @@ function composer(view, listEl, ctx) {
     const note = S.user?.role === 'viewer' ? W.thread.viewer : r.status === 'closed' ? W.thread.closed_plain : null;
     return note ? h('p.co-card-note.co-composer-note', icon('info', { size: 16 }), h('span', note)) : null;
   }
-  const ta = h('textarea.input.co-composer-input', { rows: 2, dir: 'auto', maxlength: 5000, placeholder: W.thread.placeholder, 'aria-label': W.thread.label });
+  const ta = h('textarea.input.co-composer-input', { rows: 2, dir: 'auto', maxlength: 5000, placeholder: W.thread.placeholder, 'aria-label': W.thread.label, tag: 'CQ-07' });
   ta.value = composerText.get(code) || '';
   ta.addEventListener('input', () => composerText.set(code, ta.value));
   let up = null;
@@ -162,8 +163,9 @@ function composer(view, listEl, ctx) {
       up = coUploader({ max: 5, perRequestLeft: docsLeft(view), capture: true });
       upSlot.append(up.el);
     },
+    tag: 'CQ-08',
   });
-  const sendBtn = button(W.thread.send, { variant: 'primary', icon: 'send', onClick: () => send() });
+  const sendBtn = button(W.thread.send, { variant: 'primary', icon: 'send', onClick: () => send(), tag: 'CQ-09' });
   const note = r.status === 'closed' ? h('p.co-card-note', icon('info', { size: 16 }), h('span', W.thread.closed)) : null;
   async function post(payload, el) {
     try {
@@ -208,7 +210,7 @@ function composer(view, listEl, ctx) {
 
 // ───────────────────────── الأوراق ─────────────────────────
 function approveSheet(q, code, ctx) {
-  const note = textareaField(W.quoteSheet.note, { max: 1000, rows: 3 });
+  const note = textareaField(W.quoteSheet.note, { max: 1000, rows: 3, tag: 'CQ-50' });
   const err = sheetError();
   const company = S.company?.name || '';
   // J-22: العرض «بحد أقصى» لا يُقرأ التزامًا بالمبلغ كاملًا
@@ -219,7 +221,7 @@ function approveSheet(q, code, ctx) {
     dirty: () => !!note.value(),
     body: h('div.co-sheet-body', h('p.co-sheet-lead', text), q.basis === 'capped' ? h('p.co-card-sub', copy('quote.capped_note', { cap: q.amount_text || '' })) : null, note.wrap, err),
     actions: [
-      { label: W.quoteSheet.back, variant: 'ghost' },
+      { label: W.quoteSheet.back, variant: 'ghost', tag: 'CQ-10' },
       {
         label: W.quoteSheet.confirm,
         variant: 'primary',
@@ -236,20 +238,22 @@ function approveSheet(q, code, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-11',
       },
     ],
+    tag: 'CQ-12',
   });
 }
 
 function rejectSheet(q, code, ctx) {
-  const reason = textareaField(W.quoteSheet.reason, { required: true, max: 500, rows: 3 });
+  const reason = textareaField(W.quoteSheet.reason, { required: true, max: 500, rows: 3, tag: 'CQ-51' });
   const err = sheetError();
   textSheet({
     title: W.quoteSheet.reject_title,
     dirty: () => !!reason.value(),
     body: h('div.co-sheet-body', chipFill(W.quoteSheet.reject_chips, reason.input), reason.wrap, h('p.co-hint-warning', icon('alert', { size: 16 }), h('span', W.quoteSheet.reject_warning)), err),
     actions: [
-      { label: W.quoteSheet.back, variant: 'ghost' },
+      { label: W.quoteSheet.back, variant: 'ghost', tag: 'CQ-13' },
       {
         label: W.quoteSheet.reject_confirm,
         variant: 'danger',
@@ -270,8 +274,10 @@ function rejectSheet(q, code, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-14',
       },
     ],
+    tag: 'CQ-15',
   });
 }
 
@@ -279,7 +285,7 @@ function acceptSheet(d, view, ctx) {
   const r = view.request;
   let rating = 0;
   const ratingErr = h('p.field-error', { role: 'alert', hidden: true });
-  const comment = textareaField(W.acceptSheet.comment, { max: 2000, rows: 3 });
+  const comment = textareaField(W.acceptSheet.comment, { max: 2000, rows: 3, tag: 'CQ-52' });
   const stars = starsInput({
     label: W.acceptSheet.rating,
     onChange: (v) => {
@@ -288,15 +294,15 @@ function acceptSheet(d, view, ctx) {
       comment.wrap.querySelector('.field-label, label')?.replaceChildren(v <= 2 ? W.acceptSheet.comment_low : W.acceptSheet.comment);
     },
   });
-  const save = r.can?.save_to_memory ? h('input', { type: 'checkbox', checked: true, id: `co-save-${d.id}` }) : null;
+  const save = r.can?.save_to_memory ? h('input', { type: 'checkbox', checked: true, id: `co-save-${d.id}`, tag: 'CQ-16' }) : null;
   const saveBox = save ? h('div.co-check-block', h('label.check.check-single', { htmlFor: save.id }, save, h('span', W.acceptSheet.save_memory)), h('p.field-hint', W.acceptSheet.save_memory_hint)) : null;
   let topic = null;
   let decision = null;
   let decisionBox = null;
   if (r.can?.record_decision && isAdmin()) {
-    topic = h('input.input', { type: 'text', dir: 'auto', maxlength: 200 });
-    decision = h('textarea.input', { rows: 3, dir: 'auto', maxlength: 2000 });
-    decisionBox = h('details.co-details.co-decision', h('summary', W.acceptSheet.decision), h('div.co-decision-body', field(W.acceptSheet.topic, topic), field(W.acceptSheet.decision_text, decision, { full: true }), h('p.field-hint', W.acceptSheet.decision_hint)));
+    topic = h('input.input', { type: 'text', dir: 'auto', maxlength: 200, tag: 'CQ-17' });
+    decision = h('textarea.input', { rows: 3, dir: 'auto', maxlength: 2000, tag: 'CQ-18' });
+    decisionBox = h('details.co-details.co-decision', { tag: 'CQ-19' }, h('summary', { tag: 'CQ-20' }, W.acceptSheet.decision), h('div.co-decision-body', field(W.acceptSheet.topic, topic, { tag: 'CQ-21' }), field(W.acceptSheet.decision_text, decision, { full: true, tag: 'CQ-22' }), h('p.field-hint', W.acceptSheet.decision_hint)));
   }
   const err = sheetError();
   textSheet({
@@ -329,8 +335,10 @@ function acceptSheet(d, view, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-23',
       },
     ],
+    tag: 'CQ-24',
   });
 }
 
@@ -344,7 +352,7 @@ function changesLeft(r) {
 function changesSheet(d, view, ctx) {
   const r = view.request;
   const { left, max, until } = changesLeft(r);
-  const what = textareaField(W.changesSheet.what, { required: true, max: 3000, rows: 5, hint: W.changesSheet.hint });
+  const what = textareaField(W.changesSheet.what, { required: true, max: 3000, rows: 5, hint: W.changesSheet.hint, tag: 'CQ-53' });
   const err = sheetError();
   // C-03: «تبقّت لكم جولة تعديل واحدة حتى …» (بلا «(من 1)» حين لم تُستخدم أي جولة)
   const key = `${until ? 'changesSheet.left' : 'changesSheet.left_open'}${left >= max ? '_all' : ''}`;
@@ -375,14 +383,16 @@ function changesSheet(d, view, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-25',
       },
     ],
+    tag: 'CQ-26',
   });
   return sh;
 }
 
 function escalateSheet(r, ctx) {
-  const what = textareaField(W.escalateSheet.what, { required: true, max: 500, rows: 3 });
+  const what = textareaField(W.escalateSheet.what, { required: true, max: 500, rows: 3, tag: 'CQ-54' });
   const err = sheetError();
   textSheet({
     title: W.escalateSheet.title,
@@ -410,8 +420,10 @@ function escalateSheet(r, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-27',
       },
     ],
+    tag: 'CQ-28',
   });
 }
 
@@ -443,6 +455,7 @@ async function watchersSheet(view, ctx) {
                 e.currentTarget.setAttribute('aria-pressed', sel.has(c.id) ? 'true' : 'false');
                 e.currentTarget.classList.toggle('is-on', sel.has(c.id));
               },
+              tag: 'CQ-29',
             },
             icon('check', { size: 14 }),
             h('span', c.name),
@@ -472,9 +485,11 @@ async function watchersSheet(view, ctx) {
               ctx.reload();
               return true;
             },
+            tag: 'CQ-55',
           },
         ]
       : [],
+      tag: 'CQ-30',
   });
 }
 
@@ -508,13 +523,15 @@ function documentsSheet(view, ctx) {
           ctx.reload();
           return true;
         },
+        tag: 'CQ-31',
       },
     ],
+    tag: 'CQ-32',
   });
 }
 
 async function cancelRequest(r, ctx) {
-  const ok = await confirmDanger({ title: copy('cancelReq.title', { code: r.code }), message: W.cancelReq.text, confirmLabel: W.cancelReq.confirm, cancelLabel: W.cancelReq.back });
+  const ok = await confirmDanger({ title: copy('cancelReq.title', { code: r.code }), message: W.cancelReq.text, confirmLabel: W.cancelReq.confirm, cancelLabel: W.cancelReq.back, tag: 'CQ-33' });
   if (!ok) return;
   try {
     await api.post(`/company/requests/${encodeURIComponent(r.code)}/cancel`, {});
@@ -538,9 +555,9 @@ function header(view, ctx) {
   const r = view.request;
   const esc = escalateInfo(r);
   const items = [
-    esc.can ? { label: W.req.escalate, icon: 'flag', onClick: () => escalateSheet(r, ctx) } : esc.waitUntil ? { label: copy('req.escalate_wait', { time: whenLong(esc.waitUntil) }), icon: 'flag', disabled: true } : null,
-    r.can?.edit_watchers ? { label: W.req.watchers, icon: 'users', onClick: () => watchersSheet(view, ctx) } : null,
-    r.can?.cancel ? { label: W.req.cancel, icon: 'x', danger: true, onClick: () => cancelRequest(r, ctx) } : null,
+    esc.can ? { label: W.req.escalate, icon: 'flag', onClick: () => escalateSheet(r, ctx), tag: 'CQ-56' } : esc.waitUntil ? { label: copy('req.escalate_wait', { time: whenLong(esc.waitUntil) }), icon: 'flag', disabled: true } : null,
+    r.can?.edit_watchers ? { label: W.req.watchers, icon: 'users', onClick: () => watchersSheet(view, ctx), tag: 'CQ-57' } : null,
+    r.can?.cancel ? { label: W.req.cancel, icon: 'x', danger: true, onClick: () => cancelRequest(r, ctx), tag: 'CQ-58' } : null,
     {
       label: W.req.copy_link,
       icon: 'link',
@@ -552,13 +569,14 @@ function header(view, ctx) {
           /* بلا حافظة: لا شيء */
         }
       },
+      tag: 'CQ-59',
     },
   ];
   const late = r.promise?.state === 'late';
   return h(
     'header.co-req-head',
-    h('div.co-req-head-top', codeTag(r.code), menuButton(W.req.menu, items)),
-    h('h1.co-h1', { tabindex: '-1', dir: 'auto' }, r.title || typeLabel(r.type)),
+    { tag: 'CQ-34' }, h('div.co-req-head-top', codeTag(r.code), tagged('CQ-35', menuButton(W.req.menu, items, { tag: 'CQ-60' }))),
+    h('h1.co-h1', { tabindex: '-1', dir: 'auto', tag: 'CQ-36' }, r.title || typeLabel(r.type)),
     h('div.co-badges', badge(r.type_label || typeLabel(r.type), 'primary', { className: 'co-badge' }), stageBadge(r.stage, { late })),
   );
 }
@@ -567,7 +585,7 @@ function promiseBox(view, ctx) {
   const r = view.request;
   const p = r.promise || {};
   const esc = escalateInfo(r);
-  const action = p.state === 'late' && esc.can ? button(W.req.escalate, { variant: 'secondary', size: 'sm', icon: 'flag', onClick: () => escalateSheet(r, ctx) }) : null;
+  const action = p.state === 'late' && esc.can ? button(W.req.escalate, { variant: 'secondary', size: 'sm', icon: 'flag', onClick: () => escalateSheet(r, ctx), tag: 'CQ-37' }) : null;
   const typical = !p.delivery_by && p.delivery_estimate_text && !['closed', 'declined', 'cancelled', 'delivered'].includes(r.stage) ? copy('promise.typical', { duration: p.delivery_estimate_text }) : null;
   const box = coPromise(p, { stage: r.stage, remainingHours: r.remaining_business_hours, action, typical });
   if (box.hidden) return null;
@@ -593,7 +611,7 @@ function tracker(view) {
   const r = view.request;
   const m = coStepper(r.stage, view.timeline);
   if (m.hidden) return null;
-  return section('tracker', W.stepper.label, stepTracker(m.steps, { current: m.current, state: m.state, note: m.note, label: W.stepper.label }));
+  return tagged('CQ-38', section('tracker', W.stepper.label, stepTracker(m.steps, { current: m.current, state: m.state, note: m.note, label: W.stepper.label })));
 }
 
 /** بطاقة الإجراء الواحدة: سؤال مفتوح ← عرض سعر ← قرار التسليم (U10-42) */
@@ -605,7 +623,7 @@ function actionCard(view, ctx) {
     const msg = open[0];
     const card = coClarificationCard(msg, {
       canAnswer: !!can.answer,
-      uploader: (i, label) => coUploader({ max: 5, perRequestLeft: docsLeft(view), titlePrefix: `${label} — ` }),
+      uploader: (i, label) => coUploader({ max: 5, perRequestLeft: docsLeft(view), titlePrefix: `${label}: ` }),
       onReply: async (payload) => {
         await api.post(`/company/requests/${encodeURIComponent(r.code)}/clarifications/${encodeURIComponent(msg.id)}/reply`, payload);
         toast(W.clarification.sent, 'success');
@@ -666,11 +684,12 @@ function deliverablesBlock(view, ctx) {
   if (!ds.length) return null;
   const [latest, ...older] = ds;
   const card = (d) => coDeliverableCard(d, { canDecide: false, docUrl: companyUrlFor });
-  return section(
+  return tagged('CQ-39', section(
     'deliverables',
     W.req.deliverables,
-    h('div.co-deliverables', card(latest), older.length ? h('details.co-details.co-older', h('summary', copy('deliverable.previous', { n: older.length })), older.map(card)) : null),
-  );
+    // tags:skip card() = coDeliverableCard, which carries its CU code
+    h('div.co-deliverables', card(latest), older.length ? h('details.co-details.co-older', { tag: 'CQ-40' }, h('summary', { tag: 'CQ-41' }, copy('deliverable.previous', { n: older.length })), older.map(card)) : null),
+  ));
 }
 
 function detailsBlock(view) {
@@ -678,7 +697,7 @@ function detailsBlock(view) {
   const pairs = [[W.req.type, r.type_label || typeLabel(r.type)]];
   if (r.entity?.name) pairs.push([W.req.entity, h('span', { dir: 'auto' }, r.entity.name)]);
   const pri = PRIORITY[r.priority] || r.priority;
-  pairs.push([W.req.priority, r.priority_changed ? h('span', pri, h('span.co-muted', ` — ${copy('req.priority_changed', { x: pri })}`)) : pri]);
+  pairs.push([W.req.priority, r.priority_changed ? h('span', pri, h('span.co-muted', `، ${copy('req.priority_changed', { x: pri })}`)) : pri]);
   if (r.urgent_reason) pairs.push([W.req.urgent_reason, h('span', { dir: 'auto' }, r.urgent_reason)]);
   if (r.needed_by) pairs.push([W.req.needed_by, dayText(r.needed_by, { year: true })]);
   const by = r.submitted_by?.id === S.user?.id ? W.thread.you : r.submitted_by?.name || '—';
@@ -688,41 +707,41 @@ function detailsBlock(view) {
   const desc = h('div.co-desc', { dir: 'auto' }, r.description || '');
   const long = String(r.description || '').split('\n').length > 8 || String(r.description || '').length > 600;
   if (long) desc.classList.add('is-folded');
-  const more = long ? button(W.req.show_full, { variant: 'link', size: 'sm', onClick: (e) => { desc.classList.remove('is-folded'); e.currentTarget.remove(); } }) : null;
-  return section('details', W.req.details, h('div', kv(pairs, { className: 'co-fields-kv' }), coRequestFields(r.type, r.fields || {}), h('p.co-card-label', W.req.description), desc, more));
+  const more = long ? button(W.req.show_full, { variant: 'link', size: 'sm', onClick: (e) => { desc.classList.remove('is-folded'); e.currentTarget.remove(); }, tag: 'CQ-42' }) : null;
+  return tagged('CQ-43', section('details', W.req.details, h('div', kv(pairs, { className: 'co-fields-kv' }), coRequestFields(r.type, r.fields || {}), h('p.co-card-label', W.req.description), desc, more)));
 }
 
 function documentsBlock(view, ctx) {
   const r = view.request;
   const docs = view.documents || [];
-  const add = r.can?.upload ? button(W.docs.add, { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => documentsSheet(view, ctx) }) : null;
-  return section(
+  const add = r.can?.upload ? button(W.docs.add, { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => documentsSheet(view, ctx), tag: 'CQ-44' }) : null;
+  return tagged('CQ-45', section(
     'documents',
     docs.length ? [W.req.documents, ' ', h('span.co-count.num', `(${docs.length})`)] : W.req.documents,
     docItems(docs, { origin: (d) => (d.from === 'company' ? W.docs.from_company : W.docs.from_team), empty: W.docs.empty }),
     { actions: add },
-  );
+  ));
 }
 
 function memoryBlock(view) {
   const refs = view.memory_refs || [];
   if (!refs.length) return null;
-  return section(
+  return tagged('CQ-46', section(
     'memory',
     W.req.memory_refs,
-    h('ul.k-list', refs.map((m) => h('li', h('a.k-row', { href: `#/memory/item/${encodeURIComponent(m.id)}` }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('bookOpen', { size: 20 })), h('span.k-row-main', h('span.k-row-title', { dir: 'auto' }, m.title), h('span.k-row-sub', m.kind_label)), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 })))))),
-  );
+    h('ul.k-list', refs.map((m) => h('li', h('a.k-row', { href: `#/memory/item/${encodeURIComponent(m.id)}`, tag: 'CQ-47' }, h('span.k-row-icon', { 'aria-hidden': 'true' }, icon('bookOpen', { size: 20 })), h('span.k-row-main', h('span.k-row-title', { dir: 'auto' }, m.title), h('span.k-row-sub', m.kind_label)), h('span.k-row-chevron', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 })))))),
+  ));
 }
 
 function conversationBlock(view, ctx) {
   const list = thread(view.messages || []);
-  return section('messages', W.req.conversation, h('div.co-conversation', list, composer(view, list, ctx)));
+  return tagged('CQ-48', section('messages', W.req.conversation, h('div.co-conversation', list, composer(view, list, ctx))));
 }
 
 function escalatedBanner(r) {
   if (!r.last_escalated_at || ['closed', 'declined', 'cancelled'].includes(r.stage)) return null;
   if (Date.now() - Date.parse(r.last_escalated_at) > 7 * DAY) return null;
-  return alertBox(copy(mgrName() ? 'req.escalated' : 'req.escalated_team', { time: whenShort(r.last_escalated_at) }), 'info');
+  return alertBox(copy(mgrName() ? 'req.escalated' : 'req.escalated_team', { time: whenShort(r.last_escalated_at) }), 'info', { tag: 'CQ-49' });
 }
 
 /** ?focus=action|deliverable|messages|documents ← تمرير إلى البطاقة وتركيزها (روابط الإشعارات والبريد) */

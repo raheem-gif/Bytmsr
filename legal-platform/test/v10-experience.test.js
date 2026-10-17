@@ -30,9 +30,10 @@ const themeOf = (html) => (/<meta name="theme-color" content="([^"]+)"/.exec(htm
 describe('v10 experience — version and docs skeleton (EXP-0)', () => {
   test('10.0.0 in package.json and both Dockerfile labels; the four lane markers in README, PLATFORM-BRIEF and DEPLOY', () => {
     // v11 visual (intended): the version is 11.0.0 now (package.json and both Dockerfile labels); the v10 markers stay
-    assert.equal(JSON.parse(read('package.json')).version, '11.0.0');
-    assert.match(read('Dockerfile'), /org\.opencontainers\.image\.version="11\.0\.0"/);
-    assert.match(fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8'), /org\.opencontainers\.image\.version="11\.0\.0"/);
+    // v12 media: intended (H-M9, MD-0): the version is 12.0.0 now (package.json and both Dockerfile labels)
+    assert.equal(JSON.parse(read('package.json')).version, '12.0.0');
+    assert.match(read('Dockerfile'), /org\.opencontainers\.image\.version="12\.0\.0"/);
+    assert.match(fs.readFileSync(path.join(ROOT, '..', 'Dockerfile'), 'utf8'), /org\.opencontainers\.image\.version="12\.0\.0"/);
     for (const f of ['README.md', 'PLATFORM-BRIEF.md', 'DEPLOY.md']) {
       const s = read(f);
       for (const lane of ['experience', 'b2b-server', 'b2b-portal', 'b2b-staff']) assert.ok(s.includes(`<!-- v10:${lane} -->`), `${f} ${lane}`);
@@ -127,7 +128,7 @@ describe('v10 experience — royal green and gold (EXP-3, X10-C)', () => {
     assert.ok(!/aria-label|<title/.test(fav), 'no artwork label');
     assert.ok(fav.includes('M18.7 15.3 15 19 6 10 15 1 24 10 21.3 12.7'), 'ornament');
     assert.ok(read('public/assets/img/brand-mark.svg').includes('M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2'));
-    const home = (await t.client().get('/')).body;
+    const home = (await t.client().get('/services')).body; // v12 entry: intended (E12 §12.2): the site header lives on /services, «/» is the entry tree
     assert.ok(/<img class="pub-mark" src="\/assets\/img\/emam-mark-green\.svg\?v=[^"]+" width="99" height="19" alt=""/.test(home)); // v11 gate-public (intended)
     assert.ok(!home.includes('M8 30 32 10.5 56 30'), 'no house glyph left');
     assert.ok(!read('public/sw.js').includes('M8 30 32 10.5 56 30'));
@@ -190,7 +191,7 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
     assert.equal((await admin.patch('/api/admin/settings', { brand_name: '' })).status, 400, 'required');
     ok(await admin.patch('/api/admin/settings', { brand_name: '  Nile   Counsel  ' }));
     assert.equal(t.app.settings.get('brand_name'), 'Nile Counsel', 'trimmed and collapsed');
-    assert.match(titleOf((await t.client().get('/')).body), /— Nile Counsel$/);
+    assert.match(titleOf((await t.client().get('/')).body), /^Nile Counsel \| محاماة واستشارات قانونية$/); // v12 entry: intended (E12-13: «/» title)
     t.app.settings.set('brand_name', '');
     assert.equal(t.app.brand.displayName(), BRAND, 'an emptied value renders the default');
     t.app.settings.set('brand_name', 'Bad​Name');
@@ -204,17 +205,46 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
     const legal = DEFAULT_SETTINGS.org_legal_name;
     const portal = ok(await admin.post(`/api/admin/clients/${t.app.db.value('SELECT id FROM clients ORDER BY id LIMIT 1')}/portal-link`, {}));
     const pPath = new URL(portal.url, t.base).pathname;
-    // v11 gate-public (intended): + /services and /khayri (same «— Emam Legal and Consultancy» suffix)
-    for (const p of ['/', '/khayri', '/services', '/intake', '/about', '/privacy', '/terms', '/data-deletion', '/portal', pPath, '/no-such-page-v10']) {
+    // v12 entry: intended (E12-13, L12-12, E12 §12.2): the paid side (everything while «خيري» is archived) titles with « | »,
+    // its header says «الصفحة الأولى» and its © carries firmName in a plain <bdi>; «/» is the entry tree (brand first, logo
+    // image, no site header); the charity pages are checked in the restored state and keep «—» and the legal entity
+    const firm = t.app.settings.get('firm_legal_name') || BRAND;
+    for (const p of ['/', '/services', '/intake?path=consultation/other', '/privacy', '/terms', '/data-deletion', '/portal', '/no-such-page-v10']) {
       const html = (await t.client().get(p)).body;
-      assert.match(titleOf(html), /— Emam Legal and Consultancy$/, p);
-      assert.ok(html.includes('<bdi class="pub-wordmark" dir="ltr" lang="en"><b>Emam Legal</b> <span>and Consultancy</span></bdi>'), `${p} lockup`);
-      assert.ok(html.includes(`aria-label="${BRAND} — الصفحة الرئيسية"`), `${p} aria-label`);
-      assert.match(html, new RegExp(`© \\d{4} ${legal}\\. جميع الحقوق محفوظة\\.`), `${p} ©`);
       assert.ok(html.includes('<meta property="og:site_name" content="Emam Legal and Consultancy" />'), `${p} og:site_name`);
+      if (p === '/') {
+        assert.match(titleOf(html), /^Emam Legal and Consultancy \| /, p);
+        assert.ok(html.includes(`aria-label="${BRAND}: عن المكتب"`), `${p} logo label`);
+        continue;
+      }
+      // v12 entry: intended (E12-31) — the paid intake has the tree chrome: the green mark → «/» and the tree footer, no lockup/©
+      if (p.startsWith('/intake')) {
+        assert.match(titleOf(html), / \| Emam Legal and Consultancy$/, p);
+        assert.ok(html.includes(`aria-label="${BRAND}: الصفحة الأولى" data-tag="I-04"`), `${p} mark`);
+        continue;
+      }
+      assert.match(titleOf(html), / \| Emam Legal and Consultancy$/, p);
+      assert.ok(html.includes('<bdi class="pub-wordmark" dir="ltr" lang="en"><b>Emam Legal</b> <span>and Consultancy</span></bdi>'), `${p} lockup`);
+      assert.ok(html.includes(`aria-label="${BRAND}: الصفحة الأولى"`), `${p} aria-label`);
+      assert.ok(html.includes(`<p class="pub-legal" data-tag="F-20">© ${new Date().getFullYear()} <bdi>${firm}</bdi>. جميع الحقوق محفوظة.</p>`), `${p} ©`);
     }
-    for (const p of ['/privacy', '/terms', '/about']) assert.ok((await t.client().get(p)).body.includes(legal), `${p} keeps the legal entity`);
+    t.app.settings.set('charity_public', true);
+    try {
+      for (const p of ['/khayri', '/about', '/intake?seg=charity', '/privacy?side=charity', pPath]) {
+        const html = (await t.client().get(p)).body;
+        assert.match(titleOf(html), /— Emam Legal and Consultancy$/, p);
+        assert.ok(html.includes('<bdi class="pub-wordmark" dir="ltr" lang="en"><b>Emam Legal</b> <span>and Consultancy</span></bdi>'), `${p} lockup`);
+        assert.ok(html.includes(`aria-label="${BRAND} — الصفحة الرئيسية"`), `${p} aria-label`);
+        assert.match(html, new RegExp(`© \\d{4} ${legal}\\. جميع الحقوق محفوظة\\.`), `${p} ©`);
+        assert.ok(html.includes('<meta property="og:site_name" content="Emam Legal and Consultancy" />'), `${p} og:site_name`);
+      }
+      for (const p of ['/privacy', '/terms', '/about']) assert.ok((await t.client().get(p)).body.includes(legal), `${p} keeps the legal entity`);
+    } finally {
+      t.app.settings.set('charity_public', false);
+    }
+    t.app.settings.set('charity_public', true);
     const home = (await t.client().get('/khayri')).body; // v11 gate-public (intended): the charity LegalService/NGO graph lives on /khayri (the gated / carries Organization only)
+    t.app.settings.set('charity_public', false);
     assert.ok(home.includes('<span class="pub-sr">مساعدة قانونية مجانية من <bdi class="wordmark" dir="ltr" lang="en">Emam Legal and Consultancy</bdi>. </span>'));
     const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(home)[1])['@graph'];
     const org = ld.find((x) => x['@type'] === 'NGO');
@@ -229,7 +259,7 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
     assert.ok(Buffer.byteLength(bm) <= 3072);
     assert.deepEqual(JSON.parse(bm).brand, { name: BRAND, short: SHORT });
     // «بيوت مصر» appears only through the legal entity (© / JSON-LD / description) and the foundation-mission sentence on /about
-    for (const p of ['/', '/intake', '/portal', pPath]) {
+    for (const p of ['/', '/start/consultation', '/services', '/intake?path=consultation/other', '/portal', pPath]) { // v12 entry: intended (E12 §12.2: /intake → the tree)
       const visible = (await t.client().get(p)).body
         .replace(/<script\b[\s\S]*?<\/script>/g, '')
         .split(legal)
@@ -350,7 +380,7 @@ describe('v10 experience — the brand name in the user experience only (EXP-1/4
       assert.deepEqual(meta.brand.staff_chrome, { name: 'مؤسسة بيوت مصر', short: 'مؤسسة بيوت مصر' });
       assert.equal(meta.brand.name, BRAND);
       assert.notEqual((await t.client().get('/api/meta')).headers.get('etag'), before, 'meta ETag changes');
-      assert.match(titleOf((await t.client().get('/')).body), /— Emam Legal and Consultancy$/);
+      assert.match(titleOf((await t.client().get('/')).body), /^Emam Legal and Consultancy \| /); // v12 entry: intended (E12-13)
       assert.equal(JSON.parse((await t.client().get('/company.webmanifest')).body).short_name, SHORT);
       assert.match((await t.client().get('/sw.js')).body, /const ORG_NAME = "مؤسسة بيوت مصر";/);
     } finally {
@@ -776,7 +806,8 @@ describe('v10 experience — kit components and L-64 close semantics (EXP-2, EXP
     assert.equal(s.el.querySelector('.modal-grip').getAttribute('aria-hidden'), 'true');
     assert.ok(s.el.querySelector('.modal-close'));
     s.close();
-    assert.equal(String(ui.modal).split(')')[0].replace(/\s+/g, ' '), 'function modal({ title, body, actions = [], size = \'md\', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose } = {}', 'signature unchanged');
+    // v12 tags: intended (TG-3، T12-16) — modal() يأخذ tag (رمز النافذة ← data-tag) ولا شيء غيره
+    assert.equal(String(ui.modal).split(')')[0].replace(/\s+/g, ' '), 'function modal({ title, body, actions = [], size = \'md\', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose, tag } = {}', 'signature unchanged');
   });
 
   test('confirmDiscard: «تجاهل ما كتبتموه؟» [«تجاهل»] [«متابعة الكتابة»] → true/false; singular copy; discardGuard closes clean sheets directly', async () => {
@@ -1118,13 +1149,17 @@ describe('v10 experience — motion, press, materials, haptics and images (EXP-7
     try {
       const realHome = (await real.client().get('/')).body;
       assert.equal(/href="\/company"/.test(realHome), fs.existsSync(path.join(PUB, 'company.html')), 'this tree: link iff public/company.html exists');
+      // v12 entry: intended (E12-20 E-11, E12-61 F-08): «/» is the entry tree with its small links row; the full footer is on /services
       const home = (await t.client().get('/')).body;
-      assert.match(home, /<a href="\/company" class="pub-staff-link">دخول الشركات<\/a>/);
-      assert.match(home, /<li><a href="\/company">دخول الشركات<\/a><\/li>/);
+      assert.match(home, /<a href="\/company" data-tag="L-11">دخول الشركات<\/a>/);
+      const svc = (await t.client().get('/services')).body;
+      assert.match(svc, /<a href="\/company" class="pub-staff-link"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>دخول الشركات<\/a>/); // v12 tags: intended (TG-6، T12-90: the paid footer link takes its F code)
+      assert.match(svc, /<li><a href="\/company" data-tag="F-08">دخول الشركات<\/a><\/li>/);
       t.app.settings.set('b2b_enabled', false);
-      const off = (await t.client().get('/')).body;
+      assert.doesNotMatch((await t.client().get('/')).body, /href="\/company"/, 'company service off: no link on the tree');
+      const off = (await t.client().get('/services')).body;
       assert.doesNotMatch(off, /href="\/company"/, 'company service off: no link');
-      assert.match(off, /<a href="\/app" class="pub-staff-link">دخول فريق العمل والمحامين<\/a>/);
+      assert.match(off, /<a href="\/app" class="pub-staff-link"(?: data-tag="[A-Z]{1,3}-\d{2,3}")?>دخول فريق العمل والمحامين<\/a>/); // v12 tags: intended (TG-6، T12-90)
     } finally {
       await t.close();
       await real.close();

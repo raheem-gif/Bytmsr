@@ -321,10 +321,10 @@ export default async function render(ctx) {
     const titleId = `cq-${it.id}`;
     const primary =
       action.disabled
-        ? button(action.label, { variant: 'secondary', icon: action.icon, disabled: true, className: 'cq-primary' })
+        ? button(action.label, { variant: 'secondary', icon: action.icon, disabled: true, className: 'cq-primary', tag: 'CRL-01' })
         : action.key === 'open'
-          ? button(action.label, { variant: action.label === 'فتح' ? 'secondary' : 'primary', icon: action.icon, href: `#/company-requests/${it.id}${action.focus ? `?focus=${action.focus}` : ''}`, className: 'cq-primary' })
-          : asyncButton(action.label, (e) => act(it, action, e), { variant: 'primary', icon: action.icon, className: 'cq-primary' });
+          ? button(action.label, { variant: action.label === 'فتح' ? 'secondary' : 'primary', icon: action.icon, href: `#/company-requests/${it.id}${action.focus ? `?focus=${action.focus}` : ''}`, className: 'cq-primary', tag: 'CRL-02' })
+          : asyncButton(action.label, (e) => act(it, action, e), { variant: 'primary', icon: action.icon, className: 'cq-primary', tag: 'CRL-03' });
     return h(
       'li',
       h(
@@ -336,7 +336,7 @@ export default async function render(ctx) {
           codeTag(it.code),
           h('span.cq-card-badges', typeBadge(it.type, it.type_label), stageBadgeStaff(it)),
         ),
-        h('h3.cq-card-title', h('a', { id: titleId, href: `#/company-requests/${it.id}`, dir: 'auto' }, it.title)),
+        h('h3.cq-card-title', { tag: 'CRL-04' }, h('a', { id: titleId, href: `#/company-requests/${it.id}`, dir: 'auto', tag: 'CRL-05' }, it.title)),
         h('div.cq-card-sla', slaChip(it.sla, { clock: clockOf(it) }), it.priority && it.priority !== 'normal' && badge(labelOf(PRIORITIES, it.priority) || it.priority_label, it.priority === 'urgent' ? 'danger' : it.priority === 'low' ? 'muted' : 'warning', { icon: 'flag' })),
         aiLine(it.ai, it),
         h('div.cq-flags', flagChips(it.flags, { staffUnread: it.staff_unread, skip: ['escalated'] })),
@@ -356,8 +356,8 @@ export default async function render(ctx) {
     return GROUPS.filter(([k]) => groups.get(k).length).map(([k, title]) =>
       h(
         'section.cq-group',
-        { class: `cq-group-${k}`, 'aria-label': title },
-        h('h2.cq-group-title', h('span', title), h('span.cq-group-count.num', String(groups.get(k).length))),
+        { class: `cq-group-${k}`, 'aria-label': title, tag: 'CRL-06' },
+        h('h2.cq-group-title', { tag: 'CRL-07' }, h('span', title), h('span.cq-group-count.num', String(groups.get(k).length))),
         h('ul.cq-cards', groups.get(k).map(cardOf)),
       ),
     );
@@ -373,16 +373,19 @@ export default async function render(ctx) {
         onRowClick: (r) => ctx.navigate(`/company-requests/${r.id}`),
         empty: 'لا توجد طلبات شركات مفتوحة.',
         columns: [
-          { key: 'code', label: 'الطلب', render: (r) => h('div.cq-cell-req', codeTag(r.code), h('a', { href: `#/company-requests/${r.id}`, dir: 'auto' }, r.title)) },
-          { key: 'company', label: 'الشركة', className: 'cq-col-co', render: (r) => r.company.name },
-          { key: 'type', label: 'النوع', render: (r) => r.type_label },
-          { key: 'status', label: 'الحالة', render: (r) => h('div.cq-cell-st', stageBadgeStaff(r), flagChips(r.flags, { skip: ['deadline_conflict'] })) },
-          { key: 'sla', label: 'الموعد', className: 'cq-col-sla', render: (r) => slaChip(r.sla, { withDue: false, compact: true, clock: clockOf(r) }) },
-          { key: 'handler', label: 'المسؤول', render: (r) => (r.handler ? r.handler.name : null) },
-          { key: 'lead', label: 'المحامي الرئيسي', render: (r) => r.lead_name },
-          { key: 'updated_at', label: 'آخر تحديث', render: (r) => h('time', { datetime: r.updated_at, title: dateTime(r.updated_at) }, relative(r.updated_at)) },
+          { key: 'code', label: 'الطلب', render: (r) => h('div.cq-cell-req', codeTag(r.code), h('a', { href: `#/company-requests/${r.id}`, dir: 'auto', tag: 'CRL-08' }, r.title)), tag: 'CRL-09' },
+          { key: 'company', label: 'الشركة', className: 'cq-col-co', render: (r) => r.company.name, tag: 'CRL-10' },
+          { key: 'type', label: 'النوع', render: (r) => r.type_label, tag: 'CRL-11' },
+          { key: 'status', label: 'الحالة', render: (r) => h('div.cq-cell-st', stageBadgeStaff(r), flagChips(r.flags, { skip: ['deadline_conflict'] })), tag: 'CRL-12' },
+          { key: 'sla', label: 'الموعد', className: 'cq-col-sla', render: (r) => slaChip(r.sla, { withDue: false, compact: true, clock: clockOf(r) }), tag: 'CRL-13' },
+          { key: 'handler', label: 'المسؤول', render: (r) => (r.handler ? r.handler.name : null), tag: 'CRL-14' },
+          { key: 'lead', label: 'المحامي الرئيسي', render: (r) => r.lead_name, tag: 'CRL-15' },
+          { key: 'updated_at', label: 'آخر تحديث', render: (r) => h('time', { datetime: r.updated_at, title: dateTime(r.updated_at) }, relative(r.updated_at)), tag: 'CRL-16' },
         ],
+        rowTag: 'CRL-17',
+        tag: 'CRL-18',
       }),
+      tag: 'CRL-19',
     });
   }
 
@@ -395,7 +398,7 @@ export default async function render(ctx) {
     info.textContent = items.length ? `عدد الطلبات: ${data.total ?? items.length}` : '';
     if (!items.length) {
       const text = hasFilters() ? 'لا توجد طلبات تطابق البحث أو الفلاتر المختارة.' : state.status === 'open' ? 'لا توجد طلبات شركات مفتوحة.' : 'لا توجد طلبات في هذه الحالة.';
-      mount(listHost, card({ body: emptyState(text, null, { icon: 'inboxStack' }) }));
+      mount(listHost, card({ body: emptyState(text, null, { icon: 'inboxStack', tag: 'CRL-20' }), tag: 'CRL-21' }));
       return;
     }
     mount(listHost, state.view === 'cards' ? drawCards(items) : drawList(items));
@@ -420,6 +423,7 @@ export default async function render(ctx) {
               drawViewSwitch();
               draw();
             },
+            tag: 'CRL-22',
           },
           icon(ic, { size: 16 }),
           text,
@@ -442,12 +446,13 @@ export default async function render(ctx) {
         state.q = v;
         load();
       },
+      tag: 'CRL-23',
     }),
-    selectInput({ label: 'الحالة', allLabel: null, options: STATUS_FILTERS, value: state.status, onChange: (v) => ((state.status = v || 'open'), load()) }),
-    selectInput({ label: 'الشركة', allLabel: 'كل الشركات', options: (companies.items || []).map((c) => ({ value: String(c.id), label: c.name })), value: state.company, onChange: (v) => ((state.company = v), load()) }),
-    selectInput({ label: 'الموعد', allLabel: 'كل المواعيد', options: SLA_FILTERS, value: state.sla, onChange: (v) => ((state.sla = v), load()) }),
-    selectInput({ label: 'المسؤول', allLabel: 'كل المسؤولين', options: handlerOptions, value: state.handler, onChange: (v) => ((state.handler = v), load()) }),
-    selectInput({ label: 'النوع', allLabel: 'كل الأنواع', options: REQUEST_TYPES.map((t) => ({ value: t.key, label: t.label })), value: state.type, onChange: (v) => ((state.type = v), load()) }),
+    selectInput({ label: 'الحالة', allLabel: null, options: STATUS_FILTERS, value: state.status, onChange: (v) => ((state.status = v || 'open'), load()), tag: 'CRL-24' }),
+    selectInput({ label: 'الشركة', allLabel: 'كل الشركات', options: (companies.items || []).map((c) => ({ value: String(c.id), label: c.name })), value: state.company, onChange: (v) => ((state.company = v), load()), tag: 'CRL-25' }),
+    selectInput({ label: 'الموعد', allLabel: 'كل المواعيد', options: SLA_FILTERS, value: state.sla, onChange: (v) => ((state.sla = v), load()), tag: 'CRL-26' }),
+    selectInput({ label: 'المسؤول', allLabel: 'كل المسؤولين', options: handlerOptions, value: state.handler, onChange: (v) => ((state.handler = v), load()), tag: 'CRL-27' }),
+    selectInput({ label: 'النوع', allLabel: 'كل الأنواع', options: REQUEST_TYPES.map((t) => ({ value: t.key, label: t.label })), value: state.type, onChange: (v) => ((state.type = v), load()), tag: 'CRL-28' }),
   ]);
   const flagNote = state.flag && FLAG_COPY[state.flag]
     ? h(
@@ -461,6 +466,7 @@ export default async function render(ctx) {
             e.currentTarget.closest('.cq-flag-filter')?.remove();
             load();
           },
+          tag: 'CRL-29',
         }),
       )
     : null;
@@ -473,8 +479,10 @@ export default async function render(ctx) {
     pageHeader({
       title: 'طلبات الشركات',
       subtitle: 'كل طلبات الشركات العميلة مرتبة حسب أقرب موعد.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'طلبات الشركات' }],
-      actions: [button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load() })],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'CRL-30' }, { label: 'طلبات الشركات' }],
+      actions: [button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load(), tag: 'CRL-31' })],
+      titleTag: 'CRL-32',
+      tag: 'CRL-33',
     }),
     filters,
     flagNote,

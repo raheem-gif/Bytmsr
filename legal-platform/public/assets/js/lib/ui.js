@@ -2,6 +2,8 @@
 
 import { h, svg, frag, mount, clear } from './h.js';
 import { ApiError, downloadUrl, formatBytes, GENERIC_ERROR } from './api.js';
+// v12 media (MD-3): هل يحمل fileToUpload في api.js كتلة scan (file.bmScan)؟ استيراد مساحة الأسماء لا يكسر شيئًا إن غاب التصدير
+import * as apiNs from './api.js';
 import {
   label as lbl,
   dateTime,
@@ -300,6 +302,7 @@ export function button(label, opts = {}) {
     ariaLabel,
     block,
     dataset,
+    tag, // v12 tags (TG-3، T12-16): رمز العنصر للمالك ← data-tag
   } = opts;
   const iconSize = size === 'sm' ? 16 : size === 'lg' ? 20 : 18;
   const hasLabel = label != null && label !== '';
@@ -322,11 +325,12 @@ export function button(label, opts = {}) {
         'aria-label': aria,
         dataset,
         onClick,
+        tag,
       },
       content,
     );
   }
-  return h('button', { type, class: cls, disabled, title, 'aria-label': aria, dataset, onClick }, content);
+  return h('button', { type, class: cls, disabled, title, 'aria-label': aria, dataset, onClick, tag }, content);
 }
 
 /** يضع الزر في حالة انتظار (spinner) أو يعيده. */
@@ -372,10 +376,10 @@ export function asyncButton(label, handler, opts = {}) {
 // ───────────────────────── الشارات ─────────────────────────
 
 /** شارة ملونة. tone: neutral|info|success|warning|danger|accent|muted|primary */
-export function badge(text, tone = 'neutral', { icon: iconName, dot, title, className } = {}) {
+export function badge(text, tone = 'neutral', { icon: iconName, dot, title, className, tag } = {}) {
   return h(
     'span.badge',
-    { class: [`badge-${tone}`, dot && 'badge-dot', className], title },
+    { class: [`badge-${tone}`, dot && 'badge-dot', className], title, tag },
     iconName && icon(iconName, { size: 13 }),
     h('span', text == null || text === '' ? '—' : String(text)),
   );
@@ -518,7 +522,7 @@ export function dueBadge(iso) {
 let toastRegion = null;
 function getToastRegion() {
   if (!toastRegion || !toastRegion.isConnected) {
-    toastRegion = h('div.toast-region', { 'aria-live': 'polite', 'aria-atomic': 'false' });
+    toastRegion = h('div.toast-region', { 'aria-live': 'polite', 'aria-atomic': 'false', 'data-notag': 'toast (T12-09)' });
     document.body.appendChild(toastRegion);
   }
   return toastRegion;
@@ -674,7 +678,7 @@ function focusablesIn(root) {
  * العقدة المغادرة تأخذ في اللحظة نفسها inert وaria-hidden="true" و.is-leaving، وتخرج من مكدس النوافذ ومن معالجة Esc،
  * ثم تُزال بعد انتهاء حركة الخروج (closeAllModals: فورًا بلا حركة). beforeClose للإغلاق الذي يبدؤه المستخدم فقط.
  */
-export function modal({ title, body, actions = [], size = 'md', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose } = {}) {
+export function modal({ title, body, actions = [], size = 'md', onClose, dismissible = true, className, sheet = false, subtitle, beforeClose, tag } = {}) {
   const titleId = uid('modal-title');
   const previousFocus = document.activeElement;
   let closed = false;
@@ -718,13 +722,13 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   const grip = sheet ? h('div.modal-grip', { 'aria-hidden': 'true' }) : null;
   const dialog = h(
     'div.modal',
-    { class: [sheet ? 'modal-sheet' : `modal-${size}`, className], role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1' },
+    { class: [sheet ? 'modal-sheet' : `modal-${size}`, className], role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1', tag },
     grip,
     h(
       'div.modal-header',
       subtitle ? h('div.modal-heading', h('h2.modal-title', { id: titleId }, title || ''), h('p.modal-subtitle', subtitle)) : h('h2.modal-title', { id: titleId }, title || ''),
       dismissible &&
-        h('button.modal-close', { type: 'button', 'aria-label': 'إغلاق', onClick: () => requestDismiss('dismiss') }, icon('x', { size: 20 })),
+        h('button.modal-close', { type: 'button', 'aria-label': 'إغلاق', onClick: () => requestDismiss('dismiss'), tag: 'KIT-06' }, icon('x', { size: 20 })),
     ),
     bodyEl,
     footer,
@@ -759,7 +763,7 @@ export function modal({ title, body, actions = [], size = 'md', onClose, dismiss
   }
 
   const buttons = actions.map((a) => {
-    const btn = button(a.label, { variant: a.variant || 'secondary', icon: a.icon, disabled: a.disabled });
+    const btn = button(a.label, { variant: a.variant || 'secondary', icon: a.icon, disabled: a.disabled, tag: a.tag }); // v12 tags (T12-16): actions[].tag
     btn.addEventListener('click', async () => {
       if (busy || closed) return;
       busy = true;
@@ -882,7 +886,7 @@ export function closeAllModals() {
 }
 
 /** نافذة تأكيد تعيد Promise<boolean>. */
-export function confirmDialog({ title = 'تأكيد الإجراء', message, confirmLabel = 'تأكيد', cancelLabel = 'إلغاء', danger = false } = {}) {
+export function confirmDialog({ title = 'تأكيد الإجراء', message, confirmLabel = 'تأكيد', cancelLabel = 'إلغاء', danger = false, tag } = {}) {
   return new Promise((resolve) => {
     let result = false;
     modal({
@@ -891,10 +895,12 @@ export function confirmDialog({ title = 'تأكيد الإجراء', message, co
       body: h('p.confirm-message', message || 'هل أنت متأكد من تنفيذ هذا الإجراء؟'),
       actions: [
         // لا نُرجع false هنا: modal() يعتبر false «أبقِ النافذة مفتوحة»
-        { label: cancelLabel, variant: 'ghost', onClick: () => { result = false; } },
-        { label: confirmLabel, variant: danger ? 'danger' : 'primary', onClick: () => { result = true; } },
+        // v12 tags (TG-3، T12-17): زرّا التأكيد مكوّنان داخليان (KIT)؛ رمز النافذة نفسها من المستدعي (tag)
+        { label: cancelLabel, variant: 'ghost', onClick: () => { result = false; }, tag: 'KIT-07' },
+        { label: confirmLabel, variant: danger ? 'danger' : 'primary', onClick: () => { result = true; }, tag: 'KIT-08' },
       ],
       onClose: () => resolve(result),
+      tag,
     });
   });
 }
@@ -925,10 +931,11 @@ export function confirmDiscard(copy = {}) {
       className: 'modal-discard',
       body: c.message ? h('p.confirm-message', c.message) : null,
       actions: [
-        { label: c.discard, variant: 'danger', onClick: () => { result = true; } },
-        { label: c.keep, variant: 'secondary', onClick: () => { result = false; } },
+        { label: c.discard, variant: 'danger', onClick: () => { result = true; }, tag: 'KIT-10' },
+        { label: c.keep, variant: 'secondary', onClick: () => { result = false; }, tag: 'KIT-11' },
       ],
       onClose: () => resolve(result),
+      tag: 'KIT-09', // v12 tags (TG-3): نافذة «تجاهل ما كتبتموه؟» واحدة في كل المنصة والبوابة
     });
   });
 }
@@ -954,7 +961,7 @@ export function discardGuard(isDirty, copy) {
  * onSubmit(values, formApi) اختياري: يُنفَّذ قبل الإغلاق، وأي خطأ منه يظهر داخل النموذج.
  * setup(formApi) اختياري: يُستدعى بعد إنشاء النموذج (مثلًا لإظهار حقل حسب قيمة حقل آخر).
  */
-export function formDialog({ title, fields, values, submitLabel = 'حفظ', cancelLabel = 'إلغاء', size = 'md', onSubmit, intro, setup } = {}) {
+export function formDialog({ title, fields, values, submitLabel = 'حفظ', cancelLabel = 'إلغاء', size = 'md', onSubmit, intro, setup, tag } = {}) {
   return new Promise((resolve) => {
     let result = null;
     let m = null;
@@ -974,10 +981,11 @@ export function formDialog({ title, fields, values, submitLabel = 'حفظ', canc
       size,
       body: frag(intro && h('p.modal-intro', intro), f.el),
       actions: [
-        { label: cancelLabel, variant: 'ghost', onClick: () => (result = null) },
-        { label: submitLabel, variant: 'primary', onClick: async () => ((await f.submit()) ? undefined : false) },
+        { label: cancelLabel, variant: 'ghost', onClick: () => (result = null), tag: 'KIT-12' },
+        { label: submitLabel, variant: 'primary', onClick: async () => ((await f.submit()) ? undefined : false), tag: 'KIT-13' },
       ],
       onClose: (reason) => resolve(reason === 'submit' || reason === 'action' ? result : null),
+      tag, // v12 tags (T12-16): رمز النافذة من المستدعي؛ fields[].tag على كل حقل
     });
     // setup(formApi): لإظهار/إخفاء حقول حسب قيم أخرى أو ضبط أخطاء مخصصة
     if (setup) setup(f);
@@ -1005,7 +1013,7 @@ function parseNumber(raw) {
  * @param {HTMLElement} control
  * @param {{hint?:string, required?:boolean, error?:string, full?:boolean, group?:boolean, className?:string}} [opts]
  */
-export function field(label, control, { hint, required, error, full, group, className } = {}) {
+export function field(label, control, { hint, required, error, full, group, className, tag } = {}) {
   const target =
     control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement
       ? control
@@ -1030,7 +1038,7 @@ export function field(label, control, { hint, required, error, full, group, clas
   const errEl = h('p.field-error', { id: errId, hidden: true }, icon('alert', { size: 14 }), errText);
   const wrap = h(
     'div.field',
-    { class: [full && 'field-full', className] },
+    { class: [full && 'field-full', className], tag }, // v12 tags (T12-16): التسمية والعنصر والتلميح وحدة واحدة
     labelEl,
     control,
     hint && h('p.field-hint', { id: hintId }, hint),
@@ -1074,9 +1082,17 @@ export function fileInput({
   label = 'اختر ملفات أو اسحبها إلى هنا',
   hint,
   onChange,
+  // v12 media (MD-3، L12-21): صور المستندات تمر بالماسح عند الرفع (نظيفة + الأصل)، والمنطق كله في upload.js (يُحمَّل
+  // عند أول صورة). 'auto' يعمل حين يحمل api.js كتلة scan (UPLOAD_SCAN)، 'on' حين تستخدم الصفحة getUploads()، 'off' لا.
+  scan = 'auto',
+  pages = false,
+  tag, // v12 tags (TG-3، T12-16): رمز الحقل كله؛ مساحة الاختيار KIT-01 وزر الإزالة KIT-14 داخليان
 } = {}) {
   let files = [];
   const limit = multiple ? maxFiles : 1;
+  const scanOn = scan === 'on' || (scan === 'auto' && apiNs.UPLOAD_SCAN === true);
+  let S = null;
+  const glue = () => import('../public/upload.js').then((U) => (S = S || U.fileInputScan({ files: () => files, set: (i, f) => ((files[i] = f), changed()), input, maxBytes, note: (m) => showNote(m), pages })));
   const note = h('p.file-note', { role: 'alert', hidden: true });
   const list = h('ul.file-list');
   const input = h('input.file-native', {
@@ -1092,7 +1108,7 @@ export function fileInput({
   });
   const zone = h(
     'label.file-drop',
-    { htmlFor: id },
+    { htmlFor: id, onClick: () => S?.reset(), tag: 'KIT-01' },
     h('span.file-drop-icon', icon('upload', { size: 22 })),
     h('span.file-drop-text', h('strong', label), h('span.file-drop-hint', hint || `حتى ${count(limit, 'file')}، وحجم الملف الواحد لا يزيد على ${formatBytes(maxBytes)}`)),
   );
@@ -1100,8 +1116,13 @@ export function fileInput({
     note.textContent = msg || '';
     note.hidden = !msg;
   };
+  const changed = () => {
+    render();
+    if (onChange) onChange([...files]);
+  };
 
   function add(newFiles) {
+    if (S?.take(newFiles)) return;
     const problems = [];
     for (const f of newFiles) {
       if (f.size > maxBytes) {
@@ -1115,10 +1136,10 @@ export function fileInput({
         break;
       }
       files.push(f);
+      if (scanOn && /^image\//.test(f.type)) glue().then((g) => g.scan(f), () => {});
     }
     showNote(problems.join(' — '));
-    render();
-    if (onChange) onChange([...files]);
+    changed();
   }
 
   function render() {
@@ -1135,6 +1156,7 @@ export function fileInput({
             {
               type: 'button',
               'aria-label': `إزالة الملف ${f.name}`,
+              tag: 'KIT-14',
               onClick: () => {
                 files.splice(i, 1);
                 showNote('');
@@ -1145,6 +1167,7 @@ export function fileInput({
             },
             icon('x', { size: 16 }),
           ),
+          S?.row(f),
         ),
       ),
     );
@@ -1163,11 +1186,13 @@ export function fileInput({
   });
 
   render();
-  const el = h('div.file-input', input, zone, note, list);
+  const el = h('div.file-input', { tag }, input, zone, note, list);
   return {
     el,
     input,
     getFiles: () => [...files],
+    /** المرفقات بصيغة الخادم مع scan للمستندات الممسوحة (§5.8) */
+    getUploads: async () => Promise.all(files.map(async (f) => (await import('../public/upload.js')).fileToUpload(f))),
     setFiles: (arr) => {
       files = Array.isArray(arr) ? arr.filter((f) => f instanceof Blob).slice(0, limit) : [];
       render();
@@ -1230,7 +1255,7 @@ function buildControl(spec, formApi) {
     };
     c.get = () => v;
     c.set(v);
-    c.wrap = field(spec.label, box, { hint: spec.hint, full: spec.full });
+    c.wrap = field(spec.label, box, { hint: spec.hint, full: spec.full, tag: spec.tag });
     return c;
   }
 
@@ -1376,7 +1401,7 @@ function buildControl(spec, formApi) {
     }
     case 'password': {
       input = h('input.input', { ...common, type: 'password', dir: 'ltr', autocomplete: spec.autocomplete || 'current-password' });
-      const toggle = h('button.input-action', { type: 'button', 'aria-label': 'إظهار كلمة المرور', 'aria-pressed': 'false' }, icon('eye', { size: 18 }));
+      const toggle = h('button.input-action', { type: 'button', 'aria-label': 'إظهار كلمة المرور', 'aria-pressed': 'false', tag: 'KIT-15' }, icon('eye', { size: 18 }));
       toggle.addEventListener('click', () => {
         const show = input.type === 'password';
         input.type = show ? 'text' : 'password';
@@ -1481,6 +1506,7 @@ function buildControl(spec, formApi) {
     full: spec.full || type === 'textarea' || type === 'file' || type === 'checkboxes' || type === 'multiselect',
     group: c.group,
     className: `field-${type}`,
+    tag: spec.tag, // v12 tags (T12-16): fields[].tag على غلاف الحقل
   });
   return c;
 }
@@ -1506,6 +1532,9 @@ export function form(fields, opts = {}) {
     className,
     columns = 2,
     footer = true,
+    tag, // v12 tags (TG-3): رمز النموذج؛ submitTag/cancelTag لزرَّيه، وfields[].tag لكل حقل
+    submitTag,
+    cancelTag,
   } = opts;
   const api = {};
   const controls = fields.filter(Boolean).map((spec) => buildControl(spec, api));
@@ -1530,10 +1559,10 @@ export function form(fields, opts = {}) {
   let submitBtn = null;
   let footerEl = null;
   if (footer && onSubmit) {
-    submitBtn = button(submitLabel, { variant: 'primary', type: 'submit', icon: submitIcon });
-    footerEl = h('div.form-actions', submitBtn, cancel && button(cancelLabel, { variant: 'ghost', onClick: cancel }));
+    submitBtn = button(submitLabel, { variant: 'primary', type: 'submit', icon: submitIcon, tag: submitTag });
+    footerEl = h('div.form-actions', submitBtn, cancel && button(cancelLabel, { variant: 'ghost', onClick: cancel, tag: cancelTag }));
   }
-  const el = h('form.form', { class: className, novalidate: true }, alert, grid, footerEl);
+  const el = h('form.form', { class: className, novalidate: true, tag }, alert, grid, footerEl);
   let busy = false;
 
   const byName = (n) => controls.find((c) => c.name === n);
@@ -1671,19 +1700,20 @@ export function overflowCue(el, { startAtEnd = false } = {}) {
   return el;
 }
 
-export function table({ columns = [], rows = [], onRowClick, empty = 'لا توجد بيانات لعرضها', rowClass, caption, className, stack = false } = {}) {
+// v12 tags (TG-3، T12-16): tag على <table>، وcolumns[].tag على رأس كل عمود، وrowTag على كل صف (قالب واحد = رمز واحد)
+export function table({ columns = [], rows = [], onRowClick, empty = 'لا توجد بيانات لعرضها', rowClass, caption, className, stack = false, tag, rowTag } = {}) {
   const thead = h(
     'thead',
     h(
       'tr',
       columns.map((col) =>
-        h('th', { scope: 'col', class: [col.align && `align-${col.align}`, col.className], style: col.width ? { width: col.width } : null }, col.label ?? ''),
+        h('th', { scope: 'col', class: [col.align && `align-${col.align}`, col.className], style: col.width ? { width: col.width } : null, tag: col.tag }, col.label ?? ''),
       ),
     ),
   );
   const tbody = h('tbody');
   if (!rows.length) {
-    tbody.append(h('tr.table-empty', h('td', { colspan: columns.length || 1 }, emptyState(empty, null, { compact: true }))));
+    tbody.append(h('tr.table-empty', h('td', { colspan: columns.length || 1 }, emptyState(empty, null, { compact: true, tag: 'KIT-16' }))));
   }
   for (const row of rows) {
     const cells = columns.map((col) => {
@@ -1691,7 +1721,8 @@ export function table({ columns = [], rows = [], onRowClick, empty = 'لا تو�
       if (v == null || v === '') v = h('span.muted', '—');
       return h('td', { class: [col.align && `align-${col.align}`, col.className], 'data-label': typeof col.label === 'string' ? col.label : null }, v);
     });
-    const tr = h('tr', { class: [rowClass && rowClass(row), onRowClick && 'is-clickable'] }, cells);
+    // rowTag دالة ← رمز محسوب للصف (T12-19: صف الصادر يحمل رمز W أو E للنص الذي أنتجه)
+    const tr = h('tr', { class: [rowClass && rowClass(row), onRowClick && 'is-clickable'], tag: typeof rowTag === 'function' ? rowTag(row) : rowTag }, cells);
     if (onRowClick) {
       tr.tabIndex = 0;
       const interactive = (t) => t.closest('a, button, input, select, textarea, label, [role="button"]');
@@ -1710,7 +1741,7 @@ export function table({ columns = [], rows = [], onRowClick, empty = 'لا تو�
     tbody.append(tr);
   }
   // stack: على الهاتف تتحول الصفوف إلى بطاقات مكدسة (التسمية من data-label) بدل التمرير الأفقي
-  return overflowCue(h('div.table-wrap', { class: [className, stack && 'table-stack'] }, h('table.table', caption && h('caption.sr-only', caption), thead, tbody)));
+  return overflowCue(h('div.table-wrap', { class: [className, stack && 'table-stack'] }, h('table.table', { tag }, caption && h('caption.sr-only', caption), thead, tbody)));
 }
 
 // ───────────────────────── التبويبات ─────────────────────────
@@ -1720,11 +1751,12 @@ export function table({ columns = [], rows = [], onRowClick, empty = 'لا تو�
  * items: [{ key, label, count, icon, render: () => Node|Promise<Node> }]
  * العنصر المعاد يحمل: el.setActive(key)، el.refresh(key?)، el.setCount(key, n)، el.active
  */
-export function tabs(items = [], { active, onChange, className } = {}) {
+// v12 tags (TG-3، T12-16): tag على الحاوية، وitems[].tag على زر كل تبويب
+export function tabs(items = [], { active, onChange, className, tag } = {}) {
   const base = uid('tabs');
   const tablist = h('div.tablist', { role: 'tablist' });
   const panels = h('div.tab-panels');
-  const root = h('div.tabs', { class: className }, tablist, panels);
+  const root = h('div.tabs', { class: className, tag }, tablist, panels);
   const state = new Map();
   let current = null;
 
@@ -1740,6 +1772,7 @@ export function tabs(items = [], { active, onChange, className } = {}) {
         'aria-selected': 'false',
         tabindex: '-1',
         onClick: () => select(item.key, true),
+        tag: item.tag,
       },
       item.icon && icon(item.icon, { size: 16 }),
       h('span', item.label),
@@ -1814,7 +1847,8 @@ export function tabs(items = [], { active, onChange, className } = {}) {
 // ───────────────────────── البطاقات والتخطيط ─────────────────────────
 
 /** بطاقة بعنوان وإجراءات ومحتوى. */
-export function card({ title, subtitle, actions, body, footer, className, icon: iconName, flush } = {}) {
+// v12 tags (TG-3، T12-16): tag على جذر البطاقة، وtitleTag على عنوانها
+export function card({ title, subtitle, actions, body, footer, className, icon: iconName, flush, tag, titleTag } = {}) {
   const header =
     title || actions
       ? h(
@@ -1822,14 +1856,14 @@ export function card({ title, subtitle, actions, body, footer, className, icon: 
           h(
             'div.card-heading',
             iconName && h('span.card-icon', icon(iconName, { size: 18 })),
-            h('div', title && h('h2.card-title', title), subtitle && h('p.card-subtitle', subtitle)),
+            h('div', title && h('h2.card-title', { tag: titleTag }, title), subtitle && h('p.card-subtitle', subtitle)),
           ),
           actions && h('div.card-actions', actions),
         )
       : null;
   return h(
     'section.card',
-    { class: className },
+    { class: className, tag },
     header,
     body != null && h('div.card-body', { class: flush && 'card-body-flush' }, body),
     footer && h('div.card-footer', footer),
@@ -1842,21 +1876,21 @@ export function section(title, ...children) {
 }
 
 /** بطاقة رقم إحصائي. */
-export function statCard({ label, value, hint, tone = 'primary', icon: iconName, href, onClick } = {}) {
+export function statCard({ label, value, hint, tone = 'primary', icon: iconName, href, onClick, tag } = {}) {
   const content = [
     iconName && h('span.stat-icon', icon(iconName, { size: 20 })),
     h('div.stat-body', h('div.stat-label', label), h('div.stat-value', value == null ? '—' : value), hint && h('div.stat-hint', hint)),
   ];
-  if (href) return h('a.stat-card', { class: `tone-${tone}`, href }, content);
-  if (onClick) return h('button.stat-card', { class: `tone-${tone}`, type: 'button', onClick }, content);
-  return h('div.stat-card', { class: `tone-${tone}` }, content);
+  if (href) return h('a.stat-card', { class: `tone-${tone}`, href, tag }, content);
+  if (onClick) return h('button.stat-card', { class: `tone-${tone}`, type: 'button', onClick, tag }, content);
+  return h('div.stat-card', { class: `tone-${tone}`, tag }, content);
 }
 
 /** قائمة مفتاح/قيمة. kv([['العميل', 'أحمد'], ['الهاتف', ltr('010…')]], { columns: 2 }) */
-export function kv(pairs = [], { columns = 1, className } = {}) {
+export function kv(pairs = [], { columns = 1, className, tag } = {}) {
   return h(
     'dl.kv',
-    { class: [columns > 1 && `kv-cols-${columns}`, className] },
+    { class: [columns > 1 && `kv-cols-${columns}`, className], tag },
     pairs
       .filter(Boolean)
       .map(([k, v]) =>
@@ -1872,10 +1906,11 @@ export function timeTag(iso, { relative: rel = false } = {}) {
 }
 
 /** خط زمني. items: [{ time, title, body, actor, tone, icon }] */
-export function timeline(items = [], { empty = 'لا توجد أحداث مسجلة بعد' } = {}) {
-  if (!items.length) return emptyState(empty, null, { compact: true, icon: 'clock' });
+export function timeline(items = [], { empty = 'لا توجد أحداث مسجلة بعد', tag } = {}) {
+  if (!items.length) return emptyState(empty, null, { compact: true, icon: 'clock', tag });
   return h(
     'ol.timeline',
+    { tag },
     items.map((it) =>
       h(
         'li.tl-item',
@@ -1892,6 +1927,18 @@ export function timeline(items = [], { empty = 'لا توجد أحداث مسج�
   );
 }
 
+/**
+ * v12 gate (V-10): اسم ملف كما رُفع («الميراث-1.jpg»). الاسم معزول باتجاه أول حرف قوي فيه، والامتداد اللاتيني في عزل LTR
+ * مستقل بعده، فلا يتفرّق الرقم والامتداد حول الاسم العربي («1-الميراث.jpg» أو «jpg.1-الميراث»). اسم لاتيني يبقى كما هو.
+ */
+export function fileName(name, attrs = {}) {
+  const s = String(name ?? '');
+  const m = /^(.*\S)(\.[A-Za-z0-9]{1,5})$/.exec(s);
+  const rtl = /^[^A-Za-z\u0590-\u08FF]*[\u0590-\u08FF]/.test(s);
+  if (!m || !rtl) return h('bdi.fname', { dir: 'auto', ...attrs }, s);
+  return h('bdi.fname', { dir: 'rtl', ...attrs }, m[1], h('bdi.fname__ext', { dir: 'ltr' }, m[2]));
+}
+
 // v9.1 b-forms: مستند صوتي (بالنوع، أو بالامتداد إن لم يُرسل النوع)
 export const isAudioDoc = (d) => /^audio\//.test(String(d?.mime || '')) || /\.(webm|ogg|oga|opus|m4a|mp3|aac)$/i.test(String(d?.filename || ''));
 const CHANNEL_SHORT = { whatsapp: 'واتساب', website: 'الموقع', portal: 'الموقع', phone: 'مكالمة', email: 'بريد', walk_in: 'حضور', simulator: 'محاكاة' };
@@ -1903,9 +1950,9 @@ const STATUS_TICKS = { sent: 1, delivered: 2, read: 2 };
  * @param {{mine?:'out'|'in', docHref?:((id:any)=>string)|null, emptyText?:string, inLabel?:string, outLabel?:string}} [opts]
  *   mine: الاتجاه الذي يُعرض على جهة النهاية (الافتراضي out). docHref=null يعرض المستندات بدون روابط.
  */
-export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl, emptyText = 'لا توجد رسائل بعد', inLabel, outLabel } = {}) {
-  if (!messages.length) return h('div.chat.chat-empty', emptyState(emptyText, null, { compact: true, icon: 'message' }));
-  const list = h('div.chat', { role: 'log', 'aria-label': 'المحادثة' });
+export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl, emptyText = 'لا توجد رسائل بعد', inLabel, outLabel, tag } = {}) {
+  if (!messages.length) return h('div.chat.chat-empty', { tag }, emptyState(emptyText, null, { compact: true, icon: 'message' }));
+  const list = h('div.chat', { role: 'log', 'aria-label': 'المحادثة', tag });
   let lastDay = null;
   for (const m of messages) {
     const day = isoToCairoDate(m.created_at);
@@ -1920,9 +1967,9 @@ export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl,
       docHref
         ? isAudioDoc(d)
           ? // v9.1 b-forms: الرسالة الصوتية تُسمع داخل المحادثة (لا تُحمَّل قبل الضغط على تشغيل)
-            h('span.doc-audio', h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': `رسالة صوتية: ${d.filename}` }), h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)))
-          : h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename))
-        : h('span.doc-chip', icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.filename)),
+            h('span.doc-audio', h('audio', { controls: true, preload: 'none', src: docHref(d.id), 'aria-label': `رسالة صوتية: ${d.filename}` }), h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-20' }, icon('paperclip', { size: 14 }), fileName(d.filename)))
+          : h('a.doc-chip', { href: docHref(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename}`, tag: 'KIT-21' }, icon('paperclip', { size: 14 }), fileName(d.filename))
+        : h('span.doc-chip', icon('paperclip', { size: 14 }), fileName(d.filename)),
     );
     const statusEl =
       m.direction === 'out' && m.status
@@ -1954,10 +2001,10 @@ export function chatThread(messages = [], { mine = 'out', docHref = downloadUrl,
 // ───────────────────────── الحالات ─────────────────────────
 
 /** حالة فارغة. emptyState('لا توجد ملفات', button(...)) */
-export function emptyState(text, action, { icon: iconName = 'inbox', title, compact } = {}) {
+export function emptyState(text, action, { icon: iconName = 'inbox', title, compact, tag } = {}) {
   return h(
     'div.empty-state',
-    { class: compact && 'is-compact' },
+    { class: compact && 'is-compact', tag },
     h('span.empty-icon', icon(iconName, { size: compact ? 22 : 28 })),
     title && h('h3.empty-title', title),
     h('p.empty-text', text),
@@ -1967,7 +2014,7 @@ export function emptyState(text, action, { icon: iconName = 'inbox', title, comp
 
 /** مؤشر تحميل. */
 export function loading(text = 'جارٍ التحميل…') {
-  return h('div.loading-state', { role: 'status', 'aria-live': 'polite' }, h('span.spinner', { 'aria-hidden': 'true' }), h('span', text));
+  return h('div.loading-state', { role: 'status', 'aria-live': 'polite', tag: 'KIT-17' }, h('span.spinner', { 'aria-hidden': 'true' }), h('span', text));
 }
 
 /** هيكل تحميل رمادي متحرك. */
@@ -1985,20 +2032,20 @@ export function errorState(err, retry) {
   const title = status === 403 ? 'غير مصرح لك' : status === 404 ? 'غير موجود' : 'تعذر تحميل البيانات';
   return h(
     'div.error-state',
-    { role: 'alert' },
+    { role: 'alert', tag: 'KIT-18' }, // v12 tags (TG-3، T12-17): حالة الخطأ وزرها مكوّنان داخليان
     h('span.empty-icon.is-danger', icon(status === 403 ? 'lock' : 'alert', { size: 28 })),
     h('h3.empty-title', title),
     h('p.empty-text', errorMessage(err)),
     // إعادة المحاولة لا تغيّر نتيجة «غير مصرح» أو «غير موجود»: يظهر الزر لأخطاء الشبكة والخادم فقط
-    retry && ![401, 403, 404, 410].includes(status) && h('div.empty-action', button('إعادة المحاولة', { icon: 'refresh', onClick: retry })),
+    retry && ![401, 403, 404, 410].includes(status) && h('div.empty-action', button('إعادة المحاولة', { icon: 'refresh', onClick: retry, tag: 'KIT-19' })),
   );
 }
 
 /** صندوق تنبيه داخل الصفحة. tone: info|success|warning|danger */
-export function alertBox(message, tone = 'info', { title, icon: iconName } = {}) {
+export function alertBox(message, tone = 'info', { title, icon: iconName, tag } = {}) {
   return h(
     'div.alert',
-    { class: `alert-${tone}`, role: tone === 'danger' ? 'alert' : 'status' },
+    { class: `alert-${tone}`, role: tone === 'danger' ? 'alert' : 'status', tag },
     icon(iconName || TOAST_ICONS[tone] || 'info', { size: 18 }),
     h('div', title && h('strong.alert-title', title), h('div', message)),
   );
@@ -2009,12 +2056,17 @@ export function alertBox(message, tone = 'info', { title, icon: iconName } = {})
  * رأس الصفحة. titleMedia (اختياري): صورة رمزية أو أيقونة تُعرض بجوار العنوان خارج <h1>،
  * فيبقى نص العنوان نظيفًا لقارئات الشاشة وللنسخ («أ. أحمد عبد العظيم» لا «أأ. أحمد…»).
  */
-export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleMedia } = {}) {
+// v12 tags (TG-3، T12-16): tag على الرأس، وtitleTag على <h1> حين يحمل الرأس إجراءات، وbreadcrumbs[].tag على روابط المسار
+/**
+ * v12 gate (V-11، L12-13 ب): record = عنوان فيه بيانات مستخدم (اسم، عنوان ملف، تحية) فيبقى بخط الواجهة؛ غيره عنوان ثابت
+ * بوجه العناوين. كان الفاصل «للصفحة مسار تنقل» فاختلف الخط بين صفحات القوائم الثابتة.
+ */
+export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleMedia, tag, titleTag, record = false } = {}) {
   const crumbs =
     breadcrumbs && breadcrumbs.length
       ? h(
           'nav.breadcrumbs',
-          { 'aria-label': 'مسار التنقل' },
+          { 'aria-label': 'مسار التنقل', tag: 'KIT-22' },
           h(
             'ol',
             breadcrumbs.map((b, i) => {
@@ -2022,7 +2074,7 @@ export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleM
               return h(
                 'li',
                 i > 0 && icon('chevronLeft', { size: 14, className: 'crumb-sep' }),
-                b.href && !last ? h('a', { href: b.href }, b.label) : h('span', { 'aria-current': last ? 'page' : null }, b.label),
+                b.href && !last ? h('a', { href: b.href, tag: b.tag }, b.label) : h('span', { 'aria-current': last ? 'page' : null }, b.label),
               );
             }),
           ),
@@ -2030,12 +2082,13 @@ export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleM
       : null;
   return h(
     'header.page-header',
+    { tag, class: record && 'is-record' },
     crumbs,
     h(
       'div.page-header-row',
       h(
         'div.page-header-text',
-        titleMedia ? h('div.page-title-row', titleMedia, h('h1.page-title', title)) : h('h1.page-title', title),
+        titleMedia ? h('div.page-title-row', titleMedia, h('h1.page-title', { tag: titleTag }, title)) : h('h1.page-title', { tag: titleTag }, title),
         subtitle && h('p.page-subtitle', subtitle),
         meta && h('div.page-meta', meta),
       ),
@@ -2045,12 +2098,12 @@ export function pageHeader({ title, subtitle, actions, breadcrumbs, meta, titleM
 }
 
 /** شريط فلاتر يضم عناصر تحكم. */
-export function filterBar(controls) {
-  return h('div.filter-bar', { role: 'search' }, controls);
+export function filterBar(controls, { tag } = {}) {
+  return h('div.filter-bar', { role: 'search', tag }, controls);
 }
 
 /** حقل بحث مع تأخير (debounce). */
-export function searchInput({ placeholder = 'بحث…', value = '', onSearch, delay = 300, label = 'بحث' } = {}) {
+export function searchInput({ placeholder = 'بحث…', value = '', onSearch, delay = 300, label = 'بحث', tag } = {}) {
   let timer = null;
   const input = h('input.input', {
     type: 'search',
@@ -2069,25 +2122,25 @@ export function searchInput({ placeholder = 'بحث…', value = '', onSearch, d
       }
     },
   });
-  return h('div.search-input', icon('search', { size: 18 }), input);
+  return h('div.search-input', { tag }, icon('search', { size: 18 }), input);
 }
 
 /** قائمة منسدلة للفلاتر. options: [{value,label}] */
-export function selectInput({ options = [], value = '', onChange, label, allLabel = 'الكل', className } = {}) {
+export function selectInput({ options = [], value = '', onChange, label, allLabel = 'الكل', className, tag } = {}) {
   const sel = h(
     'select.input',
     { 'aria-label': label, value: value ?? '', onChange: () => onChange && onChange(sel.value) },
     allLabel !== null && h('option', { value: '' }, allLabel),
     options.map((o) => h('option', { value: String(o.value) }, o.label)),
   );
-  return h('div.select-wrap', { class: className }, sel);
+  return h('div.select-wrap', { class: className, tag }, sel);
 }
 
 /** رقائق صغيرة. items: ['نص'] أو [{ label, value, tone }] */
-export function chips(items = [], { onRemove, className } = {}) {
+export function chips(items = [], { onRemove, className, tag } = {}) {
   return h(
     'div.chips',
-    { class: className },
+    { class: className, tag },
     items.map((it) => {
       const item = typeof it === 'object' && it !== null ? it : { label: String(it), value: it };
       return h(
@@ -2095,7 +2148,7 @@ export function chips(items = [], { onRemove, className } = {}) {
         { class: item.tone && `chip-${item.tone}` },
         h('span', item.label),
         onRemove &&
-          h('button.chip-remove', { type: 'button', 'aria-label': `إزالة ${item.label}`, onClick: () => onRemove(item.value, item) }, icon('x', { size: 13 })),
+          h('button.chip-remove', { type: 'button', 'aria-label': `إزالة ${item.label}`, onClick: () => onRemove(item.value, item), tag: 'KIT-23' }, icon('x', { size: 13 })),
       );
     }),
   );
@@ -2107,7 +2160,8 @@ export function chips(items = [], { onRemove, className } = {}) {
  * choiceTiles({ label, options: [{ value, label, icon?, hint? }], value, onChange(value), variant, columns, allowDeselect })
  * @returns {HTMLElement & { value: any, setValue(v:any):void }}
  */
-export function choiceTiles({ label, options = [], value = null, onChange, variant = 'tile', columns = 2, allowDeselect = false, className } = {}) {
+// v12 tags (TG-3، T12-16): tag على المجموعة، وoptions[].tag على كل خيار
+export function choiceTiles({ label, options = [], value = null, onChange, variant = 'tile', columns = 2, allowDeselect = false, className, tag } = {}) {
   let current = value;
   const labelId = label ? uid('choice') : null;
   const btns = options.map((o, i) =>
@@ -2119,6 +2173,7 @@ export function choiceTiles({ label, options = [], value = null, onChange, varia
         'aria-checked': o.value === current ? 'true' : 'false',
         tabindex: (current == null ? i === 0 : o.value === current) ? '0' : '-1',
         dataset: { value: String(o.value) },
+        tag: o.tag,
         onClick: () => pick(o.value === current && allowDeselect ? null : o.value, true),
         onKeydown: (e) => {
           const dir = { ArrowLeft: 1, ArrowDown: 1, ArrowRight: -1, ArrowUp: -1 }[e.key]; // RTL: اليسار = التالي
@@ -2161,6 +2216,7 @@ export function choiceTiles({ label, options = [], value = null, onChange, varia
   );
   sync();
   const wrap = label ? h('div.choice-field', h('div.field-label.choice-label', { id: labelId }, label), group) : group;
+  if (tag) wrap.setAttribute('data-tag', tag);
   Object.defineProperty(wrap, 'value', { get: () => current });
   wrap.setValue = (v) => pick(v, false);
   wrap.focusFirst = () => (btns.find((b) => b.tabIndex === 0) || btns[0])?.focus();
@@ -2171,11 +2227,12 @@ export function choiceTiles({ label, options = [], value = null, onChange, varia
  * شريط تقدم. progressBar(7, 10, 'success', { label: 'الحصة الشهرية', showValue: true })
  * visibleLabel=false يجعل التسمية لقارئات الشاشة فقط.
  */
-export function progressBar(value = 0, max = 100, tone = 'primary', { label, showValue = false, visibleLabel = true } = {}) {
+export function progressBar(value = 0, max = 100, tone = 'primary', { label, showValue = false, visibleLabel = true, tag } = {}) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (Number(value) / Number(max)) * 100)) : 0;
   const shownLabel = visibleLabel ? label : null;
   return h(
     'div.progress-wrap',
+    { tag },
     (shownLabel || showValue) && h('div.progress-label', shownLabel && h('span', shownLabel), showValue && h('span.ltr', `${value} / ${max}`)),
     h(
       'div.progress',
@@ -2205,10 +2262,11 @@ async function copyText(text) {
 }
 
 /** زر نسخ نص إلى الحافظة. */
-export function copyButton(text, label = 'نسخ', { size = 'sm', variant = 'ghost' } = {}) {
+export function copyButton(text, label = 'نسخ', { size = 'sm', variant = 'ghost', tag } = {}) {
   const btn = button(label, {
     size,
     variant,
+    tag,
     icon: 'copy',
     ariaLabel: label ? null : `نسخ ${text}`,
     title: `نسخ ${text}`,
@@ -2263,13 +2321,13 @@ const ISO_RE = /^\d{4}-\d{2}-\d{2}T/;
  * note: سطر إضافي تحت الخطوة الحالية (مثل «بانتظار ردكم»). label: aria-label للقائمة.
  * قارئات الشاشة: « (اكتملت)» للمنجزة و« (المرحلة الحالية)» للحالية، وaria-current="step".
  */
-export function stepTracker(steps = [], { current = 0, state = 'normal', note, label } = {}) {
+export function stepTracker(steps = [], { current = 0, state = 'normal', note, label, tag } = {}) {
   const list = Array.isArray(steps) ? steps : [];
   const cur = Math.max(0, Math.min(Math.trunc(Number(current) || 0), list.length));
   const waiting = state === 'waiting' && cur < list.length;
   return h(
     'ol.step-tracker',
-    { 'aria-label': label || null, class: waiting && 'has-waiting' },
+    { 'aria-label': label || null, class: waiting && 'has-waiting', tag },
     list.map((s, i) => {
       const done = i < cur;
       const isCur = i === cur;
@@ -2298,16 +2356,17 @@ export function stepTracker(steps = [], { current = 0, state = 'normal', note, l
  * icon: اسم أيقونة أو عنصر؛ badges: عنصر أو مصفوفة؛ trailing: نص أو عنصر في نهاية السطر (لا تضع زرًا داخل صف رابط/زر:
  * لصف بزر إجراء اترك href/onClick فارغين). chevron: يظهر افتراضيًا للصف القابل للضغط. dimOnly=false يضيف تصغير الضغط.
  */
-export function kRow({ icon: iconName, title, sub, badges, trailing, href, onClick, dimOnly = true, chevron, className } = {}) {
-  const tag = href ? 'a' : typeof onClick === 'function' ? 'button' : 'div';
-  const showChevron = chevron ?? tag !== 'div';
+export function kRow({ icon: iconName, title, sub, badges, trailing, href, onClick, dimOnly = true, chevron, className, tag } = {}) {
+  const el = href ? 'a' : typeof onClick === 'function' ? 'button' : 'div';
+  const showChevron = chevron ?? el !== 'div';
   return h(
-    `${tag}.k-row`,
+    `${el}.k-row`,
     {
-      href: tag === 'a' ? href : null,
-      type: tag === 'button' ? 'button' : null,
+      href: el === 'a' ? href : null,
+      type: el === 'button' ? 'button' : null,
       onClick: typeof onClick === 'function' ? onClick : null,
       class: [!dimOnly && 'k-row-scale', className],
+      tag, // v12 tags (TG-3، T12-16)
     },
     iconName ? h('span.k-row-icon', { 'aria-hidden': 'true' }, typeof iconName === 'string' ? icon(iconName, { size: 22 }) : iconName) : null,
     h('span.k-row-main', h('span.k-row-title', title ?? ''), sub ? h('span.k-row-sub', sub) : null),

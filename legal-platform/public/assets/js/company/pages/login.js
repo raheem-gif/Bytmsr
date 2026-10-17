@@ -12,8 +12,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** حقل كلمة مرور بزر «إظهار» */
 export function passwordInput({ autocomplete = 'current-password', id = uid('pw') } = {}) {
-  const input = h('input.input', { id, type: 'password', dir: 'ltr', autocomplete, required: true });
-  const toggle = h('button.input-action', { type: 'button', 'aria-pressed': 'false', 'aria-controls': id }, W.login.show);
+  const input = h('input.input', { id, type: 'password', dir: 'ltr', autocomplete, required: true, tag: 'CS-01' });
+  const toggle = h('button.input-action', { type: 'button', 'aria-pressed': 'false', 'aria-controls': id, tag: 'CS-02' }, W.login.show);
   toggle.addEventListener('click', () => {
     const show = input.type === 'password';
     input.type = show ? 'text' : 'password';
@@ -25,8 +25,8 @@ export function passwordInput({ autocomplete = 'current-password', id = uid('pw'
 
 /** حقل البريد بتحقق عند المغادرة («كافئ مبكرًا، عاقب متأخرًا») */
 export function emailField(value = '') {
-  const input = h('input.input', { type: 'email', dir: 'ltr', inputmode: 'email', autocomplete: 'username', required: true, placeholder: W.login.email_placeholder, value });
-  const wrap = field(W.login.email, input, { required: true });
+  const input = h('input.input', { type: 'email', dir: 'ltr', inputmode: 'email', autocomplete: 'username', required: true, placeholder: W.login.email_placeholder, value, tag: 'CS-03' });
+  const wrap = field(W.login.email, input, { required: true, tag: 'CS-04' });
   let touched = false;
   input.addEventListener('blur', () => {
     const v = input.value.trim();
@@ -70,26 +70,26 @@ export function renderLogin(root, { notice = null, email = '', onSignedIn } = {}
   const em = emailField(email);
   const pw = passwordInput();
   const remember = getMeta()?.limits?.remember_days;
-  const rememberBox = remember ? h('input', { type: 'checkbox', id: uid('rem') }) : null;
+  const rememberBox = remember ? h('input', { type: 'checkbox', id: uid('rem'), tag: 'CS-05' }) : null;
   const errEl = h('p.co-auth-error', { role: 'alert', hidden: true });
-  const submit = button(W.login.submit, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
+  const submit = button(W.login.submit, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-06' });
   const showError = (msg) => {
     errEl.replaceChildren(icon('alert', { size: 16 }), h('span', msg));
     errEl.hidden = !msg;
   };
   const form = h(
     'form.co-auth-form',
-    { novalidate: true },
-    notice ? alertBox(notice, 'info') : null,
+    { novalidate: true, tag: 'CS-07' },
+    notice ? alertBox(notice, 'info', { tag: 'CS-08' }) : null,
     em.wrap,
-    field(W.login.password, pw.el, { required: true }),
+    field(W.login.password, pw.el, { required: true, tag: 'CS-09' }),
     remember
       ? h('div.co-remember', h('label.check.check-single', { htmlFor: rememberBox.id }, rememberBox, h('span', W.login.remember)), h('p.field-hint', copy('login.remember_hint', { days: count(remember.default || remember, 'day'), days_2fa: count(remember.two_factor || remember, 'day') })))
       : null,
     submit,
     errEl,
-    h('p.co-auth-links', h('a', { href: '#/forgot' }, W.login.forgot)),
-    h('p.co-auth-staff', h('a', { href: '/app' }, W.login.staff, ' ‹')),
+    h('p.co-auth-links', h('a', { href: '#/forgot', tag: 'CS-10' }, W.login.forgot)),
+    h('p.co-auth-staff', h('a', { href: '/app', tag: 'CS-11' }, W.login.staff, ' ‹')),
   );
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -113,19 +113,19 @@ export function renderLogin(root, { notice = null, email = '', onSignedIn } = {}
       setBusy(submit, false);
     }
   });
-  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.titles.login), form));
+  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-12' }, W.titles.login), form));
   (email ? pw.input : em.input).focus();
 }
 
 export function renderTwoFactor(root, { challenge, email, onSignedIn }) {
   if (window.location.hash !== '#/login/2fa') window.history.replaceState(null, '', '#/login/2fa');
   let recovery = false;
-  const input = h('input.input.num.co-otp', { type: 'text', dir: 'ltr', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, required: true });
-  const wrap = field(W.login.tfa_code, input, { required: true });
+  const input = h('input.input.num.co-otp', { type: 'text', dir: 'ltr', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 6, required: true, tag: 'CS-13' });
+  const wrap = field(W.login.tfa_code, input, { required: true, tag: 'CS-14' });
   const lead = h('p.co-auth-sub', W.login.tfa_text);
   const errEl = h('p.co-auth-error', { role: 'alert', hidden: true });
-  const submit = button(W.login.tfa_confirm, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
-  const swap = button(W.login.tfa_use_recovery, { variant: 'link', onClick: () => setMode(!recovery) });
+  const submit = button(W.login.tfa_confirm, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-15' });
+  const swap = button(W.login.tfa_use_recovery, { variant: 'link', onClick: () => setMode(!recovery), tag: 'CS-16' });
   function setMode(r) {
     recovery = r;
     input.value = '';
@@ -139,7 +139,7 @@ export function renderTwoFactor(root, { challenge, email, onSignedIn }) {
     errEl.hidden = true;
     input.focus();
   }
-  const form = h('form.co-auth-form', { novalidate: true }, lead, wrap, submit, errEl, h('p.co-auth-links', swap, ' · ', h('a', { href: '#/login' }, W.login.tfa_back)));
+  const form = h('form.co-auth-form', { novalidate: true, tag: 'CS-17' }, lead, wrap, submit, errEl, h('p.co-auth-links', swap, ' · ', h('a', { href: '#/login', tag: 'CS-18' }, W.login.tfa_back)));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = input.value.replace(/\s/g, '');
@@ -167,16 +167,16 @@ export function renderTwoFactor(root, { challenge, email, onSignedIn }) {
       setBusy(submit, false);
     }
   });
-  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.login.tfa_title), h('p.co-auth-email', { dir: 'ltr' }, email), form));
+  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-19' }, W.login.tfa_title), h('p.co-auth-email', { dir: 'ltr' }, email), form));
   input.focus();
 }
 
 export function renderForgot(root, { email = '', onBack } = {}) {
   const em = emailField(email);
-  const submit = button(W.login.forgot_submit, { variant: 'primary', type: 'submit', block: true, size: 'lg' });
+  const submit = button(W.login.forgot_submit, { variant: 'primary', type: 'submit', block: true, size: 'lg', tag: 'CS-20' });
   const box = h('div');
-  const back = h('p.co-auth-links', h('a', { href: '#/login', onClick: (e) => { e.preventDefault(); onBack?.(); } }, W.login.back_to_login));
-  const form = h('form.co-auth-form', { novalidate: true }, h('p.co-auth-sub', W.login.forgot_text), em.wrap, submit, back);
+  const back = h('p.co-auth-links', h('a', { href: '#/login', onClick: (e) => { e.preventDefault(); onBack?.(); }, tag: 'CS-21' }, W.login.back_to_login));
+  const form = h('form.co-auth-form', { novalidate: true, tag: 'CS-22' }, h('p.co-auth-sub', W.login.forgot_text), em.wrap, submit, back);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!em.valid()) {
@@ -190,10 +190,10 @@ export function renderForgot(root, { email = '', onBack } = {}) {
       /* الرد نفسه دائمًا */
     }
     setBusy(submit, false);
-    mount(box, alertBox(W.login.forgot_sent, 'success'), h('p.co-auth-sub', W.login.forgot_help), back);
+    mount(box, alertBox(W.login.forgot_sent, 'success', { tag: 'CS-23' }), h('p.co-auth-sub', W.login.forgot_help), back);
     form.replaceWith(box);
     box.querySelector('a')?.focus();
   });
-  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1' }, W.login.forgot_title), form, box));
+  mount(root, authLayout(h('h1.co-auth-title', { tabindex: '-1', tag: 'CS-24' }, W.login.forgot_title), form, box));
   em.input.focus();
 }

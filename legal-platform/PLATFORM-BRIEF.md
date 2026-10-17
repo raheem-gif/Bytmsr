@@ -1,4 +1,4 @@
-# Beyoot Misr Legal Support Platform — Complete Brief (version 11.0, pre-launch)
+# Beyoot Misr Legal Support Platform — Complete Brief (version 12.0, pre-launch)
 
 > **Purpose of this file.** This is a full, plain-language description of a software platform that was built for
 > «مؤسسة بيوت مصر لدعم الأرامل والأيتام» (Beyoot Misr Foundation for Supporting Widows and Orphans).
@@ -12,13 +12,20 @@
 > is a setting used only where clients look; the legal entity, code and history keep their names. Read the 10.0 section
 > («10.0 in plain words») first for the company service.
 >
-> **Since version 11.0** the public site opens on an **entry gate** with only the firm's logo and two choices:
-> **«خيري»** (khayri — the foundation's free charity legal help, unchanged) and **«خدمات الأفراد والشركات»** (paid legal
-> services for individuals, plus the company service). Both sides share the same request options, follow-up page and AI
-> analysis; every request, case and matter now carries a **service line** (`segment`: `charity` | `paid`) from its first
-> website or WhatsApp message to the fees and reports, which staff see and can change and lawyers never see. The whole
-> platform was also visually redesigned around the firm's logo. Read «11.0 in plain words» first for this release, and
-> §11 for the questions the firm must answer before launch (O-19 brand name vs logo, O-25 contracting entity).
+> **Since version 11.0** every request, case and matter carries a **service line** (`segment`: `charity` | `paid`) from
+> its first website or WhatsApp message to the fees and reports, which staff see and can change and lawyers never see, and
+> the whole platform was redesigned around the firm's logo. (11.0 also opened the site on a two-choice entry gate,
+> «خيري» / «خدمات الأفراد والشركات»; 12.0 replaced it.)
+>
+> **Since version 12.0** the public site opens on a white page with the logo and one question, «كيف نساعدكم؟», with three
+> answers: «استشارة», «رفع دعوى قضائية» and «تأسيس شركات» (with the in-house counsel service). Each answer trickles down
+> through one or two more white pages to a short one-question-per-screen intake. The free charity service «خيري» is
+> **archived on the website** (one setting restores it; its data, links and WhatsApp keep working). Website voice
+> recording is archived and WhatsApp voice notes get a machine transcript that staff confirm; a phone-side document scanner,
+> a server clean-up and OCR make documents arrive clean, with the original always kept; the look became quieter ("the
+> firm's stationery"); and every key element carries a code such as `S-14` that the owner can quote to ask for a change.
+> Read «12.0 in plain words» first, and §11 «Version 12.0 decisions» for the two blocking questions (O-19 brand name vs
+> logo, O-44 old charity links).
 
 ---
 
@@ -449,6 +456,446 @@ explanation. Lawyers get concise professional Arabic.
   alerts, lawyer self-reset) is built only from `PUBLIC_BASE_URL` (or Render's own service URL), never from the
   request's `Host` header; without it no link is sent.
 - The microphone is allowed only on `/intake` and `/p/<token>`.
+
+---
+
+## الإصدار 12.0 — Version 12.0
+
+### 12.0 in plain words — one question, three paths, cleaner documents, a code on everything
+
+Version 12.0 answers ten requests from the owner of the firm (Emam & Partners, «إمام وشركاه»). The five lane sections
+below are the engineering detail; this part is what a reader needs first. The version shows as «الإصدار 12.0» at the
+bottom of the staff sidebar and in «صحة النظام».
+
+**1. The first page is one question with three answers.** `/` is a white page with the firm's logo, the question
+«كيف نساعدكم؟» and three rows: «استشارة» (consultation), «رفع دعوى قضائية» (litigation, including answering a case filed
+against you) and «تأسيس شركات» (company formation, which also holds «مستشار قانوني للشركة», the outsourced in-house
+counsel service from 10.0). Each row has one quiet hint line. The 11.0 entry gate («خيري» / «خدمات الأفراد والشركات») is
+gone, and no cookie is written.
+
+**2. The next pages trickle down on the same white page.** `/start/consultation`, `/start/litigation` and
+`/start/company` ask one short question with 2–6 options (the area, the state of the case, what the company needs); a
+third level (for example `/start/litigation/defend`) names the topic, and the last tap opens the intake. Every tree page
+has «رجوع», a trail («استشارة · الأسرة والميراث») and four quiet footer links («عن المكتب», «متابعة طلب», «نتصل بكم»,
+«واتساب»). They are plain server-rendered links that work without JavaScript. Old links (`/?gate=1`,
+`/intake?topic=…`, `/intake?seg=paid`) redirect to the nearest tree page and keep the campaign parameters. The «مستشار
+قانوني للشركة» branch asks «هل لدى شركتكم حساب معنا؟»: «نعم» opens the company portal `/company`, «لا، نريد عرضًا» opens
+the company proposal form.
+
+**3. The intake asks the minimum, one question per screen.** After the tree, `/intake?path=…` shows zero to two
+questions for that topic (each with «لا أعرف»), for example «هل هناك جلسة أو موعد قريب؟» or «متى صدر الحكم؟», then «اكتبوا
+الموضوع باختصار», then «هل لديكم مستندات؟» (camera with the scanner, «صفحة أخرى» for a multi-page document, or «ليس
+الآن»), then the mobile number. A step line «1 من 5» sits on top and «رجوع» goes back one screen. Nothing the tree already
+answered is asked again. Three paid questions that assumed a widow were rewritten («النفقة لمن؟», «أنتم المالك أم
+المستأجر؟», a «لا يوجد» answer for children). The success screen gives the request number and «لا نبدأ أي عمل قبل
+موافقتكم», and adds an urgent line (with the phone number while the office is open) when a hearing is within two weeks,
+unknown, or a judgment is recent. Staff see the path, the answers and the urgency on the request; lawyers and companies
+never do.
+
+**4. «خيري» (the free charity service) is archived on the website, not deleted.** After the upgrade
+`charity_public = false`: no paid page mentions «خيري» or «مجاني», and a website request without a service line counts
+as paid. Every charity request, case, `/p/` follow-up link, document and the charity WhatsApp number keep working. Old
+charity links and printed QR codes (`/khayri`, `/khairy`, `/charity`) open a short notice that the service is not
+taking website requests, with «متابعة طلب سابق» and the charity WhatsApp when one is configured. **To restore it:**
+Settings → «الصفحة الأولى» → tick «إظهار الخدمة الخيرية («خيري») على الموقع» and confirm (admin only, audited). The
+11.0 charity home, picture-tile intake (byte-identical), legal sentences and a quiet «خيري» row under the tree come back
+at once. A second setting chooses whether old charity links show the notice (default) or redirect to `/`.
+
+**5. `/services` stays as the firm's page.** It keeps every section with rewritten firm copy: the three lines as rows,
+«كيف نعمل؟», the company section and proposal form, the FAQ, contact and hours. The © line now names the firm from
+`firm_legal_name` (falling back to the brand name), which fixed the 11.0 line that named the foundation. An optional
+«الشركاء» block (partners with titles, founding year, city) appears only when the firm fills those settings.
+
+**6. A quieter look: "the firm's stationery".** White paper, near-black green ink, hairline rules instead of cards, one
+filled button per screen, gold only in the logo, no gradients, shadows, icon tiles or pills (a status is a dot and a word).
+Headings use «Emam Display» (Amiri for Arabic, Cormorant for Latin and digits, subset and self-hosted under the OFL);
+everything with data (forms, rows, names, codes) uses IBM Plex Sans Arabic. The display font is preloaded only on
+`/services`, skipped with Save-Data, and never shifts the layout (`font-display: optional`). It applies to the public
+site, `/p/`, the company portal and the staff and lawyer app. The archived charity screens are unchanged. Copy on the
+paid side follows a firm voice: plural formal address, no em-dash cadence, no exclamation marks.
+
+**7. Voice notes: archived on the website, transcribed for staff.** Recording on the website and the follow-up page is
+off (`web_voice_enabled = false`; the microphone permission is not even requested). WhatsApp voice notes still arrive.
+When a speech-to-text provider is configured (Integrations → «تحويل الرسائل الصوتية إلى نص»: any OpenAI-compatible
+service such as OpenAI, Groq or a Whisper server on the firm's own machine, or Google), each client voice note gets a
+«نص آلي للمراجعة» in the staff voice box. Staff confirm it only after playing at least 80 % of the note or editing the text
+(«استمع إلى الرسالة أولًا.»). Machine text never reaches a lawyer, a client or a company. A third-party provider is used
+for paid requests only (charity audio needs a separate, confirmed opt-in), only after the admin names the vendor and
+confirms it neither trains on nor keeps recordings beyond 30 days, and only for notes received after the privacy policy
+says so. Caps: minutes per person per day, maximum note length and a monthly budget with alerts at 80 % and 100 %.
+
+**8. Documents arrive clean, and the original is always kept.** Every photo uploaded from the intake, the follow-up
+page, the company portal or the staff app goes through a scanner on the sender's phone (CamScanner-like: it finds the
+page edges, straightens and evens the light, offers a corner editor, «ألوان / رمادي / أبيض وأسود», «تدوير» and «استخدام
+الصورة كما هي»). Several pages of one document reach the file as one PDF on the paid intake and the company portal. On the
+server, client photos that skipped the scanner (WhatsApp photos, older phones) are cleaned in a separate, memory-limited
+process with a hardened ImageMagick when it is installed. Staff and lawyer uploads are never auto-cleaned (they may be
+evidence); staff have «نظّف المستند» in the viewer. The clean copy opens first only when the page detection is confident;
+every clean view says «نسخة محسّنة آليًا · الأصل محفوظ» with a «الأصل» button, and the original file (with its sha256) is
+never overwritten. **OCR:** every image and PDF is read on the server (Tesseract with Arabic, the Arabic script model for
+Arabic-Indic digits, English for English pages; the PDF text layer when present), up to 10 pages. Only staff see «النص»
+in the viewer («نص مستخرج آليًا من المستند، راجعه قبل الاعتماد عليه.»), can correct it, and can search it from the global
+search. Reading with Claude is optional and off until the firm approves the privacy text (company documents need a
+second switch).
+
+**9. A code on every key element, so the owner can ask for a change precisely.** 5,423 stable codes such as `S-14`
+(the «تأسيس شركات» row on `/services`), `INB-12` (an inbox filter) or `W-01` (the first WhatsApp menu message), on the
+public site, `/p/`, the company portal, the staff and lawyer app, and every WhatsApp, e-mail and print text. **How the
+owner uses them:** add `?tags=1` to any page address (for example `/services?tags=1` or `/app?tags=1#/inbox`), or in the
+staff app use حسابي → «رموز العناصر» or Ctrl+K → «رموز العناصر»; a small badge appears next to every element; tap one to
+copy its code; send the code with the request («S-14: اجعل العنوان أقصر»). `?tags=0` or «إخفاء الرموز» turns them off;
+`?tag=S-14` opens a page on that element. The full list is `TAGS.md` (with a short Arabic guide at the top) and the
+read-only page `/app#/tags`. Codes never appear inside a message sent to a client or a company. The ledger was frozen at
+12.0.0, so a code is never reused for something else.
+
+**10. Settings added or changed (defaults after the upgrade):** «الصفحة الأولى» (charity on the website: off; old
+charity links: notice; firm legal name: empty → brand name, demo «إمام وشركاه»; firm registration: empty; paid phone;
+city, founding year, partners: empty); «قائمة الخدمات على واتساب» (off; demo on); «المستندات والصوت» (web voice: off;
+client scanner: on; server auto-clean: on when ImageMagick is installed; OCR: auto = Tesseract when installed; Claude OCR:
+off; max pages: 10); Integrations → speech-to-text (no provider); حسابي → «إظهار رموز العناصر على هذا الجهاز».
+
+**Owner decisions still open** are in §11 «Version 12.0 decisions»: two are blocking — **O-19** (the brand name
+«Emam Legal and Consultancy» against the logo «إمام وشركاه / Emam & Partners») and **O-44** (old charity links: notice,
+shipped, or redirect). Everything else ships with the default listed there.
+
+<!-- v12:entry -->
+### The first page is a three-level tree, the paid intake asks one question per screen, «خيري» is archived on the site (entry)
+
+- **Tree** (`public/assets/js/public/entry-tree.js`, pure and browser-safe; `TREE_VERSION`): `/` asks «كيف نساعدكم؟» with
+  three rows (`consultation`, `litigation`, `company`), `/start/<line>` and `/start/<line>/<node>` list the next level,
+  and a leaf opens `/intake?path=<line>/<node>/<leaf>`. Server-rendered from `src/site.js` (`entry.html`, class contract
+  `lh`, `trail`, `q__title`, `opts`, `opt`), plain links, no JavaScript needed, no cookie written; tree pages count views
+  per day (`entry_tree_daily`, schema 87) for staff analytics. The v11 gate and `site_gate_enabled` are gone; old URLs
+  (`/?gate=1`, `/intake?seg=paid`, `/intake?topic=…`, `/khairy`, `/charity`) redirect through `app.pathways.classify`
+  with the campaign parameters kept. B2B off or the company portal closed removes the in-house-counsel row.
+- **Paid intake** (`intake.js` with a `bm-path` block ≤ 1,024 B and the `bm-copy` block from `site-copy-paid.js`): the
+  same white page (I-04 mark, I-03 «رجوع», I-01 trail, I-02 step line «n من N»), then the leaf's 0–2 questions (each
+  with «لا أعرف», `aria-current` on the previous answer, focus on the new `h1`), the story, «هل لديكم مستندات؟» (the
+  media lane's photo picker with page grouping; a multi-page document goes up as one PDF, originals kept for staff),
+  and the phone screen (line chips on the callback form, «اسم الشركة (اختياري)» on company leaves, «رقم من خارج مصر؟»
+  → WhatsApp). The success screen (I-60…I-68) adds the urgent line when `isUrgent(path, answers)` and the phone number
+  only while the office is open. Drafts are keyed on the path; a voice note held from an older draft is still sent
+  while web voice is off (`web_voice_enabled`, media). Budgets: /intake static closure ≤ 32,768 B br (measured
+  29.7 KB), intake.js ≤ 21,149 B br (measured 20,986 B), /intake HTML ≤ 16,384 B br.
+- **`POST /api/public/intake`** takes `pathway` (≤ 80 chars, resolved with `resolvePath`; an exit or unknown path is
+  ignored and recorded as `attribution.detail.pathway_invalid`). A valid path forces `segment = 'paid'`
+  (`segment_source = 'website'`, `via = 'pathway'`), sets topic, legal area and answers from the leaf
+  (`sanitizePathAnswers`), `entry = 'tree'`, `form_answers.company_name` on company leaves, and
+  `form_answers.inferred.urgent_hint`. After the row is saved, `app.pathways.set(id, path, {source:'website',
+  onlyIfEmpty:true})` and `segments.markReturningCharity` run inside try/catch, so a failure there never loses a
+  request. The 201 body adds `urgent` and `call_now`. Charity requests (restored state) are byte-for-byte the 11.0 path.
+- **Archive of «خيري»** (`charity_public`, default false after the upgrade; `charity_archived_landing` = notice or
+  redirect): no «خيري» or «مجاني» on any paid page, `/khayri` shows the KH notice («متابعة طلب سابق», the charity
+  WhatsApp when one is configured, no fees, no paid header), every charity link, `/p/` page, WhatsApp number and document keeps working, and a
+  website request without a segment is paid (`segments.fromWebsite`). Restoring brings back the 11.0 charity home,
+  the charity intake (byte-identical `<main>`), a quiet «خيري» row under the tree and the charity legal sentences.
+- **Legal pages**: privacy §6 stop words, §7 the fixed automated messages sentence (readiness checks read it) and the
+  media processors disclosure (`app.media.privacyHtml(side)`, Egypt PDPL), §12 the `bm_seg` cookie sentence per state;
+  terms keep the «خيري» bullet only while restored; data deletion gets `app.media.deletionHtml(side)`.
+- **Copy**: no em-dash cadence and no «!» on the paid side, « | » as the title separator, «إدارة قانونية خارجية»,
+  Arabic number–noun agreement through `pagesAr`. Lawyers and companies see none of the tree data.
+- **Demo** (`src/seed-v12-entry.js`): six tree requests through `app.publicIntake` (01092000501…506), seven days of
+  tree views, `firm_legal_name = «إمام وشركاه»`; nothing is sent and no media job is queued.
+<!-- /v12:entry -->
+
+<!-- v12:look -->
+### "The firm's stationery": tokens, display face, restyle of every surface, no page logic (look)
+
+- **Tokens** (`app.css :root`, and the public general critical `:root`): `--paper/-2/-3`, `--ink/-2/-3`, `--rule/-2`,
+  `--field`, `--act` (= `--primary-700`), `--gold` (logo/ornament only), status `--ok/--warn/--bad/--info`, type
+  `--d1…--d4` (display) and `--t-*` (Plex), `--r-1` = 2 px, `--sheet-shadow`. The v11 role names are re-pointed to them
+  (`--canvas*`→paper, `--label*`→ink, `--separator`→rule, `--tint-weak`/`--gold-wash`→transparent, `--e-1/--e-2`→none,
+  radii → 2 px), globally in `/app` and `/company`, and on public pages through
+  `:root:has(> body:not([data-side="charity"], .pub-charity))` so the archived charity screens keep the 11.0 look
+  (PW-L8: tile and pictogram rects identical to 11.0).
+- **Fonts** (`public/assets/fonts/`, OFL texts in `OFL.txt`, subset commands in `README.txt`): «Emam Display» =
+  `amiri-arabic-400-sub.woff2` (41,328 B, 76 code points; the `unicode-range` equals the list in README.txt) +
+  `cormorant-latin-500-sub.woff2` (11,912 B, Latin/digits; the space belongs to Amiri), `font-display: optional`.
+  Allowed only on `.q__title` and static h1/h2 (public), `.page-title`/`.empty-title` (staff); never on option rows
+  (`.opt__t` = Plex 400 20 px), form controls or anything with user data (`.bp-greet`, `.co-h1`, record titles) —
+  enforced by an allow-list test. Amiri is preloaded on `/services` only and not with `Save-Data: on` (H-L1). Paid public
+  pages no longer fetch Plex 700 (the remaining 700s render 600).
+  12.0 gate (V-16): Latin letters and digits inside Arabic paid text (dates, the reference, «Meta», ©) use one face,
+  «Emam Latin» = `plex-latin-400.woff2` (`font-display: optional`, `unicode-range` digits, A–Z, a–z, ©, no punctuation
+  so a «(…)» alone fetches nothing), listed after Plex Arabic in `--pub-font`/`--f-ui` on paid public pages and after
+  «Emam Text» on the legal pages; the charity side is unchanged.
+- **Critical CSS** (`public-site.css`, parsed by `CRITICAL_RE`): general (≤ 8,500 B, ends `/* @critical-end:general */`),
+  `:charity` (the charity home's first screen, used only by the restored charity home), `:entry` (`/` and `/start/*`,
+  ≤ 3,072 B), `:paid` (`/services`), `:legal`. The gate block is gone.
+- **Component layer** `public/assets/css/v12-look.css` (linked last in `app.html` and `company.html`, screen only,
+  ≈ 1.1 KB br): `.state` (dot + word), `.line-chip`, `.line-path(--suggest)`, `.path-line`, `.btn-link` (≥ 44 px hit area),
+  `.btn.btn--primary/--line/--text/--sm`, `.vt-warn`; secondary/tinted buttons as 1-px ink outlines; the sidebar current
+  row = white + 2-px act start bar. Markup lanes write these classes and no CSS.
+- **Surfaces**: public masthead/footer/`/services` (hanging `.sec-label` only ≥ 900 px), intake, `/p/` (one box only
+  when something is due; diamond steps), legal pages, 404, `/portal`; staff shell (`shell.js` chrome: «منصة المكتب»,
+  groups «اليوم · الشركات · المكتب · النظام»), inbox docket rows over `.pa-story`, dashboard figures, hanging-label
+  settings, segment diamonds (charity `--gold-ink` outline, paid `--act`); company portal (text nav, ruled sections,
+  «طلب جديد» catalog as ruled option rows by CSS alone, date column, 2-px meter, diamond step tracker, words files without
+  «—»); lawyer phone shell (white tab bar, 22-px glyphs, count in act, ruled assignment/matter/calendar rows); shared
+  `.code-tag`, `.tab-count`, `.chip-toggle` (2-px hairline, selected = ink border, never a filled pill), `.progress`
+  (2-px meter). Forced colours: every focus stop gets a `Highlight` outline.
+- **Budgets (measured)**: `/app` sheets 57,321 B br (≤ 60,000), `/company` 28,729 B br with the page sheet (≤ 30,000),
+  `v12-look.css` 1,141 B br (≤ 6,144); cold 390 px Fast 3G: `/` 117.3 KB (≤ 120 KB), `/services` 166.6 KB (≤ 200 KB);
+  CLS `/` 0.0007, `/services` 0.0052, `/p/` 0, `/company` 0.0003, `/app#/inbox` 0.001; 0 px overflow at 320 and at 180
+  CSS px (200 % zoom). Tests: `test/v12-look.test.js` (41).
+- **Review pass (deeper screens)**: a whole-page scanner (`scratchpad/v12-pw-look/review/tells2.mjs`) found v11 tells
+  below the first viewport; fixed in place in the owning sheets, no new rules stacked: initials avatars and AI sparkles
+  hidden (`v12-look.css`), icon tiles in front of rows hidden (dashboard, request page, knowledge, queue, account,
+  notifications), counts/channels/step numbers as plain figures and words (no pills or circles), the chat thread without
+  the WhatsApp dot wash or bubble shadows, notices as ivory + 2-px start rule (`.pa-note`, `.v9p-overdue`), dashboard
+  figures/alerts/events as ruled rows, no gradient panels (company sign-in, impact report head), no gold text (demo panel,
+  accent badges, date columns, the paid intake scan tip), 2-px corners on password/addon fields, and the `/services`
+  header button kept as the 38-px line button (the paid `.pub-btn` reset is now `:where(:not(.pub-nav-cta))`).
+<!-- /v12:look -->
+
+<!-- v12:staff-lines -->
+### Request type and path for staff, the WhatsApp services menu, archive on WhatsApp, settings (staff-lines)
+
+- **Every paid request carries a type and a path**: «استشارة» / «دعوى قضائية» / «شركات» (`service_line`), then the area
+  or situation, then the topic (`pathway`, e.g. `litigation/defend/family`), as chosen on the first page, in the
+  WhatsApp menu, or set by staff. One module writes it (`app.pathways`); a paid request without a type (old rows
+  included) reads «لم يُحدَّد النوع», and that filter/count covers paid requests only (charity requests have no type;
+  the dashboard group is paid-only and sums to the «أفراد وشركات» open count). Staff see it everywhere a request is listed: the inbox filter «كل الأنواع» (with counts, kept in
+  `?line=`, inside the phone filter sheet), a path line on each row, «مقترح: …» + one-tap «تأكيد» for rows that have an
+  area but no path, the request header «المسار: … · من …» + «تعديل» (three cascading selects and an optional reason),
+  the dashboard group «حسب نوع الطلب», and analytics (`line` on the funnel, the section «من الصفحة الأولى إلى الطلب»:
+  views per tree page with the share of the page above, requests per path). New endpoints, all staff-only and audited:
+  `PUT /api/admin/intakes/:id/pathway` (`intake.pathway_changed {from,to,reason}`), `DELETE
+  /api/admin/clients/:id/auto-opt-out` (`client.auto_opt_out_cleared`), `GET /api/admin/analytics/entry-tree`
+  (`analytics.viewed {report:'entry_tree'}`).
+- **WhatsApp services menu** (setting `wa_lines_menu_enabled`, default off, demo on): the first short message from a
+  new person on the paid number gets three buttons (W-01, the firm's name from `firm_legal_name`), then a short list
+  (W-02…W-04, rows generated from the same tree as the website), then one closing message (W-05 with «خلاص» and the
+  fee promise, or W-06 for in-house counsel). Fixed texts, never AI, session-only (24-hour window, never a template),
+  once per person, never on the charity number or a charity request, never in reply to a button. A ready-made website
+  sentence sets the path without the menu, and a leaf (sentence or list row) also stores its topic and legal area when
+  empty, as the website form does. The path is added as one context line to the AI story analysis of paid
+  requests only (the charity request bytes are unchanged).
+- **Stop words**: a message that is only «توقف», «إيقاف», «ايقاف», «الغاء», «إلغاء», «stop» or «unsubscribe» sets
+  `clients.wa_auto_opt_out_at` (schema 89); automated story/menu/survey messages are then skipped for that person,
+  staff replies, hearing reminders and fee messages are not. Staff see «أوقف الرسائل الآلية» and can undo it.
+- **Archive on WhatsApp**: while «خيري» is hidden from the site, the v11 charity/paid choice buttons are never sent, a
+  website request without a type is paid, a returning charity client is flagged to staff only («سبق التعامل مع «خيري»»),
+  and readiness warns when the main number is still in charity mode.
+- **Settings «الصفحة الأولى»** (replaces «شاشة الاختيار»; `site_gate_enabled` is retired and hidden): the charity
+  switch with a confirm dialog, what old charity links open while archived (a notice, or the first page), the firm's
+  legal name, the paid phone, and «عن المكتب» (city, founding year, up to 8 partners with name and title). Changes to
+  `charity_public`, `charity_archived_landing`, `wa_lines_menu_enabled`, `firm_partners` (count only) and the media
+  privacy switches each write their own security-log row with `{from, to}`.
+- **Lawyers and companies see nothing new**: no type, path, chip or marker in any of their pages or APIs (route scans
+  over every lawyer and company GET).
+<!-- /v12:staff-lines -->
+
+<!-- v12:media -->
+### Voice notes to text, the document scanner, server clean copies, document text (media)
+
+- **Schema 88** (`src/schema.d/88-v12-media.*`, additive): `document_files` (original / clean / page rows with sha256,
+  width, height, `source` = `client_scan` · `staff_scan` · `server_auto`, `params`), `documents.display_file_id`,
+  `scan_state`, `ocr_state`, `voice_auto_transcripts` (state, text, provider, confidence, `played_ratio`, outcome),
+  `media_jobs` (kind, state, attempts, `gen`, `crashes`, `next_page`, `next_at`), `document_text` + FTS5 trigram
+  `document_text_fts` (LIKE fallback with ESCAPE where FTS5 is missing), `media_usage`, `media_orphans` filled by the
+  trigger `trg_document_files_orphan` (cascade-safe, daily `media.gc` unlinks). Re-running on an 11.0 DB changes no row.
+- **Web voice archived** (`web_voice_enabled`, default off): no mic UI and `Permissions-Policy: microphone=()` on the
+  site and `/p/`; WhatsApp voice notes still arrive and staff voice notes still play; an old draft with a recording
+  is sent or deleted. Turning it on restores the 11.0 recorder and the privacy disclosure.
+- **STT** (`INTEGRATION_SPEC.stt`, off by default): `openai_compatible` (presets OpenAI, Groq, the firm's own Whisper
+  server with `hosting = own_server`) or `google`. Every client voice note gets a staff-only «نص آلي للمراجعة» draft
+  (job `stt`, one note per unit); «تأكيد النص» is enabled only after 80 % was played or the text was edited, a low
+  confidence draft carries «النص الآلي غير مؤكد…», and the 11.0 manual transcript is still the only text anything
+  client- or lawyer-facing uses. A third party is used only for paid requests (charity audio only with the confirmed
+  `stt_charity_third_party`), only after `vendor_name` + `no_training_attested`, and only for audio received after
+  `stt_third_party_since` (set by the server when a third-party provider is saved, the moment the privacy text starts
+  naming it; never writable from PATCH). Limits: `stt_minutes_per_client_day`
+  (20; staff «حوّل الآن» bypasses it and is audited), `max_seconds`, `monthly_budget_usd` with alerts at 80 % / 100 %,
+  and an «تحويل الصوت» line in AI usage. Hosts resolving to metadata, loopback (unless `STT_ALLOW_LOCAL=1`) or a private
+  network for a third party are refused, including IPv6 forms that carry an IPv4 address (`[::ffff:169.254.169.254]`,
+  NAT64, 6to4), multicast and broadcast. The call connects to the address that check resolved (`node:http(s)` with a
+  pinned `lookup`, no second DNS answer, no redirects; gate SEC-6). A key set in the environment (`STT_API_KEY`) is only
+  ever sent to the default or an environment `STT_BASE_URL`: the card refuses another address with «المفتاح مضبوط من
+  الخادم؛ غيّر العنوان من الخادم أيضًا.» and an address saved before the key was set gets no key (gate SEC-1).
+- **Scanner on the sender's phone** (`scan_client_enabled`, default on): `scan-core.js` (pure, shared with the server),
+  `scanner.js` + `scan-worker.js` + `scan-sheet.js`; every photo picked on the intake, `/p/`, the company portal and
+  staff upload is cropped, flattened and lit before upload, with a corner sheet and «استخدام الصورة كما هي»; a
+  multi-page paper is one PDF (`pages: true`; after the first page «صفحة ثانية من نفس المستند؟» sits beside «صفحة أخرى»,
+  and paid-intake files are named «مستند-N», gate JR-09). The original travels with it and is kept byte-for-byte (sha256).
+- **Server clean** (`scan_server_auto`, default on, needs ImageMagick with the vendored policy): client photos that
+  arrived without a scan (WhatsApp, failed phones, company uploads without the scanner) get a `server_auto` clean copy
+  under `uploads/variants/auto/` from `src/media-child.js`, a forked child with `--max-old-space-size=128`, a minimal
+  env, nice 19 / `oom_score_adj` 1000, one image at a time, killed as a process group on timeout. The gate (score ≥ 0.60,
+  not partial, median chroma ≤ 55, ink 1–35 %, ≤ 24 MP) skips anything that is not paper; nothing is written then.
+  A memory guard defers the job 5 minutes while less than 300 MB is available (after 6 defers: `low_memory`). Staff and
+  lawyer photos are never cleaned automatically (possible evidence); staff have «نظّف المستند» in the viewer.
+- **Display rule** (L12-59 r3, `scanConfident` + `SCAN_CONFIDENCE` in `src/services/documents.js`): the clean copy is shown
+  first whenever the detection is confident — not black-and-white, not partial, no paper beyond the detected edges
+  (`nested`: a printed frame or rule inside the page won the edge search), and either corners adjusted by hand or score
+  ≥ 0.75 with every page convex, ≥ 15 % of the photo, corners 45–135°, opposite sides ≤ 2.2 : 1 and aspect ≤ 3 : 1;
+  otherwise the original is first and the clean copy is one tap away. Measured at the 12.0 gate: 18 of the 21 spike
+  photos with a page open clean (h08 at 9 % of the photo and the two cut pages h09/x11 open on the original), the three
+  PW-M1 photos open clean, and every framed form whose crop landed on the printed border (n01 and three more) opens on the
+  original — no crop off by more than 1 % opens first. The server auto-clean applies the same rule. Every clean view
+  carries «نسخة محسّنة آليًا · الأصل محفوظ» (DOC-16) and «الأصل»; every image a lawyer downloads (the original, or a client
+  photo that skipped the scanner) has its metadata stripped on the fly (gate SEC-3: JPEG keeps only JFIF/ICC/Adobe APPn, drops COM and
+  anything after the first image's EOI, skips stray fill bytes like libjpeg; PNG drops eXIf/tEXt/iTXt/zTXt/tIME; WebP
+  keeps only image chunks and clears the VP8X EXIF/XMP flags); an image that cannot be parsed
+  (or HEIC) is refused for the lawyer with 409 `strip_failed`, never sent as stored; staff get the stored bytes. HEIC stays accepted, is never given to ImageMagick, and reads «صيغة HEIC لا تُعرض
+  هنا. اطلب صورة JPG.» for staff. The stored «الأصل» of a phone scan is the phone's 1600 px re-encode (L12-58); the scan
+  block says `reencoded: true` and the staff info line reads «الأصل المحفوظ (صورة الهاتف مصغّرة)» (gate SEC-7; keeping the
+  camera file itself is decision O-M6).
+- **Document text (OCR)** (`ocr_provider` = auto · tesseract · claude · off, default auto): one page per job unit up to
+  `ocr_max_pages` (10); PDFs try `pdftotext -layout` first, then `pdftoppm -scale-to 2000` + Tesseract. Gate V-14
+  (`src/services/ocr-text.js`): `-l ara` with TSV words first (ara+eng read Arabic-Indic digits as Latin letters,
+  «٤٥٢٨» → «EOPA»); a page whose ara confidence is under 55 is tried with `eng` (English contracts); with the Arabic
+  script model (`tesseract-ocr-script-arab`, in both Dockerfiles) a second pass replaces the words under its digit boxes
+  (registry numbers, dates, national IDs: 8–16 % → 30–36 % read right on the spike lease, words 88.6–90 → 91.3–93.2 %).
+  Bidi marks and Persian letter forms are tidied, the page confidence is stored, and the panel draws each line in its
+  own direction with Tesseract's numbers and Latin fragments underlined («الأرقام والكلمات المظللة غير مؤكدة: طابقها مع
+  الصورة.», DOC-41). JPEGs are decoded with `-define jpeg:size` (31–40 MP photos read); a tool exiting with an error ends
+  the unit `failed: tool_error` (or `skipped: too_large`) at once — only timeouts and crashes are retried (gate SEC-4).
+  Claude (P1) is used only with `ocr_claude_allowed` (privacy text names Anthropic, and only documents received after
+  `ocr_claude_since`), company documents only with `ocr_claude_companies`, page images only, within
+  `ocr_claude_budget_pct` of the monthly AI budget. The text is staff-only: «النص» in the viewer (DOC-12…14: copy,
+  correct a page, «اقرأ النص مرة أخرى»), and a «مستندات» group in global search (SRC-01/02/04). Lawyers, clients and
+  companies never get OCR text from any API (route scans in `test/v12-media.test.js`).
+- **Endpoints** (staff, server-side permission checks, all audited with Arabic labels in `media_security_event`; the
+  `/audit` group names for the `media`/`voice` prefixes belong in the audit page's `GROUP_LABELS`):
+  `POST /api/admin/documents/:id/clean`, `PUT …/display`, `GET …/files`, `POST …/rescan` (60/h), `GET …/text`,
+  `PUT …/text/:page`, `POST …/ocr` (30/h), `POST /api/admin/voice-notes/:documentId/auto`,
+  `GET /api/admin/media/status` (`?probe=1` re-probes the tools), `POST /api/admin/media/backfill` (5/day; voice from the
+  last 30 days, or clean + read older documents), `POST /api/admin/integrations/stt/test`.
+- **Jobs**: `media.process` every minute only calls `kick()`; the runner works outside the scheduler lock, one unit at a
+  time with `processDue({budgetMs})`, generation-checked writes, and states queued / running / done / failed / skipped
+  / cancelled. Seeds never enqueue. Daily `media.gc` cleans orphans, temp files and FTS rows of deleted documents.
+- **Privacy and deletion**: `/privacy` gains PV-01…04 (voice to text with the vendor and «قد تُعالج خارج مصر» for a
+  third party, image cleaning and text reading on the firm's server, Claude when allowed); data deletion gains DD-01
+  (clean copies, extracted text and voice-note text).
+- **Settings and health**: settings card «المستندات والصوت» (SET-20…35, admin only, confirm dialogs for the charity
+  third-party and Claude switches, «منذ …» lines); system card SYS-01…10 (tool versions, queue, «شغّل الآن», the two
+  backfills, warnings for < 1 GB RAM, uploads × backup retention > 70 % of the disk, and an ImageMagick without the
+  vendored policy).
+- **Demo seed** (`src/seed-v12-media.js`): a machine draft on a pending WhatsApp voice note, a server clean copy of the
+  seeded WhatsApp death-certificate photo, OCR text on two documents (search «الأحوال المدنية»); no queued jobs.
+<!-- /v12:media -->
+
+<!-- v12:tags -->
+### Element tags «رموز العناصر» (tags-core + tags)
+
+- **Codes**: `PAGE-NN` matching `^[A-Z]{1,3}-(0[1-9]|[1-9]\d|[1-9]\d\d)$`, one call site = one code, `data-tag` is the
+  last attribute. 5,320 codes after the sweep; **5,423 at the 12.0.0 freeze** after the gate (site 388 · request and follow-up 361 ·
+  company portal 658 · staff app 3,882 · messages and print 134 in the registry). Prefix metadata: public prefixes in `lib/tags-pages.js` (no
+  file paths), staff/company prefixes in `lib/tags-pages-app.js`; file lists only in server-side `src/tags/registry.js`.
+  `h()` takes `{ tag }`, `tagged(code, node)` tags a built node, and every `ui.js` / company-ui / page-kit / portal-ui
+  component takes `tag` (plus `titleTag`, `rowTag` as a string or a function of the row, `submitTag`/`cancelTag`, and
+  `tag` on items/columns/options/actions/fields/breadcrumbs). Data lists carry `tag` (tree nodes, intake questions and
+  answers, paid nav/how/trust/FAQ, company catalog types and fields, nav groups and items).
+- **Messages**: `TEXT_TAGS` (W-01…W-47, interactive labels moved byte-identical into `WA_BUTTON_TEXTS`), lawyer alerts
+  `ALERT_TAGS` (W-48…W-54), `EMAIL_TAGS` (E-01…E-15), print blocks D-01…D-65. Codes reach staff only (registry,
+  automations list, outbox and e-mail outbox rows, simulator replies via `src/tags/messages.js`); L12-88 is tested on a
+  seeded run plus the lines menu, an STT draft confirmed by staff, a WhatsApp photo queued for clean + OCR, a website
+  intake and the company e-mails: no `\b[A-Z]{1,3}-\d{2,3}\b` in any body, interactive part, template vars or e-mail.
+- **Overlay** (`lib/tags.js`, 7,964 B br, loaded only on opt-in, never preloaded or precached): badges in one fixed
+  layer, panel search (`s14`, `S 14`, `S-١٤`, Arabic words folded by `foldAr`: «تاسيس» finds «تأسيس»), `?tag=S-14` jump +
+  flash (after the smooth scroll stops, `whenStill`), «غير المرمَّز» outlines, copy on tap. Review fixes: the panel list
+  is rebuilt only when its rows change (`panelRows` key; focus and long presses survive the 1-s refresh), new badges are
+  measured in one read per frame (full pass ≤ 7.7 ms on `/services` at 1366, was 20–41 ms), badges keep clear of the
+  «الرموز» tab.
+  `lib/tags-boot.js` (446 B br, no imports, overlay URL built by concatenation) is called by `menu.js`, `app/main.js`
+  and `company/main.js`; `entry.js` (`/`, `/start/*`) and `portal-ui.js` (`/p/`, `/portal`) import it lazily only on
+  `?tags=`/`?tag=`, a stored preference or the first Alt+Shift+T (L12-43, T12-84). `replaceState` strips `tags`/`tag`
+  from search and hash; `?tags=1` is remembered in `sessionStorage`, `localStorage['bm_tags']` only by the staff switch
+  (حسابي card PRF-01…03, also on the tags page). Ctrl/⌘+K command SRC-05 (staff), Alt+Shift+T outside text fields.
+- **Registry**: `GET /api/admin/tags?q=&surface=&prefix=` (admin + case manager; lawyer 403; anonymous or a company
+  cookie alone 401 like every staff route; audited `tags.registry_viewed`; `file`/`line` for admin only). Page
+  `/app#/tags` (TGS-01…12, read-only; the same folded word search). `TAGS.md` is generated (texts that come from word
+  modules are resolved: company `W.…` and its aliases, intake `COPY.…`, sidebar route titles; «(نص متغير)» rows 1,198 → 756): `npm run tags` (number `X-00` placeholders outside the
+  §5.9 reserved ranges, update `src/tags/ledger.json`, write `TAGS.md`), `-- --check`, `-- find`, `-- next`,
+  `-- autotag <files> [--dry]`, `-- coverage`, `-- md`, `-- freeze` (gate).
+- **Enforcement (TG-7)**: `TAGS_ENFORCE = '1'` in `src/tags/registry.js` (`TAGS_ENFORCE=0` in the environment reports
+  only, and only before the freeze). `test/v12-tags.test.js` enforces T12-73 (ledger), T12-74 (`TAGS.md` and the ledger
+  equal what `npm run tags` writes, line numbers aside), T12-75 (every section/header/footer/nav/h1–h3/button/details/
+  form/field and every link outside a `<p>` on the rendered public pages, archived and restored, a real `/p/`, intake
+  shells, legal pages, 404; only `data-notag="reason"` exempts), T12-76, T12-77 (data lists) and T12-78 (every key
+  builder call in the SPA and public modules). `UNTAGGED_BY_DESIGN` lists the only gaps: the charity pages
+  (`about.html`, `index.html`, the `intake.html` charity fallbacks, the paused-notice title; KH-05… are 12.1) and the
+  archived recorder (RV). `npm run tags -- --check` fails on any other untagged key element.
+- **Budgets (T12-84, measured)**: `tags-boot.js` 446 B br (≤ 450); `tags.js` 7,964 B br (≤ 9,216); `/services` grows by
+  275 B br for 92 codes (≤ 1,228); `/p/` closure back to h.js + portal-ui.js + portal.js + words.js = 30,606 B gzip
+  (≤ 30,720). The company entry closure (62,852 B br at the sweep) was over the 60 KB budget of
+  `test/v10-b2b-portal.test.js`; the gate raised that budget to 64,512 B br for the codes (K-P6, about 1.4 KB) and it
+  measures 62,898 B br. At the gate `tags.js` is measured as served without `?v=` (R-02): 8,869 B br (≤ 9,216).
+<!-- /v12:tags -->
+
+<!-- v12:gate -->
+### What the 12.0 integration gate checked and fixed before release
+
+After the five lanes, the integrated build ran on fresh demo data: seven cross-lane journeys (a tree request with two
+scanned photos through to a lawyer's file, on a fast phone and on slow 3G with a 4× slower CPU; company formation; a company
+proposal and a three-page company upload; the WhatsApp menu, a machine transcript, the stop word and a server-cleaned and
+OCR'd WhatsApp photo; archiving and restoring «خيري»; the codes on every surface), an independent security and privacy
+review (the §2.1 role × route matrix with audit rows, pathway/redirect/menu attacks, uploads and the ImageMagick child,
+STT/OCR network targets and keys, FTS injection, CSP, an 11.0 database migrated twice), a regression run (11.0 → 12.0
+migration: 0 rows changed in 102 old tables, the 7 new tables and 12 new columns empty, `foreign_key_check` empty, the
+scheduler sends nothing; **rollback**: the 11.0 tree serves `/healthz`, the inbox, a request page and a client-scanned
+document download on the migrated database; full suite under shifted clocks), a visual and copy review (public pages at
+360/390/1366, the staff, lawyer and company walks) and a tags audit (146 route visits for seven roles). Fixers then closed
+the findings in two rounds, most importantly:
+
+- **Documents**: the clean copy opens first only when detection is confident (`scanConfident`, convex quad ≥ 15 % of
+  the photo, sane angles and aspect, not nested or partial); every staff document list (request, case, matter, company
+  request) shows the clean copy with «الأصل» one tap away and opens scanned PDFs in the viewer; staff photos go through
+  the scanner with the original kept; real Tesseract with `-l ara` TSV, an English retry under confidence 55 and the
+  Arabic script model for Arabic-Indic digits (numbers read correctly on the lease sample: 8–16 % → 30–36 %); EXIF/XMP
+  stripping for JPEG, PNG and WebP before a lawyer download (409 `strip_failed` rather than a leak); company document
+  file names neutral for lawyers.
+- **Speech-to-text**: archived web audio is never auto-transcribed; billing uses the provider-reported duration; an
+  environment `STT_API_KEY` only goes to the default or environment base URL (`stt_env_key`); the request connects to the
+  vetted address only (DNS pinning, no redirects, 4 MB reply cap); a loopback test reports `blocked_local`.
+- **Public**: the intake no longer shifts while loading (server-rendered step line; max CLS 0.0013 at Fast 3G + CPU×4 on 26
+  leaves); the paid `/privacy`, `/terms` and `/data-deletion` are in the firm's voice and name; focus rings on every stop;
+  the paid header, `/p/` header, 404 and `/khayri` without a WhatsApp number; company portal copy without dashes.
+- **Staff and server**: segment nouns on paid work («صاحب الطلب», «المكتب»); tree answers and the urgent hint reach the
+  request card, the inbox and the AI context (urgent → priority high); a matter shows «مستندات من الطلب والاستشارة» with a
+  grant to the responsible lawyer; the company «الجهة المتعاقدة» is `firm_legal_name` (+ `firm_registration`), never the
+  foundation; Arabic file names in reading order; `settings.updated` audits only changed keys; sign-in, e-mails and the
+  startup banner say «منصة المكتب» or the firm's name.
+- **Tags**: per-item codes in lists and menus, the scanner registers codes passed through helpers, `TAGS.md` with Arabic
+  headings, rendered e-mail bodies and the owner's guide «كيف تطلب تعديلًا بالرمز», fixed-size badges on public pages,
+  then `npm run tags -- freeze` at 12.0.0 (5,423 codes; `TAGS_ENFORCE` on and permanent).
+
+**Numbers at release:** `npm test` 1,859 tests in 455 suites, all passing (0 failed, 0 skipped, about 11 minutes); `npm run tags -- --check` clean (5,423 codes). Budgets on the integrated build: `/` 119.0 KB cold at 390×844 (≤ 120 KB), `/services`
+188.8 KB (≤ 200 KB), `intake.js` 21,117 B br (≤ 21,149), the landing closure 4,004 B br (≤ 4,096), the `/p/` closure
+30,653 B gzip (≤ 30,720), `/app` styles 59,485 B br (≤ 60,000), `/company` styles 29,464 B br (≤ 30,000), the company entry
+closure 62,898 B br (≤ 64,512, raised from 61,440 for the codes), `tags.js` 8,869 B br as served (≤ 9,216), `tags-boot.js`
+446 B br (≤ 450); no page requests any external host. The scanner's worker path takes 0.75–0.89 s for a 12 MP photo at
+CPU×4 (the main-thread fallback 2.6–2.8 s, O-M7).
+
+**Not done at the gate:** the Docker images were not built (no Docker daemon in the development environment), so the
+512 MB memory test of L12-66 (20 photos + 5 PDFs during an intake) did not run; both Dockerfiles were reviewed statically.
+The first real build is on Render or the firm's server (`DEPLOY.md` «بوابة الدمج 12.0»).
+
+### Known limitations at release
+
+- OCR quality depends on the photo and on Tesseract being installed with `ara` and the Arabic script model; on a server
+  without it there is no document text (a health warning says so). Numbers in Arabic documents are still only about a third
+  right on hard photos: the panel underlines uncertain numbers and Latin fragments for staff to check.
+- The phone-side scanner needs a reasonably modern phone; without an `OffscreenCanvas` worker it runs on the main thread
+  (about 2.6–2.8 s per 12 MP photo at CPU×4); very old phones fall back to sending the photo as it is, which the server
+  then cleans.
+- The paid legal texts are the platform's drafting and need the firm's lawyer; with «خيري» restored the paid `/terms`
+  shows the «خيري» bullet (widows and orphans) pinned by an 11.0 test.
+- Paid WhatsApp templates still end with «— {org_name}»; the web-push text and the PWA manifest name still carry «منصة
+  الدعم القانوني — مؤسسة بيوت مصر»; charity case-track labels still contain «—» (the staff-app em-dash sweep is 12.1).
+- About 750 registry rows show «(نص متغير)» because their text is built at runtime.
+
+### Deferred to 12.1 (designed, not built)
+
+Lawyer OCR text and lawyer document search (needs a staff «اعتماد النص» step); STT feeding the AI story summary; the
+inbox chip «نص آلي جاهز n»; Google STT chunking beyond 59 s; server rendering of the clean copy from client corners; a live
+camera viewfinder; glare removal, curved-page flattening and a searchable PDF text layer; the 12.0 look and codes for the
+archived charity screens; bell notification codes and the tags crawl in CI; the staff-app em-dash sweep and HTML e-mail
+layout; a third level in the WhatsApp menu; the consultation-format and governorate questions (O-36, O-40); partner
+photos; international phone numbers on web forms (O-43); server auto-clean of staff uploads with a «هذا مستند» choice; an
+acknowledgement after a WhatsApp stop word.
+<!-- /v12:gate -->
 
 ---
 
@@ -1858,7 +2305,7 @@ final review left open). Known limitations left on purpose:
 - Arabic right-to-left single-page web app (no framework), mobile-first: checked at 360 and 390 px wide (and 1366 px
   for staff and lawyer pages). Since 9.1 the Arabic font (IBM Plex Sans Arabic, SIL Open Font License) is served by the
   platform itself, JS/CSS are versioned and cached for a year, and responses are Brotli-compressed.
-- automated tests (`npm test`, all passing at version 11.0.0: 1,435 in 341 suites; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
+- automated tests (`npm test`, all passing at version 12.0.0: 1,859 in 455 suites; 1,435 in 341 suites at 11.0.0; 1,155 in 270 suites at 10.0.0, 809 at 9.2.0, 648 at 9.1.0, 411 at 9.0), plus the 9.0 browser tour of
   158 page views and, in 9.1, 9.2 and 10.0, a browser usability run per lane at phone widths (including a simulated slow 3G
   network for the beneficiary pages and the company portal). In 9.2 an integration gate added end-to-end beneficiary and staff journeys at
   360, 390 and 1366 px, a security/privacy probe, a regression run and an Arabic copy and accessibility review; 10.0's
@@ -2157,6 +2604,45 @@ shown; the firm confirms or changes it before production use.
 The four "known limitations at release" in the 10.0 section (portal 4G cold start, the cross-company invite answer, a
 surname alone in the document gate, forced-colours outlines in `/app`) also need a decision.
 
+**Version 12.0 decisions (O-19, O-34 … O-47, O-M1 … O-M7, O-T1)** — the entry tree, the archive of «خيري», the voice and
+document work and the codes. **O-19 and O-44 are blocking and must be answered before launch («قبل الإطلاق»)**; every other
+item ships with the default shown and can be changed later (most in Settings, a few as one data edit).
+
+| # | Decision | Default in 12.0 |
+|---|---|---|
+| **O-19 — قبل الإطلاق** | **Brand name vs logo** (carried from 11.0). `brand_name` «Emam Legal and Consultancy» shows in `<title>`, JSON-LD and, until `firm_legal_name` is set, in ©, the first WhatsApp menu message (W-01) and message sign-offs; the logo reads «إمام وشركاه / Emam & Partners» | `brand_name` unchanged; the demo sets `firm_legal_name = «إمام وشركاه»` (Settings → «الصفحة الأولى» → «اسم المكتب القانوني») |
+| **O-44 — قبل الإطلاق** | **Old charity links and printed QR codes while «خيري» is archived**: a short notice that the service is not taking website requests (with the charity WhatsApp and follow-up), or a redirect to the paid first page. Conflicts with the owner's "archive" wording (a redirect would put widows in the paid funnel) | notice (`charity_archived_landing = 'notice'`); one setting switches to redirect |
+| O-34 | Does the firm take criminal work («جنائي», «شيكات أو إيصالات أمانة»)? | shown; removal is one data edit in `entry-tree.js` (codes retired, never reused) |
+| O-35 | One quiet hint under each of the three rows on `/` («أسرة، ميراث، إيجار، عمل، عقود» · «أو الرد على دعوى مرفوعة عليكم» · «ومستشار قانوني لشركتكم») | kept |
+| O-36 | Ask a consultation format (مكتوبة · مكالمة · في المكتب) in the intake | not asked (12.1 if wanted) |
+| O-37 | Turn the WhatsApp three-button services menu on | off in production, on in the demo |
+| O-38 | The main WhatsApp number stays in mode «خيري» while charity is archived | unchanged; the readiness check warns |
+| O-39 | Legal name for the © line (`firm_legal_name`) | empty → brand name |
+| O-40 | Ask the governorate for litigation | not asked |
+| O-41 | English URL slugs (`/start/litigation`) with Arabic aliases | as shipped |
+| O-42 | Partners with titles (for example «محامٍ بالنقض»), founding year and city on `/services` | empty → no «الشركاء» section |
+| O-43 | International phone numbers on the website forms | 12.1; 12.0 points foreign numbers to WhatsApp |
+| O-45 | Send charity beneficiaries' voice notes to a third-party speech-to-text service (they often contain children's data) | no: paid only, unless the admin turns `stt_charity_third_party` on, or the firm runs its own Whisper server |
+| O-46 | The three paid questions rewritten instead of the widow-shaped ones | rewritten on the paid side only |
+| O-47 | Ask «متى صدر الحكم؟» for judgments and treat up to 40 days as urgent | yes |
+| O-M1 | Speech-to-text provider | none configured; recommended: a Whisper server on the firm's machine, else OpenAI `gpt-4o-transcribe` |
+| O-M2 | OCR model when Claude OCR is allowed | the integration model (≈ $0.037/page); a smaller model costs ½ to 1/40 of that |
+| O-M4 | Allow Claude OCR at all | off until the firm approves the privacy text |
+| O-M5 | Multi-page PDFs for charity clients | no |
+| O-M6 | Keep the untouched camera photo as «الأصل» (3–5 MB each) instead of the phone's 1600 px re-encode | re-encode; the staff info line says «الأصل المحفوظ (صورة الهاتف مصغّرة)» |
+| O-M7 | Lower the resolution on the main-thread scanner fallback (phones without a worker) to reach the 2.3 s target | no; the worker path takes 0.75–0.89 s, the fallback 2.6–2.8 s |
+| O-T1 | `?tags=1` open to anyone (it shows only codes, never data) | open |
+
+O-25 from 11.0 (legal entity on the paid side) is covered in 12.0: paid pages, the © line and the company portal's
+«الجهة المتعاقدة» use `firm_legal_name` (with the optional `firm_registration`, «قيد المكتب»), never the foundation's
+`org_legal_name`; the firm still has to fill these two fields.
+
+Also for the firm (found at the 12.0 gate, not blocking): the paid `/privacy`, `/terms` and `/data-deletion` texts were
+rewritten in the firm's voice and need the firm's lawyer before launch (as in 11.0, O-28); with «خيري» restored, the paid
+`/terms` shows the «خيري» bullet that mentions widows and orphans (pinned by an 11.0 test); the paid WhatsApp templates in
+`src/constants.js` still end with «— {org_name}»; the web-push text and the PWA manifest name still carry the old platform
+name «منصة الدعم القانوني — مؤسسة بيوت مصر».
+
 **Version 11.0 decisions (O-19 … O-33)** — the entry gate, the paid side and the logo. **O-19 and O-25 must be answered
 before launch («قبل الإطلاق»)**, then O-24, O-26, O-28, O-20 and O-32; the rest ship with the default shown. The gate and the
 paid claims go live on upgrade, so until these are answered the kill switch (Settings → «شاشة الاختيار») can keep `/` on the
@@ -2232,3 +2718,17 @@ double logo on short 404 pages and the English company sign-in line) also need a
   client, a replaced WhatsApp number no longer silences replies, paid clients never receive the old charity template, the
   paid follow-up page speaks plural formal Arabic on its first screen and tracker, and status colours no longer collide with
   the service-line colours) before the version became 11.0.0, with 1,435 tests passing.
+- **Version 12.0:** the owner asked (in English with Arabic words) for a code on every key element so he can ask for
+  changes precisely; a blank white first page with three choices (استشارة، رفع دعوى قضائية، تأسيس شركات, with the in-house
+  counsel option kept under the third); the charity selection halted or archived; white second and third pages that
+  trickle down; minimal choices and questions while keeping the questions; the voice note archived and speech recognition
+  built now; OCR or a CamScanner-like tool so documents arrive clean in the matter folder; `/services` kept as the page
+  after the first; and a better, less "AI-looking" UI. Four design documents (entry tree, look with approved prototypes,
+  voice/scan/OCR, tags) were merged into one spec, revised after critique, then built by five lanes (entry, look,
+  staff-lines, media, then tags-core and the tags sweep over the finished screens), each with its own code review and
+  browser usability run. An integration gate ran seven cross-lane journeys, a security and privacy review, a regression
+  run (11.0 migration twice and a rollback), a visual and copy review and a tags audit; fixers closed the findings in two
+  rounds (most importantly: the clean copy opens first only when detection is confident and every staff list shows
+  «الأصل»; the archived web voice is never auto-transcribed and STT keys cannot be redirected; Arabic OCR reads digits
+  far better; the paid intake no longer shifts while loading; the paid legal texts and the contracting entity name the
+  firm, never the foundation) before the ledger was frozen and the version became 12.0.0.

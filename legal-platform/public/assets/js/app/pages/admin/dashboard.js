@@ -13,15 +13,19 @@ const CASE_ORDER = ['new', 'assigned', 'in_progress', 'under_review', 'approved'
 const caseTone = (k) => statusTone('case_status', k);
 
 // المسميات من QUEUE_LABELS: نفس اسم القسم هنا وفي صفحة «بانتظار قرار الإدارة»
+// v12 gate (TA-05): رمز لكل قسم (كانت السبعة DSH-34)
 const DECISIONS = [
-  { key: 'info_requests', icon: 'info' },
-  { key: 'client_replies', icon: 'message' },
-  { key: 'counsel_requests', icon: 'users' },
-  { key: 'opinions', icon: 'fileText' },
-  { key: 'proposed_issues', icon: 'flag' },
-  { key: 'approved_unanswered', icon: 'send' },
-  { key: 'identity_conflicts', icon: 'shield' },
+  { key: 'info_requests', icon: 'info', tag: 'DSH-34' },
+  { key: 'client_replies', icon: 'message', tag: 'DSH-63' },
+  { key: 'counsel_requests', icon: 'users', tag: 'DSH-64' },
+  { key: 'opinions', icon: 'fileText', tag: 'DSH-65' },
+  { key: 'proposed_issues', icon: 'flag', tag: 'DSH-66' },
+  { key: 'approved_unanswered', icon: 'send', tag: 'DSH-67' },
+  { key: 'identity_conflicts', icon: 'shield', tag: 'DSH-68' },
 ].map((d) => ({ ...d, label: QUEUE_LABELS[d.key] }));
+// v12 gate (TA-05): رمز لكل حالة في «ملفات الاستشارة حسب الحالة» (كانت السبعة DSH-38) ولكل صف في «حسب نوع الطلب» (DSH-03 ×4)
+const CASE_ROW_TAGS = { new: 'DSH-38', assigned: 'DSH-69', in_progress: 'DSH-70', under_review: 'DSH-71', approved: 'DSH-72', answered: 'DSH-73', closed: 'DSH-74' };
+const LINE_ROW_TAGS = { consultation: 'DSH-03', litigation: 'DSH-75', company: 'DSH-76', none: 'DSH-77' };
 
 const MONTHS = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const SHORT = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -87,7 +91,7 @@ function weeklyChart(weeks) {
   );
   const tableView = h(
     'details.pa-details',
-    h('summary', 'عرض البيانات كجدول'),
+    { tag: 'DSH-05' }, h('summary', { tag: 'DSH-06' }, 'عرض البيانات كجدول'),
     h(
       'div.table-wrap',
       h(
@@ -111,7 +115,7 @@ function weeklyChart(weeks) {
  * لا «مطالبات متأخرة» (الفواتير مؤجلة، L-31)؛ «الاشتراكات الشهرية» لمدير النظام فقط. يختفي تمامًا حين لا توجد شركات.
  */
 function companyStrip(user) {
-  const host = h('section.cd-dash-strip', { hidden: true, 'aria-label': 'خدمة الشركات' });
+  const host = h('section.cd-dash-strip', { hidden: true, 'aria-label': 'خدمة الشركات', tag: 'DSH-07' });
   api
     .get('/admin/b2b/overview', null, { background: true })
     .then((o) => {
@@ -122,16 +126,18 @@ function companyStrip(user) {
         card({
           title: 'خدمة الشركات',
           icon: 'building',
-          actions: button('طلبات الشركات', { variant: 'ghost', size: 'sm', href: '#/company-requests' }),
+          actions: button('طلبات الشركات', { variant: 'ghost', size: 'sm', href: '#/company-requests', tag: 'DSH-08' }),
           body: h(
             'div.stats-grid.cd-dash-stats',
-            statCard({ label: 'بانتظار الفرز', value: num(q.submitted), icon: 'inboxStack', tone: q.submitted ? 'info' : 'neutral', href: '#/company-requests?status=submitted' }),
-            statCard({ label: 'يقترب موعدها', value: num(sla.at_risk), icon: 'clock', tone: sla.at_risk ? 'warning' : 'neutral', href: '#/company-requests?sla=at_risk' }),
-            statCard({ label: 'متأخرة', value: num(sla.late), icon: 'alert', tone: sla.late ? 'danger' : 'neutral', href: '#/company-requests?sla=late' }),
-            statCard({ label: 'بانتظار الشركات', value: num(q.awaiting_company), icon: 'building', tone: 'neutral', href: '#/company-requests?status=awaiting_company' }),
-            statCard({ label: 'تجديدات خلال 30 يومًا', value: num(o.renewals_30d), icon: 'calendarClock', tone: o.renewals_30d ? 'accent' : 'neutral', href: '#/companies' }),
-            user.role === 'admin' && o.mrr_minor != null ? statCard({ label: 'الاشتراكات الشهرية', value: money(Number(o.mrr_minor) / 100), icon: 'wallet', tone: 'primary', href: '#/companies' }) : null,
+            statCard({ label: 'بانتظار الفرز', value: num(q.submitted), icon: 'inboxStack', tone: q.submitted ? 'info' : 'neutral', href: '#/company-requests?status=submitted', tag: 'DSH-09' }),
+            statCard({ label: 'يقترب موعدها', value: num(sla.at_risk), icon: 'clock', tone: sla.at_risk ? 'warning' : 'neutral', href: '#/company-requests?sla=at_risk', tag: 'DSH-10' }),
+            statCard({ label: 'متأخرة', value: num(sla.late), icon: 'alert', tone: sla.late ? 'danger' : 'neutral', href: '#/company-requests?sla=late', tag: 'DSH-11' }),
+            statCard({ label: 'بانتظار الشركات', value: num(q.awaiting_company), icon: 'building', tone: 'neutral', href: '#/company-requests?status=awaiting_company', tag: 'DSH-12' }),
+            statCard({ label: 'تجديدات خلال 30 يومًا', value: num(o.renewals_30d), icon: 'calendarClock', tone: o.renewals_30d ? 'accent' : 'neutral', href: '#/companies', tag: 'DSH-13' }),
+            user.role === 'admin' && o.mrr_minor != null ? statCard({ label: 'الاشتراكات الشهرية', value: money(Number(o.mrr_minor) / 100), icon: 'wallet', tone: 'primary', href: '#/companies', tag: 'DSH-14' }) : null,
           ),
+          titleTag: 'DSH-15',
+          tag: 'DSH-16',
         }),
       );
       host.hidden = false;
@@ -149,12 +155,12 @@ export function segmentStrip(seg) {
   if (!seg || !seg.charity || !seg.paid) return null;
   const c = seg.charity;
   const p = seg.paid;
-  const row = ({ href, ico, tone, title, sub, extra, data }) =>
+  const row = ({ href, ico, tone, title, sub, extra, data, tag }) =>
     h(
       'li',
       h(
         'a.g-row.pa-seg-row',
-        { href, dataset: data },
+        { href, dataset: data, tag },
         h('span.g-ico', { class: tone, 'aria-hidden': 'true' }, icon(ico, { className: data.seg ? 'seg-glyph' : null })),
         h('span.g-main', h('span.g-title', title), sub ? h('span.g-sub.pa-seg-line', sub) : null, extra || null),
         h('span.g-trail', icon('chevronLeft', { size: 16 })),
@@ -162,7 +168,8 @@ export function segmentStrip(seg) {
     );
   const line = (d) => ['جديد اليوم ', h('strong', num(d.new_today)), ' · مفتوح ', h('strong', num(d.open))];
   const rows = [
-    row({ href: '#/inbox?segment=charity', ico: 'heart', tone: 'is-gold', title: segLabel('segment', 'charity'), sub: line(c), data: { seg: 'charity' } }),
+    // v12 gate (TA-05): رمز لكل صف (كانت الأربعة DSH-17)
+    row({ href: '#/inbox?segment=charity', ico: 'heart', tone: 'is-gold', title: segLabel('segment', 'charity'), sub: line(c), data: { seg: 'charity' }, tag: 'DSH-17' }),
     row({
       href: '#/inbox?segment=paid',
       ico: 'briefcase',
@@ -172,21 +179,57 @@ export function segmentStrip(seg) {
       // P1 (S11-33): لمدير النظام فقط (الخادم لا يرسل الرقم لغيره)
       extra: p.revenue_month != null ? h('span.g-sub.pa-seg-rev', 'إيرادات الأفراد هذا الشهر: ', h('strong', money(p.revenue_month))) : null,
       data: { seg: 'paid' },
+      tag: 'DSH-78',
     }),
   ];
   if (Number(seg.unset_open) > 0)
-    rows.push(row({ href: '#/inbox?segment=unset', ico: 'helpCircle', tone: 'is-warn', title: `طلبات نوع خدمتها غير محدد: ${num(seg.unset_open)}`, sub: 'اختاروا النوع من صفحة كل طلب.', data: { alert: 'unset' } }));
+    rows.push(row({ href: '#/inbox?segment=unset', ico: 'helpCircle', tone: 'is-warn', title: `طلبات نوع خدمتها غير محدد: ${num(seg.unset_open)}`, sub: 'اختاروا النوع من صفحة كل طلب.', data: { alert: 'unset' }, tag: 'DSH-79' }));
   // r2 S9: طلبات أفراد من الموقع بلا واتساب مؤكد — قائمة المكالمات
   if (Number(p.unconfirmed_wa) > 0)
-    rows.push(row({ href: '#/inbox?segment=paid&channel=website', ico: 'phone', tone: 'is-warn', title: `طلبات أفراد بلا واتساب مؤكد: ${num(p.unconfirmed_wa)}`, sub: 'لم يؤكدوا رقمهم على واتساب — اتصلوا بهم.', data: { alert: 'unconfirmed_wa' } }));
+    rows.push(row({ href: '#/inbox?segment=paid&channel=website', ico: 'phone', tone: 'is-warn', title: `طلبات أفراد بلا واتساب مؤكد: ${num(p.unconfirmed_wa)}`, sub: 'لم يؤكدوا رقمهم على واتساب — اتصلوا بهم.', data: { alert: 'unconfirmed_wa' }, tag: 'DSH-80' }));
   const moved = Number(seg.ineligible_overrides) || 0;
   return h(
     'section.g-section.pa-seg-strip',
-    { 'aria-labelledby': 'pa-seg-strip-h' },
-    h('div.g-head', h('h2#pa-seg-strip-h', 'حسب نوع الخدمة')),
+    { 'aria-labelledby': 'pa-seg-strip-h', tag: 'DSH-18' },
+    h('div.g-head', h('h2#pa-seg-strip-h', { tag: 'DSH-19' }, 'حسب نوع الخدمة')),
     h('ul.g-list.has-icons', rows),
     // P1 (S11-37/C-8): طلبات وملفات حُوّلت من «خيري» إلى «أفراد وشركات» هذا الشهر
     moved ? h('p.g-foot', `حُوّلت من خيري إلى أفراد وشركات هذا الشهر: ${num(moved)}`) : null,
+  );
+}
+
+/**
+ * v12 staff-lines (SL-2، E12-53): «حسب نوع الطلب» — استشارة · دعوى قضائية · شركات · لم يُحدَّد النوع، لكل صف «جديد اليوم» و«مفتوح»
+ * ورابط إلى صندوق الوارد مصفّى بالنوع (?line=). كلمات محايدة بلا ألوان نوع الخدمة ولا أيقونات.
+ */
+export function lineStrip(lines) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  // tags:skip القسم يُعرف بعنوانه DSH-01 وقائمته DSH-02، وكل صف برمزه (LINE_ROW_TAGS)
+  return h(
+    'section.g-section.pa-line-strip',
+    { 'aria-labelledby': 'pa-line-strip-h' },
+    h('div.g-head', h('h2#pa-line-strip-h', { tag: 'DSH-01' }, 'حسب نوع الطلب')),
+    h(
+      'ul.g-list',
+      { tag: 'DSH-02' },
+      lines.map((l) =>
+        h(
+          'li',
+          h(
+            'a.g-row.pa-line-row',
+            // review (F1): الأعداد لطلبات «أفراد وشركات» وحدها، فالرابط يفتح صندوق الوارد على النطاق نفسه (لا على آخر نوع خدمة محفوظ)
+            // review-2 (T12-78): صف النوع رابط أساسي برمز واحد لموضعه (DSH-03؛ كلماته من LABELS.service_line)
+            { href: `#/inbox?segment=paid&line=${encodeURIComponent(l.line)}`, dataset: { line: l.line }, tag: LINE_ROW_TAGS[l.line] },
+            h(
+              'span.g-main',
+              h('span.g-title', l.label),
+              h('span.g-sub', 'جديد اليوم ', h('strong', num(l.new_today)), ' · مفتوح ', h('strong', num(l.open))),
+            ),
+            h('span.g-trail', icon('chevronLeft', { size: 16 })),
+          ),
+        ),
+      ),
+    ),
   );
 }
 
@@ -205,15 +248,17 @@ export default async function render(ctx) {
   // ───────────── الترويسة ─────────────
   const header = pageHeader({
     title: `${greeting()}، ${(user.name || '').split(' ')[0] || ''}`.replace(/،\s*$/, ''),
-    subtitle: 'هذه نظرة اليوم على ما يصل إلى المؤسسة وما ينتظر قرارك.',
+    subtitle: 'هذه نظرة اليوم على ما يصلنا وما ينتظر قرارك.', // v12 gate (V-08): بلا «المؤسسة» (المكتب يخدم الأفراد والشركات)
     meta: [
       badge(`الذكاء الاصطناعي: ${ai.label || '—'}`, ai.provider === 'anthropic' ? 'info' : 'neutral', { icon: 'sparkle', title: ai.model || '' }),
       whatsappBadge(d),
     ],
     actions: [
-      button('بانتظار قرارك', { icon: 'queue', href: '#/queue' }),
-      button('صندوق الوارد', { variant: 'primary', icon: 'inbox', href: '#/inbox' }),
+      button('بانتظار قرارك', { icon: 'queue', href: '#/queue', tag: 'DSH-20' }),
+      button('صندوق الوارد', { variant: 'primary', icon: 'inbox', href: '#/inbox', tag: 'DSH-21' }),
     ],
+    titleTag: 'DSH-22',
+    tag: 'DSH-23',
   });
 
   // ───────────── الأرقام ─────────────
@@ -226,6 +271,7 @@ export default async function render(ctx) {
       icon: 'inbox',
       tone: 'info',
       href: '#/inbox?status=new',
+      tag: 'DSH-24',
     }),
     statCard({
       label: 'عاجلة أو عالية الأولوية',
@@ -234,8 +280,9 @@ export default async function render(ctx) {
       icon: 'flag',
       tone: intakes.urgent ? 'danger' : 'neutral',
       href: '#/inbox?priority=high_or_urgent',
+      tag: 'DSH-25',
     }),
-    statCard({ label: 'ملفات مفتوحة', value: num(d.open_cases), hint: scope ? `ملفات استشارة لم تُغلق · ${scope}` : 'ملفات استشارة لم تُغلق', icon: 'briefcase', tone: 'primary', href: '#/cases' }),
+    statCard({ label: 'ملفات مفتوحة', value: num(d.open_cases), hint: scope ? `ملفات استشارة لم تُغلق · ${scope}` : 'ملفات استشارة لم تُغلق', icon: 'briefcase', tone: 'primary', href: '#/cases', tag: 'DSH-26' }),
     statCard({
       label: 'قرارات بانتظار الإدارة',
       value: num(pendingTotal),
@@ -243,6 +290,7 @@ export default async function render(ctx) {
       icon: 'queue',
       tone: pendingTotal ? 'warning' : 'success',
       href: '#/queue',
+      tag: 'DSH-27',
     }),
     statCard({
       label: 'إسنادات متأخرة',
@@ -251,6 +299,7 @@ export default async function render(ctx) {
       icon: 'clock',
       tone: d.overdue_assignments ? 'danger' : 'neutral',
       href: '#/queue?section=overdue_assignments',
+      tag: 'DSH-28',
     }),
     // v9 practice: زمن أول رد ومستوى الخدمة (طلبات واتساب والموقع، آخر 30 يومًا)
     d.sla &&
@@ -262,6 +311,7 @@ export default async function render(ctx) {
         icon: 'message',
         tone: 'info',
         href: '#/impact',
+        tag: 'DSH-29',
       }),
     d.sla &&
       statCard({
@@ -271,6 +321,7 @@ export default async function render(ctx) {
         icon: 'clock',
         tone: d.sla.overdue_now ? 'danger' : 'success',
         href: d.sla.overdue_now && d.sla.overdue[0] ? `#/inbox/${d.sla.overdue[0].id}` : '#/inbox',
+        tag: 'DSH-30',
       }),
     statCard({
       label: 'فواتير متأخرة',
@@ -278,7 +329,8 @@ export default async function render(ctx) {
       hint: 'مستحقة ولم تُسدد',
       icon: 'wallet',
       tone: d.overdue_invoices ? 'warning' : 'neutral',
-      // لا توجد قائمة فواتير مفلترة بالمتأخر بعد، فالبطاقة للعرض فقط بدل رابط لا يعرض ما تعدّه
+      // لا توجد قائمة فواتير مفلترة بالمتأخر بعد، فالبطاقة للعرض فقط بدل رابط لا يعرض ما تعدّه,
+      tag: 'DSH-31'
     }),
     statCard({
       label: 'رسائل فشل إرسالها',
@@ -287,6 +339,7 @@ export default async function render(ctx) {
       icon: 'alert',
       tone: d.failed_messages ? 'danger' : 'neutral',
       href: '#/automations?tab=outbox&status=failed',
+      tag: 'DSH-32',
     }),
     statCard({
       label: 'مواد معرفة بانتظار المراجعة',
@@ -295,13 +348,14 @@ export default async function render(ctx) {
       icon: 'book',
       tone: d.knowledge_pending ? 'accent' : 'neutral',
       href: '#/knowledge?status=pending_review',
+      tag: 'DSH-33',
     }),
   );
 
   // ───────────── بانتظار قرارك ─────────────
   const decisionsCard = card({
     title: 'بانتظار قرارك',
-    subtitle: 'لا يصل شيء للمستفيد/ة أو للمحامي قبل قرار الإدارة',
+    subtitle: 'لا يصل شيء لصاحب الطلب أو للمحامي قبل قرار الإدارة', // v12 gate (V-08)
     icon: 'queue',
     actions: badge(String(pendingTotal), pendingTotal ? 'warning' : 'success'),
     body: h(
@@ -312,7 +366,7 @@ export default async function render(ctx) {
           'li',
           h(
             'a.pa-dlist-row',
-            { href: `#/queue?section=${x.key}`, class: n ? 'is-pending' : 'is-zero' },
+            { href: `#/queue?section=${x.key}`, class: n ? 'is-pending' : 'is-zero', tag: x.tag },
             h('span.pa-dlist-icon', icon(x.icon, { size: 16 })),
             h('span.pa-dlist-label', x.label),
             h('span.pa-dlist-n', String(n)),
@@ -321,6 +375,8 @@ export default async function render(ctx) {
         );
       }),
     ),
+    titleTag: 'DSH-35',
+    tag: 'DSH-36',
   });
 
   // ───────────── الملفات حسب الحالة ─────────────
@@ -330,7 +386,7 @@ export default async function render(ctx) {
     title: 'ملفات الاستشارة حسب الحالة',
     subtitle: scope, // v11 segment-staff (ST-5)
     icon: 'briefcase',
-    actions: button('كل الملفات', { variant: 'ghost', size: 'sm', href: '#/cases' }),
+    actions: button('كل الملفات', { variant: 'ghost', size: 'sm', href: '#/cases', tag: 'DSH-37' }),
     body: h(
       'ul.pa-hbars',
       CASE_ORDER.map((k) => {
@@ -339,7 +395,7 @@ export default async function render(ctx) {
           'li',
           h(
             'a.pa-hbar',
-            { href: `#/cases?status=${k}`, class: !n && 'is-zero' },
+            { href: `#/cases?status=${k}`, class: !n && 'is-zero', tag: CASE_ROW_TAGS[k] },
             h('span.pa-hbar-label', label('case_status', k)),
             h('span.pa-hbar-n', String(n)),
             h('span.pa-hbar-track', { 'aria-hidden': 'true' }, n ? h('span.pa-hbar-fill', { class: `tone-${caseTone(k)}`, style: { width: `${Math.max(2, (n / caseMax) * 100)}%` } }) : null),
@@ -347,6 +403,8 @@ export default async function render(ctx) {
         );
       }),
     ),
+    titleTag: 'DSH-39',
+    tag: 'DSH-40',
   });
 
   // ───────────── الطاقة القانونية ─────────────
@@ -355,7 +413,7 @@ export default async function render(ctx) {
     title: 'الطاقة القانونية',
     subtitle: 'الإسنادات المفتوحة مقارنة بالطاقة الاستيعابية لشبكة المحامين',
     icon: 'scale',
-    actions: button('شبكة المحامين', { variant: 'ghost', size: 'sm', href: '#/lawyers' }),
+    actions: button('شبكة المحامين', { variant: 'ghost', size: 'sm', href: '#/lawyers', tag: 'DSH-41' }),
     body: h(
       'div.stack',
       progressBar(cap.open_assignments || 0, cap.capacity || 0, capPct >= 0.85 ? 'danger' : capPct >= 0.6 ? 'warning' : 'success', {
@@ -371,7 +429,7 @@ export default async function render(ctx) {
       (cap.top_loaded || []).length
         ? h(
             'div',
-            h('h3.pa-mini-h', 'الأعلى تحميلًا'),
+            h('h3.pa-mini-h', { tag: 'DSH-42' }, 'الأعلى تحميلًا'),
             h(
               'ul.pa-load',
               cap.top_loaded.map((l) => {
@@ -380,7 +438,7 @@ export default async function render(ctx) {
                   'li',
                   h(
                     'a.pa-load-row',
-                    { href: `#/lawyers/${l.id}` },
+                    { href: `#/lawyers/${l.id}`, tag: 'DSH-43' },
                     avatar(l.name, { size: 'sm' }),
                     h(
                       'span.pa-load-main',
@@ -398,13 +456,15 @@ export default async function render(ctx) {
           )
         : null,
     ),
+    titleTag: 'DSH-44',
+    tag: 'DSH-45',
   });
 
   // ───────────── المواعيد القادمة ─────────────
   const events = d.upcoming_events || [];
   const eventsCard = card({
     title: 'مواعيد الأيام السبعة القادمة',
-    subtitle: 'تذكير المستفيد/ة آليًا قبل 3 أيام من أي موعد يلزم حضوره',
+    subtitle: 'تذكير صاحب الطلب آليًا قبل 3 أيام من أي موعد يلزم حضوره',
     icon: 'calendar',
     body: events.length
       ? h(
@@ -415,7 +475,7 @@ export default async function render(ctx) {
               'li',
               h(
                 'a.pa-event',
-                { href: `#/matters/${e.matter_id}` },
+                { href: `#/matters/${e.matter_id}`, tag: 'DSH-46' },
                 h('span.pa-event-date', { 'aria-hidden': 'true' }, h('strong', p.day), h('span', p.month)),
                 h(
                   'span.pa-event-main',
@@ -426,20 +486,22 @@ export default async function render(ctx) {
                     codeTag(e.matter_code),
                     h('time.small.muted', { datetime: e.starts_at, title: dateTime(e.starts_at) }, `${p.weekday} ${time(e.starts_at)} · ${relative(e.starts_at)}`),
                   ),
-                  e.client_attendance_required ? badge('يلزم حضور المستفيد/ة', 'warning', { icon: 'user' }) : null,
+                  e.client_attendance_required ? badge('يلزم حضور صاحب الطلب', 'warning', { icon: 'user' }) : null,
                 ),
               ),
             );
           }),
         )
-      : emptyState('لا توجد جلسات أو مواعيد خلال الأيام السبعة القادمة', null, { compact: true, icon: 'calendar' }),
+      : emptyState('لا توجد جلسات أو مواعيد خلال الأيام السبعة القادمة', null, { compact: true, icon: 'calendar', tag: 'DSH-47' }),
+      titleTag: 'DSH-48',
+      tag: 'DSH-49',
   });
 
   // ───────────── تنبيهات الحالات المشابهة ─────────────
   const alerts = d.similar_alerts || [];
   const similarCard = card({
     title: 'تنبيهات الحالات المشابهة',
-    subtitle: 'طلبات مفتوحة تشبه حالات تعاملت معها المؤسسة من قبل',
+    subtitle: 'طلبات مفتوحة تشبه حالات تعاملنا معها من قبل',
     icon: 'sparkle',
     body: alerts.length
       ? h(
@@ -449,7 +511,7 @@ export default async function render(ctx) {
               'li',
               h(
                 'a.pa-alert-link',
-                { href: `#/inbox/${a.intake_id}` },
+                { href: `#/inbox/${a.intake_id}`, tag: 'DSH-50' },
                 codeTag(a.code),
                 h('span.pa-alert-text', richText(a.summary)),
                 h('time.small.muted', { datetime: a.created_at, title: dateTime(a.created_at) }, relative(a.created_at)),
@@ -457,7 +519,9 @@ export default async function render(ctx) {
             ),
           ),
         )
-      : emptyState('لا توجد تنبيهات تشابه للطلبات المفتوحة حاليًا', null, { compact: true, icon: 'sparkle' }),
+      : emptyState('لا توجد تنبيهات تشابه للطلبات المفتوحة حاليًا', null, { compact: true, icon: 'sparkle', tag: 'DSH-51' }),
+      titleTag: 'DSH-52',
+      tag: 'DSH-53',
   });
 
   // ───────────── هذا الشهر ─────────────
@@ -476,11 +540,11 @@ export default async function render(ctx) {
     body: mp
       ? h(
           'div.stack.pa-month-split',
-          h('section', { 'aria-label': 'الخيري' }, h('h3.pa-mini-h', 'الخيري'), charityMonth),
+          h('section', { 'aria-label': 'الخيري', tag: 'DSH-54' }, h('h3.pa-mini-h', { tag: 'DSH-55' }, 'الخيري'), charityMonth),
           h(
             'section',
-            { 'aria-label': 'الأفراد والشركات' },
-            h('h3.pa-mini-h', 'الأفراد والشركات'),
+            { 'aria-label': 'الأفراد والشركات', tag: 'DSH-56' },
+            h('h3.pa-mini-h', { tag: 'DSH-57' }, 'الأفراد والشركات'),
             h(
               'div.pa-month',
               { dataset: { seg: 'paid' } },
@@ -492,20 +556,25 @@ export default async function render(ctx) {
           ),
         )
       : charityMonth,
+      titleTag: 'DSH-58',
+      tag: 'DSH-59',
   });
 
   const weeklyCard = card({
     title: 'الحجم الأسبوعي',
     subtitle: scope ? `الطلبات الواردة من كل القنوات مقابل ما تحول منها إلى ملفات استشارة — ${scope}` : 'الطلبات الواردة من كل القنوات مقابل ما تحول منها إلى ملفات استشارة',
     icon: 'chart',
-    actions: button('التحليلات', { variant: 'ghost', size: 'sm', href: '#/analytics' }),
+    actions: button('التحليلات', { variant: 'ghost', size: 'sm', href: '#/analytics', tag: 'DSH-60' }),
     body: weeklyChart(d.weekly || []),
+    titleTag: 'DSH-61',
+    tag: 'DSH-62',
   });
 
   const page = h(
     'div.pa-page.pa-page-dashboard',
     header,
     segmentStrip(d.segments), // v11 segment-staff (ST-5): «حسب نوع الخدمة» — قبل الأرقام لأن صفوف التنبيه تحتاج قرارًا اليوم
+    lineStrip(d.lines), // v12 staff-lines (SL-2): «حسب نوع الطلب»
     stats,
     companyStrip(user), // v10 b2b-staff (STF-10، U10-S02): «خدمة الشركات» — مخفي إن لم توجد شركات
     h('div.pa-dash-grid', decisionsCard, capacityCard, eventsCard, casesCard, similarCard, monthCard),

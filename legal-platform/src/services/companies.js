@@ -235,9 +235,14 @@ export function createCompanies(app) {
     const m = accountManagerOf(c);
     return m ? { name: m.name } : null;
   }
-  /** الجهة المتعاقدة (L-62): الكيان القانوني للمكتب لا الاسم التجاري */
+  /**
+   * الجهة المتعاقدة (L-62): الكيان القانوني للمكتب. v12 gate fixer-server (V-01، L12-85): اسم المكتب القانوني
+   * (firm_legal_name) وإلا اسم المكتب كما يراه العملاء، وقيده (firm_registration) — لا اسم المؤسسة الخيرية ولا إشهارها أبدًا
+   * (org_legal_name / org_registration لبرنامج «خيري» وحده). بلا قيد ← سطر «الجهة المتعاقدة: …» وحده (contracting_plain).
+   */
   function contractingEntity() {
-    return { legal_name: app.settings.get('org_legal_name') || '', registration: app.settings.get('org_registration') || '' };
+    const legal = String(app.settings.get('firm_legal_name') || '').trim() || (app.brand?.displayName ? app.brand.displayName() : '');
+    return { legal_name: legal, registration: String(app.settings.get('firm_registration') || '').trim() };
   }
 
   function validStaffManager(id) {

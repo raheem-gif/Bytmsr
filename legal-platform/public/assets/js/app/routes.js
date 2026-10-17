@@ -17,8 +17,9 @@ export const routes = [
   { path: '/cases/:id', load: () => import('./pages/admin/case-detail.js'), roles: STAFF, title: 'ملف استشارة' },
   { path: '/matters', load: () => import('./pages/admin/matters.js'), roles: STAFF, title: 'الملفات المستمرة' },
   { path: '/matters/:id', load: () => import('./pages/admin/matter-detail.js'), roles: STAFF, title: 'ملف مستمر' },
-  { path: '/clients', load: () => import('./pages/admin/clients.js'), roles: STAFF, title: 'المستفيدون' },
-  { path: '/clients/:id', load: () => import('./pages/admin/client-detail.js'), roles: STAFF, title: 'ملف المستفيد/ة' },
+  // v12 gate (V-08): «أصحاب الطلبات» يشمل الأفراد والشركات والخيري (v9-fixes-frontend يمنع «العملاء»)
+  { path: '/clients', load: () => import('./pages/admin/clients.js'), roles: STAFF, title: 'أصحاب الطلبات' },
+  { path: '/clients/:id', load: () => import('./pages/admin/client-detail.js'), roles: STAFF, title: 'ملف صاحب الطلب' },
   { path: '/lawyers', load: () => import('./pages/admin/lawyers.js'), roles: STAFF, title: 'شبكة المحامين' },
   { path: '/lawyers/:id', load: () => import('./pages/admin/lawyer-detail.js'), roles: STAFF, title: 'ملف المحامي' },
   { path: '/accounting', load: () => import('./pages/admin/accounting.js'), roles: ADMIN, title: 'المحاسبة' },
@@ -45,6 +46,7 @@ export const routes = [
   { path: '/system', load: () => import('./pages/admin/system.js'), roles: ADMIN, title: 'صحة النظام والنسخ الاحتياطي' },
   { path: '/audit', load: () => import('./pages/admin/audit.js'), roles: ADMIN, title: 'سجل الأمان' },
   { path: '/data', load: () => import('./pages/admin/data.js'), roles: ADMIN, title: 'استيراد وتصدير البيانات' },
+  { path: '/tags', load: () => import('./pages/admin/tags.js'), roles: STAFF, title: 'رموز العناصر' }, // v12 tags (H-T، T12-63)
   // ── v10 b2b-staff (STF-0): خدمة الشركات ──
   { path: '/company-requests', load: () => import('./pages/admin/company-requests.js'), roles: STAFF, title: 'طلبات الشركات' },
   { path: '/company-requests/:id', load: () => import('./pages/admin/company-request.js'), roles: STAFF, title: 'طلب شركة' },

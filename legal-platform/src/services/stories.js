@@ -13,7 +13,8 @@ import { LABELS, CLIENT_TEXTS, STORY_TRACKS, ENUMS, AREA_CODES, CODE_PREFIX } fr
 import {
   factsText, isCannedCallback, isFactual, isPortalUnverifiedIntake, portalUnverifiedSql, storyWords, PORTAL_LINK_VAR, withoutLinkLines,
 } from '../channels/engine.js';
-import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN } from '../../public/assets/js/public/topics.js';
+import { TOPICS, topicByKey, staffLines, STAFF_LINES_TITLE, CALLBACK_WHEN, QUESTIONS, UNKNOWN } from '../../public/assets/js/public/topics.js';
+import { leafOf, allLeaves, staffAnswerLines } from '../../public/assets/js/public/entry-tree.js';
 import { questionsFor, classify, paidQuestionsFor } from '../ai/heuristic.js';
 // v11 segment-server (L11-25، r2 P16): نصوص الأفراد والشركات وقائمة مواضيعهم، وسطور اختيارات الموقع للعرض فقط
 import { PAID_TOPICS } from '../../public/assets/js/public/segment.js';
@@ -90,6 +91,44 @@ export function spokenScript(text) {
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// v12 gate fixer-server (JR-01): سؤال الورقة ← أول ورقة تسأله (لعرض إجابة بعد أن غيّر الفريق المسار)
+let ASK_PATH = null;
+function askPathOf(id) {
+  if (!ASK_PATH) {
+    ASK_PATH = new Map();
+    for (const l of allLeaves()) for (const q of l?.ask || []) if (!ASK_PATH.has(q)) ASK_PATH.set(q, l.path);
+  }
+  return ASK_PATH.get(id) || null;
+}
+
+/**
+ * v12 gate fixer-server (JR-01): إجابات أسئلة الشجرة التي لا يعرضها staffLines (topics.js) — أقرب جلسة، تاريخ الحكم،
+ * النفقة لمن، المالك أو المستأجر، و«لا يوجد» أبناء — بكلمات الفريق (entry-tree.staffAnswerLines) وبترتيب أسئلة الورقة.
+ * لطلبات الشجرة وحدها (entry = 'tree' أو مسار موقع محفوظ)، فطلب «خيري» وسطوره وطلب Claude له لا تتغير. الورقة: مسار الموقع المحفوظ في
+ * form_answers.pathway ثم مسار الطلب الحالي؛ إجابة لا تسألها الورقة (غيّر الفريق المسار) تُعرض بأول ورقة تسألها.
+ */
+export function treeAnswerLines(i, f) {
+  if (!f || (f.entry !== 'tree' && !f.pathway?.path)) return [];
+  const answers = f.answers && typeof f.answers === 'object' && !Array.isArray(f.answers) ? f.answers : {};
+  const t = topicByKey(f.topic);
+  // ما يعرضه staffLines أصلًا (سؤال الموضوع بإجابة معروفة أو «لا أعرف») لا يتكرر
+  const shown = new Set(
+    (t ? t.questions : Object.keys(QUESTIONS)).filter(
+      (id) => Object.hasOwn(answers, id) && (answers[id] === UNKNOWN.value || !!QUESTIONS[id]?.answers.some((x) => x.value === String(answers[id]))),
+    ),
+  );
+  const path = [f.pathway?.path, i?.pathway].find((p) => typeof p === 'string' && leafOf(p));
+  const leaf = path ? leafOf(path) : null;
+  const out = [];
+  for (const id of new Set([...(leaf ? leaf.ask : []), ...Object.keys(answers)])) {
+    if (!Object.hasOwn(answers, id) || shown.has(id)) continue;
+    const p = leaf && leaf.ask.includes(id) ? leaf.path : askPathOf(id);
+    if (!p) continue;
+    for (const l of staffAnswerLines(p, { [id]: answers[id] })) if (!out.includes(l)) out.push(l);
+  }
+  return out;
+}
+
 export function createStories(app) {
   const { db } = app;
   const quietTimers = new Map();
@@ -141,7 +180,17 @@ export function createStories(app) {
       callback_label: f.callback && CALLBACK_WHEN[f.callback] ? CALLBACK_WHEN[f.callback].staff : null,
       story: f.story || null,
       // v11 segment-server (r2 P16): «الزوج أو الزوجة» لطلبات الأفراد والشركات — للعرض فقط (نص التحليل يبني سطوره بنفسه)
-      lines: i?.segment === 'paid' ? paidStaffLines(staffLines(f)) : staffLines(f),
+      // v12 gate fixer-server (JR-01): + إجابات أسئلة الشجرة (أقرب جلسة، تاريخ الحكم…) قبل سطر المكالمة
+      lines: (() => {
+        const base = staffLines(f);
+        const extra = treeAnswerLines(i, f);
+        if (extra.length) {
+          const cb = base.length && f.callback && CALLBACK_WHEN[f.callback] ? base.pop() : null;
+          base.push(...extra);
+          if (cb) base.push(cb);
+        }
+        return i?.segment === 'paid' ? paidStaffLines(base) : base;
+      })(),
       urgent_hint: !!f.inferred?.urgent_hint || f.answers?.['rent.evict'] === 'yes',
       about: about
         ? {
@@ -303,8 +352,16 @@ export function createStories(app) {
         clientText += `\n${line}`;
         contextText += `\n${line}`;
       }
-      const lines = staffLines(formJson(intake) || {});
+      const fj = formJson(intake) || {};
+      const lines = staffLines(fj);
+      // v12 gate fixer-server (JR-01): إجابات أسئلة الشجرة في سياق التحليل أيضًا (طلبات الشجرة وحدها؛ «خيري» كما هو)
+      const treeExtra = treeAnswerLines(intake, fj);
+      if (treeExtra.length) lines.splice(fj.callback && CALLBACK_WHEN[fj.callback] && lines.length ? lines.length - 1 : lines.length, 0, ...treeExtra);
       if (lines.length) contextText = `[${STAFF_LINES_TITLE}: ${lines.join(' · ')}]\n${contextText}`;
+      // v12 staff-lines (SL-6، E12-54، L12-28): المسار الذي اختاره (كلمات الفريق) سطر واحد في أول السياق — لطلبات الأفراد والشركات
+      // ذات المسار فقط، فطلب «خيري» لا يتغير (بصمة طلب Claude ثابتة)، ولا يدخل نص صاحب الطلب (clientText)
+      const pathLine = app.pathways?.storyLine ? app.pathways.storyLine(intake) : null;
+      if (pathLine) contextText = `${pathLine}\n${contextText}`;
       const meaningful = lettersOf(clientText, doneWords);
       const typedLetters = lettersOf(typed.join('\n'), doneWords);
       const otherMedia = docs.some((d) => d.uploaded_by_kind === 'client' && !/^audio\//.test(String(d.mime || '')));
@@ -484,8 +541,10 @@ export function createStories(app) {
       if (s.done) svc.markReady(i.id, 'client_done');
       if (msg?.channel === 'whatsapp' && !s.staff_entry) {
         // v11 segment-server (S11-20، P1): جواب أزرار نوع الخدمة، أو الأزرار نفسها قبل الترحيب على الرقم المشترك
+        // v12 staff-lines (SL-5، E12-80): ثم رد قائمة الخدمات، أو القائمة نفسها قبل الترحيب (حين تُرسل لا يُرسل ترحيب ولا طلب الحكاية)
         if (result.segment?.choice && app.segments) app.segments.onChoice(row(i.id), result.segment.choice, msg);
-        else if (result.created_intake && !(app.segments && app.segments.maybeChoice(row(i.id), result))) svc.maybeWelcome(row(i.id), result);
+        else if (result.lines_reply && app.segments?.onLinesReply) app.segments.onLinesReply(row(i.id), result.lines_reply, msg);
+        else if (result.created_intake && !(app.segments && (app.segments.maybeChoice(row(i.id), result) || app.segments.maybeLinesMenu?.(row(i.id), result, msg)))) svc.maybeWelcome(row(i.id), result);
         if (s.topic && !s.topic_prefill) svc.maybeNudge(row(i.id));
       }
     },
@@ -505,6 +564,8 @@ export function createStories(app) {
     maybeWelcome(i, result) {
       if (!i || !setting('story_welcome_enabled')) return false;
       if (result.identity_confirm || result.story?.mentioned_ref || result.story?.topic_prefill) return false;
+      // v12 staff-lines (L12-79): الرد التفاعلي ليس «أول رسالة» أبدًا، والطلب الذي وصلته قائمة الخدمات لا يصله ترحيب ثانٍ
+      if (result.interactive || i.lines_menu_sent_at) return false;
       // v11 segment-server (S11 §6.3/§10.2): الترحيب بنبرة الطلب؛ «غير محدد» لا يصله ترحيب أبدًا (ينتظر اختيار نوع الخدمة)
       if (toneOf(i) === 'neutral') return false;
       if (!svc.autoEligible(i)) return false;
@@ -532,6 +593,7 @@ export function createStories(app) {
         sections: [
           {
             title: g(T('story_welcome_section')).slice(0, 24),
+            // @tag-src W-23 صفوف القائمة: wa_title وwa_desc في public/assets/js/public/topics.js وPAID_TOPICS (v12 tags، T12-52)
             rows: TOPICS.map((t) =>
               paid && PAID_TOPICS[t.key]
                 ? { id: `topic:${t.key}`, title: String(PAID_TOPICS[t.key].wa_title).slice(0, 24), description: String(PAID_TOPICS[t.key].wa_desc).slice(0, 72) }
@@ -545,6 +607,7 @@ export function createStories(app) {
     /** [A92-06] بعد اختيار الموضوع من القائمة بلا حكاية بعد: «احكيلنا حصل إيه» مرة واحدة (مع الترحيب فقط) */
     maybeNudge(i) {
       if (!i || !setting('story_welcome_enabled') || !svc.autoEligible(i)) return false;
+      if (i.lines_menu_sent_at) return false; // v12 staff-lines (E12-80): القائمة بدل الترحيب وطلب الحكاية
       const st = svc.storyText(i.id);
       if (st.meaningfulLetters >= 25 || st.hasMedia) return false;
       if (db.get("SELECT 1 FROM messages WHERE intake_id = ? AND automation_rule = 'story_topic_nudge'", i.id)) return false;
@@ -788,9 +851,10 @@ export function createStories(app) {
       const title = draft.title || out?.title || i.title || '';
       const priority = ['low', 'normal', 'high', 'urgent'].includes(out?.urgency) && out.urgency !== 'low' ? (rankP(out.urgency) > rankP(i.priority) ? out.urgency : i.priority) : i.priority || 'normal';
       const issues = (out?.suggested_issues || []).map((x) => ({ title: x.title, details: x.details ?? null, legal_area: x.legal_area || area, origin: 'ai' }));
-      const fallbackBrief = `المطلوب: رأي مبدئي في: ${issues[0]?.title || title || 'المسألة'}، مع المستندات اللازمة والخطوات العملية للمستفيدة.`;
-      const form = formOf(i);
       const tone = toneOf(i); // v11 segment-server (L11-25): مسودات الرسائل بنبرة الطلب
+      // v12 gate fixer-server (JR-05): «للمستفيدة» لطلب «خيري» وحده؛ الأفراد والشركات (وغير المحدد) «لصاحب الطلب»
+      const fallbackBrief = `المطلوب: رأي مبدئي في: ${issues[0]?.title || title || 'المسألة'}، مع المستندات اللازمة والخطوات العملية ${tone === 'charity' ? 'للمستفيدة' : 'لصاحب الطلب'}.`;
+      const form = formOf(i);
       const internalBits = [draft.internal_note, form?.lines?.length ? `${STAFF_LINES_TITLE}: ${form.lines.join(' · ')}` : null].filter(Boolean);
       const caseDraft = {
         legal_area: area,

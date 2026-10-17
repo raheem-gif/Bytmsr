@@ -2,7 +2,7 @@
 // الإدارة ترى كل شيء (العميل، المصدر، المحادثة، التكلفة)، وتحدد لكل محامٍ بدقة ما يطّلع عليه،
 // وتتوسط بينه وبين العميل في كل طلب، وتراجع رأيه قبل إعداد نسخة مبسطة للعميل وإرسالها، وهي وحدها من يغلق الملف.
 
-import { h, frag, mount, clear } from '../../../lib/h.js';
+import { h, frag, mount, clear, tagged } from '../../../lib/h.js';
 import { api, ApiError, filesToUploads, downloadUrl, formatBytes } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, money, percent, count, hours, date, dateTime, relative, isoToCairoInput, monthLabel, localPhone } from '../../../lib/fmt.js';
 import {
@@ -39,6 +39,7 @@ import {
   loading,
   errorState,
   selectInput,
+  fileName,
 } from '../../../lib/ui.js';
 import { printButton } from '../../components/print-button.js';
 import { sendDocumentButton } from '../../components/send-document.js'; // v9 messaging
@@ -49,6 +50,8 @@ import { quickReplyPicker, bindQuickReplyShortcuts, insertAtCursor } from '../..
 import { aiReplyButton } from '../../components/ai-reply.js'; // v9 ai
 import { docAiButton, docAiPanel } from '../../components/doc-ai.js'; // v9 ai
 import { openSplitDialog } from '../../components/split-dialog.js'; // v9.2 admin-ai: «اعمل منها طلب جديد»
+// v12 gate (K-S1، L12-59): المستندات تُفتح في العارض (النسخة المحسّنة + «الأصل» + «نظّف المستند») مع سطر DOC-16 في القائمة
+import { staffDocParts, openDocument, docKind } from '../../components/doc-viewer.js';
 // v11 segment-staff (ST-4): نوع الخدمة في الملف — الرقاقة و«تغيير» والأتعاب للأفراد ورأس الإرسال
 import {
   segmentChip,
@@ -60,6 +63,7 @@ import {
   FEES_NOT_AGREED,
   PAID_CASE_NOTE,
   clientNoun,
+  firmNoun,
 } from '../../components/segment-ui.js';
 
 // ───────────────────────── أدوات مشتركة (تستخدمها صفحة الملف المستمر أيضًا) ─────────────────────────
@@ -88,16 +92,18 @@ export function formModal({ title, intro, before, after, fields, values, submitL
         result = r === undefined ? vals : r;
       },
       onSuccess: () => m && m.close('submit'),
+      tag: 'CSF-210',
     });
     m = modal({
       title,
       size,
       body: frag(intro && h('p.modal-intro', intro), before, f.el, after),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
-        { label: submitLabel, variant: danger ? 'danger' : 'primary', icon: submitIcon, onClick: async () => ((await f.submit()) ? undefined : false) },
+        { label: 'إلغاء', variant: 'ghost', tag: 'CSF-01' },
+        { label: submitLabel, variant: danger ? 'danger' : 'primary', icon: submitIcon, onClick: async () => ((await f.submit()) ? undefined : false), tag: 'CSF-02' },
       ],
       onClose: (reason) => resolve(reason === 'submit' ? result : null),
+      tag: 'CSF-03',
     });
     if (setup) setup(f, m);
   });
@@ -115,16 +121,18 @@ export function confirmAction({ title = 'تأكيد الإجراء', message, co
       size: 'sm',
       body: h('p.confirm-message', message || 'هل أنت متأكد من تنفيذ هذا الإجراء؟'),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'CSF-04' },
         {
           label: confirmLabel,
           variant: danger ? 'danger' : 'primary',
           onClick: () => {
             ok = true;
           },
+          tag: 'CSF-05',
         },
       ],
       onClose: () => resolve(ok),
+      tag: 'CSF-06',
     });
   });
 }
@@ -176,13 +184,13 @@ export function messageThread(messages = [], { onRetry, inLabel = 'المستف�
           { title: m.error || '' },
           icon('alert', { size: 14 }),
           h('span', 'تعذر إرسال هذه الرسالة'),
-          onRetry && asyncButton('إعادة المحاولة', () => onRetry(m), { size: 'sm', variant: 'danger', icon: 'refresh' }),
+          onRetry && asyncButton('إعادة المحاولة', () => onRetry(m), { size: 'sm', variant: 'danger', icon: 'refresh', tag: 'CSF-07' }),
         ),
       );
     }
     // [مراجعة 9.2] splitAfter: لا تظهر على رسائل حكايتها الأصلية التي فُتح منها الملف (قبل إنشائه)، بل على ما وصل بعده
     if (onSplit && m.direction === 'in' && !meta.call_note && (m.case_id || m.matter_id) && Date.now() - Date.parse(m.created_at || 0) <= 30 * 24 * 3600 * 1000 && !(splitAfter && String(m.created_at || '') <= String(splitAfter))) {
-      extras.push(button('اعمل منها طلب جديد', { variant: 'link', size: 'sm', icon: 'split', className: 'pa-split-action', onClick: () => onSplit(m) }));
+      extras.push(button('اعمل منها طلب جديد', { variant: 'link', size: 'sm', icon: 'split', className: 'pa-split-action', onClick: () => onSplit(m), tag: 'CSF-08' }));
     }
     if (extras.length) bubble.append(h('div.pb-msg-extra', extras));
   });
@@ -248,12 +256,12 @@ export function messageComposer({ onSend, placeholder = null, hint, quickReplies
   const li = (noun && noun.li) || 'للمستفيد/ة';
   if (!placeholder) placeholder = `اكتب رسالة ${li}…`;
   const taId = uid('composer');
-  const ta = h('textarea.input', { id: taId, rows: 3, placeholder, maxlength: 4000 });
+  const ta = h('textarea.input', { id: taId, rows: 3, placeholder, maxlength: 4000, tag: 'CSF-09' });
   // v11 segment-staff (r2 P13): رأس الإرسال في نافذة الردود المقترحة أيضًا
   const tools = composerTools(ta, { context: quickReplies, ai: aiTarget ? { ...aiTarget, sendInfo: aiTarget.sendInfo || sendInfo } : null });
   const sel = h(
     'select.input',
-    { 'aria-label': 'قناة الإرسال' },
+    { 'aria-label': 'قناة الإرسال', tag: 'CSF-10' },
     CHANNEL_OPTIONS.map((o) => h('option', { value: o.value }, o.value === 'auto' && noun && noun.def ? `تلقائي — آخر قناة تواصل منها ${noun.def}` : o.label)),
   );
   const err = h('p.field-error', { role: 'alert', hidden: true });
@@ -272,7 +280,7 @@ export function messageComposer({ onSend, placeholder = null, hint, quickReplies
       tools.sent(body);
       ta.value = '';
     },
-    { variant: 'primary', icon: 'send' },
+    { variant: 'primary', icon: 'send', tag: 'CSF-11' },
   );
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -383,10 +391,10 @@ export function docAiResultsCard(store, docs = []) {
           items.map(([d, a]) => {
             const det = h(
               'details.doc-ai-result',
-              { open: opened.has(d.id) },
+              { open: opened.has(d.id), tag: 'CSF-12' },
               h(
                 'summary',
-                h('span.doc-ai-result-name', { dir: 'auto' }, d.title || d.filename || 'مستند'),
+                { tag: 'CSF-13' }, h('span.doc-ai-result-name', { dir: 'auto' }, d.title || d.filename || 'مستند'),
                 badge(a.doc_type_label || label('ai_doc_type', a.doc_type), a.stale ? 'warning' : 'info', { icon: 'sparkle' }),
                 a.created_at ? h('time.cell-sub', { datetime: a.created_at, title: dateTime(a.created_at) }, relative(a.created_at)) : null,
               ),
@@ -396,6 +404,8 @@ export function docAiResultsCard(store, docs = []) {
             return det;
           }),
         ),
+        titleTag: 'CSF-14',
+        tag: 'CSF-15',
       }),
     );
   };
@@ -435,12 +445,12 @@ function activityIcon(type) {
 }
 
 /** السجل الزمني مع تصفية حسب الفاعل (الأحدث أولًا). */
-export function activityTimeline(activity = []) {
+export function activityTimeline(activity = [], { clientLabel = 'المستفيد/ة' } = {}) {
   const groups = [
     ['all', 'الكل'],
     ['staff', 'الإدارة'],
     ['lawyer', 'المحامون'],
-    ['client', 'المستفيد/ة'],
+    ['client', clientLabel], // v12 gate (JR-06): «صاحب الطلب» لملف بأتعاب
     ['auto', 'النظام والذكاء الاصطناعي'],
   ];
   const match = (a, k) => (k === 'all' ? true : k === 'auto' ? a.actor_kind === 'system' || a.actor_kind === 'ai' : a.actor_kind === k);
@@ -461,6 +471,7 @@ export function activityTimeline(activity = []) {
               current = k;
               draw();
             },
+            tag: 'CSF-16',
           },
           t,
           h('span.tab-count', String(items.filter((a) => match(a, k)).length)),
@@ -489,9 +500,9 @@ export function activityTimeline(activity = []) {
 
 /** لوحة رفع مستندات (عنوان اختياري موحد). */
 export function uploadPanel({ onUpload, hint } = {}) {
-  const fi = fileInput({ maxFiles: 10 });
-  const titleIn = h('input.input', { type: 'text', maxlength: 200, placeholder: 'مثال: صورة إعلام الوراثة' });
-  const titleField = field('عنوان المستند (اختياري)', titleIn, { hint: 'يُطبَّق على كل الملفات المرفوعة معًا؛ إن تُرك فارغًا يُستخدم اسم الملف.' });
+  const fi = fileInput({ maxFiles: 10, tag: 'CSF-17' });
+  const titleIn = h('input.input', { type: 'text', maxlength: 200, placeholder: 'مثال: صورة إعلام الوراثة', tag: 'CSF-18' });
+  const titleField = field('عنوان المستند (اختياري)', titleIn, { hint: 'يُطبَّق على كل الملفات المرفوعة معًا؛ إن تُرك فارغًا يُستخدم اسم الملف.', tag: 'CSF-19' });
   const btn = asyncButton(
     'رفع المستندات',
     async () => {
@@ -505,7 +516,7 @@ export function uploadPanel({ onUpload, hint } = {}) {
       fi.clear();
       titleIn.value = '';
     },
-    { variant: 'primary', icon: 'upload' },
+    { variant: 'primary', icon: 'upload', tag: 'CSF-20' },
   );
   return h('div.stack.pb-upload', fi.el, titleField, h('div.row', btn, hint && h('span.small.muted', hint)));
 }
@@ -650,8 +661,8 @@ export default async function render(ctx) {
   // v10 b2b-staff (STF-10، U10-S10، L-65): ملف عمل لطلب شركة — التواصل والتسليم والإغلاق من صفحة طلب الشركة
   const company = data.company || null;
   const companyReqHref = company?.request ? `#/company-requests/${company.request.id}` : company ? `#/companies/${company.id}` : null;
-  const companyLink = (text = 'فتح طلب الشركة') => button(text, { variant: 'secondary', size: 'sm', icon: 'inboxStack', href: companyReqHref });
-  const companyLine = (what) => h('p.cd-company-line', icon('building', { size: 16 }), h('span', what), h('a', { href: companyReqHref }, 'فتح طلب الشركة'));
+  const companyLink = (text = 'فتح طلب الشركة') => button(text, { variant: 'secondary', size: 'sm', icon: 'inboxStack', href: companyReqHref, tag: 'CSF-21' });
+  const companyLine = (what) => h('p.cd-company-line', icon('building', { size: 16 }), h('span', what), h('a', { href: companyReqHref, tag: 'CSF-22' }, 'فتح طلب الشركة'));
   // v11 segment-staff (ST-4): كتلة نوع الخدمة من الخادم؛ ملف الشركة «شركة» دائمًا، وملف الأفراد بأتعاب يوافق عليها العميل
   const seg = data.segment || { value: company ? 'paid' : c.segment || 'charity', can_change: !company };
   const segValue = company ? 'paid' : seg.value || 'charity';
@@ -659,6 +670,8 @@ export default async function render(ctx) {
   // v11 gate fix (J-13/V13): الطرف الآخر في نصوص الإدارة — «المستفيد/ة» للخيري، «العميل/ة» لملف الأفراد بأتعاب، «الشركة» لملف شركة
   const N = clientNoun(segValue, { company: Boolean(company) });
   const WHO = N.def; // v10 b2b-staff (U10-S10): الطرف الآخر في طلبات المعلومات
+  // v12 gate (JR-06): اسمنا في نصوص الإدارة — «المكتب» لملف بأتعاب أو شركة، «المؤسسة» للخيري
+  const FIRM = firmNoun(segValue, { company: Boolean(company) });
   const channelOpts = CHANNEL_OPTIONS.map((o) => (o.value === 'auto' ? { ...o, label: `تلقائي — آخر قناة تواصل منها ${N.def}` } : o));
   const fees = data.fees || null;
   const feesPending = paidIndividual && !closed && !(fees && fees.agreed);
@@ -700,13 +713,13 @@ export default async function render(ctx) {
     // v10 b2b-staff: ملف شركة — لا رسالة للمستفيد/ة ولا إغلاق/إعادة فتح عامين (يُغلق من صفحة طلب الشركة)
     if (company) {
       return [
-        button('فتح طلب الشركة', { icon: 'inboxStack', variant: 'primary', href: companyReqHref }),
+        button('فتح طلب الشركة', { icon: 'inboxStack', variant: 'primary', href: companyReqHref, tag: 'CSF-23' }),
         printButton({ kind: 'case-summary', id: c.id, label: 'طباعة ملخص الملف', size: 'md' }),
         h('span.cd-company-close', icon('lock', { size: 14 }), 'تُغلق من صفحة طلب الشركة'),
       ];
     }
-    const acts = [button(`رسالة ${N.li}`, { icon: 'message', onClick: openMessageDialog })];
-    if (data.matter) acts.push(button('فتح الملف المستمر', { icon: 'gavel', href: `#/matters/${data.matter.id}` }));
+    const acts = [button(`رسالة ${N.li}`, { icon: 'message', onClick: openMessageDialog, tag: 'CSF-24' })];
+    if (data.matter) acts.push(button('فتح الملف المستمر', { icon: 'gavel', href: `#/matters/${data.matter.id}`, tag: 'CSF-25' }));
     else {
       acts.push(
         asyncButton(
@@ -715,13 +728,13 @@ export default async function render(ctx) {
             const res = await api.get('/admin/lawyers', { active: 'true' });
             openMatterDialog((res && res.items) || []);
           },
-          { icon: 'gavel' },
+          { icon: 'gavel', tag: 'CSF-26' },
         ),
       );
     }
     acts.push(printButton({ kind: 'case-summary', id: c.id, label: 'طباعة ملخص الملف', size: 'md' }));
-    if (closed) acts.push(button('إعادة فتح الملف', { icon: 'refresh', variant: 'primary', onClick: openReopenDialog }));
-    else acts.push(button('إغلاق الملف', { icon: 'lock', variant: 'danger', onClick: openCloseDialog }));
+    if (closed) acts.push(button('إعادة فتح الملف', { icon: 'refresh', variant: 'primary', onClick: openReopenDialog, tag: 'CSF-27' }));
+    else acts.push(button('إغلاق الملف', { icon: 'lock', variant: 'danger', onClick: openCloseDialog, tag: 'CSF-28' }));
     return acts;
   }
 
@@ -749,15 +762,17 @@ export default async function render(ctx) {
                 changeMessage: seg.change_message || null,
                 onSaved: () => refresh(null),
               }),
+              tag: 'CSF-29',
           })
         : null,
     );
   }
 
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: c.title,
     breadcrumbs: [
-      { label: 'ملفات الاستشارات', href: '#/cases' },
+      { label: 'ملفات الاستشارات', href: '#/cases', tag: 'CSF-30' },
       { label: c.code },
     ],
     meta: [
@@ -769,13 +784,15 @@ export default async function render(ctx) {
       closed && c.outcome && statusBadge('case_outcome', c.outcome),
     ],
     actions: headerActions(),
+    titleTag: 'CSF-31',
+    tag: 'CSF-32',
   });
 
   // ───────────────────────── شريط ما يحتاج قرار الإدارة ─────────────────────────
 
   function attentionBar() {
     if (closed && company) {
-      return alertBox(frag(h('div', `أُغلق ملف العمل في ${date(c.closed_at)} مع إغلاق طلب الشركة.`), h('div', 'إعادة الفتح من صفحة طلب الشركة («إعادة فتح الطلب») خلال مهلة التعديلات.')), 'info', { title: 'الملف مغلق', icon: 'lock' });
+      return alertBox(frag(h('div', `أُغلق ملف العمل في ${date(c.closed_at)} مع إغلاق طلب الشركة.`), h('div', 'إعادة الفتح من صفحة طلب الشركة («إعادة فتح الطلب») خلال مهلة التعديلات.')), 'info', { title: 'الملف مغلق', icon: 'lock', tag: 'CSF-33' });
     }
     if (closed) {
       return alertBox(
@@ -785,7 +802,7 @@ export default async function render(ctx) {
           h('div', 'لا يمكن تعديل الفريق أو الطلبات إلا بعد إعادة فتح الملف.'),
         ),
         'info',
-        { title: 'الملف مغلق', icon: 'lock' },
+        { title: 'الملف مغلق', icon: 'lock', tag: 'CSF-34' },
       );
     }
     const items = [];
@@ -809,7 +826,7 @@ export default async function render(ctx) {
     if (!items.length) return null;
     return h(
       'section.pb-attention',
-      { 'aria-label': 'ما يحتاج إلى قرار الإدارة في هذا الملف' },
+      { 'aria-label': 'ما يحتاج إلى قرار الإدارة في هذا الملف', tag: 'CSF-35' },
       h('div.pb-attention-title', icon('bell', { size: 18 }), 'بانتظار قرارك في هذا الملف'),
       h(
         'ul.pb-attention-list',
@@ -818,7 +835,7 @@ export default async function render(ctx) {
             'li.pb-attention-item',
             icon(it.iconName, { size: 16 }),
             h('span.pb-attention-text', it.text),
-            button(it.btnText, { size: 'sm', variant: 'secondary', onClick: it.onClick || (() => goTab(it.tab)) }),
+            button(it.btnText, { size: 'sm', variant: 'secondary', onClick: it.onClick || (() => goTab(it.tab)), tag: 'CSF-36' }),
           ),
         ),
       ),
@@ -839,10 +856,12 @@ export default async function render(ctx) {
           icon: 'building',
           className: 'pb-client-card cd-company-card',
           body: kv([
-            ['الشركة', h('a', { href: `#/companies/${company.id}` }, company.name)],
-            ['الطلب', company.request ? inline(h('a.pb-code-link', { href: companyReqHref }, codeTag(company.request.code)), h('span.small.muted', company.request.status_label || '')) : null],
+            ['الشركة', h('a', { href: `#/companies/${company.id}`, tag: 'CSF-37' }, company.name)],
+            ['الطلب', company.request ? inline(h('a.pb-code-link', { href: companyReqHref, tag: 'CSF-38' }, codeTag(company.request.code)), h('span.small.muted', company.request.status_label || '')) : null],
             ['التواصل والتسليم', companyLine('من صفحة طلب الشركة فقط.')],
           ]),
+          titleTag: 'CSF-39',
+          tag: 'CSF-40',
         })
       : card({
       title: `${N.def} ومصدره`,
@@ -850,33 +869,35 @@ export default async function render(ctx) {
       icon: 'lock',
       className: 'pb-client-card',
       body: kv([
-        [`${N.def}`, cl ? inline(h('a', { href: `#/clients/${cl.id}` }, cl.name || 'بدون اسم'), codeTag(cl.code)) : null],
-        ['الهاتف', cl?.phone ? inline(ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '')) : null], // [بوابة 9.2 K9] الصيغة المحلية
+        [`${N.def}`, cl ? inline(h('a', { href: `#/clients/${cl.id}`, tag: 'CSF-41' }, cl.name || 'بدون اسم'), codeTag(cl.code)) : null],
+        ['الهاتف', cl?.phone ? inline(ltr(localPhone(cl.phone)), copyButton(localPhone(cl.phone), '', { tag: 'CSF-42' })) : null], // [بوابة 9.2 K9] الصيغة المحلية
         ['قنوات التواصل', chans.size ? chips([...chans].map((ch) => ({ label: label('channel', ch), tone: ch === 'whatsapp' ? 'success' : 'info' }))) : null],
         ['المحافظة', cl?.governorate],
         [`مصدر ${N.def}`, h('span', label('source', intake?.source || c.source), campaign && h('span.cell-sub.pb-d-block', `الحملة: ${campaign}`))],
         ['قناة الوصول', label('channel', intake?.first_channel || c.channel)],
-        ['الطلب الأصلي', intake ? inline(h('a.pb-code-link', { href: `#/inbox/${intake.id}`, 'aria-label': `فتح الطلب الوارد ${intake.code}` }, codeTag(intake.code)), h('span.small.muted', dateTime(intake.created_at))) : null],
+        ['الطلب الأصلي', intake ? inline(h('a.pb-code-link', { href: `#/inbox/${intake.id}`, 'aria-label': `فتح الطلب الوارد ${intake.code}`, tag: 'CSF-43' }, codeTag(intake.code)), h('span.small.muted', dateTime(intake.created_at))) : null],
       ]),
       footer: h('p.small.muted', `المصدر هو ما جاء ${N.bi} (مثل إعلان ممول)، والقناة هي الباب الذي تواصل منه (واتساب أو الموقع)؛ وكل الأبواب تصل إلى محرك الاستقبال نفسه.`),
+      titleTag: 'CSF-44',
+      tag: 'CSF-45',
     });
 
     const manager = staffById.get(c.case_manager_id);
     const fileCard = card({
       title: 'متابعة الملف',
       icon: 'briefcase',
-      actions: !closed && button('تعديل البيانات', { size: 'sm', icon: 'edit', onClick: openEditCaseDialog }),
+      actions: !closed && button('تعديل البيانات', { size: 'sm', icon: 'edit', onClick: openEditCaseDialog, tag: 'CSF-46' }),
       body: kv([
         ['مدير الحالة', manager ? manager.name : c.case_manager_name || null],
         ['الموعد المستهدف', c.due_at ? inline(h('span', date(c.due_at)), !closed && dueBadge(c.due_at)) : h('span.muted', 'بدون موعد محدد')],
         ['فريق العمل', activeTeam.length ? h('span', `${count(activeTeam.length, ['محامٍ واحد', 'محاميان', 'محامين', 'محاميًا'])} — المحامي الأساسي: ${lead ? lead.lawyer_name : 'لم يُحدَّد'}`) : h('span.muted', 'لم يُسند لأي محامٍ بعد')],
-        ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}` }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
+        ['الملف المستمر', data.matter ? inline(h('a.pb-code-link', { href: `#/matters/${data.matter.id}`, tag: 'CSF-47' }, codeTag(data.matter.code)), statusBadge('matter_status', data.matter.status)) : h('span.muted', 'لا يوجد')],
         // v11 segment-staff: ملف الأفراد بأتعاب لا يُربط ببرنامج تمويل (الخادم يرفضه 409 paid_case_program)
         paidIndividual ? null : company ? null : ['برنامج التمويل', caseProgramField({ caseId: c.id, closed })], // v10 b2b-staff: لا برامج تمويل لعمل الشركات
         [
           'المعرفة المؤسسية',
           data.knowledge
-            ? inline(h('a', { href: `#/knowledge/${data.knowledge.id}` }, `السجل المعرفي #${data.knowledge.id}`), statusBadge('knowledge_status', data.knowledge.status))
+            ? inline(h('a', { href: `#/knowledge/${data.knowledge.id}`, tag: 'CSF-48' }, `السجل المعرفي #${data.knowledge.id}`), statusBadge('knowledge_status', data.knowledge.status))
             : h('span.muted', closed ? 'لم يُنشأ سجل' : 'يُنشأ سجل مجهّل تلقائيًا عند الإغلاق'),
         ],
         // (v9 messaging) تقييم العميل للخدمة من استبيان الرضا
@@ -889,6 +910,8 @@ export default async function render(ctx) {
         ['أُنشئ', h('span', dateTime(c.created_at))],
         closed && ['أُغلق', h('span', dateTime(c.closed_at))],
       ]),
+      titleTag: 'CSF-49',
+      tag: 'CSF-50',
     });
     return h('div.grid-2.pb-summary', clientCard, fileCard);
   }
@@ -902,36 +925,36 @@ export default async function render(ctx) {
     const title = internal ? 'الوقائع الداخلية — لا يراها المحامون' : 'ملخص الوقائع المتاح للمحامين';
     const viewers = activeTeam.filter((a) => a.grants.facts);
     const body = h('div.pb-facts-body');
-    const editBtn = !closed && button('تعديل', { size: 'sm', icon: 'edit', onClick: () => edit() });
+    const editBtn = !closed && button('تعديل', { size: 'sm', icon: 'edit', onClick: () => edit(), tag: 'CSF-51' });
 
     function show() {
       mount(
         body,
         value
           ? h('div.pb-fact-text', { dir: 'auto' }, value)
-          : emptyState(internal ? 'لم تُسجَّل وقائع داخلية بعد' : 'لم يُكتب ملخص الوقائع للمحامين بعد — بدونه لن يجد المحامي ما يدرسه', null, { compact: true, icon: internal ? 'lock' : 'fileText' }),
+          : emptyState(internal ? 'لم تُسجَّل وقائع داخلية بعد' : 'لم يُكتب ملخص الوقائع للمحامين بعد — بدونه لن يجد المحامي ما يدرسه', null, { compact: true, icon: internal ? 'lock' : 'fileText', tag: 'CSF-52' }),
       );
       if (editBtn) editBtn.hidden = false;
     }
 
     function edit() {
       const taId = uid('facts');
-      const ta = h('textarea.input.pb-fact-input', { id: taId, rows: 10, value, maxlength: 20000 });
+      const ta = h('textarea.input.pb-fact-input', { id: taId, rows: 10, value, maxlength: 20000, tag: 'CSF-53' });
       const save = asyncButton(
         'حفظ',
         async () => {
           await api.patch(`/admin/cases/${id}`, { [fieldKey]: ta.value });
           await refresh(internal ? 'تم حفظ الوقائع الداخلية' : 'تم حفظ ملخص الوقائع وأُبلغ أعضاء الفريق الذين يرونه');
         },
-        { variant: 'primary', icon: 'check' },
+        { variant: 'primary', icon: 'check', tag: 'CSF-54' },
       );
       mount(
         body,
         h('label.sr-only', { htmlFor: taId }, title),
         ta,
         !internal &&
-          alertBox('لا تكتب في الملخص رقم الهاتف أو العنوان أو أي بيانات تواصل. سيُبلَّغ أعضاء الفريق الذين يرون الوقائع بالتحديث.', 'warning'),
-        h('div.btn-group', save, button('إلغاء', { variant: 'ghost', onClick: show })),
+          alertBox('لا تكتب في الملخص رقم الهاتف أو العنوان أو أي بيانات تواصل. سيُبلَّغ أعضاء الفريق الذين يرون الوقائع بالتحديث.', 'warning', { tag: 'CSF-55' }),
+        h('div.btn-group', save, button('إلغاء', { variant: 'ghost', onClick: show, tag: 'CSF-56' })),
       );
       if (editBtn) editBtn.hidden = true;
       ta.focus();
@@ -953,6 +976,8 @@ export default async function render(ctx) {
       className: ['pb-facts', internal ? 'pb-facts-internal' : 'pb-facts-shared'],
       actions: editBtn,
       body: frag(body, foot),
+      tag: 'CSF-57',
+      titleTag: 'CSF-211',
     });
   }
 
@@ -978,12 +1003,12 @@ export default async function render(ctx) {
               await api.patch(`/admin/cases/${id}/issues/${i.id}`, { status: 'active' });
               await refresh(`اعتُمدت المسألة رقم ${i.number} وأُتيحت للمحامي الذي اقترحها`);
             },
-            { size: 'sm', variant: 'primary', icon: 'check' },
+            { size: 'sm', variant: 'primary', icon: 'check', tag: 'CSF-58' },
           ),
         );
       }
       if (i.status !== 'dropped') {
-        acts.push(button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openIssueDialog(i) }));
+        acts.push(button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openIssueDialog(i), tag: 'CSF-59' }));
         acts.push(
           asyncButton(
             i.status === 'proposed' ? 'عدم الاعتماد' : 'استبعاد',
@@ -997,7 +1022,7 @@ export default async function render(ctx) {
               await api.patch(`/admin/cases/${id}/issues/${i.id}`, { status: 'dropped' });
               await refresh(`استُبعدت المسألة رقم ${i.number}`);
             },
-            { size: 'sm', variant: 'ghost', icon: 'x' },
+            { size: 'sm', variant: 'ghost', icon: 'x', tag: 'CSF-60' },
           ),
         );
       } else {
@@ -1008,7 +1033,7 @@ export default async function render(ctx) {
               await api.patch(`/admin/cases/${id}/issues/${i.id}`, { status: 'active' });
               await refresh(`أُعيد تفعيل المسألة رقم ${i.number}. أتحها للمحامين من الصلاحيات عند الحاجة.`);
             },
-            { size: 'sm', variant: 'ghost', icon: 'refresh' },
+            { size: 'sm', variant: 'ghost', icon: 'refresh', tag: 'CSF-61' },
           ),
         );
       }
@@ -1077,7 +1102,7 @@ export default async function render(ctx) {
                       });
                       await refresh('أُضيفت المسألة المقترحة إلى الملف');
                     },
-                    { size: 'sm', icon: 'plus' },
+                    { size: 'sm', icon: 'plus', tag: 'CSF-62' },
                   ),
           );
         }),
@@ -1096,9 +1121,9 @@ export default async function render(ctx) {
           await api.post(`/admin/cases/${id}/ai/issues`);
           await refresh('وصلت اقتراحات الذكاء الاصطناعي — راجع المسائل المقترحة وأضف ما يناسب منها');
         },
-        { size: 'sm', icon: 'sparkle' },
+        { size: 'sm', icon: 'sparkle', tag: 'CSF-63' },
       ),
-      button('إضافة مسألة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: () => openIssueDialog(null) }),
+      button('إضافة مسألة', { size: 'sm', variant: 'primary', icon: 'plus', onClick: () => openIssueDialog(null), tag: 'CSF-64' }),
     ];
     return card({
       title: 'المسائل القانونية',
@@ -1110,18 +1135,20 @@ export default async function render(ctx) {
         proposed.length > 0 && h('ol.pb-issue-list', { 'aria-label': 'مسائل مقترحة' }, proposed.map(issueItem)),
         active.length
           ? h('ol.pb-issue-list', { 'aria-label': 'المسائل المعتمدة' }, active.map(issueItem))
-          : emptyState('لا توجد مسائل معتمدة بعد. أضف المسائل التي يجب أن يجيب عنها الفريق.', null, { compact: true, icon: 'flag' }),
+          : emptyState('لا توجد مسائل معتمدة بعد. أضف المسائل التي يجب أن يجيب عنها الفريق.', null, { compact: true, icon: 'flag', tag: 'CSF-65' }),
         aiSuggestionsPanel(),
         dropped.length > 0 &&
-          h('details.pb-older', h('summary', `المسائل المستبعدة (${dropped.length})`), h('ol.pb-issue-list', dropped.map(issueItem))),
+          h('details.pb-older', { tag: 'CSF-66' }, h('summary', { tag: 'CSF-67' }, `المسائل المستبعدة (${dropped.length})`), h('ol.pb-issue-list', dropped.map(issueItem))),
       ),
+      titleTag: 'CSF-68',
+      tag: 'CSF-69',
     });
   }
 
   function aiAnalysisCard() {
     const s = data.ai?.intake_analysis;
     if (!s) {
-      return card({ title: 'تحليل الذكاء الاصطناعي للطلب', icon: 'sparkle', body: emptyState('لا يوجد تحليل آلي للطلب الأصلي', null, { compact: true, icon: 'sparkle' }) });
+      return card({ title: 'تحليل الذكاء الاصطناعي للطلب', icon: 'sparkle', body: emptyState('لا يوجد تحليل آلي للطلب الأصلي', null, { compact: true, icon: 'sparkle', tag: 'CSF-70' }), titleTag: 'CSF-71', tag: 'CSF-72' });
     }
     const o = s.output || {};
     const missing = (o.missing_info || []).map((m) => (typeof m === 'string' ? { item: m, kind: 'information' } : m)).filter((m) => m && m.item);
@@ -1146,7 +1173,7 @@ export default async function render(ctx) {
           ['مجالات ثانوية', (o.secondary_areas || []).length ? chips(o.secondary_areas.map((a) => ({ label: areaLabel(a), tone: 'info' }))) : null],
           ['درجة الإلحاح', o.urgency ? label('priority', o.urgency) : null],
         ]),
-        o.specialist_hint && alertBox(o.specialist_hint, 'info', { icon: 'users' }),
+        o.specialist_hint && alertBox(o.specialist_hint, 'info', { icon: 'users', tag: 'CSF-73' }),
         missing.length > 0 &&
           h(
             'div.stack-sm',
@@ -1163,6 +1190,7 @@ export default async function render(ctx) {
                       variant: 'link',
                       icon: 'send',
                       onClick: () => openStaffRequestDialog({ kind: m.kind === 'document' ? 'document' : 'information', question: m.item }),
+                      tag: 'CSF-74',
                     }),
                 ),
               ),
@@ -1170,6 +1198,8 @@ export default async function render(ctx) {
           ),
         h('p.small.muted', 'مساعد آلي — القرار النهائي دائمًا للإدارة، وتُسجَّل تصحيحاتها لقياس دقته.'),
       ),
+      titleTag: 'CSF-75',
+      tag: 'CSF-76',
     });
   }
 
@@ -1177,7 +1207,7 @@ export default async function render(ctx) {
     const sim = data.ai?.similar || { items: [], total: 0 };
     const items = sim.items || [];
     return card({
-      title: 'حالات مشابهة تعاملت معها المؤسسة',
+      title: 'حالات مشابهة تعاملنا معها', // v12 gate (JR-06): بلا «المؤسسة» في ملف بأتعاب
       subtitle: items.length ? `عدد الحالات المشابهة: ${sim.total || items.length}` : null,
       icon: 'book',
       body: items.length
@@ -1188,7 +1218,7 @@ export default async function render(ctx) {
                 'li.pb-sim-item',
                 h(
                   'a.pb-sim-link',
-                  { href: x.type === 'knowledge' ? `#/knowledge/${x.id}` : `#/cases/${x.id}` },
+                  { href: x.type === 'knowledge' ? `#/knowledge/${x.id}` : `#/cases/${x.id}`, tag: 'CSF-77' },
                   x.code ? codeTag(x.code) : badge('مادة معرفية', 'neutral'),
                   h('span.pb-sim-title', x.title),
                 ),
@@ -1201,7 +1231,9 @@ export default async function render(ctx) {
               ),
             ),
           )
-        : emptyState('لا توجد حالات مشابهة بالقدر الكافي', null, { compact: true, icon: 'book' }),
+        : emptyState('لا توجد حالات مشابهة بالقدر الكافي', null, { compact: true, icon: 'book', tag: 'CSF-78' }),
+        titleTag: 'CSF-79',
+        tag: 'CSF-80',
     });
   }
 
@@ -1261,8 +1293,10 @@ export default async function render(ctx) {
       subtitle: 'تصل إلى صفحة الطلب للموافقة عليها قبل أي عمل',
       icon: 'wallet',
       className: 'seg-fees-card',
-      actions: !closed && button('إضافة أتعاب', { size: 'sm', icon: 'plus', onClick: () => openFeeSheet({ caseId: c.id, onSaved: () => refresh(null) }) }),
+      actions: !closed && button('إضافة أتعاب', { size: 'sm', icon: 'plus', onClick: () => openFeeSheet({ caseId: c.id, onSaved: () => refresh(null) }), tag: 'CSF-81' }),
       body: host,
+      titleTag: 'CSF-82',
+      tag: 'CSF-83',
     });
   }
 
@@ -1288,8 +1322,8 @@ export default async function render(ctx) {
     const sharedIrs = data.info_requests.filter((r) => r.status === 'shared' && (assignmentId == null || r.assignment_id !== assignmentId));
     let touched = false;
 
-    const factsCb = h('input', { type: 'checkbox' });
-    const nameCb = h('input', { type: 'checkbox' });
+    const factsCb = h('input', { type: 'checkbox', tag: 'CSF-84' });
+    const nameCb = h('input', { type: 'checkbox', tag: 'CSF-85' });
     const maps = { issue: new Map(), document: new Map(), opinion: new Map(), info_request: new Map() };
     const summary = h('p.pb-grants-summary', { 'aria-live': 'polite' });
 
@@ -1313,6 +1347,7 @@ export default async function render(ctx) {
               map.forEach((cb) => (cb.checked = cb.dataset.noBulk ? cb.checked : true));
               onChange();
             },
+            tag: 'CSF-86',
           }),
           button('إلغاء التحديد', {
             size: 'sm',
@@ -1321,6 +1356,7 @@ export default async function render(ctx) {
               map.forEach((cb) => (cb.checked = false));
               onChange();
             },
+            tag: 'CSF-87',
           }),
         );
       return h(
@@ -1332,7 +1368,7 @@ export default async function render(ctx) {
           ? h(
               'div.pb-grants-list',
               list.map((it) => {
-                const cb = h('input', { type: 'checkbox', value: String(keyOf(it)) });
+                const cb = h('input', { type: 'checkbox', value: String(keyOf(it)), tag: 'CSF-88' });
                 cb.addEventListener('change', onChange);
                 map.set(keyOf(it), cb);
                 return h('label.check.pb-grant', cb, h('span.pb-grant-text', renderItem(it)));
@@ -1526,10 +1562,10 @@ export default async function render(ctx) {
     const acts = editable
       ? h(
           'div.btn-group.pb-member-actions',
-          button('تعديل الصلاحيات', { size: 'sm', variant: 'primary', icon: 'shield', onClick: () => openGrantsDialog(a) }),
-          button('تعديل الإسناد', { size: 'sm', icon: 'edit', onClick: () => openEditAssignmentDialog(a) }),
-          a.status === 'approved' && button('إعادة فتح الإسناد للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReengageDialog(a) }),
-          a.status !== 'approved' && button('سحب الإسناد', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openWithdrawDialog(a) }),
+          button('تعديل الصلاحيات', { size: 'sm', variant: 'primary', icon: 'shield', onClick: () => openGrantsDialog(a), tag: 'CSF-89' }),
+          button('تعديل الإسناد', { size: 'sm', icon: 'edit', onClick: () => openEditAssignmentDialog(a), tag: 'CSF-90' }),
+          a.status === 'approved' && button('إعادة فتح الإسناد للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReengageDialog(a), tag: 'CSF-91' }),
+          a.status !== 'approved' && button('سحب الإسناد', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openWithdrawDialog(a), tag: 'CSF-92' }),
         )
       : null;
     return h(
@@ -1540,7 +1576,7 @@ export default async function render(ctx) {
         avatar(a.lawyer_name),
         h(
           'div.pb-member-id',
-          h('a.pb-member-name', { href: `#/lawyers/${a.lawyer_id}` }, a.lawyer_name),
+          h('a.pb-member-name', { href: `#/lawyers/${a.lawyer_id}`, tag: 'CSF-93' }, a.lawyer_name),
           h(
             'div.row',
             statusBadge('assignment_role', a.role),
@@ -1580,14 +1616,14 @@ export default async function render(ctx) {
         alertBox(
           'ما تراه الإدارة ليس بالضرورة ما يراه المحامي: كل عضو يرى فقط ما منحته له صراحة، ولكلٍّ دوره وأتعابه المستقلة.',
           'info',
-          { icon: 'shield' },
+          { icon: 'shield', tag: 'CSF-94' },
         ),
-        !closed && button('إسناد محامٍ', { variant: 'primary', icon: 'userPlus', onClick: () => openAssignDialog() }),
+        !closed && button('إسناد محامٍ', { variant: 'primary', icon: 'userPlus', onClick: () => openAssignDialog(), tag: 'CSF-95' }),
       ),
       active.length
         ? h('div.stack', active.map(memberCard))
-        : emptyState('لم يُسند الملف لأي محامٍ بعد', !closed && button('إسناد محامٍ', { variant: 'primary', icon: 'userPlus', onClick: () => openAssignDialog() }), { icon: 'users' }),
-      withdrawn.length > 0 && h('details.pb-older', h('summary', `إسنادات مسحوبة (${withdrawn.length})`), h('div.stack.mt-2', withdrawn.map(memberCard))),
+        : emptyState('لم يُسند الملف لأي محامٍ بعد', !closed && button('إسناد محامٍ', { variant: 'primary', icon: 'userPlus', onClick: () => openAssignDialog(), tag: 'CSF-96' }), { icon: 'users', tag: 'CSF-97' }),
+      withdrawn.length > 0 && h('details.pb-older', { tag: 'CSF-98' }, h('summary', { tag: 'CSF-99' }, `إسنادات مسحوبة (${withdrawn.length})`), h('div.stack.mt-2', withdrawn.map(memberCard))),
     );
   }
 
@@ -1637,6 +1673,7 @@ export default async function render(ctx) {
           clear(errBox);
           syncPicks();
         },
+        tag: 'CSF-100',
       });
       return h(
         'label.pb-pick',
@@ -1668,7 +1705,7 @@ export default async function render(ctx) {
           pickHost,
           lawyers.length
             ? lawyers.map(pickCard)
-            : emptyState('لا يوجد محامون نشطون غير أعضاء الفريق الحاليين', null, { compact: true, icon: 'users' }),
+            : emptyState('لا يوجد محامون نشطون غير أعضاء الفريق الحاليين', null, { compact: true, icon: 'users', tag: 'CSF-101' }),
         );
       } catch (err) {
         mount(pickHost, errorState(err, loadSuggestions));
@@ -1684,6 +1721,7 @@ export default async function render(ctx) {
         area = v;
         loadSuggestions();
       },
+      tag: 'CSF-102',
     });
 
     const f = form(
@@ -1701,8 +1739,9 @@ export default async function render(ctx) {
             role = v;
             loadDefaults(true);
           },
+          tag: 'CSF-212',
         },
-        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: ctx.meta?.settings?.default_assignment_days ? `إن تُرك فارغًا يكون بعد ${count(ctx.meta.settings.default_assignment_days, 'day')} من الإسناد (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.' },
+        { name: 'due_at', label: 'موعد التسليم', type: 'date', endOfDay: true, hint: ctx.meta?.settings?.default_assignment_days ? `إن تُرك فارغًا يكون بعد ${count(ctx.meta.settings.default_assignment_days, 'day')} من الإسناد (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.', tag: 'CSF-213' },
         {
           name: 'fee_mode',
           label: 'معاملة الأتعاب لهذا الإسناد',
@@ -1714,8 +1753,9 @@ export default async function render(ctx) {
           onChange: (v, fapi) => {
             fapi.control('fee_amount').wrap.hidden = v !== 'custom';
           },
+          tag: 'CSF-214',
         },
-        { name: 'fee_amount', label: 'مبلغ الأتعاب', type: 'money', min: 0.01, hint: 'يُستحق للمحامي عند اعتماد رأيه أو حسب اتفاقه.' },
+        { name: 'fee_amount', label: 'مبلغ الأتعاب', type: 'money', min: 0.01, hint: 'يُستحق للمحامي عند اعتماد رأيه أو حسب اتفاقه.', tag: 'CSF-215' },
         {
           name: 'brief',
           label: 'السؤال المطلوب تحديدًا',
@@ -1726,6 +1766,7 @@ export default async function render(ctx) {
           rows: 4,
           placeholder: 'مثال: إبداء الرأي في الأثر الضريبي لبيع الشقة الموروثة (المسألة رقم 3 فقط).',
           hint: 'كلما كان السؤال محددًا كان الرأي أدق وأسرع.',
+          tag: 'CSF-216',
         },
       ],
       {
@@ -1736,6 +1777,7 @@ export default async function render(ctx) {
           brief: counsel ? `${label('counsel_kind', counsel.kind)}: ${counsel.description || ''}` : !activeLead && role === 'lead' && c.brief_draft ? c.brief_draft : '',
         },
         footer: false,
+        tag: 'CSF-217',
       },
     );
     f.control('fee_amount').wrap.hidden = true;
@@ -1744,7 +1786,7 @@ export default async function render(ctx) {
     let requester = null;
     if (counsel) {
       requester = assignmentById.get(counsel.requester_assignment_id);
-      shareCb = h('input', { type: 'checkbox', checked: true });
+      shareCb = h('input', { type: 'checkbox', checked: true, tag: 'CSF-103' });
     }
 
     let result = null;
@@ -1758,18 +1800,18 @@ export default async function render(ctx) {
             h('div.pb-pre', counsel.description),
           ),
           'info',
-          { title: 'طلب مساعدة محامٍ', icon: 'users' },
+          { title: 'طلب مساعدة محامٍ', icon: 'users', tag: 'CSF-104' },
         ),
       h(
         'section.pb-dialog-section',
-        h('h3.pb-dialog-h', h('span.pb-dialog-num', '1'), 'اختيار المحامي'),
+        { tag: 'CSF-105' }, h('h3.pb-dialog-h', { tag: 'CSF-106' }, h('span.pb-dialog-num', '1'), 'اختيار المحامي'),
         h('div.row.pb-area-row', h('span.small.muted', 'ترتيب المحامين حسب الملاءمة لتخصص:'), areaSel),
         pickHost,
       ),
-      h('section.pb-dialog-section', h('h3.pb-dialog-h', h('span.pb-dialog-num', '2'), 'الدور والتكليف والأتعاب'), f.el),
+      h('section.pb-dialog-section', { tag: 'CSF-107' }, h('h3.pb-dialog-h', { tag: 'CSF-108' }, h('span.pb-dialog-num', '2'), 'الدور والتكليف والأتعاب'), f.el),
       h(
         'section.pb-dialog-section',
-        h('h3.pb-dialog-h', h('span.pb-dialog-num', '3'), 'ما يراه هذا المحامي'),
+        { tag: 'CSF-109' }, h('h3.pb-dialog-h', { tag: 'CSF-110' }, h('span.pb-dialog-num', '3'), 'ما يراه هذا المحامي'),
         rolesNote,
         grants.el,
         counsel &&
@@ -1787,7 +1829,7 @@ export default async function render(ctx) {
       size: 'lg',
       body,
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'CSF-111' },
         {
           label: 'إسناد المحامي',
           variant: 'primary',
@@ -1795,7 +1837,7 @@ export default async function render(ctx) {
           onClick: async () => {
             clear(errBox);
             const showErr = (msg) => {
-              mount(errBox, alertBox(msg, 'danger'));
+              mount(errBox, alertBox(msg, 'danger', { tag: 'CSF-112' }));
               errBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             };
             if (!selected) {
@@ -1830,6 +1872,7 @@ export default async function render(ctx) {
             }
             return undefined;
           },
+          tag: 'CSF-113',
         },
       ],
       onClose: async (reason) => {
@@ -1837,6 +1880,7 @@ export default async function render(ctx) {
         (result.warnings || []).forEach((w) => toast(w, 'warning', 9000));
         await refresh(counsel ? 'تم إسناد طلب المساعدة وأُبلغ المحاميان' : 'تم الإسناد للمحامي وأُبلغ به', { tab: counsel ? 'requests' : 'team' });
       },
+      tag: 'CSF-114',
     });
     loadSuggestions();
     loadDefaults(false);
@@ -1853,7 +1897,7 @@ export default async function render(ctx) {
         ed.el,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'CSF-115' },
         {
           label: 'حفظ الصلاحيات',
           variant: 'primary',
@@ -1862,11 +1906,13 @@ export default async function render(ctx) {
             await api.put(`/admin/assignments/${a.id}/grants`, ed.value());
             saved = true;
           },
+          tag: 'CSF-116',
         },
       ],
       onClose: () => {
         if (saved) refresh('تم تحديث ما يراه المحامي وأُبلغ بالتحديث', { tab: 'team' });
       },
+      tag: 'CSF-117',
     });
   }
 
@@ -1876,8 +1922,8 @@ export default async function render(ctx) {
       title: `تعديل إسناد ${a.lawyer_name}`,
       intro: locked ? 'سُجلت واقعة الاستحقاق لهذا الإسناد، لذا لا يمكن تعديل الأتعاب.' : null,
       fields: [
-        { name: 'brief', label: 'السؤال المطلوب تحديدًا', type: 'textarea', rows: 4, maxLength: 5000 },
-        { name: 'due_at', label: 'موعد التسليم', type: 'datetime' },
+        { name: 'brief', label: 'السؤال المطلوب تحديدًا', type: 'textarea', rows: 4, maxLength: 5000, tag: 'CSF-218' },
+        { name: 'due_at', label: 'موعد التسليم', type: 'datetime', tag: 'CSF-219' },
         {
           name: 'fee_mode',
           label: 'معاملة الأتعاب',
@@ -1888,8 +1934,9 @@ export default async function render(ctx) {
           onChange: (v, fapi) => {
             fapi.control('fee_amount').wrap.hidden = v !== 'custom';
           },
+          tag: 'CSF-220',
         },
-        { name: 'fee_amount', label: 'مبلغ الأتعاب', type: 'money', min: 0.01, disabled: locked },
+        { name: 'fee_amount', label: 'مبلغ الأتعاب', type: 'money', min: 0.01, disabled: locked, tag: 'CSF-221' },
       ],
       values: { brief: a.brief || '', due_at: a.due_at, fee_mode: a.fee_mode, fee_amount: a.fee_amount },
       setup: (f) => {
@@ -1932,6 +1979,7 @@ export default async function render(ctx) {
           maxLength: 5000,
           rows: 4,
           hint: 'حدّث السؤال بما يحتاجه الملف الآن حتى يعرف المحامي المطلوب منه بدقة.',
+          tag: 'CSF-222',
         },
         {
           name: 'due_at',
@@ -1939,6 +1987,7 @@ export default async function render(ctx) {
           type: 'date',
           endOfDay: true,
           hint: days ? `إن تُرك فارغًا يكون بعد ${count(days, 'day')} من اليوم (المدة الافتراضية في الإعدادات).` : 'إن تُرك فارغًا يُحدَّد حسب المدة الافتراضية في الإعدادات.',
+          tag: 'CSF-223',
         },
       ],
       values: { brief: a.brief || '' },
@@ -1956,7 +2005,7 @@ export default async function render(ctx) {
       danger: true,
       submitLabel: 'نعم، سحب الإسناد',
       submitIcon: 'x',
-      fields: [{ name: 'note', label: 'سبب السحب (يصل للمحامي)', type: 'textarea', rows: 3, maxLength: 500 }],
+      fields: [{ name: 'note', label: 'سبب السحب (يصل للمحامي)', type: 'textarea', rows: 3, maxLength: 500, tag: 'CSF-224' }],
       onSubmit: (v) => api.post(`/admin/assignments/${a.id}/withdraw`, { note: v.note || null }),
     });
     if (res) await refresh('تم سحب الإسناد', { tab: 'team' });
@@ -1990,9 +2039,23 @@ export default async function render(ctx) {
     if (!docs || !docs.length) return null;
     return h(
       'div.pb-doc-chips',
-      docs.map((d) =>
-        h('a.doc-chip', { href: downloadUrl(d.id), target: '_blank', rel: 'noopener noreferrer', title: `تنزيل ${d.filename || d.title}` }, icon('paperclip', { size: 14 }), h('span', { dir: 'auto' }, d.title || d.filename)),
-      ),
+      docs.map((d) => {
+        // v12 gate (K-S1): الصورة وملف PDF يُفتحان في العارض (النسخة المحسّنة و«الأصل»)، وغيرهما تنزيل كما كان
+        const viewable = docKind(d) !== 'doc';
+        return h(
+          'a.doc-chip',
+          {
+            href: downloadUrl(d.id),
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            title: `${viewable ? 'عرض' : 'تنزيل'} ${d.filename || d.title}`,
+            onClick: viewable ? (e) => (e.preventDefault(), openDocument(d)) : null,
+            tag: 'CSF-118',
+          },
+          icon('paperclip', { size: 14 }),
+          fileName(d.title || d.filename), // gate V-10
+        );
+      }),
     );
   }
 
@@ -2004,20 +2067,20 @@ export default async function render(ctx) {
     if (!closed) {
       if (r.status === 'pending_admin' && (r.kind === 'extension' || r.kind === 'admin_question' || r.duplicate_of_id)) {
         // v9.1 l-work: طلب مهلة أو سؤال للإدارة أو طلب مكرر — لا يُرسل للمستفيد/ة أبدًا
-        acts.push(button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
-        acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
+        acts.push(button(r.kind === 'extension' ? 'الرد على طلب المهلة' : 'الرد على المحامي', { variant: 'primary', size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }), tag: 'CSF-119' }));
+        acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r), tag: 'CSF-120' }));
       } else if (r.status === 'pending_admin') {
-        acts.push(button(company ? 'موافقة وإرسال للشركة' : `موافقة وإرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r) })); // v10 b2b-staff
-        acts.push(button(company ? 'الرد مباشرة دون سؤال الشركة' : `الرد مباشرة دون سؤال ${N.def}`, { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }) }));
-        acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r) }));
+        acts.push(button(company ? 'موافقة وإرسال للشركة' : `موافقة وإرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openApproveIrDialog(r), tag: 'CSF-121' })); // v10 b2b-staff
+        acts.push(button(company ? 'الرد مباشرة دون سؤال الشركة' : `الرد مباشرة دون سؤال ${N.def}`, { size: 'sm', icon: 'checkCircle', onClick: () => openShareIrDialog(r, { direct: true }), tag: 'CSF-122' }));
+        acts.push(button('رفض الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectIrDialog(r), tag: 'CSF-123' }));
       } else if (r.status === 'sent_to_client') {
-        if (!company) acts.push(button(`تسجيل رد ${N.def}`, { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) })); // v10 b2b-staff: الشركة ترد من بوابتها
-        acts.push(button('إتاحة للمحامي', { size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r) }));
-        acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r) }));
+        if (!company) acts.push(button(`تسجيل رد ${N.def}`, { variant: 'primary', size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r), tag: 'CSF-124' })); // v10 b2b-staff: الشركة ترد من بوابتها
+        acts.push(button('إتاحة للمحامي', { size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r), tag: 'CSF-125' }));
+        acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r), tag: 'CSF-126' }));
       } else if (r.status === 'client_replied') {
-        acts.push(button('مراجعة وإتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r) }));
-        acts.push(button('تسجيل رد إضافي', { size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r) }));
-        acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r) }));
+        acts.push(button('مراجعة وإتاحة للمحامي', { variant: 'primary', size: 'sm', icon: 'shieldCheck', onClick: () => openShareIrDialog(r), tag: 'CSF-127' }));
+        acts.push(button('تسجيل رد إضافي', { size: 'sm', icon: 'message', onClick: () => openRecordReplyDialog(r), tag: 'CSF-128' }));
+        acts.push(button('إلغاء الطلب', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => cancelIr(r), tag: 'CSF-129' }));
       }
     }
     const showSteps = !['rejected', 'cancelled'].includes(r.status);
@@ -2060,8 +2123,8 @@ export default async function render(ctx) {
     const docs = (r.document_ids || []).map((did) => docById.get(did)).filter(Boolean);
     const acts = [];
     if (!closed && r.status === 'pending_admin') {
-      acts.push(button('إسناد إلى محامٍ', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: () => openAssignDialog({ counsel: r }) }));
-      acts.push(button('رفض', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectCounselDialog(r) }));
+      acts.push(button('إسناد إلى محامٍ', { variant: 'primary', size: 'sm', icon: 'userPlus', onClick: () => openAssignDialog({ counsel: r }), tag: 'CSF-130' }));
+      acts.push(button('رفض', { size: 'sm', variant: 'ghost', icon: 'x', onClick: () => openRejectCounselDialog(r), tag: 'CSF-131' }));
     }
     return h(
       'article.pb-req',
@@ -2088,7 +2151,7 @@ export default async function render(ctx) {
           icon('userPlus', { size: 15 }),
           `أُسند إلى ${assigned.lawyer_name} (الدور: ${label('assignment_role', assigned.role)}) — `,
           statusBadge('assignment_status', assigned.status),
-          button('عرض في الفريق', { size: 'sm', variant: 'link', onClick: () => goTab('team') }),
+          button('عرض في الفريق', { size: 'sm', variant: 'link', onClick: () => goTab('team'), tag: 'CSF-132' }),
         ),
       acts.length > 0 && h('div.btn-group', acts),
     );
@@ -2104,22 +2167,26 @@ export default async function render(ctx) {
       alertBox(
         company // v10 b2b-staff (U10-S10)
           ? 'المحامي لا يتواصل مع الشركة أبدًا: توافق الإدارة على طلبه فيصل الشركة عبر بوابتها، ثم تراجع الإدارة الرد وتتيحه للمحامي بعد حذف أسماء موظفي الشركة وبياناتهم تلقائيًا.'
-          : `المحامي لا يتواصل مع ${N.def} أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل المؤسسة مع ${N.def}، ثم تراجع الإدارة الرد وتتيحه للمحامي.`,
+          : `المحامي لا يتواصل مع ${N.def} أبدًا: يضغط «طلب معلومات» أو «طلب مستند» أو «طلب مساعدة محامٍ»، فتوافق الإدارة وتتواصل مع ${N.def}، ثم تراجع الإدارة الرد وتتيحه للمحامي.`,
         'info',
-        { icon: 'shield' },
+        { icon: 'shield', tag: 'CSF-133' },
       ),
       card({
         title: 'طلبات المعلومات والمستندات',
         subtitle: `كل طلب يمر بالإدارة قبل أن يصل ${N.li}، وكل رد يمر بها قبل أن يصل للمحامي`, // v10 b2b-staff
         icon: 'mail',
-        actions: !closed && (company ? companyLink('سؤال للشركة من صفحة الطلب') : button(`طلب من ${N.def} مباشرة`, { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog() })), // v10 b2b-staff
-        body: irs.length ? h('div.stack', irs.map(infoRequestCard)) : emptyState('لا توجد طلبات معلومات أو مستندات في هذا الملف', null, { compact: true, icon: 'mail' }),
+        actions: !closed && (company ? companyLink('سؤال للشركة من صفحة الطلب') : button(`طلب من ${N.def} مباشرة`, { size: 'sm', variant: 'primary', icon: 'send', onClick: () => openStaffRequestDialog(), tag: 'CSF-134' })), // v10 b2b-staff
+        body: irs.length ? h('div.stack', irs.map(infoRequestCard)) : emptyState('لا توجد طلبات معلومات أو مستندات في هذا الملف', null, { compact: true, icon: 'mail', tag: 'CSF-135' }),
+        titleTag: 'CSF-136',
+        tag: 'CSF-137',
       }),
       card({
         title: 'طلبات مساعدة محامٍ',
         subtitle: 'رأي ثانٍ، رأي متخصص، مراجعة مستند، أو مشاركة محامٍ — تختار الإدارة المحامي وتحدد ما يراه',
         icon: 'users',
-        body: crs.length ? h('div.stack', crs.map(counselCard)) : emptyState('لم يطلب أي محامٍ مساعدة في هذا الملف', null, { compact: true, icon: 'users' }),
+        body: crs.length ? h('div.stack', crs.map(counselCard)) : emptyState('لم يطلب أي محامٍ مساعدة في هذا الملف', null, { compact: true, icon: 'users', tag: 'CSF-138' }),
+        titleTag: 'CSF-139',
+        tag: 'CSF-140',
       }),
     );
   }
@@ -2128,14 +2195,14 @@ export default async function render(ctx) {
     const res = await formModal({
       title: `طلب معلومة أو مستند من ${N.def} مباشرة`,
       // (إصلاح 9.1) لا يصلها كود الملف أبدًا (رقم واحد: رقم طلبها)
-      intro: `تُرسل الرسالة باسم المؤسسة. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
+      intro: `تُرسل الرسالة باسم ${FIRM}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم الطلب ورابط صفحة المتابعة وطريقة الرد.`,
       fields: [
-        { name: 'kind', label: 'نوع الطلب', type: 'select', required: true, placeholder: false, options: options('info_request_kind').filter((o) => o.value === 'document' || o.value === 'information') }, // v9.1 l-work
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
-        { name: 'question', label: 'المطلوب (للسجل الداخلي)', type: 'textarea', required: true, minLength: 5, maxLength: 3000, rows: 3 },
-        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', maxLength: 3000, rows: 4, hint: 'اتركه فارغًا لإرسال نص المطلوب كما هو.' },
+        { name: 'kind', label: 'نوع الطلب', type: 'select', required: true, placeholder: false, options: options('info_request_kind').filter((o) => o.value === 'document' || o.value === 'information'), tag: 'CSF-225' }, // v9.1 l-work
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-226' },
+        { name: 'question', label: 'المطلوب (للسجل الداخلي)', type: 'textarea', required: true, minLength: 5, maxLength: 3000, rows: 3, tag: 'CSF-227' },
+        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', maxLength: 3000, rows: 4, hint: 'اتركه فارغًا لإرسال نص المطلوب كما هو.', tag: 'CSF-228' },
         // v9.1 b-portal (B91-03): لطلب المستند فقط — صف «صوّري» لكل بند في صفحة المتابعة
-        { name: 'items', label: 'البنود المطلوبة (لطلب المستند، بند في كل سطر)', type: 'textarea', rows: 3, maxLength: 450, hint: 'اختياري، حتى 5 بنود. يُتجاهل في طلب المعلومة.' },
+        { name: 'items', label: 'البنود المطلوبة (لطلب المستند، بند في كل سطر)', type: 'textarea', rows: 3, maxLength: 450, hint: 'اختياري، حتى 5 بنود. يُتجاهل في طلب المعلومة.', tag: 'CSF-229' },
       ],
       values: { kind: prefill.kind || 'information', channel: 'auto', question: prefill.question || '' },
       submitLabel: `إرسال ${N.li}`,
@@ -2165,8 +2232,8 @@ export default async function render(ctx) {
         intro: 'يصل إلى: الشركة (عبر بوابتها). يتوقف موعد التسليم حتى ترد الشركة. لا تذكر اسم المحامي؛ الشركة لا ترى أسماء المحامين.',
         before: textBlock(r.assignment_id ? 'صياغة المحامي (لن تراها الشركة)' : 'المطلوب', r.question, { iconName: 'fileText' }),
         fields: [
-          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5 },
-          ...(r.kind === 'document' ? [{ name: 'items', label: 'البنود المطلوبة (بند في كل سطر، حتى 5)', type: 'textarea', rows: 3, maxLength: 1000 }] : []),
+          { name: 'client_message', label: 'نص الرسالة للشركة', type: 'textarea', required: true, maxLength: 3000, rows: 5, tag: 'CSF-230' },
+          ...(r.kind === 'document' ? [{ name: 'items', label: 'البنود المطلوبة (بند في كل سطر، حتى 5)', type: 'textarea', rows: 3, maxLength: 1000, tag: 'CSF-231' }] : []),
         ],
         values: { client_message: r.question, items: irItemLines(r) },
         submitLabel: 'إرسال للشركة',
@@ -2178,13 +2245,13 @@ export default async function render(ctx) {
     }
     const res = await formModal({
       title: `موافقة وإرسال الطلب ${N.li}`,
-      intro: `صِغ السؤال بكلام بسيط مناسب ${N.li}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم طلبه/ا ورابط صفحة المتابعة وطريقة الرد.`,
+      intro: `صِغ السؤال بكلام بسيط مناسب ${N.li}. على واتساب يُضاف تلقائيًا اسم ${N.def} ورقم الطلب ورابط صفحة المتابعة وطريقة الرد.`,
       before: textBlock(r.assignment_id ? `صياغة المحامي (لن يراها ${N.def})` : 'المطلوب', r.question, { iconName: 'fileText' }),
       fields: [
-        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', required: true, maxLength: 3000, rows: 5 },
+        { name: 'client_message', label: `نص الرسالة ${N.li}`, type: 'textarea', required: true, maxLength: 3000, rows: 5, tag: 'CSF-232' },
         // v9.1 b-portal (B91-03): بند لكل ورقة ← صف «صوّري» لكل بند في صفحة المتابعة
-        ...(r.kind === 'document' ? [{ name: 'items', label: `البنود المطلوبة من ${N.def} (بند في كل سطر)`, type: 'textarea', rows: 3, maxLength: 450, hint: 'حتى 5 بنود، كل بند 80 حرفًا على الأكثر. تظهر لها في صفحتها صفًّا «صوّري» لكل بند.' }] : []),
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
+        ...(r.kind === 'document' ? [{ name: 'items', label: `البنود المطلوبة من ${N.def} (بند في كل سطر)`, type: 'textarea', rows: 3, maxLength: 450, hint: 'حتى 5 بنود، كل بند 80 حرفًا على الأكثر. تظهر لها في صفحتها صفًّا «صوّري» لكل بند.', tag: 'CSF-233' }] : []),
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-234' },
       ],
       values: { client_message: r.question, channel: 'auto', items: irItemLines(r) },
       submitLabel: `إرسال ${N.li}`,
@@ -2201,7 +2268,7 @@ export default async function render(ctx) {
       before: textBlock('صياغة المحامي', r.question, { iconName: 'fileText' }),
       danger: true,
       submitLabel: 'رفض الطلب',
-      fields: [{ name: 'note', label: 'سبب الرفض', type: 'textarea', required: true, maxLength: 2000, rows: 3 }],
+      fields: [{ name: 'note', label: 'سبب الرفض', type: 'textarea', required: true, maxLength: 2000, rows: 3, tag: 'CSF-235' }],
       onSubmit: (v) => api.post(`/admin/info-requests/${r.id}/reject`, { note: v.note }),
     });
     if (res) await refresh('رُفض الطلب وأُبلغ المحامي', { tab: 'requests' });
@@ -2225,17 +2292,17 @@ export default async function render(ctx) {
         textBlock(r.assignment_id ? 'صياغة المحامي' : 'المطلوب', r.question, { iconName: 'fileText' }),
         textBlock(`رد ${WHO} كما ورد`, r.client_reply, { iconName: 'message', tone: 'client' }), // v10 b2b-staff
         !requester && !others.length
-          ? alertBox('لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبويب «الفريق والصلاحيات»، أو ألغِ الطلب إن لم يعد مطلوبًا.', 'warning')
+          ? alertBox('لا يوجد في فريق الملف محامٍ يُتاح له الرد. أسند محاميًا أولًا من تبويب «الفريق والصلاحيات»، أو ألغِ الطلب إن لم يعد مطلوبًا.', 'warning', { tag: 'CSF-141' })
           : null,
-        linked.length ? alertBox(`يصل الرد نفسه تلقائيًا أيضًا إلى: ${linked.map((a) => a.lawyer_name).join('، ')} (طلبوا الشيء نفسه).`, 'info', { icon: 'link' }) : null, // v9.1 l-work
+        linked.length ? alertBox(`يصل الرد نفسه تلقائيًا أيضًا إلى: ${linked.map((a) => a.lawyer_name).join('، ')} (طلبوا الشيء نفسه).`, 'info', { icon: 'link', tag: 'CSF-142' }) : null, // v9.1 l-work
         // v9.1 fixes: بنود لم يصل لها شيء بعد
-        (r.items_needed || []).length ? alertBox(`لم يصل بعد من ${WHO}: ${r.items_needed.join('، ')}.${company ? ' اطلبه من الشركة بـ«سؤال للشركة» في صفحة طلب الشركة.' : ''}`, 'warning') : null, // v10 b2b-staff
+        (r.items_needed || []).length ? alertBox(`لم يصل بعد من ${WHO}: ${r.items_needed.join('، ')}.${company ? ' اطلبه من الشركة بـ«سؤال للشركة» في صفحة طلب الشركة.' : ''}`, 'warning', { tag: 'CSF-143' }) : null, // v10 b2b-staff
       ),
       fields: [
         // v10 b2b-staff (review): طلب المتابعة الآلي لا يصل بوابة الشركة — في ملف الشركة يُطلب الباقي بـ«سؤال للشركة»
-        (r.items_needed || []).length > 0 && !company && { name: 'request_rest', type: 'checkbox', label: `اطلب الباقي من ${N.def} (يظهر في صفحتها «لسه محتاجين»)`, full: true },
+        (r.items_needed || []).length > 0 && !company && { name: 'request_rest', type: 'checkbox', label: `اطلب الباقي من ${N.def} (يظهر في صفحتها «لسه محتاجين»)`, full: true, tag: 'CSF-236' },
         // v9.1 l-work: الموافقة على طلب المهلة تمدّد موعد التسليم في نفس الخطوة
-        r.kind === 'extension' && r.requested_due_at && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true },
+        r.kind === 'extension' && r.requested_due_at && { name: 'approve_extension', type: 'checkbox', label: `تمديد الموعد إلى ${dateTime(r.requested_due_at)}`, full: true, tag: 'CSF-237' },
         {
           name: 'response_text',
           label: 'الرد المتاح للمحامي',
@@ -2244,6 +2311,7 @@ export default async function render(ctx) {
           maxLength: 10000,
           rows: 5,
           hint: `صِغ المعلومة بشكل مهني ومحايد، دون بيانات تواصل ${N.def}.`,
+          tag: 'CSF-238',
         },
         docs.length > 0 && {
           name: 'document_ids',
@@ -2252,6 +2320,7 @@ export default async function render(ctx) {
           options: docs.map((d) => ({ value: d.id, label: d.title })),
           // v9.1 b-forms: الرسائل الصوتية لا تُحدَّد تلقائيًا (نفس قاعدة «كل المستندات»)
           hint: docs.some((d) => d.info_request_id === r.id && String(d.mime || '').startsWith('audio/')) ? 'الرسائل الصوتية قد تحتوي بيانات تواصل؛ اكتبوا ملخصها في الرد بدل إتاحتها للمحامي' : null,
+          tag: 'CSF-239',
         },
         others.length > 0 && {
           name: 'share_with_assignment_ids',
@@ -2260,6 +2329,7 @@ export default async function render(ctx) {
           required: !requester && !linked.length, // v9.1 l-work
           hint: requester || linked.length ? null : 'أنشأت الإدارة هذا الطلب، فلا يصل الرد لأي محامٍ إلا من تختاره هنا.',
           options: others.map((a) => ({ value: a.id, label: `${a.lawyer_name} — ${label('assignment_role', a.role)}` })),
+          tag: 'CSF-240',
         },
       ],
       values: {
@@ -2301,15 +2371,16 @@ export default async function render(ctx) {
       before: textBlock(`الرسالة المرسلة ${N.li}`, r.client_message || r.question, { iconName: 'send', meta: r.sent_at ? dateTime(r.sent_at) : null }),
       fields: [
         inbound.length
-          ? { name: 'message_ids', label: `رسائل ${N.def} (الأحدث أولًا)`, type: 'checkboxes', options: inbound.map((m) => ({ value: m.id, label: msgLabel(m) })) }
-          : { name: '_none', type: 'static', label: `رسائل ${N.def}`, value: `لا توجد رسائل واردة من ${N.def} في هذا الملف بعد`, full: true },
+          ? { name: 'message_ids', label: `رسائل ${N.def} (الأحدث أولًا)`, type: 'checkboxes', options: inbound.map((m) => ({ value: m.id, label: msgLabel(m) })), tag: 'CSF-241' }
+          : { name: '_none', type: 'static', label: `رسائل ${N.def}`, value: `لا توجد رسائل واردة من ${N.def} في هذا الملف بعد`, full: true, tag: 'CSF-242' },
         linkable.length > 0 && {
           name: 'document_ids',
           label: 'مستندات أخرى في الملف تخص هذا الطلب',
           type: 'checkboxes',
           options: linkable.map((d) => ({ value: d.id, label: d.title })),
+          tag: 'CSF-243',
         },
-        { name: 'reply_text', label: 'ملخص الرد (اختياري)', type: 'textarea', rows: 3, maxLength: 10000, hint: `مثلًا إن أفاد ${N.def} بالمعلومة في مكالمة هاتفية.` },
+        { name: 'reply_text', label: 'ملخص الرد (اختياري)', type: 'textarea', rows: 3, maxLength: 10000, hint: `مثلًا إن أفاد ${N.def} بالمعلومة في مكالمة هاتفية.`, tag: 'CSF-244' },
       ],
       values: {
         message_ids: inbound.filter((m) => after && new Date(m.created_at).getTime() > after).map((m) => m.id),
@@ -2330,7 +2401,7 @@ export default async function render(ctx) {
   async function cancelIr(r) {
     const ok = await confirmAction({
       title: 'إلغاء طلب المعلومات',
-      message: `سيُلغى الطلب ولن تتابعه المؤسسة مع ${N.def}، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟`,
+      message: `سيُلغى الطلب ولن نتابعه مع ${N.def}، ولن تُرسل له تذكيرات آلية. هل تريد المتابعة؟`,
       confirmLabel: 'نعم، إلغاء الطلب',
     });
     if (!ok) return;
@@ -2348,7 +2419,7 @@ export default async function render(ctx) {
       intro: 'سيصل سبب الرفض للمحامي الذي طلب المساعدة.',
       danger: true,
       submitLabel: 'رفض الطلب',
-      fields: [{ name: 'note', label: 'سبب الرفض', type: 'textarea', required: true, maxLength: 2000, rows: 3 }],
+      fields: [{ name: 'note', label: 'سبب الرفض', type: 'textarea', required: true, maxLength: 2000, rows: 3, tag: 'CSF-245' }],
       onSubmit: (v) => api.post(`/admin/counsel-requests/${r.id}/reject`, { note: v.note }),
     });
     if (res) await refresh('رُفض طلب المساعدة وأُبلغ المحامي', { tab: 'requests' });
@@ -2373,7 +2444,7 @@ export default async function render(ctx) {
     const sr = { done: 'مكتملة', current: 'المرحلة الحالية', todo: 'لم تبدأ بعد' };
     return h(
       'section.card.pb-pipeline-card',
-      h(
+      { tag: 'CSF-144' }, h(
         'div.card-body',
         h(
           'ol.pb-pipeline',
@@ -2395,12 +2466,12 @@ export default async function render(ctx) {
   function opinionItem(o, a) {
     const acts = [];
     if (!closed && o.status === 'submitted') {
-      acts.push(button('اعتماد الرأي', { variant: 'primary', size: 'sm', icon: 'check', onClick: () => openApproveOpinionDialog(o, a) }));
-      acts.push(button('إعادة للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReturnOpinionDialog(o, a) }));
+      acts.push(button('اعتماد الرأي', { variant: 'primary', size: 'sm', icon: 'check', onClick: () => openApproveOpinionDialog(o, a), tag: 'CSF-145' }));
+      acts.push(button('إعادة للمحامي', { size: 'sm', icon: 'refresh', onClick: () => openReturnOpinionDialog(o, a), tag: 'CSF-146' }));
     }
     if (!closed && o.status === 'approved' && company) acts.push(companyLink('إعداد التسليم من صفحة طلب الشركة'));
     else if (!closed && o.status === 'approved') {
-      acts.push(button(`إعداد رد ${N.li} من هذا الرأي`, { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ opinion: o, answer: latestDraft() }) }));
+      acts.push(button(`إعداد رد ${N.li} من هذا الرأي`, { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ opinion: o, answer: latestDraft() }), tag: 'CSF-147' }));
     }
     return h(
       'article.pb-opinion',
@@ -2429,7 +2500,9 @@ export default async function render(ctx) {
       return card({
         title: 'آراء المحامين',
         icon: 'fileText',
-        body: emptyState(activeTeam.length ? 'لم يقدّم أي محامٍ رأيه بعد. ستظهر الآراء هنا فور تقديمها للإدارة.' : 'أسند الملف لمحامٍ أولًا ليقدّم رأيه.', null, { compact: true, icon: 'fileText' }),
+        body: emptyState(activeTeam.length ? 'لم يقدّم أي محامٍ رأيه بعد. ستظهر الآراء هنا فور تقديمها للإدارة.' : 'أسند الملف لمحامٍ أولًا ليقدّم رأيه.', null, { compact: true, icon: 'fileText', tag: 'CSF-148' }),
+        titleTag: 'CSF-149',
+        tag: 'CSF-150',
       });
     }
     const orderedIds = data.assignments.map((a) => a.id).filter((x) => groups.has(x));
@@ -2447,8 +2520,10 @@ export default async function render(ctx) {
           body: h(
             'div.stack',
             opinionItem(latest, a),
-            older.length > 0 && h('details.pb-older', h('summary', `الإصدارات السابقة (${older.length})`), h('div.stack.mt-2', older.map((o) => opinionItem(o, a)))),
+            older.length > 0 && h('details.pb-older', { tag: 'CSF-151' }, h('summary', { tag: 'CSF-152' }, `الإصدارات السابقة (${older.length})`), h('div.stack.mt-2', older.map((o) => opinionItem(o, a)))),
           ),
+          titleTag: 'CSF-153',
+          tag: 'CSF-154',
         });
       }),
     );
@@ -2476,8 +2551,8 @@ export default async function render(ctx) {
           !closed &&
           h(
             'div.btn-group.mt-3',
-            button(`إرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openSendAnswerDialog(ans) }),
-            button('تعديل', { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ answer: ans }) }),
+            button(`إرسال ${N.li}`, { variant: 'primary', size: 'sm', icon: 'send', onClick: () => openSendAnswerDialog(ans), tag: 'CSF-155' }),
+            button('تعديل', { size: 'sm', icon: 'edit', onClick: () => openAnswerDialog({ answer: ans }), tag: 'CSF-156' }),
           ),
       );
     };
@@ -2488,10 +2563,12 @@ export default async function render(ctx) {
       actions:
         !closed &&
         approved.length > 0 &&
-        button(latestDraft() ? 'متابعة مسودة الرد' : `إعداد رد ${N.li}`, { size: 'sm', variant: 'primary', icon: 'edit', onClick: () => openAnswerDialog({ answer: latestDraft() }) }),
+        button(latestDraft() ? 'متابعة مسودة الرد' : `إعداد رد ${N.li}`, { size: 'sm', variant: 'primary', icon: 'edit', onClick: () => openAnswerDialog({ answer: latestDraft() }), tag: 'CSF-157' }),
       body: answers.length
         ? h('div.stack', answers.map(item))
-        : emptyState(approved.length ? `لم يُعَدّ رد ${N.li} بعد. ابدأ من رأي معتمد.` : `لا يوجد رأي معتمد بعد؛ اعتمد رأي المحامي أولًا ثم أعِدّ الرد ${N.li}.`, null, { compact: true, icon: 'send' }),
+        : emptyState(approved.length ? `لم يُعَدّ رد ${N.li} بعد. ابدأ من رأي معتمد.` : `لا يوجد رأي معتمد بعد؛ اعتمد رأي المحامي أولًا ثم أعِدّ الرد ${N.li}.`, null, { compact: true, icon: 'send', tag: 'CSF-158' }),
+        titleTag: 'CSF-159',
+        tag: 'CSF-160',
     });
   }
 
@@ -2501,7 +2578,7 @@ export default async function render(ctx) {
 
   function renderOpinions() {
     // v10 b2b-staff (U10-S10): مراجعة الآراء كما هي؛ الرد للشركة تسليمٌ يُعَدّ من صفحة طلب الشركة
-    if (company) return h('div.stack-lg', opinionGroups(), card({ title: 'التسليم للشركة', icon: 'send', body: companyLine('يُعَدّ التسليم من الرأي المعتمد ويُرسل للشركة من صفحة طلب الشركة («إعداد تسليم»).') }));
+    if (company) return h('div.stack-lg', opinionGroups(), card({ title: 'التسليم للشركة', icon: 'send', body: companyLine('يُعَدّ التسليم من الرأي المعتمد ويُرسل للشركة من صفحة طلب الشركة («إعداد تسليم»).'), titleTag: 'CSF-161', tag: 'CSF-162' }));
     return h('div.stack-lg', pipeline(), opinionGroups(), answersCard());
   }
 
@@ -2515,9 +2592,10 @@ export default async function render(ctx) {
           h(
             'span',
             `وصل للمحامي رد على طلبه بعد التقديم (${late.map((x) => x.question).join('، ')}). `,
-            h('button.btn-link', { type: 'button', onClick: () => { if (modalRef) modalRef.close(); openReturnOpinionDialog(o, a); } }, 'إعادة للمحامي'),
+            h('button.btn-link', { type: 'button', onClick: () => { if (modalRef) modalRef.close(); openReturnOpinionDialog(o, a); }, tag: 'CSF-163' }, 'إعادة للمحامي'),
           ),
           'warning',
+          { tag: 'CSF-164' },
         )
       : null;
     const res = await formModal({
@@ -2531,8 +2609,8 @@ export default async function render(ctx) {
         modalRef = m;
       },
       fields: [
-        { name: 'quality_score', label: 'تقييم جودة الرأي', type: 'select', required: true, options: QUALITY_OPTIONS, hint: 'يُستخدم في مؤشرات أداء المحامي وترشيحه للملفات القادمة.' },
-        { name: 'note', label: 'ملاحظة للمحامي (اختيارية)', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'quality_score', label: 'تقييم جودة الرأي', type: 'select', required: true, options: QUALITY_OPTIONS, hint: 'يُستخدم في مؤشرات أداء المحامي وترشيحه للملفات القادمة.', tag: 'CSF-246' },
+        { name: 'note', label: 'ملاحظة للمحامي (اختيارية)', type: 'textarea', rows: 3, maxLength: 3000, tag: 'CSF-247' },
       ],
       submitLabel: 'اعتماد الرأي',
       submitIcon: 'check',
@@ -2545,7 +2623,7 @@ export default async function render(ctx) {
     const res = await formModal({
       title: `إعادة رأي ${a ? a.lawyer_name : o.lawyer_name} للتعديل`,
       intro: 'ستظهر ملاحظاتك للمحامي، وتُنشأ له نسخة عمل جديدة من نص رأيه حتى لا يضيع شيء.',
-      fields: [{ name: 'note', label: 'ملاحظات الإعادة', type: 'textarea', required: true, minLength: 10, maxLength: 5000, rows: 5 }],
+      fields: [{ name: 'note', label: 'ملاحظات الإعادة', type: 'textarea', required: true, minLength: 10, maxLength: 5000, rows: 5, tag: 'CSF-248' }],
       submitLabel: 'إعادة للمحامي',
       submitIcon: 'refresh',
       onSubmit: (v) => api.post(`/admin/opinions/${o.id}/return`, { note: v.note }),
@@ -2588,7 +2666,7 @@ export default async function render(ctx) {
         autoText = text;
         aiNote.textContent = `صياغة آلية (${providerLabel(sug, aiStatus)}). راجعها وعدّلها قبل الحفظ — المسؤولية على الإدارة.`;
       },
-      { size: 'sm', icon: 'sparkle' },
+      { size: 'sm', icon: 'sparkle', tag: 'CSF-165' },
     );
     // v9.1 b-portal (B91-08): «الخلاصة بكلام بسيط» و«الخطوات المطلوبة منها» فوق نص الرد، مع «اقتراح» من الذكاء الاصطناعي
     // (Claude أو المحلل المحلي)، والخطوات تبدأ مما اقترحه المحامي (B91-16). كلها اختيارية.
@@ -2632,7 +2710,7 @@ export default async function render(ctx) {
         fref.control('summary').set(out.summary);
         checkGloss(out.summary);
       },
-      { size: 'sm', icon: 'sparkle' },
+      { size: 'sm', icon: 'sparkle', tag: 'CSF-166' },
     );
     const stepsBtn = asyncButton(
       'اقتراح',
@@ -2641,7 +2719,7 @@ export default async function render(ctx) {
         if (!out?.steps?.length) return toast('لم يُرجِع الاقتراح خطوات، اكتبها يدويًا', 'warning');
         fref.control('steps').set(out.steps.join('\n'));
       },
-      { size: 'sm', icon: 'sparkle' },
+      { size: 'sm', icon: 'sparkle', tag: 'CSF-167' },
     );
     const audioDocs = (data.documents || []).filter((d) => String(d.mime || '').startsWith('audio/') && d.uploaded_by_kind !== 'client');
     const res = await formModal({
@@ -2673,17 +2751,18 @@ export default async function render(ctx) {
               stepsCtl.set(autoSteps);
             }
           },
+          tag: 'CSF-249',
         },
-        { name: '_ai', type: 'static', label: 'مساعدة الذكاء الاصطناعي', full: true, render: () => h('div.stack-sm', h('div.row', aiBtn), aiNote) },
+        { name: '_ai', type: 'static', label: 'مساعدة الذكاء الاصطناعي', full: true, render: () => h('div.stack-sm', h('div.row', aiBtn), aiNote), tag: 'CSF-250' },
         // v9.1 b-portal (B91-08)
-        { name: 'summary', label: `الخلاصة بكلام بسيط (أول حاجة تظهر ${N.li})`, type: 'textarea', maxLength: 400, rows: 3, counter: true, full: true, hint: 'جملتين أو تلاتة بالعامية المصرية البسيطة، بلا مصطلح قانوني إلا مع شرحه. لا أسماء محامين ولا ملاحظات داخلية.' },
+        { name: 'summary', label: `الخلاصة بكلام بسيط (أول حاجة تظهر ${N.li})`, type: 'textarea', maxLength: 400, rows: 3, counter: true, full: true, hint: 'جملتين أو تلاتة بالعامية المصرية البسيطة، بلا مصطلح قانوني إلا مع شرحه. لا أسماء محامين ولا ملاحظات داخلية.', tag: 'CSF-251' },
         { name: '_summary_tools', type: 'static', full: true, render: () => h('div.row', sumBtn, glossWarn) },
-        { name: 'steps', label: 'الخطوات المطلوبة منها (خطوة في كل سطر)', type: 'textarea', maxLength: 1400, rows: 4, full: true, hint: 'حتى 8 خطوات، كل خطوة 160 حرفًا على الأكثر. تظهر لها بقائمة «تعملي إيه دلوقتي؟».' },
+        { name: 'steps', label: 'الخطوات المطلوبة منها (خطوة في كل سطر)', type: 'textarea', maxLength: 1400, rows: 4, full: true, hint: 'حتى 8 خطوات، كل خطوة 160 حرفًا على الأكثر. تظهر لها بقائمة «تعملي إيه دلوقتي؟».', tag: 'CSF-252' },
         { name: '_steps_tools', type: 'static', full: true, render: () => h('div.row', stepsBtn) },
         audioDocs.length
-          ? { name: 'voice_document_id', label: `رسالة صوتية ${N.li} مع الرد (اختياري)`, type: 'select', options: audioDocs.map((d) => ({ value: d.id, label: d.title || d.filename })), full: true, hint: 'ارفع التسجيل أولًا من «المستندات»، ثم اختره هنا. يظهر لها مشغّل صوت فوق الخلاصة.' }
+          ? { name: 'voice_document_id', label: `رسالة صوتية ${N.li} مع الرد (اختياري)`, type: 'select', options: audioDocs.map((d) => ({ value: d.id, label: d.title || d.filename })), full: true, hint: 'ارفع التسجيل أولًا من «المستندات»، ثم اختره هنا. يظهر لها مشغّل صوت فوق الخلاصة.', tag: 'CSF-253' }
           : null,
-        { name: 'body', label: `نص الرد ${N.li}`, type: 'textarea', required: true, maxLength: 4000, rows: 14, counter: true },
+        { name: 'body', label: `نص الرد ${N.li}`, type: 'textarea', required: true, maxLength: 4000, rows: 14, counter: true, tag: 'CSF-254' },
       ].filter(Boolean),
       values: {
         opinion_id: initialOp ? initialOp.id : null,
@@ -2734,7 +2813,7 @@ export default async function render(ctx) {
           ans.body,
         ),
       ),
-      fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts }],
+      fields: [{ name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-255' }],
       values: { channel: 'auto' },
       submitLabel: 'إرسال الآن',
       submitIcon: 'send',
@@ -2750,6 +2829,12 @@ export default async function render(ctx) {
     const irById = new Map(data.info_requests.map((r) => [r.id, r]));
     // (v9 ai) آخر تحليل لكل مستند: مستندات الملف، وما حُلل منها وهي في الطلب الوارد قبل التحويل
     const analyses = docAnalysisStore([{ case_id: c.id }, data.intake && data.intake.id && { intake_id: data.intake.id }]);
+    // v12 gate (K-S1): سطر DOC-16 في خانة المستند وزر «عرض» في الإجراءات لكل صف (عقدتان مربوطتان)
+    const docParts = new Map();
+    const partsOf = (d) => {
+      if (!docParts.has(d.id)) docParts.set(d.id, staffDocParts(d));
+      return docParts.get(d.id);
+    };
     const columns = [
       {
         key: 'title',
@@ -2758,15 +2843,17 @@ export default async function render(ctx) {
         render: (d) =>
           h(
             'div',
-            h('div.cell-title', { dir: 'auto' }, d.title),
-            d.filename !== d.title && h('div.cell-sub', { dir: 'auto' }, d.filename),
+            h('div.cell-title', fileName(d.title)), // gate V-10: «الميراث-1.jpg» لا «1-الميراث.jpg»
+            d.filename !== d.title && h('div.cell-sub', fileName(d.filename)),
             d.info_request_id && irById.has(d.info_request_id) && h('div.cell-sub', `مرفق بطلب: ${truncate(irById.get(d.info_request_id).question, 60)}`),
+            partsOf(d).note,
             // v9.1 b-forms: الرسالة الصوتية تُسمع هنا مباشرة (metadata: مدتها ظاهرة قبل التشغيل)
             String(d.mime || '').startsWith('audio/') && h('audio.doc-audio-player', { controls: true, preload: 'metadata', src: downloadUrl(d.id), 'aria-label': `رسالة صوتية: ${d.title}` }),
             docAiBadge(analyses, d.id),
           ),
       },
-      { key: 'by', label: 'أضافه', render: (d) => statusBadge('actor_kind', d.uploaded_by_kind) },
+      // v12 gate (JR-06): «أضافه: صاحب الطلب» في ملف بأتعاب (كان «المستفيد/ة» من LABELS.actor_kind لكل ملف)
+      { key: 'by', label: 'أضافه', render: (d) => (d.uploaded_by_kind === 'client' ? badge(N.def, 'neutral', { dot: true }) : statusBadge('actor_kind', d.uploaded_by_kind)) },
       { key: 'date', label: 'التاريخ', render: (d) => h('span.small.nowrap', dateTime(d.created_at)) },
       { key: 'size', label: 'الحجم', render: (d) => h('span.small.nowrap', formatBytes(d.size)) },
       {
@@ -2783,8 +2870,9 @@ export default async function render(ctx) {
         render: (d) =>
           h(
             'div.btn-group.pb-table-actions',
-            button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(d.id), target: '_blank', ariaLabel: `تنزيل ${d.title}` }),
-            button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}` }),
+            tagged('CSF-282', partsOf(d).view),
+            button('تنزيل', { size: 'sm', variant: 'ghost', icon: 'download', href: downloadUrl(d.id), target: '_blank', ariaLabel: `تنزيل ${d.title}`, tag: 'CSF-168' }),
+            button('إعادة تسمية', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => openRenameDocDialog(d), ariaLabel: `إعادة تسمية ${d.title}`, tag: 'CSF-169' }),
             // (v9 messaging) إرسال المستند للعميل عبر واتساب (داخل نافذة الـ 24 ساعة) أو بوابة العملاء
             // (يعرض المكوّن نفسه رسالة النجاح والقناة المستخدمة، فلا تُكرر هنا)
             company ? null : sendDocumentButton(d, { onSent: () => refresh(null, { tab: 'documents' }), sendInfo }), // v10 b2b-staff: المستندات للشركة عبر صفحة الطلب
@@ -2800,7 +2888,9 @@ export default async function render(ctx) {
         subtitle: 'لا يرى أي محامٍ مستندًا إلا إذا أتحته له من «تعديل الصلاحيات» في تبويب الفريق',
         icon: 'paperclip',
         flush: true,
-        body: table({ columns, rows: data.documents, empty: 'لا توجد مستندات في هذا الملف بعد', caption: 'مستندات الملف' }),
+        body: table({ columns, rows: data.documents, empty: 'لا توجد مستندات في هذا الملف بعد', caption: 'مستندات الملف', rowTag: 'CSF-170', tag: 'CSF-171' }),
+        titleTag: 'CSF-172',
+        tag: 'CSF-173',
       }),
       docAiResultsCard(analyses, data.documents),
       card({
@@ -2813,6 +2903,8 @@ export default async function render(ctx) {
             await refresh('رُفعت المستندات إلى الملف', { tab: 'documents' });
           },
         }),
+        titleTag: 'CSF-174',
+        tag: 'CSF-175',
       }),
     );
   }
@@ -2820,7 +2912,7 @@ export default async function render(ctx) {
   async function openRenameDocDialog(d) {
     const res = await formModal({
       title: 'إعادة تسمية المستند',
-      fields: [{ name: 'title', label: 'عنوان المستند', type: 'text', required: true, maxLength: 200 }],
+      fields: [{ name: 'title', label: 'عنوان المستند', type: 'text', required: true, maxLength: 200, tag: 'CSF-256' }],
       values: { title: d.title },
       onSubmit: (v) => api.patch(`/admin/documents/${d.id}`, { title: v.title }),
     });
@@ -2831,15 +2923,15 @@ export default async function render(ctx) {
 
   function renderConversation() {
     // v10 b2b-staff (U10-S10): لا محادثة واتساب مع شركة؛ الرسائل في صفحة طلب الشركة
-    if (company) return card({ title: 'المحادثة', icon: 'message', body: companyLine('المحادثة مع الشركة في صفحة طلب الشركة (رسالة للشركة · ملاحظة داخلية).') });
+    if (company) return card({ title: 'المحادثة', icon: 'message', body: companyLine('المحادثة مع الشركة في صفحة طلب الشركة (رسالة للشركة · ملاحظة داخلية).'), titleTag: 'CSF-176', tag: 'CSF-177' });
     const failed = data.messages.filter((m) => m.direction === 'out' && m.status === 'failed').length;
     return h(
       'div.stack',
-      alertBox(`المحادثة الأصلية مع ${N.def} تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل من واتساب والموقع تظهر هنا في خيط واحد.`, 'info', { icon: 'lock' }),
-      failed > 0 && alertBox(`رسائل تعذر إرسالها: ${failed}. يمكنك إعادة المحاولة من داخل الرسالة.`, 'danger'),
+      alertBox(`المحادثة الأصلية مع ${N.def} تراها الإدارة فقط، ولا تُتاح لأي محامٍ. الرسائل من واتساب والموقع تظهر هنا في خيط واحد.`, 'info', { icon: 'lock', tag: 'CSF-178' }),
+      failed > 0 && alertBox(`رسائل تعذر إرسالها: ${failed}. يمكنك إعادة المحاولة من داخل الرسالة.`, 'danger', { tag: 'CSF-179' }),
       messageThread(data.messages, {
         inLabel: data.client?.name || `${N.def}`,
-        outLabel: 'المؤسسة',
+        outLabel: FIRM,
         onRetry: async (m) => {
           await api.post(`/admin/messages/${m.id}/retry`);
           await refresh('أُعيدت محاولة إرسال الرسالة', { tab: 'conversation' });
@@ -2874,7 +2966,7 @@ export default async function render(ctx) {
 
   function renderCost() {
     const cost = data.cost;
-    if (!cost) return emptyState('لا تتوفر بيانات التكلفة لهذا الملف', null, { icon: 'wallet' });
+    if (!cost) return emptyState('لا تتوفر بيانات التكلفة لهذا الملف', null, { icon: 'wallet', tag: 'CSF-180' });
     const parts = [
       { key: 'direct', label: 'تكلفة مباشرة', value: cost.direct, tone: 'primary' },
       { key: 'expenses', label: 'مصروفات', value: cost.expenses, tone: 'warning' },
@@ -2898,28 +2990,32 @@ export default async function render(ctx) {
       'div.stack',
       h(
         'div.stats-grid',
-        statCard({ label: 'إجمالي تكلفة الملف', value: money(cost.total), icon: 'wallet', tone: 'primary', hint: 'مباشرة + مصروفات + محمّلة' }),
-        statCard({ label: 'التكلفة المباشرة', value: money(cost.direct), icon: 'briefcase', tone: 'neutral', hint: 'أتعاب مستحقة لهذا الملف' }),
-        statCard({ label: 'التكلفة المحمّلة', value: money(cost.allocated), icon: 'chart', tone: 'info', hint: 'تقديرية' }),
-        statCard({ label: 'قيمة المساهمات التطوعية', value: money(cost.pro_bono_value), icon: 'star', tone: 'success', hint: `لا تُدفع · محامون مشاركون: ${cost.lawyers_involved ?? '—'}` }),
+        statCard({ label: 'إجمالي تكلفة الملف', value: money(cost.total), icon: 'wallet', tone: 'primary', hint: 'مباشرة + مصروفات + محمّلة', tag: 'CSF-181' }),
+        statCard({ label: 'التكلفة المباشرة', value: money(cost.direct), icon: 'briefcase', tone: 'neutral', hint: 'أتعاب مستحقة لهذا الملف', tag: 'CSF-182' }),
+        statCard({ label: 'التكلفة المحمّلة', value: money(cost.allocated), icon: 'chart', tone: 'info', hint: 'تقديرية', tag: 'CSF-183' }),
+        statCard({ label: 'قيمة المساهمات التطوعية', value: money(cost.pro_bono_value), icon: 'star', tone: 'success', hint: `لا تُدفع · محامون مشاركون: ${cost.lawyers_involved ?? '—'}`, tag: 'CSF-184' }),
       ),
-      alertBox('التكلفة المحمّلة تقديرية (حصة من المبالغ الشهرية أو الباقات). التكلفة للإدارة فقط ولا تظهر لأي محامٍ.', 'info'),
-      card({ title: 'مكونات التكلفة', icon: 'chart', body: bars }),
+      alertBox('التكلفة المحمّلة تقديرية (حصة من المبالغ الشهرية أو الباقات). التكلفة للإدارة فقط ولا تظهر لأي محامٍ.', 'info', { tag: 'CSF-185' }),
+      card({ title: 'مكونات التكلفة', icon: 'chart', body: bars, titleTag: 'CSF-186', tag: 'CSF-187' }),
       card({
         title: 'بنود التكلفة',
         icon: 'wallet',
         flush: true,
         body: table({
           columns: [
-            { key: 'label', label: 'البند', className: 'col-wide' },
-            { key: 'kind', label: 'النوع', render: (l) => badge(COST_KIND[l.kind] || l.kind, l.kind === 'contribution' ? 'success' : l.kind === 'allocated' ? 'info' : 'neutral') },
-            { key: 'status', label: 'حالة القيد', render: (l) => (l.status ? statusBadge('ledger_status', l.status) : null) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (l) => h('strong.nowrap', money(l.amount)) },
+            { key: 'label', label: 'البند', className: 'col-wide', tag: 'CSF-188' },
+            { key: 'kind', label: 'النوع', render: (l) => badge(COST_KIND[l.kind] || l.kind, l.kind === 'contribution' ? 'success' : l.kind === 'allocated' ? 'info' : 'neutral'), tag: 'CSF-189' },
+            { key: 'status', label: 'حالة القيد', render: (l) => (l.status ? statusBadge('ledger_status', l.status) : null), tag: 'CSF-190' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (l) => h('strong.nowrap', money(l.amount)), tag: 'CSF-191' },
           ],
           rows: cost.lines || [],
           empty: 'لا توجد بنود تكلفة مسجلة بعد',
           caption: 'بنود تكلفة الملف',
+          rowTag: 'CSF-192',
+          tag: 'CSF-193',
         }),
+        titleTag: 'CSF-194',
+        tag: 'CSF-195',
       }),
     );
   }
@@ -2930,10 +3026,10 @@ export default async function render(ctx) {
     const res = await formModal({
       title: `رسالة ${N.li}`,
       before: sendHeader(sendInfo), // v11 segment-staff (r2 P13)
-      intro: `تُرسل باسم المؤسسة إلى ${data.client?.name || `${N.def}`}، وتظهر في تبويب المحادثة.`,
+      intro: `تُرسل باسم ${FIRM} إلى ${data.client?.name || `${N.def}`}، وتظهر في تبويب المحادثة.`,
       fields: [
-        { name: 'body', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5 },
-        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts },
+        { name: 'body', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5, tag: 'CSF-257' },
+        { name: 'channel', label: 'قناة الإرسال', type: 'select', placeholder: false, options: channelOpts, tag: 'CSF-258' },
       ],
       values: { channel: 'auto' },
       submitLabel: 'إرسال',
@@ -2952,11 +3048,11 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'تعديل بيانات الملف',
       fields: [
-        { name: 'title', label: 'عنوان الملف', type: 'text', required: true, maxLength: 200, full: true },
-        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يبقى كود الملف كما هو؛ يُصحَّح المجال للتقارير والمعرفة.' },
-        { name: 'priority', label: 'الأولوية', type: 'select', required: true, options: options('priority') },
-        { name: 'due_at', label: 'الموعد المستهدف', type: 'date', endOfDay: true },
-        staffOptions.length > 0 && { name: 'case_manager_id', label: 'مدير الحالة', type: 'select', options: staffOptions },
+        { name: 'title', label: 'عنوان الملف', type: 'text', required: true, maxLength: 200, full: true, tag: 'CSF-259' },
+        { name: 'legal_area', label: 'المجال القانوني', type: 'select', required: true, options: areaOptions(), hint: 'يبقى كود الملف كما هو؛ يُصحَّح المجال للتقارير والمعرفة.', tag: 'CSF-260' },
+        { name: 'priority', label: 'الأولوية', type: 'select', required: true, options: options('priority'), tag: 'CSF-261' },
+        { name: 'due_at', label: 'الموعد المستهدف', type: 'date', endOfDay: true, tag: 'CSF-262' },
+        staffOptions.length > 0 && { name: 'case_manager_id', label: 'مدير الحالة', type: 'select', options: staffOptions, tag: 'CSF-263' },
       ],
       values: { title: c.title, legal_area: c.legal_area, priority: c.priority, due_at: c.due_at, case_manager_id: c.case_manager_id },
       onSubmit: (v) => {
@@ -2997,10 +3093,10 @@ export default async function render(ctx) {
         h(
           'span',
           `فيه رسالة من ${N.def} لم يُرد عليها (${relative(m.created_at)}): «${truncate(String(m.body || 'مرفق'), 90)}». `,
-          h('a', { href: `#/cases/${id}?tab=conversation` }, 'افتح المحادثة ورد عليها'),
+          h('a', { href: `#/cases/${id}?tab=conversation`, tag: 'CSF-196' }, 'افتح المحادثة ورد عليها'),
         ),
         'warning',
-        { icon: 'message' },
+        { icon: 'message', tag: 'CSF-197' },
       ),
     );
   }
@@ -3014,8 +3110,8 @@ export default async function render(ctx) {
       submitLabel: 'إغلاق الملف',
       submitIcon: 'lock',
       fields: [
-        { name: 'outcome', label: 'نتيجة الملف', type: 'select', required: true, options: options('case_outcome') },
-        { name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'outcome', label: 'نتيجة الملف', type: 'select', required: true, options: options('case_outcome'), tag: 'CSF-264' },
+        { name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 3000, tag: 'CSF-265' },
         ...outcomeFields({ paid: paidIndividual }),
       ],
       values: { outcome: c.status === 'answered' ? 'answered' : null },
@@ -3028,7 +3124,7 @@ export default async function render(ctx) {
     const res = await formModal({
       title: 'إعادة فتح الملف',
       intro: 'سيعود الملف إلى العمل ويمكنك إسناده من جديد. الإسنادات المسحوبة عند الإغلاق لا تعود تلقائيًا. أما أعضاء الفريق الذين اعتُمدت آراؤهم فيمكن إعادة فتح الإسناد لهم من تبويب «الفريق والصلاحيات» بزر «إعادة فتح المهمة للمحامي».',
-      fields: [{ name: 'note', label: 'سبب إعادة الفتح (اختياري)', type: 'textarea', rows: 3, maxLength: 1000 }],
+      fields: [{ name: 'note', label: 'سبب إعادة الفتح (اختياري)', type: 'textarea', rows: 3, maxLength: 1000, tag: 'CSF-266' }],
       submitLabel: 'إعادة فتح الملف',
       submitIcon: 'refresh',
       onSubmit: (v) => api.post(`/admin/cases/${id}/reopen`, { note: v.note || null }),
@@ -3047,19 +3143,19 @@ export default async function render(ctx) {
       intro: `يُنشأ ملف مستمر (تمثيل قضائي أو عمل قانوني مستمر) مرتبط بنفس ${N.def} وهذه الاستشارة، دون فقد أي شيء مما تم.`,
       before: pendingMsg,
       fields: [
-        { name: 'kind', label: 'نوع الملف', type: 'select', required: true, options: options('matter_kind') },
-        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: `يرى الملف المستمر من بوابته دون بيانات تواصل ${N.def} أو الفواتير.` },
-        { name: 'title', label: 'عنوان الملف المستمر', type: 'text', maxLength: 200, full: true },
-        { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150 },
-        { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100 },
-        { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true },
-        { name: 'lawsuit_year', label: 'سنة الدعوى', type: 'text', maxLength: 10, ltr: true },
-        { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200 },
-        { name: 'agreed_fee', label: `الأتعاب المتفق عليها مع ${N.def}`, type: 'money', min: 0 },
-        { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000 },
+        { name: 'kind', label: 'نوع الملف', type: 'select', required: true, options: options('matter_kind'), tag: 'CSF-267' },
+        { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: lawyerOptions, hint: `يرى الملف المستمر من بوابته دون بيانات تواصل ${N.def} أو الفواتير.`, tag: 'CSF-268' },
+        { name: 'title', label: 'عنوان الملف المستمر', type: 'text', maxLength: 200, full: true, tag: 'CSF-269' },
+        { name: 'court', label: 'المحكمة', type: 'text', maxLength: 150, tag: 'CSF-270' },
+        { name: 'circuit', label: 'الدائرة', type: 'text', maxLength: 100, tag: 'CSF-271' },
+        { name: 'lawsuit_number', label: 'رقم الدعوى', type: 'text', maxLength: 60, ltr: true, tag: 'CSF-272' },
+        { name: 'lawsuit_year', label: 'سنة الدعوى', type: 'text', maxLength: 10, ltr: true, tag: 'CSF-273' },
+        { name: 'opponent', label: 'الخصم', type: 'text', maxLength: 200, tag: 'CSF-274' },
+        { name: 'agreed_fee', label: `الأتعاب المتفق عليها مع ${N.def}`, type: 'money', min: 0, tag: 'CSF-275' },
+        { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 10000, tag: 'CSF-276' },
         // v9.1 fixes: مستندات الاستشارة المتاحة للمحامي المسؤول نفسه تظهر في صفحة الملف المستمر
-        { name: 'link_granted_documents', type: 'checkbox', text: 'أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بلا الرسائل الصوتية)', full: true },
-        !closed && { name: 'close_case', type: 'checkbox', text: 'إغلاق ملف الاستشارة بنتيجة «تحوّل إلى ملف عمل مستمر»', full: true },
+        { name: 'link_granted_documents', type: 'checkbox', text: 'أضف للملف المستمر مستندات الاستشارة التي سبق إتاحتها لهذا المحامي (بلا الرسائل الصوتية)', full: true, tag: 'CSF-277' },
+        !closed && { name: 'close_case', type: 'checkbox', text: 'إغلاق ملف الاستشارة بنتيجة «تحوّل إلى ملف عمل مستمر»', full: true, tag: 'CSF-278' },
       ],
       values: {
         kind: 'litigation',
@@ -3102,9 +3198,9 @@ export default async function render(ctx) {
       title: issue ? `تعديل المسألة رقم ${issue.number}` : 'إضافة مسألة قانونية',
       intro: issue ? null : 'تأخذ المسألة الرقم التالي تلقائيًا، ثم تتيحها لمن تريد من الفريق.',
       fields: [
-        { name: 'title', label: 'عنوان المسألة', type: 'text', required: true, maxLength: 300, full: true },
-        { name: 'legal_area', label: 'مجال المسألة', type: 'select', options: areaOptions(), placeholder: false, hint: 'قد تختلف عن مجال الملف (مثل مسألة ضريبية في ملف مواريث).' },
-        { name: 'details', label: 'تفاصيل (اختيارية)', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'title', label: 'عنوان المسألة', type: 'text', required: true, maxLength: 300, full: true, tag: 'CSF-279' },
+        { name: 'legal_area', label: 'مجال المسألة', type: 'select', options: areaOptions(), placeholder: false, hint: 'قد تختلف عن مجال الملف (مثل مسألة ضريبية في ملف مواريث).', tag: 'CSF-280' },
+        { name: 'details', label: 'تفاصيل (اختيارية)', type: 'textarea', rows: 3, maxLength: 3000, tag: 'CSF-281' },
       ],
       values: issue ? { title: issue.title, legal_area: issue.legal_area || c.legal_area, details: issue.details || '' } : { legal_area: c.legal_area },
       onSubmit: (v) =>
@@ -3126,16 +3222,16 @@ export default async function render(ctx) {
   const initialTab = TAB_KEYS.includes(ctx.query.tab) ? ctx.query.tab : 'overview';
   tabsEl = tabs(
     [
-      { key: 'overview', label: 'نظرة عامة', icon: 'briefcase', render: renderOverview },
-      { key: 'team', label: 'الفريق والصلاحيات', icon: 'users', count: nz(activeTeam.length), render: renderTeam },
-      { key: 'requests', label: 'الطلبات', icon: 'mail', count: nz(pendingRequests), render: renderRequests },
-      { key: 'opinions', label: 'الآراء والمراجعة', icon: 'fileText', count: nz(submittedOps), render: renderOpinions },
-      { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(data.documents.length), render: renderDocuments },
-      { key: 'conversation', label: 'المحادثة', icon: 'message', count: nz(data.messages.length), render: renderConversation },
-      { key: 'timeline', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف', icon: 'clock', body: activityTimeline(data.activity) }) },
-      { key: 'cost', label: 'التكلفة', icon: 'wallet', render: renderCost },
+      { key: 'overview', label: 'نظرة عامة', icon: 'briefcase', render: renderOverview, tag: 'CSF-198' },
+      { key: 'team', label: 'الفريق والصلاحيات', icon: 'users', count: nz(activeTeam.length), render: renderTeam, tag: 'CSF-199' },
+      { key: 'requests', label: 'الطلبات', icon: 'mail', count: nz(pendingRequests), render: renderRequests, tag: 'CSF-200' },
+      { key: 'opinions', label: 'الآراء والمراجعة', icon: 'fileText', count: nz(submittedOps), render: renderOpinions, tag: 'CSF-201' },
+      { key: 'documents', label: 'المستندات', icon: 'paperclip', count: nz(data.documents.length), render: renderDocuments, tag: 'CSF-202' },
+      { key: 'conversation', label: 'المحادثة', icon: 'message', count: nz(data.messages.length), render: renderConversation, tag: 'CSF-203' },
+      { key: 'timeline', label: 'السجل', icon: 'clock', render: () => card({ title: 'السجل الزمني للملف', icon: 'clock', body: activityTimeline(data.activity, { clientLabel: N.def }), titleTag: 'CSF-204', tag: 'CSF-205' }), tag: 'CSF-206' },
+      { key: 'cost', label: 'التكلفة', icon: 'wallet', render: renderCost, tag: 'CSF-207' },
     ],
-    { active: initialTab, onChange: (key) => syncTab(key), className: 'pb-case-tabs' },
+    { active: initialTab, onChange: (key) => syncTab(key), className: 'pb-case-tabs', tag: 'CSF-208' },
   );
 
   // v10 b2b-staff (U10-S10): شريط ملف الشركة أعلى الصفحة
@@ -3144,7 +3240,7 @@ export default async function render(ctx) {
         'div.cr-banner.is-info.cd-company-banner',
         icon('building', { size: 20 }),
         h('div.cr-banner-text', h('p', `ملف عمل لطلب شركة — ${company.name}${company.request ? ` · ${company.request.code}` : ''}. التواصل مع الشركة والتسليم من صفحة طلب الشركة.`)),
-        button('فتح طلب الشركة', { variant: 'primary', size: 'sm', href: companyReqHref }),
+        button('فتح طلب الشركة', { variant: 'primary', size: 'sm', href: companyReqHref, tag: 'CSF-209' }),
       )
     : null;
   return frag(header, companyBanner, attentionBar(), summaryCards(), tabsEl);

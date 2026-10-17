@@ -10,7 +10,6 @@
     <script type="module" src="/assets/js/public/landing.js"></script>
   </head>
   <body class="site pub v91" data-side="{{side}}">
-    <a class="skip-link" href="#main">انتقال إلى المحتوى</a>
     {{{header}}}
 
     <main id="main" tabindex="-1">
@@ -18,7 +17,7 @@
         <div class="pub-container">
           <nav aria-label="مسار التصفح">
             <ol class="pub-crumbs">
-              <li><a href="/">الرئيسية</a></li>
+              <li><a href="{{crumb_home_href}}">{{crumb_home}}</a></li>
               <li aria-current="page">عن البرنامج</li>
             </ol>
           </nav>

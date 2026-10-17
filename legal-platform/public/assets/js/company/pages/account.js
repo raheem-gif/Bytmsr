@@ -18,24 +18,24 @@ const A = W.account;
 function profileCard(me, ctx) {
   const u = me.user;
   const mk = (v, { dir = 'auto', max = 120, type = 'text' } = {}) => {
-    const el = h('input.input', { type, dir, maxlength: max, autocomplete: 'off' });
+    const el = h('input.input', { type, dir, maxlength: max, autocomplete: 'off', tag: 'CA-01' });
     el.value = v || '';
     return el;
   };
   const name = mk(u.name);
   const job = mk(u.job_title);
   const phone = mk(u.phone, { dir: 'ltr', max: 30, type: 'tel' });
-  const nameWrap = field(A.name, name, { required: true });
-  const phoneWrap = field(A.phone, phone, { hint: A.phone_hint });
+  const nameWrap = field(A.name, name, { required: true, tag: 'CA-02' });
+  const phoneWrap = field(A.phone, phone, { hint: A.phone_hint, tag: 'CA-03' });
   const err = sheetError();
-  const save = button(A.save, { variant: 'primary', type: 'submit' });
+  const save = button(A.save, { variant: 'primary', type: 'submit', tag: 'CA-04' });
   const form = h(
     'form.co-account-form',
-    { novalidate: true },
+    { novalidate: true, tag: 'CA-05' },
     nameWrap,
-    field(A.job, job),
+    field(A.job, job, { tag: 'CA-06' }),
     phoneWrap,
-    field(A.email, h('bdi.co-readonly', { dir: 'ltr' }, u.email), { hint: A.email_hint }),
+    field(A.email, h('bdi.co-readonly', { dir: 'ltr' }, u.email), { hint: A.email_hint, tag: 'CA-07' }),
     err,
     h('div.form-actions', save),
   );
@@ -67,9 +67,9 @@ function mailCard(me) {
     value: me.user.email_pref || 'important',
     columns: 1,
     options: [
-      { value: 'all', label: A.mail_all },
-      { value: 'important', label: A.mail_important },
-      { value: 'none', label: A.mail_none },
+      { value: 'all', label: A.mail_all, tag: 'CA-08' },
+      { value: 'important', label: A.mail_important, tag: 'CA-09' },
+      { value: 'none', label: A.mail_none, tag: 'CA-10' },
     ],
     onChange: async (v) => {
       try {
@@ -79,6 +79,7 @@ function mailCard(me) {
         toast(errorMessage(e), 'danger', 6000);
       }
     },
+    tag: 'CA-11',
   });
   return sectionCard(copy('account.mail'), h('div', tiles, h('p.field-hint', A.mail_note)), { id: 'mail' });
 }
@@ -87,13 +88,13 @@ function passwordCard(me) {
   const cur = passwordInput({ autocomplete: 'current-password' });
   const next = passwordInput({ autocomplete: 'new-password' });
   const conf = passwordInput({ autocomplete: 'new-password' });
-  const curWrap = field(A.current, cur.el, { required: true });
-  const nextWrap = field(A.new, next.el, { required: true, hint: W.link.password_hint });
-  const confWrap = field(A.confirm, conf.el, { required: true });
+  const curWrap = field(A.current, cur.el, { required: true, tag: 'CA-12' });
+  const nextWrap = field(A.new, next.el, { required: true, hint: W.link.password_hint, tag: 'CA-13' });
+  const confWrap = field(A.confirm, conf.el, { required: true, tag: 'CA-14' });
   import('../../app/components/password.js').then(({ attachStrength }) => attachStrength({ control: () => ({ input: next.input, wrap: nextWrap }) }, 'password', () => String(me.user.email || '').split('@')[0])).catch(() => {});
   const err = sheetError();
-  const submit = button(A.change, { variant: 'primary', type: 'submit' });
-  const form = h('form.co-account-form', { novalidate: true }, curWrap, nextWrap, confWrap, h('p.field-hint', A.change_note), err, h('div.form-actions', submit));
+  const submit = button(A.change, { variant: 'primary', type: 'submit', tag: 'CA-15' });
+  const form = h('form.co-account-form', { novalidate: true, tag: 'CA-16' }, curWrap, nextWrap, confWrap, h('p.field-hint', A.change_note), err, h('div.form-actions', submit));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError(err, '');
@@ -125,15 +126,15 @@ function passwordCard(me) {
 /** ورقة كلمة المرور + رمز التطبيق (إيقاف التحقق بخطوتين، رموز استرداد جديدة) */
 function reauthSheet({ title, text, label, path, onDone }) {
   const pw = passwordInput({ autocomplete: 'current-password' });
-  const code = h('input.input', { type: 'text', inputmode: 'numeric', dir: 'ltr', autocomplete: 'one-time-code', maxlength: 8 });
+  const code = h('input.input', { type: 'text', inputmode: 'numeric', dir: 'ltr', autocomplete: 'one-time-code', maxlength: 8, tag: 'CA-17' });
   const err = sheetError();
-  const body = h('div.co-sheet-body', text ? h('p.co-sheet-lead', text) : null, field(A.current, pw.el, { required: true }), field(A.tfa_code, code, { required: true }), err);
+  const body = h('div.co-sheet-body', text ? h('p.co-sheet-lead', text) : null, field(A.current, pw.el, { required: true, tag: 'CA-18' }), field(A.tfa_code, code, { required: true, tag: 'CA-19' }), err);
   const sh = textSheet({
     title,
     dirty: () => !!(pw.input.value || code.value),
     body,
     actions: [
-      { label: A.cancel, variant: 'ghost' },
+      { label: A.cancel, variant: 'ghost', tag: 'CA-20' },
       {
         label,
         variant: 'primary',
@@ -150,8 +151,10 @@ function reauthSheet({ title, text, label, path, onDone }) {
           }
           return onDone(res, sh, body);
         },
+        tag: 'CA-28',
       },
     ],
+    tag: 'CA-21',
   });
   return sh;
 }
@@ -178,7 +181,7 @@ function twoFactorCard(me, ctx) {
     );
   }
   if (!t.enabled) {
-    mount(body, h('p.co-muted', A.tfa_off), button(A.tfa_enable, { variant: 'primary', icon: 'shield', onClick: openWizard }));
+    mount(body, h('p.co-muted', A.tfa_off), button(A.tfa_enable, { variant: 'primary', icon: 'shield', onClick: openWizard, tag: 'CA-22' }));
   } else {
     const codes = button(A.tfa_new_codes, {
       variant: 'secondary',
@@ -195,6 +198,7 @@ function twoFactorCard(me, ctx) {
             return false;
           },
         }),
+        tag: 'CA-23',
     });
     const disable = requireIt
       ? h('p.co-card-note', icon('lock', { size: 16 }), h('span', A.tfa_required))
@@ -211,6 +215,7 @@ function twoFactorCard(me, ctx) {
                 return true;
               },
             }),
+            tag: 'CA-24',
         });
     mount(
       body,
@@ -246,6 +251,7 @@ function devicesCard(sessions, ctx) {
               toast(A.signed_out, 'success');
               ctx.reload();
             },
+            tag: 'CA-25',
           }),
     ),
   );
@@ -262,6 +268,7 @@ function devicesCard(sessions, ctx) {
           toast(A.signed_out_others, 'success');
           ctx.reload();
         },
+        tag: 'CA-26',
       })
     : h('p.co-muted', A.no_others);
   return sectionCard(A.devices, h('div', h('ul.co-devices', rows), all), { id: 'devices' });
@@ -281,7 +288,7 @@ export default async function account(ctx) {
     h(
       'div.co-columns',
       h('div.co-col-main', profileCard(me, ctx), mailCard(me), passwordCard(me)),
-      h('aside.co-col-aside', twoFactorCard(me, ctx), devicesCard(sessions, ctx), h('div.co-account-logout', button(A.sign_out, { variant: 'danger', icon: 'logout', block: true, onClick: () => window.dispatchEvent(new CustomEvent('co:logout')) }))),
+      h('aside.co-col-aside', twoFactorCard(me, ctx), devicesCard(sessions, ctx), h('div.co-account-logout', button(A.sign_out, { variant: 'danger', icon: 'logout', block: true, onClick: () => window.dispatchEvent(new CustomEvent('co:logout')), tag: 'CA-27' }))),
     ),
   );
 }

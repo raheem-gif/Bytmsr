@@ -3,7 +3,10 @@
 import { nowIso, addDays, periodOf, periodRange, fromMinor, isValidPeriod, badRequest, notFound, conflict, v, normalizePhone } from '../util.js';
 import { LABELS, LEGAL_AREAS, ENUMS } from '../constants.js';
 import { portalUnverifiedSql, isPortalUnverifiedIntake } from '../channels/engine.js';
+import { allPages, trail as treeTrail, resolvePath as treeResolve } from '../../public/assets/js/public/entry-tree.js'; // v12 staff-lines (SL-8)
+import { cairoDayKey } from '../util.js'; // v12 staff-lines (SL-8)
 import { createPortalV91, shortRefCodes, itemsInput } from './portal-v91.js'; // v9.1 b-portal
+import { lineCondition, NONE_LINE_SQL } from './intakes.js'; // v12 staff-lines review (F1)
 
 const AREA = Object.fromEntries(LEGAL_AREAS.map((a) => [a.code, a.label]));
 
@@ -34,20 +37,24 @@ export function createAnalytics(app) {
 
   const svc = {
     /** قمع التحويل حسب المصدر أو القناة أو الحملة */
-    funnel({ from, to, group = 'source', segment = 'all' } = {}) {
+    funnel({ from, to, group = 'source', segment = 'all', line = 'all' } = {}) {
       const start = from ? new Date(from).toISOString() : addDays(nowIso(), -90);
       const end = to ? new Date(to).toISOString() : addDays(nowIso(), 1);
       const keyExpr = group === 'channel' ? 'i.first_channel' : group === 'campaign' ? "COALESCE(i.campaign, '—')" : 'i.source';
       const scope = scopeOf(segment);
+      // v12 staff-lines (SL-8، E12-56): line = all|consultation|litigation|company|none (نوع الطلب)
+      const lineF = line && line !== 'all' ? lineCondition(app, line, 'i') : null; // review (F1): none = أفراد وشركات بلا نوع
+      const lineScope = lineF ? line : 'all';
       const rows = db.all(
         `SELECT ${keyExpr} AS k, i.id, i.status, i.kind, i.case_id, c.status AS case_status, c.outcome, c.matter_id,
            (SELECT COUNT(*) FROM assignments a WHERE a.case_id = c.id AND a.status != 'withdrawn') AS team,
            (SELECT COUNT(*) FROM messages m WHERE m.intake_id = i.id AND m.direction = 'in') AS inbound
          FROM intakes i LEFT JOIN cases c ON c.id = i.case_id
-         WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL${scope === 'all' ? '' : ' AND i.segment = ?'}`, // v10 b2b-server (حارس #8)؛ v11: نوع الخدمة
+         WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL${scope === 'all' ? '' : ' AND i.segment = ?'}${lineF ? ` AND ${lineF.sql}` : ''}`, // v10 b2b-server (حارس #8)؛ v11: نوع الخدمة؛ v12: نوع الطلب
         start,
         end,
         ...(scope === 'all' ? [] : [scope]),
+        ...(lineF ? lineF.params : []),
       );
       const groups = new Map();
       for (const r of rows) {
@@ -86,7 +93,7 @@ export function createAnalytics(app) {
       // الإنفاق الإعلاني للأشهر التي تتقاطع مع الفترة (بالمصدر أو الحملة)
       const spendBy = new Map();
       // v11: الإنفاق الإعلاني بلا نوع خدمة في 11.0 — يظهر في «الكل» فقط
-      if (group !== 'channel' && scope === 'all') {
+      if (group !== 'channel' && scope === 'all' && lineScope === 'all') {
         const p1 = periodOf(start);
         const p2 = periodOf(end);
         for (const r of db.all('SELECT source, campaign, SUM(amount_minor) AS amt FROM ad_spend WHERE period >= ? AND period <= ? GROUP BY source, campaign', p1, p2)) {
@@ -125,6 +132,7 @@ export function createAnalytics(app) {
         to: end,
         group,
         segment: scope, // v11 segment-server
+        line: lineScope, // v12 staff-lines (SL-8)
         ...(scope === 'all' ? { scope_label: ALL_SCOPE_LABEL } : {}),
         items,
         totals: {
@@ -138,7 +146,7 @@ export function createAnalytics(app) {
           matters: sum('matters'),
           closed: sum('closed'),
           cost: Math.round(sum('cost') * 100) / 100,
-          ad_spend: group === 'channel' || scope !== 'all' ? null : Math.round(sum('ad_spend') * 100) / 100,
+          ad_spend: group === 'channel' || scope !== 'all' || lineScope !== 'all' ? null : Math.round(sum('ad_spend') * 100) / 100,
         },
       };
     },
@@ -186,6 +194,60 @@ export function createAnalytics(app) {
       if (!r) throw notFound('السجل غير موجود');
       db.run('DELETE FROM ad_spend WHERE id = ?', id);
       return { ok: true };
+    },
+
+    /**
+     * v12 staff-lines (SL-8، E12-56، E12-57): «من الصفحة الأولى إلى الطلب».
+     * pages: لكل صفحة من الشجرة (و«خيري» القديمة) { node, label, question, views, parent, share_of_parent } — الزيارات من
+     * entry_tree_daily (يوم القاهرة، بعد كتابة المعلّق). paths: الطلبات التي أُنشئت في الفترة بكل مسار (أي مصدر)
+     * { path, label, line, requests }. totals: الطلبات لكل نوع (+ «لم يُحدَّد النوع» لطلبات الأفراد والشركات بلا مسار).
+     * بلا بيانات شخصية؛ الطلبات من الشركات (company_id) خارجها كما في القمع.
+     */
+    entryTree({ from, to } = {}) {
+      const start = from ? new Date(from).toISOString() : addDays(nowIso(), -30);
+      const end = to ? new Date(to).toISOString() : addDays(nowIso(), 1);
+      try {
+        app.pathways?.flushViews?.();
+      } catch {
+        /* العدادات المعلّقة تُكتب لاحقًا */
+      }
+      const d1 = cairoDayKey(start);
+      const d2 = cairoDayKey(new Date(Math.max(new Date(start).getTime(), new Date(end).getTime() - 1)).toISOString()); // النهاية حصرية
+      const views = new Map(db.all('SELECT node, SUM(views) AS v FROM entry_tree_daily WHERE day >= ? AND day <= ? GROUP BY node', d1, d2).map((r) => [r.node, Number(r.v) || 0]));
+      const parentOf = (p) => (p === '' || p === 'khayri' ? null : p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+      const pageLabel = (p) => (p === '' ? 'الصفحة الأولى' : p === 'khayri' ? 'روابط «خيري» القديمة' : treeTrail(p, { staff: true }).join(' › '));
+      const nodes = [...allPages().map((pg) => ({ node: pg.path, question: pg.q })), { node: 'khayri', question: null }];
+      const pages = nodes.map(({ node, question }) => {
+        const v = views.get(node) || 0;
+        const parent = parentOf(node);
+        const pv = parent === null ? null : views.get(parent) || 0;
+        return { node, label: pageLabel(node), question, views: v, parent, share_of_parent: pv ? Math.round((v / pv) * 1000) / 1000 : null };
+      });
+      const rows = db.all(
+        `SELECT i.pathway AS path, i.service_line AS line, COUNT(*) AS n FROM intakes i LEFT JOIN cases c ON c.id = i.case_id
+          WHERE i.created_at >= ? AND i.created_at < ? AND i.pathway IS NOT NULL AND c.company_id IS NULL GROUP BY i.pathway, i.service_line`,
+        start,
+        end,
+      );
+      const paths = rows
+        .map((r) => {
+          const res = treeResolve(r.path);
+          const labels = res ? treeTrail(res.path, { staff: true }) : [];
+          return { path: r.path, label: labels.length ? labels.join(' › ') : r.path, line: r.line || null, requests: Number(r.n) || 0 };
+        })
+        .sort((a, b) => b.requests - a.requests || a.path.localeCompare(b.path));
+      const tot = db.get(
+        `SELECT COALESCE(SUM(CASE WHEN i.service_line = 'consultation' THEN 1 ELSE 0 END), 0) AS consultation,
+                COALESCE(SUM(CASE WHEN i.service_line = 'litigation' THEN 1 ELSE 0 END), 0) AS litigation,
+                COALESCE(SUM(CASE WHEN i.service_line = 'company' THEN 1 ELSE 0 END), 0) AS company,
+                COALESCE(SUM(CASE WHEN i.service_line IS NULL AND i.segment = 'paid' THEN 1 ELSE 0 END), 0) AS none
+           FROM intakes i LEFT JOIN cases c ON c.id = i.case_id
+          WHERE i.created_at >= ? AND i.created_at < ? AND c.company_id IS NULL`,
+        start,
+        end,
+      );
+      const totals = ['consultation', 'litigation', 'company', 'none'].map((k) => ({ line: k, label: LABELS.service_line[k], requests: Number(tot?.[k] || 0) }));
+      return { from: start, to: end, days: { from: d1, to: d2 }, pages, paths, totals, views_total: pages.reduce((s2, p) => s2 + (p.node === 'khayri' ? 0 : p.views), 0) };
     },
 
     /** توزيع الملفات حسب المجال وحاجتها لأكثر من تخصص */
@@ -324,6 +386,21 @@ export function createAnalytics(app) {
               mr.end,
             ),
           };
+        })(),
+        // v12 staff-lines (SL-2، E12-53): «حسب نوع الطلب» — جديد اليوم (آخر 24 ساعة) ومفتوح لكل خط، ثم «لم يُحدَّد النوع».
+        // review (F1): طلبات «أفراد وشركات» وحدها (الأربعة معًا = «أفراد وشركات» في «حسب نوع الخدمة»)، والروابط ?segment=paid&line=…
+        lines: (() => {
+          const openSql = "i.status IN ('new','in_review','awaiting_client')";
+          const since = addDays(t, -1);
+          const LINE_KEYS = ['consultation', 'litigation', 'company'];
+          const by = (cond, ...p) => ({
+            new_today: q(`SELECT COUNT(*) FROM intakes i WHERE i.created_at >= ? AND i.segment = 'paid' AND ${cond}`, since, ...p),
+            open: q(`SELECT COUNT(*) FROM intakes i WHERE ${openSql} AND i.segment = 'paid' AND ${cond}`, ...p),
+          });
+          return [
+            ...LINE_KEYS.map((k) => ({ line: k, label: LABELS.service_line[k], ...by('i.service_line = ?', k) })),
+            { line: 'none', label: LABELS.service_line.none, ...by(NONE_LINE_SQL('i')) },
+          ];
         })(),
         weekly: svc.weeklyVolume(),
         ai: app.ai.status(),

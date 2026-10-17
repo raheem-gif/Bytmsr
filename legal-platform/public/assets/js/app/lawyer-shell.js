@@ -21,15 +21,15 @@ const CODE_RE = /\b([A-Z]{2,5}-\d{4}-\d{3,6}|[A-Z]{2,4}-\d{3,6})\b/;
 export function lawyerNavItems() {
   return {
     work: [
-      { href: '/my', label: NAV.today, icon: 'home' },
-      { href: '/my/assignments', label: NAV.assignments, icon: 'briefcase' },
-      { href: '/my/matters', label: NAV.matters, icon: 'gavel' },
-      { href: '/my/calendar', label: NAV.calendar, icon: 'calendar' },
-      { href: '/my/statement', label: NAV.statement, icon: 'wallet' },
+      { href: '/my', label: NAV.today, icon: 'home', tag: 'NAV-48' },
+      { href: '/my/assignments', label: NAV.assignments, icon: 'briefcase', tag: 'NAV-49' },
+      { href: '/my/matters', label: NAV.matters, icon: 'gavel', tag: 'NAV-50' },
+      { href: '/my/calendar', label: NAV.calendar, icon: 'calendar', tag: 'NAV-51' },
+      { href: '/my/statement', label: NAV.statement, icon: 'wallet', tag: 'NAV-52' },
     ],
     general: [
-      { href: '/notifications', label: NAV.notifications, icon: 'bell', notif: true },
-      { href: '/account', label: NAV.account, icon: 'shield' },
+      { href: '/notifications', label: NAV.notifications, icon: 'bell', notif: true, tag: 'NAV-53' },
+      { href: '/account', label: NAV.account, icon: 'shield', tag: 'NAV-54' },
     ],
   };
 }
@@ -101,7 +101,7 @@ export function enhanceLawyerShell({ el, mainCol, menuBtn, sidebar, user, openDr
   // ── تسجيل الخروج من أسفل القائمة ──
   const drawerLogout = h(
     'button.lh-drawer-logout',
-    { type: 'button' },
+    { type: 'button', tag: 'NAV-55' },
     icon('logout', { size: 19 }),
     h('span', NAV.logout),
   );
@@ -116,16 +116,16 @@ export function enhanceLawyerShell({ el, mainCol, menuBtn, sidebar, user, openDr
   // ── الشريط السفلي (الهاتف) ──
   const badge = h('span.lh-tab-badge', { hidden: true, 'aria-hidden': 'true' });
   const tabs = [
-    { path: '/my', label: NAV.today, icon: 'home', badge },
-    { path: '/my/assignments', label: NAV.assignments, icon: 'briefcase' },
-    { path: '/my/calendar', label: NAV.calendar, icon: 'calendar' },
+    { path: '/my', label: NAV.today, icon: 'home', badge, tag: 'NAV-56' },
+    { path: '/my/assignments', label: NAV.assignments, icon: 'briefcase', tag: 'NAV-57' },
+    { path: '/my/calendar', label: NAV.calendar, icon: 'calendar', tag: 'NAV-58' },
   ];
   const tabEls = tabs.map((t) =>
-    h('a.lh-tab', { href: `#${t.path}`, dataset: { path: t.path } }, h('span.lh-tab-icon', icon(t.icon, { size: 22 }), t.badge || null), h('span.lh-tab-label', t.label)),
+    h('a.lh-tab', { href: `#${t.path}`, dataset: { path: t.path }, tag: t.tag }, h('span.lh-tab-icon', icon(t.icon, { size: 22 }), t.badge || null), h('span.lh-tab-label', t.label)),
   );
-  const moreBtn = h('button.lh-tab', { type: 'button', 'aria-label': `${NAV.more}: ${NAV.matters}، ${NAV.statement}، ${NAV.notifications}، ${NAV.account}` }, h('span.lh-tab-icon', icon('menu', { size: 22 })), h('span.lh-tab-label', NAV.more));
+  const moreBtn = h('button.lh-tab', { type: 'button', 'aria-label': `${NAV.more}: ${NAV.matters}، ${NAV.statement}، ${NAV.notifications}، ${NAV.account}`, tag: 'NAV-59' }, h('span.lh-tab-icon', icon('menu', { size: 22 })), h('span.lh-tab-label', NAV.more));
   moreBtn.addEventListener('click', () => openDrawer());
-  const bottomNav = h('nav.lh-bottom-nav', { 'aria-label': 'التنقل السريع' }, tabEls, moreBtn);
+  const bottomNav = h('nav.lh-bottom-nav', { 'aria-label': 'التنقل السريع', tag: 'NAV-60' }, tabEls, moreBtn);
   el.append(bottomNav);
 
   function setBadge(n) {
@@ -181,10 +181,11 @@ export function enhanceLawyerShell({ el, mainCol, menuBtn, sidebar, user, openDr
         className: 'lh-logout-sheet',
         body: warnings.length ? h('div.lh-logout-warn', warnings.map((w) => h('p', icon('alert', { size: 16 }), h('span', w)))) : h('p.confirm-message.lh-logout-msg', 'ستحتاج إلى اسم المستخدم وكلمة المرور للدخول مرة أخرى.'),
         actions: [
-          { label: 'إلغاء', variant: 'ghost', onClick: () => { ok = false; } },
-          { label: 'سجّل الخروج', variant: 'danger', icon: 'logout', onClick: () => { ok = true; } },
+          { label: 'إلغاء', variant: 'ghost', onClick: () => { ok = false; }, tag: 'NAV-61' },
+          { label: 'سجّل الخروج', variant: 'danger', icon: 'logout', onClick: () => { ok = true; }, tag: 'NAV-62' },
         ],
         onClose: () => resolve(),
+        tag: 'NAV-63',
       });
     });
     if (!ok) return false;

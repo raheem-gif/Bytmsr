@@ -12,6 +12,9 @@ import { graphVersion, transformAsset, isGraphAsset, setPublicRoot } from './sit
 // والملفات المطلوبة برقم إصدارها (?v=…) تُخزَّن في المتصفح سنة كاملة لأن أي تعديل يغيّر الرقم.
 const COMPRESSIBLE_EXT = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg', '.txt', '.webmanifest', '.ico']);
 const MIN_COMPRESS_BYTES = 1024;
+// v12 gate fixer-server (R-03): الملفات الثابتة (JS/CSS المرقّمة وغيرها) تُضغط مرة وتُخزَّن (cachedBrotli)، فتُضغط من 256 بايت
+// (tags-boot.js ‏947 B ← نحو 450 B br)؛ ويُرسل الأصل حين لا يصغر بالضغط
+const MIN_STATIC_COMPRESS_BYTES = 256;
 const MAX_COMPRESS_BYTES = 5 * 1024 * 1024;
 const gzCache = new Map(); // المسار ← { key, gz }
 const versionCache = new Map(); // المسار ← { key, v }
@@ -109,7 +112,7 @@ function sendStaticFile(req, res, file, st, cacheControl) {
   const etag = `W/"${statKey(st)}"`;
   res.setHeader('ETag', etag);
   res.setHeader('Last-Modified', new Date(st.mtimeMs).toUTCString());
-  const compressible = COMPRESSIBLE_EXT.has(ext) && st.size >= MIN_COMPRESS_BYTES && st.size <= MAX_COMPRESS_BYTES;
+  const compressible = COMPRESSIBLE_EXT.has(ext) && st.size >= MIN_STATIC_COMPRESS_BYTES && st.size <= MAX_COMPRESS_BYTES;
   if (compressible) res.setHeader('Vary', 'Accept-Encoding');
   const inm = String(req.headers['if-none-match'] || '');
   if (inm && inm.split(',').some((x) => x.trim() === etag)) {
@@ -125,7 +128,7 @@ function sendStaticFile(req, res, file, st, cacheControl) {
     } catch {
       br = null;
     }
-    if (br) {
+    if (br && br.length < st.size) {
       res.setHeader('Content-Encoding', 'br');
       res.setHeader('Content-Length', br.length);
       if (req.method === 'HEAD') res.end();
@@ -140,7 +143,7 @@ function sendStaticFile(req, res, file, st, cacheControl) {
     } catch {
       gz = null;
     }
-    if (gz) {
+    if (gz && gz.length < st.size) {
       res.setHeader('Content-Encoding', 'gzip');
       res.setHeader('Content-Length', gz.length);
       if (req.method === 'HEAD') res.end();
@@ -172,20 +175,26 @@ function sendStaticBuffer(req, res, file, body, cacheControl, etag) {
   }
   res.statusCode = 200;
   let out = body;
-  if (body.length >= MIN_COMPRESS_BYTES && body.length <= MAX_COMPRESS_BYTES) {
+  if (body.length >= MIN_STATIC_COMPRESS_BYTES && body.length <= MAX_COMPRESS_BYTES) {
     res.setHeader('Vary', 'Accept-Encoding');
     if (acceptsBrotli(req)) {
-      out = cachedBrotli(`buf:${file}`, etag, () => body);
-      res.setHeader('Content-Encoding', 'br');
+      const br = cachedBrotli(`buf:${file}`, etag, () => body);
+      if (br.length < body.length) {
+        out = br;
+        res.setHeader('Content-Encoding', 'br');
+      }
     } else if (acceptsGzip(req)) {
       const key = `${file}|${etag}`;
-      out = gzBufCache.get(key);
-      if (!out) {
-        out = zlib.gzipSync(body, { level: 9 });
-        gzBufCache.set(key, out);
+      let gz = gzBufCache.get(key);
+      if (!gz) {
+        gz = zlib.gzipSync(body, { level: 9 });
+        gzBufCache.set(key, gz);
         if (gzBufCache.size > 500) gzBufCache.delete(gzBufCache.keys().next().value);
       }
-      res.setHeader('Content-Encoding', 'gzip');
+      if (gz.length < body.length) {
+        out = gz;
+        res.setHeader('Content-Encoding', 'gzip');
+      }
     }
   }
   res.setHeader('Content-Length', out.length);
@@ -247,14 +256,20 @@ function requestPathname(res) {
   }
 }
 
-export function securityHeaders(res, pathname = requestPathname(res)) {
+/**
+ * v12 media (L12-22): opts.mic — هل يُسمح بالميكروفون في صفحة التسجيل هذه؟ يحسبه app.js لكل طلب من الإعداد
+ * web_voice_enabled (التسجيل من الموقع مؤرشف افتراضيًا = microphone=()). بلا opts يبقى سلوك 11.0 (صفحات التسجيل فقط).
+ * الميكروفون لا يُفتح أبدًا خارج /intake و/p/ مهما كانت القيمة.
+ */
+export function securityHeaders(res, pathname = requestPathname(res), { mic } = {}) {
   const capture = isCapturePage(pathname);
+  const micOn = capture && (mic === undefined ? true : mic === true);
   const base = APP_PAGE_RE.test(String(pathname || '')) ? CSP_APP : CSP;
   res.setHeader('Content-Security-Policy', capture ? `${base}; media-src 'self' blob:` : base);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Permissions-Policy', capture ? 'camera=(), microphone=(self), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', micOn ? 'camera=(), microphone=(self), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 }
 
@@ -434,7 +449,9 @@ export function serveStatic(req, res, publicDir, pathname, { fallbackFile } = {}
     const v = new URLSearchParams(q).get('v');
     if (v && v === assetVersion(file)) cache = 'public, max-age=31536000, immutable';
     // v9.1 b-site: ملف JS/CSS مطلوب برقم إصدار: استيراداته وروابطه تُعاد بأرقام إصدارها فيُخزَّن الرسم كله
-    if (v && isGraphAsset(file)) {
+    // v12 gate (R-02): ووحدة JS بلا رقم إصدار كذلك (tags-boot.js يستورد tags.js بمسار مبني بالجمع، وentry.js/portal-ui.js
+    // يستوردان tags-boot.js): أسطر التعليقات محذوفة واستيراداتها بأرقام إصدارها، مع no-cache كما هي (لا تُخزَّن سنة)
+    if ((v || ext === '.js') && isGraphAsset(file)) {
       setPublicRoot(publicDir);
       const body = transformAsset(file);
       if (body) return sendStaticBuffer(req, res, file, body, cache, `W/"g-${assetVersion(file)}"`);

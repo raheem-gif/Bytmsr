@@ -14,17 +14,21 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const PUB = path.join(ROOT, 'public');
 
 // v10 experience (intended, L-02/L-08): عناوين الصفحات تنتهي باسم المكتب كما يراه الناس (site_name = brand_name)
+// v12 entry: intended (E12-13, E12 §12.2): «خيري» مؤرشف افتراضيًا — «/» شجرة الدخول (الاسم أولًا)، وصفحات الأفراد والشركات بفاصل « | »؛
+// صفحات «خيري» (/khayri، /intake?seg=charity، /about) تُفحص في وضع الإعادة (charity_public = true) بعناوينها كما كانت
 const PAGES = [
-  // v11 gate-public (intended, G11-05): «/» بلا كعكة = شاشة الاختيار بعنوانها؛ صفحة «خيري» بعنوانها في /khayri، والأفراد في /services
-  ['/', /مساعدة قانونية مجانية وخدمات قانونية للأفراد والشركات — Emam Legal and Consultancy/],
-  ['/khayri', /الدعم القانوني للأرامل والأيتام وأسرهم — Emam Legal and Consultancy/],
-  ['/services', /استشارات قانونية للأفراد والشركات — Emam Legal and Consultancy/],
-  ['/intake', /احكيلنا مشكلتك — Emam Legal and Consultancy/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
-  ['/about', /عن برنامج الدعم القانوني — Emam Legal and Consultancy/],
-  ['/privacy', /سياسة الخصوصية — Emam Legal and Consultancy/],
-  ['/terms', /شروط الاستخدام — Emam Legal and Consultancy/],
-  ['/data-deletion', /طلب حذف البيانات — Emam Legal and Consultancy/],
+  ['/', /^Emam Legal and Consultancy \| محاماة واستشارات قانونية$/],
+  ['/services', /^استشارات وقضايا وتأسيس شركات \| Emam Legal and Consultancy$/],
+  ['/privacy', /^سياسة الخصوصية \| Emam Legal and Consultancy$/],
+  ['/terms', /^شروط الاستخدام \| Emam Legal and Consultancy$/],
+  ['/data-deletion', /^طلب حذف البيانات \| Emam Legal and Consultancy$/],
 ];
+const CHARITY_PAGES = [
+  ['/khayri', /الدعم القانوني للأرامل والأيتام وأسرهم — Emam Legal and Consultancy/],
+  ['/intake?seg=charity', /احكيلنا مشكلتك — Emam Legal and Consultancy/], // v9.1 b-forms: عنوان صفحة الطلب الجديد
+  ['/about', /عن برنامج الدعم القانوني — Emam Legal and Consultancy/],
+];
+const restored = (t, on = true) => t.app.settings.set('charity_public', on);
 
 function titleOf(html) {
   return (/<title>([\s\S]*?)<\/title>/.exec(html) || [])[1] || '';
@@ -49,7 +53,7 @@ describe('v9 site — public pages rendered on the server', () => {
 
   test('every public page is served (200, HTML) with its Arabic title and no unrendered template tokens', async () => {
     const c = t.client();
-    for (const [p, title] of PAGES) {
+    const check = async (p, title, charity) => {
       const r = await c.get(p);
       assert.equal(r.status, 200, p);
       assert.match(r.headers.get('content-type'), /text\/html/);
@@ -58,16 +62,31 @@ describe('v9 site — public pages rendered on the server', () => {
       // v9.1 b-site: بيانات JSON-LD وbm-public والأنماط المضمّنة ليست قوالب (قد تحتوي «}}»)
       const withoutLd = r.body.replace(/<script type="application\/(?:ld\+)?json"[^>]*>[\s\S]*?<\/script>/g, '').replace(/<style>[\s\S]*?<\/style>/g, '');
       assert.ok(!/\{\{|\}\}|<!--#if|<!--\/if|<!--site:head-->/.test(withoutLd), `${p} has unrendered tokens`);
-      // الرأس والتذييل المشتركان + روابط السياسات والمتابعة
-      assert.match(r.body, /class="pub-header"/);
-      assert.match(r.body, /class="pub-footer"/);
-      // v11 gate-public (intended): the paid footer (G11-23) has no «عن البرنامج» (the charity programme page)
-      for (const href of ['/privacy', '/terms', '/data-deletion', '/portal', ...(p === '/services' ? [] : ['/about'])]) assert.ok(r.body.includes(`href="${href}"`), `${p} links ${href}`);
-      assert.ok(/href="\/intake(?:\?seg=(?:charity|paid))?"/.test(r.body), `${p} links /intake`); // v11 gate-public (intended, L11-52): the side's CTA is /intake?seg=charity|paid
+      if (p === '/') {
+        // v12 entry: intended (E12-20): the entry tree has its own small chrome (logo, rows, links row), no site header/footer
+        for (const href of ['/privacy', '/terms', '/portal', '/services', '/start/consultation', '/start/litigation']) assert.ok(r.body.includes(`href="${href}"`), `${p} links ${href}`);
+      } else {
+        // الرأس والتذييل المشتركان + روابط السياسات والمتابعة
+        assert.match(r.body, /class="pub-header"/);
+        assert.match(r.body, /class="pub-footer"/);
+        // v11 gate-public (intended): the paid footer (G11-23) has no «عن البرنامج» (the charity programme page)
+        // v12 entry: intended (L12-74, E12-73): the charity pages link the legal pages with ?side=charity (no side cookie any more)
+        for (const href of ['/privacy', '/terms', '/data-deletion', '/portal', ...(charity ? ['/about'] : [])]) assert.ok(r.body.includes(`href="${href}"`) || (charity && r.body.includes(`href="${href}?side=charity"`)), `${p} links ${href}`);
+        // v12 entry: intended (E12-61): the paid side starts a request at «/» (the tree); the charity side at /intake?seg=charity
+        if (charity) assert.ok(/href="\/intake\?seg=charity"/.test(r.body), `${p} links /intake?seg=charity`);
+        else assert.ok(r.body.includes('href="/"'), `${p} links /`);
+      }
       // CSP صارمة: لا سكربتات مضمّنة تنفيذية
       const inline = [...r.body.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/(?:ld\+)?json/.test(m[1]));
       assert.equal(inline.length, 0, `${p} must not have inline executable scripts`);
       assert.match(r.headers.get('content-security-policy'), /script-src 'self'/);
+    };
+    for (const [p, title] of PAGES) await check(p, title, false);
+    restored(t);
+    try {
+      for (const [p, title] of CHARITY_PAGES) await check(p, title, true);
+    } finally {
+      restored(t, false);
     }
   });
 
@@ -80,7 +99,8 @@ describe('v9 site — public pages rendered on the server', () => {
   });
 
   test('SEO and sharing tags: description, canonical, Open Graph, Twitter, icons — absolute URLs from the Host header', async () => {
-    for (const [p] of PAGES) {
+    restored(t); // v12 entry: intended (E12 §12.2): the charity pages are indexed only when «خيري» is restored
+    for (const p of [...PAGES.map((x) => x[0]), '/khayri', '/about']) {
       const r = await t.client().get(p);
       const html = r.body;
       const desc = metaContent(html, 'name', 'description');
@@ -94,9 +114,11 @@ describe('v9 site — public pages rendered on the server', () => {
       assert.match(html, /<link rel="icon" href="\/assets\/img\/favicon.svg" type="image\/svg\+xml" \/>/);
       assert.match(html, /<link rel="apple-touch-icon" href="\/assets\/img\/apple-touch-icon.png" \/>/);
     }
+    restored(t, false);
   });
 
   test('JSON-LD describes the NGO and its LegalService (address, phone, Facebook) and the home page FAQ', async () => {
+    restored(t); // v12 entry: intended (E12 §12.2): the charity home and /about exist while «خيري» is restored
     const home = jsonLd((await t.client().get('/khayri')).body); // v11 gate-public (intended): charity NGO/LegalService/FAQPage graph on /khayri
     assert.equal(home['@context'], 'https://schema.org');
     const graph = home['@graph'];
@@ -119,7 +141,8 @@ describe('v9 site — public pages rendered on the server', () => {
   });
 
   test('landing page content: services by topic link to topics with defined legal-area codes, FAQ rendered, contact block from settings, foundation programmes', async () => {
-    const html = (await t.client().get('/')).body;
+    restored(t); // v12 entry: intended (E12 §12.2): the charity landing is /khayri, restored
+    const html = (await t.client().get('/khayri')).body;
     const codes = new Set(LEGAL_AREAS.map((a) => a.code));
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}"[\\s\\S]*?href="([^"]+)"`).exec(html);
@@ -144,6 +167,7 @@ describe('v9 site — public pages rendered on the server', () => {
     for (const p of ['نجاح', 'المائدة', 'سلامة', 'الكسوة', 'أفراح', 'صك الإيواء', 'نماء']) assert.ok(about.includes(`«${p}»`), p);
     // لا محتوى مختلق: لا شهادات ولا إحصاءات
     assert.ok(!/شهادات المستفيدين|testimonial/i.test(html));
+    restored(t, false);
   });
 
   test('legal pages carry the required disclosures (AI under human supervision, WhatsApp, rights, deletion channels)', async () => {
@@ -151,7 +175,9 @@ describe('v9 site — public pages rendered on the server', () => {
     assert.ok(privacy.includes('قد نستعين بأدوات ذكاء اصطناعي لتنظيم الطلبات تحت إشراف بشري'));
     assert.match(privacy, /WhatsApp Business Platform/);
     assert.match(privacy, /151 لسنة 2020/);
-    assert.match(privacy, /لا يطّلع أبدًا على رقم\s+هاتفك/);
+    // v12 gate (K-P3): intended — /privacy is the firm's page while «خيري» is archived (plural, the firm named); the charity text is unchanged
+    assert.match(privacy, /لا يطّلع أبدًا على\s+أرقام هواتفكم/);
+    assert.match((await t.client().get('/privacy?side=charity')).body, /لا يطّلع أبدًا على رقم\s+هاتفك/);
     const terms = (await t.client().get('/terms')).body;
     assert.match(terms, /لا ضمان للنتائج/);
     assert.match(terms, /حدود العلاقة مع المحامي/);
@@ -176,7 +202,13 @@ describe('v9 site — public pages rendered on the server', () => {
     sm.body = Buffer.from(sm.body).toString('utf8');
     assert.match(sm.body, /^<\?xml version="1.0" encoding="UTF-8"\?>/);
     const locs = [...sm.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    assert.deepEqual(locs, SITE_PAGES.map((p) => `${t.base}${p.path}`));
+    // v12 entry: intended (E12-13, E12-71 #12): archived → «/», /services and the legal pages; restored adds /khayri and /about; /intake never
+    assert.deepEqual(locs, ['/', '/services', '/privacy', '/terms', '/data-deletion'].map((p) => `${t.base}${p}`));
+    assert.deepEqual(locs, SITE_PAGES.filter((p) => p.sitemap !== false && !p.charity).map((p) => `${t.base}${p.path}`));
+    restored(t);
+    const back = [...Buffer.from((await t.client().get('/sitemap.xml')).body).toString('utf8').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    restored(t, false);
+    assert.deepEqual(back, ['/', '/khayri', '/services', '/about', '/privacy', '/terms', '/data-deletion'].map((p) => `${t.base}${p}`));
     assert.ok(!/\/app|\/p\/|\/api\//.test(locs.join(' ')));
     assert.match(sm.body, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   });
@@ -286,7 +318,9 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     assert.ok(del.includes('الأحد إلى الخميس &lt;b&gt;9–5&lt;/b&gt;'));
     assert.ok(!del.includes('<b>9–5</b>'));
     // v10 experience (intended): العنوان ينتهي باسم المكتب، واسم البرنامج المعدّل يظهر في وصف الصفحة
-    const priv = (await t.client().get('/privacy')).body;
+    // v12 entry: intended (E12-13): the paid privacy page titles with « | »; the programme name lives in the charity page's description
+    assert.match(titleOf((await t.client().get('/privacy')).body), /^سياسة الخصوصية \| Emam Legal and Consultancy$/);
+    const priv = (await t.client().get('/privacy?side=charity')).body;
     assert.match(titleOf(priv), /سياسة الخصوصية — Emam Legal and Consultancy/);
     assert.match(metaContent(priv, 'name', 'description'), /برنامج برنامج الدعم القانوني في/);
     // دفاع إضافي: قيمة غير آمنة وصلت للقاعدة بطريق آخر (استيراد/استعادة) لا تُعرض أبدًا
@@ -333,6 +367,7 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     ok(await admin.patch('/api/admin/settings', { org_facebook_url: '', org_address: '', org_registration: '', office_hours: '', org_phone: '' }));
     const meta = ok(await t.client().get('/api/meta'));
     for (const k of ['org_facebook_url', 'org_address', 'org_registration', 'office_hours', 'org_phone', 'map_url']) assert.equal(meta.site[k], '', k);
+    t.app.settings.set('charity_public', true); // v12 entry: intended (E12 §12.2): the charity home is /khayri, restored
     const home = (await t.client().get('/khayri')).body; // v11 gate-public (intended): the charity NGO graph lives on /khayri
     assert.ok(!home.includes('facebook.com/Beyootmisr'), 'Facebook link removed');
     assert.ok(!home.includes('tel:'), 'phone link removed');
@@ -356,6 +391,7 @@ describe('v9 site — /api/meta and admin-controlled settings', () => {
     ok(await admin.patch('/api/admin/settings', { org_address: 'عنوان بلا محافظة' }));
     assert.equal(jsonLd((await t.client().get('/khayri')).body)['@graph'].find((n) => n['@type'] === 'NGO').address.addressLocality, undefined); // v11 gate-public (intended)
     ok(await admin.patch('/api/admin/settings', { org_address: DEFAULT_SETTINGS.org_address }));
+    t.app.settings.set('charity_public', false);
   });
 
   test('template engine: {{{raw}}} only for server-built HTML parts; any settings value is escaped even with triple braces', () => {
@@ -395,7 +431,9 @@ describe('v9 site — website intake with the optional family (beneficiary) sect
   });
   after(async () => t && t.close());
 
-  const base = (extra = {}) => ({ name: 'أم يوسف', phone: '01011112222', description: DESC, consent: true, legal_area: 'INH', ...extra });
+  // v12 staff-lines: intended (L12-09): the family (beneficiary) section belongs to the «خيري» form, which names its side;
+  // while «خيري» is archived a POST without segment is «أفراد وشركات» and skips that section
+  const base = (extra = {}) => ({ name: 'أم يوسف', phone: '01011112222', description: DESC, consent: true, legal_area: 'INH', segment: 'charity', ...extra });
 
   test('intake accepts the beneficiary contract shape and still works without it', async () => {
     const withB = await t.client().post(

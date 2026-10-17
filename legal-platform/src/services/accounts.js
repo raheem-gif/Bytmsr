@@ -89,7 +89,8 @@ export function createAccounts(app) {
   };
   const roleLabel = (r) => LABELS.user_role?.[r] || r;
   const typeLabel = (t) => LABELS.security_event?.[t] || t;
-  const orgName = () => app.settings.get('org_legal_name') || `مؤسسة ${app.settings.get('org_name') || 'بيوت مصر'}`;
+  // v12 gate fixer-server (V-28): حسابات الفريق والمحامين للمكتب — اسمه القانوني وإلا اسمه كما يراه العملاء (لا اسم المؤسسة الخيرية)
+  const orgName = () => String(app.settings.get('firm_legal_name') || '').trim() || (app.brand?.displayName ? app.brand.displayName() : '') || 'المكتب';
 
   function userRow(id) {
     const u = db.get('SELECT * FROM users WHERE id = ?', Number(id));
@@ -176,7 +177,7 @@ export function createAccounts(app) {
     const until = `${arabicDate(expiresAt)} الساعة ${arabicTime(expiresAt)}`;
     if (kind === 'invite') {
       const role =
-        u.role === 'lawyer' ? 'ضمن شبكة المحامين المتعاونين مع برنامج الدعم القانوني' : u.role === 'admin' ? 'بصلاحية «إدارة النظام» في منصة الدعم القانوني' : 'ضمن فريق إدارة الحالات في منصة الدعم القانوني';
+        u.role === 'lawyer' ? 'ضمن شبكة المحامين المتعاونين مع المكتب' : u.role === 'admin' ? 'بصلاحية «إدارة النظام» في منصة المكتب' : 'ضمن فريق إدارة الحالات في منصة المكتب';
       return [
         `السلام عليكم ${displayName(u)}،`,
         `يسعد ${orgName()} انضمامكم ${role}.`,
@@ -187,7 +188,7 @@ export function createAccounts(app) {
     }
     return [
       `السلام عليكم ${displayName(u)}،`,
-      `أصدرت إدارة ${orgName()} رابطًا لإعادة تعيين كلمة مرور حسابكم على منصة الدعم القانوني (اسم المستخدم: ${u.username}).`,
+      `أصدرت إدارة ${orgName()} رابطًا لإعادة تعيين كلمة مرور حسابكم على منصة المكتب (اسم المستخدم: ${u.username}).`,
       `الرابط صالح للاستخدام مرة واحدة حتى ${until}:`,
       url,
       'إن لم تطلبوا ذلك فيُرجى إبلاغ الإدارة فورًا.',

@@ -87,7 +87,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
   const clientRef = `lw-${a.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   const body = h('div.lw-req');
-  const handle = modal({ title: 'ماذا تحتاج؟', size: 'md', sheet: true, className: 'lw-sheet lw-req-sheet', body });
+  const handle = modal({ title: 'ماذا تحتاج؟', size: 'md', sheet: true, className: 'lw-sheet lw-req-sheet', body, tag: 'RSH-01' });
   const titleEl = handle.el.querySelector('.modal-title');
   const setTitle = (t) => {
     if (titleEl) titleEl.textContent = t;
@@ -128,7 +128,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
     if (!open.length) return null;
     return h(
       'section.lw-already',
-      h('h3.lw-already-title', 'مطلوب بالفعل من المستفيد/ة:'),
+      { tag: 'RSH-02' }, h('h3.lw-already-title', { tag: 'RSH-03' }, 'مطلوب بالفعل من المستفيد/ة:'),
       h(
         'ul.lw-already-list',
         open.map((r) => {
@@ -139,6 +139,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
                 size: 'sm',
                 className: 'lw-already-btn',
                 onClick: (e) => send(e.currentTarget, { duplicate_of_id: r.id }, 'سيصلك الرد نفسه عند وصوله، دون سؤال المستفيد/ة مرة أخرى.'),
+                tag: 'RSH-04',
               });
           return h(
             'li.lw-already-item',
@@ -176,6 +177,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
               size: 'sm',
               className: 'lw-dup-join',
               onClick: (e) => send(e.currentTarget, { duplicate_of_id: hit.id }, 'سيصلك الرد نفسه عند وصوله، دون سؤال المستفيد/ة مرة أخرى.'),
+              tag: 'RSH-05',
             });
         mount(el, icon('alert', { size: 16 }), h('span', `يشبه طلبًا قائمًا: «${shown}». اضغط «أحتاج هذا أيضًا» بدل إرسال طلب جديد.`), join);
         const appeared = el.hidden;
@@ -188,7 +190,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
   }
 
   function backLink() {
-    return h('button.lw-req-back', { type: 'button', onClick: () => tiles() }, icon('arrowRight', { size: 18 }), h('span', 'رجوع'));
+    return h('button.lw-req-back', { type: 'button', onClick: () => tiles(), tag: 'RSH-06' }, icon('arrowRight', { size: 18 }), h('span', 'رجوع'));
   }
 
   function footer(primary) {
@@ -202,7 +204,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
     const tile = (k, label, sub, iconName, disabled) =>
       h(
         'button.lw-tile',
-        { type: 'button', disabled: !!disabled, dataset: { kind: k }, onClick: () => show(k) },
+        { type: 'button', disabled: !!disabled, dataset: { kind: k }, onClick: () => show(k), tag: 'RSH-07' },
         h('span.lw-tile-icon', icon(iconName, { size: 22 })),
         h('span.lw-tile-text', h('strong', keepSlashWords(label)), sub && h('span.lw-tile-sub', sub)),
       );
@@ -218,7 +220,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
         tile('admin_question', 'سؤال للإدارة', null, 'shield'),
       ),
       onCounsel
-        ? h('button.lw-req-counsel', { type: 'button', onClick: () => { handle.close('action'); onCounsel(); } }, icon('userPlus', { size: 18 }), h('span', 'مساعدة محامٍ آخر'))
+        ? h('button.lw-req-counsel', { type: 'button', onClick: () => { handle.close('action'); onCounsel(); }, tag: 'RSH-08' }, icon('userPlus', { size: 18 }), h('span', 'مساعدة محامٍ آخر'))
         : null,
     );
     requestAnimationFrame(() => body.querySelector('.lw-tile:not([disabled])')?.focus({ preventScroll: true }));
@@ -235,6 +237,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
       dir: 'auto',
       placeholder: 'شهادة وفاة الزوج\nعقد الشقة إن وُجد',
       'aria-describedby': `${id}-hint`,
+      tag: 'RSH-09',
     });
     if (prefill) ta.value = prefill;
     const lines = () => ta.value.split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -285,6 +288,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
                 ta.focus({ preventScroll: true });
                 ta.setSelectionRange(ta.value.length, ta.value.length);
               },
+              tag: 'RSH-10',
             },
             icon('plus', { size: 14 }),
             h('span', s.label),
@@ -296,7 +300,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
     loadSuggestions();
 
     // السبب للإدارة فقط (اختياري، مطوي)
-    const reason = h('textarea.input', { id: uid('lw-reason'), rows: 3, maxlength: 2000, dir: 'auto' });
+    const reason = h('textarea.input', { id: uid('lw-reason'), rows: 3, maxlength: 2000, dir: 'auto', tag: 'RSH-11' });
     const reasonWrap = h('div.lw-field', { hidden: true }, h('label.field-label', { htmlFor: reason.id }, 'سبب الطلب (للإدارة فقط، اختياري)'), reason);
     const reasonToggle = h(
       'button.lw-more-link',
@@ -307,6 +311,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
           reasonToggle.hidden = true;
           reason.focus();
         },
+        tag: 'RSH-12',
       },
       '+ سبب الطلب (للإدارة فقط، اختياري)',
     );
@@ -327,6 +332,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
         if (long) return showError(`اختصر اسم المستند إلى 80 حرفًا: «${clip(long, 40)}»`);
         send(e.currentTarget, { kind: 'document', items, reason: reason.value.trim() || undefined }, 'أُرسل طلبك للإدارة. سيصلك إشعار عند وصول الرد.');
       },
+      tag: 'RSH-13',
     });
 
     mount(
@@ -357,7 +363,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
   function informationForm() {
     setTitle('معلومة من المستفيد/ة');
     const id = uid('lw-q');
-    const ta = h('textarea.input.lw-req-input', { id, rows: 3, maxlength: 3000, dir: 'auto', placeholder: 'مثال: هل للمتوفى أبناء من زواج آخر؟' });
+    const ta = h('textarea.input.lw-req-input', { id, rows: 3, maxlength: 3000, dir: 'auto', placeholder: 'مثال: هل للمتوفى أبناء من زواج آخر؟', tag: 'RSH-14' });
     const dup = dupWarner(() => [ta.value]);
     ta.addEventListener('input', () => {
       clearError();
@@ -376,6 +382,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
         }
         send(e.currentTarget, { kind: 'information', question: q }, 'أُرسل طلبك للإدارة. سيصلك إشعار عند وصول الرد.');
       },
+      tag: 'RSH-15',
     });
     mount(body, backLink(), openBox(), h('div.lw-field', h('label.field-label', { htmlFor: id }, 'ما المطلوب؟'), ta, dup.el), footer(submit));
     requestAnimationFrame(() => ta.focus({ preventScroll: true }));
@@ -393,7 +400,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
     let defKey = later(addDaysToDateKey(dueKey, 3), addDaysToDateKey(todayKey, 2));
     if (defKey > maxKey) defKey = maxKey;
     const id = uid('lw-day');
-    const day = h('input.input.lw-date', { id, type: 'date', min: minKey, max: maxKey, value: defKey, required: true });
+    const day = h('input.input.lw-date', { id, type: 'date', min: minKey, max: maxKey, value: defKey, required: true, tag: 'RSH-16' });
     const preview = h('p.field-hint');
     const syncPreview = () => {
       const iso = day.value ? cairoDateToIso(day.value) : null;
@@ -415,17 +422,18 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
             reason = reason === r ? null : r;
             reasonBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.textContent === reason)));
           },
+          tag: 'RSH-17',
         },
         r,
       ),
     );
-    const note = h('textarea.input', { rows: 2, maxlength: 1000, dir: 'auto', id: uid('lw-note') });
+    const note = h('textarea.input', { rows: 2, maxlength: 1000, dir: 'auto', id: uid('lw-note'), tag: 'RSH-18' });
     const noteWrap = h('div.lw-field', { hidden: true }, h('label.field-label', { htmlFor: note.id }, 'ملاحظة (اختيارية)'), note);
     const noteToggle = h('button.lw-more-link', { type: 'button', onClick: () => {
       noteWrap.hidden = false;
       noteToggle.hidden = true;
       note.focus();
-    } }, '+ ملاحظة');
+    }, tag: 'RSH-19' }, '+ ملاحظة');
     const submit = button('اطلب المهلة', {
       variant: 'primary',
       icon: 'clock',
@@ -438,6 +446,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
         }
         send(e.currentTarget, { kind: 'extension', requested_due_date: day.value, reason: reason || undefined, note: note.value.trim() || undefined }, 'أُرسل طلب المهلة للإدارة. سيظهر ردها في «الطلبات».');
       },
+      tag: 'RSH-20',
     });
     mount(
       body,
@@ -453,7 +462,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
   function adminQuestionForm() {
     setTitle('سؤال للإدارة');
     const id = uid('lw-aq');
-    const ta = h('textarea.input.lw-req-input', { id, rows: 3, maxlength: 3000, dir: 'auto' });
+    const ta = h('textarea.input.lw-req-input', { id, rows: 3, maxlength: 3000, dir: 'auto', tag: 'RSH-21' });
     const submit = button('أرسل للإدارة', {
       variant: 'primary',
       icon: 'send',
@@ -467,6 +476,7 @@ export function openRequestSheet({ base, view, kind = null, prefill = '', onCrea
         }
         send(e.currentTarget, { kind: 'admin_question', question: q }, 'أُرسل سؤالك للإدارة. سيظهر ردها في «الطلبات».');
       },
+      tag: 'RSH-22',
     });
     ta.addEventListener('input', clearError);
     mount(body, backLink(), h('div.lw-field', h('label.field-label', { htmlFor: id }, 'سؤالك'), ta), footer(submit));

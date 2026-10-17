@@ -82,7 +82,7 @@ function itemRow(it, { showDate = false, isLawyer = false, onOutcome = null } = 
   const when = it.all_day ? 'طوال اليوم' : time(it.starts_at);
   // v9.1 l-court (L-15): جلسة انعقدت بلا نتيجة في تقويم المحامي ← «سجّل النتيجة» يفتح ورقة النتيجة
   const outcomeBtn = isLawyer && onOutcome && it.needs_outcome
-    ? h('div.lc-cal-action', button('سجّل النتيجة', { variant: 'primary', icon: 'edit', onClick: () => onOutcome(it) }))
+    ? h('div.lc-cal-action', button('سجّل النتيجة', { variant: 'primary', icon: 'edit', onClick: () => onOutcome(it), tag: 'CAL-01' }))
     : null;
   return h(
     'li.v9p-cal-item',
@@ -94,7 +94,7 @@ function itemRow(it, { showDate = false, isLawyer = false, onOutcome = null } = 
       h(
         'div.v9p-cal-title',
         h('span.v9p-cal-type', icon(TYPE_ICON[it.type], { size: 14 }), itemLabel(it)),
-        it.link ? h('a', { href: it.link }, it.title) : h('span', it.title),
+        it.link ? h('a', { href: it.link, tag: 'CAL-02' }, it.title) : h('span', it.title),
       ),
       h(
         'div.v9p-cal-meta',
@@ -130,7 +130,7 @@ export function devicePlatform(ua = (typeof navigator !== 'undefined' && navigat
 export async function openSubscribeDialog({ platform = null, title = null } = {}) {
   // v9.1 l-court: platform ('iphone' | 'google') يختار تبويب التعليمات المناسب للجهاز ويقدّم خطوته الأولى (بوابة المحامي)
   const body = h('div.v9p-sub', loading());
-  modal({ title: title || 'اشترك في تقويم هاتفك', size: 'lg', body, actions: [{ label: 'إغلاق', variant: 'ghost' }] });
+  modal({ title: title || 'اشترك في تقويم هاتفك', size: 'lg', body, actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'CAL-03' }], tag: 'CAL-04' });
   let status;
   try {
     status = await api.get('/calendar/feed');
@@ -156,6 +156,7 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
                 'أو اضغط زر «فتح في تطبيق التقويم» مباشرة من الآيفون.',
               ]),
             ),
+            tag: 'CAL-05',
         },
         {
           key: 'google',
@@ -172,14 +173,16 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
               ]),
               h('p.small.muted', 'يتطلب تقويم Google أن تكون المنصة منشورة على رابط عام يبدأ بـ https.'),
             ),
+            tag: 'CAL-06',
         },
         {
           key: 'outlook',
           label: 'Outlook',
           render: () => h('div.stack-sm', steps(['من Outlook على الويب: «إضافة تقويم» ← «الاشتراك من الويب».', 'الصق الرابط واختر اسمًا للتقويم ثم «استيراد».'])),
+          tag: 'CAL-07',
         },
       ],
-      { className: 'tabs-pills v9p-sub-tabs', active: platform || undefined },
+      { className: 'tabs-pills v9p-sub-tabs', active: platform || undefined, tag: 'CAL-08' },
     );
   }
 
@@ -191,23 +194,23 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
           ? 'يضيف هذا الرابط جلسات ملفاتك المستمرة ومهامها ومواعيد تسليم إسناداتك إلى تقويم هاتفك، ويتحدث تلقائيًا.'
           : 'يضيف هذا الرابط جلسات الملفات المستمرة والمواعيد الإجرائية ومواعيد تسليم الإسنادات واستحقاق الفواتير إلى تقويم هاتفك، ويتحدث تلقائيًا.',
       ),
-      alertBox('الرابط سري: من يملكه يرى مواعيدك. لا تشاركه مع أحد. لا يتضمن التقويم أرقام هواتف أو بيانات اتصال المستفيدين. يتوقف الرابط تلقائيًا عند تغيير كلمة المرور أو إيقاف الحساب.', 'warning', { title: 'خصوصية', icon: 'lock' }),
+      alertBox('الرابط سري: من يملكه يرى مواعيدك. لا تشاركه مع أحد. لا يتضمن التقويم أرقام هواتف أو بيانات اتصال المستفيدين. يتوقف الرابط تلقائيًا عند تغيير كلمة المرور أو إيقاف الحساب.', 'warning', { title: 'خصوصية', icon: 'lock', tag: 'CAL-09' }),
     ];
     // v9.1 l-court: أندرويد — قبل إنشاء الرابط نقول بصراحة إن تقويم Google يحتاج حاسوبًا مرة واحدة (وبعده يظهر في تبويبه)
     if (platform === 'google' && !issued) parts.unshift(h('p.lc-honest', icon('info', { size: 16 }), 'تحتاج حاسوبًا مرة واحدة لإضافة الرابط في تقويم Google.'));
     if (!issued && !status.active && status.invalidated === 'password_changed') {
-      parts.push(alertBox('أُوقف رابط الاشتراك السابق لأن كلمة مرور الحساب تغيّرت بعد إصداره. أنشئ رابطًا جديدًا وأضفه إلى تقويمك من جديد.', 'info', { title: 'توقف الرابط السابق', icon: 'info' }));
+      parts.push(alertBox('أُوقف رابط الاشتراك السابق لأن كلمة مرور الحساب تغيّرت بعد إصداره. أنشئ رابطًا جديدًا وأضفه إلى تقويمك من جديد.', 'info', { title: 'توقف الرابط السابق', icon: 'info', tag: 'CAL-10' }));
     }
     if (issued) {
       const inputId = uid('feed');
-      const openBtn = h('div.row', button('فتح في تطبيق التقويم', { variant: 'primary', icon: 'calendar', href: issued.webcal_url }));
+      const openBtn = h('div.row', button('فتح في تطبيق التقويم', { variant: 'primary', icon: 'calendar', href: issued.webcal_url, tag: 'CAL-11' }));
       parts.push(
         // v9.1 l-court: على الآيفون «فتح في تطبيق التقويم» هو الإجراء الأول
         platform === 'iphone' ? openBtn : null,
         h(
           'div.field.field-full',
           h('label.field-label', { htmlFor: inputId }, 'رابط الاشتراك (يظهر الآن فقط — انسخه واحفظه في التقويم)'),
-          h('div.v9p-feed-url', h('input.input', { id: inputId, type: 'text', dir: 'ltr', readonly: true, value: issued.url, onFocus: (e) => e.target.select() }), copyButton(issued.url, 'نسخ الرابط', { variant: 'secondary', size: 'md' })),
+          h('div.v9p-feed-url', h('input.input', { id: inputId, type: 'text', dir: 'ltr', readonly: true, value: issued.url, onFocus: (e) => e.target.select(), tag: 'CAL-12' }), copyButton(issued.url, 'نسخ الرابط', { variant: 'secondary', size: 'md', tag: 'CAL-13' })),
         ),
         platform === 'iphone' ? null : openBtn,
         instructions(issued.url),
@@ -217,7 +220,7 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
         alertBox(
           `يوجد رابط اشتراك مفعّل منذ ${date(status.created_at)} (ينتهي بـ ${status.hint})${status.last_used_at ? `، آخر مزامنة ${relative(status.last_used_at)}` : '، ولم يُستخدم بعد'}. لا يمكن عرض الرابط مرة أخرى لأنه مخزن مشفّرًا؛ أصدر رابطًا جديدًا إن احتجت إليه (يتوقف الرابط القديم فورًا).`,
           'info',
-          { title: 'الاشتراك مفعّل', icon: 'checkCircle' },
+          { title: 'الاشتراك مفعّل', icon: 'checkCircle', tag: 'CAL-14' },
         ),
       );
     }
@@ -228,7 +231,7 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
           status.active || issued ? 'إصدار رابط جديد' : 'إنشاء رابط الاشتراك',
           async () => {
             if (status.active || issued) {
-              const ok = await confirmDanger({ title: 'إصدار رابط جديد', message: 'سيتوقف الرابط الحالي فورًا في كل التقويمات المشتركة به، وستحتاج لإضافة الرابط الجديد. هل تريد المتابعة؟', confirmLabel: 'إصدار رابط جديد' });
+              const ok = await confirmDanger({ title: 'إصدار رابط جديد', message: 'سيتوقف الرابط الحالي فورًا في كل التقويمات المشتركة به، وستحتاج لإضافة الرابط الجديد. هل تريد المتابعة؟', confirmLabel: 'إصدار رابط جديد', tag: 'CAL-15' });
               if (!ok) return;
             }
             const res = await api.post('/calendar/feed');
@@ -236,19 +239,19 @@ export async function openSubscribeDialog({ platform = null, title = null } = {}
             render(res);
             toast('أُنشئ رابط اشتراك جديد', 'success');
           },
-          { variant: status.active || issued ? 'secondary' : 'primary', icon: 'link' },
+          { variant: status.active || issued ? 'secondary' : 'primary', icon: 'link', tag: 'CAL-16' },
         ),
         (status.active || issued) &&
           asyncButton(
             'إلغاء الاشتراك',
             async () => {
-              const ok = await confirmDanger({ title: 'إلغاء رابط التقويم', message: 'سيتوقف التقويم المشترك عن التحديث في كل الأجهزة. هل تريد المتابعة؟', confirmLabel: 'إلغاء الرابط' });
+              const ok = await confirmDanger({ title: 'إلغاء رابط التقويم', message: 'سيتوقف التقويم المشترك عن التحديث في كل الأجهزة. هل تريد المتابعة؟', confirmLabel: 'إلغاء الرابط', tag: 'CAL-17' });
               if (!ok) return;
               status = await api.del('/calendar/feed');
               render(null);
               toast('أُلغي رابط اشتراك التقويم', 'success');
             },
-            { variant: 'ghost', icon: 'trash' },
+            { variant: 'ghost', icon: 'trash', tag: 'CAL-18' },
           ),
       ),
     );
@@ -282,7 +285,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
   let lawyers = [];
 
   const content = h('div.v9p-cal-content', loading());
-  const monthTitle = h('h2.v9p-cal-month', { 'aria-live': 'polite' });
+  const monthTitle = h('h2.v9p-cal-month', { 'aria-live': 'polite', tag: 'CAL-19' });
   const viewBtns = {};
 
   function syncUrl() {
@@ -338,7 +341,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
     if (!list.length) return null;
     return h(
       'details.v9p-overdue',
-      h('summary', icon('alert', { size: 16 }), h('span', `متأخرات تجاوزت تاريخها دون إنجاز: ${count(list.length, ['موعد واحد', 'موعدان', 'مواعيد', 'موعدًا'])}`)),
+      { tag: 'CAL-20' }, h('summary', { tag: 'CAL-21' }, icon('alert', { size: 16 }), h('span', `متأخرات تجاوزت تاريخها دون إنجاز: ${count(list.length, ['موعد واحد', 'موعدان', 'مواعيد', 'موعدًا'])}`)),
       h('ul.v9p-cal-list', list.map((it) => itemRow(it, { showDate: true, isLawyer }))),
     );
   }
@@ -349,7 +352,9 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
       title: key === cairoToday() ? `اليوم — ${title}` : title,
       icon: 'calendar',
       className: 'v9p-day-panel',
-      body: items.length ? h('ul.v9p-cal-list', items.map((it) => itemRow(it, { isLawyer, onOutcome: isLawyer ? onOutcome : null }))) : emptyState('لا توجد مواعيد في هذا اليوم', null, { compact: true, icon: 'calendar' }),
+      body: items.length ? h('ul.v9p-cal-list', items.map((it) => itemRow(it, { isLawyer, onOutcome: isLawyer ? onOutcome : null }))) : emptyState('لا توجد مواعيد في هذا اليوم', null, { compact: true, icon: 'calendar', tag: 'CAL-22' }),
+      titleTag: 'CAL-23',
+      tag: 'CAL-24',
     });
   }
 
@@ -378,6 +383,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
           'aria-pressed': k === selected ? 'true' : 'false',
           'aria-label': `${DAY_FMT.format(new Date(keyToUtc(k)))}${n ? ` — ${count(n, ['موعد واحد', 'موعدان', 'مواعيد', 'موعدًا'])}` : ' — لا مواعيد'}`,
           onClick: pick,
+          tag: 'CAL-25',
         },
         String(dayNum),
       );
@@ -391,12 +397,12 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
               items.slice(0, 3).map((it) =>
                 h(
                   it.link ? 'a.v9p-chip-item' : 'span.v9p-chip-item',
-                  { class: `v9p-t-${it.type}`, href: it.link || null, title: `${itemLabel(it)}: ${it.title}${it.all_day ? '' : ` — ${time(it.starts_at)}`}` },
+                  { class: `v9p-t-${it.type}`, href: it.link || null, title: `${itemLabel(it)}: ${it.title}${it.all_day ? '' : ` — ${time(it.starts_at)}`}`, tag: 'CAL-48' },
                   !it.all_day && h('span.v9p-chip-time', time(it.starts_at)),
                   h('span.v9p-chip-text', chipText(it)),
                 ),
               ),
-              n > 3 && h('button.v9p-more', { type: 'button', onClick: pick }, `+${n - 3} أخرى`),
+              n > 3 && h('button.v9p-more', { type: 'button', onClick: pick, tag: 'CAL-26' }, `+${n - 3} أخرى`),
             )
           : null,
         n ? h('div.v9p-dots', { 'aria-hidden': 'true' }, [...new Set(items.map((i) => i.type))].map((t) => h('span.v9p-dot', { class: `v9p-t-${t}` }))) : null,
@@ -419,15 +425,15 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
 
   function renderAgenda(map) {
     const keys = [...map.keys()].filter((k) => k.startsWith(monthKey(state.month))).sort();
-    if (!keys.length) return emptyState('لا توجد مواعيد في هذا الشهر حسب التصفية الحالية', null, { icon: 'calendar' });
+    if (!keys.length) return emptyState('لا توجد مواعيد في هذا الشهر حسب التصفية الحالية', null, { icon: 'calendar', tag: 'CAL-27' });
     const today = cairoToday();
     return h(
       'div.v9p-agenda',
       keys.map((k) =>
         h(
           'section.v9p-agenda-day',
-          { class: [k === today && 'is-today', k < today && 'is-past'] },
-          h('h3.v9p-agenda-head', dayLabel(new Date(keyToUtc(k) + 12 * 3600000).toISOString()), k === today ? null : h('span.muted.small', ` · ${DAY_FMT.format(new Date(keyToUtc(k)))}`)),
+          { class: [k === today && 'is-today', k < today && 'is-past'], tag: 'CAL-28' },
+          h('h3.v9p-agenda-head', { tag: 'CAL-29' }, dayLabel(new Date(keyToUtc(k) + 12 * 3600000).toISOString()), k === today ? null : h('span.muted.small', ` · ${DAY_FMT.format(new Date(keyToUtc(k)))}`)),
           h('ul.v9p-cal-list', map.get(k).map((it) => itemRow(it, { isLawyer }))),
         ),
       ),
@@ -452,8 +458,8 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
     if (!list.length) return null;
     return h(
       'section.lc-cal-pending',
-      { 'aria-labelledby': 'lc-cal-pending-title' },
-      h('h3#lc-cal-pending-title.lc-cal-group-title', icon('alert', { size: 16 }), `بانتظار النتيجة (${list.length})`),
+      { 'aria-labelledby': 'lc-cal-pending-title', tag: 'CAL-30' },
+      h('h3#lc-cal-pending-title.lc-cal-group-title', { tag: 'CAL-31' }, icon('alert', { size: 16 }), `بانتظار النتيجة (${list.length})`),
       h('ul.v9p-cal-list', list.map((it) => itemRow(it, { showDate: true, isLawyer, onOutcome }))),
     );
   }
@@ -464,7 +470,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
     const weekEnd = addDaysKey(today, 6);
     const current = monthKey(state.month) === today.slice(0, 7);
     const list = items.filter((it) => !it.needs_outcome).filter((it) => (current ? isoToCairoDate(it.starts_at) >= today : isoToCairoDate(it.starts_at).startsWith(monthKey(state.month))));
-    if (!list.length) return emptyState(current ? 'لا توجد مواعيد قادمة خلال الأسابيع المقبلة.' : 'لا توجد مواعيد في هذا الشهر.', null, { icon: 'calendar', compact: true });
+    if (!list.length) return emptyState(current ? 'لا توجد مواعيد قادمة خلال الأسابيع المقبلة.' : 'لا توجد مواعيد في هذا الشهر.', null, { icon: 'calendar', compact: true, tag: 'CAL-32' });
     const groups = [];
     const push = (key, title, it) => {
       let g = groups.find((x) => x.key === key);
@@ -483,8 +489,8 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
       groups.map((g) =>
         h(
           'section.v9p-agenda-day',
-          { class: g.key === 'today' && 'is-today' },
-          h('h3.v9p-agenda-head', g.title),
+          { class: g.key === 'today' && 'is-today', tag: 'CAL-33' },
+          h('h3.v9p-agenda-head', { tag: 'CAL-34' }, g.title),
           h('ul.v9p-cal-list', g.items.map((it) => itemRow(it, { isLawyer, showDate: g.key === 'week', onOutcome }))),
         ),
       ),
@@ -510,16 +516,16 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
   // ── شريط التحكم ──
   const nav = h(
     'div.v9p-cal-nav',
-    button('', { icon: 'chevronRight', variant: 'ghost', title: 'الشهر السابق', onClick: () => { state.month = shiftMonth(state.month, -1); state.day = null; load(); } }),
+    button('', { icon: 'chevronRight', variant: 'ghost', title: 'الشهر السابق', onClick: () => { state.month = shiftMonth(state.month, -1); state.day = null; load(); }, tag: 'CAL-35' }),
     monthTitle,
-    button('', { icon: 'chevronLeft', variant: 'ghost', title: 'الشهر التالي', onClick: () => { state.month = shiftMonth(state.month, 1); state.day = null; load(); } }),
-    button('اليوم', { size: 'sm', onClick: () => { state.month = parseMonth(''); state.day = cairoToday(); load(); } }),
+    button('', { icon: 'chevronLeft', variant: 'ghost', title: 'الشهر التالي', onClick: () => { state.month = shiftMonth(state.month, 1); state.day = null; load(); }, tag: 'CAL-36' }),
+    button('اليوم', { size: 'sm', onClick: () => { state.month = parseMonth(''); state.day = cairoToday(); load(); }, tag: 'CAL-37' }),
   );
   const views = h(
     'div.v9p-seg',
     { role: 'group', 'aria-label': 'طريقة العرض' },
     [['month', 'الشهر', 'calendar'], ['agenda', 'جدول المواعيد', 'menu']].map(([k, lbl, ic]) => {
-      const b = h('button.v9p-seg-btn', { type: 'button', 'aria-pressed': k === state.view ? 'true' : 'false', onClick: () => { state.view = k; if (isLawyer) load(); else if (data) render(monthGrid(state.month)); syncUrl(); } }, icon(ic, { size: 16 }), h('span', lbl));
+      const b = h('button.v9p-seg-btn', { type: 'button', 'aria-pressed': k === state.view ? 'true' : 'false', onClick: () => { state.view = k; if (isLawyer) load(); else if (data) render(monthGrid(state.month)); syncUrl(); }, tag: 'CAL-38' }, icon(ic, { size: 16 }), h('span', lbl));
       viewBtns[k] = b;
       return b;
     }),
@@ -542,6 +548,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
             e.currentTarget.setAttribute('aria-pressed', !on ? 'true' : 'false');
             load();
           },
+          tag: 'CAL-39',
         },
         h('span.v9p-dot', { class: `v9p-t-${t}`, 'aria-hidden': 'true' }),
         icon(TYPE_ICON[t], { size: 14 }),
@@ -560,12 +567,16 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
     ? // v9.1 l-court: بلا عنوان فرعي، والإجراء «أضف إلى تقويم هاتفي» يختار تعليمات جهازه تلقائيًا
       pageHeader({
         title: 'تقويمي',
-        actions: [button('أضف إلى تقويم هاتفي', { icon: 'calendar', variant: 'primary', onClick: () => openSubscribeDialog({ platform: devicePlatform(), title: 'أضف إلى تقويم هاتفي' }) })],
+        actions: [button('أضف إلى تقويم هاتفي', { icon: 'calendar', variant: 'primary', onClick: () => openSubscribeDialog({ platform: devicePlatform(), title: 'أضف إلى تقويم هاتفي' }), tag: 'CAL-40' })],
+        titleTag: 'CAL-41',
+        tag: 'CAL-42',
       })
     : pageHeader({
         title: 'التقويم',
         subtitle: 'الجلسات والمواعيد الإجرائية ومواعيد تسليم الإسنادات واستحقاق الفواتير في مكان واحد.',
-        actions: [button('اشترك في تقويم هاتفك', { icon: 'link', variant: 'primary', onClick: () => openSubscribeDialog() })],
+        actions: [button('اشترك في تقويم هاتفك', { icon: 'link', variant: 'primary', onClick: () => openSubscribeDialog(), tag: 'CAL-43' })],
+        titleTag: 'CAL-44',
+        tag: 'CAL-45',
       });
 
   await load();
@@ -581,6 +592,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
           state.lawyer = val;
           load();
         },
+        tag: 'CAL-46',
       }),
     );
   }
@@ -598,6 +610,7 @@ export async function calendarPage(ctx, { mode = 'staff' } = {}) {
         typeToggles,
         content,
       ),
+      tag: 'CAL-47',
     }),
   );
 }

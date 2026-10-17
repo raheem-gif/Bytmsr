@@ -5,9 +5,9 @@
 
 :root {
   /* ألوان الرسوم البيانية الفئوية (تحقق: تباين CVD وحد التشبع والتباين مع السطح) */
-  --pd-c1: #00809d;
+  --pd-c1: var(--primary-700); /* v12 gate (V-24): أخضر اللوحة بدل الأزرق المخضر #00809d */
   --pd-c2: #b8862e; /* @brand-exempt — لوحة فئوية ثابتة للرسوم البيانية، لا تتبع ألوان المؤسسة */
-  --pd-c3: #5d55b8;
+  --pd-c3: var(--primary-300); /* v12 gate (V-24) */
   --pd-ok: var(--success-600);
   --pd-warn: var(--warning-500);
   --pd-bad: var(--danger-600);
@@ -982,15 +982,9 @@ html[dir="rtl"] .pd-hbar-fill {
   transform: translateY(-50%) rotate(-45deg);
 }
 
+/* v12 look (review, A04/A05): no icon tile, plain step figures */
 .pd-step-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--primary-50);
-  color: var(--primary-700);
+  display: none;
 }
 
 .pd-step-text h3 {
@@ -1006,11 +1000,9 @@ html[dir="rtl"] .pd-hbar-fill {
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: var(--accent-100);
-  color: var(--accent-800);
+  color: var(--ink-3);
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .pd-step-text p {
@@ -1671,7 +1663,7 @@ html[dir="rtl"] .pd-hbar-fill {
   transform: translateX(50%);
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--gray-800);
+  color: var(--ink); /* v12 gate (V-24): فوق العمود بلون الحبر، لا على العمود */
   white-space: nowrap;
 }
 
@@ -1889,7 +1881,7 @@ html[dir="rtl"] .pd-hbar-fill {
 .brp-side {
   grid-area: side;
   padding: 12px 8px;
-  background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
+  background: var(--primary-900);
   color: #fff;
 }
 .brp-nav {

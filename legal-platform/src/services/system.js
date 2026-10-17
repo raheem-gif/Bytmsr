@@ -1051,6 +1051,7 @@ export function createSystem(app) {
           yield { name: `${root}/README.txt`, data: readme };
           yield add({ name: `${root}/data/platform.db`, file: tmp, rel: 'data/platform.db' });
           for (const f of walkFiles(config.uploadsDir)) {
+            if (f.rel.startsWith('variants/auto/')) continue; // v12 media (H-M10، L12-70): نسخ الخادم الآلية يعيدها الاستكمال، لا تُنسخ
             yield add({ name: `${root}/data/uploads/${f.rel}`, file: f.full, size: f.size, mtime: f.mtime, rel: `data/uploads/${f.rel}` });
           }
           if (withKey) yield add({ name: `${root}/data/.secret-key`, data: fs.readFileSync(keyFile), mode: 0o600, rel: 'data/.secret-key' });
@@ -1338,6 +1339,7 @@ export function createSystem(app) {
       add('ai', ai.configured ? 'ok' : 'info', ai.configured ? 'Claude مضبوط' : 'الذكاء الاصطناعي: المحلل المحلي', ai.runtime.label || '', '#/integrations');
       // v10 b2b-server (B10-59 → P0، CO-2، L-62): البريد والرابط العام والجهة المتعاقدة — حمراء متى وُجدت شركة
       for (const it of app.email?.readiness?.() || []) add(it.key, it.level, it.title, it.detail, it.href);
+      for (const it of app.media?.healthChecks?.() ?? []) add(it.key, it.level, it.title, it.detail, it.href); // v12 media (H-M10): الذاكرة، القرص × الاحتفاظ، سياسة ImageMagick
       // v9.2 «ألوان المؤسسة»: المستوى ok في الحالتين (لا يؤثر في جاهزية الإطلاق)؛ السطر التالي لبند story_ack (H-A2)
       const brandItem = app.brand?.readiness?.() || { title: 'ألوان المؤسسة: الألوان الأصلية للمنصة', detail: '', href: '#/settings?section=brand' };
       add('brand', 'ok', brandItem.title, brandItem.detail, brandItem.href);

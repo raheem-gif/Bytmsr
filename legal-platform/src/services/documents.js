@@ -1,8 +1,19 @@
 // المستندات: الحفظ الآمن على القرص، والتحقق من صلاحية الوصول قبل أي تنزيل.
+//
+// v12 media (MD-4، §5.8، L12-58 … L12-61، L12-67، L12-70، L12-73):
+// • كل ملف يُفك ويُفحص كاملًا (الحجم، بصمة المحتوى، أبعاد الصورة من الترويسة وحدها) قبل أي كتابة: inspect().
+//   صورة أكبر من 40 ميجابكسل أو ضلعها أكثر من 12,000 ← 400 image_too_large «الصورة كبيرة جدًا» لما يرفعه شخص؛ وما
+//   ينزّله الخادم (واتساب) يُحفظ بلا فك وscan_state = 'skipped' (للتنزيل فقط).
+// • مرفق من ماسح الهاتف (scan): الملف الرئيسي = النسخة النظيفة (صف documents)، والأصول = document_files(role='original',
+//   page=n) تحت uploadsDir/variants/YYYY/MM/ ببصمة sha256 وأبعادها. المعروض افتراضيًا (display_file_id): النسخة النظيفة
+//   فقط حين تكون واثقة (L12-59)، وإلا أصل الصفحة الأولى. HEIC يُحفظ كما هو وscan_state = 'skipped'.
+// • التنزيل بنسخة (file = display | main | clean | original، page = n) لا يحل إلا WHERE document_id = المستند نفسه؛
+//   أصل JPEG ينزّله محامٍ تُحذف منه بيانات EXIF/XMP (APP1) أثناء الإرسال، والملف المخزّن وبصمته كما هما.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { badRequest, notFound, forbidden, nowIso, randomToken, v, arabicCount, AR_UNITS } from '../util.js';
+import { badRequest, notFound, forbidden, nowIso, randomToken, v, arabicCount, AR_UNITS, ApiError } from '../util.js';
+import { imageDims } from '../../public/assets/js/lib/scan-core.js';
 
 // أنواع الملفات المسموح بها (المستندات والصور والرسائل الصوتية الشائعة في واتساب)
 const ALLOWED = {
@@ -25,6 +36,14 @@ const ALLOWED = {
 };
 const EXT_TO_MIME = Object.fromEntries(Object.entries(ALLOWED).map(([m, e]) => [e, m]));
 EXT_TO_MIME['.jpeg'] = 'image/jpeg';
+
+// v12 media (L12-67): حدود الصورة المقروءة من الترويسة
+export const IMAGE_MAX_PIXELS = 40_000_000;
+export const IMAGE_MAX_SIDE = 12_000;
+const RASTER = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// الملف الرئيسي لمرفق ممسوح: صورة نظيفة أو PDF من عدة صفحات (M §5.4)
+const SCAN_MAIN = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const SCANNED_STATES = new Set(['client', 'staff']);
 
 /** فحص البصمة الأولى للملف (magic bytes) حتى لا يُقبل ملف تنفيذي أو HTML على أنه PDF أو صورة */
 function contentMatches(mime, buf) {
@@ -73,9 +92,193 @@ function sanitizeFilename(name) {
   return cleaned || 'ملف';
 }
 
+/** أبعاد الصورة من ترويستها فقط (بلا فك) بعد تطبيق اتجاه EXIF ← { width, height, rawWidth, rawHeight } أو null */
+export function headerDims(mime, buf) {
+  if (!RASTER.has(mime)) return null;
+  const d = imageDims(buf);
+  if (!d || !d.width || !d.height) return null;
+  const swap = d.orientation >= 5 && d.orientation <= 8;
+  return { width: swap ? d.height : d.width, height: swap ? d.width : d.height, rawWidth: d.width, rawHeight: d.height, orientation: d.orientation || 1 };
+}
+export const isTooLarge = (d) => !!d && (d.rawWidth * d.rawHeight > IMAGE_MAX_PIXELS || d.rawWidth > IMAGE_MAX_SIDE || d.rawHeight > IMAGE_MAX_SIDE);
+const tooLargeError = (name) => new ApiError(400, 'الصورة كبيرة جدًا', 'image_too_large', { fields: { file: name ? `الصورة «${name}» كبيرة جدًا` : 'الصورة كبيرة جدًا' } });
+
+/** مقاطع APPn التي تبقى: JFIF (APP0)، ملف الألوان ICC (APP2) وAdobe (APP14، لتحويل الألوان)؛ وكل ما ليس APPn أو تعليقًا */
+function keepJpegSegment(marker, data) {
+  if (marker === 0xfe) return false; // COM
+  if (marker < 0xe0 || marker > 0xef) return true;
+  const sig = data.toString('latin1', 0, 12);
+  return (marker === 0xe0 && sig.startsWith('JFIF')) || (marker === 0xe2 && sig.startsWith('ICC_PROFILE')) || (marker === 0xee && sig.startsWith('Adobe'));
+}
+
+/**
+ * L12-73 (+ مراجعة البوابة SEC-3): نسخة JPEG بلا بيانات وصفية — كل APPn إلا JFIF وICC وAdobe (فيسقط EXIF/GPS وXMP وIPTC
+ * وMPF)، والتعليقات COM، وما بعد نهاية الصورة الأولى — مع تخطي بايتات الحشو بين المقاطع كما يفعل libjpeg (0xFF الزائدة أو بايتات شاردة قبل العلامة التالية). بنية لا تُفهم ← null
+ * (والمستدعي يرفض التنزيل للمحامي بدل إرسال الملف كما هو).
+ */
+export function stripJpegApp1(buf) {
+  if (!(buf && buf[0] === 0xff && buf[1] === 0xd8)) return null;
+  const parts = [buf.subarray(0, 2)];
+  let i = 2;
+  while (i + 4 <= buf.length) {
+    if (buf[i] !== 0xff) {
+      // بايتات شاردة قبل العلامة (يقبلها libjpeg بتحذير): تُتخطى حتى 0xFF التالية
+      const next = buf.indexOf(0xff, i);
+      if (next < 0) return null;
+      i = next;
+      continue;
+    }
+    const marker = buf[i + 1];
+    if (marker === 0xff) {
+      i += 1;
+      continue;
+    }
+    if (marker === 0x00) return null;
+    if (marker === 0xd9) {
+      parts.push(buf.subarray(i, i + 2));
+      return Buffer.concat(parts);
+    }
+    if (marker === 0xda) {
+      // الصورة حتى أول EOI فقط: ما يُلحق بعدها (صور MPF الثانوية في صور الهاتف) قد يحمل EXIF/GPS خاصًا به.
+      // داخل البيانات المرمّزة لا تظهر 0xFF إلا متبوعة بـ 0x00 أو RSTn، فأول FF D9 نهاية الصورة.
+      let e = i + 2;
+      while ((e = buf.indexOf(0xff, e)) >= 0 && e + 1 < buf.length && buf[e + 1] !== 0xd9) e += 1;
+      parts.push(e >= 0 && e + 1 < buf.length ? buf.subarray(i, e + 2) : buf.subarray(i));
+      return Buffer.concat(parts);
+    }
+    if ((marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
+      parts.push(buf.subarray(i, i + 2));
+      i += 2;
+      continue;
+    }
+    const len = (buf[i + 2] << 8) | buf[i + 3];
+    if (len < 2 || i + 2 + len > buf.length) return null;
+    if (keepJpegSegment(marker, buf.subarray(i + 4, i + 2 + len))) parts.push(buf.subarray(i, i + 2 + len));
+    i += 2 + len;
+  }
+  return null;
+}
+
+/** PNG بلا مقاطع eXIf وtEXt وiTXt وzTXt وtIME (EXIF/GPS والنصوص الحرة)؛ بنية لا تُفهم ← null */
+export function stripPngMeta(buf) {
+  const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buf || buf.length < 8 || !buf.subarray(0, 8).equals(SIG)) return null;
+  const DROP = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt', 'tIME']);
+  const parts = [buf.subarray(0, 8)];
+  let i = 8;
+  while (i + 12 <= buf.length) {
+    const len = buf.readUInt32BE(i);
+    const type = buf.toString('latin1', i + 4, i + 8);
+    if (!/^[A-Za-z]{4}$/.test(type) || len > buf.length - i - 12) return null;
+    const end = i + 12 + len;
+    if (!DROP.has(type)) parts.push(buf.subarray(i, end));
+    i = end;
+    if (type === 'IEND') return Buffer.concat(parts);
+  }
+  return null;
+}
+
+const WEBP_KEEP = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ANIM', 'ANMF', 'ICCP']);
+/** WebP بمقاطع الصورة وحدها (بلا EXIF وXMP وأي مقطع آخر)، مع مسح علامتيهما في VP8X (0x08 و0x04) وتصحيح طول RIFF؛ بنية لا تُفهم ← null */
+export function stripWebpMeta(buf) {
+  if (!buf || buf.length < 12 || buf.toString('latin1', 0, 4) !== 'RIFF' || buf.toString('latin1', 8, 12) !== 'WEBP') return null;
+  const parts = [];
+  let i = 12;
+  while (i + 8 <= buf.length) {
+    const type = buf.toString('latin1', i, i + 4);
+    const len = buf.readUInt32LE(i + 4);
+    const padded = len + (len & 1);
+    if (!/^[A-Za-z0-9 ]{4}$/.test(type) || len > buf.length - i - 8) return null;
+    const chunk = Buffer.from(buf.subarray(i, Math.min(buf.length, i + 8 + padded)));
+    if (type === 'VP8X' && len >= 1) chunk[8] &= ~0x0c;
+    if (WEBP_KEEP.has(type)) parts.push(chunk);
+    i += 8 + padded;
+  }
+  if (i < buf.length - 1 || !parts.length) return null;
+  const body = Buffer.concat(parts);
+  const head = Buffer.alloc(12);
+  head.write('RIFF', 0, 'latin1');
+  head.writeUInt32LE(body.length + 4, 4);
+  head.write('WEBP', 8, 'latin1');
+  return Buffer.concat([head, body]);
+}
+
+/** أثر لبيانات وصفية في ملف لم تُحلَّل بنيته (EXIF، XMP، IPTC، مقاطع النص في PNG، مقطعا WebP) */
+export function hasMetadataTrace(buf) {
+  return /Exif\0|<x:xmpmeta|http:\/\/ns\.adobe\.com\/xap|Photoshop 3\.0|eXIf|tEXt|iTXt|zTXt|XMP /.test(Buffer.from(buf).toString('latin1'));
+}
+
+/** SEC-3: الصورة بلا بياناتها الوصفية حسب نوعها (JPEG وPNG وWebP) → Buffer، أو null (نوع آخر مثل HEIC أو بنية لا تُفهم) */
+export function stripImageMetadata(mime, buf) {
+  if (mime === 'image/jpeg') return stripJpegApp1(buf);
+  if (mime === 'image/png') return stripPngMeta(buf);
+  if (mime === 'image/webp') return stripWebpMeta(buf);
+  return null;
+}
+
+/** مساحة شكل رباعي (أركانه بين 0 و1) من الصورة */
+function quadArea(q) {
+  let a = 0;
+  for (let i = 0; i < 4; i++) {
+    const p = q[i];
+    const n = q[(i + 1) % 4];
+    a += p[0] * n[1] - n[0] * p[1];
+  }
+  return Math.abs(a) / 2;
+}
+/**
+ * L12-59 (r3، K-M1): حدود ثقة الاكتشاف. كانت «الورقة ≥ 60 % من الصورة» فلم تُعرض النسخة النظيفة أولًا إلا لصورة واحدة من 21؛
+ * الآن تكفي ورقة ≥ 15 % من الصورة بحواف قوية وشكل معقول، ويبقى الأصل أولًا للمقطوعة (partial) ولما وُجد ورق خارج حدودها
+ * (nested: إطار مطبوع داخل الورقة، PW-M11 n01).
+ */
+export const SCAN_CONFIDENCE = Object.freeze({ score: 0.75, minArea: 0.15, minAngle: 45, maxAngle: 135, maxSideRatio: 2.2, maxAspect: 3 });
+
+/** الشكل الرباعي (0..1 من الصورة) صالح كصفحة: مساحة كافية، محدب، زوايا وأضلاع ونسبة أبعاد معقولة (بالبكسل حين تُعرف الأبعاد) */
+function saneQuad(q, dims) {
+  if (!Array.isArray(q) || q.length !== 4) return false;
+  if (!q.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => Number.isFinite(v) && v >= 0 && v <= 1))) return false;
+  if (quadArea(q) < SCAN_CONFIDENCE.minArea) return false;
+  const W = dims && dims.width > 0 ? dims.width : 1;
+  const H = dims && dims.height > 0 ? dims.height : 1;
+  const P = q.map(([x, y]) => [x * W, y * H]);
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = P[i], b = P[(i + 1) % 4], c = P[(i + 2) % 4];
+    const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (!cross || (sign && Math.sign(cross) !== sign)) return false;
+    sign = Math.sign(cross);
+  }
+  const side = (i) => Math.hypot(P[(i + 1) % 4][0] - P[i][0], P[(i + 1) % 4][1] - P[i][1]);
+  const s = [0, 1, 2, 3].map(side);
+  if (!dims) return true; // بلا أبعاد: المساحة والتحدب فقط (لا معنى للزوايا في إحداثيات نسبية)
+  for (let i = 0; i < 4; i++) {
+    const a = P[(i + 3) % 4], b = P[i], c = P[(i + 1) % 4];
+    const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+    const ang = (Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(...v1) * Math.hypot(...v2))))) * 180) / Math.PI;
+    if (!(ang >= SCAN_CONFIDENCE.minAngle && ang <= SCAN_CONFIDENCE.maxAngle)) return false;
+  }
+  const ratio = (x, y) => Math.max(x, y) / Math.min(x, y);
+  if (ratio(s[0], s[2]) > SCAN_CONFIDENCE.maxSideRatio || ratio(s[1], s[3]) > SCAN_CONFIDENCE.maxSideRatio) return false;
+  return ratio((s[0] + s[2]) / 2, (s[1] + s[3]) / 2) <= SCAN_CONFIDENCE.maxAspect;
+}
+
+/**
+ * L12-59: النسخة النظيفة تُعرض أولًا حين يكون الاكتشاف واثقًا (SCAN_CONFIDENCE)، وإلا الأصل والنظيفة على بعد لمسة.
+ * الأركان التي حددها الشخص بنفسه تُعامل كواثقة. dims: أبعاد صورة كل صفحة بعد الاتجاه (اختيارية).
+ */
+export function scanConfident(params, { dims = [] } = {}) {
+  // nested قبل adjusted: الماسح لا يضعها إلا لصفحة لم تُعدّل أركانها، فصفحة معدّلة في المستند لا تغطي صفحة أخرى بإطار
+  if (!params || params.mode === 'bw' || params.partial || params.nested) return false;
+  if (params.adjusted) return true;
+  if (!(Number(params.score) >= SCAN_CONFIDENCE.score)) return false;
+  const quads = Array.isArray(params.quads) ? params.quads : [];
+  return quads.length > 0 && quads.every((q, i) => saneQuad(q, dims[i] || null));
+}
+
 export function createDocuments(app) {
   const { db, config } = app;
   const maxBytes = config.maxUploadMb * 1024 * 1024;
+  const uploadsRoot = path.resolve(config.uploadsDir);
 
   // الامتداد المعروف أولى من النوع الذي يعلنه المتصفح أو المرسل؛ ثم يُتحقق من المحتوى نفسه
   function resolveMime(filename, mime) {
@@ -93,8 +296,70 @@ export function createDocuments(app) {
     return (name.replace(/\.[^.]*$/, '') || 'ملف') + ALLOWED[realMime];
   }
 
+  /** مسار جديد داخل uploadsDir (اختياريًا تحت variants/) */
+  function newKey(realMime, sub = '') {
+    const d = new Date();
+    return path.join(sub, String(d.getUTCFullYear()), String(d.getUTCMonth() + 1).padStart(2, '0'), randomToken(18) + (ALLOWED[realMime] || ''));
+  }
+  function writeKey(rel, buf) {
+    const abs = path.join(config.uploadsDir, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(abs, buf, { mode: 0o600 });
+    return abs;
+  }
+  const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
+  /** سطح الرفع لحدود الماسح (L12-58): الفريق، أو الشركات، أو العميل (الموقع وصفحة المتابعة) */
+  function surfaceOf(links, uploader) {
+    if (uploader && (uploader.role || uploader.id) && uploader.kind !== 'client') return 'staff';
+    if (links?.company_id) return 'company';
+    return 'intake';
+  }
+
+  /**
+   * فك ملف مرفوع وفحصه كاملًا دون كتابة (L12-70): النوع، الحجم، بصمة المحتوى، وأبعاد الصورة من ترويستها (L12-67).
+   * fetched: ملف نزّله الخادم (واتساب) ← الصورة الضخمة لا تُرفض بل تُعلَّم. → { original, name, realMime, buf, dims, tooLarge }
+   */
+  function inspect({ filename, mime, data_base64, buffer } = {}, { fetched = false } = {}) {
+    const original = sanitizeFilename(filename);
+    const realMime = resolveMime(original, mime);
+    if (!realMime) throw badRequest(`نوع الملف «${original}» غير مدعوم. الأنواع المسموح بها: PDF، الصور، Word، Excel، النصوص، والرسائل الصوتية`);
+    const name = safeFilename(original, realMime);
+    let buf = buffer;
+    if (!buf) {
+      if (typeof data_base64 !== 'string' || !data_base64) throw badRequest(`الملف «${name}» فارغ`);
+      const b64 = data_base64.includes(',') && data_base64.startsWith('data:') ? data_base64.split(',')[1] : data_base64;
+      buf = Buffer.from(b64, 'base64');
+    }
+    if (!buf.length) throw badRequest(`الملف «${name}» فارغ`);
+    if (buf.length > maxBytes) throw badRequest(`الملف «${name}» أكبر من الحد المسموح (${config.maxUploadMb} ميجابايت)`);
+    if (!contentMatches(realMime, buf)) throw badRequest(`محتوى الملف «${original}» لا يطابق نوعه. ارفع الملف الأصلي دون تغيير امتداده`);
+    const dims = headerDims(realMime, buf);
+    const tooLarge = isTooLarge(dims);
+    if (tooLarge && !fetched) throw tooLargeError(name);
+    return { original, name, realMime, buf, dims, tooLarge };
+  }
+
+  /**
+   * كتلة scan لمرفق (§5.4): البنية والحدود (app.media.checkScan) ثم فك كل أصل وفحصه كما في inspect.
+   * → { params, originals: [{ name, realMime, buf, dims }] } أو null
+   */
+  function prepareScan(scan, { surface = 'intake', mainMime = null } = {}) {
+    if (scan === undefined || scan === null) return null;
+    const s = app.media.checkScan(scan, { surface });
+    if (mainMime && !SCAN_MAIN.has(mainMime)) throw new ApiError(400, 'المستند المحسّن يجب أن يكون صورة JPG أو PNG أو ملف PDF', 'bad_scan', { fields: { scan: 'نوع غير صالح' } });
+    const originals = s.originals.map((o) => {
+      const r = inspect(o);
+      if (!RASTER.has(r.realMime)) throw new ApiError(400, 'الصورة الأصلية يجب أن تكون JPG أو PNG أو WebP', 'bad_scan', { fields: { scan: 'نوع غير صالح' } });
+      return r;
+    });
+    return { params: s.params, originals };
+  }
+
   const svc = {
     maxBytes,
+    inspect,
+    prepareScan,
     /** v9.1 b-forms: هل الملف المرفوع (قبل الحفظ) رسالة صوتية؟ بالامتداد أولًا ثم النوع المعلن، كما في save() */
     isAudio(file) {
       const m = resolveMime(sanitizeFilename(file?.filename), file?.mime);
@@ -103,68 +368,127 @@ export function createDocuments(app) {
     /**
      * حفظ ملف مرفوع (base64 من الواجهة أو Buffer من واتساب).
      * links: { client_id, intake_id, case_id, matter_id, message_id, info_request_id, title }
+     * file.scan (v12): كتلة الماسح بأصولها؛ تُفحص كلها قبل أي كتابة.
      */
-    save({ filename, mime, data_base64, buffer, seconds }, links, uploader) {
-      const original = sanitizeFilename(filename);
-      const realMime = resolveMime(original, mime);
-      if (!realMime) throw badRequest(`نوع الملف «${original}» غير مدعوم. الأنواع المسموح بها: PDF، الصور، Word، Excel، النصوص، والرسائل الصوتية`);
-      const name = safeFilename(original, realMime);
-      let buf = buffer;
-      if (!buf) {
-        if (typeof data_base64 !== 'string' || !data_base64) throw badRequest(`الملف «${name}» فارغ`);
-        const b64 = data_base64.includes(',') && data_base64.startsWith('data:') ? data_base64.split(',')[1] : data_base64;
-        buf = Buffer.from(b64, 'base64');
-      }
-      if (!buf.length) throw badRequest(`الملف «${name}» فارغ`);
-      if (buf.length > maxBytes) throw badRequest(`الملف «${name}» أكبر من الحد المسموح (${config.maxUploadMb} ميجابايت)`);
-      if (!contentMatches(realMime, buf)) throw badRequest(`محتوى الملف «${original}» لا يطابق نوعه. ارفع الملف الأصلي دون تغيير امتداده`);
-      const d = new Date();
-      const rel = path.join(String(d.getUTCFullYear()), String(d.getUTCMonth() + 1).padStart(2, '0'), randomToken(18) + (ALLOWED[realMime] || ''));
-      const abs = path.join(config.uploadsDir, rel);
-      fs.mkdirSync(path.dirname(abs), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(abs, buf, { mode: 0o600 });
-      const id = db.insert('documents', {
-        client_id: links.client_id ?? null,
-        intake_id: links.intake_id ?? null,
-        case_id: links.case_id ?? null,
-        matter_id: links.matter_id ?? null,
-        message_id: links.message_id ?? null,
-        info_request_id: links.info_request_id ?? null,
-        title: v.str(links.title, 'عنوان المستند', { max: 200 }) || name,
-        filename: name,
-        mime: realMime,
-        size: buf.length,
-        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
-        storage_key: rel,
-        uploaded_by_kind: uploader?.kind || (uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system'),
-        uploaded_by_user_id: uploader?.id ?? null,
-        // v10 b2b-server (L-19، §4.4): ربط ملفات الشركات — رفع الشركة بلا معرّف مستخدم من users أبدًا
-        company_id: links.company_id ?? undefined,
-        company_request_id: links.company_request_id ?? undefined,
-        company_user_id: links.company_user_id ?? undefined,
-        assignment_id: links.assignment_id ?? undefined,
-        created_at: nowIso(),
-      });
-      // v9.2 (admin-ai): رسالة صوتية من المستفيدة ← «لم تُكتب بعد» حتى تكتب الإدارة ما قالته (مدتها من الواجهة أو من ملف Ogg)
-      if (realMime.startsWith('audio/') && uploader?.kind === 'client' && app.voice?.onAudioSaved) {
-        let secs = seconds === undefined || seconds === null || seconds === '' ? NaN : Number(seconds);
-        if (!Number.isFinite(secs) && realMime === 'audio/ogg') secs = app.voice.oggDurationSeconds?.(buf) ?? NaN;
-        app.voice.onAudioSaved({
-          documentId: id,
-          intakeId: links.intake_id ?? null,
-          caseId: links.case_id ?? null,
-          messageId: links.message_id ?? null,
-          seconds: Number.isFinite(secs) ? Math.min(600, Math.max(0, secs)) : null,
+    save(file = {}, links = {}, uploader) {
+      const fetched = !!file.buffer && !file.data_base64;
+      const main = inspect(file, { fetched });
+      const { name, realMime, buf, dims } = main;
+      const surface = surfaceOf(links, uploader);
+      const scan = file.scan === undefined || file.scan === null || fetched ? null : prepareScan(file.scan, { surface, mainMime: realMime });
+      // v12 media: الحالة — ممسوح على الهاتف (client/staff)، أو «لم يُعالَج» لـ HEIC والصورة الضخمة (لا تُفك أبدًا)
+      let scanState = null;
+      if (scan) scanState = surface === 'staff' ? 'staff' : 'client';
+      else if (realMime === 'image/heic' || main.tooLarge) scanState = 'skipped';
+      const createdByKind = uploader?.kind === 'client' ? (links.company_id ? 'company' : 'client') : uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system';
+      const uploadedByKind = uploader?.kind || (uploader?.role === 'lawyer' ? 'lawyer' : uploader ? 'staff' : 'system');
+
+      const written = [];
+      try {
+        const rel = newKey(realMime);
+        written.push(writeKey(rel, buf));
+        const variants = (scan?.originals || []).map((o, i) => {
+          const key = newKey(o.realMime, 'variants');
+          written.push(writeKey(key, o.buf));
+          const pages = scan.params.pages;
+          const n = scan.originals.length;
+          return { o, key, page: n === pages ? i + 1 : Math.min(pages, Math.floor((i * pages) / n) + 1) };
         });
+        const t = nowIso();
+        return db.tx(() => {
+          const id = db.insert('documents', {
+            client_id: links.client_id ?? null,
+            intake_id: links.intake_id ?? null,
+            case_id: links.case_id ?? null,
+            matter_id: links.matter_id ?? null,
+            message_id: links.message_id ?? null,
+            info_request_id: links.info_request_id ?? null,
+            title: v.str(links.title, 'عنوان المستند', { max: 200 }) || name,
+            filename: name,
+            mime: realMime,
+            size: buf.length,
+            sha256: sha(buf),
+            storage_key: rel,
+            uploaded_by_kind: uploadedByKind,
+            uploaded_by_user_id: uploader?.id ?? null,
+            // v10 b2b-server (L-19، §4.4): ربط ملفات الشركات — رفع الشركة بلا معرّف مستخدم من users أبدًا
+            company_id: links.company_id ?? undefined,
+            company_request_id: links.company_request_id ?? undefined,
+            company_user_id: links.company_user_id ?? undefined,
+            assignment_id: links.assignment_id ?? undefined,
+            created_at: t,
+            // v12 media
+            scan_state: scanState ?? undefined,
+            page_count: scan ? scan.params.pages : undefined,
+            width: dims ? dims.width : undefined,
+            height: dims ? dims.height : undefined,
+          });
+          if (scan) {
+            const params = JSON.stringify(scan.params);
+            let firstOriginal = null;
+            for (const vt of variants) {
+              const fid = db.insert('document_files', {
+                document_id: id,
+                role: 'original',
+                page: vt.page,
+                storage_key: vt.key,
+                mime: vt.o.realMime,
+                size: vt.o.buf.length,
+                sha256: sha(vt.o.buf),
+                width: vt.o.dims ? vt.o.dims.width : null,
+                height: vt.o.dims ? vt.o.dims.height : null,
+                source: surface === 'staff' ? 'staff_scanner' : 'client_scanner',
+                params,
+                created_by_kind: createdByKind,
+                created_by: createdByKind === 'staff' || createdByKind === 'lawyer' ? (uploader?.id ?? null) : null,
+                company_user_id: links.company_user_id ?? null,
+                created_at: t,
+              });
+              if (vt.page === 1 && !firstOriginal) firstOriginal = fid;
+            }
+            // L12-59: المعروض أولًا = الأصل ما لم تكن النسخة النظيفة واثقة (أبعاد أصل كل صفحة للزوايا ونسبة الأبعاد)
+            const pageDims = [];
+            for (const vt of variants) if (!pageDims[vt.page - 1]) pageDims[vt.page - 1] = vt.o.dims || null;
+            if (!scanConfident(scan.params, { dims: pageDims }) && firstOriginal) db.run('UPDATE documents SET display_file_id = ? WHERE id = ?', firstOriginal, id);
+          }
+          // v9.2 (admin-ai): رسالة صوتية من المستفيدة ← «لم تُكتب بعد» حتى تكتب الإدارة ما قالته (مدتها من الواجهة أو من ملف Ogg)
+          if (realMime.startsWith('audio/') && uploader?.kind === 'client' && app.voice?.onAudioSaved) {
+            let secs = file.seconds === undefined || file.seconds === null || file.seconds === '' ? NaN : Number(file.seconds);
+            if (!Number.isFinite(secs) && realMime === 'audio/ogg') secs = app.voice.oggDurationSeconds?.(buf) ?? NaN;
+            app.voice.onAudioSaved({
+              documentId: id,
+              intakeId: links.intake_id ?? null,
+              caseId: links.case_id ?? null,
+              messageId: links.message_id ?? null,
+              seconds: Number.isFinite(secs) ? Math.min(600, Math.max(0, secs)) : null,
+            });
+          }
+          // v12 media (MD-9، MD-10): مهام المستند الجديد — تنظيف صورة العميل على الخادم (بلا ماسح فقط) وقراءة النص
+          app.media?.onSaved?.(id, { mime: realMime, scanned: !!scan, tooLarge: !!main.tooLarge || realMime === 'image/heic', uploaderKind: uploadedByKind });
+          return id;
+        });
+      } catch (e) {
+        // لا يبقى ملف على القرص لصف لم يُكتب
+        for (const abs of written) {
+          try {
+            fs.unlinkSync(abs);
+          } catch {
+            /* لا شيء */
+          }
+        }
+        throw e;
       }
-      return id;
     },
 
-    /** حفظ مجموعة ملفات مرفوعة من الواجهة مع التحقق من العدد */
+    /** حفظ مجموعة ملفات مرفوعة من الواجهة مع التحقق من العدد، وكلها تُفحص قبل كتابة أي منها (L12-70) */
     saveMany(files, links, uploader, { max = 5 } = {}) {
       if (files === undefined || files === null) return [];
       if (!Array.isArray(files)) throw badRequest('صيغة المرفقات غير صالحة');
       if (files.length > max) throw badRequest(`الحد الأقصى ${arabicCount(max, AR_UNITS.file)} في المرة الواحدة`);
+      if (files.length && app.media) {
+        if (app.media.diskLow()) throw app.media.diskLowError();
+        app.media.checkAttachments(files, { surface: surfaceOf(links, uploader) });
+      }
       return files.map((f) => svc.save(f || {}, links, uploader));
     },
 
@@ -172,9 +496,83 @@ export function createDocuments(app) {
       return db.get('SELECT * FROM documents WHERE id = ?', id);
     },
 
+    /** نسخ المستند (الأصول والمحسّنة)، الأحدث أولًا داخل الدور والصفحة */
+    files(docId) {
+      return db.all('SELECT * FROM document_files WHERE document_id = ? ORDER BY role, page, replaced_at IS NOT NULL, id DESC', docId);
+    },
+
+    /** v12 (MD-5): الملف الرئيسي هو النسخة النظيفة؟ (مرّ بماسح الهاتف: client / staff) */
+    mainIsClean(doc) {
+      return SCANNED_STATES.has(doc?.scan_state);
+    },
+
+    /**
+     * v12 (MD-5، L12-61): النسخ كما يراها العارض.
+     * → { clean: صف النسخة المحسّنة الحالية | 'main' | null, display: 'clean' | 'original', row: صف المعروض أو null }
+     */
+    variantsOf(doc) {
+      if (!doc) return { clean: null, display: 'original', row: null };
+      const cleanRow = db.get("SELECT * FROM document_files WHERE document_id = ? AND role = 'clean' AND page = 1 AND replaced_at IS NULL ORDER BY id DESC LIMIT 1", doc.id) || null;
+      const clean = cleanRow || (SCANNED_STATES.has(doc.scan_state) ? 'main' : null);
+      const row = doc.display_file_id ? db.get('SELECT * FROM document_files WHERE id = ? AND document_id = ?', doc.display_file_id, doc.id) || null : null;
+      let display;
+      if (row) display = row.role === 'clean' ? 'clean' : 'original';
+      else display = SCANNED_STATES.has(doc.scan_state) ? 'clean' : 'original';
+      return { clean, display, row };
+    },
+
+    /**
+     * v12 (MD-5، L12-61): الملف المعروض للقراءة الآلية (تحليل Claude). مستند PDF من عدة صفحات يُقرأ كاملًا (الرئيسي)
+     * حتى لا يُقرأ أصل الصفحة الأولى وحده. → { storage_key, mime, size, variant }
+     */
+    displayFile(doc) {
+      if (!doc) return null;
+      if (doc.display_file_id && !(doc.mime === 'application/pdf' && Number(doc.page_count) > 1)) {
+        const row = db.get('SELECT * FROM document_files WHERE id = ? AND document_id = ?', doc.display_file_id, doc.id);
+        if (row) return { storage_key: row.storage_key, mime: row.mime, size: row.size, variant: row };
+      }
+      return { storage_key: doc.storage_key, mime: doc.mime, size: doc.size, variant: null };
+    },
+
+    /**
+     * v12 (MD-5، MD-9): حفظ نسخة لمستند موجود (role = 'clean' عادة) تحت uploadsDir/variants/ (أو variants/auto/ لما ينظّفه
+     * الخادم وحده، H-M10). الملف يُفحص قبلها (inspect). → رقم الصف. لا يغيّر display_file_id (يقرره المستدعي).
+     */
+    saveVariant(doc, { buf, realMime, dims = null }, { role = 'clean', page = 1, source, params = null, createdByKind = 'staff', createdBy = null, sub = 'variants' } = {}) {
+      if (!doc || !buf || !realMime) throw badRequest('نسخة غير صالحة');
+      const key = newKey(realMime, sub);
+      const abs = writeKey(key, buf);
+      try {
+        return db.insert('document_files', {
+          document_id: doc.id,
+          role,
+          page,
+          storage_key: key,
+          mime: realMime,
+          size: buf.length,
+          sha256: sha(buf),
+          width: dims ? dims.width : null,
+          height: dims ? dims.height : null,
+          source,
+          params: params ? JSON.stringify(params) : null,
+          created_by_kind: createdByKind,
+          created_by: createdBy,
+          company_user_id: null,
+          created_at: nowIso(),
+        });
+      } catch (e) {
+        try {
+          fs.unlinkSync(abs);
+        } catch {
+          /* لا شيء */
+        }
+        throw e;
+      }
+    },
+
     publicView(d) {
       if (!d) return null;
-      return {
+      const out = {
         id: d.id,
         title: d.title,
         filename: d.filename,
@@ -185,6 +583,23 @@ export function createDocuments(app) {
         // v9.1 l-work: نوع العرض داخل التطبيق (PDF في عارض المتصفح، الصور في العارض المدمج، غيرها تنزيل فقط)
         kind: d.mime === 'application/pdf' ? 'pdf' : /^image\/(jpeg|png|webp)$/.test(d.mime || '') ? 'image' : 'doc',
       };
+      // v12 media (MD-4): ملخص النسخ والقراءة للفريق والمحامي فقط (بوابة الشركات والمتابعة لا تستخدمان publicView)
+      if (d.scan_state || d.display_file_id || d.ocr_state) {
+        const rows = db.all("SELECT role, page FROM document_files WHERE document_id = ? AND replaced_at IS NULL", d.id);
+        const scanned = SCANNED_STATES.has(d.scan_state);
+        // v12 (MD-5): المعروض ← من دور صف display_file_id (نسخة نظّفها الفريق لمستند ممسوح، أو أصل)، وإلا الرئيسي
+        const shown = d.display_file_id ? db.get('SELECT role FROM document_files WHERE id = ? AND document_id = ?', d.display_file_id, d.id) : null;
+        out.scan = {
+          state: d.scan_state || null,
+          clean: scanned || rows.some((r) => r.role === 'clean'),
+          originals: rows.filter((r) => r.role === 'original').length,
+          pages: Number(d.page_count) || 1,
+          display: shown ? (shown.role === 'clean' ? 'clean' : 'original') : scanned ? 'clean' : 'original',
+          reason: d.scan_state === 'skipped' ? (d.mime === 'image/heic' ? 'heic' : 'too_large') : null,
+        };
+        if (d.ocr_state) out.ocr = { state: d.ocr_state, pages: Number(db.value('SELECT COUNT(*) FROM document_text WHERE document_id = ?', d.id)) || 0 };
+      }
+      return out;
     },
 
     /**
@@ -224,23 +639,49 @@ export function createDocuments(app) {
       return false;
     },
 
-    /** إرسال الملف للمتصفح بعد التحقق */
-    send(res, doc, { inline = false } = {}) {
-      const abs = path.join(config.uploadsDir, doc.storage_key);
-      if (!abs.startsWith(config.uploadsDir + path.sep)) throw forbidden();
+    /**
+     * إرسال الملف للمتصفح بعد التحقق. variant (v12): صف من document_files لنفس المستند (مساره ونوعه وحجمه واسمه)،
+     * strip: الصورة بلا بياناتها الوصفية (المحامي، L12-73، SEC-3)؛ تعذّر ذلك ← 409 strip_failed.
+     */
+    send(res, doc, { inline = false, variant = null, strip = false, forLawyer = false } = {}) {
+      if (variant && variant.document_id !== doc.id) throw notFound('الملف غير موجود على الخادم');
+      const key = variant ? variant.storage_key : doc.storage_key;
+      const mime = variant ? variant.mime : doc.mime;
+      const abs = path.resolve(config.uploadsDir, key);
+      if (!abs.startsWith(uploadsRoot + path.sep)) throw forbidden();
       if (!fs.existsSync(abs)) throw notFound('الملف غير موجود على الخادم');
-      const safeInline = inline && (doc.mime === 'application/pdf' || doc.mime.startsWith('image/'));
+      const w = variant ? variant.width : doc.width;
+      const hgt = variant ? variant.height : doc.height;
+      // L12-67: لا عرض داخل الصفحة لصورة أكبر من 40 ميجابكسل
+      const huge = Number(w) * Number(hgt) > IMAGE_MAX_PIXELS;
+      const safeInline = inline && !huge && (mime === 'application/pdf' || mime.startsWith('image/'));
+      let body = null;
+      // SEC-3: كل صورة تصل لمحامٍ بلا EXIF/GPS (JPEG وPNG وWebP)؛ صورة لا تُحلَّل بنيتها (أو HEIC) لا تُرسل كما هي
+      if (strip && mime.startsWith('image/')) {
+        const raw = fs.readFileSync(abs);
+        body = stripImageMetadata(mime, raw);
+        if (!body) {
+          // بنية لا تُفهم (أو HEIC): تُرسل كما هي فقط إن لم يكن فيها أثر لبيانات وصفية، وإلا تُرفض للمحامي
+          if (hasMetadataTrace(raw)) throw new ApiError(409, 'تعذّر تجهيز هذه الصورة للتنزيل دون بياناتها الوصفية. اطلب نسخة منها من الفريق.', 'strip_failed');
+          body = raw;
+        }
+      }
+      // v12 gate fixer-server (SEC-8): مستند شركة يُنزّله محامٍ يحمل اسمًا محايدًا (قد يحمل اسم الملف الأصلي اسم موظف أو هاتفه،
+      // L-57) — كما تعرضه قوائمه بلا بيانات موظفي الشركة
+      const baseName = forLawyer && doc.company_id ? `document-${doc.id}` : doc.filename.replace(/\.[^.]*$/, '') || 'document';
+      const base = baseName + (variant?.role === 'original' ? (variant.page > 1 ? `-الأصل-${variant.page}` : '-الأصل') : '');
       res.statusCode = 200;
-      res.setHeader('Content-Type', doc.mime);
-      res.setHeader('Content-Length', doc.size);
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Length', body ? body.length : variant ? variant.size : doc.size);
       res.setHeader('Cache-Control', 'private, no-store');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader(
         'Content-Disposition',
         // الامتداد يُشتق من النوع المتحقق منه، لا من الاسم الأصلي
-        `${safeInline ? 'inline' : 'attachment'}; filename="document${ALLOWED[doc.mime] || ''}"; filename*=UTF-8''${encodeURIComponent((doc.filename.replace(/\.[^.]*$/, '') || 'document') + (ALLOWED[doc.mime] || ''))}`,
+        `${safeInline ? 'inline' : 'attachment'}; filename="document${ALLOWED[mime] || ''}"; filename*=UTF-8''${encodeURIComponent(base + (ALLOWED[mime] || ''))}`,
       );
-      fs.createReadStream(abs).pipe(res);
+      if (body) res.end(body);
+      else fs.createReadStream(abs).pipe(res);
     },
   };
   return svc;

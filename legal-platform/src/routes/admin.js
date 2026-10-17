@@ -2,14 +2,39 @@
 import { requireStaff, requireAdmin } from '../auth.js';
 import { idParam } from '../http.js';
 import { v, badRequest, notFound, conflict, randomToken, nowIso, normalizePhone } from '../util.js';
+const PATHWAY_ERROR = 'اختاروا مسارًا صحيحًا أو اتركوه دون تحديد.'; // v12 staff-lines (§9.2)
+export const SUGGESTED_REASON = 'تأكيد النوع المقترح'; // v12 staff-lines review (F2): سبب «تأكيد» الظاهر للفريق بدل 'suggested'
 import { ENUMS, AREA_CODES, DEFAULT_SETTINGS, LABELS } from '../constants.js';
 import { CLIENT_TEXTS } from '../constants.js'; // v9.1 b-site (B91-10)
 import { isPlaceholderWhatsApp } from '../channels/whatsapp.js';
 // v9.2 (admin-ai): القصص الواردة، المكالمات، نصوص الرسائل الصوتية
 import { latinDigits } from '../util.js';
 import { topicByKey } from '../../public/assets/js/public/topics.js';
+import { LINES as TREE_LINES } from '../../public/assets/js/public/entry-tree.js'; // v12 staff-lines (SL-9)
+import { messageTag } from '../tags/messages.js'; // v12 tags (TG-4، T12-19): رمز W لردود المحاكي (للعرض فقط)
 
 const UPLOAD = { limit: 60 * 1024 * 1024 };
+
+// v12 staff-lines (§5.4, SL-7): مفاتيح إعدادات يُسجَّل تغيّرها صفًا مستقلًا في سجل الأمان { from, to } (فوق صف
+// «settings.updated» العام). count = يُسجَّل العدد فقط (أسماء الشركاء لا تُنسخ إلى السجل).
+export const SETTINGS_AUDIT = Object.freeze({
+  charity_public: { type: 'settings.charity_public_changed', severity: 'warning' },
+  charity_archived_landing: { type: 'settings.charity_landing_changed', severity: 'info', values: LABELS.charity_archived_landing },
+  wa_lines_menu_enabled: { type: 'settings.wa_lines_menu_changed', severity: 'info' },
+  firm_partners: { type: 'settings.firm_partners_changed', severity: 'info', count: true },
+  // مفاتيح وحدة media (L12-22، L12-62، L12-19): الأنواع ومسمياتها في LABELS.media_security_event
+  web_voice_enabled: { type: 'settings.web_voice_changed', severity: 'warning' },
+  stt_charity_third_party: { type: 'settings.stt_charity_changed', severity: 'warning' },
+  ocr_claude_allowed: { type: 'settings.ocr_claude_changed', severity: 'warning' },
+  ocr_claude_companies: { type: 'settings.ocr_claude_companies_changed', severity: 'warning' },
+});
+// v12 staff-lines (L12-09, SL-T13): site_gate_enabled متقاعد ومخفي من كل واجهة (يبقى في قاعدة البيانات ولا يُقرأ)
+const HIDDEN_SETTINGS = ['site_gate_enabled'];
+const visibleSettings = (all) => {
+  const out = { ...all };
+  for (const k of HIDDEN_SETTINGS) delete out[k];
+  return out;
+};
 
 export function registerAdminRoutes(router, app) {
   const S = (fn, opts) => (ctx) => fn(ctx, requireStaff(ctx));
@@ -74,6 +99,34 @@ export function registerAdminRoutes(router, app) {
     ctx.status = 201;
     return { invoice: app.matters.addCaseInvoice(id(ctx), ctx.body, u, ctx) };
   }));
+  // ===== v12 staff-lines (§2.1): مسار الطلب (نوع الطلب › المجال › الموضوع) وإيقاف الرسائل الآلية =====
+  // E12-51 + L12-81: تحديد المسار أو تغييره أو مسحه (null) — الإدارة ومديرو الحالات؛ لا يمس الموضوع ولا المجال ولا نوع الخدمة
+  router.put('/api/admin/intakes/:id/pathway', S((ctx, u) => {
+    const i = app.intakes.require(id(ctx));
+    const b = ctx.body || {};
+    const bad = () => badRequest(PATHWAY_ERROR, { fields: { path: PATHWAY_ERROR } });
+    let path = null;
+    if (b.path !== null && b.path !== undefined && b.path !== '') {
+      if (typeof b.path !== 'string' || b.path.length > 80) throw bad();
+      const r = app.pathways.resolve(b.path.trim());
+      if (!r || r.exit) throw bad();
+      path = r.path;
+    }
+    let reason = b.reason === undefined || b.reason === null ? null : v.str(b.reason, 'السبب', { max: 300 }) || null;
+    // review (F2): «تأكيد» على «مقترح: …» يرسل reason: 'suggested' (L12-81)؛ يُكتب بالعربية في سجل الطلب وسجل الأمان
+    if (reason === 'suggested') reason = SUGGESTED_REASON;
+    app.pathways.set(i.id, path, { source: 'staff', actor: u, ctx, reason });
+    const row = app.intakes.require(i.id);
+    return { ...app.intakes.pathwayFields(row), pathway: app.pathways.block(row) };
+  }));
+  // L12-77: «إلغاء الإيقاف» — يعيد الرسائل الآلية لمن أرسل كلمة إيقاف (سجل أمان + سجل الطلب)
+  router.delete('/api/admin/clients/:id/auto-opt-out', S((ctx, u) => app.segments.clearOptOut(id(ctx), { actor: u, ctx })));
+  // SL-8 (E12-56، P1): «من الصفحة الأولى إلى الطلب» — الإدارة ومديرو الحالات؛ كل قراءة تُسجَّل (analytics.viewed، L12-25)
+  router.get('/api/admin/analytics/entry-tree', S((ctx, u) => {
+    const out = app.analytics.entryTree({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى') });
+    app.audit.log({ actor: u, ctx, type: 'analytics.viewed', severity: 'info', summary: 'عرض تقرير «من الصفحة الأولى إلى الطلب»', data: { report: 'entry_tree', from: out.days.from, to: out.days.to } });
+    return out;
+  }));
   router.post('/api/admin/intakes/:id/link-client', S((ctx, u) => app.intakes.linkClient(id(ctx), v.int(ctx.body.client_id, 'العميل', { required: true, min: 1 }), u)));
   router.post('/api/admin/intakes/:id/ai-feedback', S((ctx, u) => app.intakes.aiFeedback(id(ctx), ctx.body, u)));
 
@@ -136,7 +189,7 @@ export function registerAdminRoutes(router, app) {
     const b = ctx.body;
     const phone = v.phone(b.from, 'رقم المرسل', { required: true });
     // v9.2 (A92-22): رسالة نصية، أو رسالة صوتية تجريبية، أو صورة ورقة، أو اختيار موضوع من قائمة الترحيب
-    const kind = v.oneOf(b.kind || 'text', ['text', 'voice', 'photo', 'list_reply', 'seg_reply'], 'نوع الرسالة', { required: true }); // v11: + seg_reply
+    const kind = v.oneOf(b.kind || 'text', ['text', 'voice', 'photo', 'list_reply', 'seg_reply', 'button_reply'], 'نوع الرسالة', { required: true }); // v11: + seg_reply؛ v12: + button_reply
     // v11 segment-server (S11-23، §5.6): الرقم الذي تصل عليه الرسالة — الأساسي، الأفراد والشركات، «مشترك» (الأساسي بوضع
     // «الخدمتين معًا» لهذه الرسالة فقط دون تغيير التكامل)، أو رقم غير مضبوط (تُحفظ ولا يُرد عليها آليًا)
     const simLine = v.oneOf(b.line || 'main', ['main', 'paid', 'shared', 'unknown'], 'الرقم', { required: true });
@@ -150,6 +203,19 @@ export function registerAdminRoutes(router, app) {
       delete msg.text;
       msg.type = 'image';
       msg.image = { id: 'SIM-SAMPLE-PHOTO', mime_type: 'image/jpeg', ...(text ? { caption: text } : {}) };
+    } else if (kind === 'list_reply' && /^path:/.test(String(b.reply_id || ''))) {
+      // v12 staff-lines (SL-9، E12-53): صف من قائمة W-02…W-04 كما يضغطه العميل (العنوان من الشجرة نفسها)
+      const r = /^path:[a-z0-9/-]{3,60}$/.test(String(b.reply_id)) ? app.pathways.resolve(String(b.reply_id).slice(5)) : null;
+      if (!r || r.exit || r.depth < 2) throw badRequest('اختيار القائمة غير معروف');
+      delete msg.text;
+      msg.type = 'interactive';
+      msg.interactive = { type: 'list_reply', list_reply: { id: `path:${r.path}`, title: String(r.node?.wa || r.node?.label || r.path).slice(0, 24) } };
+    } else if (kind === 'button_reply') {
+      // v12 staff-lines (SL-9): زر من أزرار W-01 (استشارة · رفع دعوى قضائية · تأسيس شركات)
+      const rid = v.oneOf(b.reply_id, ['line:consultation', 'line:litigation', 'line:company'], 'زر الاختيار', { required: true });
+      delete msg.text;
+      msg.type = 'interactive';
+      msg.interactive = { type: 'button_reply', button_reply: { id: rid, title: TREE_LINES[rid.slice(5)].label } };
     } else if (kind === 'list_reply') {
       const key = /^topic:([a-z_]+)$/.exec(String(b.reply_id || ''))?.[1];
       const topic = key ? topicByKey(key) : null;
@@ -189,7 +255,10 @@ export function registerAdminRoutes(router, app) {
     const replies = row?.intake_id
       ? app.db
           .all("SELECT id, body, automation_rule, status, meta FROM messages WHERE intake_id = ? AND direction = 'out' AND id > ? ORDER BY id", row.intake_id, row.id)
-          .map((m) => ({ id: m.id, body: m.body, rule: m.automation_rule, status: m.status, wa: JSON.parse(m.meta || '{}').wa || null }))
+          .map((m) => {
+            const meta = JSON.parse(m.meta || '{}');
+            return { id: m.id, body: m.body, rule: m.automation_rule, status: m.status, wa: meta.wa || null, tag: messageTag(m.automation_rule, { body: m.body, wa: meta.wa, meta }) };
+          })
       : [];
     const story = row?.intake_id ? app.stories.storyOf(row.intake_id) : null;
     return {
@@ -207,6 +276,9 @@ export function registerAdminRoutes(router, app) {
       segment: row?.intake_id ? app.db.value('SELECT segment FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
       segment_source: row?.intake_id ? app.db.value('SELECT segment_source FROM intakes WHERE id = ?', row.intake_id) ?? null : null,
       wa_line: row?.id ? app.db.value('SELECT wa_line FROM messages WHERE id = ?', row.id) ?? null : null,
+      // v12 staff-lines (SL-9): مسار الطلب بعد الرسالة (قائمة الخدمات أو الجملة الجاهزة)
+      pathway: row?.intake_id && app.pathways ? app.pathways.block(app.db.get('SELECT * FROM intakes WHERE id = ?', row.intake_id)) : null,
+      lines_menu_enabled: app.settings.get('wa_lines_menu_enabled') === true,
     };
   }));
 
@@ -429,7 +501,8 @@ export function registerAdminRoutes(router, app) {
   // ===== التحليلات =====
   router.get('/api/admin/analytics/funnel', S((ctx) => {
     const group = ['source', 'channel', 'campaign'].includes(ctx.query.group) ? ctx.query.group : 'source';
-    return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group, segment: ctx.query.segment }); // v11 segment-server: + segment
+    const line = ['consultation', 'litigation', 'company', 'none'].includes(ctx.query.line) ? ctx.query.line : 'all'; // v12 staff-lines (SL-8، E12-56)
+    return app.analytics.funnel({ from: v.iso(ctx.query.from, 'من'), to: v.iso(ctx.query.to, 'إلى'), group, segment: ctx.query.segment, line }); // v11 segment-server: + segment
   }));
   router.get('/api/admin/analytics/areas', S((ctx) => {
     // v11 segment-server [r2 S10]: segment=all|charity|paid (الافتراضي «الكل» = مخرجات 10.0 مع عنوان النطاق)
@@ -515,7 +588,7 @@ export function registerAdminRoutes(router, app) {
   }
 
   router.get('/api/admin/settings', A((ctx) => ({
-    settings: app.settings.all(),
+    settings: visibleSettings(app.settings.all()), // v12 staff-lines (L12-09): بلا site_gate_enabled
     integrations: {
       whatsapp_configured: app.whatsapp.configured,
       // حالة الاتصال الفعلية (بعد «اختبار الاتصال»): simulation | untested | failed | connected
@@ -541,6 +614,7 @@ export function registerAdminRoutes(router, app) {
     str('whatsapp_template_language', 'لغة القالب', 10);
     // (v9 site) الموقع العام وبيانات التواصل: روابط https من فيسبوك/إنستجرام فقط، بريد وهاتف صالحان، أطوال محددة
     if (app.site?.validateSettings) Object.assign(out, app.site.validateSettings(b));
+    if (app.media?.validateSettings) Object.assign(out, app.media.validateSettings(b)); // v12 media
     if (b.whatsapp_display_number !== undefined) {
       // فارغ = لا رقم واتساب للمؤسسة بعد (تختفي أزرار واتساب من الموقع ويظهر الهاتف بديلًا)
       const s = v.str(b.whatsapp_display_number, 'رقم واتساب', { max: 30 });
@@ -573,11 +647,30 @@ export function registerAdminRoutes(router, app) {
     }
     const policyPatch = Object.fromEntries(Object.entries(b).filter(([k]) => policyKeys.includes(k)));
     if (Object.keys(policyPatch).length) app.accounts.updatePolicy(policyPatch, ctx.user, ctx);
+    // v12 staff-lines (SL-7): لقطة القيم قبل الحفظ ← صف سجل لكل مفتاح متغيّر من SETTINGS_AUDIT، وafterSettings مرة واحدة
+    const before = {};
+    for (const k of Object.keys(out)) if (k in DEFAULT_SETTINGS) before[k] = app.settings.get(k);
     for (const [k, val] of Object.entries(out)) {
       if (!(k in DEFAULT_SETTINGS)) continue;
       app.settings.set(k, val);
     }
-    if (Object.keys(out).length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${Object.keys(out).join('، ')}` });
-    return app.settings.all();
+    // v12 gate fixer-server (JR-12): تُقارن القيم بعد التوحيد (null = '' ، المصفوفات والكائنات بـ JSON)، فبطاقة ترسل كل
+    // حقولها لا تسجّل حقولًا لم تتغير؛ وحفظ بلا تغيير لا يكتب صف «تعديل الإعدادات»
+    const normSetting = (x) => JSON.stringify(x === null || x === undefined ? '' : x);
+    const changedKeys = Object.keys(before).filter((k) => normSetting(before[k]) !== normSetting(app.settings.get(k)));
+    if (changedKeys.length) app.audit.log({ actor: ctx.user, ctx, type: 'settings.updated', summary: `تم تعديل الإعدادات: ${changedKeys.join('، ')}` });
+    for (const k of changedKeys) {
+      const spec = SETTINGS_AUDIT[k];
+      if (!spec) continue;
+      const to = app.settings.get(k);
+      const data = spec.count
+        ? { key: k, from: Array.isArray(before[k]) ? before[k].length : 0, to: Array.isArray(to) ? to.length : 0 }
+        : { key: k, from: before[k] ?? null, to: to ?? null };
+      // review (F3): القيم المعروفة بكلماتها (لا notice/redirect بالإنجليزية في ملخص السجل)
+      const shown = (x) => (spec.values && typeof x === 'string' && spec.values[x]) || (typeof x === 'boolean' ? (x ? 'مفعّل' : 'متوقف') : String(x ?? ''));
+      app.audit.log({ actor: ctx.user, ctx, type: spec.type, severity: spec.severity, summary: `${LABELS.security_event[spec.type] || spec.type}: ${shown(data.from)} ← ${shown(data.to)}`, data });
+    }
+    app.media?.afterSettings?.(changedKeys, before); // v12 media (L12-62, H-M3)
+    return visibleSettings(app.settings.all()); // v12 staff-lines (L12-09)
   }));
 }

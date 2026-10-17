@@ -103,13 +103,13 @@ function forecastBadge(stats) {
 
 function programFields() {
   return [
-    { name: 'name', label: 'اسم البرنامج', required: true, minLength: 3, maxLength: 200, full: true },
-    { name: 'funder_name', label: 'الجهة الممولة', required: true, maxLength: 200 },
-    { name: 'funder_type', label: 'نوع التمويل', type: 'select', required: true, options: options('funder_type') },
-    { name: 'agreement_ref', label: 'رقم الاتفاقية أو المرجع', maxLength: 100, ltr: true, hint: 'مثل رقم اتفاقية المنحة أو قرار مجلس الإدارة' },
-    { name: 'budget', label: 'الميزانية', type: 'money', required: true, min: 0 },
-    { name: 'start_date', label: 'تاريخ البدء', type: 'date', required: true },
-    { name: 'end_date', label: 'تاريخ الانتهاء', type: 'date', endOfDay: true, hint: 'اتركه فارغًا إن كان البرنامج مفتوح المدة' },
+    { name: 'name', label: 'اسم البرنامج', required: true, minLength: 3, maxLength: 200, full: true, tag: 'PRG-119' },
+    { name: 'funder_name', label: 'الجهة الممولة', required: true, maxLength: 200, tag: 'PRG-120' },
+    { name: 'funder_type', label: 'نوع التمويل', type: 'select', required: true, options: options('funder_type'), tag: 'PRG-121' },
+    { name: 'agreement_ref', label: 'رقم الاتفاقية أو المرجع', maxLength: 100, ltr: true, hint: 'مثل رقم اتفاقية المنحة أو قرار مجلس الإدارة', tag: 'PRG-122' },
+    { name: 'budget', label: 'الميزانية', type: 'money', required: true, min: 0, tag: 'PRG-123' },
+    { name: 'start_date', label: 'تاريخ البدء', type: 'date', required: true, tag: 'PRG-124' },
+    { name: 'end_date', label: 'تاريخ الانتهاء', type: 'date', endOfDay: true, hint: 'اتركه فارغًا إن كان البرنامج مفتوح المدة', tag: 'PRG-125' },
     {
       name: 'status',
       label: 'الحالة',
@@ -117,12 +117,13 @@ function programFields() {
       placeholder: false,
       options: options('program_status').filter((o) => o.value !== 'closed'),
       hint: 'الإغلاق إجراء مستقل يحفظ تاريخه وسببه',
+      tag: 'PRG-126',
     },
-    { name: 'funder_contact', label: 'التواصل مع الجهة الممولة (داخلي)', maxLength: 500 },
-    { name: 'eligible_areas', label: 'المجالات القانونية المشمولة', type: 'multiselect', options: areaOptions(), hint: 'إن لم تحدد شيئًا فكل المجالات مشمولة' },
-    { name: 'eligible_governorates', label: 'المحافظات المشمولة', type: 'multiselect', options: governorateOptions(), hint: 'إن لم تحدد شيئًا فالبرنامج على مستوى الجمهورية' },
-    { name: 'restrictions', label: 'قيود الصرف وشروط الجهة الممولة', type: 'textarea', rows: 3, maxLength: 5000, hint: 'مثل: «أموال زكاة تُصرف في مصارفها الشرعية فقط»' },
-    { name: 'description', label: 'وصف البرنامج', type: 'textarea', rows: 3, maxLength: 5000 },
+    { name: 'funder_contact', label: 'التواصل مع الجهة الممولة (داخلي)', maxLength: 500, tag: 'PRG-127' },
+    { name: 'eligible_areas', label: 'المجالات القانونية المشمولة', type: 'multiselect', options: areaOptions(), hint: 'إن لم تحدد شيئًا فكل المجالات مشمولة', tag: 'PRG-128' },
+    { name: 'eligible_governorates', label: 'المحافظات المشمولة', type: 'multiselect', options: governorateOptions(), hint: 'إن لم تحدد شيئًا فالبرنامج على مستوى الجمهورية', tag: 'PRG-129' },
+    { name: 'restrictions', label: 'قيود الصرف وشروط الجهة الممولة', type: 'textarea', rows: 3, maxLength: 5000, hint: 'مثل: «أموال زكاة تُصرف في مصارفها الشرعية فقط»', tag: 'PRG-130' },
+    { name: 'description', label: 'وصف البرنامج', type: 'textarea', rows: 3, maxLength: 5000, tag: 'PRG-131' },
   ];
 }
 
@@ -159,6 +160,7 @@ async function openProgramDialog(ctx, program = null) {
       };
       return program ? api.patch(`/programs/${program.id}`, body) : api.post('/programs', body);
     },
+    tag: 'PRG-01',
   });
   if (!res) return;
   toast(program ? 'تم حفظ بيانات البرنامج' : `أُنشئ البرنامج ${res.program.code}`, 'success');
@@ -201,9 +203,10 @@ async function openSettingsDialog() {
         maxLength: 40,
         hint: 'من نسبة واحدة إلى خمس نسب بين 1 و200، مفصولة بفاصلة، مثل: 80، 100',
         full: true,
+        tag: 'PRG-02',
       },
-      { name: 'print_invoice_note', label: 'ملاحظة أسفل الفواتير المطبوعة', type: 'textarea', rows: 2, maxLength: 500 },
-      { name: 'print_answer_disclaimer', label: 'تنبيه أسفل الإفادات القانونية المطبوعة', type: 'textarea', rows: 3, maxLength: 1000 },
+      { name: 'print_invoice_note', label: 'ملاحظة أسفل الفواتير المطبوعة', type: 'textarea', rows: 2, maxLength: 500, tag: 'PRG-03' },
+      { name: 'print_answer_disclaimer', label: 'تنبيه أسفل الإفادات القانونية المطبوعة', type: 'textarea', rows: 3, maxLength: 1000, tag: 'PRG-04' },
     ],
     values: {
       thresholds: (current.program_alert_thresholds || []).join('، '),
@@ -222,6 +225,7 @@ async function openSettingsDialog() {
         print_answer_disclaimer: v.print_answer_disclaimer || '',
       });
     },
+    tag: 'PRG-05',
   });
   if (res) toast('حُفظت إعدادات التنبيهات والطباعة', 'success');
 }
@@ -234,7 +238,7 @@ function programCard(p) {
     'article.card.pg-card',
     h(
       'div.pg-card-head',
-      h('a.pg-card-title', { href: `#/programs/${p.id}` }, p.name),
+      h('a.pg-card-title', { href: `#/programs/${p.id}`, tag: 'PRG-06' }, p.name),
       h('div.pg-card-meta', codeTag(p.code), programStatusBadge(p), funderBadge(p)),
     ),
     h('p.pg-card-funder', icon('users', { size: 15 }), h('span', p.funder_name)),
@@ -275,7 +279,7 @@ async function renderList(ctx) {
     try {
       data = await api.get('/programs', { status: state.status === 'all' ? '' : state.status, funder_type: state.funder, q: state.q });
     } catch (err) {
-      mount(listHost, card({ body: emptyState(errorMessage(err), button('إعادة المحاولة', { icon: 'refresh', onClick: load }), { icon: 'alert' }) }));
+      mount(listHost, card({ body: emptyState(errorMessage(err), button('إعادة المحاولة', { icon: 'refresh', onClick: load, tag: 'PRG-07' }), { icon: 'alert', tag: 'PRG-08' }), tag: 'PRG-09' }));
       return;
     }
     const t = data.totals;
@@ -283,11 +287,11 @@ async function renderList(ctx) {
       statsHost,
       h(
         'div.stats-grid',
-        statCard({ label: 'البرامج النشطة', value: num(t.active), hint: `من ${count(t.programs, ['برنامج واحد', 'برنامجين', 'برامج', 'برنامجًا'])} في هذا العرض`, icon: 'book', tone: 'primary' }),
-        statCard({ label: 'إجمالي الميزانيات', value: money(t.budget), hint: 'للبرامج المعروضة', icon: 'wallet', tone: 'neutral' }),
-        statCard({ label: 'الإنفاق الفعلي', value: money(t.spend), hint: t.budget > 0 ? `${percent(t.spend / t.budget)} من الميزانيات` : null, icon: 'chart', tone: 'accent' }),
-        statCard({ label: 'المتبقي', value: money(t.remaining), icon: 'checkCircle', tone: t.remaining < 0 ? 'danger' : 'success' }),
-        statCard({ label: 'الأسر المستفيدة', value: num(t.families), hint: `الملفات المرتبطة بالبرامج المعروضة: ${num(t.cases)}`, icon: 'users', tone: 'info' }),
+        statCard({ label: 'البرامج النشطة', value: num(t.active), hint: `من ${count(t.programs, ['برنامج واحد', 'برنامجين', 'برامج', 'برنامجًا'])} في هذا العرض`, icon: 'book', tone: 'primary', tag: 'PRG-10' }),
+        statCard({ label: 'إجمالي الميزانيات', value: money(t.budget), hint: 'للبرامج المعروضة', icon: 'wallet', tone: 'neutral', tag: 'PRG-11' }),
+        statCard({ label: 'الإنفاق الفعلي', value: money(t.spend), hint: t.budget > 0 ? `${percent(t.spend / t.budget)} من الميزانيات` : null, icon: 'chart', tone: 'accent', tag: 'PRG-12' }),
+        statCard({ label: 'المتبقي', value: money(t.remaining), icon: 'checkCircle', tone: t.remaining < 0 ? 'danger' : 'success', tag: 'PRG-13' }),
+        statCard({ label: 'الأسر المستفيدة', value: num(t.families), hint: `الملفات المرتبطة بالبرامج المعروضة: ${num(t.cases)}`, icon: 'users', tone: 'info', tag: 'PRG-14' }),
         statCard({
           label: 'ملفات مفتوحة دون برنامج',
           value: num(t.unlinked_open_cases),
@@ -295,6 +299,7 @@ async function renderList(ctx) {
           icon: 'alert',
           tone: t.unlinked_open_cases ? 'warning' : 'muted',
           href: '#/cases',
+          tag: 'PRG-15',
         }),
       ),
     );
@@ -305,9 +310,10 @@ async function renderList(ctx) {
         card({
           body: emptyState(
             filtered ? 'لا توجد برامج مطابقة للتصفية الحالية.' : 'لم تُسجَّل برامج تمويل بعد. أضف أول برنامج (منحة أو زكاة أو شراكة مسؤولية مجتمعية) ثم اربط به ملفات المستفيدين.',
-            !filtered && isAdmin ? button('برنامج جديد', { variant: 'primary', icon: 'plus', onClick: () => openProgramDialog(ctx) }) : null,
-            { icon: 'book' },
+            !filtered && isAdmin ? button('برنامج جديد', { variant: 'primary', icon: 'plus', onClick: () => openProgramDialog(ctx), tag: 'PRG-16' }) : null,
+            { icon: 'book', tag: 'PRG-17' },
           ),
+          tag: 'PRG-18',
         }),
       );
       return;
@@ -320,10 +326,12 @@ async function renderList(ctx) {
     subtitle: 'مصادر تمويل الدعم القانوني — المنح، وأموال الزكاة (نماء)، وشراكات المسؤولية المجتمعية، والتبرعات — والإنفاق الفعلي على كل منها وأثره.',
     actions: isAdmin
       ? [
-          button('إعدادات التنبيهات والطباعة', { variant: 'ghost', icon: 'settings', onClick: openSettingsDialog }),
-          button('برنامج جديد', { variant: 'primary', icon: 'plus', onClick: () => openProgramDialog(ctx) }),
+          button('إعدادات التنبيهات والطباعة', { variant: 'ghost', icon: 'settings', onClick: openSettingsDialog, tag: 'PRG-19' }),
+          button('برنامج جديد', { variant: 'primary', icon: 'plus', onClick: () => openProgramDialog(ctx), tag: 'PRG-20' }),
         ]
       : null,
+      titleTag: 'PRG-21',
+      tag: 'PRG-22',
   });
 
   const filters = filterBar([
@@ -336,6 +344,7 @@ async function renderList(ctx) {
         syncUrl();
         load();
       },
+      tag: 'PRG-23',
     }),
     selectInput({
       label: 'حالة البرنامج',
@@ -347,6 +356,7 @@ async function renderList(ctx) {
         syncUrl();
         load();
       },
+      tag: 'PRG-24',
     }),
     selectInput({
       label: 'نوع التمويل',
@@ -358,6 +368,7 @@ async function renderList(ctx) {
         syncUrl();
         load();
       },
+      tag: 'PRG-25',
     }),
   ]);
 
@@ -378,7 +389,7 @@ async function renderList(ctx) {
 
 /** أشرطة أفقية بسيطة (القيم مكتوبة بجانب كل شريط) */
 function bars(rows, { valueText = (r) => num(r.value), empty = 'لا توجد بيانات بعد', ariaLabel } = {}) {
-  if (!rows.length) return emptyState(empty, null, { compact: true, icon: 'chart' });
+  if (!rows.length) return emptyState(empty, null, { compact: true, icon: 'chart', tag: 'PRG-26' });
   const max = Math.max(...rows.map((r) => Number(r.value) || 0), 1);
   return h(
     'ul.pg-bars',
@@ -424,7 +435,7 @@ async function renderDetail(ctx) {
   const actions = [printButton({ kind: 'programme', id: p.id, label: 'تقرير للجهة الممولة', variant: 'secondary', size: 'md' })];
   if (isAdmin) {
     if (!closed) {
-      actions.push(button('تعديل', { icon: 'edit', onClick: () => openProgramDialog(ctx, p) }));
+      actions.push(button('تعديل', { icon: 'edit', onClick: () => openProgramDialog(ctx, p), tag: 'PRG-27' }));
       actions.push(
         button('إغلاق البرنامج', {
           icon: 'lock',
@@ -433,12 +444,14 @@ async function renderDetail(ctx) {
             const res = await formDialog({
               title: `إغلاق البرنامج ${p.code}`,
               intro: 'بعد الإغلاق لا يقبل البرنامج ربط ملفات جديدة، وتبقى ملفاته وإنفاقه وتقاريره محفوظة. يمكن لمدير النظام إعادة فتحه لاحقًا.',
-              fields: [{ name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 1000, hint: 'مثل: «انتهت مدة المنحة وقُدِّم التقرير الختامي»' }],
+              fields: [{ name: 'note', label: 'ملاحظة الإغلاق', type: 'textarea', rows: 3, maxLength: 1000, hint: 'مثل: «انتهت مدة المنحة وقُدِّم التقرير الختامي»', tag: 'PRG-28' }],
               submitLabel: 'إغلاق البرنامج',
               onSubmit: (v) => api.post(`/programs/${p.id}/close`, { note: v.note || null }),
+              tag: 'PRG-29',
             });
             if (res) await refresh('أُغلق البرنامج');
           },
+          tag: 'PRG-30',
         }),
       );
     } else {
@@ -446,12 +459,12 @@ async function renderDetail(ctx) {
         asyncButton(
           'إعادة فتح البرنامج',
           async () => {
-            const ok = await confirmDialog({ title: 'إعادة فتح البرنامج', message: `سيعود البرنامج ${p.code} نشطًا ويقبل ربط ملفات جديدة.`, confirmLabel: 'إعادة الفتح' });
+            const ok = await confirmDialog({ title: 'إعادة فتح البرنامج', message: `سيعود البرنامج ${p.code} نشطًا ويقبل ربط ملفات جديدة.`, confirmLabel: 'إعادة الفتح', tag: 'PRG-31' });
             if (!ok) return;
             await api.post(`/programs/${p.id}/reopen`);
             await refresh('أُعيد فتح البرنامج');
           },
-          { icon: 'refresh', variant: 'primary' },
+          { icon: 'refresh', variant: 'primary', tag: 'PRG-32' },
         ),
       );
     }
@@ -460,44 +473,47 @@ async function renderDetail(ctx) {
         asyncButton(
           'حذف',
           async () => {
-            const ok = await confirmDanger({ title: 'حذف البرنامج', message: `سيُحذف البرنامج ${p.code} «${p.name}» نهائيًا. لا يمكن التراجع عن هذا الإجراء.`, confirmLabel: 'نعم، احذف البرنامج' });
+            const ok = await confirmDanger({ title: 'حذف البرنامج', message: `سيُحذف البرنامج ${p.code} «${p.name}» نهائيًا. لا يمكن التراجع عن هذا الإجراء.`, confirmLabel: 'نعم، احذف البرنامج', tag: 'PRG-33' });
             if (!ok) return;
             await api.del(`/programs/${p.id}`);
             toast('حُذف البرنامج', 'success');
             ctx.navigate('/programs');
           },
-          { icon: 'trash', variant: 'ghost' },
+          { icon: 'trash', variant: 'ghost', tag: 'PRG-34' },
         ),
       );
     }
   }
 
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: p.name,
-    breadcrumbs: [{ label: 'البرامج والتمويل', href: '#/programs' }, { label: p.code }],
+    breadcrumbs: [{ label: 'البرامج والتمويل', href: '#/programs', tag: 'PRG-35' }, { label: p.code }],
     meta: [codeTag(p.code), programStatusBadge(p), funderBadge(p), !closed && forecastBadge(s)],
     actions,
+    titleTag: 'PRG-36',
+    tag: 'PRG-37',
   });
 
   // ── التنبيهات ──
   const notices = [];
-  if (closed) notices.push(alertBox(`أُغلق البرنامج ${p.closed_at ? `في ${date(p.closed_at)}` : ''}${p.closed_by_name ? ` بواسطة ${p.closed_by_name}` : ''}${p.close_note ? ` — ${p.close_note}` : ''}. لا يقبل ربط ملفات جديدة.`, 'info', { icon: 'lock' }));
+  if (closed) notices.push(alertBox(`أُغلق البرنامج ${p.closed_at ? `في ${date(p.closed_at)}` : ''}${p.closed_by_name ? ` بواسطة ${p.closed_by_name}` : ''}${p.close_note ? ` — ${p.close_note}` : ''}. لا يقبل ربط ملفات جديدة.`, 'info', { icon: 'lock', tag: 'PRG-38' }));
   else {
-    if (s.utilization != null && s.utilization >= 1) notices.push(alertBox(`استُنفدت ميزانية البرنامج: المصروف ${money(s.spend)} من ${money(s.budget)}${s.remaining < 0 ? `، بتجاوز ${money(-s.remaining)}` : ''}. راجع ربط ملفات جديدة أو زيادة الميزانية بالاتفاق مع الجهة الممولة.`, 'danger', { title: 'تجاوز الميزانية' }));
-    else if (s.utilization != null && s.utilization * 100 >= firstThreshold) notices.push(alertBox(`بلغ الإنفاق ${percent(s.utilization)} من الميزانية، والمتبقي ${money(s.remaining)}${s.runway_months != null ? ` (يكفي المتبقي نحو ${monthsText(s.runway_months)} بمعدل الإنفاق الحالي)` : ''}.`, 'warning', { title: 'اقتراب من حد الميزانية' }));
-    if (d.warnings.length) notices.push(alertBox(d.warnings.join(' — '), 'warning'));
+    if (s.utilization != null && s.utilization >= 1) notices.push(alertBox(`استُنفدت ميزانية البرنامج: المصروف ${money(s.spend)} من ${money(s.budget)}${s.remaining < 0 ? `، بتجاوز ${money(-s.remaining)}` : ''}. راجع ربط ملفات جديدة أو زيادة الميزانية بالاتفاق مع الجهة الممولة.`, 'danger', { title: 'تجاوز الميزانية', tag: 'PRG-39' }));
+    else if (s.utilization != null && s.utilization * 100 >= firstThreshold) notices.push(alertBox(`بلغ الإنفاق ${percent(s.utilization)} من الميزانية، والمتبقي ${money(s.remaining)}${s.runway_months != null ? ` (يكفي المتبقي نحو ${monthsText(s.runway_months)} بمعدل الإنفاق الحالي)` : ''}.`, 'warning', { title: 'اقتراب من حد الميزانية', tag: 'PRG-40' }));
+    if (d.warnings.length) notices.push(alertBox(d.warnings.join(' — '), 'warning', { tag: 'PRG-41' }));
   }
 
   // ── المؤشرات ──
   const statsGrid = h(
     'div.stats-grid',
-    statCard({ label: 'الميزانية', value: money(s.budget), icon: 'wallet', tone: 'neutral' }),
-    statCard({ label: 'الإنفاق الفعلي', value: money(s.spend), hint: s.utilization != null ? `${percent(s.utilization)} من الميزانية` : null, icon: 'chart', tone: utilTone(s.utilization) === 'success' ? 'accent' : utilTone(s.utilization) }),
-    statCard({ label: 'المتبقي', value: money(s.remaining), icon: 'checkCircle', tone: s.remaining < 0 ? 'danger' : 'success' }),
-    statCard({ label: 'معدل الإنفاق الشهري', value: money(s.burn_rate_monthly), hint: s.projected_total != null ? `المتوقع حتى نهاية المدة: ${money(s.projected_total)}` : null, icon: 'zap', tone: 'primary' }),
-    statCard({ label: 'الأسر المستفيدة', value: num(s.families), hint: `${count(s.cases, 'case')} — المغلق منها ${num(s.closed_cases)}`, icon: 'users', tone: 'info' }),
+    statCard({ label: 'الميزانية', value: money(s.budget), icon: 'wallet', tone: 'neutral', tag: 'PRG-42' }),
+    statCard({ label: 'الإنفاق الفعلي', value: money(s.spend), hint: s.utilization != null ? `${percent(s.utilization)} من الميزانية` : null, icon: 'chart', tone: utilTone(s.utilization) === 'success' ? 'accent' : utilTone(s.utilization), tag: 'PRG-43' }),
+    statCard({ label: 'المتبقي', value: money(s.remaining), icon: 'checkCircle', tone: s.remaining < 0 ? 'danger' : 'success', tag: 'PRG-44' }),
+    statCard({ label: 'معدل الإنفاق الشهري', value: money(s.burn_rate_monthly), hint: s.projected_total != null ? `المتوقع حتى نهاية المدة: ${money(s.projected_total)}` : null, icon: 'zap', tone: 'primary', tag: 'PRG-45' }),
+    statCard({ label: 'الأسر المستفيدة', value: num(s.families), hint: `${count(s.cases, 'case')} — المغلق منها ${num(s.closed_cases)}`, icon: 'users', tone: 'info', tag: 'PRG-46' }),
     // المبالغ كلها بالجنيه الصحيح: المتوسط يُقرَّب (433.33 → 433 ج.م)
-    statCard({ label: 'متوسط الإنفاق للملف', value: s.cost_per_case != null ? money(Math.round(s.cost_per_case)) : '—', hint: s.in_kind_count ? `مساهمات تطوعية بقيمة ${money(s.in_kind_value)}` : null, icon: 'scale', tone: 'neutral' }),
+    statCard({ label: 'متوسط الإنفاق للملف', value: s.cost_per_case != null ? money(Math.round(s.cost_per_case)) : '—', hint: s.in_kind_count ? `مساهمات تطوعية بقيمة ${money(s.in_kind_value)}` : null, icon: 'scale', tone: 'neutral', tag: 'PRG-47' }),
   );
 
   const budgetCard = card({
@@ -516,6 +532,8 @@ async function renderDetail(ctx) {
       ]),
       h('p.small.muted', 'تصل للإدارة تنبيهات عند بلوغ الإنفاق ', d.thresholds.map((x) => `${x}%`).join(' و'), ' من الميزانية، مرة واحدة لكل عتبة.'),
     ),
+    titleTag: 'PRG-48',
+    tag: 'PRG-49',
   });
 
   const infoCard = card({
@@ -531,18 +549,20 @@ async function renderDetail(ctx) {
         ['النطاق الجغرافي', p.eligible_governorates.length ? chips(p.eligible_governorates) : h('span.muted', 'على مستوى الجمهورية')],
         ['أنشأه', p.created_by_name ? `${p.created_by_name} — ${date(p.created_at)}` : date(p.created_at)],
       ]),
-      p.restrictions && h('div.pg-text-block', h('h3.pg-subtitle', icon('shield', { size: 15 }), ' قيود الصرف وشروط الجهة الممولة'), h('p', { dir: 'auto' }, p.restrictions)),
-      p.description && h('div.pg-text-block', h('h3.pg-subtitle', 'الوصف'), h('p', { dir: 'auto' }, p.description)),
+      p.restrictions && h('div.pg-text-block', h('h3.pg-subtitle', { tag: 'PRG-50' }, icon('shield', { size: 15 }), ' قيود الصرف وشروط الجهة الممولة'), h('p', { dir: 'auto' }, p.restrictions)),
+      p.description && h('div.pg-text-block', h('h3.pg-subtitle', { tag: 'PRG-51' }, 'الوصف'), h('p', { dir: 'auto' }, p.description)),
     ),
+    titleTag: 'PRG-52',
+    tag: 'PRG-53',
   });
 
   // ── التبويبات ──
   function renderCases() {
     const cols = [
-      { key: 'code', label: 'الملف', render: (c) => h('div.stack-sm', h('a.pb-code-link', { href: `#/cases/${c.id}` }, codeTag(c.code)), h('span.cell-sub', richText(c.title))) },
-      { key: 'client', label: 'المستفيد', render: (c) => h('div.stack-sm', h('a', { href: `#/clients/${c.client_id}` }, c.client_name || 'دون اسم'), h('span.cell-sub', c.governorate || 'محافظة غير مسجلة')) },
+      { key: 'code', label: 'الملف', render: (c) => h('div.stack-sm', h('a.pb-code-link', { href: `#/cases/${c.id}`, tag: 'PRG-54' }, codeTag(c.code)), h('span.cell-sub', richText(c.title))) },
+      { key: 'client', label: 'المستفيد', render: (c) => h('div.stack-sm', h('a', { href: `#/clients/${c.client_id}`, tag: 'PRG-55' }, c.client_name || 'دون اسم'), h('span.cell-sub', c.governorate || 'محافظة غير مسجلة')) },
       { key: 'area', label: 'المجال', render: (c) => c.legal_area_label },
-      { key: 'status', label: 'الحالة', render: (c) => h('div.stack-sm', statusBadge('case_status', c.status), c.outcome && statusBadge('case_outcome', c.outcome), c.matter_code && h('a.small.nowrap', { href: `#/matters/${c.matter_id}`, title: `فتح الملف المستمر ${c.matter_code}` }, 'ملف مستمر ', h('span', { dir: 'ltr' }, c.matter_code))) },
+      { key: 'status', label: 'الحالة', render: (c) => h('div.stack-sm', statusBadge('case_status', c.status), c.outcome && statusBadge('case_outcome', c.outcome), c.matter_code && h('a.small.nowrap', { href: `#/matters/${c.matter_id}`, title: `فتح الملف المستمر ${c.matter_code}`, tag: 'PRG-56' }, 'ملف مستمر ', h('span', { dir: 'ltr' }, c.matter_code))) },
       { key: 'spend', label: 'الإنفاق', align: 'end', render: (c) => h('span.nowrap', money(c.spend)) },
       {
         key: 'elig',
@@ -562,12 +582,13 @@ async function renderDetail(ctx) {
                 message: `لن يُحتسب إنفاق الملف ${c.code} ضمن هذا البرنامج بعد الآن. يُسجَّل الإجراء في سجل الملف.`,
                 confirmLabel: 'إلغاء الربط',
                 danger: true,
+                tag: 'PRG-57',
               });
               if (!ok) return;
               await api.del(`/programs/${p.id}/cases/${c.id}`);
               await refresh(`أُلغي ربط الملف ${c.code}`, 'cases');
             },
-            { size: 'sm', variant: 'ghost', icon: 'x' },
+            { size: 'sm', variant: 'ghost', icon: 'x', tag: 'PRG-58' },
           ),
       },
     ].filter(Boolean);
@@ -578,8 +599,10 @@ async function renderDetail(ctx) {
         : 'الملف ينتمي لبرنامج واحد على الأكثر، وملفه المستمر (إن وُجد) يُحتسب ضمنه تلقائيًا',
       icon: 'briefcase',
       flush: true,
-      actions: !closed && button('ربط ملف', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openLinkDialog }),
-      body: table({ columns: cols, rows: d.cases, caption: 'الملفات المرتبطة بالبرنامج', empty: 'لا توجد ملفات مرتبطة بهذا البرنامج بعد' }),
+      actions: !closed && button('ربط ملف', { size: 'sm', variant: 'primary', icon: 'plus', onClick: openLinkDialog, tag: 'PRG-59' }),
+      body: table({ columns: cols, rows: d.cases, caption: 'الملفات المرتبطة بالبرنامج', empty: 'لا توجد ملفات مرتبطة بهذا البرنامج بعد', rowTag: 'PRG-60', tag: 'PRG-61' }),
+      titleTag: 'PRG-62',
+      tag: 'PRG-63',
     });
   }
 
@@ -603,8 +626,10 @@ async function renderDetail(ctx) {
             monthly.map((m) => ({ label: m.label, value: m.amount, cumulative: m.cumulative })),
             { valueText: (r) => h('span', money(r.value), h('span.small.muted.pg-d-block', `تراكمي ${money(r.cumulative)}`)), empty: 'لم يبدأ البرنامج بعد', ariaLabel: 'الإنفاق الشهري' },
           ),
+          titleTag: 'PRG-64',
+          tag: 'PRG-65',
         }),
-        card({ title: 'الإنفاق حسب البند', icon: 'wallet', body: bars(catRows, { valueText: (r) => h('span', money(r.value), s.spend > 0 && h('span.small.muted', ` (${percent(r.value / s.spend)})`)), ariaLabel: 'الإنفاق حسب البند' }) }),
+        card({ title: 'الإنفاق حسب البند', icon: 'wallet', body: bars(catRows, { valueText: (r) => h('span', money(r.value), s.spend > 0 && h('span.small.muted', ` (${percent(r.value / s.spend)})`)), ariaLabel: 'الإنفاق حسب البند' }), titleTag: 'PRG-66', tag: 'PRG-67' }),
       ),
       card({
         title: 'بنود الإنفاق',
@@ -616,13 +641,17 @@ async function renderDetail(ctx) {
           rows: lines,
           empty: 'لا يوجد إنفاق مسجل على ملفات هذا البرنامج خلال مدته',
           columns: [
-            { key: 'at', label: 'التاريخ', render: (l) => h('time.small.nowrap', { datetime: l.at, title: dateTime(l.at) }, date(l.at)) },
-            { key: 'description', label: 'البيان', className: 'col-wide', render: (l) => h('div.stack-sm', h('span', { dir: 'auto' }, l.description), l.lawyer_name && h('span.cell-sub', l.lawyer_name)) },
-            { key: 'case', label: 'الملف', render: (l) => (l.matter_code ? h('a', { href: `#/matters/${l.matter_id}` }, codeTag(l.matter_code)) : h('a', { href: `#/cases/${l.case_id}` }, codeTag(l.case_code))) },
-            { key: 'cat', label: 'البند', render: (l) => h('div.stack-sm', h('span', label('program_spend_kind', l.category)), l.status === 'paid' ? badge('مصروف للمحامي', 'success') : l.status === 'accrued' ? badge('مستحق لم يُصرف', 'warning') : null) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (l) => h('strong.nowrap', { class: l.amount < 0 ? 'pg-text-danger' : null }, money(l.amount)) },
+            { key: 'at', label: 'التاريخ', render: (l) => h('time.small.nowrap', { datetime: l.at, title: dateTime(l.at) }, date(l.at)), tag: 'PRG-68' },
+            { key: 'description', label: 'البيان', className: 'col-wide', render: (l) => h('div.stack-sm', h('span', { dir: 'auto' }, l.description), l.lawyer_name && h('span.cell-sub', l.lawyer_name)), tag: 'PRG-69' },
+            { key: 'case', label: 'الملف', render: (l) => (l.matter_code ? h('a', { href: `#/matters/${l.matter_id}`, tag: 'PRG-70' }, codeTag(l.matter_code)) : h('a', { href: `#/cases/${l.case_id}`, tag: 'PRG-71' }, codeTag(l.case_code))), tag: 'PRG-72' },
+            { key: 'cat', label: 'البند', render: (l) => h('div.stack-sm', h('span', label('program_spend_kind', l.category)), l.status === 'paid' ? badge('مصروف للمحامي', 'success') : l.status === 'accrued' ? badge('مستحق لم يُصرف', 'warning') : null), tag: 'PRG-73' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (l) => h('strong.nowrap', { class: l.amount < 0 ? 'pg-text-danger' : null }, money(l.amount)), tag: 'PRG-74' },
           ],
+          rowTag: 'PRG-75',
+          tag: 'PRG-76',
         }),
+        titleTag: 'PRG-77',
+        tag: 'PRG-78',
       }),
       h('p.pg-footnote', 'تُحتسب أتعاب المحامين المستحقة على ملفات البرنامج (بالقطعة، والزيادة على الحصة، والأتعاب المباشرة للملفات المستمرة، والتسويات) واستردادات مصروفاتهم، والمصروفات التي دفعتها المؤسسة مباشرة — خلال مدة البرنامج فقط. القيود الملغاة لا تُحتسب.'),
     );
@@ -635,21 +664,21 @@ async function renderDetail(ctx) {
       'div.stack',
       h(
         'div.stats-grid',
-        statCard({ label: 'الأسر المستفيدة', value: num(s.families), icon: 'users', tone: 'info' }),
-        statCard({ label: 'استشارات أُرسل ردها للمستفيد', value: num(s.answered), icon: 'send', tone: 'success' }),
-        statCard({ label: 'ملفات مستمرة (تقاضٍ ومتابعة)', value: num(s.matters), icon: 'gavel', tone: 'accent' }),
-        statCard({ label: 'جلسات حُضرت', value: num(im.hearings_attended || 0), icon: 'calendar', tone: 'primary' }),
+        statCard({ label: 'الأسر المستفيدة', value: num(s.families), icon: 'users', tone: 'info', tag: 'PRG-79' }),
+        statCard({ label: 'استشارات أُرسل ردها للمستفيد', value: num(s.answered), icon: 'send', tone: 'success', tag: 'PRG-80' }),
+        statCard({ label: 'ملفات مستمرة (تقاضٍ ومتابعة)', value: num(s.matters), icon: 'gavel', tone: 'accent', tag: 'PRG-81' }),
+        statCard({ label: 'جلسات حُضرت', value: num(im.hearings_attended || 0), icon: 'calendar', tone: 'primary', tag: 'PRG-82' }),
       ),
       h(
         'div.grid-2',
         // قيم الأعمدة أرقام صريحة (والوحدة في عنوان البطاقة) بدل «ملفان» بجوار «أسرة واحدة» في البطاقة التالية
-        card({ title: 'نتائج الملفات المغلقة (عدد الملفات)', icon: 'checkCircle', body: bars((im.outcomes || []).map((o) => ({ label: o.label, value: o.count, tone: 'success' })), { empty: 'لم يُغلق أي ملف في البرنامج بعد' }) }),
-        card({ title: 'حالة الملفات (عدد الملفات)', icon: 'briefcase', body: bars((im.by_status || []).map((o) => ({ label: o.label, value: o.count }))) }),
-        card({ title: 'المجالات القانونية (عدد الملفات)', icon: 'scale', body: bars((im.by_area || []).map((o) => ({ label: o.label, value: o.cases, families: o.families, tone: 'info' }))) }),
-        card({ title: 'التوزيع الجغرافي (عدد الأسر)', icon: 'mapPin', body: bars((im.by_governorate || []).map((o) => ({ label: o.label, value: o.families, tone: 'accent' }))) }),
+        card({ title: 'نتائج الملفات المغلقة (عدد الملفات)', icon: 'checkCircle', body: bars((im.outcomes || []).map((o) => ({ label: o.label, value: o.count, tone: 'success' })), { empty: 'لم يُغلق أي ملف في البرنامج بعد' }), titleTag: 'PRG-83', tag: 'PRG-84' }),
+        card({ title: 'حالة الملفات (عدد الملفات)', icon: 'briefcase', body: bars((im.by_status || []).map((o) => ({ label: o.label, value: o.count }))), titleTag: 'PRG-85', tag: 'PRG-86' }),
+        card({ title: 'المجالات القانونية (عدد الملفات)', icon: 'scale', body: bars((im.by_area || []).map((o) => ({ label: o.label, value: o.cases, families: o.families, tone: 'info' }))), titleTag: 'PRG-87', tag: 'PRG-88' }),
+        card({ title: 'التوزيع الجغرافي (عدد الأسر)', icon: 'mapPin', body: bars((im.by_governorate || []).map((o) => ({ label: o.label, value: o.families, tone: 'accent' }))), titleTag: 'PRG-89', tag: 'PRG-90' }),
       ),
       ext && Array.isArray(ext.items) && ext.items.length
-        ? card({ title: ext.title || 'مؤشرات الأثر', icon: 'star', body: kv(ext.items.map((x) => [x.label, x.value == null ? '—' : String(x.value)]), { columns: 2 }) })
+        ? card({ title: ext.title || 'مؤشرات الأثر', icon: 'star', body: kv(ext.items.map((x) => [x.label, x.value == null ? '—' : String(x.value)]), { columns: 2 }), titleTag: 'PRG-91', tag: 'PRG-92' })
         : null,
     );
   }
@@ -673,7 +702,9 @@ async function renderDetail(ctx) {
               ),
             ),
           )
-        : emptyState('لم يصدر أي تنبيه لهذا البرنامج بعد', null, { compact: true, icon: 'bell' }),
+        : emptyState('لم يصدر أي تنبيه لهذا البرنامج بعد', null, { compact: true, icon: 'bell', tag: 'PRG-93' }),
+        titleTag: 'PRG-94',
+        tag: 'PRG-95',
     });
   }
 
@@ -693,7 +724,7 @@ async function renderDetail(ctx) {
         const linkedIds = new Set(d.cases.map((c) => c.id));
         const items = (res.items || []).filter((c) => !linkedIds.has(c.id));
         if (!items.length) {
-          mount(resultsHost, emptyState('لا توجد ملفات مطابقة غير مرتبطة بهذا البرنامج', null, { compact: true, icon: 'search' }));
+          mount(resultsHost, emptyState('لا توجد ملفات مطابقة غير مرتبطة بهذا البرنامج', null, { compact: true, icon: 'search', tag: 'PRG-96' }));
           return;
         }
         mount(
@@ -721,6 +752,7 @@ async function renderDetail(ctx) {
                         btn.disabled = false;
                       }
                     },
+                    tag: 'PRG-97',
                   },
                   codeTag(c.code),
                   h('span.pg-result-title', c.title),
@@ -741,10 +773,11 @@ async function renderDetail(ctx) {
       body: h(
         'div.stack',
         h('p.modal-intro', 'ابحث عن ملف الاستشارة واختره. يتحقق النظام من مجال الملف ومحافظة المستفيد مقابل نطاق البرنامج، ويطلب تأكيدك قبل ربط ملف خارج النطاق أو نقله من برنامج آخر.'),
-        searchInput({ placeholder: 'كود الملف أو اسم المستفيد…', label: 'البحث عن ملف', onSearch: search }),
+        searchInput({ placeholder: 'كود الملف أو اسم المستفيد…', label: 'البحث عن ملف', onSearch: search, tag: 'PRG-98' }),
         resultsHost,
       ),
-      actions: [{ label: 'إغلاق', variant: 'ghost' }],
+      actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'PRG-99' }],
+      tag: 'PRG-100',
     });
     search('');
   }
@@ -752,12 +785,12 @@ async function renderDetail(ctx) {
   const initialTab = ['cases', 'spend', 'impact', 'alerts'].includes(ctx.query.tab) ? ctx.query.tab : 'cases';
   tabsEl = tabs(
     [
-      { key: 'cases', label: 'الملفات', icon: 'briefcase', count: d.cases.length, render: renderCases },
-      { key: 'spend', label: 'الإنفاق', icon: 'wallet', render: renderSpend },
-      { key: 'impact', label: 'النتائج والأثر', icon: 'star', render: renderImpact },
-      { key: 'alerts', label: 'التنبيهات', icon: 'bell', count: d.alerts.filter((a) => a.current).length || null, render: renderAlerts },
+      { key: 'cases', label: 'الملفات', icon: 'briefcase', count: d.cases.length, render: renderCases, tag: 'PRG-101' },
+      { key: 'spend', label: 'الإنفاق', icon: 'wallet', render: renderSpend, tag: 'PRG-102' },
+      { key: 'impact', label: 'النتائج والأثر', icon: 'star', render: renderImpact, tag: 'PRG-103' },
+      { key: 'alerts', label: 'التنبيهات', icon: 'bell', count: d.alerts.filter((a) => a.current).length || null, render: renderAlerts, tag: 'PRG-104' },
     ],
-    { active: initialTab, onChange: (key) => syncTab(key) },
+    { active: initialTab, onChange: (key) => syncTab(key), tag: 'PRG-105' },
   );
 
   return frag(header, notices.length ? h('div.stack', notices) : null, statsGrid, h('div.grid-2.pg-detail-cards', budgetCard, infoCard), tabsEl);

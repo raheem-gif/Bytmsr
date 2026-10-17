@@ -55,7 +55,7 @@ export default async function render(ctx) {
   try {
     data = await api.get(base);
   } catch (err) {
-    return h('div.lc-page', h('h1.page-title', 'ملف مستمر'), card({ body: errorState(err, () => ctx.reload()) }));
+    return h('div.lc-page', h('h1.page-title', { tag: 'LMF-01' }, 'ملف مستمر'), card({ body: errorState(err, () => ctx.reload()), tag: 'LMF-02' }));
   }
   ctx.setTitle(data.matter.code);
 
@@ -119,16 +119,16 @@ export default async function render(ctx) {
   function headerNode() {
     const m = data.matter;
     return h(
-      'header.lc-head',
-      h('div.lc-head-top', codeTag(m.code), m.status !== 'open' ? badge(matterStatus(m.status), m.status === 'closed' ? 'neutral' : 'warning', { dot: true }) : null),
-      h('h1.page-title.lc-title', m.title),
+      'header.lc-head.is-record', // v12 gate (V-11): عنوان الملف بيانات مستخدم ← خط الواجهة
+      { tag: 'LMF-03' }, h('div.lc-head-top', codeTag(m.code), m.status !== 'open' ? badge(matterStatus(m.status), m.status === 'closed' ? 'neutral' : 'warning', { dot: true }) : null),
+      h('h1.page-title.lc-title', { tag: 'LMF-04' }, m.title),
       h('p.lc-court-line', courtLine(m)),
       isClosed()
         ? null
         : h(
             'div.lc-head-actions',
-            button('إضافة جلسة', { variant: 'secondary', icon: 'calendar', onClick: safe(addHearing) }),
-            button('إضافة مهمة', { variant: 'secondary', icon: 'plus', onClick: safe(addTask) }),
+            button('إضافة جلسة', { variant: 'secondary', icon: 'calendar', onClick: safe(addHearing), tag: 'LMF-05' }),
+            button('إضافة مهمة', { variant: 'secondary', icon: 'plus', onClick: safe(addTask), tag: 'LMF-06' }),
           ),
     );
   }
@@ -142,14 +142,14 @@ export default async function render(ctx) {
     const q = outboxStateFor(`event:${e.id}`);
     return h(
       'section.lc-pending-card',
-      { 'aria-labelledby': 'lc-pending-title' },
+      { 'aria-labelledby': 'lc-pending-title', tag: 'LMF-07' },
       h(
         'div.lc-pending-text',
-        h('h2#lc-pending-title.lc-pending-title', icon('alert', { size: 18 }), `${list.length > 1 ? count(list.length, 'hearing') + ' بلا نتيجة' : 'جلسة بلا نتيجة'} — ${shortDate(e.starts_at)} ${time(e.starts_at)}`),
+        h('h2#lc-pending-title.lc-pending-title', { tag: 'LMF-08' }, icon('alert', { size: 18 }), `${list.length > 1 ? count(list.length, 'hearing') + ' بلا نتيجة' : 'جلسة بلا نتيجة'} — ${shortDate(e.starts_at)} ${time(e.starts_at)}`),
         h('p.lc-pending-sub', e.title),
         q && q.state === 'queued' ? h('p.lc-queued', icon('clock', { size: 14 }), QUEUED_TEXT) : null,
       ),
-      q && q.state === 'queued' ? null : button('سجّل النتيجة', { variant: 'primary', size: 'lg', icon: 'edit', className: 'lc-pending-btn', onClick: () => recordOutcome(e) }),
+      q && q.state === 'queued' ? null : button('سجّل النتيجة', { variant: 'primary', size: 'lg', icon: 'edit', className: 'lc-pending-btn', onClick: () => recordOutcome(e), tag: 'LMF-09' }),
     );
   }
 
@@ -178,6 +178,7 @@ export default async function render(ctx) {
           dismissOutboxFailure(q.item.id);
           recordOutcome(e);
         },
+        tag: 'LMF-10',
       }, 'افتح'),
     );
   }
@@ -188,15 +189,15 @@ export default async function render(ctx) {
     if (!isClosed()) {
       if (group === 'pending') {
         const q = outboxStateFor(`event:${e.id}`);
-        actions = q && q.state === 'queued' ? null : button('سجّل النتيجة', { variant: 'primary', icon: 'edit', className: 'lc-ev-primary', onClick: () => recordOutcome(e) });
+        actions = q && q.state === 'queued' ? null : button('سجّل النتيجة', { variant: 'primary', icon: 'edit', className: 'lc-ev-primary', onClick: () => recordOutcome(e), tag: 'LMF-11' });
       } else if (group === 'upcoming') {
-        actions = h('button.lc-more', { type: 'button', 'aria-label': `خيارات ${e.title}`, onClick: () => eventMenu(e) }, icon('more', { size: 22 }));
+        actions = h('button.lc-more', { type: 'button', 'aria-label': `خيارات ${e.title}`, onClick: () => eventMenu(e), tag: 'LMF-12' }, icon('more', { size: 22 }));
       } else if (isCourt(e) && (e.outcome_kind || e.outcome) && e.status !== 'cancelled') {
-        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: () => recordOutcome(e) }, 'تعديل النتيجة');
+        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: () => recordOutcome(e), tag: 'LMF-13' }, 'تعديل النتيجة');
       } else if (isCourt(e) && e.status === 'cancelled' && e.outcome_kind) {
-        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: () => recordOutcome(e) }, 'تعديل النتيجة');
+        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: () => recordOutcome(e), tag: 'LMF-14' }, 'تعديل النتيجة');
       } else if (!isCourt(e) && e.status === 'scheduled') {
-        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: safe(() => markEventDone(e)) }, 'تمّ الموعد');
+        actions = h('button.lc-reveal.lc-small', { type: 'button', onClick: safe(() => markEventDone(e)), tag: 'LMF-15' }, 'تمّ الموعد');
       }
     }
     const line = outcomeLine(e);
@@ -225,7 +226,7 @@ export default async function render(ctx) {
 
   function group(title, list, g, extra) {
     if (!list.length) return null;
-    return h('section.lc-group', { class: `lc-group-${g}` }, h('h3.lc-group-title', title, h('span.lc-count', ` (${list.length})`)), h('ul.lc-ev-list', list.map((e) => eventRow(e, g))), extra || null);
+    return h('section.lc-group', { class: `lc-group-${g}`, tag: 'LMF-16' }, h('h3.lc-group-title', { tag: 'LMF-17' }, title, h('span.lc-count', ` (${list.length})`)), h('ul.lc-ev-list', list.map((e) => eventRow(e, g))), extra || null);
   }
 
   function eventsCard() {
@@ -235,7 +236,7 @@ export default async function render(ctx) {
     const shownPast = showAllPast ? past_ : past_.slice(0, PAST_SHOWN);
     const more =
       past_.length > PAST_SHOWN && !showAllPast
-        ? h('button.lc-reveal', { type: 'button', onClick: () => { showAllPast = true; drawEvents(); } }, `عرض الكل (${past_.length})`)
+        ? h('button.lc-reveal', { type: 'button', onClick: () => { showAllPast = true; drawEvents(); }, tag: 'LMF-18' }, `عرض الكل (${past_.length})`)
         : null;
     const body = data.events.length
       ? frag(
@@ -245,8 +246,8 @@ export default async function render(ctx) {
           group('السابقة', shownPast, 'past', more),
           h('p.lc-muted-line', icon('zap', { size: 14 }), `الجلسات التي يلزم فيها حضور ${BEN}: تذكير آلي قبلها بثلاثة أيام ثم قبلها بيوم، بعد مراجعة الإدارة.`),
         )
-      : emptyState('لم تُسجَّل جلسات في هذا الملف بعد.', isClosed() ? null : button('إضافة جلسة', { variant: 'secondary', icon: 'calendar', onClick: safe(addHearing) }), { compact: true, icon: 'calendar' });
-    return card({ title: 'الجلسات', icon: 'gavel', className: 'lc-card lc-events-card', body });
+      : emptyState('لم تُسجَّل جلسات في هذا الملف بعد.', isClosed() ? null : button('إضافة جلسة', { variant: 'secondary', icon: 'calendar', onClick: safe(addHearing), tag: 'LMF-19' }), { compact: true, icon: 'calendar', tag: 'LMF-20' });
+    return card({ title: 'الجلسات', icon: 'gavel', className: 'lc-card lc-events-card', body, titleTag: 'LMF-21', tag: 'LMF-22' });
   }
 
   function eventMenu(e) {
@@ -257,14 +258,15 @@ export default async function render(ctx) {
       className: 'lc-menu-sheet',
       body: h(
         'div.lc-menu',
-        h('button.lc-menu-item', { type: 'button', onClick: () => { m.close('action'); editEvent(e); } }, icon('edit', { size: 20 }), h('span', 'تعديل الموعد')),
+        h('button.lc-menu-item', { type: 'button', onClick: () => { m.close('action'); editEvent(e); }, tag: 'LMF-23' }, icon('edit', { size: 20 }), h('span', 'تعديل الموعد')),
         h(
           'button.lc-menu-item.is-danger',
-          { type: 'button', onClick: safe(async () => { m.close('action'); await cancelEvent(e); }) },
+          { type: 'button', onClick: safe(async () => { m.close('action'); await cancelEvent(e); }), tag: 'LMF-24' },
           icon('x', { size: 20 }),
           h('span', 'أُلغيت الجلسة'),
         ),
       ),
+      tag: 'LMF-25',
     });
   }
 
@@ -280,7 +282,7 @@ export default async function render(ctx) {
   }
 
   async function cancelEvent(e) {
-    const ok = await confirmDialog({ title: 'أُلغيت الجلسة؟', message: `ستُعلَّم «${e.title}» يوم ${whenText(e.starts_at)} ملغاة، ولن يُرسل تذكير بها.`, confirmLabel: 'نعم، أُلغيت', cancelLabel: 'رجوع', danger: true });
+    const ok = await confirmDialog({ title: 'أُلغيت الجلسة؟', message: `ستُعلَّم «${e.title}» يوم ${whenText(e.starts_at)} ملغاة، ولن يُرسل تذكير بها.`, confirmLabel: 'نعم، أُلغيت', cancelLabel: 'رجوع', danger: true, tag: 'LMF-26' });
     if (!ok) return;
     const row = await api.patch(`/lawyer/matter-events/${encodeURIComponent(e.id)}`, { status: 'cancelled' });
     upsertEvent(pickEvent(row));
@@ -328,8 +330,8 @@ export default async function render(ctx) {
     let action = null;
     if (!isClosed() && !cancelled && !(q && q.state === 'queued')) {
       action = done
-        ? h('button.btn.btn-ghost.btn-sm.lc-task-btn', { type: 'button', onClick: (ev) => setTaskStatus(t, 'open', ev.currentTarget) }, h('span.btn-label', 'إعادة فتح'))
-        : h('button.btn.btn-secondary.btn-sm.lc-task-btn', { type: 'button', onClick: (ev) => setTaskStatus(t, 'done', ev.currentTarget) }, icon('check', { size: 16 }), h('span.btn-label', 'تمّت'));
+        ? h('button.btn.btn-ghost.btn-sm.lc-task-btn', { type: 'button', onClick: (ev) => setTaskStatus(t, 'open', ev.currentTarget), tag: 'LMF-27' }, h('span.btn-label', 'إعادة فتح'))
+        : h('button.btn.btn-secondary.btn-sm.lc-task-btn', { type: 'button', onClick: (ev) => setTaskStatus(t, 'done', ev.currentTarget), tag: 'LMF-28' }, icon('check', { size: 16 }), h('span.btn-label', 'تمّت'));
     }
     return h(
       'li.lc-task',
@@ -349,7 +351,7 @@ export default async function render(ctx) {
         t.details ? h('p.lc-task-details', richText(t.details)) : null,
         q && q.state === 'queued' ? h('p.lc-queued', icon('clock', { size: 14 }), QUEUED_TEXT) : null,
         q && q.state === 'failed'
-          ? h('p.lc-failed', icon('alert', { size: 14 }), h('span', `لم يُحفظ: ${q.item.error}`), h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { dismissOutboxFailure(q.item.id); refresh(); } }, 'افتح'))
+          ? h('p.lc-failed', icon('alert', { size: 14 }), h('span', `لم يُحفظ: ${q.item.error}`), h('button.lc-reveal.lc-inline', { type: 'button', onClick: () => { dismissOutboxFailure(q.item.id); refresh(); }, tag: 'LMF-29' }, 'افتح'))
           : null,
       ),
       action ? h('div.lc-task-actions', action) : null,
@@ -363,7 +365,9 @@ export default async function render(ctx) {
       title: 'المهام',
       icon: 'check',
       className: 'lc-card',
-      body: tasks.length ? h('ul.lc-task-list', tasks.map(taskRow)) : emptyState('لا توجد مهام في هذا الملف.', null, { compact: true, icon: 'check' }),
+      body: tasks.length ? h('ul.lc-task-list', tasks.map(taskRow)) : emptyState('لا توجد مهام في هذا الملف.', null, { compact: true, icon: 'check', tag: 'LMF-30' }),
+      titleTag: 'LMF-31',
+      tag: 'LMF-32',
     });
   }
 
@@ -372,19 +376,19 @@ export default async function render(ctx) {
       let created = null;
       const s = { title: '', date: '', procedural: false, details: '' };
       const tid = uid('lctt');
-      const titleInput = h('input.input', { id: tid, type: 'text', maxLength: 300, required: true, placeholder: 'مثال: تقديم مذكرة بالدفاع قبل الجلسة', onInput: (e) => { s.title = e.target.value; validate(); } });
+      const titleInput = h('input.input', { id: tid, type: 'text', maxLength: 300, required: true, placeholder: 'مثال: تقديم مذكرة بالدفاع قبل الجلسة', onInput: (e) => { s.title = e.target.value; validate(); }, tag: 'LMF-33' });
       const did = uid('lctd');
       const echo = h('p.lc-date-echo', { 'aria-live': 'polite', hidden: true });
-      const dateInput = h('input.input', { id: did, type: 'date', min: cairoToday(), max: addDaysKey(cairoToday(), 730), onInput: (e) => onDate(e.target.value), onChange: (e) => onDate(e.target.value) });
+      const dateInput = h('input.input', { id: did, type: 'date', min: cairoToday(), max: addDaysKey(cairoToday(), 730), onInput: (e) => onDate(e.target.value), onChange: (e) => onDate(e.target.value), tag: 'LMF-34' });
       function onDate(v) {
         s.date = v;
         echo.textContent = /^\d{4}-\d{2}-\d{2}$/.test(v) ? longDay(v) : '';
         echo.hidden = !echo.textContent;
         validate();
       }
-      const procInput = h('input.lc-switch-input', { type: 'checkbox', role: 'switch', onChange: (e) => { s.procedural = e.target.checked; validate(); } });
+      const procInput = h('input.lc-switch-input', { type: 'checkbox', role: 'switch', onChange: (e) => { s.procedural = e.target.checked; validate(); }, tag: 'LMF-35' });
       const status = h('p.lc-sheet-status.tone-danger', { role: 'status', hidden: true });
-      const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true }, h('span.btn-label', 'إضافة المهمة'));
+      const saveBtn = h('button.btn.btn-primary.btn-lg.btn-block.lc-save', { type: 'button', disabled: true, tag: 'LMF-36' }, h('span.btn-label', 'إضافة المهمة'));
       const detailsHost = h('div');
       mount(
         detailsHost,
@@ -392,10 +396,11 @@ export default async function render(ctx) {
           type: 'button',
           onClick: () => {
             const xid = uid('lctx');
-            const ta = h('textarea.textarea', { id: xid, rows: 2, maxLength: 3000, onInput: (e) => { s.details = e.target.value; } });
+            const ta = h('textarea.textarea', { id: xid, rows: 2, maxLength: 3000, onInput: (e) => { s.details = e.target.value; }, tag: 'LMF-37' });
             mount(detailsHost, h('div.field', h('label.field-label', { htmlFor: xid }, 'تفاصيل'), ta));
             ta.focus();
           },
+          tag: 'LMF-38',
         }, '+ تفاصيل'),
       );
       function validate() {
@@ -436,7 +441,7 @@ export default async function render(ctx) {
           detailsHost,
           status,
         ),
-        beforeClose: async () => (!s.title && !s.date && !s.details ? true : confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُضف المهمة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true })),
+        beforeClose: async () => (!s.title && !s.date && !s.details ? true : confirmDialog({ title: 'تجاهل ما أدخلته؟', message: 'لم تُضف المهمة بعد.', confirmLabel: 'تجاهل', cancelLabel: 'متابعة', danger: true, tag: 'LMF-39' })),
         onClose: async () => {
           if (created) {
             upsertTask(created);
@@ -444,6 +449,7 @@ export default async function render(ctx) {
           }
           resolve(created);
         },
+        tag: 'LMF-40',
       });
       m.el.appendChild(h('div.lc-sheet-footer', saveBtn));
     });
@@ -457,7 +463,9 @@ export default async function render(ctx) {
       title: 'المستندات',
       icon: 'paperclip',
       className: 'lc-card',
-      body: docs.length ? docList(docs, { source: false }) : emptyState('لا توجد مستندات في هذا الملف. تضيف الإدارة مستندات الدعوى عند استلامها.', null, { compact: true, icon: 'paperclip' }),
+      body: docs.length ? docList(docs, { source: false }) : emptyState('لا توجد مستندات في هذا الملف. تضيف الإدارة مستندات الدعوى عند استلامها.', null, { compact: true, icon: 'paperclip', tag: 'LMF-41' }),
+      titleTag: 'LMF-42',
+      tag: 'LMF-43',
     });
   }
 
@@ -470,11 +478,11 @@ export default async function render(ctx) {
     ].filter(([, v]) => v);
     return h(
       'details.lc-details',
-      h('summary', icon('scale', { size: 18 }), h('span', 'بيانات الدعوى'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
+      { tag: 'LMF-44' }, h('summary', { tag: 'LMF-45' }, icon('scale', { size: 18 }), h('span', 'بيانات الدعوى'), icon('chevronDown', { size: 18, className: 'lc-chev' })),
       h(
         'div.lc-details-body',
         h('dl.lc-dl', rows.map(([k, v]) => h('div', h('dt', k), h('dd', v)))),
-        m.notes ? h('div.lc-assign-notes', h('h3.lc-group-title', 'تكليف الإدارة وملاحظاتها'), h('p.pre', richText(m.notes))) : null,
+        m.notes ? h('div.lc-assign-notes', h('h3.lc-group-title', { tag: 'LMF-46' }, 'تكليف الإدارة وملاحظاتها'), h('p.pre', richText(m.notes))) : null,
       ),
     );
   }
@@ -487,9 +495,9 @@ export default async function render(ctx) {
     return h(
       'div.lc-bottom-bar',
       p.length
-        ? button('سجّل النتيجة', { variant: 'primary', size: 'lg', icon: 'edit', onClick: () => recordOutcome(p[0]) })
-        : button('إضافة جلسة', { variant: 'primary', size: 'lg', icon: 'calendar', onClick: safe(addHearing) }),
-      button('إضافة مهمة', { variant: 'secondary', size: 'lg', icon: 'plus', onClick: safe(addTask) }),
+        ? button('سجّل النتيجة', { variant: 'primary', size: 'lg', icon: 'edit', onClick: () => recordOutcome(p[0]), tag: 'LMF-47' })
+        : button('إضافة جلسة', { variant: 'primary', size: 'lg', icon: 'calendar', onClick: safe(addHearing), tag: 'LMF-48' }),
+      button('إضافة مهمة', { variant: 'secondary', size: 'lg', icon: 'plus', onClick: safe(addTask), tag: 'LMF-49' }),
     );
   }
 
@@ -551,7 +559,7 @@ export default async function render(ctx) {
   return h(
     'div.lc-page.lc-matter',
     headerNode(),
-    isClosed() ? alertBox('هذا الملف المستمر مغلق — العرض للقراءة فقط.', 'warning', { icon: 'lock' }) : null,
+    isClosed() ? alertBox('هذا الملف المستمر مغلق — العرض للقراءة فقط.', 'warning', { icon: 'lock', tag: 'LMF-50' }) : null,
     hosts.pending,
     h('div.lc-grid', h('div.lc-main', hosts.events, hosts.tasks), h('div.lc-side', docsCard(), infoDetails())),
     hosts.bar,

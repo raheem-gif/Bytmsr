@@ -83,7 +83,7 @@ async function copyText(text) {
     return true;
   } catch {
     // احتياطي: تحديد النص في حقل مؤقت
-    const ta = h('textarea', { style: 'position:fixed;inset-inline-start:-9999px;top:0' });
+    const ta = h('textarea', { style: 'position:fixed;inset-inline-start:-9999px;top:0', tag: 'WRT-01' });
     ta.value = text;
     document.body.append(ta);
     ta.select();
@@ -172,7 +172,7 @@ export default async function render(ctx) {
   const chipIcon = h('span.lw-chip-icon', { 'aria-hidden': 'true' });
   const chipText = h('span.lw-chip-text');
   const chipAction = h('span.lw-chip-action');
-  const chip = h('button.lw-savechip', { type: 'button', 'aria-live': 'polite', 'aria-atomic': 'true' }, chipIcon, chipText, chipAction);
+  const chip = h('button.lw-savechip', { type: 'button', 'aria-live': 'polite', 'aria-atomic': 'true', tag: 'WRT-02' }, chipIcon, chipText, chipAction);
   let chipState = 'idle';
   chip.addEventListener('click', () => {
     if (chipState === 'error' || chipState === 'offline') saver.retryNow();
@@ -230,17 +230,18 @@ export default async function render(ctx) {
     spellcheck: 'true',
     placeholder: 'اكتب رأيك هنا…',
     'aria-label': 'نص رأيك',
+    tag: 'WRT-03',
   });
   const wordsEl = h('span.lw-words', { 'aria-live': 'off' });
 
   // خطوات عملية للمستفيد/ة (B91-16) — اختيارية ومطوية
-  const stepsTa = h('textarea.input.lw-steps-input', { rows: 4, dir: 'auto', maxlength: 3000, id: uid('lw-steps'), placeholder: 'خطوة في كل سطر' });
+  const stepsTa = h('textarea.input.lw-steps-input', { rows: 4, dir: 'auto', maxlength: 3000, id: uid('lw-steps'), placeholder: 'خطوة في كل سطر', tag: 'WRT-04' });
   const stepsWarn = h('p.lw-steps-warn', { hidden: true });
   const isCompany = !!view.company; // v10 b2b-staff (U10-L04)
   const stepsLabel = isCompany ? COMPANY_STEPS_LABEL : 'خطوات عملية للمستفيد/ة';
   const stepsBox = h(
     'details.lw-steps',
-    h('summary', h('span', isCompany ? `${COMPANY_STEPS_LABEL} (اختياري، حتى ${MAX_STEPS})` : 'خطوات عملية للمستفيد/ة (اختياري)'), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+    { tag: 'WRT-05' }, h('summary', { tag: 'WRT-06' }, h('span', isCompany ? `${COMPANY_STEPS_LABEL} (اختياري، حتى ${MAX_STEPS})` : 'خطوات عملية للمستفيد/ة (اختياري)'), icon('chevronDown', { size: 18, className: 'lw-chev' })),
     h('div.lw-steps-body', h('label.sr-only', { htmlFor: stepsTa.id }, stepsLabel), stepsTa, h('p.field-hint', isCompany ? 'توصيات عملية بلغة واضحة؛ تراجعها الإدارة قبل التسليم ولا تظهر باسمك.' : 'بلغة بسيطة؛ تراجعها الإدارة قبل الإرسال ولا تظهر باسمك.'), stepsWarn),
   );
 
@@ -305,11 +306,11 @@ export default async function render(ctx) {
   const titleEl = h('span.lw-write-title-text', `رأيي · الإصدار ${num(version)}`);
   const backBtn = h(
     'a.lw-write-back',
-    { href: `#${overviewPath}`, onClick: () => leave() },
+    { href: `#${overviewPath}`, onClick: () => leave(), tag: 'WRT-07' },
     icon('arrowRight', { size: 20 }),
     h('span', 'الملف'),
   );
-  const topBar = h('div.lw-write-top', backBtn, h('h1.lw-write-title', titleEl, c.code ? h('span.lw-write-code', ' · ', h('bdi.lw-code', { dir: 'ltr' }, c.code)) : null), chip);
+  const topBar = h('div.lw-write-top', backBtn, h('h1.lw-write-title', { tag: 'WRT-08' }, titleEl, c.code ? h('span.lw-write-code', ' · ', h('bdi.lw-code', { dir: 'ltr' }, c.code)) : null), chip);
 
   // ───────────── ملاحظات الإدارة (شريط قابل للطي) ─────────────
   const stripCount = h('span');
@@ -317,7 +318,7 @@ export default async function render(ctx) {
     h(
       'ol.lw-notes',
       notes.map((n, i) => {
-        const cb = h('input', { type: 'checkbox', checked: checks.has(i), 'aria-label': `عولجت الملاحظة ${i + 1}` });
+        const cb = h('input', { type: 'checkbox', checked: checks.has(i), 'aria-label': `عولجت الملاحظة ${i + 1}`, tag: 'WRT-09' });
         cb.addEventListener('change', () => {
           if (cb.checked) checks.add(i);
           else checks.delete(i);
@@ -338,7 +339,7 @@ export default async function render(ctx) {
     notesHosts.push(stripBody);
     const stripToggle = h(
       'button.lw-strip-toggle',
-      { type: 'button', 'aria-expanded': 'false', 'aria-controls': stripBody.id },
+      { type: 'button', 'aria-expanded': 'false', 'aria-controls': stripBody.id, tag: 'WRT-10' },
       stripCount,
       icon('chevronDown', { size: 18, className: 'lw-chev' }),
     );
@@ -361,10 +362,10 @@ export default async function render(ctx) {
   function briefRef() {
     const issues = (view.issues || []).filter((i) => i.status === 'active');
     return frag(
-      h('section.lw-ref-sec', h('h3', 'المطلوب منك'), a.brief ? h('p.pre', { dir: 'auto' }, richText(a.brief)) : h('p.lw-muted', 'لم تحدد الإدارة تكليفًا تفصيليًا.')),
+      h('section.lw-ref-sec', { tag: 'WRT-11' }, h('h3', { tag: 'WRT-12' }, 'المطلوب منك'), a.brief ? h('p.pre', { dir: 'auto' }, richText(a.brief)) : h('p.lw-muted', 'لم تحدد الإدارة تكليفًا تفصيليًا.')),
       h(
         'section.lw-ref-sec',
-        h('h3', 'المسائل'),
+        { tag: 'WRT-13' }, h('h3', { tag: 'WRT-14' }, 'المسائل'),
         issues.length
           ? h('ol.lw-issues', issues.map((i) => h('li.lw-issue', h('span.lw-issue-num', { 'aria-hidden': 'true' }, num(i.number)), h('span.lw-issue-text', h('span.sr-only', `المسألة ${i.number}: `), h('span', { dir: 'auto' }, i.title)))))
           : h('p.lw-muted', 'لا مسائل محددة متاحة لك.'),
@@ -391,7 +392,7 @@ export default async function render(ctx) {
       team.map((t) =>
         h(
           'details.lw-team-item',
-          h('summary.lw-team-row', h('span.lw-team-who', [t.lawyer_name, t.role_label, t.opinion ? label('opinion_status', t.opinion.status) : 'لم يُقدَّم بعد'].filter(Boolean).join(' · ')), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+          { tag: 'WRT-15' }, h('summary.lw-team-row', { tag: 'WRT-16' }, h('span.lw-team-who', [t.lawyer_name, t.role_label, t.opinion ? label('opinion_status', t.opinion.status) : 'لم يُقدَّم بعد'].filter(Boolean).join(' · ')), icon('chevronDown', { size: 18, className: 'lw-chev' })),
           h('div.lw-team-body', t.opinion ? h('div.lw-opinion-read.pre', { dir: 'auto' }, richText(t.opinion.body)) : h('p.lw-muted', 'سيصلك إشعار عند تقديم رأيه.')),
         ),
       ),
@@ -429,6 +430,7 @@ export default async function render(ctx) {
           if (e.currentTarget) setBusy(e.currentTarget, false);
         }
       },
+      tag: 'WRT-17',
     });
     return h('div', host, btn);
   }
@@ -450,7 +452,7 @@ export default async function render(ctx) {
     mount(
       refTabsEl,
       refTabs.map((t) =>
-        h('button.lw-ref-tab', { type: 'button', role: 'tab', 'aria-selected': String(t.key === refActive), onClick: () => { refActive = t.key; drawRef(); } }, t.label),
+        h('button.lw-ref-tab', { type: 'button', role: 'tab', 'aria-selected': String(t.key === refActive), onClick: () => { refActive = t.key; drawRef(); }, tag: 'WRT-18' }, t.label),
       ),
     );
     if (!refCache.has(refActive)) refCache.set(refActive, refTabs.find((t) => t.key === refActive).render());
@@ -466,7 +468,7 @@ export default async function render(ctx) {
       title: 'المطلوب والمسائل',
       size: 'md',
       sheet: true, className: 'lw-sheet lw-ref-sheet',
-      body: h('div.lw-ref-sheet-body', view.company ? companyRef() : null, briefRef(), h('section.lw-ref-sec', h('h3', 'المستندات'), docsRef())), // v10 b2b-staff
+      body: h('div.lw-ref-sheet-body', view.company ? companyRef() : null, briefRef(), h('section.lw-ref-sec', { tag: 'WRT-19' }, h('h3', { tag: 'WRT-20' }, 'المستندات'), docsRef())), // v10 b2b-staff
       onClose: () => {
         requestAnimationFrame(() => {
           ta.focus({ preventScroll: true });
@@ -477,6 +479,7 @@ export default async function render(ctx) {
           }
         });
       },
+      tag: 'WRT-21',
     });
   }
 
@@ -516,8 +519,9 @@ export default async function render(ctx) {
       size: 'lg',
       className: 'lw-diff-sheet',
       body: h('div.lw-diff', blocks),
-      actions: [{ label: 'رجوع للكتابة', variant: 'primary', icon: 'edit', onClick: () => undefined }],
+      actions: [{ label: 'رجوع للكتابة', variant: 'primary', icon: 'edit', onClick: () => undefined, tag: 'WRT-22' }],
       onClose: () => requestAnimationFrame(() => ta.focus({ preventScroll: true })),
+      tag: 'WRT-23',
     });
     void m;
   }
@@ -540,15 +544,16 @@ export default async function render(ctx) {
           sheet: true, className: 'lw-sheet',
           body: frag(h('p.lw-muted', 'مسودة للمساعدة فقط — راجعها قبل التقديم.'), h('div.lw-ai-preview.pre', { dir: 'auto', tabindex: '0' }, res.text)),
           actions: [
-            { label: 'إلغاء', variant: 'ghost' },
-            { label: 'أضفها في النهاية', variant: 'secondary', onClick: () => { mode = 'append'; } },
-            { label: 'استبدل نصي', variant: 'primary', onClick: () => { mode = 'replace'; } },
+            { label: 'إلغاء', variant: 'ghost', tag: 'WRT-24' },
+            { label: 'أضفها في النهاية', variant: 'secondary', onClick: () => { mode = 'append'; }, tag: 'WRT-25' },
+            { label: 'استبدل نصي', variant: 'primary', onClick: () => { mode = 'replace'; }, tag: 'WRT-26' },
           ],
           onClose: () => {
             if (!mode) return;
             ta.value = mode === 'append' ? `${ta.value.replace(/\s+$/, '')}\n\n${res.text}` : res.text;
             onEdit();
           },
+          tag: 'WRT-27',
         });
       }
     } catch (err) {
@@ -559,7 +564,7 @@ export default async function render(ctx) {
   }
 
   function openSimilarSheet() {
-    modal({ title: 'حالات مشابهة اعتمدتها المؤسسة', size: 'md', sheet: true, className: 'lw-sheet', body: similarRef() });
+    modal({ title: 'حالات مشابهة اعتمدتها المؤسسة', size: 'md', sheet: true, className: 'lw-sheet', body: similarRef(), tag: 'WRT-28' });
   }
 
   function openMenu() {
@@ -568,7 +573,7 @@ export default async function render(ctx) {
     const item = (labelText, hint, iconNode, fn) =>
       h(
         'button.lw-menu-item',
-        { type: 'button', onClick: (e) => { m.close('action'); fn(e.currentTarget); } },
+        { type: 'button', onClick: (e) => { m.close('action'); fn(e.currentTarget); }, tag: 'WRT-29' },
         h('span.lw-menu-icon', iconNode),
         h('span.lw-menu-text', h('strong', labelText), hint ? h('span.lw-menu-hint', hint) : null),
       );
@@ -583,6 +588,7 @@ export default async function render(ctx) {
         claude && !view.company ? item('مسودة أولية آلية', 'مسودة للمساعدة فقط — راجعها قبل التقديم.', icon('sparkle', { size: 20 }), () => aiDraft(menuBtn)) : null, // v10 b2b-staff (L-29): لا مسودة آلية لملفات الشركات
         phone ? item('حالات مشابهة اعتمدتها المؤسسة', null, icon('book', { size: 20 }), openSimilarSheet) : null,
       ),
+      tag: 'WRT-30',
     });
   }
 
@@ -590,14 +596,14 @@ export default async function render(ctx) {
   // على الشاشات الأضيق يظهر «المسائل» بدل النص الكامل؛ والاسم المقروء لقارئ الشاشة ثابت
   const refBtn = h(
     'button.lw-tool.lw-tool-ref',
-    { type: 'button', 'aria-label': 'المطلوب والمسائل', onClick: openRefSheet },
+    { type: 'button', 'aria-label': 'المطلوب والمسائل', onClick: openRefSheet, tag: 'WRT-31' },
     icon('book', { size: 18 }),
     h('span.lw-tool-long', { 'aria-hidden': 'true' }, 'المطلوب والمسائل'),
     h('span.lw-tool-short', { 'aria-hidden': 'true' }, 'المسائل'),
   );
-  const skeletonBtn = h('button.lw-tool.lw-tool-skeleton', { type: 'button', onClick: insertSkeleton }, icon('queue', { size: 18 }), h('span', 'هيكل الرأي'));
-  const menuBtn = h('button.lw-tool.lw-tool-more', { type: 'button', 'aria-label': 'أدوات أخرى', onClick: openMenu }, icon('more', { size: 22 }));
-  const submitBtn = button('تقديم', { variant: 'primary', icon: 'send', className: 'lw-submit', onClick: () => openSubmit() });
+  const skeletonBtn = h('button.lw-tool.lw-tool-skeleton', { type: 'button', onClick: insertSkeleton, tag: 'WRT-32' }, icon('queue', { size: 18 }), h('span', 'هيكل الرأي'));
+  const menuBtn = h('button.lw-tool.lw-tool-more', { type: 'button', 'aria-label': 'أدوات أخرى', onClick: openMenu, tag: 'WRT-33' }, icon('more', { size: 22 }));
+  const submitBtn = button('تقديم', { variant: 'primary', icon: 'send', className: 'lw-submit', onClick: () => openSubmit(), tag: 'WRT-34' });
   const kbdHint = h('span.lw-kbd-hint', 'Ctrl+S للحفظ الفوري');
   const toolbar = h('div.lw-write-toolbar', refBtn, skeletonBtn, wordsEl, kbdHint, h('span.lw-tool-spacer'), menuBtn, submitBtn);
 
@@ -675,6 +681,7 @@ export default async function render(ctx) {
           setBusy(e.currentTarget, false);
         }
       },
+      tag: 'WRT-35',
     });
     const useServer = button('استخدم نص المنصة', {
       variant: 'secondary',
@@ -687,6 +694,7 @@ export default async function render(ctx) {
         codeStore.clear();
         resolved(currentValue());
       },
+      tag: 'WRT-36',
     });
     const copyOther = h(
       'button.lw-link',
@@ -696,6 +704,7 @@ export default async function render(ctx) {
           const ok = await copyText(server.body);
           toast(ok ? 'نُسخ نص المنصة؛ يمكنك لصقه حيث تريد.' : 'تعذر النسخ تلقائيًا.', ok ? 'success' : 'warning');
         },
+        tag: 'WRT-37',
       },
       'انسخ النص الآخر',
     );
@@ -735,8 +744,8 @@ export default async function render(ctx) {
         h('p', `${errorMessage(err)}. نصك محفوظ على هذا الجهاز.`),
         h(
           'div.lw-conflict-actions',
-          button('انسخ نصك', { variant: 'secondary', size: 'sm', icon: 'copy', onClick: async () => toast((await copyText(ta.value)) ? 'نُسخ نصك.' : 'تعذر النسخ تلقائيًا.', 'info') }),
-          button('افتح الملف', { variant: 'ghost', size: 'sm', href: `#${overviewPath}` }),
+          button('انسخ نصك', { variant: 'secondary', size: 'sm', icon: 'copy', onClick: async () => toast((await copyText(ta.value)) ? 'نُسخ نصك.' : 'تعذر النسخ تلقائيًا.', 'info'), tag: 'WRT-38' }),
+          button('افتح الملف', { variant: 'ghost', size: 'sm', href: `#${overviewPath}`, tag: 'WRT-39' }),
         ),
       ),
     );
@@ -763,9 +772,9 @@ export default async function render(ctx) {
     }
     const err = h('div.lw-req-error', { role: 'alert', hidden: !(navigator.onLine === false) });
     if (navigator.onLine === false) mount(err, icon('alert', { size: 18 }), h('span', 'لا يوجد اتصال. نصك محفوظ على هذا الجهاز؛ قدّمه عند عودة الشبكة.'));
-    const hoursIn = h('input.input', { type: 'number', min: 0, max: 1000, step: '0.5', inputmode: 'decimal', id: uid('lw-hours') });
+    const hoursIn = h('input.input', { type: 'number', min: 0, max: 1000, step: '0.5', inputmode: 'decimal', id: uid('lw-hours'), tag: 'WRT-40' });
     const hoursWrap = h('div.lw-field', { hidden: true }, h('label.field-label', { htmlFor: hoursIn.id }, 'عدد الساعات (اختياري)'), hoursIn);
-    const hoursToggle = h('button.lw-more-link', { type: 'button', onClick: () => { hoursWrap.hidden = false; hoursToggle.hidden = true; hoursIn.focus(); } }, '+ عدد الساعات (اختياري)');
+    const hoursToggle = h('button.lw-more-link', { type: 'button', onClick: () => { hoursWrap.hidden = false; hoursToggle.hidden = true; hoursIn.focus(); }, tag: 'WRT-41' }, '+ عدد الساعات (اختياري)');
     modal({
       title: 'تقديم الرأي للإدارة؟',
       size: 'sm',
@@ -779,7 +788,7 @@ export default async function render(ctx) {
         err,
       ),
       actions: [
-        { label: 'ليس الآن', variant: 'ghost' },
+        { label: 'ليس الآن', variant: 'ghost', tag: 'WRT-42' },
         {
           label: 'قدّم الآن',
           variant: 'primary',
@@ -829,8 +838,10 @@ export default async function render(ctx) {
               return show(errorMessage(e));
             }
           },
+          tag: 'WRT-43',
         },
       ],
+      tag: 'WRT-44',
     });
   }
 

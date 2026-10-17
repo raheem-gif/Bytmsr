@@ -44,7 +44,7 @@ export default async function memoryEdit(ctx) {
   const values = editing ? { ...item, ...(item.dates || {}), entity_id: item.entity?.id ?? '', remind_days: item.remind_days } : { entity_id: ents.length === 1 ? ents[0].id : '', access: kind.default_access || 'all' };
   let up = null;
   if (!editing) up = coUploader({ max: 5, perRequestLeft: 10, capture: true });
-  const docsWrap = up ? field(M.documents, up.el, { required: !!kind.requires_document, full: true, group: true }) : null;
+  const docsWrap = up ? field(M.documents, up.el, { required: !!kind.requires_document, full: true, group: true, tag: 'CE-01' }) : null;
   const form = coMemoryForm(kind.key, values, {
     admin: isAdmin(),
     entities: ents,
@@ -78,7 +78,7 @@ export default async function memoryEdit(ctx) {
     const actions = form.el.querySelector('.form-actions');
     form.el.insertBefore(docsWrap, actions);
   }
-  const cancel = button(M.cancel, { variant: 'ghost', href: back.href });
+  const cancel = button(M.cancel, { variant: 'ghost', href: back.href, tag: 'CE-02' });
   form.el.querySelector('.form-actions')?.append(cancel);
-  return h('div.co-page.co-mem-edit', pageHead(h('span', { dir: 'auto' }, title)), h('section.co-section.co-mem-form', form.el));
+  return h('div.co-page.co-mem-edit', pageHead(h('span', { dir: 'auto' }, title), null, { record: true }), h('section.co-section.co-mem-form', { tag: 'CE-03' }, form.el));
 }

@@ -1,6 +1,6 @@
 // ملف المحامي: البيانات والاتفاق ومؤشرات الأداء والملفات وكشف الحساب، مع إجراءات مدير النظام.
 
-import { h, frag } from '../../../lib/h.js';
+import { h, frag, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { label, areaLabel, num, count, percent, money, date, relative, dateTime } from '../../../lib/fmt.js';
 import {
@@ -93,6 +93,7 @@ export default async function render(ctx) {
               ctx.reload();
             },
           }),
+          tag: 'LWF-01',
       }),
     );
     if (ag.type === 'package') {
@@ -105,17 +106,19 @@ export default async function render(ctx) {
               intro: `يُضاف عدد الاستشارات إلى الرصيد الحالي (المتبقي الآن ${count(l.package_remaining || 0, 'consultation')})، وتُسجَّل قيمة الباقة كمستحق للمحامي في دفتر المحاسبة.`,
               submitLabel: 'تجديد الباقة',
               fields: [
-                { name: 'size', label: 'عدد استشارات الباقة الجديدة', type: 'number', integer: true, required: true, min: 1, max: 100000, suffix: 'استشارة' },
-                { name: 'price', label: 'قيمة الباقة', type: 'money', required: true, min: 0 },
+                { name: 'size', label: 'عدد استشارات الباقة الجديدة', type: 'number', integer: true, required: true, min: 1, max: 100000, suffix: 'استشارة', tag: 'LWF-02' },
+                { name: 'price', label: 'قيمة الباقة', type: 'money', required: true, min: 0, tag: 'LWF-03' },
               ],
               values: { size: ag.package_size, price: ag.package_price },
               onSubmit: (v) => api.post(`/admin/lawyers/${encodeURIComponent(l.id)}/package`, { size: v.size, price: v.price }),
+              tag: 'LWF-04',
             });
             if (res) {
               toast(`تم تجديد الباقة؛ الرصيد الآن ${count(res.package_remaining ?? 0, 'consultation')}`, 'success');
               ctx.reload();
             }
           },
+          tag: 'LWF-05',
         }),
       );
     }
@@ -128,8 +131,8 @@ export default async function render(ctx) {
             intro: `ستُغلق كل جلسات ${l.display_name} الحالية، ويُطلب منه تغيير هذه الكلمة فور دخوله. الأفضل إرسال «رابط إعادة التعيين» من بطاقة «الحساب والأمان» حتى يختار كلمة مروره بنفسه.`,
             submitLabel: 'تعيين كلمة المرور المؤقتة',
             fields: [
-              { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام' },
-              { name: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password' },
+              { name: 'password', label: 'كلمة المرور المؤقتة', type: 'password', required: true, minLength: 8, autocomplete: 'new-password', hint: 'ثمانية أحرف على الأقل تجمع بين الحروف والأرقام', tag: 'LWF-06' },
+              { name: 'confirm', label: 'تأكيد كلمة المرور', type: 'password', required: true, autocomplete: 'new-password', tag: 'LWF-07' },
             ],
             onSubmit: async (v) => {
               if (v.password !== v.confirm) {
@@ -140,18 +143,21 @@ export default async function render(ctx) {
               await api.post(`/admin/lawyers/${encodeURIComponent(l.id)}/password`, { password: v.password });
               return true;
             },
+            tag: 'LWF-08',
           });
           if (res) {
             toast('عُيّنت كلمة المرور المؤقتة وأُنهيت الجلسات السابقة', 'success');
             ctx.reload();
           }
         },
+        tag: 'LWF-09',
       }),
     );
     actions.push(
       asyncButton(
         l.active ? 'إيقاف الحساب' : 'تفعيل الحساب',
         async () => {
+          // tags:skip each branch below carries its own LWF code
           const ok = await confirmDialog(
             l.active
               ? {
@@ -159,11 +165,13 @@ export default async function render(ctx) {
                   message: `لن يتمكن ${l.display_name} من الدخول إلى المنصة، وستُغلق جلساته الحالية فورًا. لا تُسحب الملفات المسندة إليه تلقائيًا${m.open_assignments ? ` — الإسنادات المفتوحة لديه: ${num(m.open_assignments)}، ويُنصح بإعادة إسنادها` : ''}.`,
                   confirmLabel: 'نعم، إيقاف الحساب',
                   danger: true,
+                  tag: 'LWF-10',
                 }
               : {
                   title: 'تفعيل حساب المحامي',
                   message: `سيتمكن ${l.display_name} من الدخول مجددًا، ويظهر ضمن المقترحين عند إسناد الملفات.`,
                   confirmLabel: 'تفعيل الحساب',
+                  tag: 'LWF-11',
                 },
           );
           if (!ok) return;
@@ -171,7 +179,7 @@ export default async function render(ctx) {
           toast(l.active ? 'تم إيقاف حساب المحامي' : 'تم تفعيل حساب المحامي', 'success');
           ctx.reload();
         },
-        { variant: l.active ? 'danger' : 'secondary', icon: l.active ? 'x' : 'check' },
+        { variant: l.active ? 'danger' : 'secondary', icon: l.active ? 'x' : 'check', tag: 'LWF-12' },
       ),
     );
   }
@@ -189,21 +197,22 @@ export default async function render(ctx) {
       ),
       icon: 'briefcase',
       tone: capRatio > 1 ? 'danger' : capRatio >= 0.8 ? 'warning' : 'info',
+      tag: 'LWF-13',
     }),
-    statCard({ label: 'متأخرة الآن', value: num(m.overdue), hint: m.overdue ? 'إسنادات تجاوزت الموعد المطلوب' : 'لا توجد إسنادات متأخرة', icon: 'clock', tone: m.overdue ? 'danger' : 'success' }),
-    statCard({ label: 'تقديمات بعد الموعد', value: num(m.late_submissions), hint: 'إجمالي ما قُدّم بعد الموعد المطلوب', icon: 'alert', tone: m.late_submissions ? 'warning' : 'neutral' }),
-    statCard({ label: 'متوسط زمن أول تقديم', value: hoursText(m.avg_response_hours), hint: 'من الإسناد حتى تقديم الرأي', icon: 'zap', tone: 'primary' }),
-    statCard({ label: 'إسنادات معتمدة', value: num(m.completed_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.completed_total)}`, icon: 'checkCircle', tone: 'success' }),
-    statCard({ label: 'نسبة الإعادة للتعديل', value: percent(m.returned_rate), hint: 'من الآراء التي راجعتها الإدارة', icon: 'refresh', tone: m.returned_rate >= 0.3 ? 'warning' : 'neutral' }),
-    statCard({ label: 'متوسط الجودة', value: qualityText(m.avg_quality), hint: 'تقييم الإدارة عند الاعتماد', icon: 'star', tone: 'accent' }),
+    statCard({ label: 'متأخرة الآن', value: num(m.overdue), hint: m.overdue ? 'إسنادات تجاوزت الموعد المطلوب' : 'لا توجد إسنادات متأخرة', icon: 'clock', tone: m.overdue ? 'danger' : 'success', tag: 'LWF-14' }),
+    statCard({ label: 'تقديمات بعد الموعد', value: num(m.late_submissions), hint: 'إجمالي ما قُدّم بعد الموعد المطلوب', icon: 'alert', tone: m.late_submissions ? 'warning' : 'neutral', tag: 'LWF-15' }),
+    statCard({ label: 'متوسط زمن أول تقديم', value: hoursText(m.avg_response_hours), hint: 'من الإسناد حتى تقديم الرأي', icon: 'zap', tone: 'primary', tag: 'LWF-16' }),
+    statCard({ label: 'إسنادات معتمدة', value: num(m.completed_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.completed_total)}`, icon: 'checkCircle', tone: 'success', tag: 'LWF-17' }),
+    statCard({ label: 'نسبة الإعادة للتعديل', value: percent(m.returned_rate), hint: 'من الآراء التي راجعتها الإدارة', icon: 'refresh', tone: m.returned_rate >= 0.3 ? 'warning' : 'neutral', tag: 'LWF-18' }),
+    statCard({ label: 'متوسط الجودة', value: qualityText(m.avg_quality), hint: 'تقييم الإدارة عند الاعتماد', icon: 'star', tone: 'accent', tag: 'LWF-19' }),
     // (v9 messaging) رضا العملاء من استبيان ما بعد الرد في الملفات التي اعتُمد فيها رأيه
     m.avg_client_satisfaction !== undefined &&
-      statCard({ label: 'رضا المستفيدين', value: qualityText(m.avg_client_satisfaction), hint: m.client_ratings ? `من ${count(m.client_ratings, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])} للملفات التي اعتُمد فيها رأيه` : 'لا تقييمات من المستفيدين بعد', icon: 'star', tone: m.avg_client_satisfaction != null && m.avg_client_satisfaction < 3 ? 'warning' : 'success' }),
-    statCard({ label: 'استشارات تطوعية', value: num(m.pro_bono_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.pro_bono_total)}`, icon: 'shieldCheck', tone: 'success' }),
+      statCard({ label: 'رضا المستفيدين', value: qualityText(m.avg_client_satisfaction), hint: m.client_ratings ? `من ${count(m.client_ratings, ['تقييم واحد', 'تقييمين', 'تقييمات', 'تقييمًا'])} للملفات التي اعتُمد فيها رأيه` : 'لا تقييمات من المستفيدين بعد', icon: 'star', tone: m.avg_client_satisfaction != null && m.avg_client_satisfaction < 3 ? 'warning' : 'success', tag: 'LWF-20' }),
+    statCard({ label: 'استشارات تطوعية', value: num(m.pro_bono_in_period), hint: `خلال ${pl} — الإجمالي ${num(m.pro_bono_total)}`, icon: 'shieldCheck', tone: 'success', tag: 'LWF-21' }),
   ];
   if (isAdmin) {
     metrics.push(
-      statCard({ label: 'المستحق عن الشهر', value: moneyValue(m.earned_in_period), hint: `قيود ${pl} غير الملغاة`, icon: 'wallet', tone: 'primary' }),
+      statCard({ label: 'المستحق عن الشهر', value: moneyValue(m.earned_in_period), hint: `قيود ${pl} غير الملغاة`, icon: 'wallet', tone: 'primary', tag: 'LWF-22' }),
       statCard({
         label: 'رصيد غير مصروف',
         value: moneyValue(m.unpaid_balance),
@@ -211,6 +220,7 @@ export default async function render(ctx) {
         icon: 'wallet',
         tone: m.unpaid_balance > 0 ? 'warning' : 'neutral',
         href: `#/accounting?tab=ledger&lawyer_id=${encodeURIComponent(l.id)}&status=accrued`,
+        tag: 'LWF-23',
       }),
     );
   }
@@ -221,6 +231,7 @@ export default async function render(ctx) {
     icon: 'chart',
     actions: periodSelect({
       label: 'شهر المؤشرات',
+      tag: 'LWF-100', // v12 gate (TA-05)
       value: period,
       onChange: (v) => {
         replaceQuery(`/lawyers/${l.id}`, { period: v === currentPeriod() ? '' : v });
@@ -228,6 +239,8 @@ export default async function render(ctx) {
       },
     }),
     body: h('div.stats-grid.pd-stats-compact', metrics),
+    titleTag: 'LWF-24',
+    tag: 'LWF-25',
   });
 
   // ── الملفات ──
@@ -251,9 +264,10 @@ export default async function render(ctx) {
             key: 'case',
             label: 'الملف',
             className: 'col-wide',
-            render: (a) => h('div', h('a', { href: `#/cases/${a.case_id}` }, codeTag(a.case_code)), h('div.cell-sub', a.case_title)),
+            render: (a) => h('div', h('a', { href: `#/cases/${a.case_id}`, tag: 'LWF-26' }, codeTag(a.case_code)), h('div.cell-sub', a.case_title)),
+            tag: 'LWF-27',
           },
-          { key: 'role', label: 'الدور', render: (a) => statusBadge('assignment_role', a.role) },
+          { key: 'role', label: 'الدور', render: (a) => statusBadge('assignment_role', a.role), tag: 'LWF-28' },
           {
             key: 'status',
             label: 'الحالة',
@@ -263,11 +277,13 @@ export default async function render(ctx) {
                 h('span.pd-inline-k', h('span.cell-sub', 'الإسناد: '), statusBadge('assignment_status', a.status)),
                 h('span.pd-inline-k', h('span.cell-sub', 'الملف: '), statusBadge('case_status', a.case_status)),
               ),
+              tag: 'LWF-29',
           },
           {
             key: 'due',
             label: 'الموعد المطلوب',
             render: (a) => (ACTIVE_ASSIGNMENT.includes(a.status) && a.case_status !== 'closed' ? dueBadge(a.due_at) : timeCell(a.due_at)),
+            tag: 'LWF-30',
           },
           {
             key: 'dates',
@@ -283,8 +299,11 @@ export default async function render(ctx) {
                 ),
                 h('div', h('dt', 'الاعتماد'), h('dd', timeCell(a.approved_at))),
               ),
+              tag: 'LWF-31',
           },
         ],
+        rowTag: 'LWF-32',
+        tag: 'LWF-33',
       }),
     );
   }
@@ -305,6 +324,7 @@ export default async function render(ctx) {
               filter = k;
               drawAssignments();
             },
+            tag: 'LWF-34',
           },
           labels[k],
           h('span.tab-count', String(counts[k])),
@@ -323,10 +343,12 @@ export default async function render(ctx) {
       empty: 'لا يتولى هذا المحامي أي ملف مستمر حاليًا',
       onRowClick: (x) => ctx.navigate(`/matters/${x.id}`),
       columns: [
-        { key: 'code', label: 'الكود', render: (x) => h('a', { href: `#/matters/${x.id}` }, codeTag(x.code)) },
-        { key: 'title', label: 'الموضوع', className: 'col-wide', render: (x) => h('span.cell-title', x.title) },
-        { key: 'status', label: 'الحالة', render: (x) => statusBadge('matter_status', x.status) },
+        { key: 'code', label: 'الكود', render: (x) => h('a', { href: `#/matters/${x.id}`, tag: 'LWF-35' }, codeTag(x.code)), tag: 'LWF-36' },
+        { key: 'title', label: 'الموضوع', className: 'col-wide', render: (x) => h('span.cell-title', x.title), tag: 'LWF-37' },
+        { key: 'status', label: 'الحالة', render: (x) => statusBadge('matter_status', x.status), tag: 'LWF-38' },
       ],
+      rowTag: 'LWF-39',
+      tag: 'LWF-40',
     });
   }
 
@@ -338,23 +360,23 @@ export default async function render(ctx) {
       'div.stack-lg',
       h(
         'div.stats-grid.pd-stats-compact',
-        statCard({ label: 'رصيد غير مصروف', value: moneyValue(st.unpaid_balance), icon: 'wallet', tone: st.unpaid_balance > 0 ? 'warning' : 'neutral' }),
-        statCard({ label: 'إجمالي ما صُرف', value: moneyValue(st.paid_total), icon: 'checkCircle', tone: 'success' }),
-        statCard({ label: 'مساهمات تطوعية', value: num(st.pro_bono_count), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent' }),
-        st.package_remaining != null && statCard({ label: 'المتبقي في الباقة', value: count(st.package_remaining, 'consultation'), icon: 'briefcase', tone: st.package_remaining > 0 ? 'primary' : 'danger' }),
+        statCard({ label: 'رصيد غير مصروف', value: moneyValue(st.unpaid_balance), icon: 'wallet', tone: st.unpaid_balance > 0 ? 'warning' : 'neutral', tag: 'LWF-41' }),
+        statCard({ label: 'إجمالي ما صُرف', value: moneyValue(st.paid_total), icon: 'checkCircle', tone: 'success', tag: 'LWF-42' }),
+        statCard({ label: 'مساهمات تطوعية', value: num(st.pro_bono_count), hint: 'استشارات بلا مقابل مالي', icon: 'shieldCheck', tone: 'accent', tag: 'LWF-43' }),
+        st.package_remaining != null && statCard({ label: 'المتبقي في الباقة', value: count(st.package_remaining, 'consultation'), icon: 'briefcase', tone: st.package_remaining > 0 ? 'primary' : 'danger', tag: 'LWF-44' }),
       ),
       h(
         'section.section',
-        h('div.row-between', h('h2.section-title', 'قيود الحساب'), button('فتح في دفتر المستحقات', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/accounting?tab=ledger&lawyer_id=${encodeURIComponent(l.id)}` })),
+        { tag: 'LWF-45' }, h('div.row-between', h('h2.section-title', { tag: 'LWF-46' }, 'قيود الحساب'), button('فتح في دفتر المستحقات', { variant: 'ghost', size: 'sm', icon: 'externalLink', href: `#/accounting?tab=ledger&lawyer_id=${encodeURIComponent(l.id)}`, tag: 'LWF-47' })),
         table({
           caption: 'قيود حساب المحامي',
           rows: entries,
           empty: 'لا توجد قيود في حساب هذا المحامي بعد',
           rowClass: (e) => e.status === 'void' && 'is-muted',
           columns: [
-            { key: 'created_at', label: 'التاريخ', render: (e) => timeCell(e.created_at) },
-            { key: 'kind', label: 'النوع', render: (e) => badge(e.kind_label || label('ledger_kind', e.kind), 'neutral') },
-            { key: 'description', label: 'البيان', className: 'col-wide', render: (e) => h('span', richText(e.description)) },
+            { key: 'created_at', label: 'التاريخ', render: (e) => timeCell(e.created_at), tag: 'LWF-48' },
+            { key: 'kind', label: 'النوع', render: (e) => badge(e.kind_label || label('ledger_kind', e.kind), 'neutral'), tag: 'LWF-49' },
+            { key: 'description', label: 'البيان', className: 'col-wide', render: (e) => h('span', richText(e.description)), tag: 'LWF-50' },
             {
               key: 'case',
               label: 'الملف',
@@ -362,66 +384,75 @@ export default async function render(ctx) {
                 e.case_code || e.matter_code
                   ? h(
                       'div.pd-cell-stack',
-                      e.case_code && h('a', { href: `#/cases/${e.case_id}` }, codeTag(e.case_code)),
-                      e.matter_code && h('a', { href: `#/matters/${e.matter_id}` }, codeTag(e.matter_code)),
+                      e.case_code && h('a', { href: `#/cases/${e.case_id}`, tag: 'LWF-51' }, codeTag(e.case_code)),
+                      e.matter_code && h('a', { href: `#/matters/${e.matter_id}`, tag: 'LWF-52' }, codeTag(e.matter_code)),
                     )
                   : null,
+                  tag: 'LWF-53',
             },
-            { key: 'period', label: 'الفترة', render: (e) => h('span.nowrap', periodLabel(e.period)) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (e) => amountCell(e.amount) },
-            { key: 'status', label: 'الحالة', render: (e) => statusBadge('ledger_status', e.status) },
+            { key: 'period', label: 'الفترة', render: (e) => h('span.nowrap', periodLabel(e.period)), tag: 'LWF-54' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (e) => amountCell(e.amount), tag: 'LWF-55' },
+            { key: 'status', label: 'الحالة', render: (e) => statusBadge('ledger_status', e.status), tag: 'LWF-56' },
           ],
+          rowTag: 'LWF-57',
+          tag: 'LWF-58',
         }),
       ),
       h(
         'section.section',
-        h('h2.section-title', 'وقائع الاستحقاق'),
+        { tag: 'LWF-59' }, h('h2.section-title', { tag: 'LWF-60' }, 'وقائع الاستحقاق'),
         h('p.pd-section-hint', 'كل استشارة معتمدة تُسجَّل مرة واحدة كواقعة استحقاق، ويحدد اتفاق المحامي معالجتها المالية تلقائيًا.'),
         table({
           caption: 'وقائع الاستحقاق',
           rows: events,
           empty: 'لا توجد وقائع استحقاق بعد',
           columns: [
-            { key: 'created_at', label: 'التاريخ', render: (e) => timeCell(e.created_at) },
+            { key: 'created_at', label: 'التاريخ', render: (e) => timeCell(e.created_at), tag: 'LWF-61' },
             {
               key: 'case',
               label: 'الملف',
-              render: (e) => (caseIdByCode.has(e.case_code) ? h('a', { href: `#/cases/${caseIdByCode.get(e.case_code)}` }, codeTag(e.case_code)) : codeTag(e.case_code)),
+              render: (e) => (caseIdByCode.has(e.case_code) ? h('a', { href: `#/cases/${caseIdByCode.get(e.case_code)}`, tag: 'LWF-62' }, codeTag(e.case_code)) : codeTag(e.case_code)),
+              tag: 'LWF-63',
             },
-            { key: 'role', label: 'الدور', render: (e) => statusBadge('assignment_role', e.role) },
-            { key: 'treatment', label: 'المعالجة المالية', render: (e) => statusBadge('treatment', e.treatment) },
-            { key: 'amount', label: 'المبلغ المستحق', align: 'end', render: (e) => (Number(e.amount) ? amountCell(e.amount) : h('span.muted', '—')) },
-            { key: 'notional', label: 'القيمة التقديرية', align: 'end', render: (e) => (Number(e.notional) ? h('span.nowrap', money(e.notional)) : h('span.muted', '—')) },
+            { key: 'role', label: 'الدور', render: (e) => statusBadge('assignment_role', e.role), tag: 'LWF-64' },
+            { key: 'treatment', label: 'المعالجة المالية', render: (e) => statusBadge('treatment', e.treatment), tag: 'LWF-65' },
+            { key: 'amount', label: 'المبلغ المستحق', align: 'end', render: (e) => (Number(e.amount) ? amountCell(e.amount) : h('span.muted', '—')), tag: 'LWF-66' },
+            { key: 'notional', label: 'القيمة التقديرية', align: 'end', render: (e) => (Number(e.notional) ? h('span.nowrap', money(e.notional)) : h('span.muted', '—')), tag: 'LWF-67' },
           ],
+          rowTag: 'LWF-68',
+          tag: 'LWF-69',
         }),
       ),
       h(
         'section.section',
-        h('h2.section-title', 'عمليات الصرف'),
+        { tag: 'LWF-70' }, h('h2.section-title', { tag: 'LWF-71' }, 'عمليات الصرف'),
         table({
           caption: 'عمليات صرف المستحقات',
           rows: payouts,
           empty: 'لم تُصرف أي مبالغ لهذا المحامي بعد',
           columns: [
-            { key: 'paid_at', label: 'تاريخ الصرف', render: (p) => timeCell(p.paid_at) },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => amountCell(p.amount) },
-            { key: 'method', label: 'طريقة الصرف', render: (p) => p.method || null },
-            { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null) },
+            { key: 'paid_at', label: 'تاريخ الصرف', render: (p) => timeCell(p.paid_at), tag: 'LWF-72' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (p) => amountCell(p.amount), tag: 'LWF-73' },
+            { key: 'method', label: 'طريقة الصرف', render: (p) => p.method || null, tag: 'LWF-74' },
+            { key: 'reference', label: 'المرجع', render: (p) => (p.reference ? ltr(p.reference) : null), tag: 'LWF-75' },
           ],
+          rowTag: 'LWF-76',
+          tag: 'LWF-77',
         }),
       ),
     );
   }
 
   const tabItems = [
-    { key: 'assignments', label: 'الملفات', icon: 'briefcase', count: assignments.length, render: assignmentsPanel },
-    { key: 'matters', label: 'الملفات المستمرة', icon: 'gavel', count: matters.length, render: mattersPanel },
+    { key: 'assignments', label: 'الملفات', icon: 'briefcase', count: assignments.length, render: assignmentsPanel, tag: 'LWF-97' },
+    { key: 'matters', label: 'الملفات المستمرة', icon: 'gavel', count: matters.length, render: mattersPanel, tag: 'LWF-98' },
   ];
-  if (isAdmin) tabItems.push({ key: 'statement', label: 'كشف الحساب', icon: 'wallet', render: statementPanel });
+  if (isAdmin) tabItems.push({ key: 'statement', label: 'كشف الحساب', icon: 'wallet', render: statementPanel, tag: 'LWF-99' });
   const activeTab = tabItems.some((t) => t.key === ctx.query.tab) ? ctx.query.tab : 'assignments';
   const tabsEl = tabs(tabItems, {
     active: activeTab,
     onChange: (key) => replaceQuery(`/lawyers/${l.id}`, { period: period === currentPeriod() ? '' : period, tab: key === 'assignments' ? '' : key }),
+    tag: 'LWF-78',
   });
 
   // ── العمود الجانبي ──
@@ -446,6 +477,8 @@ export default async function render(ctx) {
       ),
       l.notes && h('div.pd-note', h('div.pd-note-title', icon('info', { size: 15 }), 'ملاحظات داخلية'), h('p.pre', l.notes)),
     ),
+    titleTag: 'LWF-79',
+    tag: 'LWF-80',
   });
 
   // v10 b2b-staff (STF-11): «خدمة الشركات» — الاسم بالإنجليزية (P0، فحص التسليمات)، مهارات طلبات الشركات وسعرها (P1)
@@ -460,10 +493,10 @@ export default async function render(ctx) {
             const res = await formDialog({
               title: 'خدمة الشركات',
               fields: [
-                { name: 'name_latin', label: 'الاسم بالإنجليزية', ltr: true, maxLength: 80, placeholder: 'Tarek El-Naggar', hint: NAME_LATIN_HINT },
-                { name: 'skills', label: 'مهارات طلبات الشركات', type: 'multiselect', options: B2B_SKILLS.map((x) => ({ value: x.key, label: x.label })) },
+                { name: 'name_latin', label: 'الاسم بالإنجليزية', ltr: true, maxLength: 80, placeholder: 'Tarek El-Naggar', hint: NAME_LATIN_HINT, tag: 'LWF-81' },
+                { name: 'skills', label: 'مهارات طلبات الشركات', type: 'multiselect', options: B2B_SKILLS.map((x) => ({ value: x.key, label: x.label })), tag: 'LWF-82' },
                 // v11 segment-staff (ST-6، L11-24، P1): السعر نفسه يُستخدم لعمل الأفراد والشركات المدفوع
-                { name: 'b2b_rate', label: PAID_RATE_LABEL, type: 'money', min: 0, hint: 'أتعاب المحامي عن طلب شركة أو ملف أفراد بأتعاب متوسط الحجم (ما لم يُتفق على أتعاب خاصة بالإسناد)؛ يظهر للإدارة عند اختيار المحامي.' },
+                { name: 'b2b_rate', label: PAID_RATE_LABEL, type: 'money', min: 0, hint: 'أتعاب المحامي عن طلب شركة أو ملف أفراد بأتعاب متوسط الحجم (ما لم يُتفق على أتعاب خاصة بالإسناد)؛ يظهر للإدارة عند اختيار المحامي.', tag: 'LWF-83' },
               ],
               values: { name_latin: l.name_latin || '', skills: l.skills || [], b2b_rate: l.b2b_rate },
               onSubmit: (v) => {
@@ -474,12 +507,14 @@ export default async function render(ctx) {
                 }
                 return api.patch(`/admin/lawyers/${encodeURIComponent(l.id)}`, { name_latin: v.name_latin || null, skills: v.skills || [], b2b_rate: v.b2b_rate ?? null });
               },
+              tag: 'LWF-84',
             });
             if (res) {
               toast('حُفظت بيانات خدمة الشركات', 'success');
               ctx.reload();
             }
           },
+          tag: 'LWF-85',
         })
       : null,
     body: kv([
@@ -487,6 +522,8 @@ export default async function render(ctx) {
       ['مهارات طلبات الشركات', (l.skills || []).length ? chips((l.skills || []).map((k) => ({ label: B2B_SKILLS.find((x) => x.key === k)?.label || k }))) : h('span.muted', 'لم تُحدَّد')],
       [PAID_RATE_LABEL, l.b2b_rate != null ? money(l.b2b_rate) : h('span.muted', 'لم يُحدَّد')],
     ]),
+    titleTag: 'LWF-86',
+    tag: 'LWF-87',
   });
 
   const agreementBody = [
@@ -516,27 +553,30 @@ export default async function render(ctx) {
       ),
     );
   }
-  const agreementCard = card({ title: 'اتفاق المحاسبة', icon: 'wallet', body: agreementBody });
+  const agreementCard = card({ title: 'اتفاق المحاسبة', icon: 'wallet', body: agreementBody, titleTag: 'LWF-88', tag: 'LWF-89' });
 
   const specialtiesText = (l.specialties_labels || (l.specialties || []).map(areaLabel)).join('، ');
   return frag(
     pageHeader({
+      record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
       // الصورة الرمزية خارج <h1>: نص العنوان هو اسم المحامي فقط
       title: l.display_name,
       titleMedia: avatar(l.display_name, { size: 'lg' }),
       subtitle: specialtiesText ? `التخصصات: ${specialtiesText}` : null,
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'شبكة المحامين', href: '#/lawyers' }, { label: l.display_name }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'LWF-90' }, { label: 'شبكة المحامين', href: '#/lawyers', tag: 'LWF-91' }, { label: l.display_name }],
       meta: [activeBadge(l.active), statusBadge('agreement_type', ag.type, { dot: false }), m.overdue ? badge(`إسنادات متأخرة: ${num(m.overdue)}`, 'danger', { icon: 'clock' }) : null],
       actions: actions.length ? actions : null,
+      titleTag: 'LWF-92',
+      tag: 'LWF-93',
     }),
-    !l.active && alertBox('هذا الحساب موقوف: لا يستطيع المحامي الدخول، ولا يظهر ضمن المقترحين عند إسناد الملفات.', 'warning', { title: 'الحساب موقوف' }),
-    l.active && l.invite_pending && alertBox('لم يفعّل المحامي حسابه بعد من رابط الدعوة، ولن يظهر ضمن المقترحين عند الإسناد حتى يفعّله. يمكنك إعادة إرسال الدعوة من بطاقة «الحساب والأمان».', 'info', { title: 'بانتظار قبول الدعوة' }),
+    !l.active && alertBox('هذا الحساب موقوف: لا يستطيع المحامي الدخول، ولا يظهر ضمن المقترحين عند إسناد الملفات.', 'warning', { title: 'الحساب موقوف', tag: 'LWF-94' }),
+    l.active && l.invite_pending && alertBox('لم يفعّل المحامي حسابه بعد من رابط الدعوة، ولن يظهر ضمن المقترحين عند الإسناد حتى يفعّله. يمكنك إعادة إرسال الدعوة من بطاقة «الحساب والأمان».', 'info', { title: 'بانتظار قبول الدعوة', tag: 'LWF-95' }),
     metricsCard,
     h('div.pd-detail-top', profileCard, agreementCard),
     companyCard, // v10 b2b-staff
     // وحدة الحسابات: حالة الدخول والدعوة والتحقق بخطوتين والجلسات (لمدير النظام)
     isAdmin ? accountSecurityCard({ userId: l.id, me: ctx.user }) : null,
-    card({ body: tabsEl, className: 'pd-tabs-card' }),
+    card({ body: tabsEl, className: 'pd-tabs-card', tag: 'LWF-96' }),
   );
 }
 

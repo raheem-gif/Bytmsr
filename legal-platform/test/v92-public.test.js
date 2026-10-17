@@ -36,6 +36,7 @@ describe('v9.2 public — the tile-first home page', () => {
   let t;
   before(async () => {
     t = await startTestApp({ seed: 'none' });
+    t.app.settings.set('charity_public', true); // v12 entry: intended (E12 §12.2، L12-09): صفحة «خيري» الرئيسية على /khayri حين يُعاد «خيري»؛ /intake بلا جانب صار 302 «/»
   });
   after(async () => t && t.close());
   const get = async (p, c = t) => {
@@ -46,7 +47,7 @@ describe('v9.2 public — the tile-first home page', () => {
   const startOf = (html) => /<section id="start"[\s\S]*?<\/section>/.exec(html)[0];
 
   test('1. #start is the first section of <main>: the question, «مجاني وسرّي», 8 picture tiles in order, trust line, hidden listen button', async () => {
-    const html = await get('/');
+    const html = await get('/khayri');
     const main = html.slice(html.indexOf('<main'));
     assert.ok(main.indexOf('<section id="start"') >= 0 && main.indexOf('<section id="start"') === main.indexOf('<section'), '#start is the first section');
     const start = startOf(html);
@@ -74,7 +75,7 @@ describe('v9.2 public — the tile-first home page', () => {
   });
 
   test('2. ways row: «إحنا نكلمك», WhatsApp (real number only), «طلبك فين؟», no tel: tile; header contact button; office-closed flag on /intake', async () => {
-    const html = await get('/');
+    const html = await get('/khayri');
     const ways = /<ul class="pub-pick-ways" data-n="(\d)">([\s\S]*?)<\/ul>/.exec(html);
     assert.equal(ways[1], '3');
     const hrefs = [...ways[2].matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
@@ -86,17 +87,18 @@ describe('v9.2 public — the tile-first home page', () => {
     for (const label of ['إحنا نكلمك', 'واتساب', 'طلبك فين؟']) assert.ok(ways[2].includes(`<b>${label}</b>`), label);
     assert.match(ways[2], /pub-pick-way--wa" href="[^"]+" target="_blank" rel="noopener noreferrer"[\s\S]*?<span class="pub-sr"> \(يفتح في نافذة جديدة\)<\/span>/);
     // زر الرأس: واتساب
-    assert.match(html, /<a class="pub-head-contact pub-head-contact--wa" href="https:\/\/wa\.me\/201000000001\?text=[^"]+" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب \(يفتح في نافذة جديدة\)">/);
+    assert.match(html, /<a class="pub-head-contact pub-head-contact--wa" href="https:\/\/wa\.me\/201000000001\?text=[^"]+" target="_blank" rel="noopener noreferrer" data-cta="whatsapp" aria-label="واتساب \(يفتح في نافذة جديدة\)">/); // v12 entry review: intended (R2, §5.9/T12-22): the charity header carries no H- codes
 
     const noWa = await startTestApp({ seed: 'none', config: NO_WA });
+    noWa.app.settings.set('charity_public', true); // v12 entry: intended
     try {
-      const h2 = await get('/', noWa);
+      const h2 = await get('/khayri', noWa);
       const w2 = /<ul class="pub-pick-ways" data-n="(\d)">([\s\S]*?)<\/ul>/.exec(h2);
       assert.equal(w2[1], '2');
       assert.ok(!w2[2].includes('wa.me'));
-      assert.match(h2, /<a class="pub-head-contact" href="tel:\+201211114662" aria-label="اتصال بالتليفون">/);
+      assert.match(h2, /<a class="pub-head-contact" href="tel:\+201211114662" aria-label="اتصال بالتليفون">/); // v12 entry review: intended (R2, §5.9/T12-22): the charity header carries no H- codes
       noWa.app.settings.set('org_phone', '');
-      const h3 = await get('/', noWa);
+      const h3 = await get('/khayri', noWa);
       assert.ok(!h3.includes('pub-head-contact"') && !/class="pub-head-contact[ "]/.test(h3), 'no header contact without WhatsApp or phone');
       assert.ok(!/<a class="pub-head-contact/.test(h3));
     } finally {
@@ -105,20 +107,20 @@ describe('v9.2 public — the tile-first home page', () => {
 
     // المؤسسة مقفولة (الجدول الافتراضي: السبت–الخميس 10–4 بتوقيت القاهرة)
     freezeClock('2026-11-02T18:00:00.000Z'); // الاثنين 8 بالليل
-    assert.match(await get('/intake'), /id="intake-root"[^>]*data-office-closed="1"/);
+    assert.match(await get('/intake?seg=charity'), /id="intake-root"[^>]*data-office-closed="1"/);
     freezeClock('2026-11-02T09:00:00.000Z'); // الاثنين 11 الصبح
-    assert.ok(!(await get('/intake')).includes('data-office-closed'));
+    assert.ok(!(await get('/intake?seg=charity')).includes('data-office-closed'));
     t.app.settings.set('office_hours_schedule', null);
     freezeClock('2026-11-02T18:00:00.000Z');
-    assert.ok(!(await get('/intake')).includes('data-office-closed'), 'no schedule → never «closed»');
+    assert.ok(!(await get('/intake?seg=charity')).includes('data-office-closed'), 'no schedule → never «closed»');
     t.app.settings.set('office_hours_schedule', { days: [6, 0, 1, 2, 3, 4], from: '10:00', to: '16:00' });
     resetClock();
-    const intake = await get('/intake');
+    const intake = await get('/intake?seg=charity');
     assert.match(intake, /id="intake-root" data-org-phone="01211114662" data-org-phone-href="\+201211114662" data-wa="201000000001"/);
   });
 
   test('3. «بنساعد في إيه؟» links by topic (?topic=), so «حضانة ورؤية» opens custody; ?area= is still understood by the form', async () => {
-    const html = await get('/');
+    const html = await get('/khayri');
     assert.equal(SERVICES.length, 8);
     for (const s of SERVICES) {
       const m = new RegExp(`id="service-${s.key}">\\s*<a class="pub-tile-link" href="([^"]+)"`).exec(html);
@@ -254,6 +256,8 @@ describe('v9.2 public — POST /api/public/intake (§3.3)', () => {
   let admin;
   before(async () => {
     t = await startTestApp({ seed: 'none' });
+    // v12 entry: intended (L12-09): طلب موقع بلا segment صار «أفراد وشركات» ما دام «خيري» متوقفًا؛ هذه اختبارات «خيري» (v11)
+    t.app.settings.set('charity_public', true);
     admin = await t.login('admin');
   });
   after(async () => t && t.close());
@@ -421,6 +425,7 @@ describe('v9.2 public — the slow-network budget (§5.3)', () => {
   let t;
   before(async () => {
     t = await startTestApp({ seed: 'none' });
+    t.app.settings.set('charity_public', true); // v12 entry: intended (E12 §12.2، L12-09): صفحة «خيري» الرئيسية على /khayri حين يُعاد «خيري»؛ /intake بلا جانب صار 302 «/»
     setPublicRoot(PUB);
   });
   after(async () => t && t.close());
@@ -431,13 +436,13 @@ describe('v9.2 public — the slow-network budget (§5.3)', () => {
   test('8. / HTML ≤ 14 KB br and ≤ 70 KB raw; critical CSS ≤ 12 KB; landing ≤ 4 KB br; listen.js ≤ 3.5 KB br; /intake closure ≤ 32 KB br without recorder.js', async () => {
     // v11 gate-public (intended): the same limits on the gate state (no cookie) and the «خيري» cookie state of /
     for (const headers of [{}, { cookie: 'bm_seg=charity' }]) {
-      const h = (await t.client().get('/', headers)).body;
+      const h = (await t.client().get('/khayri', headers)).body;
       assert.ok(Buffer.byteLength(h) <= 70 * 1024, `raw ${Buffer.byteLength(h)} ${headers.cookie || 'gate'}`);
       assert.ok(br(Buffer.from(h)) <= 14 * 1024, `br ${br(Buffer.from(h))} ${headers.cookie || 'gate'}`);
       const c = /<style>([\s\S]*?)<\/style>/.exec(h)[1];
       assert.ok(Buffer.byteLength(c) <= 12 * 1024, `critical ${Buffer.byteLength(c)} ${headers.cookie || 'gate'}`);
     }
-    const html = (await t.client().get('/')).body;
+    const html = (await t.client().get('/khayri')).body;
     const bm = /<script type="application\/json" id="bm-public">([\s\S]*?)<\/script>/.exec(html)[1];
     assert.ok(Buffer.byteLength(bm) <= 3072);
     const landing = closure('/assets/js/public/landing.js');
@@ -460,7 +465,7 @@ describe('v9.2 public — the slow-network budget (§5.3)', () => {
     assert.ok(prefetch.some((u) => /^\/assets\/js\/public\/intake\.js\?v=/.test(u)));
     assert.ok(prefetch.some((u) => /^\/assets\/css\/v91-b-forms\.css\?v=/.test(u)));
     assert.ok(!prefetch.some((u) => /recorder\.js|upload\.js/.test(u)));
-    const intakeHtml = (await t.client().get('/intake')).body;
+    const intakeHtml = (await t.client().get('/intake?seg=charity')).body;
     for (const u of prefetch) assert.ok(intakeHtml.includes(u), `${u} is the URL /intake asks for`);
   });
 });
@@ -606,8 +611,9 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
     for (const gone of ['موافقة إن المؤسسة تستخدم', 'لازم توافقي', 'مش عارفة — كمّلي', 'اختاري الموضوع، أو اضغطي', 'ساكنة فين؟']) assert.ok(!intake.includes(gone), gone);
     // [S-25] أول شاشة (#start وزر الرأس) بلا أفعال مؤنثة
     const t = await startTestApp({ seed: 'none' });
+    t.app.settings.set('charity_public', true); // v12 entry: intended
     try {
-      const html = (await t.client().get('/')).body;
+      const html = (await t.client().get('/khayri')).body;
       const first = /<section id="start"[\s\S]*?<\/section>/.exec(html)[0] + (/<a class="pub-head-contact[^>]*>/.exec(html) || [''])[0];
       for (const w of ['اختاري', 'اضغطي', 'تابعي', 'اتصلي', 'ابعتيلنا', 'اسمعي']) assert.ok(!first.includes(w), w);
     } finally {
@@ -618,12 +624,13 @@ describe('v9.2 public — listening, copy, CSP, tokens and safety (static)', () 
   test('11. CSP: no inline executable script on /, /intake and /portal; /intake loads nomodule.js', async () => {
     const t = await startTestApp({ seed: 'none' });
     try {
-      for (const p of ['/', '/intake', '/portal']) {
+      t.app.settings.set('charity_public', true); // v12 entry: intended — + the tree, a tree leaf and /khayri
+      for (const p of ['/', '/start/consultation', '/khayri', '/intake?seg=charity', '/intake?path=consultation/family/divorce', '/portal']) {
         const html = (await t.client().get(p)).body;
         const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((m) => !/application\/(?:ld\+)?json/.test(m[1]));
         assert.equal(inline.length, 0, p);
       }
-      const intakeHtml2 = (await t.client().get('/intake')).body;
+      const intakeHtml2 = (await t.client().get('/intake?seg=charity')).body;
       assert.match(intakeHtml2, /<script nomodule src="\/assets\/js\/public\/nomodule\.js\?v=[\w-]+"><\/script>/);
       assert.match(intakeHtml2, /<div class="bmf-card" data-fallback hidden>/);
     } finally {

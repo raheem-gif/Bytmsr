@@ -1,7 +1,7 @@
 // صندوق الوارد الموحد: كل ما يصل من واتساب والموقع وأي قناة أخرى في قائمة واحدة للفرز.
 // القناة (واتساب، الموقع…) ليست هي المصدر (إعلان فيسبوك، بحث جوجل…): نعرض الاثنين معًا.
 
-import { h, mount } from '../../../lib/h.js';
+import { h, mount, tagged } from '../../../lib/h.js';
 import { api, ApiError } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, governorateOptions, relative, dateTime, count } from '../../../lib/fmt.js';
 import {
@@ -25,7 +25,9 @@ import {
   modal,
 } from '../../../lib/ui.js';
 // v11 segment-staff (ST-1): نوع الخدمة — المفتاح والرقائق وتسجيل الطلب اليدوي
-import { segmentSwitch, segmentChip, hintChip, mismatchChip, lineMismatchChip, segLabel, parseSeg, clientNoun, SEGMENT_TITLE } from '../../components/segment-ui.js';
+import { segmentSwitch, segmentChip, hintChip, mismatchChip, lineMismatchChip, segLabel, parseSeg, clientNoun, firmNoun, trackWord, SEGMENT_TITLE } from '../../components/segment-ui.js';
+// v12 staff-lines (SL-2، L12-81): نوع الطلب ومساره، «نوع الطلب: …؟» بتأكيد بضغطة (gate K-S5)، ومرشح «كل الأنواع»
+import { linePath, suggestRow, LINE_FILTER_ALL, LINE_FILTER_OPTIONS, LINE_VALUES } from '../../components/pathway-ui.js';
 
 // ───────────── أدوات مشتركة لصفحات المسار (تُستورد من الصفحات الأخرى) ─────────────
 
@@ -48,6 +50,10 @@ export function channelIcons(channels = [], { size = 16, withLabels = false } = 
     ),
   );
 }
+
+/** v12 gate (JR-06): مسمى مسار «نسأل الأول» لصف في الوارد بضمير من نكلّمه (محايد لطلب بأتعاب بلا صيغة معروفة) */
+export const rowTrack = (it, group, t) =>
+  trackWord(group, t, { form: it.address_form === 'm' ? 'm' : 'f', company: it.requester_kind === 'company', paid: parseSeg(it.segment) === 'paid' });
 
 /** «يشبه N حالات سابقة» بصيغة عربية سليمة. */
 export function similarText(n) {
@@ -102,11 +108,11 @@ const TABS = [
 const VIEW_KEY = 'bm.inbox.view';
 const STORY_FILTERS = [
   { key: '', label: 'الكل' },
-  { key: 'callback', label: 'طلبت مكالمة' },
+  { key: 'callback', label: 'طلب مكالمة' }, // v12 gate (V-08): بلا فعل مؤنث (طلبات الأفراد والشركات من رجال ونساء)
   { key: 'ready', label: 'جاهزة للقرار' },
   { key: 'collecting', label: 'القصة لسه بتتكتب' },
   { key: 'stale', label: 'وصل جديد بعد الملخص' },
-  { key: 'awaiting', label: 'بانتظار ردها' },
+  { key: 'awaiting', label: 'بانتظار الرد' },
   { key: 'voice', label: 'رسائل صوتية لم تُكتب' },
 ];
 const STORY_EMPTY = {
@@ -142,14 +148,18 @@ function saveSeg(v) {
  * v11 gate fix (J-12، r2 P21): «+» «تسجيل طلب يدوي» في شريط التنقل العلوي على الهاتف (يظهر تحت 600px بالـCSS).
  * يُزال عند مغادرة قائمة الوارد؛ لا شيء إن لم يوجد الشريط (عرض ثابت في الاختبارات).
  */
-export function navPlus(onClick) {
+export function navPlus(onClick, { fallback = null } = {}) {
   try {
     const bar = typeof document !== 'undefined' && document.querySelector ? document.querySelector('.topbar .topbar-actions') : null;
     if (!bar) return null;
     const old = bar.querySelector('.pa-nav-plus');
     if (old) old.remove();
-    const b = h('button.icon-btn.pa-nav-plus', { type: 'button', 'aria-label': 'تسجيل طلب يدوي', title: 'تسجيل طلب يدوي', onClick }, icon('plus', { size: 22 }));
+    const b = h('button.icon-btn.pa-nav-plus', { type: 'button', 'aria-label': 'تسجيل طلب يدوي', title: 'تسجيل طلب يدوي', onClick, tag: 'INB-09' }, icon('plus', { size: 22 }));
     bar.prepend(b);
+    // v12 staff-lines: شريط الهاتف في 12.0 أضيق (القائمة + الشعار + البحث + الجرس + الخروج)؛ إن لم يتسع لـ«+» (360 px)
+    // ينتقل الزر إلى صف «تصفية» في الصفحة نفسها بدل أن يدفع الشريط إلى تمرير أفقي
+    const top = bar.closest ? bar.closest('.topbar') || bar : bar;
+    if (fallback && Number(top.scrollWidth) > Number(top.clientWidth) + 1) fallback.prepend(b);
     const off = () => {
       if (/^#\/inbox(\?|$)/.test(window.location.hash)) return;
       b.remove();
@@ -160,6 +170,48 @@ export function navPlus(onClick) {
   } catch {
     return null;
   }
+}
+
+// ───────────── v12 staff-lines (SL-2): علامتان للفريق فقط ─────────────
+/** «سبق التعامل مع «خيري»» (L12-75): طلب أفراد وشركات من رقم سبق له طلب أو ملف خيري خلال سنة — لا يراه صاحب الطلب */
+export function returningCharityChip() {
+  return h('span.pill.pill-neutral.pa-returning-charity', { tag: 'INB-07', title: 'لهذا الرقم طلب أو ملف «خيري» خلال آخر سنة؛ نوع الخدمة لم يتغير' }, h('span', 'سبق التعامل مع «خيري»'));
+}
+/** «أوقف الرسائل الآلية» (L12-77): أرسل كلمة إيقاف؛ ردود الفريق تصله كما هي */
+export function optOutChip() {
+  return h('span.pill.pill-neutral.pa-opt-out', { tag: 'INB-08', title: 'أرسل كلمة إيقاف: لا تصله الرسائل الآلية، وردود الفريق تصله كما هي' }, h('span', 'أوقف الرسائل الآلية'));
+}
+
+/**
+ * خيارات مرشح «كل الأنواع» برموزها (§5.9: INB-02…INB-06). review-2: قائمة بيانات تحمل tag (T12-17) حتى يعرض سجل الرموز
+ * وTAGS.md كلمات كل خيار (كانت خريطة { all: 'INB-02', … } فظهرت الرموز بكلمات «all» و«consultation»). الكلمات نفسها
+ * LINE_FILTER_ALL وLINE_FILTER_OPTIONS في pathway-ui.js (اختبار v12-staff-lines يتحقق من التطابق).
+ */
+export const LINE_FILTER_TAGGED = Object.freeze([
+  Object.freeze({ value: '', label: 'كل الأنواع', tag: 'INB-02' }),
+  Object.freeze({ value: 'consultation', label: 'استشارة', tag: 'INB-03' }),
+  Object.freeze({ value: 'litigation', label: 'دعوى قضائية', tag: 'INB-04' }),
+  Object.freeze({ value: 'company', label: 'شركات', tag: 'INB-05' }),
+  Object.freeze({ value: 'none', label: 'لم يُحدَّد النوع', tag: 'INB-06' }),
+]);
+
+// L12-83: أزرار البطاقة على الهاتف (أقل من 600px) بحد خفيف وحجم صغير مع مساحة لمس ممتدة (≥ 44px من CSS)
+const PHONE_MQ = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 599px)') : null;
+// v12 gate (V-15، K12-34): على الهاتف إجراء واحد بحد (إجراء الصف، أو «فتح الطلب» حين لا إجراء له) والبقية كلمات إجراء بلا حد؛
+// «فتح الطلب» يختفي بجوار إجراء آخر لأن اسم صاحب الطلب نفسه رابط الطلب (≥ 44px). كلها btn--sm بمساحة لمس ≥ 44px
+function phoneActs(el) {
+  const on = !!(PHONE_MQ && PHONE_MQ.matches);
+  const btns = [...el.querySelectorAll('.btn')];
+  const main = btns.find((b) => b.classList.contains('pa-story-primary')) || el.querySelector('.pa-story-open');
+  btns.forEach((b) => {
+    b.classList.toggle('btn--line', on && b === main);
+    b.classList.toggle('btn--sm', on);
+    if (b.classList.contains('pa-story-open')) b.classList.toggle('is-phone-dup', on && b !== main);
+  });
+  return el;
+}
+if (PHONE_MQ && typeof PHONE_MQ.addEventListener === 'function') {
+  PHONE_MQ.addEventListener('change', () => document.querySelectorAll('.pa-story-actions').forEach(phoneActs));
 }
 
 /** حبة محايدة بأيقونة داخل بطاقة الفرز (r2 P12: لا برتقالي ولا ذهبي ولا أخضر غير رقاقة النوع) */
@@ -184,7 +236,7 @@ function saveView(v) {
 }
 
 function apiQuery(state, offset = 0) {
-  const q = { channel: state.channel, source: state.source, area: state.area, priority: state.priority, q: state.q, segment: state.seg || undefined, limit: PAGE, offset };
+  const q = { channel: state.channel, source: state.source, area: state.area, priority: state.priority, q: state.q, segment: state.seg || undefined, line: state.line || undefined, limit: PAGE, offset };
   if (state.tab === 'all') q.scope = 'all';
   else if (state.tab === 'open') q.scope = 'open';
   else q.status = state.tab;
@@ -204,6 +256,8 @@ export default async function render(ctx) {
     story: STORY_FILTERS.some((f) => f.key && f.key === ctx.query.story) ? ctx.query.story : '',
     view: readView(),
     seg: SEG_FILTERS.includes(ctx.query.segment) ? ctx.query.segment : readSeg(),
+    // v12 staff-lines (SL-2): نوع الطلب في الرابط (?line=) — يبقى بعد إعادة التحميل
+    line: LINE_VALUES.includes(ctx.query.line) ? ctx.query.line : '',
   };
   if (state.tab !== 'open') state.story = '';
   let data = await api.get('/admin/intakes', apiQuery(state));
@@ -230,7 +284,7 @@ export default async function render(ctx) {
     },
   });
   // r2 P21: على الهاتف تصير الفلاتر حبة واحدة «تصفية» (بعدد المفعّل منها) تفتح ورقة
-  const filterPill = h('button.pa-filter-pill', { type: 'button', 'aria-haspopup': 'dialog', onClick: () => openFilterSheet() });
+  const filterPill = h('button.pa-filter-pill', { type: 'button', 'aria-haspopup': 'dialog', onClick: () => openFilterSheet(), tag: 'INB-10' });
   const countLine = h('span.pa-count-line');
 
   function syncUrl() {
@@ -242,16 +296,17 @@ export default async function render(ctx) {
       channel: state.channel,
       source: state.source,
       area: state.area,
+      line: state.line,
       priority: state.priority,
     });
   }
 
   function hasFilters() {
-    return Boolean(state.q || state.channel || state.source || state.area || state.priority);
+    return Boolean(state.q || state.channel || state.source || state.area || state.line || state.priority);
   }
 
   function activeFilters() {
-    return [state.q, state.channel, state.source, state.area, state.priority].filter(Boolean).length;
+    return [state.q, state.channel, state.source, state.area, state.line, state.priority].filter(Boolean).length;
   }
 
   function drawFilterPill() {
@@ -279,7 +334,7 @@ export default async function render(ctx) {
       TABS.map((t) =>
         h(
           'button.seg',
-          { type: 'button', 'aria-pressed': String(state.tab === t.key), onClick: () => setTab(t.key) },
+          { type: 'button', 'aria-pressed': String(state.tab === t.key), onClick: () => setTab(t.key), tag: 'INB-11' },
           t.label,
           h('span.tab-count', String(t.count(counts))),
         ),
@@ -305,6 +360,7 @@ export default async function render(ctx) {
               drawStoryBar();
               load();
             },
+            tag: 'INB-12',
           },
           f.key === 'callback' ? icon('phone', { size: 14 }) : f.key === 'voice' ? icon('mic', { size: 14 }) : null,
           f.key ? `${f.label} (${Number(sc[f.key]) || 0})` : f.label,
@@ -332,6 +388,7 @@ export default async function render(ctx) {
               drawViewSwitch();
               load();
             },
+            tag: 'INB-13',
           },
           icon(ic, { size: 16 }),
           text,
@@ -362,6 +419,7 @@ export default async function render(ctx) {
       drawTabs();
       drawStoryBar();
       segSwitch.update({ counts: segCounts(res) });
+      drawLineCounts();
       drawFilterPill();
       drawCountLine();
       drawList();
@@ -374,6 +432,11 @@ export default async function render(ctx) {
       if (append) toast(err.message, 'danger');
       else mount(listHost, errorState(err, () => load()));
     }
+  }
+
+  /** v12 staff-lines: «سبق التعامل مع خيري» و«أوقف الرسائل الآلية» */
+  function lineExtras(it) {
+    return [it.returning_charity ? returningCharityChip() : null, it.auto_opt_out ? optOutChip() : null];
   }
 
   /** اقتراح نوع لطلب «غير محدد»، و«يبدو أفراد وشركات» لطلب خيري، و«كتب على …» / رقم غير مضبوط */
@@ -428,7 +491,7 @@ export default async function render(ctx) {
       'li',
       h(
         'a.pa-irow',
-        { href: `#/inbox/${it.id}`, class: [it.unread_count > 0 && 'is-unread', `pa-st-${it.status}`] },
+        { href: `#/inbox/${it.id}`, class: [it.unread_count > 0 && 'is-unread', `pa-st-${it.status}`], tag: 'INB-14' },
         h(
           'div.pa-irow-main',
           h(
@@ -437,7 +500,7 @@ export default async function render(ctx) {
             h('strong.pa-irow-name', it.contact_name || 'بدون اسم'),
             it.returning_client &&
               (parseSeg(it.segment) === 'paid'
-                ? badge('عميل/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا العميل/ة طلبات سابقة' })
+                ? badge('صاحب طلب سابق', 'neutral', { icon: 'refresh', title: 'له طلبات سابقة لدى المكتب' }) // v12 gate (V-08)
                 : badge('مستفيد/ة سابق/ة', 'neutral', { icon: 'refresh', title: 'لهذا المستفيد/ة طلبات سابقة لدى المؤسسة' })),
             it.client_code && h('span.pa-irow-client', { dir: 'ltr' }, it.client_code),
           ),
@@ -447,7 +510,10 @@ export default async function render(ctx) {
             'div.pa-irow-meta',
             // v11 segment-staff (ST-1): نوع الخدمة أول ما في سطر البيانات (نص + أيقونة)، والاقتراح/اختلاف الرقم حبات محايدة
             segmentChip(it.segment, { source: it.segment_source, requesterKind: it.requester_kind }),
+            // v12 staff-lines (SL-2): مسار الطلب «الخط › المجال › الموضوع» أو «نوع الطلب: …؟» (التأكيد من البطاقة أو صفحة الطلب)
+            linePath(it) || suggestRow(it, { withButton: false }),
             segExtras(it),
+            lineExtras(it),
             channelIcons(it.channels && it.channels.length ? it.channels : [it.first_channel]),
             // المصدر حبة محايدة: البرتقالي/الذهبي لا يشتبه بنوع الخدمة (L11-16 r2)
             badge(label('source', it.source), 'neutral'),
@@ -456,11 +522,11 @@ export default async function render(ctx) {
             h('span.pa-count', { title: 'عدد الرسائل' }, icon('message', { size: 14 }), h('span', String(it.messages_count || 0)), h('span.sr-only', 'رسائل')),
             it.documents_count > 0 &&
               h('span.pa-count', { title: 'عدد المرفقات' }, icon('paperclip', { size: 14 }), h('span', String(it.documents_count)), h('span.sr-only', 'مرفقات')),
-            ai && ai.similar_count > 0 && badge(similarText(ai.similar_count), 'info', { icon: 'sparkle', title: 'حسب تحليل الذكاء الاصطناعي لملفات المؤسسة السابقة' }),
+            ai && ai.similar_count > 0 && badge(similarText(ai.similar_count), 'info', { icon: 'sparkle', title: `حسب تحليل الذكاء الاصطناعي لملفات ${firmNoun(it.segment, { company: it.requester_kind === 'company' })} السابقة` }),
             ai && ai.missing_count > 0 && badge(`نواقص: ${ai.missing_count}`, 'warning', { title: 'معلومات أو مستندات ناقصة يقترحها الذكاء الاصطناعي' }),
             // v9.2: حالة القصة والمسار المقترح في القائمة أيضًا
             it.story && it.story.view && it.story.view !== 'decided' && h('span.pa-irow-story', { class: `is-${it.story.view}` }, label('story_view', it.story.view)),
-            ai && ai.track && OPEN_STATUSES.includes(it.status) && quietPill(`المقترح: ${label('story_track', ai.track)}`, 'sparkle'),
+            ai && ai.track && OPEN_STATUSES.includes(it.status) && quietPill(`المقترح: ${rowTrack(it, 'story_track', ai.track)}`, 'sparkle'),
           ),
         ),
         h(
@@ -547,7 +613,7 @@ export default async function render(ctx) {
     const line = (b, text) => h('div.pa-story-ribbon', { class: `is-${view}` }, b, text ? h('span.pa-story-ribbon-text', text) : null);
     switch (view) {
       case 'callback':
-        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد — الوقت المناسب: ${(it.form && it.form.callback_label) || 'أي وقت'}`);
+        return line(badge('طلبت مكالمة', 'info', { icon: 'phone' }), `لم تحكِ مشكلتها بعد. الوقت المناسب: ${(it.form && it.form.callback_label) || 'أي وقت'}`);
       case 'collecting':
         return line(
           h('span.badge.badge-info.pa-story-live', h('span.pa-live-dot', { 'aria-hidden': 'true' }), h('span', 'القصة لسه بتتكتب…')),
@@ -577,6 +643,8 @@ export default async function render(ctx) {
     const nameId = `pa-story-${it.id}`;
     const voiceMissing = st.voice ? Number(st.voice.missing) || 0 : 0;
     const form = it.form || null;
+    // v12 gate (V-08، JR-06): طلب بأتعاب أو طلب شركة بلا صيغة مذكر معروفة: أفعال بلا ضمير مؤنث
+    const paidRow = (parseSeg(it.segment) === 'paid' || lead) && it.address_form !== 'm';
 
     // سطر واحد: ملخص الذكاء الاصطناعي، أو اختياراتها في الموقع لطلب المكالمة
     let summary;
@@ -584,7 +652,7 @@ export default async function render(ctx) {
       summary = h('p.pa-story-line.is-lead', icon('building', { size: 14 }), h('span', COMPANY_LEAD_LINE));
     } else if (view === 'callback' && form && form.lines && form.lines.length) {
       const lines = form.lines.filter((x) => !/^طلبت مكالمة/.test(x));
-      summary = h('p.pa-story-line.is-form', { title: form.title || '' }, icon('globe', { size: 14 }), h('span', lines.length ? lines.join(' · ') : 'لم تختر موضوعًا'));
+      summary = h('p.pa-story-line.is-form', { title: form.title || '' }, icon('globe', { size: 14 }), h('span', lines.length ? lines.join(' · ') : paidRow ? 'بلا موضوع' : 'لم تختر موضوعًا'));
     } else if (ai && (ai.one_line || ai.title)) {
       summary = h(
         'p.pa-story-line',
@@ -601,15 +669,19 @@ export default async function render(ctx) {
       'div.pa-story-chips',
       // V11-47: سطر البيانات = الكود ثم حبات قليلة (الرأس: القناة · الاسم · النوع · الوقت)
       codeTag(it.code, { className: 'pa-story-code' }),
+      // v12 staff-lines (SL-2، L12-81): مسار الطلب بكلمات الفريق، أو «نوع الطلب: {النوع}؟» + «تأكيد النوع» بضغطة واحدة
+      linePath(it) || suggestRow(it, { onConfirm: () => load() }),
+      lineExtras(it),
       // r2 P12: اقتراح الذكاء الاصطناعي وحبات التنبيه محايدة بأيقونتها (الألوان لنوع الخدمة والحالات وحدها)
-      ai && ai.track && open && quietPill(`المقترح: ${label('story_track', ai.track)}`, 'sparkle', { className: 'pa-story-track' }),
+      ai && ai.track && open && quietPill(`المقترح: ${rowTrack(it, 'story_track', ai.track)}`, 'sparkle', { className: 'pa-story-track' }),
       urgent && statusBadge('priority', urgent, { icon: 'flag', dot: false }),
       voiceMissing > 0 && quietPill(`${voiceMissing} لم تُكتب`, 'mic', { className: 'pa-story-voice', title: 'رسائل صوتية لم تكتبها الإدارة بعد' }),
-      st.topic_label && badge(`الموضوع: ${st.topic_label}`, 'neutral'),
+      // v12 gate (V-15): لا «الموضوع: …» مرتين — سطر اختيارات الموقع (طلب المكالمة) يذكره بالفعل
+      st.topic_label && !(summary.classList.contains('is-form') && summary.textContent.includes(st.topic_label)) && badge(`الموضوع: ${st.topic_label}`, 'neutral'),
       it.documents_count > 0 && h('span.pa-count', { title: 'عدد المرفقات' }, icon('paperclip', { size: 14 }), h('span', String(it.documents_count)), h('span.sr-only', 'مرفقات')),
       it.identity_unconfirmed && quietPill('رقم غير مؤكد', 'shield'),
       segExtras(it),
-      view !== 'callback' && form && form.callback && badge(`طلبت مكالمة (${form.callback_label || 'أي وقت'})`, 'info', { icon: 'phone' }),
+      view !== 'callback' && form && form.callback && badge(`${paidRow ? 'طلب مكالمة' : 'طلبت مكالمة'} (${form.callback_label || 'أي وقت'})`, 'info', { icon: 'phone' }),
       Number(st.call_attempts) > 0 && badge(`محاولات الاتصال: ${st.call_attempts}`, 'neutral', { icon: 'phone-off' }),
     );
 
@@ -620,27 +692,27 @@ export default async function render(ctx) {
       const track = ai && ai.track;
       if (view === 'callback') {
         actions = [
-          asyncButton('سجّل المكالمة', () => logCall(it), btnOpts('phone')),
-          asyncButton(it.address_form === 'm' ? 'لم يرد' : 'لم ترد', () => logAttempt(it), { icon: 'phone-off', className: 'pa-story-noanswer' }),
+          tagged('INB-15', asyncButton('سجّل المكالمة', () => logCall(it), btnOpts('phone'))),
+          asyncButton(it.address_form === 'm' ? 'لم يرد' : paidRow ? 'لا رد' : 'لم ترد', () => logAttempt(it), { icon: 'phone-off', className: 'pa-story-noanswer', tag: 'INB-16' }),
         ];
       } else if (view === 'blocked') {
-        actions = [button('اسمع الرسالة الصوتية', { ...btnOpts('mic'), href: `#/inbox/${it.id}?focus=voice` })];
+        actions = [button('اسمع الرسالة الصوتية', { ...btnOpts('mic'), href: `#/inbox/${it.id}?focus=voice`, tag: 'INB-17' })];
       } else if (view === 'collecting') {
-        actions = [asyncButton('لخّصها الآن', () => summarizeNow(it), btnOpts('sparkle'))];
+        actions = [tagged('INB-18', asyncButton('لخّصها الآن', () => summarizeNow(it), btnOpts('sparkle')))];
       } else if (view === 'awaiting') {
         actions = [];
       } else if (lead) {
         actions = [];
       } else if (!ai) {
-        actions = [asyncButton('حلّل الآن', () => analyzeNow(it), btnOpts('sparkle'))];
+        actions = [tagged('INB-19', asyncButton('حلّل الآن', () => analyzeNow(it), btnOpts('sparkle')))];
       } else if (it.identity_unconfirmed && ['internal', 'refer', 'need_info'].includes(track) && !st.called) {
         // [بوابة 9.2 G5] بعد «سجّل المكالمة» (آخر ما وصل مكالمة) الخطوة التالية القرار نفسه، لا مكالمة ثانية
-        actions = [asyncButton(it.address_form === 'm' ? 'اتصل به' : 'اتصل بها', () => callFirst(it), btnOpts('phone'))];
+        actions = [tagged('INB-20', asyncButton(it.address_form === 'm' ? 'اتصل به' : paidRow ? 'اتصل' : 'اتصل بها', () => callFirst(it), btnOpts('phone')))];
       } else if (track) {
-        actions = [asyncButton(label('story_track_action', track), () => openSheet(it, { track }), btnOpts(TRACK_ICONS[track] || 'check'))];
+        actions = [tagged('INB-21', asyncButton(rowTrack(it, 'story_track_action', track), () => openSheet(it, { track }), btnOpts(TRACK_ICONS[track] || 'check')))];
       }
     }
-    actions.push(button('فتح الطلب', { variant: 'ghost', icon: 'chevronLeft', href: `#/inbox/${it.id}`, className: 'pa-story-open' }));
+    actions.push(button('فتح الطلب', { variant: 'ghost', icon: 'chevronLeft', href: `#/inbox/${it.id}`, className: 'pa-story-open', tag: 'INB-22' }));
 
     return h(
       'li',
@@ -650,7 +722,7 @@ export default async function render(ctx) {
         h(
           'div.pa-story-head',
           channelIcons(it.channels && it.channels.length ? it.channels : [it.first_channel], { size: 15 }),
-          h('a.pa-story-name', { id: nameId, href: `#/inbox/${it.id}` }, it.contact_name || 'بدون اسم'),
+          h('a.pa-story-name', { id: nameId, href: `#/inbox/${it.id}`, tag: 'INB-23' }, it.contact_name || 'بدون اسم'),
           // v11 segment-staff (ST-1, V11-47): رقاقة نوع الخدمة بجوار الاسم — لا تحرّك بقية البطاقة
           segmentChip(it.segment, { source: it.segment_source, requesterKind: it.requester_kind, className: 'pa-story-seg' }),
           it.unread_count > 0 && h('span.pa-unread', { title: count(it.unread_count, ['رسالة غير مقروءة', 'رسالتان غير مقروءتين', 'رسائل غير مقروءة', 'رسالة غير مقروءة']) }, String(it.unread_count), h('span.sr-only', ' غير مقروءة')),
@@ -659,7 +731,7 @@ export default async function render(ctx) {
         ribbon(it, view),
         summary,
         chipsRow,
-        h('div.pa-story-actions', actions),
+        phoneActs(h('div.pa-story-actions', actions)),
       ),
     );
   }
@@ -676,11 +748,12 @@ export default async function render(ctx) {
         ? button('مسح الفلاتر', {
             icon: 'x',
             onClick: () => {
-              Object.assign(state, { q: '', channel: '', source: '', area: '', priority: '' });
+              Object.assign(state, { q: '', channel: '', source: '', area: '', line: '', priority: '' });
               mount(filtersHost, buildFilters());
               drawFilterPill();
               load();
             },
+            tag: 'INB-24',
           })
         : segOnly
           ? button('عرض كل الأنواع', {
@@ -692,6 +765,7 @@ export default async function render(ctx) {
                 segSwitch.update({ value: '' });
                 load();
               },
+              tag: 'INB-25',
             })
           : null;
       const text = hasFilters()
@@ -703,19 +777,19 @@ export default async function render(ctx) {
           : state.tab === 'open'
             ? 'لا توجد طلبات مفتوحة تنتظر الفرز الآن'
             : 'لا توجد طلبات في هذه الحالة';
-      mount(listHost, card({ body: emptyState(text, clear, { icon: 'inbox' }) }));
+      mount(listHost, card({ body: emptyState(text, clear, { icon: 'inbox', tag: 'INB-26' }), tag: 'INB-27' }));
       mount(moreHost);
       return;
     }
-    if (state.view === 'cards') mount(listHost, h('ul.pa-stories', { 'aria-label': 'قصص المستفيدات حسب الأولوية' }, items.map(storyCard)));
-    else mount(listHost, card({ flush: true, body: h('ul.pa-ilist', { 'aria-label': 'الطلبات الواردة' }, items.map(row)) }));
+    if (state.view === 'cards') mount(listHost, h('ul.pa-stories', { 'aria-label': 'الطلبات حسب الأولوية' }, items.map(storyCard)));
+    else mount(listHost, card({ flush: true, body: h('ul.pa-ilist', { 'aria-label': 'الطلبات الواردة' }, items.map(row)), tag: 'INB-28' }));
     mount(
       moreHost,
       items.length < total &&
         button(`عرض المزيد (${total - items.length})`, { icon: 'chevronDown', onClick: (e) => {
           e.currentTarget.disabled = true;
           load({ append: true });
-        } }),
+        }, tag: 'INB-29' }),
     );
   }
 
@@ -724,10 +798,45 @@ export default async function render(ctx) {
   const channelOptions = () => options('channel').filter((o) => o.value !== 'company_portal');
   const filterSpecs = () => [
     { key: 'channel', label: 'قناة التواصل', allLabel: 'كل القنوات', options: channelOptions() },
-    { key: 'source', label: 'مصدر المستفيد/ة', allLabel: 'كل المصادر', options: options('source') },
+    { key: 'source', label: 'مصدر الطلب', allLabel: 'كل المصادر', options: options('source') }, // v12 gate (V-08): بلا «/ة»
     { key: 'area', label: 'المجال القانوني', allLabel: 'كل المجالات', options: areaOptions() },
+    // v12 staff-lines (SL-2، L12-81): «كل الأنواع» بجوار «كل المجالات» (وفي ورقة «تصفية» على الهاتف)، بأعداد الطلبات المفتوحة
+    { key: 'line', label: 'نوع الطلب', allLabel: LINE_FILTER_ALL, options: lineOptions(), tagged: true },
     { key: 'priority', label: 'الأولوية', allLabel: 'كل الأولويات', options: PRIORITY_FILTERS },
   ];
+  /** خيارات «نوع الطلب» بأعداد line_counts (الطلبات المفتوحة تحت بقية المرشحات) في تبويب «المفتوحة» */
+  function lineOptions() {
+    const c = state.tab === 'open' ? data.line_counts || null : null;
+    return LINE_FILTER_OPTIONS.map((o) => ({ value: o.value, label: c && c[o.value] != null ? `${o.label} (${Number(c[o.value]) || 0})` : o.label }));
+  }
+  const lineSelects = new Set();
+  const optionsOf = (sel) => Array.from((sel && sel.querySelectorAll && sel.querySelectorAll('option')) || []);
+  /** رموز «كل الأنواع»: INB-01 القائمة، وINB-02…06 خياراتها (LINE_FILTER_TAGGED) */
+  function tagLineSelect(wrap) {
+    const sel = wrap && wrap.querySelector ? wrap.querySelector('select') : null;
+    if (!sel) return wrap;
+    tagged('INB-01', sel);
+    lineSelects.add(sel);
+    optionsOf(sel).forEach((o) => {
+      const code = (LINE_FILTER_TAGGED.find((x) => x.value === (o.value || '')) || {}).tag;
+      if (code) o.setAttribute('data-tag', code);
+    });
+    return wrap;
+  }
+  /** تحديث أعداد «نوع الطلب» بعد كل تحميل (دون إعادة بناء الفلاتر) */
+  function drawLineCounts() {
+    const opts = lineOptions();
+    for (const sel of lineSelects) {
+      if (sel.isConnected === false) {
+        lineSelects.delete(sel);
+        continue;
+      }
+      const els = optionsOf(sel);
+      opts.forEach((o, i) => {
+        if (els[i + 1]) els[i + 1].textContent = o.label;
+      });
+    }
+  }
   const SEARCH_PLACEHOLDER = 'ابحث برقم الطلب أو الاسم أو الهاتف أو نص الرسائل…';
   function buildFilters() {
     return filterBar([
@@ -740,9 +849,10 @@ export default async function render(ctx) {
           drawFilterPill();
           load();
         },
+        tag: 'INB-30',
       }),
-      ...filterSpecs().map((f) =>
-        selectInput({
+      ...filterSpecs().map((f) => {
+        const el = selectInput({
           label: f.label,
           allLabel: f.allLabel,
           options: f.options,
@@ -752,18 +862,20 @@ export default async function render(ctx) {
             drawFilterPill();
             load();
           },
-        }),
-      ),
+          tag: 'INB-31',
+        });
+        return f.tagged ? tagLineSelect(el) : el;
+      }),
     ]);
   }
 
   /** r2 P21: ورقة «تصفية» على الهاتف — البحث والقوائم وطريقة العرض، وتُطبَّق بـ «عرض النتائج» */
   function openFilterSheet() {
-    const draft = { channel: state.channel, source: state.source, area: state.area, priority: state.priority, view: state.view };
-    const search = searchInput({ placeholder: SEARCH_PLACEHOLDER, label: 'بحث في الطلبات', value: state.q, onSearch: () => {} });
+    const draft = { channel: state.channel, source: state.source, area: state.area, line: state.line, priority: state.priority, view: state.view };
+    const search = searchInput({ placeholder: SEARCH_PLACEHOLDER, label: 'بحث في الطلبات', value: state.q, onSearch: () => {}, tag: 'INB-32' });
     const selects = filterSpecs().map((f) => {
-      const el = selectInput({ label: f.label, allLabel: f.allLabel, options: f.options, value: draft[f.key], onChange: (v) => (draft[f.key] = v) });
-      return h('div.field', h('span.field-label', f.label), el);
+      const el = selectInput({ label: f.label, allLabel: f.allLabel, options: f.options, value: draft[f.key], onChange: (v) => (draft[f.key] = v), tag: 'INB-33' });
+      return h('div.field', h('span.field-label', f.label), f.tagged ? tagLineSelect(el) : el);
     });
     const viewSeg = h(
       'div.segmented.pa-viewswitch-sheet',
@@ -781,6 +893,7 @@ export default async function render(ctx) {
               draft.view = v;
               viewSeg.querySelectorAll('.seg').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
             },
+            tag: 'INB-34',
           },
           icon(ic, { size: 16 }),
           text,
@@ -790,7 +903,7 @@ export default async function render(ctx) {
     );
     const apply = (reset) => {
       const q = reset ? '' : (search.querySelector('input')?.value || '').trim();
-      Object.assign(state, reset ? { q: '', channel: '', source: '', area: '', priority: '' } : { q, channel: draft.channel, source: draft.source, area: draft.area, priority: draft.priority });
+      Object.assign(state, reset ? { q: '', channel: '', source: '', area: '', line: '', priority: '' } : { q, channel: draft.channel, source: draft.source, area: draft.area, line: draft.line, priority: draft.priority });
       if (!reset && draft.view !== state.view) {
         state.view = draft.view;
         saveView(state.view);
@@ -806,9 +919,10 @@ export default async function render(ctx) {
       title: 'تصفية',
       body: h('div.stack', search, ...selects, h('div.field', h('span.field-label', 'طريقة العرض'), viewSeg)),
       actions: [
-        { label: 'مسح الفلاتر', variant: 'ghost', onClick: () => apply(true) },
-        { label: 'عرض النتائج', variant: 'primary', onClick: () => apply(false) },
+        { label: 'مسح الفلاتر', variant: 'ghost', onClick: () => apply(true), tag: 'INB-35' },
+        { label: 'عرض النتائج', variant: 'primary', onClick: () => apply(false), tag: 'INB-36' },
       ],
+      tag: 'INB-37',
     });
   }
 
@@ -835,6 +949,7 @@ export default async function render(ctx) {
               manualSeg = v;
               manualForm?.control('segment')?.wrap.setError('');
             },
+            tag: 'INB-38',
           }),
           h('span', segLabel('segment_long', v)),
         ),
@@ -843,7 +958,7 @@ export default async function render(ctx) {
     const created = await formDialog({
       title: 'تسجيل طلب يدوي',
       intro:
-        'للطلبات التي تصل بمكالمة هاتفية أو حضور شخصي أو بريد إلكتروني. يدخل الطلب نفس محرك الاستقبال، ويُربط بالمستفيد/ة تلقائيًا إن كان رقمه أو بريده مسجلًا من قبل.',
+        'للطلبات التي تصل بمكالمة هاتفية أو حضور شخصي أو بريد إلكتروني. يدخل الطلب نفس محرك الاستقبال، ويُربط بملف صاحبه تلقائيًا إن كان رقمه أو بريده مسجلًا من قبل.',
       size: 'lg',
       submitLabel: 'تسجيل الطلب',
       values: { channel: 'phone', source: 'unknown' },
@@ -855,15 +970,16 @@ export default async function render(ctx) {
           required: true,
           placeholder: false,
           options: ['phone', 'walk_in', 'email'].map((v) => ({ value: v, label: label('channel', v) })),
+          tag: 'INB-39',
         },
-        { name: 'segment', label: [SEGMENT_TITLE, h('span.req', { 'aria-hidden': 'true' }, '*')], type: 'static', full: true, render: () => segRadios },
-        { name: 'name', label: 'اسم المستفيد/ة', maxLength: 150, autocomplete: 'off' },
-        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'مطلوب للمكالمات والحضور الشخصي' },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email', hint: 'مطلوب إذا وصل الطلب بالبريد' },
-        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
-        { name: 'source', label: 'كيف عرف المستفيد/ة بالمؤسسة؟ (المصدر)', type: 'select', placeholder: false, options: options('source') },
-        { name: 'campaign', label: 'الحملة أو جهة الإحالة', maxLength: 150, hint: 'اختياري — مثل اسم الإعلان أو الجمعية المحيلة', full: true },
-        { name: 'text', label: 'وصف الطلب كما رواه المستفيد/ة', type: 'textarea', required: true, minLength: 10, maxLength: 20000, rows: 5 },
+        { name: 'segment', label: [SEGMENT_TITLE, h('span.req', { 'aria-hidden': 'true' }, '*')], type: 'static', full: true, render: () => segRadios, tag: 'INB-40' },
+        { name: 'name', label: 'اسم صاحب الطلب', maxLength: 150, autocomplete: 'off', tag: 'INB-41' },
+        { name: 'phone', label: 'رقم الموبايل', type: 'phone', hint: 'مطلوب للمكالمات والحضور الشخصي', tag: 'INB-42' },
+        { name: 'email', label: 'البريد الإلكتروني', type: 'email', hint: 'مطلوب إذا وصل الطلب بالبريد', tag: 'INB-43' },
+        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), tag: 'INB-44' },
+        { name: 'source', label: 'كيف عرف بنا؟ (المصدر)', type: 'select', placeholder: false, options: options('source'), tag: 'INB-45' },
+        { name: 'campaign', label: 'الحملة أو جهة الإحالة', maxLength: 150, hint: 'اختياري — مثل اسم الإعلان أو الجمعية المحيلة', full: true, tag: 'INB-46' },
+        { name: 'text', label: 'وصف الطلب كما رواه صاحبه', type: 'textarea', required: true, minLength: 10, maxLength: 20000, rows: 5, tag: 'INB-47' },
       ],
       // نوع الخدمة يُفحص مع بقية الحقول (لا بعدها)
       setup: (f) => {
@@ -893,6 +1009,7 @@ export default async function render(ctx) {
           segment: manualSeg,
         });
       },
+      tag: 'INB-48',
     });
     if (created && created.id) {
       toast(`تم تسجيل الطلب ${created.code}`, 'success');
@@ -910,14 +1027,14 @@ export default async function render(ctx) {
   // V11-46: عنوان كبير + سطر أعداد واحد، والشرح في ⓘ (كان فقرتين تحت العنوان)
   const explain = h(
     'details.pa-explain',
-    h('summary', { 'aria-label': 'عن صندوق الوارد' }, icon('info', { size: 18 }), h('span.sr-only', 'عن صندوق الوارد')),
+    { tag: 'INB-49' }, h('summary', { 'aria-label': 'عن صندوق الوارد', tag: 'INB-50' }, icon('info', { size: 18 }), h('span.sr-only', 'عن صندوق الوارد')),
     h(
       'div.pa-explain-body',
       h('p', 'كل ما يصل من واتساب والموقع وأي قناة أخرى يظهر هنا في مكان واحد'),
       h(
         'p.pa-principle',
         icon('info', { size: 15 }),
-        h('span', h('strong', 'القناة'), ' هي طريقة التواصل (واتساب، الموقع…)، و', h('strong', 'المصدر'), ' هو ما جاء بالمستفيد/ة (إعلان، بحث، إحالة…). والرسالة لا تصبح ملفًا إلا بقرار من الإدارة.'),
+        h('span', h('strong', 'القناة'), ' هي طريقة التواصل (واتساب، الموقع…)، و', h('strong', 'المصدر'), ' هو ما جاء بصاحب الطلب (إعلان، بحث، إحالة…). والرسالة لا تصبح ملفًا إلا بقرار من الإدارة.'),
       ),
       h('p', segmentChip('charity'), ' ', segmentChip('paid'), ' ', segmentChip(null), ' — ', 'نوع الخدمة: الذهبي خيري، والأخضر أفراد وشركات.'),
     ),
@@ -927,12 +1044,15 @@ export default async function render(ctx) {
     // V11-46: مسار التنقل لصفحات التفاصيل وحدها
     subtitle: h('span.pa-sub', countLine, explain),
     actions: [
-      button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load(), className: 'pa-refresh-btn', ariaLabel: 'تحديث' }),
+      button('تحديث', { variant: 'ghost', icon: 'refresh', onClick: () => load(), className: 'pa-refresh-btn', ariaLabel: 'تحديث', tag: 'INB-51' }),
       // r2 P21 + v11 gate fix (J-12): زر مُلوَّن خفيف لا ممتلئ (الممتلئ الوحيد في الصفحة «الكل»)؛ تحت 600px يحل محله «+» في شريط التنقل
-      button('تسجيل طلب يدوي', { variant: 'tinted', icon: 'plus', onClick: manualIntake, className: 'pa-manual-btn', ariaLabel: 'تسجيل طلب يدوي' }),
+      button('تسجيل طلب يدوي', { variant: 'tinted', icon: 'plus', onClick: manualIntake, className: 'pa-manual-btn', ariaLabel: 'تسجيل طلب يدوي', tag: 'INB-52' }),
     ],
+    titleTag: 'INB-53',
+    tag: 'INB-54',
   });
-  navPlus(manualIntake);
+  const inboxBar = h('div.pa-inbox-bar', filterPill, storyBar);
+  navPlus(manualIntake, { fallback: inboxBar }); // v12 staff-lines: صف «تصفية» حين لا يتسع الشريط (360 px)
 
   return h(
     'div.pa-page.pa-page-inbox',
@@ -941,7 +1061,7 @@ export default async function render(ctx) {
     h('div.pa-segbar', segSwitch, viewSwitch),
     h('div.pa-tabs-wrap', tabBar),
     filtersHost,
-    h('div.pa-inbox-bar', filterPill, storyBar),
+    inboxBar,
     resultInfo,
     listHost,
     moreHost,

@@ -5,7 +5,7 @@
 // الهاتف: ترويسة (العنوان، المجال والدور، موعد التسليم) + شريط مقاطع «الملف | رأيي | الطلبات» + شريط إجراء سفلي.
 // الحاسوب (≥ 1024px): «الملف» في العمود الرئيسي، و«رأيي» و«الطلبات» في عمود جانبي 380px.
 
-import { h, frag, mount } from '../../../lib/h.js';
+import { h, frag, mount, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { label, areaLabel, areaOptions, options, shortDate, dateTime, time, relative, money, num, isoToCairoDate, cairoToday } from '../../../lib/fmt.js';
 import { alertBox, button, toast, modal, confirmDialog, formDialog, field, emptyState, errorState, icon, richText, uid, errorMessage, setBusy } from '../../../lib/ui.js';
@@ -77,7 +77,7 @@ export function companyContextSection(co, { fields = () => [], role = null, clos
     const docs = Array.isArray(m.documents) ? m.documents : [];
     return h(
       'details.lw-co-item',
-      h('summary', h('span', { dir: 'auto' }, lineOf(m)), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+      { tag: 'ASG-01' }, h('summary', { tag: 'ASG-02' }, h('span', { dir: 'auto' }, lineOf(m)), icon('chevronDown', { size: 18, className: 'lw-chev' })),
       h(
         'div.lw-co-body',
         m.summary ? h('p.pre', { dir: 'auto' }, m.summary) : null,
@@ -89,7 +89,7 @@ export function companyContextSection(co, { fields = () => [], role = null, clos
   };
   return h(
     'section.lw-sec.lw-co',
-    h('div.lw-sec-head', h('h2.lw-sec-title', icon('building', { size: 18 }), 'سياق الشركة')),
+    { tag: 'ASG-03' }, h('div.lw-sec-head', h('h2.lw-sec-title', { tag: 'ASG-04' }, icon('building', { size: 18 }), 'سياق الشركة')),
     h('p.lw-co-name', [co.name, co.entity].filter(Boolean).join(' · ') || 'شركة عميلة'),
     typeLine.length ? h('p.lw-co-line', typeLine.join(' · ')) : null,
     co.delivery_due_at && !closed ? h('p.lw-co-line', icon('calendar', { size: 16 }), `${COMPANY_DUE_LABEL}: ${deadline(co.delivery_due_at)}`) : null,
@@ -99,7 +99,7 @@ export function companyContextSection(co, { fields = () => [], role = null, clos
         ? h('p.lw-co-line', icon('shieldCheck', { size: 16 }), SENIOR_REVIEW_LINE)
         : null,
     ctxItems.length
-      ? h('div.lw-co-mem', h('h3.lw-co-sub', `من ذاكرة الشركة (${num(ctxItems.length)})`), h('div.lw-co-list', ctxItems.map(itemNode)))
+      ? h('div.lw-co-mem', h('h3.lw-co-sub', { tag: 'ASG-05' }, `من ذاكرة الشركة (${num(ctxItems.length)})`), h('div.lw-co-list', ctxItems.map(itemNode)))
       : h('p.lw-muted', COMPANY_NO_CONTEXT),
   );
 }
@@ -217,7 +217,7 @@ export default async function render(ctx) {
       ctx.refreshShell();
     }
   } catch (err) {
-    return h('div.lw-asg', h('h1.lw-asg-title', 'الإسناد'), errorState(err, () => ctx.reload()));
+    return h('div.lw-asg', h('h1.lw-asg-title', { tag: 'ASG-06' }, 'الإسناد'), errorState(err, () => ctx.reload()));
   }
 
   ctx.setTitle(view.case.code);
@@ -247,9 +247,9 @@ export default async function render(ctx) {
   const hosts = {
     header: h('div.lw-asg-header'),
     segs: h('div.lw-seg-wrap'),
-    file: h('section.lw-pane', { id: uid('lw-pane-file'), dataset: { pane: 'file' }, role: 'tabpanel', tabindex: '-1' }),
-    mine: h('section.lw-pane', { id: uid('lw-pane-mine'), dataset: { pane: 'mine' }, role: 'tabpanel', tabindex: '-1' }),
-    requests: h('section.lw-pane', { id: uid('lw-pane-req'), dataset: { pane: 'requests' }, role: 'tabpanel', tabindex: '-1' }),
+    file: h('section.lw-pane', { id: uid('lw-pane-file'), dataset: { pane: 'file' }, role: 'tabpanel', tabindex: '-1', tag: 'ASG-07' }),
+    mine: h('section.lw-pane', { id: uid('lw-pane-mine'), dataset: { pane: 'mine' }, role: 'tabpanel', tabindex: '-1', tag: 'ASG-08' }),
+    requests: h('section.lw-pane', { id: uid('lw-pane-req'), dataset: { pane: 'requests' }, role: 'tabpanel', tabindex: '-1', tag: 'ASG-09' }),
     bar: h('div.lw-actionbar-host'),
   };
 
@@ -306,7 +306,7 @@ export default async function render(ctx) {
           'p.lw-due.is-late',
           icon('alert', { size: 18 }),
           h('span', `متأخر ${overdueText(a.due_at)} — كان الموعد ${deadline(a.due_at)}`),
-          canRequest() && !pending ? h('button.lw-due-link', { type: 'button', onClick: () => openSheet({ kind: 'extension' }) }, 'اطلب مهلة') : null,
+          canRequest() && !pending ? h('button.lw-due-link', { type: 'button', onClick: () => openSheet({ kind: 'extension' }), tag: 'ASG-10' }, 'اطلب مهلة') : null,
         ),
         extensionNote(pending),
       );
@@ -331,8 +331,8 @@ export default async function render(ctx) {
     const ret = isReturned() ? returnedOpinion() : null;
     const notes = ret ? parseReviewNotes(ret.review_note) : [];
     return frag(
-      h('nav.lw-crumbs', { 'aria-label': 'مسار التنقل' }, h('a', { href: '#/my' }, 'إسناداتي'), h('span', { 'aria-hidden': 'true' }, ' › '), codeBdi(c.code)),
-      h('h1.lw-asg-title', { dir: 'auto' }, c.title),
+      h('nav.lw-crumbs', { 'aria-label': 'مسار التنقل', tag: 'ASG-11' }, h('a', { href: '#/my', tag: 'ASG-12' }, 'إسناداتي'), h('span', { 'aria-hidden': 'true' }, ' › '), codeBdi(c.code)),
+      h('h1.lw-asg-title', { dir: 'auto', tag: 'ASG-13' }, c.title),
       h('p.lw-asg-meta', meta.join(' · ')),
       deadlineLine(),
       ret &&
@@ -340,7 +340,7 @@ export default async function render(ctx) {
           'div.lw-returned',
           h('p.lw-returned-title', icon('refresh', { size: 18 }), h('span', `أعادت الإدارة رأيك — ${count(Math.max(1, notes.length), 'note')}`)),
           notes[0] && h('p.lw-returned-preview', { dir: 'auto' }, notes[0]),
-          editable() ? button('ابدأ التعديل', { variant: 'primary', icon: 'edit', href: writeHref, className: 'lw-returned-btn' }) : null,
+          editable() ? button('ابدأ التعديل', { variant: 'primary', icon: 'edit', href: writeHref, className: 'lw-returned-btn', tag: 'ASG-14' }) : null,
         ),
     );
   }
@@ -374,6 +374,7 @@ export default async function render(ctx) {
                 root.querySelector(`#lw-seg-${next}`)?.focus();
               }
             },
+            tag: 'ASG-15',
           },
           s.label,
           s.key === 'requests' && newCount ? h('span.lw-seg-dot', { 'aria-label': `${num(newCount)} جديد` }, num(newCount)) : null,
@@ -402,7 +403,7 @@ export default async function render(ctx) {
   // ───────────── «الملف» ─────────────
 
   function section(title, body, { className, extra } = {}) {
-    return h('section.lw-sec', { class: className }, h('div.lw-sec-head', h('h2.lw-sec-title', title), extra || null), body);
+    return h('section.lw-sec', { class: className, tag: 'ASG-16' }, h('div.lw-sec-head', h('h2.lw-sec-title', { tag: 'ASG-17' }, title), extra || null), body);
   }
 
   function briefNode() {
@@ -410,7 +411,7 @@ export default async function render(ctx) {
     const rb = view.requested_by;
     return h(
       'section.lw-brief',
-      h('h2.lw-sec-title', icon('flag', { size: 18 }), 'المطلوب منك'),
+      { tag: 'ASG-18' }, h('h2.lw-sec-title', { tag: 'ASG-19' }, 'المطلوب منك'), // v12 gate (V-25، K12-37): لا أيقونة في رأس القسم
       a.brief ? h('p.lw-brief-text.pre', { dir: 'auto' }, richText(a.brief)) : h('p.lw-muted', 'لم تحدد الإدارة تكليفًا تفصيليًا؛ ادرس المسائل المتاحة لك وأبدِ رأيك فيها.'),
       rb && h('p.lw-brief-by', `بطلب من ${rb.lawyer_name} — `, bidiText(rb.kind_label || label('counsel_kind', rb.kind)), rb.specialty_label ? ` — ${rb.specialty_label}` : ''),
     );
@@ -422,11 +423,11 @@ export default async function render(ctx) {
       : view.client_label
       ? h('p.lw-client', 'المستفيد/ة: ', h('strong', view.client_label))
       : h('p.lw-client.is-muted', 'اسم المستفيد/ة محجوب للخصوصية.');
-    if (!view.facts_granted) return section('الوقائع', frag(who, h('p.lw-muted', 'لم تُتح لك الإدارة ملخص الوقائع في هذا الإسناد.')));
-    if (!view.facts) return section('الوقائع', frag(who, h('p.lw-muted', 'لم تُضف الإدارة ملخصًا للوقائع بعد.')));
+    if (!view.facts_granted) return tagged('ASG-20', section('الوقائع', frag(who, h('p.lw-muted', 'لم تُتح لك الإدارة ملخص الوقائع في هذا الإسناد.'))));
+    if (!view.facts) return tagged('ASG-21', section('الوقائع', frag(who, h('p.lw-muted', 'لم تُضف الإدارة ملخصًا للوقائع بعد.'))));
     const id = uid('lw-facts');
     const text = h('div.lw-facts.is-clamped.pre', { id, dir: 'auto' }, richText(view.facts));
-    const more = h('button.lw-more', { type: 'button', 'aria-expanded': 'false', 'aria-controls': id }, 'اقرأ الباقي');
+    const more = h('button.lw-more', { type: 'button', 'aria-expanded': 'false', 'aria-controls': id, tag: 'ASG-22' }, 'اقرأ الباقي');
     more.addEventListener('click', () => {
       const open = text.classList.toggle('is-clamped') === false;
       more.setAttribute('aria-expanded', String(open));
@@ -439,15 +440,15 @@ export default async function render(ctx) {
         text.classList.remove('is-clamped');
       }
     });
-    return section('الوقائع', frag(who, text, more));
+    return tagged('ASG-23', section('الوقائع', frag(who, text, more)));
   }
 
   function issuesNode() {
     const list = view.issues || [];
     const canPropose = !closed() && canRequest();
-    const propose = canPropose ? h('button.lw-link', { type: 'button', onClick: safe(proposeIssue) }, icon('plus', { size: 16 }), 'اقترح مسألة') : null;
-    if (!list.length) return section('المسائل', frag(h('p.lw-muted', 'لم تُتح لك مسائل محددة في هذا الإسناد.'), propose));
-    return section(
+    const propose = canPropose ? h('button.lw-link', { type: 'button', onClick: safe(proposeIssue), tag: 'ASG-24' }, icon('plus', { size: 16 }), 'اقترح مسألة') : null;
+    if (!list.length) return tagged('ASG-25', section('المسائل', frag(h('p.lw-muted', 'لم تُتح لك مسائل محددة في هذا الإسناد.'), propose)));
+    return tagged('ASG-26', section(
       'المسائل',
       frag(
         h(
@@ -469,7 +470,7 @@ export default async function render(ctx) {
         ),
         propose,
       ),
-    );
+    ));
   }
 
   async function proposeIssue() {
@@ -478,10 +479,11 @@ export default async function render(ctx) {
       intro: 'تعتمدها الإدارة قبل إضافتها إلى الملف.',
       submitLabel: 'أرسل الاقتراح',
       fields: [
-        { name: 'title', label: 'عنوان المسألة', required: true, maxLength: 300, placeholder: 'مثال: مدى صحة عقد البيع الابتدائي غير المسجل في مواجهة الورثة' },
-        { name: 'details', label: 'لماذا تقترحها؟ (اختياري)', type: 'textarea', rows: 3, maxLength: 3000 },
+        { name: 'title', label: 'عنوان المسألة', required: true, maxLength: 300, placeholder: 'مثال: مدى صحة عقد البيع الابتدائي غير المسجل في مواجهة الورثة', tag: 'ASG-27' },
+        { name: 'details', label: 'لماذا تقترحها؟ (اختياري)', type: 'textarea', rows: 3, maxLength: 3000, tag: 'ASG-28' },
       ],
       onSubmit: (vals) => api.post(`${base}/issues`, { title: vals.title, details: vals.details || undefined }),
+      tag: 'ASG-29',
     });
     if (!res) return;
     toast(`أُرسل اقتراح المسألة ${num(res.number)} للإدارة`, 'success');
@@ -504,27 +506,27 @@ export default async function render(ctx) {
 
   function docsNode() {
     const docs = view.documents || [];
-    return section(
+    return tagged('ASG-30', section(
       `المستندات (${num(docs.length)})`,
       docs.length
         ? h('ul.lw-docs', docs.map((d) => docRow(d, rowOpts(d))))
         : h('p.lw-muted', 'لم تُتح لك الإدارة مستندات بعد. اطلب ما تحتاجه من «اطلب».'),
-    );
+    ));
   }
 
   function teamNode() {
     const team = view.team || [];
     if (!team.length) return null;
-    return section(
+    return tagged('ASG-31', section(
       `آراء الزملاء (${num(team.length)})`,
       h(
         'div.lw-team',
         team.map((t) => {
           const st = t.opinion ? label('opinion_status', t.opinion.status) : 'لم يُقدَّم بعد';
-          const summary = h('summary.lw-team-row', h('span.lw-team-who', [t.lawyer_name, t.role_label || label('assignment_role', t.role), st].filter(Boolean).join(' · ')), icon('chevronDown', { size: 18, className: 'lw-chev' }));
+          const summary = h('summary.lw-team-row', { tag: 'ASG-32' }, h('span.lw-team-who', [t.lawyer_name, t.role_label || label('assignment_role', t.role), st].filter(Boolean).join(' · ')), icon('chevronDown', { size: 18, className: 'lw-chev' }));
           return h(
             'details.lw-team-item',
-            summary,
+            { tag: 'ASG-33' }, summary,
             h(
               'div.lw-team-body',
               t.brief ? h('p.lw-muted', 'المطلوب منه: ', t.brief) : null,
@@ -533,7 +535,7 @@ export default async function render(ctx) {
           );
         }),
       ),
-    );
+    ));
   }
 
   function feeLine() {
@@ -570,11 +572,11 @@ export default async function render(ctx) {
       parts.push(
         h(
           'div.lw-mine-card',
-          h('h2.lw-sec-title', draft ? `رأيي · الإصدار ${num(draft.version)}` : 'رأيي'),
+          h('h2.lw-sec-title', { tag: 'ASG-34' }, draft ? `رأيي · الإصدار ${num(draft.version)}` : 'رأيي'),
           lines.length ? h('div.lw-mine-preview', { dir: 'auto' }, lines.map((l) => h('p', l))) : h('p.lw-muted', 'لم تبدأ كتابة رأيك بعد.'),
           draft ? h('p.lw-mine-meta', `${count(draftWords(), 'word')} · محفوظ ${savedAt(draft.updated_at)}`) : null,
           local && local.body !== body ? h('p.lw-mine-local', icon('alert', { size: 16 }), h('span', 'على هذا الجهاز نص لم يُحفظ على المنصة بعد؛ افتح الكتابة لحفظه.')) : null,
-          button(lines.length ? 'أكمل الكتابة' : 'ابدأ الكتابة', { variant: 'primary', icon: 'edit', href: writeHref, block: true }),
+          button(lines.length ? 'أكمل الكتابة' : 'ابدأ الكتابة', { variant: 'primary', icon: 'edit', href: writeHref, block: true, tag: 'ASG-35' }),
         ),
       );
     } else {
@@ -583,7 +585,7 @@ export default async function render(ctx) {
         parts.push(
           h(
             'div.lw-mine-card',
-            h('h2.lw-sec-title', versionLine(latest)),
+            h('h2.lw-sec-title', { tag: 'ASG-36' }, versionLine(latest)),
             latest.review_note ? h('div.lw-review-note', h('strong', latest.status === 'returned' ? 'ملاحظات الإدارة: ' : 'ملاحظة الإدارة: '), richText(latest.review_note)) : null,
             h('div.lw-opinion-read.pre', { dir: 'auto' }, richText(latest.body)),
           ),
@@ -600,13 +602,13 @@ export default async function render(ctx) {
       parts.push(
         h(
           'details.lw-versions',
-          h('summary', h('span', `الإصدارات السابقة (${num(older.length)})`), icon('chevronDown', { size: 18, className: 'lw-chev' })),
+          { tag: 'ASG-37' }, h('summary', { tag: 'ASG-38' }, h('span', `الإصدارات السابقة (${num(older.length)})`), icon('chevronDown', { size: 18, className: 'lw-chev' })),
           h(
             'div.lw-versions-list',
             older.map((o) =>
               h(
                 'details.lw-version',
-                h('summary', versionLine(o)),
+                { tag: 'ASG-39' }, h('summary', { tag: 'ASG-40' }, versionLine(o)),
                 o.review_note ? h('div.lw-review-note', { class: o.status === 'returned' && 'is-returned' }, h('strong', o.status === 'returned' ? 'ملاحظات الإدارة: ' : 'ملاحظة الإدارة: '), richText(o.review_note)) : null,
                 h('div.lw-opinion-read.pre', { dir: 'auto' }, richText(o.body)),
               ),
@@ -623,7 +625,7 @@ export default async function render(ctx) {
   function workFilesNode() {
     const files = view.work_files || [];
     const approved = view.assignment.status === 'approved';
-    const input = h('input.file-native', { type: 'file', multiple: true, accept: '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp', 'aria-label': 'إرفاق ملف عمل' });
+    const input = h('input.file-native', { type: 'file', multiple: true, accept: '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp', 'aria-label': 'إرفاق ملف عمل', tag: 'ASG-41' });
     input.addEventListener(
       'change',
       safe(async () => {
@@ -638,7 +640,7 @@ export default async function render(ctx) {
     );
     const del = (d) =>
       safe(async () => {
-        const ok = await confirmDialog({ title: 'حذف ملف العمل', message: `حذف «${d.title || d.filename}»؟`, confirmLabel: 'احذف', cancelLabel: 'تراجع', danger: true });
+        const ok = await confirmDialog({ title: 'حذف ملف العمل', message: `حذف «${d.title || d.filename}»؟`, confirmLabel: 'احذف', cancelLabel: 'تراجع', danger: true, tag: 'ASG-42' });
         if (!ok) return;
         await api.del(`/lawyer/work-files/${encodeURIComponent(d.id)}`);
         toast('حُذف ملف العمل.', 'success');
@@ -646,7 +648,7 @@ export default async function render(ctx) {
       });
     return h(
       'section.lw-sec.lw-workfiles',
-      h('div.lw-sec-head', h('h2.lw-sec-title', icon('paperclip', { size: 18 }), `ملفات العمل (${num(files.length)})`)),
+      { tag: 'ASG-43' }, h('div.lw-sec-head', h('h2.lw-sec-title', { tag: 'ASG-44' }, icon('paperclip', { size: 18 }), `ملفات العمل (${num(files.length)})`)),
       h('p.lw-co-warn', icon('alert', { size: 16 }), h('span', WORK_FILES_WARNING)),
       files.length
         ? h(
@@ -654,7 +656,7 @@ export default async function render(ctx) {
             files.map((d) => {
               const row = docRow(d, { source: false });
               row.classList.add('lw-wf-row');
-              if (!approved && !closed()) row.append(h('button.lw-link.is-danger.lw-wf-del', { type: 'button', onClick: del(d), 'aria-label': `حذف ${d.title || d.filename}` }, 'حذف'));
+              if (!approved && !closed()) row.append(h('button.lw-link.is-danger.lw-wf-del', { type: 'button', onClick: del(d), 'aria-label': `حذف ${d.title || d.filename}`, tag: 'ASG-45' }, 'حذف'));
               return row;
             }),
           )
@@ -675,7 +677,7 @@ export default async function render(ctx) {
       toast(done ? 'نُسخ النص؛ يمكنك لصقه حيث تريد.' : 'تعذر النسخ تلقائيًا.', done ? 'success' : 'warning');
     };
     const drop = safe(async () => {
-      const ok = await confirmDialog({ title: 'حذف النص من هذا الجهاز؟', message: 'لن يمكن استعادته بعد الحذف.', confirmLabel: 'احذفه', cancelLabel: 'تراجع', danger: true });
+      const ok = await confirmDialog({ title: 'حذف النص من هذا الجهاز؟', message: 'لن يمكن استعادته بعد الحذف.', confirmLabel: 'احذفه', cancelLabel: 'تراجع', danger: true, tag: 'ASG-46' });
       if (!ok) return;
       store.clear();
       mount(hosts.mine, minePane());
@@ -685,8 +687,8 @@ export default async function render(ctx) {
       h('p.lw-mine-local', icon('alert', { size: 16 }), h('span', `على هذا الجهاز نص لم يصل للمنصة (${count(wordCount(local.body), 'word')}) ولم يعد يمكن حفظه هنا.`)),
       h(
         'div.lw-mine-orphan-actions',
-        button('انسخ النص', { variant: 'secondary', size: 'sm', icon: 'copy', onClick: copy }),
-        button('احذفه من الجهاز', { variant: 'ghost', size: 'sm', icon: 'x', onClick: drop }),
+        button('انسخ النص', { variant: 'secondary', size: 'sm', icon: 'copy', onClick: copy, tag: 'ASG-47' }),
+        button('احذفه من الجهاز', { variant: 'ghost', size: 'sm', icon: 'x', onClick: drop, tag: 'ASG-48' }),
       ),
     );
   }
@@ -699,13 +701,14 @@ export default async function render(ctx) {
       {
         type: 'button',
         onClick: safe(async (e) => {
-          const ok = await confirmDialog({ title: 'إلغاء الطلب', message: 'لن يُعرض هذا الطلب على الإدارة.', confirmLabel: 'ألغِ الطلب', cancelLabel: 'تراجع', danger: true });
+          const ok = await confirmDialog({ title: 'إلغاء الطلب', message: 'لن يُعرض هذا الطلب على الإدارة.', confirmLabel: 'ألغِ الطلب', cancelLabel: 'تراجع', danger: true, tag: 'ASG-49' });
           if (!ok) return;
           setBusy(e.target.closest('button'), true);
           await api.post(`/lawyer/info-requests/${encodeURIComponent(r.id)}/cancel`);
           toast('أُلغي الطلب', 'success');
           await refresh(['requests']);
         }),
+        tag: 'ASG-50',
       },
       'ألغِ الطلب',
     );
@@ -779,12 +782,13 @@ export default async function render(ctx) {
               {
                 type: 'button',
                 onClick: safe(async () => {
-                  const ok = await confirmDialog({ title: 'إلغاء طلب المساعدة', message: 'لن يُعرض هذا الطلب على الإدارة.', confirmLabel: 'ألغِ الطلب', cancelLabel: 'تراجع', danger: true });
+                  const ok = await confirmDialog({ title: 'إلغاء طلب المساعدة', message: 'لن يُعرض هذا الطلب على الإدارة.', confirmLabel: 'ألغِ الطلب', cancelLabel: 'تراجع', danger: true, tag: 'ASG-51' });
                   if (!ok) return;
                   await api.post(`/lawyer/counsel-requests/${encodeURIComponent(r.id)}/cancel`);
                   toast('أُلغي طلب المساعدة', 'success');
                   await refresh(['requests']);
                 }),
+                tag: 'ASG-52',
               },
               'ألغِ الطلب',
             )
@@ -820,6 +824,7 @@ export default async function render(ctx) {
                     setBusy(e.currentTarget, false);
                   }
                 }),
+                tag: 'ASG-53',
               })
             : null,
       ),
@@ -836,11 +841,11 @@ export default async function render(ctx) {
       .sort((x, y) => String(y.at).localeCompare(String(x.at)))
       .map((x) => x.node());
     return frag(
-      canRequest() ? button('اطلب', { variant: 'primary', icon: 'plus', block: true, className: 'lw-req-cta', onClick: () => openSheet() }) : null,
+      canRequest() ? button('اطلب', { variant: 'primary', icon: 'plus', block: true, className: 'lw-req-cta', onClick: () => openSheet(), tag: 'ASG-54' }) : null,
       h('p.lw-privacy', icon('shield', { size: 16 }), h('span', view.company ? COMPANY_PRIVACY_LINE : PRIVACY_LINE)),
-      section('طلباتك', ownRows.length ? h('ul.lw-reqs', ownRows) : h('p.lw-muted', 'لم ترسل طلبات في هذا الملف بعد.')),
-      already.length ? section(view.company ? 'مطلوب بالفعل من الشركة' : 'مطلوب بالفعل من المستفيد/ة', h('ul.lw-reqs', already.map(alreadyRow))) : null,
-      sharedOthers.length ? section('ردود متاحة لك', h('ul.lw-reqs', sharedOthers.map(infoRow))) : null,
+      tagged('ASG-55', section('طلباتك', ownRows.length ? h('ul.lw-reqs', ownRows) : h('p.lw-muted', 'لم ترسل طلبات في هذا الملف بعد.'))),
+      already.length ? tagged('ASG-56', section(view.company ? 'مطلوب بالفعل من الشركة' : 'مطلوب بالفعل من المستفيد/ة', h('ul.lw-reqs', already.map(alreadyRow)))) : null,
+      sharedOthers.length ? tagged('ASG-57', section('ردود متاحة لك', h('ul.lw-reqs', sharedOthers.map(infoRow)))) : null,
     );
   }
 
@@ -866,30 +871,30 @@ export default async function render(ctx) {
     const groupName = uid('ckind');
     const kinds = options('counsel_kind');
     const radios = kinds.map((o) => {
-      const input = h('input', { type: 'radio', name: groupName, value: o.value });
+      const input = h('input', { type: 'radio', name: groupName, value: o.value, tag: 'ASG-58' });
       return {
         value: o.value,
         input,
         el: h('label.check.pc-radio', input, h('span.pc-radio-text', h('strong', bidiText(o.label)), KIND_HINTS[o.value] && h('span.pc-radio-hint', KIND_HINTS[o.value]))),
       };
     });
-    const kindField = field('نوع المساعدة المطلوبة', h('div.pc-radio-list', radios.map((r) => r.el)), { required: true, group: true, full: true });
-    const specSelect = h('select.input', h('option', { value: '' }, '— اختر التخصص —'), areaOptions().map((o) => h('option', { value: o.value }, o.label)));
-    const specField = field('التخصص المطلوب', h('div.select-wrap', specSelect), { hint: 'مطلوب عند طلب رأي متخصص.', full: true });
+    const kindField = field('نوع المساعدة المطلوبة', h('div.pc-radio-list', radios.map((r) => r.el)), { required: true, group: true, full: true, tag: 'ASG-59' });
+    const specSelect = h('select.input', { tag: 'ASG-60' }, h('option', { value: '' }, '— اختر التخصص —'), areaOptions().map((o) => h('option', { value: o.value }, o.label)));
+    const specField = field('التخصص المطلوب', h('div.select-wrap', specSelect), { hint: 'مطلوب عند طلب رأي متخصص.', full: true, tag: 'ASG-61' });
     const issues = (v.issues || []).filter((i) => i.status === 'active');
     const issueBoxes = issues.map((i) => {
-      const cb = h('input', { type: 'checkbox', value: String(i.id) });
+      const cb = h('input', { type: 'checkbox', value: String(i.id), tag: 'ASG-62' });
       return { id: i.id, cb, el: h('label.check', cb, h('span', `${num(i.number)}. ${i.title}`)) };
     });
-    const issuesField = issues.length ? field('المسائل التي يتعلق بها الطلب', h('div.pc-check-col', issueBoxes.map((x) => x.el)), { group: true, full: true }) : null;
+    const issuesField = issues.length ? field('المسائل التي يتعلق بها الطلب', h('div.pc-check-col', issueBoxes.map((x) => x.el)), { group: true, full: true, tag: 'ASG-63' }) : null;
     const docs = (v.documents || []).filter((d) => d.granted !== false);
     const docBoxes = docs.map((d) => {
-      const cb = h('input', { type: 'checkbox', value: String(d.id) });
+      const cb = h('input', { type: 'checkbox', value: String(d.id), tag: 'ASG-64' });
       return { id: d.id, cb, el: h('label.check', cb, h('span', { dir: 'auto' }, d.title || d.filename)) };
     });
-    const docsField = docs.length ? field('المستندات ذات الصلة', h('div.pc-check-col', docBoxes.map((x) => x.el)), { group: true, full: true }) : null;
-    const desc = h('textarea.input', { rows: 4, maxlength: 3000, placeholder: 'مثال: أطلب رأيًا متخصصًا في الأثر الضريبي لانتقال الشقة بالميراث ثم بيعها، وبالأخص المسألة رقم 3.' });
-    const descField = field('وصف المطلوب', desc, { required: true, full: true, hint: 'تختار الإدارة المحامي وتحدد ما يراه من الملف.' });
+    const docsField = docs.length ? field('المستندات ذات الصلة', h('div.pc-check-col', docBoxes.map((x) => x.el)), { group: true, full: true, tag: 'ASG-65' }) : null;
+    const desc = h('textarea.input', { rows: 4, maxlength: 3000, placeholder: 'مثال: أطلب رأيًا متخصصًا في الأثر الضريبي لانتقال الشقة بالميراث ثم بيعها، وبالأخص المسألة رقم 3.', tag: 'ASG-66' });
+    const descField = field('وصف المطلوب', desc, { required: true, full: true, hint: 'تختار الإدارة المحامي وتحدد ما يراه من الملف.', tag: 'ASG-67' });
     const formAlert = h('div.alert.alert-danger', { role: 'alert', hidden: true });
     const grid = h('div.form-grid.form-grid-1', kindField, specField, issuesField, docsField, descField);
     const selectedKind = () => (radios.find((r) => r.input.checked) || {}).value || null;
@@ -921,9 +926,9 @@ export default async function render(ctx) {
       title: 'مساعدة محامٍ آخر',
       size: 'lg',
       sheet: true, className: 'lw-sheet',
-      body: h('form.form', { novalidate: true, onSubmit: (e) => e.preventDefault() }, formAlert, grid),
+      body: h('form.form', { novalidate: true, onSubmit: (e) => e.preventDefault(), tag: 'ASG-68' }, formAlert, grid),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'ASG-69' },
         {
           label: 'أرسل للإدارة',
           variant: 'primary',
@@ -948,8 +953,10 @@ export default async function render(ctx) {
             refresh(['requests']).catch((err) => toast(errorMessage(err), 'danger'));
             return undefined;
           },
+          tag: 'ASG-70',
         },
       ],
+      tag: 'ASG-71',
     });
     syncSpec();
   }
@@ -961,9 +968,9 @@ export default async function render(ctx) {
     if (editable()) {
       const words = draftWords();
       const text = isReturned() ? 'عدّل رأيك' : words ? `أكمل رأيك · ${count(words, 'word')}` : 'اكتب رأيك';
-      items.push(button(text, { variant: 'primary', icon: 'edit', href: writeHref, className: 'lw-bar-primary' }));
+      items.push(button(text, { variant: 'primary', icon: 'edit', href: writeHref, className: 'lw-bar-primary', tag: 'ASG-72' }));
     }
-    if (canRequest()) items.push(button('اطلب', { variant: editable() ? 'secondary' : 'primary', icon: 'plus', className: 'lw-bar-secondary', onClick: () => openSheet() }));
+    if (canRequest()) items.push(button('اطلب', { variant: editable() ? 'secondary' : 'primary', icon: 'plus', className: 'lw-bar-secondary', onClick: () => openSheet(), tag: 'ASG-73' }));
     if (!items.length) return null;
     return h('div.lw-actionbar', { role: 'region', 'aria-label': 'إجراءات الإسناد' }, items);
   }

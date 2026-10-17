@@ -43,14 +43,15 @@ export default async function render(ctx) {
     ctx.setTitle(`حساب داخلي — ${co.name}`);
     return h(
       'div.page',
-      pageHeader({ title: co.name, breadcrumbs: [{ label: 'المستفيدون', href: '#/clients' }, { label: c.code }] }),
+      pageHeader({ record: true, title: co.name, breadcrumbs: [{ label: 'أصحاب الطلبات', href: '#/clients', tag: 'CLF-01' }, { label: c.code }], titleTag: 'CLF-02', tag: 'CLF-03' }),
       card({
         body: h(
           'div.cd-shadow',
           icon('building', { size: 24 }),
           h('p', `هذا حساب داخلي لشركة عميلة — ${co.name}`),
-          button('فتح صفحة الشركة', { variant: 'primary', icon: 'building', href: `#/companies/${co.id}` }),
+          button('فتح صفحة الشركة', { variant: 'primary', icon: 'building', href: `#/companies/${co.id}`, tag: 'CLF-04' }),
         ),
+        tag: 'CLF-05',
       }),
     );
   }
@@ -61,7 +62,7 @@ export default async function render(ctx) {
   const matters = d.matters || [];
   const invoices = d.invoices || [];
   const hasPhone = identities.some((x) => x.kind === 'phone');
-  ctx.setTitle(`ملف المستفيد/ة ${c.code}`);
+  ctx.setTitle(`ملف صاحب الطلب ${c.code}`); // v12 gate (V-08)
 
   // إذا فُتح رابط عميل دُمج في آخر، يعيد الخادم العميل الأساسي: نصحح الرابط
   if (String(c.id) !== String(ctx.params.id)) {
@@ -83,7 +84,7 @@ export default async function render(ctx) {
       size: 'lg',
       values: { name: c.name, national_id: c.national_id, governorate: c.governorate, email: c.email, notes: c.notes, address_form: c.address_form || '' },
       fields: [
-        { name: 'name', label: 'الاسم', maxLength: 150 },
+        { name: 'name', label: 'الاسم', maxLength: 150, tag: 'CLF-06' },
         // v9.1 b-portal (B91-02): صيغة المخاطبة في صفحة المتابعة ورسائل واتساب
         {
           name: 'address_form',
@@ -96,11 +97,12 @@ export default async function render(ctx) {
             { value: 'm', label: 'مذكر' },
           ],
           hint: 'تُستخدم في صفحة المتابعة والرسائل: «صوّري الورقة» أو «صوّر الورقة».',
+          tag: 'CLF-07',
         },
-        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3' },
-        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email' },
-        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 5000, hint: 'لا تظهر للمستفيد/ة ولا للمحامين' },
+        { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا يبدأ بـ 2 أو 3', tag: 'CLF-08' },
+        { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), tag: 'CLF-09' },
+        { name: 'email', label: 'البريد الإلكتروني', type: 'email', tag: 'CLF-10' },
+        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', rows: 3, maxLength: 5000, hint: 'لا تظهر للمستفيد/ة ولا للمحامين', tag: 'CLF-11' },
       ],
       onSubmit: async (v) => {
         const nid = toLatinDigits(v.national_id || '').replace(/\s/g, '');
@@ -114,6 +116,7 @@ export default async function render(ctx) {
           address_form: v.address_form || null, // v9.1 b-portal
         });
       },
+      tag: 'CLF-12',
     });
     if (res) {
       toast('تم حفظ بيانات المستفيد/ة', 'success');
@@ -137,8 +140,9 @@ export default async function render(ctx) {
             { value: 'phone', label: 'رقم هاتف' },
             { value: 'email', label: 'بريد إلكتروني' },
           ],
+          tag: 'CLF-13',
         },
-        { name: 'value', label: 'الرقم أو البريد', required: true, ltr: true, maxLength: 200, placeholder: '01XXXXXXXXX أو name@example.com' },
+        { name: 'value', label: 'الرقم أو البريد', required: true, ltr: true, maxLength: 200, placeholder: '01XXXXXXXXX أو name@example.com', tag: 'CLF-14' },
       ],
       onSubmit: async (v) => {
         let value = v.value;
@@ -152,6 +156,7 @@ export default async function render(ctx) {
         }
         return api.post(`${base}/identities`, { kind: v.kind, value });
       },
+      tag: 'CLF-15',
     });
     if (res) {
       toast('أُضيفت وسيلة التواصل للمستفيد/ة', 'success');
@@ -179,6 +184,7 @@ export default async function render(ctx) {
         '. لا يمكن التراجع عن الدمج.',
       ],
       confirmLabel: 'نعم، ادمج في هذا الملف',
+      tag: 'CLF-16',
     });
     if (!ok) return;
     await run(async () => {
@@ -199,8 +205,8 @@ export default async function render(ctx) {
         h('label.field-label', { htmlFor: 'pa-portal-url' }, 'الرابط الخاص بالمستفيد/ة'),
         h(
           'div.pa-url-row',
-          h('input.input#pa-portal-url', { type: 'text', readonly: true, dir: 'ltr', value: absolute, onFocus: (e) => e.target.select() }),
-          copyButton(absolute, 'نسخ', { variant: 'secondary' }),
+          h('input.input#pa-portal-url', { type: 'text', readonly: true, dir: 'ltr', value: absolute, onFocus: (e) => e.target.select(), tag: 'CLF-17' }),
+          copyButton(absolute, 'نسخ', { variant: 'secondary', tag: 'CLF-18' }),
         ),
         h('p.field-hint', 'شارك الرابط مع المستفيد/ة فقط؛ من يملكه يستطيع الاطلاع على ملفاته والرد على الطلبات.'),
       ),
@@ -213,7 +219,7 @@ export default async function render(ctx) {
       showPortalUrl(res.url);
       toast('أُنشئ رابط جديد للبوابة', 'success');
     },
-    { size: 'sm', icon: 'link' },
+    { size: 'sm', icon: 'link', tag: 'CLF-19' },
   );
   const sendBtn = asyncButton(
     'إرسال عبر واتساب',
@@ -222,13 +228,14 @@ export default async function render(ctx) {
         title: 'إرسال رابط البوابة للمستفيد/ة',
         message: `سيُنشأ رابط جديد ويُرسل للمستفيد/ة ${c.name || c.code} عبر واتساب من رقم المؤسسة.`,
         confirmLabel: 'إرسال الرابط',
+        tag: 'CLF-20',
       });
       if (!ok) return;
       const res = await api.post(`${base}/portal-link`, { send: true });
       showPortalUrl(res.url);
       toast(res.message_id ? 'أُرسل الرابط للمستفيد/ة (يظهر كإرسال تجريبي إن لم تُضبط بيانات واتساب)' : 'أُنشئ الرابط', 'success');
     },
-    { size: 'sm', variant: 'whatsapp', icon: 'whatsapp', disabled: !hasPhone, title: hasPhone ? null : 'لا يوجد رقم هاتف مسجل لهذا المستفيد/ة' },
+    { size: 'sm', variant: 'whatsapp', icon: 'whatsapp', disabled: !hasPhone, title: hasPhone ? null : 'لا يوجد رقم هاتف مسجل لهذا المستفيد/ة', tag: 'CLF-21' },
   );
 
   // ───────────── الأقسام ─────────────
@@ -236,7 +243,7 @@ export default async function render(ctx) {
     return card({
       title: 'بيانات المستفيد/ة',
       icon: 'user',
-      actions: button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: editProfile }),
+      actions: button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: editProfile, tag: 'CLF-22' }),
       body: kv([
         ['كود المستفيد/ة', codeTag(c.code)],
         ['الاسم', c.name],
@@ -247,6 +254,8 @@ export default async function render(ctx) {
         ['مسجَّل لدينا منذ', date(c.created_at)],
         ['ملاحظات داخلية', c.notes ? h('span.pre', c.notes) : null],
       ]),
+      titleTag: 'CLF-23',
+      tag: 'CLF-24',
     });
   }
 
@@ -255,7 +264,7 @@ export default async function render(ctx) {
       title: 'وسائل التواصل',
       subtitle: 'كل ما يصل من هذه الأرقام والعناوين يُربط بهذا الملف',
       icon: 'link',
-      actions: button('إضافة', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: addIdentity }),
+      actions: button('إضافة', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: addIdentity, tag: 'CLF-25' }),
       body: identities.length
         ? h(
             'ul.pa-ident.is-lg',
@@ -268,7 +277,9 @@ export default async function render(ctx) {
               ),
             ),
           )
-        : emptyState('لا توجد وسائل تواصل مسجلة', null, { compact: true, icon: 'phone' }),
+        : emptyState('لا توجد وسائل تواصل مسجلة', null, { compact: true, icon: 'phone', tag: 'CLF-26' }),
+        titleTag: 'CLF-27',
+        tag: 'CLF-28',
     });
   }
 
@@ -278,6 +289,7 @@ export default async function render(ctx) {
       title: 'إلغاء روابط البوابة',
       message: `ستتوقف كل روابط البوابة السارية للمستفيد/ة ${c.name || c.code} فورًا، بما فيها روابط الطلبات المرسلة من الموقع، ولن يستطيع من يملكها الاطلاع على ملفاته. يمكن إنشاء رابط جديد بعد ذلك.`,
       confirmLabel: 'نعم، إلغاء الروابط',
+      tag: 'CLF-29',
     });
     if (!ok) return;
     const res = await api.post(`${base}/revoke-portal`);
@@ -299,9 +311,11 @@ export default async function render(ctx) {
           h(
             'div.stack-sm',
             h('p.small.muted', `الروابط السارية الآن: ${count(activeLinks, ['رابط واحد', 'رابطان', 'روابط', 'رابطًا'])}. ألغِها إن وصل رابط لغير صاحب الملف أو شككت في ذلك.`),
-            asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x' }),
+            asyncButton('إلغاء روابط البوابة', revokePortal, { size: 'sm', variant: 'danger', icon: 'x', tag: 'CLF-30' }),
           ),
       ),
+      titleTag: 'CLF-31',
+      tag: 'CLF-32',
     });
   }
 
@@ -312,8 +326,10 @@ export default async function render(ctx) {
       body: h(
         'div.stack-sm',
         h('p.small.muted', 'إذا كان نفس الشخص مسجلًا بكود مستفيد/ة آخر (مثلًا تواصل من رقم هاتف مختلف)، ادمج ذلك الملف في هذا الملف ليصبح له تاريخ واحد.'),
-        button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: mergeDuplicate }),
+        button(MERGE_LABEL, { size: 'sm', icon: 'users', onClick: mergeDuplicate, tag: 'CLF-33' }),
       ),
+      titleTag: 'CLF-34',
+      tag: 'CLF-35',
     });
   }
 
@@ -324,7 +340,7 @@ export default async function render(ctx) {
         at: i.created_at,
         title: h(
           'span.pa-tl-title',
-          h('a', { href: `#/inbox/${i.id}` }, 'طلب وارد ', codeTag(i.code)),
+          h('a', { href: `#/inbox/${i.id}`, tag: 'CLF-36' }, 'طلب وارد ', codeTag(i.code)),
           statusBadge('intake_status', i.status),
         ),
         body: h(
@@ -339,7 +355,7 @@ export default async function render(ctx) {
     for (const k of cases) {
       items.push({
         at: k.created_at,
-        title: h('span.pa-tl-title', h('a', { href: `#/cases/${k.id}` }, 'ملف استشارة ', codeTag(k.code)), statusBadge('case_status', k.status)),
+        title: h('span.pa-tl-title', h('a', { href: `#/cases/${k.id}`, tag: 'CLF-37' }, 'ملف استشارة ', codeTag(k.code)), statusBadge('case_status', k.status)),
         body: h(
           'span.pa-tl-body',
           h('span', k.title),
@@ -357,7 +373,7 @@ export default async function render(ctx) {
     for (const m of matters) {
       items.push({
         at: m.opened_at,
-        title: h('span.pa-tl-title', h('a', { href: `#/matters/${m.id}` }, 'ملف مستمر ', codeTag(m.code)), statusBadge('matter_status', m.status)),
+        title: h('span.pa-tl-title', h('a', { href: `#/matters/${m.id}`, tag: 'CLF-38' }, 'ملف مستمر ', codeTag(m.code)), statusBadge('matter_status', m.status)),
         body: h(
           'span.pa-tl-body',
           h('span', m.title),
@@ -376,6 +392,8 @@ export default async function render(ctx) {
         items.map((x) => ({ time: x.at, title: x.title, body: x.body, icon: x.icon, tone: x.tone })),
         { empty: 'لا توجد طلبات أو ملفات لهذا المستفيد/ة بعد' },
       ),
+      titleTag: 'CLF-39',
+      tag: 'CLF-40',
     });
   }
 
@@ -391,20 +409,25 @@ export default async function render(ctx) {
         ? table({
             caption: 'فواتير المستفيد/ة',
             columns: [
-              { key: 'number', label: 'رقم الفاتورة', render: (r) => codeTag(r.number) },
-              { key: 'description', label: 'البيان', className: 'col-wide' },
-              { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => h('span.nowrap', money(r.amount)) },
+              { key: 'number', label: 'رقم الفاتورة', render: (r) => codeTag(r.number), tag: 'CLF-41' },
+              { key: 'description', label: 'البيان', className: 'col-wide', tag: 'CLF-42' },
+              { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => h('span.nowrap', money(r.amount)), tag: 'CLF-43' },
               {
                 key: 'due_at',
                 label: 'الاستحقاق',
                 render: (r) =>
                   h('span.pa-cell-stack', h('span.nowrap', date(r.due_at)), ['unpaid', 'partially_paid'].includes(r.status) && r.due_at ? dueBadge(r.due_at) : null),
+                  tag: 'CLF-44',
               },
-              { key: 'status', label: 'الحالة', render: (r) => statusBadge('invoice_status', r.status) },
+              { key: 'status', label: 'الحالة', render: (r) => statusBadge('invoice_status', r.status), tag: 'CLF-45' },
             ],
             rows: invoices,
+            rowTag: 'CLF-46',
+            tag: 'CLF-47',
           })
-        : emptyState('لا توجد فواتير لهذا المستفيد/ة', null, { compact: true, icon: 'wallet' }),
+        : emptyState('لا توجد فواتير لهذا المستفيد/ة', null, { compact: true, icon: 'wallet', tag: 'CLF-48' }),
+        titleTag: 'CLF-49',
+        tag: 'CLF-50',
     });
   }
 
@@ -415,7 +438,7 @@ export default async function render(ctx) {
       actor: a.actor_name || label('actor_kind', a.actor_kind),
       tone: ACTOR_TONES[a.actor_kind] || 'neutral',
     }));
-    return card({ title: 'سجل النشاط', subtitle: 'آخر 50 حدثًا', icon: 'clock', body: timeline(items) });
+    return card({ title: 'سجل النشاط', subtitle: 'آخر 50 حدثًا', icon: 'clock', body: timeline(items), titleTag: 'CLF-51', tag: 'CLF-52' });
   }
 
   function withId(el, id) {
@@ -428,21 +451,23 @@ export default async function render(ctx) {
   const openMatters = matters.filter((m) => m.status !== 'closed').length;
   const stats = h(
     'div.stats-grid.pa-stats.pa-stats-sm',
-    statCard({ label: 'الطلبات الواردة', value: num(intakes.length), icon: 'inbox', tone: 'info' }),
-    statCard({ label: 'ملفات الاستشارة', value: num(cases.length), hint: openCases ? `المفتوحة: ${openCases}` : 'لا ملفات مفتوحة', icon: 'briefcase', tone: 'primary' }),
-    statCard({ label: 'الملفات المستمرة', value: num(matters.length), hint: openMatters ? `المفتوحة: ${openMatters}` : null, icon: 'gavel', tone: 'accent' }),
+    statCard({ label: 'الطلبات الواردة', value: num(intakes.length), icon: 'inbox', tone: 'info', tag: 'CLF-53' }),
+    statCard({ label: 'ملفات الاستشارة', value: num(cases.length), hint: openCases ? `المفتوحة: ${openCases}` : 'لا ملفات مفتوحة', icon: 'briefcase', tone: 'primary', tag: 'CLF-54' }),
+    statCard({ label: 'الملفات المستمرة', value: num(matters.length), hint: openMatters ? `المفتوحة: ${openMatters}` : null, icon: 'gavel', tone: 'accent', tag: 'CLF-55' }),
     statCard({
       label: 'فواتير غير مسددة',
       value: num(invoices.filter((i) => ['unpaid', 'partially_paid'].includes(i.status)).length),
       icon: 'wallet',
       tone: invoices.some((i) => ['unpaid', 'partially_paid'].includes(i.status)) ? 'warning' : 'neutral',
+      tag: 'CLF-56',
     }),
   );
 
   const phone = identities.find((x) => x.kind === 'phone');
   const header = pageHeader({
+    record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
     title: c.name || 'بدون اسم',
-    breadcrumbs: [{ label: 'المستفيدون', href: '#/clients' }, { label: c.code }],
+    breadcrumbs: [{ label: 'أصحاب الطلبات', href: '#/clients', tag: 'CLF-57' }, { label: c.code }],
     meta: [
       codeTag(c.code),
       phone && h('span.pa-chan-line', icon('phone', { size: 14 }), ltr(phone.value)),
@@ -450,9 +475,11 @@ export default async function render(ctx) {
       h('span.small.muted', { title: dateTime(c.created_at) }, `مسجَّل لدينا منذ ${date(c.created_at)}`),
     ],
     actions: [
-      button('تعديل البيانات', { icon: 'edit', onClick: editProfile }),
-      button(MERGE_LABEL, { variant: 'ghost', icon: 'users', onClick: mergeDuplicate }),
+      button('تعديل البيانات', { icon: 'edit', onClick: editProfile, tag: 'CLF-58' }),
+      button(MERGE_LABEL, { variant: 'ghost', icon: 'users', onClick: mergeDuplicate, tag: 'CLF-59' }),
     ],
+    titleTag: 'CLF-60',
+    tag: 'CLF-61',
   });
 
   return h(

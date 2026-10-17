@@ -1,11 +1,17 @@
 // محاكي واتساب (للعرض التجريبي فقط): يبني Webhook مطابقًا لصيغة منصة واتساب للأعمال من Meta
 // ويمرره على نفس مسار الاستقبال الحقيقي — نفس تحديد العميل والربط بالطلب أو الملف والتحليل والإشعارات.
 
-import { h, mount } from '../../../lib/h.js';
+import { h, mount, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { relative, dateTime, normalizeEgPhone, toLatinDigits, orgName, label, localPhone } from '../../../lib/fmt.js';
 import { pageHeader, card, button, asyncButton, badge, icon, codeTag, ltr, form, alertBox, toast, copyButton, kv } from '../../../lib/ui.js';
 import { segmentChip, segLabel } from '../../components/segment-ui.js'; // v11 segment-staff (ST-7)
+import { pathLine } from '../../components/pathway-ui.js'; // v12 staff-lines (SL-9)
+
+// v12 staff-lines (SL-9، E12-53): أزرار W-01 وصفوف W-02…W-04 تُضغط هنا كما يضغطها العميل (يُرسل معرّف الرد نفسه)
+export const LINES_MENU_OFF_NOTE = 'قائمة الخدمات على واتساب متوقفة من الإعدادات، فلن تصل الأزرار الثلاثة.';
+const isLineReply = (id) => /^line:/.test(String(id || ''));
+const isPathReply = (id) => /^path:/.test(String(id || ''));
 
 // v9.2 (admin-ai): حالة القصة بعد الرسالة، ورسائلنا الآلية (قائمة المواضيع تُضغط هنا كما تضغطها المستفيدة)
 const VIEW_TONES = { callback: 'info', collecting: 'info', blocked: 'warning', stale: 'warning', ready: 'success', awaiting: 'neutral', decided: 'muted' };
@@ -90,6 +96,7 @@ export default async function render(ctx) {
               mount(previewPre, JSON.stringify(webhookPreview(f.getValues(), simLine), null, 2));
               mount(segQuick, segReplyButtons());
             },
+            tag: 'SIM-05',
           },
           l.label,
         ),
@@ -102,15 +109,16 @@ export default async function render(ctx) {
 
   const f = form(
     [
-      { name: 'from', label: 'رقم المرسل', type: 'phone', required: true, hint: 'رقم موبايل مصري؛ نفس الرقم يعني نفس المستفيد/ة' },
-      { name: 'name', label: 'اسم المرسل كما يظهر في واتساب', maxLength: 100 },
-      { name: 'text', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5 },
+      { name: 'from', label: 'رقم المرسل', type: 'phone', required: true, hint: 'رقم موبايل مصري؛ نفس الرقم يعني نفس المستفيد/ة', tag: 'SIM-42' },
+      { name: 'name', label: 'اسم المرسل كما يظهر في واتساب', maxLength: 100, tag: 'SIM-43' },
+      { name: 'text', label: 'نص الرسالة', type: 'textarea', required: true, maxLength: 4000, rows: 5, tag: 'SIM-44' },
       {
         name: 'is_ad',
         type: 'checkbox',
         text: 'جاءت الرسالة من إعلان ممول (Click-to-WhatsApp)',
         full: true,
         onChange: (on) => toggleAd(on),
+        tag: 'SIM-45',
       },
       {
         name: 'platform',
@@ -121,9 +129,10 @@ export default async function render(ctx) {
           { value: 'facebook', label: 'فيسبوك' },
           { value: 'instagram', label: 'إنستجرام' },
         ],
+        tag: 'SIM-46',
       },
-      { name: 'headline', label: 'عنوان الإعلان', maxLength: 150 },
-      { name: 'ad_id', label: 'رقم الإعلان (اختياري)', ltr: true, maxLength: 60 },
+      { name: 'headline', label: 'عنوان الإعلان', maxLength: 150, tag: 'SIM-47' },
+      { name: 'ad_id', label: 'رقم الإعلان (اختياري)', ltr: true, maxLength: 60, tag: 'SIM-48' },
     ],
     {
       values: { platform: 'facebook' },
@@ -136,6 +145,8 @@ export default async function render(ctx) {
         const res = await api.post('/admin/simulate/whatsapp', body);
         showResult(res, v);
       },
+      submitTag: 'SIM-49',
+      tag: 'SIM-50',
     },
   );
   f.el.classList.add('pa-sim-form');
@@ -180,29 +191,37 @@ export default async function render(ctx) {
     if (!replies.length) return null;
     return h(
       'div.pa-sim-replies',
-      h('h3.pa-mini-h', 'ردّنا الآلي على هذه الرسالة'),
+      h('h3.pa-mini-h', { tag: 'SIM-06' }, 'ردّنا الآلي على هذه الرسالة'),
       replies.map((r) => {
         const rows = r.wa && r.wa.type === 'list' ? (r.wa.sections || []).flatMap((x) => x.rows || []) : [];
         // v11 segment-staff (ST-7): رسالة أزرار اختيار نوع الخدمة على الرقم المشترك — تُضغط هنا كما يضغطها العميل
         const btns = r.wa && r.wa.type === 'buttons' ? r.wa.buttons || [] : [];
         return h(
           'div.pa-sim-reply',
+          { tag: r.tag }, // v12 tags (TG-4، T12-19): رمز W للنص الذي أنتج الرد
           h('div.pa-sim-reply-head', badge(r.rule ? label('automation_rule', r.rule) : 'رسالة', 'muted', { icon: 'zap' }), r.status && badge(label('message_status', r.status), r.status === 'failed' ? 'danger' : 'neutral')),
           h('p.pa-sim-reply-body', { dir: 'auto' }, r.body || ''),
           rows.length
             ? h(
                 'div.pa-sim-rows',
-                { role: 'group', 'aria-label': 'اختيارات القائمة — اضغط كما تضغط المستفيدة' },
+                // v12 staff-lines (SL-9)؛ review-2: رمز SIM-02 حرفي في موضعه (كان تعبيرًا شرطيًا فلم يعرفه سجل الرموز)
+                rows.some((row) => isPathReply(row.id))
+                  ? { role: 'group', 'aria-label': 'صفوف قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة', tag: 'SIM-02' }
+                  : { role: 'group', 'aria-label': 'اختيارات القائمة — اضغط كما تضغط المستفيدة' },
                 rows.map((row) =>
-                  asyncButton(row.title, () => sendQuick('list_reply', { reply_id: row.id }, row.title), { size: 'sm', className: 'pa-sim-row', title: row.description || '' }),
+                  asyncButton(row.title, () => sendQuick('list_reply', { reply_id: row.id }, row.title), { size: 'sm', className: 'pa-sim-row', title: row.description || '', dataset: { reply: row.id }, tag: 'SIM-07' }),
                 ),
               )
             : null,
           btns.length
             ? h(
                 'div.pa-sim-rows.pa-sim-segbtns',
-                { role: 'group', 'aria-label': 'زرّا اختيار نوع الخدمة — اضغط كما يضغطها صاحب الرسالة' },
-                btns.map((b) => asyncButton(b.title, () => sendQuick('seg_reply', { reply_id: b.id }, b.title), { size: 'sm', className: 'pa-sim-row', dataset: { reply: b.id } })),
+                btns.some((b) => isLineReply(b.id))
+                  ? { role: 'group', 'aria-label': 'أزرار قائمة الخدمات: اضغط كما يضغطها صاحب الرسالة', tag: 'SIM-01' } // v12 staff-lines (SL-9)
+                  : { role: 'group', 'aria-label': 'زرّا اختيار نوع الخدمة — اضغط كما يضغطها صاحب الرسالة' },
+                btns.map((b) =>
+                  asyncButton(b.title, () => sendQuick(isLineReply(b.id) ? 'button_reply' : 'seg_reply', { reply_id: b.id }, b.title), { size: 'sm', className: 'pa-sim-row', dataset: { reply: b.id }, tag: 'SIM-08' }),
+                ),
               )
             : null,
         );
@@ -239,7 +258,7 @@ export default async function render(ctx) {
         className: 'pa-sim-result',
         body: h(
           'div.stack',
-          alertBox(text, tone, { title }),
+          alertBox(text, tone, { title, tag: 'SIM-09' }),
           // v11 segment-staff (ST-7): نوع الخدمة الناتج (رقاقة) والرقم الذي وصلت عليه الرسالة
           res.intake_id &&
             h(
@@ -254,15 +273,21 @@ export default async function render(ctx) {
               icon(res.line === 'unknown' ? 'alert' : 'whatsapp', { size: 14 }),
               h('span', res.line === 'unknown' ? 'وصلت على رقم غير مضبوط — حُفظت ولم يُرسل أي رد آلي' : `وصلت على: ${(SIM_LINES.find((l) => l.key === res.line) || SIM_LINES[0]).label}`),
             ),
+          // v12 staff-lines (SL-9): المسار الناتج (من قائمة واتساب أو الجملة الجاهزة)، أو تنبيه أن القائمة متوقفة
+          res.intake_id && res.pathway ? tagged('SIM-03', h('div.pa-sim-path', pathLine(res.pathway))) : null,
+          res.intake_id && res.segment === 'paid' && res.lines_menu_enabled === false
+            ? h('p.pa-note.small', { tag: 'SIM-04' }, icon('info', { size: 15 }), h('span', LINES_MENU_OFF_NOTE))
+            : null,
           res.story_view &&
             h('p.pa-sim-story', h('span', 'حالة القصة الآن: '), badge(res.story_view_label || label('story_view', res.story_view), VIEW_TONES[res.story_view] || 'neutral', { className: 'pa-sim-view' })),
-          res.welcome_enabled === false && res.intake_id && h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.')),
+          // v12 staff-lines (SL-9): على خط الأفراد والشركات تحل قائمة الخدمات محل الترحيب، فلا تنبيه عن الترحيب
+          res.welcome_enabled === false && res.intake_id && !(res.segment === 'paid' && res.lines_menu_enabled) && h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'ترحيب واتساب متوقف من الإعدادات، فلن تظهر قائمة المواضيع.')),
           repliesBlock(res),
           res.intake_id && h('div.pa-sim-quick', h('p.small.muted', 'تكمل نفس المستفيدة:'), quickButtons()),
           h(
             'div.btn-group',
-            res.intake_id && button('فتح الطلب في صندوق الوارد', { variant: 'primary', icon: 'inbox', href: `#/inbox/${res.intake_id}` }),
-            res.case_id && button('فتح الملف', { icon: 'briefcase', href: `#/cases/${res.case_id}` }),
+            res.intake_id && button('فتح الطلب في صندوق الوارد', { variant: 'primary', icon: 'inbox', href: `#/inbox/${res.intake_id}`, tag: 'SIM-10' }),
+            res.case_id && button('فتح الملف', { icon: 'briefcase', href: `#/cases/${res.case_id}`, tag: 'SIM-11' }),
           ),
           kv(
             [
@@ -273,6 +298,8 @@ export default async function render(ctx) {
             { columns: 3 },
           ),
         ),
+        titleTag: 'SIM-12',
+        tag: 'SIM-13',
       }),
       history.length > 1 &&
         card({
@@ -287,12 +314,14 @@ export default async function render(ctx) {
                 h('span.pa-sim-h-text', { dir: 'auto' }, x.text),
                 h(
                   'span.row',
-                  x.res.intake_id && h('a', { href: `#/inbox/${x.res.intake_id}` }, 'الطلب'),
-                  x.res.case_id && h('a', { href: `#/cases/${x.res.case_id}` }, 'الملف'),
+                  x.res.intake_id && h('a', { href: `#/inbox/${x.res.intake_id}`, tag: 'SIM-14' }, 'الطلب'),
+                  x.res.case_id && h('a', { href: `#/cases/${x.res.case_id}`, tag: 'SIM-15' }, 'الملف'),
                 ),
               ),
             ),
           ),
+          titleTag: 'SIM-16',
+          tag: 'SIM-17',
         }),
     );
     toast('وصلت الرسالة عبر المحاكي', 'success');
@@ -300,8 +329,8 @@ export default async function render(ctx) {
   }
 
   // ───────────── السيناريوهات الجاهزة ─────────────
-  const reqInput = h('input.input', { type: 'text', dir: 'ltr', placeholder: 'REQ-2026-00020', maxlength: 20, 'aria-label': 'رقم الطلب من الموقع', autocomplete: 'off' });
-  const diffCb = h('input', { type: 'checkbox' });
+  const reqInput = h('input.input', { type: 'text', dir: 'ltr', placeholder: 'REQ-2026-00020', maxlength: 20, 'aria-label': 'رقم الطلب من الموقع', autocomplete: 'off', tag: 'SIM-18' });
+  const diffCb = h('input', { type: 'checkbox', tag: 'SIM-19' });
   const reqNote = h('p.field-error', { hidden: true, role: 'alert' });
 
   async function prepareFollowUp() {
@@ -363,7 +392,7 @@ export default async function render(ctx) {
       text: 'مستفيد/ة قدّم طلبًا على الموقع ثم يكمل على واتساب بذكر رقم طلبه — يُلحق بنفس الطلب ولا يُنشأ طلب جديد.',
       extra: h(
         'div.pa-preset-extra',
-        h('div.pa-url-row', reqInput, button('تجهيز', { size: 'sm', icon: 'check', onClick: prepareFollowUp })),
+        h('div.pa-url-row', reqInput, button('تجهيز', { size: 'sm', icon: 'check', onClick: prepareFollowUp, tag: 'SIM-20' })),
         h('label.check.small', diffCb, h('span', 'من رقم مختلف عن صاحب الطلب (لتجربة تنبيه التحقق من الهوية)')),
         reqNote,
       ),
@@ -404,7 +433,7 @@ export default async function render(ctx) {
           p.action
             ? h(
                 'button.pa-preset-btn',
-                { type: 'button', onClick: p.action },
+                { type: 'button', onClick: p.action, tag: 'SIM-21' },
                 h('span.pa-preset-icon', icon(p.icon, { size: 18 })),
                 h('span.pa-preset-text', h('strong', p.title), h('span', richish(p.text))),
               )
@@ -416,6 +445,8 @@ export default async function render(ctx) {
         ),
       ),
     ),
+    titleTag: 'SIM-22',
+    tag: 'SIM-23',
   });
 
   function richish(text) {
@@ -436,8 +467,11 @@ export default async function render(ctx) {
     icon: 'info',
     body: h(
       'ol.pa-steps',
-      pipeline.map(([t, x], i) => h('li', h('span.pa-step-n', String(i + 1)), h('span.pa-step-text', h('strong', t), h('span', x)))),
+      // v12 gate (V-25): قائمة مرقّمة عادية — الرقم كلمة بلون الحبر الخافت، لا دائرة «1-2-3»
+      pipeline.map(([t, x], i) => h('li', h('span.pa-step-n', `${i + 1}.`), h('span.pa-step-text', h('strong', t), h('span', x)))),
     ),
+    titleTag: 'SIM-24',
+    tag: 'SIM-25',
   });
 
   const envs = [
@@ -452,20 +486,22 @@ export default async function render(ctx) {
     body: h(
       'div.stack-sm',
       h('p.small.muted', 'في التشغيل الفعلي ترسل Meta الرسائل إلى هذا المسار، وتمر بنفس المحرك المستخدم هنا:'),
-      h('div.pa-url-row', codeTag('/webhooks/whatsapp', { className: 'pa-code-inline' }), copyButton('/webhooks/whatsapp', '')),
-      h('h3.pa-mini-h', 'متغيرات البيئة المطلوبة'),
+      h('div.pa-url-row', codeTag('/webhooks/whatsapp', { className: 'pa-code-inline' }), copyButton('/webhooks/whatsapp', '', { tag: 'SIM-26' })),
+      h('h3.pa-mini-h', { tag: 'SIM-27' }, 'متغيرات البيئة المطلوبة'),
       h('ul.pa-envs', envs.map(([k, x]) => h('li', codeTag(k), h('span.small', x)))),
       h('p.pa-note', icon('info', { size: 15 }), h('span', 'بدون هذه البيانات تُسجل الرسائل الصادرة كـ «إرسال تجريبي (محاكاة)» ولا تُرسل فعليًا.')),
     ),
+    titleTag: 'SIM-28',
+    tag: 'SIM-29',
   });
 
   // v9.2: رسائل سريعة بنفس الرقم (قصة من عدة رسائل كما تكتبها المستفيدة)
   function quickButtons() {
     return h(
       'div.btn-group',
-      asyncButton('إرسال رسالة صوتية تجريبية', () => sendQuick('voice', {}, QUICK_TEXT.voice), { icon: 'mic', className: 'pa-sim-voice' }),
-      asyncButton('إرسال صورة ورقة', () => sendQuick('photo', {}, QUICK_TEXT.photo), { icon: 'fileText', className: 'pa-sim-photo' }),
-      asyncButton('خلاص', () => sendQuick('text', { text: 'خلاص' }, QUICK_TEXT.done), { icon: 'check', className: 'pa-sim-done' }),
+      asyncButton('إرسال رسالة صوتية تجريبية', () => sendQuick('voice', {}, QUICK_TEXT.voice), { icon: 'mic', className: 'pa-sim-voice', tag: 'SIM-30' }),
+      asyncButton('إرسال صورة ورقة', () => sendQuick('photo', {}, QUICK_TEXT.photo), { icon: 'fileText', className: 'pa-sim-photo', tag: 'SIM-31' }),
+      asyncButton('خلاص', () => sendQuick('text', { text: 'خلاص' }, QUICK_TEXT.done), { icon: 'check', className: 'pa-sim-done', tag: 'SIM-32' }),
     );
   }
   // v11 segment-staff (ST-7): نوع الرد «زر اختيار نوع الخدمة» (seg:charity / seg:paid) — يظهر على الرقم المشترك
@@ -475,7 +511,7 @@ export default async function render(ctx) {
       'div.pa-sim-segreply',
       { role: 'group', 'aria-label': SEG_REPLY_KIND },
       h('p.small.muted', `${SEG_REPLY_KIND}:`),
-      h('div.btn-group', SEG_REPLIES.map((b) => asyncButton(b.title, () => sendQuick('seg_reply', { reply_id: b.id }, b.title), { size: 'sm', icon: b.id === 'seg:paid' ? 'briefcase' : 'heart', dataset: { reply: b.id } }))),
+      h('div.btn-group', SEG_REPLIES.map((b) => asyncButton(b.title, () => sendQuick('seg_reply', { reply_id: b.id }, b.title), { size: 'sm', icon: b.id === 'seg:paid' ? 'briefcase' : 'heart', dataset: { reply: b.id }, tag: 'SIM-33' }))),
     );
   }
   const segQuick = h('div.pa-sim-segquick');
@@ -483,7 +519,7 @@ export default async function render(ctx) {
 
   const previewCard = h(
     'details.pa-details.pa-preview',
-    h('summary', 'عرض شكل الـ Webhook المرسل (صيغة Meta)'),
+    { tag: 'SIM-34' }, h('summary', { tag: 'SIM-35' }, 'عرض شكل الـ Webhook المرسل (صيغة Meta)'),
     previewPre,
   );
   mount(previewPre, JSON.stringify(webhookPreview({ from: '', text: '' }), null, 2));
@@ -495,16 +531,18 @@ export default async function render(ctx) {
       title: 'محاكي واتساب',
       subtitle:
         'يبني المحاكي رسالة Webhook مطابقة لصيغة منصة واتساب للأعمال من Meta ويمررها على نفس مسار الاستقبال الحقيقي.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'محاكي واتساب' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'SIM-36' }, { label: 'محاكي واتساب' }],
       meta: [badge('للعرض التجريبي فقط', 'warning', { icon: 'alert' }), badge('نفس محرك الاستقبال الحقيقي', 'success', { icon: 'checkCircle' })],
-      actions: button('صندوق الوارد', { variant: 'ghost', icon: 'inbox', href: '#/inbox' }),
+      actions: button('صندوق الوارد', { variant: 'ghost', icon: 'inbox', href: '#/inbox', tag: 'SIM-37' }),
+      titleTag: 'SIM-38',
+      tag: 'SIM-39',
     }),
     h(
       'div.detail-layout',
       h(
         'div.detail-main',
         presetsCard,
-        card({ title: 'رسالة واتساب واردة', icon: 'whatsapp', body: h('div.stack', h('div.pa-sim-lines', h('span.field-label', 'الرقم'), lineSwitch, lineNote), f.el, quickBar, previewCard) }),
+        card({ title: 'رسالة واتساب واردة', icon: 'whatsapp', body: h('div.stack', h('div.pa-sim-lines', h('span.field-label', 'الرقم'), lineSwitch, lineNote), f.el, quickBar, previewCard), titleTag: 'SIM-40', tag: 'SIM-41' }),
         resultHost,
       ),
       h('div.detail-side', pipelineCard, prodCard),

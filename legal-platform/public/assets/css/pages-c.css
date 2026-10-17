@@ -83,9 +83,8 @@ html[dir="ltr"] .table tr.pc-row-overdue td:first-child {
 .pc-card-list {
   list-style: none;
   margin: 0;
-  padding: 12px;
+  padding: 0 12px;
   flex-direction: column;
-  gap: 10px;
 }
 
 .card-body > .list-plain .pc-item-card,
@@ -97,31 +96,27 @@ html[dir="ltr"] .table tr.pc-row-overdue td:first-child {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 12px 0;
+  border-block-end: 1px solid var(--rule);
   color: inherit;
   text-decoration: none;
   min-width: 0;
-  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  transition: background-color 0.15s;
 }
 
 .pc-item-card:hover {
-  border-color: var(--primary-200);
-  background: var(--primary-50);
+  background: var(--paper-2);
   color: inherit;
 }
 
 .pc-item-card:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring);
+  box-shadow: inset 0 0 0 2px var(--act);
 }
 
 .pc-item-card.is-overdue {
-  border-color: #f6c4be;
-  background: var(--danger-100);
-  box-shadow: inset -4px 0 0 var(--danger-700);
+  padding-inline-start: 12px;
+  box-shadow: inset -2px 0 0 var(--bad);
 }
 
 html[dir="ltr"] .pc-item-card.is-overdue {

@@ -1,11 +1,73 @@
 // التسويق والتحليلات: مصدر العميل يختلف عن قناة التواصل — نقيس ماذا حدث فعلًا لكل رسالة جاءت من كل مصدر.
 
-import { h, frag, mount } from '../../../lib/h.js';
+import { h, frag, mount, tagged } from '../../../lib/h.js';
 import { api } from '../../../lib/api.js';
 import { label, areaLabel, num, count, money, percent, cairoToday, cairoDateToIso, shortDate, date, options } from '../../../lib/fmt.js';
 import { pageHeader, card, statCard, table, field, button, emptyState, errorState, loading, alertBox, icon, badge, formDialog, confirmDanger, toast } from '../../../lib/ui.js';
 import { replaceQuery } from './lawyers.js';
 import { segmentSwitch } from '../../components/segment-ui.js'; // v11 segment-staff (ST-5)
+
+// v12 staff-lines (SL-8، E12-56/57): نوع الطلب في القمع، وقسم «من الصفحة الأولى إلى الطلب»
+export const LINE_SCOPES = Object.freeze([
+  { value: 'consultation', label: 'استشارة' },
+  { value: 'litigation', label: 'دعوى قضائية' },
+  { value: 'company', label: 'شركات' },
+]);
+export const ENTRY_TITLE = 'من الصفحة الأولى إلى الطلب';
+export const ENTRY_NOTE = 'الزيارات تُعدّ للصفحة الأولى وصفحات الاختيار فقط، بلا أي بيانات عن الزائر. «من الصفحة السابقة» = زيارات الصفحة مقسومة على زيارات الصفحة التي قبلها.';
+
+/** قسم «من الصفحة الأولى إلى الطلب»: جدول الصفحات وجدول المسارات وإجمالي الطلبات لكل نوع (GET /api/admin/analytics/entry-tree) */
+export function entryTreeSection(d = {}) {
+  const pages = Array.isArray(d.pages) ? d.pages : [];
+  const paths = Array.isArray(d.paths) ? d.paths : [];
+  const totals = Array.isArray(d.totals) ? d.totals : [];
+  // review-2 (T12-78): ANL-02 على البطاقة نفسها في موضع إنشائها (كان على غلاف div فبقيت البطاقة بلا رمز في فحص التغطية)
+  return tagged('ANL-02', card({
+    title: ENTRY_TITLE,
+    subtitle: 'كم زائرًا فتح كل صفحة من الصفحة الأولى، وكم طلبًا وصل من كل مسار في الفترة نفسها.',
+    icon: 'filter',
+    className: 'pa-entry-tree',
+    body: h(
+      'div.stack',
+      h(
+        'p.pd-scope-line',
+        { tag: 'ANL-05' },
+        totals.map((t, i) => [i ? ' · ' : '', `${t.label}: `, h('strong', num(t.requests))]),
+      ),
+      tagged(
+        'ANL-03',
+        table({
+          className: 'pd-table-tight',
+          caption: 'زيارات صفحات الاختيار',
+          rows: pages,
+          empty: 'لا زيارات في الفترة المختارة',
+          columns: [
+            { key: 'label', label: 'الصفحة', render: (p) => h('div.pd-cell-stack', h('span.cell-title', p.label), p.question ? h('span.cell-sub', p.question) : null), tag: 'ANL-07' },
+            { key: 'views', label: 'الزيارات', align: 'center', render: (p) => num(p.views), tag: 'ANL-08' },
+            { key: 'share', label: 'من الصفحة السابقة', align: 'center', render: (p) => (p.share_of_parent == null ? '—' : h('bdi', { dir: 'ltr' }, percent(p.share_of_parent))), tag: 'ANL-09' },
+          ],
+          rowTag: 'ANL-10',
+        }),
+      ),
+      tagged(
+        'ANL-04',
+        table({
+          className: 'pd-table-tight',
+          caption: 'الطلبات حسب المسار',
+          rows: paths,
+          empty: 'لا طلبات بمسار في الفترة المختارة',
+          columns: [
+            { key: 'label', label: 'المسار', render: (x) => h('span.cell-title', x.label), tag: 'ANL-11' },
+            { key: 'requests', label: 'الطلبات', align: 'center', render: (x) => num(x.requests), tag: 'ANL-12' },
+          ],
+          rowTag: 'ANL-13',
+        }),
+      ),
+      h('p.pd-footnote', { tag: 'ANL-06' }, ENTRY_NOTE),
+    ),
+    titleTag: 'ANL-14',
+  }));
+}
 
 // v11 segment-staff (ST-5، r2 S10، P0): «الكل · خيري · أفراد وشركات» — الافتراضي «الكل» = مخرجات 10.0 مع «يشمل الخيري والأفراد»
 const SEG_SCOPES = ['charity', 'paid'];
@@ -115,14 +177,16 @@ function weeklyChart(weeks) {
     h('figcaption.cell-sub', 'كل عمود أسبوع، الأحدث على اليسار. مرّر المؤشر أو انتقل بلوحة المفاتيح على أي أسبوع لعرض أرقامه.'),
     h(
       'details.pd-details.pd-table-toggle',
-      h('summary', h('span', 'عرض البيانات كجدول')),
+      { tag: 'ANL-15' }, h('summary', { tag: 'ANL-16' }, h('span', 'عرض البيانات كجدول')),
       table({
         caption: 'الحجم الأسبوعي',
         rows: [...weeks].reverse(),
         columns: [
-          { key: 'week_start', label: 'الأسبوع الذي يبدأ في', render: (w) => date(w.week_start) },
+          { key: 'week_start', label: 'الأسبوع الذي يبدأ في', render: (w) => date(w.week_start), tag: 'ANL-17' },
           ...SERIES.map((s) => ({ key: s.key, label: s.label, align: 'center', render: (w) => num(w[s.key]) })),
         ],
+        rowTag: 'ANL-18',
+        tag: 'ANL-19',
       }),
     ),
   );
@@ -135,8 +199,9 @@ export default async function render(ctx) {
     from: isoDay(ctx.query.from) || addDaysStr(today, -90),
     to: isoDay(ctx.query.to) || today,
     seg: SEG_SCOPES.includes(ctx.query.segment) ? ctx.query.segment : '',
+    line: LINE_SCOPES.some((l) => l.value === ctx.query.line) ? ctx.query.line : '', // v12 staff-lines (SL-8)
   };
-  const funnelQuery = () => ({ group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true), segment: state.seg || undefined });
+  const funnelQuery = () => ({ group: state.group, from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true), segment: state.seg || undefined, line: state.line || undefined });
   const [initialFunnel, areas] = await Promise.all([api.get('/admin/analytics/funnel', funnelQuery()), api.get('/admin/analytics/areas', { segment: state.seg || undefined })]);
 
   const funnelHost = h('div.stack-lg');
@@ -145,7 +210,7 @@ export default async function render(ctx) {
 
   function syncUrl() {
     const defaults = state.from === addDaysStr(today, -90) && state.to === today;
-    replaceQuery('/analytics', { segment: state.seg, group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
+    replaceQuery('/analytics', { segment: state.seg, line: state.line, group: state.group === 'source' ? '' : state.group, from: defaults ? '' : state.from, to: defaults ? '' : state.to });
   }
 
   async function refetch() {
@@ -157,6 +222,7 @@ export default async function render(ctx) {
     rangeError.hidden = true;
     const my = ++seq;
     syncUrl();
+    loadEntryTree(); // v12 staff-lines (SL-8)
     mount(funnelHost, loading());
     try {
       const d = await api.get('/admin/analytics/funnel', funnelQuery());
@@ -175,7 +241,7 @@ export default async function render(ctx) {
     const g = GROUPS[state.group];
     const conv = t.intakes ? t.cases / t.intakes : 0;
     if (!t.intakes) {
-      mount(funnelHost, card({ body: emptyState('لا توجد طلبات واردة في الفترة المختارة', button('آخر 90 يومًا', { icon: 'calendar', onClick: resetRange }), { icon: 'chart' }) }));
+      mount(funnelHost, card({ body: emptyState('لا توجد طلبات واردة في الفترة المختارة', button('آخر 90 يومًا', { icon: 'calendar', onClick: resetRange, tag: 'ANL-20' }), { icon: 'chart', tag: 'ANL-21' }), tag: 'ANL-22' }));
       return;
     }
     const maxIntakes = Math.max(1, ...items.map((x) => x.intakes));
@@ -183,16 +249,16 @@ export default async function render(ctx) {
       funnelHost,
       h(
         'div.stats-grid.pd-stats-5',
-        statCard({ label: 'رسائل واردة', value: num(t.messages), hint: 'من المستفيدين عبر كل القنوات', icon: 'message', tone: 'primary' }),
-        statCard({ label: 'طلبات واردة', value: num(t.intakes), hint: 'محادثات أو نماذج مستقلة', icon: 'inbox', tone: 'info' }),
-        statCard({ label: 'استشارات قانونية', value: num(t.consultations), hint: 'طلبات تحتاج رأيًا قانونيًا', icon: 'scale', tone: 'accent' }),
-        statCard({ label: 'عولجت داخليًا', value: num(t.handled_internally), hint: 'دون فتح ملف', icon: 'checkCircle', tone: 'success' }),
-        statCard({ label: 'تحولت إلى ملفات', value: num(t.cases), hint: h('span', 'معدل التحويل ', h('bdi', { dir: 'ltr' }, percent(conv))), icon: 'briefcase', tone: 'primary' }),
-        statCard({ label: 'احتاجت محاميًا', value: num(t.needed_lawyer), hint: 'أُسندت لمحامٍ واحد على الأقل', icon: 'user', tone: 'info' }),
-        statCard({ label: 'فريق متعدد التخصصات', value: num(t.multi_lawyer), hint: 'أكثر من محامٍ في الملف', icon: 'users', tone: 'accent' }),
-        statCard({ label: 'ملفات عمل مستمرة', value: num(t.matters), hint: 'تمثيل قضائي أو عمل مستمر', icon: 'gavel', tone: 'warning' }),
-        statCard({ label: 'ملفات أُغلقت', value: num(t.closed), hint: 'من ملفات هذه الفترة', icon: 'flag', tone: 'neutral' }),
-        statCard({ label: 'تكلفة الملفات', value: moneyValue(t.cost), hint: t.cases ? `متوسط ${money(Math.round(t.cost / t.cases))} للملف` : 'أتعاب ومصروفات', icon: 'wallet', tone: 'primary' }),
+        statCard({ label: 'رسائل واردة', value: num(t.messages), hint: 'من المستفيدين عبر كل القنوات', icon: 'message', tone: 'primary', tag: 'ANL-23' }),
+        statCard({ label: 'طلبات واردة', value: num(t.intakes), hint: 'محادثات أو نماذج مستقلة', icon: 'inbox', tone: 'info', tag: 'ANL-24' }),
+        statCard({ label: 'استشارات قانونية', value: num(t.consultations), hint: 'طلبات تحتاج رأيًا قانونيًا', icon: 'scale', tone: 'accent', tag: 'ANL-25' }),
+        statCard({ label: 'عولجت داخليًا', value: num(t.handled_internally), hint: 'دون فتح ملف', icon: 'checkCircle', tone: 'success', tag: 'ANL-26' }),
+        statCard({ label: 'تحولت إلى ملفات', value: num(t.cases), hint: h('span', 'معدل التحويل ', h('bdi', { dir: 'ltr' }, percent(conv))), icon: 'briefcase', tone: 'primary', tag: 'ANL-27' }),
+        statCard({ label: 'احتاجت محاميًا', value: num(t.needed_lawyer), hint: 'أُسندت لمحامٍ واحد على الأقل', icon: 'user', tone: 'info', tag: 'ANL-28' }),
+        statCard({ label: 'فريق متعدد التخصصات', value: num(t.multi_lawyer), hint: 'أكثر من محامٍ في الملف', icon: 'users', tone: 'accent', tag: 'ANL-29' }),
+        statCard({ label: 'ملفات عمل مستمرة', value: num(t.matters), hint: 'تمثيل قضائي أو عمل مستمر', icon: 'gavel', tone: 'warning', tag: 'ANL-30' }),
+        statCard({ label: 'ملفات أُغلقت', value: num(t.closed), hint: 'من ملفات هذه الفترة', icon: 'flag', tone: 'neutral', tag: 'ANL-31' }),
+        statCard({ label: 'تكلفة الملفات', value: moneyValue(t.cost), hint: t.cases ? `متوسط ${money(Math.round(t.cost / t.cases))} للملف` : 'أتعاب ومصروفات', icon: 'wallet', tone: 'primary', tag: 'ANL-32' }),
         t.ad_spend
           ? statCard({
               label: 'الإنفاق الإعلاني',
@@ -200,6 +266,7 @@ export default async function render(ctx) {
               hint: t.cases ? `تكلفة اكتساب الملف: ${money(Math.round(t.ad_spend / t.cases))}` : 'لا ملفات في الفترة',
               icon: 'zap',
               tone: 'warning',
+              tag: 'ANL-33',
             })
           : null,
       ),
@@ -218,6 +285,8 @@ export default async function render(ctx) {
           ],
           t.intakes,
         ),
+        titleTag: 'ANL-34',
+        tag: 'ANL-35',
       }),
       card({
         title: `النتائج حسب ${g.label}`,
@@ -239,11 +308,13 @@ export default async function render(ctx) {
                   h('span.cell-title', { dir: 'auto' }, groupLabel(state.group, x)),
                   h('div.pd-mini-bar', h('span', { style: { width: `${(x.intakes / maxIntakes) * 100}%` } })),
                 ),
+                tag: 'ANL-36',
             },
             {
               key: 'volume',
               label: 'الحجم',
               render: (x) => h('div.pd-cell-stack', h('span.nowrap', h('strong', count(x.intakes, 'request'))), h('span.cell-sub.nowrap', count(x.messages, ['رسالة واردة', 'رسالتان واردتان', 'رسائل واردة', 'رسالة واردة']))),
+              tag: 'ANL-37',
             },
             {
               key: 'funnel',
@@ -260,6 +331,7 @@ export default async function render(ctx) {
                   x.intakes,
                   { compact: true },
                 ),
+                tag: 'ANL-38',
             },
             {
               key: 'other',
@@ -271,6 +343,7 @@ export default async function render(ctx) {
                   h('li', 'فريق متعدد: ', h('strong', num(x.multi_lawyer))),
                   h('li', 'أُغلقت: ', h('strong', num(x.closed))),
                 ),
+                tag: 'ANL-39',
             },
             {
               key: 'conv',
@@ -282,6 +355,7 @@ export default async function render(ctx) {
                   { dir: 'ltr', class: x.conversion_rate >= 0.66 ? 'pd-text-success' : x.conversion_rate < 0.34 ? 'pd-text-warning' : null },
                   percent(x.conversion_rate),
                 ),
+                tag: 'ANL-40',
             },
             state.group !== 'channel' && {
               key: 'ad',
@@ -296,6 +370,7 @@ export default async function render(ctx) {
                       x.ad_cost_per_intake == null ? null : h('span.cell-sub.nowrap', `${money(Math.round(x.ad_cost_per_intake))} للطلب`),
                     )
                   : h('span.cell-sub', '—'),
+                  tag: 'ANL-41',
             },
             {
               key: 'cost',
@@ -307,9 +382,14 @@ export default async function render(ctx) {
                   h('strong.nowrap', money(x.cost)),
                   h('span.cell-sub.nowrap', x.cost_per_case == null ? 'لا ملفات' : `${money(Math.round(x.cost_per_case))} للملف`),
                 ),
+                tag: 'ANL-42',
             },
           ].filter(Boolean),
+          rowTag: 'ANL-43',
+          tag: 'ANL-44',
         }),
+        titleTag: 'ANL-45',
+        tag: 'ANL-46',
       }),
       h(
         'p.pd-footnote',
@@ -343,14 +423,15 @@ export default async function render(ctx) {
             for (const [kk, b] of Object.entries(segBtns)) b.setAttribute('aria-pressed', String(kk === k));
             refetch();
           },
+          tag: 'ANL-47',
         },
         `حسب ${g.label}`,
       );
       return segBtns[k];
     }),
   );
-  const fromInput = h('input.input', { type: 'date', dir: 'ltr', value: state.from, max: today });
-  const toInput = h('input.input', { type: 'date', dir: 'ltr', value: state.to, max: today });
+  const fromInput = h('input.input', { type: 'date', dir: 'ltr', value: state.from, max: today, tag: 'ANL-48' });
+  const toInput = h('input.input', { type: 'date', dir: 'ltr', value: state.to, max: today, tag: 'ANL-49' });
   fromInput.addEventListener('change', () => {
     if (!fromInput.value) return;
     state.from = fromInput.value;
@@ -377,18 +458,53 @@ export default async function render(ctx) {
       reloadAreas();
     },
   });
+  // v12 staff-lines (SL-8، E12-56): نوع الطلب يرشّح القمع فقط
+  const lineSel = h(
+    'select.input',
+    {
+      tag: 'ANL-01',
+      'aria-label': 'نوع الطلب',
+      onChange: (e) => {
+        state.line = LINE_SCOPES.some((l) => l.value === e.target.value) ? e.target.value : '';
+        refetch();
+      },
+    },
+    h('option', { value: '' }, 'كل الأنواع'),
+    LINE_SCOPES.map((l) => h('option', { value: l.value }, l.label)),
+  );
+  lineSel.value = state.line;
   const controls = h(
     'div.filter-bar.pd-analytics-controls',
     { role: 'search' },
     h('div.pd-control.pd-seg-control', h('span.field-label', 'نوع الخدمة'), segSwitch, scopeLine),
+    // tags:skip غلاف الحقل؛ القائمة داخله تحمل رمزها ANL-01
+    field('نوع الطلب', h('div.select-wrap', lineSel), { className: 'pd-line-field' }),
     h('div.pd-control', h('span.field-label', 'تجميع حسب'), segmented),
-    field('من تاريخ', fromInput, { className: 'pd-date-field' }),
-    field('إلى تاريخ', toInput, { className: 'pd-date-field' }),
-    h('div.pd-control.pd-control-end', button('آخر 90 يومًا', { variant: 'ghost', icon: 'refresh', onClick: resetRange })),
+    field('من تاريخ', fromInput, { className: 'pd-date-field', tag: 'ANL-50' }),
+    field('إلى تاريخ', toInput, { className: 'pd-date-field', tag: 'ANL-51' }),
+    h('div.pd-control.pd-control-end', button('آخر 90 يومًا', { variant: 'ghost', icon: 'refresh', onClick: resetRange, tag: 'ANL-52' })),
     rangeError,
   );
 
   drawFunnel(initialFunnel);
+
+  // ── v12 staff-lines (SL-8، E12-57): من الصفحة الأولى إلى الطلب ── (يتبع التاريخين فقط؛ كل قراءة تُسجَّل في سجل الأمان)
+  const entryHost = h('div.pa-entry-host'); // البطاقة داخله تحمل ANL-02
+  let entrySeq = 0;
+  let entryRange = '';
+  async function loadEntryTree({ force = false } = {}) {
+    const range = `${state.from}|${state.to}`;
+    if (!force && range === entryRange) return; // نوع الخدمة ونوع الطلب والتجميع لا تغيّر هذا القسم
+    entryRange = range;
+    const my = ++entrySeq;
+    try {
+      const d = await api.get('/admin/analytics/entry-tree', { from: cairoDateToIso(state.from), to: cairoDateToIso(state.to, true) }, { background: true });
+      if (my === entrySeq) mount(entryHost, entryTreeSection(d));
+    } catch (err) {
+      if (my === entrySeq) mount(entryHost, errorState(err, () => loadEntryTree({ force: true })));
+    }
+  }
+  loadEntryTree();
 
   // ── حسب المجال والحجم الأسبوعي ── (v11 segment-staff: يُعاد رسمهما عند تغيير نوع الخدمة)
   const areasHost = h('div');
@@ -415,38 +531,46 @@ export default async function render(ctx) {
       icon: 'scale',
       body: h(
         'div.stack',
-        topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${count(topMulti.cases, 'case')}).`, 'info', { icon: 'users' }) : null,
+        topMulti ? alertBox(`أكثر المجالات احتياجًا لفريق متعدد التخصصات: ${topMulti.label || areaLabel(topMulti.legal_area)} (${num(topMulti.multi)} من ${count(topMulti.cases, 'case')}).`, 'info', { icon: 'users', tag: 'ANL-53' }) : null,
         table({
           className: 'pd-table-tight',
           caption: 'الملفات حسب المجال',
           rows: areaItems,
           empty: 'لا توجد ملفات بعد',
           columns: [
-            { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', a.label || areaLabel(a.legal_area)) },
+            { key: 'area', label: 'المجال', render: (a) => h('span.cell-title', a.label || areaLabel(a.legal_area)), tag: 'ANL-54' },
             {
               key: 'cases',
               label: 'الملفات',
               className: 'pd-col-bar',
               render: (a) => h('div.pd-hbar', h('div.pd-hbar-track', h('div.pd-hbar-fill', { style: { width: `${(a.cases / maxCases) * 100}%` } })), h('span.pd-hbar-val', num(a.cases))),
+              tag: 'ANL-55',
             },
-            { key: 'closed', label: 'مغلقة', align: 'center', render: (a) => num(a.closed) },
+            { key: 'closed', label: 'مغلقة', align: 'center', render: (a) => num(a.closed), tag: 'ANL-56' },
             {
               key: 'multi',
               label: 'متعددة التخصصات',
               render: (a) =>
                 h('span.nowrap', num(a.multi), ' ', h('bdi.cell-sub', { dir: 'ltr' }, `(${percent(a.cases ? a.multi / a.cases : 0)})`), a.multi && a.multi / a.cases >= 0.5 ? [' ', badge('مرتفع', 'accent')] : null),
+                tag: 'ANL-57',
             },
-            { key: 'matters', label: 'تحولت لعمل مستمر', align: 'center', render: (a) => num(a.matters) },
+            { key: 'matters', label: 'تحولت لعمل مستمر', align: 'center', render: (a) => num(a.matters), tag: 'ANL-58' },
           ],
+          rowTag: 'ANL-59',
+          tag: 'ANL-60',
         }),
       ),
+      titleTag: 'ANL-61',
+      tag: 'ANL-62',
     });
 
     const weeklyCard = card({
       title: 'الحجم الأسبوعي — آخر 12 أسبوعًا',
       subtitle: 'لمتابعة أثر الحملات على الطلبات وما يتحول منها إلى ملفات',
       icon: 'calendar',
-      body: weekly.length ? weeklyChart(weekly) : emptyState('لا توجد بيانات أسبوعية بعد', null, { icon: 'chart', compact: true }),
+      body: weekly.length ? weeklyChart(weekly) : emptyState('لا توجد بيانات أسبوعية بعد', null, { icon: 'chart', compact: true, tag: 'ANL-63' }),
+      titleTag: 'ANL-64',
+      tag: 'ANL-65',
     });
     mount(areasHost, areasCard);
     mount(weeklyHost, weeklyCard);
@@ -483,16 +607,17 @@ export default async function render(ctx) {
         ? 'يُعدَّل هذا السجل نفسه ولا يُنشأ سجل جديد، فتصحيح اسم الحملة أو الشهر أو المصدر لا يضاعف الإنفاق.'
         : 'سجّل ما أُنفق على كل حملة شهريًا. اكتب اسم الحملة كما يظهر في الطلبات الواردة (عنوان الإعلان أو utm_campaign) حتى تُربط بنتائجها. إن كان للشهر والمصدر والحملة سجل بالفعل فعدّله من الجدول.',
       fields: [
-        { name: 'period', label: 'الشهر', type: 'select', required: true, options: monthOptions() },
-        { name: 'source', label: 'المصدر', type: 'select', required: true, options: options('source').filter((o) => !['unknown', 'returning', 'direct'].includes(o.value)) },
-        { name: 'campaign', label: 'الحملة', type: 'text', hint: known.length ? `حملات معروفة: ${known.slice(0, 4).join('، ')}` : 'اختياري' },
-        { name: 'amount', label: 'المبلغ المنفق (ج.م)', type: 'money', required: true, min: 0 },
-        { name: 'note', label: 'ملاحظة', type: 'text' },
+        { name: 'period', label: 'الشهر', type: 'select', required: true, options: monthOptions(), tag: 'ANL-66' },
+        { name: 'source', label: 'المصدر', type: 'select', required: true, options: options('source').filter((o) => !['unknown', 'returning', 'direct'].includes(o.value)), tag: 'ANL-67' },
+        { name: 'campaign', label: 'الحملة', type: 'text', hint: known.length ? `حملات معروفة: ${known.slice(0, 4).join('، ')}` : 'اختياري', tag: 'ANL-68' },
+        { name: 'amount', label: 'المبلغ المنفق (ج.م)', type: 'money', required: true, min: 0, tag: 'ANL-69' },
+        { name: 'note', label: 'ملاحظة', type: 'text', tag: 'ANL-70' },
       ],
       values: row ? { period: row.period, source: row.source, campaign: row.campaign, amount: row.amount, note: row.note } : { period: today.slice(0, 7), source: 'facebook_ad' },
       submitLabel: 'حفظ',
       // التعديل يحدّث نفس السجل (PATCH)؛ والخادم يرفض بـ 409 أي تكرار لنفس الشهر والمصدر والحملة وتظهر رسالته في النموذج
       onSubmit: (v) => (row ? api.patch(`/admin/analytics/spend/${row.id}`, v) : api.post('/admin/analytics/spend', v)),
+      tag: 'ANL-71',
     });
     if (vals) {
       toast(row ? 'تم تحديث سجل الإنفاق' : 'تم حفظ الإنفاق', 'success');
@@ -510,7 +635,7 @@ export default async function render(ctx) {
         title: 'الإنفاق على الإعلانات',
         subtitle: 'لمعرفة تكلفة اكتساب الطلب والملف لكل مصدر وحملة قبل زيادة الميزانية',
         icon: 'zap',
-        actions: isAdmin ? button('تسجيل إنفاق', { icon: 'plus', variant: 'secondary', onClick: () => editSpend(null, campaigns) }) : null,
+        actions: isAdmin ? button('تسجيل إنفاق', { icon: 'plus', variant: 'secondary', onClick: () => editSpend(null, campaigns), tag: 'ANL-72' }) : null,
         flush: true,
         body: table({
           className: 'pd-table-tight',
@@ -518,10 +643,10 @@ export default async function render(ctx) {
           rows: items,
           empty: isAdmin ? 'لم يُسجل أي إنفاق بعد — سجّل إنفاق حملاتك لتظهر تكلفة الاكتساب في الجدول أعلاه' : 'لم يُسجل أي إنفاق بعد',
           columns: [
-            { key: 'period', label: 'الشهر', render: (r) => h('span.nowrap', periodLabel(r.period)) },
-            { key: 'source', label: 'المصدر', render: (r) => r.source_label || label('source', r.source) },
-            { key: 'campaign', label: 'الحملة', render: (r) => h('span', { dir: 'auto' }, r.campaign || '—') },
-            { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => h('strong.nowrap', money(r.amount)) },
+            { key: 'period', label: 'الشهر', render: (r) => h('span.nowrap', periodLabel(r.period)), tag: 'ANL-73' },
+            { key: 'source', label: 'المصدر', render: (r) => r.source_label || label('source', r.source), tag: 'ANL-74' },
+            { key: 'campaign', label: 'الحملة', render: (r) => h('span', { dir: 'auto' }, r.campaign || '—'), tag: 'ANL-75' },
+            { key: 'amount', label: 'المبلغ', align: 'end', render: (r) => h('strong.nowrap', money(r.amount)), tag: 'ANL-76' },
             isAdmin && {
               key: 'actions',
               label: '',
@@ -529,13 +654,13 @@ export default async function render(ctx) {
               render: (r) =>
                 h(
                   'div.row-actions',
-                  button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => editSpend(r, campaigns) }),
+                  button('تعديل', { size: 'sm', variant: 'ghost', icon: 'edit', onClick: () => editSpend(r, campaigns), tag: 'ANL-77' }),
                   button('حذف', {
                     size: 'sm',
                     variant: 'ghost',
                     icon: 'trash',
                     onClick: async () => {
-                      if (!(await confirmDanger({ title: 'حذف سجل الإنفاق', message: `سيُحذف إنفاق ${money(r.amount)} لشهر ${periodLabel(r.period)}.` }))) return;
+                      if (!(await confirmDanger({ title: 'حذف سجل الإنفاق', message: `سيُحذف إنفاق ${money(r.amount)} لشهر ${periodLabel(r.period)}.`, tag: 'ANL-78' }))) return;
                       try {
                         await api.del(`/admin/analytics/spend/${r.id}`);
                         toast('تم الحذف', 'success');
@@ -545,12 +670,18 @@ export default async function render(ctx) {
                         toast(err.message, 'danger');
                       }
                     },
+                    tag: 'ANL-79',
                   }),
                 ),
+                tag: 'ANL-80',
             },
           ].filter(Boolean),
+          rowTag: 'ANL-81',
+          tag: 'ANL-82',
         }),
         footer: items.length ? h('p.cell-sub', 'إجمالي المسجل: ', h('strong', money(total))) : null,
+        titleTag: 'ANL-83',
+        tag: 'ANL-84',
       }),
     );
   }
@@ -560,10 +691,13 @@ export default async function render(ctx) {
     pageHeader({
       title: 'التسويق والتحليلات',
       subtitle: 'مصدر المستفيد/ة يختلف عن قناة التواصل: نقيس ماذا حدث فعلًا لكل رسالة جاءت من كل مصدر — كم صار استشارة، وكم احتاج محاميًا، وكم صار ملفًا، وكم كلّف.',
-      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard' }, { label: 'التسويق والتحليلات' }],
+      breadcrumbs: [{ label: 'لوحة المتابعة', href: '#/dashboard', tag: 'ANL-85' }, { label: 'التسويق والتحليلات' }],
+      titleTag: 'ANL-86',
+      tag: 'ANL-87',
     }),
     controls,
     funnelHost,
+    entryHost, // v12 staff-lines (SL-8)
     spendHost,
     weeklyHost,
     areasHost,

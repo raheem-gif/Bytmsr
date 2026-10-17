@@ -71,14 +71,15 @@ export function ic(name, size = 22) {
 /**
  * زر أو رابط بشكل زر. kind: primary (أساسي 56px) | secondary (محدد 48–52px) | whatsapp | text | ghost.
  */
-export function btn(label, { kind = 'secondary', icon, href, onClick, type = 'button', block = false, attrs = {}, className = '' } = {}) {
+// v12 tags (TG-3، T12-16): tag ← data-tag (آخر سمة)
+export function btn(label, { kind = 'secondary', icon, href, onClick, type = 'button', block = false, attrs = {}, className = '', tag } = {}) {
   const cls = ['bp-btn', `bp-btn--${kind}`, block && 'bp-btn--block', className].filter(Boolean);
   const kids = [icon ? ic(icon, kind === 'primary' ? 24 : 22) : null, h('span', label)];
   if (href) {
     const ext = /^https?:/.test(href);
-    return h('a', { class: cls, href, ...(ext ? { target: '_blank', rel: 'noopener noreferrer' } : {}), ...attrs, onClick }, ...kids);
+    return h('a', { class: cls, href, ...(ext ? { target: '_blank', rel: 'noopener noreferrer' } : {}), ...attrs, onClick, tag }, ...kids);
   }
-  return h('button', { class: cls, type, ...attrs, onClick }, ...kids);
+  return h('button', { class: cls, type, ...attrs, onClick, tag }, ...kids);
 }
 
 // ───────────── v10 experience: حركة الأوراق والاهتزاز (L-11، X10-M2/M6، CS-32) ─────────────
@@ -135,7 +136,7 @@ const scrollLock = (on) => {
  * بعد تحميل الحركة: تدخل من أسفل وتتبع الإصبع من المقبض أو الترويسة (رمية أو سحب بعد المنتصف يغلق، والتراجع يبقيها).
  * close() البرمجي ينفّذ الإغلاق المنطقي فورًا (L-64)؛ الإغلاق الذي يبدؤه المستخدم يمكن إيقافه بالإمساك أثناء الخروج.
  */
-export function sheet({ title, body, onClose } = {}) {
+export function sheet({ title, body, onClose, tag } = {}) {
   const prev = document.activeElement;
   const titleId = `bp-sheet-${Math.random().toString(36).slice(2, 8)}`;
   let closed = false;
@@ -187,8 +188,9 @@ export function sheet({ title, body, onClose } = {}) {
     }
   };
   const grip = SM ? h('div.bp-sheet-grip', { 'aria-hidden': 'true' }) : null;
-  const head = h('div.bp-sheet-head', h('h2', { id: titleId }, title), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إغلاق', onClick: dismiss }, ic('x', 22)));
-  const panel = h('div.bp-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId }, grip, head, h('div.bp-sheet-body', body));
+  // v12 tags (TG-3): زر إغلاق اللوحة مكوّن داخلي (P-10)؛ رمز اللوحة نفسها من المستدعي (tag)
+  const head = h('div.bp-sheet-head', h('h2', { id: titleId, tag: 'P-123' }, title), h('button.bp-icon-btn', { type: 'button', 'aria-label': 'إغلاق', onClick: dismiss, tag: 'P-10' }, ic('x', 22)));
+  const panel = h('div.bp-sheet', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tag }, grip, head, h('div.bp-sheet-body', body));
   const scrim = h('div.bp-sheet-scrim', { 'aria-hidden': 'true' });
   const wrap = h('div.bp-sheet-wrap', { onClick: (e) => (e.target === wrap || e.target === scrim) && dismiss() }, scrim, panel);
   // v10 (مراجعة): الصفحة خلف اللوحة خارج قارئ الشاشة ولوحة المفاتيح (aria-modal وحده لا يكفي في Safari القديم)؛ التنبيهات تبقى مسموعة
@@ -257,8 +259,20 @@ export function pageContact() {
   return { phone, phoneHref: tel ? tel.getAttribute('href') : '', waDigits };
 }
 
+// v12 tags (TG-1، T12-30؛ TG-7، T12-84): رموز العناصر للمالك فقط. صفحة المتابعة /p/ لا تحمّل tags-boot.js مقدمًا (ميزانية
+// /p/ ≤ 30 KB gzip): يُستورد بمسار غير حرفي مع ?tags= أو ?tag= أو تفضيل محفوظ أو أول Alt+Shift+T (لا في حقل كتابة)، ثم
+// يتولى tagsBoot() الباقي (إزالة المعامل من العنوان، sessionStorage، الطبقة). مثل entry.js على «/» وصفحات الأسئلة.
+let tb = 0;
+const tags = (t) => tb++ || import('/assets/js/lib/' + 'tags-boot.js').then((m) => (m.tagsBoot(), t && m.tagsToggle()), () => {});
+
 /** قائمة رأس الموقع على الهاتف: فتح وإغلاق باللمس ولوحة المفاتيح */
 export function initMenu() {
+  try {
+    if (/[?&]tags?=/.test(location.search + location.hash) || sessionStorage.bm_tags || localStorage.bm_tags) tags();
+  } catch {
+    /* التخزين غير متاح */
+  }
+  addEventListener('keydown', (e) => !tb && e.altKey && e.shiftKey && e.code === 'KeyT' && !e.target.matches?.(':read-write') && tags(1));
   const toggle = document.querySelector('[data-pub-menu]');
   const nav = toggle && document.getElementById(toggle.getAttribute('aria-controls'));
   if (!toggle || !nav || toggle.dataset.ready) return;

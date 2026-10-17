@@ -1,12 +1,17 @@
 // v9.2 (admin-ai) — بطاقة «القصص الواردة على واتساب» في الإعدادات (‎#/settings?section=stories‎):
 // متى تُعد القصة مكتملة فيلخّصها الذكاء الاصطناعي، والرسائل الآلية الثابتة (متوقفة افتراضيًا)، ورقم الاتصال بالمستفيدات.
 
-import { h } from '../../lib/h.js';
+import { h, tagged } from '../../lib/h.js';
 import { api } from '../../lib/api.js';
 import { toLatinDigits, normalizeEgPhone } from '../../lib/fmt.js';
 import { card, form, toast, icon } from '../../lib/ui.js';
 
-export const STORY_SETTING_KEYS = ['story_quiet_minutes', 'story_welcome_enabled', 'story_ack_enabled', 'callback_from_number', 'callback_eta_days', 'wa_segment_choice_enabled', 'segment_returning_days'];
+export const STORY_SETTING_KEYS = ['story_quiet_minutes', 'story_welcome_enabled', 'wa_lines_menu_enabled', 'story_ack_enabled', 'callback_from_number', 'callback_eta_days', 'wa_segment_choice_enabled', 'segment_returning_days'];
+
+// v12 staff-lines (SL-7، E12-86): قائمة الخدمات الثلاث على خط الأفراد والشركات (W-01…W-06)
+export const LINES_MENU_TOGGLE_TEXT = 'قائمة الخدمات على واتساب';
+export const LINES_MENU_HINT =
+  'أول رسالة قصيرة من شخص جديد على خط الأفراد والشركات تصلها ثلاثة أزرار: استشارة، رفع دعوى قضائية، تأسيس شركات، ثم قائمة قصيرة بالتفاصيل. الرسائل ثابتة لا يكتبها الذكاء الاصطناعي، وتُرسل داخل نافذة 24 ساعة فقط، ومرة واحدة لكل شخص.';
 
 // v11 segment-staff (ST-6، S11-42، P1): أزرار اختيار نوع الخدمة على الرقم المشترك + تذكّر نوع الخدمة للعائدين
 export const CHOICE_TOGGLE_TEXT = 'أزرار اختيار نوع الخدمة على الرقم المشترك';
@@ -32,6 +37,7 @@ export function storySettingsCard(settings = {}) {
         min: 2,
         max: 120,
         hint: 'بعد هذه المدة بلا رسائل جديدة منها، أو عندما تكتب «خلاص»، تُعد القصة مكتملة ويلخّصها الذكاء الاصطناعي.',
+        tag: 'SET-252',
       },
       {
         name: 'story_welcome_enabled',
@@ -39,13 +45,17 @@ export function storySettingsCard(settings = {}) {
         full: true,
         text: 'إرسال ترحيب بقائمة المواضيع لأول رسالة على واتساب',
         hint: 'رسالة آلية ثابتة (ليست من الذكاء الاصطناعي) فيها 8 مواضيع، ويمكنها تجاهلها والكتابة مباشرة.',
+        tag: 'SET-253',
       },
+      // v12 staff-lines (SL-7، E12-86)
+      { name: 'wa_lines_menu_enabled', type: 'checkbox', full: true, text: LINES_MENU_TOGGLE_TEXT, hint: LINES_MENU_HINT },
       {
         name: 'story_ack_enabled',
         type: 'checkbox',
         full: true,
         text: 'إرسال «وصلتنا حكايتك» ورقم الطلب عندما تكتمل القصة',
         hint: 'قبل التفعيل: عدّلوا جملة "كل رد يصلك يراجعه شخص مختص" في سياسة الخصوصية لتستثني الرسائل الآلية الثابتة (قرار مفتوح 11).',
+        tag: 'SET-255',
       },
       {
         name: 'callback_from_number',
@@ -54,8 +64,9 @@ export function storySettingsCard(settings = {}) {
         maxLength: 30,
         placeholder: '01211114662',
         hint: 'يظهر لها بعد طلب المكالمة حتى ترد عليه. اتركه فارغًا لاستخدام رقم المؤسسة.',
+        tag: 'SET-256',
       },
-      { name: 'callback_eta_days', label: 'نتصل خلال (أيام عمل)', type: 'number', integer: true, required: true, min: 1, max: 5 },
+      { name: 'callback_eta_days', label: 'نتصل خلال (أيام عمل)', type: 'number', integer: true, required: true, min: 1, max: 5, tag: 'SET-257' },
       // v11 segment-staff (ST-6، P1): تُفعَّل الأزرار فقط حين يكون الرقم الأساسي «الخدمتين معًا» (يُقرأ من التكاملات أدناه)
       {
         name: 'wa_segment_choice_enabled',
@@ -64,13 +75,15 @@ export function storySettingsCard(settings = {}) {
         text: CHOICE_TOGGLE_TEXT,
         disabled: true,
         hint: 'أول رسالة من رقم جديد بلا جملة حجز تصله برسالة فيها زرّان: «خيري — مجاني» و«أفراد وشركات». قبل التفعيل راجعوا جملة «كل رد يصلك يراجعه شخص مختص» في سياسة الخصوصية؛ الأزرار رسالة آلية ثابتة.',
+        tag: 'SET-258',
       },
-      { name: 'segment_returning_days', label: RETURNING_DAYS_LABEL, type: 'number', integer: true, required: true, min: 0, max: 3650, hint: 'من راسلنا خلال هذه المدة يبقى على نفس نوع الخدمة على الرقم المشترك.' },
+      { name: 'segment_returning_days', label: RETURNING_DAYS_LABEL, type: 'number', integer: true, required: true, min: 0, max: 3650, hint: 'من راسلنا خلال هذه المدة يبقى على نفس نوع الخدمة على الرقم المشترك.', tag: 'SET-259' },
     ],
     {
       values: {
         story_quiet_minutes: settings.story_quiet_minutes ?? 10,
         story_welcome_enabled: Boolean(settings.story_welcome_enabled),
+        wa_lines_menu_enabled: settings.wa_lines_menu_enabled === true, // v12 staff-lines
         story_ack_enabled: Boolean(settings.story_ack_enabled),
         callback_from_number: settings.callback_from_number || '',
         callback_eta_days: settings.callback_eta_days ?? 1,
@@ -85,6 +98,7 @@ export function storySettingsCard(settings = {}) {
         const saved = await api.patch('/admin/settings', {
           story_quiet_minutes: v.story_quiet_minutes,
           story_welcome_enabled: Boolean(v.story_welcome_enabled),
+          wa_lines_menu_enabled: Boolean(v.wa_lines_menu_enabled), // v12 staff-lines (SL-7)
           story_ack_enabled: Boolean(v.story_ack_enabled),
           callback_from_number: raw,
           callback_eta_days: v.callback_eta_days,
@@ -99,9 +113,12 @@ export function storySettingsCard(settings = {}) {
         }
         toast('تم الحفظ', 'success');
       },
+      submitTag: 'SET-260',
+      tag: 'SET-261',
     },
   );
   f.el.classList.add('pa-stset-form');
+  tagged('SET-16', f.control('wa_lines_menu_enabled').wrap); // v12 staff-lines (SL-7)
 
   // v11 segment-staff (ST-6): وضع الرقم الأساسي من التكاملات (لمدير النظام) — المفتاح معطّل بشرح حتى يكون «الخدمتين معًا»
   let choiceAllowed = false;
@@ -125,6 +142,8 @@ export function storySettingsCard(settings = {}) {
     icon: 'whatsapp',
     className: 'pa-stset',
     body: h('div', h('p.pa-note.small', icon('info', { size: 15 }), h('span', 'الرسائل الآلية هنا نصوص ثابتة لا يكتبها الذكاء الاصطناعي، ولا تصل إلا لمن بدأت المحادثة على واتساب.')), f.el),
+    titleTag: 'SET-59',
+    tag: 'SET-60',
   });
   el.id = 'stories';
 

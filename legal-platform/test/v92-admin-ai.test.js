@@ -134,7 +134,9 @@ async function readyStory(t, text = PEN_STORY, phone = newPhone()) {
 }
 /** طلب من الموقع (عميلة جديدة: رقم غير مؤكد) */
 async function webIntake(t, { phone = newPhone(), name = 'سعاد محمود', description = DESC } = {}) {
-  const r = ok(await t.client().post('/api/public/intake', { name, phone, description, consent: true }), 201, 'public intake');
+  // v12 staff-lines: intended (L12-09): a «خيري» website story as in 11.0 (its default); with «خيري» archived a POST without
+  // segment is «أفراد وشركات», so the helper names the side explicitly (the charity web form sends segment: 'charity')
+  const r = ok(await t.client().post('/api/public/intake', { name, phone, description, consent: true, segment: 'charity' }), 201, 'public intake');
   const i = t.app.db.get('SELECT * FROM intakes WHERE code = ?', r.reference);
   t.app.ai.cancelTimers(i.id);
   return { ...r, id: i.id, phone };
@@ -1734,6 +1736,7 @@ describe('v9.2 stories — staff UI (static checks)', () => {
     assert.doesNotMatch(sec, /rgba?\(\s*\d/, 'tokens only — no literal rgb()');
   });
 
+  // v12 gate (K-S6, intended): the request page copy lost its «—» cadence (same meaning, «.» or «،» instead)
   test('T26 staff copy (§6.4) is wired: inbox cards, proposal, sheet, call note, transcript, split, settings, simulator', () => {
     const has = (f, list) => {
       const src = read(f);
@@ -1741,19 +1744,20 @@ describe('v9.2 stories — staff UI (static checks)', () => {
     };
     has('public/assets/js/app/pages/admin/inbox.js', [
       "'aria-label': 'طريقة العرض'", "'بطاقات'", "'قائمة'", "'aria-label': 'حالة القصة'", "VIEW_KEY = 'bm.inbox.view'", "q.sort = 'triage'",
-      'طلبت مكالمة', 'جاهزة للقرار', 'القصة لسه بتتكتب', 'وصل جديد بعد الملخص', 'بانتظار ردها', 'رسائل صوتية لم تُكتب',
+      // v12 gate (V-08/JR-06, intended): مرشحا «طلب مكالمة» و«بانتظار الرد» بلا فعل مؤنث؛ «اسألها» بضمير من نكلّمه (rowTrack)
+      'طلب مكالمة', 'جاهزة للقرار', 'القصة لسه بتتكتب', 'وصل جديد بعد الملخص', 'بانتظار الرد', 'رسائل صوتية لم تُكتب',
       'لا توجد قصص جاهزة للقرار الآن.', 'لا توجد قصص تُكتب الآن.', 'لا توجد طلبات مكالمة الآن.',
-      'لم تحكِ مشكلتها بعد — الوقت المناسب: ', 'تُلخَّص تلقائيًا بعد', 'اتلخّصت ', 'سألناها ', 'فيها رسالة صوتية لم تُكتب', 'تعذّر تنزيل رسالة صوتية',
+      'لم تحكِ مشكلتها بعد. الوقت المناسب: ', 'تُلخَّص تلقائيًا بعد', 'اتلخّصت ', 'سألناها ', 'فيها رسالة صوتية لم تُكتب', 'تعذّر تنزيل رسالة صوتية',
       'المقترح: ', ' لم تُكتب', 'الموضوع: ', 'رقم غير مؤكد', 'محاولات الاتصال: ', 'ملخص مبدئي', "'اقتراح'",
-      "'سجّل المكالمة'", "'لم ترد'", "'اسمع الرسالة الصوتية'", "'لخّصها الآن'", "'حلّل الآن'", "'اتصل بها'", "label('story_track_action', track)", "'فتح الطلب'",
+      "'سجّل المكالمة'", "'لم ترد'", "'اسمع الرسالة الصوتية'", "'لخّصها الآن'", "'حلّل الآن'", "'اتصل بها'", "rowTrack(it, 'story_track_action', track)", "'فتح الطلب'",
       // القائمة القديمة باقية
       'لم يُحدَّد موضوع الطلب بعد', 'عرض المزيد', 'تسجيل طلب يدوي',
     ]);
     has('public/assets/js/app/pages/admin/intake-detail.js', [
-      "'تحويل القصة إلى طلب'", "'اقتراح الذكاء الاصطناعي — القرار لك'", "'المقترح: '", "'ليه؟ '", '`اعمله طلب: ${', "'إرسال لصفحتها فقط'", "'اختيار مسار آخر'",
+      "'تحويل القصة إلى طلب'", "'اقتراح الذكاء الاصطناعي، والقرار لك'", "'المقترح: '", "'ليه؟ '", '`اعمله طلب: ${', "'إرسال لصفحتها فقط'", "'اختيار مسار آخر'",
       "'حدّث الملخص الآن'", "'قرار يدوي'", "title: 'طلبت مكالمة'", ' واسمع مشكلتها، ثم سجّل ما قالته هنا ليُلخَّص الطلب.', "'إغلاق: تعذّر الوصول إليها'",
       'يُغلق الطلب بعد 3 محاولات في يومين مختلفين على الأقل.', 'أضافت بعد الإرسال: ', "'اختارت من القائمة'", "'اختارت الموضوع من الموقع'", "'أنهت حكايتها'",
-      "'مكالمة — كتبتها الإدارة'", '`القائمة: ${', "'كل الرسائل الصوتية مكتوبة — سيُحدَّث الملخص خلال دقيقة'", "'حدّث الآن'", "'كل الرسائل الصوتية مكتوبة — حُدِّث الملخص'",
+      "'مكالمة كتبتها الإدارة'", '`القائمة: ${', "'كل الرسائل الصوتية مكتوبة. سيُحدَّث الملخص خلال دقيقة.'", "'حدّث الآن'", "'كل الرسائل الصوتية مكتوبة، وحُدِّث الملخص'",
       "['voice', 'call', 'chat'].includes(ctx.query.focus)",
     ]);
     has('public/assets/js/app/components/story-sheet.js', [

@@ -11,7 +11,7 @@ import { quickReplyPicker, insertAtCursor } from './quick-replies.js';
 import { openCallNote, isSkeletonReply } from './call-note.js';
 import { haptic } from '../../lib/haptics.js';
 // v11 segment-staff (ST-3): نوع الخدمة في ورقة القرار — رأس الإرسال، واختيار إلزامي بلا افتراضي حين يكون «غير محدد»
-import { sendHeader, segmentChoice, parseSeg, segLabel, clientNoun, pronounOf, REQUIRED_TEXT } from './segment-ui.js';
+import { sendHeader, segmentChoice, parseSeg, segLabel, clientNoun, pronounOf, trackWord, REQUIRED_TEXT } from './segment-ui.js';
 
 export const STORY_TRACKS = ['consultation', 'matter', 'internal', 'refer', 'need_info'];
 /** ألوان شارة المسار المقترح في البطاقات والاقتراح */
@@ -40,11 +40,21 @@ function replyChannelsFor(segment, company) {
  * v11 gate fix (J-13): مسمى المسار بضمير المخاطَب — «نسألها الأول» / «نسأله الأول» / «نسألهم الأول» (طلب عرض شركة).
  * بقية المسارات بلا ضمير فتبقى كما في LABELS.
  */
-export function trackLabel(t, form = 'f', { company = false } = {}) {
-  if (t === 'need_info' && (company || form === 'm')) return `نسأل${pronounOf(form, { company })} الأول`;
-  return label('story_track', t);
+export function trackLabel(t, form = 'f', { company = false, paid = false } = {}) {
+  // v12 gate (JR-06): طلب أفراد وشركات بلا صيغة معروفة: «نسأل أولًا» (كان «نسألها الأول» لكل طلب) — segment-ui.trackWord
+  return trackWord('story_track', t, { form, company, paid });
 }
+// v12 gate (TA-05): رمز لكل مسار في «اعمله طلب» (كانت الخمسة تحت رمز الحقل STY-03 وحده)
+const TRACK_OPTION_TAGS = {
+  consultation: { tag: 'STY-56' },
+  matter: { tag: 'STY-57' },
+  internal: { tag: 'STY-58' },
+  refer: { tag: 'STY-59' },
+  need_info: { tag: 'STY-60' },
+};
 const PHONE_DELIVERY = 'بلّغتها في مكالمة — أغلق بدون رسالة';
+// v12 gate (JR-06): نفس الزر بلا ضمير مؤنث لطلب أفراد وشركات أو شركة
+const PHONE_DELIVERY_NEUTRAL = 'أبلغناه في مكالمة، أغلق بدون رسالة';
 
 /** رسالة تأكيد النجاح بعد القرار (§6.4/A92-19) + « (إرسال تجريبي)» عند المحاكاة */
 export function acceptToast(res, { form = 'f', company = false } = {}) {
@@ -192,7 +202,7 @@ export async function openStorySheet(opts = {}) {
 
   const segBlock = segRequired
     ? h('div.pa-sheet-seg', segPicker)
-    : h('details.pa-sheet-seg', h('summary', 'تغيير نوع الخدمة عند اعتماد القرار'), segPicker);
+    : h('details.pa-sheet-seg', { tag: 'STY-01' }, h('summary', { tag: 'STY-02' }, 'تغيير نوع الخدمة عند اعتماد القرار'), segPicker);
 
   // ───────────── أجزاء الورقة ─────────────
   const alertHost = h('div.pa-sheet-alert', { 'aria-live': 'assertive' });
@@ -211,9 +221,10 @@ export async function openStorySheet(opts = {}) {
     value: track,
     options: STORY_TRACKS.map((t) => ({
       value: t,
-      label: trackLabel(t, addrForm, { company: isCompanyLead }),
+      label: trackLabel(t, addrForm, { company: isCompanyLead, paid: !isCharityNoun() }),
       icon: t === recommended ? 'sparkle' : null,
       hint: t === recommended ? 'مقترح' : null,
+      tag: TRACK_OPTION_TAGS[t]?.tag,
     })),
     onChange: (v) => {
       if (!v) return;
@@ -226,6 +237,7 @@ export async function openStorySheet(opts = {}) {
       syncFooter();
     },
     className: 'pa-sheet-tracks',
+    tag: 'STY-03',
   });
 
   const warnings = p.warnings || [];
@@ -238,9 +250,21 @@ export async function openStorySheet(opts = {}) {
     p.actions && p.actions.primary === 'call'
       ? h(
           'div.pa-sheet-call',
-          h('p', icon('phone', { size: 15 }), ' ', unconfirmed ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.' : 'كل رسائلها صوتية، والأفضل أن تكلّمها.'),
+          h(
+            'p',
+            icon('phone', { size: 15 }),
+            ' ',
+            // v12 gate (JR-06): طلب أفراد وشركات بلا صيغة معروفة: جملة محايدة
+            !isCharityNoun() && addrForm !== 'm'
+              ? unconfirmed
+                ? 'الرقم غير مؤكد ورسالة صفحة المتابعة غالبًا لن تُقرأ: الأفضل مكالمة.'
+                : 'كل الرسائل صوتية، والأفضل مكالمة.'
+              : unconfirmed
+                ? 'رقمها غير مؤكد ورسالة صفحتها غالبًا لن تُقرأ: الأفضل أن تكلّمها.'
+                : 'كل رسائلها صوتية، والأفضل أن تكلّمها.',
+          ),
           asyncButton(
-            addrForm === 'm' ? 'اتصل به' : 'اتصل بها',
+            addrForm === 'm' ? 'اتصل به' : isCharityNoun() ? 'اتصل بها' : 'اتصل',
             async () => {
               const r = await openCallNote({
                 intake: { id: intakeId, code: p.code, phone: herPhone, unconfirmed, callIntro: p.actions.call_intro, form: addrForm },
@@ -250,13 +274,13 @@ export async function openStorySheet(opts = {}) {
               finished = { called: r };
               handle.close('action');
             },
-            { variant: 'primary', size: 'sm', icon: 'phone', className: 'pa-sheet-call-btn' },
+            { variant: 'primary', size: 'sm', icon: 'phone', className: 'pa-sheet-call-btn', tag: 'STY-04' },
           ),
         )
       : null;
 
   // ───────────── نماذج المسارات ─────────────
-  const areaField = (required) => ({ name: 'legal_area', label: 'المجال القانوني', type: 'select', required, options: areaOptions() });
+  const areaField = (required) => ({ name: 'legal_area', label: 'المجال القانوني', type: 'select', required, options: areaOptions(), tag: 'STY-51' });
   const channelField = () => ({
     name: 'channel',
     label: 'قناة الرد',
@@ -264,12 +288,13 @@ export async function openStorySheet(opts = {}) {
     placeholder: false,
     options: replyChannelsNow(),
     hint: channelHint || null,
+    tag: 'STY-52',
   });
 
   function issuesEditor(initial) {
     const items = (initial || []).map((x) => ({ ...x, checked: true }));
     const list = h('ol.pa-issues-list');
-    const input = h('input.input', { type: 'text', maxlength: 300, placeholder: 'اكتب مسألة قانونية أخرى…', 'aria-label': 'مسألة جديدة' });
+    const input = h('input.input', { type: 'text', maxlength: 300, placeholder: 'اكتب مسألة قانونية أخرى…', 'aria-label': 'مسألة جديدة', tag: 'STY-05' });
     const note = h('p.field-error', { hidden: true, role: 'alert' });
     function draw() {
       if (!items.length) {
@@ -285,6 +310,7 @@ export async function openStorySheet(opts = {}) {
             onChange: () => {
               x.checked = cb.checked;
             },
+            tag: 'STY-06',
           });
           return h(
             'li.pa-issue',
@@ -305,6 +331,7 @@ export async function openStorySheet(opts = {}) {
                         draw();
                         input.focus();
                       },
+                      tag: 'STY-07',
                     }),
                   ],
             ),
@@ -344,7 +371,7 @@ export async function openStorySheet(opts = {}) {
         h('legend', 'المسائل القانونية محل الدراسة'),
         h('p.field-hint', 'المسائل المقترحة محددة مسبقًا؛ ألغِ ما لا يلزم أو أضف غيرها.'),
         list,
-        h('div.pa-issue-add', input, button('إضافة مسألة', { icon: 'plus', onClick: add })),
+        h('div.pa-issue-add', input, button('إضافة مسألة', { icon: 'plus', onClick: add, tag: 'STY-08' })),
         note,
       ),
       get: () => items.filter((x) => x.checked).map((x) => ({ title: x.title, details: x.details || null, legal_area: x.legal_area || null, origin: x.origin === 'ai' ? 'ai' : 'staff' })),
@@ -354,13 +381,13 @@ export async function openStorySheet(opts = {}) {
   function replyBlock(reply, { checkbox, sourceLine: sourceLine0, withPicker } = {}) {
     let sourceLine = sourceLine0;
     const id = uid('sheet-reply');
-    const ta = h('textarea.input.pa-sheet-reply', { id, rows: 6, maxlength: 4000, dir: 'auto' });
+    const ta = h('textarea.input.pa-sheet-reply', { id, rows: 6, maxlength: 4000, dir: 'auto', tag: 'STY-09' });
     ta.value = (reply && reply.text) || '';
     // مسودة فيها التحية والتوقيع فقط: تُكتب الرسالة بينهما قبل الإرسال
     const skeleton = isSkeletonReply(ta.value);
     if (skeleton && !sourceLine) sourceLine = 'لا توجد مسودة رد: اكتب الرد بين التحية والتوقيع، أو اختر ردًا جاهزًا.';
-    const send = h('input', { type: 'checkbox', checked: !reply || reply.send !== false });
-    const wrap = field(checkbox.textLabel, ta, { hint: sourceLine || null, full: true });
+    const send = h('input', { type: 'checkbox', checked: !reply || reply.send !== false, tag: 'STY-10' });
+    const wrap = field(checkbox.textLabel, ta, { hint: sourceLine || null, full: true, tag: 'STY-11' });
     const sync = () => {
       ta.disabled = !send.checked;
       wrap.classList.toggle('is-off', !send.checked);
@@ -406,10 +433,10 @@ export async function openStorySheet(opts = {}) {
     const main = form(
       [
         areaField(true),
-        { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200 },
-        { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority') },
-        !matter && { name: 'case_manager_id', label: 'مدير الحالة', type: 'select', options: staffOpts },
-        !matter && { name: 'due_at', label: `الموعد المستهدف للرد على ${nounNow().def}`, type: 'date', endOfDay: true, min: cairoToday() },
+        { name: 'title', label: 'عنوان الملف', required: true, maxLength: 200, tag: 'STY-26' },
+        { name: 'priority', label: 'الأولوية', type: 'select', placeholder: false, options: options('priority'), tag: 'STY-27' },
+        !matter && { name: 'case_manager_id', label: 'مدير الحالة', type: 'select', options: staffOpts, tag: 'STY-28' },
+        !matter && { name: 'due_at', label: `الموعد المستهدف للرد على ${nounNow().def}`, type: 'date', endOfDay: true, min: cairoToday(), tag: 'STY-29' },
         {
           name: 'facts_shared',
           label: 'ملخص الوقائع للمحامين',
@@ -417,6 +444,7 @@ export async function openStorySheet(opts = {}) {
           rows: 5,
           maxLength: 20000,
           hint: 'هذا ما يمكن إتاحته للمحامين لاحقًا — راجعه وتأكد أنه بلا أرقام هواتف أو عناوين.',
+          tag: 'STY-30',
         },
         !matter && {
           name: 'brief_draft',
@@ -425,8 +453,9 @@ export async function openStorySheet(opts = {}) {
           rows: 3,
           maxLength: 5000,
           hint: 'يظهر تلقائيًا عند إسناد المحامي الأساسي، ويمكن تعديله وقتها.',
+          tag: 'STY-31',
         },
-        !matter && { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000 },
+        !matter && { name: 'facts_internal', label: 'ملاحظات داخلية (لا تظهر للمحامين)', type: 'textarea', rows: 3, maxLength: 20000, tag: 'STY-32' },
       ],
       {
         footer: false,
@@ -439,6 +468,7 @@ export async function openStorySheet(opts = {}) {
           brief_draft: c.brief_draft || '',
           facts_internal: c.facts_internal || '',
         },
+        tag: 'STY-33',
       },
     );
     const issues = issuesEditor(c.issues);
@@ -448,15 +478,15 @@ export async function openStorySheet(opts = {}) {
       const md = dc.matter || {};
       matterForm = form(
         [
-          { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind') },
-          { name: 'court', label: 'المحكمة', maxLength: 200 },
-          { name: 'opponent', label: 'الخصم', maxLength: 200, hint: 'يُفحص تعارض المصالح تلقائيًا' },
-          { name: 'lawsuit_number', label: 'رقم الدعوى', ltr: true, maxLength: 40 },
-          { name: 'lawsuit_year', label: 'السنة', type: 'number', integer: true, min: 1950, max: 2100 },
-          { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: [], hint: 'اختياري — يمكن اختياره لاحقًا من صفحة الملف المستمر' },
-          { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 5000 },
+          { name: 'kind', label: 'نوع الملف', type: 'select', required: true, placeholder: false, options: options('matter_kind'), tag: 'STY-34' },
+          { name: 'court', label: 'المحكمة', maxLength: 200, tag: 'STY-35' },
+          { name: 'opponent', label: 'الخصم', maxLength: 200, hint: 'يُفحص تعارض المصالح تلقائيًا', tag: 'STY-36' },
+          { name: 'lawsuit_number', label: 'رقم الدعوى', ltr: true, maxLength: 40, tag: 'STY-37' },
+          { name: 'lawsuit_year', label: 'السنة', type: 'number', integer: true, min: 1950, max: 2100, tag: 'STY-38' },
+          { name: 'responsible_lawyer_id', label: 'المحامي المسؤول', type: 'select', options: [], hint: 'اختياري — يمكن اختياره لاحقًا من صفحة الملف المستمر', tag: 'STY-39' },
+          { name: 'notes', label: 'ملاحظات وتكليف المحامي', type: 'textarea', rows: 4, maxLength: 5000, tag: 'STY-40' },
         ],
-        { footer: false, values: { kind: md.kind || 'litigation', court: md.court || '', opponent: md.opponent || '', lawsuit_number: md.lawsuit_number || '', lawsuit_year: md.lawsuit_year || null, notes: md.notes || '' } },
+        { footer: false, values: { kind: md.kind || 'litigation', court: md.court || '', opponent: md.opponent || '', lawsuit_number: md.lawsuit_number || '', lawsuit_year: md.lawsuit_year || null, notes: md.notes || '' }, tag: 'STY-41' },
       );
       lawyerSel = matterForm.control('responsible_lawyer_id');
       api
@@ -478,11 +508,11 @@ export async function openStorySheet(opts = {}) {
       if (cl && !unconfirmed) {
         clientForm = form(
           [
-            { name: 'name', label: `اسم ${nounNow().def}`, maxLength: 150 },
-            { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري' },
-            { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions() },
+            { name: 'name', label: `اسم ${nounNow().def}`, maxLength: 150, tag: 'STY-42' },
+            { name: 'national_id', label: 'الرقم القومي', ltr: true, maxLength: 14, hint: '14 رقمًا — اختياري', tag: 'STY-43' },
+            { name: 'governorate', label: 'المحافظة', type: 'select', options: governorateOptions(), tag: 'STY-44' },
           ],
-          { footer: false, columns: 2, values: { name: cl.name || '', national_id: cl.national_id || '', governorate: cl.governorate || null } },
+          { footer: false, columns: 2, values: { name: cl.name || '', national_id: cl.national_id || '', governorate: cl.governorate || null }, tag: 'STY-45' },
         );
       }
       // v11 gate fix: عمل الأفراد والشركات مدفوع دائمًا ولا يُربط ببرنامج تمويل (L11-24) — لا حقل برنامج له
@@ -503,7 +533,7 @@ export async function openStorySheet(opts = {}) {
       !matter &&
         h(
           'details.pa-details.pa-sheet-more',
-          h('summary', isCharityNoun() ? 'بيانات المستفيدة والتمويل' : `بيانات ${nounNow().def}`),
+          { tag: 'STY-12' }, h('summary', { tag: 'STY-13' }, isCharityNoun() ? 'بيانات المستفيدة والتمويل' : `بيانات ${nounNow().def}`),
           clientForm ? clientForm.el : h('p.small.muted', unconfirmed ? 'رقمها غير مؤكد: لا تُعدَّل بيانات صاحبة الرقم المسجلة من هنا.' : isCharityNoun() ? 'لا توجد بيانات مستفيدة مرتبطة.' : `لا توجد بيانات ${nounNow().def} مرتبطة.`),
           program && program.el,
         ),
@@ -577,14 +607,14 @@ export async function openStorySheet(opts = {}) {
     const fields =
       kind === 'refer'
         ? [
-            { name: 'referral_target', label: 'الجهة', required: true, maxLength: 200 },
+            { name: 'referral_target', label: 'الجهة', required: true, maxLength: 200, tag: 'STY-48' },
             areaField(false),
-            { name: 'resolution_note', label: 'ملخص ما تم (داخلي)', type: 'textarea', rows: 2, maxLength: 3000 },
+            { name: 'resolution_note', label: 'ملخص ما تم (داخلي)', type: 'textarea', rows: 2, maxLength: 3000, tag: 'STY-49' },
             channelField(),
           ]
         : [
             areaField(false),
-            { name: 'resolution_note', label: 'ملخص ما تم (داخلي)', type: 'textarea', required: true, rows: 2, maxLength: 3000, hint: 'يُحفظ داخليًا فقط.' },
+            { name: 'resolution_note', label: 'ملخص ما تم (داخلي)', type: 'textarea', required: true, rows: 2, maxLength: 3000, hint: 'يُحفظ داخليًا فقط.', tag: 'STY-50' },
             channelField(),
           ];
     const f = form(fields, {
@@ -595,6 +625,7 @@ export async function openStorySheet(opts = {}) {
         resolution_note: dr.resolution_note || '',
         channel: opts.channel || 'auto',
       },
+      tag: 'STY-46',
     });
     if (kind === 'refer') {
       // اقتراحات الجهات (دليل التوجيه في الإعدادات + مسودة الاقتراح)
@@ -654,9 +685,9 @@ export async function openStorySheet(opts = {}) {
     const parts = splitQuestions(initialText, (dr.questions || []).slice(0, 3));
     let edited = false;
     const list = h('ol.pa-sheet-questions');
-    const addBtn = button('إضافة سؤال', { size: 'sm', icon: 'plus', onClick: () => addQ() });
+    const addBtn = button('إضافة سؤال', { size: 'sm', icon: 'plus', onClick: () => addQ(), tag: 'STY-14' });
     const msgId = uid('sheet-msg');
-    const msg = h('textarea.input.pa-sheet-reply', { id: msgId, rows: 7, maxlength: 4000, dir: 'auto' });
+    const msg = h('textarea.input.pa-sheet-reply', { id: msgId, rows: 7, maxlength: 4000, dir: 'auto', tag: 'STY-15' });
     const resetLink = button('رجّعها للنص التلقائي', {
       variant: 'link',
       size: 'sm',
@@ -665,14 +696,15 @@ export async function openStorySheet(opts = {}) {
         rebuild();
         resetLink.hidden = true;
       },
+      tag: 'STY-16',
     });
     resetLink.hidden = true;
-    const msgWrap = field('الرسالة كما ستصلها', msg, { full: true, hint: channelHint || null });
+    const msgWrap = field('الرسالة كما ستصلها', msg, { full: true, hint: channelHint || null, tag: 'STY-17' });
     msg.addEventListener('input', () => {
       edited = true;
       resetLink.hidden = false;
     });
-    const f = form([channelField()], { footer: false, values: { channel: opts.channel || 'auto' } });
+    const f = form([channelField()], { footer: false, values: { channel: opts.channel || 'auto' }, tag: 'STY-47' });
     const err = h('p.field-error', { role: 'alert', hidden: true });
 
     function numbered() {
@@ -696,7 +728,7 @@ export async function openStorySheet(opts = {}) {
       mount(
         list,
         qs.map((q, i) => {
-          const input = h('input.input', { type: 'text', maxlength: 300, value: q.text, dir: 'auto', 'aria-label': `السؤال ${i + 1}` });
+          const input = h('input.input', { type: 'text', maxlength: 300, value: q.text, dir: 'auto', 'aria-label': `السؤال ${i + 1}`, tag: 'STY-18' });
           input.addEventListener('input', () => {
             q.text = input.value;
             rebuild();
@@ -715,6 +747,7 @@ export async function openStorySheet(opts = {}) {
                   draw();
                   rebuild();
                 },
+                tag: 'STY-19',
               }),
           );
         }),
@@ -725,7 +758,7 @@ export async function openStorySheet(opts = {}) {
     msg.value = initialText;
     return {
       el: frag(
-        h('p.pa-sheet-info', icon('info', { size: 15 }), h('span', 'سيصبح الطلب "بانتظار المستفيد/ة"، وعندما ترد يُعاد التلخيص تلقائيًا.')),
+        h('p.pa-sheet-info', icon('info', { size: 15 }), h('span', `سيصبح الطلب «${label('intake_status', 'awaiting_client')}»، وعند الرد يُعاد التلخيص تلقائيًا.`)),
         h('fieldset.pa-fieldset', h('legend', 'الأسئلة (من 1 إلى 3)'), list, addBtn, err),
         msgWrap,
         resetLink,
@@ -800,7 +833,7 @@ export async function openStorySheet(opts = {}) {
               footerBusy(false);
             }
           },
-          { variant: 'primary', size: 'sm', className: 'pa-sheet-force' },
+          { variant: 'primary', size: 'sm', className: 'pa-sheet-force', tag: 'STY-20' },
         );
         mount(
           alertHost,
@@ -818,12 +851,13 @@ export async function openStorySheet(opts = {}) {
                       finished = { review: true };
                       handle.close('action');
                     },
+                    tag: 'STY-21',
                   }),
                 forceBtn,
               ),
             ),
             'warning',
-            { title: changed ? 'القصة تغيّرت' : 'الطلب بانتظار ردها' },
+            { title: changed ? 'القصة تغيّرت' : 'الطلب بانتظار ردها', tag: 'STY-22' },
           ),
         );
         alertHost.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -832,12 +866,12 @@ export async function openStorySheet(opts = {}) {
       }
       if (err && err.status === 409) {
         if (err.code === 'segment_required') segPicker.setError(REQUIRED_TEXT);
-        mount(alertHost, alertBox(errorMessage(err), 'danger'));
+        mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'STY-23' }));
         return false;
       }
       if (err && (err.status === 400 || err.status === 422)) {
         cur.showError(err);
-        mount(alertHost, alertBox(errorMessage(err), 'danger'));
+        mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'STY-24' }));
         return false;
       }
       throw err;
@@ -869,8 +903,8 @@ export async function openStorySheet(opts = {}) {
   const subtitle = [p.code, opts.name].filter(Boolean).join(' — ');
   // (modal يعيد تفعيل الأزرار حسب disabled في هذه المصفوفة بعد كل ضغطة — فيبقى الإرسال معطلًا حتى يُختار النوع)
   const sheetActions = [
-    { label: 'إلغاء', variant: 'ghost' },
-    { label: PHONE_DELIVERY, variant: 'link', icon: 'phone', onClick: () => deliverByPhone(), disabled: !segPick },
+    { label: 'إلغاء', variant: 'ghost', tag: 'STY-53' },
+    { label: isCharityNoun() && addrForm !== 'm' ? PHONE_DELIVERY : PHONE_DELIVERY_NEUTRAL, variant: 'link', icon: 'phone', onClick: () => deliverByPhone(), disabled: !segPick, tag: 'STY-54' },
     {
       label: SUBMIT_LABELS[track],
       variant: 'primary',
@@ -885,6 +919,7 @@ export async function openStorySheet(opts = {}) {
         if (!current().validate()) return false;
         return (await submit()) ? undefined : false;
       },
+      tag: 'STY-55',
     },
   ];
   handle = modal({
@@ -923,6 +958,7 @@ export async function openStorySheet(opts = {}) {
       if (opts.onDone) opts.onDone(finished);
       else if (finished.next) window.location.hash = finished.next;
     },
+    tag: 'STY-25',
   });
   const [cancelBtn, phoneBtn, submitBtn] = handle.buttons;
   phoneBtn.classList.add('pa-sheet-phone');

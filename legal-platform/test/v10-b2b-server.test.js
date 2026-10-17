@@ -692,7 +692,10 @@ describe('v10 companies, entities, users, plans and subscriptions (SRV-4, L-60, 
     t.app.db.run('UPDATE users SET active = 1 WHERE id = ?', mgr);
     ok(await admin.patch(`/api/admin/companies/${nfd}`, { account_manager_id: mgr }));
     // الجهة المتعاقدة: الكيان القانوني للمكتب (L-62)
-    assert.equal(ok(await mariam.get('/api/company/plan')).contracting_entity.legal_name, t.app.settings.get('org_legal_name'));
+    // v12 gate fixer-server: intended (V-01, L12-85) — the firm's legal name (firm_legal_name, else the brand), never the
+    // charity foundation's org_legal_name; asserted in full in test/v12-gate-server.test.js
+    assert.equal(ok(await mariam.get('/api/company/plan')).contracting_entity.legal_name, String(t.app.settings.get('firm_legal_name') || '').trim() || t.app.brand.displayName());
+    assert.notEqual(ok(await mariam.get('/api/company/plan')).contracting_entity.legal_name, t.app.settings.get('org_legal_name'));
   });
 
   test('plans and subscriptions: admin-only writes, one active subscription, change = end + start, next period computed', async () => {

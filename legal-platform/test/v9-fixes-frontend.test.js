@@ -102,6 +102,9 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
     assert.ok(!visibleStrings(pl).some((s) => /عميل|عملاء/.test(s.text)));
     const t = await startTestApp({ seed: 'none' });
     try {
+      // v12 entry: intended (E12-13, E12 §12.2): archived, /portal is on the paid side (« | » title); the charity words are checked restored
+      assert.match((await t.client().get('/portal')).body, /<title>متابعة طلبكم \| Emam Legal and Consultancy<\/title>/);
+      t.app.settings.set('charity_public', true);
       const html = (await t.client().get('/portal')).body;
       assert.match(html, /<title>متابعة طلبك — Emam Legal and Consultancy<\/title>/); // v11 gate-public (intended): same title, rendered
       assert.match(html, /<h1 id="page-title"[^>]*>تابعي طلبك<\/h1>/); // v11 gate-public (intended): same h1, rendered
@@ -109,7 +112,7 @@ describe('v9 frontend fixes — follow-up copy matches what /portal can do', () 
       assert.match(html, /<span>تابعي طلبك<\/span>/, 'site nav label');
       assert.match(html, /<a href="\/portal">تابعي طلبك<\/a>/, 'footer label');
       assert.ok(!html.includes('بوابة العملاء'));
-      const home = (await t.client().get('/')).body;
+      const home = (await t.client().get('/khayri')).body; // v12 entry: intended (E12 §12.2): the charity home
       assert.match(home, /ضيّعت رابط طلبي، أعمل إيه؟/);
     } finally {
       await t.close();
@@ -163,8 +166,9 @@ describe('v9 frontend fixes — terminology', () => {
   });
 
   test('route titles are the sidebar labels (one name per page): «المستفيدون», «ملف المستفيد/ة», «إسناداتي»', () => {
-    assert.equal(routeTitle('/clients'), 'المستفيدون');
-    assert.equal(routeTitle('/clients/:id'), 'ملف المستفيد/ة');
+    // v12 gate (V-08, intended): «أصحاب الطلبات» / «ملف صاحب الطلب» — يشمل الأفراد والشركات والخيري، بلا «/ة» ولا «العملاء»
+    assert.equal(routeTitle('/clients'), 'أصحاب الطلبات');
+    assert.equal(routeTitle('/clients/:id'), 'ملف صاحب الطلب');
     // v9.1 l-home (L-01): /my أصبحت «اليوم»، وقائمة الإسنادات انتقلت إلى /my/assignments «إسناداتي»
     assert.equal(routeTitle('/my'), 'اليوم');
     assert.equal(routeTitle('/my/assignments'), 'إسناداتي');
@@ -275,7 +279,8 @@ describe('v9 frontend fixes — layout', () => {
 
   test('minor polish: avatar outside <h1>, one CTA on an empty beneficiary card, wrapping chip, no retry on 403/404', () => {
     assert.match(read('public/assets/js/app/pages/admin/lawyer-detail.js'), /titleMedia: avatar\(l\.display_name/);
-    assert.match(read('public/assets/js/lib/ui.js'), /titleMedia \? h\('div\.page-title-row', titleMedia, h\('h1\.page-title', title\)\)/);
+    // v12 tags: intended (TG-3، T12-16) — <h1> يأخذ titleTag، والصورة تبقى خارجه
+    assert.match(read('public/assets/js/lib/ui.js'), /titleMedia \? h\('div\.page-title-row', titleMedia, h\('h1\.page-title', \{ tag: titleTag \}, title\)\)/);
     const ben = read('public/assets/js/app/components/beneficiary.js');
     assert.match(ben, /editable && p && button\('تعديل'/);
     assert.match(ben, /className: 'badge-wrap'/);

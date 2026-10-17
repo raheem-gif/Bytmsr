@@ -298,7 +298,11 @@ describe('v9.1 fixes — message bubbles: no portal links, isolated codes and fi
     const portal = read('public/assets/js/public/portal.js');
     assert.match(portal, /h\('bdi\.bp-ref-inline', \{ dir: 'ltr' \}, part\)/);
     assert.match(portal, /h\('bdi\.bp-url-inline', \{ dir: 'ltr' \}, part\)/);
-    assert.match(portal, /h\('bdi\.bp-fname', \{ dir: 'ltr' \}, d\.filename\)/);
+    // v12 gate (V-10, intended): an Arabic file name is isolated RTL with its Latin extension isolated LTR after it
+    // («الميراث-1.jpg», not «1-الميراث.jpg»); a Latin name stays one LTR isolate as before
+    assert.match(portal, /return h\('bdi\.bp-fname', \{ dir: 'ltr' \}, s\);/);
+    assert.match(portal, /h\('bdi\.bp-fname', \{ dir: 'rtl' \}, m\[1\], h\('bdi\.bp-fname-ext', \{ dir: 'ltr' \}, m\[2\]\)\)/);
+    assert.equal((portal.match(/fileName\(d\.filename\)/g) || []).length, 2);
     assert.match(portal, /withoutPortalLinks\(m\.body\)/);
     assert.match(portal, /h\('audio', \{ controls: true, preload: 'metadata', src: docHref\(d\.id\)/);
     const css = read('public/assets/css/v91-portal.css');
@@ -310,7 +314,7 @@ describe('v9.1 fixes — message bubbles: no portal links, isolated codes and fi
     const i = portal.indexOf('function papersView()');
     const body = portal.slice(i, portal.indexOf('\n}\n', i));
     assert.ok(!body.includes("notFoundView('لسه مفيش ورق.')"));
-    assert.match(body, /backBar\('الورق'\),\s*h\('section\.bp-card', h\('p\.bp-empty', 'لسه مفيش ورق\.'\)/);
+    assert.match(body, /backBar\('الورق'\),\s*h\('section\.bp-card', (?:\{ tag: 'P-\d+' \}, )?h\('p\.bp-empty', 'لسه مفيش ورق\.'\)/); // v12 tags: intended (TG-6, T12-15)
   });
 });
 
@@ -446,7 +450,8 @@ describe('v9.1 fixes — staff and lawyer copy', () => {
     assert.ok(lawyer.includes('تذكير آلي قبل الموعد بثلاثة أيام ثم قبله بيوم'));
     assert.ok(lawyer.includes('تذكير آلي قبلها بثلاثة أيام ثم قبلها بيوم'));
     const admin = read('public/assets/js/app/pages/admin/matter-detail.js');
-    assert.ok(admin.includes('يُرسَل للمستفيد/ة بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم'));
+    // v12 gate (JR-06, intended): الطرف الآخر بنوع الملف (N.li = «للمستفيد/ة» للخيري، «لصاحب الطلب» للأفراد والشركات)
+    assert.ok(admin.includes('يُرسَل ${N.li} بشأنها تذكير آلي عبر واتساب قبل الموعد بثلاثة أيام ثم قبله بيوم'));
     assert.ok(!/يُرسَل له بشأنها/.test(admin));
     assert.equal(paramSentence('days_before', 3, 'hearing_reminder'), 'قبل الموعد بـ 3 أيام ثم قبله بيوم');
     assert.equal(paramSentence('days_before', 1, 'hearing_reminder'), 'قبل الموعد بيوم واحد');
@@ -457,7 +462,8 @@ describe('v9.1 fixes — staff and lawyer copy', () => {
     const src = read('public/assets/js/app/pages/admin/case-detail.js');
     assert.equal(/سيُضاف تلقائيًا رقم الملف|تلقائيًا رقم الملف/.test(src), false);
     // v11 gate (J-13): the noun follows the segment — «اسم ${N.def}» is «المستفيد/ة» on a charity case, «العميل/ة» on a paid one
-    assert.equal((src.match(/اسم \$\{N\.def\} ورقم طلبه\/ا ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
+    // v12 gate (V-08, intended): «رقم الطلب» بدل «رقم طلبه/ا» (بلا صيغ الشرطة)
+    assert.equal((src.match(/اسم \$\{N\.def\} ورقم الطلب ورابط صفحة المتابعة وطريقة الرد/g) || []).length, 2);
   });
 
   test('beneficiary-facing leftovers: privacy page and the demo message are plain', () => {

@@ -24,7 +24,7 @@ function finish(ctx, to = '/overview') {
 }
 
 const input = (v = '', { dir = 'auto', max = 200, type = 'text' } = {}) => {
-  const el = h('input.input', { type, dir, maxlength: max, autocomplete: 'off' });
+  const el = h('input.input', { type, dir, maxlength: max, autocomplete: 'off', tag: 'CW-01' });
   el.value = v || '';
   return el;
 };
@@ -34,8 +34,8 @@ function frame(step, title, ...children) {
     'div.co-page.co-welcome',
     h(
       'section.co-welcome-card',
-      step > 0 ? h('p.co-welcome-progress.num', copy('welcome.progress', { i: step })) : h('div.co-welcome-brand', wordmark({ size: 'lg', tone: 'light', descriptor: W.brand.tagline_ar })),
-      h('h1.co-h1', { tabindex: '-1' }, title),
+      { tag: 'CW-02' }, step > 0 ? h('p.co-welcome-progress.num', copy('welcome.progress', { i: step })) : h('div.co-welcome-brand', wordmark({ size: 'lg', tone: 'light', descriptor: W.brand.tagline_ar })),
+      h('h1.co-h1', { tabindex: '-1', tag: 'CW-03' }, title),
       ...children,
     ),
   );
@@ -54,12 +54,12 @@ async function stepCompany(ctx, go) {
   const tax = input(p.tax_id, { dir: 'ltr', max: 60 });
   const address = input(p.address, { max: 500 });
   const industry = input(p.industry, { max: 120 });
-  const size = h('select.input', h('option', { value: '' }, '—'), SIZES.map((s) => h('option', { value: s }, F.sizes[s])));
+  const size = h('select.input', { tag: 'CW-04' }, h('option', { value: '' }, '—'), SIZES.map((s) => h('option', { value: s }, F.sizes[s])));
   size.value = p.size_band || '';
   const all = [legal, cr, tax, address, industry, size];
   const initial = JSON.stringify(all.map((x) => x.value));
   const err = sheetError();
-  const primary = button(WL.correct, { variant: 'primary', size: 'lg' });
+  const primary = button(WL.correct, { variant: 'primary', size: 'lg', tag: 'CW-05' });
   const sync = () => {
     const edited = JSON.stringify(all.map((x) => x.value)) !== initial;
     primary.querySelector('.btn-label').textContent = edited ? WL.save_next : WL.correct;
@@ -85,8 +85,8 @@ async function stepCompany(ctx, go) {
     1,
     WL.s1,
     h('p.co-muted', WL.s1_hint),
-    h('div.co-welcome-form', field(F.legal_name, legal), field(F.cr, cr), field(F.tax, tax), field(F.address, address), field(F.industry, industry), field(F.size, h('div.select-wrap', size)), err),
-    h('div.co-welcome-actions', primary, button(WL.later, { variant: 'ghost', onClick: () => finish(ctx) })),
+    h('div.co-welcome-form', field(F.legal_name, legal, { tag: 'CW-06' }), field(F.cr, cr, { tag: 'CW-07' }), field(F.tax, tax, { tag: 'CW-08' }), field(F.address, address, { tag: 'CW-09' }), field(F.industry, industry, { tag: 'CW-10' }), field(F.size, h('div.select-wrap', size), { tag: 'CW-11' }), err),
+    h('div.co-welcome-actions', primary, button(WL.later, { variant: 'ghost', onClick: () => finish(ctx), tag: 'CW-12' })),
   );
 }
 
@@ -107,9 +107,10 @@ async function stepEntities(ctx, go) {
     addBox.hidden = res.max_entities != null && items.length >= res.max_entities;
   };
   const name = input('');
-  const nameWrap = field(W.memory.e_name, name, { required: true });
+  const nameWrap = field(W.memory.e_name, name, { required: true, tag: 'CW-13' });
+  // tags:skip control inside a tagged field()
   const form = h('select.input', Object.entries(L.legal_form || {}).map(([k, l]) => h('option', { value: k }, l)));
-  const rel = h('select.input', ['subsidiary', 'affiliate', 'branch'].map((k) => h('option', { value: k }, L.company_entity_relation?.[k] || k)));
+  const rel = h('select.input', { tag: 'CW-14' }, ['subsidiary', 'affiliate', 'branch'].map((k) => h('option', { value: k }, L.company_entity_relation?.[k] || k)));
   const cr = input('', { dir: 'ltr', max: 60 });
   const err = sheetError();
   const add = button(W.memory.add_entity, {
@@ -132,8 +133,9 @@ async function stepEntities(ctx, go) {
         setBusy(add, false);
       }
     },
+    tag: 'CW-15',
   });
-  const addBox = h('div.co-welcome-form.co-welcome-add', nameWrap, field(W.memory.e_form, h('div.select-wrap', form)), field(W.memory.e_relation, h('div.select-wrap', rel)), field(W.memory.e_cr, cr), err, h('div', add));
+  const addBox = h('div.co-welcome-form.co-welcome-add', nameWrap, field(W.memory.e_form, h('div.select-wrap', form), { tag: 'CW-16' }), field(W.memory.e_relation, h('div.select-wrap', rel), { tag: 'CW-17' }), field(W.memory.e_cr, cr, { tag: 'CW-18' }), err, h('div', add));
   render();
   return frame(
     2,
@@ -142,7 +144,7 @@ async function stepEntities(ctx, go) {
     list,
     counter,
     addBox,
-    h('div.co-welcome-actions', button(WL.next, { variant: 'primary', size: 'lg', onClick: () => go(3) }), button(WL.no_entities, { variant: 'ghost', onClick: () => go(3) })),
+    h('div.co-welcome-actions', button(WL.next, { variant: 'primary', size: 'lg', onClick: () => go(3), tag: 'CW-19' }), button(WL.no_entities, { variant: 'ghost', onClick: () => go(3), tag: 'CW-20' })),
   );
 }
 
@@ -151,14 +153,15 @@ function stepTeam(ctx, go) {
     const name = input('', { max: 120 });
     const email = input('', { dir: 'ltr', type: 'email' });
     email.placeholder = 'name@company.com';
+    // tags:skip control inside a tagged field()
     const role = h('select.input', ROLES.map((r) => h('option', { value: r }, roleLabel(r))));
     role.value = 'member';
-    return { name, email, role, el: h('fieldset.co-welcome-row', h('legend', copy('welcome.row', { i })), field(W.team.name, name), field(W.team.email, email), field(W.team.role, h('div.select-wrap', role))) };
+    return { name, email, role, el: h('fieldset.co-welcome-row', h('legend', copy('welcome.row', { i })), field(W.team.name, name, { tag: 'CW-21' }), field(W.team.email, email, { tag: 'CW-22' }), field(W.team.role, h('div.select-wrap', role), { tag: 'CW-23' })) };
   });
-  const help = h('details.co-details', h('summary', W.team.roles_help), h('ul.co-checks', ROLES.map((r) => h('li', h('strong', roleLabel(r)), ' — ', W.team[`role_${r}`]))));
+  const help = h('details.co-details', { tag: 'CW-24' }, h('summary', { tag: 'CW-25' }, W.team.roles_help), h('ul.co-checks', ROLES.map((r) => h('li', h('strong', roleLabel(r)), ': ', W.team[`role_${r}`]))));
   const err = sheetError();
   const links = h('div.co-welcome-links');
-  const send = button(WL.send_invites, { variant: 'primary', size: 'lg' });
+  const send = button(WL.send_invites, { variant: 'primary', size: 'lg', tag: 'CW-26' });
   send.addEventListener('click', async () => {
     showError(err, '');
     const todo = rows.filter((r) => r.name.value.trim() || r.email.value.trim());
@@ -179,14 +182,14 @@ function stepTeam(ctx, go) {
       mount(
         links,
         h('p', WL.copy_links),
-        h('ul.co-welcome-copy', copies.map(([n, url]) => h('li', h('span', { dir: 'auto' }, n), h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: url, 'aria-label': n }), button(W.team.copy_link, { variant: 'secondary', size: 'sm', icon: 'copy', onClick: async () => { try { await navigator.clipboard.writeText(url); toast(W.team.copied, 'success'); } catch { /* حدّدوا النص */ } } })))),
-        button(WL.next, { variant: 'primary', onClick: () => go(4) }),
+        h('ul.co-welcome-copy', copies.map(([n, url]) => h('li', h('span', { dir: 'auto' }, n), h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: url, 'aria-label': n, tag: 'CW-27' }), button(W.team.copy_link, { variant: 'secondary', size: 'sm', icon: 'copy', onClick: async () => { try { await navigator.clipboard.writeText(url); toast(W.team.copied, 'success'); } catch { /* حدّدوا النص */ } }, tag: 'CW-28' })))),
+        button(WL.next, { variant: 'primary', onClick: () => go(4), tag: 'CW-29' }),
       );
       return;
     }
     if (!err.textContent) go(4);
   });
-  return frame(3, WL.s3, h('p', WL.s3_text), h('div.co-welcome-form', rows.map((r) => r.el), help, err), links, h('div.co-welcome-actions', send, button(WL.later, { variant: 'ghost', onClick: () => finish(ctx) })));
+  return frame(3, WL.s3, h('p', WL.s3_text), h('div.co-welcome-form', rows.map((r) => r.el), help, err), links, h('div.co-welcome-actions', send, button(WL.later, { variant: 'ghost', onClick: () => finish(ctx), tag: 'CW-30' })));
 }
 
 function stepDone(ctx) {
@@ -198,9 +201,9 @@ function stepDone(ctx) {
     h('p', WL.done_text),
     h(
       'div.co-welcome-actions',
-      button(W.nav.new_request, { variant: 'accent', icon: 'plus', size: 'lg', href: '#/requests/new' }),
-      button(WL.add_contract, { variant: 'secondary', icon: 'plus', href: '#/memory/new/contracts' }),
-      button(WL.to_overview, { variant: 'ghost', href: '#/overview' }),
+      button(W.nav.new_request, { variant: 'accent', icon: 'plus', size: 'lg', href: '#/requests/new', tag: 'CW-31' }),
+      button(WL.add_contract, { variant: 'secondary', icon: 'plus', href: '#/memory/new/contracts', tag: 'CW-32' }),
+      button(WL.to_overview, { variant: 'ghost', href: '#/overview', tag: 'CW-33' }),
     ),
   );
 }
@@ -218,6 +221,6 @@ export default async function welcome(ctx) {
     WL.s0_title,
     h('p.co-welcome-plan', copy('welcome.s0_plan', { company: S.company?.name || '', plan })),
     h('p', WL.s0_text),
-    h('div.co-welcome-actions', button(WL.start, { variant: 'primary', size: 'lg', onClick: () => go(1) }), button(WL.later, { variant: 'ghost', onClick: () => finish(ctx) })),
+    h('div.co-welcome-actions', button(WL.start, { variant: 'primary', size: 'lg', onClick: () => go(1), tag: 'CW-34' }), button(WL.later, { variant: 'ghost', onClick: () => finish(ctx), tag: 'CW-35' })),
   );
 }

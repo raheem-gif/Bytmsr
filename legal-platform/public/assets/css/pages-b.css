@@ -260,24 +260,16 @@ textarea.pb-fact-input {
   color: var(--text-muted);
 }
 
+/* v12 look (review, A05): a plain figure, no numbered circle */
 .pb-issue-num {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: var(--primary-50);
-  color: var(--primary-800);
-  border: 1px solid var(--primary-100);
-  font-weight: 700;
+  color: var(--ink-3);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.pb-issue.is-proposed .pb-issue-num {
-  background: var(--accent-100);
-  color: var(--accent-800);
-  border-color: var(--accent-300);
 }
 
 .pb-issue-main {

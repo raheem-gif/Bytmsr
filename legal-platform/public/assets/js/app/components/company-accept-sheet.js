@@ -184,9 +184,9 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   // ── التصنيف ──
   const fClass = form(
     [
-      { name: 'type', label: 'النوع', type: 'select', required: true, placeholder: false, options: REQUEST_TYPES.map((x) => ({ value: x.key, label: x.label })) },
-      { name: 'practice_area', label: 'المجال', type: 'select', required: true, placeholder: false, options: areaOptions() },
-      { name: 'skills', label: 'المهارات', type: 'multiselect', options: B2B_SKILLS.map((s) => ({ value: s.key, label: s.label })), full: true },
+      { name: 'type', label: 'النوع', type: 'select', required: true, placeholder: false, options: REQUEST_TYPES.map((x) => ({ value: x.key, label: x.label })), tag: 'CRF-181' },
+      { name: 'practice_area', label: 'المجال', type: 'select', required: true, placeholder: false, options: areaOptions(), tag: 'CRF-182' },
+      { name: 'skills', label: 'المهارات', type: 'multiselect', options: B2B_SKILLS.map((s) => ({ value: s.key, label: s.label })), full: true, tag: 'CRF-183' },
       {
         name: 'size',
         label: 'الحجم',
@@ -196,21 +196,22 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         options: SIZES,
         hint: t.effort ? `الفرز: ≈ ${t.effort.hours_min}–${t.effort.hours_max} ساعات عمل (${t.effort.size})` : null,
         onChange: () => drawDue(),
+        tag: 'CRF-184',
       },
       // gate C-12: كلمات الاستعجال نفسها التي تراها الشركة (الكتالوج): عاجل · مرتفع · عادي · منخفض
-      { name: 'priority', label: 'الاستعجال', type: 'select', required: true, placeholder: false, options: PRIORITIES.map((k) => ({ value: k, label: labelOf(CAT_PRIORITIES, k) })), onChange: () => drawDue() },
+      { name: 'priority', label: 'الاستعجال', type: 'select', required: true, placeholder: false, options: PRIORITIES.map((k) => ({ value: k, label: labelOf(CAT_PRIORITIES, k) })), onChange: () => drawDue(), tag: 'CRF-185' },
     ],
-    { values: v0, footer: false },
+    { values: v0, footer: false, tag: 'CRF-186' },
   );
 
   // ── الموعد ──
   const dueLine = h('p.cs-due-line', { 'aria-live': 'polite' });
   const fDue = form(
     [
-      { name: 'delivery_due_at', label: 'موعد التسليم (يدويًا)', type: 'datetime' },
-      { name: 'due_reason', label: 'السبب', type: 'text', maxLength: 300, hint: 'يراه فريق العمل والشركة مع الموعد.' },
+      { name: 'delivery_due_at', label: 'موعد التسليم (يدويًا)', type: 'datetime', tag: 'CRF-187' },
+      { name: 'due_reason', label: 'السبب', type: 'text', maxLength: 300, hint: 'يراه فريق العمل والشركة مع الموعد.', tag: 'CRF-188' },
     ],
-    { values: { delivery_due_at: p.delivery_due_at || null, due_reason: p.due_reason || '' }, footer: false },
+    { values: { delivery_due_at: p.delivery_due_at || null, due_reason: p.due_reason || '' }, footer: false, tag: 'CRF-189' },
   );
   const manualToggle = h('input', {
     type: 'checkbox',
@@ -219,6 +220,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       manualDue = manualToggle.checked;
       drawDue();
     },
+    tag: 'CRF-102',
   });
   const cals = d.calendar ? calendarsFromJson(d.calendar) : calendars(b2b && b2b.values ? { ...b2b.values, office_hours_schedule: b2b.office_hours_schedule } : {});
   function computedDue() {
@@ -269,6 +271,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
             free = e.target.checked;
             drawQuota();
           },
+          tag: 'CRF-103',
         }),
         h('span', 'مجانًا — بقرار الإدارة'),
       )
@@ -301,21 +304,22 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         full: true,
         hint: `الباقة: ${label('company_senior_review', terms.senior_review) || '—'}${t.senior_review ?? t.senior_review_recommended ? ' · الفرز: مقترحة' : ''}`,
         onChange: () => drawTeam(),
+        tag: 'CRF-190',
       },
-      { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: ['low', 'medium', 'high'].map((k) => ({ value: k, label: label('company_risk_level', k) })) },
+      { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: ['low', 'medium', 'high'].map((k) => ({ value: k, label: label('company_risk_level', k) })), tag: 'CRF-191' },
     ],
-    { values: v0, footer: false },
+    { values: v0, footer: false, tag: 'CRF-192' },
   );
 
   // ── ما يراه المحامي ──
   const peopleWarn = h('div.cs-people', { 'aria-live': 'polite' });
   const fLawyer = form(
     [
-      { name: 'case_title', label: 'عنوان ملف العمل', type: 'text', required: true, maxLength: 200, full: true },
-      { name: 'brief_for_lawyer', label: 'ملخص للمحامي', type: 'textarea', required: true, minLength: 20, maxLength: 20000, rows: 7, full: true, dir: 'auto' },
-      { name: 'issues', label: 'المسائل القانونية', type: 'textarea', rows: 4, full: true, hint: 'مسألة في كل سطر (حتى 8).', dir: 'auto' },
+      { name: 'case_title', label: 'عنوان ملف العمل', type: 'text', required: true, maxLength: 200, full: true, tag: 'CRF-193' },
+      { name: 'brief_for_lawyer', label: 'ملخص للمحامي', type: 'textarea', required: true, minLength: 20, maxLength: 20000, rows: 7, full: true, dir: 'auto', tag: 'CRF-194' },
+      { name: 'issues', label: 'المسائل القانونية', type: 'textarea', rows: 4, full: true, hint: 'مسألة في كل سطر (حتى 8).', dir: 'auto', tag: 'CRF-195' },
     ],
-    { values: v0, footer: false },
+    { values: v0, footer: false, tag: 'CRF-196' },
   );
   const lawyerWarn = h('p.cs-lawyer-warn', icon('lock', { size: 15 }), 'لا تذكر أسماء موظفي الشركة أو بريدهم أو هواتفهم. يرى المحامي اسم الشركة.');
   fLawyer.el.querySelector('.form-grid')?.children[1]?.before(lawyerWarn, peopleWarn);
@@ -336,8 +340,9 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         fLawyer.setValues({ case_title: clean(cur.case_title), brief_for_lawyer: clean(cur.brief_for_lawyer), issues: clean(cur.issues) });
         checkPeople();
       },
+      tag: 'CRF-104',
     });
-    mount(peopleWarn, alertBox(h('div.stack-sm', h('span', `يذكر النص «${hits.join('»، «')}» من موظفي الشركة؛ سيُحذف تلقائيًا قبل وصوله للمحامي. احذفه أو أعد الصياغة.`), fix), 'warning'));
+    mount(peopleWarn, alertBox(h('div.stack-sm', h('span', `يذكر النص «${hits.join('»، «')}» من موظفي الشركة؛ سيُحذف تلقائيًا قبل وصوله للمحامي. احذفه أو أعد الصياغة.`), fix), 'warning', { tag: 'CRF-105' }));
   }
   fLawyer.el.addEventListener('input', checkPeople);
 
@@ -345,7 +350,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
     ? h(
         'div.cs-checklist',
         requestDocs.map((x) =>
-          h('label.check', h('input', { type: 'checkbox', checked: selectedDocs.has(x.id), onChange: (e) => (e.target.checked ? selectedDocs.add(x.id) : selectedDocs.delete(x.id)) }), h('span', { dir: 'auto' }, x.title || x.filename)),
+          h('label.check', h('input', { type: 'checkbox', checked: selectedDocs.has(x.id), onChange: (e) => (e.target.checked ? selectedDocs.add(x.id) : selectedDocs.delete(x.id)), tag: 'CRF-106' }), h('span', { dir: 'auto' }, x.title || x.filename)),
         ),
       )
     : h('p.muted', 'لا مستندات في الطلب.');
@@ -357,15 +362,15 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       parties.map((x, i) =>
         h(
           'div.cs-party',
-          h('input.input', { type: 'text', value: x.name, 'aria-label': `اسم الطرف ${i + 1}`, maxlength: 150, onInput: (e) => (x.name = e.target.value) }),
+          h('input.input', { type: 'text', value: x.name, 'aria-label': `اسم الطرف ${i + 1}`, maxlength: 150, onInput: (e) => (x.name = e.target.value), tag: 'CRF-107' }),
           h(
             'div.select-wrap',
-            h('select.input', { 'aria-label': `صفة الطرف ${i + 1}`, onChange: (e) => (x.role = e.target.value) }, PARTY_ROLES.map((o) => h('option', { value: o.value, selected: x.role === o.value }, o.label))),
+            h('select.input', { 'aria-label': `صفة الطرف ${i + 1}`, onChange: (e) => (x.role = e.target.value), tag: 'CRF-108' }, PARTY_ROLES.map((o) => h('option', { value: o.value, selected: x.role === o.value }, o.label))),
           ),
-          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: `حذف الطرف ${i + 1}`, onClick: () => (parties.splice(i, 1), drawParties()) }),
+          button('', { variant: 'ghost', size: 'sm', icon: 'x', ariaLabel: `حذف الطرف ${i + 1}`, onClick: () => (parties.splice(i, 1), drawParties()), tag: 'CRF-109' }),
         ),
       ),
-      button('إضافة طرف', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: () => (parties.push({ name: '', role: 'related' }), drawParties()) }),
+      button('إضافة طرف', { variant: 'ghost', size: 'sm', icon: 'plus', onClick: () => (parties.push({ name: '', role: 'related' }), drawParties()), tag: 'CRF-110' }),
     );
   }
   drawParties();
@@ -376,7 +381,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         memItems.map((m) =>
           h(
             'label.check',
-            h('input', { type: 'checkbox', checked: selectedMem.has(m.id), onChange: (e) => (e.target.checked ? selectedMem.add(m.id) : selectedMem.delete(m.id)) }),
+            h('input', { type: 'checkbox', checked: selectedMem.has(m.id), onChange: (e) => (e.target.checked ? selectedMem.add(m.id) : selectedMem.delete(m.id)), tag: 'CRF-111' }),
             h(
               'span',
               `${m.kind_label} · `,
@@ -393,7 +398,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   // ── الفريق ──
   const handlerSel = h(
     'select.input',
-    { 'aria-label': 'المسؤول عن الطلب', id: 'cs-handler' },
+    { 'aria-label': 'المسؤول عن الطلب', id: 'cs-handler', tag: 'CRF-112' },
     (Array.isArray(staff) ? staff : []).map((s) => h('option', { value: String(s.id), selected: String(s.id) === v0.handler_id }, s.name)),
   );
   const teamHost = h('div.cs-team');
@@ -415,6 +420,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
           } else reviewerId = l.id;
           drawTeam();
         },
+        tag: 'CRF-113',
       }),
       h(
         'span.cs-lawyer-body',
@@ -439,7 +445,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         h('legend', 'المحامي الرئيسي'),
         (lead.items || []).length ? h('div.cs-lawyers', lead.items.map((l) => lawyerOption('lead', l, leadId))) : h('p.muted', 'لا يوجد محامٍ مقترح لهذا المجال.'),
         h('p.cs-note', 'موعده الافتراضي قبل موعد الشركة بـ 25٪.'),
-        (lead.excluded || []).length ? h('details.cs-excluded', h('summary', `مستبعد لهذه الشركة (${lead.excluded.length})`), h('ul', lead.excluded.map((x) => h('li', x.name)))) : null,
+        (lead.excluded || []).length ? h('details.cs-excluded', { tag: 'CRF-114' }, h('summary', { tag: 'CRF-115' }, `مستبعد لهذه الشركة (${lead.excluded.length})`), h('ul', lead.excluded.map((x) => h('li', x.name)))) : null,
       ),
       needsReviewer
         ? h(
@@ -452,7 +458,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   }
 
   // ── رسالة للشركة ──
-  const fNote = form([{ name: 'note_to_company', label: 'نص الرسالة', type: 'textarea', maxLength: 1000, rows: 2, full: true, dir: 'auto' }], { values: v0, footer: false });
+  const fNote = form([{ name: 'note_to_company', label: 'نص الرسالة', type: 'textarea', maxLength: 1000, rows: 2, full: true, dir: 'auto', tag: 'CRF-197' }], { values: v0, footer: false, tag: 'CRF-198' });
   const preview = h('p.cs-preview', { 'aria-live': 'polite' });
   function drawPreview() {
     const c = computedDue();
@@ -462,7 +468,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   }
   fNote.el.addEventListener('input', drawPreview);
 
-  const sec = (title, ...children) => h('section.cs-section', h('h3.cs-section-title', title), children);
+  const sec = (title, ...children) => h('section.cs-section', { tag: 'CRF-116' }, h('h3.cs-section-title', { tag: 'CRF-117' }, title), children);
 
   // ── الجسم ──
   function bodyOf(extra = {}) {
@@ -523,7 +529,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       }
     }
     if (!leadId) {
-      mount(alertHost, alertBox('اختر المحامي الرئيسي.', 'danger'));
+      mount(alertHost, alertBox('اختر المحامي الرئيسي.', 'danger', { tag: 'CRF-118' }));
       ok = false;
     }
     return ok;
@@ -538,7 +544,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
   /** 409 داخل الورقة (U10-S12) — القيم تبقى كما هي */
   function showConflict(err) {
     const det = err.details || {};
-    const box = (title, text, ...btns) => mount(alertHost, alertBox(h('div.stack-sm', text ? h('p', text) : null, btns.filter(Boolean).length ? h('div.btn-group', btns) : null), 'warning', { title }));
+    const box = (title, text, ...btns) => mount(alertHost, alertBox(h('div.stack-sm', text ? h('p', text) : null, btns.filter(Boolean).length ? h('div.btn-group', btns) : null), 'warning', { title, tag: 'CRF-119' }));
     switch (err.code) {
       case 'request_changed':
         box(
@@ -552,6 +558,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
               finished = { review: true };
               handle.close('action');
             },
+            tag: 'CRF-120',
           }),
           button('متابعة رغم ذلك', {
             size: 'sm',
@@ -566,21 +573,22 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
                 setBusy(b, false);
               }
             },
+            tag: 'CRF-121',
           }),
         );
         return true;
       case 'conflict_review_required': {
-        const cb = h('input', { type: 'checkbox', onChange: () => (conflictAck = cb.checked, syncSubmit()) });
+        const cb = h('input', { type: 'checkbox', onChange: () => (conflictAck = cb.checked, syncSubmit()), tag: 'CRF-122' });
         mount(
           alertHost,
           alertBox(
             h(
               'div.stack-sm',
-              h('ul.cs-matches', (det.matches || []).map((m) => h('li', h('strong', m.name || m.subject || '—'), m.role ? ` · ${label('party_role', m.role) || m.role}` : '', m.case_code ? ` · ${m.case_code}` : '', m.link ? h('a', { href: m.link }, ' فتح') : null))),
+              h('ul.cs-matches', (det.matches || []).map((m) => h('li', h('strong', m.name || m.subject || '—'), m.role ? ` · ${label('party_role', m.role) || m.role}` : '', m.case_code ? ` · ${m.case_code}` : '', m.link ? h('a', { href: m.link, tag: 'CRF-123' }, ' فتح') : null))),
               h('label.check', cb, h('span', 'راجعت التعارض وأقرر المتابعة')),
             ),
             'warning',
-            { title: 'تعارض مصالح محتمل' },
+            { title: 'تعارض مصالح محتمل', tag: 'CRF-124' },
           ),
         );
         return true;
@@ -590,7 +598,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
           'موافقة الشركة على التكلفة الإضافية',
           'استخدمت الشركة كل الطلبات المشمولة هذا الشهر وتشترط باقتها موافقتها على التكلفة الإضافية.',
           isAdmin
-            ? button('إرسال طلب موافقة للشركة', { size: 'sm', variant: 'primary', icon: 'send', onClick: () => toQuote('overage', det.overage_price) })
+            ? button('إرسال طلب موافقة للشركة', { size: 'sm', variant: 'primary', icon: 'send', onClick: () => toQuote('overage', det.overage_price), tag: 'CRF-125' })
             : h('span.muted', 'يرسل مدير النظام طلب الموافقة.'),
         );
         return true;
@@ -607,20 +615,21 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
                   drawQuota();
                   await submit();
                 },
+                tag: 'CRF-126',
               })
             : null,
-          button('اعتذار عن الطلب', { size: 'sm', onClick: () => ((finished = { decline: true }), handle.close('action')) }),
+          button('اعتذار عن الطلب', { size: 'sm', onClick: () => ((finished = { decline: true }), handle.close('action')), tag: 'CRF-127' }),
         );
         return true;
       case 'out_of_scope_requires_quote':
-        box('خارج الباقة', 'هذا الطلب خارج باقة الشركة؛ أرسل عرض سعر أولًا.', isAdmin ? button('إعداد عرض سعر', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => toQuote('out_of_scope') }) : h('span.muted', 'يرسل مدير النظام عرض السعر.'));
+        box('خارج الباقة', 'هذا الطلب خارج باقة الشركة؛ أرسل عرض سعر أولًا.', isAdmin ? button('إعداد عرض سعر', { size: 'sm', variant: 'primary', icon: 'wallet', onClick: () => toQuote('out_of_scope'), tag: 'CRF-128' }) : h('span.muted', 'يرسل مدير النظام عرض السعر.'));
         return true;
       case 'already_accepted':
-        box('بدأ العمل بالفعل', 'بدأ زميل العمل على هذا الطلب للتو.', button('فتح الطلب', { size: 'sm', variant: 'primary', onClick: () => ((finished = { review: true }), handle.close('action')) }));
+        box('بدأ العمل بالفعل', 'بدأ زميل العمل على هذا الطلب للتو.', button('فتح الطلب', { size: 'sm', variant: 'primary', onClick: () => ((finished = { review: true }), handle.close('action')), tag: 'CRF-129' }));
         return true;
       case 'lawyer_excluded_for_company': {
         const role = Object.keys(det.fields || {})[0]?.includes('reviewer') ? 'reviewer' : 'lead';
-        box('محامٍ مستبعد', errorMessage(err), button('الإسناد رغم الاستبعاد', { size: 'sm', onClick: async () => ((force[role] = true), await submit()) }));
+        box('محامٍ مستبعد', errorMessage(err), button('الإسناد رغم الاستبعاد', { size: 'sm', onClick: async () => ((force[role] = true), await submit()), tag: 'CRF-130' }));
         return true;
       }
       default:
@@ -669,7 +678,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
           if (Object.keys(mine).length) f.setErrors(mine);
         }
       }
-      mount(alertHost, alertBox(errorMessage(err), 'danger'));
+      mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'CRF-131' }));
       alertHost.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return false;
     } finally {
@@ -695,7 +704,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
     beforeClose: discardGuard(isDirty, STAFF_DISCARD),
     body: h(
       'div.cs-body',
-      planMode ? alertBox('تُحفظ الخطة مع عرض السعر، ويبدأ العمل بها تلقائيًا عند موافقة الشركة.', 'info') : null,
+      planMode ? alertBox('تُحفظ الخطة مع عرض السعر، ويبدأ العمل بها تلقائيًا عند موافقة الشركة.', 'info', { tag: 'CRF-132' }) : null,
       alertHost,
       sec('التصنيف', fClass.el),
       sec('الموعد', dueLine, h('label.check', manualToggle, h('span', 'تعديل الموعد يدويًا')), fDue.el),
@@ -706,8 +715,8 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
       sec('رسالة للشركة (اختياري)', fNote.el, preview),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
-      { label: submitLabel, variant: 'primary', icon: planMode ? 'check' : 'briefcase', onClick: async () => ((await submit()) ? undefined : false) },
+      { label: 'إلغاء', variant: 'ghost', tag: 'CRF-133' },
+      { label: submitLabel, variant: 'primary', icon: planMode ? 'check' : 'briefcase', onClick: async () => ((await submit()) ? undefined : false), tag: 'CRF-134' },
     ],
     onClose: async () => {
       if (!finished) return;
@@ -747,6 +756,7 @@ export async function openAcceptSheet({ detail, user = {}, plan = null, planMode
         if (finished.review && !window.location.hash.startsWith(`#/company-requests/${r.id}`)) window.location.hash = `#/company-requests/${r.id}`;
       }
     },
+    tag: 'CRF-135',
   });
   const submitBtn = handle.buttons[1];
   function syncSubmit() {

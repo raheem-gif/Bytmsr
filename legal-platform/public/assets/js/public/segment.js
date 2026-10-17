@@ -32,6 +32,9 @@ export const PAID_TOPICS = {
 
 export const PAID_PREFILL_HEAD = 'مرحبًا، أرغب في حجز استشارة قانونية';
 export const COMPANY_PREFILL = 'مرحبًا، نرغب في التواصل بخصوص الخدمات القانونية للشركات.';
+// v12 entry (E12-28): جملة واتساب العامة للأفراد والشركات (تذييل الصفحة الأولى، رقم من خارج مصر): «أفراد وشركات» بلا مسار،
+// فتسأل قائمة الخطوط على واتساب عن الخدمة (segments.tagOf ← { segment: 'paid', pathway: null })
+export const PAID_GENERIC = 'مرحبًا، أرغب في التواصل بخصوص خدمة قانونية.';
 export const CHOICE_IDS = { charity: 'seg:charity', paid: 'seg:paid' };
 export const REQUESTER_EMPLOYEES = ['1-10', '11-50', '51-200', '200+'];
 export const REQUESTER_NEEDS = ['contracts', 'employees', 'compliance', 'disputes', 'subscription'];

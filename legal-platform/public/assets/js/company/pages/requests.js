@@ -24,7 +24,7 @@ const promiseAt = (r) => r.promise?.delivery_by || r.promise?.confirm_by || r.pr
 /** شريط اختيار واحد («مفتوحة · مكتملة · الكل») بأزرار متجاورة */
 function segmented(label, options, value, onPick) {
   const btns = options.map(([key, text]) =>
-    h('button.co-seg-btn', { type: 'button', 'aria-pressed': key === value ? 'true' : 'false', onClick: () => { btns.forEach((b) => b.setAttribute('aria-pressed', b === btnOf(key) ? 'true' : 'false')); onPick(key); } }, text),
+    h('button.co-seg-btn', { type: 'button', 'aria-pressed': key === value ? 'true' : 'false', onClick: () => { btns.forEach((b) => b.setAttribute('aria-pressed', b === btnOf(key) ? 'true' : 'false')); onPick(key); }, tag: 'CR-01' }, text),
   );
   const btnOf = (key) => btns[options.findIndex((o) => o[0] === key)];
   const el = h('div.co-seg', { role: 'group', 'aria-label': label }, btns);
@@ -44,7 +44,7 @@ export default async function requests(ctx) {
   let seq = 0;
   const listEl = h('div.co-req-list', { 'aria-live': 'polite', 'aria-busy': 'false' });
   const note = h('p.co-searched', { hidden: true }, icon('search', { size: 16 }), h('span', W.requests.searched));
-  const moreBtn = button(W.requests.more, { variant: 'secondary', onClick: () => load(true) });
+  const moreBtn = button(W.requests.more, { variant: 'secondary', onClick: () => load(true), tag: 'CR-02' });
   const moreWrap = h('div.co-more-wrap', { hidden: true }, moreBtn);
 
   /** الحالة في الرابط بلا إعادة رسم الصفحة (التركيز يبقى في حقل البحث) */
@@ -72,23 +72,25 @@ export default async function requests(ctx) {
           rows,
           onRowClick: (r) => ctx.navigate(`/requests/${encodeURIComponent(r.code)}`),
           columns: [
-            { key: 'title', label: W.requests.col_request, render: (r) => h('a.co-cell-req', { href: `#/requests/${encodeURIComponent(r.code)}` }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, typeIcon(r.type, { size: 20 })), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, r.title), h('bdi.co-code', { dir: 'ltr' }, r.code))) },
-            { key: 'type', label: W.requests.col_type, render: (r) => badge(r.type_label || typeLabel(r.type), 'primary', { className: 'co-badge' }) },
-            { key: 'stage', label: W.requests.col_status, render: (r) => stageBadge(r.stage, { late: r.promise?.state === 'late', short: true }) },
-            { key: 'promise', label: W.requests.col_promise, render: (r) => h('span.co-cell-promise', promiseText(r.promise, { stage: r.stage, short: true }).text || '—') },
-            { key: 'by', label: W.requests.col_sender, render: (r) => (r.submitted_by?.id === S.user?.id ? W.requests.you : r.submitted_by?.name || '—') },
-            { key: 'updated_at', label: W.requests.col_updated, render: (r) => h('span.num', relative(r.updated_at)) },
+            { key: 'title', label: W.requests.col_request, render: (r) => h('a.co-cell-req', { href: `#/requests/${encodeURIComponent(r.code)}`, tag: 'CR-03' }, h('span.co-cell-icon', { 'aria-hidden': 'true' }, typeIcon(r.type, { size: 20 })), h('span.co-cell-text', h('span.co-cell-title', { dir: 'auto' }, r.title), h('bdi.co-code', { dir: 'ltr' }, r.code))), tag: 'CR-04' },
+            { key: 'type', label: W.requests.col_type, render: (r) => badge(r.type_label || typeLabel(r.type), 'primary', { className: 'co-badge' }), tag: 'CR-05' },
+            { key: 'stage', label: W.requests.col_status, render: (r) => stageBadge(r.stage, { late: r.promise?.state === 'late', short: true }), tag: 'CR-06' },
+            { key: 'promise', label: W.requests.col_promise, render: (r) => h('span.co-cell-promise', promiseText(r.promise, { stage: r.stage, short: true }).text || '—'), tag: 'CR-07' },
+            { key: 'by', label: W.requests.col_sender, render: (r) => (r.submitted_by?.id === S.user?.id ? W.requests.you : r.submitted_by?.name || '—'), tag: 'CR-08' },
+            { key: 'updated_at', label: W.requests.col_updated, render: (r) => h('span.num', relative(r.updated_at)), tag: 'CR-09' },
           ],
+          rowTag: 'CR-10',
+          tag: 'CR-11',
         }),
       );
     } else mount(listEl, h('ul.k-list.co-req-rows', rows.map((r) => h('li', coRequestRow(r)))));
   }
 
   function emptyView() {
-    if (st.q || st.type) return emptyState(W.requests.empty_search, button(W.requests.clear_search, { variant: 'secondary', onClick: () => { st.q = ''; st.type = ''; searchInput.value = ''; typeCtl.update(); syncHash(); load(); } }), { icon: 'search' });
-    if (isViewer() && st.state !== 'closed') return emptyState(W.requests.empty_viewer, null, { title: W.requests.empty_viewer_title, icon: 'inbox' });
-    if (st.state === 'open' && hasAny) return emptyState(W.requests.empty_open, button(W.requests.show_closed, { variant: 'secondary', onClick: () => { st.state = 'closed'; stateSeg.setValue('closed'); syncHash(); load(); } }), { icon: 'checkCircle' });
-    return emptyState(W.requests.empty_text, isViewer() || readOnly() ? null : button(W.nav.new_request, { variant: 'secondary', icon: 'plus', href: '#/requests/new' }), { title: W.requests.empty_title, icon: 'inbox' });
+    if (st.q || st.type) return emptyState(W.requests.empty_search, button(W.requests.clear_search, { variant: 'secondary', onClick: () => { st.q = ''; st.type = ''; searchInput.value = ''; typeCtl.update(); syncHash(); load(); }, tag: 'CR-12' }), { icon: 'search', tag: 'CR-13' });
+    if (isViewer() && st.state !== 'closed') return emptyState(W.requests.empty_viewer, null, { title: W.requests.empty_viewer_title, icon: 'inbox', tag: 'CR-14' });
+    if (st.state === 'open' && hasAny) return emptyState(W.requests.empty_open, button(W.requests.show_closed, { variant: 'secondary', onClick: () => { st.state = 'closed'; stateSeg.setValue('closed'); syncHash(); load(); }, tag: 'CR-15' }), { icon: 'checkCircle', tag: 'CR-16' });
+    return emptyState(W.requests.empty_text, isViewer() || readOnly() ? null : button(W.nav.new_request, { variant: 'secondary', icon: 'plus', href: '#/requests/new', tag: 'CR-17' }), { title: W.requests.empty_title, icon: 'inbox', tag: 'CR-18' });
   }
 
   let hasAny = true;
@@ -146,15 +148,16 @@ export default async function requests(ctx) {
         load();
       }, 300);
     },
+    tag: 'CR-19',
   });
   const search = h('div.search-input.co-req-search', icon('search', { size: 18 }), searchInput);
 
   // التصفية بالنوع: قائمة منسدلة على الحاسوب، وورقة بشرائح على الهاتف
   const typeCtl = (() => {
-    const sel = h('select.input', { 'aria-label': W.requests.type, onChange: () => { st.type = sel.value; syncHash(); load(); updateBtn(); } }, h('option', { value: '' }, W.requests.all_types), REQUEST_TYPES.map((t) => h('option', { value: t.key }, t.company_label)));
+    const sel = h('select.input', { 'aria-label': W.requests.type, onChange: () => { st.type = sel.value; syncHash(); load(); updateBtn(); }, tag: 'CR-20' }, h('option', { value: '' }, W.requests.all_types), REQUEST_TYPES.map((t) => h('option', { value: t.key }, t.company_label)));
     sel.value = st.type;
     const label = h('span');
-    const btn = h('button.btn.btn-secondary.co-type-btn', { type: 'button', onClick: () => openSheet() }, icon('filter', { size: 18 }), label);
+    const btn = h('button.btn.btn-secondary.co-type-btn', { type: 'button', onClick: () => openSheet(), tag: 'CR-21' }, icon('filter', { size: 18 }), label);
     const updateBtn = () => {
       label.textContent = st.type ? typeLabel(st.type) : W.requests.type;
       btn.classList.toggle('is-on', !!st.type);
@@ -166,10 +169,10 @@ export default async function requests(ctx) {
         'div.co-type-chips',
         { role: 'radiogroup', 'aria-label': W.requests.type },
         [['', W.requests.all_types], ...REQUEST_TYPES.map((t) => [t.key, t.company_label])].map(([k, l]) =>
-          h('button.chip-toggle', { type: 'button', role: 'radio', 'aria-checked': k === pick ? 'true' : 'false', onClick: (e) => { pick = k; chips.querySelectorAll('[role=radio]').forEach((b) => b.setAttribute('aria-checked', b === e.currentTarget ? 'true' : 'false')); } }, l),
+          h('button.chip-toggle', { type: 'button', role: 'radio', 'aria-checked': k === pick ? 'true' : 'false', onClick: (e) => { pick = k; chips.querySelectorAll('[role=radio]').forEach((b) => b.setAttribute('aria-checked', b === e.currentTarget ? 'true' : 'false')); }, tag: 'CR-22' }, l),
         ),
       );
-      modal({ title: W.requests.type_sheet, sheet: true, body: chips, actions: [{ label: W.requests.apply, variant: 'primary', onClick: () => { st.type = pick; updateBtn(); syncHash(); load(); } }] });
+      modal({ title: W.requests.type_sheet, sheet: true, body: chips, actions: [{ label: W.requests.apply, variant: 'primary', onClick: () => { st.type = pick; updateBtn(); syncHash(); load(); }, tag: 'CR-23' }], tag: 'CR-24' });
     }
     updateBtn();
     return { el: h('div.co-type-filter', h('div.select-wrap.co-type-select', sel), btn), update: updateBtn };

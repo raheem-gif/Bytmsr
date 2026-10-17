@@ -11,10 +11,12 @@ import { h, svg, mount } from '../lib/h.js';
 // v9.2 مراجعة: menu.js وsaved.js مباشرة (محمّلان من الصفحة الرئيسية)، وwords.js وcommon.js بعد أول شاشة (loadExtras):
 // أول سؤال يحتاج 6 طلبات جديدة فقط على نت 3G بطيء (الموبايل يفتح 6 اتصالات بالموقع في نفس الوقت)
 import { captureAttribution, initSiteChrome } from './menu.js';
-import { savedCard, rememberPortal, forgetSaved } from './saved.js';
+import { savedCard, rememberPortal, forgetSaved, followSaved } from './saved.js';
 import { draftStore, clearAllDrafts } from './drafts.js';
 import { TOPICS, QUESTIONS, UNKNOWN, CALLBACK_WHEN, topicByKey, flowFor, sanitizeAnswers, infer, waPrefill } from './topics.js';
-import { PICTOS } from './pictos.js';
+// v12 entry: صور «خيري» (pictos.js) تُحمَّل لنموذج «خيري» وحده بعد فتح الصفحة (والخادم يضيف modulepreload لصفحته)؛
+// صفحة الأفراد والشركات بلا صور، فلا تُنزّلها
+let PICTOS = {};
 
 // [R2-B23] الصفحة اشتغلت: نشيل «الصفحة بتحمّل ببطء» قبل أي انتظار
 document.querySelector('[data-slow]')?.remove();
@@ -153,6 +155,9 @@ const COPY = {
   v2: 'رسالتين صوتيتين ({t})',
   vn: '{n} رسايل صوتية ({t})',
   vText: 'وكلام مكتوب',
+  // v12 entry (M12-03): مسودة فيها تسجيل وتسجيل الموقع متوقف
+  heldV: 'فيه رسالة صوتية محفوظة من قبل، هتتبعت مع الطلب.',
+  heldX: 'امسحيها',
   sending: 'بنبعت طلبك…',
   retry: 'حاولي تاني',
   backStory: 'ارجعي للمشكلة',
@@ -249,17 +254,32 @@ if (X) {
   Object.assign(COPY, X.COPY, X.SUCCESS, X.ABOUT);
   Object.assign(MSG, X.MSG);
 }
+// v12 entry (E12-33، L12-22، E12-40): ورقة الشجرة (bm-path) في صفحة الأفراد والشركات، وbm-public.charity/voice.
+// P = الورقة: أسئلتها جاهزة بكلماتها ورموزها، ولا يُسأل ما أجابت عنه الشجرة. تسجيل الصوت من الموقع متوقف (الجانبان) ما لم
+// يُفعَّل web_voice_enabled: لا ميكروفون ولا recorder.js (مسودة قديمة فيها تسجيل تُرسل معه، ويمكن حذفها).
+const PUB = pageData() || {};
+let P = null;
+try {
+  P = X ? JSON.parse(document.getElementById('bm-path')?.textContent || 'null') : null;
+} catch {
+  P = null;
+}
+const VOICE = PUB.voice === true;
+const pictosReady = X ? null : import('./pictos.js').then((m) => (PICTOS = m.PICTOS), () => {});
 // صيغة كلام المسجّل والصور (recorder.js وupload.js): مذكر محايد للأفراد والشركات بدل المؤنث
 // v11 fixer-public (K11): المسجّل والتصوير بفصحى الجمع في صفحة الأفراد والشركات ('p' في recorder.js وupload.js)
 const ADDR = X ? 'p' : 'f';
-const HOME = X ? '/services' : '/';
+// v12 entry: الأفراد والشركات ← صفحة الورقة في الشجرة (أو «/»)؛ «خيري» ← /khayri (صفحته، أو صفحة «متوقف» ما دام متوقفًا)
+const HOME = X ? P?.back || '/' : '/khayri';
 const fill = (s, o) => String(s).replace(/\{([a-z]+)\}/g, (m, k) => (k in o ? o[k] : m));
-// أسماء الأسئلة والإجابات والمواضيع وأوقات المكالمة للجانب (القيم نفسها لا تتغير)
-const qText = (id, q) => ({ h1: X?.QUESTIONS?.[id]?.h1 || q.h1, sub: X ? X.QUESTIONS?.[id]?.sub || '' : q.sub, a: (i, a) => X?.QUESTIONS?.[id]?.a?.[i] || a.label });
-const topicOf = (t) => (t && X?.TOPICS?.[t.key] ? { ...t, say: X.TOPICS[t.key].label, placeholder: COPY.ph, ...X.TOPICS[t.key] } : t);
-const unknownLabel = () => X?.UNKNOWN || UNKNOWN.label;
+// أسماء الأسئلة والإجابات والمواضيع (topics.js) — v12 entry: لنموذج «خيري» وحده (أسئلة الأفراد والشركات جاهزة في bm-path،
+// وشاشة المواضيع لا تظهر لهم)؛ وأوقات المكالمة للجانب
+const qText = (id, q) => ({ h1: q.h1, sub: q.sub, a: (i, a) => a.label });
+const topicOf = (t) => t;
+const unknownLabel = () => UNKNOWN.label;
 const whenLabel = (k) => X?.CALLBACK_WHEN?.[k] || CALLBACK_WHEN[k].label;
-const prefill = (k) => (X?.WA ? `${X.WA.h}${X.WA.p[k] ? X.WA.b + X.WA.p[k] : ''}.` : waPrefill(k));
+// v12 entry: جملة واتساب الجاهزة للورقة (P.wa)، وإلا الجملة العامة للأفراد والشركات (X.GEN = PAID_GENERIC)
+const prefill = (k) => (X ? P?.wa || X.GEN : waPrefill(k));
 // أوقات المكالمة بصورها
 const WHEN_PICTO = { morning: 'sunrise', noon: 'sun', any: 'clock' };
 
@@ -356,6 +376,7 @@ function clock(sec) {
 
 /** هل يستطيع هذا المتصفح التسجيل؟ (نفس فحص recorder.js، دون تحميله) */
 function canRecordHere() {
+  if (!VOICE) return false; // v12 (L12-22): تسجيل الموقع متوقف
   try {
     return !!(window.isSecureContext !== false && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && typeof window.MediaRecorder === 'function');
   } catch {
@@ -430,12 +451,14 @@ const topicWa = () => waLink(prefill(state.topic));
 /** «تحبي تحكيلنا على واتساب؟ افتحي واتساب» (بنص جاهز للموضوع)، وإلا رقم التليفون */
 function contactLine(wa = greetingWa()) {
   if (wa) {
+    // tags:skip inline link inside a <p> (T12-09)
     return h('p.bmf-contact', COPY.waAsk, h('a', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, COPY.openWa));
   }
   if (!org.phone) return null;
   return h(
     'p.bmf-contact',
     COPY.callUs,
+    // tags:skip inline link inside a <p> (T12-09)
     h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone),
     org.office_hours ? ` — ${org.office_hours}` : '',
   );
@@ -451,6 +474,8 @@ const state = {
   callbackMode: false,
   cbDirect: false, // دخلت من «إحنا نكلمك» مباشرة (?mode=callback): بلا أسئلة ولا حكاية
   entry: 'direct',
+  line: null, // v12 entry (E12-37): نوع الطلب في «نتصل بكم» (اختياري)
+  company: '', // v12 entry (E12-36): اسم الشركة (تعديل شركة وعقودها)
   description: '',
   name: '',
   phone: '',
@@ -458,12 +483,14 @@ const state = {
   sentFp: null, // بصمة آخر إرسال فشل والنت مقطوع (يمكن يكون وصل الخادم)
 };
 let voiceEls = [];
+let held = []; // v12: تسجيلات مسودة قديمة وتسجيل الموقع متوقف ({ blob, seconds })
 let picker = null;
 let builtBody = null; // جسم الإرسال الجاهز (نفس الملفات عند «حاولي تاني»)
 let sending = false;
 let failedOffline = false;
 let banner = null;
 
+// tags:skip honeypot field, hidden from people (aria-hidden)
 const honeypotInput = h('input', { type: 'text', id: 'hp-website', name: 'website', tabindex: '-1', autocomplete: 'off' });
 const honeypot = h('div.bmf-honeypot', { 'aria-hidden': 'true' }, h('label', { htmlFor: 'hp-website' }, COPY.hp), honeypotInput);
 
@@ -473,10 +500,13 @@ function ensurePicker() {
     picker = U.photoPicker({
       max: MAX_PHOTOS,
       tip: true,
+      // v12 entry (E12-35، §5.8): «صفحة أخرى» تجمع صفحات المستند في PDF واحد. gate JR-09: الملف «مستند-1» (أو «ورقة-1»)،
+      // لا اسم الخدمة («أسرة-وميراث-1») — المسار ظاهر للفريق في الطلب نفسه
       namePrefix: COPY.docName,
       address: ADDR,
+      pages: !!P,
       label: X && COPY.photo,
-      galleryLabel: X && COPY.gallery,
+      galleryLabel: X && (P ? COPY.docsFile : COPY.gallery),
       onChange: () => {
         changed({ now: true });
         onPhotosChanged?.();
@@ -486,7 +516,7 @@ function ensurePicker() {
   return picker;
 }
 
-const voices = () => voiceEls.filter((el) => el.getBlob()).map((el) => ({ blob: el.getBlob(), seconds: el.getSeconds() }));
+const voices = () => [...held, ...voiceEls.filter((el) => el.getBlob()).map((el) => ({ blob: el.getBlob(), seconds: el.getSeconds() }))];
 const photos = () => (picker ? picker.getFiles() : []);
 const topicArea = () => {
   const t = topicByKey(state.topic);
@@ -496,6 +526,9 @@ const firstScreenOf = (key) => {
   const f = flowFor(key);
   return f.length ? `q:${f[0]}` : 'story';
 };
+// v12 entry: أسئلة الورقة (P.ask) أو أسئلة موضوع «خيري»؛ شاشات الورقة: الأسئلة ثم الموضوع ثم المستندات ثم الرقم
+const flowNow = () => (P ? P.ask.map((q) => q.id) : flowFor(state.topic));
+const askOf = (id) => P?.ask.find((q) => q.id === id);
 
 function draftObject() {
   return {
@@ -508,12 +541,14 @@ function draftObject() {
     callbackMode: state.callbackMode,
     cbDirect: state.cbDirect,
     entry: state.entry,
+    path: P?.path,
+    line: state.line,
+    company: state.company,
     description: state.description,
     name: state.name,
     phone: state.phone,
     sid: state.sid,
     sentFp: state.sentFp,
-    crossed: crossing,
     voices: voices().map((v) => ({ kind: 'audio', blob: v.blob, seconds: v.seconds })),
     photos: photos().map((f) => ({ kind: 'image', blob: f, name: f.name })),
   };
@@ -555,7 +590,8 @@ window.addEventListener('pagehide', () => {
 let L = null; // الوحدة بعد التأكد من وجود صوت عربي
 let speakingNow = false;
 let firstAfterLoad = true; // أول شاشة بعد فتح الصفحة: لا كلام بلا ضغطة
-if ('speechSynthesis' in window) {
+// v12 entry (E12-31): بلا «استماع» في طلب الأفراد والشركات
+if (!X && 'speechSynthesis' in window) {
   import('./listen.js')
     .then(async (m) => {
       if (!(await m.canListen())) return;
@@ -598,7 +634,7 @@ function speakScreen(view) {
 
 /** زر «اسمعي» في رأس كل شاشة: مخفي حتى يتأكد وجود صوت عربي */
 function listenButton() {
-  const btn = h('button.bmf-listen', { type: 'button', hidden: true, 'aria-pressed': 'false' }, ic('speaker', 20), h('span'));
+  const btn = h('button.bmf-listen', { type: 'button', hidden: true, 'aria-pressed': 'false', tag: X && 'I-150' }, ic('speaker', 20), h('span'));
   btn.addEventListener('click', () => {
     if (!L) return;
     if (speakingNow) {
@@ -666,9 +702,28 @@ function errorLine() {
 
 const trustLine = () => h('p.bmf-trust', ic('lock', 18), h('span', COPY.trust));
 
+/**
+ * v12 entry (§5.6، L12-03/L12-04): خط الخطوة «1 من 4» في صفحة الأفراد والشركات — عنصر واحد قبل #intake-root يبقى بين
+ * الشاشات (aria-live يعلن التغيير)، وامتلاؤه بـ --p (CSSOM، بلا style في الصفحة). total = 0 يخفيه.
+ * v12 gate (R-01): الخادم يرسمه (I-02، src/site.js lh_step) بنص أول شاشة، فلا يُدرج هنا ولا تتحرك الشاشة الأولى لأسفل.
+ */
+let stepEl = null;
+function stepLine(idx, total) {
+  stepEl ||= document.querySelector('p.step');
+  stepEl.hidden = !total;
+  stepEl.firstChild.textContent = `${idx} ${COPY.of} ${total}`;
+  stepEl.querySelector('i').style.setProperty('--p', total ? idx / total : 0);
+}
+
 /** رأس الشاشة: «رجوع» + شارة الموضوع + «2 من 4»، ثم العنوان وزر «اسمعي»، ثم السطر الشارح */
-function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }) {
-  const heading = h('h1.bmf-title', { tabindex: '-1', id: 'bmf-screen-title' }, title);
+function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null, tag }) {
+  const heading = h('h1.bmf-title', { tabindex: '-1', id: 'bmf-screen-title', class: X && 'q__title', tag: X && tag }, title);
+  // v12 entry (E12-31): الأفراد والشركات — «رجوع» والمسار في رأس الصفحة (من الخادم)، وخط الخطوة فوق العنوان، بلا «استماع»
+  if (X) {
+    stepLine(idx, total);
+    const subEl = sub ? h('p.bmf-sub', sub) : null;
+    return { el: h('div.bmf-head', before, heading, subEl), heading, listen: null, subEl };
+  }
   const listen = listenButton();
   const t = topicOf(topicByKey(state.topic));
   const subEl = sub ? h('p.bmf-sub', sub) : null;
@@ -677,7 +732,7 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }
     trust && trustLine(),
     h(
       'div.bmf-qbar',
-      h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack() }, ic('arrowRight', 20), h('span', COPY.back)),
+      h('button.bmf-btn.bmf-btn-text.bmf-back', { type: 'button', onClick: () => goBack(), tag: X && 'I-151' }, ic('arrowRight', 20), h('span', COPY.back)),
       t && state.screen !== 'topic' && h('span.bmf-topic-chip', { role: 'img', 'aria-label': `${COPY.topicAria}${t.label}` }, pic(t.picto, 'pub-pic bmf-chip-pic'), h('span', { 'aria-hidden': 'true' }, t.label)),
       // v11 fixer-public (K5/J-10): شرائط التقدم (النموذج intake-question)، و«2 من 4» نصًا لقارئ الشاشة
       total ? h('span.bmf-stepno', h('span.bmf-sr', `${idx} ${COPY.of} ${total}`), h('ol.bmf-steps', { 'aria-hidden': 'true' }, Array.from({ length: total }, (_, i) => h('li', { class: i < idx ? 'is-on' : null })))) : null,
@@ -689,48 +744,15 @@ function chrome({ title, sub, idx = 0, total = 0, trust = false, before = null }
   return { el, heading, listen, subEl };
 }
 
-// v11 gate-public (L11-14، r2 P2): صف الرجوع إلى «خيري» على شاشتي الموضوع والرقم في صفحة الأفراد والشركات وحدها؛
-// المسودة تنتقل لمسودة «خيري» قبل الانتقال (L11-53) فتجد كلامها وصورها في نموذج «خيري» بنفس الموضوع
-let crossing = false;
-function crossRow() {
-  const c = X?.CROSS;
-  if (!c) return null;
-  const href = `/intake?seg=charity${state.topic ? `&topic=${state.topic}` : ''}`;
-  return h(
-    'a.pub-cross.bmf-cross',
-    {
-      href,
-      onClick: async (e) => {
-        e.preventDefault();
-        if (crossing) return;
-        crossing = true;
-        // مراجعة: تخزين معلّق (WebKit قديم، متصفح داخل تطبيق) لا يوقف طريق الرجوع — ننتظر النقل ثانيتين على الأكثر
-        const move = async () => {
-          await store.flush();
-          if (meaningful()) {
-            await draftStore(keyOf('charity')).save({ ...draftObject(), seg: 'charity' });
-            await store.clear();
-          }
-        };
-        await Promise.race([move().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
-        window.location.href = href;
-      },
-    },
-    svg('svg', { class: 'pub-cross-heart', viewBox: '0 0 24 24', width: 24, height: 24, 'aria-hidden': 'true', focusable: 'false' }, [svg('path', { class: 'pb', d: c.d })]),
-    h('span.gate-kicker', c.kicker),
-    h('span.pub-cross-text', c.text),
-    ' ',
-    h('b.pub-cross-go', c.go),
-  );
-}
-
 // بطاقة «عندك طلب عندنا» (B91-06) من saved.js المشترك مع الصفحة الرئيسية؛ تُبنى مرة واحدة وتبقى فوق الشاشات
 let savedEl;
 function topCards() {
+  // v12 gate (V-04، K12-29): صفحة الأفراد والشركات بلا بطاقة «لديكم طلب لدينا» بزر ممتلئ فوق كل سؤال؛ مثل «/» يصير رابط
+  // «متابعة طلب» في تذييل الصفحة «صفحة طلبكم» (init أدناه) فلا ينافس السؤال شيء
+  if (X) return [banner];
   if (savedEl === undefined) {
     savedEl = savedCard({
       headingLevel: 2,
-      t: X && { title: COPY.savedTitle, open: COPY.savedOpen, forget: COPY.savedForget },
       onForget: () => {
         savedEl = null;
         current?.heading.focus();
@@ -749,6 +771,8 @@ let current = null; // { el, heading, listen, say }
 function build(screen) {
   if (screen === 'story') return storyScreen();
   if (screen === 'phone') return phoneScreen();
+  // v12 entry (E12-30): الورقة — أسئلتها من bm-path، وشاشة المستندات بين الموضوع والرقم؛ بلا شاشة مواضيع
+  if (P) return screen === 'docs' ? docsScreen() : askOf(screen.slice(2)) ? pathQuestion(askOf(screen.slice(2))) : storyScreen();
   if (screen.startsWith('q:') && QUESTIONS[screen.slice(2)]) return questionScreen(screen.slice(2));
   return topicScreen();
 }
@@ -780,14 +804,14 @@ function show(screen, { focus = true, push = true, speak = true } = {}) {
   // [R2-B5] شاشة جديدة بعد ضغطة والسماع شغال: تُقرأ وحدها
   if (speak && L && L.listenOn()) speakScreen(view);
   // التسجيل يُجهَّز من أول سؤال (ليس من الشاشة الأولى ولا شاشة «إحنا نكلمك»)
-  if (screen === 'story' || screen.startsWith('q:')) loadRecorder().catch(() => {});
+  if (VOICE && (screen === 'story' || screen.startsWith('q:'))) loadRecorder().catch(() => {});
 }
 
 const go = (screen) => show(screen);
 
 function goBack() {
   if (Number(history.state?.bmfDepth) > 0) history.back();
-  else if (state.screen !== 'topic' && !state.cbDirect) show('topic');
+  else if (!X && state.screen !== 'topic' && !state.cbDirect) show('topic');
   else window.location.href = HOME;
 }
 
@@ -797,10 +821,19 @@ window.addEventListener('popstate', (e) => {
   if (screen && screen !== state.screen) show(screen, { push: false });
 });
 
+// v12 entry (PW-E6): «رجوع» في رأس صفحة الأفراد والشركات = الشاشة السابقة؛ في أول شاشة يفتح صفحة الشجرة (رابطه من الخادم)
+document.querySelector('.trail__back')?.addEventListener('click', (e) => {
+  if (Number(history.state?.bmfDepth) > 0 && state.screen !== 'done') {
+    e.preventDefault();
+    history.back();
+  }
+});
+
 // ═════ الموضوع ═════
 
 function topicTile(t0, onPick) {
   const t = topicOf(t0);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   return h(
     'button.bmf-topic',
     { type: 'button', 'aria-pressed': String(state.topic === t.key), onClick: (e) => onPick(t, e.currentTarget) },
@@ -825,7 +858,8 @@ function topicScreen() {
       });
     }),
   );
-  const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, crossRow(), h('div.bmf-body', h('div.bmf-topics', tiles), h('div.bmf-actions', contactLine())));
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
+  const el = h('section.bmf-step', { 'aria-labelledby': heading.id }, head, h('div.bmf-body', h('div.bmf-topics', tiles), h('div.bmf-actions', contactLine())));
   const say = () => [{ text: COPY.topicH1, el: heading }, ...tiles.map((b, i) => ({ text: topicOf(TOPICS[i]).say, el: b }))];
   return { el, heading, listen, say };
 }
@@ -859,6 +893,7 @@ function questionScreen(qid) {
     );
   const tiles = q.answers.map((a, i) => tile({ ...a, text: qt.a(i, a) }, ''));
   const dontKnow = tile({ ...UNKNOWN, text: unknownLabel() }, '.bmf-dontknow');
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const el = h(
     'section.bmf-step',
     { 'aria-labelledby': heading.id },
@@ -872,6 +907,70 @@ function questionScreen(qid) {
     { text: unknownLabel(), el: dontKnow },
   ];
   return { el, heading, listen, say };
+}
+
+// ═════ v12 entry: سؤال الورقة (L12-04، §5.6) ═════
+// صفوف أزرار هادئة بلا صور: الضغطة = الإجابة + الشاشة التالية (مهلة 450ms نفسها)، بلا «متابعة» ولا aria-pressed؛ الإجابة
+// السابقة عند الرجوع aria-current. «لا أعرف» آخر صف. الرموز (I-11…I-25 للسؤال، I-80… للإجابات) من bm-path.
+
+function pathQuestion(q) {
+  const flow = flowNow();
+  const i = flow.indexOf(q.id);
+  const { el: head, heading } = chrome({ title: q.h1, sub: q.sub, idx: i + 1, total: flow.length + 3, tag: q.tag });
+  const rows = q.answers.map(([v, label, tag]) =>
+    h(
+      'button.opt.opt--choice',
+      {
+        type: 'button',
+        class: v === 'unknown' && 'opt--unknown',
+        'aria-current': state.answers[q.id] === v && 'true',
+        tag,
+        onClick: (e) => {
+          if (!tapOk()) return;
+          tapLocked = true;
+          rows.forEach((b) => b.removeAttribute('aria-current'));
+          e.currentTarget.setAttribute('aria-current', 'true');
+          e.currentTarget.classList.add('opt--going');
+          setTimeout(() => {
+            state.answers[q.id] = v;
+            changed({ now: true });
+            go(i + 1 < flow.length ? `q:${flow[i + 1]}` : 'story');
+          }, PRESS_MS);
+        },
+      },
+      h('span.opt__ring', { 'aria-hidden': 'true' }),
+      h('span.opt__main', h('span.opt__t', label)),
+    ),
+  );
+  return { el: h('section.bmf-step', { 'aria-labelledby': heading.id, tag: 'I-152' }, head, h('div.opts', { role: 'group', 'aria-labelledby': heading.id }, rows)), heading };
+}
+
+// ═════ v12 entry: «هل لديكم مستندات؟» (E12-35، §5.8) ═════
+// مكان واحد للمستندات: الماسح على الهاتف وصفحات المستند الواحد في PDF (photoPicker)، و«ليس الآن» قبل أول ملف، و«التالي» بعده.
+
+function docsScreen() {
+  const n = flowNow().length;
+  const { el: head, heading } = chrome({ title: COPY.docsH1, sub: P.docs_sub || X.DOCS?.[P.line], idx: n + 2, total: n + 3, tag: 'I-40' });
+  const box = h('div.bmf-photos');
+  const count = h('p.bmf-note', { tag: 'I-42' });
+  const next = h('button.btn.btn--primary', { type: 'button', tag: 'I-41', onClick: async () => (await picker?.ready(), go('phone')) }, COPY.next);
+  const skip = h('button.btn.btn--text', { type: 'button', tag: 'I-43', onClick: () => go('phone') }, COPY.docsSkip);
+  const paint = () => {
+    const k = photos().length;
+    next.hidden = !k;
+    skip.hidden = !!k;
+    // v12 gate (V-05، L12-86): «صورة واحدة» · «صورتان» · «3 صور، والحد 5» (bm-copy)، لا «2 من 5» الذي يُقرأ خطوةً تحت «4 من 5»
+    count.textContent = k ? fill(COPY[k < 3 ? `photos${k}` : 'photosN'], { n: k, max: MAX_PHOTOS }) : '';
+  };
+  const put = () => {
+    onPhotosChanged = paint;
+    mount(box, ensurePicker());
+    paint();
+  };
+  if (U) put();
+  else loadUpload().then(() => state.screen === 'docs' && put(), () => {});
+  paint();
+  return { el: h('section.bmf-step.bmf-docs', { 'aria-labelledby': heading.id, tag: 'I-153' }, head, h('div.bmf-body', box, count, h('div.bmf-actions', next, skip))), heading };
 }
 
 // ═════ «احكيلنا» ═════
@@ -942,16 +1041,17 @@ function paintVoices() {
 
 function storyScreen() {
   const t = topicOf(topicByKey(state.topic));
-  const flow = flowFor(state.topic);
+  const flow = flowNow();
   const mic = canRecordHere();
   // v11 gate-public (L11-37، r2 P17): الأفراد والشركات يبدؤون بالكتابة (نفس فرع الموبايل بلا ميكروفون)، والصوت بضغطة
   let micOn = !X?.textFirst || voices().length > 0;
-  const sub = `${!t || t.key === 'other' ? `${COPY.storyOther} ` : ''}${mic && micOn ? COPY.storySubMic : COPY.storySubText}`;
-  const { el: head, heading, listen, subEl } = chrome({ title: COPY.storyH1, sub, idx: flow.length + 1, total: flow.length + 2, trust: true });
+  // v12 entry (E12-34): الورقة بلا سطر شارح (المسار فوق العنوان يقول الموضوع)
+  const sub = P ? '' : `${!t || t.key === 'other' ? `${COPY.storyOther} ` : ''}${mic && micOn ? COPY.storySubMic : COPY.storySubText}`;
+  const { el: head, heading, listen, subEl } = chrome({ title: COPY.storyH1, sub, idx: flow.length + 1, total: flow.length + (P ? 3 : 2), trust: true, tag: 'I-30' });
   const err = errorLine();
   voicesBox = h('div.bmf-voices');
-  paintVoices();
-  if (!R) {
+  if (mic) paintVoices();
+  if (!R && mic) {
     loadRecorder()
       .then(() => {
         if (state.screen === 'story') {
@@ -963,16 +1063,26 @@ function storyScreen() {
   }
 
   let typing = !mic || !micOn || nonSpace(state.description) > 0;
-  let photosOpen = photos().length > 0;
+  let photosOpen = !P && photos().length > 0; // v12: الورقة تضيف المستندات في شاشتها
   const ta = h('textarea.bmf-textarea', {
     id: 'bmf-desc',
     rows: 4,
     maxlength: MAX_DESC,
     value: state.description,
-    placeholder: (t || topicOf(TOPICS[TOPICS.length - 1])).placeholder,
+    placeholder: P ? X.PH?.[P.ph] || COPY.ph : (t || topicOf(TOPICS[TOPICS.length - 1])).placeholder,
     'aria-label': COPY.descAria,
+    tag: P && 'I-31',
   });
   const taWrap = h('div.bmf-field', ta);
+  // v12 (M12-03): تسجيل من مسودة قديمة وتسجيل الموقع متوقف — يُرسل مع الطلب، ويمكن حذفه
+  const heldBox = held.length
+    ? h(
+        'p.bmf-note',
+        COPY.heldV,
+        ' ',
+        h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => ((held = []), heldBox.remove(), changed({ now: true }), paint()), tag: X && 'I-154' }, COPY.heldX),
+      )
+    : null;
   clearProblemError = () => {
     err.show('');
     ta.removeAttribute('aria-invalid');
@@ -986,6 +1096,7 @@ function storyScreen() {
         paint();
         ta.focus();
       },
+      tag: X && 'I-155',
     },
     ic('pencil', 20),
     h('span', COPY.writeInstead),
@@ -996,6 +1107,7 @@ function storyScreen() {
           'button.bmf-btn.bmf-btn-text.bmf-or-voice',
           {
             type: 'button',
+            tag: P && 'I-34',
             onClick: () => {
               micOn = true;
               paint();
@@ -1007,7 +1119,7 @@ function storyScreen() {
         )
       : null;
   const nextLabel = h('span');
-  const next = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-go', { type: 'button' }, nextLabel, ic('arrowLeft', 20));
+  const next = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-go', { type: 'button', tag: P && 'I-32' }, nextLabel, ic('arrowLeft', 20));
   const moreVoice = h(
     'button.bmf-btn.bmf-btn-text.bmf-more-voice',
     {
@@ -1018,6 +1130,7 @@ function storyScreen() {
         paint();
         el.querySelector('.bmf-rec-start')?.click();
       },
+      tag: X && 'I-156',
     },
     COPY.moreVoice,
   );
@@ -1039,15 +1152,19 @@ function storyScreen() {
         mount(photoBox, ensurePicker());
         paint();
       },
+      tag: X && 'I-157',
     },
     ic('camera', 20),
     photoLabel,
   );
   const photoHint = h('p.bmf-hint', COPY.photoHint);
+  // v12 entry (E12-34، I-33): في الورقة رابط نصي «تفضّلون أن نتصل بكم؟»
   const cbBtn = h(
-    'button.bmf-btn.bmf-btn-outline.bmf-btn-block.bmf-cb-btn',
+    'button.bmf-btn.bmf-cb-btn',
     {
       type: 'button',
+      class: X ? 'bmf-btn-text' : 'bmf-btn-outline bmf-btn-block',
+      tag: P && 'I-33',
       onClick: async () => {
         await stopRecordings();
         state.description = ta.value;
@@ -1056,17 +1173,17 @@ function storyScreen() {
         go('phone');
       },
     },
-    ic('phone', 20),
+    !X && ic('phone', 20),
     h('span', COPY.callbackBtn),
   );
-  const waLine = contactLine(topicWa() || greetingWa());
+  const waLine = X ? null : contactLine(topicWa() || greetingWa());
   // [R2-B14] داخل فيسبوك/إنستجرام: واتساب أولًا والتسجيل تحته
   const waStory = topicWa();
-  const inApp = IN_APP_RE.test(navigator.userAgent || '') && !!waStory;
+  const inApp = VOICE && IN_APP_RE.test(navigator.userAgent || '') && !!waStory;
   const inAppBox = inApp
     ? h(
         'div.bmf-inapp',
-        h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: waStory, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', COPY.inAppWa)),
+        h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: waStory, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-158' }, ic('whatsapp', 22), h('span', COPY.inAppWa)),
         h('p.bmf-or', COPY.inAppOr),
       )
     : null;
@@ -1084,14 +1201,14 @@ function storyScreen() {
     const chars = nonSpace(ta.value);
     const told = hasVoice || chars >= MIN_CHARS;
     taWrap.hidden = !typing;
-    voicesBox.hidden = !micOn;
+    voicesBox.hidden = !micOn || !mic;
     if (voiceBtn) voiceBtn.hidden = micOn;
     write.hidden = typing || !mic || hasVoice;
     next.hidden = !hasVoice && chars === 0;
     nextLabel.textContent = hasVoice ? COPY.okNext : COPY.next;
     const allRecorded = voiceEls.length > 0 && voiceEls.every((x) => x.getBlob());
     moreVoice.hidden = !(hasVoice && allRecorded && voiceEls.length < MAX_VOICES && mic);
-    const showPhoto = hasVoice || chars >= 1 || photosOpen;
+    const showPhoto = !P && (hasVoice || chars >= 1 || photosOpen);
     photoBtn.hidden = !showPhoto || photosOpen;
     photoHint.hidden = !showPhoto;
     photoLabel.textContent = hasVoice ? COPY.photo : COPY.photoFirst;
@@ -1121,14 +1238,14 @@ function storyScreen() {
     await picker?.ready();
     state.callbackMode = false;
     state.callback = null;
-    go('phone');
+    go(P ? 'docs' : 'phone');
   });
 
   const el = h(
     'section.bmf-step',
-    { 'aria-labelledby': heading.id },
+    { 'aria-labelledby': heading.id, tag: X && 'I-159' },
     head,
-    h('div.bmf-body', inAppBox, voicesBox, write, taWrap, voiceBtn, h('div.bmf-actions', err, next, moreVoice, photoBtn, photoHint, photoBox, cbBtn, waLine)),
+    h('div.bmf-body', inAppBox, voicesBox, heldBox, write, taWrap, voiceBtn, h('div.bmf-actions', err, next, moreVoice, photoBtn, photoHint, photoBox, cbBtn, waLine)),
   );
   const say = () => [
     { text: COPY.storyH1, el: heading },
@@ -1155,9 +1272,9 @@ function problemSummary() {
   return parts.join(' ') || COPY.sumCb;
 }
 
-function field({ id, label, hint, input }) {
+function field({ id, label, hint, input, tag }) {
   const err = h('p.bmf-error', { id: `${id}-err`, hidden: true });
-  const hintEl = hint ? h('p.bmf-hint', { id: `${id}-hint` }, hint) : null;
+  const hintEl = hint ? h('p.bmf-hint', { id: `${id}-hint`, tag }, hint) : null;
   input.id = id;
   input.setAttribute('aria-describedby', [hintEl && `${id}-hint`, `${id}-err`].filter(Boolean).join(' '));
   const wrap = h('div.bmf-field', label && h('label.bmf-label', { htmlFor: id }, label), input, hintEl, err);
@@ -1172,21 +1289,22 @@ function field({ id, label, hint, input }) {
 
 function phoneScreen() {
   const cb = state.callbackMode;
-  const flow = flowFor(state.topic);
-  const total = state.cbDirect ? 0 : flow.length + 2;
+  const flow = flowNow();
+  const total = state.cbDirect ? 0 : flow.length + (P ? 3 : 2);
   const title = cb ? COPY.cbH1 : COPY.phoneH1;
   const sub = cb ? COPY.cbSub : COPY.phoneSub;
-  // الملخص في سطر واحد فوق العنوان (مسار الحكاية فقط)
-  const summary = state.cbDirect
+  // الملخص في سطر واحد فوق العنوان (مسار الحكاية فقط)؛ v12 entry (E12-36): الأفراد والشركات بلا ملخص (المسار يغني عنه)
+  const summary =
+    state.cbDirect || X
     ? null
     : h(
         'p.bmf-summary-line',
         h('strong', COPY.sumLabel),
         h('span', problemSummary()),
         ' — ',
-        h('button.bmf-btn.bmf-btn-text.bmf-edit', { type: 'button', onClick: () => go('story'), 'aria-label': COPY.editAria }, COPY.edit),
+        h('button.bmf-btn.bmf-btn-text.bmf-edit', { type: 'button', onClick: () => go('story'), 'aria-label': COPY.editAria, tag: X && 'I-160' }, COPY.edit),
       );
-  const { el: head, heading, listen, subEl } = chrome({ title, sub, idx: total, total, trust: true, before: summary });
+  const { el: head, heading, listen, subEl } = chrome({ title, sub, idx: total, total, trust: true, before: summary, tag: 'I-50' });
   const err = errorLine();
   const status = h('div.bmf-send-status');
 
@@ -1200,8 +1318,12 @@ function phoneScreen() {
     placeholder: '01xxxxxxxxx',
     value: state.phone,
     'aria-label': COPY.phoneH1,
+    tag: X && 'I-51',
   });
-  const phoneField = field({ id: 'bmf-phone', input: phoneInput });
+  // v12 entry (L12-84، I-58): رقم من خارج مصر؟ ← واتساب الأفراد والشركات بجملة الورقة (أو الجملة العامة)
+  const abroad = X && greetingWa();
+  // tags:skip inline link inside a <p> (T12-09)
+  const phoneField = field({ id: 'bmf-phone', input: phoneInput, hint: abroad && [COPY.abroad, h('a', { href: abroad, target: '_blank', rel: 'noopener noreferrer' }, COPY.abroadGo)], tag: 'I-58' });
   const okLine = h('p.bmf-phone-ok', { hidden: true }, ic('check', 18), h('span', COPY.phoneOk));
   const hear = h(
     'button.bmf-btn.bmf-btn-text.bmf-hear',
@@ -1212,6 +1334,7 @@ function phoneScreen() {
         const d = normalizeEgPhone(phoneInput.value);
         if (L && d) speakItems([{ text: L.spellPhone(d), el: phoneInput }]);
       },
+      tag: X && 'I-161',
     },
     ic('speaker', 18),
     h('span', COPY.phoneHear),
@@ -1247,12 +1370,12 @@ function phoneScreen() {
   // [R2-B16] «مش فاكرة رقمك؟»: من واتساب على موبايلها ناخد الرقم (المسودة تفضل)
   const waNum = topicWa() || greetingWa();
   let forgot = null;
-  if (waNum) {
+  if (waNum && !X) {
     const panel = h(
       'div.bmf-forgot-panel',
       { hidden: true },
       h('p.bmf-card-text', COPY.forgotText),
-      h('a.bmf-btn.bmf-btn-wa.bmf-btn-block', { href: waNum, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 20), h('span', COPY.openWa)),
+      h('a.bmf-btn.bmf-btn-wa.bmf-btn-block', { href: waNum, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-162' }, ic('whatsapp', 20), h('span', COPY.openWa)),
     );
     const btn = h(
       'button.bmf-btn.bmf-btn-text.bmf-forgot',
@@ -1263,6 +1386,7 @@ function phoneScreen() {
           panel.hidden = !panel.hidden;
           btn.setAttribute('aria-expanded', String(!panel.hidden));
         },
+        tag: X && 'I-163',
       },
       COPY.forgot,
     );
@@ -1285,45 +1409,60 @@ function phoneScreen() {
             chips.forEach((c, i) => c.setAttribute('aria-pressed', String(Object.keys(CALLBACK_WHEN)[i] === k)));
             changed();
           },
+          tag: X && 'I-164',
         },
-        pic(WHEN_PICTO[k]),
+        !X && pic(WHEN_PICTO[k]),
         h('span', whenLabel(k)),
       ),
     );
     whenChips = chips;
-    whenBox = h('fieldset.bmf-when', h('legend', COPY.when), h('div.bmf-when-chips', chips));
+    whenBox = h('fieldset.bmf-when', { tag: X && 'I-56' }, h('legend', COPY.when), h('div.bmf-when-chips', chips));
   }
 
   // «الموضوع (لو تحبي)»: من «إحنا نكلمك» مباشرة فقط — اختيار واحد، ومفيش حاجة إجبارية
+  // v12 entry (E12-37، I-57): الأفراد والشركات — «نوع الطلب (اختياري)»: الخطوط الثلاثة بأسمائها في الشجرة (LINES) بدل المواضيع
   let topicsBox = null;
   if (cb && state.cbDirect) {
     let lastTap = 0;
-    const chips = TOPICS.map((t0) => {
-      const t = topicOf(t0);
-      return h(
+    const k = X ? 'line' : 'topic';
+    const list = X ? X.LINES || [] : TOPICS.map((t0) => topicOf(t0)).map((t) => [t.key, t.label, t.picto]);
+    const chips = list.map(([key, label, picto]) =>
+      h(
         'button.bmf-topic-chip-btn',
         {
           type: 'button',
-          'aria-pressed': String(state.topic === t.key),
+          'aria-pressed': String(state[k] === key),
           onClick: () => {
             const now = performance.now();
             if (now - screenShownAt < TAP_GUARD_MS || now - lastTap < TAP_GUARD_MS) return;
             lastTap = now;
-            state.topic = state.topic === t.key ? null : t.key;
+            state[k] = state[k] === key ? null : key;
             state.answers = {};
-            chips.forEach((c, i) => c.setAttribute('aria-pressed', String(state.topic === TOPICS[i].key)));
+            chips.forEach((c, i) => c.setAttribute('aria-pressed', String(state[k] === list[i][0])));
             changed();
           },
+          tag: X && 'I-165',
         },
-        pic(t.picto),
-        h('span', t.label),
-      );
-    });
-    topicsBox = h('fieldset.bmf-topic-chips', h('legend', COPY.cbTopics), h('div.bmf-topic-chips-row', chips));
+        picto && pic(picto),
+        h('span', label),
+      ),
+    );
+    topicsBox = h('fieldset.bmf-topic-chips', { tag: X && 'I-57' }, h('legend', COPY.cbTopics), h('div.bmf-topic-chips-row', chips));
   }
 
-  const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', enterkeyhint: 'done', maxlength: 120, value: state.name, placeholder: COPY.namePh });
-  const nameField = field({ id: 'bmf-name', label: COPY.nameLabel, input: nameInput });
+  // v12 entry (E12-36، I-53): اسم الشركة (اختياري) لورقة تعديل شركة أو عقودها
+  let coField = null;
+  if (P?.company_name) {
+    const coInput = h('input.bmf-input', { type: 'text', autocomplete: 'organization', maxlength: 120, value: state.company, tag: 'I-53' });
+    coField = field({ id: 'bmf-company', label: COPY.company, input: coInput, tag: X && 'I-166' });
+    coInput.addEventListener('input', () => {
+      state.company = coInput.value;
+      changed();
+    });
+  }
+
+  const nameInput = h('input.bmf-input', { type: 'text', autocomplete: 'name', enterkeyhint: 'done', maxlength: 120, value: state.name, placeholder: COPY.namePh, tag: X && 'I-52' });
+  const nameField = field({ id: 'bmf-name', label: COPY.nameLabel, input: nameInput, tag: X && 'I-167' });
   nameInput.addEventListener('input', () => {
     state.name = nameInput.value;
     nameField.setError('');
@@ -1332,8 +1471,9 @@ function phoneScreen() {
 
   // [R2-B6] الموافقة بالفعل: سطر فوق زر الإرسال (يُقرأ بصوت)، بلا مربع
   const consentText = cb ? COPY.consentCb : COPY.consent;
-  const consentLine = h('p.bmf-consent-line', h('span', consentText), ' ', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, COPY.more));
-  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button' }, h('span', cb ? COPY.sendCb : COPY.send), ic('send', 20, 'bmf-flip'));
+  // tags:skip inline link inside a <p> (T12-09)
+  const consentLine = h('p.bmf-consent-line', { tag: X && 'I-54' }, h('span', consentText), ' ', h('a', { href: '/privacy#summary', target: '_blank', rel: 'noopener' }, COPY.more));
+  const submit = h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block.bmf-submit', { type: 'button', tag: X && 'I-55' }, h('span', cb ? COPY.sendCb : COPY.send), ic('send', 20, 'bmf-flip'));
 
   // تحت زر «اطلبي مكالمة»: رقمنا لمن تحب تتصل بنفسها، و«مقفولين دلوقتي» خارج المواعيد
   let under = null;
@@ -1341,6 +1481,7 @@ function phoneScreen() {
   if (cb && tel) {
     under = h(
       'div.bmf-under-send',
+      // tags:skip inline link inside a <p> (T12-09)
       h('p', COPY.cbCallUs, h('a', { href: `tel:${page.orgPhoneHref || org.phone_e164 || tel}`, dir: 'ltr', class: 'bmf-ltr' }, tel)),
       page.closed && h('p.bmf-closed', COPY.closed),
     );
@@ -1398,14 +1539,17 @@ function phoneScreen() {
       name: nameInput.value.trim() || undefined,
       phone: normalizeEgPhone(phoneInput.value) || toLatinDigits(phoneInput.value).trim(),
       governorate: '',
-      legal_area: topicArea() || '',
+      legal_area: P ? '' : topicArea() || '',
       description: String(state.description || '').trim(),
       documents,
       attribution: C.getAttribution(),
-      topic: state.topic || null,
-      answers: sanitizeAnswers(state.topic, state.answers),
+      // v12 entry (E12-39): الورقة ترسل مسارها وموضوعها وإجابات أسئلتها فقط (الخادم يضيف ما أجابت عنه الشجرة)
+      topic: P ? P.topic || null : state.topic || null,
+      answers: P ? Object.fromEntries(flow.filter((id) => state.answers[id] !== undefined).map((id) => [id, state.answers[id]])) : sanitizeAnswers(state.topic, state.answers),
+      pathway: P?.path || (X && state.line) || undefined,
+      company_name: (P?.company_name && state.company.trim()) || undefined,
       callback: cb ? state.callback || 'any' : null,
-      entry: state.entry,
+      entry: P ? 'tree' : state.entry,
       mode: cb ? 'callback' : 'tiles',
       consent: true,
       consent_v: CONSENT_V,
@@ -1466,11 +1610,11 @@ function phoneScreen() {
           'div.bmf-alert',
           { class: network ? '' : 'is-error', role: 'alert' },
           h('p', msg),
-          network && h('button.bmf-btn.bmf-btn-outline', { type: 'button', onClick: send }, ic('refresh', 18), h('span', COPY.retry)),
+          network && h('button.bmf-btn.bmf-btn-outline', { type: 'button', onClick: send, tag: X && 'I-168' }, ic('refresh', 18), h('span', COPY.retry)),
         ),
       );
       if (e && e.details && e.details.fields && e.details.fields.description) {
-        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => go('story') }, COPY.backStory));
+        status.append(h('button.bmf-btn.bmf-btn-text', { type: 'button', onClick: () => go('story'), tag: X && 'I-169' }, COPY.backStory));
       }
       if (e && e.details && e.details.fields && e.details.fields.name) nameField.setError(MSG.name);
       return;
@@ -1483,6 +1627,7 @@ function phoneScreen() {
     await Promise.race([store.clear().catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
     voiceEls.forEach((v) => v.destroy());
     voiceEls = [];
+    held = [];
     showSuccess(res || {}, nameInput.value.trim(), sent);
     haptic('success'); // نفس الإطار الذي تظهر فيه «وصلنا طلبك»
   }
@@ -1491,7 +1636,7 @@ function phoneScreen() {
 
   const el = h(
     'section.bmf-step',
-    { 'aria-labelledby': heading.id },
+    { 'aria-labelledby': heading.id, tag: X && 'I-170' },
     head,
     h(
       'div.bmf-body',
@@ -1501,9 +1646,8 @@ function phoneScreen() {
       whenBox,
       topicsBox,
       nameField,
+      coField,
       h('div.bmf-actions', consentLine, err, submit, status, under),
-      // v11 fixer-public (V12): في شاشة الرقم يأتي طريق «خيري» بعد زر الإرسال، لا بين العنوان وخانة الرقم
-      crossRow(),
     ),
   );
   const say = () => [
@@ -1533,7 +1677,7 @@ window.addEventListener('online', () => {
     'div.bmf-toast',
     { role: 'status' },
     h('p', COPY.online),
-    h('button.bmf-btn.bmf-btn-gold', { type: 'button', onClick: () => retrySend() }, COPY.onlineGo),
+    h('button.bmf-btn.bmf-btn-gold', { type: 'button', onClick: () => retrySend(), tag: X && 'I-171' }, COPY.onlineGo),
   );
   document.body.append(toastEl);
 });
@@ -1549,6 +1693,73 @@ function refNumber(ref) {
 function etaWords(n) {
   const k = Math.min(5, Math.max(1, Math.round(Number(n) || 1)));
   return k === 1 ? COPY.eta1 : k === 2 ? COPY.eta2 : fill(COPY.etaN, { n: k });
+}
+
+/** «إرسال الرابط إلى نفسها»: مشاركة الهاتف إن وُجدت، وإلا واتساب بلا رقم (تختار هي المحادثة) */
+function shareLink(portal, cls, ...kids) {
+  const shareText = fill(brandName() ? COPY.shareB : COPY.share, { b: brandName(), u: portal });
+  const shareHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const a = h('a', { class: cls, href: shareHref, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-172' }, kids);
+  a.addEventListener('click', async (e) => {
+    if (typeof navigator.share !== 'function') return;
+    e.preventDefault();
+    try {
+      await navigator.share({ text: shareText });
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      window.open(shareHref, '_blank', 'noopener');
+    }
+  });
+  return a;
+}
+
+/**
+ * v12 entry (E12-38، L12-65): «وصلنا طلبكم» للأفراد والشركات — رقم الطلب، وسطر واحد بما سيحدث (أو سطر الموعد القريب
+ * I-67 ورابط «اتصلوا بنا الآن» في مواعيد العمل)، وصفحة الطلب، وبطاقة واتساب إن وُجد رابط التأكيد، وسطر الأتعاب، ورابطان.
+ */
+function paidDone(res, { ref, num, portal, confirmUrl, callback }) {
+  document.title = `${COPY.done} | ${brandName()}`;
+  document.querySelector('.trail')?.remove();
+  stepLine(0, 0);
+  if (confirmUrl) {
+    try {
+      window.localStorage.setItem('bm_wa_confirm', JSON.stringify({ ref, url: confirmUrl, at: new Date().toISOString() }));
+    } catch {
+      /* التخزين غير متاح */
+    }
+  }
+  const eta = etaWords(res.callback_eta_days);
+  const from = String(res.callback_from || '').trim();
+  const call = typeof res.call_now === 'string' && /^[\d +()-]{6,20}$/.test(res.call_now) ? res.call_now : null;
+  const heading = h('h1#success-title.bmf-title.q__title', { tabindex: '-1', tag: 'I-60' }, COPY.done);
+  const line = res.urgent
+    ? h('p.bmf-urgent', { tag: 'I-67' }, COPY.urgent)
+    : h(
+        'p.bmf-thanks',
+        { tag: 'I-62' },
+        callback ? [fill(COPY.cbLead, { eta, when: callback === 'any' ? '' : ` ${whenLabel(callback)}` }), from ? [COPY.cbFrom, ' ', h('bdi', from)] : '.'] : fill(COPY.doneLine, { eta }),
+      );
+  mount(
+    root,
+    h(
+      'section.bmf-success',
+      { 'aria-labelledby': 'success-title', tag: 'I-173' },
+      heading,
+      h('p.bmf-ref', { tag: 'I-61' }, COPY.refNo, h('bdi', ref)),
+      line,
+      res.urgent && call && h('a.btn.btn--line', { href: `tel:${call.replace(/[^\d+]/g, '')}`, tag: 'I-68' }, COPY.callNow, h('bdi', call)),
+      callback && num && h('p.bmf-note', fill(COPY.cbSay, { n: num })),
+      portal && h('div.bmf-actions', h('a.btn.btn--primary', { href: portal, tag: 'I-63' }, COPY.bOpen), shareLink(portal, 'btn btn--text', COPY.bShare)),
+      confirmUrl && h('div.bmf-card', { tag: 'I-64' }, h('h2', { tag: 'I-174' }, COPY.waT), h('p.bmf-card-text', COPY.waX), h('a.bmf-btn.bmf-btn-wa', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', tag: 'I-175' }, COPY.aBtn)),
+      h('p.bmf-fine', { tag: 'I-65' }, COPY.noFee),
+      // v12 gate (JR-10، V-21): «الصفحة الأولى» وحدها؛ «عن المكتب» في تذييل الشجرة تحتها مباشرة
+      // tags:skip inline link inside a <p> (T12-09)
+      h('p.lh__links', { tag: 'I-66' }, h('a', { href: '/' }, COPY.home1)),
+    ),
+  );
+  current = { heading };
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  heading.focus({ preventScroll: true });
 }
 
 function showSuccess(res, name, sent = {}) {
@@ -1580,8 +1791,8 @@ function showSuccess(res, name, sent = {}) {
   const ref = res.reference;
   if (!ref) {
     // حقل الفخ أو رد بلا رقم: شكر بسيط
-    const heading = h('h1', { tabindex: '-1' }, COPY.gotMsg);
-    mount(root, h('section.bmf-success', heading, h('a.bmf-btn.bmf-btn-outline.bmf-btn-lg', { href: HOME }, ic('home', 20), h('span', COPY.home))));
+    const heading = h('h1', { tabindex: '-1', tag: X && 'I-176' }, COPY.gotMsg);
+    mount(root, h('section.bmf-success', { tag: X && 'I-177' }, heading, h('a.bmf-btn.bmf-btn-outline.bmf-btn-lg', { href: HOME, tag: X && 'I-178' }, ic('home', 20), h('span', COPY.home))));
     heading.focus();
     return;
   }
@@ -1597,7 +1808,9 @@ function showSuccess(res, name, sent = {}) {
 
   // نحفظ صفحة الطلب على هذا الموبايل (B91-06)؛ طلب جديد من نفس الموبايل يلغي «امسحي» السابقة
   const savedHere = portal ? rememberPortal({ url: portal, ref }, { force: true }) : false;
+  if (X) return paidDone(res, { ref, num, portal, confirmUrl, callback });
 
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const heading = h('h1#success-title', { tabindex: '-1' }, COPY.done);
 
   // (إصلاح 9.1، B91-01) الخطوة 3 لا تعد بواتساب إلا لو بعتت رقم الطلب فعلًا
@@ -1623,6 +1836,7 @@ function showSuccess(res, name, sent = {}) {
     cbSay = () => `${lead}${from ? `${COPY.cbFrom} ${L ? L.spellPhone(from) : from}` : ''}. ${rest}`;
     const numEl = from ? h('span.bmf-cb-num', { dir: 'ltr' }, from) : null;
     const hearNum = from
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       ? h(
           'button.bmf-btn.bmf-btn-text.bmf-hear',
           { type: 'button', hidden: !L, onClick: () => L && speakItems([{ text: L.spellPhone(from), el: numEl }]) },
@@ -1630,6 +1844,7 @@ function showSuccess(res, name, sent = {}) {
           h('span', g(COPY.hearNum)),
         )
       : null;
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cbCard = h(
       'section.bmf-card.bmf-cb-card',
       { 'aria-label': COPY.cbAria },
@@ -1663,11 +1878,13 @@ function showSuccess(res, name, sent = {}) {
         sent
           ? [
               h('p.bmf-sent', ic('check', 22), h('span', g(COPY.aSent))),
+              // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
               h('a.bmf-btn.bmf-btn-text', { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) }, g(COPY.aAgain)),
             ]
           : [
               h('p.bmf-kicker', callback ? cardAText : COPY.aKicker),
               !callback && h('p.bmf-card-text', g(COPY.aText)),
+              // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
               h(
                 'a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block.bmf-confirm',
                 { href: confirmUrl, target: '_blank', rel: 'noopener noreferrer', onClick: () => (clicked = true) },
@@ -1686,15 +1903,15 @@ function showSuccess(res, name, sent = {}) {
         reveal(); // رجعت من واتساب: وقت «كمان سؤالين»
       }
     });
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cardA = h('section.bmf-card', { class: callback ? 'is-outline' : 'is-gold', 'aria-label': COPY.aAria }, body);
   }
 
   // البطاقة ب: صفحة طلبها — مطوية تحت «صفحة طلبك» (والمربع في الصفحة الرئيسية يرجّعها كمان)
   let cardB = null;
   if (portal) {
-    const shareText = fill(brandName() ? COPY.shareB : COPY.share, { b: brandName(), u: portal });
-    const shareHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
     const live = h('span.bmf-sr', { 'aria-live': 'polite' });
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     const copyBtn = h('button.bmf-btn.bmf-btn-text', { type: 'button' }, ic('copy', 18), h('span', COPY.bCopy));
     copyBtn.addEventListener('click', async () => {
       let ok = false;
@@ -1703,6 +1920,7 @@ function showSuccess(res, name, sent = {}) {
         ok = true;
       } catch {
         try {
+          // tags:skip off-screen helper for copying the link, not shown
           const tmp = h('textarea', { style: 'position:fixed;opacity:0;inset-block-start:0', readonly: true }, portal);
           document.body.append(tmp);
           tmp.select();
@@ -1716,18 +1934,9 @@ function showSuccess(res, name, sent = {}) {
       live.textContent = ok ? COPY.bCopiedSr : '';
       setTimeout(() => mount(copyBtn, ic('copy', 18), h('span', COPY.bCopy)), 2500);
     });
-    const shareBtn = h('a.bmf-btn.bmf-btn-outline.bmf-btn-block', { href: shareHref, target: '_blank', rel: 'noopener noreferrer' }, ic('share', 20), h('span', g(COPY.bShare)));
-    shareBtn.addEventListener('click', async (e) => {
-      if (typeof navigator.share !== 'function') return;
-      e.preventDefault();
-      try {
-        await navigator.share({ text: shareText });
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;
-        window.open(shareHref, '_blank', 'noopener');
-      }
-    });
+    const shareBtn = shareLink(portal, 'bmf-btn bmf-btn-outline bmf-btn-block', ic('share', 20), h('span', g(COPY.bShare)));
     const savedLine = h('p.bmf-note', { hidden: !savedHere }, COPY.bSaved);
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     const forget = h(
       'button.bmf-btn.bmf-btn-text.bmf-small-link',
       {
@@ -1749,14 +1958,19 @@ function showSuccess(res, name, sent = {}) {
       },
       g(COPY.bForget),
     );
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     cardB = h(
       'details.bmf-details',
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       h('summary', COPY.bSum),
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       h(
         'section.bmf-card',
         { 'aria-labelledby': 'bmf-save-title' },
+        // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
         h('h2', { id: 'bmf-save-title' }, g(COPY.bH2)),
         h('p.bmf-card-text', g(COPY.bText)),
+        // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
         h(
           'a.bmf-btn.bmf-btn-block.bmf-open-portal',
           { href: portal, class: confirmUrl ? 'bmf-btn-outline' : 'bmf-btn-primary bmf-btn-lg' },
@@ -1774,9 +1988,11 @@ function showSuccess(res, name, sent = {}) {
   }
 
   const days = Math.max(1, Number(res.eta_review_days) || 2);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const next = h(
     'section.bmf-next',
     { 'aria-labelledby': 'bmf-next-title' },
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h('h2', { id: 'bmf-next-title' }, COPY.nextH2),
     h(
       'ol',
@@ -1791,6 +2007,7 @@ function showSuccess(res, name, sent = {}) {
     'div.bmf-fine',
     h('p', COPY.refLabel, h('span.bmf-ref.bmf-ltr', ref), num ? '' : g(COPY.refSay)),
     num && h('p', g(fill(COPY.refNum, { n: num }))),
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     org.phone && h('p', g(COPY.fraud), h('a', { href: `tel:${org.phone_e164 || org.phone}`, dir: 'ltr' }, org.phone)),
   );
 
@@ -1816,6 +2033,7 @@ function showSuccess(res, name, sent = {}) {
   const listen = listenButton();
   mount(
     root,
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h(
       'section.bmf-success',
       { 'aria-labelledby': 'success-title' },
@@ -1862,7 +2080,9 @@ function aboutCard(res, portal, form, answers) {
   const body = h('div.bmf-about-body');
   // العنوان على عدد الأسئلة فعلًا (سؤال واحد لما الصفة معروفة أو الكلام لراجل) وبنوع الخطاب
   const title = steps.length > 1 ? COPY.ab2 : g(COPY.ab1);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const titleEl = h('h2', { id: 'bmf-about-title' }, title);
+  // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
   const card = h('section.bmf-card.bmf-about-card', { hidden: true, 'aria-labelledby': 'bmf-about-title' }, titleEl, body);
   // «اسمعي»: العنوان، والسؤال الحالي، وكل اختيار، و«تخطي» (أو «شكرًا، كده تمام.») — لمن لا تقرأ
   card.sayItems = () => {
@@ -1911,6 +2131,7 @@ function aboutCard(res, portal, form, answers) {
     }, PRESS_MS);
   };
   const skip = () =>
+    // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
     h(
       'button.bmf-btn.bmf-btn-text.bmf-skip',
       {
@@ -1927,6 +2148,7 @@ function aboutCard(res, portal, form, answers) {
     locked = false;
     const step = steps[i];
     if (step === 'gov') {
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const select = h(
         'select.bmf-select',
         { 'aria-label': g(COPY.abPick), hidden: true },
@@ -1934,7 +2156,9 @@ function aboutCard(res, portal, form, answers) {
         (org.governorates || []).map((x) => h('option', { value: x }, x)),
       );
       select.addEventListener('change', () => select.value && choose(select, { governorate: select.value }));
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const tiles = quick.map((x) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { governorate: x }) }, x));
+      // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
       const other = h(
         'button.bmf-about-tile',
         {
@@ -1954,6 +2178,7 @@ function aboutCard(res, portal, form, answers) {
         h('p.bmf-about-q', { tabindex: '-1' }, COPY.abRel),
         h(
           'div.bmf-about-tiles',
+          // tags:skip charity-only screen, untagged in 12.0 (§5.9, T12-22)
           RELATIONS.map((r, i) => h('button.bmf-about-tile', { type: 'button', 'aria-pressed': 'false', onClick: (e) => choose(e.currentTarget, { relation: r }) }, COPY.rel[i])),
         ),
         skip(),
@@ -1983,11 +2208,11 @@ function preparingView() {
     root,
     h(
       'section.bmf-card',
-      { role: 'status' },
-      h('h1', COPY.prepH1),
+      { role: 'status', tag: X && 'I-179' },
+      h('h1', { tag: X && 'I-180' }, COPY.prepH1),
       h('p.bmf-card-text', COPY.prep1, h('bdi', /[\u0600-\u06FF]/.test(brandName()) ? { dir: 'rtl', lang: 'ar' } : { dir: 'ltr', lang: 'en' }, brandName()), COPY.prep2),
-      wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer' }, ic('whatsapp', 22), h('span', COPY.prepWa)),
-      phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}` }, ic('phone', 20), h('span', COPY.prepCall), h('span.bmf-ltr', phone)),
+      wa && h('a.bmf-btn.bmf-btn-wa.bmf-btn-lg.bmf-btn-block', { href: wa, target: '_blank', rel: 'noopener noreferrer', tag: X && 'I-181' }, ic('whatsapp', 22), h('span', COPY.prepWa)),
+      phone && h('a.bmf-btn.bmf-btn-lg.bmf-btn-block', { class: wa ? 'bmf-btn-outline' : 'bmf-btn-primary', href: `tel:${org.phone_e164 || phone}`, tag: X && 'I-182' }, ic('phone', 20), h('span', COPY.prepCall), h('span.bmf-ltr', phone)),
     ),
   );
 }
@@ -1997,10 +2222,10 @@ function errorView(retry) {
     root,
     h(
       'section.bmf-card',
-      { role: 'alert' },
-      h('h1', COPY.errH1),
+      { role: 'alert', tag: X && 'I-183' },
+      h('h1', { tag: X && 'I-184' }, COPY.errH1),
       h('p.bmf-card-text', COPY.errText),
-      h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button', onClick: retry }, ic('refresh', 20), h('span', COPY.errBtn)),
+      h('button.bmf-btn.bmf-btn-gold.bmf-btn-lg.bmf-btn-block', { type: 'button', onClick: retry, tag: X && 'I-185' }, ic('refresh', 20), h('span', COPY.errBtn)),
     ),
   );
 }
@@ -2009,9 +2234,9 @@ function errorView(retry) {
 
 /** الشاشة المحفوظة إن كانت صالحة لهذا الموضوع، وإلا أقرب شاشة صالحة */
 function validScreen(screen) {
-  if (screen === 'phone' || screen === 'story') return screen;
-  if (typeof screen === 'string' && screen.startsWith('q:') && flowFor(state.topic).includes(screen.slice(2))) return screen;
-  return state.topic ? firstScreenOf(state.topic) : 'topic';
+  if (screen === 'phone' || screen === 'story' || (P && screen === 'docs')) return screen;
+  if (typeof screen === 'string' && screen.startsWith('q:') && flowNow().includes(screen.slice(2))) return screen;
+  return P ? entryScreen() : state.topic ? firstScreenOf(state.topic) : 'topic';
 }
 
 async function restoreDraft() {
@@ -2030,15 +2255,21 @@ async function restoreDraft() {
   for (const k of ['description', 'name', 'phone']) if (typeof d[k] === 'string') state[k] = d[k].slice(0, MAX_DESC);
   const t = topicByKey(d.topic);
   if (t) state.topic = t.key;
-  state.answers = sanitizeAnswers(state.topic, ans);
+  // v12 entry (E12-40): في الورقة تبقى إجابات أسئلتها الصالحة فقط (رابط ورقة أخرى يغلب المسودة، والكلام والرقم والصور تبقى)
+  state.answers = P ? Object.fromEntries(Object.entries(ans).filter(([k, v]) => askOf(k)?.answers.some((a) => a[0] === v))) : sanitizeAnswers(state.topic, ans);
   if (CALLBACK_WHEN[d.callback]) state.callback = d.callback;
   state.callbackMode = !!d.callbackMode;
   state.cbDirect = !!d.cbDirect;
   if (typeof d.entry === 'string') state.entry = d.entry;
+  if (typeof d.company === 'string') state.company = d.company.slice(0, 120);
+  if (X?.LINES?.some((l) => l[0] === d.line)) state.line = d.line;
+  const samePath = !P || d.path === P.path;
+  if (!samePath) Object.assign(state, { callback: null, callbackMode: false, cbDirect: false });
   if (typeof d.sid === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(d.sid)) state.sid = d.sid;
   if (typeof d.sentFp === 'string' && d.sentFp.length <= 40) state.sentFp = d.sentFp;
   voiceEls = [];
-  if (vs.length) {
+  if (vs.length && !VOICE) held = vs.slice(0, MAX_VOICES).map((v) => ({ blob: v.blob, seconds: Number(v.seconds) || 0 }));
+  else if (vs.length) {
     try {
       await loadRecorder();
       for (const v of vs.slice(0, MAX_VOICES)) addRecorder({ blob: v.blob, seconds: Number(v.seconds) || 0 });
@@ -2060,18 +2291,18 @@ async function restoreDraft() {
     );
   }
   // مسودة 9.1 (خطوات): 1 و2 ← «احكيلنا» (الصور فيها الآن)، 3 ← رقم الموبايل
-  const screen = d.v === 2 ? validScreen(d.screen) : d.step === 3 ? 'phone' : 'story';
-  // v11 fixer-public (J-18): مسودة نقلها طريق «خيري» (crossed) تُكمَّل بصمت، بلا «بدأتِ طلبًا من قبل… كمّلي»؛ أول حفظ بعدها يمسح العلامة
+  const screen = !samePath ? entryScreen() : d.v === 2 ? validScreen(d.screen) : d.step === 3 ? 'phone' : 'story';
+  // v11 fixer-public (J-18): مسودة 11.0 نقلها طريق «خيري» (crossed، حُذف في 12.0) تُكمَّل بصمت بلا «بدأتِ طلبًا من قبل… كمّلي»
   if (d.crossed) return screen;
   // [R2-B19] بلا اسم الموضوع (ابنها ممكن يكون ماسك الموبايل)
   banner = h(
     'section.bmf-banner',
-    { role: 'status' },
+    { role: 'status', tag: X && 'I-186' },
     h('p', COPY.draft),
     d._blobsLost && h('p.bmf-banner-note', COPY.draftLost),
     h(
       'div.bmf-banner-actions',
-      h('button.bmf-btn.bmf-btn-primary', { type: 'button', onClick: () => dismissBanner() }, COPY.draftGo),
+      h('button.bmf-btn.bmf-btn-primary', { type: 'button', onClick: () => dismissBanner(), tag: X && 'I-187' }, COPY.draftGo),
       h(
         'button.bmf-btn.bmf-btn-outline',
         {
@@ -2082,10 +2313,12 @@ async function restoreDraft() {
             voiceEls.forEach((v) => v.destroy());
             voiceEls = [];
             picker = null;
-            Object.assign(state, { description: '', topic: null, answers: {}, callback: null, callbackMode: false, cbDirect: false, name: '', phone: '', sid: newSubmissionId(), sentFp: null });
+            held = [];
+            Object.assign(state, { description: '', topic: null, answers: {}, callback: null, callbackMode: false, cbDirect: false, line: null, company: '', name: '', phone: '', sid: newSubmissionId(), sentFp: null });
             banner = null;
             show(entryScreen(), { push: false });
           },
+          tag: X && 'I-188',
         },
         COPY.draftNew,
       ),
@@ -2136,6 +2369,8 @@ function entryFromUrl() {
 function entryScreen() {
   const params = new URLSearchParams(window.location.search);
   state.entry = entryFromUrl();
+  // v12 entry (E12-30): الورقة تبدأ بأول أسئلتها، وإلا بالموضوع
+  if (P) return P.ask.length ? `q:${P.ask[0].id}` : 'story';
   if (params.get('mode') === 'callback') {
     // [R2-B2] «إحنا نكلمك»: شاشة الرقم مباشرة — بلا أسئلة ولا حكاية
     state.cbDirect = true;
@@ -2152,6 +2387,7 @@ function entryScreen() {
  * الضغطة الجديدة هي اللي تفتح (مش سؤال الموضوع القديم)، والكلام والتسجيلات والصور والرقم يفضلوا من المسودة.
  */
 function tappedOverDraft(screen) {
+  if (P) return screen;
   const params = new URLSearchParams(window.location.search);
   if (params.get('mode') === 'callback') return state.cbDirect ? screen : entryScreen();
   const t = topicByKey(params.get('topic'));
@@ -2165,6 +2401,8 @@ function tappedOverDraft(screen) {
 async function init() {
   captureAttribution();
   initSiteChrome();
+  // v12 gate (V-04): «متابعة طلب» في التذييل ← «صفحة طلبكم» إن حُفظت صفحة على هذا الجهاز
+  followSaved(document.querySelector('.lh__foot [data-follow]'));
   let meta;
   try {
     meta = await loadMeta();
@@ -2180,16 +2418,18 @@ async function init() {
   }
   const params = new URLSearchParams(window.location.search);
   // v11 gate-public (L11-45): طلب عرض الشركات شاشة واحدة في وحدة تُحمّل عند الحاجة فقط (ليست في حزمة الصفحة)
-  if (X && params.get('mode') === 'company') {
+  // v12 entry (E12-43): وفي الشجرة ورقة «لا، نريد عرضًا» (P.lead)، بمسارها وجملة واتساب للأرقام من خارج مصر
+  if (X && (P?.lead || params.get('mode') === 'company')) {
     try {
-      (await import('./intake-company.js')).companyLead({ root, org, X, ic, normalizeEgPhone, newSubmissionId, honeypot, honeypotInput, loadExtras, attribution: () => C.getAttribution(), brandName });
+      (await import('./intake-company.js')).companyLead({ root, org, X, ic, normalizeEgPhone, newSubmissionId, honeypot, honeypotInput, loadExtras, attribution: () => C.getAttribution(), brandName, path: P?.path, wa: greetingWa() });
     } catch {
       errorView(init);
     }
     return;
   }
-  // L11-53: بلا seg صريح في الرابط، مسودة محفوظة للجانب الآخر تغلب الكعكة (نفتحها في صفحة جانبها)
-  if (!params.get('seg') && !(await store.load())) {
+  // L11-53: بلا seg صريح في الرابط، مسودة محفوظة للجانب الآخر تغلب الكعكة (نفتحها في صفحة جانبها).
+  // v12 entry (E12-40): لا يعمل ما دام «خيري» متوقفًا، ولا في ورقة الشجرة (رابطها يفتح نموذج الأفراد والشركات دائمًا)
+  if (PUB.charity && !P && !params.get('seg') && !(await store.load())) {
     const other = SEG === 'paid' ? 'charity' : 'paid';
     if (await draftStore(keyOf(other)).load()) {
       params.set('seg', other);
@@ -2197,6 +2437,7 @@ async function init() {
       return;
     }
   }
+  await pictosReady;
   const restored = await restoreDraft();
   const first = restored ? tappedOverDraft(restored) : entryScreen();
   try {

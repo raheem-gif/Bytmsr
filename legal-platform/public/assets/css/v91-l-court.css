@@ -220,13 +220,11 @@
 }
 
 .lc-ev.is-pending .event-date {
-  background: var(--warning-100);
-  color: var(--warning-700);
+  color: var(--warn);
 }
 
 .lc-ev.is-past .event-date {
-  background: var(--gray-100);
-  color: var(--gray-600);
+  color: var(--ink-3);
 }
 
 .lc-ev-main {
@@ -953,14 +951,13 @@ details[open] > summary .lc-chev {
   align-items: center;
   gap: 6px;
   min-height: 32px;
-  padding: 4px 12px;
-  border: 1px solid #f1c56b;
-  border-radius: 999px;
-  background: var(--warning-100);
-  color: var(--warning-700);
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--warn);
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 button.lc-outbox-pill {
@@ -1182,15 +1179,13 @@ button.lc-outbox-pill {
 }
 
 .lc-month-status {
-  padding: 2px 10px;
-  border-radius: 999px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.lc-month-status.is-paid { background: var(--success-100); color: var(--success-700); }
-.lc-month-status.is-unpaid { background: var(--warning-100); color: var(--warning-700); }
-.lc-month-status.is-partial { background: var(--info-100); color: var(--info-700); }
+.lc-month-status.is-paid { color: var(--ok); }
+.lc-month-status.is-unpaid { color: var(--warn); }
+.lc-month-status.is-partial { color: var(--info); }
 
 .lc-month .lc-lines {
   margin: 0 0 8px;

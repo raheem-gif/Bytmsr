@@ -74,14 +74,22 @@ function clip(text, n) {
 }
 
 /** أجزاء السطر الثانوي: النصوص كما هي، والأكواد داخل <bdi dir=ltr> بلا التفاف */
-function subLine(parts) {
+function subPart(p) {
+  if (p && typeof p === 'object' && p.chip) return h('span.lh-co-chip', p.chip); // v10 b2b-staff (U10-L01): «شركة»
+  if (p && typeof p === 'object' && p.code) return h('bdi.lh-code', { dir: 'ltr' }, p.code);
+  if (p && typeof p === 'object' && p.keep) return h('span.lh-keep', String(p.keep));
+  return h('span.lh-sub-text', String(p));
+}
+/**
+ * سطر البيانات: أجزاء بينها «·». wrap (v12 gate V-26): السطر يلتف، وكل جزء يبدأ بـ«·» والسطر مزاح بعرض فاصل واحد
+ * (overflow مقصوص)، فيختفي الفاصل في أول كل سطر ولا تبقى «·» وحدها في طرفه («· CIV-2026-00002»).
+ */
+function subLine(parts, { wrap = false } = {}) {
+  if (wrap) return h('span.lh-sub-in', parts.map((p) => h('span.lh-sub-part', h('span.lh-sep', { 'aria-hidden': 'true' }, '·'), subPart(p))));
   const out = [];
   parts.forEach((p, i) => {
     if (i) out.push(h('span.lh-sep', { 'aria-hidden': 'true' }, ' · '));
-    if (p && typeof p === 'object' && p.chip) out.push(h('span.lh-co-chip', p.chip)); // v10 b2b-staff (U10-L01): «شركة»
-    else if (p && typeof p === 'object' && p.code) out.push(h('bdi.lh-code', { dir: 'ltr' }, p.code));
-    else if (p && typeof p === 'object' && p.keep) out.push(h('span.lh-keep', String(p.keep)));
-    else out.push(h('span.lh-sub-text', String(p)));
+    out.push(subPart(p));
   });
   return out;
 }
@@ -90,11 +98,11 @@ export default async function render(ctx) {
   const user = ctx.user || {};
   const page = h('div.page.lh-today');
   const dateLine = h('p.lh-date');
-  const heading = h('h1.lh-h1', { tabindex: '-1' });
+  const heading = h('h1.lh-h1', { tabindex: '-1', tag: 'TDY-01' });
   const statusLine = h('div.lh-status', { hidden: true, role: 'status' });
   const pillHost = h('div.lh-pill-host');
   const body = h('div.lh-body');
-  mount(page, h('header.lh-today-head', dateLine, heading), statusLine, pillHost, body);
+  mount(page, h('header.lh-today-head', { tag: 'TDY-02' }, dateLine, heading), statusLine, pillHost, body);
 
   let data = null;
   let loadedAt = 0;
@@ -126,7 +134,7 @@ export default async function render(ctx) {
           statusLine,
           icon('alert', { size: 16 }),
           h('span', `لا يوجد اتصال — آخر تحديث ${time(cached.at)}`),
-          h('button.lh-link', { type: 'button', onClick: () => load() }, 'إعادة المحاولة'),
+          h('button.lh-link', { type: 'button', onClick: () => load(), tag: 'TDY-03' }, 'إعادة المحاولة'),
         );
         statusLine.hidden = false;
       } else if (!data) {
@@ -135,8 +143,8 @@ export default async function render(ctx) {
           body,
           h(
             'section.card.lh-error',
-            h('p', 'تعذر تحميل مهامك. تحقق من الاتصال ثم أعد المحاولة.'),
-            button('إعادة المحاولة', { variant: 'primary', icon: 'refresh', onClick: () => load() }),
+            { tag: 'TDY-04' }, h('p', 'تعذر تحميل مهامك. تحقق من الاتصال ثم أعد المحاولة.'),
+            button('إعادة المحاولة', { variant: 'primary', icon: 'refresh', onClick: () => load(), tag: 'TDY-05' }),
           ),
         );
       }
@@ -176,11 +184,12 @@ export default async function render(ctx) {
     const rest = actions.length - visible.length;
     return h(
       'section.card.lh-now',
-      { 'aria-labelledby': 'lh-now-title' },
-      h('h2.lh-card-title#lh-now-title', 'مطلوب الآن'),
-      h('ul.lh-rows', visible.map((a) => h('li', actionRow(a)))),
+      { 'aria-labelledby': 'lh-now-title', tag: 'TDY-06' },
+      h('h2.lh-card-title#lh-now-title', { tag: 'TDY-07' }, 'مطلوب الآن'),
+      // v12 gate (V-26): زر ممتلئ واحد في القائمة (أول صف له زر)، وبقية الأزرار بحد خفيف
+      h('ul.lh-rows', visible.map((a, i) => h('li', actionRow(a, { primaryOk: !visible.slice(0, i).some((b) => actionCopy(b).button?.kind === 'primary') })))),
       rest > 0 &&
-        h('button.lh-more', { type: 'button', onClick: () => { showAll = true; draw(); } }, `عرض ${num(rest)} أخرى`),
+        h('button.lh-more', { type: 'button', onClick: () => { showAll = true; draw(); }, tag: 'TDY-08' }, `عرض ${num(rest)} أخرى`),
     );
   }
 
@@ -202,7 +211,7 @@ export default async function render(ctx) {
     }
   }
 
-  function actionRow(a) {
+  function actionRow(a, { primaryOk = true } = {}) {
     // النص الحر يُختصر هنا (لا بالـ CSS وحده) فيبقى أعلى الصفحة قليل الكلمات؛ النص الكامل في التلميح
     const c = actionCopy({ ...a, case_title: clip(a.case_title, 26), title: clip(a.title, 26), location: clip(a.location, 22) });
     const href = hrefFor(a);
@@ -210,17 +219,17 @@ export default async function render(ctx) {
     const isOutcome = a.kind === 'hearing_outcome';
     const main = h(
       isOutcome ? 'button.lh-row-main' : 'a.lh-row-main',
-      isOutcome ? { type: 'button', title: actionCopy(a).title, onClick: () => openOutcome(a) } : { href, title: actionCopy(a).title },
+      isOutcome ? { type: 'button', title: actionCopy(a).title, onClick: () => openOutcome(a), tag: 'TDY-36' } : { href, title: actionCopy(a).title, tag: 'TDY-37' },
       h('span.lh-dot', { class: `lh-dot-${c.tone}`, 'aria-hidden': 'true' }),
-      h('span.lh-row-text', h('span.lh-row-title', c.title), c.sub.length ? h('span.lh-row-sub', subLine(c.sub)) : null),
+      h('span.lh-row-text', h('span.lh-row-title', c.title), c.sub.length ? h('span.lh-row-sub.is-wrap', subLine(c.sub, { wrap: true })) : null),
       c.chevron && h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 20 })),
     );
     let trailing = null;
     if (c.button) {
-      const variant = c.button.kind === 'primary' ? 'primary' : 'secondary';
-      if (isOutcome) trailing = button(c.button.label, { variant, className: 'lh-row-btn', onClick: () => openOutcome(a) });
-      else if (isTask) trailing = button(c.button.label, { variant, className: 'lh-row-btn', icon: 'check', onClick: (e) => markTaskDone(a, e.currentTarget) });
-      else trailing = button(c.button.label, { variant, className: 'lh-row-btn', href });
+      const variant = c.button.kind === 'primary' && primaryOk ? 'primary' : 'secondary';
+      if (isOutcome) trailing = button(c.button.label, { variant, className: 'lh-row-btn', onClick: () => openOutcome(a), tag: 'TDY-09' });
+      else if (isTask) trailing = button(c.button.label, { variant, className: 'lh-row-btn', icon: 'check', onClick: (e) => markTaskDone(a, e.currentTarget), tag: 'TDY-10' });
+      else trailing = button(c.button.label, { variant, className: 'lh-row-btn', href, tag: 'TDY-11' });
     }
     const row = h('div.lh-row', { class: [`lh-kind-${a.kind}`, c.chevron && 'lh-row-link'], dataset: { kind: a.kind } }, main, trailing);
     const state = outboxState(a);
@@ -280,7 +289,7 @@ export default async function render(ctx) {
     }
     haptic('commit'); // v10 experience (H-E5, X10-M6): «تم» سُجّلت
     const t = toast('سُجّلت المهمة منجزة', 'success', 5000);
-    const undo = h('button.lh-toast-undo', { type: 'button' }, 'تراجع');
+    const undo = h('button.lh-toast-undo', { type: 'button', tag: 'TDY-12' }, 'تراجع');
     undo.addEventListener('click', async () => {
       t.close();
       try {
@@ -335,9 +344,9 @@ export default async function render(ctx) {
     if (setup.alert_whatsapp) text = 'سنرسل لك تنبيهًا على واتساب عند وصول إسناد جديد.';
     else if (setup.alerts_available) {
       text = 'فعّل تنبيهات واتساب لتعرف بالإسناد الجديد فور وصوله.';
-      action = button('فعّل التنبيهات', { variant: 'primary', icon: 'whatsapp', href: '#/account?focus=alerts', className: 'lh-empty-btn' });
+      action = button('فعّل التنبيهات', { variant: 'primary', icon: 'whatsapp', href: '#/account?focus=alerts', className: 'lh-empty-btn', tag: 'TDY-13' });
     } else text = 'ستجد كل جديد هنا وفي الإشعارات داخل المنصة.';
-    return h('section.card.lh-empty', icon('checkCircle', { size: 28 }), h('p', text), action);
+    return h('section.card.lh-empty', { tag: 'TDY-14' }, icon('checkCircle', { size: 28 }), h('p', text), action);
   }
 
   // ── «قادم» ──
@@ -345,7 +354,7 @@ export default async function render(ctx) {
     if (!items.length) return null;
     return h(
       'section.lh-section.lh-upcoming',
-      h('h2.lh-section-title', 'قادم'),
+      { tag: 'TDY-15' }, h('h2.lh-section-title', { tag: 'TDY-16' }, 'قادم'),
       h(
         'ul.lh-list',
         items.map((u) => {
@@ -365,7 +374,7 @@ export default async function render(ctx) {
             sub = [{ code: u.case_code }, ...companyParts(u), clip(u.case_title, 22)].filter(Boolean); // v10 b2b-staff
             href = `#/my/assignments/${u.assignment_id}`;
           }
-          return h('li', h('a.lh-line', { href }, h('span.lh-line-text', h('span.lh-line-title', title), h('span.lh-row-sub', subLine(sub))), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 }))));
+          return h('li', h('a.lh-line', { href, tag: 'TDY-17' }, h('span.lh-line-text', h('span.lh-line-title', title), h('span.lh-row-sub.is-wrap', subLine(sub, { wrap: true }))), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 }))));
         }),
       ),
     );
@@ -377,17 +386,17 @@ export default async function render(ctx) {
     const mts = work.matters || [];
     const lines = [
       ...asg.map((a) =>
-        h('li', h('a.lh-line', { href: `#/my/assignments/${a.id}` }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: a.case_code }, ...companyParts(a), clip(a.case_title, 22)]))), h('span.lh-status-word', { class: `is-${a.status}` }, assignmentStatus(a.status)))), // v10 b2b-staff: «شركة»
+        h('li', h('a.lh-line', { href: `#/my/assignments/${a.id}`, tag: 'TDY-18' }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: a.case_code }, ...companyParts(a), clip(a.case_title, 22)]))), h('span.lh-status-word', { class: `is-${a.status}` }, assignmentStatus(a.status)))), // v10 b2b-staff: «شركة»
       ),
       ...mts.map((m) =>
-        h('li', h('a.lh-line', { href: `#/my/matters/${m.id}` }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: m.code }, clip(m.title, 22)]))), h('span.lh-status-word', matterStatus(m.status)))),
+        h('li', h('a.lh-line', { href: `#/my/matters/${m.id}`, tag: 'TDY-19' }, h('span.lh-line-text', h('span.lh-line-title.is-parts', subLine([{ code: m.code }, clip(m.title, 22)]))), h('span.lh-status-word', matterStatus(m.status)))),
       ),
     ];
     return h(
       'section.lh-section.lh-work',
-      h('h2.lh-section-title', 'عملي الجاري'),
+      { tag: 'TDY-20' }, h('h2.lh-section-title', { tag: 'TDY-21' }, 'عملي الجاري'),
       lines.length ? h('ul.lh-list', lines) : h('p.lh-muted', 'لا يوجد عمل جارٍ الآن.'),
-      h('a.lh-link.lh-history', { href: '#/my/assignments?tab=history' }, 'الإسنادات السابقة ›'),
+      h('a.lh-link.lh-history', { href: '#/my/assignments?tab=history', tag: 'TDY-22' }, 'الإسنادات السابقة ›'),
     );
   }
 
@@ -397,7 +406,7 @@ export default async function render(ctx) {
     const text = pay.volunteer
       ? `مساهماتك التطوعية هذا الشهر: ${num(pay.contributions || 0)}`
       : `مستحقاتك عن ${monthName(pay.period)}: ${money(pay.amount || 0)}`;
-    return h('a.lh-pay', { href: '#/my/statement' }, icon('wallet', { size: 18 }), h('span', text), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 })));
+    return h('a.lh-pay', { href: '#/my/statement', tag: 'TDY-23' }, icon('wallet', { size: 18 }), h('span', text), h('span.lh-chev', { 'aria-hidden': 'true' }, icon('chevronLeft', { size: 18 })));
   }
 
   // ── أول استخدام: «جهّز هاتفك في دقيقة» (L-10) ──
@@ -420,8 +429,8 @@ export default async function render(ctx) {
     const inline = h('div.lh-setup-inline');
     return h(
       'section.card.lh-setup',
-      { 'aria-labelledby': 'lh-setup-title' },
-      h('h2.lh-card-title#lh-setup-title', name ? `أهلًا ${name} — جهّز هاتفك في دقيقة` : 'جهّز هاتفك في دقيقة'),
+      { 'aria-labelledby': 'lh-setup-title', tag: 'TDY-24' },
+      h('h2.lh-card-title#lh-setup-title', { tag: 'TDY-25' }, name ? `أهلًا ${name} — جهّز هاتفك في دقيقة` : 'جهّز هاتفك في دقيقة'),
       h(
         'ul.lh-setup-list',
         items.map((it) =>
@@ -430,20 +439,20 @@ export default async function render(ctx) {
             { class: it.done && 'is-done', dataset: { key: it.key } },
             h('span.lh-check', { 'aria-hidden': 'true' }, it.done ? icon('checkCircle', { size: 22 }) : h('span.lh-check-empty')),
             h('span.lh-setup-text', it.text, it.done && h('span.sr-only', ' — تم')),
-            !it.done && button(it.act, { variant: 'secondary', className: 'lh-row-btn', onClick: () => it.run(inline) }),
+            !it.done && button(it.act, { variant: 'secondary', className: 'lh-row-btn', onClick: () => it.run(inline), tag: 'TDY-26' }),
           ),
         ),
       ),
       inline,
       alertsJustOn && setup.alert_whatsapp ? alertsDoneRow() : null,
-      h('h3.lh-how-title', 'كيف تعمل المنصة؟'),
+      h('h3.lh-how-title', { tag: 'TDY-27' }, 'كيف تعمل المنصة؟'),
       h(
         'ul.lh-how',
         h('li', 'تصلك الإسنادات هنا مع المطلوب والموعد.'),
         h('li', 'تكتب رأيك وتقدّمه للإدارة، وهي التي ترد على المستفيد/ة.'),
         h('li', 'تجد أتعابك في «مستحقاتي».'),
       ),
-      h('div.lh-setup-actions', button('تم', { variant: 'primary', onClick: dismiss }), button('لاحقًا', { variant: 'ghost', onClick: dismiss })),
+      h('div.lh-setup-actions', button('تم', { variant: 'primary', onClick: dismiss, tag: 'TDY-28' }), button('لاحقًا', { variant: 'ghost', onClick: dismiss, tag: 'TDY-29' })),
     );
   }
 
@@ -460,7 +469,7 @@ export default async function render(ctx) {
           const r = await api.post('/account/alerts/test');
           toast(r && r.simulated ? 'سُجّل تنبيه تجريبي (وضع المحاكاة — لا يُرسل فعليًا)' : 'أُرسل تنبيه تجريبي إلى واتساب', 'success');
         },
-        { variant: 'secondary', icon: 'whatsapp', className: 'lh-row-btn' },
+        { variant: 'secondary', icon: 'whatsapp', className: 'lh-row-btn', tag: 'TDY-30' },
       ),
     );
   }
@@ -475,9 +484,9 @@ export default async function render(ctx) {
       /* يكمل بحقل فارغ */
     }
     const local = phone ? (normalizeEgPhone(phone) || phone) : '';
-    const input = h('input.input#lh-alert-phone', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', value: local, placeholder: '01xxxxxxxxx' });
+    const input = h('input.input#lh-alert-phone', { type: 'tel', inputmode: 'tel', autocomplete: 'tel', dir: 'ltr', value: local, placeholder: '01xxxxxxxxx', tag: 'TDY-31' });
     const err = h('p.field-error', { hidden: true, role: 'alert' });
-    const save = button('فعّل التنبيهات', { variant: 'primary', icon: 'whatsapp' });
+    const save = button('فعّل التنبيهات', { variant: 'primary', icon: 'whatsapp', tag: 'TDY-32' });
     save.addEventListener('click', async () => {
       const v = normalizeEgPhone(input.value);
       if (!v) {
@@ -530,7 +539,8 @@ export default async function render(ctx) {
       title: 'أضف المنصة إلى شاشتك الرئيسية',
       sheet: true,
       body: h('p.confirm-message', ios ? 'اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».' : 'افتح قائمة المتصفح (⋮) ثم اختر «إضافة إلى الشاشة الرئيسية» أو «تثبيت التطبيق».'),
-      actions: [{ label: 'حسنًا', variant: 'primary' }],
+      actions: [{ label: 'حسنًا', variant: 'primary', tag: 'TDY-33' }],
+      tag: 'TDY-34',
     });
   }
 
@@ -567,7 +577,7 @@ export default async function render(ctx) {
   // صفوف رمادية حتى يصل الرد (الرأس يبقى ظاهرًا)
   dateLine.textContent = dayDate(new Date());
   heading.textContent = NAV.today;
-  mount(body, h('section.card.lh-now.lh-loading', { 'aria-busy': 'true' }, h('div.lh-sk-row'), h('div.lh-sk-row'), h('div.lh-sk-row')));
+  mount(body, h('section.card.lh-now.lh-loading', { 'aria-busy': 'true', tag: 'TDY-35' }, h('div.lh-sk-row'), h('div.lh-sk-row'), h('div.lh-sk-row')));
   await load({ initial: true });
   return page;
 }

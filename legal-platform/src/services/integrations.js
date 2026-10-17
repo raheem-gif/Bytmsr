@@ -8,6 +8,7 @@ import path from 'node:path';
 import { nowIso, badRequest, notFound, parseJson } from '../util.js';
 import { LABELS } from '../constants.js';
 import { chmodQuiet } from '../secure-fs.js';
+import { STT_HOSTING, STT_DEFAULT_PROMPT } from '../ai/stt.js'; // v12 media
 
 /**
  * تعريف كل تكامل: الحقول، أيها سري (لا يُعاد للواجهة أبدًا)، ومصدره من الإعدادات المحمّلة من البيئة.
@@ -55,6 +56,25 @@ export const INTEGRATION_SPEC = {
       smtp_password: { label: 'كلمة المرور', secret: true, env: 'SMTP_PASSWORD', cfg: () => process.env.SMTP_PASSWORD || '' },
       from_address: { label: 'عنوان المرسل', env: 'EMAIL_FROM', cfg: () => process.env.EMAIL_FROM || '', code: true },
       from_name: { label: 'اسم المرسل (اتركه فارغًا لاسم المكتب)', env: 'EMAIL_FROM_NAME', cfg: () => process.env.EMAIL_FROM_NAME || '' },
+    },
+  },
+  // v12 media (M §8.2، L12-62، L12-71): تحويل رسائل العملاء الصوتية إلى نص آلي (متوقف افتراضيًا). المفتاح مشفر ولا يُعاد.
+  // الجهة الخارجية تحتاج اسم المزوّد وتأكيد شروطه؛ تغيير المزوّد أو العنوان يمسح المفتاح المحفوظ (src/ai/stt.js checkSave).
+  stt: {
+    label: 'تحويل الرسائل الصوتية إلى نص',
+    fields: {
+      provider: { label: 'مزوّد التحويل', env: 'STT_PROVIDER', cfg: () => process.env.STT_PROVIDER || '', default: 'off', options: LABELS.stt_provider },
+      base_url: { label: 'عنوان الخدمة', env: 'STT_BASE_URL', cfg: () => process.env.STT_BASE_URL || '', default: 'https://api.openai.com', code: true },
+      api_key: { label: 'المفتاح', secret: true, env: 'STT_API_KEY', cfg: () => process.env.STT_API_KEY || '' },
+      model: { label: 'النموذج', env: 'STT_MODEL', cfg: () => process.env.STT_MODEL || '', default: 'gpt-4o-transcribe', code: true },
+      language: { label: 'اللغة', env: 'STT_LANGUAGE', cfg: () => process.env.STT_LANGUAGE || '', default: 'ar', code: true },
+      prompt: { label: 'توجيه النموذج', env: 'STT_PROMPT', cfg: () => process.env.STT_PROMPT || '', default: STT_DEFAULT_PROMPT },
+      hosting: { label: 'مكان التشغيل', env: 'STT_HOSTING', cfg: () => process.env.STT_HOSTING || '', default: 'third_party', options: STT_HOSTING },
+      vendor_name: { label: 'اسم المزوّد', env: 'STT_VENDOR_NAME', cfg: () => process.env.STT_VENDOR_NAME || '' },
+      no_training_attested: { label: 'شروط المزوّد تمنع استخدام التسجيلات في التدريب، ومدة الاحتفاظ بها لا تزيد على 30 يومًا', env: 'STT_NO_TRAINING_ATTESTED', cfg: () => process.env.STT_NO_TRAINING_ATTESTED || '', options: { yes: 'نعم' } },
+      price_per_minute_usd: { label: 'السعر لكل دقيقة (دولار)', env: 'STT_PRICE_PER_MINUTE_USD', cfg: () => process.env.STT_PRICE_PER_MINUTE_USD || '', default: '0.006', code: true },
+      monthly_budget_usd: { label: 'حد الإنفاق الشهري (دولار)', env: 'STT_MONTHLY_BUDGET_USD', cfg: () => process.env.STT_MONTHLY_BUDGET_USD || '', default: '10', code: true },
+      max_seconds: { label: 'أقصى مدة للرسالة (ثانية)', env: 'STT_MAX_SECONDS', cfg: () => process.env.STT_MAX_SECONDS || '', default: '600', code: true },
     },
   },
 };
@@ -192,6 +212,8 @@ export function createIntegrations(app) {
           next[k] = str;
         }
       }
+      // v12 media (L12-62، L12-71): تحويل الصوت — تطبيع القيم، شرط اسم المزوّد وتأكيد شروطه، ومسح المفتاح عند تغيير المزوّد أو العنوان
+      const sttCheck = name === 'stt' && app.stt?.checkSave ? app.stt.checkSave({ before: svc.effectiveOf(name, cur.__undecryptable ? {} : cur), next, patch, effective: (st) => svc.effectiveOf(name, st) }) : null;
       // v11 segment-server (§5.4): رقم الأفراد والشركات ووضع الرقم الأساسي (تحقق مترابط + تأكيد تغيير الوضع + سجل)
       const waCheck = name === 'whatsapp' && app.segments?.checkWhatsAppSave ? app.segments.checkWhatsAppSave(svc.effectiveOf(name, cur.__undecryptable ? {} : cur), svc.effectiveOf(name, next), { confirm: opts.confirm === true }) : null;
       db.run(
@@ -204,6 +226,7 @@ export function createIntegrations(app) {
       );
       app.audit?.log({ actor, ctx, type: 'integration.updated', severity: 'warning', summary: `تم تحديث إعدادات ${s.label}`, data: { name, fields: Object.keys(patch) } });
       if (waCheck) app.segments.afterWhatsAppSave(waCheck, { actor, ctx }); // v11 segment-server
+      if (sttCheck) app.stt.afterSave?.(sttCheck); // v12 media: stt_third_party_since
       app.events.emit('integrations.changed', { name });
       return svc.status(name);
     },

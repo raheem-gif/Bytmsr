@@ -85,10 +85,13 @@ export default async function render(ctx) {
     mount(
       headerHost,
       pageHeader({
+        record: true, // v12 gate (V-11): عنوان سجلّ ← خط الواجهة
         title: co.name,
-        breadcrumbs: [{ label: 'الشركات العميلة', href: '#/companies' }, { label: co.name }],
+        breadcrumbs: [{ label: 'الشركات العميلة', href: '#/companies', tag: 'COF-01' }, { label: co.name }],
         meta: h('div.cr-meta', codeTag(co.prefix), codeTag(co.code), statusBadgeOf(co), co.read_only ? badge('البوابة للاطلاع فقط', 'warning', { icon: 'alert' }) : null),
-        actions: isAdmin ? button('تعديل بيانات الشركة', { variant: 'secondary', icon: 'edit', onClick: () => editCompany() }) : null,
+        actions: isAdmin ? button('تعديل بيانات الشركة', { variant: 'secondary', icon: 'edit', onClick: () => editCompany(), tag: 'COF-02' }) : null,
+        titleTag: 'COF-03',
+        tag: 'COF-04',
       }),
     );
   }
@@ -102,15 +105,15 @@ export default async function render(ctx) {
       title: 'تعديل بيانات الشركة',
       size: 'lg',
       fields: [
-        { name: 'name', label: 'الاسم المعروض', required: true, maxLength: 150, dir: 'auto' },
-        { name: 'prefix', label: 'البادئة', required: true, ltr: true, readonly: !!co.prefix_locked, hint: co.prefix_locked ? PREFIX_COPY.locked : 'حروف لاتينية كبيرة من 2 إلى 5' },
-        { name: 'legal_name', label: 'الاسم القانوني', maxLength: 200, dir: 'auto' },
-        { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true },
-        { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true },
-        { name: 'industry', label: 'النشاط', maxLength: 120 },
-        { name: 'address', label: 'العنوان', maxLength: 300, full: true },
-        co.status === 'trial' && { name: 'trial_ends_at', label: 'نهاية الفترة التجريبية', type: 'date', endOfDay: true },
-        { name: 'default_visibility', label: 'الظهور الافتراضي للطلبات الجديدة', type: 'select', required: true, placeholder: false, options: opts('company_visibility', ['company', 'private']) },
+        { name: 'name', label: 'الاسم المعروض', required: true, maxLength: 150, dir: 'auto', tag: 'COF-05' },
+        { name: 'prefix', label: 'البادئة', required: true, ltr: true, readonly: !!co.prefix_locked, hint: co.prefix_locked ? PREFIX_COPY.locked : 'حروف لاتينية كبيرة من 2 إلى 5', tag: 'COF-06' },
+        { name: 'legal_name', label: 'الاسم القانوني', maxLength: 200, dir: 'auto', tag: 'COF-07' },
+        { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true, tag: 'COF-08' },
+        { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true, tag: 'COF-09' },
+        { name: 'industry', label: 'النشاط', maxLength: 120, tag: 'COF-10' },
+        { name: 'address', label: 'العنوان', maxLength: 300, full: true, tag: 'COF-11' },
+        co.status === 'trial' && { name: 'trial_ends_at', label: 'نهاية الفترة التجريبية', type: 'date', endOfDay: true, tag: 'COF-12' },
+        { name: 'default_visibility', label: 'الظهور الافتراضي للطلبات الجديدة', type: 'select', required: true, placeholder: false, options: opts('company_visibility', ['company', 'private']), tag: 'COF-13' },
         {
           name: 'quote_approvers',
           label: 'من يوافق على عروض الأسعار',
@@ -121,9 +124,10 @@ export default async function render(ctx) {
             { value: 'admins', label: 'مديرو البوابة فقط' },
             { value: 'admins_or_submitter', label: 'مديرو البوابة أو مرسل الطلب' },
           ],
+          tag: 'COF-14',
         },
-        { name: 'show_account_manager', type: 'checkbox', text: 'إظهار اسم مدير العلاقة للشركة («مدير علاقتكم لدينا»)' },
-        { name: 'require_2fa', type: 'checkbox', text: 'إلزام كل مستخدمي الشركة بالتحقق بخطوتين' },
+        { name: 'show_account_manager', type: 'checkbox', text: 'إظهار اسم مدير العلاقة للشركة («مدير علاقتكم لدينا»)', tag: 'COF-15' },
+        { name: 'require_2fa', type: 'checkbox', text: 'إلزام كل مستخدمي الشركة بالتحقق بخطوتين', tag: 'COF-16' },
       ],
       values: {
         name: co.name,
@@ -167,6 +171,7 @@ export default async function render(ctx) {
         tabsEl?.refresh('overview');
         toast('حُفظت بيانات الشركة.', 'success');
       },
+      tag: 'COF-17',
     });
   }
 
@@ -186,7 +191,7 @@ export default async function render(ctx) {
     const statusCard = card({
       title: 'الحالة والاشتراك',
       icon: 'building',
-      actions: isAdmin ? button('تغيير الحالة', { variant: 'secondary', size: 'sm', onClick: () => changeStatus() }) : null,
+      actions: isAdmin ? button('تغيير الحالة', { variant: 'secondary', size: 'sm', onClick: () => changeStatus(), tag: 'COF-18' }) : null,
       body: h(
         'div.stack',
         kv(
@@ -200,8 +205,10 @@ export default async function render(ctx) {
           ].filter(Boolean),
           { columns: 2 },
         ),
-        co.read_only ? alertBox('البوابة للاطلاع فقط: لا تستطيع الشركة إرسال طلبات أو الرد الآن.', 'warning') : null,
+        co.read_only ? alertBox('البوابة للاطلاع فقط: لا تستطيع الشركة إرسال طلبات أو الرد الآن.', 'warning', { tag: 'COF-19' }) : null,
       ),
+      titleTag: 'COF-20',
+      tag: 'COF-21',
     });
 
     const usageCard = card({
@@ -221,12 +228,14 @@ export default async function render(ctx) {
           { columns: 2 },
         ),
       ),
+      titleTag: 'COF-22',
+      tag: 'COF-23',
     });
 
     const openCard = card({
       title: 'الطلبات المفتوحة',
       icon: 'inboxStack',
-      actions: button('كل الطلبات', { variant: 'ghost', size: 'sm', onClick: () => tabsEl.setActive('requests') }),
+      actions: button('كل الطلبات', { variant: 'ghost', size: 'sm', onClick: () => tabsEl.setActive('requests'), tag: 'COF-24' }),
       body: (open.items || []).length
         ? h(
             'ul.cr-rows',
@@ -234,13 +243,15 @@ export default async function render(ctx) {
               h(
                 'li.cr-row',
                 codeTag(r.code),
-                h('div.cr-row-main', h('a', { href: `#/company-requests/${r.id}`, dir: 'auto' }, r.title), h('span.muted', r.type_label)),
+                h('div.cr-row-main', h('a', { href: `#/company-requests/${r.id}`, dir: 'auto', tag: 'COF-25' }, r.title), h('span.muted', r.type_label)),
                 stageBadgeStaff(r),
                 slaChip(r.sla, { withDue: false, compact: true, clock: clockOf(r) }),
               ),
             ),
           )
-        : emptyState('لا طلبات مفتوحة لهذه الشركة.', null, { compact: true, icon: 'checkCircle' }),
+        : emptyState('لا طلبات مفتوحة لهذه الشركة.', null, { compact: true, icon: 'checkCircle', tag: 'COF-26' }),
+        titleTag: 'COF-27',
+        tag: 'COF-28',
     });
 
     const renewalsCard = card({
@@ -253,23 +264,25 @@ export default async function render(ctx) {
               h(
                 'li.cr-row',
                 badge(m.kind_label, 'neutral', { className: 'badge-outline' }),
-                h('div.cr-row-main', h('a', { href: `#/companies/${co.id}?tab=memory&item=${m.memory_id || m.id}`, dir: 'auto', onClick: (e) => (e.preventDefault(), openMemoryItem({ mid: m.memory_id || m.id, company: c, user, onDone: () => reload() })) }, m.title), h('span.muted', `${dateKindLabel(m.date_kind)} ${day(m.date || m.next_date)}`)),
+                h('div.cr-row-main', h('a', { href: `#/companies/${co.id}?tab=memory&item=${m.memory_id || m.id}`, dir: 'auto', onClick: (e) => (e.preventDefault(), openMemoryItem({ mid: m.memory_id || m.id, company: c, user, onDone: () => reload() })), tag: 'COF-29' }, m.title), h('span.muted', `${dateKindLabel(m.date_kind)} ${day(m.date || m.next_date)}`)),
                 m.days_left != null ? badge(m.days_left <= 7 ? `خلال ${count(m.days_left, 'day')}` : `بعد ${count(m.days_left, 'day')}`, m.days_left <= 7 ? 'warning' : 'neutral', { icon: 'clock' }) : null,
               ),
             ),
           )
-        : emptyState('لا مواعيد خلال الشهرين القادمين.', null, { compact: true, icon: 'calendar' }),
+        : emptyState('لا مواعيد خلال الشهرين القادمين.', null, { compact: true, icon: 'calendar', tag: 'COF-30' }),
+        titleTag: 'COF-31',
+        tag: 'COF-32',
     });
 
     // مدير العلاقة والملاحظات الداخلية (التعديل لمدير النظام)
-    const notes = h('textarea.input', { rows: 4, maxlength: 3000, dir: 'auto', readonly: !isAdmin, 'aria-label': 'ملاحظات داخلية' });
+    const notes = h('textarea.input', { rows: 4, maxlength: 3000, dir: 'auto', readonly: !isAdmin, 'aria-label': 'ملاحظات داخلية', tag: 'COF-33' });
     notes.value = co.notes_internal || '';
     let staff = [];
     if (isAdmin) staff = await api.get('/admin/staff').catch(() => []);
     const amSel = isAdmin
       ? h(
           'select.input',
-          { 'aria-label': 'مدير العلاقة' },
+          { 'aria-label': 'مدير العلاقة', tag: 'COF-34' },
           staff.filter((s) => s.role === 'admin' || s.role === 'case_manager').map((s) => h('option', { value: String(s.id), selected: co.account_manager?.id === s.id }, `${s.name} — ${label('user_role', s.role)}`)),
         )
       : null;
@@ -293,10 +306,12 @@ export default async function render(ctx) {
                 } catch (err) {
                   forbiddenToast(err);
                 }
-              }, { variant: 'primary' }),
+              }, { variant: 'primary', tag: 'COF-35' }),
             )
           : null,
       ),
+      titleTag: 'COF-36',
+      tag: 'COF-37',
     });
 
     return h('div.cd-grid', h('div.cd-col', statusCard, usageCard, openCard), h('div.cd-col', relCard, renewalsCard, conflictsCard()));
@@ -312,6 +327,8 @@ export default async function render(ctx) {
         'ul.cr-list',
         list.slice(0, 6).map((m) => h('li', h('span', { dir: 'auto' }, m.client?.name || m.party?.name || m.name || ''), m.reason ? h('span.muted', ` — ${m.reason}`) : null)),
       ),
+      titleTag: 'COF-38',
+      tag: 'COF-39',
     });
   }
 
@@ -321,8 +338,8 @@ export default async function render(ctx) {
       title: 'تغيير حالة الشركة',
       intro: SUSPEND_COPY,
       fields: [
-        { name: 'status', label: 'الحالة الجديدة', type: 'select', required: true, options: STATUS_TARGETS.filter((s) => s !== co.status).map((s) => ({ value: s, label: STATUS_TARGET_LABELS[s] })) },
-        { name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 3 },
+        { name: 'status', label: 'الحالة الجديدة', type: 'select', required: true, options: STATUS_TARGETS.filter((s) => s !== co.status).map((s) => ({ value: s, label: STATUS_TARGET_LABELS[s] })), tag: 'COF-40' },
+        { name: 'reason', label: 'السبب', type: 'textarea', required: true, maxLength: 500, rows: 3, tag: 'COF-41' },
       ],
       submitLabel: 'تغيير الحالة',
       onSubmit: async (v) => {
@@ -331,6 +348,7 @@ export default async function render(ctx) {
         tabsEl?.refresh('overview');
         toast(`أصبحت حالة ${co.name}: ${c.company.status_label}.`, 'success');
       },
+      tag: 'COF-42',
     });
   }
 
@@ -355,15 +373,18 @@ export default async function render(ctx) {
               empty: 'لا طلبات تطابق هذا الاختيار.',
               onRowClick: (r) => ctx.navigate(`/company-requests/${r.id}`),
               columns: [
-                { key: 'code', label: 'الطلب', render: (r) => h('div.cq-cell-req', codeTag(r.code), h('a', { href: `#/company-requests/${r.id}`, dir: 'auto' }, r.title)) },
-                { key: 'type', label: 'النوع', render: (r) => typeBadge(r.type, r.type_label) },
-                { key: 'status', label: 'الحالة', render: (r) => h('div.cq-cell-st', stageBadgeStaff(r), flagChips(r.flags)) },
-                { key: 'sla', label: 'الموعد', render: (r) => slaChip(r.sla, { withDue: false, clock: clockOf(r) }) },
-                { key: 'priority', label: 'الأولوية', render: (r) => r.priority_label || label('priority', r.priority) },
-                { key: 'handler', label: 'المسؤول', render: (r) => r.handler?.name || '—' },
-                { key: 'updated', label: 'آخر تحديث', render: (r) => timeOf(r.updated_at) },
+                { key: 'code', label: 'الطلب', render: (r) => h('div.cq-cell-req', codeTag(r.code), h('a', { href: `#/company-requests/${r.id}`, dir: 'auto', tag: 'COF-43' }, r.title)), tag: 'COF-44' },
+                { key: 'type', label: 'النوع', render: (r) => typeBadge(r.type, r.type_label), tag: 'COF-45' },
+                { key: 'status', label: 'الحالة', render: (r) => h('div.cq-cell-st', stageBadgeStaff(r), flagChips(r.flags)), tag: 'COF-46' },
+                { key: 'sla', label: 'الموعد', render: (r) => slaChip(r.sla, { withDue: false, clock: clockOf(r) }), tag: 'COF-47' },
+                { key: 'priority', label: 'الأولوية', render: (r) => r.priority_label || label('priority', r.priority), tag: 'COF-48' },
+                { key: 'handler', label: 'المسؤول', render: (r) => r.handler?.name || '—', tag: 'COF-49' },
+                { key: 'updated', label: 'آخر تحديث', render: (r) => timeOf(r.updated_at), tag: 'COF-50' },
               ],
+              rowTag: 'COF-51',
+              tag: 'COF-52',
             }),
+            tag: 'COF-53',
           }),
         );
       } catch (err) {
@@ -383,8 +404,9 @@ export default async function render(ctx) {
           ],
           value: '',
           onChange: (v) => ((status = v || 'all'), load()),
+          tag: 'COF-54',
         }),
-        searchInput({ label: 'بحث في طلبات الشركة', placeholder: 'كود الطلب أو عنوانه', onSearch: (v) => ((qText = v), load()) }),
+        searchInput({ label: 'بحث في طلبات الشركة', placeholder: 'كود الطلب أو عنوانه', onSearch: (v) => ((qText = v), load()), tag: 'COF-55' }),
       ]),
       host,
     );
@@ -401,7 +423,7 @@ export default async function render(ctx) {
       title: 'المستخدمون',
       subtitle: maxUsers == null ? `${count(activeCount, ['مستخدم نشط', 'مستخدمَين نشطَين', 'مستخدمين نشطين', 'مستخدمًا نشطًا'])}` : `${activeCount} من ${maxUsers} في الباقة`,
       icon: 'users',
-      actions: c.company.read_only ? null : button('دعوة مستخدم', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => inviteUser({ activeAdmins }) }),
+      actions: c.company.read_only ? null : button('دعوة مستخدم', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => inviteUser({ activeAdmins }), tag: 'COF-56' }),
       flush: true,
       body: table({
         caption: 'مستخدمو بوابة الشركة',
@@ -413,25 +435,31 @@ export default async function render(ctx) {
             key: 'name',
             label: 'المستخدم',
             render: (u) => h('div.cq-cell-req', h('strong', { dir: 'auto' }, u.name), u.job_title ? h('span.muted', { dir: 'auto' }, u.job_title) : null),
+            tag: 'COF-57',
           },
-          { key: 'contact', label: 'البريد والهاتف', render: (u) => h('div.cq-cell-req', h('bdi', { dir: 'ltr' }, u.email), u.phone ? h('bdi.muted', { dir: 'ltr' }, u.phone) : null) },
+          { key: 'contact', label: 'البريد والهاتف', render: (u) => h('div.cq-cell-req', h('bdi', { dir: 'ltr' }, u.email), u.phone ? h('bdi.muted', { dir: 'ltr' }, u.phone) : null), tag: 'COF-58' },
           {
             key: 'role',
             label: 'الدور',
             render: (u) => h('div.cq-cell-st', badge(u.role_label, u.role === 'company_admin' ? 'info' : 'neutral', { className: 'badge-outline' }), u.billing_contact ? badge('جهة الفواتير', 'neutral', { className: 'badge-outline' }) : null),
+            tag: 'COF-59',
           },
-          { key: 'state', label: 'الحالة', render: (u) => h('div.cq-cell-st', badge(u.state_label, USER_TONE[u.state] || 'neutral', { dot: true }), u.two_factor ? badge('تحقق بخطوتين', 'success', { icon: 'shieldCheck' }) : null) },
-          { key: 'last', label: 'آخر دخول', render: (u) => timeOf(u.last_login_at) },
-          { key: 'actions', label: 'إجراءات', render: (u) => userActions(u, { activeAdmins }) },
+          { key: 'state', label: 'الحالة', render: (u) => h('div.cq-cell-st', badge(u.state_label, USER_TONE[u.state] || 'neutral', { dot: true }), u.two_factor ? badge('تحقق بخطوتين', 'success', { icon: 'shieldCheck' }) : null), tag: 'COF-60' },
+          { key: 'last', label: 'آخر دخول', render: (u) => timeOf(u.last_login_at), tag: 'COF-61' },
+          { key: 'actions', label: 'إجراءات', render: (u) => userActions(u, { activeAdmins }), tag: 'COF-62' },
         ],
+        rowTag: 'COF-63',
+        tag: 'COF-64',
       }),
+      titleTag: 'COF-65',
+      tag: 'COF-66',
     });
   }
 
   function userActions(u, { activeAdmins }) {
-    const btns = [button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editUser(u, { activeAdmins }) })];
-    if (u.state === 'invite_pending' && u.active) btns.push(button('إعادة إرسال الدعوة', { variant: 'ghost', size: 'sm', icon: 'send', onClick: () => resendInvite(u) }));
-    if (isAdmin) btns.push(button('أمان الحساب', { variant: 'ghost', size: 'sm', icon: 'shieldCheck', onClick: () => securityMenu(u) }));
+    const btns = [button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editUser(u, { activeAdmins }), tag: 'COF-67' })];
+    if (u.state === 'invite_pending' && u.active) btns.push(button('إعادة إرسال الدعوة', { variant: 'ghost', size: 'sm', icon: 'send', onClick: () => resendInvite(u), tag: 'COF-68' }));
+    if (isAdmin) btns.push(button('أمان الحساب', { variant: 'ghost', size: 'sm', icon: 'shieldCheck', onClick: () => securityMenu(u), tag: 'COF-69' }));
     return h('div.cd-actions', btns);
   }
 
@@ -447,10 +475,11 @@ export default async function render(ctx) {
         size: 'md',
         body: h(
           'div.cs-invite',
-          alertBox('البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning'),
-          h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: inv.url, 'aria-label': 'رابط الدعوة' }), copyButton(inv.url, 'نسخ', { variant: 'secondary', size: 'md' })),
+          alertBox('البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning', { tag: 'COF-70' }),
+          h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: inv.url, 'aria-label': 'رابط الدعوة', tag: 'COF-71' }), copyButton(inv.url, 'نسخ', { variant: 'secondary', size: 'md', tag: 'COF-72' })),
         ),
-        actions: [{ label: 'تم', variant: 'primary' }],
+        actions: [{ label: 'تم', variant: 'primary', tag: 'COF-73' }],
+        tag: 'COF-74',
       });
     }
   }
@@ -461,10 +490,10 @@ export default async function render(ctx) {
       title: 'دعوة مستخدم',
       intro: 'يصله رابط ليختار كلمة مروره ويقبل شروط الخدمة.',
       fields: [
-        { name: 'name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto' },
-        { name: 'email', label: 'البريد الإلكتروني', type: 'email', required: true },
-        { name: 'job_title', label: 'الوظيفة', maxLength: 120 },
-        { name: 'phone', label: 'الهاتف', type: 'phone' },
+        { name: 'name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto', tag: 'COF-75' },
+        { name: 'email', label: 'البريد الإلكتروني', type: 'email', required: true, tag: 'COF-76' },
+        { name: 'job_title', label: 'الوظيفة', maxLength: 120, tag: 'COF-77' },
+        { name: 'phone', label: 'الهاتف', type: 'phone', tag: 'COF-78' },
         {
           name: 'role',
           label: 'الدور',
@@ -473,8 +502,9 @@ export default async function render(ctx) {
           placeholder: false,
           options: ROLES.map((r) => ({ value: r, label: r === 'company_admin' && blockAdmin ? `${label('company_user_role', r)} — ${ADMIN_ONLY}` : label('company_user_role', r), disabled: r === 'company_admin' && blockAdmin })),
           hint: blockAdmin ? `دعوة «مدير بوابة» ثانٍ: ${ADMIN_ONLY}.` : null,
+          tag: 'COF-79',
         },
-        { name: 'billing_contact', type: 'checkbox', text: 'جهة الفواتير (تتلقى إشعارات التكاليف الإضافية)' },
+        { name: 'billing_contact', type: 'checkbox', text: 'جهة الفواتير (تتلقى إشعارات التكاليف الإضافية)', tag: 'COF-80' },
       ],
       values: { role: 'member' },
       submitLabel: 'إرسال الدعوة',
@@ -483,6 +513,7 @@ export default async function render(ctx) {
         tabsEl.refresh('users');
         inviteResult(res, v.email);
       },
+      tag: 'COF-81',
     });
   }
 
@@ -491,9 +522,9 @@ export default async function render(ctx) {
     const res = await formDialog({
       title: `تعديل ${u.name}`,
       fields: [
-        { name: 'name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto' },
-        { name: 'job_title', label: 'الوظيفة', maxLength: 120 },
-        { name: 'phone', label: 'الهاتف', type: 'phone' },
+        { name: 'name', label: 'الاسم', required: true, minLength: 2, maxLength: 120, dir: 'auto', tag: 'COF-82' },
+        { name: 'job_title', label: 'الوظيفة', maxLength: 120, tag: 'COF-83' },
+        { name: 'phone', label: 'الهاتف', type: 'phone', tag: 'COF-84' },
         {
           name: 'email',
           label: 'البريد الإلكتروني',
@@ -501,6 +532,7 @@ export default async function render(ctx) {
           required: true,
           disabled: !isAdmin,
           hint: isAdmin ? EMAIL_CHANGE_COPY : `تغيير البريد: ${ADMIN_ONLY}.`,
+          tag: 'COF-85',
         },
         {
           name: 'role',
@@ -510,9 +542,10 @@ export default async function render(ctx) {
           placeholder: false,
           options: ROLES.map((r) => ({ value: r, label: r === 'company_admin' && !canPromote ? `${label('company_user_role', r)} — ${ADMIN_ONLY}` : label('company_user_role', r), disabled: r === 'company_admin' && !canPromote })),
           hint: canPromote ? null : `الترقية إلى «مدير البوابة»: ${ADMIN_ONLY}.`,
+          tag: 'COF-86',
         },
-        { name: 'billing_contact', type: 'checkbox', text: 'جهة الفواتير (تتلقى إشعارات التكاليف الإضافية)' },
-        { name: 'active', type: 'checkbox', text: 'الحساب نشط' },
+        { name: 'billing_contact', type: 'checkbox', text: 'جهة الفواتير (تتلقى إشعارات التكاليف الإضافية)', tag: 'COF-87' },
+        { name: 'active', type: 'checkbox', text: 'الحساب نشط', tag: 'COF-88' },
       ],
       values: { name: u.name, job_title: u.job_title, phone: u.phone, email: u.email, role: u.role, billing_contact: !!u.billing_contact, active: !!u.active },
       onSubmit: async (v) => {
@@ -525,7 +558,7 @@ export default async function render(ctx) {
         if (!!v.active !== !!u.active) body.active = !!v.active;
         const emailChange = isAdmin && v.email && v.email.toLowerCase() !== String(u.email).toLowerCase();
         if (emailChange) {
-          const ok = await confirmDialog({ title: 'تغيير البريد الإلكتروني', message: EMAIL_CHANGE_COPY, confirmLabel: 'تغيير البريد' });
+          const ok = await confirmDialog({ title: 'تغيير البريد الإلكتروني', message: EMAIL_CHANGE_COPY, confirmLabel: 'تغيير البريد', tag: 'COF-89' });
           if (!ok) throw new Error('أُلغي تغيير البريد.');
           body.email = v.email;
         }
@@ -535,6 +568,7 @@ export default async function render(ctx) {
         if (!Object.keys(body).length) return {};
         return api.patch(`/admin/company-users/${u.id}`, body);
       },
+      tag: 'COF-90',
     });
     if (res) {
       tabsEl.refresh('users');
@@ -554,7 +588,7 @@ export default async function render(ctx) {
 
   function securityMenu(u) {
     const run = async (path, { title, message, done, danger = true }) => {
-      const ok = await confirmDialog({ title, message, confirmLabel: title, danger });
+      const ok = await confirmDialog({ title, message, confirmLabel: title, danger, tag: 'COF-91' });
       if (!ok) return;
       try {
         const res = await api.post(`/admin/company-users/${u.id}/${path}`, {});
@@ -566,10 +600,11 @@ export default async function render(ctx) {
               title: 'رابط تعيين كلمة المرور',
               body: h(
                 'div.cs-invite',
-                alertBox(r.emailed ? 'أرسلنا الرابط بالبريد أيضًا. انسخه الآن إن احتجت — يظهر الآن فقط.' : 'البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning'),
-                h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: r.url, 'aria-label': 'رابط تعيين كلمة المرور' }), copyButton(r.url, 'نسخ', { variant: 'secondary', size: 'md' })),
+                alertBox(r.emailed ? 'أرسلنا الرابط بالبريد أيضًا. انسخه الآن إن احتجت — يظهر الآن فقط.' : 'البريد غير مُعدّ: انسخ الرابط وأرسله بنفسك — يظهر الآن فقط.', 'warning', { tag: 'COF-92' }),
+                h('div.cs-invite-link', h('input.input', { type: 'text', readonly: true, dir: 'ltr', value: r.url, 'aria-label': 'رابط تعيين كلمة المرور', tag: 'COF-93' }), copyButton(r.url, 'نسخ', { variant: 'secondary', size: 'md', tag: 'COF-94' })),
               ),
-              actions: [{ label: 'تم', variant: 'primary' }],
+              actions: [{ label: 'تم', variant: 'primary', tag: 'COF-95' }],
+              tag: 'COF-96',
             });
           } else toast(`أرسلنا رابط تعيين كلمة المرور إلى ${u.email}.`, 'success');
         } else toast(done, 'success');
@@ -585,12 +620,13 @@ export default async function render(ctx) {
       body: h(
         'div.cd-security',
         h('p.cs-note', icon('info', { size: 16 }), 'كل إجراء هنا يُسجَّل في سجل الأمان ويُبلَّغ به مديرو البوابة.'),
-        button('رابط تعيين كلمة مرور', { variant: 'secondary', icon: 'lock', disabled: u.state === 'invite_pending' || !u.active, onClick: () => run('reset-link', { title: 'رابط تعيين كلمة مرور', message: 'يُصدر رابط صالح 24 ساعة لتعيين كلمة مرور جديدة، ويُرسل بالبريد إن أمكن.', danger: false }) }),
-        button('إلغاء التحقق بخطوتين', { variant: 'secondary', icon: 'shieldCheck', disabled: !u.two_factor, onClick: () => run('2fa/reset', { title: 'إلغاء التحقق بخطوتين', message: 'يُلغى التحقق بخطوتين لهذا الحساب ويُسجَّل خروجه من كل الأجهزة.', done: 'أُلغي التحقق بخطوتين.' }) }),
-        button('فك القفل', { variant: 'secondary', icon: 'lock', disabled: u.state !== 'locked' && !u.locked_until, onClick: () => run('unlock', { title: 'فك القفل', message: 'يُرفع الإيقاف المؤقت بعد محاولات الدخول الخاطئة.', done: 'رُفع الإيقاف المؤقت.', danger: false }) }),
-        button('تسجيل الخروج من كل الأجهزة', { variant: 'secondary', icon: 'logout', onClick: () => run('sessions/revoke', { title: 'تسجيل الخروج من كل الأجهزة', message: 'تنتهي كل جلسات هذا المستخدم الآن.', done: 'سُجّل خروجه من كل الأجهزة.' }) }),
+        button('رابط تعيين كلمة مرور', { variant: 'secondary', icon: 'lock', disabled: u.state === 'invite_pending' || !u.active, onClick: () => run('reset-link', { title: 'رابط تعيين كلمة مرور', message: 'يُصدر رابط صالح 24 ساعة لتعيين كلمة مرور جديدة، ويُرسل بالبريد إن أمكن.', danger: false }), tag: 'COF-97' }),
+        button('إلغاء التحقق بخطوتين', { variant: 'secondary', icon: 'shieldCheck', disabled: !u.two_factor, onClick: () => run('2fa/reset', { title: 'إلغاء التحقق بخطوتين', message: 'يُلغى التحقق بخطوتين لهذا الحساب ويُسجَّل خروجه من كل الأجهزة.', done: 'أُلغي التحقق بخطوتين.' }), tag: 'COF-98' }),
+        button('فك القفل', { variant: 'secondary', icon: 'lock', disabled: u.state !== 'locked' && !u.locked_until, onClick: () => run('unlock', { title: 'فك القفل', message: 'يُرفع الإيقاف المؤقت بعد محاولات الدخول الخاطئة.', done: 'رُفع الإيقاف المؤقت.', danger: false }), tag: 'COF-99' }),
+        button('تسجيل الخروج من كل الأجهزة', { variant: 'secondary', icon: 'logout', onClick: () => run('sessions/revoke', { title: 'تسجيل الخروج من كل الأجهزة', message: 'تنتهي كل جلسات هذا المستخدم الآن.', done: 'سُجّل خروجه من كل الأجهزة.' }), tag: 'COF-100' }),
       ),
-      actions: [{ label: 'إغلاق', variant: 'ghost' }],
+      actions: [{ label: 'إغلاق', variant: 'ghost', tag: 'COF-101' }],
+      tag: 'COF-102',
     });
   }
 
@@ -609,7 +645,7 @@ export default async function render(ctx) {
       actions: h(
         'div.cd-actions',
         atMax && !isAdmin ? h('span.cr-hint', icon('info', { size: 14 }), `وصلت الشركة لحد الكيانات في باقتها؛ التجاوز ${ADMIN_ONLY}.`) : null,
-        button('إضافة كيان', { variant: 'primary', size: 'sm', icon: 'plus', disabled: atMax && !isAdmin, onClick: () => editEntity(null, { atMax }) }),
+        button('إضافة كيان', { variant: 'primary', size: 'sm', icon: 'plus', disabled: atMax && !isAdmin, onClick: () => editEntity(null, { atMax }), tag: 'COF-103' }),
       ),
       flush: true,
       body: table({
@@ -618,20 +654,24 @@ export default async function render(ctx) {
         rows: ents,
         empty: 'لا كيانات.',
         columns: [
-          { key: 'name', label: 'الكيان', render: (e) => h('span', { dir: 'auto' }, e.name) },
-          { key: 'relation', label: 'العلاقة', render: (e) => e.relation_label },
-          { key: 'form', label: 'الشكل القانوني', render: (e) => e.legal_form_label || '—' },
-          { key: 'reg', label: 'السجل التجاري', render: (e) => (e.commercial_registry ? h('bdi', { dir: 'ltr' }, e.commercial_registry) : '—') },
-          { key: 'status', label: 'الحالة', render: (e) => badge(e.status === 'active' ? 'نشط' : 'موقوف', e.status === 'active' ? 'success' : 'neutral', { dot: true }) },
-          { key: 'a', label: 'إجراءات', render: (e) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editEntity(e) }) },
+          { key: 'name', label: 'الكيان', render: (e) => h('span', { dir: 'auto' }, e.name), tag: 'COF-104' },
+          { key: 'relation', label: 'العلاقة', render: (e) => e.relation_label, tag: 'COF-105' },
+          { key: 'form', label: 'الشكل القانوني', render: (e) => e.legal_form_label || '—', tag: 'COF-106' },
+          { key: 'reg', label: 'السجل التجاري', render: (e) => (e.commercial_registry ? h('bdi', { dir: 'ltr' }, e.commercial_registry) : '—'), tag: 'COF-107' },
+          { key: 'status', label: 'الحالة', render: (e) => badge(e.status === 'active' ? 'نشط' : 'موقوف', e.status === 'active' ? 'success' : 'neutral', { dot: true }), tag: 'COF-108' },
+          { key: 'a', label: 'إجراءات', render: (e) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editEntity(e), tag: 'COF-109' }), tag: 'COF-110' },
         ],
+        rowTag: 'COF-111',
+        tag: 'COF-112',
       }),
+      titleTag: 'COF-113',
+      tag: 'COF-114',
     });
     const cpCard = card({
       title: 'الأطراف المتعاملة',
       subtitle: 'موردون ومشترون وشركاء ومؤجرون تتكرر أسماؤهم في طلبات الشركة وذاكرتها.',
       icon: 'users',
-      actions: button('إضافة طرف', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => editCounterparty(null) }),
+      actions: button('إضافة طرف', { variant: 'secondary', size: 'sm', icon: 'plus', onClick: () => editCounterparty(null), tag: 'COF-115' }),
       flush: true,
       body: table({
         caption: 'الأطراف المتعاملة',
@@ -639,8 +679,8 @@ export default async function render(ctx) {
         rows: cps.items || [],
         empty: 'لا أطراف مسجلة بعد.',
         columns: [
-          { key: 'name', label: 'الطرف', render: (p) => h('div.cq-cell-req', h('span', { dir: 'auto' }, p.name), p.registry_no ? h('bdi.muted', { dir: 'ltr' }, p.registry_no) : null) },
-          { key: 'kind', label: 'النوع', render: (p) => p.kind_label },
+          { key: 'name', label: 'الطرف', render: (p) => h('div.cq-cell-req', h('span', { dir: 'auto' }, p.name), p.registry_no ? h('bdi.muted', { dir: 'ltr' }, p.registry_no) : null), tag: 'COF-116' },
+          { key: 'kind', label: 'النوع', render: (p) => p.kind_label, tag: 'COF-117' },
           {
             key: 'risk',
             label: 'المخاطر',
@@ -651,11 +691,16 @@ export default async function render(ctx) {
                 p.blocked ? badge('محظور التعامل', 'danger', { icon: 'alert' }) : null,
                 p.private_only ? badge('لمديري البوابة فقط', 'neutral', { className: 'badge-outline' }) : null,
               ),
+              tag: 'COF-118',
           },
-          { key: 'mem', label: 'في الذاكرة', render: (p) => h('span.num', String(p.memory_items ?? 0)) },
-          { key: 'a', label: 'إجراءات', render: (p) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editCounterparty(p) }) },
+          { key: 'mem', label: 'في الذاكرة', render: (p) => h('span.num', String(p.memory_items ?? 0)), tag: 'COF-119' },
+          { key: 'a', label: 'إجراءات', render: (p) => button('تعديل', { variant: 'ghost', size: 'sm', icon: 'edit', onClick: () => editCounterparty(p), tag: 'COF-120' }), tag: 'COF-121' },
         ],
+        rowTag: 'COF-122',
+        tag: 'COF-123',
       }),
+      titleTag: 'COF-124',
+      tag: 'COF-125',
     });
     return h('div.stack', entCard, cpCard);
   }
@@ -669,15 +714,15 @@ export default async function render(ctx) {
       title: isNew ? 'إضافة كيان' : `تعديل ${e.name}`,
       intro: needOverride ? 'وصلت الشركة لحد الكيانات في باقتها. الإضافة تتجاوز الحد وتُسجَّل في سجل الأمان.' : null,
       fields: [
-        { name: 'name', label: 'الاسم القانوني', required: true, maxLength: 200, dir: 'auto' },
-        { name: 'legal_form', label: 'الشكل القانوني', type: 'select', options: opts('legal_form', ['llc', 'jsc', 'sole', 'branch', 'partnership', 'other']) },
-        e?.relation === 'parent' ? null : { name: 'relation', label: 'العلاقة', type: 'select', required: true, placeholder: false, options: opts('company_entity_relation', ['subsidiary', 'affiliate', 'branch']) },
-        e?.relation === 'parent' ? null : { name: 'parent_entity_id', label: 'تابع لـ', type: 'select', options: parents.map((p) => ({ value: p.id, label: p.name })) },
-        { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true },
-        { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true },
-        { name: 'jurisdiction', label: 'جهة التسجيل', maxLength: 120 },
-        !isNew && e.relation !== 'parent' ? { name: 'active', type: 'checkbox', text: 'الكيان نشط' } : null,
-        needOverride ? { name: 'override_reason', label: 'سبب تجاوز حد الباقة', type: 'textarea', required: true, maxLength: 500, rows: 2 } : null,
+        { name: 'name', label: 'الاسم القانوني', required: true, maxLength: 200, dir: 'auto', tag: 'COF-126' },
+        { name: 'legal_form', label: 'الشكل القانوني', type: 'select', options: opts('legal_form', ['llc', 'jsc', 'sole', 'branch', 'partnership', 'other']), tag: 'COF-127' },
+        e?.relation === 'parent' ? null : { name: 'relation', label: 'العلاقة', type: 'select', required: true, placeholder: false, options: opts('company_entity_relation', ['subsidiary', 'affiliate', 'branch']), tag: 'COF-128' },
+        e?.relation === 'parent' ? null : { name: 'parent_entity_id', label: 'تابع لـ', type: 'select', options: parents.map((p) => ({ value: p.id, label: p.name })), tag: 'COF-129' },
+        { name: 'commercial_registry', label: 'السجل التجاري', maxLength: 60, ltr: true, tag: 'COF-130' },
+        { name: 'tax_id', label: 'البطاقة الضريبية', maxLength: 60, ltr: true, tag: 'COF-131' },
+        { name: 'jurisdiction', label: 'جهة التسجيل', maxLength: 120, tag: 'COF-132' },
+        !isNew && e.relation !== 'parent' ? { name: 'active', type: 'checkbox', text: 'الكيان نشط', tag: 'COF-133' } : null,
+        needOverride ? { name: 'override_reason', label: 'سبب تجاوز حد الباقة', type: 'textarea', required: true, maxLength: 500, rows: 2, tag: 'COF-134' } : null,
       ].filter(Boolean),
       values: e ? { ...e, active: e.status === 'active' } : { relation: 'subsidiary', parent_entity_id: (c.entities || []).find((x) => x.relation === 'parent')?.id },
       onSubmit: async (v) => {
@@ -694,6 +739,7 @@ export default async function render(ctx) {
         await reload('entities');
         toast(isNew ? 'أُضيف الكيان.' : 'حُفظ الكيان.', 'success');
       },
+      tag: 'COF-135',
     });
   }
 
@@ -702,12 +748,12 @@ export default async function render(ctx) {
     await formDialog({
       title: p ? `تعديل ${p.name}` : 'إضافة طرف',
       fields: [
-        { name: 'name', label: 'الاسم', required: true, maxLength: 200, dir: 'auto' },
-        { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: opts('company_counterparty_kind', ['supplier', 'customer', 'partner', 'landlord', 'regulator', 'employee', 'other']) },
-        { name: 'registry_no', label: 'السجل التجاري', maxLength: 60, ltr: true },
-        { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: opts('company_risk_level', ['low', 'medium', 'high']) },
-        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', maxLength: 1000, rows: 2, hint: 'لا تراها الشركة ولا المحامون.' },
-        { name: 'blocked', type: 'checkbox', text: 'محظور التعامل' },
+        { name: 'name', label: 'الاسم', required: true, maxLength: 200, dir: 'auto', tag: 'COF-136' },
+        { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: opts('company_counterparty_kind', ['supplier', 'customer', 'partner', 'landlord', 'regulator', 'employee', 'other']), tag: 'COF-137' },
+        { name: 'registry_no', label: 'السجل التجاري', maxLength: 60, ltr: true, tag: 'COF-138' },
+        { name: 'risk_level', label: 'درجة المخاطر', type: 'select', options: opts('company_risk_level', ['low', 'medium', 'high']), tag: 'COF-139' },
+        { name: 'notes', label: 'ملاحظات داخلية', type: 'textarea', maxLength: 1000, rows: 2, hint: 'لا تراها الشركة ولا المحامون.', tag: 'COF-140' },
+        { name: 'blocked', type: 'checkbox', text: 'محظور التعامل', tag: 'COF-141' },
       ],
       values: p || { kind: 'supplier' },
       onSubmit: async (v) => {
@@ -717,6 +763,7 @@ export default async function render(ctx) {
         tabsEl.refresh('entities');
         toast('حُفظ الطرف.', 'success');
       },
+      tag: 'COF-142',
     });
   }
 
@@ -731,7 +778,7 @@ export default async function render(ctx) {
     const subCard = card({
       title: 'الاشتراك',
       icon: 'fileText',
-      actions: button('تغيير الباقة', { variant: 'secondary', size: 'sm', icon: 'edit', onClick: () => changePlan() }),
+      actions: button('تغيير الباقة', { variant: 'secondary', size: 'sm', icon: 'edit', onClick: () => changePlan(), tag: 'COF-143' }),
       body: sub
         ? h(
             'div.stack',
@@ -748,7 +795,9 @@ export default async function render(ctx) {
             ),
             termsView(sub.terms || {}, { money: true }),
           )
-        : emptyState('لا اشتراك نشط لهذه الشركة.', button('بدء اشتراك', { variant: 'primary', onClick: () => changePlan() }), { compact: true }),
+        : emptyState('لا اشتراك نشط لهذه الشركة.', button('بدء اشتراك', { variant: 'primary', onClick: () => changePlan(), tag: 'COF-144' }), { compact: true, tag: 'COF-145' }),
+        titleTag: 'COF-146',
+        tag: 'COF-147',
     });
 
     async function loadCharges() {
@@ -764,12 +813,12 @@ export default async function render(ctx) {
             empty: 'لا تكاليف إضافية في هذه الدورة.',
             rowClass: (x) => (x.voided ? 'is-voided' : null),
             columns: [
-              { key: 'when', label: 'التاريخ', render: (x) => day(cairoKey(x.created_at)) },
-              { key: 'kind', label: 'النوع', render: (x) => x.kind_label },
-              { key: 'desc', label: 'الوصف', render: (x) => h('div.cq-cell-req', h('span', { dir: 'auto' }, x.description), x.quote_number ? h('span.muted', `عرض ${x.quote_number}${x.quote_basis === 'capped' && x.cap != null ? ` · بحد أقصى ${money(x.cap)}` : ''}`) : null) },
-              { key: 'req', label: 'الطلب', render: (x) => (x.request_code ? (x.request_id ? h('a', { href: `#/company-requests/${x.request_id}` }, codeTag(x.request_code)) : codeTag(x.request_code)) : '—') },
-              { key: 'amount', label: 'المبلغ', render: (x) => h('span.num', { class: x.voided ? 'is-struck' : null }, x.amount_text || money(x.amount)) },
-              { key: 'state', label: 'الحالة', render: (x) => (x.voided ? badge('ملغاة', 'neutral', { title: x.void_reason || '' }) : x.replaces_charge_id ? badge('بديلة لتكلفة أعلى', 'info') : badge('معتمدة', 'success', { dot: true })) },
+              { key: 'when', label: 'التاريخ', render: (x) => day(cairoKey(x.created_at)), tag: 'COF-148' },
+              { key: 'kind', label: 'النوع', render: (x) => x.kind_label, tag: 'COF-149' },
+              { key: 'desc', label: 'الوصف', render: (x) => h('div.cq-cell-req', h('span', { dir: 'auto' }, x.description), x.quote_number ? h('span.muted', `عرض ${x.quote_number}${x.quote_basis === 'capped' && x.cap != null ? ` · بحد أقصى ${money(x.cap)}` : ''}`) : null), tag: 'COF-150' },
+              { key: 'req', label: 'الطلب', render: (x) => (x.request_code ? (x.request_id ? h('a', { href: `#/company-requests/${x.request_id}`, tag: 'COF-151' }, codeTag(x.request_code)) : codeTag(x.request_code)) : '—'), tag: 'COF-152' },
+              { key: 'amount', label: 'المبلغ', render: (x) => h('span.num', { class: x.voided ? 'is-struck' : null }, x.amount_text || money(x.amount)), tag: 'COF-153' },
+              { key: 'state', label: 'الحالة', render: (x) => (x.voided ? badge('ملغاة', 'neutral', { title: x.void_reason || '' }) : x.replaces_charge_id ? badge('بديلة لتكلفة أعلى', 'info') : badge('معتمدة', 'success', { dot: true })), tag: 'COF-154' },
               {
                 key: 'a',
                 label: 'إجراءات',
@@ -780,11 +829,14 @@ export default async function render(ctx) {
                       : null
                     : h(
                         'div.cd-actions',
-                        button('استبدال بمبلغ أقل', { variant: 'ghost', size: 'sm', onClick: () => addCharge(x) }),
-                        button('إلغاء', { variant: 'ghost', size: 'sm', onClick: () => voidCharge(x) }),
+                        button('استبدال بمبلغ أقل', { variant: 'ghost', size: 'sm', onClick: () => addCharge(x), tag: 'COF-155' }),
+                        button('إلغاء', { variant: 'ghost', size: 'sm', onClick: () => voidCharge(x), tag: 'COF-156' }),
                       ),
+                      tag: 'COF-157',
               },
             ],
+            rowTag: 'COF-158',
+            tag: 'COF-159',
           }),
           h('p.cd-total', 'إجمالي المعتمد: ', h('strong.num', money(res.total_unvoided || 0))),
         );
@@ -795,7 +847,7 @@ export default async function render(ctx) {
 
     const cycleSel = h(
       'select.input',
-      { 'aria-label': 'الدورة', onChange: (e) => ((cycle = e.target.value), loadCharges()) },
+      { 'aria-label': 'الدورة', onChange: (e) => ((cycle = e.target.value), loadCharges()), tag: 'COF-160' },
       cycles.map((x, i) => h('option', { value: x.start }, `${i === 0 ? 'الدورة الحالية' : i === 1 ? 'الدورة السابقة' : 'دورة'}: ${day(x.start)} – ${day(x.end)}`)),
     );
     const chargesCard = card({
@@ -811,10 +863,12 @@ export default async function render(ctx) {
           } catch (err) {
             toast(errorMessage(err), 'danger');
           }
-        }, { variant: 'secondary', size: 'sm', icon: 'download' }),
-        button('إضافة تكلفة', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => addCharge(null) }),
+        }, { variant: 'secondary', size: 'sm', icon: 'download', tag: 'COF-161' }),
+        button('إضافة تكلفة', { variant: 'primary', size: 'sm', icon: 'plus', onClick: () => addCharge(null), tag: 'COF-162' }),
       ),
       body: chargesHost,
+      titleTag: 'COF-163',
+      tag: 'COF-164',
     });
 
     async function addCharge(replace) {
@@ -824,10 +878,10 @@ export default async function render(ctx) {
           ? `لا يزيد المبلغ الجديد على ${replace.amount_text || money(replace.amount)}؛ تُلغى التكلفة الحالية وتُضاف البديلة، وتُبلَّغ الشركة.`
           : 'تُضاف التكلفة لسجل الشركة ويُبلَّغ بها مديرو البوابة وجهات الفواتير فورًا. لا تُضف تكلفة لم توافق عليها الشركة أو لم تنص عليها باقتها.',
         fields: [
-          replace ? null : { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: opts('company_charge_kind', ['out_of_scope', 'overage', 'expense', 'adjustment']) },
-          { name: 'description', label: 'الوصف', required: true, maxLength: 300, dir: 'auto' },
-          { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, max: replace ? Number(replace.amount) : undefined },
-          replace ? null : { name: 'request_code', label: 'كود الطلب (اختياري)', ltr: true, placeholder: `${co.prefix}-0001` },
+          replace ? null : { name: 'kind', label: 'النوع', type: 'select', required: true, placeholder: false, options: opts('company_charge_kind', ['out_of_scope', 'overage', 'expense', 'adjustment']), tag: 'COF-165' },
+          { name: 'description', label: 'الوصف', required: true, maxLength: 300, dir: 'auto', tag: 'COF-166' },
+          { name: 'amount', label: 'المبلغ', type: 'money', required: true, min: 0.01, max: replace ? Number(replace.amount) : undefined, tag: 'COF-167' },
+          replace ? null : { name: 'request_code', label: 'كود الطلب (اختياري)', ltr: true, placeholder: `${co.prefix}-0001`, tag: 'COF-168' },
         ].filter(Boolean),
         values: replace ? { description: replace.description, amount: replace.amount } : { kind: 'adjustment' },
         submitLabel: replace ? 'استبدال' : 'إضافة',
@@ -842,6 +896,7 @@ export default async function render(ctx) {
           await loadCharges();
           toast('أُضيفت التكلفة وأُبلغت الشركة.', 'success');
         },
+        tag: 'COF-169',
       });
     }
 
@@ -849,13 +904,14 @@ export default async function render(ctx) {
       await formDialog({
         title: 'إلغاء تكلفة',
         intro: `${x.kind_label} · ${x.amount_text || money(x.amount)}`,
-        fields: [{ name: 'reason', label: 'سبب الإلغاء', type: 'textarea', required: true, maxLength: 300, rows: 2 }],
+        fields: [{ name: 'reason', label: 'سبب الإلغاء', type: 'textarea', required: true, maxLength: 300, rows: 2, tag: 'COF-170' }],
         submitLabel: 'إلغاء التكلفة',
         onSubmit: async (v) => {
           await api.post(`/admin/company-charges/${x.id}/void`, { reason: v.reason });
           await loadCharges();
           toast('أُلغيت التكلفة.', 'success');
         },
+        tag: 'COF-171',
       });
     }
 
@@ -875,6 +931,8 @@ export default async function render(ctx) {
             ],
             { columns: 3 },
           ),
+          titleTag: 'COF-172',
+          tag: 'COF-173',
         })
       : null;
     return h('div.stack', subCard, chargesCard, usageCard);
@@ -890,8 +948,8 @@ export default async function render(ctx) {
     const editor = termsEditor(baseTerms(), { money: true });
     const f = form(
       [
-        { name: 'plan', label: 'الباقة', type: 'select', required: true, placeholder: false, options: [...plans.map((p) => ({ value: String(p.id), label: p.name })), { value: CUSTOM, label: 'شروط مخصصة' }], onChange: (v) => ((choice = v || CUSTOM), editor.setTerms(baseTerms())) },
-        { name: 'starts_on', label: 'يبدأ الاشتراك الجديد في', type: 'date', required: true },
+        { name: 'plan', label: 'الباقة', type: 'select', required: true, placeholder: false, options: [...plans.map((p) => ({ value: String(p.id), label: p.name })), { value: CUSTOM, label: 'شروط مخصصة' }], onChange: (v) => ((choice = v || CUSTOM), editor.setTerms(baseTerms())), tag: 'COF-242' },
+        { name: 'starts_on', label: 'يبدأ الاشتراك الجديد في', type: 'date', required: true, tag: 'COF-243' },
         {
           name: 'renews',
           label: 'التجديد',
@@ -902,11 +960,12 @@ export default async function render(ctx) {
             { value: 'auto', label: 'تلقائي' },
             { value: 'manual', label: 'يدوي' },
           ],
+          tag: 'COF-244',
         },
-        { name: 'ends_on', label: 'ينتهي في (اختياري)', type: 'date' },
-        { name: 'note', label: 'ملاحظة', maxLength: 500, full: true },
+        { name: 'ends_on', label: 'ينتهي في (اختياري)', type: 'date', tag: 'COF-245' },
+        { name: 'note', label: 'ملاحظة', maxLength: 500, full: true, tag: 'COF-246' },
       ],
-      { values: { plan: choice, starts_on: cairoToday(), renews: sub?.renews || 'auto' }, footer: false },
+      { values: { plan: choice, starts_on: cairoToday(), renews: sub?.renews || 'auto' }, footer: false, tag: 'COF-247' },
     );
     const alertHost = h('div.cs-alert');
     let done = false;
@@ -918,14 +977,14 @@ export default async function render(ctx) {
       beforeClose: discardGuard(() => editor.isDirty(), { singular: true }),
       body: h(
         'div.cs-body',
-        sub ? alertBox('ينتهي الاشتراك الحالي اليوم ويبدأ الجديد بلقطة من الشروط أدناه؛ يبقى السجل محفوظًا.', 'info') : null,
+        sub ? alertBox('ينتهي الاشتراك الحالي اليوم ويبدأ الجديد بلقطة من الشروط أدناه؛ يبقى السجل محفوظًا.', 'info', { tag: 'COF-174' }) : null,
         alertHost,
         f.el,
-        h('h3.cs-section-title', 'شروط الاشتراك'),
+        h('h3.cs-section-title', { tag: 'COF-175' }, 'شروط الاشتراك'),
         editor.el,
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'COF-176' },
         {
           label: 'حفظ الاشتراك',
           variant: 'primary',
@@ -943,10 +1002,11 @@ export default async function render(ctx) {
             } catch (err) {
               editor.showError(err);
               f.showError(err);
-              mount(alertHost, alertBox(errorMessage(err), 'danger'));
+              mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'COF-177' }));
               return false;
             }
           },
+          tag: 'COF-178',
         },
       ],
       onClose: async () => {
@@ -954,6 +1014,7 @@ export default async function render(ctx) {
         toast('حُفظ الاشتراك الجديد.', 'success');
         await reload('plan');
       },
+      tag: 'COF-179',
     });
   }
 
@@ -968,7 +1029,7 @@ export default async function render(ctx) {
         tabsEl?.setCount('memory', res.under_review ? res.under_review : undefined);
         mount(
           host,
-          res.under_review ? alertBox(`${count(res.under_review, 'item')} بانتظار مراجعة الفريق (حفظتها الشركة عند اعتماد تسليم).`, 'warning', { icon: 'alert' }) : null,
+          res.under_review ? alertBox(`${count(res.under_review, 'item')} بانتظار مراجعة الفريق (حفظتها الشركة عند اعتماد تسليم).`, 'warning', { icon: 'alert', tag: 'COF-180' }) : null,
           card({
             flush: true,
             body: table({
@@ -978,23 +1039,28 @@ export default async function render(ctx) {
               empty: 'لا عناصر في الذاكرة بهذا الاختيار.',
               onRowClick: (m) => openMemoryItem({ mid: m.id, company: c, user, onDone: load }),
               columns: [
-                { key: 'kind', label: 'النوع', render: (m) => badge(m.kind_label, 'neutral', { className: 'badge-outline' }) },
+                { key: 'kind', label: 'النوع', render: (m) => badge(m.kind_label, 'neutral', { className: 'badge-outline' }), tag: 'COF-181' },
                 {
                   key: 'title',
                   label: 'العنصر',
-                  render: (m) => h('div.cq-cell-req', h('a', { href: `#/companies/${c.company.id}?tab=memory`, dir: 'auto', onClick: (e) => (e.preventDefault(), e.stopPropagation(), openMemoryItem({ mid: m.id, company: c, user, onDone: load })) }, m.title), m.counterparty ? h('span.muted', { dir: 'auto' }, m.counterparty.name) : null),
+                  render: (m) => h('div.cq-cell-req', h('a', { href: `#/companies/${c.company.id}?tab=memory`, dir: 'auto', onClick: (e) => (e.preventDefault(), e.stopPropagation(), openMemoryItem({ mid: m.id, company: c, user, onDone: load })), tag: 'COF-182' }, m.title), m.counterparty ? h('span.muted', { dir: 'auto' }, m.counterparty.name) : null),
+                  tag: 'COF-183',
                 },
                 {
                   key: 'status',
                   label: 'الحالة',
                   render: (m) => h('div.cq-cell-st', m.under_review ? badge('قيد المراجعة', 'warning', { icon: 'alert' }) : badge(m.status_label, 'neutral'), m.archived ? badge('مؤرشف', 'neutral', { className: 'badge-outline' }) : null),
+                  tag: 'COF-184',
                 },
-                { key: 'date', label: 'أقرب موعد', render: (m) => (m.notice_deadline ? h('span', 'إخطار: ', day(m.notice_deadline)) : m.next_date ? day(m.next_date) : '—') },
-                { key: 'access', label: 'من يراه في الشركة', render: (m) => m.access_label },
-                { key: 'src', label: 'من طلب', render: (m) => (m.source_request ? h('a', { href: `#/company-requests/${m.source_request.id}`, onClick: (e) => e.stopPropagation() }, codeTag(m.source_request.code)) : '—') },
-                { key: 'docs', label: 'مستندات', render: (m) => h('span.num', String(m.documents_count ?? 0)) },
+                { key: 'date', label: 'أقرب موعد', render: (m) => (m.notice_deadline ? h('span', 'إخطار: ', day(m.notice_deadline)) : m.next_date ? day(m.next_date) : '—'), tag: 'COF-185' },
+                { key: 'access', label: 'من يراه في الشركة', render: (m) => m.access_label, tag: 'COF-186' },
+                { key: 'src', label: 'من طلب', render: (m) => (m.source_request ? h('a', { href: `#/company-requests/${m.source_request.id}`, onClick: (e) => e.stopPropagation(), tag: 'COF-187' }, codeTag(m.source_request.code)) : '—'), tag: 'COF-188' },
+                { key: 'docs', label: 'مستندات', render: (m) => h('span.num', String(m.documents_count ?? 0)), tag: 'COF-189' },
               ],
+              rowTag: 'COF-190',
+              tag: 'COF-191',
             }),
+            tag: 'COF-192',
           }),
         );
       } catch (err) {
@@ -1002,17 +1068,17 @@ export default async function render(ctx) {
       }
     }
     await load();
-    const archivedCb = h('input', { type: 'checkbox', onChange: (e) => ((st.archived = e.target.checked), load()) });
+    const archivedCb = h('input', { type: 'checkbox', onChange: (e) => ((st.archived = e.target.checked), load()), tag: 'COF-193' });
     return h(
       'div.stack',
       h(
         'div.cq-bar',
         filterBar([
-          selectInput({ label: 'النوع', allLabel: 'كل الأنواع', options: MEMORY_KINDS.map((k) => ({ value: k.key, label: k.list_label })), value: '', onChange: (v) => ((st.kind = v), load()) }),
-          searchInput({ label: 'بحث في الذاكرة', placeholder: 'عنوان أو طرف أو ملاحظة', onSearch: (v) => ((st.q = v), load()) }),
+          selectInput({ label: 'النوع', allLabel: 'كل الأنواع', options: MEMORY_KINDS.map((k) => ({ value: k.key, label: k.list_label })), value: '', onChange: (v) => ((st.kind = v), load()), tag: 'COF-194' }),
+          searchInput({ label: 'بحث في الذاكرة', placeholder: 'عنوان أو طرف أو ملاحظة', onSearch: (v) => ((st.q = v), load()), tag: 'COF-195' }),
           h('label.check.cq-flag-filter', archivedCb, h('span', 'يشمل المؤرشف')),
         ]),
-        button('إضافة عنصر', { variant: 'primary', icon: 'plus', onClick: () => createMemoryItem({ company: c, user, onDone: load }) }),
+        button('إضافة عنصر', { variant: 'primary', icon: 'plus', onClick: () => createMemoryItem({ company: c, user, onDone: load }), tag: 'COF-196' }),
       ),
       host,
     );
@@ -1034,14 +1100,14 @@ export default async function render(ctx) {
               rows.map((r, i) =>
                 h(
                   'li.cd-pod-row',
-                  h('div.select-wrap', h('select.input', { 'aria-label': 'المحامي', onChange: (e) => (r.lawyer_id = Number(e.target.value)) }, law.map((l) => h('option', { value: String(l.id), selected: l.id === r.lawyer_id }, l.display_name || l.name)))),
-                  h('div.select-wrap', h('select.input', { 'aria-label': 'الدور', onChange: (e) => (r.role = e.target.value) }, POD_ROLES.map((k) => h('option', { value: k, selected: k === r.role }, label('company_pod_role', k))))),
-                  h('input.input', { type: 'text', value: r.note, maxlength: 300, placeholder: 'ملاحظة', 'aria-label': 'ملاحظة', onInput: (e) => (r.note = e.target.value) }),
-                  button('', { variant: 'ghost', icon: 'trash', ariaLabel: 'حذف', onClick: () => ((rows = rows.filter((_, j) => j !== i)), draw()) }),
+                  h('div.select-wrap', h('select.input', { 'aria-label': 'المحامي', onChange: (e) => (r.lawyer_id = Number(e.target.value)), tag: 'COF-197' }, law.map((l) => h('option', { value: String(l.id), selected: l.id === r.lawyer_id }, l.display_name || l.name)))),
+                  h('div.select-wrap', h('select.input', { 'aria-label': 'الدور', onChange: (e) => (r.role = e.target.value), tag: 'COF-198' }, POD_ROLES.map((k) => h('option', { value: k, selected: k === r.role }, label('company_pod_role', k))))),
+                  h('input.input', { type: 'text', value: r.note, maxlength: 300, placeholder: 'ملاحظة', 'aria-label': 'ملاحظة', onInput: (e) => (r.note = e.target.value), tag: 'COF-199' }),
+                  button('', { variant: 'ghost', icon: 'trash', ariaLabel: 'حذف', onClick: () => ((rows = rows.filter((_, j) => j !== i)), draw()), tag: 'COF-200' }),
                 ),
               ),
             )
-          : emptyState('لا محامين مفضلين أو مستبعدين لهذه الشركة.', null, { compact: true, icon: 'users' }),
+          : emptyState('لا محامين مفضلين أو مستبعدين لهذه الشركة.', null, { compact: true, icon: 'users', tag: 'COF-201' }),
       );
     draw();
     return card({
@@ -1053,7 +1119,7 @@ export default async function render(ctx) {
         listHost,
         h(
           'div.form-actions',
-          button('إضافة محامٍ', { variant: 'secondary', icon: 'plus', disabled: !law.length, onClick: () => ((rows = [...rows, { lawyer_id: law[0]?.id, role: 'preferred_lead', note: '' }]), draw()) }),
+          button('إضافة محامٍ', { variant: 'secondary', icon: 'plus', disabled: !law.length, onClick: () => ((rows = [...rows, { lawyer_id: law[0]?.id, role: 'preferred_lead', note: '' }]), draw()), tag: 'COF-202' }),
           asyncButton('حفظ الفريق', async () => {
             try {
               const res = await api.put(`/admin/companies/${co.id}/team`, { items: rows.map((r) => ({ lawyer_id: r.lawyer_id, role: r.role, note: r.note || null })) });
@@ -1063,9 +1129,11 @@ export default async function render(ctx) {
             } catch (err) {
               toast(errorMessage(err), 'danger');
             }
-          }, { variant: 'primary' }),
+          }, { variant: 'primary', tag: 'COF-203' }),
         ),
       ),
+      titleTag: 'COF-204',
+      tag: 'COF-205',
     });
   }
 
@@ -1083,28 +1151,32 @@ export default async function render(ctx) {
         rows: res.items || [],
         empty: 'لا أحداث مسجلة.',
         columns: [
-          { key: 'when', label: 'الوقت', render: (e) => timeOf(e.created_at) },
-          { key: 'type', label: 'الحدث', render: (e) => badge(e.type_label || e.type, e.severity === 'warning' ? 'warning' : e.severity === 'critical' ? 'danger' : 'neutral') },
-          { key: 'actor', label: 'بواسطة', render: (e) => h('span', { dir: 'auto' }, e.actor_name || '—') },
-          { key: 'summary', label: 'التفاصيل', render: (e) => h('span', { dir: 'auto' }, e.summary) },
+          { key: 'when', label: 'الوقت', render: (e) => timeOf(e.created_at), tag: 'COF-206' },
+          { key: 'type', label: 'الحدث', render: (e) => badge(e.type_label || e.type, e.severity === 'warning' ? 'warning' : e.severity === 'critical' ? 'danger' : 'neutral'), tag: 'COF-207' },
+          { key: 'actor', label: 'بواسطة', render: (e) => h('span', { dir: 'auto' }, e.actor_name || '—'), tag: 'COF-208' },
+          { key: 'summary', label: 'التفاصيل', render: (e) => h('span', { dir: 'auto' }, e.summary), tag: 'COF-209' },
         ],
+        rowTag: 'COF-210',
+        tag: 'COF-211',
       }),
+      titleTag: 'COF-212',
+      tag: 'COF-213',
     });
   }
 
   drawHeader();
   const items = [
-    { key: 'overview', label: 'نظرة عامة', render: overview },
-    { key: 'requests', label: 'الطلبات', count: c.requests?.total ?? null, render: requestsTab },
-    { key: 'users', label: 'المستخدمون', count: (c.users || []).length, render: usersTab },
-    { key: 'entities', label: 'الكيانات والأطراف', render: entitiesTab },
-    isAdmin ? { key: 'plan', label: 'الباقة والتكاليف', render: planTab } : null,
-    { key: 'memory', label: 'الذاكرة القانونية', render: memoryTab },
-    { key: 'pod', label: 'الفريق المفضل', render: podTab },
-    isAdmin ? { key: 'log', label: 'السجل', render: logTab } : null,
+    { key: 'overview', label: 'نظرة عامة', render: overview, tag: 'COF-248' },
+    { key: 'requests', label: 'الطلبات', count: c.requests?.total ?? null, render: requestsTab, tag: 'COF-249' },
+    { key: 'users', label: 'المستخدمون', count: (c.users || []).length, render: usersTab, tag: 'COF-250' },
+    { key: 'entities', label: 'الكيانات والأطراف', render: entitiesTab, tag: 'COF-251' },
+    isAdmin ? { key: 'plan', label: 'الباقة والتكاليف', render: planTab, tag: 'COF-252' } : null,
+    { key: 'memory', label: 'الذاكرة القانونية', render: memoryTab, tag: 'COF-253' },
+    { key: 'pod', label: 'الفريق المفضل', render: podTab, tag: 'COF-254' },
+    isAdmin ? { key: 'log', label: 'السجل', render: logTab, tag: 'COF-255' } : null,
   ].filter(Boolean);
   const want = items.some((x) => x.key === ctx.query.tab) ? ctx.query.tab : 'overview';
-  tabsEl = tabs(items, { active: want, className: 'cd-tabs' });
+  tabsEl = tabs(items, { active: want, className: 'cd-tabs', tag: 'COF-214' });
   const page = h('div.cq-page.cd-page', headerHost, tabsEl);
   if (ctx.query.item) setTimeout(() => openMemoryItem({ mid: Number(ctx.query.item), company: c, user, onDone: () => tabsEl.refresh('memory') }), 0);
   return page;
@@ -1161,10 +1233,10 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
   const kindMeta = memoryKindByKey(it.kind);
   const values = memoryValues(it, memoryFields(it.kind));
   const mf = coMemoryForm(it.kind, values, { staff: true, admin: true, entities: fctx.entities, counterparties: fctx.counterparties });
-  const statusSel = h('select.input', { 'aria-label': 'الحالة' }, (kindMeta?.statuses || []).map((s) => h('option', { value: s.key, selected: s.key === it.status }, s.label)));
-  const notes = h('textarea.input', { rows: 3, maxlength: 4000, dir: 'auto', 'aria-label': 'ملاحظات داخلية' });
+  const statusSel = h('select.input', { 'aria-label': 'الحالة', tag: 'COF-215' }, (kindMeta?.statuses || []).map((s) => h('option', { value: s.key, selected: s.key === it.status }, s.label)));
+  const notes = h('textarea.input', { rows: 3, maxlength: 4000, dir: 'auto', 'aria-label': 'ملاحظات داخلية', tag: 'COF-216' });
   notes.value = it.staff_notes || '';
-  const fileIn = fileInput({ accept: MEMORY_ACCEPT, maxFiles: 5, label: 'إضافة مستندات' });
+  const fileIn = fileInput({ accept: MEMORY_ACCEPT, maxFiles: 5, label: 'إضافة مستندات', tag: 'COF-217' });
   const alertHost = h('div.cs-alert');
   const docsHost = h('div');
   const drawDocs = (docs) =>
@@ -1173,7 +1245,7 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
       (docs || []).length
         ? h(
             'ul.cr-docs',
-            docs.map((x) => h('li.cr-doc', icon('fileText', { size: 16 }), h('a.cr-doc-name', { href: downloadUrl(x.id), target: '_blank', rel: 'noopener', dir: 'auto' }, x.title || x.filename), h('span.cr-doc-meta', `${formatBytes(x.size)} · ${x.uploaded_by_kind === 'client' ? 'من الشركة' : 'من الفريق'}`))),
+            docs.map((x) => h('li.cr-doc', icon('fileText', { size: 16 }), h('a.cr-doc-name', { href: downloadUrl(x.id), target: '_blank', rel: 'noopener', dir: 'auto', tag: 'COF-218' }, x.title || x.filename), h('span.cr-doc-meta', `${formatBytes(x.size)} · ${x.uploaded_by_kind === 'client' ? 'من الشركة' : 'من الفريق'}`))),
           )
         : h('p.muted', 'لا مستندات.'),
     );
@@ -1196,7 +1268,7 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
       return true;
     } catch (err) {
       mf.showError(err);
-      mount(alertHost, alertBox(errorMessage(err), 'danger'));
+      mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'COF-219' }));
       return false;
     }
   }
@@ -1213,23 +1285,23 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
       } catch (err) {
         toast(errorMessage(err), 'danger');
       }
-    }, { variant: 'ghost', size: 'sm', icon: 'inbox' }),
-    isAdmin ? button('حذف نهائي', { variant: 'ghost', size: 'sm', icon: 'trash', className: 'is-danger', onClick: () => purge() }) : null,
+    }, { variant: 'ghost', size: 'sm', icon: 'inbox', tag: 'COF-220' }),
+    isAdmin ? button('حذف نهائي', { variant: 'ghost', size: 'sm', icon: 'trash', className: 'is-danger', onClick: () => purge(), tag: 'COF-221' }) : null,
   );
 
   async function purge() {
-    const input = h('input.input', { type: 'text', dir: 'auto', 'aria-label': 'اكتب اسم العنصر للتأكيد' });
+    const input = h('input.input', { type: 'text', dir: 'auto', 'aria-label': 'اكتب اسم العنصر للتأكيد', tag: 'COF-222' });
     const err = h('p.field-error', { hidden: true });
     modal({
       title: 'حذف نهائي من الذاكرة',
       size: 'sm',
       body: h(
         'div.stack',
-        alertBox(`يُحذف العنصر ومستنداته غير المشتركة وتذكيراته وصلاحيات المحامين عليه. لا يمكن التراجع. ${PURGE_BACKUPS_COPY}`, 'danger'),
+        alertBox(`يُحذف العنصر ومستنداته غير المشتركة وتذكيراته وصلاحيات المحامين عليه. لا يمكن التراجع. ${PURGE_BACKUPS_COPY}`, 'danger', { tag: 'COF-223' }),
         h('div.field', h('label.field-label', 'اكتب اسم العنصر للتأكيد'), h('p.field-hint', { dir: 'auto' }, it.title), input, err),
       ),
       actions: [
-        { label: 'إلغاء', variant: 'ghost' },
+        { label: 'إلغاء', variant: 'ghost', tag: 'COF-224' },
         {
           label: 'حذف نهائي',
           variant: 'danger',
@@ -1251,8 +1323,10 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
               return false;
             }
           },
+          tag: 'COF-225',
         },
       ],
+      tag: 'COF-226',
     });
   }
 
@@ -1266,7 +1340,7 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
       'div.cs-body.cs-two',
       h(
         'div.cs-col',
-        it.under_review ? alertBox('حفظت الشركة هذا العقد في ذاكرتها القانونية عند اعتماد التسليم. راجِع بياناته ثم «حفظ وتأكيد»؛ يبقى «قيد المراجعة» حتى ذلك.', 'warning', { icon: 'alert' }) : null,
+        it.under_review ? alertBox('حفظت الشركة هذا العقد في ذاكرتها القانونية عند اعتماد التسليم. راجِع بياناته ثم «حفظ وتأكيد»؛ يبقى «قيد المراجعة» حتى ذلك.', 'warning', { icon: 'alert', tag: 'COF-227' }) : null,
         alertHost,
         mf.el,
       ),
@@ -1274,12 +1348,12 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
         'div.cs-col',
         h('div.field', h('label.field-label', 'الحالة'), h('div.select-wrap', statusSel)),
         h('div.field', h('label.field-label', 'ملاحظات داخلية'), notes, h('p.field-hint', 'لفريق المكتب فقط؛ لا تراها الشركة ولا المحامون.')),
-        h('section.cs-section', h('h3.cs-section-title', 'المستندات'), docsHost, fileIn.el),
+        h('section.cs-section', { tag: 'COF-228' }, h('h3.cs-section-title', { tag: 'COF-229' }, 'المستندات'), docsHost, fileIn.el),
         kv(
           [
             ['أضافه', it.created_by ? `${it.created_by.name || ''}${it.created_by.kind === 'staff' ? ' (الفريق)' : ''}` : '—'],
             ['راجعه', it.reviewed_at ? `${it.reviewed_by || ''} · ${date(it.reviewed_at)}` : 'لم يُراجع بعد'],
-            it.source_request ? ['من طلب', h('a', { href: `#/company-requests/${it.source_request.id}` }, codeTag(it.source_request.code))] : null,
+            it.source_request ? ['من طلب', h('a', { href: `#/company-requests/${it.source_request.id}`, tag: 'COF-230' }, codeTag(it.source_request.code))] : null,
             ['صلاحيات المحامين', it.grantable === false ? 'لا يُتاح للمحامين (بيانات أشخاص)' : data.grants ? `متاح في ${count(data.grants, ['إسناد واحد', 'إسنادين', 'إسنادات', 'إسنادًا'])}` : 'لم يُتح لأي محامٍ'],
             (data.reminders || []).length ? ['التذكيرات المرسلة', (data.reminders || []).map((r) => `${day(r.due_date)} (قبل ${count(r.offset_days, 'day')})`).join('، ')] : null,
           ].filter(Boolean),
@@ -1288,16 +1362,17 @@ export async function openMemoryItem({ mid, company = null, companyId: cid = nul
       ),
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'COF-231' },
       it.under_review
-        ? { label: 'حفظ وتأكيد', variant: 'primary', icon: 'check', onClick: async () => ((await save({ confirm: true })) ? ((changed = true), undefined) : false) }
-        : { label: 'حفظ', variant: 'primary', icon: 'check', onClick: async () => ((await save()) ? ((changed = true), undefined) : false) },
+        ? { label: 'حفظ وتأكيد', variant: 'primary', icon: 'check', onClick: async () => ((await save({ confirm: true })) ? ((changed = true), undefined) : false), tag: 'COF-232' }
+        : { label: 'حفظ', variant: 'primary', icon: 'check', onClick: async () => ((await save()) ? ((changed = true), undefined) : false), tag: 'COF-233' },
     ],
     onClose: () => {
       if (!changed) return;
       if (it.under_review) toast('أُكّد العنصر في الذاكرة القانونية.', 'success');
       if (onDone) onDone();
     },
+    tag: 'COF-234',
   });
   return handle;
 }
@@ -1310,14 +1385,14 @@ export async function createMemoryItem({ company, user = {}, onDone } = {}) {
   let kind = 'contract';
   let mf = null;
   const formHost = h('div');
-  const notes = h('textarea.input', { rows: 3, maxlength: 4000, dir: 'auto', 'aria-label': 'ملاحظات داخلية' });
-  const fileIn = fileInput({ accept: MEMORY_ACCEPT, maxFiles: 5, label: 'المستندات' });
+  const notes = h('textarea.input', { rows: 3, maxlength: 4000, dir: 'auto', 'aria-label': 'ملاحظات داخلية', tag: 'COF-235' });
+  const fileIn = fileInput({ accept: MEMORY_ACCEPT, maxFiles: 5, label: 'المستندات', tag: 'COF-236' });
   const alertHost = h('div.cs-alert');
   const drawForm = () => {
     mf = coMemoryForm(kind, {}, { staff: true, admin: true, entities: fctx.entities, counterparties: fctx.counterparties });
     mount(formHost, mf.el);
   };
-  const kindSel = h('select.input', { 'aria-label': 'النوع', onChange: (e) => ((kind = e.target.value), drawForm()) }, MEMORY_KINDS.map((k) => h('option', { value: k.key }, k.label)));
+  const kindSel = h('select.input', { 'aria-label': 'النوع', onChange: (e) => ((kind = e.target.value), drawForm()), tag: 'COF-237' }, MEMORY_KINDS.map((k) => h('option', { value: k.key }, k.label)));
   drawForm();
   let created = null;
   const isDirty = () => Object.keys(mf?.values() || {}).some((k) => !['access', 'remind_days', 'currency', 'renewal_type', 'recurrence'].includes(k)) || notes.value.trim() !== '' || fileIn.getFiles().length > 0;
@@ -1336,7 +1411,7 @@ export async function createMemoryItem({ company, user = {}, onDone } = {}) {
       fileIn.el,
     ),
     actions: [
-      { label: 'إلغاء', variant: 'ghost' },
+      { label: 'إلغاء', variant: 'ghost', tag: 'COF-238' },
       {
         label: 'إضافة',
         variant: 'primary',
@@ -1352,10 +1427,11 @@ export async function createMemoryItem({ company, user = {}, onDone } = {}) {
             return undefined;
           } catch (err) {
             mf.showError(err);
-            mount(alertHost, alertBox(errorMessage(err), 'danger'));
+            mount(alertHost, alertBox(errorMessage(err), 'danger', { tag: 'COF-239' }));
             return false;
           }
         },
+        tag: 'COF-240',
       },
     ],
     onClose: () => {
@@ -1363,5 +1439,6 @@ export async function createMemoryItem({ company, user = {}, onDone } = {}) {
       toast('أُضيف العنصر إلى الذاكرة القانونية.', 'success');
       if (onDone) onDone(created);
     },
+    tag: 'COF-241',
   });
 }

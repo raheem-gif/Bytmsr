@@ -21,7 +21,7 @@ export default async function counterparties(ctx) {
   const render = (q = '') => {
     const nq = q.trim();
     const shown = nq ? items.filter((c) => c.name.includes(nq)) : items;
-    if (!shown.length) return mount(listEl, emptyState(M.cps_empty, null, { icon: 'users' }));
+    if (!shown.length) return mount(listEl, emptyState(M.cps_empty, null, { icon: 'users', tag: 'CX-01' }));
     mount(
       listEl,
       h(
@@ -33,15 +33,15 @@ export default async function counterparties(ctx) {
             h('span.co-cp-main', h('span.co-cp-name', { dir: 'auto' }, c.name), h('span.co-muted', `${c.kind_label} · ${countOf(c.contracts, 'contract')} · ${countOf(c.requests, 'request')}`)),
             h(
               'span.co-file-actions',
-              c.memory_items ? button(M.cps_items, { variant: 'ghost', size: 'sm', href: `#/memory/contracts?counterparty_id=${encodeURIComponent(c.id)}` }) : null,
-              c.requests ? button(M.cps_requests, { variant: 'ghost', size: 'sm', href: `#/requests?q=${encodeURIComponent(c.name)}` }) : null,
+              c.memory_items ? button(M.cps_items, { variant: 'ghost', size: 'sm', href: `#/memory/contracts?counterparty_id=${encodeURIComponent(c.id)}`, tag: 'CX-02' }) : null,
+              c.requests ? button(M.cps_requests, { variant: 'ghost', size: 'sm', href: `#/requests?q=${encodeURIComponent(c.name)}`, tag: 'CX-03' }) : null,
             ),
           ),
         ),
       ),
     );
   };
-  const search = h('input.input', { type: 'search', placeholder: M.cps_search, 'aria-label': M.cps_search, onInput: () => render(search.value) });
+  const search = h('input.input', { type: 'search', placeholder: M.cps_search, 'aria-label': M.cps_search, onInput: () => render(search.value), tag: 'CX-04' });
   render();
   return h(
     'div.co-page.co-counterparties',

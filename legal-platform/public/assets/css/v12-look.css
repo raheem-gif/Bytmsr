@@ -1,0 +1,68 @@
+/* v12 look (K12-20/28/62, spec 5.7): component layer for /app and /company, linked last. Tokens only (app.css :root).
+   Screen only, so printed pages keep their letterheads. Markup lanes write these classes and no CSS (L12-14). */
+@media screen {
+  /* K12-20: secondary = 1-px ink outline (the tinted fill is gone with --tint-weak), one filled action per screen */
+  .btn-secondary,
+  .btn-accent:not(.co-new-side, .co-pill),
+  .btn-tinted,
+  .btn.btn--line { background: none; border-color: var(--ink); color: var(--ink); }
+  .btn-secondary:hover:not(:disabled),
+  .btn-accent:not(.co-new-side, .co-pill):hover:not(:disabled),
+  .btn-tinted:hover:not(:disabled),
+  .btn.btn--line:hover:not(:disabled) { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
+  .btn.btn--primary { background: var(--act); border-color: transparent; color: var(--on-act); }
+  .btn.btn--primary:hover:not(:disabled) { background: var(--act-hover); color: var(--on-act); }
+  .btn.btn--text { background: none; border-color: transparent; padding-inline: 4px; color: var(--act); }
+  .btn.btn--sm { --btn-h: 38px; padding-inline: 14px; font-size: 14px; }
+  .btn.btn--sm:not(.is-loading)::after { content: ""; position: absolute; inset: -4px 0; }
+  .btn-link { position: relative; cursor: pointer; color: var(--act); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.32em; }
+  .btn-link::after { content: ""; position: absolute; inset: -12px -6px; }
+
+  /* K12-33: the current page in a sidebar = a white row with a 2-px start bar (the tinted fill is gone) */
+  .nav-link.is-active,
+  .co-side-link.is-active { background: var(--paper); box-shadow: inset -2px 0 0 var(--act); color: var(--ink); font-weight: 600; }
+  /* K12-33 (LK-3): the company search is a 1-px hairline field on white, like the staff search trigger */
+  .co-search-input:not(:focus) { border-color: var(--rule-2); background: var(--paper); }
+
+  /* review (A19/A20, K12-37): no initials-in-pastel avatars (the name is always beside them) and no AI sparkles */
+  .avatar, .icon-sparkle { display: none; }
+
+  /* K12-28: a state is a coloured dot and a word, never a pill */
+  .state { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font: var(--t-small); white-space: nowrap; }
+  .state::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .state--info, .state--new { color: var(--info); }
+  .state--ok { color: var(--ok); }
+  .state--warn { color: var(--warn); }
+  .state--bad { color: var(--bad); }
+  .state--muted { color: var(--ink-3); }
+
+  /* spec 5.7 (staff-lines): service line and pathway. Neutral words, never segment hues */
+  .line-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--rule-2); border-radius: var(--r-1); color: var(--ink-2); font: var(--t-label); white-space: nowrap; }
+  .line-path { color: var(--ink-2); font: var(--t-small); overflow-wrap: anywhere; }
+  .line-path--suggest { color: var(--ink-3); }
+  .path-line { margin: 0; color: var(--ink-2); font: var(--t-small); overflow-wrap: anywhere; }
+  .path-line__k { color: var(--ink); font-weight: 600; }
+  .path-line__src { color: var(--ink-3); }
+
+  /* spec 5.7 (media): the low-confidence line under a machine draft (K12-29 warn notice) */
+  .vt-warn { margin: 8px 0 0; padding: 8px 12px; border-inline-start: 2px solid var(--warn); background: var(--paper-2); color: var(--ink); font: var(--t-small); }
+
+  /* gate K-S1/K-S4/K-S5 and v12 gate V-12/JR-13, V-15, V-24, V-25, V-27: staff-only rules live at the end of v10-desk.css
+     (/app only), so /company does not download them (its 30,000 B br budget) */
+
+  /* gate V-15 (K12-34): the AI «اقتراح» mark is a word, not a grey pill (after v11-segment.css's pill rule) */
+  .pa-ai-tag, :is(.pa-story, .pa-irow, #pa-proposal) .pa-ai-tag { padding: 0; border-radius: 0; background: none; color: var(--ink-3); font: var(--t-small); }
+
+  /* gate V-10: «الميراث-1.jpg» = the name (rtl isolate) then «.jpg» (ltr isolate) on its left, a hair apart */
+  .fname__ext { margin-right: 0.15em; }
+}
+
+/* PW-L3: at 200 % zoom (≤ 340 CSS px) the four segment words wrap instead of pushing the page sideways */
+@media screen and (max-width: 340px) {
+  .seg-switch { flex-wrap: wrap; row-gap: 4px; }
+}
+
+@media (forced-colors: active) {
+  .state::before { forced-color-adjust: none; }
+  .line-chip, .vt-warn { border: 1px solid CanvasText; }
+}

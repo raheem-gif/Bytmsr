@@ -1,0 +1,600 @@
+{
+  "version": 1,
+  "frozen": true,
+  "frozen_in": "12.0.0",
+  "note": "v12 tags-core (TG-0): reserved ranges of spec §5.9. The tags sweep and npm run tags never number inside a reserved range; next = first number the tool may hand out. Unused reserved numbers stay gaps.",
+  "prefixes": {
+    "L": {
+      "next": 14,
+      "reserved": [
+        { "from": 1, "to": 11, "lane": "entry", "what": "entry and tree page chrome (L-07 = نتصل بكم)" }
+      ],
+      "retired": {},
+      "known": "1-13"
+    },
+    "T": {
+      "next": 84,
+      "reserved": [
+        { "from": 1, "to": 83, "lane": "entry", "what": "tree questions and options (E12-02 + r2 T-82, T-83)" }
+      ],
+      "retired": {},
+      "known": "1-83"
+    },
+    "S": {
+      "next": 83,
+      "reserved": [
+        { "from": 10, "to": 16, "lane": "entry", "what": "/services hero (S-12, S-13, S-14 the three lines)" },
+        { "from": 20, "to": 23, "lane": "entry", "what": "how we work" },
+        { "from": 30, "to": 37, "lane": "entry", "what": "companies band" },
+        { "from": 40, "to": 44, "lane": "entry", "what": "trust (our commitments)" },
+        { "from": 45, "to": 47, "lane": "entry", "what": "partners (r2)" },
+        { "from": 50, "to": 55, "lane": "entry", "what": "FAQ" },
+        { "from": 60, "to": 62, "lane": "entry", "what": "contact" },
+        { "from": 65, "to": 69, "lane": "entry", "what": "end band" }
+      ],
+      "retired": {},
+      "known": "10-16,20-23,30-37,40-47,50-55,60-62,65-82"
+    },
+    "H": {
+      "next": 13,
+      "reserved": [
+        { "from": 1, "to": 11, "lane": "entry", "what": "paid public header" }
+      ],
+      "retired": {},
+      "known": "1-12"
+    },
+    "F": {
+      "next": 38,
+      "reserved": [
+        { "from": 1, "to": 16, "lane": "entry", "what": "paid public footer (F-16 خيري, restored only)" },
+        { "from": 20, "to": 20, "lane": "entry", "what": "© line" }
+      ],
+      "retired": {},
+      "known": "1-14,16,20-29,31-37"
+    },
+    "KH": {
+      "next": 100,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "entry", "what": "charity archived notice: KH-01 text, KH-02 WhatsApp, KH-03 follow-up, KH-04 legal links" },
+        { "from": 5, "to": 99, "lane": "12.1", "what": "archived charity screens, untagged in 12.0" }
+      ],
+      "retired": {},
+      "known": "1-4"
+    },
+    "PV": {
+      "next": 60,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "media", "what": "privacy paragraphs (STT, scan, OCR)" }
+      ],
+      "retired": {},
+      "known": "1-59"
+    },
+    "TM": {
+      "next": 46,
+      "retired": {},
+      "known": "1-45"
+    },
+    "DD": {
+      "next": 34,
+      "reserved": [
+        { "from": 1, "to": 1, "lane": "media", "what": "data-deletion paragraph" }
+      ],
+      "retired": {},
+      "known": "1-33"
+    },
+    "NF": {
+      "next": 10,
+      "retired": {},
+      "known": "1-9"
+    },
+    "SU": {
+      "next": 45,
+      "retired": {},
+      "known": "1-44"
+    },
+    "I": {
+      "next": 197,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "entry", "what": "intake chrome" },
+        { "from": 11, "to": 25, "lane": "entry", "what": "questions (I-23 judgment.when, I-24 alimony.for, I-25 rent.side)" },
+        { "from": 30, "to": 34, "lane": "entry", "what": "story" },
+        { "from": 40, "to": 43, "lane": "entry", "what": "documents" },
+        { "from": 50, "to": 58, "lane": "entry", "what": "contact and call-back (I-58 رقم من خارج مصر؟)" },
+        { "from": 60, "to": 68, "lane": "entry", "what": "success (I-67 urgent line, I-68 call-now link)" },
+        { "from": 80, "to": 149, "lane": "entry", "what": "answers" }
+      ],
+      "retired": {},
+      "known": "1-4,11-25,30-34,40-43,50-58,60-68,80-146,150-191,196"
+    },
+    "IC": {
+      "next": 31,
+      "reserved": [
+        { "from": 1, "to": 16, "lane": "entry", "what": "company lead (IC-16 رقم من خارج مصر؟)" }
+      ],
+      "retired": {},
+      "known": "1-30"
+    },
+    "UP": {
+      "next": 15,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "upload tool" }
+      ],
+      "retired": {},
+      "known": "1-14"
+    },
+    "SC": {
+      "next": 22,
+      "reserved": [
+        { "from": 1, "to": 20, "lane": "media", "what": "scanner sheet" }
+      ],
+      "retired": {},
+      "known": "1-18,21"
+    },
+    "P": {
+      "next": 124,
+      "reserved": [
+        { "from": 1, "to": 9, "lane": "media", "what": "/p/ follow-up page (scanner and voice archive)" }
+      ],
+      "retired": {},
+      "known": "1-3,10-50,52-120,123"
+    },
+    "PL": {
+      "next": 29,
+      "retired": {},
+      "known": "1-28"
+    },
+    "CC": {
+      "next": 66,
+      "retired": {},
+      "known": "1-65"
+    },
+    "CS": {
+      "next": 49,
+      "retired": {},
+      "known": "1-48"
+    },
+    "CW": {
+      "next": 36,
+      "retired": {},
+      "known": "1-35"
+    },
+    "CH": {
+      "next": 21,
+      "retired": {},
+      "known": "1-20"
+    },
+    "CR": {
+      "next": 25,
+      "retired": {},
+      "known": "1-24"
+    },
+    "CN": {
+      "next": 43,
+      "retired": {},
+      "known": "1-42"
+    },
+    "CK": {
+      "next": 138,
+      "reserved": [
+        { "from": 1, "to": 5, "lane": "media", "what": "company forms (scanner)" }
+      ],
+      "retired": {},
+      "known": "1-2,6-137"
+    },
+    "CQ": {
+      "next": 61,
+      "retired": {},
+      "known": "1-60"
+    },
+    "CU": {
+      "next": 54,
+      "retired": {},
+      "known": "1-49,52"
+    },
+    "CM": {
+      "next": 38,
+      "retired": {},
+      "known": "1-37"
+    },
+    "CD": {
+      "next": 9,
+      "retired": {},
+      "known": "1-8"
+    },
+    "CG": {
+      "next": 15,
+      "retired": {},
+      "known": "1-14"
+    },
+    "CX": {
+      "next": 5,
+      "retired": {},
+      "known": "1-4"
+    },
+    "CI": {
+      "next": 10,
+      "retired": {},
+      "known": "1-9"
+    },
+    "CE": {
+      "next": 4,
+      "retired": {},
+      "known": "1-3"
+    },
+    "CT": {
+      "next": 46,
+      "retired": {},
+      "known": "1-45"
+    },
+    "CP": {
+      "next": 17,
+      "retired": {},
+      "known": "1-16"
+    },
+    "CF": {
+      "next": 14,
+      "retired": {},
+      "known": "1-13"
+    },
+    "CA": {
+      "next": 29,
+      "retired": {},
+      "known": "1-28"
+    },
+    "CB": {
+      "next": 4,
+      "retired": {},
+      "known": "1-3"
+    },
+    "NAV": {
+      "next": 69,
+      "retired": {},
+      "known": "1-68"
+    },
+    "LGN": {
+      "next": 55,
+      "retired": {},
+      "known": "1-54"
+    },
+    "KIT": {
+      "next": 24,
+      "reserved": [
+        { "from": 1, "to": 5, "lane": "media", "what": "ui.js internals" }
+      ],
+      "retired": {},
+      "known": "1,6-23"
+    },
+    "SRC": {
+      "next": 10,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "media", "what": "global search (SRC-04 recall note)" }
+      ],
+      "retired": {},
+      "known": "1-2,4-9"
+    },
+    "DSH": {
+      "next": 81,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "staff-lines", "what": "dashboard" }
+      ],
+      "retired": {},
+      "known": "1-3,5-80"
+    },
+    "INB": {
+      "next": 55,
+      "reserved": [
+        { "from": 1, "to": 8, "lane": "staff-lines", "what": "inbox: INB-01…06 the كل الأنواع select, INB-07 returning-charity chip, INB-08 opted-out chip" }
+      ],
+      "retired": {},
+      "known": "1-54"
+    },
+    "RQT": {
+      "next": 145,
+      "retired": {},
+      "known": "1-144"
+    },
+    "PTH": {
+      "next": 19,
+      "reserved": [
+        { "from": 1, "to": 15, "lane": "staff-lines", "what": "pathway UI: chip, path line, edit, PTH-04 docket path, PTH-05 suggestion, sheet fields and actions" }
+      ],
+      "retired": {},
+      "known": "1-18"
+    },
+    "STY": {
+      "next": 61,
+      "retired": {},
+      "known": "1-60"
+    },
+    "CNT": {
+      "next": 13,
+      "retired": {},
+      "known": "1-12"
+    },
+    "SPL": {
+      "next": 5,
+      "retired": {},
+      "known": "1-4"
+    },
+    "SEG": {
+      "next": 29,
+      "retired": {},
+      "known": "1-28"
+    },
+    "QUE": {
+      "next": 64,
+      "retired": {},
+      "known": "1-63"
+    },
+    "CSL": {
+      "next": 22,
+      "retired": {},
+      "known": "1-21"
+    },
+    "CSF": {
+      "next": 283,
+      "retired": {},
+      "known": "1-282"
+    },
+    "PTY": {
+      "next": 16,
+      "retired": {},
+      "known": "1-15"
+    },
+    "MTL": {
+      "next": 15,
+      "retired": {},
+      "known": "1-14"
+    },
+    "MTF": {
+      "next": 171,
+      "retired": {},
+      "known": "1-170"
+    },
+    "OUT": {
+      "next": 47,
+      "retired": {},
+      "known": "1-46"
+    },
+    "CLI": {
+      "next": 26,
+      "retired": {},
+      "known": "1-25"
+    },
+    "CLF": {
+      "next": 91,
+      "retired": {},
+      "known": "1-90"
+    },
+    "LWL": {
+      "next": 67,
+      "retired": {},
+      "known": "1-66"
+    },
+    "LWF": {
+      "next": 101,
+      "retired": {},
+      "known": "1-100"
+    },
+    "ACC": {
+      "next": 93,
+      "retired": {},
+      "known": "1-92"
+    },
+    "AUT": {
+      "next": 52,
+      "retired": {},
+      "known": "1-51"
+    },
+    "QRP": {
+      "next": 112,
+      "retired": {},
+      "known": "1-111"
+    },
+    "KNL": {
+      "next": 117,
+      "retired": {},
+      "known": "1-116"
+    },
+    "KNF": {
+      "next": 60,
+      "retired": {},
+      "known": "1-59"
+    },
+    "AIR": {
+      "next": 12,
+      "retired": {},
+      "known": "1-11"
+    },
+    "DAI": {
+      "next": 16,
+      "retired": {},
+      "known": "1-15"
+    },
+    "DOC": {
+      "next": 42,
+      "reserved": [
+        { "from": 1, "to": 17, "lane": "media", "what": "document viewer (DOC-16 clean-copy label, DOC-17 HEIC note)" }
+      ],
+      "retired": {},
+      "known": "1-39,41"
+    },
+    "VTR": {
+      "next": 19,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "voice box (VTR-09 listen first, VTR-10 no speech)" }
+      ],
+      "retired": {},
+      "known": "1-18"
+    },
+    "ANL": {
+      "next": 88,
+      "reserved": [
+        { "from": 1, "to": 6, "lane": "staff-lines", "what": "analytics" }
+      ],
+      "retired": {},
+      "known": "1-87"
+    },
+    "SIM": {
+      "next": 51,
+      "reserved": [
+        { "from": 1, "to": 4, "lane": "staff-lines", "what": "simulator" }
+      ],
+      "retired": {},
+      "known": "1-50"
+    },
+    "SET": {
+      "next": 348,
+      "reserved": [
+        { "from": 1, "to": 19, "lane": "staff-lines", "what": "settings: الصفحة الأولى card, lines menu, story settings" },
+        { "from": 20, "to": 39, "lane": "media", "what": "settings: المستندات والصوت card" }
+      ],
+      "retired": {},
+      "known": "1-35,40-243,249,251-253,255-347"
+    },
+    "INT": {
+      "next": 94,
+      "reserved": [
+        { "from": 1, "to": 17, "lane": "media", "what": "integrations (INT-16 vendor name, INT-17 attestation)" }
+      ],
+      "retired": {},
+      "known": "1-93"
+    },
+    "SYS": {
+      "next": 86,
+      "reserved": [
+        { "from": 1, "to": 10, "lane": "media", "what": "system health (SYS-09 memory, SYS-10 disk)" }
+      ],
+      "retired": {},
+      "known": "1-85"
+    },
+    "AUD": {
+      "next": 33,
+      "retired": {},
+      "known": "1-32"
+    },
+    "DAT": {
+      "next": 41,
+      "retired": {},
+      "known": "1-40"
+    },
+    "CAL": {
+      "next": 49,
+      "retired": {},
+      "known": "1-48"
+    },
+    "IMP": {
+      "next": 55,
+      "retired": {},
+      "known": "1-54"
+    },
+    "CNF": {
+      "next": 30,
+      "retired": {},
+      "known": "1-29"
+    },
+    "PRG": {
+      "next": 132,
+      "retired": {},
+      "known": "1-131"
+    },
+    "CRL": {
+      "next": 34,
+      "retired": {},
+      "known": "1-33"
+    },
+    "CRF": {
+      "next": 217,
+      "retired": {},
+      "known": "1-216"
+    },
+    "COL": {
+      "next": 63,
+      "retired": {},
+      "known": "1-62"
+    },
+    "COF": {
+      "next": 256,
+      "retired": {},
+      "known": "1-255"
+    },
+    "NTF": {
+      "next": 13,
+      "retired": {},
+      "known": "1-12"
+    },
+    "PRF": {
+      "next": 82,
+      "retired": {},
+      "known": "1-81"
+    },
+    "TGS": {
+      "next": 17,
+      "retired": {},
+      "known": "1-16"
+    },
+    "RSH": {
+      "next": 23,
+      "retired": {},
+      "known": "1-22"
+    },
+    "DRF": {
+      "next": 4,
+      "retired": {},
+      "known": "1-3"
+    },
+    "TDY": {
+      "next": 38,
+      "retired": {},
+      "known": "1-37"
+    },
+    "ASL": {
+      "next": 12,
+      "retired": {},
+      "known": "1-11"
+    },
+    "ASG": {
+      "next": 74,
+      "retired": {},
+      "known": "1-73"
+    },
+    "WRT": {
+      "next": 45,
+      "retired": {},
+      "known": "1-44"
+    },
+    "LMT": {
+      "next": 12,
+      "retired": {},
+      "known": "1-11"
+    },
+    "LMF": {
+      "next": 51,
+      "retired": {},
+      "known": "1-50"
+    },
+    "STM": {
+      "next": 19,
+      "retired": {},
+      "known": "1-18"
+    },
+    "W": {
+      "next": 55,
+      "reserved": [
+        { "from": 1, "to": 6, "lane": "staff-lines", "what": "WhatsApp lines menu: W-01 buttons, W-02…W-04 lists, W-05 after row, W-06 counsel" }
+      ],
+      "retired": {},
+      "known": "1-54"
+    },
+    "E": {
+      "next": 16,
+      "retired": {},
+      "known": "1-15"
+    },
+    "D": {
+      "next": 66,
+      "retired": {},
+      "known": "1-65"
+    }
+  }
+}
